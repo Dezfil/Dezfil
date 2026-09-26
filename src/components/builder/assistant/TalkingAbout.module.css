@@ -1,0 +1,98 @@
+/* The "talking about" chips, after page 02 section 1
+   variant A: a wrapping row of quiet pills, the subject's word faint and
+   the fact in the body weight; a failed execution or run wears the
+   failure tone on its glyph. */
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 9px 0 7px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--fg);
+  max-width: 100%;
+  min-width: 0;
+  user-select: none;
+}
+
+.chip svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--accent);
+}
+
+.chip[data-tone="bad"] svg {
+  color: var(--danger);
+}
+
+.label {
+  color: var(--fg-faint);
+  flex: none;
+}
+
+.value {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-weight: 400;
+}
+
+/* The entry chips, after page 02 section 5 variant
+   A: pressable pills above the input, in the outline register until
+   hovered, when they take the accent. */
+.entries {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: none;
+}
+
+.entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.entry:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.entry:disabled,
+.entry:disabled:hover {
+  color: var(--fg-faint);
+  border-color: var(--border);
+  background: var(--bg-panel);
+}
+
+.entry svg {
+  width: 13px;
+  height: 13px;
+}

@@ -1,0 +1,29 @@
+/* MapLibre's stock attribution is a white pill with black ink, whatever
+   the theme (its maplibre-gl.css). The two surfaces that keep the stock
+   control — the feature preview primitive and the add-layer mini map —
+   dress it in the theme instead, the way the builder canvas dresses
+   MapLibre's control group: the raised surface, the strong border, the
+   muted ink. */
+
+.themed :global(.maplibregl-ctrl-attrib),
+.themed :global(.maplibregl-ctrl-attrib.maplibregl-compact) {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  color: var(--fg-muted);
+}
+
+.themed :global(.maplibregl-ctrl-attrib a) {
+  color: inherit;
+}
+
+.themed :global(.maplibregl-ctrl-attrib-button),
+.themed
+  :global(.maplibregl-ctrl-attrib.maplibregl-compact-show .maplibregl-ctrl-attrib-button) {
+  background-color: transparent;
+}
+
+/* The stock (i) glyph is a black SVG — inverted on dark chrome only,
+   as the builder inverts its control group's icons. */
+:global([data-theme="dark"]) .themed :global(.maplibregl-ctrl-attrib-button) {
+  filter: invert(0.85);
+}

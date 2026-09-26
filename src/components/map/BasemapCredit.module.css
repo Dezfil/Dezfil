@@ -1,0 +1,22 @@
+/* Basemap credit lines — inherits font/color from its host. */
+
+.credit,
+.line {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.credit a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.credit a:hover {
+  text-decoration: underline;
+}
+
+.dot {
+  opacity: 0.55;
+}

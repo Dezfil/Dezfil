@@ -1,0 +1,147 @@
+/* The application's field controls on one focus
+   treatment: a focused field tints its border to the accent, and the
+   global :focus-visible ring is never suppressed — the 28 local
+   `outline: none` rules are what this replaces. */
+
+.field {
+  width: 100%;
+  min-width: 0;
+  padding: 0 9px;
+  color: var(--fg);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
+  transition: border-color var(--dur-micro) ease;
+}
+
+.field[data-size="chrome"] {
+  height: var(--control);
+  font-size: var(--text-body);
+}
+
+.field[data-size="compact"] {
+  height: var(--control-compact);
+}
+
+/* Both halves: the accent tint on any focus, and no outline reset —
+   a keyboard focus therefore also carries the app's global ring. */
+.field:focus {
+  border-color: var(--accent);
+}
+
+.field:disabled {
+  color: var(--fg-muted);
+  background: var(--bg-raised);
+  cursor: default;
+}
+
+.field::placeholder {
+  color: var(--fg-faint);
+}
+
+/* A multi-line field sizes itself; height tiers do not apply. */
+textarea.field {
+  height: auto;
+  padding: 7px 9px;
+  line-height: 1.4;
+  resize: none;
+}
+
+select.field {
+  cursor: pointer;
+}
+
+/* ── Checkbox ────────────────────────────────────────────────────────
+   One appearance app-wide (the same native control rendered two
+   ways in two adjacent inspector tabs). The input stays a real checkbox —
+   semantics, keyboard and form behaviour untouched — and a drawn box
+   stands in for its OS artwork. */
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  cursor: pointer;
+  color: var(--fg);
+  font-size: var(--text-label);
+}
+
+.check[data-disabled="true"] {
+  cursor: default;
+  color: var(--fg-muted);
+}
+
+.checkWrap {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  width: 15px;
+  height: 15px;
+}
+
+/* The real control, invisible but present: it keeps the pointer target,
+   the keyboard behaviour and the accessibility tree. */
+.checkInput {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.checkBox {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  color: transparent;
+  transition:
+    background var(--dur-micro) ease,
+    border-color var(--dur-micro) ease,
+    color var(--dur-micro) ease;
+}
+
+.checkInput:checked + .checkBox {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.checkInput:hover:not(:disabled) + .checkBox {
+  border-color: var(--accent);
+}
+
+/* The global ring cannot show on a transparent input, so the drawn box
+   wears it — relocated, never suppressed. */
+.checkInput:focus-visible + .checkBox {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.checkInput:disabled + .checkBox {
+  opacity: 0.5;
+}
+
+.checkBox svg {
+  width: 11px;
+  height: 11px;
+  display: block;
+}
+
+/* The hit-area contract for a 15px box, carried outward so no
+   neighbour moves. */
+.checkWrap::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--hit-area);
+  height: var(--hit-area);
+  transform: translate(-50%, -50%);
+}

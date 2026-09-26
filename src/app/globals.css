@@ -1,0 +1,298 @@
+/* ============================================================
+   Dezfil design tokens — "Wheelhouse".
+   Light-first: floating rounded cards over a soft green-gray
+   shell, kelp green accent — harbor day. Dark mode is the
+   original "night chart room", unchanged, applied
+   to the same geometry; switched by [data-theme] on the root.
+   ============================================================ */
+
+:root {
+  /* The operation groups' hues (shared with the workflow canvas):
+     mid-tones that read on both surfaces, the prototype's palette; the
+     same in both themes. */
+  --grp-data: #3b7dd8;
+  --grp-overlay: #0d9c74;
+  --grp-proximity: #1c9ba0;
+  --grp-geometry: #8b6fd4;
+  --grp-aggregation: #c2812f;
+  --grp-statistics: #c26588;
+  /* Derived tables and their workflow folders share one source hue. */
+  --source-operation: #7a5cc4;
+  /* PostGIS keeps its own mark's blue across the source chooser and the
+     connection surfaces; component styles mix the tile wash from this hue. */
+  --source-postgis: #336791;
+  /* The canvas notes' six colours (pigments): one
+     value each, the same in both themes; every tint is mixed from it. */
+  --note-yellow: #d9a521;
+  --note-green: #2f9e6a;
+  --note-blue: #3b7dd8;
+  --note-pink: #d4587e;
+  --note-purple: #8b6fd4;
+  --note-grey: #7d8a86;
+  /* Surface scale */
+  --bg: #edf1ec;
+  --bg-panel: #ffffff;
+  --bg-raised: #f6f8f5;
+  --bg-hover: #e7ece6;
+  --border: #e2e7e1;
+  --border-strong: #c9d2ca;
+  /* Section separators inside the layer panel */
+  --divider: color-mix(in srgb, #93a19c 45%, transparent);
+
+  /* Text scale */
+  --fg: #243230;
+  --fg-muted: #5f6f6b;
+  --fg-faint: #93a19c;
+
+  /* Brand */
+  --accent: #0d7d5c;
+  --accent-bright: #0a6248;
+  --accent-dim: rgba(13, 125, 92, 0.12);
+  /* The wash a tinted glyph tile sits on (the SQL pane's table browser,
+     the canvas pane's source rows): the reference's kit had it, the app's
+     vocabulary did not until, so the tiles drew on nothing. */
+  --accent-wash: #e2f2ec;
+  --warn: #a8651c;
+  --warn-dim: rgba(168, 101, 28, 0.12);
+  --danger: #bb4434;
+  --danger-dim: rgba(187, 68, 52, 0.1);
+  --focus: #0d7d5c;
+
+  /* Details that follow the theme */
+  /* The shell sheet: Atlantic coastlines over the sixteen-winds
+     rhumb net, exported verbatim from the approved final prototype */
+  --sheet: url("/shell-sheet-light.svg");
+  /* The published viewer's chart grid (light publishes) */
+  --graticule: rgba(31, 44, 62, 0.05);
+  --swatch-border: rgba(36, 50, 48, 0.18);
+  --shadow: rgba(36, 50, 48, 0.16);
+  --on-accent: #ffffff;
+  --verb-get: #1e7a52;
+  --verb-post: #2f66cc;
+
+  /* Type */
+  --font-display: var(--font-gabarito), "Avenir Next", sans-serif;
+  --font-ui: var(--font-inter), -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-dm-mono), "SF Mono", "Cascadia Mono", monospace;
+
+  /* Rhythm — one gutter, one chrome metric */
+  --radius: 9px;
+  --radius-lg: 14px;
+  --radius-card: 20px;
+  --gutter: 14px;
+  --control: 38px;
+  --radius-control: 12px;
+
+  /* The rulebook — the family completed:
+     small radius for swatches/kbd/dismiss, the pill blessed */
+  --radius-sm: 4px;
+  --radius-pill: 999px;
+
+  /* Type ramp — six roles, floor 11px; nothing renders below --text-meta */
+  --text-hero: 27px;
+  --text-title: 22px;
+  --text-heading: 15px;
+  --text-body: 13px;
+  --text-label: 12px;
+  --text-meta: 11px;
+
+  /* Control tiers — chrome (--control) and compact; every interactive
+     target offers at least --hit-area of hit surface */
+  --control-compact: 30px;
+  --hit-area: 24px;
+
+  /* Motion — one panel move, everywhere; micro, entrance and feedback
+     roles complete the vocabulary */
+  --dur-panel: 0.3s;
+  --ease-panel: cubic-bezier(0.33, 1, 0.4, 1);
+  --dur-micro: 0.13s;
+  --dur-entrance: 0.22s;
+  --ease-entrance: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-feedback: 0.35s;
+  /* A spinner's turn: the beat the shipped spinners already keep. */
+  --dur-spin: 0.8s;
+
+  /* SQL syntax: kelp keywords, harbor-day hues */
+  --code-keyword: #0a6248;
+  --code-function: #7c5cb0;
+  --code-string: #96571d;
+  --code-number: #2660a4;
+  --code-comment: #93a19c;
+  --code-operator: #5f6f6b;
+}
+
+/* Night shift: the original chart room. A published view in its dark
+   mode scopes these same values via [data-view-theme="dark"] — the
+   authored default or the reader's per-map override, never the workspace
+   theme. */
+:root[data-theme="dark"],
+[data-view-theme="dark"] {
+  --bg: #0b0e14;
+  --bg-panel: #10141d;
+  --bg-raised: #151b27;
+  --bg-hover: #1a2130;
+  --border: #222a3b;
+  --border-strong: #2e3950;
+  --divider: color-mix(in srgb, #5d6880 50%, transparent);
+
+  --fg: #e9ecf3;
+  --fg-muted: #98a3b8;
+  --fg-faint: #5d6880;
+
+  --accent: #45c58f;
+  --accent-bright: #5fe3ab;
+  --accent-dim: rgba(69, 197, 143, 0.13);
+  --accent-wash: rgba(69, 197, 143, 0.12);
+  --warn: #e0b34c;
+  --warn-dim: rgba(224, 179, 76, 0.12);
+  --danger: #e06e5a;
+  --danger-dim: rgba(224, 110, 90, 0.12);
+  --focus: #74a6ff;
+
+  /* The published viewer's chart grid, night value */
+  --graticule: rgba(151, 170, 205, 0.045);
+  --sheet: url("/shell-sheet-dark.svg");
+  --swatch-border: rgba(255, 255, 255, 0.12);
+  --shadow: rgba(0, 0, 0, 0.4);
+  --on-accent: #06231a;
+  --verb-get: #6cc08b;
+  --verb-post: #74a6ff;
+
+  /* SQL syntax — night chart room hues */
+  --code-keyword: #5fe3ab;
+  --code-function: #b39df1;
+  --code-string: #e0b34c;
+  --code-number: #74a6ff;
+  --code-comment: #5d6880;
+  --code-operator: #98a3b8;
+}
+
+/* Published views: the earlier typefaces and the page texture the
+   workspace body used to paint, pinned independent of light/dark — the
+   palette scopes via [data-view-theme]. */
+[data-published-view] {
+  position: fixed;
+  inset: 0;
+  --font-ui: var(--font-archivo), "Avenir Next", "Segoe UI", sans-serif;
+  --font-mono: var(--font-plex-mono), "SF Mono", "Cascadia Mono", monospace;
+  background: var(--bg);
+  background-image: linear-gradient(var(--graticule) 1px, transparent 1px),
+    linear-gradient(90deg, var(--graticule) 1px, transparent 1px);
+  background-size: 88px 88px;
+  color: var(--fg);
+  font-family: var(--font-ui);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  /* The shell sheet — the chart under everything; fixed so
+     scrolling content never moves it */
+  background-image: var(--sheet);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--accent-bright);
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* One convention app-wide: disabled means the quiet default
+   arrow — never pointer, never not-allowed. Outranks single-class module
+   rules, so per-component overrides aren't needed. */
+button:disabled {
+  cursor: default;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 5px;
+  border: 2px solid var(--bg);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Shared micro-interactions */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Wheelhouse entrance: floating cards settle in on load. */
+@keyframes settle-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Every transition and animation collapses for reduced-motion users. */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

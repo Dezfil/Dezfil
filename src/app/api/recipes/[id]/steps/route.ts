@@ -1,0 +1,114 @@
+import { NextResponse } from "next/server";
+import { ApiError, errorResponse } from "@/lib/api/errors";
+import { metadataDb } from "@/lib/metadata/db";
+import {
+  addStep,
+  getRecipe,
+  listSteps,
+  touchRecipe,
+  type RecipeStep,
+} from "@/lib/metadata/recipes";
+import { findOperation } from "@/lib/operations/catalog";
+import { outputNameRefusal, registeredOutputName } from "@/lib/operations/output-names";
+import { assertBackwardOnly } from "@/lib/operations/recipe-order";
+import { readStep } from "@/lib/operations/recipe-view";
+import { stepReads } from "@/lib/operations/step-reads";
+import {
+  captureLayerSource,
+  jsonBody,
+  requireString,
+  stepPayload,
+} from "@/lib/operations/recipe-api";
+
+type Params = { params: Promise<{ id: string }> };
+
+/**
+ * Add a step.
+ *
+ * **`fromLayerId` captures, it does not link.** The layer's SQL refined by its
+ * filters is copied in at this moment and never re-read: a step whose meaning
+ * drifted when someone edited a filter would not be reproducible. Where the
+ * layer aggregates — hex bin, grid, origin–destination — the step takes the
+ * rows behind the cells, and the answer says so rather than leaving the
+ * substitution to be discovered.
+ *
+ * **The backward-only rule is enforced here, at the change.** A step that would
+ * read its own output, or a later step's, is refused now rather than at run
+ * time, when a user has long since stopped thinking about it.
+ */
+export async function POST(request: Request, { params }: Params) {
+  try {
+    const { id } = await params;
+    if (!getRecipe(id)) {
+      throw new ApiError("not_found", `No recipe with id "${id}".`, 404);
+    }
+    const body = await jsonBody(request);
+    const operation = findOperation(requireString(body, "operation"));
+    const parameters =
+      typeof body.parameters === "object" &&
+      body.parameters !== null &&
+      !Array.isArray(body.parameters)
+        ? { ...(body.parameters as Record<string, unknown>) }
+        : {};
+
+    let origin: Record<string, unknown> | null = null;
+    if (typeof body.fromLayerId === "string" && body.fromLayerId !== "") {
+      const captured = captureLayerSource(body.fromLayerId);
+      parameters.sql = captured.sql;
+      origin = captured.origin;
+    }
+
+    const db = metadataDb();
+    // The name rule: refused in its own words, or stored in its
+    // registered form.
+    const refusal = outputNameRefusal({ db, recipeId: id, stepId: null, produced: null, typed: parameters.name });
+    if (refusal) throw refusal;
+    if (typeof parameters.name === "string") parameters.name = registeredOutputName(parameters.name);
+    const existing = listSteps(id, db);
+    const stamp = (list: RecipeStep[]) => list.map((s) => `${s.id}:${s.ordinal}:${s.updatedAt}`).join("|");
+    const before = stamp(existing);
+    // What the new step would read, resolved before anything is written:
+    // the backward-only rule is enforced at the change, not at the run.
+    const pending = {
+      id: "pending",
+      recipeId: id,
+      ordinal: existing.length,
+      operation: operation.id,
+      parameters,
+      proposedParameters: null,
+      outputTableId: null,
+      outputTableName: null,
+      origin,
+      proposedOrigin: null,
+      lastSuccessAt: null,
+      createdAt: "",
+      updatedAt: "",
+    } satisfies RecipeStep;
+    // SQL the parser cannot read is accepted with no reads; the dry run
+    // and the run refuse it and say why.
+    const reads = await stepReads(pending).catch(() => [] as string[]);
+    assertBackwardOnly([...existing, pending], { stepId: pending.id, ordinal: pending.ordinal, reads });
+    // Committed only if nothing moved under the checks — another edit may
+    // have claimed the name or changed the order meanwhile.
+    const step = db.transaction(() => {
+      if (stamp(listSteps(id, db)) !== before) {
+        throw new ApiError("invalid_request", "This workflow changed while the node was being checked. Try again.", 409);
+      }
+      const again = outputNameRefusal({ db, recipeId: id, stepId: null, produced: null, typed: parameters.name });
+      if (again) throw again;
+      const added = addStep(id, { operation: operation.id, parameters, origin }, db);
+      // Accepted, so the recipe is edited.
+      touchRecipe(id, db);
+      return added;
+    })();
+    return NextResponse.json(
+      { step: stepPayload(await readStep(id, step.id)) },
+      {
+        status: 201,
+        headers: { Location: `/api/recipes/${id}/steps/${step.id}` },
+      },
+    );
+  } catch (error) {
+    return errorResponse(error);
+  }
+}

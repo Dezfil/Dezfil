@@ -1,0 +1,35 @@
+/* The two-tone grammar, mirrored from the reference's rules
+   in the workflow canvas kit: one hue from
+   currentColor; a full-opacity stroke; a wash of the same hue; solid,
+   faint and dashed accents. */
+.g2 * {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.g2 .w {
+  fill: currentColor;
+  fill-opacity: 0.18;
+  stroke: none;
+}
+
+.g2 .ws {
+  fill: currentColor;
+  fill-opacity: 0.18;
+}
+
+.g2 .s {
+  fill: currentColor;
+  stroke: none;
+}
+
+.g2 .f {
+  opacity: 0.45;
+}
+
+.g2 .d {
+  stroke-dasharray: 3 2.6;
+}

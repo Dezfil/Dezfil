@@ -1,0 +1,17 @@
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 36px;
+}
+
+.bar {
+  flex: 1;
+  min-height: 0;
+  background: var(--border-strong);
+  border-radius: 1px 1px 0 0;
+}
+
+.bar[data-in="true"] {
+  background: var(--accent);
+}

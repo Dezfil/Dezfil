@@ -1,0 +1,27 @@
+/* The cursor readout inside the attribution strip — the same
+   ambient-truth register as the credit beside it: the strip's size and
+   color, tabular digits so the line doesn't shiver as the cursor moves —
+   the builder status bar's treatment. */
+
+.readout {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-faint);
+  cursor: pointer;
+}
+
+.readout:hover {
+  color: var(--fg-muted);
+}
+
+.flash {
+  font-family: var(--font-ui);
+  color: var(--accent);
+}
+
+.flash:not([data-ok]) {
+  color: var(--warn);
+}

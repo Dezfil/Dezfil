@@ -1,0 +1,88 @@
+/* Failure, presented. The UI face, not mono — prose set
+   in mono reads as a stack trace, which is why the app's failure moments
+   felt debug-grade. A human sentence leads; anything
+   technical is collapsed behind a disclosure. */
+
+.note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+  background: var(--danger-dim);
+  color: var(--danger);
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
+  line-height: 1.5;
+}
+
+.note[data-tone="warn"] {
+  border-color: color-mix(in srgb, var(--warn) 35%, transparent);
+  background: var(--warn-dim);
+  color: var(--warn);
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.message {
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The disclosure. Closed by default: the engine's words are for the reader
+   who goes looking, never the first thing failure says. */
+.detail > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: var(--text-meta);
+  font-weight: 500;
+  opacity: 0.85;
+  list-style: none;
+}
+
+.detail > summary::-webkit-details-marker {
+  display: none;
+}
+
+.detail > summary svg {
+  width: 10px;
+  height: 10px;
+  transition: transform var(--dur-micro) ease;
+}
+
+.detail[open] > summary svg {
+  transform: rotate(90deg);
+}
+
+.detailText {
+  margin-top: 6px;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.dismiss {
+  flex: none;
+  margin: -1px -2px 0 0;
+  color: inherit;
+}

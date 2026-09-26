@@ -1,0 +1,36 @@
+/**
+ * Next.js startup hook: fail fast at boot when the data directory is unusable
+ * instead of failing on the first upload.
+ */
+export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { ensureDataDir } = await import("@/lib/data-dir");
+    const { dataDir } = await import("@/lib/config");
+    await ensureDataDir(dataDir());
+    // A crashed process can leave tile exports behind; sweep them. Served
+    // archives without a tile record are never authoritative and would
+    // otherwise keep serving deleted data — they go too.
+    const { cleanTileScratch, sweepTileArchives } =
+      await import("@/lib/tiles/build");
+    await cleanTileScratch();
+    await sweepTileArchives();
+    // Same for partial uploads and downloads in the ingest scratch. The
+    // durable Overpass cache is deliberately not touched.
+    const { cleanIngestScratch } = await import("@/lib/ingest/scratch");
+    await cleanIngestScratch();
+    // Artifact files no registered table references — stranded by a crash
+    // or an abandoned retirement — are permanent without this.
+    const { sweepTableArtifacts } = await import("@/lib/ingest/sweep");
+    await sweepTableArtifacts();
+    // The run lane is in-process, so a stopped process leaves job rows still
+    // claiming to be queued or running with nothing behind them. They are
+    // settled here, before anything can read them; none is re-executed. A
+    // cascade's drive loop is in-process too, and unlike a job nothing else
+    // would ever settle it — so it is settled `interrupted` here, after the job
+    // sweep, and nothing is resumed.
+    const { recoverInterruptedRuns, recoverInterruptedCascades } =
+      await import("@/lib/operations/recover");
+    recoverInterruptedRuns();
+    recoverInterruptedCascades();
+  }
+}

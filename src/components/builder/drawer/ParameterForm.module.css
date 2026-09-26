@@ -1,0 +1,486 @@
+/* The parameter form and its Result section.
+
+   One column, labels above their controls — the drawer is one fixed width
+   and the side-label grid fought it on every row. The two facts A1 cared
+   about — feature count and geometry class — live on the locked input row
+   and the table rows, before any picker opens. One spacing rhythm: 14px
+   between fields, 6px inside them. */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.description {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg);
+  text-transform: capitalize;
+}
+
+.unit {
+  color: var(--fg-muted);
+  font-weight: 400;
+}
+
+.control {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.help {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--fg-muted);
+}
+
+.problem {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--danger);
+}
+
+.text,
+.textarea,
+.search {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-panel);
+  color: var(--fg);
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.textarea {
+  font-family: var(--font-mono);
+  resize: vertical;
+}
+
+/* The boolean switch (field round): a native checkbox drawn as a track
+   and thumb — off is quiet, on is the accent, and the input underneath
+   stays real. The input is the 36x24 hit box (the Wheelhouse 24px floor,
+   — review); the 20px track is artwork on:after, the thumb rides above
+   it on:before. */
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--fg);
+}
+
+.carry {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.carryRow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* Each button keeps its word whole, on one line, at its own width. The
+   workflow canvas's node panel composes these controls in a column 28px
+   narrower than the drawer's that inherits anywhere-wrapping: there a
+   shrinkable Remove wrapped letter by letter and its letters spilled over
+   the add row. The drawer's rows already computed this way, the button at
+   its word's width. */
+.addRow,
+.dropRow {
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  cursor: pointer;
+}
+
+.dropRow {
+  flex: none;
+}
+
+.addRow:hover,
+.dropRow:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* The input picker, grouped: recipe outputs above workspace tables. */
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-raised);
+}
+
+/* The scrolling half of Search (field round): the modes and the field
+   stay put; the rows scroll alone, and the scroll stops at their edge
+   instead of chaining into the form. */
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* Five rows on screen, superseding the 220px cap, budgeted for the
+     normal mixed list of BOTH groups:
+     two 21.5px headings, five 35.3px rows, their 2px gaps and the 6px
+     inter-group gap is 233.5px — 234 leaves the fifth row whole. */
+  max-height: 234px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.pickerEmpty {
+  margin: 0;
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.group .eyebrow {
+  padding-left: 8px;
+  margin-bottom: 3px;
+}
+
+.tableRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tableRow:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.tableGlyph {
+  flex: none;
+  color: var(--fg-faint);
+}
+
+.tableRow:hover:not(:disabled) .tableGlyph {
+  color: var(--accent);
+}
+
+.tableText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tableRow[data-selected] {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.tableRow:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tableName {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tableMeta,
+.stepRef {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--fg-muted);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stepRef {
+  color: var(--accent);
+}
+
+.prefill {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--fg-muted);
+}
+
+/* The Result section — the last thing read before Run. */
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-raised);
+}
+
+/* Why Run is disabled — beside the button rather than in the error
+   surface, because nothing has gone wrong: the form is waiting. */
+.waiting {
+  margin: 0 0 8px;
+  text-align: right;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--fg-muted);
+}
+
+.actions {
+  display: flex;
+}
+
+.run {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.run {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.run:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* The dry run's answer: quiet when it agrees, warn-toned for the
+   served warnings, and the refusal reuses the problem voice. */
+.dryline {
+  margin: 0;
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.warning {
+  margin: 0;
+  font-size: 12px;
+  color: var(--warn);
+}
+
+/* The two-mode input picker. */
+.modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+}
+
+.modeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.modeBtn[aria-pressed="true"] {
+  background: var(--bg-panel);
+  color: var(--fg);
+  font-weight: 600;
+  box-shadow: 0 1px 3px var(--shadow);
+}
+
+/* The armed Select hint: dashed, accent-toned, words first. */
+.armed {
+  padding: 8px 10px;
+  border: 1.5px dashed var(--accent);
+  border-radius: 9px;
+  font-size: 12px;
+  color: var(--accent);
+  line-height: 1.5;
+}
+
+.armed p {
+  margin: 0;
+}
+
+/* The locked chosen input: the two deciding facts and Change. */
+.locked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 4px 6px 4px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.locked .tableName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.change {
+  flex: none;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.change:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* The number list: the specimen's fixed row of boxes, an empty box
+   an unasked value. */
+.numberList {
+  display: flex;
+  gap: 8px;
+}
+
+.numberList .number {
+  width: 56px;
+  text-align: right;
+}
+
+/* The specimen's two states: an unasked box is dashed, and the box holding
+   the broken or repeated value carries the refusal's own colour. */
+.numberList .number:placeholder-shown {
+  border-style: dashed;
+}
+
+.numberList .number[data-item-problem] {
+  border-color: var(--danger);
+}
+
+/* A number with a feel for it: the slider takes the row,
+   the box stays exact beside it. */
+.numberRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.slider {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+
+.number {
+  flex: none;
+  width: 88px;
+}
+
+/* The metric box types, the slider steps: no native spinner,
+   because stepping cannot honour an exclusive floor without forbidding the
+   half metre. */
+.number[data-metric] {
+  appearance: textfield;
+}
+
+.number[data-metric]::-webkit-outer-spin-button,
+.number[data-metric]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.number {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  color: var(--fg);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  text-align: right;
+}

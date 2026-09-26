@@ -1,0 +1,16 @@
+/* Viewport-fit: heading and toolbar stay put, the card
+   area scrolls. Small windows fall back to page scroll via the floor. */
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  height: var(--screen-height);
+  min-height: 460px;
+}
+
+.nameCell {
+  /* A table identifier speaks mono. */
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: 500;
+}

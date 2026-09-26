@@ -1,0 +1,13 @@
+/* The shared SQL editor's host (one editor, two surfaces).
+   Sizing follows the parent: flex containers (the dock) let it fill;
+   block containers (the workspace) set an explicit height on their
+   wrapper. */
+.cm {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+.cm :global(.cm-editor) {
+  height: 100%;
+}

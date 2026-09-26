@@ -1,0 +1,193 @@
+/* The draw surface — visual reference:
+   the draw prototype. The dock floats top-centre
+   over the stage; the instruction pill answers from the bottom centre;
+   the overlay owns the pointer only while a shape tool is armed. */
+
+.dock {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  display: flex;
+  gap: 4px;
+  padding: 5px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 3px 12px var(--shadow);
+  pointer-events: auto;
+  animation: dock-rise 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes dock-rise {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock,
+  .pill {
+    animation: none;
+  }
+}
+
+.dockRule {
+  width: 1px;
+  align-self: stretch;
+  margin: 5px 3px;
+  background: var(--border-strong);
+}
+
+/* The dock's buttons ride the stage-button metric; the engaged tool keeps
+   its accent, as the stage stack's pressed rule says. */
+.dockBtn[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.pill {
+  position: absolute;
+  /* Above the bottom-centre status pill, which keeps its slot. */
+  bottom: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 14px;
+  max-width: calc(100% - 150px);
+  border-radius: 999px;
+  white-space: nowrap;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 3px 12px var(--shadow);
+  font-size: 12px;
+  color: var(--fg-muted);
+  pointer-events: auto;
+  animation: pill-rise 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes pill-rise {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.pill b {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.pillFaint {
+  color: var(--fg-faint);
+}
+
+.pillDelete {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid currentColor;
+  color: var(--danger);
+  background: none;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.pillDelete:hover {
+  background: var(--danger-dim);
+}
+
+/* The draft overlay: transparent to the map until a shape tool arms it;
+   vertex handles opt back in individually while a polygon is selected. */
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.overlay[data-armed] {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+.draftEdge {
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+  fill: var(--accent);
+  fill-opacity: 0.09;
+}
+
+.draftLine {
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+  fill: none;
+}
+
+.draftRubber {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 2.5 4;
+  opacity: 0.75;
+  fill: none;
+}
+
+.draftVertex {
+  fill: var(--bg-panel);
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.draftVertexSnap {
+  fill: var(--accent);
+}
+
+.draftGhost {
+  fill: var(--accent);
+  opacity: 0.45;
+}
+
+.draftLabel {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  fill: var(--fg);
+  paint-order: stroke;
+  stroke: var(--bg-panel);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.handle {
+  fill: var(--bg-panel);
+  stroke: var(--accent);
+  stroke-width: 2;
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.handle:active {
+  cursor: grabbing;
+}

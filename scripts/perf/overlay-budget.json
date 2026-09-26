@@ -1,0 +1,51 @@
+{
+  "note": "Overlay budget measurement. Regenerate with: node scripts/perf/overlay-budget.mjs --record",
+  "rows": 1000000,
+  "complexPolygons": 200,
+  "reps": 3,
+  "platform": "darwin arm64, 10 cpus, node v25.9.0",
+  "slowestVerifiedOverlayMs": 23783,
+  "requiredMarginMultiple": 10,
+  "observations": [
+    {
+      "label": "spatial join (ST_Within), counted",
+      "medianMs": 274,
+      "maxMs": 283
+    },
+    {
+      "label": "enrich + materialize to parquet",
+      "medianMs": 275,
+      "maxMs": 292
+    },
+    {
+      "label": "buffer every zone (materialized)",
+      "medianMs": 2,
+      "maxMs": 2
+    },
+    {
+      "label": "dissolve: union all zones (materialized)",
+      "medianMs": 4,
+      "maxMs": 5
+    },
+    {
+      "label": "spatial join (ST_Within), counted",
+      "medianMs": 17782,
+      "maxMs": 18075
+    },
+    {
+      "label": "enrich + materialize to parquet",
+      "medianMs": 22970,
+      "maxMs": 23783
+    },
+    {
+      "label": "buffer every zone (materialized)",
+      "medianMs": 33,
+      "maxMs": 33
+    },
+    {
+      "label": "dissolve: union all zones (materialized)",
+      "medianMs": 34,
+      "maxMs": 35
+    }
+  ]
+}

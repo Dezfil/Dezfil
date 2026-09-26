@@ -1,0 +1,23 @@
+/* The Label section's own pieces: the contextual reveals
+   and the honest count line. */
+
+.reveal {
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  color: var(--accent);
+  font-size: var(--text-meta);
+  text-align: left;
+  cursor: pointer;
+}
+
+.reveal:hover {
+  color: var(--accent-bright);
+}
+
+.note {
+  margin: 4px 0 0;
+  font-size: var(--text-meta);
+  color: var(--fg-faint);
+  line-height: 1.45;
+}

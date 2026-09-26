@@ -1,0 +1,469 @@
+/* Dashboard cards — the stage's rail and its cards,
+ * shared by the builder and the published viewer. Titles read in primary
+ * ink with the legend's typography; faint gray is reserved for genuinely
+ * inactive things (an excluded category, an out-of-brush bar). */
+
+.rail {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 248px;
+  max-height: calc(100% - 32px);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  /* The stage layer is click-through; the rail opts back in (the
+     stage-stack pattern). */
+  pointer-events: auto;
+  transition:
+    top var(--dur-panel) var(--ease-panel),
+    max-height var(--dur-panel) var(--ease-panel);
+}
+
+/* Fullscreen: clear the floating header. */
+:global(body[data-map-full]) .rail {
+  top: 62px;
+  max-height: calc(100% - 78px);
+}
+
+.rail > div {
+  flex: none;
+}
+
+/* One measurable widgets-only box. It preserves the rail's card spacing
+   while excluding a docked legend from the placement decision. */
+.widgetStack {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.widgetStack > div {
+  flex: none;
+}
+
+.card {
+  flex: none;
+  position: relative;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
+}
+
+/* Builder rail only: hovering a card reveals a
+   small dotted grip at its top — the "this moves" signal — and the card
+   itself reads as grabbable. Interactive internals keep their cursors. */
+.rail[data-draggable] .card {
+  cursor: grab;
+}
+
+.rail[data-draggable] .card::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 3px;
+  background-image: radial-gradient(
+    circle,
+    var(--fg-faint) 1.2px,
+    transparent 1.5px
+  );
+  background-size: 6px 3px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.rail[data-draggable] .card:hover::after {
+  opacity: 1;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* The legend title's voice: ink, sentence case. */
+.title {
+  flex: 1;
+  min-width: 0;
+  font: 600 13px var(--font-ui);
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.range {
+  font: 400 10.5px var(--font-ui);
+  color: var(--fg-muted);
+  flex: none;
+}
+
+/* ---- the ⋮ menu ---- */
+
+.menuWrap {
+  position: relative;
+  flex: none;
+  align-self: flex-start;
+}
+
+.menuBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+}
+
+.menuBtn:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+/* The open menu portals out: the rail scrolls and
+   would clip an in-flow popover, so the menu positions fixed against the
+   button — above every stage surface. Dismissal is the kit's outside-
+   pointer listener; the old full-screen backdrop is gone with it. */
+.menu {
+  position: fixed;
+  z-index: 61;
+  min-width: 150px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 4px;
+}
+
+.menu button {
+  border: 0;
+  background: none;
+  text-align: left;
+  font: 500 12.5px var(--font-ui);
+  color: var(--fg);
+  padding: 7px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.menu button:hover {
+  background: var(--bg-hover);
+}
+
+.menu button[data-danger] {
+  color: var(--danger);
+}
+
+/* ---- formula ---- */
+
+.big {
+  font: 700 30px/1.1 var(--font-display);
+  letter-spacing: -0.02em;
+  color: var(--fg);
+}
+
+.big small {
+  font: 500 14px var(--font-display);
+  color: var(--fg-muted);
+  margin-left: 2px;
+}
+
+.caption {
+  font: 400 12px var(--font-ui);
+  color: var(--fg-muted);
+  margin-top: 4px;
+}
+
+.sub {
+  font: 400 10.5px var(--font-ui);
+  color: var(--fg-muted);
+  margin-top: 3px;
+}
+
+/* ---- note ---- */
+
+/* Note bodies render the markdown subset (bold, italic, links,
+   "- " lists) — block spacing in the map note's voice. */
+.noteBody {
+  font: 400 12.5px/1.5 var(--font-ui);
+  color: var(--fg);
+  overflow-wrap: break-word;
+}
+
+.noteBody p {
+  margin: 0;
+}
+
+.noteBody p + p,
+.noteBody ul + p,
+.noteBody p + ul {
+  margin-top: 7px;
+}
+
+.noteBody ul {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.noteBody a {
+  color: var(--accent);
+}
+
+.noteBody a:hover {
+  color: var(--accent-bright);
+}
+
+/* ---- category rows: active = ink + green, excluded = faint ---- */
+
+.crow {
+  display: grid;
+  grid-template-columns: 92px 1fr 40px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 3px 7px;
+  border-radius: 9px;
+  color: var(--fg-faint);
+  text-align: left;
+  transition: 0.13s;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.crow:hover {
+  background: var(--bg-hover);
+}
+
+.crow[data-active] {
+  color: var(--fg);
+}
+
+.crow .cname {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crow[data-active] .cname {
+  font-weight: 600;
+}
+
+.cbar {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--bg-hover);
+  overflow: hidden;
+}
+
+.cbar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--border-strong);
+  transition: background 0.2s, width 0.2s;
+}
+
+.crow[data-active] .cbar i {
+  background: var(--accent);
+}
+
+.cnum {
+  font: 400 10.5px var(--font-ui);
+  color: var(--fg-muted);
+  text-align: right;
+}
+
+.crow[data-active] .cnum {
+  color: var(--fg-muted);
+}
+
+.otherRow {
+  composes: crow;
+  cursor: default;
+  color: var(--fg-muted);
+}
+
+.otherRow:hover {
+  background: none;
+}
+
+/* ---- histogram ---- */
+
+.hist {
+  position: relative;
+  margin-top: 4px;
+  /* Room for the brush handles to overhang the bars. */
+  padding: 3px 0;
+  touch-action: none;
+}
+
+.hbars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 46px;
+}
+
+.hbars i {
+  flex: 1;
+  min-height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--accent);
+  opacity: 0.85;
+}
+
+.hbars i[data-out] {
+  opacity: 0.22;
+}
+
+/* The button box is the 24px hit floor; the drawn 7px handle
+   moves into ::before, centered where the old one sat, so the rendered
+   look is unchanged while the target and the focus ring get the full
+   box. */
+.brushHandle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  min-height: 24px;
+  margin-left: -11.5px;
+  background: none;
+  border: 0;
+  cursor: ew-resize;
+  padding: 0;
+}
+
+.brushHandle::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 7px;
+  margin-left: -3.5px;
+  border-radius: 3px;
+  background: var(--bg-panel);
+  border: 1.5px solid var(--accent);
+  box-shadow: var(--shadow);
+}
+
+.axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font: 400 10px var(--font-ui);
+  color: var(--fg-muted);
+}
+
+
+/* Truth states */
+
+/* A floating failure note sits on the panel surface so the warn tone's
+   translucent wash stays legible over the map. */
+.noteFloat {
+  background: var(--bg-panel);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.cardLoading {
+  font: 400 11px var(--font-ui);
+  color: var(--fg-muted);
+  animation: truthPulse 1.4s ease-in-out infinite;
+}
+
+/* Prior numbers shown while a recomputation is in flight are stale —
+ * visible only as being replaced, never as the current answer. */
+.rail[data-values-state="updating"] .big,
+.rail[data-values-state="updating"] .sub,
+.rail[data-values-state="updating"] .cbar i,
+.rail[data-values-state="updating"] .cnum,
+.rail[data-values-state="updating"] .hbars i {
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+
+
+
+
+@keyframes truthPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* The settle lane's stage surface: stacked above the hint's
+ * spot, one row per failed layer, a single quiet row while applying. */
+/* Clear of the timeline dock in BOTH hosts: the dock sits at bottom 60px
+ * (builder) / 16px (viewer) and stands ~90px tall, so a lower row would
+ * cover the track it explains — and, being interactive, block it. */
+.settleStatus {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 160px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  max-width: min(520px, 80vw);
+  /* The container stays click-through so its gaps never swallow a
+     gesture; the rows opt back in (the stage-stack pattern). */
+  pointer-events: none;
+}
+
+.settleStatus > * {
+  pointer-events: auto;
+}
+
+
+.settleBusy {
+  padding: 6px 14px;
+  border-radius: 99px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border, var(--bg-panel));
+  box-shadow: var(--shadow);
+  font: 400 11px var(--font-ui);
+  color: var(--fg-muted);
+  animation: truthPulse 1.4s ease-in-out infinite;
+}
+
+.hint {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 56px;
+  z-index: 6;
+  padding: 6px 14px;
+  border-radius: 99px;
+  background: var(--bg-panel);
+  border: 1px solid var(--warn);
+  box-shadow: var(--shadow);
+  font: 400 11px var(--font-ui);
+  color: var(--fg-muted);
+}

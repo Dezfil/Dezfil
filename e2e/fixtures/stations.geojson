@@ -1,0 +1,11 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    { "type": "Feature", "properties": { "name": "Alexanderplatz", "kind": "station", "riders": 10450 }, "geometry": { "type": "Point", "coordinates": [13.4133, 52.5219] } },
+    { "type": "Feature", "properties": { "name": "Hauptbahnhof", "kind": "station", "riders": 22310 }, "geometry": { "type": "Point", "coordinates": [13.3696, 52.5251] } },
+    { "type": "Feature", "properties": { "name": "Cafe Kranz", "kind": "cafe", "riders": 120 }, "geometry": { "type": "Point", "coordinates": [13.4021, 52.5310] } },
+    { "type": "Feature", "properties": { "name": "Tiergarten", "kind": "park", "riders": 4300 }, "geometry": { "type": "Point", "coordinates": [13.3501, 52.5145] } },
+    { "type": "Feature", "properties": { "name": "Ostkreuz", "kind": "station", "riders": 8900 }, "geometry": { "type": "Point", "coordinates": [13.4692, 52.5031] } },
+    { "type": "Feature", "properties": { "name": "Volkspark", "kind": "park", "riders": 1800 }, "geometry": { "type": "Point", "coordinates": [13.4632, 52.5296] } }
+  ]
+}

@@ -1,0 +1,7 @@
+/* Screenshot-only background stabilization: keep the transparent stage stack
+   untouched and hide only the live canvases beneath it. MapCanvas's existing
+   themed fallback then fills its rounded corners and gaps deterministically. */
+.maplibregl-canvas,
+.deckgl-overlay {
+  visibility: hidden !important;
+}

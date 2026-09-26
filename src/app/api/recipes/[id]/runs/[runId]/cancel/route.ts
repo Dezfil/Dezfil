@@ -1,0 +1,39 @@
+import { NextResponse } from "next/server";
+import { ApiError, errorResponse } from "@/lib/api/errors";
+import { getCascade } from "@/lib/metadata/cascades";
+import { cancelCascade, readCascade } from "@/lib/operations/cascade";
+import { cascadePayload } from "@/lib/operations/recipe-api";
+
+type Params = { params: Promise<{ id: string; runId: string }> };
+
+/**
+ * Stop a recipe run.
+ *
+ * One thing to cancel, whatever it was in the middle of: what has not started
+ * never starts. Every member found running when cancellation is accepted is
+ * cancelled before any member settlement is awaited. Only a member already
+ * terminal at acceptance stays finished, and its output stands. Running
+ * members are interrupted **in the engine**, not only in the record. The run's
+ * own outcome is then `cancelled`, written once the last in-flight member has
+ * settled.
+ *
+ * Cancelling one that has already finished is not an error — "make sure this is
+ * not running" is already true of it.
+ */
+export async function POST(_request: Request, { params }: Params) {
+  try {
+    const { id, runId } = await params;
+    const existing = getCascade(runId);
+    if (!existing || existing.recipeId !== id) {
+      throw new ApiError(
+        "not_found",
+        `No run with id "${runId}" on this recipe.`,
+        404,
+      );
+    }
+    await cancelCascade(runId);
+    return NextResponse.json({ run: cascadePayload(readCascade(runId)) });
+  } catch (error) {
+    return errorResponse(error);
+  }
+}

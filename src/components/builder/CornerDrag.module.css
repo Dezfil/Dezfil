@@ -1,0 +1,64 @@
+/* Drag-to-corner wrapper. */
+
+.wrap {
+  cursor: grab;
+  touch-action: none;
+  position: relative;
+  border-radius: var(--radius-lg);
+}
+
+.wrap[data-dragging="true"] {
+  cursor: grabbing;
+  user-select: none;
+  -webkit-user-select: none;
+  z-index: 10;
+  opacity: 0.88;
+}
+
+/* Movable affordance: hovering shows a border and a grip
+   handle on the top edge — the universal "this moves" sign. The outline
+   hugs the box frame (same radius, no offset) so line and frame read as
+   one border. */
+.wrap:hover,
+.wrap[data-dragging="true"] {
+  outline: 2.5px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.handle {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 38px;
+  height: 13px;
+  border-radius: 4px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity var(--dur-micro) ease;
+  cursor: grab;
+  z-index: 1;
+}
+
+/* The dot grid on the grip. */
+.handle::after {
+  content: "";
+  position: absolute;
+  inset: 3px 7px;
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--bg) 85%, transparent) 1px,
+    transparent 1.3px
+  );
+  background-size: 5px 4px;
+  background-position: center;
+}
+
+.wrap:hover .handle,
+.wrap[data-dragging="true"] .handle {
+  opacity: 1;
+}
+
+.wrap[data-dragging="true"] .handle {
+  cursor: grabbing;
+}

@@ -1,0 +1,492 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { readApiError } from "../api";
+import { serverUnreachable } from "../failure-copy";
+import { GeometryIcon, geometryKind } from "../gallery-icons";
+import { invalidateProjects } from "../shell/use-project-name";
+import { Button } from "../ui/Button";
+import { Dialog } from "../ui/Dialog";
+import { ErrorNote } from "../ui/ErrorNote";
+import { Spinner } from "../Spinner";
+import {
+  dialogTitle,
+  dialogTitleParts,
+  footer,
+  membersFor,
+  resolveEnter,
+  searchRows,
+  subjectCopy,
+  type DependencyWire,
+  type Destination,
+  type FilingSubject,
+} from "./add-model";
+import styles from "./AddToProjectDialog.module.css";
+
+/* The 14-A dialog: the picker
+   over the checklist over the live footer. Nothing is picked on open —
+   it asks, it does not guess. Submission is single-flight over the two
+   shipped membership roads. */
+
+const NAME_MAX = 120;
+
+/** The shipped badge copy per source (table-chips' vocabulary). */
+const SOURCE_WORDS: Record<string, string> = {
+  upload: "File upload",
+  url: "URL import",
+  overture: "Overture Maps",
+  osm: "OpenStreetMap",
+  postgis: "PostGIS",
+  operation: "Operation result",
+  sketch: "Drawn on a map",
+};
+
+interface ProjectRowWire {
+  id: string;
+  name: string;
+  mapCount: number;
+  tableCount: number;
+}
+
+async function readJson<T>(path: string, doing: string): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(path, { cache: "no-store" });
+  } catch {
+    throw new Error(serverUnreachable(doing));
+  }
+  if (!response.ok) throw new Error(await readApiError(response));
+  return (await response.json()) as T;
+}
+
+type Reads =
+  | { status: "pending" }
+  | { status: "failed"; error: string }
+  | {
+      status: "ready";
+      deps: DependencyWire[];
+      projects: ProjectRowWire[];
+    };
+
+export function AddToProjectDialog({
+  subject,
+  onClose,
+  onDone,
+}: {
+  /** A map or, a workflow or a dataset. */
+  subject: FilingSubject;
+  onClose: () => void;
+  /** The confirmed outcome: the destination's id and name, and what
+   * moved, for the caller's own truth-keeping and statement. */
+  onDone: (outcome: {
+    projectId: string;
+    projectName: string;
+    datasetIds: string[];
+    workflowIds: string[];
+  }) => void;
+}) {
+  // Pending is DERIVED from the answer's attempt key, never written
+  // synchronously in the effect (the house async structure).
+  const [answered, setAnswered] = useState<{ attempt: number; reads: Reads }>({
+    attempt: 0,
+    reads: { status: "pending" },
+  });
+  const [attempt, setAttempt] = useState(1);
+  const reads: Reads =
+    answered.attempt === attempt ? answered.reads : { status: "pending" };
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [destination, setDestination] = useState<Destination>(null);
+  const [query, setQuery] = useState("");
+  const [newName, setNewName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
+  const inFlight = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const mine = attempt;
+    void (async () => {
+      try {
+        // A dataset has no checklist: it needs no dependencies read.
+        const depsRead: Promise<DependencyWire[]> =
+          subject.kind === "map"
+            ? readJson<{ datasets: DependencyWire[] }>(
+                `/api/maps/${subject.id}/dependencies`,
+                "list the map's datasets",
+              ).then((b) => b.datasets)
+            : subject.kind === "workflow"
+              ? readJson<{ datasets: DependencyWire[] }>(
+                  `/api/recipes/${subject.id}/dependencies`,
+                  "list the workflow's datasets",
+                ).then((b) => b.datasets)
+              : Promise.resolve([]);
+        const [deps, projects] = await Promise.all([
+          depsRead,
+          readJson<ProjectRowWire[]>("/api/projects", "load the projects"),
+        ]);
+        if (cancelled) return;
+        setAnswered({
+          attempt: mine,
+          reads: { status: "ready", deps, projects },
+        });
+        // Everything the map draws from starts selected.
+        setChecked(new Set(deps.map((d) => d.id)));
+      } catch (e) {
+        if (!cancelled)
+          setAnswered({
+            attempt: mine,
+            reads: {
+              status: "failed",
+              error:
+                e instanceof Error
+                  ? e.message
+                  : serverUnreachable("open the dialog"),
+            },
+          });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [subject.id, subject.kind, attempt]);
+
+  const copy = subjectCopy(subject.kind);
+  const title = dialogTitleParts(subject);
+  // The project a moving subject is in — unavailable as a destination;
+  // for a dataset, every project it is already in.
+  const currentIds = useMemo(
+    () =>
+      new Set(
+        subject.kind === "dataset"
+          ? subject.projectIds
+          : subject.projectId
+            ? [subject.projectId]
+            : [],
+      ),
+    [subject],
+  );
+
+  const ready = reads.status === "ready" ? reads : null;
+  const names = useMemo(
+    () => new Map((ready?.projects ?? []).map((p) => [p.id, p.name])),
+    [ready],
+  );
+  const selectable = useCallback(
+    (id: string) => !currentIds.has(id),
+    [currentIds],
+  );
+  const { shown, hits } = searchRows(
+    ready?.projects ?? [],
+    query,
+    destination?.kind === "existing" ? destination.id : null,
+  );
+  const foot = footer(
+    ready?.deps ?? [],
+    checked,
+    destination,
+    (id) => names.get(id) ?? null,
+    subject.kind,
+  );
+  const canConfirm = ready !== null && foot.enabled && !submitting;
+
+  const confirm = useCallback(async () => {
+    if (!ready || !destination || inFlight.current) return;
+    inFlight.current = true;
+    setSubmitting(true);
+    setRefusal(null);
+    const members = membersFor(subject, ready.deps, checked);
+    const datasetIds = members.addTables ?? [];
+    const workflowIds =
+      subject.kind === "map" ? (members.addRecipes ?? []) : [];
+    try {
+      let projectId: string;
+      let projectName: string;
+      if (destination.kind === "existing") {
+        const response = await fetch(
+          `/api/projects/${destination.id}/members`,
+          {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(members),
+          },
+        );
+        if (!response.ok) throw new Error(await readApiError(response));
+        projectId = destination.id;
+        projectName = names.get(destination.id) ?? "";
+      } else {
+        const response = await fetch("/api/projects", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: destination.name.trim(), members }),
+        });
+        if (!response.ok) throw new Error(await readApiError(response));
+        const created = (await response.json()) as {
+          id: string;
+          name: string;
+        };
+        projectId = created.id;
+        projectName = created.name;
+        // The shell's name directory must know the new destination
+        // before the next object path renders it.
+        invalidateProjects();
+      }
+      onDone({ projectId, projectName, datasetIds, workflowIds });
+    } catch (e) {
+      // A refusal keeps the dialog and every selection; the substrate's
+      // contract means nothing changed.
+      setRefusal(
+        e instanceof Error ? e.message : "The change couldn't be applied.",
+      );
+      inFlight.current = false;
+      setSubmitting(false);
+    }
+  }, [ready, destination, checked, subject, names, onDone]);
+
+  const pickNew = (proposed: string, overwrite = false) => {
+    // The no-match Enter path carries ITS query even over an older
+    // draft; a plain radio pick keeps what was typed before.
+    const name = overwrite && proposed ? proposed : newName || proposed;
+    setDestination({ kind: "new", name });
+    if (name !== newName) setNewName(name);
+  };
+
+  return (
+    <Dialog
+      label={dialogTitle(subject)}
+      onClose={() => {
+        if (!submitting) onClose();
+      }}
+      className={styles.dialog}
+    >
+      <div className={styles.head}>
+        <span className={styles.title}>
+          {title.before}
+          <strong>{title.name}</strong>
+          {title.after}
+        </span>
+        {copy.subtitle !== null && <small>{copy.subtitle}</small>}
+      </div>
+
+      {reads.status === "pending" && (
+        <div className={styles.stateBlock}>
+          <Spinner />
+          <span>{copy.reading}</span>
+        </div>
+      )}
+      {reads.status === "failed" && (
+        <div className={styles.stateBlock}>
+          <ErrorNote
+            message={reads.error}
+            onRetry={() => setAttempt((a) => a + 1)}
+          />
+        </div>
+      )}
+
+      {ready && (
+        <div className={styles.body}>
+          <div className={styles.selHead}>Project</div>
+          <input
+            className={styles.findInput}
+            type="text"
+            placeholder="Find a project…"
+            aria-label="Find a project"
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              e.preventDefault();
+              const resolved = resolveEnter(hits, query, selectable);
+              if (!resolved) return;
+              if (resolved.kind === "pick")
+                setDestination({ kind: "existing", id: resolved.id });
+              else pickNew(resolved.name, true);
+            }}
+          />
+          <div className={styles.pickList}>
+            <div className={styles.pickRows}>
+              {shown.map((p) => {
+                const current = currentIds.has(p.id);
+                const on =
+                  destination?.kind === "existing" && destination.id === p.id;
+                return (
+                  <label
+                    key={p.id}
+                    className={styles.pRow}
+                    data-on={on || undefined}
+                    data-current={current || undefined}
+                  >
+                    <input
+                      type="radio"
+                      name="add-destination"
+                      checked={on}
+                      disabled={current}
+                      onChange={() =>
+                        setDestination({ kind: "existing", id: p.id })
+                      }
+                    />
+                    <span className={styles.pName}>{p.name}</span>
+                    <span className={styles.pMeta}>
+                      {current
+                        ? "current project"
+                        : `${p.mapCount} map${p.mapCount === 1 ? "" : "s"} · ${p.tableCount} dataset${p.tableCount === 1 ? "" : "s"}`}
+                    </span>
+                  </label>
+                );
+              })}
+              {hits.length === 0 && (
+                <div className={styles.pickEmpty}>
+                  No project named <b>{query.trim()}</b>.
+                </div>
+              )}
+            </div>
+            <div className={styles.pickFoot}>
+              <div className={styles.rule} />
+              <label
+                className={styles.pRow}
+                data-on={destination?.kind === "new" || undefined}
+              >
+                <input
+                  type="radio"
+                  name="add-destination"
+                  checked={destination?.kind === "new"}
+                  onChange={() => pickNew(query.trim())}
+                />
+                {destination?.kind === "new" ? (
+                  <input
+                    className={styles.newNameInput}
+                    type="text"
+                    placeholder="Name the project"
+                    aria-label="New project name"
+                    autoFocus
+                    maxLength={NAME_MAX + 1}
+                    value={newName}
+                    onChange={(e) => {
+                      setNewName(e.target.value);
+                      setDestination({ kind: "new", name: e.target.value });
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && canConfirm) {
+                        e.preventDefault();
+                        void confirm();
+                      }
+                    }}
+                  />
+                ) : (
+                  <span className={styles.pNameMuted}>New project</span>
+                )}
+              </label>
+            </div>
+          </div>
+
+          {copy.checklist !== null && (
+            <div className={styles.selHead}>
+              {copy.checklist} <small>{ready.deps.length}</small>
+              <span className={styles.selAll}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setChecked(new Set(ready.deps.map((d) => d.id)))
+                  }
+                >
+                  All
+                </button>
+                <i>·</i>
+                <button type="button" onClick={() => setChecked(new Set())}>
+                  None
+                </button>
+              </span>
+            </div>
+          )}
+          {copy.checklist !== null && (
+            <div className={styles.checkRows}>
+              {ready.deps.map((d) => {
+                const others = d.projectIds
+                  .filter((id) => !currentIds.has(id))
+                  .map((id) => names.get(id))
+                  .filter((x): x is string => typeof x === "string")
+                  .sort((a, b) => a.localeCompare(b));
+                return (
+                  <label key={d.id} className={styles.checkRow}>
+                    <input
+                      type="checkbox"
+                      checked={checked.has(d.id)}
+                      onChange={(e) => {
+                        const next = new Set(checked);
+                        if (e.target.checked) next.add(d.id);
+                        else next.delete(d.id);
+                        setChecked(next);
+                      }}
+                    />
+                    <span
+                      className={styles.typeTile}
+                      data-kind={geometryKind(d.geometryType, d.geometryColumn)}
+                    >
+                      <GeometryIcon
+                        kind={geometryKind(d.geometryType, d.geometryColumn)}
+                      />
+                    </span>
+                    <span className={styles.dsName}>{d.name}</span>
+                    <span className={styles.dsMeta}>
+                      {SOURCE_WORDS[d.source] ?? d.source} ·{" "}
+                      {d.rowCount.toLocaleString("en-US")} row
+                      {d.rowCount === 1 ? "" : "s"}
+                    </span>
+                    {d.producer && (
+                      <span className={styles.dsSub}>
+                        {d.producer.id === subject.id ? (
+                          <>its own result</>
+                        ) : (
+                          <>
+                            made by <b>{d.producer.name}</b>
+                            {/* Producers ride along with a MAP's checked
+                                outputs; a workflow moves with its datasets
+                                only, so no such promise here. */}
+                            {subject.kind === "map" && checked.has(d.id)
+                              ? ", which comes along"
+                              : ""}
+                          </>
+                        )}
+                      </span>
+                    )}
+                    {others.length > 0 && (
+                      <span className={styles.dsSub}>
+                        also in <b>{others.join(", ")}</b>, stays shared
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
+              {ready.deps.length === 0 && (
+                <div className={styles.pickEmpty}>{copy.empty}</div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {refusal && (
+        <div className={styles.refusal}>
+          <ErrorNote message={refusal} onDismiss={() => setRefusal(null)} />
+        </div>
+      )}
+
+      <div className={styles.foot}>
+        <span className={styles.status}>{ready ? foot.status : ""}</span>
+        <Button variant="quiet" onClick={onClose} disabled={submitting}>
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          onClick={() => void confirm()}
+          disabled={!canConfirm}
+          busy={submitting}
+        >
+          <span className={styles.goLabel} title={foot.label}>
+            {foot.label}
+          </span>
+        </Button>
+      </div>
+    </Dialog>
+  );
+}

@@ -1,0 +1,85 @@
+{
+  "openai": [
+    {
+      "id": "gpt-6-astra",
+      "name": "Astra",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
+    },
+    {
+      "id": "gpt-5.6-sol",
+      "name": "Sol",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
+    },
+    {
+      "id": "gpt-5.6-terra",
+      "name": "Terra",
+      "efforts": [
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    {
+      "id": "gpt-5.6-nova",
+      "name": "Nova",
+      "efforts": [
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ]
+    }
+  ],
+  "anthropic": [
+    {
+      "id": "claude-opus-5",
+      "name": "Opus 5",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ]
+    },
+    {
+      "id": "claude-fable-5",
+      "name": "Fable 5",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
+    },
+    {
+      "id": "claude-sonnet-5",
+      "name": "Sonnet 5",
+      "efforts": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    {
+      "id": "claude-haiku-4",
+      "name": "Haiku 4",
+      "efforts": [
+        "low",
+        "medium",
+        "high"
+      ]
+    }
+  ]
+}

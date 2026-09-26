@@ -1,0 +1,251 @@
+name: CI
+
+# Three gates, tiered by cost.
+#
+#   checks   fast static lane: lint, types, unit tests. Every pull request
+#            and every push to main. Around twenty minutes.
+#   secrets  gitleaks over the working tree. Everywhere; it is cheap.
+#   image    black-box lane: build the container and drive it headlessly with
+#            no network. Only on main, because it builds a full image.
+#
+# The end-to-end browser suite is not one of them: it runs locally, against an
+# instance you provision yourself. CONTRIBUTING.md and docs/runbook.md say how.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege by default. No job below writes to the repository, so
+# nothing raises this.
+permissions:
+  contents: read
+
+# Supersede in-flight runs for the same pull request, but never cancel a run
+# on the default branch: main's history has to be checked commit by commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Bumping this invalidates the tippecanoe binary cache below.
+  TIPPECANOE_VERSION: 2.79.0
+
+jobs:
+  # Fast lane - runs on every push and pull request. Lint, types, unit tests.
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Some unit tests build tiles against the real tiler. Cache the compiled
+      # binary by version so we don't recompile it from source every run.
+      - name: Cache the tippecanoe binary
+        id: tippecanoe-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/tippecanoe-bin
+          key: tippecanoe-${{ runner.os }}-${{ env.TIPPECANOE_VERSION }}
+      - name: Build tippecanoe (only on a cache miss)
+        if: steps.tippecanoe-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential libsqlite3-dev zlib1g-dev
+          curl -fsSL "https://github.com/felt/tippecanoe/archive/refs/tags/${TIPPECANOE_VERSION}.tar.gz" | tar -xz -C /tmp
+          make -C "/tmp/tippecanoe-${TIPPECANOE_VERSION}" -j"$(nproc)" tippecanoe
+          mkdir -p "$HOME/tippecanoe-bin"
+          install "/tmp/tippecanoe-${TIPPECANOE_VERSION}/tippecanoe" "$HOME/tippecanoe-bin/tippecanoe"
+      - name: Put tippecanoe on PATH
+        run: |
+          echo "$HOME/tippecanoe-bin" >> "$GITHUB_PATH"
+          "$HOME/tippecanoe-bin/tippecanoe" --version
+      - run: npm run lint
+      - run: npm run typecheck
+      # A NUL byte makes git and grep treat a source file as binary: it
+      # disappears from text search and from reviewable diffs.
+      - run: npm run lint:hygiene
+      # This tree was published from a private history. Nothing in it may cite
+      # a planning document, a tracking row or a folder the repository does not
+      # carry - the commit-message guard reads messages and the served-contract
+      # guard reads API descriptions, so neither can see a citation sitting in
+      # a source comment or a report label.
+      - run: npm run lint:citations
+      # Every setting the server reads must appear in the README's table, and
+      # every row of that table must be a setting the server reads, so the
+      # documented surface and the real one cannot drift apart silently.
+      - run: npm run lint:readme
+      # The decomposition tripwire: a handful of oversized modules must not
+      # grow. Growing one means raising its recorded ceiling in the same diff,
+      # which is an explicit reviewable decision rather than silent drift.
+      - run: npm run lint:size
+      # Nothing that belongs to a development-only surface may reach a
+      # production build.
+      - run: npm run lint:stage-edge
+      # The design system's ratified vocabulary - type ramp, radius family,
+      # motion timings, tokens, drawn glyphs, focus rings, accessible names -
+      # held against a committed inventory so it cannot regress one
+      # unreviewed literal at a time.
+      - run: npm run lint:wheelhouse
+      - run: npm run lint:tokens
+      - run: npm run lint:icons
+      # The design specimen page is generated from the component library and
+      # never hand-synced. This fails when a shipped token, kit stylesheet or
+      # palette changes without regenerating the page.
+      - run: npm run lint:specimen
+      # The shipped plugin manifests stay well-formed and match the packaging
+      # script's generated marketplace entry.
+      - run: npm run lint:plugin
+      - run: npm test
+
+  # Secret scan - cheap, so it runs everywhere. The working tree is scanned
+  # rather than the history, which is what the fingerprints in .gitleaksignore
+  # are computed against. That file carries the synthetic credentials our own
+  # tests assert on, plus some baseline hashes the generic rule mistakes for
+  # keys; it excludes findings, never whole paths.
+  secrets:
+    runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: 8.30.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install gitleaks
+        run: |
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+      - name: Scan the working tree for secrets
+        run: gitleaks dir . --no-banner --redact --exit-code 1
+
+  # Black-box gate - build the real image and drive it headlessly. Runs only
+  # when a change lands on main: it builds a full container, which is too slow
+  # and too cache-hostile to put in front of every pull request.
+  image:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t dezfil:ci .
+      - name: Record image size
+        run: |
+          docker image ls dezfil:ci --format 'Image size: {{.Size}}'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # The artifact we ship contains what we say and nothing else: /app must
+      # match the checked-in allowlist, with no repository metadata, no data
+      # and no key material anywhere inside.
+      - name: Runtime image inventory matches the allowlist
+        run: node scripts/check-image-inventory.mjs dezfil:ci
+      # Every supported DuckDB extension is baked into the image and loads
+      # with the network disabled, so an air-gapped instance degrades rather
+      # than breaks.
+      - name: Baked DuckDB extensions load offline
+        run: |
+          docker run --rm --network=none \
+            -v "$PWD/scripts:/scripts:ro" \
+            dezfil:ci node /scripts/check-duckdb-extensions-offline.mjs
+      - name: Cold start within the documented bound (30s)
+        run: |
+          # The journey's loopback fixture and the server's own browser must
+          # share a network namespace, and neither gets a public network.
+          docker run -d --rm --name dezfil-ci --network=none \
+            -e PORT=3183 -e DEZFIL_RENDER_CAP_FEATURES=2000 \
+            -e DEZFIL_EGRESS_ALLOWLIST=127.0.0.1 \
+            -v "$PWD/scripts:/probes:ro" \
+            -v dezfil-ci-data:/data dezfil:ci
+          start=$(date +%s)
+          for i in $(seq 1 30); do
+            if docker exec dezfil-ci node -e "fetch('http://127.0.0.1:3183/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
+              echo
+              echo "Ready after $(( $(date +%s) - start ))s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Not ready within 30s" >&2
+          docker logs dezfil-ci
+          docker stop dezfil-ci
+          exit 1
+      - name: Headless journey through the documented API without external networking
+        run: docker exec dezfil-ci node /probes/journey.mjs http://127.0.0.1:3183
+      - name: Provision the separate stock MCP probe client
+        run: |
+          mcp_client_version=$(node -p "require('./package-lock.json').packages['node_modules/@modelcontextprotocol/client'].version")
+          docker build -f scripts/mcp-probe-client.Dockerfile --build-arg MCP_CLIENT_VERSION="$mcp_client_version" -t dezfil-mcp-probe:ci .
+      - name: MCP restart, HTTP departure and notification characterization
+        run: node scripts/mcp-process-driver.mjs --container dezfil:ci --client-image dezfil-mcp-probe:ci --port 3377
+      - name: Installed plugin HTTP journey
+        run: |
+          mkdir -p "$RUNNER_TEMP/plugin-renders"
+          chmod 777 "$RUNNER_TEMP/plugin-renders"
+          docker run -d --rm --name dezfil-plugin-ci --network=none \
+            -e PORT=3399 -e DEZFIL_EGRESS_ALLOWLIST=127.0.0.1 \
+            -e DEZFIL_PLUGIN_RENDER_LOG=/evidence/renders.ndjson \
+            -e NODE_OPTIONS=--import=/probes/dezfil-render-observer.mjs \
+            -v "$PWD/scripts:/probes:ro" \
+            -v "$RUNNER_TEMP/plugin-renders:/evidence" dezfil:ci
+          for i in $(seq 1 30); do
+            if docker exec dezfil-plugin-ci node -e "fetch('http://127.0.0.1:3399/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
+              break
+            fi
+            sleep 1
+          done
+          docker run --rm --network=container:dezfil-plugin-ci \
+            -v "$PWD/scripts:/probe/scripts:ro" \
+            -v "$PWD/plugins:/probe/plugins:ro" \
+            -v "$RUNNER_TEMP/plugin-renders:/evidence:ro" \
+            dezfil-mcp-probe:ci node /probe/scripts/dezfil-plugin-container.mjs \
+            --origin http://127.0.0.1:3399
+      - name: Stop container
+        if: always()
+        run: docker stop dezfil-ci || true
+      # An instance with no egress still boots, answers health, and renders a
+      # real image export - data pixels on the documented plain background.
+      # Driven from inside the container: with no network nothing outside can
+      # reach it.
+      - name: Offline boot and image export render data pixels
+        run: |
+          docker run -d --rm --name dezfil-offline --network=none \
+            -e DEZFIL_RENDER_CAP_FEATURES=2000 \
+            -v "$PWD/scripts:/probes:ro" dezfil:ci
+          for i in $(seq 1 30); do
+            if docker exec dezfil-offline node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
+              break
+            fi
+            sleep 1
+          done
+          docker exec dezfil-offline node /probes/offline-export-probe.mjs --tiled
+          docker stop dezfil-offline
+      # Removing the browser must make the export fail with its own coded
+      # result while health stays green. This is what proves the positive
+      # export step above actually depends on the browser.
+      - name: Browser-removed negative - export fails coded, health green
+        run: |
+          printf 'FROM dezfil:ci\nUSER root\nRUN rm /usr/bin/chromium\nUSER node\n' | docker build -t dezfil-nobrowser -f - .
+          docker run -d --rm --name dezfil-nobrowser -v "$PWD/scripts:/probes:ro" dezfil-nobrowser
+          for i in $(seq 1 30); do
+            if docker exec dezfil-nobrowser node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
+              break
+            fi
+            sleep 1
+          done
+          docker exec dezfil-nobrowser node /probes/offline-export-probe.mjs --expect-unavailable
+          docker stop dezfil-nobrowser
+
+      # A render timeout has its own result and cannot skip the offline gates.
+      - name: Installed plugin real retained map check
+        run: |
+          docker run --rm --network=container:dezfil-plugin-ci \
+            -v "$PWD/scripts:/probe/scripts:ro" \
+            -v "$PWD/plugins:/probe/plugins:ro" \
+            -v "$RUNNER_TEMP/plugin-renders:/evidence:ro" \
+            dezfil-mcp-probe:ci node /probe/scripts/dezfil-plugin-container.mjs \
+            --origin http://127.0.0.1:3399 --render --render-log /evidence/renders.ndjson
+      - name: Stop plugin journey container
+        if: always()
+        run: docker stop dezfil-plugin-ci || true

@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest something the project should be able to do
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The project's scope is deliberately narrow while the core is being
+        built: make a map, add layers, style it, publish it. A request that
+        sharpens that loop has a much better chance than one that widens it.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what stops you? Describe the situation, not the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like to happen
+      description: The behaviour you want, from a user's point of view.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do today instead
+      description: The workaround, the other tool, or the manual step this would replace.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched the existing issues and this is not already requested.
+          required: true
+        - label: This is about the map building loop, not about accounts, billing, or a hosted service.
+          required: false

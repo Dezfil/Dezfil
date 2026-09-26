@@ -1,0 +1,113 @@
+/* The workflow's page: the
+   crumb carries the name; the body is the canvas, which fills the screen
+   by default and sits in this frame in the framed view. */
+.screen {
+  position: relative;
+  height: var(--screen-height);
+  min-height: 460px;
+}
+
+/* The crumb tail, as the builder's: a separator, the name as a button that
+   turns into an input, a whisper while the rename lands. */
+.crumbTail {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.crumbSep {
+  color: var(--fg-faint);
+  font-size: 12px;
+}
+
+.name {
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fg);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name:hover {
+  color: var(--accent);
+}
+
+.nameInput {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--fg);
+  padding: 3px 8px;
+  width: 220px;
+}
+
+.nameInput:focus {
+  border-color: var(--accent);
+}
+
+/* The crumb tail is chrome, not text a user copies; the name's input keeps its own selection while it is
+   open. The whisper it used to hold stands on the canvas's stage, and
+   takes its own no-select rule with it. */
+.crumbTail {
+  user-select: none;
+}
+
+/* Undo and Redo in the header, the builder's chrome buttons (MapBuilder's
+   .chromeBtn/.iconBtn, the theme toggle's .toggle beside them): the glass
+   panel wash, its blur and shadow on the control's square, the muted ink
+   that lifts on hover, the faint ink and no lift when there is nothing to
+   take or the canvas is locked. The first cut had no wash and no shadow,
+   so the pair sat bare on the header, plainly on the background with no
+   button around it. The colour does not
+   transition: the look journey reads the pair's ink right after a step. */
+.history {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px; /* the header actions' own gap, so the pair spaces as the builder's */
+  user-select: none;
+}
+
+.histBtn {
+  height: var(--control);
+  width: var(--control);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-control);
+  color: var(--fg-muted);
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 3px 12px var(--shadow);
+  cursor: pointer;
+  transition: transform var(--dur-micro) ease;
+}
+
+.histBtn:hover {
+  color: var(--fg);
+  transform: translateY(-1px);
+}
+
+.histBtn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.histBtn:disabled,
+.histBtn:disabled:hover {
+  color: var(--fg-faint);
+  transform: none;
+  cursor: default;
+}
+
+.histBtn svg {
+  width: 16px;
+  height: 16px;
+}

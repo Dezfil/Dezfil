@@ -1,0 +1,66 @@
+/* The single-value slider: one skin
+   for every slider that sets one value — style rows, cell size, the
+   continuous centre. The dual-handle histogram brushes are a different
+   control and keep their own handles.
+
+   The thumb's white is deliberate and unchanged: a bright knob reads on
+   both themes, and re-tinting it would be a visible change this package
+   did not name. */
+
+.slider {
+  flex: 1;
+  height: 22px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  cursor: pointer;
+  --track: color-mix(in srgb, var(--fg) 16%, transparent);
+}
+
+.slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--accent) var(--fill, 50%),
+    var(--track) var(--fill, 50%)
+  );
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  margin-top: -5.5px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1.5px solid var(--accent);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--shadow) 80%, transparent);
+  transition: transform 0.12s ease;
+}
+
+.slider:hover::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+
+.slider::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--track);
+}
+
+.slider::-moz-range-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.slider::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1.5px solid var(--accent);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--shadow) 80%, transparent);
+}

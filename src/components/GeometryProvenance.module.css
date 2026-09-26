@@ -1,0 +1,21 @@
+.record {
+  color: var(--fg-muted);
+}
+
+.record b {
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+/* The Change door (04): one word in the line. */
+.door {
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.door:hover {
+  color: var(--accent-bright);
+}

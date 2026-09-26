@@ -1,0 +1,8 @@
+/* Screenshot-only ground for dialog captures: the dialog's
+   rounded corners sample the scrim, and the scrim shows the page behind it,
+   so a capture bound whatever that page held. A flat, opaque ground makes
+   the corner deterministic while the dialog's own dress is untouched. */
+[class*="scrim"] {
+  background: var(--bg) !important;
+  backdrop-filter: none !important;
+}

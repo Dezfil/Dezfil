@@ -1,0 +1,24 @@
+{
+  "name": "dezfil",
+  "version": "0.1.0",
+  "description": "Analyze spatial data and build, style and publish maps in Dezfil.",
+  "author": {
+    "name": "Dezfil contributors"
+  },
+  "license": "Apache-2.0",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Dezfil",
+    "shortDescription": "Spatial SQL and map publishing",
+    "longDescription": "Analyze data with server-side DuckDB and create styled, shareable maps on your Dezfil instance.",
+    "developerName": "Dezfil contributors",
+    "category": "Productivity",
+    "capabilities": [
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Explore my tables and create a styled map in Dezfil."
+    ]
+  }
+}

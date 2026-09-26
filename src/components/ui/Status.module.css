@@ -1,0 +1,55 @@
+/* Progress and status. */
+
+.track {
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-hover);
+  overflow: hidden;
+}
+
+.bar {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  transition: width var(--dur-micro) linear;
+}
+
+.bar[data-indeterminate] {
+  width: 40%;
+  animation: status-sweep 1.1s ease-in-out infinite;
+}
+
+@keyframes status-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+/* The dot's meaning is its text; the mark is decoration beside it. */
+.dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--fg-muted);
+  font-size: var(--text-meta);
+}
+
+.dot::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fg-faint);
+  flex: none;
+}
+
+.dot[data-live]::before {
+  background: var(--accent);
+}
+
+.dotText {
+  white-space: nowrap;
+}

@@ -1,0 +1,1793 @@
+/* The workflow canvas, after reference 13 for the stage and
+   reference 12 for the Badge tile. Every measure the references fix is
+   written here in the kit's tokens; the library brings only its base
+   sheet (layout and interaction), never its look. */
+
+.host {
+  --canvas-overlay-top: 16px;
+  --canvas-overlay-left: 16px;
+  /* Full view: the surface is the whole screen — the workspace's ground
+     with the dot grid — under the header, the rail, the pane, the band
+     and every overlay, which float over it; the header bar dissolves by
+     the body attribute the canvas sets, as the builder's fullscreen map
+     does. The stack and the panel stand on the fullscreen map's line:
+     level with the pane's top, a gutter from its edge. */
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: var(--bg);
+}
+
+.host[data-view="full"] {
+  --canvas-overlay-top: 62px;
+  --canvas-overlay-left: calc(82px + 342px + var(--gutter));
+}
+
+/* Framed view (reference 13): the host is the reference's
+   column right of the still-floating pane, from the rail's top to the
+   bottom gutter, holding the canvas card and, under it, the results card.
+   Nothing paints behind the two cards. */
+/* A docked assistant pane takes the pane's width plus
+   gutter off the host's right edge through `--assistant-right`, one
+   property the canvas sets from its layout rule; the overlaying pane and
+   the full view leave it at zero. */
+.host[data-view="framed"] {
+  inset: 62px calc(var(--gutter) + var(--assistant-right, 0px)) var(--gutter) calc(82px + 342px + var(--gutter));
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: transparent;
+}
+
+/* The area the library fills; its root carries inline 100% sizing and
+   position: relative, so the box that moves is this one: the whole host
+   in full view, the canvas card in framed. The overlays that belong to
+   the canvas (stack, minimap, panels, notice, empty state) sit inside it,
+   so they take the card's edges in framed and the screen's in full. */
+.flowArea {
+  position: absolute;
+  inset: 0;
+}
+
+.host[data-view="framed"] .flowArea {
+  position: relative;
+  inset: auto;
+  flex: 1;
+  min-height: 160px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  background: var(--bg);
+  box-shadow: 0 8px 30px var(--shadow);
+  overflow: hidden;
+}
+
+.flow :global(.react-flow__pane) {
+  cursor: grab;
+}
+
+.flow :global(.react-flow__pane.dragging) {
+  cursor: grabbing;
+}
+
+/* ---- members: the tile floats in a transparent box, the label hangs
+   under it (the free anatomy) ---- */
+.member {
+  position: relative;
+  width: 144px;
+  height: 114px;
+  user-select: none;
+}
+
+.tBox {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid color-mix(in srgb, var(--gc, var(--fg-muted)) 30%, transparent);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--gc, var(--fg-muted)) 12%, var(--bg-panel));
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--shadow) 70%, transparent);
+  transition:
+    border-color var(--dur-micro),
+    box-shadow var(--dur-micro);
+}
+
+.member[data-grp="Data"] { --gc: var(--grp-data); }
+.member[data-grp="Overlay"] { --gc: var(--grp-overlay); }
+.member[data-grp="Proximity"] { --gc: var(--grp-proximity); }
+.member[data-grp="Geometry"] { --gc: var(--grp-geometry); }
+.member[data-grp="Aggregation"] { --gc: var(--grp-aggregation); }
+.member[data-grp="Statistics"] { --gc: var(--grp-statistics); }
+
+.tBox.src {
+  background: var(--bg-raised);
+  border-color: var(--border-strong);
+}
+
+.member:hover .tBox {
+  border-color: var(--border-strong);
+}
+
+.member[data-sel] .tBox {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 3px var(--accent-dim),
+    0 6px 20px var(--shadow);
+}
+
+.member[data-drag] .tBox {
+  box-shadow: 0 14px 34px var(--shadow);
+}
+
+.member[data-state="running"] .tBox {
+  border-color: var(--accent);
+}
+
+.member[data-state="run failed"] .tBox,
+.member[data-state="cannot run"] .tBox {
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+}
+
+.member[data-missing] .tBox {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+}
+
+.tIcon {
+  color: var(--gc, var(--fg-muted));
+  display: grid;
+  place-items: center;
+}
+
+/* The operation glyph at 52px (a hand edit, over 40; as). */
+.tIcon svg {
+  width: 52px;
+  height: 52px;
+}
+
+.src .tIcon {
+  color: var(--accent-bright);
+}
+
+/* A source's geometry glyph at 50 (the field-round word, the same day). */
+.src .tIcon svg {
+  width: 50px;
+  height: 50px;
+}
+
+.src .tIcon[data-kind="none"] {
+  color: var(--fg-faint);
+}
+
+.member[data-missing] .tIcon {
+  color: var(--danger);
+}
+
+/* The state badge on the tile's corner */
+.tBadge {
+  position: absolute;
+  right: -7px;
+  top: -7px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--on-accent);
+  border: 2px solid var(--bg-panel);
+}
+
+.tBadge svg {
+  width: 10px;
+  height: 10px;
+  stroke-width: 2.6;
+}
+
+.tBadge[data-s="warn"] {
+  background: var(--danger);
+}
+
+.tBadge[data-s="rerun"],
+.tBadge[data-s="edit"] {
+  background: var(--warn);
+}
+
+.tBadge[data-s="check"] {
+  background: var(--accent);
+}
+
+.spin {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--on-accent) 35%, transparent);
+  border-top-color: var(--on-accent);
+  animation: canvas-spin var(--dur-spin) linear infinite;
+}
+
+/* The running light: a comet travelling the
+   tile's own frame over a faint track, drawn on the frame itself. */
+.ring {
+  position: absolute;
+  inset: -1.5px;
+  width: calc(100% + 3px);
+  height: calc(100% + 3px);
+  overflow: visible;
+  pointer-events: none;
+}
+
+.ring rect {
+  fill: none;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
+.ringTrack {
+  stroke: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.ringComet {
+  stroke: var(--accent);
+  stroke-dasharray: 24 76;
+  animation: ring-run calc(var(--dur-spin) * 2) linear infinite;
+}
+
+@keyframes ring-run {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+@keyframes canvas-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tLabel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  text-align: center;
+  padding: 0 2px;
+  transition: opacity var(--dur-micro);
+}
+
+.tName {
+  font-size: var(--text-label);
+  font-weight: 600;
+  color: var(--fg);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.srcName {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: 500;
+  color: var(--fg);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member[data-missing] .srcName {
+  color: var(--danger);
+  text-decoration: line-through;
+}
+
+.tOut {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The disclosure: every condition true of it and its last run, shown on
+   hover and keyboard focus, and always in the accessible tree */
+.disclosure {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translate(-50%, 4px);
+  max-width: 260px;
+  padding: 6px 9px;
+  border-radius: var(--radius);
+  background: var(--fg);
+  color: var(--bg);
+  font-size: var(--text-meta);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 8;
+  transition: opacity var(--dur-micro);
+}
+
+.member:hover .disclosure,
+.flow :global(.react-flow__node:focus-visible) .disclosure {
+  opacity: 1;
+}
+
+/* ---- ports: named, inert ---- */
+.member .port {
+  width: 18px;
+  height: 18px;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  display: grid;
+  place-items: center;
+}
+
+.member .port::after {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--bg-panel);
+  border: 1.6px solid var(--border-strong);
+}
+
+.member .port[data-on]::after {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.member .port[data-off] {
+  display: none;
+}
+
+.member .sqlSide {
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.pLabel {
+  position: absolute;
+  right: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1px 6px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity var(--dur-micro);
+  /* A hint, never a hit target: an unseen label must not catch the
+     click meant for the tile beside it (field run). */
+  pointer-events: none;
+}
+
+.member:hover .pLabel,
+.flow :global(.react-flow__node:focus-visible) .pLabel {
+  opacity: 1;
+}
+
+/* A link being made (reference 12's pending link): dashed, in the accent,
+   on the reference's curve. */
+.pending {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.2;
+  stroke-dasharray: 6 5;
+}
+
+/* Port states while a link is dragged: a port that would take it, one that
+   would not. */
+.member .port:global(.valid)::after {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  transform: scale(1.25);
+}
+
+.member .port:global(.connectingto):global(.valid)::after {
+  background: var(--accent);
+}
+
+.member .port:global(.connectingto):not(:global(.valid))::after {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+}
+
+.member .port {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+/* The canvas's own notice: a refusal's reason, a link made. */
+/* The canvas's own notice (status pill): light
+   glass, muted words; a refusal's reason in the danger colour. */
+.notice {
+  position: absolute;
+  left: 50%;
+  bottom: calc(16px + var(--band-h, 0px));
+  transform: translateX(-50%);
+  z-index: 8;
+  min-height: 32px;
+  max-width: 520px;
+  padding: 6px 15px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  text-align: center;
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 3px 12px var(--shadow);
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+  pointer-events: none;
+}
+
+.notice[data-tone="bad"] {
+  color: var(--danger);
+}
+
+/* A transient status does not replace the lock pill: it stacks above it,
+   leaving the persistent unlock action at the foot where it already lived. */
+.noticeStack {
+  position: absolute;
+  left: 50%;
+  bottom: calc(16px + var(--band-h, 0px));
+  transform: translateX(-50%);
+  z-index: 8;
+  width: max-content;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.noticeStack .notice {
+  position: static;
+  max-width: 100%;
+  transform: none;
+}
+
+/* ---- edges (the reference's kinds, composed; the line a step darker
+   and the tip darker still, so the direction reads at every zoom) ---- */
+.edge .link {
+  fill: none;
+  stroke: var(--fg-faint);
+  stroke-width: 1.8;
+}
+
+.edge[data-sql] .link {
+  stroke-dasharray: 1 5;
+  stroke-linecap: round;
+  stroke-width: 2.2;
+}
+
+.edge[data-stale] .link {
+  stroke: var(--warn);
+}
+
+.edge[data-time="proposed"] .link {
+  stroke: var(--warn);
+  stroke-dasharray: 6 4;
+}
+
+.edge[data-time="lineage"] .link {
+  stroke: var(--fg-faint);
+  stroke-dasharray: 2 4;
+  opacity: 0.75;
+}
+
+.edge[data-broken] .link {
+  stroke: var(--danger);
+  stroke-dasharray: 2 4;
+}
+
+.edge .arrow {
+  fill: var(--fg-muted);
+}
+
+/* Each kind's tip keeps the kind's hue and takes the same step towards the
+   foreground as the plain tip does, so it reads over its own line too
+   (found at review). */
+.edge[data-stale] .arrow,
+.edge[data-time="proposed"] .arrow {
+  fill: color-mix(in srgb, var(--warn) 70%, var(--fg));
+}
+
+.edge[data-time="lineage"] .arrow {
+  fill: color-mix(in srgb, var(--fg-faint) 70%, var(--fg));
+}
+
+.edge[data-broken] .arrow {
+  fill: color-mix(in srgb, var(--danger) 70%, var(--fg));
+}
+
+.edgeWord {
+  position: absolute;
+  font-size: var(--text-meta);
+  color: var(--warn);
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.edgeWord[data-time="lineage"] {
+  color: var(--fg-faint);
+}
+
+/* Locked: the ports are gone, nothing links. */
+.host[data-locked] .port,
+.host[data-locked] .sqlSide {
+  display: none;
+}
+
+/* Locked, a tile is the hand's, not the finger's: pressing on it pans the
+   canvas, as pressing on the ground does. */
+.host[data-locked] .flow :global(.react-flow__node.selectable) {
+  cursor: grab;
+}
+
+.host[data-locked] .flow :global(.react-flow__node.selectable:active),
+.host[data-locked] .flow :global(.react-flow__pane.dragging) :global(.react-flow__node.selectable) {
+  cursor: grabbing;
+}
+
+/* Undo and Redo: a button with nothing on its
+   side stays in the stack, dimmed to the reference's 0.45 in the faint
+   ink, and does not lift under the pointer. The shared button dims
+   further and keeps its hover lift, so the pair says it here. */
+.lockBtn {
+  margin-top: 6px;
+}
+
+.noticeAction {
+  /* The notice lets the pointer through (a transient one must not block
+     the canvas); its action takes the pointer back. */
+  pointer-events: auto;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.noticeAction:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.paneLock {
+  margin: 0;
+  padding: 6px 14px 0;
+  font-size: var(--text-meta);
+  color: var(--fg-faint);
+  font-style: italic;
+}
+
+/* ---- the stage stack (the zoom readout that stood under it was removed
+   on a field-round ruling) ---- */
+.stage {
+  position: absolute;
+  top: var(--canvas-overlay-top);
+  left: var(--canvas-overlay-left);
+  z-index: 8; /* above a selected note's menu (7): the stack is chrome, the menu a transient; the lock at the stack's foot was covered once the minimap toggle joined */
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
+/* ---- the pane (reference 13): Sources and Tools, the same fixed card
+   in both views — level with the rail, from its top to the bottom gutter,
+   never shortened by the band, which stands beside it. ---- */
+.pane {
+  position: fixed;
+  top: 62px;
+  left: 82px;
+  bottom: var(--gutter);
+  width: 342px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 3px 12px var(--shadow);
+}
+
+.paneTabs {
+  padding: 10px 10px 0;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+/* The kit's tabs at the pane's width (the SQL workspace's pane rule):
+   tighter, and a tab clips its own overflow rather than pushing its
+   neighbour out. */
+.paneTabs [role="tab"] {
+  padding: 0 8px;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tabCount {
+  font-size: var(--text-meta);
+  color: var(--fg-faint);
+  background: var(--bg-raised);
+  border-radius: var(--radius-pill);
+  padding: 0 5px;
+  font-weight: 500;
+}
+
+.paneTop {
+  padding: 10px 10px 8px;
+  flex: none;
+}
+
+/* The search with its magnifier (reference 13): the input carries the
+   control's box and its own focus; the glyph sits over its left padding. */
+.paneSearch {
+  position: relative;
+}
+
+.paneSearch svg {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  color: var(--fg-faint);
+  pointer-events: none;
+}
+
+.paneSearchInput {
+  width: 100%;
+  height: var(--control-compact);
+  padding: 0 10px 0 30px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  font-size: var(--text-label);
+  color: var(--fg);
+}
+
+.paneSearchInput:focus {
+  border-color: var(--accent);
+  background: var(--bg-panel);
+}
+
+.paneSearchInput::placeholder {
+  color: var(--fg-faint);
+}
+
+.paneBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 6px 10px;
+}
+
+.paneEmpty {
+  padding: 16px 10px;
+  color: var(--fg-faint);
+  font-size: var(--text-label);
+}
+
+.eyebrow {
+  margin: 0;
+  padding: 10px 8px 4px;
+  font-size: var(--text-meta);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--fg) 10%, var(--fg-muted));
+}
+
+/* The row keeps the list's 30px rhythm as 28px plus a 1px margin each
+   side, so two adjacent "on canvas" tints stand apart instead of joining. */
+.tableRow {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  margin: 1px 0;
+  width: 100%;
+  padding: 0 4px 0 8px;
+  border-radius: var(--radius);
+  text-align: left;
+  color: var(--fg);
+}
+
+button.tableRow:hover {
+  background: var(--bg-hover);
+}
+
+.tableRow[data-on] {
+  background: var(--accent-dim);
+}
+
+/* The tinted geometry-kind tile, as the SQL workspace's table browser
+   draws it (reference 13). */
+.rowGlyph {
+  width: 18px;
+  height: 18px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  color: var(--accent-bright);
+  background: var(--accent-wash);
+  flex: none;
+}
+
+.rowGlyph[data-kind="none"] {
+  color: var(--fg-faint);
+  background: var(--bg-raised);
+}
+
+.rowGlyph svg {
+  width: 11px;
+  height: 11px;
+  stroke-width: 2;
+}
+
+.rowName {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowMeta {
+  font-size: var(--text-meta);
+  color: var(--fg-faint);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.onCanvas {
+  font-size: var(--text-meta);
+  color: var(--accent);
+}
+
+.toolRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  color: var(--fg);
+}
+
+.toolRow[data-unavailable] .toolName,
+.toolRow[data-unavailable] .toolBlurb {
+  color: var(--fg-muted);
+}
+
+.toolRow[data-grp="Data"] { --gc: var(--grp-data); }
+.toolRow[data-grp="Overlay"] { --gc: var(--grp-overlay); }
+.toolRow[data-grp="Proximity"] { --gc: var(--grp-proximity); }
+.toolRow[data-grp="Geometry"] { --gc: var(--grp-geometry); }
+.toolRow[data-grp="Aggregation"] { --gc: var(--grp-aggregation); }
+.toolRow[data-grp="Statistics"] { --gc: var(--grp-statistics); }
+
+.toolGlyph {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius);
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--gc, var(--fg-muted)) 12%, transparent);
+  color: var(--gc, var(--fg-muted));
+}
+
+.toolGlyph svg {
+  /* The reference's tinted-row size and small-size stroke. */
+  width: 20px;
+  height: 20px;
+}
+
+.toolGlyph svg * {
+  stroke-width: 2.6;
+}
+
+.toolText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.toolName {
+  font-size: var(--text-label);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.toolBlurb {
+  font-size: var(--text-meta);
+  line-height: 1.3;
+  color: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolWhy {
+  font-size: var(--text-meta);
+  line-height: 1.45;
+  color: var(--fg-muted);
+  font-style: italic;
+}
+
+/* The pane's footer: Add data, the reference's dashed button. */
+.paneFoot {
+  flex: none;
+  padding: 10px 14px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.dashedBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  height: 34px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+}
+
+.dashedBtn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.dashedBtn svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Rows that add: a tool row is a button now; an unavailable one says why
+   and cannot be pressed. A press that moves carries a ghost. */
+button.toolRow {
+  text-align: left;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+button.toolRow:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+button.toolRow:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+button.tableRow {
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.dragGhost {
+  position: fixed;
+  z-index: 200;
+  pointer-events: none;
+  transform: translate(12px, 12px);
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: var(--text-label);
+  font-weight: 600;
+  box-shadow: 0 6px 20px var(--shadow);
+}
+
+/* ---- the minimap (reference 13): bottom right, the graph and the
+   viewport, operable ---- */
+.minimap {
+  position: absolute;
+  right: 16px;
+  bottom: calc(16px + var(--band-h, 0px));
+  z-index: 6;
+  width: 180px;
+  height: 112px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--bg-panel) 92%, transparent);
+  border: 1px solid var(--border);
+  box-shadow: 0 3px 12px var(--shadow);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.mmNode {
+  fill: var(--border-strong);
+}
+
+.mmNode[data-s="source"] {
+  fill: var(--fg-faint);
+}
+
+.mmNode[data-s="run failed"],
+.mmNode[data-s="cannot run"] {
+  fill: var(--danger);
+}
+
+.mmNode[data-s="stale"],
+.mmNode[data-s="edited"],
+.mmNode[data-s="output deleted"] {
+  fill: var(--warn);
+}
+
+.mmNode[data-s="running"],
+.mmNode[data-s="queued"] {
+  fill: var(--accent);
+}
+
+.mmNode[data-sel] {
+  fill: var(--accent-bright);
+}
+
+/* A note on the minimap: its colour, faint, behind the members. */
+.mmNote {
+  fill: var(--nc);
+  fill-opacity: 0.35;
+}
+
+.mmNote[data-c="yellow"] {
+  --nc: var(--note-yellow);
+}
+
+.mmNote[data-c="green"] {
+  --nc: var(--note-green);
+}
+
+.mmNote[data-c="blue"] {
+  --nc: var(--note-blue);
+}
+
+.mmNote[data-c="pink"] {
+  --nc: var(--note-pink);
+}
+
+.mmNote[data-c="purple"] {
+  --nc: var(--note-purple);
+}
+
+.mmNote[data-c="grey"] {
+  --nc: var(--note-grey);
+}
+
+.mmEdge {
+  stroke: var(--border);
+  stroke-width: 0.8;
+  fill: none;
+}
+
+.mmView {
+  fill: color-mix(in srgb, var(--accent) 12%, transparent);
+  stroke: var(--accent);
+  stroke-width: 1.4;
+}
+
+/* Arrange animates the move — unless motion is reduced, when the
+   attribute is never set. */
+.host[data-animating] :global(.react-flow__node) {
+  transition: transform var(--dur-panel) var(--ease-panel);
+}
+
+/* ---- far zoom: the glyph and the name stay, the rest goes ---- */
+.host[data-lod="far"] .tOut,
+.host[data-lod="far"] .pLabel {
+  opacity: 0;
+}
+
+.host[data-lod="far"] .tName,
+.host[data-lod="far"] .srcName {
+  font-size: var(--text-heading);
+}
+
+/* Note mode: the cursor says so, the ghost draws the box ---- */
+.host[data-mode="note"] :global(.react-flow__pane) {
+  cursor: crosshair;
+}
+
+.noteGhost {
+  position: absolute;
+  z-index: 5;
+  border: 1.5px dashed var(--accent);
+  border-radius: var(--radius-lg);
+  background: var(--accent-dim);
+  pointer-events: none;
+}
+
+/* ---- the empty state ---- */
+.emptyNote {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  color: var(--fg-faint);
+  font-size: var(--text-body);
+  pointer-events: none;
+  max-width: 300px;
+  line-height: 1.5;
+}
+
+.emptyNote b {
+  color: var(--fg-muted);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin,
+  .ringComet {
+    animation-duration: 0s;
+  }
+}
+
+/* ---- the panels: a floating card over the stage, right (reference 13's
+   inspector). In full view above the three-pane limit an open assistant
+   pane shifts the panel left by its width plus gutter and both stay (spec
+   through `--panel-shift` on the furniture's wrapper; below
+   the limit the wrapper hides the panel instead. ---- */
+.inspector {
+  position: absolute;
+  right: calc(var(--gutter) + var(--panel-shift, 0px));
+  top: var(--canvas-overlay-top);
+  bottom: calc(var(--gutter) + var(--band-h, 0px));
+  width: 318px;
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  backdrop-filter: blur(18px);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 55%, transparent);
+  box-shadow: 0 3px 12px var(--shadow);
+  animation: inspIn var(--dur-panel) var(--ease-panel);
+}
+
+/* Full view: the panel's top on the pane's line
+   by the overlay offset above; its foot one gutter above the results
+   card, whose reserve already carries that gutter. */
+.host[data-view="full"] .inspector {
+  bottom: var(--band-h, var(--gutter));
+}
+
+@keyframes inspIn {
+  from {
+    opacity: 0;
+    transform: translateX(14px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inspector {
+    animation: none;
+  }
+}
+
+.inspHead {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 46px;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.inspHead h3 {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-heading);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspTile {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius);
+  display: grid;
+  place-items: center;
+  background: var(--bg-raised);
+  /* The head glyph wears the member's group hue. */
+  color: var(--gc, var(--fg-muted));
+  flex: none;
+}
+
+.inspTile[data-group="Data"] { --gc: var(--grp-data); }
+.inspTile[data-group="Overlay"] { --gc: var(--grp-overlay); }
+.inspTile[data-group="Proximity"] { --gc: var(--grp-proximity); }
+.inspTile[data-group="Geometry"] { --gc: var(--grp-geometry); }
+.inspTile[data-group="Aggregation"] { --gc: var(--grp-aggregation); }
+.inspTile[data-group="Statistics"] { --gc: var(--grp-statistics); }
+
+.inspTile[data-kind="missing"] {
+  color: var(--danger);
+  background: var(--danger-dim);
+}
+
+.inspTile svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* The reference's inspector-head size — the node panel's
+   operation pictogram alone; the source panel's geometry glyph keeps
+   its own (found at review). */
+[data-node-panel] .inspTile svg {
+  width: 19px;
+  height: 19px;
+}
+
+.inspBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  /* Every name in the panel wraps rather than widens it, whatever its
+     length: the property inherits. */
+  overflow-wrap: anywhere;
+}
+
+.sec {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.secLabel {
+  font-size: var(--text-label);
+  font-weight: 600;
+  color: var(--fg);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cnt {
+  font-size: var(--text-meta);
+  color: var(--fg-faint);
+  background: var(--bg-raised);
+  border-radius: var(--radius-pill);
+  padding: 0 6px;
+  font-weight: 500;
+}
+
+.help {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--fg-muted);
+}
+
+.problem {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--danger);
+}
+
+.callout {
+  border-radius: var(--radius);
+  padding: 9px 10px;
+  font-size: var(--text-label);
+  line-height: 1.5;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+}
+
+.callout b {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.callout[data-tone="warn"] {
+  border-color: color-mix(in srgb, var(--warn) 35%, transparent);
+  background: var(--warn-dim);
+  color: color-mix(in srgb, var(--warn) 80%, var(--fg));
+}
+
+.callout[data-tone="warn"] b {
+  color: var(--warn);
+}
+
+.callout[data-tone="bad"] {
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+  background: var(--danger-dim);
+  color: color-mix(in srgb, var(--danger) 82%, var(--fg));
+}
+
+.callout[data-tone="bad"] b {
+  color: var(--danger);
+}
+
+.callout .mono {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+/* The name, the old value and the new each take their own line when they
+   do not fit beside each other; the panel never scrolls sideways. */
+.changeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  align-items: baseline;
+  margin-top: 3px;
+}
+
+.changeRow .was,
+.changeRow .now {
+  overflow-wrap: anywhere;
+}
+
+.changeRow .was {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-decoration: line-through;
+  color: var(--fg-faint);
+}
+
+.changeRow .now {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.calloutActions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.kvs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+
+.kv {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--text-label);
+}
+
+.kv dt {
+  color: var(--fg-muted);
+}
+
+.kv dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kv dd[data-plain] {
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: var(--text-meta);
+  font-weight: 500;
+  border-radius: var(--radius-pill);
+  padding: 2.5px 9px;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.chip:hover {
+  color: var(--fg);
+  border-color: var(--border-strong);
+}
+
+.chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+span.chip {
+  cursor: default;
+}
+
+.columns {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: var(--text-label);
+}
+
+.columns li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.columns li span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.colType {
+  color: var(--fg-faint);
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  flex: none;
+}
+
+.btnRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.linkBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--fg);
+  font-size: var(--text-label);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.linkBtn:hover {
+  border-color: var(--border-strong);
+}
+
+.linkBtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.linkBtn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.inputPick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The input's accepted geometry kinds as glyphs under the picker, in
+   place of the sentence. */
+.accepts {
+  display: inline-flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.acceptGlyph {
+  width: 16px;
+  height: 16px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  color: var(--accent-bright);
+  background: var(--accent-wash);
+}
+
+.acceptGlyph[data-kind="none"] {
+  color: var(--fg-faint);
+  background: var(--bg-raised);
+}
+
+.acceptGlyph svg {
+  width: 10px;
+  height: 10px;
+}
+
+.inputPick select {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-panel);
+  font: inherit;
+  font-size: 12px;
+  color: var(--fg);
+}
+
+.inputPick select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+
+.nameInput {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-panel);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg);
+}
+
+.nameInput:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+
+.nameInput:disabled {
+  color: var(--fg-muted);
+  background: var(--bg-raised);
+}
+
+.nameInput[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.previewLine {
+  font-size: var(--text-label);
+  color: var(--fg);
+}
+
+.previewLine b {
+  font-weight: 600;
+}
+
+.removeBtn {
+  color: var(--danger);
+}
+
+/* With a panel open the minimap steps left of it; the stage stack stays
+   at the reference's top left (the `right` that once centred it between
+   the pane and the panel spanned its box across the strip and swallowed
+   the clicks on tiles under it). */
+.host[data-panel] .minimap {
+  right: calc(16px + 318px + 12px);
+}
+
+/* ---- the removal confirmation ---- */
+.confirm {
+  width: min(440px, 100%);
+  flex-direction: column;
+}
+
+.confirmHead {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 18px 12px;
+}
+
+.confirmHead strong {
+  font-family: var(--font-display);
+  font-size: var(--text-heading);
+  font-weight: 600;
+}
+
+.confirmHead small {
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+  line-height: 1.5;
+}
+
+.confirmFoot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 18px 16px;
+}
+
+/* The frame's run chrome: Run all, the dock and the plan. */
+.runChrome {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Run all on the reference's chrome treatment (its primary chrome button):
+   the chrome radius and the glass shadow over the shared button's look. */
+.runChrome .runAction[data-run-action] {
+  font-family: var(--font-display);
+  font-weight: 600;
+  padding: 0 15px;
+  border-radius: var(--radius-control);
+  box-shadow: 0 3px 12px var(--shadow);
+}
+
+.runAction svg {
+  width: 14px;
+  height: 14px;
+}
+
+.runDock {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  height: 30px;
+  border-radius: var(--radius);
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.runDock b {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.runDock[data-tone="bad"] {
+  color: var(--danger);
+  background: var(--danger-dim);
+}
+
+.dockAction {
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+.dockAction:hover {
+  background: var(--bg-hover);
+}
+
+.dockAction:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.dockAction svg {
+  width: 12px;
+  height: 12px;
+}
+
+.spin {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-dim);
+  border-top-color: var(--accent);
+  animation: runSpin var(--dur-spin) linear infinite;
+}
+
+@keyframes runSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}
+
+.planList {
+  margin: 0;
+  padding: 4px 18px 8px 36px;
+  font-size: var(--text-label);
+  /* A long plan scrolls between the fixed head and foot. */
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 50vh;
+  overflow: auto;
+}
+
+.planList li {
+  padding: 2px 0;
+}
+
+.planList li[data-current] b::after {
+  content: " · current";
+  color: var(--fg-faint);
+  font-weight: 400;
+}
+
+.planArrow {
+  color: var(--fg-faint);
+  padding: 0 6px;
+}
+
+.planList code {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--fg);
+}
+
+/* An unsettled member of the run in flight: read-only until it settles. */
+/* A fieldset's own floor is its min-content width, which a picker's
+   longest option sets; the panel's width sets it here. */
+.inert {
+  min-inline-size: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: contents;
+}
+
+.inert:disabled {
+  opacity: 0.6;
+}
+
+/* Full view: the notice and the empty state centre in the
+   area the pane leaves free, as the reference's status pill does; the
+   empty state also keeps to the height above the band's reserve, so a
+   band resized tall never covers it (found at review). */
+.host[data-view="full"] .notice,
+.host[data-view="full"] .emptyNote {
+  left: calc(50% + 219px);
+}
+
+.host[data-view="full"] .noticeStack {
+  left: calc(50% + 219px);
+}
+
+/* With a panel open the notice centres in what the pane, the panel and
+   the minimap stepped left of the panel leave free, and wraps within it,
+   so a long one (the lock's pill) never ends under either (the journey
+   found the pill's unlock covered twice). */
+.host[data-panel] .notice {
+  left: calc(50% - 263px);
+  max-width: 260px;
+  white-space: normal;
+  text-align: center;
+}
+
+.host[data-panel] .noticeStack {
+  left: calc(50% - 263px);
+  max-width: 260px;
+}
+
+.host[data-view="full"][data-panel] .notice {
+  left: calc(50% - 44px);
+  max-width: 300px;
+}
+
+.host[data-view="full"][data-panel] .noticeStack {
+  left: calc(50% - 44px);
+  max-width: 300px;
+}
+
+.host[data-view="full"] .emptyNote {
+  top: calc(62px + (100% - 62px - var(--band-h, 0px)) * 0.46);
+}
+
+/* The page's text selection:
+   the canvas's chrome is not text a user copies. A press-and-move that
+   starts on the stack (a dimmed button hands its pointer to the stack's
+   own box), on the pane or on a panel's labels swept the page's text,
+   and the pane's pointer handling kept the browser's click-to-deselect
+   from ever clearing it. What a user does copy stays selectable: a
+   field's text (a field keeps its own selection), the panel's data (a
+   callout's message, a value, a column, a change's old and new), and
+   the note's editor (NoteNode.module.css). ---- */
+.stage,
+.pane,
+.inspector,
+.notice,
+.emptyNote,
+.runDock,
+.dragGhost {
+  user-select: none;
+}
+
+.inspector .callout,
+.inspector .kv dd,
+.inspector .columns,
+.inspector .changeRow,
+.inspector .previewLine,
+.inspector .problem {
+  user-select: text;
+}

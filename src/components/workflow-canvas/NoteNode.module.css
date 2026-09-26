@@ -1,0 +1,337 @@
+/* A note on the canvas: a tinted box in
+   one of six colours behind the graph, its label strip on the top edge,
+   its markdown body, the editor in its own box, the menu above it. Every
+   tint is mixed from the colour's one token. */
+.note {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  border-radius: var(--radius-lg);
+  border: 1.5px solid color-mix(in srgb, var(--nc) 45%, transparent);
+  background: color-mix(in srgb, var(--nc) 16%, var(--bg-panel));
+  cursor: grab;
+  user-select: none;
+}
+
+.note[data-color="yellow"] {
+  --nc: var(--note-yellow);
+}
+
+.note[data-color="green"] {
+  --nc: var(--note-green);
+}
+
+.note[data-color="blue"] {
+  --nc: var(--note-blue);
+}
+
+.note[data-color="pink"] {
+  --nc: var(--note-pink);
+}
+
+.note[data-color="purple"] {
+  --nc: var(--note-purple);
+}
+
+.note[data-color="grey"] {
+  --nc: var(--note-grey);
+}
+
+.note:hover {
+  border-color: color-mix(in srgb, var(--nc) 70%, transparent);
+}
+
+.note[data-sel] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+/* One frame while editing: the field's own focus
+   ring, drawn where the border was, with the selected halo around it; the
+   note's border steps aside so the two never stack, and the label strip
+   paints over the ring (its z-index, and the editor's own stacking
+   context below). */
+.note[data-editing] {
+  cursor: text;
+  user-select: text;
+  border-color: transparent;
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.note[data-drag] {
+  cursor: grabbing;
+}
+
+/* The label strip straddles the top edge, a tag in the code face. */
+.label {
+  position: absolute;
+  z-index: 1;
+  left: 12px;
+  top: 0;
+  transform: translateY(-50%);
+  max-width: calc(100% - 24px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 1px 7px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--nc) 55%, var(--bg-panel));
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  line-height: 1.5;
+}
+
+.body {
+  height: 100%;
+  padding: 20px 18px 14px;
+  overflow: hidden;
+  font-size: var(--text-label);
+  line-height: 1.55;
+  color: var(--fg-muted);
+  word-break: break-word;
+}
+
+.body h1,
+.body h2,
+.body h3 {
+  margin: 0 0 6px;
+  color: var(--fg);
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+/* One step up the ramp at every zoom, so a
+   title still reads when the graph is zoomed out. */
+.body h1 {
+  font-size: var(--text-hero);
+}
+
+.body h2 {
+  font-size: var(--text-title);
+}
+
+.body h3 {
+  font-size: var(--text-heading);
+}
+
+.body p,
+.body ul {
+  margin: 0 0 6px;
+}
+
+.body ul {
+  padding-left: 18px;
+}
+
+.body code {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--fg);
+}
+
+.body a {
+  color: var(--accent-bright);
+}
+
+/* The editor: the raw text in the note's box, in the code face. */
+.editWrap {
+  position: relative;
+  z-index: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.edit {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  padding: 18px 18px 14px;
+  border: 0;
+  background: transparent;
+  resize: none;
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  line-height: 1.5;
+}
+
+.edit:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+  border-radius: var(--radius-lg);
+}
+
+/* The placeholder an empty note's editor shows:
+   the editor's own metrics, under the caret's line, never in the text. */
+.placeholder {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 18px 18px 14px;
+  overflow: hidden;
+  pointer-events: none;
+  white-space: pre-wrap;
+  color: var(--fg-faint);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  line-height: 1.5;
+}
+
+.limit {
+  padding: 0 18px 8px;
+  color: var(--warn);
+  font-size: var(--text-meta);
+}
+
+/* The eight resize handles: the corners and the sides, each the census's
+   hit surface with the reference's mark at its middle. The library's own
+   rules name three classes (a 5px corner, a 1px line), so these name
+   four to outrank them whatever the stylesheet order. */
+.handle:global(.react-flow__resize-control.nodrag),
+.line:global(.react-flow__resize-control.nodrag) {
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+}
+
+.handle:global(.react-flow__resize-control.nodrag) {
+  width: 24px;
+  height: 24px;
+  /* A corner sits over the two sides' ends, which span the whole edge. */
+  z-index: 1;
+}
+
+.line:global(.react-flow__resize-control.nodrag) {
+  border-color: transparent;
+}
+
+.line:global(.react-flow__resize-control.nodrag.top),
+.line:global(.react-flow__resize-control.nodrag.bottom) {
+  height: 24px;
+}
+
+.line:global(.react-flow__resize-control.nodrag.left),
+.line:global(.react-flow__resize-control.nodrag.right) {
+  width: 24px;
+}
+
+.handle::after,
+.line::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  border: 1.5px solid var(--accent);
+}
+
+/* The note menu above a selected note: the canvas's overlay. */
+.menu {
+  position: absolute;
+  z-index: 7;
+  display: inline-flex;
+  /* A drawable area narrower than the row: the menu wraps, never leaves it. */
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 3px 12px var(--shadow);
+  animation: note-menu-in var(--dur-entrance) var(--ease-entrance) backwards;
+}
+
+@keyframes note-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.swatches {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.swatch {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.swatch[data-color="yellow"] {
+  --sc: var(--note-yellow);
+}
+
+.swatch[data-color="green"] {
+  --sc: var(--note-green);
+}
+
+.swatch[data-color="blue"] {
+  --sc: var(--note-blue);
+}
+
+.swatch[data-color="pink"] {
+  --sc: var(--note-pink);
+}
+
+.swatch[data-color="purple"] {
+  --sc: var(--note-purple);
+}
+
+.swatch[data-color="grey"] {
+  --sc: var(--note-grey);
+}
+
+.swatch::after {
+  content: "";
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sc) 55%, var(--bg-panel));
+}
+
+.swatch[aria-pressed="true"]::after {
+  box-shadow: 0 0 0 2px var(--bg-panel), 0 0 0 4px var(--accent);
+}
+
+.swatch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+  background: var(--border);
+}
+
+/* Far zoom: the prose goes and the label grows; the
+   headings already stand at their far sizes. */
+:global([data-lod="far"]) .body p,
+:global([data-lod="far"]) .body ul {
+  display: none;
+}
+
+:global([data-lod="far"]) .label {
+  font-size: var(--text-body);
+}

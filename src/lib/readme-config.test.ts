@@ -1,0 +1,86 @@
+// The README-coverage check must be demonstrably red in both directions
+// — an undocumented server setting and a stale documented one — and
+// green on the real repository. A check that cannot be shown red is not
+// evidence.
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { afterAll, describe, expect, it } from "vitest";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — plain-JS CI script, no declaration file on purpose.
+import {
+  serverVariables,
+  documentedVariables,
+  judge,
+} from "../../scripts/check-readme-config.mjs";
+
+const dir = mkdtempSync(join(tmpdir(), "dezfil-readme-check-"));
+afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+function fixture(code: string, readme: string) {
+  const src = join(dir, `src-${Math.random().toString(36).slice(2)}`);
+  mkdirSync(src, { recursive: true });
+  writeFileSync(join(src, "config.ts"), code);
+  const readmePath = join(src, "README.md");
+  writeFileSync(readmePath, readme);
+  return judge(serverVariables(src), documentedVariables(readmePath));
+}
+
+const TABLE = (rows: string[]) =>
+  ["| Setting | Default | What |", "|---|---|---|", ...rows].join("\n");
+
+describe("README config coverage", () => {
+  it("red on a server setting the README does not document", () => {
+    const { undocumented, stale } = fixture(
+      'export const x = process.env.DEZFIL_FAKE_SETTING;',
+      TABLE(["| `DEZFIL_DATA_DIR` | `/data` | Data. |"]),
+    );
+    expect(undocumented).toEqual(["DEZFIL_FAKE_SETTING"]);
+    expect(stale).toEqual(["DEZFIL_DATA_DIR"]);
+  });
+
+  it("green when the table matches the surface; exclusions hold", () => {
+    const { undocumented, stale } = fixture(
+      [
+        'export const a = process.env.DEZFIL_DATA_DIR;',
+        'export const b = process.env.DEZFIL_TEST_TILER_LOG;', // excluded
+        'export const c = process.env.DEZFIL_BASE_URL;', // excluded
+        'export const d = process.env.NODE_ENV;', // platform, excluded
+        'export const e = process.env.DUCKDB_EXTENSION_DIR;', // plumbing
+      ].join("\n"),
+      TABLE(["| `DEZFIL_DATA_DIR` | `/data` | Data. |"]),
+    );
+    expect(undocumented).toEqual([]);
+    expect(stale).toEqual([]);
+  });
+
+  it("red on an undocumented non-DEZFIL administrator setting", () => {
+    const { undocumented } = fixture(
+      'export const k = process.env.SOME_PROVIDER_API_KEY;',
+      TABLE(["| `SOME_OTHER_ROW` | — | Not it. |"]),
+    );
+    expect(undocumented).toEqual(["SOME_PROVIDER_API_KEY"]);
+  });
+
+  it("red when a documented provider-key row is deleted", () => {
+    const { undocumented } = fixture(
+      'export const k = process.env.ANTHROPIC_API_KEY;',
+      TABLE(["| `DEZFIL_DATA_DIR` | `/data` | Data. |"]),
+    );
+    expect(undocumented).toContain("ANTHROPIC_API_KEY");
+  });
+
+  it("green on the real repository, both directions — provider keys covered", () => {
+    const root = fileURLToPath(new URL("../..", import.meta.url));
+    const server = serverVariables(join(root, "src"));
+    expect([...server]).toContain("ANTHROPIC_API_KEY");
+    expect([...server]).toContain("OPENAI_API_KEY");
+    const { undocumented, stale } = judge(
+      server,
+      documentedVariables(join(root, "README.md")),
+    );
+    expect(undocumented).toEqual([]);
+    expect(stale).toEqual([]);
+  });
+});

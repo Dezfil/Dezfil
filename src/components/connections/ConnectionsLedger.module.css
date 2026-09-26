@@ -1,0 +1,168 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.notice {
+  width: fit-content;
+  color: var(--accent-bright);
+  font-size: var(--text-label);
+}
+
+/* The ledger sits in the shared list frame: the outer card, its corners,
+   border, shadow and the column header's rule are the gallery's
+   listCard and listHead; this file keeps the ledger's columns and its
+   rows' anatomy. The doubled selectors beat the shared rules whatever
+   order the two stylesheets' chunks load in. */
+.ledger .ledgerHead,
+.rowLink {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.5fr) minmax(150px, 1fr) 150px 90px 120px 104px;
+  align-items: center;
+  gap: 0;
+}
+
+.row {
+  position: relative;
+  border-bottom: 1px solid var(--border);
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.rowLink {
+  /* The shared rows' rhythm: the reference tightens the ledger row to
+     the other lists' spacing. */
+  padding: 11px 16px 11px 12px;
+  color: var(--fg);
+  transition: background var(--dur-micro) ease;
+}
+
+.rowLink:hover,
+.rowLink:focus-visible {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.rowLink:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.nameCell,
+.databaseCell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nameCell {
+  flex-direction: row;
+  align-items: center;
+  gap: 11px;
+}
+
+.nameCell > span:last-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.nameCell b {
+  overflow: hidden;
+  /* The shared rows' name rung and tracking. */
+  font-size: var(--text-heading);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nameCell small,
+.databaseCell small {
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: var(--text-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logoTile {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  place-items: center;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--source-postgis) 14%, transparent);
+}
+
+.logoTile img {
+  width: 22px;
+  height: 22px;
+}
+
+.databaseCell {
+  padding-right: 12px;
+  font-size: var(--text-body);
+}
+
+.count,
+.when {
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+}
+
+.count {
+  font-variant-numeric: tabular-nums;
+}
+
+.actions {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transform: translateY(-50%);
+}
+
+.testButton {
+  min-height: var(--control-compact);
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--bg-panel);
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+  font-weight: 600;
+}
+
+.testButton:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.testButton:disabled {
+  opacity: 0.5;
+}
+
+@media (max-width: 1050px) {
+  .ledger.ledger {
+    overflow-x: auto;
+  }
+
+  .ledgerHead,
+  .rowLink {
+    min-width: 940px;
+  }
+
+  .actions {
+    left: 824px;
+    right: auto;
+  }
+}

@@ -1,0 +1,280 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.empty {
+  font-size: 12.5px;
+  color: var(--fg-faint);
+  padding: 4px 2px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* The reorder grip: the layer list's grab affordance, on
+   the legend's own rows. */
+.grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-faint);
+  cursor: grab;
+  flex-shrink: 0;
+  user-select: none;
+  background: none;
+  border: 0;
+  font: inherit;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  margin: 0 -4px 0 -6px;
+}
+
+.grip svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* The manual order's contextual header: present only while
+   there is an arrangement to reset. */
+.orderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.orderNote {
+  font-size: var(--text-meta);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+.orderReset {
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  border-radius: var(--radius);
+  padding: 3px 10px;
+  font: inherit;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: var(--dur-micro);
+}
+
+.orderReset:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 9px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-left: 22px;
+}
+
+.titleInput,
+.entryInput {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--fg);
+  font-size: 12px;
+  padding: 5px 8px;
+  min-width: 0;
+}
+
+.titleInput:focus,
+.entryInput:focus {
+  border-color: var(--border-strong);
+}
+
+.titleInput::placeholder,
+.entryInput::placeholder {
+  color: var(--fg-faint);
+}
+
+.entryRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* Per-channel variable name: the attribute the legend shows. */
+.attrRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.attrLabel {
+  flex-shrink: 0;
+  width: 84px;
+  font-size: 11px;
+  color: var(--fg-faint);
+  text-align: right;
+}
+
+.attrInput {
+  flex: 1;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 5px 8px;
+  min-width: 0;
+}
+
+.attrInput:focus {
+  border-color: var(--border-strong);
+}
+
+.attrInput::placeholder {
+  color: var(--fg-faint);
+}
+
+.entryInput {
+  flex: 1;
+  /* Explicit: a bare <input> takes the UA control face, not the app's
+     (PR round). */
+  font-family: var(--font-ui);
+  font-size: 11px;
+}
+
+.entrySwatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid var(--swatch-border);
+  flex-shrink: 0;
+}
+
+/* Size rows: a small→large dot pair instead of a class swatch. */
+.entryGlyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 12px;
+  flex-shrink: 0;
+}
+
+.entryGlyph i {
+  display: inline-block;
+  border-radius: 50%;
+  background: var(--fg-faint);
+}
+
+.dotSmall {
+  width: 4px;
+  height: 4px;
+}
+
+.dotLarge {
+  width: 9px;
+  height: 9px;
+}
+
+.reset {
+  align-self: flex-start;
+  font-size: 11px;
+  color: var(--fg-faint);
+  padding: 2px 0;
+}
+
+.reset:hover {
+  color: var(--fg-muted);
+}
+
+/* Geometry only — the control itself is the kit's checkbox. */
+.check {
+  /* The row is space-between with the grip and hint at its ends; the
+     checkbox grows so short names hug the grip instead of centring in
+     the gap. */
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font-size: 13px;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--fg-faint);
+}
+
+/* Legend corner picker — same control as the note's. */
+.cornerRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* The "Corner" label speaks the shared section-title voice
+   (panel.sectionLabel) — no local imitation. */
+
+
+/* Hide/show a channel's variable name. */
+.attrHide {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  /* 24px hit floor; the negative margin keeps the old 22px seat. */
+  width: 24px;
+  height: 24px;
+  margin: -1px;
+  padding: 0;
+  border-radius: 4px;
+  color: var(--accent);
+}
+
+.attrHide svg {
+  display: block;
+}
+
+.attrHide:hover {
+  background: var(--bg-hover);
+}
+
+.attrHide[data-off="true"] {
+  color: var(--fg-faint);
+}
+
+.attrInput:disabled {
+  opacity: 0.55;
+}

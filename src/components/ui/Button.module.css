@@ -1,0 +1,91 @@
+/* The application's button. One primary treatment —
+   flat accent — beside secondary, quiet and destructive, in the two
+   ratified size tiers. Everything here is on rulebook tokens. */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-shrink: 0;
+  border-radius: var(--radius);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background var(--dur-micro) ease,
+    color var(--dur-micro) ease,
+    border-color var(--dur-micro) ease;
+}
+
+/* Size tiers. Chrome is the app's 38px metric; compact is the dense
+   inline size. Both clear the 24px hit floor on their own. */
+.btn[data-size="chrome"] {
+  height: var(--control);
+  padding: 0 16px;
+  font-size: var(--text-body);
+}
+
+.btn[data-size="compact"] {
+  height: var(--control-compact);
+  padding: 0 12px;
+  font-size: var(--text-label);
+}
+
+.btn[data-variant="primary"] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.btn[data-variant="primary"]:hover:not(:disabled) {
+  background: var(--accent-bright);
+}
+
+.btn[data-variant="secondary"] {
+  color: var(--fg);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+}
+
+.btn[data-variant="secondary"]:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn[data-variant="quiet"] {
+  color: var(--fg-muted);
+  font-weight: 500;
+}
+
+.btn[data-variant="quiet"]:hover:not(:disabled) {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+.btn[data-variant="danger"] {
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+  background: var(--danger-dim);
+}
+
+.btn[data-variant="danger"]:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+}
+
+/* Disabled and busy both read without relying on colour: the label stays,
+   the cursor follows the app-wide convention, and a busy button carries a
+   visible spinner beside its text. */
+.btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.btn[aria-busy="true"] {
+  cursor: progress;
+}
+
+.btn svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}

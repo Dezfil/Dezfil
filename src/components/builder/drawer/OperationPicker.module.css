@@ -1,0 +1,159 @@
+/* The operation catalog inside the drawer: one searchable
+   list, rendered from the API's own description of the verbs. */
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.head {
+  display: flex;
+  gap: 8px;
+}
+
+.search {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-panel);
+  color: var(--fg);
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.cancel {
+  flex: none;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* The extra air above each category, nowhere else (field round): the
+   rows cluster under their heading, and the gap is what draws the border. */
+.group + .group {
+  margin-top: 8px;
+}
+
+.eyebrow {
+  /* The heading needs a step of air before its first row (field round);
+     row-to-row spacing stays the group's own 2px. */
+  margin: 0 0 4px;
+  padding-left: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  /* Dark grey, settled in the field: this was tuned in the field
+     down from 70% — which still read as black — to a tenth off the muted
+     grey. A hair above the blurbs, never level with them: the smoke once
+     measured those two identical, which is no hierarchy at all, and the
+     catalog journey holds the gap. Follows the theme in both directions,
+     since both ends of the mix are tokens. */
+  color: color-mix(in srgb, var(--fg) 10%, var(--fg-muted));
+}
+
+/* The design's row: glyph beside a two-line text block, quiet until
+   hovered — the approved prototype's list, not a stack of boxes. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+}
+
+.row:hover {
+  background: var(--bg-hover);
+}
+
+.glyph {
+  flex: none;
+  color: var(--fg-faint);
+}
+
+/* The pictogram wears its group's hue at rest (the phase ruling);
+   the row's own dress — quiet ground,'s accent on hover, which
+   follows below and wins the tie — stays as shipped. */
+.row[data-grp="Data"] .glyph { color: var(--grp-data); }
+.row[data-grp="Overlay"] .glyph { color: var(--grp-overlay); }
+.row[data-grp="Proximity"] .glyph { color: var(--grp-proximity); }
+.row[data-grp="Geometry"] .glyph { color: var(--grp-geometry); }
+.row[data-grp="Aggregation"] .glyph { color: var(--grp-aggregation); }
+.row[data-grp="Statistics"] .glyph { color: var(--grp-statistics); }
+
+.row:hover .glyph {
+  color: var(--accent);
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* An operation this instance cannot run: still listed, still readable, plainly
+   not pressable. Hiding it would leave a user searching for something that is
+   there and unconfigured. */
+.row:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.row:disabled .name,
+.row:disabled .blurb {
+  color: var(--fg-muted);
+}
+
+.row:disabled:hover {
+  background: transparent;
+}
+
+.unavailable {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--fg-muted);
+  font-style: italic;
+}
+
+.name {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.blurb {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

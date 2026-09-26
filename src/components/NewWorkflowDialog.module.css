@@ -1,0 +1,68 @@
+/* The New-workflow dialog (from the Workflows page):
+   the kit dialog with the sibling's name field. */
+
+.dialog {
+  width: min(440px, 100%);
+  flex-direction: column;
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.head strong {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.head small {
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.nameField {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 14px 18px 0;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.nameField input {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--fg);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+}
+
+/* the accent tint on focus; the global :focus-visible ring stays. */
+.nameField input:focus {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.problem {
+  padding: 8px 18px 0;
+  font-size: 11px;
+  color: var(--danger);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 18px 16px;
+}

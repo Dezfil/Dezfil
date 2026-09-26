@@ -1,0 +1,78 @@
+.wrap {
+  display: inline-flex;
+}
+
+.trigger {
+  display: grid;
+  width: var(--control-compact);
+  height: var(--control-compact);
+  place-items: center;
+  border-radius: var(--radius);
+  color: var(--fg-muted);
+}
+
+.trigger:hover,
+.wrap[data-open] > .trigger {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.menu {
+  z-index: 110;
+  display: flex;
+  min-width: 220px;
+  flex-direction: column;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  box-shadow: 0 10px 30px var(--shadow);
+}
+
+.body {
+  display: contents;
+}
+
+.menu a,
+.menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: var(--radius);
+  color: var(--fg);
+  font-size: var(--text-body);
+  text-align: left;
+}
+
+.menu a:hover,
+.menu button:hover,
+.menu a:focus-visible,
+.menu button:focus-visible {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.menu [data-danger] {
+  color: var(--danger);
+}
+
+.menu [data-danger]:hover,
+.menu [data-danger]:focus-visible {
+  background: var(--danger-dim);
+  color: var(--danger);
+}
+
+.mark {
+  display: flex;
+  flex: none;
+  color: var(--fg-faint);
+}
+
+.confirm {
+  padding: 7px 9px;
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+  line-height: 1.45;
+}

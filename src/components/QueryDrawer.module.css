@@ -1,0 +1,119 @@
+/* The query drawer — the slide-up disclosure over a pane map's
+   bottom quarter, shared by the OSM and Overture panes. */
+
+.drawer {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  height: max(25%, 190px);
+  /* Above the mini-map's drag handles (z-index 6) while open — the
+     drawer is a temporary surface; closing returns the band. */
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--bg-panel) 96%, transparent);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 14px 40px var(--shadow);
+  overflow: hidden;
+  animation: drawer-rise 0.22s var(--ease-panel);
+}
+
+@keyframes drawer-rise {
+  from {
+    transform: translateY(22px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer {
+    animation: none;
+  }
+}
+
+.drawer[data-accent] {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent),
+    0 14px 40px var(--shadow);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+}
+
+.bar b {
+  font-family: var(--font-display);
+  font-size: 12px;
+  color: var(--fg);
+}
+
+.meta {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.space {
+  flex: 1;
+}
+
+.bar button {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--accent);
+  padding: 3px 10px;
+  border-radius: 7px;
+}
+
+.bar button:hover:not(:disabled) {
+  background: var(--accent-dim);
+}
+
+.bar button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.bar button[data-primary] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.bar button[data-primary]:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 88%, var(--fg));
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+
+/* The editor host inside the body fills what the note leaves. */
+.editorHost {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 6px 8px;
+}
+
+.note {
+  font-size: 11.5px;
+  color: var(--fg-muted);
+  background: var(--warn-dim);
+  border-top: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+  padding: 7px 12px;
+}

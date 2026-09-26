@@ -1,0 +1,714 @@
+import { ApiError } from "@/lib/api/errors";
+import {
+  createCascade,
+  finishCascade,
+  getCascade,
+  isCancelled,
+  raiseCancelFence,
+  setMember,
+  type CascadeKind,
+  type CascadeRun,
+  type MemberState,
+  activeCascade,
+  deleteCascade,
+  snapshotAttempt,
+  type MemberIdentity,
+} from "@/lib/metadata/cascades";
+import { metadataDb } from "@/lib/metadata/db";
+import { publishedMessage } from "@/lib/api/error-catalogue";
+import { getJob, isTerminal, type OperationJob } from "@/lib/metadata/jobs";
+import { getRecipe, listSteps, type RecipeStep } from "@/lib/metadata/recipes";
+import { dependenciesWithin } from "./recipe-order";
+import {
+  markAndSignalRunCancellation,
+  pruneRunCancellation,
+  waitForRunCancellation,
+  type RunCancellation,
+} from "./run";
+import { startStepRun } from "./step-execution";
+import { readsByStep } from "./step-reads";
+import * as lane from "./lane";
+
+/**
+ * Running a recipe, or a step and everything that reads it.
+ *
+ * **Order is enforced by dependency, never by queue position.** A member is
+ * submitted only once every member it reads has *succeeded*. Submitting the
+ * whole set and trusting the lane's first-in-first-out arrival order would work
+ * at the default concurrency of one and interleave the moment an administrator
+ * raised it — which is why the ordering criteria run with it raised.
+ *
+ * **A step whose dependency failed is not attempted, and mints no job.** It is
+ * reported `not_run` in the cascade's own result, naming what stopped it.
+ * Members that do not depend on the failure still run: a cascade is a graph,
+ * not a queue, and one broken branch is not the end of the others.
+ *
+ * **Cancellation is read from the fence, not from a variable.** The check
+ * happens before every submission and the fence is a durable column, so a
+ * cascade cancelled while it is interrupting its running members cannot admit
+ * the next one in the gap. The fence gates admission only: the driver keeps
+ * waiting for every member it already admitted and records each as it settles,
+ * so a terminal run never holds a running member.
+ *
+ * **The blast radius stays inside this recipe** (G4). A dependent in another
+ * recipe is marked by the ordinary staleness derivation and never run — a
+ * workspace-wide cascade would reach into recipes the caller never opened.
+ */
+
+/** Drives in flight, so a caller — or a test — can await one. */
+const driving = new Map<string, Promise<void>>();
+
+export function cascadeSettled(id: string): Promise<void> {
+  return driving.get(id) ?? Promise.resolve();
+}
+
+/** Which steps each member depends on, confined to the members themselves. */
+type Graph = Map<string, string[]>;
+
+/** Cancel one newly admitted member without letting job-history pruning erase
+ * the run's own attempt first. */
+async function cancelAdmittedMember(
+  cascadeId: string,
+  stepId: string,
+  jobId: string,
+): Promise<void> {
+  const cancellation = markAndSignalRunCancellation(jobId);
+  const stopped = getJob(jobId) ?? cancellation.job;
+  snapshotAttempt(cascadeId, stepId, stopped);
+  pruneRunCancellation(cancellation);
+  await waitForRunCancellation(cancellation);
+}
+
+async function dependencyGraph(steps: RecipeStep[]): Promise<Graph> {
+  const reads = await readsByStep(steps);
+  const graph: Graph = new Map();
+  for (const step of steps) {
+    graph.set(
+      step.id,
+      dependenciesWithin(steps, reads.get(step.id) ?? []).map((d) => d.id),
+    );
+  }
+  return graph;
+}
+
+/**
+ * The members of a cascade started at one step: it, and everything that reads
+ * it however far down — reached transitively, and each reached once.
+ *
+ * A dependent reachable by two paths is one member, so it runs once. That is
+ * the diamond the spec insists a recipe's shape allows.
+ */
+function dependentsOf(graph: Graph, fromStepId: string): Set<string> {
+  const chosen = new Set([fromStepId]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const [stepId, deps] of graph) {
+      if (chosen.has(stepId)) continue;
+      if (deps.some((d) => chosen.has(d))) {
+        chosen.add(stepId);
+        grew = true;
+      }
+    }
+  }
+  return chosen;
+}
+
+export interface CascadeRequest {
+  recipeId: string;
+  /** Absent runs the whole recipe from the beginning. */
+  fromStepId?: string;
+  /** The members a confirmation named, in order: the run starts
+   * only when the plan at start is exactly that set in that order. */
+  members?: string[];
+}
+
+/**
+ * What a cascade *would* carry, without starting anything.
+ *
+ * The confirmation property is about blast radius: *run all* and a re-run with
+ * dependents are wide, and the same control on a leaf is not. A caller has to
+ * be able to ask which it is before it commits to one.
+ */
+export interface CascadePlan {
+  kind: CascadeKind;
+  members: MemberIdentity[];
+  graph: Graph;
+  /** True when this would carry other steps with it — the property the
+   * published description declares as needing confirmation. */
+  wide: boolean;
+}
+
+/** A member's identity as the plan records it: what the node
+ * is and what it is called, so the run names it after the node is gone. */
+function identityOf(step: RecipeStep): MemberIdentity {
+  const declared = step.parameters.name;
+  return {
+    stepId: step.id,
+    ordinal: step.ordinal,
+    operation: step.operation,
+    name: step.outputTableName ?? (typeof declared === "string" && declared !== "" ? declared : null),
+  };
+}
+
+export async function planCascade(request: CascadeRequest): Promise<CascadePlan> {
+  const recipe = getRecipe(request.recipeId);
+  if (!recipe) {
+    throw new ApiError("not_found", `No recipe with id "${request.recipeId}".`, 404);
+  }
+  const steps = listSteps(request.recipeId);
+  if (steps.length === 0) {
+    throw new ApiError("invalid_request", `This recipe has no steps to run.`, 400);
+  }
+  const graph = await dependencyGraph(steps);
+
+  if (!request.fromStepId) {
+    return {
+      kind: "run_all",
+      members: steps.map(identityOf),
+      graph,
+      wide: true,
+    };
+  }
+
+  const from = steps.find((s) => s.id === request.fromStepId);
+  if (!from) {
+    throw new ApiError(
+      "not_found",
+      `No step with id "${request.fromStepId}" in this recipe.`,
+      404,
+    );
+  }
+  const chosen = dependentsOf(graph, from.id);
+  return {
+    kind: "from_step",
+    members: steps.filter((s) => chosen.has(s.id)).map(identityOf),
+    graph,
+    // The same control on a leaf — a step nothing reads — carries only itself.
+    wide: chosen.size > 1,
+  };
+}
+
+/**
+ * One run at a time per workflow: the check for a run in flight and the
+ * record of the new one are one transaction, so two starts that race yield
+ * one run and one refusal naming it.
+ */
+export function recordUnderLock(recipeId: string, kind: CascadeKind, members: MemberIdentity[]): CascadeRun {
+  const db = metadataDb();
+  return db.transaction(() => {
+    const active = activeCascade(recipeId, db);
+    if (active) {
+      throw new ApiError(
+        "run_in_flight",
+        `${publishedMessage("run_in_flight")} The run in flight is ${active.id}.`,
+        409,
+      );
+    }
+    return createCascade(recipeId, kind, members, db);
+  })();
+}
+
+/** The workflow's last-edited mark: what a plan was made from. */
+function basisOf(recipeId: string): string | null {
+  return getRecipe(recipeId)?.updatedAt ?? null;
+}
+
+export async function startCascade(request: CascadeRequest): Promise<CascadeRun> {
+  // Planning waits on the parser, so the workflow may change while the
+  // server plans; the record is made only from a plan of the workflow as
+  // it stands, re-planned when the mark moved (a bounded number of times).
+  let plan: CascadePlan | null = null;
+  let cascade: CascadeRun | null = null;
+  for (let attempt = 0; attempt < 3 && cascade === null; attempt += 1) {
+    const basis = basisOf(request.recipeId);
+    plan = await planCascade(request);
+    const planned = plan.members.map((m) => m.stepId);
+    // The confirmation binds the membership and the order, nothing else: a
+    // plan that differs at start refuses whole.
+    if (request.members) {
+      const same = planned.length === request.members.length && planned.every((id, i) => id === request.members![i]);
+      if (!same) throw new ApiError("plan_changed", publishedMessage("plan_changed"), 409);
+    }
+    const members = plan.members;
+    const db = metadataDb();
+    cascade = db.transaction((): CascadeRun | null => {
+      if (basisOf(request.recipeId) !== basis) return null; // moved under the plan: plan again
+      const active = activeCascade(request.recipeId, db);
+      if (active) {
+        throw new ApiError(
+          "run_in_flight",
+          `${publishedMessage("run_in_flight")} The run in flight is ${active.id}.`,
+          409,
+        );
+      }
+      return createCascade(request.recipeId, plan!.kind, members, db);
+    })();
+  }
+  if (!cascade || !plan) throw new ApiError("plan_changed", publishedMessage("plan_changed"), 409);
+  const { kind, members, graph } = plan;
+  void kind;
+
+  const drive = driveCascade(cascade.id, members, graph).finally(() => {
+    driving.delete(cascade.id);
+  });
+  driving.set(cascade.id, drive);
+  // Deliberately not awaited: a cascade outlives the request that started it,
+  // exactly as a run does. An unhandled rejection here would kill the process,
+  // so the drive itself never throws.
+  void drive;
+  return getCascade(cascade.id)!;
+}
+
+/** What blocks a member: the nearest member it depends on that did not succeed. */
+/**
+ * A node's own run: one of the workflow's runs, with one member, under the
+ * same lock and driven by the same driver — the job is the attempt. Its
+ * lifecycle is registered before admission so a cancellation of the
+ * listable pending row waits for the same settlement. Ordinary admission
+ * refusal still removes that row and leaves no attempt; accepted
+ * cancellation retains the row and its refusal member.
+ */
+export async function startSingleRun(recipeId: string, stepId: string): Promise<CascadeRun> {
+  const recipe = getRecipe(recipeId);
+  if (!recipe) {
+    throw new ApiError("not_found", `No recipe with id "${recipeId}".`, 404);
+  }
+  const step = listSteps(recipeId).find((s) => s.id === stepId);
+  if (!step) {
+    throw new ApiError("not_found", `No step with id "${stepId}" in this recipe.`, 404);
+  }
+  const identity = identityOf(step);
+  const cascade = recordUnderLock(recipeId, "single", [identity]);
+  let resolveStarted!: (run: CascadeRun) => void;
+  let rejectStarted!: (error: unknown) => void;
+  const started = new Promise<CascadeRun>((resolve, reject) => {
+    resolveStarted = resolve;
+    rejectStarted = reject;
+  });
+
+  // Start on the next microtask so the lifecycle is registered before
+  // admission begins. A cancel that finds the durable pending member can then
+  // wait for the same work that will either admit it or record its refusal.
+  const lifecycle = Promise.resolve()
+    .then(async () => {
+      let job;
+      try {
+        job = await startStepRun(stepId, { cascadeId: cascade.id });
+      } catch (error) {
+        if (isCancelled(cascade.id)) {
+          if (!(error instanceof ApiError)) {
+            console.error(
+              `[operations] single cascade member ${stepId} failed at admission:`,
+              error,
+            );
+          }
+          setMember(cascade.id, stepId, {
+            state: "failed",
+            stoppedBy: error instanceof ApiError ? error.code : "internal",
+            stoppedReason:
+              error instanceof ApiError
+                ? error.message
+                : "An unexpected server error occurred.",
+          });
+          finishCascade(cascade.id, "cancelled", new Date().toISOString());
+        } else {
+          deleteCascade(cascade.id);
+        }
+        rejectStarted(error);
+        return;
+      }
+
+      // A cancel accepted during admission owns the durable result. The job
+      // exists now, so stop it here and finish the retained parent before the
+      // cancel waiter answers.
+      if (isCancelled(cascade.id)) {
+        await cancelAdmittedMember(cascade.id, stepId, job.id);
+        setMember(cascade.id, stepId, {
+          state: "failed",
+          jobId: job.id,
+          stoppedBy: "cancelled",
+        });
+        finishCascade(cascade.id, "cancelled", new Date().toISOString());
+        resolveStarted(getCascade(cascade.id)!);
+        return;
+      }
+
+      setMember(cascade.id, stepId, { state: "running", jobId: job.id });
+      resolveStarted(getCascade(cascade.id)!);
+      const graph: Graph = new Map([[stepId, []]]);
+      await driveCascade(cascade.id, [identity], graph, { stepId, jobId: job.id });
+    })
+    .finally(() => {
+      driving.delete(cascade.id);
+    });
+  driving.set(cascade.id, lifecycle);
+  void lifecycle;
+  return started;
+}
+
+function blockedBy(
+  graph: Graph,
+  stepId: string,
+  states: Map<string, string>,
+): string | null {
+  for (const dep of graph.get(stepId) ?? []) {
+    const state = states.get(dep);
+    if (state === undefined) continue; // not a member of this cascade
+    if (state !== "succeeded") return dep;
+  }
+  return null;
+}
+
+/** Stop admitted engine work before any failure-recording metadata writes. */
+async function drainAdmittedJobs(
+  admitted: Map<string, string>,
+): Promise<Map<string, OperationJob>> {
+  const jobs = new Map<string, OperationJob>();
+  const cancellations: { stepId: string; cancellation: RunCancellation }[] = [];
+
+  // Signal the whole admitted set before awaiting any one member. The local
+  // ledger survives the metadata read that brought the coordinator here.
+  for (const [stepId, jobId] of admitted) {
+    const job = getJob(jobId);
+    if (!job) continue;
+    if (isTerminal(job.state)) {
+      jobs.set(stepId, job);
+      continue;
+    }
+    const cancellation = markAndSignalRunCancellation(jobId);
+    jobs.set(stepId, cancellation.job);
+    cancellations.push({ stepId, cancellation });
+  }
+  for (const { cancellation } of cancellations) pruneRunCancellation(cancellation);
+  await Promise.all(
+    cancellations.map(async ({ stepId, cancellation }) => {
+      jobs.set(stepId, await waitForRunCancellation(cancellation));
+    }),
+  );
+  return jobs;
+}
+
+/** Record one drained coordinator failure from fresh durable reads. */
+function recordFailedCascade(
+  cascadeId: string,
+  members: { stepId: string }[],
+  admitted: Map<string, string>,
+  drained: Map<string, OperationJob>,
+): void {
+  // Only after the engine is drained does the durable parent move. Successful
+  // publications already wrote their member and output atomically; every other
+  // admitted job is described from its terminal record.
+  const current = getCascade(cascadeId);
+  if (!current) throw new Error(`Cascade ${cascadeId} disappeared during failure settlement.`);
+  for (const member of members) {
+    const jobId = admitted.get(member.stepId);
+    const job = (jobId ? getJob(jobId) : null) ?? drained.get(member.stepId);
+    if (!job) {
+      if (!admitted.has(member.stepId)) {
+        setMember(cascadeId, member.stepId, {
+          state: "not_run",
+          stoppedBy: "internal",
+          stoppedReason: "The run stopped because its coordinator failed.",
+        });
+      }
+      continue;
+    }
+    snapshotAttempt(cascadeId, member.stepId, job);
+    const recorded = current.members.find((candidate) => candidate.stepId === member.stepId);
+    if (recorded?.state === "succeeded" && job.state === "succeeded") continue;
+    setMember(cascadeId, member.stepId, {
+      state: "failed",
+      jobId: job.id,
+      stoppedBy: job.errorCode ?? job.state,
+      ...(job.errorMessage ? { stoppedReason: job.errorMessage } : {}),
+    });
+  }
+  finishCascade(cascadeId, "failed", new Date().toISOString());
+}
+
+/** Drain once, then make one bounded fresh-read recording re-attempt. */
+async function settleCoordinatorFailure(
+  cascadeId: string,
+  members: { stepId: string }[],
+  admitted: Map<string, string>,
+): Promise<void> {
+  const drained = await drainAdmittedJobs(admitted);
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      recordFailedCascade(cascadeId, members, admitted, drained);
+      return;
+    } catch (error) {
+      if (attempt === 1) throw error;
+      console.warn(
+        `[operations] cascade ${cascadeId} failure settlement will retry from fresh reads:`,
+        error,
+      );
+    }
+  }
+}
+
+async function driveCascade(
+  cascadeId: string,
+  members: { stepId: string; ordinal: number }[],
+  graph: Graph,
+  /** A member admitted before the drive began (a node's own run): already
+   * running, its job in flight, so the loop only waits for it. */
+  preadmitted?: { stepId: string; jobId: string },
+): Promise<void> {
+  const states = new Map<string, MemberState>(
+    members.map((m) => [m.stepId, m.stepId === preadmitted?.stepId ? "running" : "pending"]),
+  );
+  const inflight = new Map<string, Promise<string>>();
+  const admitted = new Map<string, string>();
+  if (preadmitted) {
+    admitted.set(preadmitted.stepId, preadmitted.jobId);
+    inflight.set(preadmitted.stepId, lane.jobSettled(preadmitted.jobId).then(() => preadmitted.stepId));
+  }
+
+  const settle = (
+    stepId: string,
+    state: MemberState,
+    stoppedBy?: string,
+    output?: { id: string; name: string },
+    /** The server's own sentence, where there is one. `stoppedBy` is a code, a
+     * blocking step id or "cancelled", and none of those can name *which*
+     * table is gone — which is the only thing the user can act on. */
+    stoppedReason?: string,
+  ) => {
+    states.set(stepId, state);
+    setMember(cascadeId, stepId, {
+      state,
+      ...(stoppedBy ? { stoppedBy } : {}),
+      ...(output ? { output } : {}),
+      ...(stoppedReason ? { stoppedReason } : {}),
+    });
+  };
+
+  try {
+    for (;;) {
+      // The fence, read from durable state before anything is admitted. This is
+      // the check that must survive a cancel landing while the running members
+      // are still being interrupted. It gates admission only: once it is up
+      // nothing more is admitted, but the loop goes on waiting for every member
+      // already in flight and records each as it settles below. Leaving here
+      // instead stranded a second in-flight member as `running` inside a run
+      // whose outcome was already `cancelled`, at any concurrency: one
+      // executing and one queued in the lane are both recorded running.
+      const ready = isCancelled(cascadeId)
+        ? []
+        : members.filter(
+            (m) =>
+              states.get(m.stepId) === "pending" &&
+              (graph.get(m.stepId) ?? []).every(
+                (d) => !states.has(d) || states.get(d) === "succeeded",
+              ),
+          );
+
+      for (const member of ready) {
+        if (isCancelled(cascadeId)) break;
+        try {
+          const job = await startStepRun(member.stepId, { cascadeId });
+          // Record acceptance before any later coordinator metadata read can
+          // fail, so the catch can still find and drain this job.
+          admitted.set(member.stepId, job.id);
+          // Read the fence **again**, because admission is asynchronous: a
+          // cancel arriving while this member was compiling and being admitted
+          // saw it as still pending, found no job to interrupt, and left. The
+          // job exists now, so this is the only place that can stop it — and
+          // without this the cascade admits work after it was cancelled, which
+          // is the one thing the fence exists to prevent.
+          if (isCancelled(cascadeId)) {
+            // Admitted, then stopped: a failed member whose attempt was
+            // cancelled, its job kept; not_run is for work never
+            // admitted.
+            await cancelAdmittedMember(cascadeId, member.stepId, job.id);
+            setMember(cascadeId, member.stepId, { state: "failed", jobId: job.id, stoppedBy: "cancelled" });
+            states.set(member.stepId, "failed");
+            break;
+          }
+          states.set(member.stepId, "running");
+          setMember(cascadeId, member.stepId, { state: "running", jobId: job.id });
+          inflight.set(
+            member.stepId,
+            lane.jobSettled(job.id).then(() => member.stepId),
+          );
+        } catch (error) {
+          // Refused at admission — a taken name, a vanished input. No job was
+          // minted, and this member's failure stops what depends on it.
+          //
+          // The sentence, kept — but only a coded refusal's (the boundary):
+          // an unexpected failure's raw message can carry paths and
+          // internals, and this row is durable and API-exposed, so it takes
+          // the documented internal sentence and the detail goes to the log.
+          if (!(error instanceof ApiError)) {
+            console.error(
+              `[operations] cascade member ${member.stepId} failed at admission:`,
+              error,
+            );
+          }
+          settle(
+            member.stepId,
+            "failed",
+            error instanceof ApiError ? error.code : "internal",
+            undefined,
+            error instanceof ApiError
+              ? error.message
+              : "An unexpected server error occurred.",
+          );
+        }
+      }
+
+      if (inflight.size === 0) break;
+
+      const finished = await Promise.race(inflight.values());
+      inflight.delete(finished);
+      const jobId = getCascade(cascadeId)!.members.find(
+        (m) => m.stepId === finished,
+      )!.jobId;
+      // The attempt stays with the run: copied now, while the job is
+      // still there to copy, whatever became of it.
+      const settledJob = jobId ? getJob(jobId) : null;
+      if (settledJob) snapshotAttempt(cascadeId, finished, settledJob);
+      // **The member row is the authority, not the job.** A successful
+      // publication already wrote this member's success and its output inside
+      // its own commit; a job lookup here can find nothing, because history is
+      // capped per subject and a concurrent run of the same step can evict it
+      // between settlement and this read. So the job is consulted only for a
+      // member the publication did *not* claim — which is exactly the failed,
+      // cancelled and interrupted cases, none of which wrote one.
+      const published = getCascade(cascadeId)!.members.find(
+        (m) => m.stepId === finished,
+      )!;
+      if (published.state === "succeeded") {
+        states.set(finished, "succeeded");
+        continue;
+      }
+      const job = jobId ? getJob(jobId) : null;
+      // A member whose job was cancelled reads *failed* here, and its job still
+      // says `cancelled` — the member vocabulary is completed, failed and
+      // never-started, and inventing a sixth member state to mirror a job
+      // state would put the two records in competition.
+      settle(finished, "failed", job ? (job.errorCode ?? job.state) : undefined);
+    }
+
+    // Only now, with nothing left in flight: anything still waiting was never
+    // attempted. A cancelled cascade says so; otherwise the member names what
+    // stopped it, and mints no job either way.
+    const cancelled = isCancelled(cascadeId);
+    for (const member of members) {
+      if (states.get(member.stepId) !== "pending") continue;
+      settle(
+        member.stepId,
+        "not_run",
+        cancelled ? "cancelled" : (blockedBy(graph, member.stepId, states) ?? "cancelled"),
+      );
+    }
+
+    const final = [...states.values()];
+    const outcome = cancelled
+      ? "cancelled"
+      : final.every((s) => s === "succeeded")
+        ? "completed"
+        : final.some((s) => s === "succeeded")
+          ? "partly_completed"
+          : "failed";
+    finishCascade(cascadeId, outcome, new Date().toISOString());
+  } catch (error) {
+    // The drive is detached, so a stumble here must not become an unhandled
+    // rejection. Admitted work is drained before failure recording; if the
+    // bounded recording retry is exhausted, restart owns the active record.
+    console.error(`[operations] cascade ${cascadeId} failed to drive:`, error);
+    try {
+      await settleCoordinatorFailure(cascadeId, members, admitted);
+    } catch (settlementError) {
+      // The engine drain is attempted before any terminal parent write. A
+      // metadata outage here leaves the active row for the retry/restart road,
+      // never a false terminal parent or an outward rejection.
+      console.error(
+        `[operations] cascade ${cascadeId} failed to record its drained members:`,
+        settlementError,
+      );
+    }
+  }
+}
+
+export interface CascadeView extends CascadeRun {
+  /** Every dataset this cascade produced, from its members' own jobs. */
+  outputs: { id: string; name: string }[];
+}
+
+/**
+ * A cascade as a caller reads it.
+ *
+ * The outputs come from the member rows. Deriving them from the members' jobs
+ * reads better — one fact, one home — and is wrong: job history is capped per
+ * subject, so an older cascade would report no outputs at all once its steps
+ * had been re-run enough times, while its own row sat there claiming to be a
+ * durable result.
+ */
+export function readCascade(id: string): CascadeView {
+  const cascade = getCascade(id);
+  if (!cascade) {
+    throw new ApiError("not_found", `No cascade with id "${id}".`, 404);
+  }
+  // From the member rows, not from the jobs. A job is pruned once its
+  // subject's history is deep enough, and a durable result that forgot what it
+  // produced would be a worse record than none.
+  const outputs = cascade.members
+    .filter((m) => m.state === "succeeded" && m.output !== null)
+    .map((m) => m.output!);
+  return { ...cascade, outputs };
+}
+
+/**
+ * Stop a cascade.
+ *
+ * The fence goes up **first**, so nothing further is admitted while the running
+ * members are interrupted; then each running member's job is cancelled, which
+ * stops the statement itself rather than merely its bookkeeping. Finished
+ * members stay finished and their outputs stand. The wait at the end is for
+ * the driver, which records every interrupted member as it settles and only
+ * then writes the outcome, so what this returns is the whole record.
+ */
+export async function cancelCascade(id: string): Promise<CascadeRun> {
+  const beforeFence = getCascade(id);
+  if (!beforeFence) {
+    throw new ApiError("not_found", `No cascade with id "${id}".`, 404);
+  }
+  // Terminal is not an error: cancel means *make sure this is not running*, and
+  // for one that already finished that is true (G5's reasoning, one level up).
+  if (beforeFence.outcome !== null) return beforeFence;
+
+  raiseCancelFence(id);
+  // The actionable snapshot is after the fence: every member it names was
+  // admitted before cancellation won, and no later admission can join it.
+  const cascade = getCascade(id) ?? beforeFence;
+  const cancellations: { stepId: string; cancellation: RunCancellation }[] = [];
+  for (const member of cascade.members) {
+    if (member.state !== "running" || !member.jobId) continue;
+    const job = getJob(member.jobId);
+    if (job && !isTerminal(job.state)) {
+      cancellations.push({
+        stepId: member.stepId,
+        cancellation: markAndSignalRunCancellation(member.jobId),
+      });
+    }
+  }
+  // Every mark and signal above lands before the first prune or wait. In a
+  // one-slot lane the queued member is therefore removed before the executing
+  // member can release its slot.
+  // The run owns its attempt before job history applies its independent cap.
+  // This explicit boundary is what keeps the attempt at depth one; relying on
+  // the driver's later settlement loses the job when pruning wins the race.
+  for (const { stepId, cancellation } of cancellations) {
+    const stopped = getJob(cancellation.job.id) ?? cancellation.job;
+    snapshotAttempt(id, stepId, stopped);
+  }
+  for (const { cancellation } of cancellations) pruneRunCancellation(cancellation);
+  await Promise.all(
+    cancellations.map(({ cancellation }) => waitForRunCancellation(cancellation)),
+  );
+  await cascadeSettled(id);
+  return getCascade(id) ?? cascade;
+}

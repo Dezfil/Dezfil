@@ -1,0 +1,606 @@
+/* Wheelhouse builder: floating cards over the shell — the
+   inspector on the left, the map a docked rounded card that can take the
+   whole viewport. Builder states ride on <body> attributes so the shell
+   and every fixed card can react: data-map-full (fullscreen). */
+
+/* The stage's left edge, once ----
+
+   It used to be a literal in eight places across two files, with four more
+   derived from it by hand, and a parallel set restating every one below the
+   breakpoint. Twelve places had to agree for one edge to move, and two of them
+   already did not: the timeline dock re-derived its offset at the narrow
+   breakpoint while the status pill's identical offset had no media query at
+   all, leaving the two 18 px apart in fullscreen.
+
+   That is what a duplicated constant does on its own, before anything asks it
+   to animate — and the drawer asks it to. So the edge is one property, every
+   other site is an expression over it, and a check asserts the literal appears
+   exactly once. Without that check the property is a convention, and
+   conventions lose to the next hurried diff.
+
+   The value is the inspector's geometry summed: 82 px of left offset, the
+   card, and the gutter. The recipe drawer adds its own width and gutter to it
+   through `--drawer-offset`, which it is the only writer of — zero when it is
+   shut, and zero in overlay mode however wide it is, because the overlay's
+   whole point is that the stage does not move. */
+:global(body) {
+  --stage-left-base: 438px;
+  --drawer-offset: 0px;
+  --stage-left: calc(var(--stage-left-base) + var(--drawer-offset));
+  /* The stage's right edge, once: the screen's gutter
+     plus what a docked assistant adds through `--assistant-offset`, which
+     the same coordinator writes together with the left offset, zero when
+     the pane is shut and zero while it overlays. Every site reads
+     `var(--stage-right)`; the stage-edge check holds this expression to
+     one copy as it holds the left literal. */
+  --assistant-offset: 0px;
+  --stage-right: calc(var(--gutter) + var(--assistant-offset));
+}
+
+@media (max-width: 1120px) {
+  :global(body) {
+    --stage-left-base: 402px;
+  }
+}
+
+.builder {
+  display: contents;
+}
+
+/* ---- header contributions (portaled into the shell header card) ---- */
+
+.crumbTail {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.crumbSep {
+  color: var(--fg-faint);
+  font-size: 12px;
+}
+
+.name {
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fg);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name:hover {
+  color: var(--accent);
+}
+
+/* The non-renaming tail: the name's weight and truncation
+   without the button's hover invitation. */
+.plainName {
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fg);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nameInput {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--fg);
+  padding: 3px 8px;
+  width: 220px;
+}
+
+.nameInput:focus {
+  border-color: var(--accent);
+}
+
+/* Transient only: whispers while a write is in flight, then
+   lingers ~400ms — a sub-100ms flash would be unreadable (and unobservable
+   by the journey's wait). visibility gates it so hidden means hidden. */
+/* Header actions on the shared chrome metric. */
+.chromeBtn {
+  height: var(--control);
+  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: var(--radius-control);
+  color: var(--fg-muted);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 3px 12px var(--shadow);
+  transition:
+    transform 0.12s,
+    color 0.12s;
+}
+
+.chromeBtn:hover {
+  color: var(--fg);
+  transform: translateY(-1px);
+}
+
+.chromeBtn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.chromeBtn:disabled,
+.chromeBtn:disabled:hover {
+  color: var(--fg-faint);
+  transform: none;
+  cursor: default;
+}
+
+.chromeBtn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.iconBtn {
+  width: var(--control);
+  padding: 0;
+  justify-content: center;
+}
+
+/* ---- inspector: floating card on the left ---- */
+
+.rail {
+  position: fixed;
+  top: 62px;
+  left: 82px;
+  bottom: var(--gutter);
+  width: 342px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 3px 12px var(--shadow);
+}
+
+/* Placement only — the strip itself is the kit's Tabs. */
+.tabs {
+  padding: 10px 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.railContent {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ---- the map stage: docked card ⇄ full background ---- */
+
+/* The map canvas lives OUTSIDE the card: full-viewport
+   at all times, clipped to the card's exact window. State changes animate
+   the clip — never the canvas size — so the WebGL surface never resizes
+   mid-flight and the transition cannot shake a tile; fullscreen simply
+   reveals the map already rendered around the card. The card above keeps
+   the geometry, shadow, and overlay anchors, animating the same values on
+   the same tokens, in lockstep. */
+.mapLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: var(--bg-panel);
+  clip-path: inset(62px var(--stage-right) var(--gutter) var(--stage-left) round var(--radius-card));
+  transition: clip-path var(--dur-panel) var(--ease-panel);
+}
+
+:global(body[data-map-full]) .mapLayer {
+  clip-path: inset(0px 0px 0px 0px round 0px);
+}
+
+/* The resize swap has no animation: while the width
+   crossing lands, the coordinator marks the body and the crossing frame
+   already shows the final geometry. A hand open keeps its slide. */
+:global(body[data-helper-swap]) .mapLayer,
+:global(body[data-helper-swap]) .canvasCol {
+  transition: none;
+}
+
+/* The card: a transparent frame over the map layer — it carries the drop
+   shadow and clips the overlays to the same animating rounded window. The
+   pointer belongs to the map beneath; interactive children opt back in. */
+.canvasCol {
+  position: fixed;
+  top: 62px;
+  left: var(--stage-left);
+  right: var(--stage-right);
+  bottom: var(--gutter);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  pointer-events: none;
+  box-shadow: 0 14px 40px var(--shadow);
+  transition:
+    top var(--dur-panel) var(--ease-panel),
+    left var(--dur-panel) var(--ease-panel),
+    right var(--dur-panel) var(--ease-panel),
+    bottom var(--dur-panel) var(--ease-panel),
+    border-radius var(--dur-panel) var(--ease-panel);
+}
+
+:global(body[data-map-full]) .canvasCol {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 0;
+}
+
+.canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.canvasLoading {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+}
+
+/* Where the stage stack sits on the builder's canvas. The column and the
+   button box moved to the shared component with; what stays here is
+   placement, which is the builder's own — CSS modules scope class names
+   per file, so these rules can only reach a class this file declares.
+   Top-left: the widget rail owns the stage's right edge, and the stack has
+   one stable home on every map, widgets or not. */
+.stageAnchor {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 6;
+  transition:
+    top var(--dur-panel) var(--ease-panel),
+    left var(--dur-panel) var(--ease-panel);
+}
+
+/* Fullscreen: clear the floating header and the floating inspector. */
+:global(body[data-map-full]) .stageAnchor {
+  top: 62px;
+  left: var(--stage-left);
+}
+
+/* The fullscreen button's icon swap — builder-only, like the button.
+   Scoped to the button rather than written as a bare class: the kit gives
+   every icon `display: block` through a descendant selector, so a
+   single-class rule here would lose the cascade and both glyphs would
+   show at once. */
+.fullscreenBtn .compress {
+  display: none;
+}
+
+:global(body[data-map-full]) .fullscreenBtn .expand {
+  display: none;
+}
+
+:global(body[data-map-full]) .fullscreenBtn .compress {
+  display: block;
+}
+
+/* Overlays anchored to the map viewport ---- */
+
+.overlayCorner {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition:
+    top var(--dur-panel) var(--ease-panel),
+    left var(--dur-panel) var(--ease-panel),
+    bottom var(--dur-panel) var(--ease-panel);
+}
+
+.overlayCorner > * {
+  pointer-events: auto;
+}
+
+/* Top-left clears the stage stack (the stack lives left now). */
+.overlayCorner[data-corner="top-left"] {
+  top: 16px;
+  left: 62px;
+  align-items: flex-start;
+}
+
+.overlayCorner[data-corner="top-right"] {
+  top: 16px;
+  right: 16px;
+  align-items: flex-end;
+}
+
+.overlayCorner[data-corner="bottom-left"] {
+  bottom: 16px;
+  left: 16px;
+  align-items: flex-start;
+}
+
+/* Bottom-right sits above the basemap credit line. */
+.overlayCorner[data-corner="bottom-right"] {
+  bottom: 42px;
+  right: 16px;
+  align-items: flex-end;
+}
+
+/* Fullscreen: top overlays slide clear of the floating header, left
+   overlays clear of the floating inspector; with the dock open, bottom
+   overlays glide above it. */
+:global(body[data-map-full]) .overlayCorner[data-corner="top-left"],
+:global(body[data-map-full]) .overlayCorner[data-corner="top-right"] {
+  top: 62px;
+}
+
+:global(body[data-map-full]) .overlayCorner[data-corner="bottom-left"] {
+  left: var(--stage-left);
+}
+
+/* Fullscreen top-left additionally clears the relocated stage stack. */
+:global(body[data-map-full]) .overlayCorner[data-corner="top-left"] {
+  left: calc(var(--stage-left) + 46px);
+}
+
+/* The docked timeline claims the bottom-center band; a bottom corner
+   overlay glides above it — but only while their horizontal extents
+   would actually collide. `data-lift` is set from a live measurement
+   (use-lift-clearance), so on a wide canvas the corner stays grounded
+   beside the bar (a field round). The offset clears the bar's fixed
+   height (112px measured) over its resting bottom. */
+.timelineDock ~ .overlayCorner[data-corner="bottom-left"][data-lift],
+.timelineDock ~ .overlayCorner[data-corner="bottom-right"][data-lift] {
+  bottom: 182px;
+  /* Entering the lift is escape, not choreography: a collision detected
+     mid-resize has already begun, so the corner gets out fast (review
+     round two); the glide back down keeps the panel pace. */
+  transition:
+    top var(--dur-panel) var(--ease-panel),
+    left var(--dur-panel) var(--ease-panel),
+    bottom var(--dur-micro) var(--ease-panel);
+}
+
+/* With the status pill hidden, the band it held is free: the dock rests
+   where the pill sat and the lift shortens by the same 44px. */
+:global(body[data-status-pill-hidden]) .timelineDock {
+  bottom: 16px;
+}
+
+:global(body[data-status-pill-hidden])
+  .timelineDock
+  ~ .overlayCorner[data-corner="bottom-left"][data-lift] {
+  bottom: 138px;
+}
+
+/* Bottom-right keeps its 30px stagger over the credit, which lifts to
+   the 138px band with it when the lowered bar would cover it. */
+:global(body[data-status-pill-hidden])
+  .timelineDock
+  ~ .overlayCorner[data-corner="bottom-right"][data-lift] {
+  bottom: 168px;
+}
+
+:global(body[data-status-pill-hidden]) .timelineDock ~ .mapCredit[data-lift] {
+  bottom: 138px;
+  transition: bottom var(--dur-micro) var(--ease-panel);
+}
+
+/* The save status chip's corner: the
+   top-left overlay line, 46 px in from the stack as the corner overlays
+   are, on its own layer above them and below the stack, so a docked
+   top-left legend never takes the line a failure has to be read on. It
+   follows the stack into fullscreen for the same reason the stack moves
+   there: to clear the floating header and inspector. */
+.statusCorner {
+  top: 16px;
+  left: 62px;
+  /* The band the chip may use: from the stack's line to the stage's own
+     inset, so a long message wraps inside the map rather than running
+     off it. The corner passes the pointer
+     through; only the chip takes it. */
+  right: 16px;
+  transition:
+    top var(--dur-panel) var(--ease-panel),
+    left var(--dur-panel) var(--ease-panel);
+}
+
+:global(body[data-map-full]) .statusCorner {
+  top: 62px;
+  left: calc(var(--stage-left) + 46px);
+}
+
+/* The basemap credit: the map's lower-right corner, under the
+   bottom-right overlay stack. */
+.mapCredit {
+  position: absolute;
+  right: 16px;
+  bottom: 12px;
+  z-index: 4;
+  font-size: 11px;
+  color: var(--fg-muted);
+  opacity: 0.8;
+  pointer-events: auto;
+  transition: bottom var(--dur-panel) var(--ease-panel);
+}
+
+.previewBadge {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  z-index: 6;
+  transform: translateX(-50%);
+  pointer-events: none;
+  padding: 5px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-raised) 90%, transparent);
+  box-shadow: 0 4px 14px var(--shadow);
+  color: var(--fg-muted);
+  /* Status prose: the UI face since 0075. */
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: top var(--dur-panel) var(--ease-panel);
+}
+
+:global(body[data-map-full]) .previewBadge {
+  top: 62px;
+}
+
+/* The docked timeline: bottom-center, above the status pill.
+   In fullscreen, bottom-center overlays center on the free area right of
+   the floating inspector — the docked stage's center, so nothing jumps. */
+.timelineDock {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 60px;
+  z-index: 5;
+  pointer-events: none;
+  transition:
+    left var(--dur-panel) var(--ease-panel),
+    bottom var(--dur-panel) var(--ease-panel);
+}
+
+.timelineDock > * {
+  pointer-events: auto;
+}
+
+:global(body[data-map-full]) .timelineDock {
+  /* Centred on the free area right of the edge: half of what the edge and
+     the right gutter take between them. */
+  left: calc(50% + (var(--stage-left) - var(--gutter)) / 2);
+}
+
+/* ---- errors / fallbacks ---- */
+
+/* Failure presentation is the kit's ErrorNote: the UI face, a
+   human sentence, a real dismiss affordance. */
+
+/* Drop-zone slots while dragging an overlay: four fixed corner
+   targets — dropping anywhere in a quadrant lands in its corner. */
+.dropZones {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  pointer-events: none;
+}
+
+.dropZone {
+  position: absolute;
+  width: 132px;
+  height: 88px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  opacity: 0.55;
+  transition:
+    opacity var(--dur-micro) ease,
+    border-color var(--dur-micro) ease,
+    background var(--dur-micro) ease;
+}
+
+.dropZone[data-corner="top-left"] {
+  top: 12px;
+  left: 12px;
+}
+
+.dropZone[data-corner="top-right"] {
+  top: 12px;
+  right: 12px;
+}
+
+.dropZone[data-corner="bottom-left"] {
+  bottom: 12px;
+  left: 12px;
+}
+
+.dropZone[data-corner="bottom-right"] {
+  bottom: 12px;
+  right: 12px;
+}
+
+.dropZone[data-active="true"] {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  opacity: 1;
+}
+
+/* Entrance choreography: the cards settle in, staggered. The
+   map layer shares the card's timing so the two move as one. */
+@media (prefers-reduced-motion: no-preference) {
+  .rail {
+    animation: settle-in 0.55s var(--ease-entrance) 0.07s both;
+  }
+
+  .canvasCol,
+  .mapLayer {
+    animation: settle-in 0.55s var(--ease-entrance) 0.14s both;
+  }
+}
+
+/* Chrome labels go before the row can overflow, not after.
+
+   They used to hide at 1120 px, which is below every width the overflow was
+   measured at: at 1280 with a published map the row ran 133 px past the
+   viewport while the labels were still showing. Hiding them at 1280 gives the
+   row back roughly the width the labels occupied, and the compressible header
+   card covers the rest. */
+@media (max-width: 1280px) {
+  .chromeBtn span {
+    display: none;
+  }
+}
+
+@media (max-width: 1120px) {
+  .rail {
+    width: 306px;
+  }
+
+  /* Nothing here restates the edge any more: `--stage-left-base` changed once
+     above, and every site is an expression over it. The top-left overlay is
+     the one exception, because below the breakpoint it does *not* clear the
+     stage stack — a difference in behaviour rather than in arithmetic. */
+  :global(body[data-map-full]) .overlayCorner[data-corner="top-left"] {
+    left: var(--stage-left);
+  }
+
+}
+
+
+/* Local copy of the settle-in keyframes — CSS modules scope animation
+   names, so each module defines its own. */
+@keyframes settle-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

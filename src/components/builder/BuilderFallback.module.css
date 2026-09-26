@@ -1,0 +1,23 @@
+/* The builder's stand-in states, moved out of MapBuilder's
+   module with the component. */
+
+.fatal {
+  padding: 90px 24px 40px 110px;
+  color: var(--fg-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.back {
+  font-size: 11.5px;
+  letter-spacing: 0.05em;
+  color: var(--fg-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.back svg {
+  transform: rotate(90deg);
+}

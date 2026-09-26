@@ -1,0 +1,68 @@
+/* The transient search marker: accent pin, name chip with
+   the dismiss control. The drop animation matches the house entrance
+   ease. */
+
+.marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: drop var(--dur-entrance) var(--ease-entrance);
+}
+
+.pin {
+  width: 20px;
+  height: 26px;
+  color: var(--accent);
+  filter: drop-shadow(0 2px 5px var(--shadow));
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+  padding: 3px 4px 3px 9px;
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 3px 12px var(--shadow);
+  white-space: nowrap;
+}
+
+.label {
+  font-size: var(--text-label);
+  font-weight: 500;
+  color: var(--fg);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-heading);
+  line-height: 1;
+  color: var(--fg-faint);
+  cursor: pointer;
+}
+
+.close:hover {
+  color: var(--danger);
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+@keyframes drop {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

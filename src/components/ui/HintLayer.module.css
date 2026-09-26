@@ -1,0 +1,37 @@
+/* The one tooltip's bubble: the treatment the layer-card
+   hints established, floated free of any clipping host. */
+
+.bubble {
+  position: fixed;
+  /* Above every surface a hint can serve — dialogs included (their
+     scrim sits at 120; the smoke caught the bubble painting underneath
+     it). A tooltip that loses a stacking fight is invisible exactly
+     where a disabled reason needs it. */
+  z-index: 200;
+  max-width: 340px;
+  background: var(--bg-hover);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+  padding: 5px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 14px var(--shadow);
+  pointer-events: none;
+  animation: hint-in var(--dur-micro) ease;
+}
+
+.bubble[data-above] {
+  transform: translateY(-100%);
+}
+
+@keyframes hint-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

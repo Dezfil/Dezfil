@@ -1,0 +1,19 @@
+/* The Tools door. The word hides where the header's width budget
+   demands it — the same discipline the control it replaced learned from the
+   publish-popover pixel suite — and the accessible name carries it always. */
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trigger[aria-pressed="true"] {
+  color: var(--accent);
+}
+
+@media (max-width: 1439px) {
+  .word {
+    display: none;
+  }
+}

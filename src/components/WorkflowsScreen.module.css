@@ -1,0 +1,29 @@
+/* The workflows list: the Maps gallery's screen shape — heading
+   and toolbar stay put, the card area scrolls. */
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  height: var(--screen-height);
+  min-height: 460px;
+}
+
+/* List rows are buttons; the quick actions live beside them (buttons can't
+   nest), floated over the row's right edge — the Maps screen's arrangement. */
+.listRowWrap {
+  position: relative;
+}
+
+.listRowActs {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.listRowWrap:hover .listRowActs > span,
+.listRowWrap:focus-within .listRowActs > span {
+  opacity: 1;
+}
+
+/* The New workflow dialog: the kit dialog, the add-to-map dialog's field. */

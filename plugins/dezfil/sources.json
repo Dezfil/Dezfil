@@ -1,0 +1,48 @@
+[
+  {
+    "repository": "https://github.com/dekart-xyz/geosql",
+    "revision": "d2809ff65ca05b68fa423b61ad6e9f98f6d62cc6",
+    "path": "skills/geosql/SKILL.md",
+    "license": "MIT",
+    "destinations": [
+      "skills/dezfil/analysis.md",
+      "skills/dezfil/references/cartography.md",
+      "skills/dezfil/references/duckdb-spatial.md"
+    ],
+    "sha256": "e2a998f65e8e8c62d24bd7a4ff44bb298fa54c0ce2415a2b34450c787e738169"
+  },
+  {
+    "repository": "https://github.com/dekart-xyz/geosql",
+    "revision": "d2809ff65ca05b68fa423b61ad6e9f98f6d62cc6",
+    "path": "skills/geosql/references/map-styling.md",
+    "license": "MIT",
+    "destinations": [
+      "skills/dezfil/analysis.md",
+      "skills/dezfil/references/cartography.md"
+    ],
+    "sha256": "d8cf1b522e640936795743a22f5a05b0d5b8a724fcbb5e51e120f5e46e79a365"
+  },
+  {
+    "repository": "https://github.com/dekart-xyz/geosql",
+    "revision": "d2809ff65ca05b68fa423b61ad6e9f98f6d62cc6",
+    "path": "skills/geosql/references/duckdb.md",
+    "license": "MIT",
+    "destinations": [
+      "skills/dezfil/references/duckdb-spatial.md"
+    ],
+    "sha256": "ca5584e50d3e9f13ba8f5c954f46a15509c90f6430ddd8a06066b9e5ad571767"
+  },
+  {
+    "repository": "https://github.com/dekart-xyz/geosql",
+    "revision": "d2809ff65ca05b68fa423b61ad6e9f98f6d62cc6",
+    "path": "LICENSE",
+    "license": "MIT",
+    "destinations": [
+      "LICENSE-GeoSQL",
+      "skills/dezfil/analysis.md",
+      "skills/dezfil/references/cartography.md",
+      "skills/dezfil/references/duckdb-spatial.md"
+    ],
+    "sha256": "61f6e0beb473deda577742edcb05948fe955327d2e7cc82e46935ada3512a651"
+  }
+]

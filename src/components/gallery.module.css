@@ -1,0 +1,1030 @@
+/* Shared gallery language for the Maps and Data screens:
+   toolbar (search / filter chips / sort / view toggle), preview cards with
+   a fading strip and overlay reading, list views, ghost tile. Visual
+   reference: the gallery redesign's final page. */
+
+/* The list pages' one heading: a
+   title, a primary action, the row aligned to the top so the button
+   sits level with the title; a second line only when it says something
+   the title cannot. A count pill once stood beside the title; a field
+   round took it off, so no count rule lives here.
+   Visual reference: row C, shape S3 with the plus, and the Put
+   together section of
+   the consistent-pages reference ---- */
+
+.heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.heading > div {
+  min-width: 0;
+}
+
+.heading h1 {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: var(--text-title);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.subLine {
+  margin-top: 4px;
+  color: var(--fg-muted);
+  font-size: var(--text-body);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The one primary rule: the control corners, no shadow, the row's own
+   face, the plus before the label. */
+.primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--control);
+  padding: 0 18px;
+  border-radius: var(--radius-control);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--text-body);
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+  flex-shrink: 0;
+  transition: background var(--dur-micro) ease;
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--accent-bright);
+  color: var(--on-accent);
+}
+
+.primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* ---- toolbar ---- */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--control);
+  padding: 0 12px;
+  border-radius: var(--radius-control);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  min-width: 220px;
+  flex: 0 1 300px;
+  color: var(--fg-faint);
+  transition: border-color var(--dur-micro) ease;
+}
+
+.search:focus-within {
+  border-color: var(--accent);
+}
+
+.search svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  font-size: var(--text-body);
+  color: var(--fg);
+}
+
+.search input::placeholder {
+  color: var(--fg-faint);
+}
+
+.search kbd {
+  /* Explicit: the UA stylesheet keeps <kbd> monospace, so inheriting
+     is not enough to demote it (PR round). */
+  font-family: var(--font-ui);
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+  background: var(--bg-raised);
+}
+
+.chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filterChip {
+  height: var(--control-compact);
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+  font-weight: 500;
+  transition: var(--dur-micro);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filterChip:hover {
+  border-color: var(--border-strong);
+  color: var(--fg);
+}
+
+.filterChip[data-on] {
+  background: var(--accent-dim);
+  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+  color: var(--accent);
+}
+
+.filterChip i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  background: var(--dot, var(--fg-faint));
+}
+
+/* The toolbar's tail: Sort and the view toggle are one
+   flex member carrying the auto margin, so when the row runs out of
+   width they drop to the next line together, at the right — never the
+   toggle alone at the left. The gap matches the toolbar's, so at widths
+   where nothing wraps the positions are the ones they were. */
+.tail {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+.sort {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  /* A control label reads in full ink. */
+  color: var(--fg);
+  font-size: var(--text-label);
+}
+
+.sort select {
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--fg-muted);
+  /* The control corners, like the search box and the view toggle beside
+     it (the round's small print). */
+  border-radius: var(--radius-control);
+  height: var(--control);
+  padding: 0 8px;
+  font-size: var(--text-label);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.viewToggle {
+  display: inline-flex;
+  height: var(--control);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--bg-panel);
+  padding: 3px;
+  gap: 2px;
+}
+
+.viewToggle button {
+  width: 34px;
+  border-radius: var(--radius);
+  display: grid;
+  place-items: center;
+  color: var(--fg-muted);
+  transition: var(--dur-micro);
+}
+
+.viewToggle button:hover {
+  color: var(--fg);
+}
+
+.viewToggle button[data-on] {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.viewToggle svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Viewport-fit gallery screens: the heading and toolbar stay put — only
+   this region scrolls. The slack padding keeps card hover shadows and the
+   rise-in animation unclipped at the edges; bottom padding lives inside so
+   the last row can breathe. */
+.scroller {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 4px 24px;
+  margin: -4px -4px 0;
+}
+
+/* ---- card grid ---- */
+
+/* Cards keep the final design's constant widths — how many fit per row
+   follows the viewport; leftover space stays on the right (04-final).
+   Both templates live in this one file: the map/data widths must beat
+   each other deterministically, and CSS-module chunk order across files
+   is not guaranteed. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 346px);
+  gap: 16px;
+  justify-content: start;
+}
+
+.dataGrid {
+  composes: grid;
+  grid-template-columns: repeat(auto-fill, 273px);
+  gap: 14px;
+}
+
+/* Below one card's width, a full-width column beats horizontal overflow. */
+@media (max-width: 700px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.card {
+  position: relative;
+  border-radius: var(--radius-card);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 3px 12px var(--shadow);
+  transition:
+    transform var(--dur-panel) var(--ease-panel),
+    box-shadow var(--dur-micro) ease,
+    border-color var(--dur-micro) ease;
+  overflow: hidden;
+  animation: rise-in var(--dur-entrance) var(--ease-entrance) backwards;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 40px var(--shadow);
+  border-color: var(--border-strong);
+}
+
+.cardLink {
+  display: block;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.cardLink:hover {
+  color: inherit;
+}
+
+/* Preview strip: placeholder art behind, snapshot image above, fade over */
+.strip {
+  position: relative;
+  background: var(--bg-raised);
+  overflow: hidden;
+}
+
+.strip > svg,
+.strip > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.strip::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 34%,
+    color-mix(in srgb, var(--bg-panel) 88%, transparent)
+  );
+}
+
+.overlay {
+  position: absolute;
+  left: 16px;
+  bottom: 9px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.overlay b {
+  font-size: var(--text-heading);
+  font-weight: 600;
+}
+
+.overlay .cap {
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+}
+
+/* Data-card count (M2 study): the row number reads in the display face,
+   large and baseline-aligned with its caption. */
+.overlayData {
+  composes: overlay;
+  left: 15px;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.overlayData b {
+  /* The UI face at the title rung — display stays reserved for hero
+     moments, and a card is not a table (a field round). */
+  font-family: var(--font-ui);
+  font-size: var(--text-title);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.layerDots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.layerDots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 0 1px var(--swatch-border);
+}
+
+.cardBody {
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.cardTop {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.cardName {
+  font-size: var(--text-heading);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.cardWhen {
+  margin-left: auto;
+  /* A card timestamp reads as quiet prose, not as a value: the UI face,
+     faint (a field ruling, reading — it keeps the ramp's 11px floor). */
+  color: var(--fg-faint);
+  font-size: var(--text-meta);
+  white-space: nowrap;
+  transition: opacity var(--dur-micro);
+}
+
+.card:hover .cardWhen,
+.card:focus-within .cardWhen {
+  opacity: 0;
+}
+
+.cardChips {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+/* ---- chips ---- */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--text-meta);
+  font-weight: 500;
+  border-radius: var(--radius-pill);
+  padding: 2.5px 9px;
+  white-space: nowrap;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+}
+
+.chip i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dot, var(--fg-faint));
+}
+
+.chip[data-live] {
+  background: var(--accent-dim);
+  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+  color: var(--accent);
+}
+
+.chip[data-live] i {
+  background: var(--accent);
+}
+
+/* The Data table's Project cell: the same passive fact in
+   column form. */
+.projCell {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-muted);
+  font-size: var(--text-meta);
+}
+
+.projCell[data-none] {
+  color: var(--fg-faint);
+  font-style: italic;
+}
+
+/* The passive project fact on a card: text, not
+   a control. */
+.projTag {
+  color: var(--fg-muted);
+  font-size: var(--text-meta);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projTag[data-none] {
+  color: var(--fg-faint);
+  font-style: italic;
+}
+
+.chipGeo {
+  composes: chip;
+  background: var(--accent-dim);
+  border-color: transparent;
+  color: var(--accent);
+  padding-left: 7px;
+}
+
+.chipGeo svg {
+  width: 12px;
+  height: 12px;
+}
+
+.chipWarn {
+  composes: chip;
+  background: var(--warn-dim);
+  border-color: transparent;
+  color: var(--warn);
+}
+
+/* ---- hover quick actions: one glass pill ---- */
+
+.acts {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  z-index: 3;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 3px 12px var(--shadow);
+  opacity: 0;
+  transform: translateY(-3px);
+  transition: var(--dur-micro);
+}
+
+.card:hover .acts,
+.card:focus-within .acts,
+.acts:has([data-open]) {
+  opacity: 1;
+  transform: none;
+}
+
+.acts button {
+  min-width: 27px;
+  height: 27px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius);
+  color: var(--fg-muted);
+  transition: var(--dur-micro);
+  font-size: var(--text-meta);
+  font-weight: 600;
+}
+
+.acts button:hover {
+  color: var(--fg);
+  background: var(--bg-raised);
+}
+
+.acts button.deleteAct:hover,
+.acts button[data-confirm] {
+  color: var(--danger);
+  background: var(--danger-dim);
+}
+
+.acts svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ---- ghost tile ---- */
+
+.ghost {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-card);
+  color: var(--fg-faint);
+  background: transparent;
+  transition: var(--dur-micro);
+  min-height: 200px;
+  animation: rise-in var(--dur-entrance) var(--ease-entrance) backwards;
+}
+
+.ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+/* The role split gave the label and description their own inks; hover
+   must still sweep the whole tile to accent. */
+.ghost:hover b,
+.ghost:hover small {
+  color: inherit;
+}
+
+
+.ghost .plus {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--bg-panel);
+  box-shadow: 0 3px 12px var(--shadow);
+}
+
+/* The tile's mark is a drawn icon at the illustrative tier. */
+.ghost .plus svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.5;
+}
+
+/* The data grid's ghost: the same anatomy at the data cards'
+   scale — the grid's shorter cells must not stretch to the Maps
+   ghost's floor. */
+.ghostData {
+  min-height: 0;
+  padding: 18px 12px;
+  gap: 8px;
+}
+
+.ghostData .plus {
+  width: 36px;
+  height: 36px;
+}
+
+.ghost b {
+  font-family: var(--font-display);
+  font-size: var(--text-heading);
+  font-weight: 600;
+  /* An action label reads in full ink. */
+  color: var(--fg);
+}
+
+.ghost small {
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+  opacity: 0.8;
+}
+
+/* ---- list views ---- */
+
+.listCard {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--bg-panel);
+  box-shadow: 0 3px 12px var(--shadow);
+  animation: rise-in var(--dur-entrance) var(--ease-entrance);
+}
+
+.listHead {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 9px 16px 9px 12px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-meta);
+  font-weight: 500;
+  color: var(--fg-muted);
+}
+
+.listRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 11px 16px 11px 12px;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--dur-micro);
+  width: 100%;
+  text-align: left;
+  color: inherit;
+}
+
+.listRow:last-child {
+  border-bottom: 0;
+}
+
+.listRow:hover {
+  background: var(--bg-raised);
+  color: inherit;
+}
+
+.colThumb {
+  flex: none;
+  width: 96px;
+}
+
+.rowThumb {
+  composes: strip;
+  width: 96px;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.rowThumb::after {
+  content: none;
+}
+
+.colName {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.rowName {
+  display: block;
+  font-size: var(--text-heading);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.colMeta {
+  flex: none;
+  width: 122px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+}
+
+.colState {
+  flex: none;
+  width: 112px;
+}
+
+.colWhen {
+  flex: none;
+  width: 88px;
+  text-align: right;
+  color: var(--fg-muted);
+  font-size: var(--text-meta);
+  white-space: nowrap;
+}
+
+.colActs {
+  flex: none;
+  width: 132px;
+}
+
+.rowActs {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  opacity: 0;
+  transition: opacity var(--dur-micro);
+}
+
+.listRow:hover .rowActs,
+.listRow:focus-within .rowActs,
+.dataTable tbody tr:hover .rowActs,
+.dataTable tbody tr:focus-within .rowActs,
+.rowActs:has([data-open]) {
+  opacity: 1;
+}
+
+.rowActs button {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius);
+  color: var(--fg-muted);
+  transition: var(--dur-micro);
+  font-size: var(--text-meta);
+  font-weight: 600;
+}
+
+.rowActs button:hover {
+  color: var(--fg);
+  background: var(--accent-dim);
+}
+
+.rowActs button.deleteAct:hover,
+.rowActs button[data-confirm] {
+  color: var(--danger);
+  background: var(--danger-dim);
+}
+
+.rowActs svg {
+  width: 13.5px;
+  height: 13.5px;
+}
+
+/* ---- data table (list view of the Data screen) ---- */
+
+.tableScroll {
+  overflow-x: auto;
+}
+
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.dataTable th {
+  text-align: left;
+  font-size: var(--text-meta);
+  font-weight: 500;
+  color: var(--fg-muted);
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+  white-space: nowrap;
+}
+
+.dataTable td {
+  padding: 4px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-label);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.dataTable tbody tr {
+  transition: background var(--dur-micro);
+  cursor: pointer;
+}
+
+.dataTable tbody tr:hover {
+  background: var(--bg-raised);
+}
+
+.dataTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.numCell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  /* Values: full ink, mono. */
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--fg);
+}
+
+/* The header shares the cell class for alignment only — a column label
+   is UI-face, muted (the smoke caught the shared class dragging headers
+   into mono). */
+.dataTable th.numCell {
+  font-family: var(--font-ui);
+  color: var(--fg-muted);
+}
+
+.geomCell {
+  /* A data value: mono at the floor, full ink. */
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  letter-spacing: 0.06em;
+  color: var(--fg);
+}
+
+.geomCell .warnNote {
+  color: var(--warn);
+  /* The explanation is prose, not the value — UI face. */
+  font-family: var(--font-ui);
+  letter-spacing: normal;
+}
+
+.manifest {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 15px;
+  background: var(--bg-raised);
+  border-top: 1px solid var(--border);
+  font-size: var(--text-label);
+  /* Prose reads muted; its figures full ink in mono. */
+  color: var(--fg-muted);
+  flex-wrap: wrap;
+}
+
+.manifest b {
+  color: var(--fg);
+  font-weight: 500;
+}
+
+.manifestFlag {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--warn);
+}
+
+.manifestFlag i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+
+/* ---- shared odds and ends ---- */
+
+.empty {
+  text-align: center;
+  color: var(--fg-muted);
+  font-size: var(--text-body);
+  padding: 24px 0;
+}
+
+/* Resolved-empty outside the grid: the same actionable tile, centered,
+ * sized like the grid cell it usually occupies. */
+.emptyAction {
+  display: grid;
+  justify-content: center;
+  padding: 24px 0;
+}
+
+.emptyAction .ghost {
+  width: 280px;
+  min-height: 200px;
+}
+
+
+/* Transient import notice — the accent-toned sibling
+   of .error, following the workspace notice pattern. */
+.notice {
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  background: var(--accent-dim);
+  color: var(--fg);
+  font-size: var(--text-body);
+}
+
+/* Inline value fragments inside prose: counts, sizes and times read the
+   UI face with tabular figures (contextual rule, narrowing for chrome
+   counts — dataset cells keep mono). */
+.num {
+  font-variant-numeric: tabular-nums;
+  /* A value reads in full ink even inside muted prose. */
+  color: var(--fg);
+}
+
+.chipCount {
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+
+/* The active chip's accent ink carries its count too. */
+.filterChip[data-on] .chipCount {
+  color: inherit;
+}
+
+/* Local rise-in: CSS modules scope animation names. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* A chip that is a door (04): the assumed-CRS chip on the
+   dataset page carries the caret the chips use for a door, and its drawn
+   tooltip shows on hover and on focus. ---- */
+
+.chipDoorWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.chipDoor {
+  cursor: pointer;
+  font: inherit;
+  padding-right: 7px;
+}
+
+.chipDoor svg {
+  width: 10px;
+  height: 10px;
+  margin-left: -1px;
+  transform: rotate(90deg);
+}
+
+.chipDoor:hover {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 40%, transparent);
+}
+
+.tip {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 7px);
+  z-index: 6;
+  width: max-content;
+  max-width: 260px;
+  padding: 8px 11px;
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 6px 20px var(--shadow);
+  color: var(--fg);
+  font-size: var(--text-label);
+  font-weight: 400;
+  white-space: normal;
+  line-height: 1.45;
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--dur-micro) ease;
+}
+
+.tip small {
+  display: block;
+  color: var(--fg-muted);
+  margin-top: 3px;
+  font-size: var(--text-label);
+}
+
+.chipDoorWrap:hover .tip,
+.chipDoorWrap:focus-within .tip {
+  opacity: 1;
+  visibility: visible;
+}

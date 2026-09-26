@@ -1,0 +1,378 @@
+import { createHash, randomUUID } from "node:crypto";
+import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
+import { readdir, rename, rm } from "node:fs/promises";
+import path from "node:path";
+import { limits } from "@/lib/limits";
+import { filteredSql } from "@/lib/query/compile";
+import type { LayerFilter } from "@/lib/viz";
+import {
+  getTileRecord,
+  upsertTileRecord,
+  deleteTileRecord,
+} from "@/lib/metadata/tiles";
+import { getLayer } from "@/lib/metadata/maps";
+import { referencedTableArtifacts } from "@/lib/table-deps";
+import { exportGeoJsonSeq } from "./export";
+import { tippecanoePath } from "./tiler";
+import {
+  ensureTileDirs,
+  tileArchivePath,
+  tileScratchDir,
+  tilesDir,
+} from "./paths";
+
+/**
+ * Tile build orchestration. A build streams the layer's effective result to
+ * the scratch directory, runs tippecanoe over it, and atomically renames the
+ * finished archive into place — the previous archive keeps serving until
+ * that instant (decision 5). Builds are background work: one at a time
+ * process-wide so a big build cannot starve queries, one per layer with
+ * latest-wins replacement so a burst of edits converges on the newest
+ * effective query. The fingerprint covers the effective query plus the
+ * referenced artifacts' identities — styling can never look like a data
+ * change, and a data change can never fail to look like one.
+ */
+
+export interface TileBuildInput {
+  layerId: string;
+  sql: string;
+  filters: LayerFilter[];
+  geometryColumn: string;
+  /** Non-geometry columns the archive carries — the effective published
+   * field set, resolved against the result. One shared archive serves
+   * builder and published routes, built projected. */
+  columns: string[];
+  /** Canonical projection signature — folded into the
+   * fingerprint so a config edit that changes the effective set rebuilds,
+   * and one a published reader recomputes to authorize serving. */
+  projection: string;
+}
+
+/** What a render response reports about a layer's tiles. */
+export interface TileStatus {
+  state: "building" | "ready" | "failed";
+  /** Present when ready. */
+  featureCount?: number;
+  builtAt?: string;
+  /** Present when failed. */
+  error?: string;
+}
+
+/** The fingerprint covers the effective query AND the identities of the
+ * artifacts behind the tables it references: a refresh mints a new
+ * artifact file, so pre-refresh tiles can never read as fresh — even
+ * when the prompt invalidation was lost to a transient failure, the next
+ * render re-decides freshness from the data itself. It also covers the
+ * projection signature, so a config edit that changes the effective
+ * published field set can never fail to look like a change. Pure styling
+ * (colors, bounds, opacity) still never looks like one: the signature
+ * carries attribute names, not paint. */
+export function tileFingerprint(
+  sql: string,
+  filters: LayerFilter[],
+  projection: string,
+): string {
+  return createHash("sha256")
+    .update(filteredSql(sql, filters))
+    .update("\u0000")
+    .update(referencedTableArtifacts(sql).join(","))
+    .update("\u0000")
+    .update(projection)
+    .digest("hex")
+    .slice(0, 16);
+}
+
+// ---- the queue ----
+
+interface BuildAttempt {
+  id: string;
+  input: TileBuildInput;
+  fingerprint: string;
+  generation: number;
+}
+
+/** The layer's scheduled or running build. */
+const active = new Map<string, BuildAttempt>();
+/** A newer input that arrived while a build for the layer was running. */
+const pending = new Map<string, TileBuildInput>();
+/** Deletion advances the generation, fencing every older attempt. */
+const generations = new Map<string, number>();
+/** Builds run one at a time process-wide. */
+let chain: Promise<unknown> = Promise.resolve();
+
+/** Tests reset shared state. */
+export function resetTileBuilds(): void {
+  active.clear();
+  pending.clear();
+  generations.clear();
+  chain = Promise.resolve();
+}
+
+/** Resolve once no build is running or queued (tests, journeys). */
+export async function tileBuildsSettled(): Promise<void> {
+  while (active.size > 0 || pending.size > 0) {
+    await chain.then(
+      () => undefined,
+      () => undefined,
+    );
+    // Let finally-handlers run so follow-on builds enter the chain.
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+}
+
+function runTippecanoe(input: string, output: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      tippecanoePath(),
+      [
+        "-o",
+        output,
+        "-l",
+        "features",
+        "-zg",
+        "--drop-densest-as-needed",
+        "--extend-zooms-if-still-dropping",
+        "--force",
+        "--quiet",
+        "-P",
+        input,
+      ],
+      { timeout: limits.tileBuildTimeoutMs, maxBuffer: 16 * 1024 * 1024 },
+      (error, _stdout, stderr) => {
+        if (!error) return resolve();
+        const killed = error.killed || /SIGTERM/.test(String(error.signal));
+        const detail = stderr.trim().split("\n").slice(-3).join(" ");
+        reject(
+          new Error(
+            killed
+              ? `Tiling exceeded the ${Math.round(
+                  limits.tileBuildTimeoutMs / 1000,
+                )}s tile-build timeout. Narrow the layer, or raise DEZFIL_TILE_BUILD_TIMEOUT_S.`
+              : detail || "The tiler failed.",
+          ),
+        );
+      },
+    );
+  });
+}
+
+function generation(layerId: string): number {
+  return generations.get(layerId) ?? 0;
+}
+
+function attemptCanCommit(attempt: BuildAttempt): boolean {
+  try {
+    return (
+      active.get(attempt.input.layerId) === attempt &&
+      generation(attempt.input.layerId) === attempt.generation &&
+      getLayer(attempt.input.layerId) !== null
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function runBuild(attempt: BuildAttempt): Promise<void> {
+  const { input, fingerprint } = attempt;
+  ensureTileDirs();
+  const scratchBase = path.join(
+    tileScratchDir(),
+    `${input.layerId}.${attempt.id}`,
+  );
+  const exportFile = `${scratchBase}.geojsonl`;
+  const archiveFile = `${scratchBase}.pmtiles`;
+  let finalArchiveNeedsRemoval = false;
+  try {
+    // A queued attempt may have been deleted before its turn reached the
+    // process-wide worker. It has nothing to do and must write no state.
+    if (!attemptCanCommit(attempt)) return;
+    const featureCount = await exportGeoJsonSeq(
+      {
+        sql: input.sql,
+        filters: input.filters,
+        geometryColumn: input.geometryColumn,
+        columns: input.columns,
+      },
+      exportFile,
+    );
+    await runTippecanoe(exportFile, archiveFile);
+    if (!attemptCanCommit(attempt)) return;
+    // Same filesystem: the swap is atomic, the old archive serves until now.
+    await rename(archiveFile, tileArchivePath(input.layerId));
+    finalArchiveNeedsRemoval = true;
+    // Deletion can cross the asynchronous rename. Recheck on its far side
+    // before making the archive authoritative in metadata.
+    if (!attemptCanCommit(attempt)) {
+      await rm(tileArchivePath(input.layerId), { force: true });
+      finalArchiveNeedsRemoval = false;
+      return;
+    }
+    upsertTileRecord({
+      layerId: input.layerId,
+      state: "ready",
+      fingerprint,
+      error: null,
+      featureCount,
+      builtAt: new Date().toISOString(),
+    });
+    finalArchiveNeedsRemoval = false;
+  } catch (error) {
+    if (finalArchiveNeedsRemoval) {
+      await rm(tileArchivePath(input.layerId), { force: true }).catch(
+        () => undefined,
+      );
+    }
+    if (attemptCanCommit(attempt)) {
+      try {
+        upsertTileRecord({
+          layerId: input.layerId,
+          state: "failed",
+          fingerprint,
+          error: error instanceof Error ? error.message : "The build failed.",
+          featureCount: null,
+          builtAt: null,
+        });
+      } catch {
+        // A terminal metadata failure is contained here. A later render can
+        // retry; the process-wide queue must remain usable.
+      }
+    }
+  } finally {
+    await Promise.allSettled([
+      rm(exportFile, { force: true }),
+      rm(archiveFile, { force: true }),
+    ]);
+    if (active.get(input.layerId) === attempt) active.delete(input.layerId);
+    const next = pending.get(input.layerId);
+    if (next) {
+      pending.delete(input.layerId);
+      start(next);
+    }
+  }
+}
+
+function start(input: TileBuildInput): void {
+  const fingerprint = tileFingerprint(input.sql, input.filters, input.projection);
+  const attempt: BuildAttempt = {
+    id: randomUUID(),
+    input,
+    fingerprint,
+    generation: generation(input.layerId),
+  };
+  active.set(input.layerId, attempt);
+  upsertTileRecord({
+    layerId: input.layerId,
+    state: "building",
+    fingerprint,
+    error: null,
+    featureCount: null,
+    builtAt: null,
+  });
+  const work = () => runBuild(attempt);
+  // Contain every terminal failure so one bad target cannot poison the
+  // global queue or become an unhandled rejection.
+  chain = chain.then(work, work).catch(() => undefined);
+}
+
+/**
+ * Report the layer's tile status for its current effective query, starting
+ * or queueing a build when the archive is missing or stale. A failed build
+ * stays failed for that same effective query (no retry storm on render
+ * polling); it re-runs when the query changes or the process restarts.
+ */
+export function ensureTiles(input: TileBuildInput): TileStatus {
+  const fingerprint = tileFingerprint(input.sql, input.filters, input.projection);
+  const record = getTileRecord(input.layerId);
+
+  const running = active.get(input.layerId);
+  if (running !== undefined) {
+    if (running.generation !== generation(input.layerId)) {
+      // The id was deleted and may have been restored by undo. Its fresh
+      // lifecycle waits behind the fenced attempt, even when SQL is identical.
+      pending.set(input.layerId, input);
+    } else if (running.fingerprint !== fingerprint) {
+      pending.set(input.layerId, input); // latest wins
+    }
+    return { state: "building" };
+  }
+
+  if (record && record.fingerprint === fingerprint) {
+    if (
+      record.state === "ready" &&
+      existsSync(tileArchivePath(input.layerId))
+    ) {
+      return {
+        state: "ready",
+        featureCount: record.featureCount ?? undefined,
+        builtAt: record.builtAt ?? undefined,
+      };
+    }
+    if (record.state === "failed") {
+      return { state: "failed", error: record.error ?? "The build failed." };
+    }
+    // "building" with nothing active: interrupted by a restart — rebuild.
+  }
+
+  start(input);
+  return { state: "building" };
+}
+
+/** Invalidate a layer's tile lifecycle because the data under it changed
+ * deleting the record alone leaves a build already running free to
+ * commit an archive of the old data under an unchanged fingerprint.
+ * Fence first, so an in-flight attempt cannot commit; the served
+ * archive is deliberately kept — it serves until a fresh build renames
+ * over it. Returns whether a record was dropped. */
+export function invalidateTileBuild(layerId: string): boolean {
+  generations.set(layerId, generation(layerId) + 1);
+  const existed = getTileRecord(layerId) !== null;
+  deleteTileRecord(layerId);
+  return existed;
+}
+
+/** Remove a layer's tile artifacts — archive, record, scratch leftovers.
+ * Called wherever the layer (or its map) is deleted. */
+export async function removeTileArtifacts(layerId: string): Promise<void> {
+  // Fence first: work crossing this point may finish computing, but cannot
+  // rename output or write tile state for the deleted lifecycle.
+  generations.set(layerId, generation(layerId) + 1);
+  pending.delete(layerId);
+  deleteTileRecord(layerId);
+  await rm(tileArchivePath(layerId), { force: true });
+}
+
+/** A crashed process leaves exports behind; boot sweeps the scratch clean.
+ * Safe by construction: running builds re-create what they need. */
+export async function cleanTileScratch(): Promise<void> {
+  await rm(tileScratchDir(), { recursive: true, force: true });
+  ensureTileDirs();
+}
+
+/**
+ * Boot sweep for served archives: an archive whose layer has no tile
+ * record is never authoritative — a failed unlink after a delete, or a
+ * build interrupted by a crash — yet it remains directly servable at its
+ * old URL. At boot no build is running, so removing record-less archives
+ * is safe; a ready record's archive is exactly what must survive.
+ * Removals are logged.
+ */
+export async function sweepTileArchives(): Promise<number> {
+  let entries: string[];
+  try {
+    entries = await readdir(tilesDir());
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return 0;
+    throw error;
+  }
+  let removed = 0;
+  for (const entry of entries) {
+    if (!entry.endsWith(".pmtiles")) continue;
+    const layerId = entry.slice(0, -".pmtiles".length);
+    if (getTileRecord(layerId) !== null) continue;
+    await rm(path.join(tilesDir(), entry), { force: true });
+    removed += 1;
+    console.warn(`boot sweep: removed recordless tile archive ${entry}`);
+  }
+  return removed;
+}

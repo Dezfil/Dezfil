@@ -1,0 +1,217 @@
+/* The export composition — the one set of styles both hosts
+ * render: the card's preview (overlay-scale 1) and the bare render route
+ * (overlay-scale from the definition). Every overlay element scales
+ * about its own anchor, so proportions match across hosts. */
+
+/* Mono is for code, and the legend and widget cards set it — but those
+ * stylesheets are shared with the builder and the published viewer, and
+ * the app-wide type sweep is explicitly out of this feature's scope. So
+ * the rule is applied HERE, where the export composition owns the
+ * cascade: everything drawn into an image, and the card's preview of it,
+ * resolves the mono token to the UI face; nothing outside changes. */
+.frame {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-panel);
+  --font-mono: var(--font-ui);
+}
+
+/* The card look belongs to the interactive preview alone — a screenshot
+ * host stays square so both hosts' pixels match to the corner. */
+.frame[data-presentation] {
+  border-radius: 12px;
+  box-shadow: 0 10px 34px var(--shadow);
+}
+
+.frame[data-busy] {
+  pointer-events: none;
+}
+
+/* One frame-sized layer carries the rail, title, attribution and
+ * failure prose: it rasterizes in one pass on the card, and its
+ * absolutely-positioned children keep their anchors. */
+.chromeLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+/* The rail clips hard at the frame's edge: what
+ * the user sees cut off IS what the image cuts off. */
+.railHost {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* Scaled about the corner it hangs from, and sized by the inverse so
+ * the scaled result still spans the frame — otherwise the rail's own
+ * internal height budget would be measured in a box drawn far larger
+ * than the frame it is meant to fit. */
+.railScale {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: calc(100% / var(--rail-scale, 1));
+  height: calc(100% / var(--rail-scale, 1));
+  transform: scale(var(--rail-scale, 1));
+  transform-origin: top right;
+}
+
+.railScale > :first-child {
+  max-height: calc(100% - 24px);
+  overflow: hidden;
+}
+
+.titleChip {
+  position: absolute;
+  left: calc(12px * var(--chrome-scale, 1));
+  top: calc(12px * var(--chrome-scale, 1));
+  transform: scale(var(--title-scale, 1));
+  transform-origin: top left;
+  z-index: 5;
+  /* The bound is measured BEFORE the transform, so it has to be divided
+   * by the scale for the drawn result to stay inside 60% of the frame.
+   * Without the inverse a long title at the finest map size drew at
+   * 160% of the frame and clipped. */
+  max-width: calc(60% / var(--title-scale, 1));
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  border-radius: 9px;
+  padding: 7px 12px;
+  box-shadow: 0 8px 26px var(--shadow);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Attribution: plain small haloed text on the map — no card (D4) — in
+ * the corner the definition names, scaled about that corner so its own
+ * step and its floor both land where they are anchored. */
+.credit {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--fg-muted);
+  transform: scale(var(--credit-scale, 1));
+  text-shadow:
+    0 0 3px var(--bg-panel),
+    0 0 3px var(--bg-panel),
+    0 1px 4px var(--bg-panel);
+}
+
+.credit[data-corner="top-left"] {
+  top: calc(8px * var(--chrome-scale, 1));
+  left: calc(10px * var(--chrome-scale, 1));
+  transform-origin: top left;
+}
+
+.credit[data-corner="top-right"] {
+  top: calc(8px * var(--chrome-scale, 1));
+  right: calc(10px * var(--chrome-scale, 1));
+  transform-origin: top right;
+}
+
+.credit[data-corner="bottom-left"] {
+  bottom: calc(8px * var(--chrome-scale, 1));
+  left: calc(10px * var(--chrome-scale, 1));
+  transform-origin: bottom left;
+}
+
+.credit[data-corner="bottom-right"] {
+  bottom: calc(8px * var(--chrome-scale, 1));
+  right: calc(10px * var(--chrome-scale, 1));
+  transform-origin: bottom right;
+}
+
+.creditDot {
+  color: var(--fg-faint);
+}
+
+.creditMark {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+/* Truthful failure prose: drawn, never omitted. */
+.failures {
+  position: absolute;
+  top: calc(12px * var(--chrome-scale, 1));
+  left: 50%;
+  translate: -50% 0;
+  scale: var(--chrome-scale, 1);
+  z-index: 6;
+  max-width: 70%;
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.failures p {
+  margin: 2px 0;
+}
+
+.legendCorner {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.legendCorner > * {
+  pointer-events: auto;
+}
+
+.legendCorner[data-corner="top-left"] {
+  top: calc(12px * var(--chrome-scale, 1));
+  left: calc(12px * var(--chrome-scale, 1));
+}
+
+.legendCorner[data-corner="top-right"] {
+  top: calc(12px * var(--chrome-scale, 1));
+  right: calc(12px * var(--chrome-scale, 1));
+}
+
+.legendCorner[data-corner="bottom-left"] {
+  bottom: calc(12px * var(--chrome-scale, 1));
+  left: calc(12px * var(--chrome-scale, 1));
+}
+
+.legendCorner[data-corner="bottom-right"] {
+  bottom: calc(12px * var(--chrome-scale, 1));
+  right: calc(12px * var(--chrome-scale, 1));
+}
+
+/* The S/M/L step scale about the corner. The output coordinate system
+ * is capture-side on BOTH hosts (the card rasterizes at scale; the route renders at the preview's
+ * CSS size under the definition's overlayScale as deviceScaleFactor) — CSS never scales the chrome,
+ * so the map extent and the overlay proportions match the
+ * card by construction. */
+.legendScale {
+  transform: scale(var(--legend-scale, 1));
+}
+
+.legendScale[data-corner="top-left"] {
+  transform-origin: top left;
+}
+
+.legendScale[data-corner="top-right"] {
+  transform-origin: top right;
+}
+
+.legendScale[data-corner="bottom-left"] {
+  transform-origin: bottom left;
+}
+
+.legendScale[data-corner="bottom-right"] {
+  transform-origin: bottom right;
+}
+

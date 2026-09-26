@@ -1,0 +1,259 @@
+.wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-raised);
+}
+
+.map {
+  position: absolute;
+  inset: 0;
+  /* Maplibre-gl.css sets.maplibregl-map{position:relative} at equal
+     specificity — bundle order decides which wins, and inset alone sizes
+     nothing under relative. Explicit dimensions survive either way
+     (found during verification: the collapsed container emitted
+     degenerate point-bboxes). */
+  width: 100%;
+  height: 100%;
+}
+
+.rect {
+  position: absolute;
+  border: 2px solid var(--accent);
+  border-radius: 3px;
+  box-shadow: 0 0 0 9999px color-mix(in srgb, var(--fg) 16%, transparent);
+  pointer-events: none;
+}
+
+.handle {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border-radius: 4px;
+  background: var(--accent);
+  border: 2px solid var(--bg-panel);
+  box-shadow: 0 1px 4px var(--shadow);
+  pointer-events: auto;
+  touch-action: none;
+  /* Above the map controls (matches.polyActions). The query drawer
+     (QueryDrawer, z-index 7) sits above these while open — closed by
+     default, so the band is normally free. */
+  z-index: 6;
+}
+
+.handle[data-corner="nw"] {
+  left: -7px;
+  top: -7px;
+  cursor: nwse-resize;
+}
+.handle[data-corner="ne"] {
+  right: -7px;
+  top: -7px;
+  cursor: nesw-resize;
+}
+.handle[data-corner="sw"] {
+  left: -7px;
+  bottom: -7px;
+  cursor: nesw-resize;
+}
+.handle[data-corner="se"] {
+  right: -7px;
+  bottom: -7px;
+  cursor: nwse-resize;
+}
+
+.polySvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  /* The vertex handles inside share the corner handles' exposure to the
+     OSM drawer band — same lift. */
+  z-index: 6;
+}
+
+.polyShape {
+  fill: color-mix(in srgb, var(--accent) 18%, transparent);
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.polyVertex {
+  fill: var(--accent);
+  stroke: var(--bg-panel);
+  stroke-width: 2;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+}
+
+.polyLine {
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.measure {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px var(--shadow);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.areaBadge {
+  font-size: 11.5px;
+  padding: 5px 10px;
+}
+
+.polyActions {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  /* Above the map controls — the attribution must never cover Clear. */
+  z-index: 6;
+}
+
+.polyActions button {
+  background: color-mix(in srgb, var(--bg-panel) 96%, transparent);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  box-shadow: 0 4px 14px var(--shadow);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--fg);
+  padding: 10px 24px;
+  cursor: pointer;
+}
+
+.polyActions button:hover {
+  border-color: var(--accent);
+  background: var(--bg-panel);
+}
+
+.polyActions button:first-child {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  font-weight: 600;
+}
+
+.legend {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  max-width: 210px;
+  max-height: 45%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 4px 14px var(--shadow);
+  padding: 8px 9px;
+}
+
+.legend > b {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  margin-bottom: 3px;
+}
+
+.legendRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: var(--fg);
+  min-width: 0;
+}
+
+.legendRow[data-off] {
+  color: var(--fg-faint);
+}
+
+.legendRow i {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+}
+
+.legendRow[data-off] i {
+  opacity: 0.35;
+}
+
+.legendRow span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.legendRow button {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: var(--fg-muted);
+  display: grid;
+  place-items: center;
+}
+
+.legendRow button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.legendRow button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.legendRow svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hint {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--bg-panel) 88%, transparent);
+  backdrop-filter: blur(6px);
+  border-radius: 999px;
+  box-shadow: 0 3px 12px var(--shadow);
+  font-size: 11.5px;
+  color: var(--fg-muted);
+  padding: 6px 13px;
+  white-space: nowrap;
+  pointer-events: none;
+}

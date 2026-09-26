@@ -1,0 +1,73 @@
+/* The basemap thumbnail, shared by the builder's panel and the published
+   viewer's picker, so both name a style the same way.
+
+   Each variant paints a real capture of its own style. The gradient
+   underneath is not decoration: it is what shows if an asset ever fails
+   to load, and it is the same drawn approximation the builder used before
+   — a degraded thumbnail still reads as the right style. */
+.thumb {
+  display: block;
+  height: 56px;
+  border-radius: var(--radius);
+  border: 1px solid var(--swatch-border);
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.thumb[data-style="auto"] {
+  background-image: linear-gradient(
+    135deg,
+    #0d1118 0%,
+    #1c2432 49.5%,
+    #e3e6e2 50.5%,
+    #f4f4f0 100%
+  );
+}
+
+.thumb[data-style="dark"] {
+  background-image: linear-gradient(135deg, #0d1118, #1c2432 70%, #141a26);
+}
+
+.thumb[data-style="light"] {
+  background-image: linear-gradient(135deg, #f4f4f0, #e3e6e2 70%, #eceeea);
+}
+
+.thumb[data-style="streets"] {
+  background-image: linear-gradient(135deg, #eef0e8, #dbe7dc 55%, #cfe0ef);
+}
+
+.thumb[data-style="satellite"] {
+  background-image: linear-gradient(
+    135deg,
+    #2c3d24 0%,
+    #45522e 38%,
+    #37482b 62%,
+    #1e3a4d 100%
+  );
+}
+
+/* The capture itself. It must carry its own display and sizing: a span is
+   inline by default, so without this the image area collapses to nothing
+   and every card falls back to its gradient — which looks close enough to
+   right that only a careful eye catches it. */
+.half {
+  display: block;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+}
+
+/* Auto is two styles at once, so it is two captures split on the
+   diagonal — the night half over the day half, the same 135deg seam the
+   drawn version used. */
+
+.thumb[data-style="auto"] .half[data-half="dark"] {
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.thumb[data-style="auto"] .half[data-half="light"] {
+  margin-top: -56px;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}

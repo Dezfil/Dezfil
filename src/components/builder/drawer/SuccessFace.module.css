@@ -1,0 +1,67 @@
+/* The success face. Names wrap on word boundaries and break
+   inside a word only when the word itself is longer than the line — never
+   a mid-word clip with no ellipsis, which was the browser round's finding
+   8 on the surface this replaces. */
+
+.face {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 2px;
+}
+
+.headline {
+  margin: 0;
+  font-size: var(--text-heading);
+  color: var(--fg);
+  overflow-wrap: break-word;
+}
+
+.table {
+  margin: 0;
+  font-size: 12px;
+  color: var(--fg-muted);
+  overflow-wrap: break-word;
+}
+
+.table code {
+  font-family: var(--font-mono, monospace);
+}
+
+.notice {
+  margin: 0;
+  font-size: 12px;
+  color: var(--fg-muted);
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.again,
+.done {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.done {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.again:hover,
+.done:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}

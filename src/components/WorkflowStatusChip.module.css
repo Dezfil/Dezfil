@@ -1,0 +1,27 @@
+/* The status chip's tones, on the gallery's chip (moved from the
+   Workflows list's stylesheet; the muted tone is the chip's
+   own look). */
+.stateChip[data-tone="ok"] {
+  background: var(--accent-dim);
+  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+  color: var(--accent);
+}
+.stateChip[data-tone="ok"] i { background: var(--accent); }
+.stateChip[data-tone="accent"] {
+  background: var(--accent-dim);
+  border-color: transparent;
+  color: var(--accent);
+}
+.stateChip[data-tone="accent"] i { background: var(--accent); }
+.stateChip[data-tone="warn"] {
+  background: var(--warn-dim);
+  border-color: color-mix(in srgb, var(--warn) 30%, transparent);
+  color: var(--warn);
+}
+.stateChip[data-tone="warn"] i { background: var(--warn); }
+.stateChip[data-tone="bad"] {
+  background: var(--danger-dim);
+  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+  color: var(--danger);
+}
+.stateChip[data-tone="bad"] i { background: var(--danger); }

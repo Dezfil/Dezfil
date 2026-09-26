@@ -1,0 +1,77 @@
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import path from "node:path";
+import { closeMetadataDb } from "@/lib/metadata/db";
+import { resetQueryInstance } from "@/lib/duckdb";
+import { createMap } from "@/lib/map-service";
+import {
+  createLayer,
+  renderLayer,
+  updateLayer,
+  type LayerRenderGeometryType,
+} from "@/lib/layer-service";
+
+let dir: string;
+
+beforeEach(async () => {
+  dir = await mkdtemp(path.join(process.cwd(), ".tmp-test-"));
+  process.env.DEZFIL_DATA_DIR = path.join(dir, "data");
+  closeMetadataDb();
+  resetQueryInstance();
+});
+
+afterEach(async () => {
+  closeMetadataDb();
+  resetQueryInstance();
+  delete process.env.DEZFIL_DATA_DIR;
+  await rm(dir, { recursive: true, force: true });
+});
+
+async function geometryTypeFor(sql: string): Promise<LayerRenderGeometryType> {
+  const map = createMap("geometry");
+  const layer = await createLayer(map.id, { name: "geometry", sql });
+  const result = await renderLayer(layer);
+  expect(result.ok).toBe(true);
+  return result.geometryType ?? null;
+}
+
+describe("render geometry metadata", () => {
+  it("canonicalizes simple and multi variants into one family", async () => {
+    await expect(
+      geometryTypeFor(`SELECT ST_GeomFromText(wkt) AS geometry
+        FROM (VALUES ('POINT (0 0)'), ('MULTIPOINT ((1 1), (2 2))')) AS v(wkt)`),
+    ).resolves.toBe("POINT");
+    await expect(
+      geometryTypeFor(`SELECT ST_GeomFromText(wkt) AS geometry
+        FROM (VALUES ('LINESTRING (0 0, 1 1)'),
+                     ('MULTILINESTRING ((1 1, 2 2))')) AS v(wkt)`),
+    ).resolves.toBe("LINESTRING");
+    await expect(
+      geometryTypeFor(`SELECT ST_GeomFromText(wkt) AS geometry
+        FROM (VALUES ('POLYGON ((0 0, 1 0, 1 1, 0 0))'),
+                     ('MULTIPOLYGON (((1 1, 2 1, 2 2, 1 1)))')) AS v(wkt)`),
+    ).resolves.toBe("POLYGON");
+  });
+
+  it("reports the effective mixed, filtered, and empty result", async () => {
+    const map = createMap("effective geometry");
+    const layer = await createLayer(map.id, {
+      name: "mixed",
+      sql: `SELECT kind, ST_GeomFromText(wkt) AS geometry
+        FROM (VALUES ('point', 'POINT (0 0)'),
+                     ('line', 'LINESTRING (0 0, 1 1)')) AS v(kind, wkt)`,
+    });
+
+    expect((await renderLayer(layer)).geometryType).toBe("MIXED");
+
+    const points = await updateLayer(layer.id, {
+      filters: [{ field: "kind", kind: "values", values: ["point"] }],
+    });
+    expect((await renderLayer(points)).geometryType).toBe("POINT");
+
+    const empty = await updateLayer(layer.id, {
+      filters: [{ field: "kind", kind: "values", values: [] }],
+    });
+    expect((await renderLayer(empty)).geometryType).toBeNull();
+  });
+});

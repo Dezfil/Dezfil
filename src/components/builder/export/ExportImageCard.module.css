@@ -1,0 +1,372 @@
+/* The export image card — the big-focused-task dialog
+ * species (the add-layer catalog's), laid out as the ratified prototype:
+ * live preview left, 300px options rail right. */
+
+/* The catalog's widest frame — the two dialog species share one
+ * big-task size again. The size rides the attribute-qualified selector
+ * (the catalog's own idiom) so it outranks the kit shell's cap by
+ * specificity: with both classes on one node at equal specificity, the
+ * winner was whichever stylesheet the bundler emitted later. */
+.dialog[data-export-card] {
+  width: min(1320px, 100%);
+  height: min(820px, calc(100vh - 48px));
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+/* ---- preview column ---- */
+
+.previewCol {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  background: var(--bg-raised);
+  border-right: 1px solid var(--border);
+}
+
+.stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The composition lays out at the author's chosen space and is shown
+ * scaled to fit: the outer box takes the displayed size so layout is
+ * honest, the inner one carries the true space. */
+.frameBox {
+  position: relative;
+}
+
+.frameScale {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+}
+
+/* Custom shape mode (field rounds): the frame says it is
+ * resizable — a dashed accent boundary — and the edge sashes are the
+ * handles: bottom for the height axis, right for the width axis. Both
+ * change only the SHAPE; the exported pixel width stays the Size
+ * control's. */
+.frameBox[data-custom]::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border: 1.5px dashed var(--accent);
+  border-radius: var(--radius);
+  pointer-events: none;
+}
+
+.frameSash {
+  position: absolute;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.frameSash[data-edge="bottom"] {
+  left: 50%;
+  bottom: -12px;
+  translate: -50% 0;
+  width: 72px;
+  height: 20px;
+  cursor: ns-resize;
+}
+
+.frameSash[data-edge="right"] {
+  top: 50%;
+  right: -12px;
+  translate: 0 -50%;
+  width: 20px;
+  height: 72px;
+  cursor: ew-resize;
+}
+
+.frameSashGrip {
+  width: 46px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  box-shadow: 0 2px 8px var(--shadow);
+  transition: transform var(--dur-micro) ease;
+}
+
+.frameSash[data-edge="right"] .frameSashGrip {
+  width: 8px;
+  height: 46px;
+}
+
+.frameSash[data-edge="bottom"]:hover .frameSashGrip,
+.frameSash[data-edge="bottom"]:focus-visible .frameSashGrip {
+  transform: scaleX(1.15);
+}
+
+.frameSash[data-edge="right"]:hover .frameSashGrip,
+.frameSash[data-edge="right"]:focus-visible .frameSashGrip {
+  transform: scaleY(1.15);
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.metaOut {
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.metaHint {
+  font-size: 12px;
+  color: var(--fg-faint);
+}
+
+/* ---- options rail ---- */
+
+.rail {
+  width: 300px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 17px;
+  padding: 16px 18px;
+  overflow-y: auto;
+}
+
+/* Section headings read like the layer panel's — sentence case, normal
+ * colour. The faint all-caps treatment made the card look like a
+ * different application. */
+.sec h5 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  margin: 0 0 8px;
+}
+
+.seg {
+  display: flex;
+  width: 100%;
+  gap: 2px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 2px;
+}
+
+.segItem {
+  flex: 1;
+  padding: 6px 4px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.segItem:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.segItem[aria-checked="true"] {
+  background: var(--accent-dim);
+  color: var(--accent-bright);
+  font-weight: 600;
+}
+
+.chips {
+  display: flex;
+  gap: 6px;
+}
+
+.chip {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 7px 4px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.chip b {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.chipSub {
+  font-size: 11px;
+  color: var(--fg-faint);
+}
+
+.chip:hover {
+  background: var(--bg-hover);
+}
+
+.chip[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.chip[aria-pressed="true"] b {
+  color: var(--accent-bright);
+}
+
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+/* The basemap-group checkboxes keep the native box (gate ruling:
+   the switch exception is the widget list's alone). */
+.checkRow input[type="checkbox"]:not([role="switch"]) {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+/* The rail's switch rows — include-the-legend and, each
+   widget. Only what the kit row lacks lives here: every property the
+   kit's own .row declares (display, alignment, gap, cursor) is left to
+   it, so no equal-specificity pair is decided by import order. Width
+   makes the inline-flex row span the rail; the track never shrinks, so
+   a long widget title wraps beside it instead of crushing it. */
+.switchRow {
+  width: 100%;
+  font-size: 13px;
+  padding: 4px 0;
+}
+
+.switchRow input {
+  flex-shrink: 0;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--fg-faint);
+  margin: 6px 0 0;
+}
+
+.subControl {
+  margin-top: 8px;
+}
+
+.subControl[data-off] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.titleInput {
+  width: 100%;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 0 10px;
+  background: var(--bg-panel);
+  font-size: 13px;
+}
+
+.titleInput:focus {
+  border-color: var(--accent);
+}
+
+.titleInput::placeholder {
+  color: var(--fg-faint);
+}
+
+.railFoot {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.footNote {
+  font-size: 12px;
+  color: var(--fg-muted);
+  margin: 0;
+}
+
+.btnRow {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* The shape grid: four proportion cards ---- */
+
+.shapeGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.shapeCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 62px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  color: var(--fg-muted);
+  transition:
+    border-color var(--dur-micro) ease,
+    background var(--dur-micro) ease,
+    color var(--dur-micro) ease;
+}
+
+.shapeCard:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.shapeCard[aria-checked="true"] {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent-bright);
+}
+
+.shapeMini {
+  display: block;
+  border: 1.5px solid currentColor;
+  border-radius: var(--radius-sm);
+  opacity: 0.75;
+}
+
+.shapeMiniCustom {
+  border-style: dashed;
+}
+
+.shapeName {
+  font-size: 11px;
+  font-weight: 500;
+}

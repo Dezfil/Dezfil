@@ -1,0 +1,171 @@
+/**
+ * The project scope's shared model: the address vocabulary mirrors the
+ * documented listing query — omission is All projects, `none` is Not in
+ * a project, a non-empty identity is that project, and an empty value
+ * stays invalid (it is sent through and refused, never silently
+ * widened). Counts and the heading's second line derive here,
+ * membership treated many-to-many with no preference.
+ */
+
+export type ProjectScope =
+  | { kind: "all" }
+  | { kind: "none" }
+  | { kind: "project"; id: string }
+  | { kind: "invalid" };
+
+export function parseScope(raw: string | null): ProjectScope {
+  if (raw === null) return { kind: "all" };
+  if (raw === "") return { kind: "invalid" };
+  if (raw === "none") return { kind: "none" };
+  return { kind: "project", id: raw };
+}
+
+/** The address value to write; null removes the parameter (All). */
+export function scopeParam(scope: ProjectScope): string | null {
+  if (scope.kind === "none") return "none";
+  if (scope.kind === "project") return scope.id;
+  return null;
+}
+
+export interface ScopeRow {
+  id: string; // "all" | "none" | a project id
+  name: string;
+  count: number;
+}
+
+/** The unset scope's row id. */
+export const ALL_SCOPE = "all";
+
+/** What a row prints beside its name, on the control's face and in its
+ * menu: All projects prints nothing, whatever its value; every other
+ * row prints its number, a count of zero and a count that happens to
+ * equal the workspace total included. The distinction drawn in the field
+ * is WHICH SCOPE IS SELECTED, so the rule reads the row's identity and
+ * never its value. It lives here, on the model the control reads, so
+ * the three lists and the add-layer catalog's two views inherit it
+ * without a second edit. */
+export function printedCount(row: {
+  id: string;
+  count: number | null;
+}): number | null {
+  return row.id === ALL_SCOPE ? null : row.count;
+}
+
+/** The popover's rows: All, every project (zero counts included), and
+ * Not in a project. `membershipOf` returns every project an item is
+ * in; empty means unfiled. A dataset therefore counts in each of its
+ * projects and as unfiled only with none. */
+export function scopeRows<T>(
+  items: T[],
+  projects: { id: string; name: string }[],
+  membershipOf: (item: T) => string[],
+): ScopeRow[] {
+  const perProject = new Map<string, number>();
+  let unfiled = 0;
+  for (const item of items) {
+    const memberships = membershipOf(item);
+    if (memberships.length === 0) unfiled += 1;
+    for (const id of memberships) {
+      perProject.set(id, (perProject.get(id) ?? 0) + 1);
+    }
+  }
+  return [
+    { id: ALL_SCOPE, name: "All projects", count: items.length },
+    ...projects.map((p) => ({
+      id: p.id,
+      name: p.name,
+      count: perProject.get(p.id) ?? 0,
+    })),
+    { id: "none", name: "Not in a project", count: unfiled },
+  ];
+}
+
+/** The active row for the control's face; an invalid or unknown scope
+ * has no row (the world is refusing) and reads as All for display.
+ * Before the world resolves there are no rows: the face then carries
+ * no count at all rather than asserting one. */
+export function activeRow(
+  rows: ScopeRow[],
+  scope: ProjectScope,
+): { id: string; name: string; count: number | null } {
+  const id =
+    scope.kind === "project"
+      ? scope.id
+      : scope.kind === "none"
+        ? "none"
+        : ALL_SCOPE;
+  return (
+    rows.find((r) => r.id === id) ??
+    rows[0] ?? { id: ALL_SCOPE, name: "All projects", count: null }
+  );
+}
+
+/** The heading's second line, the count line: it appears only when it says something the
+ * title cannot. A search or filter that narrows the list says what is
+ * shown of what, zero included; a scope names itself, an empty project
+ * included ("0 in Berlin"); the two compose in the reference's order.
+ * With no scope and no narrowing there is no line at all: took the
+ * count pill off the title too, and removing the pill does not promote
+ * the line to fill its place. */
+export function headingLine(opts: {
+  scopedTotal: number;
+  scope: ProjectScope;
+  scopeName: string | null;
+  shownCount: number;
+}): string | null {
+  const { scopedTotal, scope, scopeName, shownCount } = opts;
+  const where =
+    scope.kind === "project"
+      ? ` in ${scopeName ?? "this project"}`
+      : scope.kind === "none"
+        ? " not in a project"
+        : "";
+  if (shownCount !== scopedTotal) {
+    return `${shownCount} of ${scopedTotal}${where} shown`;
+  }
+  return where ? `${scopedTotal}${where}` : null;
+}
+
+/** The dataset row's Project cell: under a
+ * named scope the scope itself is the context, so the cell names only the OTHER memberships ("also
+ * in..."); elsewhere every membership is
+ * a peer, alphabetical so order asserts nothing; none reads unfiled. */
+export function datasetProjectFact(
+  projectIds: string[],
+  scope: ProjectScope,
+  names: Map<string, string>,
+): { text: string; none: boolean } {
+  // Identity is the ID: names are legitimately non-unique, so the
+  // scope is excluded BY ID before any name resolves — a same-named
+  // sibling membership must survive into the label.
+  const nameOf = (ids: string[]) =>
+    ids
+      .map((id) => names.get(id))
+      .filter((n): n is string => typeof n === "string")
+      .sort((a, b) => a.localeCompare(b));
+  if (projectIds.length === 0) return { text: "not in a project", none: true };
+  if (scope.kind === "project") {
+    const others = nameOf(projectIds.filter((id) => id !== scope.id));
+    return others.length
+      ? { text: `also in ${others.join(", ")}`, none: false }
+      : { text: "", none: false };
+  }
+  const named = nameOf(projectIds);
+  if (named.length === 0) return { text: "not in a project", none: true };
+  return { text: named.join(", "), none: false };
+}
+
+/** The New/Add tile's sub-line: the
+ * scope the new object will take under a named or unfiled scope, else the
+ * list's own unscoped sentence. One model for the three lists. */
+export function tileSubLine(
+  kind: "map" | "workflow" | "data",
+  scope: ProjectScope,
+  scopeName: string | null,
+): string {
+  if (scope.kind === "project") return `in ${scopeName ?? "this project"}`;
+  if (scope.kind === "none") return "not in a project";
+  if (kind === "map") return "Start from a blank map";
+  if (kind === "workflow") return "Start from a blank canvas";
+  return "Upload a file or import from a source";
+}

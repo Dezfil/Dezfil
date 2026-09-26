@@ -1,0 +1,9 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    { "type": "Feature", "properties": { "name": "Mitte", "population": 91000 }, "geometry": { "type": "Polygon", "coordinates": [[[13.36, 52.51], [13.42, 52.51], [13.42, 52.54], [13.36, 52.54], [13.36, 52.51]]] } },
+    { "type": "Feature", "properties": { "name": "Kreuzberg", "population": 154000 }, "geometry": { "type": "Polygon", "coordinates": [[[13.38, 52.48], [13.44, 52.48], [13.44, 52.51], [13.38, 52.51], [13.38, 52.48]]] } },
+    { "type": "Feature", "properties": { "name": "Friedrichshain", "population": 129000 }, "geometry": { "type": "Polygon", "coordinates": [[[13.42, 52.51], [13.48, 52.51], [13.48, 52.53], [13.42, 52.53], [13.42, 52.51]]] } },
+    { "type": "Feature", "properties": { "name": "Tiergarten", "population": 14000 }, "geometry": { "type": "Polygon", "coordinates": [[[13.32, 52.50], [13.38, 52.50], [13.38, 52.52], [13.32, 52.52], [13.32, 52.50]]] } }
+  ]
+}

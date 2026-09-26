@@ -1,0 +1,71 @@
+/* The column-matching step's frame in the wide Add data dialog (01): a
+   controls column, the preview beside it, a footer. */
+
+.wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 16px;
+  padding: 6px 18px 0;
+}
+
+.col {
+  width: 300px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.preview {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preview h4 {
+  margin: 0;
+  font-size: var(--text-label);
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+
+/* The note naming the files that wait behind this step. */
+.note {
+  margin: 0 16px;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.45;
+}
+
+.note i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warn);
+  flex: none;
+  display: inline-block;
+}
+
+.foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.keep {
+  flex: 1;
+  font-size: var(--text-meta);
+  color: var(--fg-faint);
+}

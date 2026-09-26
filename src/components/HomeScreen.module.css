@@ -1,0 +1,138 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+/* ---- hero ---- */
+
+.hero h1 {
+  font-family: var(--font-display);
+  font-size: 27px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.hero p {
+  margin-top: 6px;
+  color: var(--fg-muted);
+  font-size: 14px;
+  max-width: 52ch;
+}
+
+.heroActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.primaryBtn {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--on-accent);
+  background: linear-gradient(180deg, var(--accent-bright), var(--accent));
+  padding: 8px 18px;
+  border-radius: var(--radius);
+  transition: filter 0.15s ease;
+}
+
+.primaryBtn:hover {
+  color: var(--on-accent);
+  filter: brightness(1.08);
+}
+
+.ghostBtn {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.ghostBtn:hover {
+  color: var(--fg);
+  border-color: var(--fg-faint);
+}
+
+/* ---- sections of placeholder cards ---- */
+
+.section h2 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.sectionSub {
+  margin-top: 3px;
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+.grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 14px;
+}
+
+/* A visibly-inert slot: dashed border, no hover lift, an explicit tag —
+   a teaser, never a broken-looking link. */
+.card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 88px;
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border-strong);
+  background: color-mix(in srgb, var(--bg-panel) 55%, transparent);
+}
+
+.cardName {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--fg-muted);
+}
+
+.cardFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.soon {
+  margin-left: auto;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  color: var(--fg-muted);
+  background: var(--bg-raised);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+.videoMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.play {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 9px;
+  padding-left: 2px;
+}

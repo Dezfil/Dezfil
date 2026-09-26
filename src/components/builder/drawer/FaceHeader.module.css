@@ -1,0 +1,161 @@
+/* One header row per face (tools; a path of segments, the pick of row C
+   in). */
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* The header's underline sits at the same viewport line as the
+     inspector tab strip's (a field round): both
+     cards start at top 62px; the inspector reaches its border at
+     10px padding + the kit's 36px tab, and this card's 1px frame
+     border means 46px here lands the two borders on one line. */
+  height: 46px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+/* The drawer's faces: a path of segments. The segments stand on the
+   header's line the way the inspector's tabs stand on their strip's,
+   bottom-aligned so a segment's underline meets the border. The
+   assistant pane leaves this off and keeps the plain title below. */
+.path {
+  align-items: flex-end;
+  gap: 2px;
+  padding: 0 10px;
+}
+
+/* The plain title (the assistant pane): the strip's register, like the
+   Layers tab — no underline, no segment box; the
+   presentation every face had before 0190. */
+.title {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A segment: the kit's tab in box and register (Tabs.module.css), with
+   none of its role. The return is a button; the current segment is the
+   face's heading. */
+.segment,
+.current {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  margin: 0;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  font-weight: 500;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.segment {
+  cursor: pointer;
+  transition:
+    color var(--dur-micro) ease,
+    background var(--dur-micro) ease;
+}
+
+.segment:hover {
+  color: var(--fg);
+  background: var(--bg-raised);
+}
+
+/* Where you are: the strip's active tab in register and underline, like
+   the Layers tab, shrinkable so a long name truncates
+   inside it rather than pushing the return or the dismissal out. The
+   underline overhangs the box by a pixel to straddle the border exactly
+   as the strip's does, so the clipping lives on the text, not here. */
+.current {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.current::after {
+  content: "";
+  position: absolute;
+  left: 25%;
+  right: 25%;
+  bottom: -1px;
+  height: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+
+/* The tool's mark before its name, in its group's hue: the same rules
+   the catalog's rows draw with (OperationPicker.module.css), sized as
+   the reference sizes it. */
+.mark {
+  flex: none;
+  display: inline-flex;
+  color: var(--fg-faint);
+}
+
+.mark svg {
+  width: 18px;
+  height: 18px;
+}
+
+.mark[data-grp="Data"] { color: var(--grp-data); }
+.mark[data-grp="Overlay"] { color: var(--grp-overlay); }
+.mark[data-grp="Proximity"] { color: var(--grp-proximity); }
+.mark[data-grp="Geometry"] { color: var(--grp-geometry); }
+.mark[data-grp="Aggregation"] { color: var(--grp-aggregation); }
+.mark[data-grp="Statistics"] { color: var(--grp-statistics); }
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dismiss {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.dismiss:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+/* In the path, the dismissal is right-aligned and centred on the
+   segments' word (the reference's 5px lift). */
+.path .dismiss {
+  margin: 0 0 5px auto;
+}
+
+/* The face's scrolling body, under its fixed header. */
+.faceBody {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+}

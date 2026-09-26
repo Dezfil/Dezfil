@@ -1,0 +1,260 @@
+/* The input picker: the closed row
+   and the popover with its search and three groups, on the kit's tokens,
+   the rows as the pane draws them. */
+
+/* The whole row the panel gives it, set or not;
+   the popover spans the same width. */
+.wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.trigger {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 18px 1fr auto 14px;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 8px 0 9px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.trigger:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.trigger:disabled {
+  cursor: not-allowed;
+}
+
+.trigger[aria-expanded="true"],
+.trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+
+.trigger[data-refused] {
+  border-color: color-mix(in srgb, var(--warn) 55%, transparent);
+}
+
+.trigger svg:last-child {
+  width: 14px;
+  height: 14px;
+  color: var(--fg-faint);
+  transition: transform var(--dur-micro);
+}
+
+.trigger[aria-expanded="true"] svg:last-child {
+  transform: rotate(180deg);
+}
+
+.glyph {
+  width: 18px;
+  height: 18px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  color: var(--accent-bright);
+  background: var(--accent-wash);
+  flex: none;
+}
+
+.glyph[data-kind="none"] {
+  color: var(--fg-faint);
+  background: var(--bg-raised);
+}
+
+.glyph svg {
+  width: 11px;
+  height: 11px;
+}
+
+.name {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name[data-unset] {
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
+  color: var(--fg-faint);
+  font-style: italic;
+}
+
+.fact {
+  font-size: var(--text-meta);
+  color: var(--fg-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.nodeTag {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font-size: var(--text-meta);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.currentWhy {
+  margin: 4px 0 0;
+  font-size: var(--text-meta);
+  color: color-mix(in srgb, var(--warn) 80%, var(--fg));
+  line-height: 1.4;
+}
+
+.pop {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  box-shadow: 0 10px 32px var(--shadow);
+  overflow: hidden;
+  animation: picker-in var(--dur-entrance) var(--ease-entrance) both;
+}
+
+@keyframes picker-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pop {
+    animation: none;
+  }
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--fg-faint);
+}
+
+.search svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-label);
+  color: var(--fg);
+}
+
+.search input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.list {
+  max-height: 320px;
+  overflow: auto;
+  padding: 6px;
+  margin: 0;
+  list-style: none;
+}
+
+.group {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.eyebrow {
+  margin: 0;
+  padding: 8px 6px 4px;
+  font-size: var(--text-meta);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 3px 6px;
+  border-radius: var(--radius);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.row[data-active] {
+  background: var(--bg-hover);
+}
+
+.row[data-on] .name::after {
+  content: " ✓";
+  color: var(--accent);
+}
+
+.row[data-refused] {
+  cursor: not-allowed;
+}
+
+.row[data-refused] .glyph,
+.row[data-refused] .name,
+.row[data-refused] .fact {
+  opacity: 0.55;
+}
+
+.why {
+  grid-column: 2 / -1;
+  font-size: var(--text-meta);
+  color: var(--fg-faint);
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.unset .name {
+  font-family: var(--font-ui);
+  font-style: italic;
+  color: var(--fg-faint);
+}
+
+.none {
+  padding: 14px 8px;
+  font-size: var(--text-label);
+  color: var(--fg-faint);
+  font-style: italic;
+  list-style: none;
+}

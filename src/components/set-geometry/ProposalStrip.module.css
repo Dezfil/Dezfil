@@ -1,0 +1,38 @@
+/* The proposal strip under the dataset page's header (02). */
+
+.strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  background: var(--accent-dim);
+  color: var(--fg);
+  font-size: var(--text-body);
+}
+
+.strip > svg {
+  width: 15px;
+  height: 15px;
+  color: var(--accent);
+  flex: none;
+}
+
+.strip code {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--fg);
+}
+
+.acts {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.door svg {
+  width: 14px;
+  height: 14px;
+}

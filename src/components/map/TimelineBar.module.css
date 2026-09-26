@@ -1,0 +1,153 @@
+/* The map-docked timeline — the same raised-overlay treatment
+   as the legend and the note box. */
+
+.bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(680px, calc(100vw - 220px));
+  background: color-mix(in srgb, var(--bg-raised) 94%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  padding: 10px 14px 8px;
+  box-shadow: 0 8px 26px var(--shadow);
+  pointer-events: auto;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.readout {
+  flex: 1;
+  text-align: right;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.iconBtn,
+.playBtn,
+.speedBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.iconBtn {
+  padding: 3px;
+}
+
+.iconBtn:hover,
+.playBtn:hover,
+.speedBtn:hover {
+  color: var(--fg);
+  border-color: var(--border-strong);
+}
+
+.body {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.playBtn {
+  width: 30px;
+  color: var(--accent);
+}
+
+.speedBtn {
+  width: 34px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.track {
+  position: relative;
+  flex: 1;
+  height: 44px;
+  touch-action: none;
+}
+
+/* The histogram fills the track: the shared bars component sizes itself
+   for the rail brush (fixed 36px, content width), so the wrapper stretches
+   it here. */
+.histFill {
+  position: absolute;
+  inset: 6px 0 1px 0;
+  pointer-events: none;
+}
+
+.histFill > div {
+  width: 100%;
+  height: 100%;
+}
+
+.track :global(*) {
+  user-select: none;
+}
+
+.baseline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  cursor: grab;
+}
+
+.band:active {
+  cursor: grabbing;
+}
+
+.handle {
+  position: absolute;
+  top: 2px;
+  bottom: -2px;
+  width: 8px;
+  margin-left: -4px;
+  border-radius: 2px;
+  background: #000;
+  border: 2px solid var(--accent);
+  cursor: ew-resize;
+  box-sizing: border-box;
+}
+
+.handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.extent {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--fg-faint);
+  font-variant-numeric: tabular-nums;
+}

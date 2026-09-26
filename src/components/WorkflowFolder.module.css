@@ -1,0 +1,181 @@
+/* A workflow folder on the Data page:
+   the gallery's card with the operation colour in its strip, an outline
+   while open, its pane at the end of the row, and its row in the list. */
+
+.folder .strip,
+.strip {
+  background: color-mix(in srgb, var(--source-operation) 9%, var(--bg-raised));
+}
+
+/* The open folder's ring, drawn as an overlay above the whole card: an
+   inset outline sat under the strip's positioned motif and gradient on
+   the top half and whole on the white body below, so it read thicker at
+   the bottom (a field round). */
+.folder[data-open]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-card);
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* The "See N" / "Close" affordance wears the geometry chip's dress; its
+   chevron turns when the folder is open. */
+.see svg {
+  transition: transform var(--dur-micro) ease;
+}
+
+.see[data-open] svg {
+  transform: rotate(90deg);
+}
+
+.pane {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 16px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--bg-panel) 72%, transparent);
+  animation: rise-in var(--dur-entrance) var(--ease-entrance) backwards;
+}
+
+.paneHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 26px;
+  padding: 0 2px;
+}
+
+.glyph {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--fg-muted);
+}
+
+.glyph svg {
+  width: 16px;
+  height: 16px;
+}
+
+.paneName {
+  font-family: var(--font-display);
+  font-size: var(--text-heading);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--fg);
+  margin: 0;
+}
+
+.paneCount {
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+
+.paneLink {
+  margin-left: auto;
+  font-size: var(--text-label);
+  font-weight: 500;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.paneLink:hover {
+  color: var(--accent-bright);
+}
+
+.paneClose {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--fg-muted);
+  transition: background var(--dur-micro) ease, color var(--dur-micro) ease;
+}
+
+.paneClose:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.paneClose svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ---- the list ---- */
+
+.row {
+  cursor: pointer;
+}
+
+/* The workflow's name is a name, not an identifier: the UI face over
+   the name cell's mono, by specificity rather than stylesheet order
+   (CSS-module chunk order across files is not guaranteed; a changed
+   import once flipped it and the name went mono). */
+.row .rowName {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: var(--text-body);
+}
+
+/* The disclosure is the row's activator (a real button, the expanded
+   state on it); its chevron turns when the folder is open. */
+.disclose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--hit-area);
+  height: var(--hit-area);
+  margin: -5px 2px -5px -6px;
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  vertical-align: middle;
+}
+
+.disclose:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.disclose svg {
+  width: 14px;
+  height: 14px;
+  transition: transform var(--dur-micro) ease;
+}
+
+.row[data-open] .disclose svg {
+  transform: rotate(90deg);
+}
+
+.rowFacts {
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.rowState {
+  display: inline-flex;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+/* An unfolded output's row sits indented under its folder (the element
+   in the selector outweighs the table's own cell rule whatever the
+   stylesheet order). */
+tr.nested td {
+  background: color-mix(in srgb, var(--bg-raised) 60%, transparent);
+}
+
+.indent {
+  display: inline-block;
+  width: 24px;
+}

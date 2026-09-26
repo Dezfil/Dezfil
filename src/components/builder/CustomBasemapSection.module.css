@@ -1,0 +1,177 @@
+/* The sixth card: the dashed door, the inline check form,
+   and the saved named tile — same grid cell as the built-in cards. */
+
+.door {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 74px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg-faint);
+  font-size: var(--text-label);
+  cursor: pointer;
+  transition: var(--dur-micro);
+}
+
+/* The house ghost-door hover (gallery.module.css .ghost): the whole
+   tile sweeps to accent — a field note. */
+.door:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.doorPlus {
+  font-size: var(--text-heading);
+  line-height: 1;
+  color: inherit;
+}
+
+.saved {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 74px;
+  padding: 8px 9px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-dim);
+}
+
+.savedName {
+  font-size: var(--text-label);
+  font-weight: 600;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.savedUrl {
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.savedActions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.form {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fieldLabel {
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+}
+
+.input {
+  height: var(--control-compact);
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  color: var(--fg);
+  font-size: var(--text-label);
+}
+
+.input:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+
+.action {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: var(--text-meta);
+  cursor: pointer;
+}
+
+.action:disabled {
+  color: var(--fg-faint);
+  cursor: default;
+}
+
+.action:hover:not(:disabled) {
+  color: var(--accent-bright);
+}
+
+.verdict {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-meta);
+  line-height: 1.45;
+}
+
+.verdict[data-tone="ok"] {
+  background: var(--accent-dim);
+  color: var(--fg);
+}
+
+.verdict[data-tone="warn"] {
+  background: var(--warn-dim);
+  color: var(--fg);
+}
+
+.verdict[data-tone="bad"] {
+  background: var(--danger-dim);
+  color: var(--fg);
+}
+
+.verdict p {
+  margin: 0;
+}
+
+.credit {
+  color: var(--fg-muted);
+}
+
+.save {
+  align-self: flex-start;
+  height: var(--control-compact);
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--text-label);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.save:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

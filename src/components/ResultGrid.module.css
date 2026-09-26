@@ -1,0 +1,169 @@
+/* Result table shared by the Query workspace and the SQL dock. Default
+   sizing is the workspace's page cap; the fill variant stretches to
+   whatever hosts it. */
+
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: rise-in 0.28s ease;
+}
+
+.result[data-fill] {
+  height: 100%;
+  min-height: 0;
+  gap: 8px;
+  animation: none;
+}
+
+.resultMeta {
+  display: flex;
+  gap: 18px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--fg-muted);
+}
+
+.resultMeta strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.truncated {
+  color: var(--warn);
+}
+
+.empty {
+  padding: 22px;
+  text-align: center;
+  color: var(--fg-faint);
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+}
+
+.gridWrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: auto;
+  max-height: 56vh;
+  background: var(--bg-panel);
+}
+
+.result[data-fill] .gridWrap {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+/* Dock density: the dock's grid is a dev surface —
+   tighter type and cells so more rows and columns fit the half stage.
+   No card chrome either: the dock is already a card, so the grid sits
+   flush on its surface — the sticky header row and row rules carry the
+   structure. */
+.result[data-fill] .gridWrap {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.result[data-fill] .empty {
+  border: none;
+  background: transparent;
+  padding: 22px 0;
+}
+
+.result[data-fill] .grid th:first-child,
+.result[data-fill] .grid td:first-child {
+  padding-left: 2px;
+}
+
+.result[data-fill] .resultMeta {
+  gap: 14px;
+  font-size: 10.5px;
+}
+
+.result[data-fill] .grid {
+  font-size: 11px;
+}
+
+.result[data-fill] .grid th {
+  padding: 4px 10px;
+}
+
+.result[data-fill] .colType {
+  font-size: 8.5px;
+}
+
+.result[data-fill] .grid td {
+  padding: 3px 10px;
+  max-width: 240px;
+}
+
+.grid {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.grid th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-raised);
+  text-align: left;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border-strong);
+  white-space: nowrap;
+  z-index: 1;
+}
+
+.colName {
+  display: block;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.colType {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  opacity: 0.85;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.grid td {
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.grid tbody tr:hover td {
+  background: var(--bg-hover);
+}
+
+.nullCell {
+  color: var(--fg-faint);
+  opacity: 0.6;
+}
+
+/* Local copy of the shared rise-in keyframes: CSS modules scope
+   animation-names, so a global definition never matches. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

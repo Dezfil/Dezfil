@@ -1,0 +1,384 @@
+/* Wheelhouse shell: floating chrome over a quiet shell.
+   One gutter (--gutter), one chrome metric (--control/--radius-control). */
+
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 58px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--gutter);
+  padding: 0 16px 0 var(--gutter);
+  /* The body's fixed sheet, painted here too: the
+     bar reads as the sheet from the screen's top edge, and its opaque
+     ground still masks whatever scrolls under it. */
+  background: var(--bg) var(--sheet) center / cover no-repeat fixed;
+  transition: background 0.3s;
+}
+
+/* Fullscreen map and the workflow canvas's full view: the bar dissolves
+   — the header card and actions keep floating above the full-bleed
+   surface. */
+:global(body[data-map-full]) .topbar,
+:global(body[data-canvas-full]) .topbar {
+  background: transparent;
+  pointer-events: none;
+}
+
+:global(body[data-map-full]) .topbar > *,
+:global(body[data-canvas-full]) .topbar > * {
+  pointer-events: auto;
+}
+
+/* **Compressible, and the only thing here that is**.
+
+   The row is a flex line: this card, then the actions pushed right. Nothing in
+   it could shrink — the card had no `min-width`, so its breadcrumb held full
+   width whatever the viewport was, and the actions are all `nowrap`. At
+   1280 px with a published map, which adds a *Preview* link, the row's right
+   edge measured **x = 1413 px, 133 px past the viewport**, with the Publish
+   trigger itself starting beyond 1280 and no horizontal scroll to reach it.
+
+   So the card yields and the actions do not. Controls a user needs keep their
+   size; the map's name gives up characters, which it can afford because it is
+   already truncating at 300 px and the full name is a hover away. */
+.headCard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 0 1 auto;
+  height: var(--control);
+  border-radius: var(--radius-control);
+  /* The insets meet at the boundary (the reference's row): the
+     path's last segment carries its own 4 px, so 12 px on the right puts
+     the last character 16 px from the border, as the P is on the left. */
+  padding: 0 12px 0 16px;
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 3px 12px var(--shadow);
+}
+
+.brand {
+  flex: 0 0 auto;
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--accent-bright);
+  margin-right: 6px;
+}
+
+.brand:hover {
+  color: var(--accent);
+}
+
+/* The instance's name: a small pill
+   between the wordmark and the crumbs. It truncates rather than push
+   the row: an 80-character name must leave the actions reachable. */
+.instChip {
+  flex: 0 1 auto;
+  height: 22px;
+  line-height: 22px;
+  padding: 0 9px;
+  margin-right: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-wash);
+  color: var(--accent-bright);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.crumbLink {
+  padding: 4px 8px;
+  border-radius: 8px;
+  color: var(--fg-muted);
+  font-size: 13px;
+  /* Part of what makes the card compressible: a crumb that cannot shrink puts
+     the floor back under the whole row. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.crumbLink:hover {
+  background: var(--bg-raised);
+  color: var(--fg);
+}
+
+.crumbSep {
+  color: var(--fg-faint);
+  font-size: 12px;
+}
+
+.actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* The half that must not yield: these are the controls, and a Publish
+     trigger squeezed to nothing is the same defect in a different shape. */
+  flex: 0 0 auto;
+}
+
+/* Portal targets contribute children straight into the flex row. */
+.slot {
+  display: contents;
+}
+
+/* Icon rail: rows of icon + label; collapsed shows the
+   icon column only, expansion reveals the labels. ---- */
+
+.rail {
+  position: fixed;
+  left: var(--gutter);
+  top: 62px;
+  bottom: var(--gutter);
+  width: 54px;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 10px 8px;
+  gap: 5px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 3px 12px var(--shadow);
+  overflow: hidden;
+  /* Expansion: the rail widens as an overlay — it is fixed, so nothing
+     reflows. Collapse is immediate. Pointer intent lives in the RailShell
+     client component: a dwell over the collapsed rail's hot zone sets
+     `data-expanded` — the left two-thirds on the map builder, the whole
+     rail elsewhere; a crossing pointer never does, nor one resting on the
+     builder's right third. */
+  transition:
+    width 0.22s var(--ease-panel),
+    background 0.22s var(--ease-panel),
+    box-shadow 0.22s var(--ease-panel);
+}
+
+/* Keyboard focus expands regardless of pointer capability — but only
+   *visible* focus: a mouse click parks focus on the link it navigated,
+   which must not hold the rail open after the pointer leaves. The
+   expanded surface goes opaque: it overlays builder panels,
+   and content bleeding through the glass reads as clutter. */
+.rail:has(:focus-visible) {
+  width: 210px;
+  background: var(--bg-panel);
+  box-shadow:
+    0 10px 30px var(--shadow),
+    16px 0 36px -18px var(--shadow);
+  transition-delay: 0.15s;
+}
+
+/* Pointer expansion — the shell sets the attribute only for non-touch
+   pointers, after the dwell, so no transition-delay is needed here: the
+   intent already elapsed in the shell. */
+.rail[data-expanded] {
+  width: 210px;
+  background: var(--bg-panel);
+  box-shadow:
+    0 10px 30px var(--shadow),
+    16px 0 36px -18px var(--shadow);
+}
+
+.railLink {
+  display: flex;
+  align-items: center;
+  height: var(--control);
+  flex: none;
+  border-radius: var(--radius-control);
+  color: var(--fg-faint);
+  transition: 0.14s;
+}
+
+.railLink:hover {
+  color: var(--fg);
+  background: var(--accent-dim);
+}
+
+.railLink[data-active] {
+  color: var(--accent);
+  background: var(--accent-dim);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+/* The icon column keeps the collapsed rail's inner width, so icons never
+   move when the rail expands. */
+.railIcon {
+  width: 38px;
+  flex: none;
+  display: grid;
+  place-items: center;
+}
+
+.railLink svg {
+  width: 19px;
+  height: 19px;
+}
+
+.railLabel {
+  font-size: 13px;
+  white-space: nowrap;
+  color: var(--fg-muted);
+}
+
+/* The health row's quieter label — same reveal, status typography. */
+.railStatusLabel {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+/* Labels ride the expansion: hidden and tucked left while collapsed,
+   fading in alongside the width move. */
+.railLabel,
+.railStatusLabel {
+  opacity: 0;
+  transform: translateX(-6px);
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s var(--ease-panel);
+}
+
+.rail:has(:focus-visible) .railLabel,
+.rail:has(:focus-visible) .railStatusLabel {
+  opacity: 1;
+  transform: none;
+  transition-delay: 0.15s;
+}
+
+.rail[data-expanded] .railLabel,
+.rail[data-expanded] .railStatusLabel {
+  opacity: 1;
+  transform: none;
+}
+
+.railLink:hover .railLabel,
+.railLink[data-active] .railLabel {
+  color: inherit;
+}
+
+.railLink[data-active] .railLabel {
+  font-weight: 550;
+}
+
+/* The avatar: initials until real accounts bring images. */
+.avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.railSpacer {
+  flex: 1;
+}
+
+/* Reduced motion: the expansion still happens, near-instantly. Only the
+   presentation collapses — the RailShell dwell is interaction semantics
+   and is untouched by this block. */
+@media (prefers-reduced-motion: reduce) {
+  .rail,
+  .rail[data-expanded],
+  .rail:has(:focus-visible),
+  .railLabel,
+  .railStatusLabel,
+  .rail[data-expanded] .railLabel,
+  .rail[data-expanded] .railStatusLabel,
+  .rail:has(:focus-visible) .railLabel,
+  .rail:has(:focus-visible) .railStatusLabel {
+    transition-duration: 0.01s;
+    transition-delay: 0s;
+  }
+}
+
+/* ---- content region ---- */
+
+/* Wide workspace, capped content column: content fills the space
+   right of the rail on normal screens, tops out at 1480px and centers only
+   on very wide displays. The bottom gap equals the rail's, so viewport-fit
+   screens end flush with the rail's bottom edge — and pages that fit the
+   viewport never grow a pointless scrollbar. --screen-height is the
+   content region's exact share of the viewport (topbar 58px + top padding
+   + bottom gap); viewport-fit screens size themselves with it. */
+.main {
+  --screen-height: calc(100dvh - 58px - 28px - var(--gutter));
+  /* 1480px of content plus the two 24px side paddings below — border-box
+     counts them inside the cap, and the ≤1720px branch zeroes them while
+     capping back to 1480. Both branches hand the grids the same content
+     box, so a viewport growing past the breakpoint never LOSES a gallery
+     column (a later sitting; the arithmetic is held by
+     gallery-columns.test.ts). */
+  max-width: calc(1480px + 2 * 24px);
+  margin: 0 auto;
+  /* Topbar clearance lives in padding, not margin: a top margin here
+     collapses through <body> and grows every page by 58px of phantom
+     scroll (the fixed topbar and rail leave main as body's first
+     in-flow child). */
+  padding: calc(58px + 28px) 24px var(--gutter);
+}
+
+@media (max-width: 1720px) {
+  .main {
+    max-width: 1480px;
+    margin-left: 96px;
+    margin-right: 24px;
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+/* Entrance: the shell chrome settles in once per session
+   mount — the layout persists across route changes, so it doesn't replay. */
+@media (prefers-reduced-motion: no-preference) {
+  .headCard,
+  .rail {
+    animation: settle-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+}
+
+/* Local copy of the settle-in keyframes — CSS modules scope animation
+   names, so each module defines its own. */
+@keyframes settle-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The shell's header and rail are chrome, not text a user copies (a
+   select-all on the workflow page took the wordmark, the crumbs and the
+   rail's labels with it). A field portaled into the header keeps its own
+   selection. */
+.topbar,
+.rail {
+  user-select: none;
+}

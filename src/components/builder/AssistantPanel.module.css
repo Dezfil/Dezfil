@@ -1,0 +1,860 @@
+/* Lives in the collapsible right rail — fills its height. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px 14px;
+  min-height: 0;
+  flex: 1;
+}
+
+.title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  margin: 0;
+}
+
+.model {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--fg-muted);
+  font-weight: 400;
+}
+
+.absent {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  margin: 0;
+}
+
+.transcript {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+/* One turn: its message, its record, its
+   card and its answer stacked in the order they are read. */
+.turn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.turn:empty {
+  display: none;
+}
+
+.hint {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--fg-faint);
+  margin: 0;
+}
+
+.user,
+.assistant {
+  font-size: 12.5px;
+  line-height: 1.5;
+  word-break: break-word;
+  border-radius: var(--radius);
+}
+
+.user {
+  white-space: pre-wrap;
+  padding: 7px 9px;
+  background: var(--bg-raised);
+  color: var(--fg);
+  align-self: flex-end;
+  max-width: 92%;
+}
+
+/* The answer (page 03): the reply's rendered text, a hair in from the edge. */
+.assistant {
+  padding: 4px 2px;
+  color: var(--fg);
+}
+
+/* The thinking indicator (page 03 section 1 A): three dots pulsing in
+   the reply's own place; still and visible under reduced motion. */
+.thinkingSlot {
+  padding: 4px 2px;
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+}
+
+.thinking {
+  --dur-pulse: 1.2s;
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  height: 18px;
+}
+
+.thinking i {
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--fg-muted);
+  animation: dot-pulse var(--dur-pulse) ease infinite;
+}
+
+.thinking i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.thinking i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes dot-pulse {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
+}
+
+/* The live turn's motion (page 03): a line enters as it starts, the mark
+   lands with the outcome, the card enters where it arrives. Reduced
+   motion collapses these through the global rule. */
+.turn[data-live] {
+  --dur-enter: 0.22s;
+}
+
+.turn[data-live] .line {
+  animation: line-in var(--dur-enter) var(--ease-panel) both;
+}
+
+.turn[data-live] .lineStatus svg {
+  animation: mark-in var(--dur-micro) ease both;
+}
+
+.turn[data-live] .confirm {
+  animation: line-in var(--dur-enter) var(--ease-panel) both;
+}
+
+@keyframes line-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes mark-in {
+  from { transform: scale(0.4); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+.action {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  padding: 6px 8px;
+}
+
+.action[data-status="error"] {
+  border-color: var(--danger);
+  background: var(--danger-dim);
+}
+
+.actionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tool {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.actionStatus {
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.sql {
+  margin: 5px 0 0;
+  padding: 6px 7px;
+  background: var(--bg);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--fg-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+.detail {
+  margin-top: 5px;
+  font-size: 11.5px;
+  color: var(--danger);
+}
+
+.confirm {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-hover);
+  padding: 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--fg);
+}
+
+.confirm p {
+  margin: 0 0 8px;
+}
+
+.confirmActions {
+  display: flex;
+  gap: 8px;
+}
+
+.approve,
+.deny {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.approve {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.deny {
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--fg-muted);
+}
+
+
+/* The composer's second shape:
+   the input over a footer row holding the picker and the Send slot. */
+.inputColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex: none;
+}
+
+.composerFoot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.composerSpace {
+  flex: 1;
+}
+
+.inputRow {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+/* Geometry only — the look and the one focus treatment come from the
+   kit's field layer. */
+.input {
+  flex: 1;
+  background: var(--bg);
+}
+
+.send {
+  padding: 7px 12px;
+  border-radius: var(--radius);
+  border: none;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.send:disabled {
+  opacity: 0.5;
+}
+
+/* Stop in Send's slot: the
+   shipped Cancel register sized to the slot, with the stop mark. */
+.stop {
+  height: 32px;
+  padding: 0 11px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+  color: var(--fg-muted);
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  cursor: pointer;
+}
+
+.stop:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+.stop svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* The action record: one
+   collapsed line per action with its expander; the inspection under an
+   open line holds the SQL or the retained inputs, the history line and
+   the identifier. The line's status dot takes the accent wash, the danger
+   dim for a refusal or an uncertain outcome, and stays empty while the
+   action runs. */
+.record {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0;
+}
+
+.recordEntry {
+  display: flex;
+  flex-direction: column;
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 4px 6px;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.line:hover {
+  background: var(--bg-raised);
+}
+
+.lineStatus {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent-wash);
+  color: var(--accent);
+  flex: none;
+}
+
+.lineStatus svg {
+  width: 10px;
+  height: 10px;
+  stroke-width: 2.6;
+}
+
+.recordEntry[data-status="refused"] .lineStatus,
+.recordEntry[data-status="uncertain"] .lineStatus {
+  background: var(--danger-dim);
+  color: var(--danger);
+}
+
+.recordEntry[data-status="running"] .lineStatus {
+  background: var(--bg-hover);
+  color: var(--accent);
+}
+
+/* A running line opens nothing yet: no pointer, no chevron. */
+.line:disabled {
+  cursor: default;
+}
+
+.recordEntry[data-status="running"] .chevron {
+  visibility: hidden;
+}
+
+.lineWords {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.verb {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lineNote {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--fg-muted);
+  white-space: normal;
+}
+
+.recordEntry[data-status="refused"] .lineNote,
+.recordEntry[data-status="uncertain"] .lineNote {
+  color: var(--danger);
+}
+
+.elapsed {
+  font-size: 11px;
+  color: var(--fg-faint);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.chevron {
+  color: var(--fg-faint);
+  display: inline-flex;
+  transition: transform var(--dur-micro);
+  flex: none;
+}
+
+.chevron svg {
+  width: 13px;
+  height: 13px;
+}
+
+.line[aria-expanded="true"] .chevron {
+  transform: rotate(180deg);
+}
+
+/* The whole sentence, above the inspection's detail, when the collapsed
+   line had to cut it. */
+.sentence {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--fg);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.inspection {
+  margin: 0 6px 6px 29px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.inspectionInputs {
+  margin: 0;
+  padding: 6px 7px;
+  background: var(--bg);
+  border-radius: 4px;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 10px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.inspectionInput {
+  display: contents;
+}
+
+.inspectionInput dt {
+  color: var(--fg-faint);
+  font-family: var(--font-mono);
+}
+
+.inspectionInput dd {
+  margin: 0;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.omitted,
+.historyLine {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--fg-muted);
+}
+
+.toolId {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-faint);
+}
+
+/* The map check's note: the 44 px
+   thumbnail before the words, "Checked the map." in the foreground weight
+   and the observation muted, one line among the action lines. The line's
+   button is the record's expander; the thumbnail's is the approved way to
+   the retained image. */
+.checkLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 6px;
+  min-width: 0;
+}
+
+.checkThumb {
+  width: 44px;
+  height: 30px;
+  flex: none;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  overflow: hidden;
+  cursor: pointer;
+  display: block;
+}
+
+.checkThumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.checkThumb[data-image="unavailable"] {
+  background:
+    linear-gradient(135deg, transparent 47%, var(--border-strong) 47%, var(--border-strong) 53%, transparent 53%);
+}
+
+.checkThumb:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.checkWordsLine {
+  flex: 1;
+  min-width: 0;
+  padding-left: 0;
+  color: var(--fg-muted);
+}
+
+.checkWords {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  white-space: normal;
+  line-height: 1.4;
+}
+
+.checkWords b {
+  color: var(--fg);
+  font-weight: 500;
+  margin-right: 4px;
+}
+
+.checkWords [data-observation],
+.checkAside {
+  color: var(--fg-muted);
+}
+
+.checkAside {
+  margin-right: 4px;
+}
+
+.checkWords [data-provisional] {
+  color: var(--fg-faint);
+}
+
+.checkImageDialog {
+  max-width: min(1080px, 92vw);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.checkImageHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--fg-muted);
+  padding: 0 2px;
+}
+
+.checkImageClose {
+  border: none;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  display: inline-flex;
+  padding: 4px;
+  border-radius: var(--radius);
+}
+
+.checkImageClose:hover {
+  background: var(--bg-raised);
+}
+
+.checkImageClose svg {
+  width: 14px;
+  height: 14px;
+}
+
+.checkImage {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+}
+
+.lineDoor {
+  padding: 0 6px 4px 29px;
+}
+
+/* Screen-reader-only: the confirmation's polite arrival announcement
+   paints nothing. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The download door on a file-producing action. */
+.download {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.download:hover {
+  color: var(--accent-bright);
+  text-decoration: underline;
+}
+
+/* Native layer downloads use the button's disabled state while their
+ * stream is active. Keep the inline action's footprint, but never present
+ * a pending action as an accent link. */
+.download:disabled,
+.download:disabled:hover {
+  cursor: not-allowed;
+  color: var(--fg-muted);
+  text-decoration: none;
+}
+
+/* The model line when a host chrome owns the title (pane): the
+   h2's chip, standing alone. */
+.modelLine {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--fg-muted);
+  margin: 0;
+  text-align: right;
+}
+
+/* A code block in a reply, and the SQL proposal: the block's exact text in the mono face, and, where
+   the host can insert, the action under the code. Inserted, the action
+   goes quiet and says where the SQL is. */
+.code {
+  margin: 4px 0;
+  padding: 6px 7px;
+  background: var(--bg);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--fg-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.proposal {
+  margin: 4px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  overflow: hidden;
+}
+
+.proposalSql {
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--bg-panel);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--fg);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.proposalFoot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--border);
+}
+
+.proposalSpace {
+  flex: 1;
+}
+
+.proposalNote {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--fg-muted);
+}
+
+.insert {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  cursor: pointer;
+  flex: none;
+}
+
+.insert:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.insert[data-done],
+.insert[data-done]:hover {
+  color: var(--fg-muted);
+  border-color: var(--border);
+  background: transparent;
+}
+
+.insert svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Rendered markdown in a reply: paragraphs, headings, lists, inline code, bold, italics and
+   links from the reply's own text, beside the code blocks above. The
+   heading takes the pane's body size in the semibold weight; a literal
+   block (a table row, a blockquote) keeps its lines as typed. */
+.reply {
+  color: var(--fg);
+  white-space: normal;
+  word-break: break-word;
+}
+
+.reply p {
+  margin: 0 0 7px;
+}
+
+.reply p:last-child,
+.reply ul:last-child,
+.reply ol:last-child {
+  margin-bottom: 0;
+}
+
+.reply ul,
+.reply ol {
+  margin: 0 0 7px;
+  padding-left: 20px;
+}
+
+.reply li {
+  margin: 2px 0;
+}
+
+.reply li::marker {
+  color: var(--fg-muted);
+}
+
+.reply code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--fg);
+}
+
+.reply strong {
+  font-weight: 600;
+}
+
+.reply h4 {
+  margin: 6px 0 3px;
+  font-size: inherit;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.reply h4:first-child {
+  margin-top: 0;
+}
+
+.reply a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.reply a:hover {
+  color: var(--accent-bright);
+}
+
+.literal {
+  white-space: pre-wrap;
+}
+
+/* The streaming caret (page 03): a 2 px accent bar at the end of the
+   active block, blinking by a hard cut while text arrives; stationary
+   and visible under reduced motion through the global rule. */
+.caret {
+  --dur-blink: 1s;
+  display: inline-block;
+  width: 2px;
+  height: 0.95em;
+  margin-left: 2px;
+  vertical-align: -2px;
+  background: var(--accent);
+  animation: caret-blink var(--dur-blink) linear infinite;
+}
+
+@keyframes caret-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}

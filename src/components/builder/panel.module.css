@@ -1,0 +1,64 @@
+/* Shared layer-panel building blocks:
+   section headers in primary ink, visible separation between sections,
+   and instant hover hints on icon actions. Composed into the style panel
+   and filter section so they cannot drift. */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--divider);
+  padding-top: 14px;
+  /* Bleed the divider through the card's padding so it touches both
+     edges; the horizontal padding puts the content back in place. */
+  margin-left: -10px;
+  margin-right: -10px;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.section:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.sectionLabel {
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg);
+  transition: color var(--dur-micro) ease;
+}
+
+/* Section headers fold their section: the whole row is the
+   toggle, the chevron shows the state. */
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sectionHead:hover .sectionLabel {
+  color: var(--accent);
+}
+
+.sectionChevron {
+  display: inline-flex;
+  color: var(--fg-faint);
+  transition: transform var(--dur-micro) ease;
+}
+
+.sectionChevron[data-open="true"] {
+  transform: rotate(180deg);
+}
+
+/* The styled hint's bubble is drawn by the shared HintLayer;
+   the class stays as a participation marker for existing consumers. */
+.hint {
+  position: relative;
+}

@@ -1,0 +1,70 @@
+/* The corner picker: a 2×2 of
+   tiles, each a small map thumbnail carrying its corner pip. Visual
+   reference: variant D ("Quadrant tiles") of the
+   the corner-picker options deck. */
+
+.frame {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  width: 100%;
+}
+
+.corner {
+  position: relative;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  cursor: pointer;
+  transition: var(--dur-micro);
+}
+
+.pip {
+  position: absolute;
+  width: 12px;
+  height: 9px;
+  border-radius: var(--radius-sm);
+  background: var(--border-strong);
+  transition: var(--dur-micro);
+}
+
+.pip[data-corner="top-left"] {
+  top: 6px;
+  left: 6px;
+}
+
+.pip[data-corner="top-right"] {
+  top: 6px;
+  right: 6px;
+}
+
+.pip[data-corner="bottom-left"] {
+  bottom: 6px;
+  left: 6px;
+}
+
+.pip[data-corner="bottom-right"] {
+  bottom: 6px;
+  right: 6px;
+}
+
+.corner:hover:not(:disabled):not([data-active]) {
+  background: var(--bg-raised);
+  border-color: var(--border-strong);
+}
+
+.corner[data-active] {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.corner[data-active] .pip {
+  background: var(--accent);
+}
+
+.corner:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

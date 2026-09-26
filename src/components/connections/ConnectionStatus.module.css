@@ -1,0 +1,57 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  min-height: 24px;
+  padding: 2px 9px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  border-radius: var(--radius-pill);
+  background: var(--accent-dim);
+  color: var(--accent-bright);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pill[data-status="failing"] {
+  border-color: color-mix(in srgb, var(--danger) 26%, transparent);
+  background: var(--danger-dim);
+  color: var(--danger);
+}
+
+.pill[data-status="no_postgis"],
+.pill[data-status="not_checked_lately"] {
+  border-color: color-mix(in srgb, var(--warn) 26%, transparent);
+  background: var(--warn-dim);
+  color: var(--warn);
+}
+
+.pill[data-status="never_checked"],
+.pill[data-status="checking"] {
+  border-color: var(--border);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.spinner {
+  width: 10px;
+  height: 10px;
+  border: 2px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin var(--dur-spin) linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

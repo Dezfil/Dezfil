@@ -1,0 +1,16 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62 (dezfil e2e recorded shape)",
+  "osm3s": {
+    "timestamp_osm_base": "2026-07-01T00:00:00Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+    { "type": "node", "id": 1000001, "lat": 52.5225, "lon": 13.4101, "tags": { "amenity": "cafe", "name": "Cafe Fixture Eins" } },
+    { "type": "node", "id": 1000002, "lat": 52.5198, "lon": 13.4188, "tags": { "amenity": "cafe", "name": "Cafe Fixture Zwei" } },
+    { "type": "node", "id": 1000003, "lat": 52.5251, "lon": 13.4022, "tags": { "amenity": "cafe", "name": "Cafe Fixture Drei" } },
+    { "type": "node", "id": 1000004, "lat": 52.5169, "lon": 13.4290, "tags": { "amenity": "cafe", "name": "Cafe Fixture Vier", "cuisine": "coffee_shop" } },
+    { "type": "node", "id": 1000005, "lat": 52.5280, "lon": 13.4150, "tags": { "amenity": "cafe", "name": "Cafe Fixture Fuenf" } },
+    { "type": "node", "id": 1000006, "lat": 52.5140, "lon": 13.4079, "tags": { "amenity": "cafe", "name": "Cafe Fixture Sechs", "outdoor_seating": "yes" } }
+  ]
+}

@@ -1,0 +1,119 @@
+/* The header search field and its grouped dropdown. Chrome
+   surfaces match the header buttons; the panel is the house floating
+   card. */
+
+.host {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.field {
+  height: var(--control);
+  width: 230px;
+  padding: 0 13px;
+  border: none;
+  border-radius: var(--radius-control);
+  color: var(--fg);
+  font-size: 13px;
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 3px 12px var(--shadow);
+  transition: var(--dur-micro);
+}
+
+.field::placeholder {
+  color: var(--fg-faint);
+}
+
+.field:focus {
+  outline: 1.5px solid var(--accent);
+  outline-offset: -1.5px;
+}
+
+.panel {
+  position: absolute;
+  top: calc(var(--control) + 8px);
+  left: 0;
+  z-index: 30;
+  width: 320px;
+  max-height: min(60vh, 480px);
+  overflow-y: auto;
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 32px var(--shadow);
+  padding: 6px;
+}
+
+.list,
+.groupList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.groupHead {
+  padding: 7px 9px 3px;
+  font-size: var(--text-meta);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 9px;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.row:hover,
+.row[data-active] {
+  background: var(--accent-dim);
+}
+
+.rowLabel {
+  font-size: 13px;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rowContext {
+  margin-left: auto;
+  flex-shrink: 0;
+  max-width: 45%;
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attribution {
+  padding: 4px 9px 6px;
+  font-size: var(--text-meta);
+  color: var(--fg-faint);
+}
+
+.note {
+  padding: 8px 9px;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+
+.note[data-tone="warn"] {
+  color: var(--danger);
+}
+
+/* Compact widths: the field yields before the header actions do. */
+@media (max-width: 980px) {
+  .field {
+    width: 150px;
+  }
+}

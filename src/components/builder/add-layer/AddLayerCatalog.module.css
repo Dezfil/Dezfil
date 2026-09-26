@@ -1,0 +1,581 @@
+/* The add-layer catalog (Chandlery). One dialog family with
+   AddDataDialog — same scrim, same card, same nav idiom — sized 720px
+   for picking and grown to a workbench when the SQL source is active.
+   The Wheelhouse rules: 11px floor, flat primary, ink
+   hierarchy (names and values full ink, secondary description muted,
+   faint only decoration), drawn icons, family radii. */
+
+/* Size only — the scrim, the card, the modality contract and the entrance
+   are the kit's Dialog. */
+/* The shared Dialog defaults are 760 x 560. This catalog's compact view
+   needs the inverse trade-off: a little less width and enough height for
+   its six-entry source rail. Keep this selector more specific than the
+   shared shell so CSS load order cannot silently restore the shared maximum
+   and clip the rail footnote. */
+.dialog:not([data-wide]):not([data-map-source]) {
+  width: min(720px, 100%);
+  height: min(600px, calc(100vh - 48px));
+  max-height: none;
+}
+
+/* The growth: the SQL workbench needs an editor beside a grid — and,
+   the table browser above the editor. It takes the map-source geometry
+   outright: the sideways scrolling found in the field was half a width
+   problem, and the widest frame is already in the house. */
+.dialog[data-wide] {
+  width: min(1320px, 100%);
+  height: min(820px, calc(100vh - 48px));
+  max-height: none;
+}
+
+/* Map-based import sources need the room the Add-data dialog gave them
+   (widened) — a smaller mini-map clamps area drags. */
+.dialog[data-map-source] {
+  width: min(1320px, 100%);
+  height: min(820px, calc(100vh - 48px));
+  max-height: none;
+}
+
+/* The Layers-tab entry, in the retired panel's dashed idiom — the
+   glyph is drawn. */
+.trigger {
+  width: 100%;
+  padding: 9px;
+  border-radius: var(--radius-lg);
+  border: 1.5px dashed var(--border-strong);
+  color: var(--fg-muted);
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition:
+    border-color var(--dur-micro) ease,
+    color var(--dur-micro) ease,
+    background var(--dur-micro) ease;
+}
+
+.trigger svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+}
+
+.trigger:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+/* ---------- left source nav ---------- */
+
+/* Same rail width as the Add-data dialog; entry
+   anatomy lives in the shared SourceNav sheet. */
+.nav {
+  width: 224px;
+  flex: none;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 16px 12px 12px;
+  border-right: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+
+.navTitle {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  padding: 0 8px 10px;
+}
+
+.navGroup {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  padding: 8px 8px 3px;
+}
+
+.navSpace {
+  flex: 1;
+}
+
+/* The same rail footnote as the Add-data dialog's, which this one had
+   diverged from: the ramp's meta role, the decoration ink, and the rule
+   that makes it read as a footer instead of a stray full-width paragraph
+   among indented nav items. It was 11.5px muted with no rule. */
+.navFoot {
+  font-size: var(--text-meta);
+  color: var(--fg-faint);
+  line-height: 1.5;
+  padding: 10px 8px 0;
+  border-top: 1px solid var(--border);
+  text-wrap: pretty;
+}
+
+/* ---------- main column ---------- */
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 10px;
+}
+
+.headTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.headTitle strong {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.headTitle small {
+  color: var(--fg-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius);
+  color: var(--fg-muted);
+  transition:
+    color var(--dur-micro) ease,
+    background var(--dur-micro) ease;
+}
+
+.close:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+.close svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+}
+
+/* The strip is the kit's Tabs on the app's one tab look. */
+
+/* The map-based import panes own their scroll and fill. */
+.paneFill {
+  flex: 1;
+  min-height: 0;
+  /* A column, so the import line below the pane stays inside the
+     clipped dialog instead of overflowing under it (PR round). */
+  display: flex;
+  flex-direction: column;
+}
+
+.paneFill > :first-child {
+  flex: 1;
+  min-height: 0;
+}
+
+.paneFill > .scopeNote {
+  flex: none;
+  padding: 8px 16px 12px;
+}
+
+.importPane {
+  flex: 1;
+  min-height: 300px;
+  overflow-y: auto;
+  padding: 6px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ---------- tables view ---------- */
+
+.tablesView {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 16px 14px;
+}
+
+.search {
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  color: var(--fg);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.search:focus {
+  border-color: var(--accent);
+}
+
+.search::placeholder {
+  color: var(--fg-faint);
+}
+
+.tableList {
+  flex: 1;
+  min-height: 120px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.tableRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 6px 9px;
+  border-radius: 8px;
+  /* A button centres its text by default; the name reads from the
+     left of its room. */
+  text-align: left;
+  transition: background var(--dur-micro) ease;
+}
+
+.tableRow:hover {
+  background: var(--bg-hover);
+}
+
+.tableRow[data-selected] {
+  background: var(--accent-dim);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* The name takes the room: the provenance line that
+   used to out-compete it is gone, and the name is the row's one
+   flexible member. */
+.tableName {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tableRow[data-nonspatial] .tableName {
+  color: var(--fg-muted);
+}
+
+.tableRow[data-selected] .tableName {
+  color: var(--accent);
+}
+
+/* The facts: the row count alone, right-aligned at
+   the row's edge, in the interface face — the name is the row's one
+   table-face member. */
+.tableMeta {
+  margin-left: auto;
+  flex-shrink: 0;
+  text-align: right;
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-muted);
+}
+
+/* The filter row above the shared browser's search (17-A). The row's
+   membership tag left with a row is capsule, name, count. */
+.scopeRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+/* The import wing's stated trade: where an import will file. */
+.scopeNote {
+  margin: 0;
+  font-size: 12px;
+  color: var(--fg-faint);
+  line-height: 1.5;
+  /* A 120-character unbroken project name wraps instead of running
+     under the dialog's edge (the Add data dialog's rule). */
+  overflow-wrap: anywhere;
+}
+
+/* The one survivor of the retired detail strip: the reason a non-spatial
+   pick can't submit stays visible. It carries the Set geometry door on a
+   table the API accepts. */
+.nonspatialNote {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--fg-muted);
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.noteDoor {
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.noteDoor:hover {
+  color: var(--accent-bright);
+}
+
+/* ---------- footer ---------- */
+
+.foot {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.nameField {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--fg-muted);
+}
+
+.nameField span {
+  white-space: nowrap;
+}
+
+.nameField input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  color: var(--fg);
+  font-size: 13px;
+}
+
+.nameField input:focus {
+  border-color: var(--accent);
+}
+
+/* Flat accent primary; the gradient retires. */
+.primaryBtn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 16px;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: background var(--dur-micro) ease;
+}
+
+.primaryBtn:hover:not(:disabled) {
+  background: var(--accent-bright);
+}
+
+.primaryBtn:disabled {
+  opacity: 0.55;
+}
+
+.ghostBtn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--fg-muted);
+  border: 1px solid var(--border-strong);
+  transition:
+    color var(--dur-micro) ease,
+    border-color var(--dur-micro) ease,
+    background var(--dur-micro) ease;
+}
+
+.ghostBtn:hover {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: var(--accent-dim);
+}
+
+/* ---------- the SQL workbench ---------- */
+
+.sqlView {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 16px 14px;
+}
+
+.sqlView .foot {
+  padding-top: 10px;
+}
+
+.workbench {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 14px;
+}
+
+.wbEditorCol {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.wbResultsCol {
+  flex: 1.15;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-left: 1px solid var(--border);
+  padding-left: 14px;
+}
+
+/* The browser half: the same searchable list as the Tables
+   view, equal partner to the editor below it. */
+.wbBrowser {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wbBrowser .tableList {
+  min-height: 0;
+}
+
+.cmHost {
+  flex: 1 1 0;
+  min-height: 120px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  padding: 8px 6px;
+}
+
+.cmLoading {
+  height: 100%;
+  min-height: 120px;
+}
+
+.runRow {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.runRow kbd {
+  /* Explicit: the UA stylesheet keeps <kbd> monospace. */
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.dirtyMark {
+  /* Status prose: the UI face; muted ink stays. */
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-style: normal;
+  color: var(--fg-muted);
+}
+
+.staleNote {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--warn);
+  line-height: 1.5;
+}
+
+/* ---------- shared states ---------- */
+
+.stateBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 6px 0 8px;
+}
+
+.stateHint {
+  font-size: 12.5px;
+  color: var(--fg-muted);
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Derived-table grouping: recipe outputs above
+   workspace tables, each derived row carrying the step that wrote it. Without
+   it a twelve-step recipe's twelve datasets arrive as names nobody can
+   attribute. */
+.groupEyebrow {
+  margin: 6px 0 2px;
+  padding: 0 9px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}

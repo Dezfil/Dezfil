@@ -1,0 +1,251 @@
+/* The Projects list: the screen shell in
+   the sibling lists' metric, the four-tile mosaic strip, the counts
+   row, the unfiled summary and the New-project dialog. */
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  height: var(--screen-height);
+  min-height: 460px;
+}
+
+/* The picture strip: the by-count
+   picture fills the card's strip and the row's swatch; the strip drops
+   the gallery's caption wash, which exists for an overlay the project
+   card does not carry ---- */
+
+.picStrip.picStrip::after {
+  content: none;
+}
+
+/* The list row's swatch: a block with its own size — an inline span
+   collapses around absolutely-positioned tiles (the side-by-side round
+   measured it at 2px). */
+.rowMosaic {
+  display: block;
+  position: relative;
+  width: 96px;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  background: var(--bg-raised);
+  flex: none;
+}
+
+/* ---- the counts row on a card ---- */
+
+.counts {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+
+.counts span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.counts svg {
+  width: 13px;
+  height: 13px;
+  color: var(--fg-faint);
+}
+
+/* A project with nothing says so where its counts would be. */
+.nothing {
+  color: var(--fg-faint);
+  font-style: italic;
+}
+
+/* The note on its own line under the counts. */
+.note {
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- rename in place: the card's name becomes an input ---- */
+
+.renameInput {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 2px 7px;
+  min-width: 0;
+  width: 100%;
+}
+
+.renameInput:focus {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+/* Card actions inherit the gallery hover reveal; this span only groups. */
+.actsRow {
+  display: inline-flex;
+  gap: 2px;
+}
+
+/* ---- list view: the projects' own columns beside the gallery's ---- */
+
+.colCounts {
+  width: 260px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+
+.colCounts span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.colCounts svg {
+  width: 12px;
+  height: 12px;
+}
+
+.colPub {
+  width: 110px;
+  flex: none;
+}
+
+/* Rows are buttons; actions float beside them (buttons can't nest). */
+.listRowWrap {
+  position: relative;
+}
+
+.listRowActs {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Visible at rest: a first-time visitor cannot find a
+   hover reveal, so the row's actions show quietly and brighten on hover
+   or focus. The shared gallery rule fades them in; this list opts out.
+   The card view keeps its reveal. */
+.listRowActs > span {
+  opacity: 1;
+}
+
+.listRowActs button {
+  color: var(--fg-faint);
+}
+
+.listRowActs button:hover,
+.listRowActs button:focus-visible {
+  color: var(--fg);
+}
+
+/* The unfiled summary (spec; the link lands) ---- */
+
+.unfiled {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border-strong);
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+}
+
+.unfiled b {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+/* ---- the New-project dialog: the kit dialog, the sibling's field ---- */
+
+.dialog {
+  width: min(440px, 100%);
+  flex-direction: column;
+}
+
+.dialogHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dialogHead strong {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.dialogHead small {
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.nameField {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 14px 18px 0;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.nameField input {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--fg);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+}
+
+.nameField input:focus {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.problem {
+  padding: 8px 18px 0;
+  font-size: 11px;
+  color: var(--danger);
+}
+
+.foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 18px 16px;
+}
+
+/* The export outcome: the host owns the notice the
+   closing dialog cannot keep. */
+.exportNote {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  font-size: var(--text-body);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}

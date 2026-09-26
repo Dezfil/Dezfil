@@ -1,0 +1,93 @@
+/* The icon-only action. One action string drives both
+   the accessible name and the visible hint, so the two cannot drift.
+   The drawn icon keeps its size; the hit target comes from the button's own
+   padding and never from bigger artwork or a taller row.
+
+   Tone owns the look, and it owns all of it: an adopting surface sets its
+   own box (size, reveal-on-hover, placement) and leaves ink, wash and
+   radius here — otherwise the kit and the surface fight over specificity
+   and the winner is whichever stylesheet loaded last. `chrome` is the
+   deliberate exception: it contributes no look at all, so the builder's
+   glass header and stage buttons keep theirs. */
+
+.iconBtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  padding: 0;
+  transition:
+    color var(--dur-micro) ease,
+    background var(--dur-micro) ease,
+    opacity var(--dur-micro) ease;
+}
+
+/* The hit-area contract. The target's own box reaches the floor —
+   a pseudo-element would take the pointer but leave getBoundingClientRect
+   below it, which is a hit area you cannot measure and a contract you
+   cannot check. Adopters keep their visual size by setting width/height;
+   the min then grows the box itself, and the drawn icon is untouched. */
+.iconBtn {
+  min-width: var(--hit-area);
+  min-height: var(--hit-area);
+}
+
+.iconBtn:not([data-tone="chrome"]) {
+  border-radius: var(--radius-sm);
+}
+
+/* Quiet at rest, ink on hover — the panel default. */
+.iconBtn[data-tone="default"],
+.iconBtn[data-tone="danger"] {
+  color: var(--fg-faint);
+}
+
+.iconBtn[data-tone="default"]:hover:not(:disabled) {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+/* A destructive action stays quiet until the pointer is on it. */
+.iconBtn[data-tone="danger"]:hover:not(:disabled) {
+  color: var(--danger);
+  background: var(--danger-dim);
+}
+
+/* An active affordance — a visible layer's eye, say. */
+.iconBtn[data-tone="accent"] {
+  color: var(--accent);
+}
+
+.iconBtn[data-tone="accent"]:hover:not(:disabled) {
+  color: var(--accent-bright);
+  background: var(--accent-dim);
+}
+
+/* The solid tones are for a control that is already committed to its
+   meaning — the two halves of an inline confirm. */
+.iconBtn[data-tone="danger-solid"] {
+  color: var(--danger);
+  background: var(--danger-dim);
+}
+
+.iconBtn[data-tone="accent-solid"] {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.iconBtn[aria-pressed="true"]:not([data-tone="chrome"]) {
+  color: var(--accent);
+}
+
+.iconBtn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.iconBtn svg {
+  display: block;
+}
+
+/* The styled hint's bubble is drawn by the shared HintLayer;
+   this class only marks participation for legibility. */

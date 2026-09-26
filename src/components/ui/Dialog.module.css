@@ -1,0 +1,48 @@
+/* The modal shell. Three surfaces had written this scrim
+   and card for themselves; this is the one they share. Entrance is on the
+   motion family. */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--fg) 32%, transparent);
+  backdrop-filter: blur(4px);
+  animation: scrim-in var(--dur-entrance) ease backwards;
+}
+
+.dialog {
+  width: min(760px, 100%);
+  max-height: min(560px, calc(100vh - 48px));
+  display: flex;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  box-shadow: 0 30px 80px var(--shadow);
+  /* The one intentional suppression in the app: this container
+     takes programmatic focus on open as the modality anchor — it is not
+     an interactive control, and a ring here would dress the whole card.
+     Every control inside keeps the global focus-visible ring. */
+  outline: none;
+  animation: dialog-in var(--dur-entrance) var(--ease-panel) backwards;
+  transition:
+    width 0.25s var(--ease-panel),
+    height 0.25s var(--ease-panel);
+}
+
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.99);
+  }
+}

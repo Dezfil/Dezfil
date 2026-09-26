@@ -1,0 +1,317 @@
+/* Frameless card: shadow and radius carry the shape, no border —
+   matching the Wheelhouse reference. Rows follow spec variant D ("Full
+   wrap, sectioned") of the deck: one title scale, full wrapping, thin
+   dividers between layers. */
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  backdrop-filter: blur(8px);
+  border-radius: 16px;
+  padding: 13px 15px;
+  /* The width rule (see legend-fit.ts): the card
+     hugs its longest RENDERED line between 180 and 240px — measured,
+     because CSS pins a wrapped block at its cap even when its drawn
+     lines are shorter. 240 here is the pre-measure base; the fit
+     shrinks it the moment the card mounts. */
+  width: 240px;
+  box-shadow: 0 8px 26px var(--shadow);
+}
+
+/* Inside a widget rail the legend is a rail card: its column, not its
+   content, owns the width. The JS fitter deliberately skips this context. */
+.legend[data-docked] {
+  width: 100%;
+}
+
+/* The section divider: each layer after the first opens
+   under a thin rule, so a grown card stays legible. */
+.block + .block {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.heatRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.heatRamp {
+  flex: 1;
+  /* The ramp never yields below the fitter's floor (legend-fit's
+     RAMP_MIN): a long density label wraps instead of eating the row. */
+  min-width: 90px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1px solid var(--swatch-border);
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg);
+  /* A long name wraps completely — breaking inside
+     an unbroken token when it must, never truncated. */
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+.title > :first-child {
+  min-width: 0;
+}
+
+.attr {
+  font-family: var(--font-ui);
+  /* Regular, not the title's semibold it would inherit (the width deck
+     has it quiet). */
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entries {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.entry {
+  display: flex;
+  /* Top-aligned so a wrapped value hangs below its swatch; at the
+     compact line box the first line still meets the 13px swatch. */
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.swatch {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  border: 1px solid var(--swatch-border);
+  flex-shrink: 0;
+}
+
+.label {
+  /* The UI face on every surface: legend values read as card chrome,
+     and one face everywhere retires per-surface override token. */
+  font-size: 11px;
+  /* The deck's compact line box — the body's reading line-height is for
+     prose, not entry rows. */
+  line-height: 1.2;
+  color: var(--fg-muted);
+  /* Values wrap like names do (manner, extended):
+     never an ellipsis, in-token breaks when a token outgrows the
+     card. */
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The value's edit button dresses as the text it wraps. Block,
+   not inline-flex: shrink-to-fit sizing made even short values wrap,
+   and a baseline-synthesized inline box only honours ONE of the two
+   negative margins (the field diagnosis). As a block, the 24px hit
+   floor rides the padding, the margins claw back exactly that padding,
+   and a genuinely wrapped value keeps every line visible — one line
+   rests at the compact 1lh the deck sets. */
+.label .editable {
+  display: block;
+  min-height: 24px;
+  min-width: 0;
+  white-space: normal;
+  padding: calc((24px - 1lh) / 2) 3px;
+  margin: calc((1lh - 24px) / 2) -3px;
+}
+
+.channel {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.channelHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-faint);
+}
+
+.sizeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sizeGlyph {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  width: 26px;
+  justify-content: center;
+}
+
+.sizeGlyph i {
+  display: inline-block;
+  border-radius: 50%;
+  background: var(--fg-faint);
+}
+
+.dotSmall {
+  width: 5px;
+  height: 5px;
+}
+
+.dotLarge {
+  width: 12px;
+  height: 12px;
+}
+
+/* Builder-only edit shortcut: legend text focuses its rail field on
+   click — a real button, so the keyboard reaches it. It dresses as the
+   text it wraps; the padding/margin pair reaches the 24px hit floor
+   without moving the resting line. */
+.editable {
+  cursor: text;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  min-height: 24px;
+  min-width: 24px;
+  padding: 0 3px;
+  margin: calc((1lh - 24px) / 2) -3px;
+}
+
+.editable:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+/* Inside a title, the NAME's edit button must wrap like the text it
+   dresses as: inline-flex sizes to max-content, which would carry a
+   long name straight out of the card. Direct child only — the
+   attribute's own edit control keeps its one-line manner. The title's
+   box is made definite (the constant title grows to the row's free
+   space below), so the percentage resolves against real width. */
+.title > .editable,
+.constantTitle .editable {
+  max-width: 100%;
+  white-space: normal;
+}
+
+/* A value's in-place editor never outgrows the card: the input's
+   size attribute follows the draft, so an unclamped width would ride
+   a long draft straight out of a floor-fitted card — clamped, the caret scrolls natively instead. */
+.label .labelInput {
+  max-width: 100%;
+}
+
+/* In-place label editor: styled to sit exactly where the
+   label text was, caret and all. */
+.labelInput {
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg-panel);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  padding: 0 3px;
+  margin: -1px 0;
+  min-width: 42px;
+  max-width: 180px;
+}
+
+/* Continuous gradient block: the ramp bar with its
+   effective-domain ends, and the center value when the ramp diverges. */
+.rampRow {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rampBar {
+  display: block;
+  height: 10px;
+  border-radius: 3px;
+  border: 1px solid var(--swatch-border);
+}
+
+.rampAxis {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  /* The UI face, matching.label (ruling). */
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--fg-muted);
+}
+
+.rampCenter {
+  color: var(--fg-faint);
+}
+
+/* Extrusion height glyph: two rising bars beside the range. */
+.barSmall,
+.barLarge {
+  display: inline-block;
+  width: 5px;
+  border-radius: 1.5px;
+  background: var(--fg-muted);
+  align-self: flex-end;
+}
+
+.barSmall {
+  height: 6px;
+}
+
+.barLarge {
+  height: 13px;
+}
+
+/* The all-constant row: one swatch, one title — at the block-title
+   scale, wrapping like every other title. */
+.constantRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.constantRow .swatch {
+  margin-top: 1.5px;
+}
+
+.constantTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg);
+  /* Grow to the row's free space: the wrap percentage inside needs a
+     definite box, and a shrunk-to-content span squeezed short names
+     into pathological one-character wraps. */
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}

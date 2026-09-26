@@ -1,0 +1,59 @@
+# dependencies. Both forms on purpose: the trailing-slash pattern matches a
+# directory, and a worktree's node_modules is a symlink, which the one-line
+# form catches.
+node_modules
+node_modules/
+
+# next.js
+.next/
+out/
+next-env.d.ts
+
+# typescript
+*.tsbuildinfo
+
+# runtime data directory (the mounted volume in production), anchored to the
+# root: an unanchored data/ also swallows the /data app route
+/data/
+
+# test data
+/test-data/
+
+# env
+.env
+.env.*
+
+# DuckDB extensions fetched for offline loading: hundreds of megabytes
+duckdb-extensions/
+
+# test
+coverage/
+
+# os / editor
+.DS_Store
+
+# scratch directories the unit tests make with mkdtemp at the repository
+# root; a killed run leaves them behind
+.tmp-*
+
+# tool artifacts
+.playwright-mcp/
+
+# browser journey output: traces and screenshots kept only on failure, plus
+# the screenshots the journey writes as it goes
+test-results/
+playwright-report/
+.next-dev-logs/
+
+# scratch data directories for local end-to-end and container runs
+.e2e-data/
+.ci-data/
+
+# log of a locally started server
+server.log
+
+# agent session scratch
+.claude/
+
+# perf and evidence logs written by the measurement harnesses
+perf-logs/

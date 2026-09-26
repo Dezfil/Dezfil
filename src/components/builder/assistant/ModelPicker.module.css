@@ -1,0 +1,186 @@
+/* The model and effort picker:
+   a chip in the composer's footer row and its menu, opening upward inside
+   the pane. Wheelhouse vocabulary throughout — the prototype's off-ramp
+   sizes and radii take the nearest ramp step and radius token. */
+
+.wrap {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  min-width: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+  max-width: 100%;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.chip:hover:not(:disabled) {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+.chip[aria-expanded="true"] {
+  color: var(--accent);
+  background: var(--accent-wash);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.chip:disabled {
+  opacity: 0.55;
+}
+
+.chip b {
+  font-weight: 600;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip:disabled b {
+  color: var(--fg-muted);
+}
+
+.chip span {
+  white-space: nowrap;
+}
+
+.chip svg {
+  width: 11px;
+  height: 11px;
+  flex: none;
+}
+
+.menu {
+  position: absolute;
+  z-index: 40;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 208px;
+  max-width: 100%;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 30px var(--shadow);
+  padding: 4px;
+  /* Bound to the pane it opens in: the picker measures the room above the
+     chip and writes it to the wrap (menu-room.ts); the fallback is for a
+     picker no pane holds. The list scrolls inside only when it would not
+     fit. */
+  max-height: var(--menu-room, 70vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  animation: menu-in var(--dur-micro) var(--ease-panel) both;
+}
+
+@keyframes menu-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.head {
+  margin: 0;
+  padding: 6px 8px 3px;
+  font-size: var(--text-meta);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.item:hover {
+  background: var(--bg-hover);
+}
+
+.words {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.item b {
+  font-size: var(--text-label);
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.identity {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--fg-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tick {
+  width: 14px;
+  color: var(--accent);
+  display: inline-flex;
+  justify-content: center;
+  flex: none;
+}
+
+.tick svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2.6;
+}
+
+.item[aria-checked="false"] .tick {
+  visibility: hidden;
+}
+
+.separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
+
+/* An effort level is a row of the same list, one per level with the tick
+   on the current one, a little shorter than a model row since it carries
+   no identity line. */
+.level {
+  padding: 5px 8px;
+}
+
+.label {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-label);
+  font-weight: 500;
+  color: var(--fg);
+  white-space: nowrap;
+}
+
+.level[aria-checked="true"] .label {
+  font-weight: 600;
+}

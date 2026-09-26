@@ -1,0 +1,40 @@
+/* The table-detail run state: quiet when current, worded when
+   not, and the one Re-run that replaces the output in place. */
+
+.state {
+  color: var(--fg-muted);
+}
+
+.current {
+  color: var(--fg-muted);
+}
+
+.stale {
+  color: var(--warn);
+}
+
+.failed {
+  color: var(--danger);
+}
+
+.rerun {
+  margin-left: 8px;
+  height: 22px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.rerun:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.rerun:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}

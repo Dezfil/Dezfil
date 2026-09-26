@@ -1,0 +1,28 @@
+/* The world inset over the choice map. */
+
+.inset {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: block;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 3px 12px var(--shadow);
+  pointer-events: none;
+}
+
+.water {
+  fill: var(--bg-raised);
+}
+
+.land {
+  fill: var(--bg-hover);
+  stroke: var(--border-strong);
+  stroke-width: 0.5;
+}
+
+.marker {
+  fill: var(--accent);
+  stroke: var(--bg-panel);
+  stroke-width: 1.5;
+}

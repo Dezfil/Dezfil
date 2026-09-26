@@ -1,0 +1,131 @@
+/* Builder status pill: floats bottom-center inside the
+   map card; with the SQL dock open in fullscreen it glides above it. */
+
+.bar {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 16px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 32px;
+  padding: 0 15px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 3px 12px var(--shadow);
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  max-width: calc(100% - 130px);
+  overflow: hidden;
+  user-select: none;
+  /* The parent card is pointer-transparent (the map owns the pointer);
+     the pill's copy buttons opt back in. */
+  pointer-events: auto;
+  transition:
+    left var(--dur-panel) var(--ease-panel),
+    bottom var(--dur-panel) var(--ease-panel);
+}
+
+/* The measurement probe: the same box and typography as the
+   pill, stretched to the full permitted width so its clientWidth IS the
+   capacity, holding every present item at natural size for measurement.
+   Invisible, inert, and never animated — it exists only to be measured. */
+.probe {
+  composes: bar;
+  width: 100%;
+  visibility: hidden;
+  pointer-events: none;
+  transition: none;
+  animation: none;
+}
+
+.probe > * {
+  /* Natural widths: measurement must see the un-shrunk item. */
+  flex: none;
+}
+
+/* With a timeline docked, the pill holds its entry until the bar has
+   glided back off its band: restoring the pill would
+   otherwise mount it under the descending bar for the whole glide. */
+:global(body[data-timeline-docked]) .bar {
+  animation: pill-entry var(--dur-micro) ease 0.32s backwards;
+}
+
+@keyframes pill-entry {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Fullscreen: center on the free area right of the floating inspector —
+   the docked stage's center, so the pill doesn't jump horizontally. */
+:global(body[data-map-full]) .bar {
+  /* The same expression the timeline dock uses, from the same property —
+     the two used to be written out separately and were 18 px apart below
+     the breakpoint, because only one of them had a media query. */
+  left: calc(50% + (var(--stage-left) - var(--gutter)) / 2);
+  max-width: calc(100% - var(--stage-left) - 182px);
+}
+
+.item,
+.copy {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+}
+
+.copy {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.copy:hover:not(:disabled) .val {
+  color: var(--fg);
+}
+
+.copy:disabled {
+  cursor: default;
+}
+
+.key {
+  color: var(--fg-muted);
+  opacity: 0.65;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.val {
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.flash {
+  color: var(--accent);
+}
+
+.flash[data-ok="false"] {
+  color: var(--warn);
+}
+
+/* Truth states: stale counts dim while updating; failed
+ * counts read as unavailable, never as the answer. */
+.item[data-stale] .val {
+  opacity: 0.55;
+}
+
+.val[data-failed] {
+  color: var(--warn);
+}

@@ -1,0 +1,16 @@
+/* The canvas's own placement for the save status corner:
+   the stage's top-left overlay line, 46 px in from the control stack —
+   the stack's 38 px box and the reference's eight. Both offsets come
+   from the host's overlay properties, so the corner moves with the
+   stack between the full and framed views and nothing restates the
+   numbers the stage already keeps. */
+.canvasCorner {
+  top: var(--canvas-overlay-top);
+  left: calc(var(--canvas-overlay-left) + 46px);
+  /* The band the chip may use, to the canvas's own gutter: a long
+     failure wraps inside the stage rather than off it. */
+  right: var(--gutter);
+  /* The stack's own layer: the chip is chrome too,
+     and a failure carrying Retry must not fall behind a note's menu. */
+  z-index: 8;
+}

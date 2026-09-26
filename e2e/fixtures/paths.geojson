@@ -1,0 +1,9 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    { "type": "Feature", "properties": { "name": "U1", "kind": "rail", "traffic": 5200 }, "geometry": { "type": "LineString", "coordinates": [[13.3326, 52.5041], [13.3752, 52.4991], [13.4211, 52.4996], [13.4499, 52.5058]] } },
+    { "type": "Feature", "properties": { "name": "Spree walk", "kind": "path", "traffic": 800 }, "geometry": { "type": "LineString", "coordinates": [[13.3696, 52.5251], [13.3901, 52.5205], [13.4133, 52.5192]] } },
+    { "type": "Feature", "properties": { "name": "Ring N", "kind": "rail", "traffic": 9100 }, "geometry": { "type": "LineString", "coordinates": [[13.3885, 52.5487], [13.4302, 52.5410], [13.4692, 52.5296]] } },
+    { "type": "Feature", "properties": { "name": "Canal way", "kind": "path", "traffic": 340 }, "geometry": { "type": "LineString", "coordinates": [[13.3501, 52.4945], [13.3910, 52.4890], [13.4400, 52.4910]] } }
+  ]
+}

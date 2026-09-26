@@ -1,0 +1,190 @@
+/* The project filter: a
+   toolbar-height control first in the row; the popover rows carry the
+   name, the count and the active check; the unfiled row is set apart. */
+
+/* The reference's control (page 12 A, `.projFilter`): the toolbar's
+   chrome height, as tall as the search beside it; the field round found
+   the shipped chip a size down, off its neighbours' top edge. The
+   wrapper is the toolbar's own flex child. */
+.wrap {
+  display: inline-flex;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control);
+  padding: 0 12px 0 11px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--fg);
+  font-size: var(--text-body);
+  font-weight: 500;
+  white-space: nowrap;
+  flex: none;
+  transition:
+    border-color var(--dur-micro) ease,
+    background var(--dur-micro) ease;
+}
+
+.trigger:hover,
+.wrap[data-open] > .trigger {
+  border-color: var(--accent);
+}
+
+/* Inside the add-layer catalog the control takes the catalog's own
+   height, as page 17 A draws it beside the catalog's search. */
+.triggerCompact {
+  height: 34px;
+}
+
+/* The scoped state, per the references' shared dress (pages 12/17,
+   `.projFilter[data-on]`): the tinted fill and border say a narrowing
+   is active — the side-by-side caught the shipped chip carrying only
+   the accent text. */
+.triggerOn {
+  background: var(--accent-dim);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--accent-bright);
+  font-weight: 600;
+}
+
+.triggerOn:hover {
+  color: var(--accent-bright);
+}
+
+.face {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 260px;
+}
+
+.face[data-on] {
+  color: var(--accent);
+}
+
+.face > svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.face[data-on] > svg {
+  color: var(--accent);
+}
+
+.faceName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.faceCount {
+  font-size: var(--text-meta);
+  color: var(--fg-faint);
+  /* Tabular, as the reference draws it (03-consistent-pages.html) and
+     as the menu's own rows already count: the face must not change
+     width with its digits, or the whole row after it shifts when the
+     first item lands (measured at 2.5 px). */
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.face[data-on] .faceCount {
+  color: var(--accent);
+}
+
+.caret {
+  display: inline-flex;
+  flex: none;
+  margin-left: 2px;
+  color: var(--fg-faint);
+}
+
+.caret svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* The popover panel: the house menu dress (the kit menu leaves the
+   panel class to its consumer). */
+.menu {
+  position: fixed;
+  /* Above the dialog plane (120): the catalog hosts this filter
+     inside a modal, and a transient popover always outranks its host. */
+  z-index: 130;
+  min-width: 260px;
+  max-width: 340px;
+  padding: 5px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 30px var(--shadow);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.menu [role="menuitem"] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  font-size: 13px;
+  color: var(--fg);
+  text-align: left;
+}
+
+.menu [role="menuitem"]:hover {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.rowName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.rowCount {
+  color: var(--fg-faint);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.rowCheck {
+  width: 14px;
+  display: inline-flex;
+  justify-content: flex-end;
+  flex: none;
+}
+
+.rowCheck svg {
+  width: 12px;
+  height: 12px;
+  color: var(--accent);
+}
+
+.unfiledRow {
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+  padding-top: 8px;
+}
+
+/* The active row's band (`.mRow[data-on]` in the references): the check
+   alone does not scan in a long list — the side-by-side. */
+.activeRow {
+  background: var(--accent-dim);
+}
+
+.activeRow .rowName {
+  font-weight: 600;
+}

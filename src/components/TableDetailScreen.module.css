@@ -1,0 +1,285 @@
+/* Viewport-fit: header, provenance, and tabs stay put;
+   the active preview pane takes the rest, ending flush with the rail. */
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: var(--screen-height);
+  min-height: 480px;
+}
+
+.backLink {
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  color: var(--fg-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+
+.backLink svg {
+  transform: rotate(90deg);
+}
+
+/* The workspace hand-off link inside the preview note: a drawn
+   caret instead of the arrow glyph, sized to sit in running text. */
+.sqlLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.sqlLink svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* Header: back, name + chips, actions ---- */
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.back {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-control);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  transition: 0.13s;
+  margin-top: 2px;
+}
+
+.back:hover {
+  color: var(--fg);
+  border-color: var(--border-strong);
+  transform: translateX(-1px);
+}
+
+.back svg {
+  width: 16px;
+  height: 16px;
+}
+
+.title {
+  min-width: 0;
+}
+
+.title h1 {
+  font-family: var(--font-mono);
+  /* The title role — mono stays: this renders a table identifier. */
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.title > div {
+  margin-top: 7px;
+}
+
+.actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.aux {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-control);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  transition: 0.12s;
+}
+
+.aux:hover:not(:disabled) {
+  color: var(--fg);
+  background: var(--accent-dim);
+  border-color: transparent;
+}
+
+.aux:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.auxDanger:hover:not(:disabled) {
+  color: var(--danger);
+  background: var(--danger-dim);
+}
+
+.aux svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* The re-run wait rotates its own symbol; the global
+ * reduced-motion rule stills it. */
+.aux[data-busy] svg {
+  animation: rerun-turn var(--dur-spin) linear infinite;
+}
+
+@keyframes rerun-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--fg-muted);
+  animation: rise-in 0.2s ease;
+}
+
+.quietBtn {
+  font-size: 12.5px;
+  color: var(--fg-muted);
+  padding: 5px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.quietBtn:hover {
+  color: var(--fg);
+  border-color: var(--fg-faint);
+}
+
+.dangerBtn {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--danger);
+  padding: 5px 12px;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+  background: var(--danger-dim);
+}
+
+.provenance {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--fg-muted);
+  word-break: break-word;
+}
+
+.provenanceAct {
+  font: inherit;
+  color: var(--accent);
+  margin-left: 10px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.provenanceAct:hover:not(:disabled) {
+  color: var(--accent-bright);
+}
+
+/* The body row: the set-geometry dock beside the previews ---- */
+
+.bodyRow {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 14px;
+}
+
+.paneCol {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tabsRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  flex: none;
+}
+
+.liveTag {
+  font-size: var(--text-meta);
+  color: var(--accent);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 8px;
+}
+
+.liveTag i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: inline-block;
+}
+
+/* ---- tabs ---- */
+
+/* Placement only — the strip is the kit's Tabs, on the app's one tab look
+   (the strips converge, ratified at the gate). */
+.tabs {
+  align-self: flex-start;
+  border-bottom: 1px solid var(--border);
+}
+
+.pane {
+  animation: rise-in 0.25s ease;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Data preview: the grid lives in TablePreviewGrid ---- */
+
+.previewNote {
+  margin-top: 9px;
+  font-size: 12px;
+  color: var(--fg-faint);
+}
+
+.loading {
+  color: var(--fg-muted);
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  padding: 30px 0;
+}
+
+/* Local copy of the shared rise-in keyframes: CSS modules scope
+   animation-names, so a global definition never matches. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

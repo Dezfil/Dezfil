@@ -1,0 +1,235 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.form h2 {
+  font-size: var(--text-heading);
+  font-weight: 600;
+}
+
+.urlBox {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+}
+
+.urlBox .field input {
+  background: var(--bg-panel);
+}
+
+.urlLink {
+  align-self: flex-start;
+  color: var(--accent-bright);
+  font-size: var(--text-label);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.urlMessage {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 16px;
+  color: var(--accent-bright);
+  font-size: var(--text-meta);
+}
+
+.urlMessage[data-invalid] {
+  color: var(--danger);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.form[data-layout="stacked"] .grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+}
+
+.field[data-wide] {
+  grid-column: span 2;
+}
+
+.field > span {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.field em {
+  color: var(--fg-faint);
+  font-style: normal;
+}
+
+.field input {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  color: var(--fg);
+  font-size: var(--text-body);
+  transition: border-color var(--dur-feedback), background var(--dur-feedback);
+}
+
+.field input:focus {
+  outline: 2px solid color-mix(in srgb, var(--focus) 55%, transparent);
+  outline-offset: 0;
+}
+
+.field input::placeholder {
+  color: var(--fg-faint);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fg);
+  font-size: var(--text-body);
+  cursor: pointer;
+}
+
+.check input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.note,
+.sslNote {
+  color: var(--fg-faint);
+  font-size: var(--text-label);
+  line-height: 1.5;
+}
+
+.sslNote {
+  margin-top: -8px;
+  color: var(--warn);
+}
+
+.error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+  border-radius: var(--radius);
+  background: var(--danger-dim);
+  font-size: var(--text-label);
+}
+
+.error > svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--danger);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.primary,
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-compact);
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  font-size: var(--text-label);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+.primary:hover:not(:disabled) {
+  border-color: var(--accent-bright);
+  background: var(--accent-bright);
+}
+
+.secondary {
+  background: var(--bg-panel);
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.primary:disabled,
+.secondary:disabled {
+  opacity: 0.5;
+}
+
+.result,
+.result > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+  font-weight: 500;
+}
+
+.result > span[data-state="ok"] {
+  color: var(--accent-bright);
+}
+
+.result > span[data-state="warn"] {
+  color: var(--warn);
+}
+
+.spinner {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border: 2px solid var(--accent-dim);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin var(--dur-spin) linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 760px) {
+  .grid,
+  .form[data-layout="stacked"] .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -1,0 +1,60 @@
+import { INSPECT_PREVIEW_ROWS } from "@/lib/table-preview-limit";
+import { trustedH3Ready } from "@/lib/duckdb";
+import { recognizeStoredContent } from "@/lib/ingest/content-recognition";
+import { withBlankCoordinateFacts } from "@/lib/ingest/csv-source";
+import { geometryColumns, geometryRevision, readGeometry, requireGeometryTable } from "./read";
+import { getGeometryState } from "./state";
+import { geometryOwnership, nativeGeometryChoice } from "./ownership";
+import { inspectionCache } from "./inspection-cache";
+import type { GeometryMode } from "./types";
+
+const cachedInspection = inspectionCache<Awaited<ReturnType<typeof readInspection>>>();
+
+export function inspectGeometry(name: string) {
+  const table = requireGeometryTable(name);
+  return cachedInspection(table, () => readInspection(table));
+}
+
+function readInspection(table: ReturnType<typeof requireGeometryTable>) {
+  const state = getGeometryState(table);
+  return readGeometry(table, async (conn, from) => {
+    const columns = await geometryColumns(conn, from);
+    const { currentChoice } = geometryOwnership(table, state, columns);
+    const candidates = await recognizeStoredContent(conn, from,
+      await withBlankCoordinateFacts(conn, from, columns.filter(c => c.name !== table.geometryColumn)),
+      trustedH3Ready, currentChoice);
+    return {
+      tableId: table.id, revision: geometryRevision(table), columns,
+      geometryColumn: table.geometryColumn, geometryRecord: table.geometryRecord ?? null,
+      currentChoice, mode: (state?.mode ?? "unmodified") as GeometryMode, candidates,
+    };
+  });
+}
+
+import { parseGeometryChoice, validateGeometryColumns } from "./choice";
+import { evaluateGeometry } from "./evaluate";
+import { measureGeometry, sampleGeometry } from "./preview";
+import type { GeometryPreview } from "./types";
+
+export function previewGeometry(name: string, expectedRevision: string, input: unknown): Promise<GeometryPreview> {
+  const table = requireGeometryTable(name, expectedRevision);
+  const choice = parseGeometryChoice(input);
+  const state = getGeometryState(table);
+  return readGeometry(table, async (conn, from) => {
+    const columns = await geometryColumns(conn, from);
+    const native = nativeGeometryChoice(table, state, columns, choice);
+    validateGeometryColumns(choice, columns, native);
+    const evaluated = await evaluateGeometry(conn, from, choice, native, INSPECT_PREVIEW_ROWS);
+    try {
+      return {
+        tableId: table.id, revision: geometryRevision(table), choice,
+        canApply: evaluated.issues.length === 0, issues: evaluated.issues,
+        ...await measureGeometry(conn, evaluated), degreeCompatible: evaluated.degreeCompatible,
+        sample: await sampleGeometry(conn, evaluated, columns),
+      };
+    } finally { await evaluated.dispose(); }
+  });
+}
+
+export { setGeometry } from "./mutate";
+export { clearGeometry } from "./clear";

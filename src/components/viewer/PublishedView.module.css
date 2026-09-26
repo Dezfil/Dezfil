@@ -1,0 +1,281 @@
+.viewer {
+  position: fixed;
+  inset: 0;
+}
+
+.canvas {
+  position: absolute;
+  inset: 0;
+}
+
+/* Corner overlay stacks: each corner owns its occupants —
+   title top-left, legend bottom-left, attribution bottom-right, the note
+   wherever its author put it. Stacked with a gap, never overlapping; the
+   containers keep the exact earlier offsets. */
+.corner {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.corner > * {
+  pointer-events: auto;
+}
+
+/* This column holds the map's name, then the control stack, then a
+   top-left legend. It sits above the docked timeline's layer so the
+   basemap panel opens over the stage; the two never share space anyway. */
+.cornerTopLeft {
+  top: 16px;
+  left: 16px;
+  align-items: flex-start;
+  z-index: 7;
+  /* The column has a real height budget: the stack is seven
+     controls tall with everything enabled, under the name and above a
+     top-left legend. Bounding the column — and letting its two growable
+     children, the failure list and the legend, scroll inside it — is what
+     keeps the whole group clear of the bottom of the viewport. */
+  max-height: calc(100% - 32px);
+}
+
+/* With a timeline docked, the budget stops above its band rather than at
+   the viewport edge. */
+.timelineDock ~ .cornerTopLeft {
+  max-height: calc(100% - 160px);
+}
+
+.cornerTopLeft .legend {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Flush with the other corners: the 54px inset here existed
+   only to clear the native zoom control, which no longer renders. */
+.cornerTopRight {
+  top: 16px;
+  right: 16px;
+  align-items: flex-end;
+}
+
+.cornerBottomLeft {
+  left: 16px;
+  bottom: 44px;
+  align-items: flex-start;
+  transition: bottom var(--dur-panel) var(--ease-panel);
+}
+
+.cornerBottomRight {
+  right: 12px;
+  bottom: 10px;
+  align-items: flex-end;
+  transition: bottom var(--dur-panel) var(--ease-panel);
+}
+
+/* The published legend's treatment, exactly: the title is the other
+   panel floating over this map, so it wears the same card — frameless, the
+   same translucent panel surface, the same radius and lift. It used to be a
+   bordered pill with a compass beside the name; nothing else in Dezfil
+   puts a logo next to a map's name, and no other card on this view is a
+   pill. The widget cards share this radius but are deliberately opaque and
+   bordered — they are items in a rail, not floating panels — so they are
+   not the reference here. */
+.titleBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 15px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 26px var(--shadow);
+  max-width: calc(100vw - 32px);
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preparing {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  animation: preparingPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes preparingPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* Failed layers are a visible state, never silent absence:
+ * one calm row per errored layer under the title bar, catalogue prose
+ * keyed on the documented code. */
+.failedList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  max-width: 340px;
+  /* Bounded because it now sits ABOVE the control stack: it is the one
+     variable-height thing between the map's name and the controls, and an
+     unbounded list of failed layers would push them off a short viewport.
+     Roughly three rows, then it scrolls. */
+  max-height: 132px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.failedRetry {
+  align-self: flex-start;
+  padding: 3px 12px;
+  border-radius: 99px;
+  border: 1px solid var(--accent);
+  background: none;
+  color: var(--accent);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.failedRetry:hover {
+  background: var(--accent);
+  color: var(--bg-panel);
+}
+
+.layerFailed {
+  padding: 5px 12px;
+  border-radius: 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--warn);
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.legend {
+  display: block;
+}
+
+/* While bottom-right is safely docked, its standalone candidate stays at
+   the exact place it would occupy above the visible footer, but leaves the
+   footer corner's flow. `useLiftClearance` therefore measures only visible
+   occupants; the placement hook still measures this candidate itself. */
+.legend[data-legend-placement-probe] {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+}
+
+.attribution {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--fg-faint);
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  backdrop-filter: blur(3px);
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.attribution a {
+  color: var(--fg-faint);
+}
+
+.attribution a:hover {
+  color: var(--fg-muted);
+}
+
+.dot {
+  opacity: 0.5;
+}
+
+.made {
+  margin-left: 6px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+
+.splash {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: var(--fg-muted);
+  background: var(--bg);
+}
+
+.spinner {
+  color: var(--accent);
+  animation: spin 2.4s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.splashText {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--fg-muted);
+}
+
+.notfoundTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.notfoundText {
+  font-size: 13.5px;
+  color: var(--fg-muted);
+}
+
+/* The docked timeline: bottom-center, clear of the corner
+   stacks and the attribution footer. */
+.timelineDock {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 16px;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.timelineDock > * {
+  pointer-events: auto;
+}
+
+/* With a docked timeline, a bottom corner stack glides above it — but
+   only while their horizontal extents would actually collide.
+   `data-lift` is set from a live measurement (use-lift-clearance), so
+   on a wide viewport the stack stays grounded beside the bar (a field
+   round). The offset clears the bar's fixed height (112px measured)
+   over its resting bottom. */
+.timelineDock ~ .cornerBottomLeft[data-lift],
+.timelineDock ~ .cornerBottomRight[data-lift] {
+  bottom: 138px;
+  /* Entering the lift is escape, not choreography (see the builder). */
+  transition: bottom 0.14s var(--ease-panel);
+}

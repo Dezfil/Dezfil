@@ -1,0 +1,17 @@
+Dezfil
+Copyright 2026 Siavash Saki
+Licensed under Apache-2.0. See LICENSE.
+
+GeoSQL, copyright (c) 2026 dekart.xyz, MIT:
+https://github.com/dekart-xyz/geosql
+Revision d2809ff65ca05b68fa423b61ad6e9f98f6d62cc6 (2026-08-31).
+
+Upstream skills/geosql/SKILL.md and skills/geosql/references/map-styling.md
+supply the adapted analytical disciplines in skills/dezfil/analysis.md and
+skills/dezfil/references/cartography.md. Upstream
+skills/geosql/references/duckdb.md supplies the schema, encoding and spatial
+query reference basis for skills/dezfil/references/duckdb-spatial.md.
+The references add Dezfil-specific API facts and locally tested examples.
+
+The full MIT notice is in each reference and LICENSE-GeoSQL. sources.json
+records the source inventory. No GeoSQL runtime is included.

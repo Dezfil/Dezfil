@@ -1,0 +1,60 @@
+.wrap {
+  display: inline-flex;
+}
+
+/* Open state pins the trigger in its accent look on every surface. */
+.wrap[data-open] > button {
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-color: transparent;
+}
+
+/* Fixed + portaled: positioned from the trigger, above all page chrome but
+ * below dialog overlays (120). */
+.menu {
+  position: fixed;
+  z-index: 110;
+  min-width: 200px;
+  padding: 5px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 30px var(--shadow);
+  display: flex;
+  flex-direction: column;
+  animation: rise-in 0.18s ease;
+}
+
+.menu a {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  font-size: 13px;
+  color: var(--fg);
+}
+
+.menu a:hover {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.menu a small {
+  color: var(--fg-faint);
+  font-size: 11px;
+}
+
+/* Local copy of the shared rise-in keyframes: CSS modules scope
+ * keyframe names per file. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

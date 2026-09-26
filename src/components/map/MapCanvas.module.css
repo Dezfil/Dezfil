@@ -1,0 +1,158 @@
+.wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.map {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+}
+
+.webglFailure {
+  position: absolute;
+  inset: 0;
+  /* Below host-owned chrome (the export composition starts at 4), above
+     the incomplete map surface. Builder/viewer controls remain present. */
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
+}
+
+.webglFailureCard {
+  width: min(420px, 100%);
+  padding: 18px 20px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  box-shadow: 0 12px 36px var(--shadow);
+}
+
+.webglFailureCard strong {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--font-display);
+  font-size: var(--text-heading);
+  font-weight: 600;
+}
+
+.webglFailureCard p {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.map :global(.maplibregl-ctrl-group) {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+}
+
+/* MapLibre's stock icons are dark glyphs — invert them only on dark
+   chrome, whichever scope provides it: the workspace theme or a published
+   view's effective theme. */
+:global([data-theme="dark"]) .map :global(.maplibregl-ctrl-group button),
+:global([data-view-theme="dark"]) .map :global(.maplibregl-ctrl-group button) {
+  filter: invert(0.85);
+}
+
+.offline {
+  position: absolute;
+  top: 12px;
+  /* Top-center, above host chrome: the corners belong
+     to the hosts — the builder's stage stack and the published view's
+     name pill (z-index 7) both own top-left, and the chip was drawn
+     underneath them there. */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 8;
+  /* Status prose: the UI face; warn ink stays. */
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--warn);
+  background: var(--warn-dim);
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+  padding: 4px 9px;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.tooltip {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--bg-raised) 96%, transparent);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  box-shadow: 0 8px 24px var(--shadow);
+  max-width: 280px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.popup {
+  position: absolute;
+  z-index: 6;
+  transform: translate(-50%, calc(-100% - 14px));
+  background: color-mix(in srgb, var(--bg-raised) 97%, transparent);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 9px 26px 8px 10px;
+  box-shadow: 0 10px 28px var(--shadow);
+  max-width: 300px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.popupClose {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  border: 0;
+  background: none;
+  color: var(--fg-faint);
+  display: grid;
+  place-items: center;
+  /* 24px hit floor; the drawn close draws at the action tier. */
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.popupClose svg {
+  display: block;
+  width: 13px;
+  height: 13px;
+}
+
+.popupClose:hover {
+  color: var(--fg);
+}
+
+.tipRow {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  line-height: 1.6;
+}
+
+.tipKey {
+  color: var(--fg-faint);
+}
+
+.tipVal {
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 170px;
+}

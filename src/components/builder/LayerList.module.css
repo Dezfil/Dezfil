@@ -1,0 +1,403 @@
+.list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.empty {
+  font-size: 12.5px;
+  color: var(--fg-faint);
+  padding: 4px 2px;
+}
+
+.card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--shadow) 60%, transparent);
+  transition:
+    border-color var(--dur-micro) ease,
+    box-shadow var(--dur-micro) ease,
+    opacity var(--dur-micro) ease;
+}
+
+.card[data-selected="true"] {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+/* The in-list original while its floating copy is dragged: a dimmed,
+   inert placeholder. pointer-events also swallows the stray click some
+   browsers fire on the source card after a drop. */
+.card[data-dragging="true"] {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.list[data-sorting] .card {
+  pointer-events: none;
+}
+
+/* The compact copy that floats with the pointer. */
+.floating {
+  cursor: grabbing;
+  transform: scale(1.02);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow:
+    0 10px 28px color-mix(in srgb, var(--shadow) 70%, transparent),
+    0 2px 8px color-mix(in srgb, var(--shadow) 45%, transparent);
+}
+
+.card[data-errored="true"] .name {
+  color: var(--danger);
+}
+
+.head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 9px;
+  cursor: grab;
+}
+
+/* A real button (the keyboard reorder activator). The padding
+   reaches the 24px hit floor; the negative margins give it back, so the
+   resting layout is the old 11px grip exactly. */
+.grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-faint);
+  cursor: grab;
+  flex-shrink: 0;
+  user-select: none;
+  background: none;
+  border: 0;
+  font: inherit;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  margin: 0 -6.5px;
+}
+
+.grip svg {
+  display: block;
+  width: 11px;
+  height: 13px;
+}
+
+.grip:active {
+  cursor: grabbing;
+}
+
+/* The layer's spine: a slim vertical color bar, the fill's
+   class colors stacked top-to-bottom or a solid for constant fills. */
+.swatch {
+  display: flex;
+  flex-direction: column;
+  width: 9px;
+  height: 32px;
+  border-radius: 5px;
+  border: 1px solid var(--swatch-border);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.swatch i {
+  flex: 1;
+}
+
+.label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  text-align: left;
+}
+
+.name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.errBadge {
+  color: var(--danger);
+  letter-spacing: 0.06em;
+}
+
+.tileBadge {
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  animation: tilePulse 1.6s ease-in-out infinite;
+}
+
+@keyframes tilePulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.renameInput {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  background: var(--bg-panel);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  color: var(--fg);
+  padding: 3px 7px;
+}
+
+
+/* The row's controls, all of them always painted, on a field call. The
+   first shape of this feature floated six icons over the
+   card's trailing edge and faded them in on hover; it read worse in the
+   field than the problem it fixed. Now the row shows what it needs —
+   zoom-to-layer, visibility, and one door for everything else — and
+   nothing about a layer row appears or disappears.
+
+   The name still gets the card: three seats instead of the seven the old
+   layout reserved at rest, and no second truncation on hover, because
+   there is no hover state left to have one. */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.menuWrap {
+  display: inline-flex;
+}
+
+/* The menu portals out of the card — cards clip their overflow — so its
+   surface is stated here, in the export menu's voice. */
+.menu {
+  position: fixed;
+  z-index: 110;
+  min-width: 210px;
+  display: flex;
+  flex-direction: column;
+  padding: 5px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 30px var(--shadow);
+}
+
+/* The body is one element so a state swap has something to move focus
+   into; it must not become a box of its own. */
+.menuBody {
+  display: contents;
+}
+
+/* The kit gives the menu its behaviour, not its dress: without these the
+   items fall back to the global button reset and the export anchors read
+   as inline links. Same rows as the export menu's, which is where this
+   application's menu voice lives. */
+.menu a,
+.menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Each row leads with a mark (field round): the faint ink at
+   rest, the row's own colour once the row is the one under the pointer. */
+.menuIco {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--fg-faint);
+  transition: color var(--dur-micro) ease;
+}
+
+.menuIco svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+
+.menu a:hover .menuIco,
+.menu button:hover .menuIco,
+.menu a:focus-visible .menuIco,
+.menu button:focus-visible .menuIco {
+  color: currentColor;
+}
+
+/* Delete's mark carries the danger tone its row does. */
+.menu [data-danger] .menuIco {
+  color: inherit;
+}
+
+.menuLabel {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The Export row expands rather than acts; the chevron says so, and
+   which way. */
+.menuChevron {
+  display: flex;
+  color: var(--fg-faint);
+  transition:
+    transform var(--dur-micro) ease,
+    color var(--dur-micro) ease;
+}
+
+.menuChevron svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+.menuChevron[data-open] {
+  transform: rotate(180deg);
+  color: var(--accent);
+}
+
+/* The three formats hang under the Export row on a hairline rail — the
+   header export menu's own gesture, so the fold reads the same both
+   places a layer's data can leave from. */
+.exportRail {
+  margin: 2px 0 3px 22px;
+  padding-left: 11px;
+  border-left: 1px solid var(--divider);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.menu .exportRail :is(a, button) {
+  padding: 6px 9px;
+}
+
+.menu a:hover,
+.menu button:hover,
+.menu a:focus-visible,
+.menu button:focus-visible {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+/* A layer-data export in progress stays focusable so the menu remains
+ * navigable, but it is visibly inert rather than an accent action. The
+ * rail keeps its existing dimensions throughout the pending state. */
+.menu .exportRail :is(a, button)[aria-disabled="true"] {
+  cursor: not-allowed;
+  color: var(--fg-muted);
+  text-decoration: none;
+}
+
+.menu .exportRail :is(a, button)[aria-disabled="true"]:hover,
+.menu .exportRail :is(a, button)[aria-disabled="true"]:focus-visible {
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+}
+
+.menu a small,
+.menu button small {
+  color: var(--fg-faint);
+  font-size: 11px;
+}
+
+/* Delete keeps the danger tone it had as an icon, and reads as danger on
+   hover rather than borrowing the accent. */
+.menu button[data-danger],
+.menu a[data-danger] {
+  color: var(--danger);
+}
+
+.menu button[data-danger]:hover,
+.menu button[data-danger]:focus-visible {
+  background: var(--danger-dim);
+  color: var(--danger);
+}
+
+.iconBtn,
+.eye {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+}
+
+/* The drag ghost's eye is a static mark, not a control, so it carries its
+   own ink; the live card's eye takes its tone from the kit. */
+.eye {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.eye[data-off="true"] {
+  color: var(--fg-faint);
+}
+
+.iconBtn svg,
+.eye svg {
+  display: block;
+}
+
+.iconBtn {
+  transition: color var(--dur-micro) ease;
+}
+
+.iconBtn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.expanded {
+  border-top: 1px solid var(--divider);
+  padding: 11px 10px 12px;
+}
+
+/* The recipe sentence a layer card carries. Its ratified
+   cost is that it wraps to a second line on a busy recipe — and the inspector
+   is narrower than the prototype's 342 px assumption, so it wraps sooner. */
+.recipeNote {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--fg-faint);
+}
+
+/* Select mode: every card is a target while the picker is armed. */
+.list[data-picking] li {
+  cursor: pointer;
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.list[data-picking] li:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent);
+}

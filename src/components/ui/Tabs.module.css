@@ -1,0 +1,69 @@
+/* Content tabs. The look is the builder inspector's — the active-state
+   grammar the keep list blesses (K4) — and it is now the look every
+   content tab strip wears; the convergence was ratified at the gate.
+   Behaviour is the full keyboard model: roles with real panel linkage,
+   one tab stop per strip, arrows plus Home and End. */
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+/* An even strip: every tab takes the same share of the row. Surfaces whose
+   tabs sit inline with other content leave this off. */
+.tabs[data-fill="true"] {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+}
+
+.tab {
+  position: relative;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: var(--radius);
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  font-weight: 500;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  transition:
+    color var(--dur-micro) ease,
+    background var(--dur-micro) ease;
+}
+
+/* A tab may carry a mark beside its word. */
+.tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.tab svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.tab:hover {
+  color: var(--fg);
+  background: var(--bg-raised);
+}
+
+.tab[aria-selected="true"] {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: 25%;
+  right: 25%;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}

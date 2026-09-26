@@ -1,0 +1,365 @@
+Dezfil
+Copyright 2026 Siavash Saki
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product may include code adapted from permissively licensed projects.
+Each borrowed file retains its original copyright and license header; the
+originating projects are listed here as they are used:
+
+- kepler.gl (MIT, © Uber Technologies / OpenJS Foundation) — layer color
+  cycle, "Global Warming", "Sunrise", "Viz Sequential", "Ice & Fire", and
+  "Viz Qualitative" palettes (src/lib/style/palettes.ts).
+- CARTO Colors (CC-BY 4.0, © CARTO) — "Bold" palette
+  (src/lib/style/palettes.ts).
+- matplotlib colormaps (CC0; created by Stéfan van der Walt and Nathaniel
+  Smith) — Viridis, Plasma, Inferno stop data
+  (src/lib/style/palette-data.ts).
+- Turbo colormap (Apache-2.0, © 2019 Google LLC) — Turbo stop data
+  (src/lib/style/palette-data.ts).
+- Scientific colour maps (MIT, © Fabio Crameri) — Berlin stop data
+  (src/lib/style/palette-data.ts).
+- ColorBrewer (Apache-2.0, © 2002 Cynthia Brewer, Mark Harrower, and The
+  Pennsylvania State University) — Greys, Blues, Greens, Reds, YlOrRd,
+  RdBu, PiYG, Spectral, Paired, Dark2, Set3 class colors
+  (src/lib/style/palette-data.ts).
+- Tableau 10 categorical colors: taken as published in matplotlib, under
+  the matplotlib license (a BSD-style, PSF-derived license); the same ten
+  values are published by Vega under BSD-3-Clause. Tab10 colors
+  (src/lib/style/palette-data.ts).
+- Feather Icons (MIT, © 2013–2023 Cole Bemis) — settings gear outline
+  (src/components/NavLinks.tsx).
+- Natural Earth (public domain) — 1:110m land coastlines, rendered into the
+  workspace shell background sheets (public/shell-sheet-light.svg,
+  public/shell-sheet-dark.svg).
+- Maki icons (CC0, © Mapbox) — the curated map-glyph subset bundled for the
+  icon layer type (public/maki/*.svg).
+- Basemap thumbnails (public/basemaps/thumbs/*.webp) — small fixed-frame
+  captures of the basemap styles the app offers, used to name each style
+  in the basemap pickers. Each names its source below; where that source
+  requires a credit, the app also renders it on the map whenever that
+  style is in use:
+  - dark.webp, light.webp, streets.webp — © OpenMapTiles
+    (https://openmaptiles.org) and OpenStreetMap contributors, rendered
+    from the OpenFreeMap styles (ODbL for the data, BSD-3-Clause for the
+    OpenMapTiles style schema).
+  - satellite.webp: NASA Blue Marble Next Generation (August 2004,
+    topography and bathymetry), public domain. Imagery is configured per
+    instance, so no capture of the service in use can ship; this global
+    mosaic stands for imagery as a kind. No credit is required, and the
+    source is named here so the asset stays traceable.
+- GeoSQL (MIT, © 2026 dekart.xyz; https://github.com/dekart-xyz/geosql) —
+  the assistant's analytical guidance (src/lib/assistant/guidance.ts) is
+  adapted from skills/geosql/SKILL.md and
+  skills/geosql/references/map-styling.md at revision
+  d2809ff65ca05b68fa423b61ad6e9f98f6d62cc6 (2026-08-31): the grounding,
+  candidate-filter, unit, empty-result, cartography and classification
+  disciplines, reworded for Dezfil's layer contract. The adapted file
+  carries the upstream copyright and permission notice verbatim. Rules
+  that work around Dekart's API, its warehouse cost gates, CLI and
+  artifact model, Kepler binding conventions, write-once map-layer rule
+  and numeric-width cast are not carried. Dekart itself (AGPL) is
+  reference-only and nothing of it is included.
+  The plugin package extends this same inventory to skills/geosql/references/duckdb.md
+  at that revision. The package's generated analysis and two references live
+  under plugins/dezfil/skills/dezfil/; plugins/dezfil/sources.json maps
+  each upstream file to its installed destination. Both references retain the
+  full MIT notice, also bundled as plugins/dezfil/LICENSE-GeoSQL. No GeoSQL
+  runtime is distributed.
+- React Flow, @xyflow/react 12 (MIT, © 2019–2026 webkid GmbH) — the
+  workflow canvas base (src/components/workflow-canvas/), used as a
+  dependency; not modified.
+- loaders.gl MVT parser worker (MIT, © vis.gl contributors and © 2015 Uber
+  Technologies, Inc.) — the exact
+  @loaders.gl/mvt 4.4.3 browser worker is bundled at
+  public/workers/loaders.gl-mvt-worker-4.4.3.js. Its bundled transitive
+  material and full required notices are reproduced below.
+
+Data-source logos shown in the Add data dialog identify the third-party
+services and datasets a table can be imported from (nominative use); the
+marks belong to their respective owners:
+
+- OpenStreetMap logo (CC-BY-SA 2.0; © OpenStreetMap Foundation, logo by
+  Ken Vermette) — public/logos/osm.svg, from Wikimedia Commons.
+- Overture Maps Foundation logo mark (© Overture Maps Foundation, a Joint
+  Development Foundation project) — public/logos/overture.svg, from
+  overturemaps.org.
+- PostgreSQL elephant mark, "Slonik" (© PostgreSQL Community Association
+  of Canada) — public/logos/postgresql.svg, from wiki.postgresql.org;
+  identifies the PostGIS/PostgreSQL import source.
+
+Typefaces
+---------
+
+Eight WOFF2 faces of three families are embedded directly in the design
+specimen (design/identity/dezfil-identity.html): Gabarito at 500, 600 and
+700, Inter at 400, 500 and 600, and DM Mono at 400 and 500. Five families
+are self hosted at build time by the application itself
+(src/app/layout.tsx): Archivo, DM Mono, Gabarito, IBM Plex Mono and Inter.
+All eight files and all five families are licensed under the SIL Open Font
+License, Version 1.1, whose text is reproduced at the end of this file.
+Their copyright notices:
+
+- Gabarito: Copyright 2023 The Gabarito Project Authors
+  (https://github.com/naipefoundry/gabarito).
+- Inter: Copyright (c) 2016 The Inter Project Authors
+  (https://github.com/rsms/inter).
+- DM Mono: Copyright 2020 The DM Mono Project Authors
+  (https://www.github.com/googlefonts/dm-mono).
+- Archivo: Copyright 2020 The Archivo Project Authors
+  (https://github.com/Omnibus-Type/Archivo).
+- IBM Plex Mono: Copyright © 2017 IBM Corp. with Reserved Font Name "Plex"
+  (https://github.com/IBM/plex).
+
+Components of the container image
+---------------------------------
+
+The image carries this file and LICENSE at /app, beside the components
+below.
+
+- Tippecanoe 2.79.0 (https://github.com/felt/tippecanoe), built from source
+  in the image and used to build tile archives. BSD-2-Clause:
+  Copyright (c) 2022, Protomaps LLC. Copyright (c) 2014, Mapbox Inc. All
+  rights reserved. Unmodified.
+- DuckDB extensions, baked into the image so an instance needs no network
+  to load them (scripts/duckdb-extensions.mjs). The spatial, httpfs, json,
+  postgres, azure and aws extensions come from the DuckDB project under the
+  MIT License, Copyright 2018-2025 Stichting DuckDB Foundation. The h3
+  extension is a DuckDB community extension under the Apache License 2.0,
+  and carries Uber's H3 library under the same license. All unmodified.
+- libvips, loaded by the sharp image library through
+  @img/sharp-libvips-*. It is present as a shared library under the
+  LGPL-3.0-or-later, unmodified, and replaceable: the npm package carries
+  its own notice and the library can be substituted for another build of
+  libvips without rebuilding the application.
+- Chromium, the Debian packages installed on top of the base image, and the
+  base image itself carry their own licenses. Debian ships each package's
+  copyright and license under /usr/share/doc in the image; read them there.
+
+Bundled MVT worker license notices
+----------------------------------
+
+The worker contains code from loaders.gl (@loaders.gl/mvt,
+@loaders.gl/gis, @loaders.gl/loader-utils and @loaders.gl/worker-utils;
+Copyright (c) vis.gl contributors; Copyright (c) 2015 Uber Technologies, Inc.),
+@math.gl/polygon (Copyright (c) 2017 Uber Technologies, Inc. and vis.gl
+contributors), and @probe.gl/env and
+@probe.gl/log (Copyright Vis.gl contributors). These components are
+licensed under the MIT License:
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+The @math.gl/polygon triangulation is adapted from Mapbox earcut under the
+ISC License:
+
+Copyright (c) 2016, Mapbox
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+
+The worker contains pbf under the BSD 3-Clause License:
+
+Copyright (c) 2017, Mapbox
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice,
+  this list of conditions and the following disclaimer.
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+* Neither the name of pbf nor the names of its contributors may be used to
+  endorse or promote products derived from this software without specific
+  prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+The loaders.gl vector-tile reader is forked from Mapbox vector-tile-js under
+the BSD 3-Clause License:
+
+Copyright (c) 2014, Mapbox
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice,
+  this list of conditions and the following disclaimer.
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+* Neither the name of Mapbox nor the names of its contributors may be used to
+  endorse or promote products derived from this software without specific
+  prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+The worker contains ieee754 under the BSD 3-Clause License:
+
+Copyright 2008 Fair Oaks Labs, Inc.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+3. Neither the name of the copyright holder nor the names of its contributors
+   may be used to endorse or promote products derived from this software
+   without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+SIL Open Font License, Version 1.1
+----------------------------------
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+http://scripts.sil.org/OFL
+
+
+-----------------------------------------------------------
+SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+-----------------------------------------------------------
+
+PREAMBLE
+The goals of the Open Font License (OFL) are to stimulate worldwide
+development of collaborative font projects, to support the font creation
+efforts of academic and linguistic communities, and to provide a free and
+open framework in which fonts may be shared and improved in partnership
+with others.
+
+The OFL allows the licensed fonts to be used, studied, modified and
+redistributed freely as long as they are not sold by themselves. The
+fonts, including any derivative works, can be bundled, embedded, 
+redistributed and/or sold with any software provided that any reserved
+names are not used by derivative works. The fonts and derivatives,
+however, cannot be released under any other type of license. The
+requirement for fonts to remain under this license does not apply
+to any document created using the fonts or their derivatives.
+
+DEFINITIONS
+"Font Software" refers to the set of files released by the Copyright
+Holder(s) under this license and clearly marked as such. This may
+include source files, build scripts and documentation.
+
+"Reserved Font Name" refers to any names specified as such after the
+copyright statement(s).
+
+"Original Version" refers to the collection of Font Software components as
+distributed by the Copyright Holder(s).
+
+"Modified Version" refers to any derivative made by adding to, deleting,
+or substituting -- in part or in whole -- any of the components of the
+Original Version, by changing formats or by porting the Font Software to a
+new environment.
+
+"Author" refers to any designer, engineer, programmer, technical
+writer or other person who contributed to the Font Software.
+
+PERMISSION & CONDITIONS
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of the Font Software, to use, study, copy, merge, embed, modify,
+redistribute, and sell modified and unmodified copies of the Font
+Software, subject to the following conditions:
+
+1) Neither the Font Software nor any of its individual components,
+in Original or Modified Versions, may be sold by itself.
+
+2) Original or Modified Versions of the Font Software may be bundled,
+redistributed and/or sold with any software, provided that each copy
+contains the above copyright notice and this license. These can be
+included either as stand-alone text files, human-readable headers or
+in the appropriate machine-readable metadata fields within text or
+binary files as long as those fields can be easily viewed by the user.
+
+3) No Modified Version of the Font Software may use the Reserved Font
+Name(s) unless explicit written permission is granted by the corresponding
+Copyright Holder. This restriction only applies to the primary font name as
+presented to the users.
+
+4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+Software shall not be used to promote, endorse or advertise any
+Modified Version, except to acknowledge the contribution(s) of the
+Copyright Holder(s) and the Author(s) or with their explicit written
+permission.
+
+5) The Font Software, modified or unmodified, in part or in whole,
+must be distributed entirely under this license, and must not be
+distributed under any other license. The requirement for fonts to
+remain under this license does not apply to any document created
+using the Font Software.
+
+TERMINATION
+This license becomes null and void if any of the above conditions are
+not met.
+
+DISCLAIMER
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.

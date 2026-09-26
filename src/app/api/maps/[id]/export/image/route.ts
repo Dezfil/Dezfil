@@ -1,0 +1,82 @@
+import { NextResponse } from "next/server";
+import { ApiError, errorResponse } from "@/lib/api/errors";
+import { getMap } from "@/lib/metadata/maps";
+import {
+  EXPORT_IMAGE_DEFINITION_SCHEMA,
+  definitionRenderProblems,
+  type ExportImageDefinition,
+} from "@/lib/export/image-definition";
+import { validateAgainstSchema } from "@/lib/export/schema-validate";
+import { renderMapImage } from "@/lib/export/render-image";
+import { selfBaseUrl } from "@/lib/self-url";
+
+type Params = { params: Promise<{ id: string }> };
+
+/** A content-disposition-safe download name from the free-text map name. */
+function pngFilename(name: string): string {
+  const base = name
+    .replace(/[^A-Za-z0-9._ -]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return `${base || "map"}.png`;
+}
+
+/**
+ * Render a map to PNG: the moment image export becomes an agent
+ * capability. Validates the definition against the documented schema
+ * itself, renders through the bounded browser lane, and answers the
+ * exact-size PNG as an attachment with a declared length — the tool
+ * transport's envelope carries it to agents byte-for-byte.
+ */
+export async function POST(request: Request, { params }: Params) {
+  try {
+    const { id } = await params;
+    const map = getMap(id);
+    if (!map) {
+      throw new ApiError("not_found", `No map with id "${id}".`, 404);
+    }
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      throw new ApiError("invalid_request", "Expected a JSON body.", 400);
+    }
+    const definition = (body as { definition?: unknown })?.definition;
+    const problems = validateAgainstSchema(
+      definition,
+      EXPORT_IMAGE_DEFINITION_SCHEMA,
+    );
+    const renderProblems =
+      problems.length > 0
+        ? problems
+        : definitionRenderProblems(definition as ExportImageDefinition);
+    if (renderProblems.length > 0) {
+      throw new ApiError(
+        "invalid_request",
+        `The export definition is invalid: ${renderProblems[0]}.`,
+        400,
+      );
+    }
+    const { png, abandoned } = await renderMapImage({
+      mapId: id,
+      definition: definition as ExportImageDefinition,
+      baseUrl: selfBaseUrl(request),
+      signal: request.signal,
+    });
+    const headers: Record<string, string> = {
+      "content-type": "image/png",
+      "content-length": String(png.byteLength),
+      "content-disposition": `attachment; filename="${pngFilename(map.name)}"`,
+    };
+    if (abandoned.length > 0) {
+      // Said, never silent: the count and the hosts on the answer
+      // (hosts only, never a path); the renderer's own log line named
+      // the abandonment at the moment it happened.
+      headers["x-dezfil-export-abandoned"] =
+        `${abandoned.length}; hosts=${[...new Set(abandoned)].join(",")}`;
+    }
+    return new NextResponse(Buffer.from(png), { headers });
+  } catch (error) {
+    return errorResponse(error);
+  }
+}

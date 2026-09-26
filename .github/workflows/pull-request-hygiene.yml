@@ -1,0 +1,63 @@
+name: Pull request hygiene
+
+# Two checks on the commits a pull request proposes to add to the default
+# branch. Both read history only, so they run on the pull request event alone.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  commits:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The whole range this pull request adds, plus its base, so the
+          # commits can be listed without another network round trip.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # Every contributor certifies the origin of their work with a
+      # Signed-off-by line. CONTRIBUTING.md carries the certificate text and
+      # the "git commit -s" recipe.
+      - name: Every commit is signed off
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -u
+          missing=0
+          while IFS= read -r sha; do
+            [ -n "$sha" ] || continue
+            if ! git log -1 --format=%B "$sha" | grep -qiE '^ *Signed-off-by: .+ <[^>]+>'; then
+              echo "Missing Signed-off-by: $(git log -1 --format='%h %s' "$sha")"
+              missing=$((missing + 1))
+            fi
+          done <<< "$(git rev-list --no-merges "$BASE..$HEAD")"
+          if [ "$missing" -gt 0 ]; then
+            echo
+            echo "$missing commit(s) are not signed off."
+            echo "Fix the whole branch with: git rebase --signoff ${BASE}"
+            echo "then force-push it. See CONTRIBUTING.md."
+            exit 1
+          fi
+          echo "All commits are signed off."
+
+      # Commit messages stay about the code. This rejects references to
+      # internal tracking documents that a reader of this repository cannot
+      # open.
+      - name: Commit messages carry no internal references
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git log -z --format=%B --no-merges "$BASE..$HEAD" \
+            | node .github/scripts/check-commit-messages.mjs

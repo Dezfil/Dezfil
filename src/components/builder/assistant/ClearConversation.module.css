@@ -1,0 +1,25 @@
+/* The close control's own geometry, at its weight and no wider (page 05). */
+.clear {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-panel), background var(--dur-micro) var(--ease-panel);
+}
+
+.clear:hover:not(:disabled) {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+.clear:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

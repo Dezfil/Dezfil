@@ -1,0 +1,63 @@
+/* The stage stack: one column, one chrome
+   metric, for the builder and the published view alike.
+
+   The component owns the column and the button box; the host owns
+   placement — the same division BasemapCredit and TimelineBar already
+   use. That split is not cosmetic: the builder anchors the stack
+   absolutely over its canvas and shifts it in fullscreen, while the
+   published view lets it sit in the flow of a corner column so the title,
+   failure rows and a top-left legend stack beneath it. */
+.stageStack {
+  display: grid;
+  gap: 6px;
+  pointer-events: auto;
+  /* The positioned ancestor for anything a stage button hangs off — the
+     basemap panel aligns to the stack's top wherever the host puts it,
+     rather than to a fixed place in the viewport. */
+  position: relative;
+}
+
+.stageBtn {
+  width: 38px;
+  height: 38px;
+  border-radius: 13px;
+  background: var(--bg-panel);
+  color: var(--fg-muted);
+  box-shadow: 0 3px 12px var(--shadow);
+  display: grid;
+  place-items: center;
+  transition:
+    transform 0.12s,
+    color 0.12s;
+}
+
+.stageBtn:hover {
+  color: var(--accent);
+  transform: scale(1.06);
+}
+
+.stageBtn:active {
+  transform: scale(0.96);
+}
+
+.stageBtn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* A pressed control keeps its accent while it is engaged. The kit's own
+   pressed rule excludes the chrome tone deliberately, so the stage says
+   it here rather than borrowing a look the tone declines to give. */
+.stageBtn[data-active] {
+  color: var(--accent);
+}
+
+/* The needle tracks the view's bearing; short linear ease so a rotate
+   drag reads as tracking, not lagging. A bold full-height needle (no
+   enclosing ring — it read faint at this size) carries the same visual
+   weight as the drawn zoom icons above it. */
+.compassBtn svg {
+  width: 22px;
+  height: 22px;
+  transition: transform 0.12s linear;
+}

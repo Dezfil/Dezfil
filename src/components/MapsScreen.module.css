@@ -1,0 +1,34 @@
+/* Viewport-fit: the screen owns exactly the content
+   region's height — heading and toolbar stay put, the card area scrolls.
+   Small windows fall back to page scroll via the floor. */
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  height: var(--screen-height);
+  min-height: 460px;
+}
+
+/* List rows are buttons; the quick actions live beside them (buttons can't
+   nest), floated over the row's right edge. */
+.listRowWrap {
+  position: relative;
+}
+
+.listRowActs {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.listRowWrap:hover .listRowActs > span,
+.listRowWrap:focus-within .listRowActs > span {
+  opacity: 1;
+}
+
+/* The stated filing outcome. */
+.filedNote {
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}

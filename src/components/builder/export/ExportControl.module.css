@@ -1,0 +1,333 @@
+.wrap {
+  display: inline-flex;
+}
+
+/* Open state pins the trigger in its accent look, matching the app's
+ * standing export control. The selector is its own rule: when the
+ * layer-row cleanup deleted its `.layerWrap` twin from this list, the
+ * comma it left behind welded the trigger to the `.menu` rule below — and
+ * an open Export button became a second fixed 220px panel. */
+.wrap[data-open] > button {
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-color: transparent;
+}
+
+/* Fixed + portaled: positioned from the trigger, above page chrome, below
+ * dialog overlays (120) — the menu treatment. */
+.menu {
+  position: fixed;
+  z-index: 110;
+  min-width: 220px;
+  padding: 5px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 30px var(--shadow);
+  display: flex;
+  flex-direction: column;
+  animation: rise-in var(--dur-entrance) ease;
+}
+
+/* Design A: two doors ---- */
+
+/* The export menu is wider than a plain list: its rows carry a name, a
+ * line of description, and — on the layer rows — three formats. Wide
+ * enough that the drawer's three pills fit inside it whole (in the field,
+ * at 264px the CSV pill clipped at the menu's edge). */
+.exportMenu {
+  width: 296px;
+}
+
+.menu .door {
+  display: flex;
+  align-items: center;
+  /* The generic menu-row rule below justifies space-between, which
+   * spread the Image row's icon and text to opposite ends. A door reads left, as one piece. */
+  justify-content: flex-start;
+  gap: 11px;
+  width: 100%;
+  padding: 8px 9px;
+  border-radius: var(--radius);
+  text-align: left;
+  color: var(--fg);
+  transition:
+    background var(--dur-micro) ease,
+    color var(--dur-micro) ease;
+}
+
+/* The Data door names what follows rather than opening anything: its
+ * list is already below it. A static row, so it never reads as a
+ * control that does nothing. */
+.menu .door[data-static] {
+  cursor: default;
+}
+
+.menu .door:hover,
+.menu button.door:hover,
+.menu button.door:focus-visible {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+/* A refused image remains a real, focusable menu row: the reason is part
+ * of the interface, not a tooltip hidden from keyboard users. It does not
+ * borrow the accent hover treatment of an action that can run. */
+.menu .door[aria-disabled="true"] {
+  cursor: not-allowed;
+  color: var(--fg-muted);
+}
+
+.menu .door[aria-disabled="true"]:hover,
+.menu button.door[aria-disabled="true"]:focus-visible {
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+}
+
+.menu .door[aria-disabled="true"]:hover .doorTile,
+.menu .door[aria-disabled="true"]:focus-visible .doorTile {
+  background: var(--bg-raised);
+  color: var(--fg-faint);
+}
+
+.menu .doorTile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+}
+
+.menu .door:hover .doorTile,
+.menu .door:focus-visible .doorTile {
+  background: var(--bg-panel);
+  color: var(--accent);
+}
+
+.menu .doorText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.menu .doorText b {
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.menu .doorText small {
+  font-size: 11px;
+  color: var(--fg-faint);
+}
+
+/* The chevron says the row expands rather than acts — and which way. */
+.menu .doorChevron {
+  margin-left: auto;
+  display: flex;
+  color: var(--fg-faint);
+  transition: transform var(--dur-micro) ease;
+}
+
+.menu .doorChevron[data-open] {
+  transform: rotate(90deg);
+  color: var(--accent);
+}
+
+/* The layer list hangs under the Data door on a hairline rail — the
+ * indent says "these belong to that" without a second panel. */
+.menu .layerList {
+  margin: 2px 0 2px 21px;
+  padding-left: 11px;
+  border-left: 1px solid var(--divider);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.menu .layerRow {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+}
+
+.menu .layerTop {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.menu .layerRow:hover,
+.menu .layerRow:focus-within {
+  background: var(--bg-raised);
+}
+
+/* The layer's identity colors as the panel spine draws them — stacked
+   segments, not a gradient, so the classes read as classes. */
+.menu .swatch {
+  display: flex;
+  flex-direction: column;
+  width: 5px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.menu .swatch i {
+  flex: 1;
+}
+
+.menu .layerWho {
+  display: flex;
+  flex-direction: column;
+  /* The name owns the row (field round): the formats live in
+   * a drawer under it, so nothing ever squeezes it. */
+  flex: 1;
+  min-width: 0;
+}
+
+.menu .layerName {
+  font-size: 13px;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menu .layerMeta {
+  font-size: 11px;
+  color: var(--fg-faint);
+  white-space: nowrap;
+}
+
+/* Contextual reveal, design A of the format-reveal prototype (field
+ * round): pointing at a row — or focusing into it — slides a
+ * formats line open UNDER the name. Nothing overlays the name and the
+ * pills take no layout space until wanted (the earlier overlay covered
+ * the very row being pointed at). Collapsed by the grid-row trick,
+ * never `display: none` — an element that is not displayed cannot take
+ * focus, so `:focus-within` could never bootstrap its own reveal; a
+ * pill hidden only by overflow still can, and focusing it opens the
+ * drawer it sits in. */
+.menu .formats {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-micro) ease;
+}
+
+.menu .formatsIn {
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  gap: 5px;
+  /* Aligned with the name: the swatch (5px) plus the row gap (9px). */
+  padding-left: 14px;
+  opacity: 0;
+  transition: opacity var(--dur-micro) ease;
+}
+
+.menu .layerRow:hover .formats,
+.menu .layerRow:focus-within .formats {
+  grid-template-rows: 1fr;
+}
+
+.menu .layerRow:hover .formatsIn,
+.menu .layerRow:focus-within .formatsIn {
+  opacity: 1;
+}
+
+.menu .formatsIn :is(a, button).format {
+  margin: 6px 0 2px;
+}
+
+/* Format actions used to navigate as anchors. They are managed buttons now,
+ * so keep this selector element-neutral and more specific than the generic
+ * menu button rule below: these are compact pills, not full-width rows. */
+.menu :is(a, button).format {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-panel);
+  color: var(--fg-muted);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    color var(--dur-micro) ease,
+    border-color var(--dur-micro) ease,
+    background var(--dur-micro) ease;
+}
+
+.menu :is(a, button).format:hover,
+.menu :is(a, button).format:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+/* A running layer-data action remains in the menu's keyboard order, but
+ * must not borrow the ready action's accent treatment. Keep the pill's
+ * geometry intact so the row does not move while a download is in flight. */
+.menu :is(a, button).format[aria-disabled="true"] {
+  cursor: not-allowed;
+  color: var(--fg-muted);
+  text-decoration: none;
+}
+
+.menu :is(a, button).format[aria-disabled="true"]:hover,
+.menu :is(a, button).format[aria-disabled="true"]:focus-visible {
+  color: var(--fg-muted);
+  border-color: var(--border);
+  background: var(--bg-raised);
+}
+
+/* The per-layer door on a layer card (unchanged) ---- */
+
+.menu a,
+.menu button {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  font-size: 13px;
+  color: var(--fg);
+  text-align: left;
+}
+
+.menu a:hover,
+.menu button:hover {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.menu a small,
+.menu button small {
+  color: var(--fg-faint);
+  font-size: 11px;
+}
+
+/* Local copy of the shared rise-in keyframes: CSS modules scope
+ * keyframe names per file. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

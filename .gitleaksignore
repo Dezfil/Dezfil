@@ -1,0 +1,20 @@
+# Findings the secret scanner reports that are not secrets. Each line is one
+# finding's fingerprint, so a real secret appearing elsewhere in the same file
+# is still reported. Nothing here excludes a whole path.
+#
+# Regenerate a fingerprint with:
+#   gitleaks dir . --report-format json --report-path /tmp/gitleaks.json
+
+# Synthetic credentials the tests assert on. Each one exists so a test can
+# prove the value never reaches a log line, an exported archive, or an error
+# message. They are invented strings and grant access to nothing.
+src/app/api/connections/postgis/[id]/preview/route.test.ts:generic-api-key:63
+src/lib/export/project-archive.test.ts:generic-api-key:66
+src/lib/postgis/tls-attachment.test.ts:generic-api-key:21
+
+# Recorded baselines of the agent tool surface. The flagged values are SHA-256
+# digests of tool definitions, which the generic high-entropy rule cannot tell
+# apart from a key.
+test-support/assistant-baselines/mcp-tools-list.json:generic-api-key:15
+test-support/assistant-baselines/anthropic-tool-definitions.json:generic-api-key:15
+test-support/assistant-baselines/openai-tool-definitions.json:generic-api-key:15

@@ -1,0 +1,25 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.back {
+  width: fit-content;
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+  font-weight: 500;
+}
+
+.back:hover {
+  color: var(--accent);
+}
+
+.card {
+  width: min(920px, 100%);
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  box-shadow: 0 4px 18px var(--shadow);
+}

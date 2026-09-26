@@ -1,0 +1,18 @@
+import { describe, expect, it } from "vitest";
+import { fitOptions } from "./view";
+
+/** The fit's padding (reference 13; adds the helper's
+ * right): what the pane takes when it overlays, and what a shifted panel
+ * moved by, keep the fit out from under both. */
+describe("fitOptions", () => {
+  it("keeps the reference's insets: 56 all round framed; the pane's free area and the band's reserve in full view", () => {
+    expect(fitOptions("framed").padding).toEqual({ top: "56px", right: "56px", bottom: "56px", left: "56px" });
+    expect(fitOptions("full", false, 120).padding).toEqual({ top: "76px", right: "56px", bottom: "176px", left: "494px" });
+  });
+  it("an open panel takes the right edge; the helper's right adds to it", () => {
+    expect(fitOptions("full", true).padding).toMatchObject({ right: "386px" });
+    expect(fitOptions("full", false, 0, 354).padding).toMatchObject({ right: "410px" });
+    expect(fitOptions("full", true, 0, 354).padding).toMatchObject({ right: "740px" });
+    expect(fitOptions("framed", true, 0, 354).padding).toMatchObject({ right: "740px" });
+  });
+});

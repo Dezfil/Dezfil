@@ -1,0 +1,330 @@
+/* The 14-A dialog, variant A stacked: the picker in a
+   raised box with the New row pinned last, the checklist beneath, the
+   live footer. */
+
+.dialog {
+  width: min(560px, 100%);
+  max-height: min(700px, calc(100vh - 48px));
+  flex-direction: column;
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+/* The title: the sentence regular, the subject's name
+   the one bold thing in it. */
+.head .title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--fg);
+}
+
+.head .title strong {
+  font-weight: 650;
+}
+
+.head small {
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.stateBlock {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 18px;
+  color: var(--fg-muted);
+  font-size: var(--text-body);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 18px 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* The reference's own label form (ws-extra-r2 .selHead): bold plain
+   case, not the eyebrow. */
+.selHead {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.selHead small {
+  font-weight: 400;
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+}
+
+.selAll {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.selAll button {
+  color: var(--accent-bright);
+  font-size: var(--text-label);
+}
+
+.selAll button:hover {
+  color: var(--accent);
+}
+
+.selAll i {
+  color: var(--fg-faint);
+  font-style: normal;
+}
+
+.findInput {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--fg);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+}
+
+.findInput:focus {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.pickList {
+  display: flex;
+  flex-direction: column;
+  max-height: 190px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-raised);
+  flex: none;
+}
+
+.pickRows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pickFoot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rule {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 4px;
+}
+
+.pRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  font-size: var(--text-body);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.pRow:hover {
+  background: var(--bg-hover);
+}
+
+.pRow[data-on] {
+  background: var(--accent-dim);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.pRow[data-current] {
+  cursor: default;
+  color: var(--fg-muted);
+}
+
+.pRow input[type="radio"] {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.pName {
+  flex: 1;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pRow[data-on] .pName {
+  font-weight: 600;
+}
+
+.pNameMuted {
+  flex: 1;
+  color: var(--fg-muted);
+}
+
+.pMeta {
+  font-size: var(--text-meta);
+  color: var(--fg-faint);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.newNameInput {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font-size: var(--text-body);
+  color: var(--fg);
+}
+
+.newNameInput::placeholder {
+  color: var(--fg-faint);
+}
+
+.pickEmpty {
+  padding: 16px 10px;
+  font-size: var(--text-label);
+  color: var(--fg-faint);
+  text-align: center;
+}
+
+.pickEmpty b {
+  color: var(--fg-muted);
+  font-weight: 500;
+}
+
+.checkRows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 6px;
+}
+
+/* The reference's raised bordered rows (ws-extra-r2 .checkRow). */
+.checkRow {
+  display: grid;
+  grid-template-columns: 18px 26px 1fr auto;
+  align-items: center;
+  column-gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  cursor: pointer;
+}
+
+.checkRow:hover {
+  border-color: var(--border-strong);
+}
+
+.checkRow input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+}
+
+.typeTile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius);
+  background: var(--accent-wash);
+  color: var(--accent-bright);
+}
+
+.typeTile svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* The app's geometry tile per kind: a dataset without
+   geometry wears the quiet no-geometry tile, as in the SQL console. */
+.typeTile[data-kind="none"] {
+  background: var(--bg-raised);
+  color: var(--fg-faint);
+}
+
+.dsName {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--text-label);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dsMeta {
+  font-size: var(--text-meta);
+  color: var(--fg-faint);
+  white-space: nowrap;
+}
+
+.dsSub {
+  grid-column: 3 / 5;
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+}
+
+.dsSub b {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.refusal {
+  padding: 0 18px;
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 18px 16px;
+  flex: none;
+}
+
+.status {
+  margin-right: auto;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+
+/* The reference caps the action's destination label (dlgFoot .lbl). */
+.goLabel {
+  display: block;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

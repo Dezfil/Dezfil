@@ -1,0 +1,43 @@
+import { NextResponse } from "next/server";
+import { errorResponse, ApiError } from "@/lib/api/errors";
+import { importOverture } from "@/lib/overture/import";
+import { requireProject } from "@/lib/metadata/projects";
+import { importProjectId } from "@/lib/project-scope";
+
+/** Import an Overture Maps slice as a table. */
+export async function POST(request: Request) {
+  try {
+    const body = (await request.json().catch(() => null)) as Record<
+      string,
+      unknown
+    > | null;
+    if (!body) {
+      throw new ApiError(
+        "invalid_request",
+        "Expected a JSON body with theme and a scope (or legacy bbox).",
+        400,
+      );
+    }
+    // Preflight: an unknown project refuses before any source is
+    // contacted.
+    const projectId = importProjectId(body.projectId);
+    if (projectId) requireProject(projectId);
+    const table = await importOverture({
+      theme: body.theme,
+      scope: body.scope,
+      semantics: body.semantics,
+      level: body.level,
+      bbox: body.bbox,
+      release: body.release,
+      category: body.category,
+      name: body.name,
+      projectId,
+    });
+    return NextResponse.json(
+      { ...table, projectIds: projectId ? [projectId] : [] },
+      { status: 201 },
+    );
+  } catch (error) {
+    return errorResponse(error);
+  }
+}

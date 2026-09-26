@@ -1,0 +1,1011 @@
+/* The SQL console. Visual reference:
+   the SQL console reference.
+
+   Geometry is the console's own, derived from the shell the same way the
+   builder derives its cards (MapBuilder.module.css is the reference, never
+   written to): the pane sits where the layers inspector sits — top 62px,
+   left 82px (rail + gutter), bottom gutter, width --sql-pane — and the
+   work area fills from the pane's right edge to the right gutter. Both
+   sizes are custom properties the component sets, reclamped to the
+   viewport before use. */
+
+.console {
+  display: contents;
+  --sql-pane: 342px;
+  --sql-editor: 260px;
+  --sql-top: 62px;
+}
+
+/* ---- the pane: the inspector's window ---------------------------- */
+.pane {
+  position: fixed;
+  top: var(--sql-top);
+  left: 82px;
+  bottom: var(--gutter);
+  width: var(--sql-pane);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 3px 12px var(--shadow);
+}
+
+.paneTabs {
+  padding: 10px 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+/* The count beside a tab's word, as the reference shows it */
+.tabCount {
+  font-size: 10px;
+  color: var(--fg-faint);
+  background: var(--bg-raised);
+  border-radius: var(--radius-pill);
+  padding: 0 6px;
+  font-weight: 500;
+}
+
+.paneBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.paneFoot {
+  padding: 10px 14px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.addData {
+  width: 100%;
+  height: 34px;
+  border-radius: var(--radius);
+  border: 1.5px dashed var(--border-strong);
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: color var(--dur-micro), border-color var(--dur-micro), background var(--dur-micro);
+}
+.addData:hover {
+  color: var(--fg);
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+.footNote {
+  padding: 8px 2px 0;
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+}
+
+/* The vertical handle between pane and work area (the gutter itself) */
+.vsplit {
+  position: fixed;
+  top: var(--sql-top);
+  bottom: var(--gutter);
+  left: calc(82px + var(--sql-pane));
+  width: var(--gutter);
+  z-index: 11;
+  cursor: col-resize;
+  display: grid;
+  place-items: center;
+}
+.vsplit::after {
+  content: "";
+  height: 44px;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--border-strong);
+  opacity: 0.7;
+  transition: background var(--dur-micro), opacity var(--dur-micro);
+}
+.vsplit:hover::after,
+.vsplit[data-drag]::after {
+  background: var(--accent);
+  opacity: 1;
+}
+
+/* ---- the work area: the stage's rectangle ------------------------- */
+/* Its right edge gives up the assistant pane's width plus gutter while
+   the pane docks, through one property the console sets; at and below
+   the breakpoint the pane overlays and the property is zero. The pane
+   itself sits at the screen's right gutter. */
+.work {
+  position: fixed;
+  top: var(--sql-top);
+  left: calc(82px + var(--sql-pane) + var(--gutter));
+  right: calc(var(--gutter) + var(--sql-assistant, 0px));
+  bottom: var(--gutter);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.editorCard {
+  height: var(--sql-editor);
+  flex: none;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--bg-panel);
+  box-shadow: 0 8px 30px var(--shadow);
+}
+
+.editorHost {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 10px 6px 6px;
+}
+
+.editorBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 8px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-raised);
+  flex: none;
+  flex-wrap: wrap;
+}
+
+.kbd {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--fg-muted);
+}
+
+.status {
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.edited {
+  font-size: 10.5px;
+  color: var(--warn);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.hsplit {
+  flex: none;
+  height: var(--gutter);
+  cursor: row-resize;
+  display: grid;
+  place-items: center;
+}
+.hsplit::after {
+  content: "";
+  width: 44px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-strong);
+  opacity: 0.7;
+  transition: background var(--dur-micro), opacity var(--dur-micro);
+}
+.hsplit:hover::after,
+.hsplit[data-drag]::after {
+  background: var(--accent);
+  opacity: 1;
+}
+
+/* ---- buttons ----------------------------------------------------- */
+.runBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 104px;
+  height: var(--control-compact);
+  padding: 0 18px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--on-accent);
+  background: var(--accent);
+  transition: background var(--dur-micro) ease, transform var(--dur-micro) ease;
+}
+.runBtn:hover:not(:disabled) {
+  background: var(--accent-bright);
+}
+.runBtn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.runBtn[data-cancel] {
+  color: var(--danger);
+  background: var(--danger-dim);
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+}
+
+.ghostBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius);
+  font-size: var(--text-meta);
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--fg-muted);
+  transition: background var(--dur-micro), color var(--dur-micro);
+}
+.ghostBtn:hover:not(:disabled) {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+.ghostBtn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.linkBtn {
+  font-size: inherit;
+  color: var(--accent-bright);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.linkBtn:hover {
+  color: var(--accent);
+}
+
+/* ---- the browser ------------------------------------------------- */
+.browserTop {
+  padding: 10px 10px 8px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.search {
+  height: var(--control-compact);
+  width: 100%;
+  padding: 0 10px 0 30px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  font-size: var(--text-label);
+  color: var(--fg);
+  background-repeat: no-repeat;
+  background-position: 9px center;
+  background-size: 14px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2393a19c' stroke-width='2' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='m20 20-3.5-3.5'/></svg>");
+}
+/* the accent tint on focus; the global :focus-visible ring stays. */
+.search:focus {
+  border-color: var(--accent);
+  background-color: var(--bg-panel);
+}
+.search::placeholder {
+  color: var(--fg-faint);
+}
+
+.browserList {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 6px 10px;
+}
+
+.browserEmpty,
+.historyEmpty {
+  padding: 18px 12px;
+  color: var(--fg-faint);
+  font-size: var(--text-label);
+  text-align: center;
+}
+
+.browserState {
+  padding: 14px 12px;
+}
+
+/* The group headings: the Tools catalog's heading treatment —
+   OperationPicker's eyebrow, settled in its own field rounds — so a
+   heading reads heavier and darker than it did, over the rows under it.
+   No count beside it: it is not needed. */
+.groupEyebrow {
+  margin: 0;
+  padding: 10px 8px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--fg) 10%, var(--fg-muted));
+}
+
+/* The row keeps one height whatever the pointer does:
+   the meta and the actions share the last cell, so revealing the actions
+   moves nothing below. */
+.row {
+  cursor: pointer;
+  user-select: none;
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 30px;
+  padding: 0 4px 0 8px;
+  border-radius: 8px;
+  text-align: left;
+  transition: background var(--dur-micro);
+}
+.row:hover {
+  background: var(--bg-hover);
+}
+.row[data-selected] {
+  background: var(--accent-dim);
+}
+.row:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.rowGlyph {
+  width: 18px;
+  height: 18px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--accent-bright);
+  background: var(--accent-wash);
+  flex: none;
+}
+.rowGlyph[data-kind="none"] {
+  color: var(--fg-faint);
+  background: var(--bg-raised);
+}
+.rowGlyph svg {
+  width: 11px;
+  height: 11px;
+}
+
+.rowName {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.row[data-nonspatial] .rowName {
+  color: var(--fg-muted);
+}
+.colHit {
+  margin-left: 6px;
+  color: var(--accent-bright);
+  font-size: 10.5px;
+}
+
+.rowEnd {
+  display: grid;
+  align-items: center;
+  justify-items: end;
+  height: 24px;
+}
+.rowEnd > * {
+  grid-area: 1 / 1;
+}
+.rowMeta {
+  font-size: 10.5px;
+  color: var(--fg-faint);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  padding-right: 4px;
+}
+.rowActs {
+  display: inline-flex;
+  gap: 2px;
+  visibility: hidden;
+}
+.row:hover .rowActs,
+.row[data-selected] .rowActs,
+.row:focus-within .rowActs {
+  visibility: visible;
+}
+.row:hover .rowMeta,
+.row[data-selected] .rowMeta,
+.row:focus-within .rowMeta {
+  visibility: hidden;
+}
+/* The kit's icon button at the row's size: the hit floor is the kit's. */
+.rowAct {
+  width: 24px;
+  height: 24px;
+}
+.rowAct svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* ---- the results card ------------------------------------------- */
+.resultsCard {
+  flex: 1;
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--bg-panel);
+}
+.resultsCard[data-busy] .resBody {
+  opacity: 0.45;
+  pointer-events: none;
+  transition: opacity var(--dur-micro);
+}
+
+/* One row: the actions sit at the bar's end whatever is
+   shown, and the notes have their own line below. Wrapping is allowed
+   only as the narrow-width fallback — the lead ellipsizes first — so a
+   small window degrades to a second row rather than to clipped controls;
+   at the widths the console is used at, the row
+   holds. No overflow clipping here: a clipped, focused panel once
+   scrolled the bar's content out of view. */
+.resBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+  min-height: 47px;
+}
+.resNotes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+  flex: none;
+}
+.resNotes code {
+  font-family: var(--font-mono);
+  color: var(--fg);
+}
+.resNotes a {
+  color: var(--accent-bright);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.resNotes [role="alert"] {
+  color: var(--danger);
+}
+
+.lead {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+.lead b {
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 12px;
+  flex: 0 1 auto;
+  min-width: 48px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+/* The preview mark: filled accent with the table glyph,
+   so a table preview and a query result can never be mistaken for one
+   another — the bar and the card's edge carry the same mode tint below. */
+.leadChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.leadChip svg {
+  width: 13px;
+  height: 13px;
+}
+.resBar[data-mode="preview"] {
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-panel));
+  border-bottom-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+.resultsCard[data-mode="preview"] {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.tabs {
+  display: inline-flex;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2px;
+}
+.tabs button {
+  height: 24px;
+  padding: 0 12px;
+  border-radius: 7px;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tabs button svg {
+  width: 13px;
+  height: 13px;
+}
+.tabs button[data-on] {
+  background: var(--bg-panel);
+  color: var(--fg);
+  box-shadow: 0 1px 3px var(--shadow);
+}
+.tabs button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.resMeta {
+  display: flex;
+  gap: 14px;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.resMeta b {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.resActs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  margin-left: auto;
+}
+
+.why {
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+
+.resBody {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.resEmpty {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--fg-faint);
+  font-size: var(--text-label);
+  text-align: center;
+  padding: 24px;
+}
+.resEmptyBig {
+  font-size: var(--text-body);
+  color: var(--fg-muted);
+  margin-bottom: 4px;
+}
+
+.errorWrap {
+  padding: 12px;
+}
+.errorCode {
+  display: inline-block;
+  margin-right: 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
+}
+
+/* ---- the result table ------------------------------------------ */
+.tableHost {
+  position: absolute;
+  inset: 0;
+}
+.gridWrap {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+}
+.gridWrap[data-foot] {
+  bottom: 30px;
+}
+.grid {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  min-width: 100%;
+}
+.grid th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-weight: 500;
+  text-align: left;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  font-size: 11px;
+}
+.thType {
+  display: block;
+  font-size: 9.5px;
+  color: var(--fg-faint);
+  letter-spacing: 0.04em;
+  font-weight: 400;
+}
+.grid th[data-geom] .thType {
+  color: var(--accent-bright);
+}
+.grid td {
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--fg);
+  cursor: default;
+}
+.grid td[data-kind="number"] {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.grid td[data-kind="geometry"] {
+  color: var(--fg-faint);
+}
+.grid td[data-kind="null"] {
+  color: var(--fg-faint);
+  font-style: italic;
+}
+.grid tr:hover td {
+  background: var(--bg-raised);
+}
+.grid td:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.rn {
+  color: var(--fg-faint);
+  text-align: right;
+  padding-right: 8px;
+  width: 1%;
+  font-size: 10.5px;
+}
+.gridFoot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-raised);
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+}
+
+.peek {
+  position: absolute;
+  z-index: 20;
+  max-width: 380px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 10px 30px var(--shadow);
+}
+.peekValue {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 180px;
+  overflow: auto;
+  color: var(--fg);
+  margin: 0;
+}
+
+/* ---- the map ---------------------------------------------------- */
+.mapHost {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.mapNotice {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+  color: var(--fg-muted);
+  font-size: 13px;
+  background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+}
+.mapReadout {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 10px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--bg-panel) 88%, transparent);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-muted);
+  backdrop-filter: blur(8px);
+}
+.mapTip {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 6px 18px var(--shadow);
+  font-size: var(--text-meta);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.mapTipKey {
+  color: var(--fg-faint);
+}
+
+/* ---- history cards --------------------------------------------- */
+.history {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 6px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.historyGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.card {
+  position: relative;
+  display: grid;
+  gap: 5px;
+  padding: 9px 11px 7px;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  transition: border-color var(--dur-micro), box-shadow var(--dur-micro);
+}
+.card:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 4px 14px var(--shadow);
+}
+.card:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.cardTop {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.cardStatus {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  color: var(--on-accent);
+  background: var(--accent);
+}
+.cardStatus svg {
+  width: 10px;
+  height: 10px;
+  stroke-width: 3;
+}
+.card[data-failed] .cardStatus {
+  background: var(--danger);
+  color: #fff;
+}
+.cardTitle {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.cardWhen {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: var(--fg-faint);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.cardSql {
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
+  line-height: 1.5;
+  color: var(--fg-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.cardSql[data-clamped] {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tkKw {
+  color: var(--code-keyword);
+  font-weight: 600;
+}
+.tkFn {
+  color: var(--code-function);
+}
+.tkStr {
+  color: var(--code-string);
+}
+.tkNum {
+  color: var(--code-number);
+}
+.tkCm {
+  color: var(--code-comment);
+  font-style: italic;
+}
+.cardMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 10.5px;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+  min-height: 24px;
+}
+.cardFailed {
+  color: var(--danger);
+  font-weight: 600;
+}
+/* Reserved space, revealed on hover: the card's height does not change
+   when the actions appear ('s rule applied here too). */
+.cardActs {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 2px;
+  visibility: hidden;
+}
+.card:hover .cardActs,
+.card:focus-within .cardActs {
+  visibility: visible;
+}
+.historyFoot {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+
+/* ---- menus ----------------------------------------------------- */
+.menuHost {
+  position: relative;
+  display: inline-flex;
+}
+.menu {
+  position: absolute;
+  z-index: 40;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 260px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px var(--shadow);
+  padding: 4px;
+}
+/* The results bar's menu is placed in viewport coordinates by the
+   anchoring hook: the card clips its overflow, and a short card would
+   cut a menu positioned inside it. */
+.menuAnchored {
+  position: fixed;
+  bottom: auto;
+  right: auto;
+}
+.menuItem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 7px;
+}
+.menuItem:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+.menuItem:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.menuItem b {
+  font-size: var(--text-label);
+  font-weight: 600;
+  color: var(--fg);
+}
+.menuItem span {
+  font-size: 10.5px;
+  color: var(--fg-faint);
+}
+
+/* The two pane tabs each get half of the strip, 120px at the pane's 260px
+   minimum. With an icon before the word the kit's 12px padding and 7px gap
+   no longer leave room for a three-digit count, and the strip would clip
+   the second tab. Tighter here, and a tab can never push
+   its neighbour out: it clips its own overflow instead. */
+.paneTabs [role="tab"] {
+  padding: 0 8px;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+}
+.paneTabs .tabCount {
+  padding: 0 5px;
+}

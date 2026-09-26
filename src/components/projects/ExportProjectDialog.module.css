@@ -1,0 +1,410 @@
+/* The 16-C export dialog, the reference's wide two-step dress in the
+   house vocabulary; the checklist rows mirror the dialog's raised
+   bordered form (the shared ws-extra-r2 dress). */
+
+.dialog {
+  width: min(680px, calc(100vw - 48px));
+  max-height: min(720px, calc(100vh - 64px));
+  display: flex;
+  flex-direction: column;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.title h2 {
+  margin: 0;
+  font-size: var(--text-heading);
+  font-weight: 650;
+}
+
+.title p {
+  margin: 4px 0 0;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+
+.steps {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.stepPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 28px;
+  padding: 0 11px 0 6px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+  font-weight: 550;
+}
+
+.stepPill b {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  font-size: var(--text-meta);
+  font-weight: 600;
+  background: var(--bg-panel);
+  color: var(--fg-muted);
+  border: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+
+.stepPill b svg {
+  width: 11px;
+  height: 11px;
+}
+
+.stepPill[data-on] {
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: var(--accent-dim);
+  color: var(--accent-bright);
+}
+
+.stepPill[data-on] b {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.stepPill[data-done] {
+  color: var(--fg);
+}
+
+.stepPill[data-done] b {
+  background: var(--accent-dim);
+  border-color: transparent;
+  color: var(--accent-bright);
+}
+
+.body {
+  flex: 1;
+  min-height: 240px;
+  overflow-y: auto;
+  padding: 12px 18px;
+}
+
+.stateBody {
+  display: grid;
+  place-items: center;
+  min-height: 200px;
+}
+
+.stateHint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-body);
+  color: var(--fg-muted);
+}
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.selHead {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: var(--text-label);
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.selHead small {
+  font-weight: 500;
+  color: var(--fg-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.selAll {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: var(--text-label);
+}
+
+.selAll button {
+  color: var(--accent-bright);
+  font-weight: 550;
+}
+
+.selAll button:hover {
+  text-decoration: underline;
+}
+
+.selAll i {
+  color: var(--fg-faint);
+  font-style: normal;
+}
+
+.checkRows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 6px;
+}
+
+.checkRow {
+  display: grid;
+  grid-template-columns: 18px 26px 1fr auto;
+  align-items: center;
+  column-gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  cursor: pointer;
+}
+
+.checkRow:hover {
+  border-color: var(--border-strong);
+}
+
+.checkRow input {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+}
+
+.typeTile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius);
+  background: var(--accent-wash);
+  color: var(--accent-bright);
+}
+
+.typeTile svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* The app's geometry tile per kind: a dataset without
+   geometry wears the quiet no-geometry tile, as in the SQL console. */
+.typeTile[data-kind="none"] {
+  background: var(--bg-raised);
+  color: var(--fg-faint);
+}
+
+.name,
+.nameMono {
+  font-size: var(--text-body);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nameMono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--text-label);
+}
+
+.meta {
+  font-size: var(--text-meta);
+  color: var(--fg-faint);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.sub {
+  grid-column: 3 / span 2;
+  font-size: var(--text-meta);
+  color: var(--fg-faint);
+}
+
+.emptyGroup {
+  margin: 0;
+  padding: 4px 2px;
+  font-size: var(--text-label);
+  color: var(--fg-faint);
+}
+
+.review {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Every file, in a frame of bounded height that scrolls (finding
+   13, page 21): the dialog keeps its size whatever the list's length. */
+.treeScroll {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  max-height: 236px;
+  overflow-y: auto;
+}
+
+.tree {
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+}
+
+.treeRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 1.5px 0;
+}
+
+.treeRow[data-depth="1"] {
+  padding-left: 18px;
+}
+
+.treeRow[data-depth="2"] {
+  padding-left: 36px;
+}
+
+.treeDir {
+  font-weight: 600;
+}
+
+.treeFile {
+  color: var(--fg);
+}
+
+.treeNote {
+  font-family: inherit;
+  font-size: var(--text-meta);
+  color: var(--fg-faint);
+}
+
+.reviewForm {
+  display: flex;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+}
+
+.field > span:first-child {
+  font-size: var(--text-label);
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+
+.fileIn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fileIn input {
+  flex: 1;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  color: var(--fg);
+  font-size: var(--text-body);
+  font-family: var(--font-mono);
+}
+
+.fileIn input:focus {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.ext {
+  font-size: var(--text-label);
+  color: var(--fg-faint);
+  font-family: var(--font-mono);
+}
+
+.notes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.callout {
+  padding: 8px 11px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+  line-height: 1.5;
+}
+
+.callout b {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+}
+
+.foot > button:first-of-type {
+  margin-left: auto;
+}
+
+.status {
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The one-for-all dataset format beside the file name (behavior
+   11, page 21). */
+.reviewForm {
+  display: grid;
+  grid-template-columns: 1fr 200px;
+  gap: 12px;
+  align-items: start;
+}
+
+.formatSelect {
+  width: 100%;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  color: var(--fg);
+  font-size: var(--text-label);
+}
+
+.formatSelect:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+.formatHelp {
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+  line-height: 1.45;
+}

@@ -1,0 +1,202 @@
+/* The project-first picker: the window
+   keeps one height on every tab, the rows scroll inside it. */
+
+/* Doubled, so the kit dialog's own height rules never win the cascade:
+   one height on every tab (the ruling on page 23). */
+.dialog.dialog {
+  width: min(640px, 100%);
+  height: min(680px, calc(100vh - 96px));
+  max-height: none;
+  flex-direction: column;
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 18px 0;
+  flex: none;
+}
+
+.head strong {
+  font-family: var(--font-display);
+  font-size: var(--text-heading);
+  font-weight: 600;
+}
+
+.head small {
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+}
+
+.tabs {
+  padding: 6px 12px 0;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.tabCount {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-raised);
+  color: var(--fg-faint);
+  font-size: var(--text-meta);
+  font-weight: 500;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 18px 0;
+}
+
+.search {
+  flex: none;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  font-size: var(--text-body);
+  color: var(--fg);
+}
+
+/* The global focus-visible ring stays; the field only tints. */
+.search:focus {
+  border-color: var(--accent);
+  background: var(--bg-panel);
+}
+
+.rows {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 12px;
+}
+
+.stateRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 0;
+  justify-content: center;
+  text-align: center;
+  font-size: var(--text-label);
+  color: var(--fg-faint);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 16px 26px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  cursor: pointer;
+}
+
+.row:hover {
+  border-color: var(--border-strong);
+}
+
+.row[data-picked] {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.row input {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+}
+
+/* The tile: accent wash for a kind or a spatial family; quiet for a
+   dataset without geometry (the dialogs' rule). */
+.tile {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius);
+  background: var(--accent-wash);
+  color: var(--accent-bright);
+}
+
+.tile[data-kind="none"] {
+  background: var(--bg-raised);
+  color: var(--fg-faint);
+}
+
+.tile svg {
+  width: 14px;
+  height: 14px;
+}
+
+.text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.text b {
+  font-size: var(--text-label);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text b.mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+.text small {
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text small i {
+  font-style: normal;
+  color: var(--fg-faint);
+  padding: 0 4px;
+}
+
+.text .sub {
+  white-space: normal;
+  color: var(--fg-muted);
+}
+
+.refusal {
+  flex: none;
+  padding-bottom: 10px;
+}
+
+.foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--border);
+}
+
+.status {
+  margin-right: auto;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}

@@ -1,0 +1,47 @@
+.git
+.github
+.claude
+.codex
+.agents
+skills-lock.json
+plugins
+.playwright-mcp
+.worktrees
+node_modules
+.next
+out
+data
+coverage
+docs
+sdd
+design
+research
+user-requests
+e2e
+test-results
+playwright-report
+CARTO
+Kepler
+.tmp-*
+tsconfig.tsbuildinfo
+tsconfig.build.tsbuildinfo
+*.md
+*.jpg
+*.png
+.env
+.env.*
+Dockerfile
+.dockerignore
+.gitleaksignore
+test-support
+test-data
+.vscode
+.DS_Store
+# Test material that lives beside the code it tests: vitest snapshots and
+# fixture directories. The runtime image never needs them, and the image
+# inventory (scripts/check-image-inventory.mjs) rejects their file classes.
+**/__snapshots__
+**/fixtures
+**/*.snap
+# Build inputs of other images (the MCP probe client, ci.yml), not of this one.
+**/*.Dockerfile

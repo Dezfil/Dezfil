@@ -1,0 +1,33 @@
+// Browser journey configuration. One journey, one browser, no retries:
+// flakiness must surface as failure with a trace, not be averaged away.
+// Target instance via DEZFIL_BASE_URL (default localhost).
+import { defineConfig, devices } from "@playwright/test";
+
+export default defineConfig({
+  testDir: "./e2e",
+  workers: 1,
+  retries: 0,
+  // The whole journey must fit the pipeline's budget; individual expect
+  // polls stay short so a stuck step fails fast with context.
+  timeout: 240_000,
+  expect: {
+    timeout: 15_000,
+    // NO global screenshot tolerance. An absolute pixel budget applied to
+    // every shot is wrong at both ends: on a 38x258 stage-stack crop, 80
+    // pixels is most of a small icon, so a real regression could pass.
+    // Tolerance is therefore granted per assertion, at the shot that
+    // measured the need: see e2e/state-unification-pixels.spec.ts, where
+    // the glyph-edge noise was attributed. Everything else compares at
+    // Playwright's default, which is what a baseline is for.
+  },
+  reporter: [["list"]],
+  use: {
+    baseURL: process.env.DEZFIL_BASE_URL ?? "http://localhost:3000",
+    // A stuck click should fail in seconds with a trace, not consume the
+    // whole test budget (a broken step otherwise burns minutes in CI).
+    actionTimeout: 15_000,
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+  },
+  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+});

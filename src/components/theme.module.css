@@ -1,0 +1,38 @@
+/* A header action on the shared chrome metric. */
+.toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control);
+  height: var(--control);
+  border-radius: var(--radius-control);
+  color: var(--fg-muted);
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 3px 12px var(--shadow);
+  transition:
+    transform 0.12s,
+    color 0.12s;
+}
+
+.toggle:hover {
+  color: var(--fg);
+  transform: translateY(-1px);
+}
+
+.toggle:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* The attribute picks the icon — pre-paint, so it never hydrates wrong. */
+.sun {
+  display: none;
+}
+
+:global([data-theme="dark"]) .sun {
+  display: block;
+}
+
+:global([data-theme="dark"]) .moon {
+  display: none;
+}

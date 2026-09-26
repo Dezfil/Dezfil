@@ -1,0 +1,392 @@
+/* The publish popover's content, to the ratified drawing: the link is the
+   hero, the audience is a statement inside it, shared fields keep one
+   quiet row. Everything here is on rulebook tokens. */
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+/* ---- status row ---- */
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.live {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--text-label);
+  font-weight: 500;
+}
+
+.liveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.ago {
+  color: var(--fg-muted);
+  font-weight: 400;
+  font-size: var(--text-meta);
+  white-space: nowrap;
+}
+
+.openLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 0;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+  text-decoration: none;
+  transition: color var(--dur-micro) ease;
+}
+
+.openLink:hover {
+  color: var(--accent);
+}
+
+/* ---- the hero: the link, its copy action, and the audience ---- */
+
+.hero {
+  background: var(--accent-dim);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-radius: var(--radius-control);
+  padding: 12px 13px 11px;
+}
+
+.url {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--accent);
+  word-break: break-all;
+  line-height: 1.45;
+  margin-bottom: 11px;
+}
+
+.copyBtn {
+  width: 100%;
+}
+
+.audience {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+}
+
+.audience svg {
+  color: var(--accent);
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+.hero .audience {
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+/* ---- not yet published ---- */
+
+.unpub {
+  text-align: center;
+  padding: 2px 0 4px;
+}
+
+.unpub .audience {
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.publishBtn {
+  width: 100%;
+}
+
+/* ---- shared fields: one quiet row, expanding to the statement ---- */
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fieldsRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-height: var(--hit-area);
+  padding: 4px 0;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+  text-align: left;
+  transition: color var(--dur-micro) ease;
+}
+
+.fieldsRow:hover {
+  color: var(--fg);
+}
+
+.fieldsCaret {
+  display: inline-flex;
+  color: var(--fg-muted);
+  transition: transform var(--dur-micro) ease;
+}
+
+.fieldsCaret[data-open] {
+  transform: rotate(90deg);
+}
+
+.fieldsCount {
+  margin-left: auto;
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.fieldsBody {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 2px 0 4px;
+}
+
+.fieldsLayer {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.layerLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--hit-area);
+  font-size: var(--text-label);
+}
+
+.layerName {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.layerCount {
+  margin-left: auto;
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+  flex-shrink: 0;
+}
+
+.layerNote {
+  margin-left: auto;
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+  flex-shrink: 0;
+}
+
+.layerEdit {
+  min-height: var(--hit-area);
+  padding: 0 2px;
+  font-size: var(--text-meta);
+  font-weight: 500;
+  color: var(--fg-muted);
+  flex-shrink: 0;
+  transition: color var(--dur-micro) ease;
+}
+
+.layerEdit:hover {
+  color: var(--accent);
+}
+
+/* ---- the per-layer field editor ---- */
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.editorNote {
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+  line-height: 1.5;
+}
+
+/* The label prop's spans land as direct flex children of the kit's
+   label element, so the required tag can push itself to the far edge. */
+.fieldOption {
+  min-height: var(--hit-area);
+  width: 100%;
+}
+
+.fieldName {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+}
+
+.fieldRequired {
+  margin-left: auto;
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+}
+
+.resetBtn {
+  align-self: flex-start;
+  margin-top: 3px;
+}
+
+/* What readers get ---- */
+
+.reader {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.readerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.readerLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+
+/* The mode pair reads as one switch with two halves, not two buttons. */
+.modes {
+  display: inline-flex;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.mode {
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fg-muted);
+  background: var(--bg-raised);
+}
+
+.mode:hover {
+  color: var(--fg);
+}
+
+.mode[aria-pressed="true"] {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.controlList {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
+}
+
+.controlRow {
+  font-size: 12px;
+  color: var(--fg);
+}
+
+.readerNote {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+/* ---- footer ---- */
+
+.rule {
+  height: 1px;
+  background: var(--border);
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ---- the embed view ---- */
+
+.embed {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  min-height: var(--hit-area);
+  padding: 0 2px;
+  font-size: var(--text-label);
+  font-weight: 500;
+  color: var(--fg-muted);
+  transition: color var(--dur-micro) ease;
+}
+
+.backBtn:hover {
+  color: var(--fg);
+}
+
+.backCaret {
+  display: inline-flex;
+  transform: rotate(180deg);
+}
+
+.embedTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-heading);
+  font-weight: 600;
+}
+
+.embedText {
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+  line-height: 1.5;
+}
+
+.snippet {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+  word-break: break-all;
+}
+
+/* Destructive, and marked as such at rest — not only on hover. */
+.unpublish {
+  color: var(--danger);
+}
+
+.unpublish:hover:not(:disabled) {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}

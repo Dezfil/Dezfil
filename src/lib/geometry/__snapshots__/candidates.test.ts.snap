@@ -1,0 +1,1651 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`field round: candidate identity includes every pair and all evidence 1`] = `
+[
+  {
+    "applied": false,
+    "columns": [
+      "payload",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": false,
+    "format": "wkt",
+    "reasons": [
+      "outside-degree-range",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "a",
+      "b",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "b",
+        "lon": "a",
+      },
+      {
+        "lat": "a",
+        "lon": "b",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "b",
+      "c",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "c",
+        "lon": "b",
+      },
+      {
+        "lat": "b",
+        "lon": "c",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "c",
+      "d",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "d",
+        "lon": "c",
+      },
+      {
+        "lat": "c",
+        "lon": "d",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "d",
+      "e",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "e",
+        "lon": "d",
+      },
+      {
+        "lat": "d",
+        "lon": "e",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "e",
+      "f",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "f",
+        "lon": "e",
+      },
+      {
+        "lat": "e",
+        "lon": "f",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "f",
+      "g",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "g",
+        "lon": "f",
+      },
+      {
+        "lat": "f",
+        "lon": "g",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "g",
+      "h",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "h",
+        "lon": "g",
+      },
+      {
+        "lat": "g",
+        "lon": "h",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "h",
+      "j",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "j",
+        "lon": "h",
+      },
+      {
+        "lat": "h",
+        "lon": "j",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "j",
+      "k",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "k",
+        "lon": "j",
+      },
+      {
+        "lat": "j",
+        "lon": "k",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "a",
+      "c",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "c",
+        "lon": "a",
+      },
+      {
+        "lat": "a",
+        "lon": "c",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "a",
+      "d",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "d",
+        "lon": "a",
+      },
+      {
+        "lat": "a",
+        "lon": "d",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "a",
+      "e",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "e",
+        "lon": "a",
+      },
+      {
+        "lat": "a",
+        "lon": "e",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "a",
+      "f",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "f",
+        "lon": "a",
+      },
+      {
+        "lat": "a",
+        "lon": "f",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "a",
+      "g",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "g",
+        "lon": "a",
+      },
+      {
+        "lat": "a",
+        "lon": "g",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "a",
+      "h",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "h",
+        "lon": "a",
+      },
+      {
+        "lat": "a",
+        "lon": "h",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "a",
+      "j",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "j",
+        "lon": "a",
+      },
+      {
+        "lat": "a",
+        "lon": "j",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "a",
+      "k",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "k",
+        "lon": "a",
+      },
+      {
+        "lat": "a",
+        "lon": "k",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "b",
+      "d",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "d",
+        "lon": "b",
+      },
+      {
+        "lat": "b",
+        "lon": "d",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "b",
+      "e",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "e",
+        "lon": "b",
+      },
+      {
+        "lat": "b",
+        "lon": "e",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "b",
+      "f",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "f",
+        "lon": "b",
+      },
+      {
+        "lat": "b",
+        "lon": "f",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "b",
+      "g",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "g",
+        "lon": "b",
+      },
+      {
+        "lat": "b",
+        "lon": "g",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "b",
+      "h",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "h",
+        "lon": "b",
+      },
+      {
+        "lat": "b",
+        "lon": "h",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "b",
+      "j",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "j",
+        "lon": "b",
+      },
+      {
+        "lat": "b",
+        "lon": "j",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "b",
+      "k",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "k",
+        "lon": "b",
+      },
+      {
+        "lat": "b",
+        "lon": "k",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "c",
+      "e",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "e",
+        "lon": "c",
+      },
+      {
+        "lat": "c",
+        "lon": "e",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "c",
+      "f",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "f",
+        "lon": "c",
+      },
+      {
+        "lat": "c",
+        "lon": "f",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "c",
+      "g",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "g",
+        "lon": "c",
+      },
+      {
+        "lat": "c",
+        "lon": "g",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "c",
+      "h",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "h",
+        "lon": "c",
+      },
+      {
+        "lat": "c",
+        "lon": "h",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "c",
+      "j",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "j",
+        "lon": "c",
+      },
+      {
+        "lat": "c",
+        "lon": "j",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "c",
+      "k",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "k",
+        "lon": "c",
+      },
+      {
+        "lat": "c",
+        "lon": "k",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "d",
+      "f",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "f",
+        "lon": "d",
+      },
+      {
+        "lat": "d",
+        "lon": "f",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "d",
+      "g",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "g",
+        "lon": "d",
+      },
+      {
+        "lat": "d",
+        "lon": "g",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "d",
+      "h",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "h",
+        "lon": "d",
+      },
+      {
+        "lat": "d",
+        "lon": "h",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "d",
+      "j",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "j",
+        "lon": "d",
+      },
+      {
+        "lat": "d",
+        "lon": "j",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "d",
+      "k",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "k",
+        "lon": "d",
+      },
+      {
+        "lat": "d",
+        "lon": "k",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "e",
+      "g",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "g",
+        "lon": "e",
+      },
+      {
+        "lat": "e",
+        "lon": "g",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "e",
+      "h",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "h",
+        "lon": "e",
+      },
+      {
+        "lat": "e",
+        "lon": "h",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "e",
+      "j",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "j",
+        "lon": "e",
+      },
+      {
+        "lat": "e",
+        "lon": "j",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "e",
+      "k",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "k",
+        "lon": "e",
+      },
+      {
+        "lat": "e",
+        "lon": "k",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "f",
+      "h",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "h",
+        "lon": "f",
+      },
+      {
+        "lat": "f",
+        "lon": "h",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "f",
+      "j",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "j",
+        "lon": "f",
+      },
+      {
+        "lat": "f",
+        "lon": "j",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "f",
+      "k",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "k",
+        "lon": "f",
+      },
+      {
+        "lat": "f",
+        "lon": "k",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "g",
+      "j",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "j",
+        "lon": "g",
+      },
+      {
+        "lat": "g",
+        "lon": "j",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "g",
+      "k",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "k",
+        "lon": "g",
+      },
+      {
+        "lat": "g",
+        "lon": "k",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+  {
+    "applied": false,
+    "columns": [
+      "h",
+      "k",
+    ],
+    "crs": {
+      "label": "WGS 84 assumed",
+      "srid": null,
+      "stance": "assumed",
+    },
+    "degreeCompatible": true,
+    "format": "pair",
+    "orientations": [
+      {
+        "lat": "k",
+        "lon": "h",
+      },
+      {
+        "lat": "h",
+        "lon": "k",
+      },
+    ],
+    "reasons": [
+      "ambiguous-axes",
+    ],
+    "rule": "content",
+    "sample": {
+      "nonNull": 1000,
+      "readable": 1000,
+      "rows": 1000,
+    },
+    "signal": "content",
+    "sourceRetained": true,
+    "strength": "weak",
+  },
+]
+`;

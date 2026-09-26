@@ -1,0 +1,283 @@
+/* Widgets tab: accordion rows — click to expand the
+ * editor in place, drag to reorder — plus add widget/note and the
+ * published toggle. */
+
+/* Voice from the shared section label (the gate's ruling);
+   the box stays local. */
+.pane h4 {
+  margin: 0 0 12px;
+}
+
+.row {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-panel);
+  box-shadow: var(--shadow);
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.row[data-hidden] .name {
+  opacity: 0.55;
+}
+
+.row[data-expanded] {
+  border-color: var(--border-strong);
+}
+
+.rowHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  cursor: pointer;
+}
+
+/* The layer list's drag affordance, on widget rows too. */
+/* A real button (the keyboard reorder activator). Padding
+   reaches the 24px hit floor; negative margins give it back, so the
+   resting layout is the old 11px grip exactly. */
+.grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-faint);
+  cursor: grab;
+  flex-shrink: 0;
+  user-select: none;
+  background: none;
+  border: 0;
+  font: inherit;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  margin: 0 -6.5px;
+}
+
+.grip svg {
+  display: block;
+  width: 11px;
+  height: 13px;
+}
+
+.grip:active {
+  cursor: grabbing;
+}
+
+.rowHead:hover {
+  background: var(--bg-hover);
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+}
+
+.name strong {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.name small {
+  font: 400 11px var(--font-ui);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.rowBtn {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  color: var(--fg-muted);
+  border: 0;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 12px;
+}
+
+.rowBtn:hover {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.add {
+  width: 100%;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 14px;
+  color: var(--fg-muted);
+  font: 500 13px var(--font-ui);
+  background: none;
+  cursor: pointer;
+  transition: var(--dur-micro);
+  margin-top: 4px;
+}
+
+.add:hover,
+.add[data-active] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+/* The unfolded type picker: four tiles in the
+   visualization grid's voice — small glyph over a label. */
+/* The editor's header: the four type cards, present in every draft
+   state. It was the add flow's standalone grid, so it carried a top margin
+   that only made sense under the add button. */
+.typeGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+}
+
+.typeTile {
+  display: grid;
+  place-items: center;
+  gap: 3px;
+  font: 500 11px var(--font-ui);
+  color: var(--fg-muted);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  border-radius: 11px;
+  padding: 8px 2px 7px;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    color var(--dur-micro) ease,
+    border-color var(--dur-micro) ease,
+    background var(--dur-micro) ease;
+}
+
+.typeTile svg {
+  display: block;
+}
+
+.typeTile:hover {
+  border-color: var(--border-strong);
+  color: var(--fg);
+}
+
+.typeTile:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.typeTile:disabled:hover {
+  border-color: var(--border);
+  color: var(--fg-muted);
+}
+
+/* The chosen type reads as chosen, in the segment's old voice. */
+.typeTile[data-active] {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.form {
+  border-top: 1px solid var(--border);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+/* An adding editor sits in a fresh row with no head above it. */
+.row > .form:first-child {
+  border-top: 0;
+}
+
+.field {
+  display: grid;
+  gap: 5px;
+  color: var(--fg-muted);
+  font-size: 12.5px;
+}
+
+.field select,
+.field input,
+.field textarea {
+  width: 100%;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  background: var(--bg-panel);
+  color: var(--fg);
+  font: inherit;
+}
+
+.field select,
+.field input {
+  height: 32px;
+}
+
+.field textarea {
+  padding: 8px 10px;
+  resize: vertical;
+  min-height: 72px;
+}
+
+.field select:hover,
+.field input:hover,
+.field textarea:hover {
+  border-color: var(--accent);
+}
+
+.formActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.formActions button {
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 9px;
+  font: 600 12.5px var(--font-ui);
+  cursor: pointer;
+  border: 1px solid var(--border-strong);
+  background: none;
+  color: var(--fg-muted);
+}
+
+.formActions .save {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.formActions .save:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  padding: 10px 2px 0;
+  margin-top: 8px;
+  border-top: 1px solid var(--divider);
+}
+
+.empty {
+  color: var(--fg-faint);
+  font-size: 12.5px;
+  padding: 6px 0 10px;
+}

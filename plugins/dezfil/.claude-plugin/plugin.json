@@ -1,0 +1,9 @@
+{
+  "name": "dezfil",
+  "version": "0.1.0",
+  "description": "Analyze spatial data and build, style and publish maps in Dezfil.",
+  "author": {
+    "name": "Dezfil contributors"
+  },
+  "license": "Apache-2.0"
+}

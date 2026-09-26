@@ -1,0 +1,101 @@
+/* The one switch (drawer switch): a native
+   checkbox in switch clothing — the track and thumb are CSS, the input
+   is real, so Space, focus, screen readers and toBeChecked keep
+   working. Visual reference:
+   the builder-styles reference. */
+
+.switch {
+  appearance: none;
+  width: 36px;
+  height: 24px;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  position: relative;
+  cursor: pointer;
+  flex: none;
+}
+
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 0;
+  width: 36px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  background: var(--border-strong);
+  transition: background var(--dur-micro) ease;
+}
+
+.switch::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-panel);
+  box-shadow: 0 1px 2px var(--shadow);
+  transition: transform var(--dur-micro) ease;
+  z-index: 1;
+}
+
+.switch:checked::after {
+  background: var(--accent);
+}
+
+.switch:checked::before {
+  transform: translateX(16px);
+}
+
+.switch:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-pill);
+}
+
+/* Disabled: several rollout surfaces disable conditionally; the
+   drawer's original never did. Quiet, not invisible. */
+.switch:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+/* The wrapped-label shape (the kit checkbox's manner): label text beside
+   the track, one click target. */
+.row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.row:has(.switch:disabled) {
+  cursor: default;
+  color: var(--fg-faint);
+}
+
+/* Windows High Contrast and kin: forced colors
+   flatten the painted track and thumb into canvas, so the control
+   states itself in system colours. */
+@media (forced-colors: active) {
+  .switch::after {
+    border: 1px solid ButtonText;
+    background: ButtonFace;
+  }
+
+  .switch:checked::after {
+    background: Highlight;
+  }
+
+  .switch::before {
+    background: ButtonText;
+    box-shadow: none;
+  }
+
+  .switch:checked::before {
+    background: HighlightText;
+  }
+}

@@ -1,0 +1,15 @@
+/* CSS gradient backgrounds can wrap their tile at fractional widths — a
+   sliver of the far end's color bleeding in at the opposite edge (the
+   classed strips dodged the same rasterizer bug with real segments). The
+   gradient paints on an inner element overhanging 2px past each side,
+   and the strip crops it, so whatever the rasterizer does at the tile
+   edges lands outside the visible box. */
+.crop {
+  position: relative;
+  overflow: hidden;
+}
+
+.paint {
+  position: absolute;
+  inset: 0 -2px;
+}

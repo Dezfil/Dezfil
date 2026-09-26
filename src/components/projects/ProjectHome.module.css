@@ -1,0 +1,312 @@
+/* The project home: the heading with the
+   note and stats line, page 13's denser 264px card metric, the data
+   rows' project-specific columns, and the dissolution dialog. */
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  height: var(--screen-height);
+  min-height: 460px;
+}
+
+.stateBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding-top: 24px;
+  color: var(--fg-muted);
+  font-size: var(--text-body);
+}
+
+.backLink {
+  color: var(--accent-bright);
+  font-size: var(--text-body);
+}
+
+.heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.headLeft {
+  min-width: 0;
+}
+
+.heading h1 {
+  font-size: var(--text-title);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nameInput {
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: 600;
+  color: var(--fg);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 2px 10px;
+  width: min(420px, 100%);
+}
+
+.nameInput:focus {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.noteLine {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 4px;
+  color: var(--fg-muted);
+  font-size: var(--text-body);
+}
+
+.noteEdit {
+  color: var(--fg-faint);
+  font-size: var(--text-meta);
+}
+
+.noteEdit:hover {
+  color: var(--accent);
+}
+
+.noteInput {
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  color: var(--fg);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 3px 9px;
+  width: min(480px, 100%);
+}
+
+.noteInput:focus {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+
+.stats b {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.stats i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+
+/* The facts line (head A without its picture):
+   only what exists, each count led by its kind glyph. */
+.factWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.factWrap > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.factGlyph {
+  display: inline-grid;
+  place-items: center;
+  color: var(--fg-faint);
+}
+
+.factGlyph svg {
+  width: 13px;
+  height: 13px;
+}
+
+.headActs {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.scroller {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  padding-bottom: 12px;
+}
+
+/* ---- the attention area (reference page 13's warn callout) ---- */
+
+.attention {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.callout {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent);
+  background: color-mix(in srgb, var(--warn) 7%, var(--bg-panel));
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+
+.callout > svg {
+  width: 16px;
+  height: 16px;
+  color: var(--warn);
+  flex: none;
+}
+
+.callout b {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.callout > span {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---- the dissolution dialog ---- */
+
+.dialog {
+  width: min(460px, 100%);
+  flex-direction: column;
+}
+
+.dialogHead {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px 12px;
+}
+
+.dialogHead strong {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.dialogHead small {
+  color: var(--fg-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.dialogFoot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 18px 16px;
+}
+
+/* The export outcome: the host owns the notice the
+   closing dialog cannot keep. */
+.exportNote {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  font-size: var(--text-body);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The ⋯ menu: the kit menu styles nothing but the
+   trigger's hit floor, and this was the one call site passing no panel
+   class — the field round saw bare stacked text. The trigger takes the
+   secondary button's dress at the head's chrome height beside Export;
+   the panel the house dress the export and connection menus wear. */
+.menuWrap {
+  display: inline-flex;
+}
+
+.menuTrigger {
+  display: grid;
+  width: var(--control);
+  height: var(--control);
+  place-items: center;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+  color: var(--fg);
+  font-size: var(--text-heading);
+  transition:
+    color var(--dur-micro) ease,
+    border-color var(--dur-micro) ease;
+}
+
+.menuTrigger:hover,
+.menuWrap[data-open] > .menuTrigger {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.menu {
+  z-index: 110;
+  display: flex;
+  min-width: 200px;
+  flex-direction: column;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  box-shadow: 0 10px 30px var(--shadow);
+}
+
+.menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: var(--radius);
+  color: var(--fg);
+  font-size: var(--text-body);
+  text-align: left;
+}
+
+.menu button:hover,
+.menu button:focus-visible {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.menu [data-danger] {
+  color: var(--danger);
+}
+
+.menu [data-danger]:hover,
+.menu [data-danger]:focus-visible {
+  background: var(--danger-dim);
+  color: var(--danger);
+}

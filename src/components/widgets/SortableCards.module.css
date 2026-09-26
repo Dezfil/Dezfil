@@ -1,0 +1,18 @@
+/* The release-hold: the in-list card reveals from
+ * the drag dim while the floating copy glides home. It is an animation,
+ * not held state — the resting frame is full opacity, so a missed
+ * cleanup can never leave a card dimmed (the round-1 regression). */
+
+.dropped {
+  animation: reveal 250ms cubic-bezier(0.25, 1, 0.5, 1) backwards;
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0.35;
+  }
+
+  to {
+    opacity: 1;
+  }
+}

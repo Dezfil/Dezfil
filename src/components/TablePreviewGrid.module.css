@@ -1,0 +1,113 @@
+/* The Data preview grid (unchanged bones from the schema page),
+   extracted from TableDetailScreen.module.css by 0199. */
+
+.gridWrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  background: var(--bg-panel);
+}
+
+.grid {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.grid th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-raised);
+  text-align: left;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border-strong);
+  white-space: nowrap;
+  z-index: 1;
+}
+
+.colName {
+  display: block;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.colType {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  opacity: 0.85;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.grid td {
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.grid tbody tr:hover td {
+  background: var(--bg-hover);
+}
+
+.nullCell {
+  color: var(--fg-faint);
+  opacity: 0.6;
+}
+
+/* The set-geometry preview's tags and marks ---- */
+
+.grid th[data-pick],
+.grid td[data-pick] {
+  background: var(--accent-wash);
+}
+
+.grid th[data-pick] .colName {
+  color: var(--accent-bright);
+}
+
+.pickTag {
+  display: inline-block;
+  margin-top: 3px;
+  font-family: var(--font-ui);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-radius: var(--radius-pill);
+  padding: 1px 6px;
+}
+
+.grid td[data-bad] {
+  color: var(--warn);
+}
+
+.grid td[data-bad]::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warn);
+  margin-right: 7px;
+  vertical-align: middle;
+}
+
+.grid tr[data-bad] td {
+  color: var(--fg-faint);
+}
+
+.grid tr[data-bad] td[data-bad] {
+  color: var(--warn);
+}

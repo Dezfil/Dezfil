@@ -1,0 +1,25 @@
+import { NextResponse } from "next/server";
+import { errorResponse } from "@/lib/api/errors";
+import { duplicateRecipe } from "@/lib/operations/recipe-duplicate";
+import { readRecipe } from "@/lib/operations/recipe-view";
+import { recipePayload } from "@/lib/operations/recipe-api";
+
+type Params = { params: Promise<{ id: string }> };
+
+/**
+ * Duplicate a recipe: a workflow named "<name> copy" that has never run, with
+ * every output renamed to a free name and every read of an original output
+ * redirected to the copy's. The original and its datasets are untouched.
+ */
+export async function POST(_request: Request, { params }: Params) {
+  try {
+    const { id } = await params;
+    const copy = await duplicateRecipe(id);
+    return NextResponse.json(
+      { recipe: recipePayload(await readRecipe(copy.id)) },
+      { status: 201, headers: { Location: `/api/recipes/${copy.id}` } },
+    );
+  } catch (error) {
+    return errorResponse(error);
+  }
+}

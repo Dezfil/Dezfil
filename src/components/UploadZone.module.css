@@ -1,0 +1,133 @@
+/* The zone and its error note share a column that fills the host pane:
+   the zone grows, the note keeps its room below. */
+.wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.zone {
+  flex: 1;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  padding: 34px 24px;
+  text-align: center;
+  cursor: pointer;
+  background:
+    radial-gradient(
+      ellipse at 50% 120%,
+      color-mix(in srgb, var(--accent) 6%, transparent),
+      transparent 60%
+    ),
+    var(--bg-panel);
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    transform 0.15s ease;
+}
+
+/* Hover answers like the gallery ghost card: accent
+   border, accent wash, accent text — the same treatment, gradient
+   cleared, exactly as the ghost renders it. Drag-active keeps its own
+   presentation untouched, so the hover rule stands down during a drag
+   (a drag is necessarily also a hover). */
+.zone:hover:not([data-busy="true"]):not([data-drag="true"]) {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.zone:hover:not([data-busy="true"]):not([data-drag="true"]) .chip {
+  color: inherit;
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border-strong));
+}
+
+.zone[data-drag="true"] {
+  border-color: var(--accent);
+  background-color: var(--accent-dim);
+  transform: scale(1.004);
+}
+
+.zone[data-busy="true"] {
+  cursor: default;
+}
+
+.prompt {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.chips {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.chip {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  padding: 3px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--fg-muted);
+  background: color-mix(in srgb, var(--bg-panel) 60%, transparent);
+}
+
+.progressWrap {
+  max-width: 460px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.progressLabel {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11.5px;
+  margin-bottom: 9px;
+  color: var(--fg-muted);
+}
+
+.filename {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phase {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+@keyframes slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(260%);
+  }
+}
+
+/* Local copy of the shared rise-in keyframes: CSS modules scope
+   animation-names, so a global definition never matches (fix — these
+   animations were silently inert in production builds). */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

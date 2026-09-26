@@ -1,0 +1,51 @@
+{
+  "what": "The frozen assistant baselines: the provider request bodies, the tool definitions each adapter and the MCP package serve, and the operation identities, every one captured from the product's own builders and committed here. A later change is compared against these stored files, never against a second reading of the code path that produced them.",
+  "fixture": {
+    "message": "Colour the parks by area, five classes.",
+    "history": [
+      {
+        "role": "user",
+        "content": "What is on this map?"
+      },
+      {
+        "role": "assistant",
+        "content": "One layer, parks."
+      }
+    ],
+    "baseUrl": "http://127.0.0.1:3212"
+  },
+  "openaiRequest": {
+    "file": "openai-request.json",
+    "sha256": "fd305bc4c4f1a8da14ea6e4e558df2d0850eec66b951bd55eeb445667fb17ce1"
+  },
+  "openaiToolDefinitions": {
+    "file": "openai-tool-definitions.json",
+    "sha256": "69532dd6b4ae752c80dc56595b14ae176d48fd2d353dc40d662c37a7405d0bc3"
+  },
+  "anthropicRequest": {
+    "file": "anthropic-request.json",
+    "sha256": "8a05a11e80f724497cf10bb0c84406ebb116440b9021fdc2d0467ff9a8438d2e"
+  },
+  "anthropicToolDefinitions": {
+    "file": "anthropic-tool-definitions.json",
+    "sha256": "abbf549639190d05f511d0ab772556b23d4351ea06676ff19ed3108788839b3e"
+  },
+  "mcpListing": {
+    "file": "mcp-tools-list.json",
+    "sha256": "b0e45d4c5b9cae81b64be32f32459149a4dca96f9bf9881bd5bf42460aeed207"
+  },
+  "identities": {
+    "file": "identities.json",
+    "sha256": "a1376ca6eca0b62da13a721790c2bc0e7813d4a96d88dd2fab12c983ae3d0b04",
+    "counts": {
+      "operations": 139,
+      "tools": 116,
+      "exclusions": 23
+    }
+  },
+  "packagePrompt": {
+    "path": "src/lib/plugins/fixtures/assistant-system.txt",
+    "bytes": 8941,
+    "sha256": "b667c23fe2bcac754e025e50d25188b449d797eb0ba70f89ea7d3417de0ff65a"
+  }
+}

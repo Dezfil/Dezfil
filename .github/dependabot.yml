@@ -1,0 +1,40 @@
+version: 2
+updates:
+  # Application dependencies. Grouped so a week's patches arrive as one
+  # reviewable pull request rather than a dozen.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    groups:
+      production-minor-and-patch:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      development-minor-and-patch:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+    # A major bump lands on its own, because it needs a human to read the
+    # release notes.
+
+  # The actions the pipeline pins. A stale action is a supply chain risk of
+  # its own.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "chore(actions)"
+    groups:
+      actions:
+        patterns:
+          - "*"

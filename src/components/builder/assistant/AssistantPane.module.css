@@ -1,0 +1,52 @@
+/* The assistant pane, right of the stage: the Tools drawer's size and
+   bounds by composition rather than by copied numbers, placed
+   at the stage's other side. The drawer sits where the inspector ends;
+   the pane sits at the screen's right gutter, and its width plus the
+   helper gutter is what the stage's right edge moves by when it docks,
+   through `--assistant-offset`, which the slot's coordinator writes
+   together with the left offset. What this file adds beyond placement
+   is only what a mounted-while-closed surface needs that the
+   unmount-on-close drawer does not. */
+
+.pane {
+  composes: drawer from "../drawer/RecipeDrawer.module.css";
+  display: flex;
+  flex-direction: column;
+  left: auto;
+  right: var(--gutter);
+}
+
+/* Overlaying (at and below the breakpoint, and over the fullscreen map),
+   the pane floats on its own side and covers the stage's right-edge
+   tenants: the legend corner, the widget rail and the credit stay
+   where they are beneath it; nothing moves. Docked, the stage's right
+   edge moved for it and those tenants moved with the stage. */
+
+/* Closed is hidden, never unmounted: the transcript, pending
+   confirmations and download doors survive the dismissal, exactly as the
+   bottom-right box preserved them. */
+.pane[data-open="false"] {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* A host's notes under the header (the download coordinator's, where the
+   host has no inspector): stacked, never taking the transcript's room. */
+.notes {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px 0;
+}
+
+.notes:empty {
+  display: none;
+}

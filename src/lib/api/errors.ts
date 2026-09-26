@@ -1,0 +1,162 @@
+import { NextResponse } from "next/server";
+import { ERROR_CATALOGUE } from "./error-catalogue";
+
+/**
+ * Every API error carries a stable machine-readable code plus a
+ * human-readable message (spec: scripts and agents branch on codes, not
+ * prose). Codes are catalogued in the API docs.
+ */
+export type ErrorCode =
+  | "unsupported_format"
+  | "upload_too_large"
+  | "archive_too_large"
+  | "remote_fetch_failed"
+  /** An outbound exchange stopped because its caller stopped wanting it
+   * distinct from a transport failure, so a cancelled batch never reports
+   * a provider as broken. */
+  | "remote_fetch_abandoned"
+  | "remote_too_large"
+  | "remote_timeout"
+  | "egress_blocked"
+  | "area_too_large"
+  | "name_taken"
+  /** A map's dependency read could not be completed: a
+   * layer statement failed analysis, so the checklist would be a lie —
+   * the whole read refuses instead. */
+  | "dependencies_unresolved"
+  | "export_failed"
+  | "not_refreshable"
+  | "refresh_in_flight"
+  | "geometry_not_supported"
+  | "geometry_choice_invalid"
+  | "geometry_in_flight"
+  /** A workflow has one run at a time: a start while one is in
+   * flight is refused, naming it. */
+  | "run_in_flight"
+  /** A confirmed wide run names its members in order; the plan at start
+   * differed, so nothing started. */
+  | "plan_changed"
+  | "connection_failed"
+  | "connection_password_required"
+  | "malformed_file"
+  | "request_body_too_large"
+  | "mcp_read_failed"
+  | "mcp_transport_failed"
+  | "mcp_response_invalid"
+  | "invalid_request"
+  | "not_found"
+  | "sql_rejected"
+  | "sql_error"
+  | "query_timeout"
+  | "query_memory_exceeded"
+  | "tile_build_timeout"
+  | "render_cap_exceeded"
+  | "tiler_unavailable"
+  | "tile_build_failed"
+  | "widget_layer_missing"
+  | "column_unavailable"
+  | "field_not_published"
+  | "selection_incompatible"
+  | "rate_limited"
+  | "catalogue_too_large"
+  | "assistant_reservation_required"
+  | "assistant_run_unavailable"
+  | "assistant_run_conflict"
+  | "assistant_capacity"
+  | "assistant_run_state"
+  | "assistant_submission_too_large"
+  | "assistant_recovery_limit"
+  | "assistant_plan_unavailable"
+  | "assistant_action_uncertain"
+  | "assistant_action_interrupted"
+  | "assistant_action_not_admitted"
+  | "assistant_choice_invalid"
+  | "assistant_model_not_offered"
+  | "assistant_effort_not_offered"
+  | "assistant_effort_not_supported"
+  | "assistant_context_invalid"
+  | "assistant_context_too_large"
+  | "assistant_context_unavailable"
+  | "assistant_disabled"
+  | "assistant_auth"
+  | "assistant_provider"
+  | "pending_unknown"
+  | "pending_resolved"
+  | "pending_superseded"
+  | "render_unavailable"
+  | "render_timeout"
+  | "render_failed"
+  /** The assistant's map check: no map named and none in context. */
+  | "look_target_missing"
+  /** The check's image is still over its byte bound at the smallest documented size. */
+  | "look_image_too_large"
+  /** The retained image of a check was evicted or did not survive a restart. */
+  | "look_image_unavailable"
+  | "attachment_too_large"
+  | "operation_timeout"
+  | "operation_queue_full"
+  | "operation_interrupted"
+  | "operation_superseded"
+  | "measurement_crs_unavailable"
+  | "input_changed"
+  | "geocoder_unconfigured"
+  | "geocoder_failed"
+  | "isochrone_unconfigured"
+  | "isochrone_failed"
+  /** Sketch operations. */
+  | "invalid_sketch_feature"
+  | "not_a_sketch"
+  | "feature_not_found"
+  | "vertex_move_refused"
+  | "sketch_gone"
+  | "map_not_found"
+  | "internal";
+
+export class ApiError extends Error {
+  constructor(
+    public readonly code: ErrorCode,
+    message: string,
+    public readonly status: number,
+    /** Documented extra fields that ride beside code and message in the
+     * error envelope — e.g. A SQL error's position. Never engine
+     * internals; only what the OpenAPI Error schema declares. */
+    public readonly extra: Record<string, unknown> = {},
+  ) {
+    super(message);
+  }
+}
+
+/**
+ * Thrown when the caller abandoned an in-flight evaluation — the
+ * bounded-evaluation boundary raises it, and nobody is left to read a
+ * response. Defined here so the response mapping below needs no import
+ * from the query layer.
+ */
+export class EvaluationCancelled extends Error {
+  constructor() {
+    super("The caller abandoned this evaluation before it completed.");
+  }
+}
+
+export function errorResponse(error: unknown): NextResponse {
+  // The client already closed the request; the status is for logs only
+  // (499, the de-facto client-closed-request convention).
+  if (error instanceof EvaluationCancelled) {
+    return new NextResponse(null, { status: 499 });
+  }
+  if (error instanceof ApiError) {
+    return NextResponse.json(
+      { error: { code: error.code, message: error.message, ...error.extra } },
+      { status: error.status },
+    );
+  }
+  // An unexpected failure crosses no internals: a raw message carries
+  // filesystem paths, the key-file location, and engine text. The wire
+  // gets the documented internal sentence; the detail stays in the
+  // server log, where the administrator reads it.
+  console.error("[api] unexpected error:", error);
+  return NextResponse.json(
+    { error: { code: "internal", message: ERROR_CATALOGUE.internal } },
+    { status: 500 },
+  );
+}
