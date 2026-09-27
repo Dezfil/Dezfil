@@ -33,7 +33,7 @@ test.beforeAll(async () => {
     // A local DOM marker makes execution observable without any network,
     // data access or application mutation. Adjacent event attributes
     // exercise the sanitizer's live-attribute iteration regression.
-    const probe = '<details open onload="void 0" ontoggle="document.documentElement.dataset.attributionExecution=\'executed\'"><summary>Credit probe</summary></details>';
+    const probe = '<span class="attribution-probe">Probe fixture</span><details open onload="void 0" ontoggle="document.documentElement.dataset.attributionExecution=\'executed\'"><summary>Credit probe</summary></details>';
     response.writeHead(200, { "content-type": "application/json" });
     response.end(JSON.stringify({
       version: 8,
@@ -103,10 +103,11 @@ for (const surface of ["MiniMap", "FeaturePreviewMap"] as const) {
       const control = host.locator(".maplibregl-ctrl-attrib");
       await expect(control).toContainText("Local cartography");
       const link = control.getByRole("link", { name: "Local cartography" });
-      await expect(async () => {
-        if (!await link.isVisible()) await control.locator(".maplibregl-ctrl-attrib-button").click();
-        await expect(link).toBeVisible();
+      const expandCredit = () => expect(async () => {
+        if (!await link.isVisible()) await control.locator(".maplibregl-ctrl-attrib-button").click({ timeout: 1_000 });
+        await expect(link).toBeVisible({ timeout: 1_000 });
       }).toPass({ timeout: 5_000 });
+      await expandCredit();
       await expect(link).toHaveAttribute("href", `${fixtureUrl}/credit`);
       await expect(link).toHaveAttribute("target", "_blank");
       const paint = await control.evaluate((element) => {
@@ -119,6 +120,7 @@ for (const surface of ["MiniMap", "FeaturePreviewMap"] as const) {
         return { expected, actual: { background: getComputedStyle(element).backgroundColor, color: getComputedStyle(element).color } };
       });
       expect(paint.actual, `${surface}: ${theme} attribution uses theme colors`).toEqual(paint.expected);
+      await expandCredit();
       const opened = context.waitForEvent("page");
       await link.click();
       const credit = await opened;
@@ -136,8 +138,9 @@ for (const surface of ["MiniMap", "FeaturePreviewMap"] as const) {
     const host = await openSurface(page, surface);
     const control = host.locator(".maplibregl-ctrl-attrib");
     await expect(control).toContainText("Local cartography");
-    // The sanitizer may remove the probe element altogether. The benign
-    // link in the same string proves the attribution path was exercised.
+    // The sanitizer may remove the unsafe element altogether. Its safe
+    // sibling proves this is the probe payload, even after sanitization.
+    await expect(control.locator(".attribution-probe")).toHaveText("Probe fixture");
     await expect(control.locator("a").filter({ hasText: "Local cartography" }))
       .toHaveAttribute("href", `${fixtureUrl}/credit`);
     // Let the native toggle event queued by insertion run before reading
