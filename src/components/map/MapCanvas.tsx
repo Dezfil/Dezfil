@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
   clampToView,
-  pointerHandlers,
   type FeaturePickHandler,
   type HoverInfo,
   type PinnedPopup,
 } from "./canvas-pointer";
 import maplibregl from "maplibre-gl";
-import { MapboxOverlay } from "@deck.gl/mapbox";
+import type { MapboxOverlay } from "@deck.gl/mapbox";
+import { attachCanvasOverlay } from "./canvas-overlay";
 import type { Layer as DeckLayer } from "@deck.gl/core";
 import {
   ArcLayer,
@@ -28,7 +28,7 @@ import {
   dimRanges,
   type LiveDim,
 } from "@/lib/live-filters";
-import { wireCaptureHandles, type CaptureAtSize, type SnapshotHandle } from "./capture";
+import type { CaptureAtSize, SnapshotHandle } from "./capture";
 import { useCameraRequests, type FlyRequest } from "./use-camera-requests";
 import { useSearchMarker, type SearchMarkerRequest } from "./use-search-marker";
 import {
@@ -951,9 +951,7 @@ export function MapCanvas({
     resyncClusterZoom.current = syncClusterZoom;
     instance.on("zoom", syncClusterZoom);
 
-    // Pointer interaction — hover tooltip, pinned pop-up, cluster zoom
-    // and the pick seam — lives in canvas-pointer.ts since 0114.
-    const { onHover, onClick } = pointerHandlers({
+    const mountedOverlay = attachCanvasOverlay({
       instance,
       interactive,
       isDragging: () => dragging,
@@ -963,15 +961,15 @@ export function MapCanvas({
       onFeaturePickRef,
       setHover,
       setPinned,
+    }, {
+      fallbackColor: () => fallbackColorRef.current,
+      deckLayers: () => deckLayersRef.current,
+      expectedLayerCount: () => layersRef.current.length,
+      onSnapshotHandle,
+      onCaptureHandle,
+      onReadiness,
     });
-    const deck = new MapboxOverlay({
-      interleaved: false,
-      layers: [],
-      onHover,
-      onClick,
-    });
-    overlay.current = deck;
-    instance.addControl(deck as unknown as maplibregl.IControl);
+    overlay.current = mountedOverlay.overlay;
     // No native navigation control on any surface: both the builder and
     // the published view draw the shared stage stack, so the stock
     // cluster was a second, differently-styled compass — and on the
@@ -1001,20 +999,6 @@ export function MapCanvas({
         lastPitch = p;
         onPitchChangeRef.current?.(p);
       }
-    });
-
-    // Canvas capture lives in its own module (the decomposition habit's
-    // at-touch slice): the thumbnail keeps its exact contract, and the
-    // export card gets the validated full-resolution capture.
-    const disposeCapture = wireCaptureHandles({
-      instance,
-      overlay: deck,
-      fallbackColor: () => fallbackColorRef.current,
-      deckLayers: () => deckLayersRef.current,
-      expectedLayerCount: () => layersRef.current.length,
-      onSnapshotHandle,
-      onCaptureHandle,
-      onReadiness,
     });
 
     if (onViewportChange) {
@@ -1081,9 +1065,7 @@ export function MapCanvas({
     return () => {
       if (statusFrame) cancelAnimationFrame(statusFrame);
       onZoomHandle?.(null);
-      onSnapshotHandle?.(null);
-      onCaptureHandle?.(null);
-      disposeCapture();
+      mountedOverlay.dispose();
       disposeCamera();
       instance.remove();
       map.current = null;
