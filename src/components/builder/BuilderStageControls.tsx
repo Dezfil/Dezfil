@@ -81,36 +81,46 @@ export function BuilderStageControls({
           and tilt come from the component; fit, fullscreen and draw are
           the builder's own — the assistant's door is the top bar's
           since 0115. Fit rides first — directly after tilt — matching
-          the published toolbar's placement. */}
-      <StageStack
-        className={styles.stageAnchor}
-        cameraRef={cameraRef}
-        bearing={bearing}
-        pitch={pitch}
-      >
-        <StageButton action="Fit to data" icon={<FitIcon />} onClick={onFitAll} />
-        <StageButton
-          className={styles.fullscreenBtn}
-          action={mapFull ? "Exit fullscreen map" : "Fullscreen map"}
-          icon={
-            <>
-              <ExpandIcon className={styles.expand} />
-              <CompressIcon className={styles.compress} />
-            </>
-          }
-          aria-pressed={mapFull}
-          onClick={() => onMapFull((f) => !f)}
-        />
-        {/* Draw: last in the stack, builder only — toggling opens the
+          the published toolbar's placement.
+
+          The anchor is its own element on purpose. The stack's module
+          sets position: relative (the basemap panel's anchor) and this
+          module sets position: absolute (the canvas placement); on one
+          element those are equal-specificity rules from two files, and
+          which wins is decided by CSS emission order — which differs
+          between the dev server and a production build. A wrapper makes
+          the placement order-independent; e2e/stage-anchor.spec.ts holds
+          it. */}
+      <div className={styles.stageAnchor}>
+        <StageStack cameraRef={cameraRef} bearing={bearing} pitch={pitch}>
+          <StageButton
+            action="Fit to data"
+            icon={<FitIcon />}
+            onClick={onFitAll}
+          />
+          <StageButton
+            className={styles.fullscreenBtn}
+            action={mapFull ? "Exit fullscreen map" : "Fullscreen map"}
+            icon={
+              <>
+                <ExpandIcon className={styles.expand} />
+                <CompressIcon className={styles.compress} />
+              </>
+            }
+            aria-pressed={mapFull}
+            onClick={() => onMapFull((f) => !f)}
+          />
+          {/* Draw: last in the stack, builder only — toggling opens the
             dock and starts a session. */}
-        <StageButton
-          action={draw.mode.open ? "Finish drawing" : "Draw"}
-          icon={<PencilIcon />}
-          aria-pressed={draw.mode.open}
-          data-active={draw.mode.open || undefined}
-          onClick={() => (draw.mode.open ? closeDraw() : openDraw())}
-        />
-      </StageStack>
+          <StageButton
+            action={draw.mode.open ? "Finish drawing" : "Draw"}
+            icon={<PencilIcon />}
+            aria-pressed={draw.mode.open}
+            data-active={draw.mode.open || undefined}
+            onClick={() => (draw.mode.open ? closeDraw() : openDraw())}
+          />
+        </StageStack>
+      </div>
       {/* The stage's top-left overlay corner: ONE chip, and in it a line
           for each of the two channels the builder can have live at once,
           in the order the header spans stood in, each on its own
