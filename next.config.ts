@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
   typescript: { tsconfigPath: "tsconfig.build.json" },
   // Native modules must stay external to the server bundle.
   serverExternalPackages: ["better-sqlite3", "@duckdb/node-api"],
+  // next dev would otherwise write its own block into AGENTS.md whenever it
+  // detects a coding agent; the brief in that file is maintained by hand.
+  agentRules: false,
   // The API docs live under Developer; the old path still resolves.
   async redirects() {
     return [
