@@ -1,4 +1,6 @@
 version: 2
+# Version updates are paused: a limit of 0 opens no pull requests. To resume,
+# set the npm limit back to 5 and drop the limit from github-actions.
 updates:
   # Application dependencies. Grouped so a week's patches arrive as one
   # reviewable pull request rather than a dozen.
@@ -7,7 +9,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "chore(deps)"
       prefix-development: "chore(deps-dev)"
@@ -32,6 +34,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "chore(actions)"
     groups:
