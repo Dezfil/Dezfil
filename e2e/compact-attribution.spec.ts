@@ -6,6 +6,21 @@ import { createMap, routeHouse, seedCsv } from "./support";
 
 let fixture: Server;
 let fixtureUrl: string;
+let cleanupRoutes: string[] = [];
+
+test.beforeEach(async ({ baseURL }) => {
+  if (!baseURL || !["localhost", "127.0.0.1"].includes(new URL(baseURL).hostname) || new URL(baseURL).port === "3000") {
+    throw new Error("requires an isolated loopback DEZFIL_BASE_URL away from port 3000");
+  }
+  cleanupRoutes = [];
+});
+
+test.afterEach(async ({ request }) => {
+  for (const route of cleanupRoutes.reverse()) {
+    const response = await request.delete(route);
+    expect(response.status(), `clean up ${route}`).toBe(204);
+  }
+});
 
 test.beforeAll(async () => {
   fixture = createServer((request, response) => {
@@ -50,12 +65,14 @@ async function openSurface(page: Page, surface: Surface) {
   await page.goto("/data");
   if (surface === "FeaturePreviewMap") {
     const { name } = await seedCsv(page, `credit_${Date.now()}`, "name,value\nfixture,1\n");
+    cleanupRoutes.push(`/api/tables/${encodeURIComponent(name)}`);
     await page.goto(`/tables/${name}`);
     const preview = page.locator("[data-preview-map]");
     await expect(preview.locator(".maplibregl-canvas")).toBeVisible();
     return preview;
   }
   const mapId = await createMap(page, `Credit fixture ${Date.now()}`);
+  cleanupRoutes.push(`/api/maps/${mapId}`);
   await page.goto(`/maps/${mapId}`);
   // The builder's own stock control is intentionally disabled.
   await expect(page.locator(".maplibregl-canvas")).toBeVisible();
@@ -86,9 +103,22 @@ for (const surface of ["MiniMap", "FeaturePreviewMap"] as const) {
       const control = host.locator(".maplibregl-ctrl-attrib");
       await expect(control).toContainText("Local cartography");
       const link = control.getByRole("link", { name: "Local cartography" });
-      if (!await link.isVisible()) await control.locator(".maplibregl-ctrl-attrib-button").click();
-      await expect(link).toBeVisible();
+      await expect(async () => {
+        if (!await link.isVisible()) await control.locator(".maplibregl-ctrl-attrib-button").click();
+        await expect(link).toBeVisible();
+      }).toPass({ timeout: 5_000 });
       await expect(link).toHaveAttribute("href", `${fixtureUrl}/credit`);
+      await expect(link).toHaveAttribute("target", "_blank");
+      const paint = await control.evaluate((element) => {
+        const probe = document.createElement("div");
+        probe.style.backgroundColor = "var(--bg-raised)";
+        probe.style.color = "var(--fg-muted)";
+        document.body.append(probe);
+        const expected = { background: getComputedStyle(probe).backgroundColor, color: getComputedStyle(probe).color };
+        probe.remove();
+        return { expected, actual: { background: getComputedStyle(element).backgroundColor, color: getComputedStyle(element).color } };
+      });
+      expect(paint.actual, `${surface}: ${theme} attribution uses theme colors`).toEqual(paint.expected);
       const opened = context.waitForEvent("page");
       await link.click();
       const credit = await opened;
@@ -106,9 +136,10 @@ for (const surface of ["MiniMap", "FeaturePreviewMap"] as const) {
     const host = await openSurface(page, surface);
     const control = host.locator(".maplibregl-ctrl-attrib");
     await expect(control).toContainText("Local cartography");
-    const probe = control.locator("details");
-    await expect(probe).toHaveCount(1);
-    await expect(probe).toHaveAttribute("open", "");
+    // The sanitizer may remove the probe element altogether. The benign
+    // link in the same string proves the attribution path was exercised.
+    await expect(control.locator("a").filter({ hasText: "Local cartography" }))
+      .toHaveAttribute("href", `${fixtureUrl}/credit`);
     // Let the native toggle event queued by insertion run before reading
     // the marker. Attribute removal below also guards later activation.
     await page.evaluate(() => new Promise<void>((resolve) => {
@@ -123,7 +154,6 @@ for (const surface of ["MiniMap", "FeaturePreviewMap"] as const) {
       contentType: "application/json",
     });
     expect(observed.execution, `${surface}: untrusted attribution executed`).toBeNull();
-    await expect(probe).not.toHaveAttribute("onload", /./);
-    await expect(probe).not.toHaveAttribute("ontoggle", /./);
+    await expect(control.locator("[onload], [ontoggle]")).toHaveCount(0);
   });
 }
