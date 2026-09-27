@@ -7,8 +7,8 @@ import {
   type HoverInfo,
   type PinnedPopup,
 } from "./canvas-pointer";
-import maplibregl from "maplibre-gl";
-import type { MapboxOverlay } from "@deck.gl/mapbox";
+import * as maplibregl from "@/lib/maplibre";
+import type { MapLibreOverlay } from "@deck.gl/maplibre";
 import { attachCanvasOverlay } from "./canvas-overlay";
 import type { Layer as DeckLayer } from "@deck.gl/core";
 import {
@@ -380,7 +380,7 @@ export function MapCanvas({
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
-  const overlay = useRef<MapboxOverlay | null>(null);
+  const overlay = useRef<MapLibreOverlay | null>(null);
   const [initialWebGLFailure, setInitialWebGLFailure] = useState<string | null>(
     null,
   );
@@ -920,7 +920,7 @@ export function MapCanvas({
 
     attachBasemapContent(instance);
 
-    // deck's own cursor handling is inert under MapboxOverlay (its container
+    // deck's own cursor handling is inert under MapLibreOverlay (its container
     // takes no pointer events), so clickability is signaled on the MapLibre
     // canvas instead: pointer over a picked feature, stock grab/grabbing
     // otherwise. Hover picks can fire mid-pan (the overlay forwards mouse

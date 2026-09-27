@@ -2,7 +2,7 @@
 // cannot close: the real host composition under initial WebGL failure, and
 // actual overlay/label paint at the published zoom-24 boundary.
 import { readFileSync } from "node:fs";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type BrowserContext } from "@playwright/test";
 
 import { targetColorCount } from "./png-probes";
 import {
@@ -71,12 +71,7 @@ async function exportPng(
   };
 }
 
-test("initial WebGL failure stays map-local and tells both export roads the truth", async ({
-  page,
-  context,
-}) => {
-  const pageErrors: string[] = [];
-  page.on("pageerror", (error) => pageErrors.push(String(error)));
+async function denyInitialWebGL(context: BrowserContext) {
   await context.addInitScript(() => {
     const nativeGetContext = HTMLCanvasElement.prototype.getContext;
     const withoutWebGL = function (
@@ -101,6 +96,15 @@ test("initial WebGL failure stays map-local and tells both export roads the trut
       value: withoutWebGL,
     });
   });
+}
+
+test("initial WebGL failure stays map-local and tells both export roads the truth", async ({
+  page,
+  context,
+}) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(String(error)));
+  await denyInitialWebGL(context);
   await routeHouse(context, { basemapStyleStub: true });
 
   await page.goto("/maps");
@@ -160,6 +164,43 @@ test("initial WebGL failure stays map-local and tells both export roads the trut
   });
 
   expect(pageErrors).toEqual([]);
+});
+
+test("initial WebGL failure stays local in table and SQL preview maps", async ({ page, context }) => {
+  await denyInitialWebGL(context);
+  await routeHouse(context, { basemapStyleStub: true });
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto("/data");
+  const { name } = await seedCsv(page, `preview_gpu_${Date.now()}`, "name,lon,lat\nGPU fixture,13.4,52.5\n");
+  const expectLocalFailure = async () => {
+    const alert = page.locator("[data-table-webgl-failed]");
+    await expect(alert).toBeVisible();
+    await expect(alert).toHaveRole("alert");
+    await expect(alert).toContainText("WebGL is unavailable");
+    await expect(alert).toContainText(/Reload.*browser|hardware acceleration/i);
+    await expect(page.locator("[data-preview-map] canvas")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Switch between dark and light theme" })).toBeEnabled();
+  };
+  try {
+    await test.step("table preview", async () => {
+      await page.goto(`/tables/${name}`);
+      await expectLocalFailure();
+      await expect(page.getByText("1 features", { exact: true })).toBeVisible();
+    });
+    await test.step("SQL result preview", async () => {
+      await page.goto("/sql");
+      await page.locator(".cm-content").fill(`SELECT * FROM "${name}"`);
+      await page.getByRole("button", { name: "Run query" }).click();
+      await expect(page.getByRole("cell", { name: "GPU fixture" })).toBeVisible();
+      await page.getByRole("tab", { name: "Map", exact: true }).click();
+      await expectLocalFailure();
+      await expect(page.getByRole("button", { name: "Run query" })).toBeEnabled();
+    });
+    expect(errors).toEqual([]);
+  } finally {
+    expect((await page.request.delete(`/api/tables/${name}`)).status()).toBe(204);
+  }
 });
 
 test("zoom 24 is actual camera and label paint in builder, reader, and server image", async ({

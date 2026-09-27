@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type maplibregl from "maplibre-gl";
+import type * as maplibregl from "maplibre-gl";
 import {
   OFFSCREEN_GROUND_ATTRIBUTE,
   OffscreenGroundError,
@@ -80,20 +80,18 @@ function fakeMap(styleLayers: { id: string; type: string; "source-layer"?: strin
   let created: maplibregl.MapOptions | null = null;
   const layout = new Map<string, string>();
   for (const l of styleLayers) if (l.layout?.visibility) layout.set(l.id, l.layout.visibility);
-  const canvas = { width: 1200, height: 800 };
+  const canvas = { width: 1200, height: 800, clientHeight: 400 };
   const state = { loaded: false, tilesLoaded: false, moving: false, removed: false };
   const map = {
-    transform: {
-      height: 400,
-      padding: { top: 0, bottom: 0, left: 0, right: 0 },
-      minZoom: -2,
-      maxZoom: 24,
-      setConstrainOverride: vi.fn(() => order.push("constrain")),
-    },
+    padding: { top: 0, bottom: 0, left: 0, right: 0 },
+    setTransformConstrain: vi.fn(() => order.push("constrain")),
+    getPadding: () => map.padding,
+    getMinZoom: () => -2,
+    getMaxZoom: () => 24,
     setMinZoom: vi.fn(),
     setPadding: vi.fn((p: unknown) => {
       order.push("setPadding");
-      map.transform.padding = p as typeof map.transform.padding;
+      map.padding = p as typeof map.padding;
     }),
     jumpTo: vi.fn(() => order.push("jumpTo")),
     on: vi.fn((name: string, cb: Handler) => {

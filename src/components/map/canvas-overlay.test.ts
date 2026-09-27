@@ -8,8 +8,8 @@ const mocks = vi.hoisted(() => ({
   handlers: { onHover: vi.fn(), onClick: vi.fn() },
   capture: vi.fn(),
 }));
-vi.mock("@deck.gl/mapbox", () => ({
-  MapboxOverlay: class {
+vi.mock("@deck.gl/maplibre", () => ({
+  MapLibreOverlay: class {
     constructor(options: unknown) {
       mocks.create(options);
       return mocks.overlay;
@@ -39,10 +39,11 @@ describe("canvas overlay lifetime", () => {
       interleaved: false, layers: [], ...mocks.handlers,
     });
     expect(instance.addControl).toHaveBeenCalledWith(mounted.overlay);
+    expect(mounted.overlay).toBe(mocks.overlay);
     expect(mocks.capture).toHaveBeenLastCalledWith({ ...capture, instance, overlay: mounted.overlay });
   });
 
-  it("withdraws both consumers and stops readiness polling before map disposal", () => {
+  it("withdraws both consumers before stopping readiness polling", () => {
     const order: string[] = [];
     mocks.capture.mockReturnValueOnce(() => order.push("stop readiness"));
     const mounted = attachCanvasOverlay({

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { GPUInitializationError } from "maplibre-gl";
 import { INITIAL_WEBGL_FAILURE_MESSAGE } from "./initial-webgl-failure";
 import { attemptTablePreviewWebGLMap } from "./table-preview-webgl";
 
@@ -8,7 +9,7 @@ describe("table preview WebGL startup", () => {
 
     expect(
       attemptTablePreviewWebGLMap(host, () => {
-        throw new Error("Failed to initialize WebGL");
+        throw new GPUInitializationError({}, null);
       }),
     ).toEqual({ ok: false, message: INITIAL_WEBGL_FAILURE_MESSAGE });
     expect(host.replaceChildren).toHaveBeenCalledOnce();

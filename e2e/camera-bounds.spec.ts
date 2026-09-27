@@ -1,4 +1,3 @@
-// No journey resizes after map load.
 import path from "node:path";
 import Database from "better-sqlite3";
 import { expect, test } from "@playwright/test";
@@ -25,6 +24,8 @@ const cameras: [string, Camera][] = [
   ["south 85", { ...ordinary, lat: -85, pitch: 0, zoom: 10 }],
   ["north endpoint", { ...ordinary, lat: 85.051129, pitch: 0, zoom: 10 }],
   ["south endpoint", { ...ordinary, lat: -85.051129, pitch: 0, zoom: 10 }],
+  ["fractional north pole", { ...ordinary, lat: 85.051129 }],
+  ["fractional south pole", { ...ordinary, lat: -85.051129 }],
   ["low zoom", { ...ordinary, lat: 0, pitch: 0, zoom: 0 }],
 ];
 
@@ -41,7 +42,12 @@ for (const [name, camera] of cameras) {
     const token = await publishMap(page, id);
     await page.goto(`/maps/${id}`);
     await test.step("builder", async () => {
-      await expectPaintedCamera(page.locator("[data-map-camera]"), camera);
+      const host = page.locator("[data-map-camera]");
+      await expectPaintedCamera(host, camera);
+      const actual = JSON.parse((await host.getAttribute("data-map-camera"))!);
+      expect(actual.padding.top).toBe(62);
+      expect(actual.padding.bottom).toBe(14);
+      expect(actual.padding.left).toBeGreaterThan(actual.padding.right);
     });
     await test.step("preview", async () => { await openPreview(page); });
     await test.step("published reader", async () => {
@@ -115,6 +121,40 @@ test("unpadded 1024px render host raises zoom 0 to 1; the image API refuses that
   expect(actual.padding.bottom).toBe(0);
   expect(actual.zoom).toBe(1);
 });
+
+for (const [name, camera] of [
+  ["north", { ...ordinary, lat: 85.051129 }],
+  ["south", { ...ordinary, lat: -85.051129 }],
+  ["zoom floor", { ...ordinary, lat: 0, zoom: 0, pitch: 0 }],
+] as const) {
+  test(`mounted builder preserves coverage on grow and shrink at ${name}`, async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto("/maps");
+    const id = await createMap(page, `resize ${name}`);
+    try {
+      await patchMap(page, id, { viewport: camera,
+        customBasemap: { url: basemap.url, name: "loopback basemap", force: true } });
+      await page.goto(`/maps/${id}`);
+      const host = page.locator("[data-map-camera]");
+      let previous = await expectPaintedCamera(host, camera);
+      const canvas = host.locator("canvas.maplibregl-canvas");
+      await canvas.evaluate(el => { el.dataset.resizeProbe = "same-map"; });
+      for (const height of [1400, 720]) {
+        const oldHeight = previous.height;
+        await page.setViewportSize({ width: 1280, height });
+        await expect.poll(() => host.evaluate(el => el.clientHeight)).not.toBe(oldHeight);
+        const resized = await expectPaintedCamera(host, previous);
+        expect(resized.padding.top).toBe(62);
+        expect(resized.padding.bottom).toBe(14);
+        expect(resized.padding.left).toBeGreaterThan(resized.padding.right);
+        await expect(canvas).toHaveAttribute("data-resize-probe", "same-map");
+        previous = resized;
+      }
+    } finally {
+      expect((await page.request.delete(`/api/maps/${id}`)).status()).toBe(204);
+    }
+  });
+}
 
 const legacy: [string, Partial<Camera>, Partial<Camera>][] = [
   ["pitch", { pitch: 85 }, { pitch: 60 }],

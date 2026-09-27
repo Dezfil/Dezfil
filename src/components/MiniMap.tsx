@@ -1,6 +1,6 @@
 "use client";
 
-import maplibregl from "maplibre-gl";
+import * as maplibregl from "@/lib/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { resolveBasemapUrl } from "@/lib/basemap";
@@ -443,6 +443,7 @@ export function MiniMap({
         ? [initialViewport.lng, initialViewport.lat]
         : [10, 30],
       zoom: initialViewport?.zoom ?? 1.2,
+      ...maplibregl.MAP_RENDERER_OPTIONS,
       attributionControl: { compact: true },
       dragRotate: false,
       pitchWithRotate: false,
