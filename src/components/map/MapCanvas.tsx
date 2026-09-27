@@ -896,9 +896,9 @@ export function MapCanvas({
         }),
     );
     if (!attempted.ok) {
-      // MapLibre has already appended its canvas before context creation.
-      // Remove that incomplete surface; React keeps the stable host and
-      // renders the accessible local failure in its place.
+      // Keep the stable host empty for React's accessible local failure.
+      // MapLibre cleans its failed constructor's DOM; this replacement is
+      // harmless when the renderer has already removed every child.
       container.current.replaceChildren();
       setInitialWebGLFailure(attempted.message);
       onReadiness?.(false);
