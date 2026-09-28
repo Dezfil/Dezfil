@@ -134,7 +134,7 @@ test("dashboard answers are current, updating, or visibly failed — never silen
         contentType: "application/json",
         body: errorBody(
           "rate_limited",
-          "Too many requests; the anonymous rate limit was exceeded.",
+          "Too many requests. Please slow down.",
         ),
       });
     }
@@ -358,7 +358,7 @@ test("dashboard answers are current, updating, or visibly failed — never silen
     const railError = page.locator("[data-rail-error]");
     await expect(railError).toBeVisible();
     await expect(railError).toContainText(
-      "Too many requests; the anonymous rate limit was exceeded.",
+      "Too many requests. Retry after the indicated delay.",
     );
     await consumeExpected(consoleErrors, /widget-values/);
 
