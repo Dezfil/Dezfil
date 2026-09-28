@@ -26,6 +26,8 @@ const DASH = "—";
  * published-view state, so the guard holds it like any copy. */
 const DEFERRED_FILES = new Set([
   "src/lib/api/openapi.ts",
+  // The extracted settings contract retains the document's existing prose.
+  "src/lib/api/openapi-settings.ts",
   "src/lib/operations/catalog.ts",
   "src/lib/tools/tools.ts",
 ]);
