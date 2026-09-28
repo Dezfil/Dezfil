@@ -51,6 +51,11 @@ The excluded ones are the assistant's own endpoints, the MCP endpoint
 itself, raw tile and thumbnail reads, and a handful of calls that only make
 sense to a browser.
 
+The settings read and update are generated as `get_settings` and
+`update_settings`. They address the authenticated account's display name
+and view preferences. Updating the instance name requires current admin
+authority; a forbidden or invalid field refuses the entire patch.
+
 Derivation is pure over a static document, so the tool set is built once per
 process and reused.
 
@@ -58,9 +63,9 @@ process and reused.
 
 | | |
 |---|---|
-| Documented operations | 138 |
-| Operations that become tools | 116 |
-| Deliberately excluded | 22 |
+| Documented operations | 145 |
+| Operations that become tools | 118 |
+| Deliberately excluded | 27 |
 
 Measured by building the OpenAPI document and the tool set from
 `src/lib/api/openapi.ts` and `src/lib/tools/tools.ts` and counting the

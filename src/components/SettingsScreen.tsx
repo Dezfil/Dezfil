@@ -8,11 +8,6 @@ import { ErrorNote } from "./ui/ErrorNote";
 import styles from "./SettingsScreen.module.css";
 import { serverUnreachable } from "./failure-copy";
 
-/* Settings, split Workspace / Profile: the
-   workspace card holds the instance's optional name (the chip by the
-   wordmark and the browser-title tail) with the coming-later list; the
-   profile card keeps the display name whose initials badge the rail
-   avatar, unchanged. */
 const LATER = [
   "Appearance",
   "Default basemap",
@@ -24,6 +19,7 @@ export function SettingsScreen() {
   const [name, setName] = useState("");
   const [instance, setInstance] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [admin, setAdmin] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [instanceSaving, setInstanceSaving] = useState(false);
@@ -43,7 +39,7 @@ export function SettingsScreen() {
       try {
         let response: Response;
         try {
-          response = await fetch("/api/settings");
+          response = await fetch("/api/settings", { cache: "no-store" });
         } catch {
           throw new Error(serverUnreachable("load the settings"));
         }
@@ -52,7 +48,11 @@ export function SettingsScreen() {
           displayName: string;
           instanceName?: string | null;
         };
+        const identity = await fetch("/api/auth/session", { cache: "no-store" });
+        if (!identity.ok) throw new Error(await readApiError(identity));
+        const session = await identity.json() as { account: { isAdmin: boolean } };
         if (!cancelled) {
+          setAdmin(session.account.isAdmin);
           setName(body.displayName);
           setInstance(body.instanceName ?? "");
           setLoaded(true);
@@ -148,7 +148,6 @@ export function SettingsScreen() {
     <div className={styles.screen}>
       <div className={styles.heading}>
         <h1>Settings</h1>
-        <p>Workspace preferences. Most settings arrive with later phases.</p>
       </div>
 
       <form
@@ -163,7 +162,7 @@ export function SettingsScreen() {
           <span>Instance name</span>
           <input
             value={instance}
-            disabled={!loaded}
+            disabled={!loaded || !admin}
             maxLength={80}
             onChange={(e) => {
               setInstance(e.target.value);
@@ -171,17 +170,14 @@ export function SettingsScreen() {
             }}
           />
         </label>
-        <p className={styles.note}>
-          Shown by the wordmark and in browser tab titles. Leave empty to
-          keep the instance unnamed.
-        </p>
+        {loaded && !admin && <p className={styles.note}>Only admins can change the instance name.</p>}
         {instanceError && (
           <ErrorNote
             message={instanceError}
             onDismiss={() => setInstanceError(null)}
           />
         )}
-        <div className={styles.actions}>
+        {admin && <div className={styles.actions}>
           <button
             type="submit"
             className={styles.saveBtn}
@@ -194,7 +190,7 @@ export function SettingsScreen() {
               Saved
             </span>
           )}
-        </div>
+        </div>}
         <ul className={styles.laterList}>
           {LATER.map((item) => (
             <li key={item} className={styles.laterRow}>
@@ -225,9 +221,6 @@ export function SettingsScreen() {
             }}
           />
         </label>
-        <p className={styles.note}>
-          Real accounts and profile images arrive with the multi-user phase.
-        </p>
         {error && (
           <ErrorNote
             message={error.message}

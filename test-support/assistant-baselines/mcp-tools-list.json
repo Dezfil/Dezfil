@@ -1,6 +1,6 @@
 {
-  "count": 116,
-  "overall": "400f2a28bb74be0149d242be823f1295ea444c013fe95adaee50db538a1ed243",
+  "count": 118,
+  "overall": "6c186f933e54fb15ae24a52febdadd848912683f214cb24abe6dae67b34cabfd",
   "tools": {
     "inspect_table_geometry": "c45845de5507f4209d5510da39bfe0f7ef1b64799a378d24e0bc2af859b8f932",
     "set_table_geometry": "5060dc2bc1b0a4b73b4bdb8f1e4f07f5948ee2a664aedb3e613178ef8435e46d",
@@ -12,6 +12,8 @@
     "list_palettes": "bb942b17f3f94a29cdb813fabfc334d7eae9a18742e63a9317d18a9f61e01a84",
     "create_palette": "0c70f121252b962e112685653ad25bdee102bf1f3e9249640a3c9c60e4bc341a",
     "delete_palette": "d855492eb8f96b98eba124c07f3ef99bba3f9f4b9efe8db89fbe606df10783d3",
+    "get_settings": "d10bffa5761a9362d606dac28ebead09c8595aceb7638a1c3b2f771ed83856db",
+    "update_settings": "1be2aa9f527360a129db59148a3ecd54be845f03efe1b28ec90443f0d07d3f34",
     "get_api_description": "9f1417b70a31af1eec8ef5002777ca0c2b1b6e124791bdbb49fd073e25ab6e9e",
     "list_tables": "9d2825b17f133481fc6c2e473693001eb2903b1ebcd52c42ce9dd4a2317c9ec7",
     "upload_table": "d0b4da7b7c0d2b0268f61aafc8bd334e385b18070ed6cdb93f40df472e682e8e",

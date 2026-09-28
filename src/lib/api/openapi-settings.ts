@@ -1,5 +1,7 @@
-import { op, jsonOk } from "./openapi-helpers";
+import { op, jsonOk, ERROR_RESPONSE } from "./openapi-helpers";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
+import { LOCAL_READ, LOCAL_REPLACE } from "./operation-mcp";
+import { AUTH_SECURITY } from "./openapi-auth";
 
 /** The per-screen view preferences (the workflows list,
  * the Projects list): one slice per list screen, each holding the view
@@ -32,28 +34,35 @@ export function settingsContract() {
   return {
     paths: {
       "/api/settings": {
-        get: op({
+        get: { ...op({
           summary: "Workspace settings",
           description:
-            "Single-user workspace preferences — the display name shown " +
-            "behind the rail avatar, the optional instance " +
-            "name shown beside the wordmark and in browser titles (" +
-            "null when unnamed), and the Maps/Data screens' view " +
-            "mode + sort.",
+            "The signed-in account's display name and per-screen view/sort preferences, " +
+            "plus the instance name shown beside the wordmark and in browser titles " +
+            "(null when unnamed). Cookie or bearer authentication is required. " +
+            "Responses, including refusals, are private, no-store.",
           tag: "System",
-          // Deliberately outside the agent tool set: a UI identity
-          // preference, not a map capability.
-          tool: false,
+          tool: "get_settings",
+          display: { verb: "Read your settings" },
+          mcp: LOCAL_READ,
           effects: READ_ONLY,
           responses: {
             "200": jsonOk("#/components/schemas/WorkspaceSettings"),
+            "400": ERROR_RESPONSE, "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "503": ERROR_RESPONSE,
           },
-        }),
-        patch: op({
-          summary: "Update workspace settings",
+        }), security: AUTH_SECURITY },
+        patch: { ...op({
+          summary: "Update your settings",
+          description: "Updates only the authenticated account's display name and preferences. " +
+            "Only admins can change instanceName. The entire patch is validated and authorized " +
+            "before any write; a forbidden or invalid field leaves every field unchanged. " +
+            "Cookie mutations require the same trusted Origin. Explicit bearer requests need no " +
+            "cookie or Origin. Responses, including refusals, are private, no-store.",
           tag: "System",
-          tool: false,
-          effects: writes(resource("settings")),
+          tool: "update_settings",
+          display: { verb: "Updated your settings" },
+          mcp: LOCAL_REPLACE,
+          effects: writes(resource("settings"), resource("accounts")),
           requestBody: {
             required: true,
             content: {
@@ -64,13 +73,13 @@ export function settingsContract() {
                     displayName: {
                       type: "string",
                       maxLength: 80,
-                      description: "The workspace display name.",
+                      description: "Your account display name.",
                     },
                     instanceName: {
                       type: ["string", "null"],
                       maxLength: 80,
                       description:
-                        "The optional instance name. Empty, whitespace or " +
+                        "Admin-only optional instance name. Empty, whitespace or " +
                         "null clears it; the instance is then unnamed.",
                     },
                     viewPrefs: viewPrefsSchema(),
@@ -82,8 +91,9 @@ export function settingsContract() {
           },
           responses: {
             "200": jsonOk("#/components/schemas/WorkspaceSettings"),
+            "400": ERROR_RESPONSE, "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "503": ERROR_RESPONSE,
           },
-        }),
+        }), security: AUTH_SECURITY },
       },
     },
     schemas: {
@@ -93,8 +103,7 @@ export function settingsContract() {
           displayName: {
             type: "string",
             description:
-              "The workspace display name; its initials badge the rail " +
-              "avatar until real accounts exist.",
+              "The authenticated account's display name.",
           },
           instanceName: {
             type: ["string", "null"],
@@ -105,7 +114,7 @@ export function settingsContract() {
           },
           viewPrefs: viewPrefsSchema(),
         },
-        required: ["displayName", "instanceName"],
+        required: ["displayName", "instanceName", "viewPrefs"],
       },
     },
   };

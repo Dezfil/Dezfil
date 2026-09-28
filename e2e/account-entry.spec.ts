@@ -63,7 +63,7 @@ test.describe("account entry", () => {
     } finally { await replay.dispose(); }
   });
 
-  test("an unused hand-over link replaces a different account's signed-in browser", async ({ page, baseURL }) => {
+  test("an unused hand-over link replaces a different account's signed-in browser", async ({ page, baseURL, playwright }) => {
     const data = process.env.DEZFIL_E2E_DATA_DIR;
     test.skip(!data, "Supply the isolated server's scratch data directory for the invitation fixture.");
     expect(path.resolve(data!).startsWith(path.resolve(".claude") + path.sep)).toBe(true);
@@ -72,6 +72,12 @@ test.describe("account entry", () => {
     await page.getByLabel("Password", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(page).toHaveURL(new URL("/", baseURL).href);
+    await page.goto("/maps");
+    await Promise.all([
+      page.waitForResponse(response => response.url().endsWith("/api/settings") && response.request().method() === "PATCH"),
+      page.getByRole("button", { name: "List view", exact: true }).click(),
+    ]);
+    await expect(page.getByRole("button", { name: "List view", exact: true })).toHaveAttribute("data-on", "true");
     const original = (await (await page.request.get("/api/auth/session")).json()).account.id;
     const cookie = (await page.context().cookies()).find(value => value.name === "dezfil_session")!;
     const { open } = await import("../src/lib/metadata/db");
@@ -90,6 +96,22 @@ test.describe("account entry", () => {
     await expect(page).toHaveURL(new URL("/", baseURL).href);
     const recipient = (await (await page.request.get("/api/auth/session")).json()).account.id;
     expect(recipient).not.toBe(original);
+    await page.goto("/maps");
+    await expect(page.getByRole("button", { name: "Grid view", exact: true })).toHaveAttribute("data-on", "true");
+    await page.goto("/settings");
+    await expect(page.getByLabel("Display name", { exact: true })).toHaveValue("Link recipient");
+    await expect(page.getByLabel("Instance name", { exact: true })).toBeDisabled();
+    await page.getByLabel("Display name", { exact: true }).fill("Recipient renamed");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByRole("status")).toHaveText("Saved");
+    await page.reload();
+    await expect(page.getByLabel("Display name", { exact: true })).toHaveValue("Recipient renamed");
+    const adminClient = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { cookie: `${cookie.name}=${cookie.value}` } });
+    try {
+      const settings = await (await adminClient.get("/api/settings")).json();
+      expect(settings.displayName).toBe("Browser fixture");
+      expect(settings.viewPrefs.maps.view).toBe("list");
+    } finally { await adminClient.dispose(); }
     await page.goto(link.href);
     await page.getByLabel("Password", { exact: true }).fill("another set of notebooks");
     await page.getByRole("button", { name: "Set password" }).click();

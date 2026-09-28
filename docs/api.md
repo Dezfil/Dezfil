@@ -24,16 +24,19 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **103 paths, 138 operations, 135 named
+Measured from the current source: **110 paths, 145 operations, 139 named
 component schemas.**
 
 ## Base path and access
 
-Every endpoint lives under `/api`. There is no versioned prefix and no
-authentication: this release has no accounts, and reaching the instance is
-the whole access model. Run it behind your own network controls.
+Every endpoint lives under `/api`, without a versioned prefix. Each
+operation's OpenAPI `security` declaration states its credential requirement.
+Account sessions and personal settings accept a session cookie or an account's
+bearer token. Setup, sign-in and link redemption are public entry operations;
+cookie mutations and entry submissions require a matching request Origin.
+Run the instance behind your own network controls.
 
-The one exception is the published surface. `GET /api/published/{token}`
+The published surface remains anonymous. `GET /api/published/{token}`
 and its siblings are the read-only, anonymous face of a map someone chose to
 publish. The token is 22 random characters (`src/lib/publish/token.ts`), it
 is the entire credential, and revoking a publication invalidates it.
@@ -48,8 +51,17 @@ runtime settings a browser client legitimately needs (available basemaps,
 palettes, the render cap, the preview row count, and whether a geocoder is
 configured, but never a configured URL that might carry a key).
 `GET /api/openapi.json` serves the description. `GET`/`PATCH /api/settings`
-hold instance and display names and per-screen view preferences.
+return the caller's account display name and per-screen view preferences,
+plus the shared instance name. Only admins may change the instance name.
+Every field in a patch is validated and authorized before any write.
 `/api/palettes` manages saved color palettes.
+
+**Settings compatibility change.** `/api/settings` now requires authentication
+and returns `401` for missing or invalid credentials. `displayName` and
+`viewPrefs` belong to the caller's account; first-account setup adopts legacy
+preferences. A non-admin patch containing `instanceName` returns `403`, with
+all personal and instance fields unchanged. Identity-bearing responses and
+refusals use `Cache-Control: private, no-store`.
 
 **Tables.** The catalogue of datasets. `POST /api/tables` takes a
 `multipart/form-data` upload; `POST /api/imports/url`,

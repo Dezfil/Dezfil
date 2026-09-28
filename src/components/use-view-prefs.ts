@@ -6,9 +6,9 @@ import type { ViewPrefs } from "@/lib/metadata/settings";
 type View = "grid" | "list";
 
 /**
- * A screen's persisted view mode + sort: read once from workspace
- * settings, write back fire-and-forget on change — the same store as
- * the display name, still no auth implied.
+ * A screen's view and sort belong to the signed-in account. Entry performs
+ * a full navigation on account changes, so each account starts with a fresh
+ * component state and reads only its own persisted preferences.
  */
 export function useViewPrefs<Sort extends string>(
   screen: keyof ViewPrefs,
@@ -22,7 +22,7 @@ export function useViewPrefs<Sort extends string>(
     let cancelled = false;
     (async () => {
       try {
-        const response = await fetch("/api/settings");
+        const response = await fetch("/api/settings", { cache: "no-store" });
         if (!response.ok) return;
         const body = (await response.json()) as { viewPrefs?: ViewPrefs };
         const prefs = body.viewPrefs?.[screen];

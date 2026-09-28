@@ -2,9 +2,8 @@ import type { Database } from "better-sqlite3";
 import { metadataDb } from "./db";
 
 /**
- * Workspace preferences: a key-value store, single-user until the
- * multi-user phase. Typed accessors live here so callers never touch raw
- * keys.
+ * Instance settings and legacy personal values retained for first-account
+ * adoption. Authenticated personal reads and writes use account storage.
  */
 
 const DISPLAY_NAME_KEY = "display_name";

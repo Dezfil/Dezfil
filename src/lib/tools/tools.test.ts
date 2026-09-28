@@ -41,14 +41,14 @@ describe("tool parity", () => {
     expect(toolNames).toEqual(opTools);
   });
 
-  it("tool exclusions are exactly the agent transports, binary tiles, and workspace identity", () => {
+  it("tool exclusions are exactly the agent transports, binary tiles, and entry exchange", () => {
     // The MCP endpoint and the in-product assistant are how agents reach the
     // API — never tools the agent itself calls. Assistant reservation, recovery
     // and release manage the invoking client's execution ownership; exposing
     // those to its model would recursively operate its own lifecycle. Tile
     // endpoints return MVT bytes for a map renderer; agents read a layer's tile
-    // state through render_layer / view_published_map instead. Workspace
-    // settings are a UI identity preference, not a map capability. Map
+    // state through render_layer / view_published_map instead. Account entry
+    // and session exchange belong to the caller transport. Map
     // thumbnails are binary card images the builder captures. Table export is a
     // browser file download — agents read data through SQL and the features
     // endpoint. The settle-lane renders and published widget values are viewer
@@ -85,9 +85,7 @@ describe("tool parity", () => {
       // The query-result download's redeem half is the page's
       // native-stream mechanic; agents call the POST directly.
       "GET /api/query/export",
-      "GET /api/settings",
       "GET /api/tables/{name}/export",
-      "PATCH /api/settings",
       "POST /api/assistant/messages",
       "POST /api/assistant/runs",
       "POST /api/assistant/runs/{id}/cancel",
