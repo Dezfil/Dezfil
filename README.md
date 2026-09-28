@@ -47,6 +47,7 @@ as `-e NAME=value` on `docker run`.
 | Setting | Default | What it controls |
 |---|---|---|
 | `DEZFIL_DATA_DIR` | `/data` | Durable data directory (the mounted volume), including the optional `assistant-models.json` [model catalogue](docs/runbook.md#the-model-catalogue-file). |
+| `DEZFIL_TRUSTED_PROXIES` | *(none)* | Comma-separated IP addresses or CIDRs of reverse proxy socket peers. Only these peers may supply forwarding information. Configure proxies to replace host/protocol/port forwarding fields and append the actual client address. Direct clients' forwarding headers are discarded. |
 | `DEZFIL_UPLOAD_MAX_MB` | `5120` | Upload size cap, in MB. |
 | `DEZFIL_EGRESS_ALLOWLIST` | — | Hosts, IPs, or CIDRs the server may fetch for a user despite the egress policy. By default, loopback, private-network, link-local, and cloud-metadata destinations are blocked on URL imports and PostGIS connections. |
 | `DEZFIL_REMOTE_TIMEOUT_S` | `300` | Time bound for one whole remote fetch (URL and object-store imports), redirects and body included. |
@@ -187,6 +188,12 @@ npm test           # unit tests
 npm run lint
 npm run typecheck
 ```
+
+`npm run dev`, `npm start` and the container launcher install the socket
+provenance preload before Next starts. Keep these launch commands: readiness
+and sign-in refuse a server launched without the preload. A custom standalone
+launch must use `node --import=./scripts/ingress-preload.mjs server.js` and carry
+the preload files from the image. Existing `NODE_OPTIONS` observers are preserved.
 
 `npm run journey:browser` runs the **whole browser surface**, every spec
 file under `e2e/`, with Playwright against a running instance

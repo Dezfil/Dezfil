@@ -63,6 +63,9 @@ COPY --from=build --chown=node:node /app/src/lib/assistant/model-catalogue.json 
 # application-owned runtime assets explicitly (including the MVT parser
 # worker) so the one-container renderer never depends on build leftovers.
 COPY --from=build --chown=node:node /app/public ./public
+# The socket provenance preload runs before the unchanged standalone launcher.
+COPY --from=build --chown=node:node /app/scripts/ingress-preload.mjs /app/scripts/preload-options.mjs ./scripts/
+COPY --from=build --chown=node:node /app/src/lib/auth/ingress.mjs ./src/lib/auth/ingress.mjs
 # Licensing for vendored runtime assets must survive even if Next's file
 # tracing becomes narrower than today's whole-project trace.
 COPY --from=build --chown=node:node /app/LICENSE /app/NOTICE ./
@@ -78,4 +81,4 @@ USER node
 EXPOSE 3000
 VOLUME ["/data"]
 
-CMD ["node", "server.js"]
+CMD ["node", "--import=./scripts/ingress-preload.mjs", "server.js"]

@@ -1,13 +1,13 @@
 {
   "count": 116,
-  "overall": "d4d1da83757d0b01800338369d261abc6ba665a5961356eabdc78f9d8c43bf61",
+  "overall": "bb5fd59fd32e790d7affbe305e1084b2c54994cdd7012cc2b156ce971cf2f91a",
   "tools": {
     "inspect_table_geometry": "20b79c8bcdf901bd6942618c03a9690439dc9626cec68b10e7d78cad9e1d77a6",
     "set_table_geometry": "2602a64b828c2e281755025a8b1d0ac44a62b3bd7c46e20aa1589dd98ac08aa5",
     "clear_table_geometry": "3e5104bd992e032afc9e953693ba5b59c81fe180153a09a9738cdc457a7e1478",
     "preview_table_geometry": "904b7b3e7e7ceaf4092f54debeb8118c09336ec7330e4a57cd48e9489bae3615",
     "list_geometry_projections": "fc44dafb571b124021d92f06067f35d599cf5ee907a55a4cbc7596ca80fe61ff",
-    "check_health": "1fe23ff8a589a5c4e2a31c130edcd488253449d8e7a2fddd8f93a62c770f43fb",
+    "check_health": "08e6999b2e68e9a52ab41413282c67612c0bf3829afc33d7adbb43700f058b56",
     "get_config": "87b25e0e74b83a2b903f7c1b265c622406bc1194130d80147b84366879ec1047",
     "list_palettes": "e4d6ddb3a51b97c5da384e206e0fca2405188544d3a1aa0cf1b9b64788f4b786",
     "create_palette": "a18a86aebd1533a6710d9042be229dfbbee2bdc7a986435b3f1f6fb930d30f66",

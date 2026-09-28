@@ -25,7 +25,7 @@ let initialOwners = '';
 try { initialOwners = execFileSync('lsof', ['-t', `-iTCP:${port}`, '-sTCP:LISTEN'], { encoding: 'utf8' }).trim(); }
 catch (error) { if (error.status !== 1) throw error; }
 assert.equal(initialOwners, '', 'evidence port must be free before boot');
-const child = spawn(process.execPath, ['server.js'], { cwd: standalone, env: { ...process.env, PORT: String(port), HOSTNAME: '127.0.0.1', DEZFIL_DATA_DIR: data, DEZFIL_EGRESS_ALLOWLIST: '127.0.0.1', ...(values.render ? { DEZFIL_PLUGIN_RENDER_LOG: renderLog, NODE_OPTIONS: `--import=${root}/scripts/dezfil-render-observer.mjs` } : {}) }, stdio: ['ignore', 'pipe', 'pipe'] });
+const child = spawn(process.execPath, ['--import', path.join(root, 'scripts/ingress-preload.mjs'), 'server.js'], { cwd: standalone, env: { ...process.env, PORT: String(port), HOSTNAME: '127.0.0.1', DEZFIL_DATA_DIR: data, DEZFIL_EGRESS_ALLOWLIST: '127.0.0.1', ...(values.render ? { DEZFIL_PLUGIN_RENDER_LOG: renderLog, NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --import=${root}/scripts/dezfil-render-observer.mjs`.trim() } : {}) }, stdio: ['ignore', 'pipe', 'pipe'] });
 child.stdout.on('data', bytes => process.stderr.write(bytes)); child.stderr.on('data', bytes => process.stderr.write(bytes));
 try {
   await until(async () => { if (child.exitCode !== null) throw new Error(`Standalone exited ${child.exitCode}`); try { return (await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(500) })).ok; } catch { return false; } }, Boolean, 'isolated standalone readiness', 30000);

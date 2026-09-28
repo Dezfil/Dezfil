@@ -27,6 +27,13 @@ export function cataloguePresence(lines) {
 
 export const MVT_WORKER_REPO_PATH =
   "public/workers/loaders.gl-mvt-worker-4.4.5.js";
+export const INGRESS_REPO_PATHS = [
+  "scripts/ingress-preload.mjs", "scripts/preload-options.mjs", "src/lib/auth/ingress.mjs",
+];
+export function ingressPresence(lines) {
+  const present = new Set(lines.map(line => line.trim()));
+  return INGRESS_REPO_PATHS.filter(file => !present.has(`f /app/${file}`)).map(file => `MISSING: /app/${file}`);
+}
 export const MVT_WORKER_IMAGE_PATH = `/app/${MVT_WORKER_REPO_PATH}`;
 export const BROWSER_WORKER_REPO_PATHS = [
   MVT_WORKER_REPO_PATH,
@@ -76,6 +83,7 @@ export const TOP_LEVEL_ALLOWLIST = new Set([
  * the build itself — the same trust boundary as the Dockerfile. */
 const SOURCE_TREE_EXTENSIONS = new Set([
   "ts",
+  "mts",
   "tsx",
   "css",
   "svg",
@@ -237,7 +245,7 @@ if (isMain) {
     args[0] === "--listing"
       ? readFileSync(args[1], "utf8").split("\n")
       : listingFromImage(args[0] ?? "dezfil:ci");
-  const violations = [...judge(listing, trackedManifest()), ...cataloguePresence(listing)];
+  const violations = [...judge(listing, trackedManifest()), ...cataloguePresence(listing), ...ingressPresence(listing)];
   // Positive presence proofs: the browser and trust store required by image
   // export, plus the application-owned parser worker required by
   // every tiled map host. An allowlist only says a path MAY ship;

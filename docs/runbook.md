@@ -33,6 +33,20 @@ both of its own and leave the first untouched:
 DEZFIL_DATA_DIR=/tmp/dezfil-scratch PORT=3210 npm run dev
 ```
 
+The standard dev, start and container commands install the ingress preload
+before Next starts. It records the socket peer and normalizes forwarding
+headers. A standalone launch uses
+`node --import=./scripts/ingress-preload.mjs server.js`; include
+`scripts/preload-options.mjs` and `src/lib/auth/ingress.mjs` too. Readiness and
+authentication entry refuse a missing preload. Existing observer preloads in
+`NODE_OPTIONS` continue to run, including in Next's development child.
+
+Behind a reverse proxy, set `DEZFIL_TRUSTED_PROXIES` to its socket addresses
+or CIDRs. The proxy must append the actual client to the source chain and
+replace host, protocol and port forwarding fields. Both `Forwarded` and the
+four `X-Forwarded-*` fields are normalized to one view; conflicting trusted
+fields are refused. Untrusted peers' forwarding fields are discarded.
+
 The same shape works against a built tree with `npm start`. Point every
 drive script and browser run at the new address: those scripts write real
 tables, maps and published links, and a scratch data directory keeps those

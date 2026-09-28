@@ -48,7 +48,7 @@ if (image) {
   const file = path.join(data, 'mcp-events.ndjson'); await writeFile(file, '');
   let child;
   const boot = async () => {
-    child = spawn(process.execPath, ['server.js'], { cwd: standalone, detached: true, env: { ...process.env, PORT: String(port), HOSTNAME: '127.0.0.1', DEZFIL_DATA_DIR: data, DEZFIL_OPERATION_CONCURRENCY: '2', DEZFIL_QUERY_TIMEOUT_S: '10', DEZFIL_MCP_PROBE_LOG: file, NODE_OPTIONS: `--import=${root}/scripts/mcp-probe-observer.mjs` }, stdio: ['ignore', 'pipe', 'pipe'] });
+    child = spawn(process.execPath, ['--import', path.join(root, 'scripts/ingress-preload.mjs'), 'server.js'], { cwd: standalone, detached: true, env: { ...process.env, PORT: String(port), HOSTNAME: '127.0.0.1', DEZFIL_DATA_DIR: data, DEZFIL_OPERATION_CONCURRENCY: '2', DEZFIL_QUERY_TIMEOUT_S: '10', DEZFIL_MCP_PROBE_LOG: file, NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --import=${root}/scripts/mcp-probe-observer.mjs`.trim() }, stdio: ['ignore', 'pipe', 'pipe'] });
     child.stdout.on('data', bytes => process.stderr.write(bytes)); child.stderr.on('data', bytes => process.stderr.write(bytes));
     await until(async () => { if (child.exitCode !== null) throw new Error(`Standalone exited ${child.exitCode}`); try { return (await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(500) })).ok; } catch { return false; } }, Boolean, 'standalone readiness', 30_000);
     return child.pid;

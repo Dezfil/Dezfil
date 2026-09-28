@@ -251,7 +251,7 @@
     },
     {
       "name": "check_health",
-      "description": "Readiness check. Readiness reports whether the data directory is usable.",
+      "description": "Readiness check. Readiness reports whether socket provenance is installed and the data directory is usable.",
       "input_schema": {
         "type": "object",
         "properties": {}

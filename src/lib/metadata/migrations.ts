@@ -537,4 +537,12 @@ export const MIGRATIONS: string[] = [
      revoked_at INTEGER
    );
    CREATE INDEX idx_auth_links_account ON auth_links(account_id);`,
+  // Durable login budgets coordinate workers and survive process replacement.
+  `CREATE TABLE auth_login_limits (
+     bucket TEXT PRIMARY KEY,
+     window_started_at INTEGER NOT NULL,
+     failures INTEGER NOT NULL DEFAULT 0,
+     pending INTEGER NOT NULL DEFAULT 0
+   );
+   CREATE INDEX idx_auth_login_limits_window ON auth_login_limits(window_started_at);`,
 ];

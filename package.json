@@ -27,9 +27,9 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "node --import=./scripts/ingress-preload.mjs ./node_modules/next/dist/bin/next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node --import=./scripts/ingress-preload.mjs ./node_modules/next/dist/bin/next start",
     "lint": "eslint .",
     "lint:hygiene": "node scripts/check-nul-bytes.mjs",
     "lint:citations": "node scripts/check-internal-citations.mjs",

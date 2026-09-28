@@ -149,14 +149,14 @@ export function buildOpenApiDocument() {
       "/api/health": {
         get: op({
           summary: "Readiness check",
-          description: "Readiness reports whether the data directory is usable.",
+          description: "Readiness reports whether socket provenance is installed and the data directory is usable.",
           tag: "System",
           tool: "check_health", mcp: LOCAL_READ,
           display: {"verb": "Checked the instance"},
           effects: READ_ONLY,
           responses: {
             "200": jsonOk("#/components/schemas/Health", "Ready."),
-            "503": jsonOk("#/components/schemas/HealthUnready", "Storage is unusable."),
+            "503": jsonOk("#/components/schemas/HealthUnready", "The ingress preload or storage is unavailable."),
           },
         }),
       },

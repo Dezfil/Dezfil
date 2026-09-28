@@ -49,7 +49,7 @@ export function serverVariables(srcDir) {
   const names = new Set();
   const files = walk(srcDir).filter(
     (f) =>
-      (f.endsWith(".ts") || f.endsWith(".tsx")) && !f.endsWith(".test.ts"),
+      /\.(?:ts|tsx|js|mjs)$/.test(f) && !/\.test\.(?:ts|tsx|js|mjs)$/.test(f),
   );
   const patterns = [
     /\b(DEZFIL_[A-Z0-9_]+)\b/g,
