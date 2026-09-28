@@ -4,6 +4,7 @@
 // named failure sentinel: its render declares a failed composition.
 // Test-owned.
 import { deflateSync } from "node:zlib";
+import { browserAccount, provisionJourney } from "../scripts/journey-auth.mjs";
 
 const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n += 1) { let c = n; for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
 const crc32 = (b) => { let c = 0xffffffff; for (const x of b) c = CRC[(c ^ x) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
@@ -26,6 +27,12 @@ function fixturePng(width, height) {
 }
 const PNG = fixturePng(1024, 640);
 let renders = 0;
+const credentials = new Map();
+
+function fixtureCredential(origin) {
+  if (!credentials.has(origin)) credentials.set(origin, provisionJourney(origin, browserAccount));
+  return credentials.get(origin);
+}
 
 function fakePage() {
   let mapId = ""; let sentinel = false;
@@ -37,7 +44,13 @@ function fakePage() {
     async goto(url) {
       mapId = decodeURIComponent(new URL(url).pathname.split("/").pop() ?? "");
       // The page would read the map itself; the fake reads its name for the sentinel.
-      try { const map = await (await fetch(`${new URL(url).origin}/api/maps/${encodeURIComponent(mapId)}`)).json(); sentinel = String(map.name).includes("[render-fails]"); } catch { sentinel = false; }
+      const origin = new URL(url).origin;
+      const fixture = await fixtureCredential(origin);
+      const response = await fixture.fetch(`${origin}/api/maps/${encodeURIComponent(mapId)}`);
+      if (!response.ok) throw new Error(`Render stub map read failed: ${response.status}`);
+      const map = await response.json();
+      if (typeof map.name !== "string") throw new Error("Render stub map read has no name");
+      sentinel = map.name.includes("[render-fails]");
     },
     async waitForFunction() { return true; },
     async evaluate(fn) {
