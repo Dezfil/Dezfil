@@ -150,6 +150,7 @@ async function writeChunk(
 
 async function startSlowDownloadProxy(
   appOrigin: string,
+  appCookie: string,
 ): Promise<SlowDownloadProxy> {
   const upstreamOrigin = new URL(appOrigin);
   if (upstreamOrigin.protocol !== "http:") {
@@ -210,7 +211,8 @@ async function startSlowDownloadProxy(
           accept: incoming.headers.accept ?? "*/*",
           "accept-encoding": "identity",
         };
-        if (incoming.headers.cookie) headers.cookie = incoming.headers.cookie;
+        // The proxy's 127.0.0.1 origin does not receive localhost cookies.
+        headers.cookie = appCookie;
         upstreamRequest = nodeRequest(
           target,
           { method: "GET", headers },
@@ -531,7 +533,10 @@ test("status recovery releases the UI while the same native stream stays alive",
       page.getByRole("button", { name: new RegExp(`^${layerName}`) }).first(),
     ).toBeVisible({ timeout: 30_000 });
     const builderUrl = page.url();
-    proxy = await startSlowDownloadProxy(new URL(builderUrl).origin);
+    const appCookie = (await context.cookies(builderUrl))
+      .map(({ name, value }) => `${name}=${value}`).join("; ");
+    expect(appCookie, "the app session is available to the download proxy").not.toBe("");
+    proxy = await startSlowDownloadProxy(new URL(builderUrl).origin, appCookie);
     await page.route("**/api/layers/**", layerRoute);
 
     const downloadStarted = page.waitForEvent("download", { timeout: 60_000 });
