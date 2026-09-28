@@ -145,6 +145,18 @@ instance itself.
 readiness, the machine-readable description, upload, SQL, layer, style,
 publish, exiting non-zero on the first broken step.
 
+On a runner without a browser, append `--http-only` to the API journey. It
+prints the omitted image-render step explicitly; the default journey and CI
+still require the real image-export proof.
+
+`node scripts/account-upgrade-proof.mjs [port]` runs only in a detached linked
+worktree after a production build. It creates a synthetic old-schema store
+under `.claude/`, upgrades a copy, exercises the old data through authenticated
+HTTP, restarts the server, and restores a separate copy from the unchanged
+seed. Its evidence records file hashes and distinguishes copied credential
+usability from an unexecuted live external PostGIS connection. It never takes
+an operator data-directory argument.
+
 `node scripts/mcp-journey.mjs <base-url>` runs the same journey over the MCP
 endpoint with no model involved; `--render` adds the real-render arm, which
 needs the instance's own Chromium. Run it in the instance's network

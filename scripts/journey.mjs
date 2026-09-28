@@ -1724,7 +1724,7 @@ async function main() {
   // actually colored. The map is unpublished here (step 15), so this is
   // also the private-road proof. Fails coded when the browser is absent
   // (the derived-image negative depends on exactly that).
-  {
+  if (!process.argv.includes("--http-only")) {
     const definition = {
       viewport: { lng: 13.4, lat: 52.51, zoom: 10, pitch: 0, bearing: 0 },
       size: { width: 640, height: 360 },
@@ -1781,8 +1781,9 @@ async function main() {
     } finally {
       await fixture.close();
     }
+  } else {
+    console.log("NOT RUN: server image export (--http-only). The default journey still requires a real renderer.");
   }
-
 
   console.log(`\n\x1b[32mJourney complete — ${step} steps passed.\x1b[0m\n`);
 }

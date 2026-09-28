@@ -53,9 +53,11 @@ export async function gateJourney(base) {
   check(unchanged.status === 200 && unchanged.json.name === 'Protected matrix', 'cross-site mutations preserve the target map');
   for (const pathname of ['/', '/maps', '/maps/fixture', '/data', '/tables/fixture', '/sql', '/projects', '/projects/fixture', '/workflows', '/workflows/fixture', '/connections', '/connections/new', '/connections/fixture', '/users', '/settings', '/developer', '/render/fixture', '/future-page', '/_next/data/build/maps.json', '/_next/image?url=/api/config', '/private.svg']) {
     const response = await anonymous('GET', pathname, { raw: true });
-    const destination = pathname.startsWith('/_next/data/')
-      ? response.headers.get('x-nextjs-redirect') === '/_next/data/build/sign-in.json'
-      : new URL(response.headers.get('location'), base).pathname === '/sign-in';
+    // The start and standalone launchers encode data redirects differently.
+    const redirect = response.headers.get(pathname.startsWith('/_next/data/') ? 'x-nextjs-redirect' : 'location');
+    const destination = redirect && (pathname.startsWith('/_next/data/')
+      ? ['/sign-in', '/_next/data/build/sign-in.json'].includes(new URL(redirect, base).pathname)
+      : new URL(redirect, base).pathname === '/sign-in');
     check(response.status === 307 && destination && response.headers.get('cache-control') === 'private, no-store', `private page ${pathname}: ${response.status}`);
     await response.body?.cancel();
   }
