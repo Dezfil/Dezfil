@@ -10,6 +10,14 @@ for (const width of [1440, 1000]) test.describe(`confirmation words at ${width}p
   test.use({ viewport: { width, height: 1000 } });
   test("every gate shows both resolved words after mount recovery and dismissal", async ({ page, context }) => {
     expect(gates.length).toBeGreaterThan(0);
+    expect(gates.map((gate) => gate.name)).toEqual(expect.arrayContaining([
+      "change_password",
+      "create_api_token",
+      "invite_user",
+      "issue_user_sign_in_link",
+      "revoke_api_token",
+      "update_user_access",
+    ]));
     await routeHouse(context, { basemapStyleStub: true });
     await page.goto("/");
     const map = await createMap(page, "Confirmation renderer fixture");

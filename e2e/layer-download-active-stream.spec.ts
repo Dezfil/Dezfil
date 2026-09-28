@@ -574,13 +574,13 @@ test("status recovery releases the UI while the same native stream stays alive",
         contentType: "text/csv; charset=utf-8",
         contentLength: String(expected.byteLength),
         contentDisposition: `attachment; filename="${layerName}.csv"`,
-        cacheControl: "no-store",
+        cacheControl: "private, no-store",
       },
       forwardedHeaders: {
         contentType: "text/csv; charset=utf-8",
         contentLength: String(expected.byteLength),
         contentDisposition: `attachment; filename="${layerName}.csv"`,
-        cacheControl: "no-store",
+        cacheControl: "private, no-store",
       },
     });
 
@@ -622,7 +622,7 @@ test("status recovery releases the UI while the same native stream stays alive",
 
     const releaseResponse = await releaseAnswered;
     expect(releaseResponse.status()).toBe(204);
-    expect(releaseResponse.headers()["cache-control"]).toBe("no-store");
+    expect(releaseResponse.headers()["cache-control"]).toBe("private, no-store");
     expect(new URL(releaseResponse.url()).searchParams.get("__ui_status")).toBe(
       nativeTicket,
     );
