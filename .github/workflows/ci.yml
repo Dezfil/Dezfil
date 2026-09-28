@@ -100,6 +100,11 @@ jobs:
       # script's generated marketplace entry.
       - run: npm run lint:plugin
       - run: npm test
+        env:
+          # The authenticated test fixtures refuse to run without an
+          # explicit scratch data directory, so no suite can ever touch
+          # a real one. The runner provides a throwaway path.
+          DEZFIL_DATA_DIR: ${{ runner.temp }}/dezfil-test-data
       - name: Native socket provenance and missing-preload refusal
         run: |
           DEZFIL_TRUSTED_PROXIES=127.0.0.1 node --import=./scripts/ingress-preload.mjs scripts/ingress-probe.mjs
