@@ -40,7 +40,7 @@ async function runQuery(page: Page, sql: string) {
   await page.keyboard.type(sql);
   await page.keyboard.press("ControlOrMeta+Enter");
   await expect(
-    page.getByText(/rows? ·|1 row|rows/).first(),
+    page.getByRole("region", { name: "Results", exact: true }).getByText(/^[\d,]+ rows$/),
   ).toBeVisible({ timeout: 15_000 });
 }
 

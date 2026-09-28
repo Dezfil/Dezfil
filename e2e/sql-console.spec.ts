@@ -268,7 +268,7 @@ test("the SQL console end to end", async ({ page, context }) => {
   await test.step("results — meta, the map, the footer when cut, the cell peek with copy", async () => {
     await typeSql(page, `SELECT * FROM ${spatial}`);
     await page.getByRole("button", { name: "Run query" }).click();
-    await expect(page.getByText("rows", { exact: false }).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("region", { name: "Results", exact: true }).getByText(/^[\d,]+ rows$/)).toBeVisible({ timeout: 20_000 });
     await page.getByRole("tab", { name: "Map", exact: true }).click();
     await expect(page.getByText(/features/)).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText("geometry", { exact: true })).toBeVisible();
@@ -370,7 +370,7 @@ test("the SQL console end to end", async ({ page, context }) => {
     const first = cards.first();
     await first.hover();
     await first.getByRole("button", { name: "Run again" }).click();
-    await expect(page.getByText("rows", { exact: false }).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("region", { name: "Results", exact: true }).getByText(/^[\d,]+ rows$/)).toBeVisible({ timeout: 20_000 });
     // The repeated run collapsed into its card: no new card.
     await page.getByRole("tab", { name: "History" }).click();
     expect(await cards.count()).toBe(before);
