@@ -25,7 +25,7 @@ test.describe("account entry", () => {
     await page.getByLabel("Email", { exact: true }).fill(email);
     await page.getByLabel("Password", { exact: true }).fill("password");
     await page.getByRole("button", { name: "Create account" }).click();
-    await expect(page.getByRole("alert")).toContainText("too common");
+    await expect(page.locator('[role="alert"]:not(#__next-route-announcer__)')).toContainText("too common");
     await page.getByLabel("Password", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Create account" }).click();
     await expect(page).toHaveURL(new URL("/", baseURL).href);
@@ -47,7 +47,7 @@ test.describe("account entry", () => {
     await page.getByRole("button", { name: "Hide password" }).click();
     await expect(page.getByLabel("Password", { exact: true })).toHaveAttribute("type", "password");
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
-    await expect(page.getByRole("alert")).toContainText("Email or password is incorrect");
+    await expect(page.locator('[role="alert"]:not(#__next-route-announcer__)')).toContainText("Email or password is incorrect");
     await page.getByLabel("Password", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(page).toHaveURL(new URL("/", baseURL).href);
@@ -122,7 +122,7 @@ test.describe("account entry", () => {
     await page.goto(link.href);
     await page.getByLabel("Password", { exact: true }).fill("another set of notebooks");
     await page.getByRole("button", { name: "Set password" }).click();
-    await expect(page.getByRole("alert")).toContainText("unavailable");
+    await expect(page.locator('[role="alert"]:not(#__next-route-announcer__)')).toContainText("unavailable");
     expect((await (await page.request.get("/api/auth/session")).json()).account.id).toBe(recipient);
   });
   test("Account and token cards keep profile edits, password invalidation and one-time secrets consistent", async ({ page, baseURL, playwright }) => {
@@ -259,7 +259,7 @@ test.describe("account entry", () => {
       await form.getByLabel("Name", { exact: true }).fill("Duplicate");
       await form.getByLabel("Email", { exact: true }).fill(recipientEmail.toUpperCase());
       await form.getByRole("button", { name: "Create account" }).click();
-      await expect(page.getByRole("alert")).toContainText("deactivated");
+      await expect(page.locator('[role="alert"]:not(#__next-route-announcer__)')).toContainText("deactivated");
       await page.getByRole("button", { name: "Reactivate existing account" }).click();
       await expect(rowButton).toContainText("Active");
       const restored = (await (await page.request.get("/api/users")).json()).users;
