@@ -1,17 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
-import maplibregl from "maplibre-gl";
+import * as maplibregl from "maplibre-gl";
 import { attachCanvasCamera, CANVAS_CAMERA_OPTIONS } from "./canvas-camera";
 
 function harness(height = 512, padding = { top: 0, bottom: 0 }) {
   const handlers = new Map<string, () => void>();
   let constrain: (center: maplibregl.LngLat, zoom: number) => { center: maplibregl.LngLat; zoom: number };
-  const transform = { height, padding, minZoom: -2, maxZoom: 24,
-    setConstrainOverride: vi.fn((callback: typeof constrain) => { constrain = callback; }) };
+  const state = { padding, minZoom: -2, maxZoom: 24 };
+  const canvas = { clientHeight: height };
   const host = { clientHeight: height, dataset: {} as Record<string, string> };
   const live = { lng: 12.1234567, lat: -13.1234567, zoom: 10.1234567, pitch: 30.1234567, bearing: -17.1234567 };
   const map = {
-    transform,
-    setMinZoom: vi.fn((zoom: number) => { transform.minZoom = zoom; }),
+    setTransformConstrain: vi.fn((callback: typeof constrain) => { constrain = callback; }),
+    getCanvas: () => canvas,
+    getPadding: () => state.padding,
+    getMinZoom: () => state.minZoom,
+    getMaxZoom: () => state.maxZoom,
+    setMinZoom: vi.fn((zoom: number) => { state.minZoom = zoom; }),
     jumpTo: vi.fn(),
     on: vi.fn((name: string, callback: () => void) => { handlers.set(name, callback); }),
     off: vi.fn((name: string) => { handlers.delete(name); }),
@@ -24,7 +28,8 @@ function harness(height = 512, padding = { top: 0, bottom: 0 }) {
 
 describe("shared canvas camera", () => {
   it("sets explicit pitch 60, zoom 24 and short-stage floor -2", () => {
-    expect(CANVAS_CAMERA_OPTIONS).toEqual({ minZoom: -2, maxZoom: 24, minPitch: 0, maxPitch: 60 });
+    expect(CANVAS_CAMERA_OPTIONS).toStrictEqual({ minZoom: -2, maxZoom: 24, minPitch: 0, maxPitch: 60, zoomLevelsToOverscale: undefined });
+    expect(Object.hasOwn(CANVAS_CAMERA_OPTIONS, "zoomLevelsToOverscale")).toBe(true);
   });
   it.each([1, -1])("covers the %s pole at zoom 10 using an independent 512px fixture", sign => {
     const h = harness();
@@ -39,7 +44,7 @@ describe("shared canvas camera", () => {
     expect(h.map.setMinZoom).toHaveBeenLastCalledWith(1);
     expect(h.constrain(0, 0).zoom).toBe(1);
     h.host.clientHeight = 256;
-    h.map.transform.height = 256;
+    h.map.getCanvas().clientHeight = 256;
     h.handlers.get("resize")!();
     expect(h.map.setMinZoom).toHaveBeenLastCalledWith(-1);
     expect(h.constrain(0, -0.5).zoom).toBe(-0.5);
@@ -53,6 +58,27 @@ describe("shared canvas camera", () => {
     // Northing = 320/524288 north and 1-192/524288 south.
     expect(h.constrain(85.051129, 10).center.lat).toBeCloseTo(85.03213742967942, 9);
     expect(h.constrain(-85.051129, 10).center.lat).toBeCloseTo(-85.03974267783215, 9);
+    h.dispose();
+  });
+  it("installs the public constraint before reapplying the original opening request", () => {
+    const h = harness();
+    expect(h.map.jumpTo).toHaveBeenCalledExactlyOnceWith({
+      center: [h.live.lng, h.live.lat], zoom: h.live.zoom,
+    });
+    expect(h.map.setTransformConstrain.mock.invocationCallOrder[0])
+      .toBeLessThan(h.map.jumpTo.mock.invocationCallOrder[0]);
+    const renderSubscription = h.map.on.mock.calls.findIndex(([event]) => event === "render");
+    expect(h.map.jumpTo.mock.invocationCallOrder[0])
+      .toBeLessThan(h.map.on.mock.invocationCallOrder[renderSubscription]);
+    h.dispose();
+  });
+  it("measures the renderer canvas independently of the host and device pixel ratio", () => {
+    const h = harness(512, { top: 128, bottom: 0 });
+    h.host.clientHeight = 900;
+    // Only the renderer's CSS height is relevant to world coverage.
+    expect(h.constrain(85.051129, 10).center.lat).toBeCloseTo(85.03213742967942, 9);
+    h.handlers.get("render")!();
+    expect(JSON.parse(h.host.dataset.mapCamera).height).toBe(512);
     h.dispose();
   });
   it("reads the unrounded live camera only after paint and removes its listeners on teardown", () => {

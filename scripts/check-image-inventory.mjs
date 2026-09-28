@@ -26,8 +26,13 @@ export function cataloguePresence(lines) {
 }
 
 export const MVT_WORKER_REPO_PATH =
-  "public/workers/loaders.gl-mvt-worker-4.4.3.js";
+  "public/workers/loaders.gl-mvt-worker-4.4.5.js";
 export const MVT_WORKER_IMAGE_PATH = `/app/${MVT_WORKER_REPO_PATH}`;
+export const BROWSER_WORKER_REPO_PATHS = [
+  MVT_WORKER_REPO_PATH,
+  "public/workers/maplibre-gl-6.11.2/maplibre-gl-worker.mjs",
+  "public/workers/maplibre-gl-6.11.2/maplibre-gl-shared.mjs",
+];
 
 /** Every path the image may carry at the top of /app. The standalone
  * tracer mirrors the (dockerignore-filtered) build context, so the build
@@ -242,7 +247,7 @@ if (isMain) {
     for (const [path, what] of [
       ["/usr/bin/chromium", "the image-export browser (DEZFIL_CHROMIUM_PATH default)"],
       ["/etc/ssl/certs/ca-certificates.crt", "the CA trust store for HTTPS basemaps"],
-      [MVT_WORKER_IMAGE_PATH, "the application-owned loaders.gl MVT parser worker"],
+      ...BROWSER_WORKER_REPO_PATHS.map(path => [`/app/${path}`, "an application-owned renderer worker artifact"]),
     ]) {
       try {
         execFileSync("docker", [
@@ -257,10 +262,12 @@ if (isMain) {
     // Presence is not enough for a copied upstream executable: prove the
     // bytes inside the exact image match the checked-in, version-parity-tested
     // worker. A stale Docker layer or wrong COPY target is therefore red.
-    if (present.has(MVT_WORKER_IMAGE_PATH)) {
+    for (const repoPath of BROWSER_WORKER_REPO_PATHS) {
+      const imagePath = `/app/${repoPath}`;
+      if (!present.has(imagePath)) continue;
       try {
         const expected = createHash("sha256")
-          .update(readFileSync(MVT_WORKER_REPO_PATH))
+          .update(readFileSync(repoPath))
           .digest("hex");
         const actual = execFileSync(
           "docker",
@@ -269,18 +276,18 @@ if (isMain) {
             "--rm",
             args[0] ?? "dezfil:ci",
             "sha256sum",
-            MVT_WORKER_IMAGE_PATH,
+            imagePath,
           ],
           { encoding: "utf8" },
         ).split(/\s+/)[0];
         if (actual !== expected) {
           violations.push(
-            `MISMATCH: ${MVT_WORKER_IMAGE_PATH} — image bytes differ from the tracked worker`,
+            `MISMATCH: ${imagePath} — image bytes differ from the tracked worker`,
           );
         }
       } catch {
         violations.push(
-          `UNREADABLE: ${MVT_WORKER_IMAGE_PATH} — could not prove worker bytes`,
+          `UNREADABLE: ${imagePath} — could not prove worker bytes`,
         );
       }
     }

@@ -17,7 +17,7 @@ import { mvtRenderSubLayers, type LiveWindowing } from "./text-sublayer";
  * `tiled-layer.test.ts` compares the application asset byte-for-byte with
  * the installed package and checks this value against its package metadata.
  */
-export const LOADERS_GL_MVT_VERSION = "4.4.3";
+export const LOADERS_GL_MVT_VERSION = "4.4.5";
 export const MVT_WORKER_URL =
   `/workers/loaders.gl-mvt-worker-${LOADERS_GL_MVT_VERSION}.js`;
 

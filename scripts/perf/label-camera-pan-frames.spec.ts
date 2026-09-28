@@ -31,7 +31,7 @@
  * nothing. `mouseup` goes back to the canvas (bubbles to the container,
  * where `mouseup` — assigned directly, unlike `mousemove` — IS wired).
  * See the in-loop comment by the dispatch calls for the full trace
- * (`node_modules/maplibre-gl/dist/maplibre-gl-dev.js`, `HandlerManager`'s
+ * (`node_modules/maplibre-gl/dist/maplibre-gl-dev.mjs`, `HandlerManager`'s
  * `_listeners` array). Position is computed by MapLibre via
  * `clientX`/`clientY` against the canvas's own bounding rect
  * (`DOM.mousePos(map.getCanvas(), e)`), so page-coordinate `clientX/Y`
@@ -274,7 +274,7 @@ test("camera pan only, labelled vs unlabelled, ZERO style changes", async ({
       // harness measured 0/120 long frames on both arms: no camera motion
       // was ever happening inside the timed loop, only idle
       // requestAnimationFrame ticks. See node_modules/maplibre-gl/dist/
-      // maplibre-gl-dev.js, HandlerManager's `_listeners` array and
+      // maplibre-gl-dev.mjs, HandlerManager's `_listeners` array and
       // `generateMousePanHandler`'s `assignEvents`. The fix: dispatch
       // `mousemove` AT `document` (matches the capture-phase listener's
       // registration target exactly), and `mouseup` at the canvas

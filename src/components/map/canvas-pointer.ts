@@ -1,4 +1,4 @@
-import type maplibregl from "maplibre-gl";
+import type * as maplibregl from "maplibre-gl";
 import type { PickingInfo } from "@deck.gl/core";
 import type { MutableRefObject } from "react";
 import { AUTO_TOOLTIP_FIELDS } from "@/lib/publish/published-fields";

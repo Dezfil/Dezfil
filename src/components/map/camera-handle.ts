@@ -1,4 +1,4 @@
-import type maplibregl from "maplibre-gl";
+import type * as maplibregl from "maplibre-gl";
 
 /** A read-only snapshot of the map's live camera. Kept here rather than
  * importing MapCanvas's public Viewport type, because MapCanvas owns and

@@ -1,4 +1,4 @@
-import maplibregl from "maplibre-gl";
+import * as maplibregl from "@/lib/maplibre";
 import type { BasemapKind } from "@/lib/basemap";
 import {
   authoredBasemapVisibility,

@@ -1,6 +1,6 @@
 "use client";
 
-import maplibregl from "maplibre-gl";
+import * as maplibregl from "@/lib/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import { BASEMAP_FALLBACKS, resolveBasemapUrl } from "@/lib/basemap";
@@ -126,6 +126,7 @@ export function FeaturePreviewMap({
           style: resolveBasemapUrl(theme === "dark" ? "dark" : "light"),
           center: [10, 30],
           zoom: 1.2,
+          ...maplibregl.MAP_RENDERER_OPTIONS,
           attributionControl: { compact: true },
           dragRotate: false,
           pitchWithRotate: false,

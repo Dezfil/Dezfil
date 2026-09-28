@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type maplibregl from "maplibre-gl";
+import type * as maplibregl from "maplibre-gl";
 import { createPaintedStyleStamp } from "./painted-style";
 
 /** A plain-background style shown while/if basemap tiles are unreachable —

@@ -1,10 +1,10 @@
 /*!
- * loaders.gl MVT parser worker v4.4.3
+ * loaders.gl MVT parser worker v4.4.5
  * SPDX-License-Identifier: MIT
  * Copyright (c) vis.gl contributors
  * Copyright (c) 2015 Uber Technologies, Inc.
  *
- * Vendored from @loaders.gl/mvt 4.4.3, dist/mvt-worker.js.
+ * Vendored from @loaders.gl/mvt 4.4.5, dist/mvt-worker.js.
  * After this application prelude, the upstream bundle follows byte-for-byte.
  * Full loaders.gl and bundled transitive notices are reproduced in /NOTICE.
  */
@@ -2095,7 +2095,7 @@
   var dist_default = new ProbeLog({ id: "@probe.gl/log" });
 
   // ../loader-utils/src/lib/log-utils/log.ts
-  var VERSION2 = true ? "4.4.3" : "latest";
+  var VERSION2 = true ? "4.4.5" : "latest";
   var version = VERSION2[0] >= "0" && VERSION2[0] <= "9" ? `v${VERSION2}` : "";
   function createLog() {
     const log2 = new ProbeLog({ id: "loaders.gl" });
@@ -2986,7 +2986,7 @@
   };
 
   // src/mvt-loader.ts
-  var VERSION3 = true ? "4.4.3" : "latest";
+  var VERSION3 = true ? "4.4.5" : "latest";
   var MVTWorkerLoader = {
     ...MVTFormat,
     dataType: null,

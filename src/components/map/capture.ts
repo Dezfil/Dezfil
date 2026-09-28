@@ -1,5 +1,5 @@
-import type maplibregl from "maplibre-gl";
-import type { MapboxOverlay } from "@deck.gl/mapbox";
+import type * as maplibregl from "maplibre-gl";
+import type { MapLibreOverlay } from "@deck.gl/maplibre";
 
 /**
  * Canvas capture for the map surface — extracted from MapCanvas (the
@@ -188,7 +188,7 @@ const READINESS_POLL_MS = 200;
  * not the wiring. Returns a disposer for the poll. */
 export function wireCaptureHandles(opts: {
   instance: maplibregl.Map;
-  overlay: MapboxOverlay;
+  overlay: MapLibreOverlay;
   fallbackColor: () => string;
   deckLayers: () => readonly unknown[];
   expectedLayerCount?: () => number;
@@ -247,7 +247,7 @@ export type CaptureAtSize = (
  * validation stays as the final gate. */
 async function settled(
   instance: maplibregl.Map,
-  overlay: MapboxOverlay,
+  overlay: MapLibreOverlay,
   overlayLoaded: () => boolean,
   buffersAtSize: () => boolean,
 ): Promise<void> {
@@ -280,9 +280,8 @@ async function settled(
     }
     // Deck redraws on its own loop; a repaint alone does not wake it.
     // The redraw call is deck's public instance API reached through the
-    // overlay's internal handle — the same shape as the maplibre private
-    // API the pole clamp rests on, guarded to a no-op when the internals
-    // move; the read-time validation still catches that case.
+    // overlay's internal handle, guarded to a no-op if that handle changes;
+    // the read-time validation still catches an unsettled canvas.
     (
       overlay as unknown as { _deck?: { redraw?: (reason: string) => void } }
     )._deck?.redraw?.("export-capture");
@@ -298,7 +297,7 @@ async function settled(
  */
 export async function captureAtSize(
   instance: maplibregl.Map,
-  overlay: MapboxOverlay,
+  overlay: MapLibreOverlay,
   target: CaptureTarget,
   fallbackColor: string,
   /** Whether the deck overlay's layers have all finished loading — the

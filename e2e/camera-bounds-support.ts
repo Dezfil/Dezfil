@@ -45,15 +45,18 @@ export async function expectPaintedCamera(host: Locator, requested: Camera) {
   await expect.poll(async () => {
     const live = await paintedCamera(host);
     const height = await host.evaluate(el => el.clientHeight);
-    expect(live.height).toBe(height);
     const expected = coveredCamera(requested, height, live.padding.top, live.padding.bottom);
-    return Math.max(...(["lng", "lat", "zoom", "pitch", "bearing"] as const)
+    // Resize updates the DOM before the renderer paints its new size.
+    // Return that transient mismatch to the poller instead of throwing
+    // inside the callback, which would abort the retry immediately.
+    return Math.max(Math.abs(live.height - height), ...(["lng", "lat", "zoom", "pitch", "bearing"] as const)
       .map(field => Math.abs(live[field] - expected[field])));
   }, { message: `painted camera matches ${JSON.stringify(requested)}` }).toBeLessThan(1e-7);
   // Hold the assertion past startup/resize observers and the camera save
   // debounce, so a transient correct first frame cannot certify a later fit.
   await host.page().waitForTimeout(1_200);
   const live = await paintedCamera(host);
+  expect(live.height).toBe(await host.evaluate(el => el.clientHeight));
   const expected = coveredCamera(requested, live.height, live.padding.top, live.padding.bottom);
   for (const field of ["lng", "lat", "zoom", "pitch", "bearing"] as const) {
     expect(live[field], field).toBeCloseTo(expected[field], 7);

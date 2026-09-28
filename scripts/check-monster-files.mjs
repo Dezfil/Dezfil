@@ -21,8 +21,8 @@ const CEILINGS = {
   "src/components/builder/MapBuilder.tsx": 1792,
   // The map canvas. Extractions so far: capture, the text sublayer, the
   // basemap content-group lifecycle, tiled-layer construction, pointer
-  // interaction, camera constraints and the shared paint readout.
-  "src/components/map/MapCanvas.tsx": 1384,
+  // interaction, camera constraints, the shared paint readout and overlay lifetime.
+  "src/components/map/MapCanvas.tsx": 1366,
   // Layer service. Extractions so far: layer geometry inspection and the
   // deletion cascade.
   "src/lib/layer-service.ts": 1554,

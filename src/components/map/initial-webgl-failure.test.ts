@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { GPUInitializationError } from "maplibre-gl";
 import {
   INITIAL_WEBGL_FAILURE_MESSAGE,
   attemptInitialWebGLMap,
@@ -6,26 +7,18 @@ import {
 } from "./initial-webgl-failure";
 
 describe("initial WebGL context failure", () => {
-  it("recognizes both established MapLibre forms", () => {
-    expect(
-      isInitialWebGLContextFailure(new Error("Failed to initialize WebGL")),
-    ).toBe(true);
-    expect(
-      isInitialWebGLContextFailure(
-        new Error(
-          JSON.stringify({
-            message: "Failed to initialize WebGL",
-            type: "webglcontextcreationerror",
-            statusMessage: "GPU unavailable",
-          }),
-        ),
-      ),
-    ).toBe(true);
+  it("recognizes the installed renderer's public error without matching its wording", () => {
+    const error = new GPUInitializationError({ antialias: false }, null);
+    expect(isInitialWebGLContextFailure(error)).toBe(true);
+    error.message = "The renderer changed its explanatory text";
+    expect(isInitialWebGLContextFailure(error)).toBe(true);
   });
 
   it("does not classify unrelated startup or second-renderer failures", () => {
     for (const error of [
       new Error("The style is malformed"),
+      new Error(new GPUInitializationError({}, null).message),
+      Object.assign(new Error("GPU unavailable"), { name: "GPUInitializationError" }),
       new Error("Failed to create WebGL context: Your browser does not support WebGL"),
       new Error(JSON.stringify({ message: "Failed to initialize the renderer" })),
       "Failed to initialize WebGL",
@@ -36,7 +29,7 @@ describe("initial WebGL context failure", () => {
 
   it("turns only the known failure into the stable user-facing state", () => {
     const start = vi.fn(() => {
-      throw new Error("Failed to initialize WebGL");
+      throw new GPUInitializationError({}, null);
     });
     expect(attemptInitialWebGLMap(start)).toEqual({
       ok: false,

@@ -169,11 +169,18 @@ itself by reading byte ranges out of the archive
 ## Rendering
 
 The canvas is deck.gl drawing over a MapLibre GL basemap, composited
-through deck.gl's overlay bridge in one module
-(`src/components/map/MapCanvas.tsx`). The default basemap is a keyless
+through deck.gl's MapLibre overlay bridge. `src/components/map/MapCanvas.tsx`
+coordinates the map; `src/components/map/canvas-overlay.ts` owns the separate
+data canvas and its capture lifetime. The default basemap is a keyless
 public vector style, with light, streets and imagery alternatives, and an
 instance can pin its own style URL for an air-gapped deployment
 (`src/lib/basemap.ts`).
+
+The renderer's ESM worker and shared chunk are served from the application
+origin under `public/workers/`. `src/lib/maplibre.ts` configures their URL
+before maps are constructed, so bundled pages and offline image exports
+use the same assets. Their bytes are checked against the installed package
+in the unit suite and against the built container by its inventory check.
 
 ## Hexagons and H3
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type RefObject } from "react";
-import maplibregl from "maplibre-gl";
+import * as maplibregl from "@/lib/maplibre";
 import styles from "./search-marker.module.css";
 
 /**

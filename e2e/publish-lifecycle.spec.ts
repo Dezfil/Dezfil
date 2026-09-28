@@ -24,6 +24,7 @@ import { test, expect } from "@playwright/test";
 import { readFileSync, chmodSync } from "node:fs";
 import path from "node:path";
 import { isAllowedConsoleError } from "./console-allowlist";
+import { MVT_WORKER_URL } from "../src/components/map/tiled-layer";
 import {
   FIXTURES_DIR,
   addLayer,
@@ -283,7 +284,7 @@ test("the tiled road reaches the reader, and its failure classes present specifi
       workerUrls.every(
         (url) =>
           url.origin === new URL(page.url()).origin &&
-          url.pathname === "/workers/loaders.gl-mvt-worker-4.4.3.js",
+          url.pathname === MVT_WORKER_URL,
       ),
     ).toBe(true);
     expect(workerUrls.some((url) => url.hostname === "unpkg.com")).toBe(false);
