@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "dezfil": {
+      "type": "http",
+      "url": "http://localhost:3000/api/mcp",
+      "bearer_token_env_var": "DEZFIL_API_TOKEN"
+    }
+  }
+}

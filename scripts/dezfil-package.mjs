@@ -33,7 +33,8 @@ export async function preparePackage({ destination, baseUrl }) {
     const plugin = path.join(temp, 'plugins/dezfil');
     await mkdir(plugin, { recursive: true });
     await cp(source, plugin, { recursive: true, dereference: true });
-    await save(path.join(plugin, '.mcp.json'), { mcpServers: { dezfil: { type: 'http', url: endpoint } } });
+    await save(path.join(plugin, '.mcp.json'), { mcpServers: { dezfil: { type: 'http', url: endpoint, headers: { Authorization: 'Bearer ${DEZFIL_API_TOKEN}' } } } });
+    await save(path.join(plugin, '.codex-mcp.json'), { mcpServers: { dezfil: { type: 'http', url: endpoint, bearer_token_env_var: 'DEZFIL_API_TOKEN' } } });
     await mkdir(path.join(temp, '.claude-plugin'));
     await save(path.join(temp, '.claude-plugin/marketplace.json'), {
       name: 'dezfil-local', owner: { name: 'Dezfil contributors' },
@@ -86,5 +87,6 @@ export async function resolvePackage(root, client) {
   if (Object.keys(config.mcpServers).join() !== 'dezfil') throw new Error('Unexpected connection identity');
   const connection = config.mcpServers.dezfil;
   if (connection.type !== 'http' || endpointFor(connection.url) !== connection.url) throw new Error('Invalid HTTP connection');
-  return { name: 'dezfil', type: connection.type, url: connection.url, version: manifest.version, plugin, skills, mcpFile, manifestFile, catalogFile };
+  if (client === 'claude' ? connection.headers?.Authorization !== 'Bearer ${DEZFIL_API_TOKEN}' : connection.bearer_token_env_var !== 'DEZFIL_API_TOKEN') throw new Error('Invalid token environment reference');
+  return { tokenEnv: 'DEZFIL_API_TOKEN', name: 'dezfil', type: connection.type, url: connection.url, version: manifest.version, plugin, skills, mcpFile, manifestFile, catalogFile };
 }

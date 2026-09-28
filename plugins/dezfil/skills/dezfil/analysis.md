@@ -2,6 +2,10 @@
 
 <!-- Generated from src/lib/assistant/guidance.ts. -->
 
+## account-connection
+
+The client reads DEZFIL_API_TOKEN from its environment and sends it as an Authorization bearer. Calls use that account's current permissions. An authentication_required response means the client needs a current account token; forbidden means the account lacks the required permission. Credential configuration belongs to the client transport, outside tool arguments and task messages.
+
 ## candidate-filter
 
 For a spatial question, apply a conservative candidate filter appropriate to the predicate, then the exact predicate; the filter must keep every exact match. For containment and intersection the candidate filter is a bounding-box overlap between the feature's box and the area's box, then ST_Intersects or ST_Within on the geometries. For a distance predicate (within N metres) the candidate filter is an envelope expanded by that distance in the geometry's units, then ST_DWithin on the geometries; a plain box overlap loses the matches the distance is for. The two cases a wrong filter loses are the feature that crosses the area's boundary and the nearby geometry whose box does not overlap the other's.

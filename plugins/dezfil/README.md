@@ -2,7 +2,7 @@
 
 This package connects a local client to a running Dezfil instance and adds
 the Dezfil skill, shared analytical guidance and two compact references.
-The client supplies its model. The connection needs no Dezfil model key or
+The client supplies its model. The connection requires a Dezfil account API
 token. Installing the package publishes no map or service.
 
 Prerequisites: a reachable Dezfil instance, Node.js 24 or newer, and a client
@@ -10,6 +10,13 @@ with local plugin support. Local catalog registration, plugin installation,
 status and package or catalog removal have been exercised with isolated
 settings on both supported clients; each installed the skill files and resolved
 the selected endpoint.
+
+Create a token in Settings under API / MCP tokens. Set `DEZFIL_API_TOKEN` in
+the environment that launches the client, using your shell or secret manager.
+The installed configuration contains an environment reference, never the token
+itself. Restart the client after changing its environment. Missing, invalid or
+revoked tokens refuse the connection; calls use the account's current role.
+Revoking a token in Settings stops its subsequent requests.
 
 ## Prepare a local source
 
@@ -98,7 +105,14 @@ before and after the native install when recording installation evidence.
 
 ## Package contents
 
-The two native manifests share `.mcp.json`. The generated `analysis.md` comes
+Claude Code reads `.mcp.json` and expands `${DEZFIL_API_TOKEN}` in its
+Authorization header. Codex reads `.codex-mcp.json` and resolves
+`bearer_token_env_var`. Both use the same endpoint and environment variable;
+the preparer does not read or copy the variable's value. These formats follow
+the [Claude MCP reference](https://code.claude.com/docs/en/mcp) and
+[Codex MCP reference](https://developers.openai.com/codex/mcp).
+
+The generated `analysis.md` comes
 from Dezfil's canonical analytical guidance, with separate external grounding.
 `references/cartography.md` and `references/duckdb-spatial.md` contain the
 bounded references and executable examples. `NOTICE`, `sources.json`,

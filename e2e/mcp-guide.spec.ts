@@ -9,7 +9,8 @@ for (const theme of ['light', 'dark']) test(`Developer guide: ${theme}, copy, ke
   const card = page.getByRole('region', { name: 'MCP server' });
   await expect(card).toBeVisible();
   const endpoint = new URL('/api/mcp', page.url()).href;
-  await expect(card.locator('code').first()).toHaveText(endpoint);
+  await expect(card.getByText(endpoint, { exact: true })).toBeVisible();
+  await expect(card.getByRole('link', { name: 'API / MCP token in Settings' })).toHaveAttribute('href', '/settings#tokens-heading');
   const selector = card.getByLabel('MCP client');
   await card.getByRole('link', { name: 'Client documentation' }).focus();
   await page.keyboard.press('Shift+Tab');
@@ -18,10 +19,12 @@ for (const theme of ['light', 'dark']) test(`Developer guide: ${theme}, copy, ke
   // macOS opens a closed native select on ArrowDown; selecting is platform-specific.
   await selector.selectOption('Codex');
   await expect(selector).toHaveValue('Codex');
-  for (const client of ['Claude Code', 'Codex', 'Cursor', 'Claude Desktop']) {
+  for (const client of ['Claude Code', 'Codex', 'Cursor']) {
     await selector.selectOption(client);
     const shown = await card.getByLabel(`${client} configuration`, { exact: true }).innerText();
     expect(shown).toContain(endpoint);
+    expect(shown).toContain('DEZFIL_API_TOKEN');
+    expect(shown).not.toContain('dz_token_');
     await selector.focus();
     await page.keyboard.press('Tab');
     await expect(card.getByRole('link', { name: 'Client documentation' })).toBeFocused();
@@ -31,8 +34,10 @@ for (const theme of ['light', 'dark']) test(`Developer guide: ${theme}, copy, ke
     await expect(card.getByText('Copied', { exact: true })).toBeVisible();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(shown);
   }
-  await expect(card.getByText('Claude Desktop’s remote connectors connect from Anthropic’s cloud. They cannot reach this private instance over plain HTTP.')).toBeVisible();
-  await expect(card.getByText('This instance has no authentication: anyone who can reach it can read, change, delete and publish its data through the API or MCP.')).toBeVisible();
+  await selector.selectOption('Claude Desktop');
+  await expect(card.getByText(/^Unsupported: remote custom connectors/)).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Copy', exact: true })).toHaveCount(0);
+  await expect(card.getByText('This checks your browser session. Other clients use their own API token.')).toBeVisible();
   const productCalls: string[] = [], toolCalls: string[] = [];
   page.on('request', request => {
     const pathname = new URL(request.url()).pathname;

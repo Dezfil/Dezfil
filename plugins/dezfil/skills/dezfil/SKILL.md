@@ -7,7 +7,9 @@ description: Analyze spatial data and create, refine, style or publish maps on a
 
 Dezfil is a file-native spatial SQL map builder with server-side DuckDB.
 Maps contain layers with editable SQL, style and legend settings. The connected
-instance supplies the available tools and their live argument schemas.
+instance supplies the available tools and their live argument schemas. The
+client requires an account token through DEZFIL_API_TOKEN; calls retain that
+account's current permissions. See [connection setup](../../README.md).
 
 Read [analysis.md](analysis.md) for the shared analytical guidance and external
 grounding. For styling, read [cartography](references/cartography.md). For SQL,

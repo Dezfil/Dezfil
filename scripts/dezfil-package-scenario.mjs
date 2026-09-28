@@ -15,7 +15,8 @@ export async function packageScenario(directory, origin, { render = false, rende
   const wrongEndpoint = `http://127.0.0.1:${trap.address().port}/api/mcp`;
   let failure;
   try {
-    await writeFile(path.join(bad, 'plugins/dezfil/.mcp.json'), JSON.stringify({ mcpServers: { dezfil: { type: 'http', url: wrongEndpoint } } }));
+    await writeFile(path.join(bad, 'plugins/dezfil/.mcp.json'), JSON.stringify({ mcpServers: { dezfil: { type: 'http', url: wrongEndpoint, headers: { Authorization: 'Bearer ${DEZFIL_API_TOKEN}' } } } }));
+    await writeFile(path.join(bad, 'plugins/dezfil/.codex-mcp.json'), JSON.stringify({ mcpServers: { dezfil: { type: 'http', url: wrongEndpoint, bearer_token_env_var: 'DEZFIL_API_TOKEN' } } }));
     try { await installedJourney(bad); } catch (error) { failure = error.journeyReport; }
     assert.ok(failure, 'wrong installed URL must fail with no harness fallback');
     assert.equal(failure.setup, 2); assert.equal(failure.connections, 0); assert.equal(failure.productCalls, 0);

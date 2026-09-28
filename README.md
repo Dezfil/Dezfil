@@ -140,14 +140,17 @@ Claude Code and Codex CLI can install the self-contained
 [Dezfil plugin](plugins/dezfil/README.md) from a checkout. It bundles the
 MCP connection, a Dezfil skill and compact cartography and DuckDB spatial
 references. Choose the instance address when preparing the local package.
+Create an API / MCP token in Settings and set `DEZFIL_API_TOKEN` in the
+client's environment. The package stores a reference, never the token value.
 
 Two ways to drive Dezfil with AI, both operating that same documented API:
 
 - **MCP** — `/api/mcp` uses Streamable HTTP and derives its tools, input/output
   schemas and consequence facts from OpenAPI. Deliberate exclusions are declared
   in that document. The Developer page supplies Claude Code, Codex and Cursor
-  configurations for the visible instance, explains Claude Desktop's private-HTTP
-  limitation, and checks the browser's MCP connection. The client brings its model;
+  token configurations for the visible instance, marks Claude Desktop's remote
+  connector unsupported for this setup, and checks the browser's MCP connection.
+  Each client uses an account token and its current privileges. The client brings its model;
   no Dezfil model credential is needed. Confirmation policy, target and
   consequence are advisory listing metadata; the client owns confirmation.
   Structured results add history associations and binary references beside the
@@ -163,8 +166,8 @@ Two ways to drive Dezfil with AI, both operating that same documented API:
   unchanged. The key is a server-side secret; it never reaches the browser or
   a published page. Destructive and publishing actions ask before running.
 
-The credential is per instance, matching the trust model above: anyone who can
-reach the instance can use the assistant it powers.
+The model credential is per instance. Signed-in accounts can use the assistant
+it powers, with tool calls retaining the caller's current privileges.
 
 Assistant clients reserve with `POST /api/assistant/runs` before sending a new
 message with that `runId` to `POST /api/assistant/messages`. Unreserved messages
