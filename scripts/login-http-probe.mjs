@@ -25,9 +25,13 @@ export async function loginHttpProbe(port, { recovery = true } = {}) {
   const secure = await request('127.0.0.1', member.email, member.password, proxy('198.51.100.50')); assert.equal(secure.status, 200);
   assert.ok(secure.headers['set-cookie'].some(value => /; Secure/i.test(value)), 'trusted HTTPS controls cookie security');
   assert.equal((await request('::1', member.email, member.password, { ...forged, origin: 'https://maps.example' })).status, 403, 'forged host/protocol cannot approve an unrelated Origin');
-  for (let i = 0; i < 5; i++) assert.equal((await request('127.0.0.1', journeyAccount.email, 'incorrect', proxy(`198.51.100.${i + 1}`))).status, 401);
-  const account = await request('127.0.0.1', journeyAccount.email, journeyAccount.password, proxy('198.51.100.50'));
+  for (const email of [journeyAccount.email, member.email]) {
+    for (let i = 0; i < 5; i++) assert.equal((await request('127.0.0.1', email, 'incorrect', proxy(`198.51.100.${i + 1}`))).status, 401);
+  }
+  const account = await request('127.0.0.1', journeyAccount.email, journeyAccount.password, proxy('198.51.100.1'));
   assert.equal(account.status, 429);
+  assert.equal((await request('127.0.0.1', member.email, 'incorrect', proxy('198.51.100.52'))).status, 401);
+  assert.equal((await request('127.0.0.1', member.email, member.password, proxy('198.51.100.52'))).status, 429);
   assert.equal((await request('127.0.0.1', member.email, member.password, proxy('198.51.100.50'))).status, 200);
   for (let i = 0; i < 20; i++) assert.equal((await request('::1', `unknown-${i}@example.test`, 'incorrect', { ...forged, 'x-forwarded-for': `203.0.113.${i + 1}` })).status, 401);
   const source = await request('::1', member.email, member.password, forged); assert.equal(source.status, 429);
@@ -39,12 +43,12 @@ export async function loginHttpProbe(port, { recovery = true } = {}) {
     assert.equal(limited.headers['cache-control'], 'private, no-store');
     assert.ok(Date.parse(limited.body.error.retryAt) > Date.now());
   }
-  console.log('confirmed: real entry routes enforce account/source budgets across distinct socket peers; trusted proxy independence and forged source/host/protocol/port refusal; retry deadline and secure-cookie truth');
+  console.log('confirmed: clean-source correct passwords survive account failures, wrong passwords count, and sources with recent failures remain throttled; socket source budgets, forged forwarding refusal, retry deadline and secure-cookie truth');
   if (recovery) {
     const until = Math.max(Date.parse(account.body.error.retryAt), Date.parse(source.body.error.retryAt));
     console.log(`Waiting for the real retry deadline: ${new Date(until).toISOString()}`);
     while (Date.now() <= until) await new Promise(resolve => setTimeout(resolve, Math.min(5000, until - Date.now() + 100)));
-    assert.equal((await request('127.0.0.1', journeyAccount.email, journeyAccount.password, proxy('198.51.100.50'))).status, 200);
+    assert.equal((await request('127.0.0.1', journeyAccount.email, journeyAccount.password, proxy('198.51.100.1'))).status, 200);
     assert.equal((await request('::1', member.email, member.password, forged)).status, 200);
     console.log('confirmed: account and source recover at the advertised deadline without administrator action or clock changes');
   }

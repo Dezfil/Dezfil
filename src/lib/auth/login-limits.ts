@@ -24,9 +24,14 @@ export async function withLoginLimit<T>(email: string, source: string, operation
         ? stored : { bucket, window_started_at: now, failures: 0, pending: 0 };
       return { row, limit };
     });
-    const blocked = rows.filter(({ row, limit }) => row.failures + row.pending >= limit);
+    const sourceBucket = rows.find(({ row }) => row.bucket === sourceKey)!.row;
+    // Account failures must not lock out a source that has not failed itself.
+    // Both reservations still record failures; source capacity always applies.
+    const blocked = rows.filter(({ row, limit }) => row.failures + row.pending >= limit
+      && (row.bucket === sourceKey || sourceBucket.failures > 0));
     if (blocked.length) {
-      const retryAt = Math.max(...blocked.map(({ row }) => row.window_started_at + LOGIN_WINDOW_MS));
+      const retryAt = Math.max(...blocked.map(({ row }) =>
+        Math.min(row.window_started_at, sourceBucket.window_started_at) + LOGIN_WINDOW_MS));
       throw new AuthError("rate_limited", "Too many sign-in attempts. Try again later.", 429,
         { retryAfter: Math.max(1, Math.ceil((retryAt - now) / 1000)), retryAt: new Date(retryAt).toISOString() });
     }

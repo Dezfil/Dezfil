@@ -9,6 +9,7 @@ import { authenticateSession, createApiToken, signOut } from "./credentials";
 import { inviteAccount, changeAccountAccess } from "./admin";
 import { currentSession, enter, entryInformation, leave } from "./entry";
 import { SESSION_COOKIE } from "./http";
+import { LOGIN_ACCOUNT_LIMIT } from "./login-limits";
 
 let db: Database;
 const password = "field notebooks at dawn";
@@ -111,4 +112,24 @@ it("keeps unknown, wrong-password and deactivated wrong-password failures identi
   expect(responses[0]).toEqual(responses[1]); expect(responses[1]).toEqual(responses[2]);
   const valid = await enter(request("/api/auth/sign-in", { email: "lin@example.test", password }), "sign-in");
   expect(valid.status).toBe(403); expect((await valid.json()).error.code).toBe("account_deactivated");
+});
+
+it("cannot forge a clean source to escape an account limit after failures on the real socket source", async () => {
+  await first();
+  const before = rows();
+  for (let index = 0; index < LOGIN_ACCOUNT_LIMIT; index++) {
+    const failed = await enter(request("/api/auth/sign-in", { email: "ada@example.test", password: "incorrect" },
+      { "x-forwarded-for": `192.0.2.${index + 1}`, "x-dezfil-ingress": "forged" }), "sign-in");
+    expect(failed.status).toBe(401);
+  }
+  const response = await enter(request("/api/auth/sign-in", { email: "ada@example.test", password },
+    { "x-forwarded-for": "198.51.100.1", forwarded: "for=198.51.100.1", "x-dezfil-ingress": "forged" }), "sign-in");
+  expect(response.status).toBe(429);
+  const body = await response.json();
+  expect(body.error.code).toBe("rate_limited");
+  expect(Number(response.headers.get("retry-after"))).toBe(body.error.retryAfter);
+  expect(body.error.retryAfter).toBeGreaterThan(0);
+  expect(response.headers.get("cache-control")).toBe("private, no-store");
+  expect(response.headers.get("set-cookie")).toBeNull();
+  expect(rows()).toEqual(before);
 });
