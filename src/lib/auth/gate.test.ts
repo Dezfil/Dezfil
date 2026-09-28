@@ -5,7 +5,7 @@ import * as metadata from "@/lib/metadata/db";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { createFirstAccount } from "./accounts";
 import { authenticateSession, createApiToken, revokeApiToken, signOut } from "./credentials";
-import { delegateSession } from "./delegation";
+import { delegateCredential } from "./delegation";
 import { gateRequest } from "./gate";
 import { SESSION_COOKIE } from "./http";
 let db: Database;
@@ -39,7 +39,7 @@ it("protects existing and future routes by default", () => {
 
 it("does not set a browser cookie for a bearer delegation", async () => {
   const signed = await first(), context = authenticateSession(signed.secret, db)!;
-  const delegation = delegateSession(context, db);
+  const delegation = delegateCredential(context, db);
   for (const cookie of [undefined, `${SESSION_COOKIE}=unrelated-cookie`]) {
     const response = gateRequest(input("/api/account", { authorization: `Bearer ${delegation}`, ...(cookie ? { cookie } : {}) }));
     expect(response.headers.get("x-middleware-next")).toBe("1");

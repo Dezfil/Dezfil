@@ -3,8 +3,8 @@ import puppeteer from "puppeteer-core";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
 import { createFirstAccount } from "@/lib/auth/accounts";
-import { authenticateSession, createApiToken, revokeApiToken, signOut } from "@/lib/auth/credentials";
-import { authenticateBearer, delegateSession } from "@/lib/auth/delegation";
+import { authenticateSession, authenticateToken, createApiToken, revokeApiToken, signOut } from "@/lib/auth/credentials";
+import { authenticateDelegation, delegateCredential } from "@/lib/auth/delegation";
 import { admitRenderRequest } from "./render-guard";
 import { renderRequestHeaders } from "./render-credentials";
 import { puppeteerDriver } from "./render-driver";
@@ -56,7 +56,8 @@ async function render(credential: string) {
 }
 it.each(["cookie", "token"])("injects %s identity only into exact-origin requests, including redirect hops", async mode => {
   const context = authenticateSession(signed.secret, db)!;
-  const credential = mode === "cookie" ? delegateSession(context, db) : createApiToken(context, "Render", db).secret;
+  const token = createApiToken(context, "Render", db);
+  const credential = delegateCredential(mode === "cookie" ? context : authenticateToken(token.secret, db)!, db);
   const urls = [origin + "/render/map", origin + "/api/maps/map", "https://tiles.example.test/style.json", "https://tiles.example.test/redirect.json",
     "http://127.0.0.1:3217/tile", "https://127.0.0.1:3216/tile", "http://localhost:3216/tile", origin + "/api/layers/layer/data", "data:image/png;base64,AA=="];
   const fixture = browserFixture(urls); expect(await render(credential)).toHaveProperty("png");
@@ -65,7 +66,8 @@ it.each(["cookie", "token"])("injects %s identity only into exact-origin request
     expect(headers.cookie).toBeUndefined(); expect(headers["proxy-authorization"]).toBeUndefined();
     if (new URL(url).origin === origin) {
       expect(headers.authorization).toBe(`Bearer ${credential}`);
-      expect(authenticateBearer(headers.authorization.slice(7), db)?.account.id).toBe(signed.account.id);
+      expect(authenticateDelegation(headers.authorization.slice(7), db)?.account.id).toBe(signed.account.id);
+      expect(headers.authorization).not.toContain(token.secret);
     } else expect(headers.authorization).toBeUndefined();
   }
   expect(vi.mocked(admitRenderRequest).mock.calls.map(args => args[0])).toEqual(urls);
@@ -74,7 +76,7 @@ it.each(["cookie", "token"])("injects %s identity only into exact-origin request
 });
 it.each(["revoked-session", "revoked-token", "expired", "deactivated"])("rechecks %s before the next private request", async mode => {
   const context = authenticateSession(signed.secret, db)!, token = createApiToken(context, "Render", db);
-  const credential = mode === "revoked-token" ? token.secret : delegateSession(context, db);
+  const credential = delegateCredential(mode === "revoked-token" ? authenticateToken(token.secret, db)! : context, db);
   const urls = [origin + "/render/map", origin + "/api/maps/map"];
   const fixture = browserFixture(urls, index => {
     if (index !== 0) return;
@@ -89,12 +91,20 @@ it.each(["revoked-session", "revoked-token", "expired", "deactivated"])("recheck
 });
 it("keeps egress denial ahead of readiness and refuses URL credentials", async () => {
   const fixture = browserFixture([origin + "/render/map", "https://denied.test/tile", "http://user:pass@127.0.0.1:3216/api/account"]);
-  expect(await render(delegateSession(authenticateSession(signed.secret, db)!, db))).toHaveProperty("failed");
+  expect(await render(delegateCredential(authenticateSession(signed.secret, db)!, db))).toHaveProperty("failed");
   expect(fixture.sent).toHaveLength(1); expect(fixture.aborted).toHaveLength(2); expect(fixture.page.screenshot).not.toHaveBeenCalled();
 });
 
 it("refuses a failed credential lookup instead of continuing the request", () => {
-  const credential = delegateSession(authenticateSession(signed.secret, db)!, db);
+  const credential = delegateCredential(authenticateSession(signed.secret, db)!, db);
   vi.mocked(metadata.metadataDb).mockImplementation(() => { throw new Error("Credential store unavailable"); });
   expect(renderRequestHeaders(origin + "/api/maps/map", origin, credential, {})).toBeNull();
+});
+
+it("refuses a durable token before it reaches the render browser", async () => {
+  const token = createApiToken(authenticateSession(signed.secret, db)!, "Render", db);
+  const fixture = browserFixture([origin + "/render/map"]);
+  expect(await render(token.secret)).toHaveProperty("failed");
+  expect(fixture.sent).toEqual([]);
+  expect(fixture.page.screenshot).not.toHaveBeenCalled();
 });

@@ -9,7 +9,7 @@ import { AuthError } from "./errors";
 export const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 export interface AuthContext {
   account: Account;
-  /** Expiry of a server-issued bearer bound to this browser session. */
+  /** Expiry of a server-issued bearer bound to this session or token. */
   delegationExpiresAt?: number;
   credential: { kind: "session" | "token"; id: string };
 }

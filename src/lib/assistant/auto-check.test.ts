@@ -1,3 +1,4 @@
+import { requireRequestAuth } from "@/lib/auth/http";
 import { instanceFetch } from "@/lib/auth/instance-fetch";
 import { authenticatedRequest } from "./testing/account";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -77,7 +78,7 @@ const done = (events: AssistantEvent[]) => events.find((e): e is Extract<Assista
 function run(script: ScriptEntry[], context: AssistantContext | undefined, deps: Partial<LoopDeps> = {}) {
   const stub = stubProvider(script);
   const store = new PendingActionStore();
-  const loop: LoopDeps = { baseUrl: origin, fetchImpl: instanceFetch(origin, authenticatedRequest().headers.get("authorization")!.slice(7)), pending: store, stepBudget: 8, ...deps };
+  const loop: LoopDeps = { baseUrl: origin, fetchImpl: instanceFetch(origin, requireRequestAuth(authenticatedRequest())), pending: store, stepBudget: 8, ...deps };
   return { stub, store, loop, start: (message = "go") => collect(runAssistant(stub, { message, history: [], context }, loop)) };
 }
 

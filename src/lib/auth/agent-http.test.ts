@@ -24,6 +24,7 @@ import { GET as status } from "@/app/api/assistant/route";
 import { GET as policy } from "@/app/api/assistant/policy/route";
 import { createFirstAccount } from "./accounts";
 import { authenticateSession, createApiToken, revokeApiToken, signOut } from "./credentials";
+import { authenticateDelegation, DELEGATION_LIFETIME_MS } from "./delegation";
 import { changeAccountAccess, inviteAccount } from "./admin";
 import { redeemSignInLink } from "./links";
 
@@ -144,7 +145,7 @@ it.each(["cookie", "token"])("MCP %s reads the caller and preserves admin refusa
   expect(state()).toEqual(before);
   expect(seen.map(item => item.accountId)).toEqual([member.account.id, member.account.id, member.account.id]);
   expect(seen.every(item => item.cookie === null)).toBe(true);
-  expect(seen.every(item => mode === "cookie" ? item.authorization.startsWith("Bearer dz_delegation_") : item.authorization === `Bearer ${token.secret}`)).toBe(true);
+  expect(seen.every(item => item.authorization.startsWith("Bearer dz_delegation_") && !item.authorization.includes(token.secret))).toBe(true);
   expect((await rpc("list_users", {}, cookie())).isError).toBe(false);
 });
 it.each(["cookie", "token", "demoted-token"])("assistant %s cannot confirm itself into admin access", async mode => {
@@ -227,4 +228,45 @@ it.each(["cookie", "token"])("revoking the %s between assistant actions stops th
   expect(events).toContainEqual(expect.objectContaining({ type: "tool_result", id: "first-read", ok: true }));
   expect(events).toContainEqual(expect.objectContaining({ type: "tool_result", id: "second-read", ok: false, body: { error: { code: "authentication_required", message: "Sign in to continue." } } }));
   expect(seen.filter(item => item.path === "/api/account")).toHaveLength(1);
+});
+
+it.each([
+  { mode: "cookie", parent: "valid" }, { mode: "token", parent: "valid" },
+  { mode: "cookie", parent: "revoked" }, { mode: "token", parent: "revoked" },
+  { mode: "cookie", parent: "expired" },
+])("a long assistant run with a $parent $mode parent rechecks authority at the next dispatch", async ({ mode, parent }) => {
+  const seen = actualApi(), context = authenticateSession(member.secret, db)!;
+  const headers = mode === "cookie" ? cookie(member.secret) : { authorization: `Bearer ${token.secret}` };
+  const own = await ownReservation(headers), startedAt = Date.now();
+  let now = startedAt;
+  vi.spyOn(Date, "now").mockImplementation(() => now);
+  factory.provider = stubProvider([
+    { text: "", toolCalls: [{ id: "early-read", name: "get_account", args: {} }] },
+    () => {
+      now += DELEGATION_LIFETIME_MS + 1;
+      if (parent === "revoked") {
+        if (mode === "cookie") signOut(context, db); else revokeApiToken(context, token.id, db);
+      }
+      if (parent === "expired") db.prepare("UPDATE auth_sessions SET expires_at = ? WHERE id = ?").run(now, context.credential.id);
+      return { text: "", toolCalls: [{ id: "late-read", name: "get_account", args: {} }] };
+    },
+    { text: "Finished", toolCalls: [] },
+  ]);
+  const events = await send({ runId: own, message: "Read twice across a long pause" }, headers);
+  expect(events).toContainEqual(expect.objectContaining({ type: "tool_result", id: "early-read", ok: true }));
+  const reads = seen.filter(item => item.path === "/api/account");
+  if (parent === "valid") {
+    expect(events).toContainEqual(expect.objectContaining({ type: "tool_result", id: "late-read", ok: true }));
+    expect(reads).toHaveLength(2);
+    const early = reads[0].authorization.slice(7), late = reads[1].authorization.slice(7);
+    expect(authenticateDelegation(early, db, startedAt)?.delegationExpiresAt).toBe(startedAt + DELEGATION_LIFETIME_MS);
+    expect(authenticateDelegation(early, db, now)).toBeNull();
+    expect(authenticateDelegation(late, db, now)).toMatchObject({ account: { id: member.account.id },
+      credential: { kind: mode === "cookie" ? "session" : "token" }, delegationExpiresAt: now + DELEGATION_LIFETIME_MS });
+    expect(reads.every(item => item.cookie === null && !item.authorization.includes(token.secret))).toBe(true);
+  } else {
+    expect(events).toContainEqual(expect.objectContaining({ type: "tool_result", id: "late-read", ok: false,
+      body: { error: { code: "authentication_required", message: "Sign in to continue." } } }));
+    expect(reads).toHaveLength(1);
+  }
 });

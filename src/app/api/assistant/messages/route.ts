@@ -1,6 +1,6 @@
 import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
 import { requireCurrentActor } from "@/lib/auth/credentials";
-import { instanceFetch, loopbackCredential } from "@/lib/auth/instance-fetch";
+import { instanceFetch } from "@/lib/auth/instance-fetch";
 import { executionControl, type ExecutionControl } from "@/lib/assistant/execution-control";
 import { readSubmission } from "@/lib/assistant/recovery-data";
 import { loadGrounding } from "@/lib/assistant/grounding";
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
   try {
     const actor = requireRequestAuth(request);
     const baseUrl = selfBaseUrl(request);
-    const fetchImpl = instanceFetch(baseUrl, loopbackCredential(request, actor));
+    const fetchImpl = instanceFetch(baseUrl, actor);
     const availability = assistantAvailability();
     if (!availability.enabled) {
       throw new ApiError("assistant_disabled", availability.reason, 404);

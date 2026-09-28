@@ -1,4 +1,4 @@
-import { loopbackCredential } from "@/lib/auth/instance-fetch";
+import { delegateCredential } from "@/lib/auth/delegation";
 import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
 import { NextResponse } from "next/server";
 import { ApiError } from "@/lib/api/errors";
@@ -64,7 +64,7 @@ export async function POST(request: Request, { params }: Params) {
       mapId: id,
       definition: definition as ExportImageDefinition,
       baseUrl: selfBaseUrl(request),
-      credential: loopbackCredential(request, actor),
+      credential: delegateCredential(actor),
       signal: request.signal,
     });
     const headers: Record<string, string> = {

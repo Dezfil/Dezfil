@@ -1,5 +1,5 @@
 import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
-import { instanceFetch, loopbackCredential } from "@/lib/auth/instance-fetch";
+import { instanceFetch } from "@/lib/auth/instance-fetch";
 import { selfBaseUrl } from "@/lib/self-url";
 import { buildMcpFetchHandler } from "@/lib/mcp/handler";
 
@@ -13,7 +13,7 @@ import { buildMcpFetchHandler } from "@/lib/mcp/handler";
 export async function POST(request: Request) {
   try {
     const context = requireRequestAuth(request);
-    const transport = instanceFetch(selfBaseUrl(request), loopbackCredential(request, context));
+    const transport = instanceFetch(selfBaseUrl(request), context);
     return privateResponse(await buildMcpFetchHandler(transport).fetch(request));
   } catch (error) { return authFailure(error); }
 }

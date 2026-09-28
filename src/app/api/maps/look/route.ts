@@ -1,4 +1,4 @@
-import { loopbackCredential } from "@/lib/auth/instance-fetch";
+import { delegateCredential } from "@/lib/auth/delegation";
 import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
 import { NextResponse } from "next/server";
 import { ApiError } from "@/lib/api/errors";
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       mapId: body.mapId,
       appearance: body.appearance,
       baseUrl: selfBaseUrl(request),
-      credential: loopbackCredential(request, actor),
+      credential: delegateCredential(actor),
       signal: request.signal,
     });
     // The retained working state: the image the model was given and its

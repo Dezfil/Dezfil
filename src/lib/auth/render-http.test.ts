@@ -14,7 +14,7 @@ import { inviteAccount } from "./admin";
 import { redeemSignInLink } from "./links";
 import { createFirstAccount } from "./accounts";
 import { authenticateSession, createApiToken, revokeApiToken, signOut } from "./credentials";
-import { authenticateBearer } from "./delegation";
+import { authenticateDelegation, DELEGATION_LIFETIME_MS } from "./delegation";
 import { gateRequest } from "./gate";
 
 vi.mock("@/lib/export/render-image", () => ({ renderMapImage: vi.fn() }));
@@ -71,9 +71,11 @@ it.each(["cookie", "token"])("%s identity reaches both render paths without ente
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     const input = vi.mocked(renderMapImage).mock.calls.at(-1)![0] as Parameters<typeof renderMapImage>[0] & { credential?: string };
     expect(typeof input.credential).toBe("string");
-    expect(authenticateBearer(input.credential!, db)?.account).toMatchObject({ id: signed.account.id, isAdmin: false });
-    if (mode === "token") expect(input.credential).toBe(token.secret);
-    else expect(input.credential).not.toBe(signed.secret);
+    expect(authenticateDelegation(input.credential!, db)).toMatchObject({ account: { id: signed.account.id, isAdmin: false },
+      credential: { kind: mode === "cookie" ? "session" : "token" } });
+    expect(authenticateDelegation(input.credential!, db, Date.now() + DELEGATION_LIFETIME_MS)).toBeNull();
+    expect(input.credential).not.toContain(token.secret);
+    expect(input.credential).not.toContain(signed.secret);
     expect(input.baseUrl).toBe(origin);
     const responseBytes = await response.text(), facts = JSON.stringify(lookRetention.ids().map(id => lookRetention.facts(id)));
     for (const value of [responseBytes, facts, JSON.stringify(input.definition), input.baseUrl]) {

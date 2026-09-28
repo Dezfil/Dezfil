@@ -1,3 +1,5 @@
+import { delegateCredential } from "@/lib/auth/delegation";
+import { requireRequestAuth } from "@/lib/auth/http";
 import { authenticatedRequest } from "@/lib/assistant/testing/account";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
@@ -118,7 +120,7 @@ describe.skipIf(!port)("the real bounded check renders the map", () => {
   afterAll(async () => { setLookDriverForTests(null); await basemap?.close(); vi.unstubAllEnvs(); });
 
   const look = async () => {
-    const result = await lookAtMap({ mapId, credential: authenticatedRequest().headers.get("authorization")!.slice(7), baseUrl: `http://127.0.0.1:${port}` });
+    const result = await lookAtMap({ mapId, credential: delegateCredential(requireRequestAuth(authenticatedRequest())), baseUrl: `http://127.0.0.1:${port}` });
     looks.push(result);
     console.info(JSON.stringify({ look: result.id, image: result.image.width + "x" + result.image.height, bytes: result.image.bytes, elapsedMs: result.elapsedMs, failures: result.composition.failures, abandoned: result.composition.abandoned }));
     return { result, decoded: decodePng(result.image.png) };
