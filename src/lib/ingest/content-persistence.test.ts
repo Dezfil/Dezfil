@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import Database from "better-sqlite3";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
+import { closeMetadataDb, metadataDb, MIGRATIONS } from "@/lib/metadata/db";
 import { getTableByName, type DataTable } from "@/lib/metadata/tables";
 import { inspectTable } from "@/lib/table-service";
 import { resetQueryInstance } from "@/lib/duckdb";
@@ -56,14 +57,17 @@ it("actual upload response, close/reopen and table inspection preserve the selec
 });
 
 it("legacy records remain absent after the next migration", async () => {
-  const legacy = await local("name,value\na,1\n");
-  // Simulate the earlier schema, including a real row, before reopen.
-  const db = metadataDb();
-  const columns = db.prepare("PRAGMA table_info(data_tables)").all() as { name: string }[];
-  if (columns.some(c => c.name === "geometry_recognition")) db.exec("ALTER TABLE data_tables DROP COLUMN geometry_recognition");
+  // Construct the historical store rather than winding back a current
+  // schema, which would replay unrelated additive migrations twice.
+  await mkdir(process.env.DEZFIL_DATA_DIR!, { recursive: true });
+  const db = new Database(path.join(process.env.DEZFIL_DATA_DIR!, "metadata.sqlite"));
+  for (const migration of MIGRATIONS.slice(0, 38)) db.exec(migration);
+  db.prepare(`INSERT INTO data_tables (id, name, format, file, row_count, created_at)
+    VALUES ('legacy', 'legacy', 'csv', 'tables/legacy.parquet', 1, ?)`)
+    .run(new Date().toISOString());
   db.pragma("user_version = 38");
-  closeMetadataDb();
-  const reopened = getTableByName(legacy.name) as WithRecord;
+  db.close();
+  const reopened = getTableByName("legacy") as WithRecord;
   expect(reopened.geometryRecord).toBeUndefined();
   expect(reopened.geometryCandidates).toBeUndefined();
   const newColumns = metadataDb().prepare("PRAGMA table_info(data_tables)").all() as { name: string }[];

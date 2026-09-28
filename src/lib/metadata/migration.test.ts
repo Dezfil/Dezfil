@@ -186,9 +186,10 @@ describe("v17: the note becomes a note widget", () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), "dezfil-note-"));
     const file = path.join(dir, "metadata.sqlite");
     try {
-      // A fully migrated database, wound back to v16 with a stored note —
-      // reopening replays exactly the v17 step.
-      let db = open(file);
+      // Build the historical schema directly; later migrations must not
+      // require this fixture to maintain a parallel downgrade catalogue.
+      let db = new Database(file);
+      for (const migration of MIGRATIONS.slice(0, 16)) db.exec(migration);
       const now = new Date().toISOString();
       db.prepare(
         `INSERT INTO maps (id, name, view_lng, view_lat, view_zoom, created_at, updated_at, note, widgets)
@@ -202,39 +203,12 @@ describe("v17: the note becomes a note widget", () => {
         now,
         JSON.stringify({ title: null, body: "Just a body", corner: "bottom-left" }),
       );
-      // The fixture widget's layer must exist, or the v21 sweep (spec
+      // The fixture widget's layer must exist, or the orphan sweep
       // would rightly drop the widget on replay.
       db.prepare(
         `INSERT INTO layers (id, map_id, name, sql, style, ordinal, created_at, updated_at)
          VALUES ('l1', 'm2', 'L', 'SELECT 1', '{}', 0, ?, ?)`,
       ).run(now, now);
-      // Winding back past every later migration must also drop what
-      // they created, or the replay would recreate existing columns and
-      // tables.
-      db.exec("DROP TABLE custom_palettes");
-      db.exec("ALTER TABLE maps DROP COLUMN view_pitch");
-      db.exec("ALTER TABLE maps DROP COLUMN view_bearing");
-      db.exec("ALTER TABLE layers DROP COLUMN published_fields");
-      db.exec("ALTER TABLE maps DROP COLUMN published_theme");
-      db.exec("ALTER TABLE maps DROP COLUMN viewer_controls");
-      db.exec("ALTER TABLE maps DROP COLUMN custom_basemap");
-      db.exec("ALTER TABLE maps DROP COLUMN legend_order");
-      db.exec("DROP TABLE operation_jobs");
-      db.exec("DROP TABLE cascade_members");
-      db.exec("DROP TABLE cascade_runs");
-      db.exec("DROP TABLE lineage_edges");
-      db.exec("DROP TABLE recipe_layouts");
-      db.exec("DROP TABLE recipe_steps");
-      db.exec("DROP TABLE recipes");
-      db.exec("DROP TABLE project_datasets");
-      db.exec("DROP INDEX idx_maps_project");
-      db.exec("ALTER TABLE maps DROP COLUMN project_id");
-      db.exec("DROP TABLE projects");
-      db.exec("ALTER TABLE pg_connections DROP COLUMN last_checked_at");
-      db.exec("ALTER TABLE pg_connections DROP COLUMN last_check_outcome");
-      db.exec("ALTER TABLE pg_connections DROP COLUMN last_check_error");
-      db.exec("ALTER TABLE pg_connections DROP COLUMN server_version");
-      db.exec("ALTER TABLE pg_connections DROP COLUMN postgis_version");
       db.pragma("user_version = 16");
       db.close();
 

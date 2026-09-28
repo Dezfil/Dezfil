@@ -480,5 +480,61 @@ export const MIGRATIONS: string[] = [
   // v39 — CSV recognition evidence, swapped with each artifact. No
   // backfill: legacy rows carry no invented recognition provenance.
   `ALTER TABLE data_tables ADD COLUMN geometry_recognition TEXT;`,
-
+  // Accounts and credentials are additive. Legacy personal settings are
+  // adopted only when the first account is successfully created.
+  `CREATE TABLE accounts (
+     id TEXT PRIMARY KEY,
+     name TEXT NOT NULL,
+     email TEXT NOT NULL UNIQUE,
+     password_hash TEXT,
+     is_admin INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1)),
+     status TEXT NOT NULL CHECK (status IN ('invited', 'active', 'deactivated')),
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL,
+     last_sign_in_at TEXT
+   );
+   CREATE TABLE original_account (
+     singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+     account_id TEXT NOT NULL UNIQUE REFERENCES accounts(id)
+   );
+   CREATE TRIGGER original_account_no_update BEFORE UPDATE ON original_account
+     BEGIN SELECT RAISE(ABORT, 'The original account cannot change'); END;
+   CREATE TRIGGER original_account_no_delete BEFORE DELETE ON original_account
+     BEGIN SELECT RAISE(ABORT, 'The original account cannot be removed'); END;
+   CREATE TABLE account_preferences (
+     account_id TEXT PRIMARY KEY REFERENCES accounts(id),
+     view_prefs TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE TABLE auth_sessions (
+     id TEXT PRIMARY KEY,
+     secret_hash TEXT NOT NULL UNIQUE,
+     account_id TEXT NOT NULL REFERENCES accounts(id),
+     created_at INTEGER NOT NULL,
+     expires_at INTEGER NOT NULL,
+     last_used_at INTEGER NOT NULL,
+     revoked_at INTEGER
+   );
+   CREATE INDEX idx_auth_sessions_account ON auth_sessions(account_id);
+   CREATE TABLE auth_tokens (
+     id TEXT PRIMARY KEY,
+     account_id TEXT NOT NULL REFERENCES accounts(id),
+     name TEXT NOT NULL,
+     secret_hash TEXT NOT NULL UNIQUE,
+     created_at INTEGER NOT NULL,
+     last_used_at INTEGER,
+     revoked_at INTEGER
+   );
+   CREATE INDEX idx_auth_tokens_account ON auth_tokens(account_id);
+   CREATE TABLE auth_links (
+     id TEXT PRIMARY KEY,
+     account_id TEXT NOT NULL REFERENCES accounts(id),
+     kind TEXT NOT NULL CHECK (kind IN ('invite', 'reset')),
+     secret_hash TEXT NOT NULL UNIQUE,
+     created_at INTEGER NOT NULL,
+     expires_at INTEGER NOT NULL,
+     consumed_at INTEGER,
+     revoked_at INTEGER
+   );
+   CREATE INDEX idx_auth_links_account ON auth_links(account_id);`,
 ];
