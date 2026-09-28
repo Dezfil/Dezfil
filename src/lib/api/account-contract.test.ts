@@ -13,7 +13,11 @@ it("publishes the six own-account operations with explicit credential, effects a
     expect(operation.description).toContain("private, no-store");
     for (const status of ["400", "401", "403", "503"]) expect(operation.responses).toHaveProperty(status);
     const tool = buildTools().find(tool => tool.name === operation["x-tool"]);
-    expect(tool).toBeDefined(); expect(tool?.effects).toEqual(operation["x-effects"]);
+    expect(tool).toBeDefined();
+    // Pin the intended effects independently of the document used to generate tools.
+    expect(tool?.effects).toEqual(["get_account", "list_api_tokens"].includes(tool!.name)
+      ? { readOnly: true, writes: [] }
+      : { readOnly: false, writes: [{ resource: "accounts", collection: true }] });
     names.push(operation["x-tool"]);
   }
   expect(names.sort()).toEqual(["change_password", "create_api_token", "get_account", "list_api_tokens", "revoke_api_token", "update_account"]);

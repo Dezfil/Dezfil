@@ -10,7 +10,11 @@ it("generates every admin operation with current-authority and consequence metad
     expect(operation.description).toContain("private, no-store");
     for (const status of ["401", "403", "409"]) expect(operation.responses).toHaveProperty(status);
     const tool = buildTools().find(tool => tool.name === operation["x-tool"])!;
-    expect(tool.effects).toEqual(operation["x-effects"]);
+    // Pin the intended effects independently of the document used to generate tools.
+    expect(tool.effects).toEqual(tool.name === "list_users" ? { readOnly: true, writes: [] } : {
+      readOnly: false, writes: [{ resource: "accounts", collection: true,
+        ...(tool.name === "invite_user" ? { result: "account.id" } : { argument: "id" }) }],
+    });
     expect(tool.confirm).toBe(!tool.effects.readOnly); names.push(tool.name);
   }
   expect(names.sort()).toEqual(["invite_user", "issue_user_sign_in_link", "list_users", "update_user_access"]);
