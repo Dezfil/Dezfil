@@ -67,6 +67,9 @@ describe("tool parity", () => {
       // a model calling it would read its own offer.
       "GET /api/assistant/policy",
       "GET /api/assistant/runs/{id}",
+      // Entry and session exchange belong to the caller transport.
+      "GET /api/auth/entry",
+      "GET /api/auth/session",
       // The configured imagery style is a renderer asset, like the tile
       // endpoints below: an agent reads the basemap offer from the
       // configuration, never the style document.
@@ -88,6 +91,10 @@ describe("tool parity", () => {
       "POST /api/assistant/messages",
       "POST /api/assistant/runs",
       "POST /api/assistant/runs/{id}/cancel",
+      "POST /api/auth/redeem",
+      "POST /api/auth/setup",
+      "POST /api/auth/sign-in",
+      "POST /api/auth/sign-out",
       "POST /api/layers/{id}/render",
       "POST /api/mcp",
       "POST /api/published/{token}/render/{layerId}",

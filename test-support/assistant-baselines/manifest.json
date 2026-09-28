@@ -36,11 +36,11 @@
   },
   "identities": {
     "file": "identities.json",
-    "sha256": "a1376ca6eca0b62da13a721790c2bc0e7813d4a96d88dd2fab12c983ae3d0b04",
+    "sha256": "4f82d4ed6cf51c09bd064ec7d9934ff3cddc9b725aadc5f6de5b963c3b37882f",
     "counts": {
-      "operations": 139,
+      "operations": 145,
       "tools": 116,
-      "exclusions": 23
+      "exclusions": 29
     }
   },
   "packagePrompt": {

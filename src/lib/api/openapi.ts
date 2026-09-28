@@ -1,3 +1,4 @@
+import { AUTH_PATHS, AUTH_SCHEMAS, AUTH_SECURITY_SCHEMES } from "./openapi-auth";
 import { settingsContract } from "./openapi-settings";
 import { SKETCH_ROW_COUNT_RESPONSE, QUERY_EXPORT_TICKET, PROJECT_EXPORT_TICKET } from "./openapi-tool-responses";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_TRANSIENT_READ, LOCAL_REPLACE, MAP_LOOK, REMOTE_ADD, REMOTE_READ, REMOTE_REPLACE, WORKFLOW_RUN } from "./operation-mcp";
@@ -70,6 +71,7 @@ export function buildOpenApiDocument() {
         "one of these documented calls; the whole journey can be driven headlessly.",
     },
     tags: [
+      { name: "Accounts", description: "Local accounts and authentication." },
       { name: "System", description: "Health and configuration." },
       { name: "Tables", description: "Uploaded data as queryable tables." },
       { name: "Query", description: "Read-only SQL against tables." },
@@ -120,6 +122,7 @@ export function buildOpenApiDocument() {
       },
     ],
     paths: {
+      ...AUTH_PATHS,
       ...GEOMETRY_RESOURCE_PATHS,
       "/api/health": {
         get: op({
@@ -4515,7 +4518,9 @@ export function buildOpenApiDocument() {
       },
     },
     components: {
+      securitySchemes: AUTH_SECURITY_SCHEMES,
       schemas: {
+        ...AUTH_SCHEMAS,
         // Documented as a schema only: the operation that consumes it is
         // the server renderer's feature, and a tool name before that
         // operation exists would hand agents an inert schema and call it
@@ -4610,6 +4615,8 @@ export function buildOpenApiDocument() {
               properties: {
                 code: { type: "string", enum: Object.keys(ERROR_CATALOGUE) },
                 message: { type: "string" },
+                retryAfter: { type: "integer", minimum: 1, description: "Seconds until a login limit permits another attempt." },
+                retryAt: { type: "string", format: "date-time", description: "When a login limit permits another attempt." },
               issues: { type: "array", items: { $ref: "#/components/schemas/GeometryIssue" }, description: "Geometry-choice refusal reasons, when applicable." },
                 position: {
                   type: "object",

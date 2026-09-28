@@ -91,7 +91,8 @@ describe("the policy read is no tool", () => {
     const excluded = Object.entries(doc.paths).flatMap(([p, methods]) => Object.entries(methods).filter(([, op]) => op["x-tool"] === false).map(([m]) => `${m.toUpperCase()} ${p}`));
     // 23 once imagery became a configured basemap: its style document is
     // a renderer asset, not an operation an agent calls.
-    expect(excluded).toHaveLength(23);
+    // Entry/session exchange adds six caller-transport operations.
+    expect(excluded).toHaveLength(29);
     expect(excluded).toContain("GET /api/assistant/policy");
   });
 });

@@ -3,7 +3,7 @@
  */
 export type ProductResource =
   | "maps" | "layers" | "tables" | "publications" | "recipes" | "runs"
-  | "projects" | "connections" | "palettes" | "settings" | "assistant";
+  | "projects" | "connections" | "palettes" | "accounts" | "settings" | "assistant";
 
 export interface ResourceWrite {
   resource: ProductResource;

@@ -7,6 +7,7 @@ import { revokeSessions } from "@/lib/metadata/auth-credentials";
 import { AuthError } from "./errors";
 import { issueSession, requireCurrentActor, type AuthContext } from "./credentials";
 import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from "./passwords";
+import { adoptLegacyPreferences } from "./adoption";
 
 /** Call under the write transaction, after authorizing the caller. */
 export function requireAvailableEmail(email: string, exceptId: string | null, db: Database, admin = false): void {
@@ -42,6 +43,8 @@ export function identityFields(name: string, email: string) {
 
 export async function createFirstAccount(input: { name: string; email: string; password: string },
   db: Database = metadataDb(), now?: number) {
+  // The write transaction repeats this check after asynchronous password work.
+  if (accountCount(db) !== 0) throw new AuthError("setup_complete", "This instance is already set up.", 409);
   const fields = identityFields(input.name, input.email);
   const passwordHash = await hashPassword(input.password);
   return db.transaction(() => {
@@ -50,6 +53,7 @@ export async function createFirstAccount(input: { name: string; email: string; p
     const account = insertAccount({ id: randomUUID(), ...fields, passwordHash, isAdmin: true,
       status: "active", now: new Date(at).toISOString() }, db);
     markOriginalAccount(account.id, db);
+    adoptLegacyPreferences(account.id, db);
     db.prepare("UPDATE accounts SET last_sign_in_at = ? WHERE id = ?").run(new Date(at).toISOString(), account.id);
     return issueSession(getAccount(account.id, db)!, db, at);
   }).immediate();
