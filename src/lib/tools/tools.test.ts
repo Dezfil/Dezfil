@@ -249,7 +249,9 @@ describe("tool parity", () => {
       .map((t) => t.name)
       .sort();
     expect(confirmed).toEqual([
+      "change_password",
       "clear_table_geometry",
+      "create_api_token",
       "delete_layer",
       "delete_map",
       "delete_palette",
@@ -261,6 +263,7 @@ describe("tool parity", () => {
       "delete_table",
       "publish_map",
       "remove_recipe_step",
+      "revoke_api_token",
       "unpublish_map",
     ]);
     for (const tool of buildTools().filter((t) => t.confirm)) {

@@ -56,6 +56,12 @@ The settings read and update are generated as `get_settings` and
 and view preferences. Updating the instance name requires current admin
 authority; a forbidden or invalid field refuses the entire patch.
 
+Own-account operations generate `get_account`, `update_account`,
+`change_password`, `list_api_tokens`, `create_api_token` and `revoke_api_token`.
+They always address the authenticated caller. Password changes, token creation
+and revocation declare confirmation and their access consequences in the
+contract. Token secrets appear only in the creation response.
+
 Derivation is pure over a static document, so the tool set is built once per
 process and reused.
 
@@ -63,8 +69,8 @@ process and reused.
 
 | | |
 |---|---|
-| Documented operations | 145 |
-| Operations that become tools | 118 |
+| Documented operations | 151 |
+| Operations that become tools | 124 |
 | Deliberately excluded | 27 |
 
 Measured by building the OpenAPI document and the tool set from

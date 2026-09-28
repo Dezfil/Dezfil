@@ -9,5 +9,6 @@ export function isEntryRequest(pathname: string, method: string): boolean {
 /** Account surfaces adopt the gate before the existing clients are switched. */
 export function usesAccountGate(pathname: string): boolean {
   return pathname === "/api/auth" || pathname.startsWith("/api/auth/") ||
+    pathname === "/api/account" || pathname.startsWith("/api/account/") ||
     ["/setup", "/sign-in", "/accept"].includes(pathname);
 }

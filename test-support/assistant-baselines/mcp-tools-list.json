@@ -1,7 +1,13 @@
 {
-  "count": 118,
-  "overall": "6c186f933e54fb15ae24a52febdadd848912683f214cb24abe6dae67b34cabfd",
+  "count": 124,
+  "overall": "0fa1f84ff06bc99ce83c04c0fcc21dcb2e0790c3d52fa3786b7fb423ade986f9",
   "tools": {
+    "get_account": "e048eeba206a224894ad89f1520f2f520ec17f541e03c080599150bdc09777e4",
+    "update_account": "8a12e0c77477b1b971a344fa5d977951657891329764867c012b892fb454a9a6",
+    "change_password": "41d2006d4206403ac7f96aec9018a4cbc803df24ad286e724a99a5641a0f412c",
+    "list_api_tokens": "aa2e7ea044db8b564b4e66f0f5fb2f8957a58026e4ba8bc466f4a3d568553fa0",
+    "create_api_token": "5c990a640bbf3244b80bf57c40b3e6d21b5887798685a7bf734a8606904e8fb1",
+    "revoke_api_token": "bd3807444cf83577d89565a2bf4a0e8b8d19a08d43398ce96f90eaa3d1c41718",
     "inspect_table_geometry": "c45845de5507f4209d5510da39bfe0f7ef1b64799a378d24e0bc2af859b8f932",
     "set_table_geometry": "5060dc2bc1b0a4b73b4bdb8f1e4f07f5948ee2a664aedb3e613178ef8435e46d",
     "clear_table_geometry": "4f43ab9f912bacdbedfa7660c78c531a47afd99afc38adcfb2701e8fee7c16e1",

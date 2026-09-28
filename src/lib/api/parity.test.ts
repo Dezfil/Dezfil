@@ -532,7 +532,7 @@ describe("API parity", () => {
       (f) => f.endsWith(".tsx") || f.endsWith(".ts"),
     );
     const calls: string[] = [];
-    const fetchRe = /fetch\(\s*[`"']([^`"']*\/api\/[^`"']*)[`"']/g;
+    const fetchRe = /(?:fetch|accountRequest(?:<[^;]*?>)?)\(\s*[`"']([^`"']*\/api\/[^`"']*)[`"']/g;
     for (const file of uiFiles) {
       const src = readFileSync(file, "utf8");
       let m: RegExpExecArray | null;

@@ -1,3 +1,4 @@
+import { ACCOUNT_PATHS, ACCOUNT_SCHEMAS } from "./openapi-account";
 import { AUTH_PATHS, AUTH_SCHEMAS, AUTH_SECURITY_SCHEMES } from "./openapi-auth";
 import { settingsContract } from "./openapi-settings";
 import { SKETCH_ROW_COUNT_RESPONSE, QUERY_EXPORT_TICKET, PROJECT_EXPORT_TICKET } from "./openapi-tool-responses";
@@ -123,6 +124,7 @@ export function buildOpenApiDocument() {
     ],
     paths: {
       ...AUTH_PATHS,
+      ...ACCOUNT_PATHS,
       ...GEOMETRY_RESOURCE_PATHS,
       "/api/health": {
         get: op({
@@ -4521,6 +4523,7 @@ export function buildOpenApiDocument() {
       securitySchemes: AUTH_SECURITY_SCHEMES,
       schemas: {
         ...AUTH_SCHEMAS,
+        ...ACCOUNT_SCHEMAS,
         // Documented as a schema only: the operation that consumes it is
         // the server renderer's feature, and a tool name before that
         // operation exists would hand agents an inert schema and call it

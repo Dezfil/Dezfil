@@ -87,7 +87,7 @@ describe("the policy read is no tool", () => {
     expect(doc.paths["/api/assistant/policy"].get["x-tool"]).toBe(false);
     expect(buildTools().some((t) => t.path === "/api/assistant/policy")).toBe(false);
     // The map check and image read, plus authenticated settings read/update.
-    expect(buildTools()).toHaveLength(118);
+    expect(buildTools()).toHaveLength(124);
     const excluded = Object.entries(doc.paths).flatMap(([p, methods]) => Object.entries(methods).filter(([, op]) => op["x-tool"] === false).map(([m]) => `${m.toUpperCase()} ${p}`));
     // 23 once imagery became a configured basemap: its style document is
     // a renderer asset, not an operation an agent calls.

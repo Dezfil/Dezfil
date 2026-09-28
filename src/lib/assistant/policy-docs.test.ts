@@ -15,8 +15,9 @@ import { POLICY_REFUSAL_CODE } from "./policy";
  * plus schema-only catalogue read, plus spec two (the map check and
  * its image read). Enforcement adds no tool and removes none; a moved
  * count is a reviewed change, never a side effect of the policy.
- * Authenticated settings adds its read and update operations. */
-const GENERATED_TOOLS = 118;
+ * Authenticated settings adds its read and update operations. Own-account
+ * profile, password and token controls add six operations. */
+const GENERATED_TOOLS = 124;
 
 describe("the page action policy is documented", () => {
   const document = buildOpenApiDocument();

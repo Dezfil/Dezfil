@@ -59,13 +59,14 @@ export function authFailure(error: unknown): Response {
   if (error.code === "rate_limited") response.headers.set("retry-after", String(error.extra.retryAfter));
   return privateResponse(response);
 }
-export async function authBody(request: Request, fields: readonly string[]): Promise<Record<string, string>> {
+export async function authBody(request: Request, fields: readonly string[], required = fields): Promise<Record<string, string>> {
   if (request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json") {
     throw new AuthError("invalid_request", "Expected a JSON body.", 400);
   }
   const value: unknown = await request.json().catch(() => null);
   if (!value || typeof value !== "object" || Array.isArray(value) ||
-      Object.keys(value).some(key => !fields.includes(key)) || fields.some(key => typeof (value as Record<string, unknown>)[key] !== "string")) {
+      Object.entries(value).some(([key, item]) => !fields.includes(key) || typeof item !== "string") ||
+      required.some(key => typeof (value as Record<string, unknown>)[key] !== "string")) {
     throw new AuthError("invalid_request", "Enter the required account details.", 400);
   }
   return value as Record<string, string>;

@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **110 paths, 145 operations, 139 named
+Measured from the current source: **114 paths, 151 operations, 144 named
 component schemas.**
 
 ## Base path and access
@@ -62,6 +62,21 @@ and returns `401` for missing or invalid credentials. `displayName` and
 preferences. A non-admin patch containing `instanceName` returns `403`, with
 all personal and instance fields unchanged. Identity-bearing responses and
 refusals use `Cache-Control: private, no-store`.
+
+**Account.** `GET`/`PATCH /api/account` read and update only the caller's
+profile. A name change needs no password; changing email requires
+`currentPassword`, rejects normalized duplicates and changes the sign-in
+identity. `POST /api/account/password` takes `currentPassword` and `password`,
+preserves the calling browser session, ends other sessions and leaves tokens
+valid. A bearer caller has no browser session to preserve.
+
+`GET`/`POST /api/account/tokens` list or create the caller's named API/MCP
+tokens. Creation returns the secret once; list responses never contain secrets
+or hashes. `DELETE /api/account/tokens/{id}` revokes an own token; another
+account's token ID returns `404` without changing it. Missing, invalid,
+revoked or deactivated credentials return `401` on every account operation.
+These operations use the same private response and cookie-origin rules as
+settings. The Account and API / MCP tokens cards in Settings call these APIs.
 
 **Tables.** The catalogue of datasets. `POST /api/tables` takes a
 `multipart/form-data` upload; `POST /api/imports/url`,
