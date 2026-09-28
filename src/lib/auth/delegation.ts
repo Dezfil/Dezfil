@@ -1,0 +1,45 @@
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import type { Database } from "better-sqlite3";
+import { metadataDb } from "@/lib/metadata/db";
+import { getAccount } from "@/lib/metadata/accounts";
+import { sessionById } from "@/lib/metadata/auth-credentials";
+import { authenticateToken, requireCurrentActor, type AuthContext } from "./credentials";
+import { AuthError } from "./errors";
+
+export const DELEGATION_LIFETIME_MS = 5 * 60 * 1000;
+const PREFIX = "dz_delegation_";
+const KEY = Symbol.for("dezfil.session-delegation-key");
+function key(): Buffer {
+  // Process state is shared by separately bundled server routes and the proxy.
+  // Replacement discards the signing key; no delegation is a durable token.
+  const state = process as typeof process & { [KEY]?: Buffer };
+  return state[KEY] ??= randomBytes(32);
+}
+function sign(payload: string): Buffer { return createHmac("sha256", key()).update(payload).digest(); }
+
+export function delegateSession(context: AuthContext, db: Database = metadataDb(), now = Date.now()): string {
+  const account = requireCurrentActor(context, db, now);
+  if (context.credential.kind !== "session") throw new AuthError("authentication_required", "A browser session is required.", 401);
+  const expiresAt = Math.min(now + DELEGATION_LIFETIME_MS, context.delegationExpiresAt ?? Infinity);
+  const payload = Buffer.from(JSON.stringify({ accountId: account.id, sessionId: context.credential.id, expiresAt })).toString("base64url");
+  return PREFIX + payload + "." + sign(payload).toString("hex");
+}
+
+export function authenticateDelegation(secret: string, db: Database = metadataDb(), now = Date.now()): AuthContext | null {
+  if (!secret.startsWith(PREFIX)) return null;
+  const [payload, signature, extra] = secret.slice(PREFIX.length).split(".");
+  if (extra !== undefined || !payload || !/^[a-f0-9]{64}$/.test(signature ?? "")) return null;
+  if (!timingSafeEqual(sign(payload), Buffer.from(signature, "hex"))) return null;
+  let value: { accountId?: unknown; sessionId?: unknown; expiresAt?: unknown };
+  try { value = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")); } catch { return null; }
+  if (!value || typeof value.accountId !== "string" || typeof value.sessionId !== "string" ||
+      typeof value.expiresAt !== "number" || !Number.isSafeInteger(value.expiresAt) || value.expiresAt <= now) return null;
+  const parent = sessionById(value.sessionId, db);
+  const account = parent && getAccount(parent.account_id, db);
+  if (!parent || !account || account.id !== value.accountId || account.status !== "active" || parent.revoked_at !== null || parent.expires_at <= now) return null;
+  return { account, credential: { kind: "session", id: parent.id }, delegationExpiresAt: value.expiresAt };
+}
+
+export function authenticateBearer(secret: string, db: Database = metadataDb(), now = Date.now()): AuthContext | null {
+  return secret.startsWith(PREFIX) ? authenticateDelegation(secret, db, now) : authenticateToken(secret, db, now);
+}

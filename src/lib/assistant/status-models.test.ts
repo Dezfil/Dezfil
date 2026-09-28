@@ -1,6 +1,9 @@
+import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GET as status } from "@/app/api/assistant/route";
+import { GET as statusHandler } from "@/app/api/assistant/route";
 import { limits } from "@/lib/limits";
+
+const status = authenticatedRoute(statusHandler);
 
 /**
  * What the documented status read tells a client about the choices this
@@ -9,7 +12,7 @@ import { limits } from "@/lib/limits";
  * model offers. A list configured under the provider this instance did not
  * resolve changes nothing it reports.
  *
- * The read holds no credential, constructs no client and reaches no
+ * The response holds no provider credential, constructs no client and reaches no
  * network, and that is checked here rather than assumed: both provider
  * SDKs are replaced by constructors that throw, `fetch` is replaced by a
  * throw, and the traps are shown to fire when touched — otherwise the

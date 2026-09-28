@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+import { authenticatedRequest } from "./account";
 import { socketRequest } from "./socket-request";
 // Test-only loopback routing. All handlers are the shipped routes, loaded only
 // when requested. A live model has the same documented tool catalogue as a
@@ -14,7 +15,7 @@ const routes = Object.entries(modules).map(([file, load]) => {
   return { pattern: new RegExp(`^${pattern}$`), keys, load };
 }).sort((a, b) => a.keys.length - b.keys.length);
 export async function dispatchAssistantTestRoute(request: Request): Promise<Response> {
-  request = socketRequest(request);
+  request = new URL(request.url).pathname.startsWith("/api/assistant") ? authenticatedRequest(request) : socketRequest(request);
   const pathname = new URL(request.url).pathname;
   for (const route of routes) {
     const matched = pathname.match(route.pattern);

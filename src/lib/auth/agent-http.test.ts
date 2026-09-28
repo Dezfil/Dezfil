@@ -1,0 +1,230 @@
+import { GET as accountRead } from "@/app/api/account/route";
+import { GET as usersRead } from "@/app/api/users/route";
+import { PATCH as userAccess } from "@/app/api/users/[id]/route";
+import { GET as mapRead, PATCH as mapUpdate } from "@/app/api/maps/[id]/route";
+import { GET as mapDependencies } from "@/app/api/maps/[id]/dependencies/route";
+import { createMap } from "@/lib/map-service";
+import type { AssistantEvent } from "@/lib/assistant/loop";
+import { authFailure, requireRequestAuth } from "./http";
+import type { Database } from "better-sqlite3";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import * as metadata from "@/lib/metadata/db";
+import { socketRequest } from "@/lib/assistant/testing/socket-request";
+import { assistantRuns } from "@/lib/assistant/runs";
+import { pendingActions } from "@/lib/assistant/pending";
+import { stubProvider } from "@/lib/assistant/providers/stub";
+import type { ModelProvider } from "@/lib/assistant/provider";
+import { POST as mcp } from "@/app/api/mcp/route";
+import { POST as reserve } from "@/app/api/assistant/runs/route";
+import { GET as read, DELETE as release } from "@/app/api/assistant/runs/[id]/route";
+import { POST as cancel } from "@/app/api/assistant/runs/[id]/cancel/route";
+import { POST as message } from "@/app/api/assistant/messages/route";
+import { GET as pending } from "@/app/api/assistant/pending/route";
+import { GET as status } from "@/app/api/assistant/route";
+import { GET as policy } from "@/app/api/assistant/policy/route";
+import { createFirstAccount } from "./accounts";
+import { authenticateSession, createApiToken, revokeApiToken, signOut } from "./credentials";
+import { changeAccountAccess, inviteAccount } from "./admin";
+import { redeemSignInLink } from "./links";
+
+const factory = vi.hoisted(() => ({ provider: null as ModelProvider | null, calls: 0 }));
+vi.mock("@/lib/assistant/factory", () => ({ createProvider: () => { factory.calls++; return factory.provider; } }));
+const origin = "http://127.0.0.1:3216", password = "field notebooks at dawn";
+let db: Database, admin: Awaited<ReturnType<typeof createFirstAccount>>, member: typeof admin;
+let token: ReturnType<typeof createApiToken>, runId: string;
+const cookie = (secret = admin.secret) => ({ cookie: `dezfil_session=${secret}` });
+function request(path: string, method = "GET", body?: unknown, headers: Record<string, string> = cookie()) {
+  return socketRequest(new Request(origin + path, { method,
+    headers: { origin, "content-type": "application/json", accept: "application/json, text/event-stream", ...headers },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }) }));
+}
+const params = () => ({ params: Promise.resolve({ id: runId }) });
+const operations = ["status", "policy", "reserve", "read", "release", "cancel", "pending", "message", "mcp"] as const;
+function invoke(operation: typeof operations[number], headers: Record<string, string>) {
+  if (operation === "status") return (status as (request: Request) => Promise<Response>)(request("/api/assistant", "GET", undefined, headers));
+  if (operation === "policy") return policy(request("/api/assistant/policy?page=builder", "GET", undefined, headers));
+  if (operation === "reserve") return (reserve as (request: Request) => Promise<Response>)(request("/api/assistant/runs", "POST", undefined, headers));
+  if (operation === "read") return read(request(`/api/assistant/runs/${runId}`, "GET", undefined, headers), params());
+  if (operation === "release") return release(request(`/api/assistant/runs/${runId}`, "DELETE", undefined, headers), params());
+  if (operation === "cancel") return cancel(request(`/api/assistant/runs/${runId}/cancel`, "POST", undefined, headers), params());
+  if (operation === "pending") return (pending as (request: Request) => Promise<Response>)(request("/api/assistant/pending", "GET", undefined, headers));
+  if (operation === "message") return message(request("/api/assistant/messages", "POST", { runId, message: "Read my account" }, headers));
+  return mcp(request("/api/mcp", "POST", { jsonrpc: "2.0", id: 1, method: "initialize", params: {
+    protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "auth-proof", version: "1" },
+  } }, headers));
+}
+beforeEach(async () => {
+  db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db);
+  vi.stubEnv("PORT", "3216"); vi.stubEnv("ANTHROPIC_API_KEY", "fixture-never-sent");
+  assistantRuns.resetForTests(); pendingActions.resetForTests(); factory.calls = 0;
+  factory.provider = stubProvider([{ text: "Read", toolCalls: [] }]);
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ tables: [], total: 0, nextAfter: null })));
+  admin = await createFirstAccount({ name: "Admin", email: "admin@example.test", password }, db);
+  const link = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Member", email: "member@example.test" }, db);
+  member = await redeemSignInLink(link.secret, password, db);
+  token = createApiToken(authenticateSession(member.secret, db)!, "Member CLI", db);
+  const response = await invoke("reserve", cookie()); expect(response.status).toBe(201); runId = (await response.json()).id;
+});
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); db.close(); });
+function state() {
+  return { run: assistantRuns.read(runId), pending: assistantRuns.pending(), rows: ["SELECT * FROM accounts ORDER BY id",
+    "SELECT id, account_id, secret_hash, revoked_at FROM auth_sessions ORDER BY id",
+    "SELECT id, account_id, name, secret_hash, revoked_at FROM auth_tokens ORDER BY id"].map(sql => db.prepare(sql).all()) };
+}
+it.each(operations.flatMap(operation => ["anonymous", "invalid", "revoked-session", "revoked-token"].map(mode => ({ operation, mode }))))(
+  "refuses $mode at the $operation transport before reads or work", async ({ operation, mode }) => {
+    const headers: Record<string, string> = mode === "anonymous" ? {} : cookie();
+    if (mode === "invalid") { headers.authorization = "Bearer invalid"; headers["x-dezfil-account-id"] = admin.account.id; headers["x-dezfil-admin"] = "true"; }
+    if (mode === "revoked-session") signOut(authenticateSession(admin.secret, db)!, db);
+    if (mode === "revoked-token") { revokeApiToken(authenticateSession(member.secret, db)!, token.id, db); headers.authorization = `Bearer ${token.secret}`; }
+    const before = state();
+    const response = await invoke(operation, headers);
+    expect.soft(response.status).toBe(401); expect.soft(response.headers.get("cache-control")).toBe("private, no-store");
+    expect.soft(await response.json().catch(() => null)).toMatchObject({ error: { code: "authentication_required" } });
+    expect.soft(factory.calls).toBe(0); expect(state()).toEqual(before);
+  },
+);
+it.each(["reserve", "release", "cancel", "message", "mcp"] as const)("refuses a cross-site cookie %s before work", async operation => {
+  const before = state(); const response = await invoke(operation, { ...cookie(), origin: "https://unrelated.test" });
+  expect.soft(response.status).toBe(403); expect.soft(await response.json().catch(() => null)).toMatchObject({ error: { code: "forbidden" } });
+  expect.soft(factory.calls).toBe(0); expect(state()).toEqual(before);
+});
+it.each(["read", "release", "cancel", "message"] as const)("refuses another account's reservation through %s", async operation => {
+  const before = state(); const response = await invoke(operation, { authorization: `Bearer ${token.secret}` });
+  expect.soft(response.status).toBe(404); expect.soft(await response.json()).toMatchObject({ error: { code: "assistant_run_unavailable" } });
+  expect.soft(factory.calls).toBe(0); expect(state()).toEqual(before);
+});
+
+function actualApi() {
+  const seen: { path: string; accountId: string; authorization: string; cookie: string | null }[] = [];
+  vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+    const req = socketRequest(new Request(input, init));
+    try {
+      const actor = requireRequestAuth(req), path = new URL(req.url).pathname;
+      seen.push({ path, accountId: actor.account.id, authorization: req.headers.get("authorization") ?? "", cookie: req.headers.get("cookie") });
+      if (path === "/api/account") return accountRead(req);
+      if (path === "/api/users") return usersRead(req);
+      if (path.startsWith("/api/users/")) return userAccess(req, { params: Promise.resolve({ id: path.split("/")[3] }) });
+      if (path === "/api/catalogue/tables") return Response.json({ tables: [], total: 0, nextAfter: null });
+      if (path === "/api/maps/look") return Response.json({ error: { code: "render_unavailable", message: "No renderer fixture." } }, { status: 503 });
+      if (path.startsWith("/api/maps/")) {
+        const params = { params: Promise.resolve({ id: path.split("/")[3] }) };
+        if (path.endsWith("/dependencies")) return mapDependencies(req, params);
+        return req.method === "PATCH" ? mapUpdate(req, params) : mapRead(req, params);
+      }
+      throw new Error(`Unexpected fixture route: ${path}`);
+    } catch (error) { return authFailure(error); }
+  });
+  return seen;
+}
+async function rpc(tool: string, args: Record<string, unknown>, headers: Record<string, string>) {
+  const response = await mcp(request("/api/mcp", "POST", { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: tool, arguments: args } },
+    { ...headers, "mcp-protocol-version": "2025-03-26" }));
+  expect(response.status).toBe(200); expect(response.headers.get("cache-control")).toBe("private, no-store");
+  const text = await response.text();
+  const json = text.startsWith("{") ? JSON.parse(text) : JSON.parse(text.split("\n").find(line => line.startsWith("data: "))!.slice(6));
+  expect(json.error).toBeUndefined(); return json.result;
+}
+async function ownReservation(headers: Record<string, string>) {
+  const response = await invoke("reserve", headers); expect(response.status).toBe(201); return (await response.json()).id as string;
+}
+async function send(body: unknown, headers: Record<string, string>): Promise<AssistantEvent[]> {
+  const response = await message(request("/api/assistant/messages", "POST", body, headers));
+  expect(response.status, await response.clone().text()).toBe(200);
+  expect(response.headers.get("cache-control")).toBe("private, no-store");
+  return (await response.text()).trim().split("\n").filter(Boolean).map(line => JSON.parse(line));
+}
+it.each(["cookie", "token"])("MCP %s reads the caller and preserves admin refusals downstream", async mode => {
+  const seen = actualApi(), headers = mode === "cookie" ? cookie(member.secret) : { authorization: `Bearer ${token.secret}` };
+  const read = await rpc("get_account", {}, headers);
+  expect(read).toMatchObject({ isError: false, structuredContent: { result: { account: { id: member.account.id } } } });
+  const before = state();
+  expect(await rpc("list_users", {}, headers)).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "forbidden" } } } });
+  expect(await rpc("update_user_access", { id: member.account.id, isAdmin: true }, headers)).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "forbidden" } } } });
+  expect(state()).toEqual(before);
+  expect(seen.map(item => item.accountId)).toEqual([member.account.id, member.account.id, member.account.id]);
+  expect(seen.every(item => item.cookie === null)).toBe(true);
+  expect(seen.every(item => mode === "cookie" ? item.authorization.startsWith("Bearer dz_delegation_") : item.authorization === `Bearer ${token.secret}`)).toBe(true);
+  expect((await rpc("list_users", {}, cookie())).isError).toBe(false);
+});
+it.each(["cookie", "token", "demoted-token"])("assistant %s cannot confirm itself into admin access", async mode => {
+  if (mode === "demoted-token") changeAccountAccess(authenticateSession(admin.secret, db)!, member.account.id, { isAdmin: true }, db);
+  const seen = actualApi(), headers = mode === "cookie" ? cookie(member.secret) : { authorization: `Bearer ${token.secret}` };
+  const provider = stubProvider([
+    { text: "", toolCalls: [{ id: "admin-change", name: "update_user_access", args: { id: member.account.id, isAdmin: true } }] },
+    { text: "Finished", toolCalls: [] },
+  ]); factory.provider = provider;
+  const own = await ownReservation(headers);
+  const events = await send({ runId: own, message: "Change admin access" }, headers);
+  const confirmation = events.find((event): event is Extract<AssistantEvent, { type: "confirm_required" }> => event.type === "confirm_required")!;
+  expect(confirmation).toBeDefined();
+  const parked = pendingActions.peek(confirmation.id)!;
+  expect(parked.accountId).toBe(member.account.id);
+  expect(JSON.stringify(parked)).not.toMatch(/dz_(?:token|session|delegation)_/);
+  if (mode === "demoted-token") changeAccountAccess(authenticateSession(admin.secret, db)!, member.account.id, { isAdmin: false }, db);
+  const before = state().rows;
+  const resumed = await send({ resolution: { pending: confirmation.id, approved: true } }, headers);
+  expect(resumed).toContainEqual(expect.objectContaining({ type: "tool_result", tool: "update_user_access", ok: false, body: { error: { code: "forbidden", message: "An admin account is required." } } }));
+  expect(state().rows).toEqual(before);
+  expect(seen.filter(item => item.path === "/api/catalogue/tables")).toHaveLength(2);
+  expect(seen.some(item => item.path === "/api/users")).toBe(true);
+  expect(seen.some(item => item.path === `/api/users/${member.account.id}`)).toBe(true);
+  expect(seen.every(item => item.accountId === member.account.id && item.cookie === null)).toBe(true);
+  const retained = JSON.stringify({ recording: provider.recording, receipt: assistantRuns.read(own) });
+  expect(retained).not.toContain(token.secret); expect(retained).not.toContain(member.secret); expect(retained).not.toContain("dz_delegation_");
+});
+it("foreign pending actions cannot be read, resolved or superseded", async () => {
+  actualApi(); factory.provider = stubProvider([{ text: "", toolCalls: [{ id: "grant", name: "update_user_access", args: { id: member.account.id, isAdmin: true } }] }]);
+  const events = await send({ runId, message: "Grant admin" }, cookie());
+  const confirmation = events.find((event): event is Extract<AssistantEvent, { type: "confirm_required" }> => event.type === "confirm_required")!;
+  const foreign = { authorization: `Bearer ${token.secret}` }, owned = await ownReservation(foreign);
+  expect(await (await invoke("pending", foreign)).json()).toEqual({ pending: [] });
+  const before = state(), reserved = assistantRuns.read(owned);
+  for (const body of [{ resolution: { pending: confirmation.id, approved: true } }, { runId: owned, message: "Another turn", supersedes: confirmation.id }]) {
+    const response = await message(request("/api/assistant/messages", "POST", body, foreign));
+    expect(response.status).toBe(404); expect(await response.json()).toMatchObject({ error: { code: "pending_unknown" } });
+    expect(state()).toEqual(before); expect(assistantRuns.read(owned)).toEqual(reserved); expect(pendingActions.peek(confirmation.id)).toBeDefined();
+  }
+  factory.provider = stubProvider([{ text: "Unused", toolCalls: [] }]);
+});
+it("revocation while parked refuses continuation and preserves the pending action", async () => {
+  actualApi(); factory.provider = stubProvider([{ text: "", toolCalls: [{ id: "grant", name: "update_user_access", args: { id: member.account.id, isAdmin: true } }] }]);
+  const events = await send({ runId, message: "Grant admin" }, cookie());
+  const confirmation = events.find((event): event is Extract<AssistantEvent, { type: "confirm_required" }> => event.type === "confirm_required")!;
+  signOut(authenticateSession(admin.secret, db)!, db);
+  const before = state();
+  const response = await message(request("/api/assistant/messages", "POST", { resolution: { pending: confirmation.id, approved: true } }));
+  expect(response.status).toBe(401); expect(state()).toEqual(before); expect(pendingActions.peek(confirmation.id)).toBeDefined();
+});
+it("grounding, a mutation and its automatic map check retain the cookie caller", async () => {
+  vi.stubEnv("DEZFIL_ASSISTANT_AUTO_CHECK", "1");
+  const seen = actualApi(), map = createMap("Before"), headers = cookie(member.secret);
+  const own = await ownReservation(headers);
+  factory.provider = stubProvider([
+    { text: "", toolCalls: [{ id: "rename", name: "update_map", args: { id: map.id, name: "After" } }] },
+    { text: "Renamed", toolCalls: [] },
+  ]);
+  const events = await send({ runId: own, message: "Rename", context: { page: "builder", mapId: map.id, selectedLayerId: null } }, headers);
+  expect(events).toContainEqual(expect.objectContaining({ type: "tool_result", tool: "update_map", ok: true }));
+  expect(events).toContainEqual(expect.objectContaining({ type: "tool_call", tool: "look_at_map", automatic: true }));
+  expect(seen.some(item => item.path === "/api/maps/look")).toBe(true);
+  expect(seen.every(item => item.accountId === member.account.id && item.authorization.startsWith("Bearer dz_delegation_") && item.cookie === null)).toBe(true);
+});
+
+it.each(["cookie", "token"])("revoking the %s between assistant actions stops the next dispatch", async mode => {
+  const seen = actualApi(), context = authenticateSession(member.secret, db)!;
+  const headers = mode === "cookie" ? cookie(member.secret) : { authorization: `Bearer ${token.secret}` };
+  const own = await ownReservation(headers);
+  factory.provider = stubProvider([
+    { text: "", toolCalls: [{ id: "first-read", name: "get_account", args: {} }] },
+    () => {
+      if (mode === "cookie") signOut(context, db); else revokeApiToken(context, token.id, db);
+      return { text: "", toolCalls: [{ id: "second-read", name: "get_account", args: {} }] };
+    },
+    { text: "Stopped", toolCalls: [] },
+  ]);
+  const events = await send({ runId: own, message: "Read twice" }, headers);
+  expect(events).toContainEqual(expect.objectContaining({ type: "tool_result", id: "first-read", ok: true }));
+  expect(events).toContainEqual(expect.objectContaining({ type: "tool_result", id: "second-read", ok: false, body: { error: { code: "authentication_required", message: "Sign in to continue." } } }));
+  expect(seen.filter(item => item.path === "/api/account")).toHaveLength(1);
+});

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
 import { errorResponse } from "@/lib/api/errors";
-import { authenticateSession, authenticateToken, SESSION_LIFETIME_MS, type AuthContext } from "./credentials";
+import { authenticateSession, SESSION_LIFETIME_MS, type AuthContext } from "./credentials";
+import { authenticateBearer } from "./delegation";
 import { requireIngress, type Ingress } from "./ingress.mjs";
 import { AuthError } from "./errors";
 
@@ -25,7 +26,7 @@ export function requestAuth(request: Request, db?: Database): AuthContext | null
   const authorization = request.headers.get("authorization");
   if (authorization !== null) {
     const match = /^Bearer ([^\s]+)$/i.exec(authorization);
-    return match ? authenticateToken(match[1], db ?? metadataDb()) : null;
+    return match ? authenticateBearer(match[1], db ?? metadataDb()) : null;
   }
   const secret = sessionSecret(request);
   return secret ? authenticateSession(secret, db ?? metadataDb()) : null;
@@ -44,7 +45,7 @@ export function requireRequestAuth(request: Request, db?: Database): AuthContext
 }
 export function assertRequestOrigin(request: Request, context?: AuthContext): void {
   if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return;
-  if (context?.credential.kind === "token") return;
+  if (context?.credential.kind === "token" || context?.delegationExpiresAt !== undefined) return;
   if (request.headers.get("origin") !== requestIngress(request).origin) {
     throw new AuthError("forbidden", "This request must come from the same instance.", 403);
   }

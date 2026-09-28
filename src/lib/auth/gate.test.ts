@@ -5,6 +5,7 @@ import * as metadata from "@/lib/metadata/db";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { createFirstAccount } from "./accounts";
 import { authenticateSession, createApiToken, revokeApiToken, signOut } from "./credentials";
+import { delegateSession } from "./delegation";
 import { gateRequest } from "./gate";
 import { SESSION_COOKIE } from "./http";
 let db: Database;
@@ -33,4 +34,14 @@ it("redirects setup after creation while leaving cross-account redemption reacha
 });
 it("keeps existing routes outside the account gate during caller migration", () => {
   expect(gateRequest(input("/api/maps")).headers.get("x-middleware-next")).toBe("1");
+});
+
+it("does not set a browser cookie for a bearer delegation", async () => {
+  const signed = await first(), context = authenticateSession(signed.secret, db)!;
+  const delegation = delegateSession(context, db);
+  for (const cookie of [undefined, `${SESSION_COOKIE}=unrelated-cookie`]) {
+    const response = gateRequest(input("/api/account", { authorization: `Bearer ${delegation}`, ...(cookie ? { cookie } : {}) }));
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+    expect(response.headers.get("set-cookie")).toBeNull();
+  }
 });

@@ -29,7 +29,7 @@ export function gateRequest(request: NextRequest): Response {
     const context = requireRequestAuth(request);
     if (isAdminRequest(pathname)) requireAdmin(context, metadataDb(), Date.now());
     const response = privateResponse(NextResponse.next());
-    if (context.credential.kind === "session" && pathname !== "/api/auth/sign-out") {
+    if (!request.headers.has("authorization") && context.credential.kind === "session" && pathname !== "/api/auth/sign-out") {
       sessionCookie(response, sessionSecret(request)!, ingress);
     }
     return response;

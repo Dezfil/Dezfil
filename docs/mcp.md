@@ -20,8 +20,20 @@ The server identifies itself as `dezfil`.
 
 ## Environment
 
-None of its own. The endpoint needs no key and no token, because the client
-brings the model. The settings that matter to a tool call are the ordinary
+The client brings the model, so the endpoint needs no model API key of its
+own. It does require an account API token in `Authorization: Bearer` on every
+request, including initialization and tool listing. Create one in Settings
+under API / MCP tokens. Calls have that account's current privileges; admin
+operations remain admin-only. Missing, invalid and revoked credentials fail
+before work. Responses are private and are not cached.
+
+Internal reads and executions retain the same identity. Browser callers use
+a short-lived delegation tied to their session, without creating a durable
+API token. Revoking the parent or deactivating the account stops downstream
+access. Internal credentials are confined to the instance origin and API
+redirects are refused.
+
+The settings that matter to a tool call are the ordinary
 instance settings: the query timeout and memory budget, the upload and
 import caps, and `DEZFIL_TOOL_ATTACHMENT_MAX_MB`, which bounds a download
 answered into a tool result. See [configuration.md](configuration.md).

@@ -1,7 +1,10 @@
+import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
+import { requireCurrentActor } from "@/lib/auth/credentials";
+import { instanceFetch, loopbackCredential } from "@/lib/auth/instance-fetch";
 import { executionControl, type ExecutionControl } from "@/lib/assistant/execution-control";
 import { readSubmission } from "@/lib/assistant/recovery-data";
 import { loadGrounding } from "@/lib/assistant/grounding";
-import { ApiError, EvaluationCancelled, errorResponse } from "@/lib/api/errors";
+import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { assistantRuns } from "@/lib/assistant/runs";
 import { runStream } from "@/lib/assistant/run-stream";
 import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
@@ -73,12 +76,16 @@ export async function POST(request: Request) {
   let claimedRun: string | undefined;
   let control: ExecutionControl | undefined;
   try {
+    const actor = requireRequestAuth(request);
+    const baseUrl = selfBaseUrl(request);
+    const fetchImpl = instanceFetch(baseUrl, loopbackCredential(request, actor));
     const availability = assistantAvailability();
     if (!availability.enabled) {
       throw new ApiError("assistant_disabled", availability.reason, 404);
     }
 
     const body: RequestBody = await readSubmission(request);
+    requireCurrentActor(actor);
 
     if (body.resolution !== undefined) {
       if (body.message !== undefined) {
@@ -90,13 +97,17 @@ export async function POST(request: Request) {
       }
       const { pending, approved } = parseResolution(body.resolution);
       const original = pendingActions.peek(pending);
-      const grounding = original ? await loadGrounding(original.context, selfBaseUrl(request), fetch, request.signal) : undefined;
+      if (original && original.accountId !== actor.account.id) {
+        throw new ApiError("pending_unknown", "No such pending action.", 404);
+      }
+      const grounding = original ? await loadGrounding(original.context, baseUrl, fetchImpl, request.signal) : undefined;
+      requireCurrentActor(actor);
       const parked = pendingActions.claim(
         pending,
         approved ? "approved" : "declined",
       );
       if (!parked) {
-        const how = pendingActions.resolutionOf(pending);
+        const how = pendingActions.resolutionOf(pending, actor.account.id);
         if (how === "superseded") {
           throw new ApiError(
             "pending_superseded",
@@ -119,16 +130,16 @@ export async function POST(request: Request) {
       }
       claimedRun = parked.runId;
       if (claimedRun) { assistantRuns.resume(claimedRun, approved ? "approved" : "declined"); control = executionControl(claimedRun, request.signal); }
-      return runStream(
+      return privateResponse(runStream(
         resumeAssistant(parked, approved, {
           grounding,
           runId: claimedRun,
-          baseUrl: selfBaseUrl(request),
+          baseUrl, fetchImpl, accountId: actor.account.id,
           signal: control?.signal ?? request.signal,
         }),
         claimedRun,
         control,
-      );
+      ));
     }
 
     if (typeof body.message !== "string" || body.message.trim() === "") {
@@ -141,6 +152,11 @@ export async function POST(request: Request) {
     if (typeof body.runId !== "string" || !body.runId) {
       throw new ApiError("assistant_reservation_required", ERROR_CATALOGUE.assistant_reservation_required, 400);
     }
+    assistantRuns.requireAccount(body.runId, actor.account.id);
+    if (typeof body.supersedes === "string") {
+      const abandoned = pendingActions.peek(body.supersedes);
+      if (abandoned && abandoned.accountId !== actor.account.id) throw new ApiError("pending_unknown", "No such pending action.", 404);
+    }
     const context = parseAssistantContext(body.context);
     // The choice this run will be bound to. Resolved and judged before the
     // run binds, so a refused submission spends nothing and the
@@ -150,14 +166,15 @@ export async function POST(request: Request) {
     const choice = chooseForRequest(body.choice, current);
     const { runId, ...submission } = body;
     if (!assistantRuns.bind(runId, submission)) {
-      return Response.json(assistantRuns.read(runId), { headers: { "cache-control": "no-store" } });
+      return privateResponse(Response.json(assistantRuns.read(runId)));
     }
     claimedRun = runId;
     // What this run asked for, recorded before any provider request
     // exists: a run that fails before an answer still says it.
     assistantRuns.bindChoice(runId, choice);
     control = executionControl(runId, request.signal);
-    const grounding = await loadGrounding(context, selfBaseUrl(request), fetch, control.signal);
+    const grounding = await loadGrounding(context, baseUrl, fetchImpl, control.signal);
+    requireCurrentActor(actor);
     // The implicit decline: the client abandons the shown confirmation
     // by naming it. Unknown ids are ignored — abandoning an already-gone
     // action is not an error.
@@ -178,20 +195,20 @@ export async function POST(request: Request) {
       );
     }
 
-    return runStream(
+    return privateResponse(runStream(
       runAssistant(
         provider,
         { message: body.message, history: parseHistory(body.history), context },
         // The page action policy binds with the context here.
-        { baseUrl: selfBaseUrl(request), signal: control.signal, grounding, runId, policy: policyFor(context) },
+        { baseUrl, fetchImpl, accountId: actor.account.id, signal: control.signal, grounding, runId, policy: policyFor(context) },
       ),
       runId,
       control,
-    );
+    ));
   } catch (error) {
     control?.detach();
-    if (claimedRun && control?.signal.aborted) { assistantRuns.record(claimedRun, { type: "done", reason: "interrupted" }); assistantRuns.finish(claimedRun); return errorResponse(new EvaluationCancelled()); }
+    if (claimedRun && control?.signal.aborted) { assistantRuns.record(claimedRun, { type: "done", reason: "interrupted" }); assistantRuns.finish(claimedRun); return authFailure(new EvaluationCancelled()); }
     if (claimedRun) assistantRuns.fail(claimedRun, error instanceof ApiError ? error : { code: "internal", message: ERROR_CATALOGUE.internal });
-    return errorResponse(error);
+    return authFailure(error);
   }
 }

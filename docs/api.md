@@ -250,3 +250,13 @@ agent tool that runs SQL. There is no browser-side query engine.
 `node scripts/journey.mjs <base-url>` walks the entire flow, upload through
 SQL, layer, style and publish, using nothing but these endpoints and no
 browser. It is the working proof that the interface has no private path.
+
+### Assistant identity
+
+MCP and all assistant transport operations require the caller's session or
+bearer token. Reservations, recovery receipts and pending confirmations belong
+to the reserving account. Another account cannot read, cancel, release,
+supersede or resolve them. Confirmation reauthenticates the same account and
+checks current permissions during execution, including admin restrictions.
+Internal grounding, subject reads and tool calls carry a bearer-equivalent
+credential; the parked state retains the account binding and no credential.

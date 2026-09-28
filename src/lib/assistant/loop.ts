@@ -359,6 +359,7 @@ async function* processCalls(
     if (ctx.runId) assistantRuns.admit(ctx.runId, call);
     if (confirmation) {
       const parked = {
+        accountId: ctx.accountId,
         confirmation: confirmation.words,
         historyMapId: subjectFacts(confirmation.subject)?.mapId,
         runId: ctx.runId,

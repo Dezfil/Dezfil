@@ -1,7 +1,12 @@
-import { errorResponse } from "@/lib/api/errors";
+import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
+import { requireCurrentActor } from "@/lib/auth/credentials";
 import { assistantRuns } from "@/lib/assistant/runs";
 
-export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
-  try { const { id } = await context.params; assistantRuns.cancel(id); return Response.json(assistantRuns.read(id), { headers: { "cache-control": "no-store" } }); }
-  catch (error) { return errorResponse(error); }
+export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+  try {
+    const actor = requireRequestAuth(request), { id } = await context.params;
+    requireCurrentActor(actor); assistantRuns.requireAccount(id, actor.account.id);
+    assistantRuns.cancel(id);
+    return privateResponse(Response.json(assistantRuns.read(id)));
+  } catch (error) { return authFailure(error); }
 }

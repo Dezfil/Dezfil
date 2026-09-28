@@ -9,6 +9,8 @@ import { AuthError } from "./errors";
 export const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 export interface AuthContext {
   account: Account;
+  /** Expiry of a server-issued bearer bound to this browser session. */
+  delegationExpiresAt?: number;
   credential: { kind: "session" | "token"; id: string };
 }
 
@@ -53,7 +55,7 @@ export function authenticateToken(secret: string | null, db: Database = metadata
 
 /** Services call this again under their write transaction; contexts are not authority. */
 export function requireCurrentActor(context: AuthContext | null, db: Database = metadataDb(), now = Date.now()): Account {
-  if (!context) throw new AuthError("authentication_required", "Sign in to continue.", 401);
+  if (!context || (context.delegationExpiresAt !== undefined && context.delegationExpiresAt <= now)) throw new AuthError("authentication_required", "Sign in to continue.", 401);
   const record = context.credential.kind === "session"
     ? sessionById(context.credential.id, db) : tokenById(context.credential.id, db);
   const account = record && getAccount(record.account_id, db);

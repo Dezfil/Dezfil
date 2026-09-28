@@ -1,3 +1,4 @@
+import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -12,10 +13,10 @@ import { pendingActions } from "./pending";
 import { stubProvider, type ScriptEntry } from "./providers/stub";
 import type { ModelProvider } from "./provider";
 import type { AssistantEvent } from "./loop";
-import { POST as reserve } from "@/app/api/assistant/runs/route";
-import { POST as message } from "@/app/api/assistant/messages/route";
-import { GET as recovery } from "@/app/api/assistant/runs/[id]/route";
-import { GET as pending } from "@/app/api/assistant/pending/route";
+import { POST as reserveHandler } from "@/app/api/assistant/runs/route";
+import { POST as messageHandler } from "@/app/api/assistant/messages/route";
+import { GET as recoveryHandler } from "@/app/api/assistant/runs/[id]/route";
+import { GET as pendingHandler } from "@/app/api/assistant/pending/route";
 import { POST as mapsPost } from "@/app/api/maps/route";
 import * as mapRoute from "@/app/api/maps/[id]/route";
 import { GET as dependencies } from "@/app/api/maps/[id]/dependencies/route";
@@ -26,6 +27,11 @@ import { GET as catalogue } from "@/app/api/catalogue/tables/route";
 import { GET as recipeGet } from "@/app/api/recipes/[id]/route";
 import { POST as runRecipe } from "@/app/api/recipes/[id]/runs/route";
 import { POST as query } from "@/app/api/query/route";
+
+const reserve = authenticatedRoute(reserveHandler);
+const message = authenticatedRoute(messageHandler);
+const recovery = authenticatedRoute(recoveryHandler);
+const pending = authenticatedRoute(pendingHandler);
 
 const factory = vi.hoisted(() => ({ provider: null as ModelProvider | null }));
 vi.mock("@/lib/assistant/factory", () => ({ createProvider: () => factory.provider }));

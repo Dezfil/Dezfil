@@ -9,6 +9,7 @@ import type { ProviderExchange } from "./provider";
 import { assistantTools } from "./tool-surface";
 
 export interface LoopDeps {
+  accountId?: string;
   runId?: string;
   grounding?: string;
   tools?: ToolDef[];
@@ -57,6 +58,7 @@ export function makeExecutionContext(
     turn,
     autoCheck: deps.autoCheck ?? limits.assistantAutoCheck,
     runId: deps.runId,
+    accountId: deps.accountId,
     policy,
     admitted: new Set(admittedTools(policy, tools).map((t) => t.name)),
     offered: new Set(offered),

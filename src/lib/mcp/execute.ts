@@ -7,11 +7,11 @@ import type { ToolDef } from '@/lib/tools/tools';
 /** API client only. The subject read is declared by the operation; stored
  * history is never read here. A bodyless deletion resolves its map before work.
  */
-export async function executeMcpTool(tool: ToolDef, args: Record<string, unknown>, baseUrl: string, signal?: AbortSignal) {
+export async function executeMcpTool(tool: ToolDef, args: Record<string, unknown>, baseUrl: string, signal?: AbortSignal, fetchImpl: typeof fetch = fetch) {
   const groupParameter = tool.headerParams?.find(parameter => parameter.name.toLowerCase() === CHANGE_GROUP_HEADER.toLowerCase());
   const group = groupParameter && typeof args[groupParameter.argument] === 'string' ? args[groupParameter.argument] as string : undefined;
   const transport: typeof fetch = async (input, init) => {
-    try { return await fetch(input, init); }
+    try { return await fetchImpl(input, init); }
     catch { throw new McpTransportFailure(); }
   };
   let knownMapId: string | undefined;

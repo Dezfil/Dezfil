@@ -1,3 +1,4 @@
+import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -11,9 +12,13 @@ import { stubProvider, type ScriptEntry } from "./providers/stub";
 import type { ModelProvider } from "./provider";
 import type { AssistantEvent } from "./loop";
 import { dispatchAssistantTestRoute } from "./testing/route-dispatch";
-import { POST as reserve } from "@/app/api/assistant/runs/route";
-import { POST as message } from "@/app/api/assistant/messages/route";
-import { GET as recovery } from "@/app/api/assistant/runs/[id]/route";
+import { POST as reserveHandler } from "@/app/api/assistant/runs/route";
+import { POST as messageHandler } from "@/app/api/assistant/messages/route";
+import { GET as recoveryHandler } from "@/app/api/assistant/runs/[id]/route";
+
+const reserve = authenticatedRoute(reserveHandler);
+const message = authenticatedRoute(messageHandler);
+const recovery = authenticatedRoute(recoveryHandler);
 
 /**
  * ``: an outcome that cannot be established ends the turn however it arose.
