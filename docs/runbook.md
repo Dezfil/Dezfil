@@ -149,6 +149,18 @@ On a runner without a browser, append `--http-only` to the API journey. It
 prints the omitted image-render step explicitly; the default journey and CI
 still require the real image-export proof.
 
+The authentication probes run against an already running scratch instance:
+
+- `npm run probe:gate -- <base-url>` checks protected operations and anonymous
+  exceptions. Start it on an empty store so it can check setup before provisioning.
+- `npm run probe:login -- <port>` checks socket-based sign-in limits and waits
+  for recovery at the real retry deadline (about fifteen minutes). Use a fresh store
+  and a dual-stack listener with `DEZFIL_TRUSTED_PROXIES=127.0.0.1`; `--no-wait`
+  omits only the recovery check.
+- `npm run probe:published-auth -- <base-url>` checks anonymous published data,
+  widgets and real tiles. Set `DEZFIL_RENDER_CAP_FEATURES=2000` on the server and
+  keep `tippecanoe` on its `PATH`.
+
 `node scripts/account-upgrade-proof.mjs [port]` runs only in a detached linked
 worktree after a production build. It creates a synthetic old-schema store
 under `.claude/`, upgrades a copy, exercises the old data through authenticated

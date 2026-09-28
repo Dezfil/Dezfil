@@ -153,9 +153,7 @@ finding dropped for being merely plausible is a finding someone relearns.
 
 ## Out of scope for now
 
-- **Authentication, multi-user and organizations.** An instance trusts
-  everyone who can reach it, and the documentation says so. Do not add half
-  an auth model to make something else work.
+- **Organizations.** Local accounts and sign-in exist; fuller account documentation follows.
 - **Warehouse connectors.** The engine is DuckDB over files, plus the
   PostGIS connections the ingest path already documents.
 

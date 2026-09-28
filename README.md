@@ -38,7 +38,9 @@ On first run, create the initial admin account. Application pages and APIs
 require a session or an account API token; admins manage accounts and the
 instance name. Signed-in accounts still share the same maps, datasets and
 workflows. Published links and embeds remain readable without an account,
-as does the readiness probe. Secure a new instance until you complete setup.
+as does the readiness probe. An instance upgraded from a release without accounts
+also shows setup once. Secure new and upgraded instances until you complete setup,
+and complete it promptly: whoever reaches setup first becomes the admin.
 
 ## Configuration
 
