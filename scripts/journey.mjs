@@ -5,6 +5,7 @@
 
 import { startLoopbackBasemap, assertBasemapTraffic } from "./loopback-basemap.mjs";
 import { decodePng, countColored } from "./png-probe.mjs";
+import { journeyApi } from "./journey-http.mjs";
 
 const base = process.argv[2] ?? "http://localhost:3000";
 
@@ -19,25 +20,7 @@ function fail(msg, detail) {
   process.exit(1);
 }
 
-async function api(method, pathname, { body, form, raw } = {}) {
-  const init = { method, headers: {} };
-  if (form) {
-    init.body = form;
-  } else if (body !== undefined) {
-    init.headers["content-type"] = "application/json";
-    init.body = JSON.stringify(body);
-  }
-  const response = await fetch(`${base}${pathname}`, init);
-  if (raw) return response;
-  const text = await response.text();
-  let json;
-  try {
-    json = text ? JSON.parse(text) : null;
-  } catch {
-    json = text;
-  }
-  return { status: response.status, json };
-}
+const api = journeyApi(base);
 
 async function main() {
   console.log(`\nDezfil headless journey → ${base}\n`);
