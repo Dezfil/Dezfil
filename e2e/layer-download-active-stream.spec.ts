@@ -150,6 +150,7 @@ async function writeChunk(
 
 async function startSlowDownloadProxy(
   appOrigin: string,
+  appCookie: string,
 ): Promise<SlowDownloadProxy> {
   const upstreamOrigin = new URL(appOrigin);
   if (upstreamOrigin.protocol !== "http:") {
@@ -210,7 +211,8 @@ async function startSlowDownloadProxy(
           accept: incoming.headers.accept ?? "*/*",
           "accept-encoding": "identity",
         };
-        if (incoming.headers.cookie) headers.cookie = incoming.headers.cookie;
+        // The proxy's 127.0.0.1 origin does not receive localhost cookies.
+        headers.cookie = appCookie;
         upstreamRequest = nodeRequest(
           target,
           { method: "GET", headers },
@@ -531,7 +533,10 @@ test("status recovery releases the UI while the same native stream stays alive",
       page.getByRole("button", { name: new RegExp(`^${layerName}`) }).first(),
     ).toBeVisible({ timeout: 30_000 });
     const builderUrl = page.url();
-    proxy = await startSlowDownloadProxy(new URL(builderUrl).origin);
+    const appCookie = (await context.cookies(builderUrl))
+      .map(({ name, value }) => `${name}=${value}`).join("; ");
+    expect(appCookie, "the app session is available to the download proxy").not.toBe("");
+    proxy = await startSlowDownloadProxy(new URL(builderUrl).origin, appCookie);
     await page.route("**/api/layers/**", layerRoute);
 
     const downloadStarted = page.waitForEvent("download", { timeout: 60_000 });
@@ -569,13 +574,13 @@ test("status recovery releases the UI while the same native stream stays alive",
         contentType: "text/csv; charset=utf-8",
         contentLength: String(expected.byteLength),
         contentDisposition: `attachment; filename="${layerName}.csv"`,
-        cacheControl: "no-store",
+        cacheControl: "private, no-store",
       },
       forwardedHeaders: {
         contentType: "text/csv; charset=utf-8",
         contentLength: String(expected.byteLength),
         contentDisposition: `attachment; filename="${layerName}.csv"`,
-        cacheControl: "no-store",
+        cacheControl: "private, no-store",
       },
     });
 
@@ -617,7 +622,7 @@ test("status recovery releases the UI while the same native stream stays alive",
 
     const releaseResponse = await releaseAnswered;
     expect(releaseResponse.status()).toBe(204);
-    expect(releaseResponse.headers()["cache-control"]).toBe("no-store");
+    expect(releaseResponse.headers()["cache-control"]).toBe("private, no-store");
     expect(new URL(releaseResponse.url()).searchParams.get("__ui_status")).toBe(
       nativeTicket,
     );

@@ -3,14 +3,24 @@ import {
   ANSWER_CURRENT,
   NETWORK_FAILURE,
   beginAnswer,
+  failureProse,
   resolveAnswer,
   settleVerdict,
 } from "./dashboard-state";
 import type { LayerRenderData } from "@/lib/layer-service";
+import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 
 // The dashboard truth states: the pure half of the state machine found
 // missing. One regression per failure class, plus the superseded rule
 // and the loading/updating split.
+
+describe("failureProse", () => {
+  it("gives published readers request-only rate-limit wording while retaining sign-in detail for authors", () => {
+    const failure = { code: "rate_limited", message: ERROR_CATALOGUE.rate_limited };
+    expect(failureProse(failure, "reader")).toBe("Too many requests. Retry after the indicated delay.");
+    expect(failureProse(failure, "author")).toBe("Too many requests or sign-in attempts; retry after the indicated delay.");
+  });
+});
 
 describe("beginAnswer", () => {
   it("loads when nothing was ever computed — never a computed empty answer", () => {

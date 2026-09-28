@@ -42,6 +42,12 @@ end of this page.
 | `DEZFIL_DATA_DIR` | `./data`, `/data` in the container | The single durable directory. Everything persisted lives under it, so backup is a copy. `src/lib/config.ts` falls back to `data` under the working directory; the image sets `/data` and declares it a volume. |
 | `DEZFIL_SECRET_KEY` | generated | 64 hex characters (32 bytes), the at-rest encryption key for stored connection credentials. Unset, a key is generated into the data directory as `secret.key` on first boot and reused from there (`src/lib/secrets.ts`). A wrong or lost key makes stored credentials unreadable. |
 
+## Trusted proxies
+
+| Variable | Default | Effect |
+|---|---|---|
+| `DEZFIL_TRUSTED_PROXIES` | unset | Comma-separated IP addresses or CIDRs of reverse proxy socket peers. Only these peers may supply forwarding information. Configure proxies to replace host/protocol/port forwarding fields and append the actual client address; direct clients' forwarding headers are discarded. |
+
 ## Upload and remote import
 
 | Variable | Default | Effect |
@@ -182,6 +188,8 @@ for a tunable.
 
 - `DEZFIL_BASE_URL`: the target address for the browser test runner and the
   headless journey scripts.
+- `DEZFIL_E2E_FIRST_RUN=1`: leaves account setup to the first-run browser
+  journey on an empty scratch store instead of provisioning a signed-in fixture.
 - `DEZFIL_TEST_PG_URL`, `DEZFIL_TEST_PG_TLS_URL`, `DEZFIL_TEST_OVERTURE`,
   `DEZFIL_TEST_TILER_LOG`, `DEZFIL_TEST_TILER_RELEASE`,
   `DEZFIL_TEST_TILER_STARTED`: fixture endpoints and stub seams for the unit

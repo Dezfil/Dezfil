@@ -12,9 +12,5 @@ src/app/api/connections/postgis/[id]/preview/route.test.ts:generic-api-key:63
 src/lib/export/project-archive.test.ts:generic-api-key:66
 src/lib/postgis/tls-attachment.test.ts:generic-api-key:21
 
-# Recorded baselines of the agent tool surface. The flagged values are SHA-256
-# digests of tool definitions, which the generic high-entropy rule cannot tell
-# apart from a key.
-test-support/assistant-baselines/mcp-tools-list.json:generic-api-key:15
-test-support/assistant-baselines/anthropic-tool-definitions.json:generic-api-key:15
-test-support/assistant-baselines/openai-tool-definitions.json:generic-api-key:15
+# Tool-definition digest exceptions live in .gitleaks.toml, scoped to the
+# baseline paths and digest line shape so regeneration cannot move them.

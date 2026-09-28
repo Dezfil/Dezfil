@@ -1,0 +1,44 @@
+import { metadataDb } from "@/lib/metadata/db";
+import { requireAdmin } from "./admin";
+import { AuthError } from "./errors";
+import { requestIngress, requireRequestAuth } from "./http";
+
+export function requireRequestAdmin(request: Request) {
+  const context = requireRequestAuth(request);
+  requireAdmin(context, metadataDb(), Date.now());
+  return context;
+}
+
+async function objectBody(request: Request, allowed: string[]) {
+  const body: unknown = await request.json().catch(() => null);
+  if (request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json" ||
+      !body || typeof body !== "object" || Array.isArray(body) ||
+      Object.keys(body).some(key => !allowed.includes(key))) {
+    throw new AuthError("invalid_request", "Enter the required account details.", 400);
+  }
+  return body as Record<string, unknown>;
+}
+
+export async function invitationBody(request: Request) {
+  const body = await objectBody(request, ["name", "email", "isAdmin"]);
+  if (typeof body.name !== "string" || typeof body.email !== "string" ||
+      (body.isAdmin !== undefined && typeof body.isAdmin !== "boolean")) {
+    throw new AuthError("invalid_request", "Enter a name, email and optional admin flag.", 400);
+  }
+  return { name: body.name, email: body.email, ...(body.isAdmin === undefined ? {} : { isAdmin: body.isAdmin as boolean }) };
+}
+
+export async function accessBody(request: Request) {
+  const body = await objectBody(request, ["isAdmin", "status"]);
+  if ((!Object.keys(body).length) || (body.isAdmin !== undefined && typeof body.isAdmin !== "boolean") ||
+      (body.status !== undefined && body.status !== "active" && body.status !== "deactivated")) {
+    throw new AuthError("invalid_request", "Choose an admin flag or active or deactivated status.", 400);
+  }
+  return body as { isAdmin?: boolean; status?: "active" | "deactivated" };
+}
+
+export function handOver(request: Request, issued: { account: unknown; secret: string; expiresAt: number }) {
+  const url = new URL("/accept", requestIngress(request).origin);
+  url.hash = new URLSearchParams({ secret: issued.secret }).toString();
+  return { account: issued.account, signInUrl: url.href, expiresAt: new Date(issued.expiresAt).toISOString() };
+}

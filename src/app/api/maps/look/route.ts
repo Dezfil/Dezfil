@@ -1,5 +1,7 @@
+import { delegateCredential } from "@/lib/auth/delegation";
+import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
 import { NextResponse } from "next/server";
-import { ApiError, errorResponse } from "@/lib/api/errors";
+import { ApiError } from "@/lib/api/errors";
 import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 import { lookRetention } from "@/lib/export/look-retention";
 import { isAppearance, lookAtMap, lookFacts } from "@/lib/export/map-look";
@@ -19,6 +21,7 @@ interface RequestBody { mapId?: unknown; appearance?: unknown }
 
 export async function POST(request: Request) {
   try {
+    const actor = requireRequestAuth(request);
     let body: RequestBody = {};
     const text = await request.text();
     if (text.trim()) {
@@ -32,17 +35,18 @@ export async function POST(request: Request) {
       mapId: body.mapId,
       appearance: body.appearance,
       baseUrl: selfBaseUrl(request),
+      credential: delegateCredential(actor),
       signal: request.signal,
     });
     // The retained working state: the image the model was given and its
     // thumbnail, for the pane's note and for a later read, under the
     // documented bounds.
     lookRetention.retain(result);
-    return NextResponse.json({
+    return privateResponse(NextResponse.json({
       render: lookFacts(result),
       image: { content_type: "image/png", width: result.image.width, height: result.image.height, bytes: result.image.bytes, content_base64: Buffer.from(result.image.png).toString("base64") },
-    }, { headers: { "cache-control": "no-store" } });
+    }));
   } catch (error) {
-    return errorResponse(error);
+    return authFailure(error);
   }
 }

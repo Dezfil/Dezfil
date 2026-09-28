@@ -28,8 +28,8 @@ async function capturedSystem(): Promise<string> {
  * What this piece must not move.
  *
  * Every row compares a **fresh derivation from the product's own builders**
- * against the artifact task 1 committed before any product change, read back
- * whole and never regenerated. That direction matters: the repository's
+ * against the committed contract capture, read back whole. Intentional
+ * contract changes update only the affected definitions and their digests. That direction matters: the repository's
  * existing parity and schema checks each compare two current derivations of
  * one inventory, so both sides move together and neither can see the branch
  * base. These compare across it.
@@ -63,7 +63,7 @@ const BASE = {
   }>("manifest.json"),
 };
 
-describe("the surface does not move, against the pre-change baselines", () => {
+describe("the assistant surface matches the committed contract baselines", () => {
   it("the operation, tool and exclusion identities are the frozen lists, whole", () => {
     const now = captureIdentities();
     expect(now).toEqual(BASE.identities);

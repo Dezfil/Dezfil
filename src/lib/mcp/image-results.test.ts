@@ -1,9 +1,11 @@
+import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { lookRetention } from '@/lib/export/look-retention';
 import { setLookDriverForTests, type LookResult } from '@/lib/export/map-look';
 import { encodePng } from '@/lib/export/png-codec';
 import { thumbnailOf } from '@/lib/export/look-thumbnail';
-import { GET as readImage } from '@/app/api/maps/look/[renderId]/route';
+import { GET as rawreadImage } from "@/app/api/maps/look/[renderId]/route";
+const readImage = authenticatedRoute(rawreadImage);
 import { testClient } from './test-client';
 let launches = 0;
 beforeEach(() => {

@@ -27,9 +27,9 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "node --import=./scripts/ingress-preload.mjs ./node_modules/next/dist/bin/next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node --import=./scripts/ingress-preload.mjs ./node_modules/next/dist/bin/next start",
     "lint": "eslint .",
     "lint:hygiene": "node scripts/check-nul-bytes.mjs",
     "lint:citations": "node scripts/check-internal-citations.mjs",
@@ -45,6 +45,9 @@
     "test:watch": "vitest",
     "journey:browser": "playwright test",
     "journey:recovery": "node scripts/recovery-journey.mjs",
+    "probe:gate": "node scripts/gate-journey.mjs",
+    "probe:login": "node scripts/login-http-probe.mjs",
+    "probe:published-auth": "node scripts/published-auth-probe.mjs",
     "e2e:keyboard": "playwright test e2e/keyboard-journey.spec.ts e2e/keyboard-interactions.spec.ts e2e/a11y-census.spec.ts",
     "e2e:a11y-pixels": "playwright test e2e/a11y-resting-pixels.spec.ts",
     "e2e:layers": "playwright test e2e/layer-matrix-1.spec.ts e2e/layer-matrix-2.spec.ts",

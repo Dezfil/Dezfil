@@ -1,5 +1,6 @@
+import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { assistantRuns } from "@/lib/assistant/runs";
-import { POST as reserveRun } from "@/app/api/assistant/runs/route";
+import { POST as reserveRunHandler } from "@/app/api/assistant/runs/route";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -14,12 +15,15 @@ import type { AssistantContext } from "./context";
 import type { ModelProvider } from "./provider";
 import { stubProvider } from "./providers/stub";
 import { pendingActions } from "./pending";
-import { POST } from "@/app/api/assistant/messages/route";
+import { POST as POSTHandler } from "@/app/api/assistant/messages/route";
 import { GET as catalogueGet } from "@/app/api/catalogue/tables/route";
 import { GET as mapGet } from "@/app/api/maps/[id]/route";
 import { GET as dependenciesGet } from "@/app/api/maps/[id]/dependencies/route";
 import { GET as recipeGet } from "@/app/api/recipes/[id]/route";
 import { GET as runGet } from "@/app/api/recipes/[id]/runs/[runId]/route";
+
+const reserveRun = authenticatedRoute(reserveRunHandler);
+const POST = authenticatedRoute(POSTHandler);
 
 const factory = vi.hoisted(() => ({ provider: null as ModelProvider | null, calls: 0 }));
 vi.mock("@/lib/assistant/factory", () => ({ createProvider: () => { factory.calls++; return factory.provider; } }));

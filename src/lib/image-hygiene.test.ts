@@ -15,6 +15,8 @@ import dockerIgnore from "@balena/dockerignore";
 import {
   judge,
   cataloguePresence,
+  ingressPresence,
+  INGRESS_REPO_PATHS,
   MODEL_CATALOGUE_REPO_PATH,
   MODEL_CATALOGUE_IMAGE_PATH,
   MVT_WORKER_IMAGE_PATH,
@@ -22,6 +24,14 @@ import {
   TOP_LEVEL_ALLOWLIST,
   trackedManifest,
 } from "../../scripts/check-image-inventory.mjs";
+
+it("requires every ingress preload file in the shipped image", () => {
+  const complete = INGRESS_REPO_PATHS.map(file => `f /app/${file}`);
+  expect(ingressPresence(complete)).toEqual([]);
+  for (const missing of complete) {
+    expect(ingressPresence(complete.filter(line => line !== missing))).toEqual([`MISSING: ${missing.slice(2)}`]);
+  }
+});
 
 function unexpectedContextEntries(trackedFiles: string[], ignoreFile: string) {
   const ignored = dockerIgnore({ ignorecase: false }).add(ignoreFile);

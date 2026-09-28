@@ -16,7 +16,7 @@ import { selfBaseUrl } from "@/lib/self-url";
  * read-only SQL policy, and limits as every other client.
  */
 
-export function buildMcpFetchHandler() {
+export function buildMcpFetchHandler(fetchImpl?: typeof fetch) {
   return createMcpHandler(({ requestInfo }) => {
     const server = new McpServer({ name: "dezfil", version: "0.1.0" });
     const baseUrl = selfBaseUrl(requestInfo);
@@ -44,7 +44,7 @@ export function buildMcpFetchHandler() {
           },
         },
         async (args) => {
-          return callMcpTool(tool, (args ?? {}) as Record<string, unknown>, baseUrl, requestInfo?.signal);
+          return callMcpTool(tool, (args ?? {}) as Record<string, unknown>, baseUrl, requestInfo?.signal, fetchImpl);
         },
       );
     }
@@ -55,7 +55,7 @@ export function buildMcpFetchHandler() {
       const tool = byName.get(request.params.name);
       if (!tool) throw new ProtocolError(-32602, "Unknown tool.");
       const signal = requestInfo?.signal ? AbortSignal.any([requestInfo.signal, context.mcpReq.signal]) : context.mcpReq.signal;
-      const result = await callMcpTool(tool, request.params.arguments ?? {}, baseUrl, signal);
+      const result = await callMcpTool(tool, request.params.arguments ?? {}, baseUrl, signal, fetchImpl);
       return server.server.projectCallToolResult(result, tool.outputSchema as Parameters<typeof server.server.projectCallToolResult>[1]);
     });
     return server;

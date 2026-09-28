@@ -1,3 +1,4 @@
+import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -8,12 +9,14 @@ import { encodePng } from "@/lib/export/png-codec";
 import type { RenderDriver } from "@/lib/export/render-image";
 import { buildOpenApiDocument } from "@/lib/api/openapi";
 import { limits } from "@/lib/limits";
-import { GET as status } from "@/app/api/assistant/route";
+import { GET as statusHandler } from "@/app/api/assistant/route";
 import type { AssistantEvent } from "./loop";
 import type { ModelProvider } from "./provider";
 import { stubProvider } from "./providers/stub";
 import { assistantRuns } from "./runs";
 import { dispatchAssistantTestRoute } from "./testing/route-dispatch";
+
+const status = authenticatedRoute(statusHandler);
 
 /**
  * The switch: the instance owner's environment setting, reported by the

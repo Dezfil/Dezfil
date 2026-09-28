@@ -33,6 +33,7 @@ tsconfig.build.tsbuildinfo
 Dockerfile
 .dockerignore
 .gitleaksignore
+.gitleaks.toml
 test-support
 test-data
 .vscode

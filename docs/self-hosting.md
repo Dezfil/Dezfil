@@ -6,16 +6,9 @@ you put data in it, what the instance keeps, and what it sends out.
 The `README` has the run commands and the full table of settings. Start there, then
 read this.
 
-## Who can reach it is the whole access model
+## Accounts and access
 
-This release has no accounts and no login. Anyone who can reach the instance can edit
-everything in it, and anyone holding a published link can view what that link points
-at. That is a property of the release, not a defect, and everything below follows
-from it.
-
-Run it where you control who can connect: a private network, a VPN, or behind a
-reverse proxy that does the authenticating. If you put it on a public address, treat
-every dataset in it as public.
+Local accounts and sign-in protect the instance; fuller account documentation follows.
 
 A published link is a capability. It carries a token, it is not guessable, and it
 grants read access to one published map until you unpublish it. Anyone the link
@@ -114,3 +107,6 @@ migration that runs is easier to undo from a copy than from a snapshot you did n
 make.
 
 Read the changelog before a major version.
+
+An instance upgraded from a release without accounts shows setup once. Complete
+it promptly: whoever reaches setup first becomes the admin over the existing data.

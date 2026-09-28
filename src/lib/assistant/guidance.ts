@@ -53,6 +53,14 @@ export const CATEGORY_CEILING = 10;
  * Read by the prompt composition and by the package. */
 export const GUIDANCE_SECTIONS: readonly { id: string; audience: 'shared' | 'assistant' | 'package'; text: string }[] = [
   {
+    id: "account-connection",
+    audience: "package",
+    text:
+      "The client reads DEZFIL_API_TOKEN from its environment and sends it as an Authorization bearer. Calls use that account's current permissions. " +
+      "An authentication_required response means the client needs a current account token; forbidden means the account lacks the required permission. " +
+      "Credential configuration belongs to the client transport, outside tool arguments and task messages.",
+  },
+  {
     id: "grounding",
     audience: "assistant",
     text:

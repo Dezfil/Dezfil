@@ -1,0 +1,13 @@
+[extend]
+useDefault = true
+
+# Baseline values are SHA-256 tool-definition digests. Match their shape and
+# exact paths together so reordering is harmless and other findings still fail.
+[[rules]]
+id = "generic-api-key"
+[[rules.allowlists]]
+description = "Tool-definition baseline digests"
+condition = "AND"
+paths = ['''^test-support/assistant-baselines/(mcp-tools-list|anthropic-tool-definitions|openai-tool-definitions)\.json$''']
+regexTarget = "line"
+regexes = ['''^\s*"[a-z_]+": "[a-f0-9]{64}",?\s*$''']

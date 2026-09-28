@@ -21,6 +21,8 @@ import type { ProviderExchange, ToolCall, ToolOutcome } from "./provider";
  */
 
 export interface ParkedRun {
+  /** Account binding only; the resolving request supplies a fresh credential. */
+  accountId?: string;
   confirmation?: ResolvedConfirmation;
   /** The map the gated change belongs to, read with the subject before
    * the pause, for a change whose response names no map. */
@@ -62,7 +64,7 @@ const MAX_TRACE = 256;
 
 export class PendingActionStore {
   private parked = new Map<string, ParkedRun>();
-  private trace = new Map<string, Resolution>();
+  private trace = new Map<string, { resolution: Resolution; accountId?: string }>();
 
   peek(id: string): ParkedRun | undefined { return this.parked.get(id); }
 
@@ -82,7 +84,7 @@ export class PendingActionStore {
     const run = this.parked.get(id);
     if (!run) return undefined;
     this.parked.delete(id);
-    this.remember(id, how);
+    this.remember(id, how, run.accountId);
     return run;
   }
 
@@ -90,24 +92,26 @@ export class PendingActionStore {
    * Unknown ids are ignored — the client is abandoning the action either
    * way. */
   supersede(id: string): void {
-    if (this.parked.delete(id)) this.remember(id, "superseded");
+    const accountId = this.parked.get(id)?.accountId;
+    if (this.parked.delete(id)) this.remember(id, "superseded", accountId);
   }
 
   /** How a no-longer-pending id was resolved, when the trace still holds
    * it — distinguishes "already resolved" from "unknown". */
-  resolutionOf(id: string): Resolution | undefined {
-    return this.trace.get(id);
+  resolutionOf(id: string, accountId?: string): Resolution | undefined {
+    const trace = this.trace.get(id);
+    return trace && (accountId === undefined || trace.accountId === accountId) ? trace.resolution : undefined;
   }
 
   resetForTests() { this.parked.clear(); this.trace.clear(); }
 
-  private remember(id: string, how: Resolution): void {
+  private remember(id: string, how: Resolution, accountId?: string): void {
     while (this.trace.size >= MAX_TRACE) {
       const oldest = this.trace.keys().next().value;
       if (oldest === undefined) break;
       this.trace.delete(oldest);
     }
-    this.trace.set(id, how);
+    this.trace.set(id, { resolution: how, accountId });
   }
 }
 

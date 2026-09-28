@@ -12,6 +12,7 @@
 // stub preload: the instance booted with both preloads,
 // DEZFIL_E2E_RENDER_STUB=1 and a retention of two renders
 // (DEZFIL_ASSISTANT_LOOK_RETENTION=2), the scripted provider on 3202.
+// The stub reuses a token from the browser account fixture for its map reads.
 // Renders are counted as the check's dispatches at the harness.
 import { test, expect, type Page } from "@playwright/test";
 import { assistantProviderFixture } from "./assistant-provider-fixture";

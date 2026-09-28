@@ -4,6 +4,18 @@ import type { ErrorCode } from "./errors";
  * error's code appears in the API documentation). Single source, rendered
  * into the docs and the OpenAPI description. */
 export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
+  authentication_required: "Sign in with a valid session or account token to continue.",
+  invalid_credentials: "Email or password is incorrect.",
+  account_deactivated: "This account is deactivated. Contact an admin.",
+  setup_complete: "This instance already has an account. First-account creation is unavailable.",
+  weak_password: "Use at least eight characters and avoid very common passwords.",
+  email_taken: "An account already uses this normalized email address.",
+  self_change_refused: "Another admin must change your admin flag or deactivate your account.",
+  last_admin: "Keep at least one active admin.",
+  forbidden: "This request is not permitted for the current account or origin.",
+  invalid_link: "This sign-in link is unavailable, expired, replaced or already used.",
+  current_password_required: "Enter your current password to make this change.",
+  ingress_unavailable: "Trusted socket provenance is unavailable. Authentication entry cannot proceed.",
   geometry_not_supported: "Set geometry is available only for file uploads and URL imports.",
   geometry_choice_invalid: "The geometry choice cannot be applied. The message explains the projection, source or validator issue.",
   geometry_in_flight: "A geometry edit or refresh is already running for this dataset or URL import group.",
@@ -106,7 +118,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
     "The selection references a field the published surface does not declare: outside the layer's effective published field set and not a published widget's field.",
   selection_incompatible:
     "The selection's values cannot be evaluated against its field's type (for example a time range on a non-time field); it was refused before evaluation.",
-  rate_limited: "Too many requests; the anonymous rate limit was exceeded.",
+  rate_limited: "Too many requests or sign-in attempts; retry after the indicated delay.",
   catalogue_too_large: "The schema page exceeds 96 KiB. Request fewer tables or columns.",
   assistant_reservation_required: "Reserve a run with POST /api/assistant/runs, then send its id as runId.",
   assistant_run_unavailable: "This run identity is unavailable and cannot execute.",

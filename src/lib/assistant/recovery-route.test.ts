@@ -1,3 +1,5 @@
+import { authenticatedRequest } from "./testing/account";
+import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { pendingActions } from "./pending";
 import { assistantRuns } from "./runs";
 import { randomUUID } from "node:crypto";
@@ -7,8 +9,10 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { closeMetadataDb } from "@/lib/metadata/db";
 import { GET as listMaps, POST as createMap } from "@/app/api/maps/route";
 import { GET as catalogue } from "@/app/api/catalogue/tables/route";
-import { POST as message } from "@/app/api/assistant/messages/route";
+import { POST as messageHandler } from "@/app/api/assistant/messages/route";
 import type { ModelProvider } from "./provider";
+
+const message = authenticatedRoute(messageHandler);
 
 const factory = vi.hoisted(() => ({ provider: null as ModelProvider | null, exchanges: 0, calls: 0 }));
 vi.mock("@/lib/assistant/factory", () => ({ createProvider: () => { factory.calls++; return factory.provider; } }));
@@ -17,7 +21,7 @@ let dir: string;
 let mutationId: string | undefined;
 const origin = "http://localhost:3201";
 async function api(url: string, body?: unknown, method = body === undefined ? "GET" : "POST") {
-  const request = new Request(origin + url, { method, ...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }) });
+  const request = authenticatedRequest(new Request(origin + url, { method, ...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }) }));
   if (url === "/api/assistant/messages") return message(request);
   const exact = routes[`/src/app${url}/route.ts`];
   const id = url.split("/").at(-1)!;

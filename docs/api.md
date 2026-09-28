@@ -24,16 +24,19 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **103 paths, 138 operations, 135 named
+Measured from the current source: **117 paths, 155 operations, 147 named
 component schemas.**
 
 ## Base path and access
 
-Every endpoint lives under `/api`. There is no versioned prefix and no
-authentication: this release has no accounts, and reaching the instance is
-the whole access model. Run it behind your own network controls.
+Every endpoint lives under `/api`, without a versioned prefix. Each
+operation's OpenAPI `security` declaration states its credential requirement.
+Account sessions and personal settings accept a session cookie or an account's
+bearer token. Setup, sign-in and link redemption are public entry operations;
+cookie mutations and entry submissions require a matching request Origin.
+Run the instance behind your own network controls.
 
-The one exception is the published surface. `GET /api/published/{token}`
+The published surface remains anonymous. `GET /api/published/{token}`
 and its siblings are the read-only, anonymous face of a map someone chose to
 publish. The token is 22 random characters (`src/lib/publish/token.ts`), it
 is the entire credential, and revoking a publication invalidates it.
@@ -48,8 +51,50 @@ runtime settings a browser client legitimately needs (available basemaps,
 palettes, the render cap, the preview row count, and whether a geocoder is
 configured, but never a configured URL that might carry a key).
 `GET /api/openapi.json` serves the description. `GET`/`PATCH /api/settings`
-hold instance and display names and per-screen view preferences.
+return the caller's account display name and per-screen view preferences,
+plus the shared instance name. Only admins may change the instance name.
+Every field in a patch is validated and authorized before any write.
 `/api/palettes` manages saved color palettes.
+
+**Settings compatibility change.** `/api/settings` now requires authentication
+and returns `401` for missing or invalid credentials. `displayName` and
+`viewPrefs` belong to the caller's account; first-account setup adopts legacy
+preferences. A non-admin patch containing `instanceName` returns `403`, with
+all personal and instance fields unchanged. Identity-bearing responses and
+refusals use `Cache-Control: private, no-store`.
+
+**Account.** `GET`/`PATCH /api/account` read and update only the caller's
+profile. A name change needs no password; changing email requires
+`currentPassword`, rejects normalized duplicates and changes the sign-in
+identity. `POST /api/account/password` takes `currentPassword` and `password`,
+preserves the calling browser session, ends other sessions and leaves tokens
+valid. A bearer caller has no browser session to preserve.
+
+`GET`/`POST /api/account/tokens` list or create the caller's named API/MCP
+tokens. Creation returns the secret once; list responses never contain secrets
+or hashes. `DELETE /api/account/tokens/{id}` revokes an own token; another
+account's token ID returns `404` without changing it. Missing, invalid,
+revoked or deactivated credentials return `401` on every account operation.
+These operations use the same private response and cookie-origin rules as
+settings. The Account and API / MCP tokens cards in Settings call these APIs.
+
+**Users.** Admins use `GET`/`POST /api/users` to list or invite accounts,
+`PATCH /api/users/{id}` to change another account's admin flag or active status,
+and `POST /api/users/{id}/sign-in-link` to replace a sign-in link or reset a
+password. Inviting defaults to a non-admin account; `isAdmin: true` explicitly
+grants administration. The invitation and reset replies disclose a copyable
+`signInUrl` once, with an `expiresAt` timestamp seven days later. The recipient
+chooses a password; the instance sends no email. The link credential is carried
+in the fragment and does not reach the server until redemption.
+
+Normalized duplicate emails return `email_taken`. A deactivated duplicate also
+returns `accountId` and `canReactivate: true`, so the same account can be restored.
+An unaccepted invitation returns to invited status on reactivation. Self-demotion
+and self-deactivation are refused even when another admin exists, and competing
+changes cannot leave the instance without an active admin. Reset invalidates the
+password and browser sessions while leaving tokens valid. Deactivation refuses
+sessions and tokens; reactivation preserves the account without reviving ended
+sessions. No user deletion operation exists.
 
 **Tables.** The catalogue of datasets. `POST /api/tables` takes a
 `multipart/form-data` upload; `POST /api/imports/url`,
@@ -74,7 +119,13 @@ duplicate; plus the editing history (`GET /api/maps/{id}/history`,
 search within a map, widget values, and server-side image export
 (`POST /api/maps/{id}/export/image`). `POST /api/maps/look` renders a map
 and retains the image briefly for an agent to read back through
-`GET /api/maps/look/{renderId}`.
+`GET /api/maps/look/{renderId}`. These operations and `/render/{id}` require
+an account credential and return private, no-store responses. The renderer
+forwards the caller's bearer, or a short-lived delegation of their browser
+session, on each request to this instance's exact origin. Every request,
+including a redirect, rechecks the credential and egress policy. External
+basemap and tile requests carry no account credential or cookie. Credentials
+never enter the render URL, page initialization, image facts or retained state.
 
 **Layers.** A layer is SQL plus a name plus style. Create it on a map
 (`POST /api/maps/{id}/layers`), read and patch it, duplicate it, delete it.
@@ -205,3 +256,13 @@ agent tool that runs SQL. There is no browser-side query engine.
 `node scripts/journey.mjs <base-url>` walks the entire flow, upload through
 SQL, layer, style and publish, using nothing but these endpoints and no
 browser. It is the working proof that the interface has no private path.
+
+### Assistant identity
+
+MCP and all assistant transport operations require the caller's session or
+bearer token. Reservations, recovery receipts and pending confirmations belong
+to the reserving account. Another account cannot read, cancel, release,
+supersede or resolve them. Confirmation reauthenticates the same account and
+checks current permissions during execution, including admin restrictions.
+Internal grounding, subject reads and tool calls carry a bearer-equivalent
+credential; the parked state retains the account binding and no credential.

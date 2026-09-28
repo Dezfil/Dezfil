@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import { packageFetch } from './dezfil-client-auth.mjs';
 import { resolvePackage } from './dezfil-package.mjs';
 import { checkNamedOperations, checkPackageCopy } from './dezfil-package-checks.mjs';
 import { coreJourney, journeyClient } from './mcp-journey-core.mjs';
 
 /** Each format resolves its own copied native chain. Identical downstream
  * configuration runs once. There is no endpoint parameter or fallback. */
-export async function installedJourney(root, { render = false, renderLog = undefined } = {}) {
+export async function installedJourney(root, { render = false, renderLog = undefined, environment = process.env } = {}) {
   const started = Date.now();
   const report = { arm: render ? 'installed-real-look' : 'installed-http', setup: 0, connections: 0, productCalls: 0, formats: [], runs: [] };
   try {
@@ -21,9 +22,10 @@ export async function installedJourney(root, { render = false, renderLog = undef
       await checkPackageCopy(resolved.plugin);
       report.formats.push({ format, version: resolved.version, url: resolved.url, manifest: resolved.manifestFile, connection: resolved.mcpFile });
       report.setup++;
-      configurations.set(JSON.stringify([resolved.name, resolved.type, resolved.url]), { ...resolved, skill, analysis });
+      configurations.set(JSON.stringify([resolved.name, resolved.type, resolved.url, resolved.tokenEnv]), { ...resolved, skill, analysis });
     }
     for (const config of configurations.values()) {
+      const authenticatedFetch = packageFetch(config, environment);
       const client = new Client({ name: 'dezfil-installed-journey', version: '1' });
       const trace = [];
       const originalCall = client.callTool.bind(client);
@@ -36,11 +38,11 @@ export async function installedJourney(root, { render = false, renderLog = undef
       const runStarted = Date.now();
       try {
         // The SDK bounds requests; the actual installed URL is the only source.
-        await client.connect(new StreamableHTTPClientTransport(new URL(config.url)));
+        await client.connect(new StreamableHTTPClientTransport(new URL(config.url), { fetch: authenticatedFetch }));
         report.connections++;
         const base = new URL(config.url).origin;
         const journey = await journeyClient(client, async subject => {
-          const response = await fetch(base + subject, { signal: AbortSignal.timeout(5000) });
+          const response = await authenticatedFetch(base + subject, { signal: AbortSignal.timeout(5000) });
           assert.ok(response.ok, `Documented REST confirmation subject ${response.status}`);
           return response.json();
         });

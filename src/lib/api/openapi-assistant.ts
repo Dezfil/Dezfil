@@ -1,5 +1,6 @@
+import { authenticatedOp as op } from "./openapi-authenticated";
 import { ASSISTANT_RUN_PATHS } from "./openapi-assistant-runs";
-import { op, jsonOk } from "./openapi-helpers";
+import { jsonOk } from "./openapi-helpers";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
 
 /** Assistant lifecycle operations are documented clients, excluded from model tools. */
@@ -46,7 +47,7 @@ export const ASSISTANT_PATHS = {
         post: op({
           summary: "Send a message to the assistant",
           description:
-            "Every new message requires a runId from POST /api/assistant/runs. Unreserved requests refuse with 400 assistant_reservation_required before work. Unknown or evicted identities refuse with 404 assistant_run_unavailable. The first accepted submission binds its message, history, context and supersession. Identical concurrent or later submissions return an application/json AssistantRun snapshot without another exchange; changed input refuses with 409 assistant_run_conflict. Plain-English request; the assistant works through the same " +
+            "Reservations and pending actions are bound to their account. Every continuation reauthenticates that same account and uses its current permissions. A foreign run is unavailable; a foreign pending action is unknown. Grounding, subject reads, execution and automatic checks use the caller’s bearer-equivalent identity on every internal request. No credential is retained with a pending action. Every new message requires a runId from POST /api/assistant/runs. Unreserved requests refuse with 400 assistant_reservation_required before work. Unknown or evicted identities refuse with 404 assistant_run_unavailable. The first accepted submission binds its message, history, context and supersession. Identical concurrent or later submissions return an application/json AssistantRun snapshot without another exchange; changed input refuses with 409 assistant_run_conflict. Plain-English request; the assistant works through the same " +
             "documented API these docs describe and streams its actions back " +
             "as newline-delimited JSON events (application/x-ndjson): assistant " +
             "text, tool calls and their results, confirmation prompts for " +

@@ -41,12 +41,12 @@ it('a transport exception is replaced with the guide failure copy', async () => 
 });
 it('configurations retain the displayed origin and port, including IPv6', () => {
   for (const endpoint of ['http://localhost:3377/api/mcp', 'https://maps.example.test:8443/api/mcp', 'http://[::1]:3388/api/mcp']) {
-    expect(clientGuide('Claude Code', endpoint).code).toBe(`claude mcp add --transport http dezfil '${endpoint}'`);
-    expect(clientGuide('Codex', endpoint).code).toBe(`codex mcp add dezfil --url '${endpoint}'`);
+    expect(clientGuide('Claude Code', endpoint).code).toBe(`claude mcp add --transport http dezfil '${endpoint}'` + " --header 'Authorization: Bearer ${DEZFIL_API_TOKEN}'");
+    expect(clientGuide('Codex', endpoint).code).toBe(`codex mcp add dezfil --url '${endpoint}' --bearer-token-env-var DEZFIL_API_TOKEN`);
     const codex = clientGuide('Codex', endpoint).alternate!;
     expect(codex.split('\n')[0]).toBe('[mcp_servers.dezfil]');
-    expect(JSON.parse(codex.split('url = ')[1])).toBe(endpoint);
-    expect(JSON.parse(clientGuide('Cursor', endpoint).code)).toEqual({ mcpServers: { dezfil: { url: endpoint } } });
-    expect(clientGuide('Claude Desktop', endpoint).code).toBe(endpoint);
+    expect(JSON.parse(codex.split('url = ')[1].split('\n')[0])).toBe(endpoint);
+    expect(JSON.parse(clientGuide('Cursor', endpoint).code)).toEqual({ mcpServers: { dezfil: { url: endpoint, headers: { Authorization: 'Bearer ${env:DEZFIL_API_TOKEN}' } } } });
+    expect(clientGuide('Claude Desktop', endpoint).supported).toBe(false);
   }
 });

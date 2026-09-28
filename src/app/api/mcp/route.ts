@@ -1,3 +1,6 @@
+import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
+import { instanceFetch } from "@/lib/auth/instance-fetch";
+import { selfBaseUrl } from "@/lib/self-url";
 import { buildMcpFetchHandler } from "@/lib/mcp/handler";
 
 /**
@@ -5,8 +8,12 @@ import { buildMcpFetchHandler } from "@/lib/mcp/handler";
  * handler is stateless (fresh server per request), so there are no session
  * streams to GET or DELETE.
  */
-const handler = buildMcpFetchHandler();
+
 
 export async function POST(request: Request) {
-  return handler.fetch(request);
+  try {
+    const context = requireRequestAuth(request);
+    const transport = instanceFetch(selfBaseUrl(request), context);
+    return privateResponse(await buildMcpFetchHandler(transport).fetch(request));
+  } catch (error) { return authFailure(error); }
 }

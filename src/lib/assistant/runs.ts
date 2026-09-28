@@ -92,7 +92,7 @@ export interface RunReceipt {
    * reported. */
   provenance?: RunProvenance;
 }
-interface RunEntry { controller?: AbortController; currentText?: { id: string; start: number }; receipt: RunReceipt; fingerprint?: string; createdAt: number }
+interface RunEntry { accountId?: string; controller?: AbortController; currentText?: { id: string; start: number }; receipt: RunReceipt; fingerprint?: string; createdAt: number }
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
   if (value !== null && typeof value === "object") return `{${Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([k,v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(",")}}`;
@@ -115,18 +115,21 @@ export class AssistantRunStore {
     if (!this.terminals.includes(id)) this.terminals.push(id);
     while (this.terminals.length > RECOVERY_LIMITS.receipts) this.entries.delete(this.terminals.shift()!);
   }
-  reserve(): RunReceipt {
+  reserve(accountId?: string): RunReceipt {
     this.expire();
     const occupied = [...this.entries.values()].filter(({ receipt }) => ["reserved", "running", "awaiting_confirmation"].includes(receipt.state)).length;
     if (occupied >= RECOVERY_LIMITS.slots) throw new ApiError("assistant_capacity", ERROR_CATALOGUE.assistant_capacity, 409);
     const receipt: RunReceipt = { id: randomUUID(), state: "reserved", text: "", actions: [], incomplete: false };
-    this.entries.set(receipt.id, { receipt, createdAt: this.now() });
+    this.entries.set(receipt.id, { receipt, accountId, createdAt: this.now() });
     return structuredClone(receipt);
   }
+  requireAccount(id: string, accountId: string): void {
+    if (this.lookup(id).accountId !== accountId) throw new ApiError("assistant_run_unavailable", ERROR_CATALOGUE.assistant_run_unavailable, 404);
+  }
   read(id: string): RunReceipt { return structuredClone(this.lookup(id).receipt); }
-  pending(): PendingReceipt[] {
+  pending(accountId?: string): PendingReceipt[] {
     this.expire();
-    return structuredClone([...this.entries.values()].flatMap(({ receipt }) => receipt.pending ? [receipt.pending] : []));
+    return structuredClone([...this.entries.values()].flatMap(entry => entry.receipt.pending && (accountId === undefined || entry.accountId === accountId) ? [entry.receipt.pending] : []));
   }
   release(id: string): string | undefined {
     const receipt = this.lookup(id).receipt;

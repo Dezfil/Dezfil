@@ -1,10 +1,14 @@
+import { authenticatedRoute, TEST_ACCOUNT_ID } from "@/lib/assistant/testing/account";
 import { assistantRuns } from "@/lib/assistant/runs";
-import { POST as reserveRun } from "@/app/api/assistant/runs/route";
+import { POST as reserveRunHandler } from "@/app/api/assistant/runs/route";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { POST } from "./route";
+import { POST as POSTHandler } from "./route";
 import { pendingActions, type ParkedRun } from "@/lib/assistant/pending";
 import type { ToolOutcome } from "@/lib/assistant/provider";
 import { CHANGE_GROUP_HEADER } from "@/lib/api/change-group";
+
+const reserveRun = authenticatedRoute(reserveRunHandler);
+const POST = authenticatedRoute(POSTHandler);
 
 /**
  * The exchange endpoint's confirmation protocol: the two request forms,
@@ -40,6 +44,7 @@ async function events(res: Response): Promise<Record<string, unknown>[]> {
 function park(overrides: Partial<ParkedRun> = {}) {
   const seen: ToolOutcome[][] = [];
   const id = pendingActions.park({
+    accountId: TEST_ACCOUNT_ID,
     exchange: {
       async send() {
         throw new Error("a parked exchange is never re-sent");

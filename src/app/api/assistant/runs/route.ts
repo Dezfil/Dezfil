@@ -1,7 +1,9 @@
-import { errorResponse } from "@/lib/api/errors";
+import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
 import { assistantRuns } from "@/lib/assistant/runs";
 
-export async function POST() {
-  try { return Response.json(assistantRuns.reserve(), { status: 201, headers: { "cache-control": "no-store" } }); }
-  catch (error) { return errorResponse(error); }
+export async function POST(request: Request) {
+  try {
+    const { account } = requireRequestAuth(request);
+    return privateResponse(Response.json(assistantRuns.reserve(account.id), { status: 201 }));
+  } catch (error) { return authFailure(error); }
 }

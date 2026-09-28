@@ -12,7 +12,7 @@ import { RenderExportView } from "./RenderExportView";
  * headless browser here and screenshots the viewport; the definition
  * arrives through the driver's request-scoped page initialization,
  * never the URL. Private surface, map by id — the same exposure as the
- * rest of the single-administrator API; deliberately not the published token
+ * authenticated authoring API; deliberately not the published token
  * path (no rate bucket, no field projection, no publish requirement).
  */
 export default async function RenderExportPage({

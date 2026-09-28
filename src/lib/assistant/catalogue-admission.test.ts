@@ -1,3 +1,4 @@
+import { authenticatedRoute, TEST_ACCOUNT_ID } from "@/lib/assistant/testing/account";
 import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -5,13 +6,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { dispatchAssistantTestRoute } from "./testing/route-dispatch";
 import { resetQueryInstance } from "@/lib/duckdb";
 import { closeMetadataDb } from "@/lib/metadata/db";
-import { GET as status } from "@/app/api/assistant/route";
-import { POST as post } from "@/app/api/assistant/messages/route";
+import { GET as statusHandler } from "@/app/api/assistant/route";
+import { POST as postHandler } from "@/app/api/assistant/messages/route";
 import { assistantRuns } from "./runs";
 import { stubProvider } from "./providers/stub";
 import type { ProviderChoice } from "./factory";
 import type { ModelKnowledge } from "./model-knowledge";
 import * as catalogue from "./model-catalogue";
+
+const status = authenticatedRoute(statusHandler);
+const post = authenticatedRoute(postHandler);
 
 const built = vi.hoisted(() => [] as ProviderChoice[]);
 vi.mock("./factory", () => ({ createProvider: (choice: ProviderChoice) => {
@@ -42,7 +46,7 @@ afterEach(() => {
 const put = (value: unknown) => { writeFileSync(`${file}.next`, JSON.stringify(value)); renameSync(`${file}.next`, file); };
 const entry = (id: string, efforts = ["low", "high"]) => ({ id, name: `Name ${id}`, efforts });
 const read = async () => (await status()).json() as Promise<{ models: ModelKnowledge[]; catalogue: catalogue.CatalogueState }>;
-const send = (choice: ProviderChoice, runId = assistantRuns.reserve().id) => post(new Request("http://localhost:3410/api/assistant/messages", {
+const send = (choice: ProviderChoice, runId = assistantRuns.reserve(TEST_ACCOUNT_ID).id) => post(new Request("http://localhost:3410/api/assistant/messages", {
   method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ runId, message: "Hello", history: [], choice }),
 }));
 async function accepted(choice: ProviderChoice) {
@@ -52,7 +56,7 @@ async function accepted(choice: ProviderChoice) {
   expect(built.at(-1)).toEqual({ model: choice.model, effort: choice.effort ?? "default" });
 }
 async function refused(choice: ProviderChoice, code: string, replacement: ProviderChoice) {
-  const run = assistantRuns.reserve();
+  const run = assistantRuns.reserve(TEST_ACCOUNT_ID);
   const before = built.length;
   const work = network.mock.calls.length;
   const response = await send(choice, run.id);

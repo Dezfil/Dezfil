@@ -14,17 +14,16 @@ and on the default branch. Older releases are not patched.
 
 Read this before deciding whether something is a vulnerability.
 
-Dezfil ships with **no authentication and no user accounts**. Anyone who can
-reach the instance over the network can read, change and delete everything in
-it, including uploaded data, saved maps and stored connection settings. This
-is a deliberate property of the current design, not a defect. Run an instance
-on a private network, behind your own authenticating proxy, or on a machine
-only you can reach.
+Dezfil requires local account authentication for application pages and APIs,
+including MCP. The first account becomes the initial admin. Admins manage other
+accounts and instance settings; profiles, tokens and preferences are personal.
+Resource ownership is not isolated yet: signed-in accounts share maps, datasets,
+workflows and connections. Keep a new instance private until setup is complete.
 
-Reports that reduce to "an unauthenticated caller could do X" are therefore
-expected behaviour. Reports that a caller can escape those boundaries are not,
-and we want to hear about them. Examples of what we do consider a
-vulnerability:
+Published links and embeds expose only their read-only published projection
+without sign-in. Readiness and account entry flows are also anonymous.
+Authentication bypasses and unauthorized account administration are security
+issues. Other examples include:
 
 - reading or writing files outside the configured data directory;
 - executing commands or code on the host through an upload, a query, or a
@@ -69,7 +68,7 @@ still quiet after another 15 working days, you are free to publish.
 
 ## Out of scope
 
-- Missing authentication, as described above.
+- Resource sharing between authenticated accounts, as described above.
 - Findings from an automated scanner with no demonstrated impact.
 - Denial of service through sheer volume of requests or very large uploads.
 - Vulnerabilities in a dependency with no path to exploit them through Dezfil.

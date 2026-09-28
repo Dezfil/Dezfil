@@ -49,7 +49,7 @@ export function serverVariables(srcDir) {
   const names = new Set();
   const files = walk(srcDir).filter(
     (f) =>
-      (f.endsWith(".ts") || f.endsWith(".tsx")) && !f.endsWith(".test.ts"),
+      /\.(?:ts|tsx|js|mjs)$/.test(f) && !/\.test\.(?:ts|tsx|js|mjs)$/.test(f),
   );
   const patterns = [
     /\b(DEZFIL_[A-Z0-9_]+)\b/g,
@@ -61,6 +61,9 @@ export function serverVariables(srcDir) {
     const src = readFileSync(file, "utf8");
     for (const pattern of patterns) {
       for (const m of src.matchAll(pattern)) {
+        // The guide names this client-side reference. A real process.env
+        // read still counts through the direct-access patterns below.
+        if (pattern === patterns[0] && m[1] === "DEZFIL_API_TOKEN") continue;
         if (!EXCLUDED(m[1])) names.add(m[1]);
       }
     }

@@ -3,8 +3,8 @@ import { streamReply } from "./provider-step";
 import { ApiError } from "@/lib/api/errors";
 import { prepareConfirmation } from "./confirmation";
 import { actionEffects, noEffects, subjectFacts, type ActionEffects, type ResolvedConfirmation } from "./action-metadata";
-import { execAndRecord, words, type ActionBatch as Batch, type ActionContext } from "./action-execution";
-import { decideAutomaticCheck, emptyTurnFacts, noteTurnEvent, withContextualMap, type TurnFacts } from "./auto-check";
+import { execAndRecord, words, type ActionBatch as Batch } from "./action-execution";
+import { decideAutomaticCheck, emptyTurnFacts, noteTurnEvent, withContextualMap } from "./auto-check";
 import { runAutomaticCheck } from "./check-turn";
 import { LOOK_TOOL } from "./look-outcome";
 import { assistantRuns, type Decision, type HistoryAssociation } from "./runs";
@@ -12,27 +12,23 @@ import type { RecordedSubject } from "./record-label";
 import type { AssistantContext } from "./context";
 import type { LookFacts } from "@/lib/export/map-look";
 import { splitObservation, type ObservationReason, type ObservationState } from "./observation";
-import { admittedTools, POLICY_REFUSAL_CODE, policyFor, type AssistantPolicy } from "./policy";
-import { defaultOffer, type OfferMode } from "./offer";
+import { admittedTools, POLICY_REFUSAL_CODE, policyFor } from "./policy";
+import { defaultOffer } from "./offer";
 import { DISCOVERY_TOOL, discoveryBody, discoveryDefinition, findOperations } from "./discovery";
 import { randomUUID } from "node:crypto";
-import { buildTools, type ToolDef } from "@/lib/tools/tools";
+import { buildTools } from "@/lib/tools/tools";
 import { CHANGE_GROUP_HEADER } from "@/lib/api/change-group";
 import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
-import { limits } from "@/lib/limits";
 import { systemPrompt } from "./prompt";
 import {
   ProviderError,
   type HistoryTurn,
   type ModelProvider,
-  type ProviderExchange,
   type ProviderReply,
 } from "./provider";
-import {
-  pendingActions,
-  type ParkedRun,
-  type PendingActionStore,
-} from "./pending";
+import type { ParkedRun } from "./pending";
+import { makeExecutionContext, type ExecutionContext, type LoopDeps } from "./execution-context";
+export type { LoopDeps } from "./execution-context";
 
 /**
  * The bounded agent loop: the assistant works through tools that are the
@@ -120,70 +116,6 @@ export interface RunInput {
 
 const CONFIRM_DENIED = "The user did not confirm this action, so it was not performed.";
 
-export interface LoopDeps {
-  runId?: string;
-  grounding?: string;
-  tools?: ToolDef[];
-  baseUrl: string;
-  fetchImpl?: typeof fetch;
-  stepBudget?: number;
-  /** The assistant request's departure — tool calls cancel with it. */
-  signal?: AbortSignal;
-  /** Where paused runs park; the instance store unless a test injects. */
-  pending?: PendingActionStore;
-  /** The page action policy; derived from the context
-   * when absent, so a caller that passes neither gets today's whole set. */
-  policy?: AssistantPolicy;
-  /** The offer's mode: the page's subset or the full
-   * admitted set; the module default unless a measurement arm sets it. */
-  offerMode?: OfferMode;
-  /** Whether discovery is offered when the offer omits admitted
-   * operations; on unless a measurement control turns it off. */
-  discovery?: boolean;
-  /** The system prompt, for the measurement's base arm; the composed
-   * prompt otherwise. */
-  system?: string;
-  /** Whether the loop schedules a map check after a qualifying turn
-   * the instance setting unless a caller says. */
-  autoCheck?: boolean;
-}
-
-/** The per-run context, plus the turn's scheduling facts. */
-interface Ctx extends ActionContext {
-  turn: TurnFacts;
-  /** Whether the loop schedules a map check after a qualifying turn. */
-  autoCheck: boolean;
-}
-
-function makeCtx(
-  deps: LoopDeps,
-  headers: Record<string, string>,
-  exchange: ProviderExchange,
-  policy: AssistantPolicy,
-  offered: Iterable<string>,
-  discovery: boolean,
-  turn: TurnFacts = emptyTurnFacts(),
-): Ctx {
-  const tools = assistantTools(deps.tools ?? buildTools());
-  return {
-    turn,
-    autoCheck: deps.autoCheck ?? limits.assistantAutoCheck,
-    runId: deps.runId,
-    policy,
-    admitted: new Set(admittedTools(policy, tools).map((t) => t.name)),
-    offered: new Set(offered),
-    discovery,
-    byName: new Map(tools.map((t) => [t.name, t])),
-    budget: deps.stepBudget ?? limits.assistantStepBudget,
-    baseUrl: deps.baseUrl,
-    fetchImpl: deps.fetchImpl,
-    signal: deps.signal,
-    headers,
-    store: deps.pending ?? pendingActions,
-    exchange,
-  };
-}
-
 export async function* runAssistant(
   provider: ModelProvider,
   input: RunInput,
@@ -208,7 +140,7 @@ export async function* runAssistant(
   // Every mutation of this turn carries one group marker, so the whole
   // turn lands as a single undo step — across pauses too, because the
   // marker parks with the run.
-  const ctx = makeCtx(deps, { [CHANGE_GROUP_HEADER]: randomUUID() }, exchange, policy, offer.map((t) => t.name), discovery);
+  const ctx = makeExecutionContext(deps, { [CHANGE_GROUP_HEADER]: randomUUID() }, exchange, policy, offer.map((t) => t.name), discovery);
   ctx.context = input.context;
 
   let reply;
@@ -231,7 +163,7 @@ export async function* resumeAssistant(
 ): AsyncGenerator<AssistantEvent> {
   // The parked run's own policy, never the resolving request's: a
   // continuation admits what the original submission admitted.
-  const ctx = makeCtx(deps, parked.headers, parked.exchange, parked.policy, parked.offered ?? [], parked.discovery ?? false, parked.turn ?? emptyTurnFacts());
+  const ctx = makeExecutionContext(deps, parked.headers, parked.exchange, parked.policy, parked.offered ?? [], parked.discovery ?? false, parked.turn ?? emptyTurnFacts());
   if (ctx.signal?.aborted) { yield { type: "done", reason: "interrupted" }; return; }
   ctx.context = parked.context;
   if (deps.grounding !== undefined) ctx.exchange.setGrounding?.(deps.grounding);
@@ -288,7 +220,7 @@ export async function* resumeAssistant(
 /** The reply loop: emit text, work the batch, feed outcomes back, repeat
  * until the model stops calling tools or the run parks or exhausts. */
 async function* runFromReply(
-  ctx: Ctx,
+  ctx: ExecutionContext,
   reply: ProviderReply,
   steps: number,
 ): AsyncGenerator<AssistantEvent> {
@@ -336,7 +268,7 @@ async function* runFromReply(
  * here — parked at a gated call or out of budget — with the events already
  * emitted; false when the batch completed. */
 async function* processCalls(
-  ctx: Ctx,
+  ctx: ExecutionContext,
   batch: Batch,
 ): AsyncGenerator<AssistantEvent, boolean> {
   while (batch.index < batch.calls.length) {
@@ -427,6 +359,7 @@ async function* processCalls(
     if (ctx.runId) assistantRuns.admit(ctx.runId, call);
     if (confirmation) {
       const parked = {
+        accountId: ctx.accountId,
         confirmation: confirmation.words,
         historyMapId: subjectFacts(confirmation.subject)?.mapId,
         runId: ctx.runId,
@@ -462,7 +395,7 @@ async function* processCalls(
 /** The observation a reply supplies for the check awaiting one: captured
  * from its first sentence, or completed with no text where the turn
  * ends without any; a reply with calls and no text leaves it awaited. */
-async function* observationOf(ctx: Ctx, text: string, ending: boolean): AsyncGenerator<AssistantEvent> {
+async function* observationOf(ctx: ExecutionContext, text: string, ending: boolean): AsyncGenerator<AssistantEvent> {
   const { displayed } = splitObservation(text);
   for (const id of ctx.turn.awaiting ?? []) {
     if (displayed) yield { type: "observation", id, state: "captured", text: displayed };
@@ -472,12 +405,12 @@ async function* observationOf(ctx: Ctx, text: string, ending: boolean): AsyncGen
 
 /** Spending the last step admits no further request: a check still
  * awaiting its observation records why none will come. */
-async function* exhausted(ctx: Ctx): AsyncGenerator<AssistantEvent> {
+async function* exhausted(ctx: ExecutionContext): AsyncGenerator<AssistantEvent> {
   for (const id of ctx.turn.awaiting ?? []) yield { type: "observation", id, state: "interrupted", reason: "exhausted" };
 }
 
 /** Forward an action's events, folding each into the turn's facts. */
-async function* observed<R>(ctx: Ctx, events: AsyncGenerator<AssistantEvent, R>): AsyncGenerator<AssistantEvent, R> {
+async function* observed<R>(ctx: ExecutionContext, events: AsyncGenerator<AssistantEvent, R>): AsyncGenerator<AssistantEvent, R> {
   for (;;) {
     const next = await events.next();
     if (next.done) return next.value;

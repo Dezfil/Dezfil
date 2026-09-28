@@ -100,6 +100,15 @@ jobs:
       # script's generated marketplace entry.
       - run: npm run lint:plugin
       - run: npm test
+        env:
+          # The authenticated test fixtures refuse to run without an
+          # explicit scratch data directory, so no suite can ever touch
+          # a real one. The runner provides a throwaway path.
+          DEZFIL_DATA_DIR: ${{ runner.temp }}/dezfil-test-data
+      - name: Native socket provenance and missing-preload refusal
+        run: |
+          DEZFIL_TRUSTED_PROXIES=127.0.0.1 node --import=./scripts/ingress-preload.mjs scripts/ingress-probe.mjs
+          node scripts/ingress-probe.mjs --expect-missing
 
   # Secret scan - cheap, so it runs everywhere. The working tree is scanned
   # rather than the history, which is what the fingerprints in .gitleaksignore
@@ -141,6 +150,13 @@ jobs:
       # and no key material anywhere inside.
       - name: Runtime image inventory matches the allowlist
         run: node scripts/check-image-inventory.mjs dezfil:ci
+      - name: Packaged native socket provenance
+        run: |
+          docker run --rm --network=none -e DEZFIL_TRUSTED_PROXIES=127.0.0.1 \
+            -v "$PWD/scripts:/probes:ro" dezfil:ci \
+            node --import=/app/scripts/ingress-preload.mjs /probes/ingress-probe.mjs
+          docker run --rm --network=none -v "$PWD/scripts:/probes:ro" dezfil:ci \
+            node /probes/ingress-probe.mjs --expect-missing
       # Every supported DuckDB extension is baked into the image and loads
       # with the network disabled, so an air-gapped instance degrades rather
       # than breaks.
@@ -171,8 +187,25 @@ jobs:
           docker logs dezfil-ci
           docker stop dezfil-ci
           exit 1
-      - name: Headless journey through the documented API without external networking
+      # Setup and token creation happen before the protected API description.
+      - name: Authenticated headless journey without external networking
         run: docker exec dezfil-ci node /probes/journey.mjs http://127.0.0.1:3183
+      - name: Seed authenticated durability before container replacement
+        run: docker exec dezfil-ci node /probes/durability.mjs seed http://127.0.0.1:3183 /data/durability-state.json
+      - name: Replace container and check live and revoked credentials
+        run: |
+          docker stop dezfil-ci
+          docker run -d --rm --name dezfil-ci --network=none \
+            -e PORT=3183 -e DEZFIL_RENDER_CAP_FEATURES=2000 \
+            -e DEZFIL_EGRESS_ALLOWLIST=127.0.0.1 \
+            -v "$PWD/scripts:/probes:ro" -v dezfil-ci-data:/data dezfil:ci
+          for i in $(seq 1 30); do
+            if docker exec dezfil-ci node -e "fetch('http://127.0.0.1:3183/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
+              break
+            fi
+            sleep 1
+          done
+          docker exec dezfil-ci node /probes/durability.mjs verify http://127.0.0.1:3183 /data/durability-state.json
       - name: Provision the separate stock MCP probe client
         run: |
           mcp_client_version=$(node -p "require('./package-lock.json').packages['node_modules/@modelcontextprotocol/client'].version")

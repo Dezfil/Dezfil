@@ -1,3 +1,4 @@
+import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
 import { NextResponse } from "next/server";
 import { currentAssistantChoices } from "@/lib/assistant/catalogue-choices";
 import { describeModel } from "@/lib/assistant/model-knowledge";
@@ -14,7 +15,14 @@ import { limits } from "@/lib/limits";
  * and is always one of them. The read still holds no credential, constructs
  * no client and reaches no network.
  */
-export async function GET() {
+export async function GET(request: Request) {
+  try {
+    requireRequestAuth(request);
+    return privateResponse(await status());
+  } catch (error) { return authFailure(error); }
+}
+
+async function status() {
   const availability = currentAssistantChoices();
   if (!availability.enabled) {
     return NextResponse.json({

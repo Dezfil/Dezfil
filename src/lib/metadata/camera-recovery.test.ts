@@ -1,3 +1,4 @@
+import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -6,7 +7,8 @@ import { getMap, getMapByToken, getPublishedSnapshot, listMaps } from "./maps";
 import { createMap, duplicateMap } from "@/lib/map-service";
 import { getPublishedView, publishMap, resetPublishCache } from "@/lib/publish/publish-service";
 import { GET, PATCH } from "@/app/api/maps/[id]/route";
-import { POST } from "@/app/api/maps/[id]/export/image/route";
+import { POST as rawPOST } from "@/app/api/maps/[id]/export/image/route";
+const POST = authenticatedRoute(rawPOST);
 import { initialDefinition } from "@/lib/export/image-definition";
 import { renderMapImage } from "@/lib/export/render-image";
 

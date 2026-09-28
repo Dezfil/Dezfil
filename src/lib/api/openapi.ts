@@ -1,3 +1,9 @@
+import { withRequestPolicy } from "./openapi-request-policy";
+import { authenticatedOp } from "./openapi-authenticated";
+import { USERS_PATHS, USERS_SCHEMAS } from "./openapi-users";
+import { ACCOUNT_PATHS, ACCOUNT_SCHEMAS } from "./openapi-account";
+import { AUTH_PATHS, AUTH_SCHEMAS, AUTH_SECURITY_SCHEMES } from "./openapi-auth";
+import { settingsContract } from "./openapi-settings";
 import { SKETCH_ROW_COUNT_RESPONSE, QUERY_EXPORT_TICKET, PROJECT_EXPORT_TICKET } from "./openapi-tool-responses";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_TRANSIENT_READ, LOCAL_REPLACE, MAP_LOOK, REMOTE_ADD, REMOTE_READ, REMOTE_REPLACE, WORKFLOW_RUN } from "./operation-mcp";
 import { changeGroupParam, HISTORY_PATHS, HISTORY_SCHEMAS, MCP_PATHS } from "./openapi-mcp";
@@ -56,35 +62,9 @@ const THUMBNAIL_THEME_PARAM = {
     'The viewer\'s theme, "light" or "dark". Any other value is refused.',
 };
 
-/** The per-screen view preferences (the workflows list,
- * the Projects list): one slice per list screen, each holding the view
- * and the screen's own sort. Documented on the update body and on the
- * settings read alike. */
-function viewPrefsSchema() {
-  const slice = (description: string, sorts: string[]) => ({
-    type: "object",
-    description,
-    properties: {
-      view: { type: "string", enum: ["grid", "list"] },
-      sort: { type: "string", enum: sorts },
-    },
-  });
-  return {
-    type: "object",
-    description:
-      "Per-screen view preferences; slices merge into what is " +
-      "stored, and the read carries every slice written so far.",
-    properties: {
-      maps: slice("The Maps list.", ["edited", "created", "name"]),
-      data: slice("The Data page.", ["updated", "name", "rows", "size"]),
-      workflows: slice("The workflows list.", ["edited", "created", "name"]),
-      projects: slice("The Projects list.", ["updated", "name", "largest"]),
-    },
-  };
-}
-
 export function buildOpenApiDocument() {
-  return {
+  const settings = settingsContract();
+  return withRequestPolicy({
     openapi: "3.1.0",
     info: {
       title: "Dezfil API",
@@ -92,9 +72,14 @@ export function buildOpenApiDocument() {
       description:
         "Upload files, query them with SQL, compose styled map layers, and " +
         "publish read-only shareable views. Every capability the UI offers is " +
-        "one of these documented calls; the whole journey can be driven headlessly.",
+        "one of these documented calls; the whole journey can be driven headlessly. " +
+        "Protected operations require a current cookie session or account bearer token. " +
+        "Cookie mutations require the same trusted Origin. Identity-bearing responses, " +
+        "including authentication refusals, are private, no-store. Only entry, readiness " +
+        "and the token-scoped read-only published projection permit anonymous access.",
     },
     tags: [
+      { name: "Accounts", description: "Local accounts and authentication." },
       { name: "System", description: "Health and configuration." },
       { name: "Tables", description: "Uploaded data as queryable tables." },
       { name: "Query", description: "Read-only SQL against tables." },
@@ -145,18 +130,21 @@ export function buildOpenApiDocument() {
       },
     ],
     paths: {
+      ...AUTH_PATHS,
+      ...ACCOUNT_PATHS,
+      ...USERS_PATHS,
       ...GEOMETRY_RESOURCE_PATHS,
       "/api/health": {
         get: op({
           summary: "Readiness check",
-          description: "Readiness reports whether the data directory is usable.",
+          description: "Readiness reports whether socket provenance is installed and the data directory is usable.",
           tag: "System",
           tool: "check_health", mcp: LOCAL_READ,
           display: {"verb": "Checked the instance"},
           effects: READ_ONLY,
           responses: {
             "200": jsonOk("#/components/schemas/Health", "Ready."),
-            "503": jsonOk("#/components/schemas/HealthUnready", "Storage is unusable."),
+            "503": jsonOk("#/components/schemas/HealthUnready", "The ingress preload or storage is unavailable."),
           },
         }),
       },
@@ -291,60 +279,7 @@ export function buildOpenApiDocument() {
           },
         }),
       },
-      "/api/settings": {
-        get: op({
-          summary: "Workspace settings",
-          description:
-            "Single-user workspace preferences — the display name shown " +
-            "behind the rail avatar, the optional instance " +
-            "name shown beside the wordmark and in browser titles (" +
-            "null when unnamed), and the Maps/Data screens' view " +
-            "mode + sort.",
-          tag: "System",
-          // Deliberately outside the agent tool set: a UI identity
-          // preference, not a map capability.
-          tool: false,
-          effects: READ_ONLY,
-          responses: {
-            "200": jsonOk("#/components/schemas/WorkspaceSettings"),
-          },
-        }),
-        patch: op({
-          summary: "Update workspace settings",
-          tag: "System",
-          tool: false,
-          effects: writes(resource("settings")),
-          requestBody: {
-            required: true,
-            content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  properties: {
-                    displayName: {
-                      type: "string",
-                      maxLength: 80,
-                      description: "The workspace display name.",
-                    },
-                    instanceName: {
-                      type: ["string", "null"],
-                      maxLength: 80,
-                      description:
-                        "The optional instance name. Empty, whitespace or " +
-                        "null clears it; the instance is then unnamed.",
-                    },
-                    viewPrefs: viewPrefsSchema(),
-                  },
-                },
-                example: { displayName: "Ada Lovelace" },
-              },
-            },
-          },
-          responses: {
-            "200": jsonOk("#/components/schemas/WorkspaceSettings"),
-          },
-        }),
-      },
+      ...settings.paths,
       "/api/openapi.json": {
         get: op({
           summary: "This OpenAPI description",
@@ -3834,7 +3769,7 @@ export function buildOpenApiDocument() {
         }),
       },
       "/api/maps/look": {
-        post: op({
+        post: authenticatedOp({
           summary: "Look at a map: one bounded rendered image with its facts",
           description:
             "The model-facing check of a map: the map's stored " +
@@ -3889,7 +3824,7 @@ export function buildOpenApiDocument() {
         }),
       },
       "/api/maps/look/{renderId}": {
-        get: op({
+        get: authenticatedOp({
           summary: "Read the retained image of a map check",
           description:
             "Exactly the PNG a check handed the model, or " +
@@ -3917,7 +3852,7 @@ export function buildOpenApiDocument() {
         }),
       },
       "/api/maps/{id}/export/image": {
-        post: op({
+        post: authenticatedOp({
           summary: "Render a map to a PNG image",
           description:
             "Server-side image export: the map rendered by " +
@@ -4593,7 +4528,11 @@ export function buildOpenApiDocument() {
       },
     },
     components: {
+      securitySchemes: AUTH_SECURITY_SCHEMES,
       schemas: {
+        ...AUTH_SCHEMAS,
+        ...ACCOUNT_SCHEMAS,
+        ...USERS_SCHEMAS,
         // Documented as a schema only: the operation that consumes it is
         // the server renderer's feature, and a tool name before that
         // operation exists would hand agents an inert schema and call it
@@ -4688,6 +4627,8 @@ export function buildOpenApiDocument() {
               properties: {
                 code: { type: "string", enum: Object.keys(ERROR_CATALOGUE) },
                 message: { type: "string" },
+                retryAfter: { type: "integer", minimum: 1, description: "Seconds until a login limit permits another attempt." },
+                retryAt: { type: "string", format: "date-time", description: "When a login limit permits another attempt." },
               issues: { type: "array", items: { $ref: "#/components/schemas/GeometryIssue" }, description: "Geometry-choice refusal reasons, when applicable." },
                 position: {
                   type: "object",
@@ -4796,26 +4737,7 @@ export function buildOpenApiDocument() {
           },
           required: ["datasets"],
         },
-        WorkspaceSettings: {
-          type: "object",
-          properties: {
-            displayName: {
-              type: "string",
-              description:
-                "The workspace display name; its initials badge the rail " +
-                "avatar until real accounts exist.",
-            },
-            instanceName: {
-              type: ["string", "null"],
-              description:
-                "The instance's optional name: shown beside " +
-                "the wordmark and as the browser-title tail. Null when " +
-                "the instance is unnamed.",
-            },
-            viewPrefs: viewPrefsSchema(),
-          },
-          required: ["displayName", "instanceName"],
-        },
+        ...settings.schemas,
         Config: {
           type: "object",
           properties: {
@@ -7885,5 +7807,5 @@ export function buildOpenApiDocument() {
       },
     },
     "x-error-codes": ERROR_CATALOGUE,
-  };
+  });
 }

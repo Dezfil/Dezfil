@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ERROR_CATALOGUE } from "./error-catalogue";
+import type { AuthErrorCode } from "@/lib/auth/errors";
 
 /**
  * Every API error carries a stable machine-readable code plus a
@@ -7,6 +8,7 @@ import { ERROR_CATALOGUE } from "./error-catalogue";
  * prose). Codes are catalogued in the API docs.
  */
 export type ErrorCode =
+  | AuthErrorCode
   | "unsupported_format"
   | "upload_too_large"
   | "archive_too_large"

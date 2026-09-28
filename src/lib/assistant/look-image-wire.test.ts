@@ -1,3 +1,6 @@
+import { requireRequestAuth } from "@/lib/auth/http";
+import { instanceFetch } from "@/lib/auth/instance-fetch";
+import { authenticatedRequest } from "@/lib/assistant/testing/account";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -180,7 +183,7 @@ describe("1j through the loop: no event and no receipt carries the bytes", () =>
     const runs = assistantRuns; runs.resetForTests();
     const run = runs.reserve(); runs.bind(run.id, { message: "look" });
     const events: AssistantEvent[] = [];
-    for await (const event of runAssistant(stub, { message: "look", history: [], context: { page: "builder", mapId, selectedLayerId: null } }, { baseUrl: "http://127.0.0.1:3311", pending: new PendingActionStore(), runId: run.id })) { events.push(event); runs.record(run.id, event); }
+    for await (const event of runAssistant(stub, { message: "look", history: [], context: { page: "builder", mapId, selectedLayerId: null } }, { baseUrl: "http://127.0.0.1:3311", fetchImpl: instanceFetch("http://127.0.0.1:3311", requireRequestAuth(authenticatedRequest())), pending: new PendingActionStore(), runId: run.id })) { events.push(event); runs.record(run.id, event); }
     runs.finish(run.id);
     const outcome = stub.recording.exchanges[0].outcomes[0][0];
     expect(Buffer.from(outcome.image!.data).equals(Buffer.from(FIXTURE))).toBe(true);

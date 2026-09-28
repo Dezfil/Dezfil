@@ -24,6 +24,7 @@ import { shapeLookOutcome } from "./look-outcome";
 
 /** Per-run context: everything a step needs that is not batch state. */
 export interface ActionContext {
+  accountId?: string;
   runId?: string;
   context?: AssistantContext;
   policy: AssistantPolicy;

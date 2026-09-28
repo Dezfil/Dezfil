@@ -1,9 +1,11 @@
+import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { closeMetadataDb } from "@/lib/metadata/db";
 import { createMap } from "@/lib/map-service";
-import { POST as look } from "@/app/api/maps/look/route";
+import { POST as rawlook } from "@/app/api/maps/look/route";
+const look = authenticatedRoute(rawlook);
 import { lookRetention } from "./look-retention";
 import { setLookDriverForTests } from "./map-look";
 import type { RenderDriver } from "./render-image";

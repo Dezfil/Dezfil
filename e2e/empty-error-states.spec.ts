@@ -183,7 +183,7 @@ test("settings keeps the name locked over data that never arrived", async ({
   context,
 }) => {
   const consoleErrors = trackConsole(page);
-  // A failure window, not abort-once: the rail's UserBadge requests the
+  // A failure window, not abort-once: the shell's InstanceChip requests the
   // same path on load, so a single-shot stub would race it.
   let failing = true;
   await routeHouse(context, {
@@ -203,17 +203,11 @@ test("settings keeps the name locked over data that never arrived", async ({
   const field = page.getByLabel("Display name");
   const instanceField = page.getByLabel("Instance name");
   await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
-  // The failed load must not unlock either form: a save from this state
-  // would overwrite the stored name with text typed over nothing — and
-  // since the split, blind-clear the instance name the same way. Both
-  // Save buttons lock (one per card).
-  await expect(field).toBeDisabled();
-  await expect(instanceField).toBeDisabled();
-  for (const save of await page
-    .getByRole("button", { name: "Save" })
-    .all()) {
-    await expect(save).toBeDisabled();
-  }
+  // Account cards only mount after both identity and settings have loaded.
+  // A failed load cannot offer a blind save over missing values.
+  await expect(field).toHaveCount(0);
+  await expect(instanceField).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Save" })).toHaveCount(0);
   // The retry issues a fresh request and only then unlocks, holding the
   // stored value.
   failing = false;

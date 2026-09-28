@@ -1,10 +1,13 @@
+import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { closeMetadataDb } from "@/lib/metadata/db";
 import { createMap } from "@/lib/map-service";
-import { POST as look } from "@/app/api/maps/look/route";
-import { GET as readLook } from "@/app/api/maps/look/[renderId]/route";
+import { POST as rawlook } from "@/app/api/maps/look/route";
+const look = authenticatedRoute(rawlook);
+import { GET as rawreadLook } from "@/app/api/maps/look/[renderId]/route";
+const readLook = authenticatedRoute(rawreadLook);
 import { LookRetention, THUMBNAIL_WIDTH, lookRetention } from "./look-retention";
 import { thumbnailOf } from "./look-thumbnail";
 import { setLookDriverForTests, type LookResult } from "./map-look";
@@ -97,7 +100,7 @@ describe("6b and 6c: the read route", () => {
     expect(full.status).toBe(200);
     expect(full.headers.get("content-type")).toBe("image/png");
     expect(full.headers.get("content-disposition")).toContain("attachment");
-    expect(full.headers.get("cache-control")).toBe("no-store");
+    expect(full.headers.get("cache-control")).toBe("private, no-store");
     expect(Buffer.from(await full.arrayBuffer()).equals(Buffer.from(FIXTURE))).toBe(true);
     const thumbnail = await read(answered.render.id, "thumbnail");
     expect(thumbnail.status).toBe(200);

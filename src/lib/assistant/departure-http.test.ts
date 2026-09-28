@@ -1,3 +1,4 @@
+import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { createRecipe, addStep } from "@/lib/metadata/recipes";
 import { cascadeSettled, readCascade } from "@/lib/operations/cascade";
 import { GET as recipeGet } from "@/app/api/recipes/[id]/route";
@@ -20,14 +21,19 @@ import { stubProvider } from "./providers/stub";
 import { openaiProvider } from "./providers/openai";
 import { anthropicProvider } from "./providers/anthropic";
 import { anthropicEvents } from "./testing/wire";
-import { POST as send } from "@/app/api/assistant/messages/route";
-import { POST as reserve } from "@/app/api/assistant/runs/route";
-import { GET as recover } from "@/app/api/assistant/runs/[id]/route";
-import { POST as cancel } from "@/app/api/assistant/runs/[id]/cancel/route";
+import { POST as sendHandler } from "@/app/api/assistant/messages/route";
+import { POST as reserveHandler } from "@/app/api/assistant/runs/route";
+import { GET as recoverHandler } from "@/app/api/assistant/runs/[id]/route";
+import { POST as cancelHandler } from "@/app/api/assistant/runs/[id]/cancel/route";
 import { GET as catalogue } from "@/app/api/catalogue/tables/route";
 import { GET as mapsGet, POST as mapsPost } from "@/app/api/maps/route";
 import { GET as mapGet } from "@/app/api/maps/[id]/route";
 import { POST as query } from "@/app/api/query/route";
+
+const send = authenticatedRoute(sendHandler);
+const reserve = authenticatedRoute(reserveHandler);
+const recover = authenticatedRoute(recoverHandler);
+const cancel = authenticatedRoute(cancelHandler);
 
 const factory = vi.hoisted(() => ({ provider: null as ModelProvider | null }));
 vi.mock("@/lib/assistant/factory", () => ({ createProvider: () => factory.provider }));

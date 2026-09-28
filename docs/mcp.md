@@ -20,8 +20,20 @@ The server identifies itself as `dezfil`.
 
 ## Environment
 
-None of its own. The endpoint needs no key and no token, because the client
-brings the model. The settings that matter to a tool call are the ordinary
+The client brings the model, so the endpoint needs no model API key of its
+own. It does require an account API token in `Authorization: Bearer` on every
+request, including initialization and tool listing. Create one in Settings
+under API / MCP tokens. Calls have that account's current privileges; admin
+operations remain admin-only. Missing, invalid and revoked credentials fail
+before work. Responses are private and are not cached.
+
+Internal reads and executions retain the same identity. Browser callers use
+a short-lived delegation tied to their session, without creating a durable
+API token. Revoking the parent or deactivating the account stops downstream
+access. Internal credentials are confined to the instance origin and API
+redirects are refused.
+
+The settings that matter to a tool call are the ordinary
 instance settings: the query timeout and memory budget, the upload and
 import caps, and `DEZFIL_TOOL_ATTACHMENT_MAX_MB`, which bounds a download
 answered into a tool result. See [configuration.md](configuration.md).
@@ -51,6 +63,22 @@ The excluded ones are the assistant's own endpoints, the MCP endpoint
 itself, raw tile and thumbnail reads, and a handful of calls that only make
 sense to a browser.
 
+The settings read and update are generated as `get_settings` and
+`update_settings`. They address the authenticated account's display name
+and view preferences. Updating the instance name requires current admin
+authority; a forbidden or invalid field refuses the entire patch.
+
+Own-account operations generate `get_account`, `update_account`,
+`change_password`, `list_api_tokens`, `create_api_token` and `revoke_api_token`.
+They always address the authenticated caller. Password changes, token creation
+and revocation declare confirmation and their access consequences in the
+contract. Token secrets appear only in the creation response.
+
+Administration generates `list_users`, `invite_user`, `update_user_access` and
+`issue_user_sign_in_link`. Every request requires current admin authority;
+mutations declare confirmation and their consequences. Invitation and reset
+links are disclosed once, expire after seven days and are shared by the admin.
+
 Derivation is pure over a static document, so the tool set is built once per
 process and reused.
 
@@ -58,9 +86,9 @@ process and reused.
 
 | | |
 |---|---|
-| Documented operations | 138 |
-| Operations that become tools | 116 |
-| Deliberately excluded | 22 |
+| Documented operations | 155 |
+| Operations that become tools | 128 |
+| Deliberately excluded | 27 |
 
 Measured by building the OpenAPI document and the tool set from
 `src/lib/api/openapi.ts` and `src/lib/tools/tools.ts` and counting the
@@ -114,18 +142,22 @@ problems get their own codes rather than a generic error:
 
 The `/developer` page on a running instance generates the configuration for
 the instance you are looking at. The same text is produced by
-`src/lib/mcp/client-guide.ts`, which covers four clients:
+`src/lib/mcp/client-guide.ts`. Create an API / MCP token in Settings and set
+`DEZFIL_API_TOKEN` in the environment that launches your client. The copied
+configuration stores only a reference to this variable. Restart the client
+after setting it. No account password or token belongs in a prompt or tool
+argument.
 
 **Claude Code**
 
 ```sh
-claude mcp add --transport http dezfil http://localhost:3000/api/mcp
+claude mcp add --transport http dezfil 'http://localhost:3000/api/mcp' --header 'Authorization: Bearer ${DEZFIL_API_TOKEN}'
 ```
 
 **Codex CLI**
 
 ```sh
-codex mcp add dezfil --url http://localhost:3000/api/mcp
+codex mcp add dezfil --url 'http://localhost:3000/api/mcp' --bearer-token-env-var DEZFIL_API_TOKEN
 ```
 
 or in `~/.codex/config.toml`:
@@ -133,20 +165,27 @@ or in `~/.codex/config.toml`:
 ```toml
 [mcp_servers.dezfil]
 url = "http://localhost:3000/api/mcp"
+bearer_token_env_var = "DEZFIL_API_TOKEN"
 ```
 
 **Cursor**, in `.cursor/mcp.json` for one project or `~/.cursor/mcp.json`
 for all of them:
 
 ```json
-{ "mcpServers": { "dezfil": { "url": "http://localhost:3000/api/mcp" } } }
+{ "mcpServers": { "dezfil": { "url": "http://localhost:3000/api/mcp", "headers": { "Authorization": "Bearer ${env:DEZFIL_API_TOKEN}" } } } }
 ```
 
-**Claude Desktop** takes a remote MCP URL as a custom connector. Its
-connectors connect from a cloud, so they cannot reach a private instance
-over plain HTTP.
+**Claude Desktop** remote custom connectors are unsupported for this
+account-token setup: they do not offer the header configuration above and
+connect from the cloud, which cannot reach a private local instance.
 
-Substitute your own instance address in each case.
+Substitute your own instance address in each case. Native syntax is documented
+by [Claude Code](https://code.claude.com/docs/en/mcp),
+[Codex](https://developers.openai.com/codex/mcp) and
+[Cursor](https://cursor.com/docs/mcp). The
+[remote connector setup](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)
+describes the Desktop connection. The Developer page's connection check uses
+your browser session; it does not test another client's environment or token.
 
 ## The plugin package
 
@@ -155,7 +194,8 @@ with instructions, so an agent knows how to use the tools rather than only
 that they exist. It carries:
 
 - `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json`, one manifest
-  per client, sharing one `.mcp.json` that names the endpoint;
+  per client, with `.mcp.json` and `.codex-mcp.json` naming the same endpoint
+  and their native `DEZFIL_API_TOKEN` reference;
 - `skills/dezfil/SKILL.md`, a skill that routes a task to the right
   operations and explains how to read a result;
 - `skills/dezfil/analysis.md`, shared analytical guidance;

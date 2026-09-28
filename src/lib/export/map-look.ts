@@ -86,6 +86,7 @@ export interface LookInput {
   mapId: string;
   appearance?: Appearance;
   baseUrl: string;
+  credential: string;
   signal?: AbortSignal;
   /** The check's request-to-response budget; the instance setting otherwise. */
   budgetMs?: number;
@@ -186,7 +187,7 @@ export async function lookAtMap(input: LookInput): Promise<LookResult> {
   const deadline = Date.now() + budgetMs;
   const rendered = await renderMapImage({
     mapId: map.id, definition, baseUrl: input.baseUrl, signal: input.signal, driver: input.driver ?? testDriver ?? undefined,
-    budgetMs,
+    budgetMs, credential: input.credential,
   });
   const consumed = parseConsumed(rendered.consumed);
   const image = deriveImage(rendered.png, input.signal);

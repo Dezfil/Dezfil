@@ -1,3 +1,6 @@
+import { requireRequestAuth } from "@/lib/auth/http";
+import { instanceFetch } from "@/lib/auth/instance-fetch";
+import { authenticatedRequest } from "./testing/account";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -65,7 +68,7 @@ const call = (name: string, args: Record<string, unknown>) => ({ id: `o${++seq}`
 async function drive(provider: ModelProvider, deps: Partial<LoopDeps> = {}, signal?: AbortSignal): Promise<{ events: AssistantEvent[]; receipt: RunReceipt; threw?: unknown }> {
   const run = assistantRuns.reserve(); assistantRuns.bind(run.id, { message: "go" });
   const events: AssistantEvent[] = [];
-  const loop: LoopDeps = { baseUrl: origin, pending: new PendingActionStore(), stepBudget: 8, runId: run.id, signal, ...deps };
+  const loop: LoopDeps = { baseUrl: origin, fetchImpl: instanceFetch(origin, requireRequestAuth(authenticatedRequest())), pending: new PendingActionStore(), stepBudget: 8, runId: run.id, signal, ...deps };
   let threw: unknown;
   try { for await (const event of runAssistant(provider, { message: "go", history: [], context: builder() }, loop)) { events.push(event); assistantRuns.record(run.id, event); } }
   catch (error) { threw = error; assistantRuns.record(run.id, { type: "error", code: "internal", message: "x" }); }

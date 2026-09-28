@@ -59,8 +59,8 @@ export function resolveAnswer(
 /**
  * The text a failed surface shows. Authors (the builder) keep the raw
  * detail — an authenticated surface. Readers (the published viewer) get
- * the documented catalogue prose keyed on the code and never the raw
- * message, which can carry engine text that must not widen.
+ * catalogue prose keyed on the code, with rate-limit wording for readers,
+ * and never the raw message, which can carry engine text that must not widen.
  */
 export function failureProse(
   failure: AnswerFailure | null,
@@ -70,6 +70,7 @@ export function failureProse(
   if (!failure) return fallback;
   if (audience === "author") return failure.message || fallback;
   if (failure.code === NETWORK_FAILURE.code) return NETWORK_FAILURE.message;
+  if (failure.code === "rate_limited") return "Too many requests. Retry after the indicated delay.";
   return (
     (ERROR_CATALOGUE as Record<string, string>)[failure.code] ?? fallback
   );

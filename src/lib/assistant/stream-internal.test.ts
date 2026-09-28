@@ -1,9 +1,12 @@
-import { POST as reserveRun } from "@/app/api/assistant/runs/route";
+import { authenticatedRoute } from "@/lib/assistant/testing/account";
+import { POST as reserveRunHandler } from "@/app/api/assistant/runs/route";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { closeMetadataDb } from "@/lib/metadata/db";
 import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
+
+const reserveRun = authenticatedRoute(reserveRunHandler);
 
 /**
  * The record's named promotion: a loop failure driven through the real
@@ -58,8 +61,8 @@ describe("the assistant NDJSON boundary under a loop failure", () => {
     // error while asserting it fired with the detail.
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const { POST } = await import("@/app/api/assistant/messages/route");
-    const response = await POST(
+    const { POST: handler } = await import("@/app/api/assistant/messages/route");
+    const response = await authenticatedRoute(handler)(
       new Request("http://dezfil.test/api/assistant/messages", {
         method: "POST",
         headers: { "content-type": "application/json" },

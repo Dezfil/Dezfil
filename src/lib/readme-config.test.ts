@@ -31,6 +31,11 @@ const TABLE = (rows: string[]) =>
   ["| Setting | Default | What |", "|---|---|---|", ...rows].join("\n");
 
 describe("README config coverage", () => {
+  it("excludes client token reference text but still detects a server read", () => {
+    expect(fixture('export const guide = "DEZFIL_API_TOKEN";', TABLE([]))).toEqual({ undocumented: [], stale: [] });
+    expect(fixture('export const token = process.env.DEZFIL_API_TOKEN;', TABLE([])).undocumented).toEqual(['DEZFIL_API_TOKEN']);
+    expect(fixture('export const token = process.env["DEZFIL_API_TOKEN"];', TABLE([])).undocumented).toEqual(['DEZFIL_API_TOKEN']);
+  });
   it("red on a server setting the README does not document", () => {
     const { undocumented, stale } = fixture(
       'export const x = process.env.DEZFIL_FAKE_SETTING;',

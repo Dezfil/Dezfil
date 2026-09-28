@@ -1,3 +1,4 @@
+import { authenticatedOp } from "./openapi-authenticated";
 import { HISTORY_MOVE, LOCAL_READ } from "./operation-mcp";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
 import { op, jsonOk, pathParam } from "./openapi-helpers";
@@ -75,11 +76,11 @@ export const HISTORY_PATHS = {
 
 export const MCP_PATHS = {
       "/api/mcp": {
-        post: op({
+        post: authenticatedOp({
           summary: "MCP endpoint",
           description:
             "Model Context Protocol over the streamable HTTP transport, " +
-            "stateless. Point any MCP client at this URL to get one tool per " +
+            "stateless. Supply an account API token in Authorization: Bearer on every request. Tools use the caller’s current permissions, including admin checks. Cookie callers use a short-lived server delegation tied to their session. Every internal hop rechecks current access; credentials never enter model input or retained confirmation state. Point a token-capable MCP client at this URL to get one tool per " +
             "documented operation (the operation's x-tool name). External " +
             "agents bring their own model; no server-side model credential " +
             "is needed. The whole journey (upload, SQL, layer, style, " +

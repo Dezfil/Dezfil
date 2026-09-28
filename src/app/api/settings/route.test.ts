@@ -3,28 +3,35 @@ import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { closeMetadataDb } from "@/lib/metadata/db";
 import { GET, PATCH } from "./route";
+import { createFirstAccount } from "@/lib/auth/accounts";
+import { socketRequest } from "@/lib/assistant/testing/socket-request";
 
-let dir: string;
+let dir: string, secret: string;
+const runDataDir = process.env.DEZFIL_DATA_DIR!;
 
 beforeEach(async () => {
-  dir = await mkdtemp(path.join(process.cwd(), ".tmp-test-"));
+  dir = await mkdtemp(path.join(runDataDir, "settings-"));
   process.env.DEZFIL_DATA_DIR = path.join(dir, "data");
   closeMetadataDb();
+  secret = (await createFirstAccount({ name: "Ada", email: "ada@example.test", password: "field notebooks at dawn" })).secret;
 });
 
 afterEach(async () => {
   closeMetadataDb();
-  delete process.env.DEZFIL_DATA_DIR;
+  process.env.DEZFIL_DATA_DIR = runDataDir;
   await rm(dir, { recursive: true, force: true });
 });
 
 const patch = (body: unknown) =>
-  PATCH(new Request("http://test/api/settings", { method: "PATCH", body: JSON.stringify(body) }));
+  PATCH(socketRequest(new Request("http://test/api/settings", { method: "PATCH", headers: {
+    cookie: `dezfil_session=${secret}`, origin: "http://test", "content-type": "application/json",
+  }, body: JSON.stringify(body) })));
+const get = () => GET(socketRequest(new Request("http://test/api/settings", { headers: { cookie: `dezfil_session=${secret}` } })));
 type Json = Record<string, unknown>;
 
 describe("the instance name: optional, trimmed, null on the wire", () => {
   it("reads null before any name is set, never an omitted key", async () => {
-    const read = (await (await GET()).json()) as Json;
+    const read = (await (await get()).json()) as Json;
     expect(read).toHaveProperty("instanceName");
     expect(read.instanceName).toBeNull();
   });
@@ -34,7 +41,7 @@ describe("the instance name: optional, trimmed, null on the wire", () => {
     expect(saved.status).toBe(200);
     expect(((await saved.json()) as Json).instanceName).toBe("Stadtwerke");
     closeMetadataDb();
-    const read = (await (await GET()).json()) as Json;
+    const read = (await (await get()).json()) as Json;
     expect(read.instanceName).toBe("Stadtwerke");
   });
 
@@ -57,7 +64,7 @@ describe("the instance name: optional, trimmed, null on the wire", () => {
   it("leaves the display name alone on an instance-only patch", async () => {
     await patch({ displayName: "Ada Lovelace" });
     await patch({ instanceName: "Stadtwerke" });
-    const read = (await (await GET()).json()) as Json;
+    const read = (await (await get()).json()) as Json;
     expect(read.displayName).toBe("Ada Lovelace");
     expect(read.instanceName).toBe("Stadtwerke");
   });
@@ -67,7 +74,8 @@ describe("view preferences per screen (workflows)", () => {
   it("remembers the workflows list's view and sort, and reads them back", async () => {
     const saved = await patch({ viewPrefs: { workflows: { view: "list", sort: "created" } } });
     expect(saved.status).toBe(200);
-    const read = (await (await GET()).json()) as Json;
+    closeMetadataDb();
+    const read = (await (await get()).json()) as Json;
     expect((read.viewPrefs as Json).workflows).toEqual({ view: "list", sort: "created" });
   });
 
@@ -77,7 +85,7 @@ describe("view preferences per screen (workflows)", () => {
     // An unknown screen is ignored rather than stored: only the documented shape lands.
     const odd = await patch({ viewPrefs: { canvas: { view: "list" } } });
     expect(odd.status).toBe(200);
-    const read = (await (await GET()).json()) as Json;
+    const read = (await (await get()).json()) as Json;
     expect(read.viewPrefs as Json).not.toHaveProperty("canvas");
   });
 });
@@ -87,7 +95,7 @@ describe("the Projects list's view preferences", () => {
     expect((await patch({ viewPrefs: { maps: { view: "list", sort: "name" } } })).status).toBe(200);
     const saved = await patch({ viewPrefs: { projects: { view: "list", sort: "largest" } } });
     expect(saved.status).toBe(200);
-    const read = (await (await GET()).json()) as Json;
+    const read = (await (await get()).json()) as Json;
     expect((read.viewPrefs as Json).projects).toEqual({ view: "list", sort: "largest" });
     expect((read.viewPrefs as Json).maps).toEqual({ view: "list", sort: "name" });
   });

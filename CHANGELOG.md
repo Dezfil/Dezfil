@@ -7,6 +7,16 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed
+
+- Breaking: application pages and API operations now require a current cookie
+  session or an account bearer token, including configuration, OpenAPI, MCP,
+  assistant and exports. Anonymous API clients receive `authentication_required`.
+  Published token-scoped reads, viewer/embed, readiness and entry remain public.
+  Complete first-account setup and create client tokens in Settings.
+  Cookie mutations require the instance Origin. Shared resource access between
+  signed-in accounts is unchanged; account administration requires an admin.
+
 ## [0.1.0]
 
 First public release.

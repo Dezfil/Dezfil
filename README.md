@@ -34,10 +34,13 @@ same volume. To move to another machine, stop the container and copy the
 whole directory: nothing Dezfil needs lives outside it. Running without
 the volume works, but state then lasts only for that container's lifetime.
 
-The published-link URL is the entire access model: anyone who can reach the
-instance can edit everything, and anyone with a published link can view it.
-There are no accounts in this release — run it behind your own network
-controls.
+On first run, create the initial admin account. Application pages and APIs
+require a session or an account API token; admins manage accounts and the
+instance name. Signed-in accounts still share the same maps, datasets and
+workflows. Published links and embeds remain readable without an account,
+as does the readiness probe. An instance upgraded from a release without accounts
+also shows setup once. Secure new and upgraded instances until you complete setup,
+and complete it promptly: whoever reaches setup first becomes the admin.
 
 ## Configuration
 
@@ -47,6 +50,7 @@ as `-e NAME=value` on `docker run`.
 | Setting | Default | What it controls |
 |---|---|---|
 | `DEZFIL_DATA_DIR` | `/data` | Durable data directory (the mounted volume), including the optional `assistant-models.json` [model catalogue](docs/runbook.md#the-model-catalogue-file). |
+| `DEZFIL_TRUSTED_PROXIES` | *(none)* | Comma-separated IP addresses or CIDRs of reverse proxy socket peers. Only these peers may supply forwarding information. Configure proxies to replace host/protocol/port forwarding fields and append the actual client address. Direct clients' forwarding headers are discarded. |
 | `DEZFIL_UPLOAD_MAX_MB` | `5120` | Upload size cap, in MB. |
 | `DEZFIL_EGRESS_ALLOWLIST` | — | Hosts, IPs, or CIDRs the server may fetch for a user despite the egress policy. By default, loopback, private-network, link-local, and cloud-metadata destinations are blocked on URL imports and PostGIS connections. |
 | `DEZFIL_REMOTE_TIMEOUT_S` | `300` | Time bound for one whole remote fetch (URL and object-store imports), redirects and body included. |
@@ -129,7 +133,9 @@ string already in `secret.key`.
 
 The whole product is an API the UI merely calls. Human-readable docs are at
 `/developer` on a running instance; the machine-readable OpenAPI description is at
-`/api/openapi.json`. `scripts/journey.mjs <base-url>` drives the entire
+`/api/openapi.json`; both require sign-in or an API token. Cookie mutations
+require an Origin matching the instance; bearer requests use the token alone.
+`scripts/journey.mjs <base-url>` provisions an account on a scratch instance and drives the entire
 flow — upload → SQL → layer → style → publish — through that API with no
 browser.
 
@@ -139,14 +145,17 @@ Claude Code and Codex CLI can install the self-contained
 [Dezfil plugin](plugins/dezfil/README.md) from a checkout. It bundles the
 MCP connection, a Dezfil skill and compact cartography and DuckDB spatial
 references. Choose the instance address when preparing the local package.
+Create an API / MCP token in Settings and set `DEZFIL_API_TOKEN` in the
+client's environment. The package stores a reference, never the token value.
 
 Two ways to drive Dezfil with AI, both operating that same documented API:
 
 - **MCP** — `/api/mcp` uses Streamable HTTP and derives its tools, input/output
   schemas and consequence facts from OpenAPI. Deliberate exclusions are declared
   in that document. The Developer page supplies Claude Code, Codex and Cursor
-  configurations for the visible instance, explains Claude Desktop's private-HTTP
-  limitation, and checks the browser's MCP connection. The client brings its model;
+  token configurations for the visible instance, marks Claude Desktop's remote
+  connector unsupported for this setup, and checks the browser's MCP connection.
+  Each client uses an account token and its current privileges. The client brings its model;
   no Dezfil model credential is needed. Confirmation policy, target and
   consequence are advisory listing metadata; the client owns confirmation.
   Structured results add history associations and binary references beside the
@@ -162,8 +171,8 @@ Two ways to drive Dezfil with AI, both operating that same documented API:
   unchanged. The key is a server-side secret; it never reaches the browser or
   a published page. Destructive and publishing actions ask before running.
 
-The credential is per instance, matching the trust model above: anyone who can
-reach the instance can use the assistant it powers.
+The model credential is per instance. Signed-in accounts can use the assistant
+it powers, with tool calls retaining the caller's current privileges.
 
 Assistant clients reserve with `POST /api/assistant/runs` before sending a new
 message with that `runId` to `POST /api/assistant/messages`. Unreserved messages
@@ -187,6 +196,12 @@ npm test           # unit tests
 npm run lint
 npm run typecheck
 ```
+
+`npm run dev`, `npm start` and the container launcher install the socket
+provenance preload before Next starts. Keep these launch commands: readiness
+and sign-in refuse a server launched without the preload. A custom standalone
+launch must use `node --import=./scripts/ingress-preload.mjs server.js` and carry
+the preload files from the image. Existing `NODE_OPTIONS` observers are preserved.
 
 `npm run journey:browser` runs the **whole browser surface**, every spec
 file under `e2e/`, with Playwright against a running instance

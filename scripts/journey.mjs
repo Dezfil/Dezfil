@@ -5,6 +5,8 @@
 
 import { startLoopbackBasemap, assertBasemapTraffic } from "./loopback-basemap.mjs";
 import { decodePng, countColored } from "./png-probe.mjs";
+import { provisionJourney } from "./journey-auth.mjs";
+import { journeyApi } from "./journey-http.mjs";
 
 const base = process.argv[2] ?? "http://localhost:3000";
 
@@ -19,25 +21,10 @@ function fail(msg, detail) {
   process.exit(1);
 }
 
-async function api(method, pathname, { body, form, raw } = {}) {
-  const init = { method, headers: {} };
-  if (form) {
-    init.body = form;
-  } else if (body !== undefined) {
-    init.headers["content-type"] = "application/json";
-    init.body = JSON.stringify(body);
-  }
-  const response = await fetch(`${base}${pathname}`, init);
-  if (raw) return response;
-  const text = await response.text();
-  let json;
-  try {
-    json = text ? JSON.parse(text) : null;
-  } catch {
-    json = text;
-  }
-  return { status: response.status, json };
-}
+const anonymous = journeyApi(base);
+let protectedApi;
+const api = (method, pathname, options) =>
+  (pathname.startsWith("/api/published/") || pathname === "/api/health" ? anonymous : protectedApi)(method, pathname, options);
 
 async function main() {
   console.log(`\nDezfil headless journey → ${base}\n`);
@@ -49,6 +36,10 @@ async function main() {
       fail("instance not ready", JSON.stringify(r.json));
     ok("instance reports ready");
   }
+
+  const credentials = await provisionJourney(base);
+  protectedApi = journeyApi(base, { token: credentials.token });
+  ok("signed in and created an API token before protected work");
 
   // 1b. the machine-readable API description is served
   {
@@ -1412,7 +1403,7 @@ async function main() {
 
     // No mutating verb is exposed on the public path.
     const mutate = await api("DELETE", `/api/published/${token}`, { raw: true });
-    if (mutate.status !== 405 && mutate.status !== 404)
+    if (![401, 404, 405].includes(mutate.status))
       fail("public path exposed a mutation", `status ${mutate.status}`);
     ok("public path refuses mutation");
   }
@@ -1733,7 +1724,7 @@ async function main() {
   // actually colored. The map is unpublished here (step 15), so this is
   // also the private-road proof. Fails coded when the browser is absent
   // (the derived-image negative depends on exactly that).
-  {
+  if (!process.argv.includes("--http-only")) {
     const definition = {
       viewport: { lng: 13.4, lat: 52.51, zoom: 10, pitch: 0, bearing: 0 },
       size: { width: 640, height: 360 },
@@ -1790,8 +1781,9 @@ async function main() {
     } finally {
       await fixture.close();
     }
+  } else {
+    console.log("NOT RUN: server image export (--http-only). The default journey still requires a real renderer.");
   }
-
 
   console.log(`\n\x1b[32mJourney complete — ${step} steps passed.\x1b[0m\n`);
 }

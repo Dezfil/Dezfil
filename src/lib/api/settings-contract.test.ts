@@ -74,3 +74,17 @@ describe("the Projects list's remembered view in the settings contract", () => {
     }
   });
 });
+
+it("requires cookie or bearer authentication and generates both settings tools with refusal schemas", () => {
+  const { get, patch } = settingsOps();
+  for (const operation of [get, patch]) {
+    expect(operation.security).toEqual([{ CookieSession: [] }, { BearerToken: [] }]);
+    expect(operation.responses).toHaveProperty("401");
+    expect(operation.responses).toHaveProperty("403");
+    expect(operation.description).toContain("private, no-store");
+  }
+  expect(get["x-tool"]).toBe("get_settings");
+  expect(patch["x-tool"]).toBe("update_settings");
+  expect(patch.description).toContain("Only admins");
+  expect(patch.description).toContain("before any write");
+});

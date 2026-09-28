@@ -17,11 +17,11 @@ function outputValidators(tool: ToolDef) {
 /** Own known-tool validation and errors without broadening the offered schema.
  * One dispatch at most. An unusable success establishes no mutation outcome.
  */
-export async function callMcpTool(tool: ToolDef, args: Record<string, unknown>, baseUrl: string, signal?: AbortSignal): Promise<CallToolResult> {
+export async function callMcpTool(tool: ToolDef, args: Record<string, unknown>, baseUrl: string, signal?: AbortSignal, fetchImpl?: typeof fetch): Promise<CallToolResult> {
   try {
     const issues = await argumentIssues(tool, args);
     if (issues) return mcpResult(tool, codedFailure('invalid_request', 400, issues), null);
-    const { result, history } = await executeMcpTool(tool, args, baseUrl, signal);
+    const { result, history } = await executeMcpTool(tool, args, baseUrl, signal, fetchImpl);
     if (!result.ok) return mcpResult(tool, sanitizeFailure(result), null);
     const validators = outputValidators(tool);
     if ((await validators.raw['~standard'].validate(result.body)).issues) return mcpResult(tool, codedFailure('mcp_response_invalid'), null);

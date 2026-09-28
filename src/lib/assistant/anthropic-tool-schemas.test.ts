@@ -67,8 +67,10 @@ it("a dropped union is still readable as the argument sets it named", async () =
       const declared = Object.keys((branch.properties ?? {}) as Record<string, unknown>);
       const names = order.filter((name) => declared.includes(name));
       const closed = branch.additionalProperties === false;
-      if (!names.length) return closed ? "no arguments" : "any arguments";
-      return `${closed ? "only " : ""}${names.map((name) => `\`${name}\``).join(", ")}`;
+      const required = (branch.required ?? []) as string[];
+      const tail = required.length ? ` (${required.map(name => `\`${name}\``).join(", ")} required)` : "";
+      if (!names.length) return (closed ? "no arguments" : "any arguments") + tail;
+      return `${closed ? "only " : ""}${names.map((name) => `\`${name}\``).join(", ")}${tail}`;
     });
     const description = sent.get(tool.name)!.description;
     expect(description.startsWith(`${tool.description}\n\n`), tool.name).toBe(true);

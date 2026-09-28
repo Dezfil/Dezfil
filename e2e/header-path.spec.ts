@@ -235,7 +235,7 @@ test("the path, the titles, the instance name and the re-measure", async ({
       page.getByRole("heading", { name: "Workspace", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Profile", exact: true }),
+      page.getByRole("heading", { name: "Account", exact: true }),
     ).toBeVisible();
     // The coming-later list lives inside the Workspace card now.
     await expect(page.getByText("Default basemap")).toBeVisible();

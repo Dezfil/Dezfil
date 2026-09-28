@@ -5,6 +5,9 @@ import { ensureDataDir } from "./data-dir";
 import { GET } from "@/app/api/health/route";
 import { buildOpenApiDocument } from "@/lib/api/openapi";
 
+// These are storage failure-injection tests. HTTP provenance has its own suite.
+vi.mock("@/lib/auth/ingress.mjs", () => ({ requireIngress: vi.fn() }));
+
 function deferred() {
   let resolve!: () => void;
   const promise = new Promise<void>((done) => { resolve = done; });

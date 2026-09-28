@@ -11,6 +11,223 @@
   "tools": [
     {
       "type": "function",
+      "name": "get_account",
+      "description": "Read your account. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Returns only the authenticated account's profile. No password or credential material is returned.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "update_account",
+      "description": "Update your account. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Changes only your own name or email. An email change requires currentPassword and replaces the sign-in email. Duplicate emails return email_taken, regardless of case or surrounding whitespace. Missing or incorrect current passwords return current_password_required. The complete patch is validated before any write; account identity, role and status cannot be submitted.",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "email": {
+            "type": "string"
+          },
+          "currentPassword": {
+            "type": "string",
+            "writeOnly": true,
+            "description": "Your current password."
+          }
+        },
+        "required": [],
+        "anyOf": [
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "email"
+            ]
+          }
+        ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "change_password",
+      "description": "Change your password. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Requires currentPassword. The new password needs at least eight characters and cannot be very common; no character classes are required. Wrong current passwords return current_password_required; weak new passwords return weak_password. Keeps the calling browser session, ends your other sessions and leaves API tokens valid. A bearer caller has no browser session to preserve.",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "writeOnly": true,
+            "description": "Your current password."
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "currentPassword",
+          "password"
+        ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "list_api_tokens",
+      "description": "List your API tokens. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Lists only your own tokens, including revoked tokens. Secrets and hashes are never returned.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "create_api_token",
+      "description": "Create an API token. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Creates a named API/MCP token for your own account. The secret is returned only on creation. It authenticates with your current account permissions and is refused while the account is deactivated.",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "revoke_api_token",
+      "description": "Revoke your API token. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Permanently refuses this token on later requests. Only your own tokens can be revoked; unknown or other-account IDs return not_found without changes. Repeated revocation is harmless.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Your token's ID, never its secret."
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "list_users",
+      "description": "List users. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Lists invited, active and deactivated accounts, their role and last sign-in. isOriginal permanently identifies the first account. Passwords, credential hashes and sign-in links are never returned.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "invite_user",
+      "description": "Invite a user. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Reserves a name and normalized email and returns a signInUrl once. The recipient chooses a password when opening the link; this instance sends no email. The link expires seven days after issue. isAdmin defaults to false and an admin may explicitly grant it. Duplicate emails return email_taken regardless of case or surrounding whitespace, including invited and deactivated accounts. For a deactivated duplicate the error carries accountId and canReactivate: true; reactivate that account instead of creating another.",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "email": {
+            "type": "string"
+          },
+          "isAdmin": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "name",
+          "email"
+        ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "update_user_access",
+      "description": "Change user access. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Grants or removes admin status, deactivates or reactivates the same account. Self-deactivation and self-removal of admin status return self_change_refused even with another admin. Competing changes cannot remove every active admin. A patch is applied atomically or not at all. Deactivation ends sessions and refuses tokens; reactivation restores token eligibility without reviving ended sessions. Reactivating an unaccepted invitation returns it to invited status. Accounts and content are never deleted.",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The account to change."
+          },
+          "isAdmin": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "deactivated"
+            ]
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "anyOf": [
+          {
+            "required": [
+              "isAdmin"
+            ]
+          },
+          {
+            "required": [
+              "status"
+            ]
+          }
+        ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "issue_user_sign_in_link",
+      "description": "Issue a new sign-in link. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Returns a one-time signInUrl expiring in seven days. Replaces every earlier unused link, invalidates the current password and ends browser sessions while API tokens stay valid. The recipient chooses their password and enters as this account even if another account was signed in. An expired, replaced or consumed link grants no access. This instance sends no email; share the returned link with its recipient.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The account receiving the sign-in link."
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
       "name": "inspect_table_geometry",
       "description": "Inspect a dataset's geometry choices. For file uploads and URL imports only. SQL-save, workflow, PostGIS, OSM, Overture and sketch datasets refuse with 409 geometry_not_supported and a sentence. Unknown or reclaimed dataset identity answers 404 not_found; a stale artifact revision answers 409 input_changed. Column names are identifiers, never SQL expressions or file paths. Reads current stored schema, record, choice, opaque revision and candidates using the same first-1,000-row recognition and full safety evidence as CSV upload. Does not apply a proposal, fetch a source or invent legacy provenance. Repeated inspections reuse candidates while the artifact is unchanged. Historical consumed names and generated outputs are not new source columns.",
       "parameters": {
@@ -265,7 +482,7 @@
     {
       "type": "function",
       "name": "check_health",
-      "description": "Readiness check. Readiness reports whether the data directory is usable.",
+      "description": "Readiness check. Readiness reports whether socket provenance is installed and the data directory is usable.",
       "parameters": {
         "type": "object",
         "properties": {}
@@ -349,6 +566,131 @@
         "required": [
           "name"
         ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "get_settings",
+      "description": "Workspace settings. The signed-in account's display name and per-screen view/sort preferences, plus the instance name shown beside the wordmark and in browser titles (null when unnamed). Cookie or bearer authentication is required. Responses, including refusals, are private, no-store.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "update_settings",
+      "description": "Update your settings. Updates only the authenticated account's display name and preferences. Only admins can change instanceName. The entire patch is validated and authorized before any write; a forbidden or invalid field leaves every field unchanged. Cookie mutations require the same trusted Origin. Explicit bearer requests need no cookie or Origin. Responses, including refusals, are private, no-store.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "Your account display name."
+          },
+          "instanceName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 80,
+            "description": "Admin-only optional instance name. Empty, whitespace or null clears it; the instance is then unnamed."
+          },
+          "viewPrefs": {
+            "type": "object",
+            "description": "Per-screen view preferences; slices merge into what is stored, and the read carries every slice written so far.",
+            "properties": {
+              "maps": {
+                "type": "object",
+                "description": "The Maps list.",
+                "properties": {
+                  "view": {
+                    "type": "string",
+                    "enum": [
+                      "grid",
+                      "list"
+                    ]
+                  },
+                  "sort": {
+                    "type": "string",
+                    "enum": [
+                      "edited",
+                      "created",
+                      "name"
+                    ]
+                  }
+                }
+              },
+              "data": {
+                "type": "object",
+                "description": "The Data page.",
+                "properties": {
+                  "view": {
+                    "type": "string",
+                    "enum": [
+                      "grid",
+                      "list"
+                    ]
+                  },
+                  "sort": {
+                    "type": "string",
+                    "enum": [
+                      "updated",
+                      "name",
+                      "rows",
+                      "size"
+                    ]
+                  }
+                }
+              },
+              "workflows": {
+                "type": "object",
+                "description": "The workflows list.",
+                "properties": {
+                  "view": {
+                    "type": "string",
+                    "enum": [
+                      "grid",
+                      "list"
+                    ]
+                  },
+                  "sort": {
+                    "type": "string",
+                    "enum": [
+                      "edited",
+                      "created",
+                      "name"
+                    ]
+                  }
+                }
+              },
+              "projects": {
+                "type": "object",
+                "description": "The Projects list.",
+                "properties": {
+                  "view": {
+                    "type": "string",
+                    "enum": [
+                      "grid",
+                      "list"
+                    ]
+                  },
+                  "sort": {
+                    "type": "string",
+                    "enum": [
+                      "updated",
+                      "name",
+                      "largest"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
       },
       "strict": false
     },
@@ -5476,7 +5818,7 @@
     {
       "type": "function",
       "name": "look_at_map",
-      "description": "Look at a map: one bounded rendered image with its facts. The model-facing check of a map: the map's stored state rendered through the same server-side road as the image export, at 1024 by 640 pixels, and answered as a PNG of at most 384 KiB together with the render's facts. The image is derived from that one render downwards through 768 by 480 and 512 by 320 when the byte bound is missed; still over it at 512 by 320 the answer is look_image_too_large and no image. The facts carry the render's identity, the bounded state identity of what the renderer actually drew (the map, the camera, the visible layers with a digest of their stored filters, the legend and the widgets, the appearance), the image's pixel and byte sizes, the source size, the attribution credited, the composition's truthful failures and any abandoned external requests, and the elapsed time. The appearance is an explicit input, light when absent; mapId names the map, and a call naming none answers look_target_missing. Read-only: the map's stored state stays as it is; the image is retained in process for GET /api/maps/look/{renderId} under documented bounds. Bounded by its own budget (30 s by default, DEZFIL_ASSISTANT_LOOK_TIMEOUT_S), queue wait, render and image preparation included; past it the answer is render_timeout. Without a renderer browser on the instance the answer is render_unavailable.",
+      "description": "Look at a map: one bounded rendered image with its facts. Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. The model-facing check of a map: the map's stored state rendered through the same server-side road as the image export, at 1024 by 640 pixels, and answered as a PNG of at most 384 KiB together with the render's facts. The image is derived from that one render downwards through 768 by 480 and 512 by 320 when the byte bound is missed; still over it at 512 by 320 the answer is look_image_too_large and no image. The facts carry the render's identity, the bounded state identity of what the renderer actually drew (the map, the camera, the visible layers with a digest of their stored filters, the legend and the widgets, the appearance), the image's pixel and byte sizes, the source size, the attribution credited, the composition's truthful failures and any abandoned external requests, and the elapsed time. The appearance is an explicit input, light when absent; mapId names the map, and a call naming none answers look_target_missing. Read-only: the map's stored state stays as it is; the image is retained in process for GET /api/maps/look/{renderId} under documented bounds. Bounded by its own budget (30 s by default, DEZFIL_ASSISTANT_LOOK_TIMEOUT_S), queue wait, render and image preparation included; past it the answer is render_timeout. Without a renderer browser on the instance the answer is render_unavailable.",
       "parameters": {
         "anyOf": [
           {
@@ -5523,7 +5865,7 @@
     {
       "type": "function",
       "name": "read_map_look_image",
-      "description": "Read the retained image of a map check. Exactly the PNG a check handed the model, or the thumbnail derived from it at retention, as an attachment. Renders are retained in process under documented bounds, 256 renders and 96 MiB by default (DEZFIL_ASSISTANT_LOOK_RETENTION, DEZFIL_ASSISTANT_LOOK_RETENTION_MB), full images and thumbnails counted together, oldest evicted first, gone with the process. After eviction or a restart the answer is look_image_unavailable; this read renders nothing.",
+      "description": "Read the retained image of a map check. Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Exactly the PNG a check handed the model, or the thumbnail derived from it at retention, as an attachment. Renders are retained in process under documented bounds, 256 renders and 96 MiB by default (DEZFIL_ASSISTANT_LOOK_RETENTION, DEZFIL_ASSISTANT_LOOK_RETENTION_MB), full images and thumbnails counted together, oldest evicted first, gone with the process. After eviction or a restart the answer is look_image_unavailable; this read renders nothing.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -5549,7 +5891,7 @@
     {
       "type": "function",
       "name": "export_map_image",
-      "description": "Render a map to a PNG image. Server-side image export: the map rendered by the app's own client inside the instance's headless browser and screenshotted at exactly the definition's pixels — the same composition the builder's export card downloads, pixel-faithful by construction. Takes the documented ExportImageDefinition; answers the PNG as an attachment (agents receive it as the base64 attachment envelope). Bounded by the documented render budget and concurrency cap; renders stored map state — visible layers, stored filters — never builder-transient selections. Without a browser on the instance the operation answers render_unavailable; health is unaffected. A request the page makes that outlives the per-request budget is abandoned so the render can settle: the image is still produced and the answer carries x-dezfil-export-abandoned with the count and the hosts of the abandoned requests (hosts only, never a path); the server log names the abandonment as it happens.",
+      "description": "Render a map to a PNG image. Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Server-side image export: the map rendered by the app's own client inside the instance's headless browser and screenshotted at exactly the definition's pixels — the same composition the builder's export card downloads, pixel-faithful by construction. Takes the documented ExportImageDefinition; answers the PNG as an attachment (agents receive it as the base64 attachment envelope). Bounded by the documented render budget and concurrency cap; renders stored map state — visible layers, stored filters — never builder-transient selections. Without a browser on the instance the operation answers render_unavailable; health is unaffected. A request the page makes that outlives the per-request budget is abandoned so the render can settle: the image is still produced and the answer carries x-dezfil-export-abandoned with the count and the hosts of the abandoned requests (hosts only, never a path); the server log names the abandonment as it happens.",
       "parameters": {
         "type": "object",
         "required": [
