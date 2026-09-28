@@ -32,8 +32,9 @@ it("redirects setup after creation while leaving cross-account redemption reacha
   expect(accept.headers.get("x-middleware-next")).toBe("1");
   expect(accept.headers.get("cache-control")).toBe("private, no-store");
 });
-it("keeps existing routes outside the account gate during caller migration", () => {
-  expect(gateRequest(input("/api/maps")).headers.get("x-middleware-next")).toBe("1");
+it("protects existing and future routes by default", () => {
+  expect(gateRequest(input("/api/maps")).status).toBe(401);
+  expect(gateRequest(input("/api/future")).status).toBe(401);
 });
 
 it("does not set a browser cookie for a bearer delegation", async () => {

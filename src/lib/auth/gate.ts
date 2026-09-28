@@ -1,15 +1,17 @@
+import { isAnonymousAsset } from "./public-assets";
 import { NextResponse, type NextRequest } from "next/server";
 import { accountCount } from "@/lib/metadata/accounts";
 import { AuthError } from "./errors";
-import { isAdminRequest, isEntryRequest, usesAccountGate } from "./request-policy";
+import { isAdminRequest, isAnonymousOperation, isEntryRequest } from "./request-policy";
 import { requireAdmin } from "./admin";
 import { metadataDb } from "@/lib/metadata/db";
 import { assertRequestOrigin, authFailure, privateResponse, requestAuth, requestIngress, requireRequestAuth, sessionCookie, sessionSecret } from "./http";
 
-/** An early refusal filter. Every protected handler authenticates again. */
+/** Early refusal only. Handlers needing identity reauthenticate the credential. */
 export function gateRequest(request: NextRequest): Response {
   const pathname = request.nextUrl.pathname;
-  if (!usesAccountGate(pathname)) return NextResponse.next();
+  if (isAnonymousAsset(pathname, request.method, process.env.NODE_ENV === "development") ||
+      (isAnonymousOperation(pathname, request.method) && !isEntryRequest(pathname, request.method))) return NextResponse.next();
   try {
     const ingress = requestIngress(request);
     const redirect = (destination: string) => privateResponse(NextResponse.redirect(new URL(destination, ingress.origin)));
@@ -34,7 +36,7 @@ export function gateRequest(request: NextRequest): Response {
     }
     return response;
   } catch (error) {
-    if (error instanceof AuthError && error.code === "authentication_required" && !pathname.startsWith("/api/")) {
+    if (error instanceof AuthError && error.code === "authentication_required" && pathname !== "/api" && !pathname.startsWith("/api/")) {
       return privateResponse(NextResponse.redirect(new URL(accountCount() === 0 ? "/setup" : "/sign-in", requestIngress(request).origin)));
     }
     return authFailure(error);

@@ -1,3 +1,4 @@
+import { withRequestPolicy } from "./openapi-request-policy";
 import { authenticatedOp } from "./openapi-authenticated";
 import { USERS_PATHS, USERS_SCHEMAS } from "./openapi-users";
 import { ACCOUNT_PATHS, ACCOUNT_SCHEMAS } from "./openapi-account";
@@ -63,7 +64,7 @@ const THUMBNAIL_THEME_PARAM = {
 
 export function buildOpenApiDocument() {
   const settings = settingsContract();
-  return {
+  return withRequestPolicy({
     openapi: "3.1.0",
     info: {
       title: "Dezfil API",
@@ -71,7 +72,11 @@ export function buildOpenApiDocument() {
       description:
         "Upload files, query them with SQL, compose styled map layers, and " +
         "publish read-only shareable views. Every capability the UI offers is " +
-        "one of these documented calls; the whole journey can be driven headlessly.",
+        "one of these documented calls; the whole journey can be driven headlessly. " +
+        "Protected operations require a current cookie session or account bearer token. " +
+        "Cookie mutations require the same trusted Origin. Identity-bearing responses, " +
+        "including authentication refusals, are private, no-store. Only entry, readiness " +
+        "and the token-scoped read-only published projection permit anonymous access.",
     },
     tags: [
       { name: "Accounts", description: "Local accounts and authentication." },
@@ -7802,5 +7807,5 @@ export function buildOpenApiDocument() {
       },
     },
     "x-error-codes": ERROR_CATALOGUE,
-  };
+  });
 }

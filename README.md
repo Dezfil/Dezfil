@@ -34,10 +34,11 @@ same volume. To move to another machine, stop the container and copy the
 whole directory: nothing Dezfil needs lives outside it. Running without
 the volume works, but state then lasts only for that container's lifetime.
 
-The published-link URL is the entire access model: anyone who can reach the
-instance can edit everything, and anyone with a published link can view it.
-There are no accounts in this release — run it behind your own network
-controls.
+On first run, create the initial admin account. Application pages and APIs
+require a session or an account API token; admins manage accounts and the
+instance name. Signed-in accounts still share the same maps, datasets and
+workflows. Published links and embeds remain readable without an account,
+as does the readiness probe. Secure a new instance until you complete setup.
 
 ## Configuration
 
@@ -130,7 +131,9 @@ string already in `secret.key`.
 
 The whole product is an API the UI merely calls. Human-readable docs are at
 `/developer` on a running instance; the machine-readable OpenAPI description is at
-`/api/openapi.json`. `scripts/journey.mjs <base-url>` drives the entire
+`/api/openapi.json`; both require sign-in or an API token. Cookie mutations
+require an Origin matching the instance; bearer requests use the token alone.
+`scripts/journey.mjs <base-url>` provisions an account on a scratch instance and drives the entire
 flow — upload → SQL → layer → style → publish — through that API with no
 browser.
 

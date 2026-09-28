@@ -6,12 +6,16 @@ const ENTRY_METHODS: Readonly<Record<string, readonly string[]>> = {
 export function isEntryRequest(pathname: string, method: string): boolean {
   return ENTRY_METHODS[pathname]?.includes(method) ?? false;
 }
-/** Account surfaces adopt the gate before the existing clients are switched. */
-export function usesAccountGate(pathname: string): boolean {
-  return pathname === "/api/auth" || pathname.startsWith("/api/auth/") ||
-    pathname === "/api/account" || pathname.startsWith("/api/account/") ||
-    isAdminRequest(pathname) || pathname.startsWith("/render/") ||
-    ["/setup", "/sign-in", "/accept"].includes(pathname);
+/** Exact anonymous operation shapes also govern the OpenAPI security declarations. */
+export function isAnonymousOperation(pathname: string, method: string): boolean {
+  if (isEntryRequest(pathname, method)) return true;
+  if (pathname === "/api/health") return method === "GET" || method === "HEAD";
+  if (/^\/v\/[^/]+$/.test(pathname)) return method === "GET" || method === "HEAD";
+  if (/^\/api\/published\/[^/]+$/.test(pathname)) return method === "GET" || method === "HEAD";
+  if (/^\/api\/published\/[^/]+\/(?:extent|render)\/[^/]+$/.test(pathname) ||
+      /^\/api\/published\/[^/]+\/widget-values$/.test(pathname)) return method === "POST";
+  if (/^\/api\/published\/[^/]+\/tiles\/[^/]+\/[^/]+\/[^/]+\/[^/]+$/.test(pathname)) return method === "GET" || method === "HEAD";
+  return false;
 }
 
 export function isAdminRequest(pathname: string): boolean {
