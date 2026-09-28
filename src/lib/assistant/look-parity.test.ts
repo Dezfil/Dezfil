@@ -1,3 +1,5 @@
+import { instanceFetch } from "@/lib/auth/instance-fetch";
+import { authenticatedRequest } from "./testing/account";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -58,7 +60,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 describe("one controlled render, both invocation paths", () => {
   it("the headless client and the model both receive the fixture's bytes and the independently expected facts", async () => {
     // Headless: the documented route.
-    const response = await dispatchAssistantTestRoute(new Request(`${origin}/api/maps/look`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mapId }) }));
+    const response = await dispatchAssistantTestRoute(authenticatedRequest(new Request(`${origin}/api/maps/look`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mapId }) })));
     expect(response.status).toBe(200);
     const headless = await response.json() as { render: Record<string, unknown> & { id: string }; image: { content_base64: string } };
     expect(headless.render).toMatchObject(expectedFacts());
@@ -71,7 +73,7 @@ describe("one controlled render, both invocation paths", () => {
       { text: "One point near the centre.", toolCalls: [] },
     ]);
     const events: AssistantEvent[] = [];
-    for await (const event of runAssistant(provider, { message: "Look at the map", history: [], context: { page: "builder", mapId, selectedLayerId: null } }, { baseUrl: origin, pending: new PendingActionStore() })) events.push(event);
+    for await (const event of runAssistant(provider, { message: "Look at the map", history: [], context: { page: "builder", mapId, selectedLayerId: null } }, { baseUrl: origin, fetchImpl: instanceFetch(origin, authenticatedRequest().headers.get("authorization")!.slice(7)), pending: new PendingActionStore() })) events.push(event);
     const result = events.find((e): e is Extract<AssistantEvent, { type: "tool_result" }> => e.type === "tool_result" && e.tool === "look_at_map");
     expect(result).toBeDefined();
     expect(result!.ok).toBe(true);

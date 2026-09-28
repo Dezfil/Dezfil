@@ -170,6 +170,7 @@ export interface RenderImageInput {
   mapId: string;
   definition: ExportImageDefinition;
   baseUrl: string;
+  credential: string;
   signal?: AbortSignal;
   /** Injected by unit tests; the real driver otherwise. */
   driver?: RenderDriver;
@@ -249,6 +250,7 @@ export async function renderMapImage(
       browser,
       {
         url: `${input.baseUrl}/render/${encodeURIComponent(input.mapId)}`,
+        credential: input.credential,
         width: input.definition.size.width,
         height: input.definition.size.height,
         definition: input.definition,

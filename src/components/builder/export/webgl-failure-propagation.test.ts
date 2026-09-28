@@ -27,7 +27,7 @@ describe("initial WebGL failure propagation", () => {
       renderMapImage({
         mapId: "map-webgl-failure",
         definition,
-        baseUrl: "http://127.0.0.1:3000",
+        credential: "fixture-render-credential", baseUrl: "http://127.0.0.1:3000",
         driver: { launch: async () => browser },
       }),
     ).rejects.toMatchObject({

@@ -1,9 +1,11 @@
+import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { metadataDb, closeMetadataDb } from "@/lib/metadata/db";
 import { createMap } from "@/lib/map-service";
-import { POST } from "./route";
+import { POST as rawPOST } from "./route";
+const POST = authenticatedRoute(rawPOST);
 import { renderMapImage } from "@/lib/export/render-image";
 import type { ExportImageDefinition } from "@/lib/export/image-definition";
 vi.mock("@/lib/export/render-image", () => ({ renderMapImage: vi.fn() }));

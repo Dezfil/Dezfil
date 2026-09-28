@@ -1,3 +1,5 @@
+import { instanceFetch } from "@/lib/auth/instance-fetch";
+import { authenticatedRequest } from "@/lib/assistant/testing/account";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -88,7 +90,7 @@ async function exhaustedRun(): Promise<{ events: AssistantEvent[]; receipt: RunR
   assistantRuns.bind(run.id, { message: "go" });
   const events: AssistantEvent[] = [];
   for await (const event of runAssistant(provider, { message: "go", history: [], context: builderContext(mapId, null, "dark") },
-    { baseUrl: origin, pending: new PendingActionStore(), stepBudget: 2, runId: run.id })) {
+    { baseUrl: origin, fetchImpl: instanceFetch(origin, authenticatedRequest().headers.get("authorization")!.slice(7)), pending: new PendingActionStore(), stepBudget: 2, runId: run.id })) {
     events.push(event);
     assistantRuns.record(run.id, event);
   }

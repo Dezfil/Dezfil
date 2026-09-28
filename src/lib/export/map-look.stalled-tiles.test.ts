@@ -1,3 +1,4 @@
+import { authenticatedRequest } from "@/lib/assistant/testing/account";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createServer, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -106,7 +107,7 @@ describe.skipIf(!port)("the check outlives a stalled tile host", () => {
     const budget = limits.assistantLookTimeoutMs;
     const bound = renderRequestBoundMs(budget);
     const started = Date.now();
-    const result = await lookAtMap({ mapId, baseUrl: `http://127.0.0.1:${port}` });
+    const result = await lookAtMap({ mapId, credential: authenticatedRequest().headers.get("authorization")!.slice(7), baseUrl: `http://127.0.0.1:${port}` });
     const elapsed = Date.now() - started;
     console.info(JSON.stringify({
       budgetMs: budget, elapsedMs: result.elapsedMs, wallMs: elapsed,

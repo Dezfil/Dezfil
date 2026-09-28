@@ -119,7 +119,13 @@ duplicate; plus the editing history (`GET /api/maps/{id}/history`,
 search within a map, widget values, and server-side image export
 (`POST /api/maps/{id}/export/image`). `POST /api/maps/look` renders a map
 and retains the image briefly for an agent to read back through
-`GET /api/maps/look/{renderId}`.
+`GET /api/maps/look/{renderId}`. These operations and `/render/{id}` require
+an account credential and return private, no-store responses. The renderer
+forwards the caller's bearer, or a short-lived delegation of their browser
+session, on each request to this instance's exact origin. Every request,
+including a redirect, rechecks the credential and egress policy. External
+basemap and tile requests carry no account credential or cookie. Credentials
+never enter the render URL, page initialization, image facts or retained state.
 
 **Layers.** A layer is SQL plus a name plus style. Create it on a map
 (`POST /api/maps/{id}/layers`), read and patch it, duplicate it, delete it.

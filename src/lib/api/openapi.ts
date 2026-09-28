@@ -1,3 +1,4 @@
+import { authenticatedOp } from "./openapi-authenticated";
 import { USERS_PATHS, USERS_SCHEMAS } from "./openapi-users";
 import { ACCOUNT_PATHS, ACCOUNT_SCHEMAS } from "./openapi-account";
 import { AUTH_PATHS, AUTH_SCHEMAS, AUTH_SECURITY_SCHEMES } from "./openapi-auth";
@@ -3763,7 +3764,7 @@ export function buildOpenApiDocument() {
         }),
       },
       "/api/maps/look": {
-        post: op({
+        post: authenticatedOp({
           summary: "Look at a map: one bounded rendered image with its facts",
           description:
             "The model-facing check of a map: the map's stored " +
@@ -3818,7 +3819,7 @@ export function buildOpenApiDocument() {
         }),
       },
       "/api/maps/look/{renderId}": {
-        get: op({
+        get: authenticatedOp({
           summary: "Read the retained image of a map check",
           description:
             "Exactly the PNG a check handed the model, or " +
@@ -3846,7 +3847,7 @@ export function buildOpenApiDocument() {
         }),
       },
       "/api/maps/{id}/export/image": {
-        post: op({
+        post: authenticatedOp({
           summary: "Render a map to a PNG image",
           description:
             "Server-side image export: the map rendered by " +

@@ -1,5 +1,7 @@
+import { loopbackCredential } from "@/lib/auth/instance-fetch";
+import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
 import { NextResponse } from "next/server";
-import { ApiError, errorResponse } from "@/lib/api/errors";
+import { ApiError } from "@/lib/api/errors";
 import { getMap } from "@/lib/metadata/maps";
 import {
   EXPORT_IMAGE_DEFINITION_SCHEMA,
@@ -30,6 +32,7 @@ function pngFilename(name: string): string {
  */
 export async function POST(request: Request, { params }: Params) {
   try {
+    const actor = requireRequestAuth(request);
     const { id } = await params;
     const map = getMap(id);
     if (!map) {
@@ -61,6 +64,7 @@ export async function POST(request: Request, { params }: Params) {
       mapId: id,
       definition: definition as ExportImageDefinition,
       baseUrl: selfBaseUrl(request),
+      credential: loopbackCredential(request, actor),
       signal: request.signal,
     });
     const headers: Record<string, string> = {
@@ -75,8 +79,8 @@ export async function POST(request: Request, { params }: Params) {
       headers["x-dezfil-export-abandoned"] =
         `${abandoned.length}; hosts=${[...new Set(abandoned)].join(",")}`;
     }
-    return new NextResponse(Buffer.from(png), { headers });
+    return privateResponse(new NextResponse(Buffer.from(png), { headers }));
   } catch (error) {
-    return errorResponse(error);
+    return authFailure(error);
   }
 }

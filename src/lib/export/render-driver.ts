@@ -1,3 +1,4 @@
+import { renderRequestHeaders } from "./render-credentials";
 import { admitRenderRequest } from "./render-guard";
 import { stalledExternalRequests } from "./render-stall";
 import { resolveMapScale, type ExportImageDefinition } from "./image-definition";
@@ -11,6 +12,8 @@ export interface RenderDriver {
 export interface RenderBrowser {
   render(input: {
     url: string;
+    /** Transport-only caller credential; never delivered to page JavaScript. */
+    credential: string;
     width: number;
     height: number;
     definition: ExportImageDefinition;
@@ -49,7 +52,7 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
         headless: true,
       });
       return {
-        async render({ url, width, height, definition, deadline, requestBoundMs }) {
+        async render({ url, width, height, definition, deadline, requestBoundMs, credential }) {
           const page = await browser.newPage();
           // The egress gate: every page request is admitted against the
           // app origin + private-range denial. A refusal is recorded
@@ -58,6 +61,7 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
           // yield a "ready" PNG that hides the refusal.
           const appOrigin = new URL(url).origin;
           const refused: string[] = [];
+          let authenticationFailed = false;
           // Every admitted request in flight, with its start and host: an
           // external one that outlives the per-request budget is abandoned
           // — the page goes offline for an instant so the stalled fetch
@@ -95,7 +99,12 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
             void verdict.finally(() => verdicts.delete(verdict));
             void verdict.then(
               (v) => {
-                if (v === "allow") return request.continue();
+                if (v === "allow") {
+                  const headers = renderRequestHeaders(request.url(), appOrigin, credential, request.headers());
+                  if (headers) return request.continue({ headers });
+                  authenticationFailed = true;
+                  return request.abort("blockedbyclient");
+                }
                 if (v === "unresolvable") {
                   // An ordinary dead hostname: fail the request with no
                   // connection and no policy claim — the page reaches
@@ -202,6 +211,7 @@ export async function puppeteerDriver(): Promise<RenderDriver> {
               .querySelector("[data-export-failed]")
               ?.getAttribute("data-export-failed"),
           );
+          if (authenticationFailed) return { failed: "The render request could not be authorized. Sign in and retry." };
           if (failed) return { failed };
           if (refused.length) {
             // Coded refusal beats a settled page: the host list stays
