@@ -27,13 +27,13 @@ export function adminAccounts(context: AuthContext, db: Database = metadataDb(),
   return db.transaction(() => { requireAdmin(context, db, now); return listAccounts(db); }).immediate();
 }
 
-export function inviteAccount(context: AuthContext, input: { name: string; email: string },
+export function inviteAccount(context: AuthContext, input: { name: string; email: string; isAdmin?: boolean },
   db: Database = metadataDb(), now = Date.now()) {
   const fields = identityFields(input.name, input.email);
   return db.transaction(() => {
     requireAdmin(context, db, now);
     requireAvailableEmail(fields.email, null, db, true);
-    const account = insertAccount({ id: randomUUID(), ...fields, passwordHash: null, isAdmin: false,
+    const account = insertAccount({ id: randomUUID(), ...fields, passwordHash: null, isAdmin: input.isAdmin === true,
       status: "invited", now: new Date(now).toISOString() }, db);
     return makeLink(account.id, "invite", db, now);
   }).immediate();
@@ -60,7 +60,8 @@ export function changeAccountAccess(context: AuthContext, accountId: string,
     if (actor.id === accountId && (patch.isAdmin === false || patch.status === "deactivated")) {
       throw new AuthError("self_change_refused", "Another admin must make this change.", 409);
     }
-    const status = patch.status ?? account.status;
+    const status = patch.status === "active" && account.lastSignInAt === null
+      ? "invited" : patch.status ?? account.status;
     db.prepare("UPDATE accounts SET is_admin = ?, status = ?, updated_at = ? WHERE id = ?")
       .run(Number(patch.isAdmin ?? account.isAdmin), status, new Date(now).toISOString(), accountId);
     const remaining = db.prepare("SELECT count(*) AS count FROM accounts WHERE is_admin = 1 AND status = 'active'").get() as { count: number };

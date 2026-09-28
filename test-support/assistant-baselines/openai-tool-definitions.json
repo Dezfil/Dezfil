@@ -1,6 +1,6 @@
 {
-  "count": 124,
-  "overall": "98ef481acb45a40dfb1ad79edcb2abb8a243c84b06fe65305bf9ffe56c5d0f18",
+  "count": 128,
+  "overall": "22cb91f183651b74127a91951600c2b6aafdf840ee4b9df3bf48164150f52ed1",
   "tools": {
     "get_account": "bd37f5c2eb19d2ede33cb10152a53d49e4029a871d9950f51d3671001efdfb66",
     "update_account": "3ad8444a58cdad3534c58b9a7d915598449c9b075a87aa32d07a446af36e4bbb",
@@ -8,6 +8,10 @@
     "list_api_tokens": "eabf882e220625f2efba42edb2a6bc1e7217bc95bd953bf88ebec00cd6bf771b",
     "create_api_token": "98534459dbfcc65bd45bfce7064cc19b90818f634b10ceb817920e58cb973e94",
     "revoke_api_token": "837d1a0d69b9e58b39d6e5519ae2ce2481880b4e5d14557f076bd9fc850e3074",
+    "list_users": "39f71873a54798506f90df1c3a250235ad6c6f28ee1d9a0bea55d5371b24ab61",
+    "invite_user": "5d1cb9f8988ed5d493f41e8fafe2c1e3268a00bc3e6ec8e7cdadef697fa005ae",
+    "update_user_access": "ec5d4fcace527cdb08a39731fb8b7f7a8483a026cc7f44e861bb6d92b1a8bea8",
+    "issue_user_sign_in_link": "593f3027932a41ffa22b97b16369cf1bcd42584b289d9b2ae16a0b846766a2b8",
     "inspect_table_geometry": "4efa509d7d9f7c8e5d20d4bb95f76d89d41ce27954cff9071bbbb344f87d9d0b",
     "set_table_geometry": "114136589152c462890e876f820cef78f64f1709c6c1390ee6d8fb9513639ee2",
     "clear_table_geometry": "0ced0e30e7746667f27c4fdd3e3bcc9186d2d9b1355f8af7755efbeb5bc7fcfe",

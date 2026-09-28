@@ -70,6 +70,8 @@ const ALLOWED = new Set([
   "src/components/GeometryBadge.module.css :: .badge",
   // The record's source column is an identifier.
   "src/components/GeometryProvenance.module.css :: .record b",
+  // The sign-in hand-over is a literal URL, including its credential.
+  "src/components/users/UsersScreen.module.css :: .field input",
   "src/components/McpSection.module.css :: .endpoint",
   // per-client commands and configuration are literal code.
   "src/components/McpSection.module.css :: .configuration",

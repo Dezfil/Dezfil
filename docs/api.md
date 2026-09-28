@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **114 paths, 151 operations, 144 named
+Measured from the current source: **117 paths, 155 operations, 147 named
 component schemas.**
 
 ## Base path and access
@@ -77,6 +77,24 @@ account's token ID returns `404` without changing it. Missing, invalid,
 revoked or deactivated credentials return `401` on every account operation.
 These operations use the same private response and cookie-origin rules as
 settings. The Account and API / MCP tokens cards in Settings call these APIs.
+
+**Users.** Admins use `GET`/`POST /api/users` to list or invite accounts,
+`PATCH /api/users/{id}` to change another account's admin flag or active status,
+and `POST /api/users/{id}/sign-in-link` to replace a sign-in link or reset a
+password. Inviting defaults to a non-admin account; `isAdmin: true` explicitly
+grants administration. The invitation and reset replies disclose a copyable
+`signInUrl` once, with an `expiresAt` timestamp seven days later. The recipient
+chooses a password; the instance sends no email. The link credential is carried
+in the fragment and does not reach the server until redemption.
+
+Normalized duplicate emails return `email_taken`. A deactivated duplicate also
+returns `accountId` and `canReactivate: true`, so the same account can be restored.
+An unaccepted invitation returns to invited status on reactivation. Self-demotion
+and self-deactivation are refused even when another admin exists, and competing
+changes cannot leave the instance without an active admin. Reset invalidates the
+password and browser sessions while leaving tokens valid. Deactivation refuses
+sessions and tokens; reactivation preserves the account without reviving ended
+sessions. No user deletion operation exists.
 
 **Tables.** The catalogue of datasets. `POST /api/tables` takes a
 `multipart/form-data` upload; `POST /api/imports/url`,

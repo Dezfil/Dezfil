@@ -10,5 +10,10 @@ export function isEntryRequest(pathname: string, method: string): boolean {
 export function usesAccountGate(pathname: string): boolean {
   return pathname === "/api/auth" || pathname.startsWith("/api/auth/") ||
     pathname === "/api/account" || pathname.startsWith("/api/account/") ||
+    isAdminRequest(pathname) ||
     ["/setup", "/sign-in", "/accept"].includes(pathname);
+}
+
+export function isAdminRequest(pathname: string): boolean {
+  return pathname === "/users" || pathname === "/api/users" || pathname.startsWith("/api/users/");
 }

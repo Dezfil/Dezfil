@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { accountCount } from "@/lib/metadata/accounts";
 import { AuthError } from "./errors";
-import { isEntryRequest, usesAccountGate } from "./request-policy";
+import { isAdminRequest, isEntryRequest, usesAccountGate } from "./request-policy";
+import { requireAdmin } from "./admin";
+import { metadataDb } from "@/lib/metadata/db";
 import { assertRequestOrigin, authFailure, privateResponse, requestAuth, requestIngress, requireRequestAuth, sessionCookie, sessionSecret } from "./http";
 
 /** An early refusal filter. Every protected handler authenticates again. */
@@ -25,6 +27,7 @@ export function gateRequest(request: NextRequest): Response {
       return privateResponse(NextResponse.next());
     }
     const context = requireRequestAuth(request);
+    if (isAdminRequest(pathname)) requireAdmin(context, metadataDb(), Date.now());
     const response = privateResponse(NextResponse.next());
     if (context.credential.kind === "session" && pathname !== "/api/auth/sign-out") {
       sessionCookie(response, sessionSecret(request)!, ingress);

@@ -132,6 +132,102 @@
     },
     {
       "type": "function",
+      "name": "list_users",
+      "description": "List users. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Lists invited, active and deactivated accounts, their role and last sign-in. isOriginal permanently identifies the first account. Passwords, credential hashes and sign-in links are never returned.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "invite_user",
+      "description": "Invite a user. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Reserves a name and normalized email and returns a signInUrl once. The recipient chooses a password when opening the link; this instance sends no email. The link expires seven days after issue. isAdmin defaults to false and an admin may explicitly grant it. Duplicate emails return email_taken regardless of case or surrounding whitespace, including invited and deactivated accounts. For a deactivated duplicate the error carries accountId and canReactivate: true; reactivate that account instead of creating another.",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "email": {
+            "type": "string"
+          },
+          "isAdmin": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "name",
+          "email"
+        ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "update_user_access",
+      "description": "Change user access. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Grants or removes admin status, deactivates or reactivates the same account. Self-deactivation and self-removal of admin status return self_change_refused even with another admin. Competing changes cannot remove every active admin. A patch is applied atomically or not at all. Deactivation ends sessions and refuses tokens; reactivation restores token eligibility without reviving ended sessions. Reactivating an unaccepted invitation returns it to invited status. Accounts and content are never deleted.",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The account to change."
+          },
+          "isAdmin": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "deactivated"
+            ]
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "anyOf": [
+          {
+            "required": [
+              "isAdmin"
+            ]
+          },
+          {
+            "required": [
+              "status"
+            ]
+          }
+        ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "issue_user_sign_in_link",
+      "description": "Issue a new sign-in link. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Returns a one-time signInUrl expiring in seven days. Replaces every earlier unused link, invalidates the current password and ends browser sessions while API tokens stay valid. The recipient chooses their password and enters as this account even if another account was signed in. An expired, replaced or consumed link grants no access. This instance sends no email; share the returned link with its recipient.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The account receiving the sign-in link."
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
       "name": "inspect_table_geometry",
       "description": "Inspect a dataset's geometry choices. For file uploads and URL imports only. SQL-save, workflow, PostGIS, OSM, Overture and sketch datasets refuse with 409 geometry_not_supported and a sentence. Unknown or reclaimed dataset identity answers 404 not_found; a stale artifact revision answers 409 input_changed. Column names are identifiers, never SQL expressions or file paths. Reads current stored schema, record, choice, opaque revision and candidates using the same first-1,000-row recognition and full safety evidence as CSV upload. Does not apply a proposal, fetch a source or invent legacy provenance. Repeated inspections reuse candidates while the artifact is unchanged. Historical consumed names and generated outputs are not new source columns.",
       "parameters": {

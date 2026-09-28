@@ -62,6 +62,11 @@ They always address the authenticated caller. Password changes, token creation
 and revocation declare confirmation and their access consequences in the
 contract. Token secrets appear only in the creation response.
 
+Administration generates `list_users`, `invite_user`, `update_user_access` and
+`issue_user_sign_in_link`. Every request requires current admin authority;
+mutations declare confirmation and their consequences. Invitation and reset
+links are disclosed once, expire after seven days and are shared by the admin.
+
 Derivation is pure over a static document, so the tool set is built once per
 process and reused.
 
@@ -69,8 +74,8 @@ process and reused.
 
 | | |
 |---|---|
-| Documented operations | 151 |
-| Operations that become tools | 124 |
+| Documented operations | 155 |
+| Operations that become tools | 128 |
 | Deliberately excluded | 27 |
 
 Measured by building the OpenAPI document and the tool set from

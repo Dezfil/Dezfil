@@ -1,5 +1,5 @@
 "use client";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { PasswordField } from "./PasswordField";
@@ -7,6 +7,16 @@ import { accountRequest, failureMessage } from "./api";
 import styles from "../SettingsScreen.module.css";
 
 export function PasswordCard() {
+  const details = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const reveal = () => {
+      if (window.location.hash === "#password" && details.current) {
+        details.current.open = true; details.current.scrollIntoView();
+      }
+    };
+    reveal(); window.addEventListener("hashchange", reveal);
+    return () => window.removeEventListener("hashchange", reveal);
+  }, []);
   const [current, setCurrent] = useState(""), [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false), [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +28,7 @@ export function PasswordCard() {
     } catch (error) { setError(failureMessage(error)); }
     finally { setBusy(false); }
   }
-  return <details id="password" className={styles.passwordSection}>
+  return <details ref={details} id="password" className={styles.passwordSection}>
     <summary>Change password</summary>
     <form className={styles.cardForm} onSubmit={submit}>
       <PasswordField label="Current password" value={current} onChange={value => { setCurrent(value); setSaved(false); }} disabled={busy} />

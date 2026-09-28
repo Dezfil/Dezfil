@@ -261,10 +261,13 @@ describe("tool parity", () => {
       "delete_project",
       "delete_recipe",
       "delete_table",
+      "invite_user",
+      "issue_user_sign_in_link",
       "publish_map",
       "remove_recipe_step",
       "revoke_api_token",
       "unpublish_map",
+      "update_user_access",
     ]);
     for (const tool of buildTools().filter((t) => t.confirm)) {
       expect(tool.description).not.toContain("Requires explicit user confirmation");
