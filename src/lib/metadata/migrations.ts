@@ -1,17 +1,7 @@
+import { DATASET_CONNECTION_MIGRATIONS } from "./migrations-datasets-connections";
+
 export const MIGRATIONS: string[] = [
-  // v1 — uploaded tables registry
-  `CREATE TABLE data_tables (
-     id TEXT PRIMARY KEY,
-     name TEXT NOT NULL UNIQUE,
-     source_filename TEXT NOT NULL,
-     format TEXT NOT NULL,
-     file TEXT NOT NULL,
-     geometry_column TEXT,
-     geometry_type TEXT,
-     crs_assumed INTEGER NOT NULL DEFAULT 0,
-     row_count INTEGER NOT NULL,
-     created_at TEXT NOT NULL
-   )`,
+  DATASET_CONNECTION_MIGRATIONS.v1,
   // v2 — maps and their layers. A layer IS its SQL text plus a style; the
   // map owns layer order, visibility, viewport. Publishing lives here too.
   `CREATE TABLE maps (
@@ -103,26 +93,8 @@ export const MIGRATIONS: string[] = [
   // speed; null = no timeline docked — every earlier map). The window itself
   // stays on the layer as its timerange filter.
   `ALTER TABLE maps ADD COLUMN timeline TEXT;`,
-  // v13 — data hub: table provenance. Which source created the table, the
-  // JSON parameters that can re-run the import, and when it last ran. Every
-  // earlier row is an upload, which has no re-run recipe.
-  `ALTER TABLE data_tables ADD COLUMN source TEXT NOT NULL DEFAULT 'upload';
-   ALTER TABLE data_tables ADD COLUMN source_params TEXT;
-   ALTER TABLE data_tables ADD COLUMN imported_at TEXT;`,
-  // v14 — PostGIS connections: the first stored credential. The password
-  // column holds an AES-256-GCM envelope, never plaintext, and no
-  // repository read ever returns it.
-  `CREATE TABLE pg_connections (
-     id TEXT PRIMARY KEY,
-     name TEXT NOT NULL UNIQUE,
-     host TEXT NOT NULL,
-     port INTEGER NOT NULL,
-     database TEXT NOT NULL,
-     username TEXT NOT NULL,
-     password_encrypted TEXT NOT NULL,
-     ssl INTEGER NOT NULL DEFAULT 1,
-     created_at TEXT NOT NULL
-   )`,
+  DATASET_CONNECTION_MIGRATIONS.v13,
+  DATASET_CONNECTION_MIGRATIONS.v14,
   // v15 — workspace navigation: workspace preferences as a small key-value
   // store. Single-user until the multi-user phase; the first key is the
   // display name behind the rail avatar.
@@ -215,37 +187,7 @@ export const MIGRATIONS: string[] = [
   // read later. Null = no custom style; the stored basemap key survives
   // a custom save untouched.
   `ALTER TABLE maps ADD COLUMN custom_basemap TEXT;`,
-  // v25 — a derived table has no source filename. Every registration road
-  // until now was an import, so the column was NOT NULL and every caller had
-  // a real filename to give. An operation's output never arrived as a file,
-  // and the gate refused filler: a field that states something untrue about
-  // how a dataset came to exist is worse than an absent one. SQLite cannot
-  // drop a NOT NULL in place, so the table is rebuilt — the only structural
-  // change is that one column becoming nullable.
-  `CREATE TABLE data_tables_v25 (
-     id TEXT PRIMARY KEY,
-     name TEXT NOT NULL UNIQUE,
-     source_filename TEXT,
-     format TEXT NOT NULL,
-     file TEXT NOT NULL,
-     geometry_column TEXT,
-     geometry_type TEXT,
-     crs_assumed INTEGER NOT NULL DEFAULT 0,
-     row_count INTEGER NOT NULL,
-     created_at TEXT NOT NULL,
-     source TEXT NOT NULL DEFAULT 'upload',
-     source_params TEXT,
-     imported_at TEXT
-   );
-   INSERT INTO data_tables_v25
-     (id, name, source_filename, format, file, geometry_column, geometry_type,
-      crs_assumed, row_count, created_at, source, source_params, imported_at)
-   SELECT
-      id, name, source_filename, format, file, geometry_column, geometry_type,
-      crs_assumed, row_count, created_at, source, source_params, imported_at
-   FROM data_tables;
-   DROP TABLE data_tables;
-   ALTER TABLE data_tables_v25 RENAME TO data_tables;`,
+  DATASET_CONNECTION_MIGRATIONS.v25,
   // v26 — the operation run lane's job record. Deliberately NOT the tile
   // record's shape: that is one row per layer, overwritten on every
   // transition, so the previous outcome and its error are destroyed and it
@@ -380,10 +322,7 @@ export const MIGRATIONS: string[] = [
   // The manual legend arrangement: a JSON array of layer ids,
   // NULL = automatic (follow the layer panel) — every earlier map.
   `ALTER TABLE maps ADD COLUMN legend_order TEXT;`,
-  // The suspect-header warning: advisory, computed on the CSV road at
-  // import/refresh time. Default 0 — existing tables stay unwarned
-  // until a refresh re-reads their source.
-  `ALTER TABLE data_tables ADD COLUMN header_suspect INTEGER NOT NULL DEFAULT 0;`,
+  DATASET_CONNECTION_MIGRATIONS.v32,
   // v33 — which surface made a recipe: "workflow" for the workflows list,
   // "builder" for the one-step Tools' invisible recipes. Every row from
   // before the column is classified as the builder's — the gate's decision:
@@ -438,14 +377,7 @@ export const MIGRATIONS: string[] = [
    WHERE job_id IS NOT NULL
      AND attempt_state IS NULL
      AND EXISTS (SELECT 1 FROM operation_jobs j WHERE j.id = cascade_members.job_id AND j.state IN ('succeeded', 'failed', 'cancelled'));`,
-  // v36 — durable PostGIS connection status: the last real source use is
-  // remembered without credentials. Legacy connections have never been
-  // checked as far as the durable record can honestly say.
-  `ALTER TABLE pg_connections ADD COLUMN last_checked_at TEXT;
-   ALTER TABLE pg_connections ADD COLUMN last_check_outcome TEXT;
-   ALTER TABLE pg_connections ADD COLUMN last_check_error TEXT;
-   ALTER TABLE pg_connections ADD COLUMN server_version TEXT;
-   ALTER TABLE pg_connections ADD COLUMN postgis_version TEXT;`,
+  DATASET_CONNECTION_MIGRATIONS.v36,
   // v37 — projects: an optional named set over maps, recipes and data
   // tables. A map or recipe carries at most one project (a nullable
   // reference that survives as NULL when the project dissolves); a table
@@ -477,9 +409,7 @@ export const MIGRATIONS: string[] = [
   // the reads would hide.
   `UPDATE recipes SET project_id = NULL
    WHERE project_id IS NOT NULL AND origin IS NOT 'workflow';`,
-  // v39 — CSV recognition evidence, swapped with each artifact. No
-  // backfill: legacy rows carry no invented recognition provenance.
-  `ALTER TABLE data_tables ADD COLUMN geometry_recognition TEXT;`,
+  DATASET_CONNECTION_MIGRATIONS.v39,
   // Accounts and credentials are additive. Legacy personal settings are
   // adopted only when the first account is successfully created.
   `CREATE TABLE accounts (
