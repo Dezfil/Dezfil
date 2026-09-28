@@ -89,6 +89,15 @@ machine. Some unit tests build real tiles, so keep `tippecanoe` on `PATH`;
 
 ## The browser suite
 
+Browser and HTTP journeys target an isolated scratch instance. Shared fixtures
+create the first account (or sign back into that fixture account) and mint a
+user token before protected work. Browser setup saves its cookie session in
+`.claude/browser-auth.json`; API fixtures supply the instance Origin on mutations.
+Readiness polls and published readers remain anonymous. To run the separate
+first-account UI journey on an empty store, use `DEZFIL_E2E_FIRST_RUN=1` with
+`npx playwright test e2e/account-entry.spec.ts`; global setup then leaves setup
+to that journey. Run the rest against a fresh scratch store with this flag unset.
+
 `npm run journey:browser` runs every spec under `e2e/` with Playwright
 against an already running instance: one worker, no retries, a 240-second
 per-test bound, traces retained on failure. The target comes from
@@ -146,9 +155,11 @@ gets a run executing, kills the process outright, restarts on the same data
 directory and asks the API what became of the run. It defaults to port 3197;
 `node scripts/recovery-journey.mjs --port 3199` chooses another.
 
-`node scripts/durability.mjs seed <base-url>`, then the same script with
-`verify <base-url>` after the container is replaced against the same volume,
-proves state survives replacement; the seed writes `durability-state.json`
+`node scripts/durability.mjs seed <base-url> <scratch-state-file>`, then the same script with
+`verify <base-url> <scratch-state-file>` after the container is replaced against the same volume,
+proves resource and session/token survival, plus refusal of revoked credentials.
+The seed writes credentials and resource identifiers in a mode-0600 state file
+(default `durability-state.json`)
 in the working directory. `node scripts/big-data.mjs <base-url>
 [approx-rows]` drives a dataset beyond browser-memory scale. Point all of
 these at a scratch instance on its own data directory.

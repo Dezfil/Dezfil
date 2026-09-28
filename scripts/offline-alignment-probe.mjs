@@ -1,10 +1,12 @@
+import { provisionJourney } from "./journey-auth.mjs";
 // Run inside the candidate image, with --network=none and loopback allowed.
 // Usage: node /probes/offline-alignment-probe.mjs /evidence [--tiled]
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { alignmentPoint, alignmentPositionError, alignmentStats, startAlignmentBasemap } from "./map-alignment-fixture.mjs";
 
-const base = "http://127.0.0.1:3000";
+const base = process.env.DEZFIL_BASE_URL ?? "http://127.0.0.1:3000";
+const authenticatedFetch = (await provisionJourney(base)).fetch;
 const output = process.argv[2] ?? "/tmp/alignment-evidence";
 const tiled = process.argv.includes("--tiled");
 const basemap = await startAlignmentBasemap();
@@ -12,7 +14,7 @@ const evidence = [];
 await mkdir(output, { recursive: true });
 
 async function json(path, method = "GET", body) {
-  const response = await fetch(`${base}${path}`, {
+  const response = await authenticatedFetch(`${base}${path}`, {
     method, ...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
   });
   if (!response.ok) throw new Error(`${method} ${path}: ${response.status} ${await response.text()}`);
@@ -20,14 +22,14 @@ async function json(path, method = "GET", body) {
 }
 
 try {
-  await json("/api/health");
+  if (!(await fetch(`${base}/api/health`)).ok) throw new Error("Readiness failed");
   for (const [pole, sign] of [["north", 1], ["south", -1]]) {
     let table, map;
     try {
       const [lng, lat] = alignmentPoint(sign);
       const form = new FormData();
       form.append("file", new Blob([`name,lon,lat\nlandmark,${lng},${lat}\n`], { type: "text/csv" }), `align_${pole}_${Date.now()}.csv`);
-      const uploaded = await fetch(`${base}/api/tables`, { method: "POST", body: form });
+      const uploaded = await authenticatedFetch(`${base}/api/tables`, { method: "POST", body: form });
       if (!uploaded.ok) throw new Error(`Upload: ${uploaded.status} ${await uploaded.text()}`);
       table = (await uploaded.json()).name;
       map = (await json("/api/maps", "POST", { name: `Pole alignment ${pole}` })).id;
@@ -62,7 +64,7 @@ try {
         size: { width: 512, height: 512 }, mapScale: 1,
         legend: { visible: false, corner: "bottom-left", size: "m" }, widgets: [], title: null, appearance: "light",
       };
-      const response = await fetch(`${base}/api/maps/${map}/export/image`, {
+      const response = await authenticatedFetch(`${base}/api/maps/${map}/export/image`, {
         method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ definition }),
       });
       if (!response.ok) throw new Error(`Export: ${response.status} ${await response.text()}`);

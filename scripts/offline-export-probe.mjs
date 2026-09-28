@@ -1,3 +1,4 @@
+import { provisionJourney } from "./journey-auth.mjs";
 // In-container export probe: runs INSIDE the
 // image (mounted at /probes) against its own loopback API, so it works
 // with --network=none. Seeds a minimal table + map + layer, POSTs a
@@ -12,7 +13,8 @@
 // Usage: node /probes/offline-export-probe.mjs [--tiled|--expect-unavailable]
 import { decodePng, countColored } from "./png-probe.mjs";
 
-const base = "http://127.0.0.1:3000";
+const base = process.env.DEZFIL_BASE_URL ?? "http://127.0.0.1:3000";
+const authenticatedFetch = (await provisionJourney(base)).fetch;
 const expectUnavailable = process.argv.includes("--expect-unavailable");
 const expectTiled = process.argv.includes("--tiled");
 
@@ -38,11 +40,11 @@ form.append(
   new Blob([csv], { type: "text/csv" }),
   `probe_${Date.now().toString(36)}.csv`,
 );
-const upload = await fetch(`${base}/api/tables`, { method: "POST", body: form });
+const upload = await authenticatedFetch(`${base}/api/tables`, { method: "POST", body: form });
 if (!upload.ok) fail("seed upload failed", String(upload.status));
 const table = (await upload.json()).name;
 
-const mapRes = await fetch(`${base}/api/maps`, {
+const mapRes = await authenticatedFetch(`${base}/api/maps`, {
   method: "POST",
   headers: { "content-type": "application/json" },
   body: JSON.stringify({ name: "Offline export probe" }),
@@ -50,7 +52,7 @@ const mapRes = await fetch(`${base}/api/maps`, {
 if (!mapRes.ok) fail("map create failed", String(mapRes.status));
 const mapId = (await mapRes.json()).id;
 
-const layerRes = await fetch(`${base}/api/maps/${mapId}/layers`, {
+const layerRes = await authenticatedFetch(`${base}/api/maps/${mapId}/layers`, {
   method: "POST",
   headers: { "content-type": "application/json" },
   body: JSON.stringify({
@@ -73,7 +75,7 @@ if (expectTiled) {
   let render;
   const deadline = Date.now() + 120_000;
   do {
-    const response = await fetch(`${base}/api/layers/${layerId}/render`);
+    const response = await authenticatedFetch(`${base}/api/layers/${layerId}/render`);
     if (!response.ok) fail("tiled render probe failed", String(response.status));
     render = await response.json();
     if (render?.tiles?.state === "building") {
@@ -97,7 +99,7 @@ const definition = {
   appearance: "light",
   overlayScale: 2,
 };
-const exp = await fetch(`${base}/api/maps/${mapId}/export/image`, {
+const exp = await authenticatedFetch(`${base}/api/maps/${mapId}/export/image`, {
   method: "POST",
   headers: { "content-type": "application/json" },
   body: JSON.stringify({ definition }),

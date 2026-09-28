@@ -3,7 +3,9 @@
 // Target instance via DEZFIL_BASE_URL (default localhost).
 import { defineConfig, devices } from "@playwright/test";
 
+const baseURL = process.env.DEZFIL_BASE_URL ?? "http://localhost:3000";
 export default defineConfig({
+  globalSetup: "./e2e/auth.setup.ts",
   testDir: "./e2e",
   workers: 1,
   retries: 0,
@@ -22,7 +24,9 @@ export default defineConfig({
   },
   reporter: [["list"]],
   use: {
-    baseURL: process.env.DEZFIL_BASE_URL ?? "http://localhost:3000",
+    baseURL,
+    storageState: process.env.DEZFIL_E2E_FIRST_RUN === "1" ? { cookies: [], origins: [] } : ".claude/browser-auth.json",
+    extraHTTPHeaders: { origin: new URL(baseURL).origin },
     // A stuck click should fail in seconds with a trace, not consume the
     // whole test budget (a broken step otherwise burns minutes in CI).
     actionTimeout: 15_000,

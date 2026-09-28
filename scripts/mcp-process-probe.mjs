@@ -1,3 +1,4 @@
+import { provisionJourney, tokenFetch } from './journey-auth.mjs';
 import assert from 'node:assert/strict';
 import { readFile, writeFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -6,13 +7,15 @@ import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/cli
 import { journeyClient } from './mcp-journey-core.mjs';
 export const slowSql = tag => `SELECT count(*) AS mcpprobe_${tag} FROM range(200000) a, range(200000) b WHERE (a.range * b.range) % 7 = 3`;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-export async function connect(base, transportFetch = fetch) {
+export async function connect(base, transportFetch = fetch, token) {
+  const credential = token ?? (await provisionJourney(base)).token;
+  const authenticatedFetch = tokenFetch(base, credential, transportFetch);
   const client = new Client({ name: 'dezfil-process-probe', version: '1' });
-  await client.connect(new StreamableHTTPClientTransport(new URL(`${base}/api/mcp`), { fetch: transportFetch }));
+  await client.connect(new StreamableHTTPClientTransport(new URL(`${base}/api/mcp`), { fetch: authenticatedFetch }));
   const journey = await journeyClient(client, async path => {
-    const response = await fetch(base + path); assert.ok(response.ok); return response.json();
+    const response = await authenticatedFetch(base + path); assert.ok(response.ok); return response.json();
   });
-  return { client, ...journey };
+  return { client, ...journey, credential };
 }
 export async function events(file) { return (await readFile(file, 'utf8')).trim().split('\n').filter(Boolean).map(line => JSON.parse(line)); }
 export async function seedRestart(base, file) {
@@ -33,11 +36,11 @@ export async function seedRestart(base, file) {
     const current = (await j.call('get_recipe_run', { id: recipe.id, runId: cascade.id })).run;
     assert.equal(current.members.find(member => member.stepId === second.id).jobId, null);
     assert.equal(current.members.find(member => member.stepId === second.id).state, 'pending');
-    return { recipeId: recipe.id, cascadeId: cascade.id, runId: standalone.id, firstId: first.id, secondId: second.id, oldPid: observed.find(event => event.phase === 'start').pid };
+    return { recipeId: recipe.id, cascadeId: cascade.id, runId: standalone.id, firstId: first.id, secondId: second.id, oldPid: observed.find(event => event.phase === 'start').pid, credential: j.credential };
   } finally { await j.client.close(); }
 }
 export async function readRestart(base, file, seed) {
-  const j = await connect(base);
+  const j = await connect(base, fetch, seed.credential);
   try {
     const { run } = await j.call('get_operation_run', { id: seed.runId });
     assert.equal(run.state, 'failed'); assert.equal(run.error.code, 'operation_interrupted');
@@ -62,7 +65,7 @@ export async function departure(base, file, { expectUnsupported = false } = {}) 
   let controller, requestId;
   const nativeFetch = globalThis.fetch;
   const transportFetch = async (input, init) => {
-    const request = input instanceof Request ? input : new Request(input, init);
+    const request = new Request(input, init);
     if (request.method === 'POST') {
       const body = await request.clone().json();
       if (body.method === 'tools/call' && body.params.arguments?.sql?.includes('mcpprobe_')) {
@@ -86,7 +89,7 @@ export async function departure(base, file, { expectUnsupported = false } = {}) 
       assert.equal((await events(file)).some(event => event.tag === tag && event.phase === 'settle'), false);
       if (tag === 'departure') controller.abort(); // HTTP body/connection only, no SDK cancellation option.
       if (tag === 'notification') {
-        const response = await nativeFetch(`${base}/api/mcp`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'mcp-protocol-version': '2026-07-28' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId, reason: 'notification-only probe' } }) });
+        const response = await tokenFetch(base, j.credential, nativeFetch)(`${base}/api/mcp`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'mcp-protocol-version': '2026-07-28' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId, reason: 'notification-only probe' } }) });
         assert.equal(response.status, 202);
       }
       if (tag === 'departure' && !expectUnsupported) {
@@ -112,6 +115,7 @@ export async function departure(base, file, { expectUnsupported = false } = {}) 
 if (process.argv[1]?.endsWith('/mcp-process-probe.mjs')) {
   const [mode, base, file, seedFile] = process.argv.slice(2);
   const result = mode === 'seed' ? await seedRestart(base, file) : mode === 'restart' ? await readRestart(base, file, JSON.parse(await readFile(seedFile, 'utf8'))) : await departure(base, file, { expectUnsupported: mode === 'characterize' });
-  if (mode === 'seed') await writeFile(seedFile, JSON.stringify(result));
-  console.log(JSON.stringify({ mode, result }));
+  if (mode === 'seed') await writeFile(seedFile, JSON.stringify(result), { mode: 0o600 });
+  const safeResult = { ...result }; delete safeResult.credential;
+  console.log(JSON.stringify({ mode, result: safeResult }));
 }

@@ -1,3 +1,4 @@
+import { provisionJourney } from './journey-auth.mjs';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -17,7 +18,7 @@ export async function packageScenario(directory, origin, { render = false, rende
   try {
     await writeFile(path.join(bad, 'plugins/dezfil/.mcp.json'), JSON.stringify({ mcpServers: { dezfil: { type: 'http', url: wrongEndpoint, headers: { Authorization: 'Bearer ${DEZFIL_API_TOKEN}' } } } }));
     await writeFile(path.join(bad, 'plugins/dezfil/.codex-mcp.json'), JSON.stringify({ mcpServers: { dezfil: { type: 'http', url: wrongEndpoint, bearer_token_env_var: 'DEZFIL_API_TOKEN' } } }));
-    try { await installedJourney(bad); } catch (error) { failure = error.journeyReport; }
+    try { await installedJourney(bad, { environment: { DEZFIL_API_TOKEN: "synthetic-wrong-endpoint-token" } }); } catch (error) { failure = error.journeyReport; }
     assert.ok(failure, 'wrong installed URL must fail with no harness fallback');
     assert.equal(failure.setup, 2); assert.equal(failure.connections, 0); assert.equal(failure.productCalls, 0);
     assert.ok(misdirectedRequests > 0, 'the wrong HTTP endpoint actually received initialization');
@@ -28,9 +29,11 @@ export async function packageScenario(directory, origin, { render = false, rende
     const resolved = await resolvePackage(good, format);
     assert.equal(resolved.url, `${origin}/api/mcp`, `${format} package must target the selected isolated instance before connecting`);
   }
+  const { token } = await provisionJourney(origin);
+  const environment = { DEZFIL_API_TOKEN: token };
   const report = { wrongUrl: failure };
   const arm = render ? 'render' : 'http';
-  try { report[arm] = await installedJourney(good, { render, renderLog }); }
+  try { report[arm] = await installedJourney(good, { render, renderLog, environment }); }
   catch (error) { error.scenarioReport = { ...report, [arm]: error.journeyReport }; throw error; }
   return report;
 }

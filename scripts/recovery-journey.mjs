@@ -18,11 +18,15 @@
 
 import { spawn } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
-import os from "node:os";
+import { provisionJourney } from "./journey-auth.mjs";
+import { assertEvidenceWorktree } from "./dezfil-plugin-safety.mjs";
 import path from "node:path";
 
+assertEvidenceWorktree(process.cwd());
+let authenticatedFetch;
 const args = process.argv.slice(2);
 const PORT = args.includes("--port") ? Number(args[args.indexOf("--port") + 1]) : 3197;
+if (!Number.isInteger(PORT) || PORT === 3000 || PORT < 1024 || PORT > 65535) throw new Error("Use an isolated port");
 const BASE = `http://127.0.0.1:${PORT}`;
 
 // Minutes of engine work: certain to still be running when the server is killed.
@@ -40,7 +44,7 @@ const bad = (label, detail) => {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function api(method, route, body) {
-  const response = await fetch(`${BASE}${route}`, {
+  const response = await authenticatedFetch(`${BASE}${route}`, {
     method,
     ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
   });
@@ -60,7 +64,7 @@ function startServer(dataDir) {
   // the health check happily answers from the process that never died. That
   // produced a false failure once already — the harness looked like a product
   // defect until the bind error surfaced.
-  const child = spawn("npx", ["next", "start", "-p", String(PORT), "-H", "127.0.0.1"], {
+  const child = spawn(process.execPath, ["--import=./scripts/ingress-preload.mjs", "./node_modules/next/dist/bin/next", "start", "-p", String(PORT), "-H", "127.0.0.1"], {
     // Two slots, because this harness needs two things executing at once: the
     // standalone run and the recipe run's first member. At the default of one
     // the second would sit queued, and killing a queued run verifies something
@@ -111,7 +115,7 @@ async function waitForHealth(timeoutMs = 120_000) {
   }
 }
 
-const dataDir = await mkdtemp(path.join(os.tmpdir(), "dezfil-recovery-"));
+const dataDir = await mkdtemp(path.join(process.cwd(), ".claude/recovery-"));
 console.log(`Dezfil recovery journey → ${BASE}\n  data directory: ${dataDir}`);
 
 let server = startServer(dataDir);
@@ -121,12 +125,13 @@ try {
     process.exit(1);
   }
   ok("first server up");
+  authenticatedFetch = (await provisionJourney(BASE)).fetch;
 
   // A table to read, so the run has real work to do.
   const csv = "name,lon,lat\nalexanderplatz,13.41,52.52\nzoo,13.33,52.51\n";
   const form = new FormData();
   form.append("file", new Blob([csv], { type: "text/csv" }), "recovery_stations.csv");
-  const upload = await fetch(`${BASE}/api/tables`, { method: "POST", body: form });
+  const upload = await authenticatedFetch(`${BASE}/api/tables`, { method: "POST", body: form });
   if (!upload.ok) {
     bad("could not seed a table", String(upload.status));
     process.exit(1);

@@ -5,6 +5,7 @@
 
 import { startLoopbackBasemap, assertBasemapTraffic } from "./loopback-basemap.mjs";
 import { decodePng, countColored } from "./png-probe.mjs";
+import { provisionJourney } from "./journey-auth.mjs";
 import { journeyApi } from "./journey-http.mjs";
 
 const base = process.argv[2] ?? "http://localhost:3000";
@@ -20,7 +21,10 @@ function fail(msg, detail) {
   process.exit(1);
 }
 
-const api = journeyApi(base);
+const anonymous = journeyApi(base);
+let protectedApi;
+const api = (method, pathname, options) =>
+  (pathname.startsWith("/api/published/") || pathname === "/api/health" ? anonymous : protectedApi)(method, pathname, options);
 
 async function main() {
   console.log(`\nDezfil headless journey → ${base}\n`);
@@ -32,6 +36,10 @@ async function main() {
       fail("instance not ready", JSON.stringify(r.json));
     ok("instance reports ready");
   }
+
+  const credentials = await provisionJourney(base);
+  protectedApi = journeyApi(base, { token: credentials.token });
+  ok("signed in and created an API token before protected work");
 
   // 1b. the machine-readable API description is served
   {
@@ -1395,7 +1403,7 @@ async function main() {
 
     // No mutating verb is exposed on the public path.
     const mutate = await api("DELETE", `/api/published/${token}`, { raw: true });
-    if (mutate.status !== 405 && mutate.status !== 404)
+    if (![401, 404, 405].includes(mutate.status))
       fail("public path exposed a mutation", `status ${mutate.status}`);
     ok("public path refuses mutation");
   }

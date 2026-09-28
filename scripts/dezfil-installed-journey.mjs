@@ -9,7 +9,7 @@ import { coreJourney, journeyClient } from './mcp-journey-core.mjs';
 
 /** Each format resolves its own copied native chain. Identical downstream
  * configuration runs once. There is no endpoint parameter or fallback. */
-export async function installedJourney(root, { render = false, renderLog = undefined } = {}) {
+export async function installedJourney(root, { render = false, renderLog = undefined, environment = process.env } = {}) {
   const started = Date.now();
   const report = { arm: render ? 'installed-real-look' : 'installed-http', setup: 0, connections: 0, productCalls: 0, formats: [], runs: [] };
   try {
@@ -25,7 +25,7 @@ export async function installedJourney(root, { render = false, renderLog = undef
       configurations.set(JSON.stringify([resolved.name, resolved.type, resolved.url, resolved.tokenEnv]), { ...resolved, skill, analysis });
     }
     for (const config of configurations.values()) {
-      const authenticatedFetch = packageFetch(config);
+      const authenticatedFetch = packageFetch(config, environment);
       const client = new Client({ name: 'dezfil-installed-journey', version: '1' });
       const trace = [];
       const originalCall = client.callTool.bind(client);

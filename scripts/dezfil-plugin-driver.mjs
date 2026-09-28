@@ -17,7 +17,7 @@ for (const name of ['@duckdb', 'better-sqlite3', 'bindings', 'file-uri-to-path']
 await cp(path.join(root, '.next/static'), path.join(standalone, '.next/static'), { recursive: true });
 await cp(path.join(root, 'public'), path.join(standalone, 'public'), { recursive: true });
 await mkdir(path.join(root, '.claude'), { recursive: true });
-const directory = await mkdtemp(path.join(root, '.tmp-plugin-process-'));
+const directory = await mkdtemp(path.join(root, '.claude/plugin-process-'));
 const data = path.join(directory, 'data'); await mkdir(data);
 const renderLog = path.join(directory, 'renders.ndjson'); await writeFile(renderLog, '');
 const started = Date.now();

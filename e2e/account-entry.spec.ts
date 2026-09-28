@@ -1,12 +1,12 @@
-import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { test, expect } from "@playwright/test";
 
-// Run on a new, isolated instance. The shared authenticated journey fixture
-// will replace this opt-in once the existing surfaces adopt the request gate.
+// Run on a new isolated instance, bypassing shared global account provisioning.
 const firstRun = process.env.DEZFIL_E2E_FIRST_RUN === "1";
 const email = "entry-browser@example.test";
 const password = "field notebooks at dawn";
+
+test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe("account entry", () => {
   test.describe.configure({ mode: "serial" });
@@ -74,9 +74,6 @@ test.describe("account entry", () => {
   });
 
   test("an unused hand-over link replaces a different account's signed-in browser", async ({ page, baseURL, playwright }) => {
-    const data = process.env.DEZFIL_E2E_DATA_DIR;
-    test.skip(!data, "Supply the isolated server's scratch data directory for the invitation fixture.");
-    expect(path.resolve(data!).startsWith(path.resolve(".claude") + path.sep)).toBe(true);
     await page.goto("/sign-in");
     await page.getByLabel("Email", { exact: true }).fill(email);
     await page.getByLabel("Password", { exact: true }).fill(password);
@@ -90,15 +87,10 @@ test.describe("account entry", () => {
     await expect(page.getByRole("button", { name: "List view", exact: true })).toHaveAttribute("data-on", "true");
     const original = (await (await page.request.get("/api/auth/session")).json()).account.id;
     const cookie = (await page.context().cookies()).find(value => value.name === "dezfil_session")!;
-    const { open } = await import("../src/lib/metadata/db");
-    const { authenticateSession } = await import("../src/lib/auth/credentials");
-    const { inviteAccount } = await import("../src/lib/auth/admin");
-    const db = open(path.join(data!, "metadata.sqlite"));
-    const link = new URL("/accept", baseURL);
-    try {
-      const invitation = inviteAccount(authenticateSession(cookie.value, db)!, { name: "Link recipient", email: `recipient-${randomUUID()}@example.test` }, db);
-      link.hash = new URLSearchParams({ secret: invitation.secret }).toString();
-    } finally { db.close(); }
+    const invitation = await page.request.post("/api/users", { headers: { origin: new URL(baseURL!).origin },
+      data: { name: "Link recipient", email: `recipient-${randomUUID()}@example.test` } });
+    expect(invitation.status()).toBe(201);
+    const link = new URL((await invitation.json()).signInUrl);
     await page.goto(link.href);
     await expect(page.getByRole("heading", { name: "Choose your password" })).toBeVisible();
     await page.getByLabel("Password", { exact: true }).fill("paper cranes at sunrise");
@@ -135,8 +127,8 @@ test.describe("account entry", () => {
   });
   test("Account and token cards keep profile edits, password invalidation and one-time secrets consistent", async ({ page, baseURL, playwright }) => {
     const origin = new URL(baseURL!).origin;
-    const other = await playwright.request.newContext({ baseURL });
-    const anonymous = await playwright.request.newContext({ baseURL });
+    const other = await playwright.request.newContext({ baseURL, storageState: { cookies: [], origins: [] } });
+    const anonymous = await playwright.request.newContext({ baseURL, storageState: { cookies: [], origins: [] } });
     try {
       expect((await other.post("/api/auth/sign-in", { headers: { origin }, data: { email, password } })).status()).toBe(200);
       await page.goto("/sign-in");
@@ -228,7 +220,7 @@ test.describe("account entry", () => {
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(link);
     await page.getByRole("button", { name: "Done", exact: true }).click();
     await expect(page.getByLabel("Sign-in link")).toHaveCount(0);
-    const recipientContext = await browser.newContext({ baseURL });
+    const recipientContext = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] } });
     const recipient = await recipientContext.newPage();
     try {
       await recipient.goto(link);

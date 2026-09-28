@@ -83,7 +83,9 @@ test("the publisher's light mode reaches readers; the toggle is live and load-lo
     expect(html).toContain("data-published-view");
   });
 
-  const reader = await context.newPage();
+  const readerContext = await context.browser()!.newContext({ baseURL: test.info().project.use.baseURL, storageState: { cookies: [], origins: [] } });
+  await routeHouse(readerContext, { basemapStyleStub: true });
+  const reader = await readerContext.newPage();
   const readerErrors = trackConsole(reader);
   await test.step("the page opens light and the switch is live, without a canvas remount", async () => {
     await reader.goto(`/v/${token}`);
@@ -240,7 +242,7 @@ test("the publisher's light mode reaches readers; the toggle is live and load-lo
       readerErrors.filter((e) => !isAllowedConsoleError(e.text, e.url)),
     ).toEqual([]);
   });
-  await reader.close();
+  await readerContext.close();
 });
 
 test("the Maps screen captures the composing mode too", async ({
@@ -301,7 +303,9 @@ test("the published stack is one cluster the author gates", async ({
     return ((await r.json()) as { token: string }).token;
   }, mapId);
 
-  const reader = await context.newPage();
+  const readerContext = await context.browser()!.newContext({ baseURL: test.info().project.use.baseURL, storageState: { cookies: [], origins: [] } });
+  await routeHouse(readerContext, { basemapStyleStub: true });
+  const reader = await readerContext.newPage();
   const readerErrors = trackConsole(reader);
 
   await test.step("every control renders, and no native cluster does", async () => {
@@ -570,5 +574,5 @@ test("the published stack is one cluster the author gates", async ({
   expect(
     readerErrors.filter((e) => !isAllowedConsoleError(e.text, e.url)),
   ).toEqual([]);
-  await reader.close();
+  await readerContext.close();
 });
