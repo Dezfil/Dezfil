@@ -40,6 +40,10 @@ export function CodeIcon() {
   );
 }
 
+export function SignOutIcon() {
+  return <Svg><path d="M14 4H5.5v16H14M10 12h11M17.5 8.5 21 12l-3.5 3.5" /></Svg>;
+}
+
 export function PencilIcon() {
   return (
     <Svg>

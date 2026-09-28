@@ -183,7 +183,7 @@ test("settings keeps the name locked over data that never arrived", async ({
   context,
 }) => {
   const consoleErrors = trackConsole(page);
-  // A failure window, not abort-once: the rail's UserBadge requests the
+  // A failure window, not abort-once: the shell's InstanceChip requests the
   // same path on load, so a single-shot stub would race it.
   let failing = true;
   await routeHouse(context, {

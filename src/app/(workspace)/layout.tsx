@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { HealthDot } from "@/components/HealthDot";
-import { HeaderCrumbs, NavLinks, RailSettingsLink } from "@/components/NavLinks";
+import { HeaderCrumbs, NavLinks } from "@/components/NavLinks";
 import { InstanceChip } from "@/components/shell/InstanceChip";
 import { HeadCard } from "@/components/shell/HeadCard";
 import { ShellTitle } from "@/components/shell/ShellTitle";
 import { RailShell } from "@/components/RailShell";
 import { HintLayer } from "@/components/ui/HintLayer";
-import { UserBadge } from "@/components/UserBadge";
+import { AccountRail } from "@/components/AccountRail";
 import { ThemeProvider, ThemeToggle } from "@/components/theme";
 import styles from "./layout.module.css";
 
@@ -42,8 +42,7 @@ export default function WorkspaceLayout({
         <NavLinks />
         <span className={styles.railSpacer} />
         <HealthDot />
-        <RailSettingsLink />
-        <UserBadge />
+        <AccountRail />
       </RailShell>
       <main className={styles.main}>{children}</main>
       <HintLayer />

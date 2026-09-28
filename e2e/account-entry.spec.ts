@@ -52,14 +52,24 @@ test.describe("account entry", () => {
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(page).toHaveURL(new URL("/", baseURL).href);
     const cookie = (await page.context().cookies()).find(value => value.name === "dezfil_session")!;
-    const origin = new URL(baseURL!).origin;
-    expect((await page.request.post("/api/auth/sign-out", { headers: { origin } })).status()).toBe(200);
-    await page.goto("/sign-in");
+    const rail = page.getByRole("navigation", { name: "Product navigation" });
+    await expect(rail.getByRole("link", { name: "Users", exact: true })).toHaveCount(1);
+    await expect(rail.locator('[data-health="ready"]')).toHaveCount(1);
+    const avatar = rail.getByRole("link", { name: "Browser fixture, account", exact: true });
+    await expect(avatar).toHaveAttribute("href", "/settings#account");
+    await avatar.focus();
+    await page.keyboard.press("Tab");
+    const signOut = rail.getByRole("button", { name: "Sign out", exact: true });
+    await expect(signOut).toBeFocused();
+    await expect(signOut).toHaveCSS("opacity", "1");
+    await signOut.click();
+    await expect(page).toHaveURL(new URL("/sign-in", baseURL).href);
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
     const replay = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { cookie: `${cookie.name}=${cookie.value}` } });
     try {
       const response = await replay.get("/api/auth/session");
       expect(response.status()).toBe(401); expect(response.headers()["cache-control"]).toBe("private, no-store");
+      expect((await replay.get("/api/health")).status()).toBe(200);
     } finally { await replay.dispose(); }
   });
 
@@ -96,6 +106,10 @@ test.describe("account entry", () => {
     await expect(page).toHaveURL(new URL("/", baseURL).href);
     const recipient = (await (await page.request.get("/api/auth/session")).json()).account.id;
     expect(recipient).not.toBe(original);
+    const rail = page.getByRole("navigation", { name: "Product navigation" });
+    await expect(rail.getByRole("link", { name: "Link recipient, account", exact: true })).toHaveCount(1);
+    await expect(rail.getByRole("link", { name: "Users", exact: true })).toHaveCount(0);
+    await expect(rail.getByRole("link", { name: "Browser fixture, account", exact: true })).toHaveCount(0);
     await page.goto("/maps");
     await expect(page.getByRole("button", { name: "Grid view", exact: true })).toHaveAttribute("data-on", "true");
     await page.goto("/settings");
@@ -104,6 +118,7 @@ test.describe("account entry", () => {
     await page.getByLabel("Display name", { exact: true }).fill("Recipient renamed");
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByRole("status")).toHaveText("Saved");
+    await expect(rail.getByRole("link", { name: "Recipient renamed, account", exact: true })).toHaveCount(1);
     await page.reload();
     await expect(page.getByLabel("Display name", { exact: true })).toHaveValue("Recipient renamed");
     const adminClient = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { cookie: `${cookie.name}=${cookie.value}` } });

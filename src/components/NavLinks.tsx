@@ -86,6 +86,13 @@ const SETTINGS = {
   ),
 };
 
+const USERS = {
+  href: "/users",
+  label: "Users",
+  match: (p: string) => p === "/users" || p.startsWith("/users/"),
+  icon: <><circle cx="9" cy="8" r="3" /><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 3 4v2" /></>,
+};
+
 function RailLink({
   link,
   pathname,
@@ -133,11 +140,15 @@ export function RailSettingsLink() {
   return <RailLink link={SETTINGS} pathname={pathname} />;
 }
 
+export function RailUsersLink() {
+  return <RailLink link={USERS} pathname={usePathname()} />;
+}
+
 /** The section a route belongs to (spec list, 's
  * lookup): the shell's breadcrumb and the browser title read one table. */
 export function sectionFor(pathname: string): { href: string; label: string } {
   return (
-    [...LINKS, SETTINGS].find((l) => l.href !== "/" && l.match(pathname)) ??
+    [...LINKS, USERS, SETTINGS].find((l) => l.href !== "/" && l.match(pathname)) ??
     LINKS[0]
   );
 }
