@@ -61,6 +61,18 @@ export const GUIDANCE_SECTIONS: readonly { id: string; audience: 'shared' | 'ass
       "Credential configuration belongs to the client transport, outside tool arguments and task messages.",
   },
   {
+    id: "private-space",
+    audience: "shared",
+    text:
+      "Maps, datasets, workflows, connections, projects and retained job or download results are private to the authenticated account, including from administrators. " +
+      "SQL names resolve only to that account's own datasets; the same name can belong to different accounts. A hidden resource is unavailable in the same way as a missing one. " +
+      "Imports create named datasets for SQL. File readers, file-relation shorthand, path discovery and file-referencing PROJ definitions return sql_rejected regardless of path ownership or existence. " +
+      "Named datasets, qualified or dynamic named references and ordinary EPSG transforms remain supported. Saved SQL is retained unchanged, including queries that now fail this policy. " +
+      "Built-in and configured basemaps, palette and operation catalogues, reference catalogues and offered models are shared. Every authenticated account can create or delete a saved palette; a map's style and custom basemap remain private. " +
+      "A published token grants only its read-only projection, evaluated in the map owner's dataset space. Deactivation freezes private work while existing publications stay readable; " +
+      "an admin can revoke a deactivated owner's known publication token without gaining access to the map.",
+  },
+  {
     id: "grounding",
     audience: "assistant",
     text:

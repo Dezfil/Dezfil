@@ -55,6 +55,10 @@ export function buildOpenApiDocument() {
         "publish read-only shareable views. Every capability the UI offers is " +
         "one of these documented calls; the whole journey can be driven headlessly. " +
         "Protected operations require a current cookie session or account bearer token. " +
+        "Maps, datasets, workflows, connections, projects and retained work are private to the authenticated account. " +
+        "Administrators have no additional content access. Dataset and connection names are owner-local; " +
+        "hidden and missing private resources share the same refusal. Instance catalogues and saved palettes remain shared. " +
+        "User SQL reads named datasets only; direct or indirect file reads and path discovery are refused. " +
         "Cookie mutations require the same trusted Origin. Identity-bearing responses, " +
         "including authentication refusals, are private, no-store. Only entry, readiness " +
         "and the token-scoped read-only published projection permit anonymous access.",

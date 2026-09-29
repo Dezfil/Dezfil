@@ -44,6 +44,14 @@ started before a cookie changes. The workspace checks `/api/auth/session`
 before mounting, clears private drafts and retained results on account changes,
 and reloads cached back-navigation pages through the existing access checks.
 
+Maps, datasets, workflows, connections and projects are private to their
+creator. Contained layers, widgets, histories and runs follow their parent;
+standalone jobs and retained export/render results remain private even after
+failure or output deletion. Admin status grants no private-content access.
+Dataset and connection names are unique within one account. Hidden and missing
+resources receive the same refusal, and SQL mounts only the caller's datasets.
+There is no owner selector or ownership-transfer operation.
+
 The published surface remains anonymous. `GET /api/published/{token}`
 and its siblings are the read-only, anonymous face of a map someone chose to
 publish. The token is 22 random characters (`src/lib/publish/token.ts`), it

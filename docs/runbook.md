@@ -37,6 +37,10 @@ without accounts keeps these records pending until first-account setup. Setup
 adopts them in the same transaction as the account, preferences and session.
 Failed adoption rolls back and can be retried. Existing identities, SQL,
 public links, credentials, memberships and artifact paths are preserved.
+Other accounts start with their own empty space. An admin flag does not grant
+access to the original account's content, and there is no ownership transfer
+operation. Deactivation freezes private work; reactivation restores access to
+the same records. Existing published links keep their read-only projection.
 New resources take their owner from the authenticated creator; request fields
 cannot assign a different owner. Dataset and connection names are unique within
 that owner; two accounts may use the same names and keep distinct identities.
@@ -56,12 +60,20 @@ retain their owner's scope even when that account is deactivated.
 **Breaking SQL change:** user file readers and engine path discovery are refused
 even for an owned file or an existing path. File-referencing PROJ definitions
 (including computed CRS values, initialization files, grids and models) are
-also refused. EPSG identifiers and inline definitions without files still work. Saved SQL and publication tokens
-survive unchanged; an affected query or published layer fails until its owner
+also refused. EPSG identifiers and inline definitions without files still work.
+Saved SQL and publication tokens survive unchanged; an affected query or published layer fails until its owner
 changes the SQL to refer to an uploaded dataset by name. Review saved queries
 for file readers, file-relation shorthand and metadata definition/path access
 before upgrading. See
 [the SQL boundary](api.md#the-read-only-sql-instance) for the execution rules.
+
+Unlabelled browser SQL drafts and history from older releases cannot be
+attributed to an account and are discarded when the private workspace first
+opens. Copy any draft you need before upgrading. Once labelled, same-account
+reloads retain drafts; sign-out or an account change clears private browser
+memory, including assistant recovery locators and prepared download state.
+Saved layer and workflow SQL in the data directory is unaffected by this
+browser cleanup.
 
 ## A second isolated instance
 

@@ -16,7 +16,7 @@
   },
   "openaiRequest": {
     "file": "openai-request.json",
-    "sha256": "a121958c2281e992aa2a394f676df2778992805fed494396f791633873b9bd57"
+    "sha256": "2130513efc6721512647865aa4e4078d27ef9a14070072522aeffe1b2bf331a7"
   },
   "openaiToolDefinitions": {
     "file": "openai-tool-definitions.json",
@@ -24,7 +24,7 @@
   },
   "anthropicRequest": {
     "file": "anthropic-request.json",
-    "sha256": "df0775ec1ee9e1205a42d0bce559f6ea47fb200a78e0c1066c82b9325149a268"
+    "sha256": "2d14aa953a426dc4801cb95bdb99b632525590fe3e19d5937c339acd570a7248"
   },
   "anthropicToolDefinitions": {
     "file": "anthropic-tool-definitions.json",
@@ -45,7 +45,7 @@
   },
   "packagePrompt": {
     "path": "src/lib/plugins/fixtures/assistant-system.txt",
-    "bytes": 8941,
-    "sha256": "b667c23fe2bcac754e025e50d25188b449d797eb0ba70f89ea7d3417de0ff65a"
+    "bytes": 10158,
+    "sha256": "f9199bcccf987ca2c6e3fda4cea872a0802323561bc62dc29b2e05a985fee5a7"
   }
 }

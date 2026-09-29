@@ -1,12 +1,22 @@
 # DuckDB spatial in Dezfil
 
 The query tool executes read-only DuckDB SQL on the server. Catalogue and
-schema reads identify table and column names. Double quotes delimit identifiers
+schema reads identify only the authenticated account's datasets and columns.
+Two accounts may each have a table named `roads`; each query resolves its own.
+Double quotes delimit identifiers
 and doubled quotes escape a quote inside one; single quotes delimit text.
 Spatial values are GEOMETRY. WKT, WKB and GeoJSON are encodings converted with
 the corresponding constructors. A map query supplies a geometry column along
 with the attributes it styles. The query API returns a preview and geometry
 facts; the layer retains its editable SQL.
+
+File readers such as `read_parquet`, `read_csv`, `read_json` and `ST_Read`,
+file-relation shorthand, path discovery and file-referencing PROJ definitions
+return `sql_rejected`, even for owned files. This holds through nested SQL and
+computed inputs, and applies to saved layers and publications. Import a file
+through the import tools and query the resulting dataset by name. Qualified
+and dynamic named references and ordinary EPSG transforms remain supported.
+Hidden and nonexistent table names produce the same safe unknown-table error.
 
 ```sql
 -- example: encoding
