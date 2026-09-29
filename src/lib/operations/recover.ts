@@ -1,10 +1,11 @@
 import {
+  getCascadeJob,
   finishCascade,
   nonTerminalCascades,
   setMember,
   snapshotAttempt,
 } from "@/lib/metadata/cascades";
-import { finish, getJob, nonTerminalJobs } from "@/lib/metadata/jobs";
+import { finish, nonTerminalJobs } from "@/lib/metadata/jobs";
 import { pruneAfterJob } from "./run-history";
 
 /**
@@ -93,7 +94,7 @@ export function recoverInterruptedCascades(): number {
       // published as succeeded just before the stop may not have been
       // snapshotted yet.
       if (member.jobId && member.state !== "running") {
-        const job = getJob(member.jobId);
+        const job = getCascadeJob(cascade.id, member.jobId);
         if (job) snapshotAttempt(cascade.id, member.stepId, job);
       }
       // A member that had a job: the job sweep above already said what became
@@ -104,7 +105,7 @@ export function recoverInterruptedCascades(): number {
           stoppedBy: "operation_interrupted",
         });
         // The sweep above settled its job; keep that attempt with the run.
-        const job = member.jobId ? getJob(member.jobId) : null;
+        const job = member.jobId ? getCascadeJob(cascade.id, member.jobId) : null;
         if (job) snapshotAttempt(cascade.id, member.stepId, job);
       } else if (member.state === "pending") {
         setMember(cascade.id, member.stepId, {

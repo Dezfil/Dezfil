@@ -1,5 +1,6 @@
-import { requireOwnedResource } from "@/lib/auth/owned-resource";
-import { driveCascade, cancelAdmittedMember, type Graph } from "./cascade-driver";
+import { settleInactiveCascade } from "./cascade-inactive";
+import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
+import { driveCascade, cancelAdmittedMember, settleCoordinatorFailure, type Graph } from "./cascade-driver";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
 import {
@@ -15,11 +16,12 @@ import {
   deleteCascade,
   snapshotAttempt,
   type MemberIdentity,
-} from "@/lib/metadata/cascades";
+} from "@/lib/metadata/owned-cascades";
 import { metadataDb } from "@/lib/metadata/db";
 import { publishedMessage } from "@/lib/api/error-catalogue";
-import { getJob, isTerminal } from "@/lib/metadata/jobs";
-import { getRecipe, listSteps, type RecipeStep } from "@/lib/metadata/recipes";
+import { getJob } from "@/lib/metadata/owned-jobs";
+import { isTerminal } from "@/lib/metadata/jobs";
+import { getRecipe, listSteps, type RecipeStep } from "@/lib/metadata/owned-recipes";
 import { dependenciesWithin } from "./recipe-order";
 import {
   markAndSignalRunCancellation,
@@ -135,16 +137,20 @@ function identityOf(step: RecipeStep): MemberIdentity {
   };
 }
 
-export async function planCascade(request: CascadeRequest): Promise<CascadePlan> {
-  const recipe = getRecipe(request.recipeId);
+export async function planCascade(scope: AccountScope, request: CascadeRequest): Promise<CascadePlan> {
+  const recipe = getRecipe(scope, request.recipeId);
   if (!recipe) {
-    throw new ApiError("not_found", `No recipe with id "${request.recipeId}".`, 404);
+    throw resourceAbsent();
   }
-  const steps = listSteps(request.recipeId);
+  const steps = listSteps(scope, request.recipeId);
+  for (const id of [...(request.fromStepId ? [request.fromStepId] : []), ...(request.members ?? [])]) {
+    if (!steps.some(step => step.id === id)) throw resourceAbsent();
+  }
   if (steps.length === 0) {
-    throw new ApiError("invalid_request", `This recipe has no steps to run.`, 400);
+    throw new ApiError("invalid_request", "This recipe has no steps to run.", 400);
   }
   const graph = await dependencyGraph(steps);
+  requireOwnedResource(scope, "workflow", request.recipeId);
 
   if (!request.fromStepId) {
     return {
@@ -159,7 +165,7 @@ export async function planCascade(request: CascadeRequest): Promise<CascadePlan>
   if (!from) {
     throw new ApiError(
       "not_found",
-      `No step with id "${request.fromStepId}" in this recipe.`,
+      "The requested resource was not found.",
       404,
     );
   }
@@ -178,10 +184,10 @@ export async function planCascade(request: CascadeRequest): Promise<CascadePlan>
  * record of the new one are one transaction, so two starts that race yield
  * one run and one refusal naming it.
  */
-export function recordUnderLock(recipeId: string, kind: CascadeKind, members: MemberIdentity[]): CascadeRun {
+export function recordUnderLock(scope: AccountScope, recipeId: string, kind: CascadeKind, members: MemberIdentity[]): CascadeRun {
   const db = metadataDb();
   return db.transaction(() => {
-    const active = activeCascade(recipeId, db);
+    const active = activeCascade(scope, recipeId, db);
     if (active) {
       throw new ApiError(
         "run_in_flight",
@@ -189,13 +195,13 @@ export function recordUnderLock(recipeId: string, kind: CascadeKind, members: Me
         409,
       );
     }
-    return createCascade(recipeId, kind, members, db);
+    return createCascade(scope, recipeId, kind, members, db);
   })();
 }
 
 /** The workflow's last-edited mark: what a plan was made from. */
-function basisOf(recipeId: string): string | null {
-  return getRecipe(recipeId)?.updatedAt ?? null;
+function basisOf(scope: AccountScope, recipeId: string): string | null {
+  return getRecipe(scope, recipeId)?.updatedAt ?? null;
 }
 
 export async function startCascade(scope: AccountScope, request: CascadeRequest): Promise<CascadeRun> {
@@ -206,8 +212,8 @@ export async function startCascade(scope: AccountScope, request: CascadeRequest)
   let plan: CascadePlan | null = null;
   let cascade: CascadeRun | null = null;
   for (let attempt = 0; attempt < 3 && cascade === null; attempt += 1) {
-    const basis = basisOf(request.recipeId);
-    plan = await planCascade(request);
+    const basis = basisOf(scope, request.recipeId);
+    plan = await planCascade(scope, request);
     const planned = plan.members.map((m) => m.stepId);
     // The confirmation binds the membership and the order, nothing else: a
     // plan that differs at start refuses whole.
@@ -218,8 +224,8 @@ export async function startCascade(scope: AccountScope, request: CascadeRequest)
     const members = plan.members;
     const db = metadataDb();
     cascade = db.transaction((): CascadeRun | null => {
-      if (basisOf(request.recipeId) !== basis) return null; // moved under the plan: plan again
-      const active = activeCascade(request.recipeId, db);
+      if (basisOf(scope, request.recipeId) !== basis) return null; // moved under the plan: plan again
+      const active = activeCascade(scope, request.recipeId, db);
       if (active) {
         throw new ApiError(
           "run_in_flight",
@@ -227,7 +233,7 @@ export async function startCascade(scope: AccountScope, request: CascadeRequest)
           409,
         );
       }
-      return createCascade(request.recipeId, plan!.kind, members, db);
+      return createCascade(scope, request.recipeId, plan!.kind, members, db);
     })();
   }
   if (!cascade || !plan) throw new ApiError("plan_changed", publishedMessage("plan_changed"), 409);
@@ -242,7 +248,7 @@ export async function startCascade(scope: AccountScope, request: CascadeRequest)
   // exactly as a run does. An unhandled rejection here would kill the process,
   // so the drive itself never throws.
   void drive;
-  return getCascade(cascade.id)!;
+  return getCascade(scope, cascade.id)!;
 }
 
 /** What blocks a member: the nearest member it depends on that did not succeed. */
@@ -256,16 +262,16 @@ export async function startCascade(scope: AccountScope, request: CascadeRequest)
  */
 export async function startSingleRun(scope: AccountScope, recipeId: string, stepId: string): Promise<CascadeRun> {
   requireAccountScope(scope);
-  const recipe = getRecipe(recipeId);
+  const recipe = getRecipe(scope, recipeId);
   if (!recipe) {
-    throw new ApiError("not_found", `No recipe with id "${recipeId}".`, 404);
+    throw resourceAbsent();
   }
-  const step = listSteps(recipeId).find((s) => s.id === stepId);
+  const step = listSteps(scope, recipeId).find((s) => s.id === stepId);
   if (!step) {
-    throw new ApiError("not_found", `No step with id "${stepId}" in this recipe.`, 404);
+    throw resourceAbsent();
   }
   const identity = identityOf(step);
-  const cascade = recordUnderLock(recipeId, "single", [identity]);
+  const cascade = recordUnderLock(scope, recipeId, "single", [identity]);
   let resolveStarted!: (run: CascadeRun) => void;
   let rejectStarted!: (error: unknown) => void;
   const started = new Promise<CascadeRun>((resolve, reject) => {
@@ -276,20 +282,22 @@ export async function startSingleRun(scope: AccountScope, recipeId: string, step
   // Start on the next microtask so the lifecycle is registered before
   // admission begins. A cancel that finds the durable pending member can then
   // wait for the same work that will either admit it or record its refusal.
+  const admitted = new Map<string, string>();
   const lifecycle = Promise.resolve()
     .then(async () => {
       let job;
       try {
         job = await startStepRun(scope, stepId, { cascadeId: cascade.id });
+        admitted.set(stepId, job.id);
       } catch (error) {
-        if (isCancelled(cascade.id)) {
+        if (isCancelled(scope, cascade.id)) {
           if (!(error instanceof ApiError)) {
             console.error(
               `[operations] single cascade member ${stepId} failed at admission:`,
               error,
             );
           }
-          setMember(cascade.id, stepId, {
+          setMember(scope, cascade.id, stepId, {
             state: "failed",
             stoppedBy: error instanceof ApiError ? error.code : "internal",
             stoppedReason:
@@ -297,9 +305,9 @@ export async function startSingleRun(scope: AccountScope, recipeId: string, step
                 ? error.message
                 : "An unexpected server error occurred.",
           });
-          finishCascade(cascade.id, "cancelled", new Date().toISOString());
+          finishCascade(scope, cascade.id, "cancelled", new Date().toISOString());
         } else {
-          deleteCascade(cascade.id);
+          deleteCascade(scope, cascade.id);
         }
         rejectStarted(error);
         return;
@@ -308,22 +316,29 @@ export async function startSingleRun(scope: AccountScope, recipeId: string, step
       // A cancel accepted during admission owns the durable result. The job
       // exists now, so stop it here and finish the retained parent before the
       // cancel waiter answers.
-      if (isCancelled(cascade.id)) {
+      if (isCancelled(scope, cascade.id)) {
         await cancelAdmittedMember(scope, cascade.id, stepId, job.id);
-        setMember(cascade.id, stepId, {
+        setMember(scope, cascade.id, stepId, {
           state: "failed",
           jobId: job.id,
           stoppedBy: "cancelled",
         });
-        finishCascade(cascade.id, "cancelled", new Date().toISOString());
-        resolveStarted(getCascade(cascade.id)!);
+        finishCascade(scope, cascade.id, "cancelled", new Date().toISOString());
+        resolveStarted(getCascade(scope, cascade.id)!);
         return;
       }
 
-      setMember(cascade.id, stepId, { state: "running", jobId: job.id });
-      resolveStarted(getCascade(cascade.id)!);
+      setMember(scope, cascade.id, stepId, { state: "running", jobId: job.id });
+      resolveStarted(getCascade(scope, cascade.id)!);
       const graph: Graph = new Map([[stepId, []]]);
       await driveCascade(scope, cascade.id, [identity], graph, { stepId, jobId: job.id });
+    })
+    .catch(async error => {
+      try {
+        if (!await settleInactiveCascade(cascade.id, admitted)) await settleCoordinatorFailure(scope, cascade.id, [identity], admitted);
+      } catch (settlementError) {
+        console.error(`[operations] single cascade ${cascade.id} could not record settlement:`, settlementError);
+      } finally { rejectStarted(error); }
     })
     .finally(() => {
       driving.delete(cascade.id);
@@ -347,10 +362,10 @@ export interface CascadeView extends CascadeRun {
  * had been re-run enough times, while its own row sat there claiming to be a
  * durable result.
  */
-export function readCascade(id: string): CascadeView {
-  const cascade = getCascade(id);
+export function readCascade(scope: AccountScope, id: string): CascadeView {
+  const cascade = getCascade(scope, id);
   if (!cascade) {
-    throw new ApiError("not_found", `No cascade with id "${id}".`, 404);
+    throw resourceAbsent();
   }
   // From the member rows, not from the jobs. A job is pruned once its
   // subject's history is deep enough, and a durable result that forgot what it
@@ -373,22 +388,22 @@ export function readCascade(id: string): CascadeView {
  */
 export async function cancelCascade(scope: AccountScope, id: string): Promise<CascadeRun> {
   requireOwnedResource(scope, "cascade", id);
-  const beforeFence = getCascade(id);
+  const beforeFence = getCascade(scope, id);
   if (!beforeFence) {
-    throw new ApiError("not_found", `No cascade with id "${id}".`, 404);
+    throw resourceAbsent();
   }
   // Terminal is not an error: cancel means *make sure this is not running*, and
   // for one that already finished that is true (G5's reasoning, one level up).
   if (beforeFence.outcome !== null) return beforeFence;
 
-  raiseCancelFence(id);
+  raiseCancelFence(scope, id);
   // The actionable snapshot is after the fence: every member it names was
   // admitted before cancellation won, and no later admission can join it.
-  const cascade = getCascade(id) ?? beforeFence;
+  const cascade = getCascade(scope, id) ?? beforeFence;
   const cancellations: { stepId: string; cancellation: RunCancellation }[] = [];
   for (const member of cascade.members) {
     if (member.state !== "running" || !member.jobId) continue;
-    const job = getJob(member.jobId);
+    const job = getJob(scope, member.jobId);
     if (job && !isTerminal(job.state)) {
       cancellations.push({
         stepId: member.stepId,
@@ -403,13 +418,13 @@ export async function cancelCascade(scope: AccountScope, id: string): Promise<Ca
   // This explicit boundary is what keeps the attempt at depth one; relying on
   // the driver's later settlement loses the job when pruning wins the race.
   for (const { stepId, cancellation } of cancellations) {
-    const stopped = getJob(cancellation.job.id) ?? cancellation.job;
-    snapshotAttempt(id, stepId, stopped);
+    const stopped = getJob(scope, cancellation.job.id) ?? cancellation.job;
+    snapshotAttempt(scope, id, stepId, stopped);
   }
   for (const { cancellation } of cancellations) pruneRunCancellation(cancellation);
   await Promise.all(
     cancellations.map(({ cancellation }) => waitForRunCancellation(cancellation)),
   );
   await cascadeSettled(id);
-  return getCascade(id) ?? cascade;
+  return getCascade(scope, id) ?? cascade;
 }

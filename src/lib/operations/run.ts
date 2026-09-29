@@ -95,6 +95,8 @@ export interface SubmitOptions {
    * a caller that has proven ownership from stored state may pass one. */
   replaceTable?: { id: string; name: string };
   publisher?: Publisher;
+  /** Preserve a contained attempt before the independent history cap. */
+  onSettled?: (jobId: string) => void;
   /** Forwarded to the publication transaction. */
   onPublished?: (table: DataTable, db: Database) => void;
 }
@@ -166,6 +168,8 @@ function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions)
       // success, failure, cancellation and timeout alike — the boot sweep is
       // the backstop for a process that dies, not the ordinary path.
       if (prepared) await prepared.cleanup().catch(() => {});
+      try { options.onSettled?.(job.id); }
+      catch (error) { console.warn(`[operations] run ${job.id} could not retain its attempt:`, error); }
       pruneAfterJob(job.id);
     }
   };

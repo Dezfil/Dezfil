@@ -182,7 +182,7 @@ it("accepted asynchronous work retains its job identity and its independent life
   await continued.promise; controller.abort(); await interrupted(id);
   const action = (await receipt(id)).actions[0]; expect(action.status).toBe("accepted"); expect(typeof action.jobId).toBe("string");
   await cascadeSettled(action.jobId);
-  expect(readCascade(action.jobId).outcome).toBe("completed");
+  expect(readCascade(testAccountScope(), action.jobId).outcome).toBe("completed");
   expect((await receipt(id)).actions[0].status).toBe("accepted"); void response;
 });
 

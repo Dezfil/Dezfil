@@ -38,7 +38,7 @@ async function dispatch(request: Request): Promise<Response> {
   if (p[2] === "maps" && p.length === 4) return mapGet(testAccountRequest(request), { params: Promise.resolve({ id: p[3] }) });
   if (p[2] === "maps" && p[4] === "dependencies") return dependenciesGet(testAccountRequest(request), { params: Promise.resolve({ id: p[3] }) });
   if (p[2] === "recipes" && p.length === 4) return recipeGet(testAccountRequest(request), { params: Promise.resolve({ id: p[3] }) });
-  if (p[2] === "recipes" && p[4] === "runs") return runGet(request, { params: Promise.resolve({ id: p[3], runId: p[5] }) });
+  if (p[2] === "recipes" && p[4] === "runs") return runGet(testAccountRequest(request), { params: Promise.resolve({ id: p[3], runId: p[5] }) });
   throw new Error(`Unexpected test API call: ${request.method} ${url.pathname}`);
 }
 beforeEach(async () => {

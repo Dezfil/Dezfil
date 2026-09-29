@@ -1,3 +1,6 @@
+import { GET as cascadeRead } from "@/app/api/recipes/[id]/runs/[runId]/route";
+import { POST as cascadeCancel } from "@/app/api/recipes/[id]/runs/[runId]/cancel/route";
+import { createCascade } from "@/lib/metadata/cascades";
 import { insertJob } from "@/lib/metadata/jobs";
 import { GET as jobRead } from "@/app/api/operations/runs/[id]/route";
 import { POST as jobCancel } from "@/app/api/operations/runs/[id]/cancel/route";
@@ -127,6 +130,10 @@ function actualApi() {
       if (/^\/api\/operations\/runs\/[^/]+(?:\/cancel)?$/.test(path)) {
         const params = { params: Promise.resolve({ id: path.split("/")[4] }) };
         return req.method === "POST" ? jobCancel(req, params) : jobRead(req, params);
+      }
+      if (/^\/api\/recipes\/[^/]+\/runs\/[^/]+(?:\/cancel)?$/.test(path)) {
+        const params = { params: Promise.resolve({ id: path.split("/")[3], runId: path.split("/")[5] }) };
+        return req.method === "POST" ? cascadeCancel(req, params) : cascadeRead(req, params);
       }
       if (path === "/api/connections/postgis") return connectionsRead(req);
       if (/^\/api\/connections\/postgis\/[^/]+\/snapshots$/.test(path)) return connectionSnapshots(req, { params: Promise.resolve({ id: path.split("/")[4] }) });
@@ -576,4 +583,35 @@ it.each(["cookie", "token"])("MCP and assistant %s calls preserve private job id
     expect(results[0].body).toMatchObject({ error: { code: "not_found" } }); expect(results[0].body).toEqual(results[1].body);
   }
   expect(db.prepare("SELECT * FROM operation_jobs ORDER BY id").all()).toEqual(before);
+});
+
+it.each(["cookie", "token"])("MCP and assistant %s calls preserve private workflow run identity without outputs", async mode => {
+  actualApi();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db), actors = [admin, member, other];
+  const recipes = actors.map(actor => createRecipe(accountScope(authenticateSession(actor.secret, db)!, db), "Private workflow", db));
+  const steps = recipes.map(recipe => addStep(recipe.id, { operation: "sql_step", parameters: { name: "roads", sql: "SELECT 1" } }, db));
+  const runs = recipes.map((recipe, i) => createCascade(recipe.id, "single", [{ stepId: steps[i].id, ordinal: 0 }], db));
+  const before = db.prepare("SELECT * FROM cascade_runs ORDER BY id").all();
+  for (let i = 0; i < actors.length; i++) {
+    const actor = actors[i], hiddenId = runs[(i + 1) % actors.length].id;
+    const credential = createApiToken(authenticateSession(actor.secret, db)!, "Private jobs", db);
+    const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+    expect(await rpc("get_recipe_run", { id: recipes[i].id, runId: runs[i].id }, headers)).toMatchObject({ isError: false });
+    const hidden = await rpc("cancel_recipe_run", { id: recipes[i].id, runId: hiddenId }, headers);
+    expect(hidden).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "not_found" } } } });
+    expect(hidden).toEqual(await rpc("cancel_recipe_run", { id: recipes[i].id, runId: "missing" }, headers));
+    factory.provider = stubProvider([
+      { text: "", toolCalls: [
+        { id: "hidden", name: "get_recipe_run", args: { id: recipes[i].id, runId: hiddenId } },
+        { id: "missing", name: "get_recipe_run", args: { id: recipes[i].id, runId: "missing" } },
+      ] },
+      { text: "Unavailable", toolCalls: [] },
+    ]);
+    const events = await send({ runId: await ownReservation(headers), message: "Read these job results" }, headers);
+    const results = events.filter((event): event is Extract<AssistantEvent, { type: "tool_result" }> => event.type === "tool_result");
+    expect(results).toHaveLength(2); expect(results.map(result => result.ok)).toEqual([false, false]);
+    expect(results[0].body).toMatchObject({ error: { code: "not_found" } }); expect(results[0].body).toEqual(results[1].body);
+  }
+  expect(db.prepare("SELECT * FROM cascade_runs ORDER BY id").all()).toEqual(before);
 });

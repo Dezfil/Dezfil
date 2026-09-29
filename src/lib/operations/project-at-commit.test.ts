@@ -63,7 +63,7 @@ it("an output publishing after a mid-run move files where the workflow is at the
     name: "raced_out",
     subject: step.id,
     subjectKind: "step",
-    onPublished: stepOutputFiler(step.id),
+    onPublished: stepOutputFiler(testAccountScope(), step.id),
     // The pause: the run is accepted and in flight, its publication not
     // yet begun, while the workflow moves underneath it.
     prepare: async () => {

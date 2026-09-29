@@ -79,7 +79,7 @@ const alwaysFinishes = () => true;
 
 describe("planning how a step publishes", () => {
   it("registers afresh for a step that has never produced anything", () => {
-    const plan = planPublication(newStep().id);
+    const plan = planPublication(testAccountScope(), newStep().id);
     expect(plan.replaceTable).toBeUndefined();
     expect(plan.isProposal).toBe(false);
   });
@@ -89,7 +89,7 @@ describe("planning how a step publishes", () => {
     seedTable("t1", "out");
     recordOutput(step.id, { id: "t1", name: "out" }, new Date().toISOString());
 
-    const plan = planPublication(step.id);
+    const plan = planPublication(testAccountScope(), step.id);
     expect(plan.replaceTable).toEqual({ id: "t1", name: "out" });
   });
 
@@ -99,7 +99,7 @@ describe("planning how a step publishes", () => {
     recordOutput(step.id, { id: "t1", name: "out" }, new Date().toISOString());
     deleteTable("out");
 
-    const plan = planPublication(step.id);
+    const plan = planPublication(testAccountScope(), step.id);
     // A deleted table's id is gone; pretending to restore it would be
     // inventing identity.
     expect(plan.replaceTable).toBeUndefined();
@@ -113,7 +113,7 @@ describe("planning how a step publishes", () => {
     seedTable("usurper", "out");
 
     try {
-      planPublication(step.id);
+      planPublication(testAccountScope(), step.id);
       throw new Error("should have refused");
     } catch (e) {
       expect(e).toBeInstanceOf(ApiError);
@@ -127,7 +127,7 @@ describe("planning how a step publishes", () => {
     recordOutput(step.id, { id: "t1", name: "out" }, new Date().toISOString());
     editStep(step.id, { sql: "SELECT 2 AS n", name: "out" });
 
-    const plan = planPublication(step.id);
+    const plan = planPublication(testAccountScope(), step.id);
     expect(plan.isProposal).toBe(true);
     expect(plan.running).toEqual({ sql: "SELECT 2 AS n", name: "out" });
     // And the step still means what its output was produced from.
@@ -135,7 +135,7 @@ describe("planning how a step publishes", () => {
   });
 
   it("answers not_found for a step that does not exist", () => {
-    expect(() => planPublication("nope")).toThrow(ApiError);
+    expect(() => planPublication(testAccountScope(), "nope")).toThrow(ApiError);
   });
 });
 
@@ -144,7 +144,7 @@ describe("the authority callback", () => {
 
   it("records ownership and lineage together", () => {
     const step = newStep();
-    const plan = planPublication(step.id);
+    const plan = planPublication(testAccountScope(), step.id);
 
     const ok = stepAuthorizer(testAccountScope(), plan, alwaysFinishes)(
       { id: "new-1", name: "out" },
@@ -164,7 +164,7 @@ describe("the authority callback", () => {
     seedTable("t1", "out");
     recordOutput(step.id, { id: "t1", name: "out" }, new Date().toISOString());
     editStep(step.id, { sql: "SELECT 2 AS n", name: "out" });
-    const plan = planPublication(step.id);
+    const plan = planPublication(testAccountScope(), step.id);
 
     stepAuthorizer(testAccountScope(), plan, alwaysFinishes)({ id: "t1", name: "out" }, metadataDb(), inputs);
 
@@ -175,7 +175,7 @@ describe("the authority callback", () => {
 
   it("refuses when the step was deleted while the run worked (E10's fence)", () => {
     const step = newStep();
-    const plan = planPublication(step.id);
+    const plan = planPublication(testAccountScope(), step.id);
     removeStep(step.id);
 
     expect(
@@ -187,7 +187,7 @@ describe("the authority callback", () => {
     const step = newStep();
     seedTable("t1", "out");
     recordOutput(step.id, { id: "t1", name: "out" }, new Date().toISOString());
-    const plan = planPublication(step.id);
+    const plan = planPublication(testAccountScope(), step.id);
 
     // Someone edits the step while this run is working.
     editStep(step.id, { sql: "SELECT 99 AS n", name: "out" });
@@ -201,7 +201,7 @@ describe("the authority callback", () => {
     const step = newStep();
     seedTable("t1", "out");
     recordOutput(step.id, { id: "t1", name: "out" }, new Date().toISOString());
-    const plan = planPublication(step.id);
+    const plan = planPublication(testAccountScope(), step.id);
     expect(plan.replaceTable).toBeDefined();
 
     // The step's recorded output changes under the run — it no longer owns t1.
@@ -214,7 +214,7 @@ describe("the authority callback", () => {
 
   it("refuses when the job itself could not be settled", () => {
     const step = newStep();
-    const plan = planPublication(step.id);
+    const plan = planPublication(testAccountScope(), step.id);
 
     // The job was cancelled: its terminal write refuses, and so must this.
     const ok = stepAuthorizer(testAccountScope(), plan, () => false)(
@@ -231,7 +231,7 @@ describe("the authority callback", () => {
 
   it("replaces a step's edges rather than adding to them", () => {
     const step = newStep();
-    const plan = planPublication(step.id);
+    const plan = planPublication(testAccountScope(), step.id);
     const authorize = stepAuthorizer(testAccountScope(), plan, alwaysFinishes);
 
     authorize({ id: "out-1", name: "out" }, metadataDb(), [
@@ -259,7 +259,7 @@ describe("ownership is not forgeable", () => {
 
     // My step has produced nothing, so it plans a fresh registration — it
     // cannot nominate someone else's table as its replacement target.
-    const plan = planPublication(mine.id);
+    const plan = planPublication(testAccountScope(), mine.id);
     expect(plan.replaceTable).toBeUndefined();
 
     // And forcing one in is refused by the stored-ownership check.

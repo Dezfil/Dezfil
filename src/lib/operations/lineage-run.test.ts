@@ -269,7 +269,7 @@ describe("lineage pinned to the run", () => {
       expect((await executeQuery(SQL)).preview).toEqual([{ value: 2 }]);
     } finally { hold.release(); }
     await cascadeSettled(cascade.id);
-    const finished = readCascade(cascade.id);
+    const finished = readCascade(testAccountScope(), cascade.id);
     expect(finished.outcome).toBe("completed");
     expect(finished.members.map((m) => m.state)).toEqual(["succeeded", "succeeded"]);
     const producerJobs = listJobs({ subjectId: one.id });
@@ -297,8 +297,8 @@ describe("lineage pinned to the run", () => {
     // cascade control, with the same identities and now the current values.
     const clean = await startCascade(testAccountScope(), { recipeId });
     await cascadeSettled(clean.id);
-    expect(readCascade(clean.id).outcome).toBe("completed");
-    expect(readCascade(clean.id).members.map((m) => m.state)).toEqual(["succeeded", "succeeded"]);
+    expect(readCascade(testAccountScope(), clean.id).outcome).toBe("completed");
+    expect(readCascade(testAccountScope(), clean.id).members.map((m) => m.state)).toEqual(["succeeded", "succeeded"]);
     const recipe = await readRecipe(testAccountScope(), recipeId);
     expect(recipe.steps.map((s) => s.condition.primary)).toEqual(["current", "current"]);
     expect(recipe.steps.map((s) => s.condition.causes)).toEqual([[], []]);

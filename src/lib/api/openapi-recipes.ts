@@ -1,3 +1,4 @@
+import { cascadeAccess } from "./openapi-cascade-access";
 import { jobAccess } from "./openapi-job-access";
 import { workflowAccess } from "./openapi-workflow-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
@@ -468,7 +469,7 @@ export const RECIPE_PATHS = {
     })),
   },
   "/api/recipes/{id}/steps/{stepId}/run": {
-    post: ownedCreationOp({
+    post: ownedCreationOp(cascadeAccess({
       summary: "Run one step",
       description:
         "Answers **202** with one of the recipe's runs: a " +
@@ -506,10 +507,10 @@ export const RECIPE_PATHS = {
           description: "A run is already in flight (`run_in_flight`, naming it); nothing started.",
         },
       },
-    }),
+    })),
   },
   "/api/recipes/{id}/runs": {
-    get: op({
+    get: op(cascadeAccess({
       summary: "List a recipe's runs",
       description:
         "Every cascade this recipe has had, newest first, each durable " +
@@ -520,8 +521,8 @@ export const RECIPE_PATHS = {
       effects: READ_ONLY,
       parameters: [pathParam("id", "Recipe id.")],
       responses: { "200": jsonOk("#/components/schemas/RecipeRunList") },
-    }),
-    post: ownedCreationOp({
+    })),
+    post: ownedCreationOp(cascadeAccess({
       summary: "Run a recipe, or a step and its dependents",
       description:
         WORKFLOW_JSON_BODY_BOUND +
@@ -610,10 +611,10 @@ export const RECIPE_PATHS = {
             "(`plan_changed`); nothing started.",
         },
       },
-    }),
+    })),
   },
   "/api/recipes/{id}/runs/{runId}": {
-    get: op({
+    get: op(cascadeAccess({
       summary: "Read a recipe run",
       description:
         "Its own outcome — completed, partly completed, failed, " +
@@ -629,10 +630,10 @@ export const RECIPE_PATHS = {
         pathParam("runId", "Recipe run id."),
       ],
       responses: { "200": jsonOk("#/components/schemas/RecipeRunEnvelope") },
-    }),
+    })),
   },
   "/api/recipes/{id}/runs/{runId}/cancel": {
-    post: op(jobAccess({
+    post: op(jobAccess(cascadeAccess({
       summary: "Cancel a recipe run",
       description:
         "One thing to stop, whatever it was in the middle of: what has " +
@@ -654,6 +655,6 @@ export const RECIPE_PATHS = {
         pathParam("runId", "Recipe run id."),
       ],
       responses: { "200": jsonOk("#/components/schemas/RecipeRunEnvelope") },
-    })),
+    }))),
   },
 };

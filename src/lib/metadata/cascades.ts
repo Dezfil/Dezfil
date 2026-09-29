@@ -170,7 +170,7 @@ function attemptFromRow(m: MemberRow, db: Database): MemberAttempt | null {
     };
   }
   if (!m.job_id) return null;
-  const job = getJob(m.job_id, db);
+  const job = getCascadeJob(m.cascade_id, m.job_id, db);
   return job ? attemptOf(job) : null;
 }
 
@@ -300,12 +300,13 @@ export function snapshotAttempt(
 ): void {
   db.prepare(
     `UPDATE cascade_members
-     SET attempt_state = ?, attempt_error_code = ?, attempt_error_message = ?,
+     SET job_id = COALESCE(job_id, ?), attempt_state = ?, attempt_error_code = ?, attempt_error_message = ?,
          attempt_accepted_at = ?, attempt_started_at = ?, attempt_finished_at = ?,
          output_table_id = COALESCE(output_table_id, ?),
          output_table_name = COALESCE(output_table_name, ?)
      WHERE cascade_id = ? AND step_id = ?`,
   ).run(
+    job.id,
     job.state,
     job.errorCode ?? null,
     job.errorMessage ?? null,
@@ -373,4 +374,24 @@ export function nonTerminalCascades(db: Database = metadataDb()): CascadeRun[] {
     .prepare(`SELECT * FROM cascade_runs WHERE outcome IS NULL`)
     .all() as RunRow[];
   return rows.map((r) => getCascade(r.id, db)!);
+}
+
+/** Internal reconciliation reads only jobs belonging to the durable parent,
+ * including inactive owners and pending legacy adoption. It grants no API access. */
+export function getCascadeJob(cascadeId: string, jobId: string, db: Database = metadataDb()) {
+  const own = db.prepare(`SELECT j.id FROM operation_jobs j
+    JOIN cascade_runs c ON c.id = ? JOIN recipes r ON r.id = c.recipe_id
+    WHERE j.id = ? AND (j.owner_id = r.owner_id OR (j.owner_id IS NULL AND r.owner_id IS NULL))`)
+    .get(cascadeId, jobId);
+  return own ? getJob(jobId, db) : null;
+}
+
+/** A finished worker keeps its own attempt before independent job pruning.
+ * The durable job and workflow must have the same owner and step identity. */
+export function archiveCascadeAttempt(cascadeId: string, stepId: string, jobId: string, db: Database = metadataDb()) {
+  const job = getCascadeJob(cascadeId, jobId, db);
+  if (!job || job.subjectKind !== "step" || job.subjectId !== stepId) return;
+  if (!db.prepare(`SELECT step_id FROM cascade_members WHERE cascade_id = ? AND step_id = ?
+    AND (job_id IS NULL OR job_id = ?)`).get(cascadeId, stepId, jobId)) return;
+  snapshotAttempt(cascadeId, stepId, job, db);
 }

@@ -343,3 +343,16 @@ An unfinished job whose owner becomes inactive fails with
 reconciliation settles interrupted jobs without re-executing them, and prunes
 each recorded owner's history independently. Workflow cancellation carries the
 same account scope to each contained job.
+
+Workflow plans, run histories, member attempts and retained outputs follow the
+workflow owner's private scope. Every supplied step or run must belong to the
+addressed workflow. Hidden, missing and mixed-parent references return the same
+`404 not_found`, before planning or admission. A changed confirmation containing
+only current owned members still returns `409 plan_changed`.
+
+Workflow execution rechecks activity after planning, at worker entry and before
+publication. Deactivation drains admitted work, prevents further admission and
+publication, and preserves outputs already committed. The workflow keeps terminal
+attempts even when job history prunes them or a step or output is deleted. Startup
+reconciliation marks unfinished runs interrupted, including inactive owners' runs,
+and never re-executes them or attaches another owner's job attempt.

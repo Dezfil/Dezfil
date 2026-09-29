@@ -1,7 +1,6 @@
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
-import { ApiError, errorResponse } from "@/lib/api/errors";
-import { getRecipe, getStep } from "@/lib/metadata/recipes";
+import { errorResponse } from "@/lib/api/errors";
 import { readCascade, startSingleRun } from "@/lib/operations/cascade";
 import { cascadePayload } from "@/lib/operations/recipe-api";
 
@@ -30,23 +29,12 @@ export async function POST(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id, stepId } = await params;
-    if (!getRecipe(id)) {
-      throw new ApiError("not_found", `No recipe with id "${id}".`, 404);
-    }
-    const step = getStep(stepId);
-    if (!step || step.recipeId !== id) {
-      throw new ApiError(
-        "not_found",
-        `No step with id "${stepId}" in this recipe.`,
-        404,
-      );
-    }
     // A node's own run is one of the recipe's runs: one member, the same
     // lock, the same driver. Ordinary refusal removes it before the request
     // answers; accepted cancellation retains the listable exception.
     const run = await startSingleRun(scope, id, stepId);
     return NextResponse.json(
-      { run: cascadePayload(readCascade(run.id)) },
+      { run: cascadePayload(readCascade(scope, run.id)) },
       {
         status: 202,
         headers: { Location: `/api/recipes/${id}/runs/${run.id}` },

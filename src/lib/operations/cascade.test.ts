@@ -79,7 +79,7 @@ async function runAll(fromStepId?: string) {
     ...(fromStepId ? { fromStepId } : {}),
   });
   await cascadeSettled(cascade.id);
-  return readCascade(cascade.id);
+  return readCascade(testAccountScope(), cascade.id);
 }
 
 const memberOf = (c: CascadeRun, stepId: string) =>
@@ -279,7 +279,7 @@ describe("a coordinator metadata failure", () => {
       releaseAdmission();
       await cascadeSettled(cascade.id);
 
-      const failed = readCascade(cascade.id);
+      const failed = readCascade(testAccountScope(), cascade.id);
       expect(faultConsumptions).toBe(1);
       expect(slowStateAtConsumption).toBe("running");
       expect(memberStatesAtConsumption).not.toContain("failed");
@@ -373,7 +373,7 @@ describe("coordinator failure settlement", () => {
       await cascadeSettled(cascade.id);
       await Promise.resolve();
       const faultCallsAtSettlement = faultCalls;
-      const run = readCascade(cascade.id);
+      const run = readCascade(testAccountScope(), cascade.id);
       return {
         run,
         slow,
@@ -425,9 +425,9 @@ describe("coordinator failure settlement", () => {
     expect(getTableByName("retry_once_slow")).toBeNull();
     expect(getTableByName("retry_once_never")).toBeNull();
 
-    const terminal = readCascade(driven.run.id);
+    const terminal = readCascade(testAccountScope(), driven.run.id);
     await laneSettled();
-    expect(readCascade(driven.run.id)).toEqual(terminal);
+    expect(readCascade(testAccountScope(), driven.run.id)).toEqual(terminal);
   }, 120_000);
 
   it("contains a second recording refusal for restart settlement", async () => {
@@ -442,7 +442,7 @@ describe("coordinator failure settlement", () => {
 
     await expect(startCascade(testAccountScope(), { recipeId })).rejects.toMatchObject({ code: "run_in_flight" });
     expect(recoverInterruptedCascades()).toBe(1);
-    const recovered = readCascade(driven.run.id);
+    const recovered = readCascade(testAccountScope(), driven.run.id);
     expect(recovered.outcome).toBe("interrupted");
     expect(memberOf(recovered, driven.slow.id).attempt?.state).toBe("cancelled");
     expect(memberOf(recovered, driven.quick.id).attempt?.state).toBe("succeeded");
@@ -484,12 +484,12 @@ describe("the confirmation property", () => {
     const producer = step("SELECT 1 AS n", "w_one");
     const leaf = step("SELECT n FROM w_one", "w_two");
 
-    expect((await planCascade({ recipeId })).wide).toBe(true);
+    expect((await planCascade(testAccountScope(), { recipeId })).wide).toBe(true);
     expect(
-      (await planCascade({ recipeId, fromStepId: producer.id })).wide,
+      (await planCascade(testAccountScope(), { recipeId, fromStepId: producer.id })).wide,
     ).toBe(true);
     // The same control on a leaf — a step nothing reads — carries only itself.
-    const onLeaf = await planCascade({ recipeId, fromStepId: leaf.id });
+    const onLeaf = await planCascade(testAccountScope(), { recipeId, fromStepId: leaf.id });
     expect(onLeaf.wide).toBe(false);
     expect(onLeaf.members).toHaveLength(1);
   }, 60_000);
@@ -508,14 +508,14 @@ describe("cancelling a cascade", () => {
     // Wait until the slow member is genuinely executing.
     const deadline = Date.now() + 60_000;
     while (
-      !readCascade(cascade.id).members.some(
+      !readCascade(testAccountScope(), cascade.id).members.some(
         (m) => m.stepId === slow.id && m.state === "running",
       )
     ) {
       if (Date.now() > deadline) throw new Error("the slow member never started");
       await new Promise((r) => setTimeout(r, 25));
     }
-    expect(memberOf(readCascade(cascade.id), after.id).state).toBe("pending");
+    expect(memberOf(readCascade(testAccountScope(), cascade.id), after.id).state).toBe("pending");
 
     const started = Date.now();
     const settled = await cancelCascade(testAccountScope(), cascade.id);
@@ -529,7 +529,7 @@ describe("cancelling a cascade", () => {
     expect(memberOf(settled, slow.id).state).toBe("failed");
     expect(getJob(memberOf(settled, slow.id).jobId!)!.state).toBe("cancelled");
     expect(getTableByName("cancel_slow")).toBeNull();
-    expect(readCascade(cascade.id)).toEqual({ ...settled, outputs: [] });
+    expect(readCascade(testAccountScope(), cascade.id)).toEqual({ ...settled, outputs: [] });
 
     // Nothing further was admitted…
     const never = memberOf(settled, after.id);
@@ -546,7 +546,7 @@ describe("cancelling a cascade", () => {
     const again = await cancelCascade(testAccountScope(), done.id);
     expect(again.outcome).toBe("completed");
     expect(again.finishedAt).toBe(done.finishedAt);
-    expect(readCascade(done.id)).toEqual(done);
+    expect(readCascade(testAccountScope(), done.id)).toEqual(done);
   }, 120_000);
 });
 
@@ -565,7 +565,7 @@ describe("cancelling a cascade with more than one member admitted", () => {
     const cascade = await startCascade(testAccountScope(), { recipeId });
     const deadline = Date.now() + 60_000;
     while (
-      readCascade(cascade.id).members.filter((m) => m.state === "running").length < 2
+      readCascade(testAccountScope(), cascade.id).members.filter((m) => m.state === "running").length < 2
     ) {
       if (Date.now() > deadline) throw new Error("the two roots were never both admitted");
       await new Promise((r) => setTimeout(r, 25));
@@ -598,7 +598,7 @@ describe("cancelling a cascade with more than one member admitted", () => {
     metadataDb()
       .prepare(`DELETE FROM operation_jobs WHERE id IN (?, ?)`)
       .run(memberOf(settled, left.id).jobId, memberOf(settled, right.id).jobId);
-    const reread = readCascade(settled.id);
+    const reread = readCascade(testAccountScope(), settled.id);
     expect(memberOf(reread, left.id).attempt?.state).toBe("cancelled");
     expect(memberOf(reread, right.id).attempt?.state).toBe("cancelled");
   }
@@ -623,7 +623,7 @@ describe("cancelling a cascade with more than one member admitted", () => {
     const deadline = Date.now() + 60_000;
     let admitted: CascadeRun | undefined;
     while (Date.now() < deadline) {
-      const current = readCascade(cascade.id);
+      const current = readCascade(testAccountScope(), cascade.id);
       if (current.members.filter((member) => member.state === "running").length === 2) {
         admitted = current;
         break;
@@ -648,7 +648,7 @@ describe("cancelling a cascade with more than one member admitted", () => {
     expect(queuedAfter.startedAt).toBeNull();
     expect(memberOf(settled, left.id).attempt?.state).toBe("cancelled");
     expect(memberOf(settled, right.id).attempt?.state).toBe("cancelled");
-    const reread = readCascade(cascade.id);
+    const reread = readCascade(testAccountScope(), cascade.id);
     expect(reread).toEqual({ ...settled, outputs: [] });
     expect(reread.members.map((member) => member.state)).not.toContain("running");
   }, 180_000);
@@ -667,7 +667,7 @@ describe("the durable result", () => {
     expect(listJobs({ subjectId: one.id })).toHaveLength(2);
     expect(listJobs({ subjectId: two.id })).toHaveLength(2);
     // And each cascade is readable long after it finished.
-    const reread = readCascade(first.id);
+    const reread = readCascade(testAccountScope(), first.id);
     expect(reread.outcome).toBe("completed");
     expect(reread.finishedAt).not.toBeNull();
     expect(reread.members.map((m) => m.jobId)).not.toContain(null);
@@ -692,7 +692,7 @@ describe("what the cascade record keeps for itself", () => {
         await laneSettled();
       }
 
-      const reread = readCascade(first.id);
+      const reread = readCascade(testAccountScope(), first.id);
       expect(reread.outputs.map((o) => o.name)).toEqual(["kept_output_one"]);
     } finally {
       delete process.env.DEZFIL_OPERATION_HISTORY_PER_SUBJECT;
@@ -722,7 +722,7 @@ describe("what the cascade record keeps for itself", () => {
       expect(history.map((job) => job.id)).toEqual([older.id]);
       expect(history[0].state).toBe("succeeded");
 
-      const attempt = memberOf(readCascade(cascade.id), target.id).attempt;
+      const attempt = memberOf(readCascade(testAccountScope(), cascade.id), target.id).attempt;
       expect(attempt?.state).toBe("cancelled");
       expect(attempt?.acceptedAt).toBeTruthy();
       expect(attempt?.startedAt).toBeTruthy();
@@ -775,7 +775,7 @@ describe("what the cascade record keeps for itself", () => {
       cancelled = cancelCascade(testAccountScope(), pending.id);
       await Promise.resolve();
       await Promise.resolve();
-      expect(readCascade(pending.id).cancelled).toBe(true);
+      expect(readCascade(testAccountScope(), pending.id).cancelled).toBe(true);
 
       releaseAdmission();
       const [startAnswer, cancelAnswer] = await Promise.all([started, cancelled]);
@@ -785,7 +785,7 @@ describe("what the cascade record keeps for itself", () => {
       expect(getJob(newerId)).toBeNull();
       expect(listJobs({ subjectId: target.id }).map((job) => job.id)).toEqual([older.id]);
 
-      const attempt = memberOf(readCascade(pending.id), target.id).attempt;
+      const attempt = memberOf(readCascade(testAccountScope(), pending.id), target.id).attempt;
       expect(attempt?.state).toBe("cancelled");
     } finally {
       releaseAdmission();
@@ -827,7 +827,7 @@ describe("what the cascade record keeps for itself", () => {
     try {
       const cascade = await startCascade(testAccountScope(), { recipeId });
       await entered;
-      expect(memberOf(readCascade(cascade.id), target.id)).toMatchObject({
+      expect(memberOf(readCascade(testAccountScope(), cascade.id), target.id)).toMatchObject({
         state: "pending",
         jobId: null,
         attempt: null,
@@ -836,7 +836,7 @@ describe("what the cascade record keeps for itself", () => {
       cancelled = cancelCascade(testAccountScope(), cascade.id);
       await Promise.resolve();
       await Promise.resolve();
-      expect(readCascade(cascade.id).cancelled).toBe(true);
+      expect(readCascade(testAccountScope(), cascade.id).cancelled).toBe(true);
 
       releaseAdmission();
       const answer = await cancelled;
@@ -846,7 +846,7 @@ describe("what the cascade record keeps for itself", () => {
       expect(getJob(newerId)).toBeNull();
       expect(listJobs({ subjectId: target.id }).map((job) => job.id)).toEqual([older.id]);
 
-      const attempt = memberOf(readCascade(cascade.id), target.id).attempt;
+      const attempt = memberOf(readCascade(testAccountScope(), cascade.id), target.id).attempt;
       expect(attempt?.state).toBe("cancelled");
     } finally {
       releaseAdmission();
@@ -884,14 +884,14 @@ describe("a run reads whole on its own", () => {
     // The attempts survive the jobs themselves: pruned, deleted, gone.
     metadataDb().prepare(`DELETE FROM operation_jobs WHERE id IN (?, ?)`).run(first.jobId, failed.jobId);
     expect(getJob(first.jobId!)).toBeNull();
-    const after = readCascade(run.id);
+    const after = readCascade(testAccountScope(), run.id);
     expect(memberOf(after, one.id).attempt?.state).toBe("succeeded");
     expect(memberOf(after, one.id).attempt?.output?.name).toBe("whole_one");
     expect(memberOf(after, two.id).attempt?.error?.message).toMatch(/nowhere_at_all/);
     // The node removed, the run still names it.
     removeStep(two.id);
-    expect(memberOf(readCascade(run.id), two.id).name).toBe("whole_two");
-    expect(memberOf(readCascade(run.id), two.id).operation).toBe("sql_step");
+    expect(memberOf(readCascade(testAccountScope(), run.id), two.id).name).toBe("whole_two");
+    expect(memberOf(readCascade(testAccountScope(), run.id), two.id).operation).toBe("sql_step");
   }, 120_000);
 
   it("reads a live member's attempt from its job: queued or running, which the member's own state cannot say", async () => {
@@ -900,7 +900,7 @@ describe("a run reads whole on its own", () => {
     const deadline = Date.now() + 20_000;
     let seen: string | undefined;
     while (Date.now() < deadline) {
-      const m = memberOf(readCascade(cascade.id), slow.id);
+      const m = memberOf(readCascade(testAccountScope(), cascade.id), slow.id);
       if (m.state === "running" && m.attempt) {
         seen = m.attempt.state;
         if (seen === "running") break;
@@ -909,7 +909,7 @@ describe("a run reads whole on its own", () => {
     }
     expect(seen).toBe("running");
     await cancelCascade(testAccountScope(), cascade.id);
-    const done = readCascade(cascade.id);
+    const done = readCascade(testAccountScope(), cascade.id);
     expect(done.outcome).toBe("cancelled");
     // The interrupted member: a failed member whose attempt was cancelled.
     expect(memberOf(done, slow.id).state).toBe("failed");
@@ -962,7 +962,7 @@ describe("a node's own run is one of the workflow's runs", () => {
       // wait to answer; a registered lifecycle remains held on admission.
       await Promise.resolve();
       await Promise.resolve();
-      const fenced = readCascade(pending.id);
+      const fenced = readCascade(testAccountScope(), pending.id);
       expect(fenced.cancelled).toBe(true);
       expect(memberOf(fenced, held.id)).toMatchObject({ state: "pending", jobId: null });
 
@@ -973,7 +973,7 @@ describe("a node's own run is one of the workflow's runs", () => {
       const [startAnswer, cancelAnswer] = await Promise.all([started, cancelled]);
       expect(startAnswer.outcome).toBe("cancelled");
       expect(cancelAnswer.outcome).toBe("cancelled");
-      expect(readCascade(pending.id)).toEqual({ ...cancelAnswer, outputs: [] });
+      expect(readCascade(testAccountScope(), pending.id)).toEqual({ ...cancelAnswer, outputs: [] });
       expect(memberOf(cancelAnswer, held.id).attempt?.state).toBe("cancelled");
     } finally {
       releaseAdmission();
@@ -1012,7 +1012,7 @@ describe("a node's own run is one of the workflow's runs", () => {
       cancelled = cancelCascade(testAccountScope(), pending.id);
       await Promise.resolve();
       await Promise.resolve();
-      expect(readCascade(pending.id).cancelled).toBe(true);
+      expect(readCascade(testAccountScope(), pending.id).cancelled).toBe(true);
 
       releaseAdmission();
       await refused;
@@ -1028,7 +1028,7 @@ describe("a node's own run is one of the workflow's runs", () => {
         stoppedReason: "The held admission was refused.",
         attempt: null,
       });
-      expect(readCascade(pending.id)).toEqual({ ...answer, outputs: [] });
+      expect(readCascade(testAccountScope(), pending.id)).toEqual({ ...answer, outputs: [] });
       expect(listCascades(recipeId)).toHaveLength(1);
     } finally {
       releaseAdmission();
@@ -1053,7 +1053,7 @@ describe("a node's own run is one of the workflow's runs", () => {
     // Settled, the other runs.
     const next = await startSingleRun(testAccountScope(), recipeId, other.id);
     await cascadeSettled(next.id);
-    expect(readCascade(next.id).outcome).toBe("completed");
+    expect(readCascade(testAccountScope(), next.id).outcome).toBe("completed");
   }, 60_000);
 
   it("mints neither a run nor an attempt when the node cannot be admitted alone", async () => {

@@ -2,7 +2,7 @@ import { requireRequestScope } from "@/lib/auth/scope-http";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
-import { getCascade } from "@/lib/metadata/cascades";
+import { getCascade } from "@/lib/metadata/owned-cascades";
 import { cancelCascade, readCascade } from "@/lib/operations/cascade";
 import { cascadePayload } from "@/lib/operations/recipe-api";
 
@@ -28,13 +28,13 @@ export async function POST(request: Request, { params }: Params) {
     const { id, runId } = await params;
     requireOwnedResource(scope, "workflow", id);
     requireOwnedResource(scope, "cascade", runId);
-    const existing = getCascade(runId);
+    const existing = getCascade(scope, runId);
     if (!existing || existing.recipeId !== id) {
       throw resourceAbsent();
     }
     await cancelCascade(scope, runId);
     requireOwnedResource(scope, "cascade", runId);
-    return NextResponse.json({ run: cascadePayload(readCascade(runId)) });
+    return NextResponse.json({ run: cascadePayload(readCascade(scope, runId)) });
   } catch (error) {
     return errorResponse(error);
   }

@@ -1,7 +1,10 @@
-import type { AccountScope } from "@/lib/auth/scope";
+import { AuthError } from "@/lib/auth/errors";
+import { settleInactiveCascade } from "./cascade-inactive";
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
-import { finishCascade, getCascade, isCancelled, setMember, snapshotAttempt, type MemberState } from "@/lib/metadata/cascades";
-import { getJob, isTerminal, type OperationJob } from "@/lib/metadata/jobs";
+import { finishCascade, getCascade, isCancelled, setMember, snapshotAttempt, type MemberState } from "@/lib/metadata/owned-cascades";
+import { getJob, type OperationJob } from "@/lib/metadata/owned-jobs";
+import { isTerminal } from "@/lib/metadata/jobs";
 import { markAndSignalRunCancellation, pruneRunCancellation, waitForRunCancellation, type RunCancellation } from "./run";
 import { startStepRun } from "./step-execution";
 import * as lane from "./lane";
@@ -18,8 +21,8 @@ export async function cancelAdmittedMember(
   jobId: string,
 ): Promise<void> {
   const cancellation = markAndSignalRunCancellation(scope, jobId);
-  const stopped = getJob(jobId) ?? cancellation.job;
-  snapshotAttempt(cascadeId, stepId, stopped);
+  const stopped = getJob(scope, jobId) ?? cancellation.job;
+  snapshotAttempt(scope, cascadeId, stepId, stopped);
   pruneRunCancellation(cancellation);
   await waitForRunCancellation(cancellation);
 }
@@ -48,7 +51,7 @@ async function drainAdmittedJobs(
   // Signal the whole admitted set before awaiting any one member. The local
   // ledger survives the metadata read that brought the coordinator here.
   for (const [stepId, jobId] of admitted) {
-    const job = getJob(jobId);
+    const job = getJob(scope, jobId);
     if (!job) continue;
     if (isTerminal(job.state)) {
       jobs.set(stepId, job);
@@ -69,6 +72,7 @@ async function drainAdmittedJobs(
 
 /** Record one drained coordinator failure from fresh durable reads. */
 function recordFailedCascade(
+  scope: AccountScope,
   cascadeId: string,
   members: { stepId: string }[],
   admitted: Map<string, string>,
@@ -77,14 +81,14 @@ function recordFailedCascade(
   // Only after the engine is drained does the durable parent move. Successful
   // publications already wrote their member and output atomically; every other
   // admitted job is described from its terminal record.
-  const current = getCascade(cascadeId);
+  const current = getCascade(scope, cascadeId);
   if (!current) throw new Error(`Cascade ${cascadeId} disappeared during failure settlement.`);
   for (const member of members) {
     const jobId = admitted.get(member.stepId);
-    const job = (jobId ? getJob(jobId) : null) ?? drained.get(member.stepId);
+    const job = (jobId ? getJob(scope, jobId) : null) ?? drained.get(member.stepId);
     if (!job) {
       if (!admitted.has(member.stepId)) {
-        setMember(cascadeId, member.stepId, {
+        setMember(scope, cascadeId, member.stepId, {
           state: "not_run",
           stoppedBy: "internal",
           stoppedReason: "The run stopped because its coordinator failed.",
@@ -92,21 +96,21 @@ function recordFailedCascade(
       }
       continue;
     }
-    snapshotAttempt(cascadeId, member.stepId, job);
+    snapshotAttempt(scope, cascadeId, member.stepId, job);
     const recorded = current.members.find((candidate) => candidate.stepId === member.stepId);
     if (recorded?.state === "succeeded" && job.state === "succeeded") continue;
-    setMember(cascadeId, member.stepId, {
+    setMember(scope, cascadeId, member.stepId, {
       state: "failed",
       jobId: job.id,
       stoppedBy: job.errorCode ?? job.state,
       ...(job.errorMessage ? { stoppedReason: job.errorMessage } : {}),
     });
   }
-  finishCascade(cascadeId, "failed", new Date().toISOString());
+  finishCascade(scope, cascadeId, "failed", new Date().toISOString());
 }
 
 /** Drain once, then make one bounded fresh-read recording re-attempt. */
-async function settleCoordinatorFailure(
+export async function settleCoordinatorFailure(
   scope: AccountScope,
   cascadeId: string,
   members: { stepId: string }[],
@@ -115,7 +119,7 @@ async function settleCoordinatorFailure(
   const drained = await drainAdmittedJobs(scope, admitted);
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      recordFailedCascade(cascadeId, members, admitted, drained);
+      recordFailedCascade(scope, cascadeId, members, admitted, drained);
       return;
     } catch (error) {
       if (attempt === 1) throw error;
@@ -157,7 +161,7 @@ export async function driveCascade(
     stoppedReason?: string,
   ) => {
     states.set(stepId, state);
-    setMember(cascadeId, stepId, {
+    setMember(scope, cascadeId, stepId, {
       state,
       ...(stoppedBy ? { stoppedBy } : {}),
       ...(output ? { output } : {}),
@@ -166,6 +170,7 @@ export async function driveCascade(
   };
 
   try {
+    requireAccountScope(scope);
     for (;;) {
       // The fence, read from durable state before anything is admitted. This is
       // the check that must survive a cancel landing while the running members
@@ -175,7 +180,7 @@ export async function driveCascade(
       // instead stranded a second in-flight member as `running` inside a run
       // whose outcome was already `cancelled`, at any concurrency: one
       // executing and one queued in the lane are both recorded running.
-      const ready = isCancelled(cascadeId)
+      const ready = isCancelled(scope, cascadeId)
         ? []
         : members.filter(
             (m) =>
@@ -186,7 +191,7 @@ export async function driveCascade(
           );
 
       for (const member of ready) {
-        if (isCancelled(cascadeId)) break;
+        if (isCancelled(scope, cascadeId)) break;
         try {
           const job = await startStepRun(scope, member.stepId, { cascadeId });
           // Record acceptance before any later coordinator metadata read can
@@ -198,22 +203,23 @@ export async function driveCascade(
           // job exists now, so this is the only place that can stop it — and
           // without this the cascade admits work after it was cancelled, which
           // is the one thing the fence exists to prevent.
-          if (isCancelled(cascadeId)) {
+          if (isCancelled(scope, cascadeId)) {
             // Admitted, then stopped: a failed member whose attempt was
             // cancelled, its job kept; not_run is for work never
             // admitted.
             await cancelAdmittedMember(scope, cascadeId, member.stepId, job.id);
-            setMember(cascadeId, member.stepId, { state: "failed", jobId: job.id, stoppedBy: "cancelled" });
+            setMember(scope, cascadeId, member.stepId, { state: "failed", jobId: job.id, stoppedBy: "cancelled" });
             states.set(member.stepId, "failed");
             break;
           }
           states.set(member.stepId, "running");
-          setMember(cascadeId, member.stepId, { state: "running", jobId: job.id });
+          setMember(scope, cascadeId, member.stepId, { state: "running", jobId: job.id });
           inflight.set(
             member.stepId,
             lane.jobSettled(job.id).then(() => member.stepId),
           );
         } catch (error) {
+          if (error instanceof AuthError) throw error;
           // Refused at admission — a taken name, a vanished input. No job was
           // minted, and this member's failure stops what depends on it.
           //
@@ -243,13 +249,13 @@ export async function driveCascade(
 
       const finished = await Promise.race(inflight.values());
       inflight.delete(finished);
-      const jobId = getCascade(cascadeId)!.members.find(
+      const jobId = getCascade(scope, cascadeId)!.members.find(
         (m) => m.stepId === finished,
       )!.jobId;
       // The attempt stays with the run: copied now, while the job is
       // still there to copy, whatever became of it.
-      const settledJob = jobId ? getJob(jobId) : null;
-      if (settledJob) snapshotAttempt(cascadeId, finished, settledJob);
+      const settledJob = jobId ? getJob(scope, jobId) : null;
+      if (settledJob) snapshotAttempt(scope, cascadeId, finished, settledJob);
       // **The member row is the authority, not the job.** A successful
       // publication already wrote this member's success and its output inside
       // its own commit; a job lookup here can find nothing, because history is
@@ -257,14 +263,14 @@ export async function driveCascade(
       // between settlement and this read. So the job is consulted only for a
       // member the publication did *not* claim — which is exactly the failed,
       // cancelled and interrupted cases, none of which wrote one.
-      const published = getCascade(cascadeId)!.members.find(
+      const published = getCascade(scope, cascadeId)!.members.find(
         (m) => m.stepId === finished,
       )!;
       if (published.state === "succeeded") {
         states.set(finished, "succeeded");
         continue;
       }
-      const job = jobId ? getJob(jobId) : null;
+      const job = jobId ? getJob(scope, jobId) : null;
       // A member whose job was cancelled reads *failed* here, and its job still
       // says `cancelled` — the member vocabulary is completed, failed and
       // never-started, and inventing a sixth member state to mirror a job
@@ -275,7 +281,7 @@ export async function driveCascade(
     // Only now, with nothing left in flight: anything still waiting was never
     // attempted. A cancelled cascade says so; otherwise the member names what
     // stopped it, and mints no job either way.
-    const cancelled = isCancelled(cascadeId);
+    const cancelled = isCancelled(scope, cascadeId);
     for (const member of members) {
       if (states.get(member.stepId) !== "pending") continue;
       settle(
@@ -293,15 +299,17 @@ export async function driveCascade(
         : final.some((s) => s === "succeeded")
           ? "partly_completed"
           : "failed";
-    finishCascade(cascadeId, outcome, new Date().toISOString());
+    finishCascade(scope, cascadeId, outcome, new Date().toISOString());
   } catch (error) {
     // The drive is detached, so a stumble here must not become an unhandled
     // rejection. Admitted work is drained before failure recording; if the
     // bounded recording retry is exhausted, restart owns the active record.
-    console.error(`[operations] cascade ${cascadeId} failed to drive:`, error);
     try {
+      if (await settleInactiveCascade(cascadeId, admitted)) return;
+      console.error(`[operations] cascade ${cascadeId} failed to drive:`, error);
       await settleCoordinatorFailure(scope, cascadeId, members, admitted);
     } catch (settlementError) {
+      try { if (await settleInactiveCascade(cascadeId, admitted)) return; } catch { /* Restart reconciles unavailable metadata. */ }
       // The engine drain is attempted before any terminal parent write. A
       // metadata outage here leaves the active row for the retry/restart road,
       // never a false terminal parent or an outward rejection.

@@ -457,7 +457,7 @@ describe("running through the surface", () => {
     expect(single.kind).toBe("single");
     expect((single.members as Json[]).map((m) => m.stepId)).toEqual([step.id]);
     await cascadeSettled(single.id as string);
-    const listedSingle = (await body(await listRuns(post({}), { params: Promise.resolve({ id }) }))).runs as Json[];
+    const listedSingle = (await body(await listRuns(testAccountRequest(post({})), { params: Promise.resolve({ id }) }))).runs as Json[];
     expect(listedSingle.map((r) => r.id)).toContain(single.id);
     expect(((listedSingle[0].members as Json[])[0].attempt as Json).state).toBe("succeeded");
 
@@ -492,7 +492,7 @@ describe("running through the surface", () => {
     const later = await runRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) });
     expect(later.status).toBe(409);
     await cascadeSettled(run.id as string);
-    const listed = (await body(await listRuns(post({}), { params: Promise.resolve({ id }) }))).runs as Json[];
+    const listed = (await body(await listRuns(testAccountRequest(post({})), { params: Promise.resolve({ id }) }))).runs as Json[];
     expect(listed).toHaveLength(1);
     // Settled, the next start is accepted.
     const next = await runRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) });
@@ -506,7 +506,7 @@ describe("running through the surface", () => {
     const two = await newStep(id, "SELECT count(*) AS m FROM stations", "race_two");
     const step = (stepId: string) => runStep(testAccountRequest(post({})), { params: Promise.resolve({ id, stepId }) });
     const settleAll = async () => {
-      for (const r of (await body(await listRuns(post({}), { params: Promise.resolve({ id }) }))).runs as Json[]) {
+      for (const r of (await body(await listRuns(testAccountRequest(post({})), { params: Promise.resolve({ id }) }))).runs as Json[]) {
         await cascadeSettled(r.id as string);
       }
     };
@@ -515,14 +515,14 @@ describe("running through the surface", () => {
     const [n1, n2] = await Promise.all([step(one.id as string), step(two.id as string)]);
     expect([n1.status, n2.status].sort()).toEqual([202, 409]);
     await settleAll();
-    let runs = (await body(await listRuns(post({}), { params: Promise.resolve({ id }) }))).runs as Json[];
+    let runs = (await body(await listRuns(testAccountRequest(post({})), { params: Promise.resolve({ id }) }))).runs as Json[];
     expect(runs).toHaveLength(1);
     expect(jobsOf(one.id as string) + jobsOf(two.id as string)).toBe(1);
     // Node and cascade.
     const [s1, c1] = await Promise.all([step(one.id as string), runRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) })]);
     expect([s1.status, c1.status].sort()).toEqual([202, 409]);
     await settleAll();
-    runs = (await body(await listRuns(post({}), { params: Promise.resolve({ id }) }))).runs as Json[];
+    runs = (await body(await listRuns(testAccountRequest(post({})), { params: Promise.resolve({ id }) }))).runs as Json[];
     expect(runs).toHaveLength(2);
     const refused = s1.status === 409 ? s1 : c1;
     expect(((await body(refused)).error as Json).code).toBe("run_in_flight");
@@ -543,7 +543,7 @@ describe("running through the surface", () => {
     const stale = await runRecipe(testAccountRequest(post({ members: [one.id, two.id] })), { params: Promise.resolve({ id }) });
     expect(stale.status).toBe(409);
     expect(((await body(stale)).error as Json).code).toBe("plan_changed");
-    expect(((await body(await listRuns(post({}), { params: Promise.resolve({ id }) }))).runs as Json[])).toHaveLength(0);
+    expect(((await body(await listRuns(testAccountRequest(post({})), { params: Promise.resolve({ id }) }))).runs as Json[])).toHaveLength(0);
     // The plan as it stands now: accepted, exactly those members in that order.
     const ok = await runRecipe(testAccountRequest(post({ members: [one.id, two.id, three.id] })), { params: Promise.resolve({ id }) });
     expect(ok.status).toBe(202);
@@ -587,7 +587,7 @@ describe("running through the surface", () => {
     await cascadeSettled(run.id as string);
 
     const reread = (await body(
-      await readRun(post({}), {
+      await readRun(testAccountRequest(post({})), {
         params: Promise.resolve({ id, runId: run.id as string }),
       }),
     )).run as Json;
@@ -604,7 +604,7 @@ describe("running through the surface", () => {
     expect(((members[0].attempt as Json).output as Json).name).toBe("whole_one");
 
     const listed = (await body(
-      await listRuns(post({}), { params: Promise.resolve({ id }) }),
+      await listRuns(testAccountRequest(post({})), { params: Promise.resolve({ id }) }),
     )).runs as Json[];
     expect(listed.map((r) => r.id)).toContain(run.id);
   }, 120_000);
@@ -670,7 +670,7 @@ describe("editing and removing through the surface", () => {
     const startedRun = (await body(started)).run as Json;
     await cascadeSettled(startedRun.id as string);
     const settled = (await body(
-      await readRun(post({}), { params: Promise.resolve({ id, runId: startedRun.id as string }) }),
+      await readRun(testAccountRequest(post({})), { params: Promise.resolve({ id, runId: startedRun.id as string }) }),
     )).run as Json;
     expect(settled.outcome, JSON.stringify(settled.members)).toBe("completed");
     // A pending edit on the first node, which the copy must not carry.
@@ -790,7 +790,7 @@ describe("a malformed run body never widens into run-all", () => {
     expect(((await body(response)).error as Json).code).toBe("invalid_request");
     // Nothing started.
     const runs = (await body(
-      await listRuns(post({}), { params: Promise.resolve({ id }) }),
+      await listRuns(testAccountRequest(post({})), { params: Promise.resolve({ id }) }),
     )).runs as Json[];
     expect(runs).toEqual([]);
   }, 60_000);
