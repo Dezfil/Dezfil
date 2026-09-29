@@ -5,7 +5,7 @@ import {
   dependencyOf,
   type MapDependency,
 } from "@/lib/map-dependencies";
-import { getRecipe, listSteps } from "@/lib/metadata/recipes";
+import { requireRecipe, listSteps } from "@/lib/metadata/owned-recipes";
 import { queryInputsStrict } from "@/lib/operations/inputs";
 import {
   currentDefinition,
@@ -49,10 +49,8 @@ export async function workflowDependencies(
   scope: AccountScope,
   recipeId: string,
 ): Promise<WorkflowDependency[]> {
-  if (!getRecipe(recipeId)) {
-    throw new ApiError("not_found", `No recipe with id "${recipeId}".`, 404);
-  }
-  const steps = listSteps(recipeId);
+  requireRecipe(scope, recipeId);
+  const steps = listSteps(scope, recipeId);
 
   const tables = await listTablesWithSize(scope);
   const byName = new Map(tables.map((t) => [t.name.toLowerCase(), t]));
@@ -85,5 +83,6 @@ export async function workflowDependencies(
       found.set(output.id, dependencyOf(output, producers));
     }
   }
+  requireRecipe(scope, recipeId);
   return [...found.values()].sort((a, b) => a.name.localeCompare(b.name));
 }

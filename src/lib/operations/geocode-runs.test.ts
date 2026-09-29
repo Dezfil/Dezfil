@@ -339,12 +339,12 @@ describe("what the publication records", () => {
     // The artifact, not merely the identity: staleness is a generation
     // mismatch, and an edge that recorded only the name could not see one.
     expect(edges[0].boundArtifact).toBe(before);
-    expect((await readStep(recipe.id, step.id)).condition.primary).toBe("current");
+    expect((await readStep(testAccountScope(), recipe.id, step.id)).condition.primary).toBe("current");
 
     // A new generation of the source underneath it.
     await refreshTable(testAccountScope(), "addresses");
     expect(getTableByName("addresses")!.file).not.toBe(before);
-    const condition = (await readStep(recipe.id, step.id)).condition;
+    const condition = (await readStep(testAccountScope(), recipe.id, step.id)).condition;
     expect(condition.primary).toBe("stale");
     expect(condition.causes.map((c) => c.reason)).toContain("source_changed");
   });

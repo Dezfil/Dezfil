@@ -18,7 +18,7 @@ export async function POST(_request: Request, { params }: Params) {
     const { id } = await params;
     const copy = await duplicateRecipe(scope, id);
     return NextResponse.json(
-      { recipe: recipePayload(await readRecipe(copy.id)) },
+      { recipe: recipePayload(await readRecipe(scope, copy.id)) },
       { status: 201, headers: { Location: `/api/recipes/${copy.id}` } },
     );
   } catch (error) {

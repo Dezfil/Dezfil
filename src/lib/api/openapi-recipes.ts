@@ -1,3 +1,4 @@
+import { workflowAccess } from "./openapi-workflow-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE, WORKFLOW_RUN } from "./operation-mcp";
 import { READ_ONLY, writes, resource, planning } from "./operation-metadata";
@@ -12,7 +13,7 @@ const WORKFLOW_JSON_BODY_BOUND =
 
 export const RECIPE_PATHS = {
   "/api/recipes": {
-    get: op({
+    get: op(workflowAccess({
       summary: "List recipes",
       description:
         "Every recipe in the workspace, each with its steps and their " +
@@ -38,8 +39,8 @@ export const RECIPE_PATHS = {
         PROJECT_SCOPE_PARAM,
       ],
       responses: { "200": jsonOk("#/components/schemas/RecipeList") },
-    }),
-    post: ownedCreationOp({
+    })),
+    post: ownedCreationOp(workflowAccess({
       summary: "Create a recipe",
       description:
         WORKFLOW_JSON_BODY_BOUND +
@@ -82,10 +83,10 @@ export const RECIPE_PATHS = {
       responses: {
         "201": jsonOk("#/components/schemas/RecipeEnvelope", "Created."),
       },
-    }),
+    })),
   },
   "/api/recipes/{id}": {
-    get: op({
+    get: op(workflowAccess({
       summary: "Read a recipe",
       description:
         "The recipe and every step in order, each with **all** the " +
@@ -100,8 +101,8 @@ export const RECIPE_PATHS = {
       effects: READ_ONLY,
       parameters: [pathParam("id", "Recipe id.")],
       responses: { "200": jsonOk("#/components/schemas/RecipeEnvelope") },
-    }),
-    patch: op({
+    })),
+    patch: op(workflowAccess({
       summary: "Rename a recipe",
       description:
         WORKFLOW_JSON_BODY_BOUND +
@@ -127,8 +128,8 @@ export const RECIPE_PATHS = {
         },
       },
       responses: { "200": jsonOk("#/components/schemas/RecipeEnvelope") },
-    }),
-    delete: op({
+    })),
+    delete: op(workflowAccess({
       summary: "Delete a recipe",
       description:
         "**The datasets its steps produced remain in the workspace.** A " +
@@ -145,10 +146,10 @@ export const RECIPE_PATHS = {
       responses: {
         "200": jsonOk("#/components/schemas/RecipeDeleted"),
       },
-    }),
+    })),
   },
   "/api/recipes/{id}/duplicate": {
-    post: ownedCreationOp({
+    post: ownedCreationOp(workflowAccess({
       summary: "Duplicate a recipe",
       description:
         "A copy named \"<name> copy\", a workflow, that has never run: " +
@@ -169,10 +170,10 @@ export const RECIPE_PATHS = {
       responses: {
         "201": jsonOk("#/components/schemas/RecipeEnvelope", "Created."),
       },
-    }),
+    })),
   },
   "/api/recipes/{id}/dependencies": {
-    get: op({
+    get: op(workflowAccess({
       summary: "The datasets a workflow reads and writes",
       description:
         "The filing checklist's subject for a workflow: " +
@@ -194,10 +195,10 @@ export const RECIPE_PATHS = {
       responses: {
         "200": jsonOk("#/components/schemas/WorkflowDependencies"),
       },
-    }),
+    })),
   },
   "/api/recipes/{id}/layout": {
-    get: op({
+    get: op(workflowAccess({
       summary: "Read a recipe's canvas layout",
       description:
         "The layout document: where each step and each " +
@@ -212,8 +213,8 @@ export const RECIPE_PATHS = {
       effects: READ_ONLY,
       parameters: [pathParam("id", "Recipe id.")],
       responses: { "200": jsonOk("#/components/schemas/RecipeLayoutEnvelope") },
-    }),
-    put: op({
+    })),
+    put: op(workflowAccess({
       summary: "Replace a recipe's canvas layout",
       description:
         WORKFLOW_JSON_BODY_BOUND +
@@ -243,10 +244,10 @@ export const RECIPE_PATHS = {
         },
       },
       responses: { "200": jsonOk("#/components/schemas/RecipeLayoutEnvelope") },
-    }),
+    })),
   },
   "/api/recipes/{id}/steps": {
-    post: op({
+    post: op(workflowAccess({
       summary: "Add a step",
       description:
         WORKFLOW_JSON_BODY_BOUND +
@@ -317,10 +318,10 @@ export const RECIPE_PATHS = {
       responses: {
         "201": jsonOk("#/components/schemas/RecipeStepEnvelope", "Created."),
       },
-    }),
+    })),
   },
   "/api/recipes/{id}/steps/{stepId}": {
-    get: op({
+    get: op(workflowAccess({
       summary: "Read a step",
       description:
         "One step's definition, condition, stale causes, recorded " +
@@ -336,8 +337,8 @@ export const RECIPE_PATHS = {
       responses: {
         "200": jsonOk("#/components/schemas/RecipeStepEnvelope"),
       },
-    }),
-    patch: op({
+    })),
+    patch: op(workflowAccess({
       summary: "Edit a step",
       description:
         WORKFLOW_JSON_BODY_BOUND +
@@ -382,8 +383,8 @@ export const RECIPE_PATHS = {
       responses: {
         "200": jsonOk("#/components/schemas/RecipeStepEdited"),
       },
-    }),
-    delete: op({
+    })),
+    delete: op(workflowAccess({
       summary: "Remove a step",
       description:
         "The step detaches: **the dataset it produced and its run " +
@@ -404,10 +405,10 @@ export const RECIPE_PATHS = {
       responses: {
         "200": jsonOk("#/components/schemas/RecipeStepRemoved"),
       },
-    }),
+    })),
   },
   "/api/recipes/{id}/steps/{stepId}/proposal": {
-    delete: op({
+    delete: op(workflowAccess({
       summary: "Discard a step's pending edit",
       description:
         "Puts the step back to its active definition — what its output " +
@@ -424,10 +425,10 @@ export const RECIPE_PATHS = {
       responses: {
         "200": jsonOk("#/components/schemas/RecipeStepDiscarded"),
       },
-    }),
+    })),
   },
   "/api/recipes/{id}/steps/{stepId}/move": {
-    post: op({
+    post: op(workflowAccess({
       summary: "Reorder a step",
       description:
         WORKFLOW_JSON_BODY_BOUND +
@@ -462,7 +463,7 @@ export const RECIPE_PATHS = {
         },
       },
       responses: { "200": jsonOk("#/components/schemas/RecipeEnvelope") },
-    }),
+    })),
   },
   "/api/recipes/{id}/steps/{stepId}/run": {
     post: ownedCreationOp({

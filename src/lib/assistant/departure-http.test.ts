@@ -71,7 +71,7 @@ beforeEach(async () => {
       } else if (url.pathname === "/api/maps") response = await mapsGet(testAccountRequest(request));
       else if (p[2] === "maps") response = await mapGet(testAccountRequest(request), params(p[3]));
       else if (p[2] === "recipes" && p[4] === "runs") response = await recipeRun(testAccountRequest(request), params(p[3]));
-      else if (p[2] === "recipes") response = await recipeGet(request, params(p[3]));
+      else if (p[2] === "recipes") response = await recipeGet(testAccountRequest(request), params(p[3]));
       else if (url.pathname === "/api/query") { response = await query(request); queryStatus = response.status; querySettled.resolve(); }
       else response = new Response(null, { status: 404 });
       outgoing.statusCode = response.status;

@@ -306,3 +306,11 @@ Private source work rechecks access before committing or recording health.
 This is a breaking error-contract change for a snapshot whose saved connection
 is missing: refresh now returns `404 not_found` instead of `409 not_refreshable`.
 Connection absence messages no longer echo the submitted ID.
+
+Workflow definitions, steps, layouts and layer captures resolve within the
+caller's account. Hidden or missing workflow, step, captured-layer and project
+references use the same generic `404 not_found`, including mixed parent/child
+requests. Refused compound changes leave definitions and filing unchanged.
+Output-name conflicts and duplication consider only that account's datasets
+and declarations; same-workflow conflicts and the frozen name of an existing
+output retain their previous rules. Deleting a workflow leaves its datasets.

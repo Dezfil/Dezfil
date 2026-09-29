@@ -140,7 +140,7 @@ describe("the project export capability", () => {
     const outBytes = Buffer.from("parquet-bytes-out");
     const tOut = await seedDataset("t-out", "catch_out", outBytes);
     recordOutput(step.id, { id: tOut.id, name: tOut.name }, at(5));
-    writeLayout(recipe.id, {
+    writeLayout(testAccountScope(), recipe.id, {
       steps: { [step.id]: { x: 40, y: 80 } },
       sources: {},
       notes: [],

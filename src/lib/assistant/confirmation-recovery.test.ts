@@ -61,7 +61,7 @@ async function dispatch(request: Request): Promise<Response> {
     if (p[4] === "undo") return undo(testAccountRequest(request), params(p[3]));
     if (p[4] === "redo") return redo(testAccountRequest(request), params(p[3]));
   }
-  if (p[2] === "recipes" && p.length === 4) return recipeGet(request, params(p[3]));
+  if (p[2] === "recipes" && p.length === 4) return recipeGet(testAccountRequest(request), params(p[3]));
   if (p[2] === "recipes" && p[4] === "runs") return failPlan ? Response.json({ error: { code: "internal" } }, { status: 500 }) : runRecipe(testAccountRequest(request), params(p[3]));
   throw new Error(`Unexpected test route: ${request.method} ${url.pathname}`);
 }

@@ -125,7 +125,7 @@ async function refresh(name: string) {
 }
 
 const causes = async (stepId: string): Promise<StaleCause[]> =>
-  (await readStep(recipeId, stepId)).condition.causes;
+  (await readStep(testAccountScope(), recipeId, stepId)).condition.causes;
 
 const reasons = async (stepId: string) =>
   (await causes(stepId)).map((c) => c.reason).sort();
@@ -134,7 +134,7 @@ describe("a refreshed source", () => {
   it("marks the step that read it, naming the input", async () => {
     const s = step("SELECT * FROM alpha", "from_alpha");
     await run(s.id);
-    expect((await readStep(recipeId, s.id)).condition.primary).toBe("current");
+    expect((await readStep(testAccountScope(), recipeId, s.id)).condition.primary).toBe("current");
 
     await refresh("alpha");
 
@@ -142,7 +142,7 @@ describe("a refreshed source", () => {
     expect(c).toHaveLength(1);
     expect(c[0].reason).toBe("source_changed");
     expect(c[0].tableName).toBe("alpha");
-    expect((await readStep(recipeId, s.id)).condition.primary).toBe("stale");
+    expect((await readStep(testAccountScope(), recipeId, s.id)).condition.primary).toBe("stale");
   }, 60_000);
 
   it("still marks it when the refresh's best-effort cleanup throws", async () => {
@@ -163,7 +163,7 @@ describe("a refreshed source", () => {
     await run(s.id);
     await refresh("alpha");
     expect(await causes(s.id)).toEqual([]);
-    expect((await readStep(recipeId, s.id)).condition.primary).toBe("current");
+    expect((await readStep(testAccountScope(), recipeId, s.id)).condition.primary).toBe("current");
   }, 60_000);
 });
 
@@ -296,7 +296,7 @@ describe("the join's right input", () => {
       },
     });
     await run(s.id);
-    expect((await readStep(recipeId, s.id)).condition.primary).toBe("current");
+    expect((await readStep(testAccountScope(), recipeId, s.id)).condition.primary).toBe("current");
 
     // The right input's geometry is not kept, and its rows are only ever read
     // inside a correlated subquery — neither is a reason for a refresh of it
@@ -317,7 +317,7 @@ describe("the whole recipe reads consistently", () => {
     await run(two.id);
 
     await refresh("alpha");
-    const view = (await readRecipe(recipeId));
+    const view = (await readRecipe(testAccountScope(), recipeId));
     expect(view.steps.map((s) => s.condition.primary)).toEqual(["stale", "stale"]);
     expect(view.steps[0].latestAttempt?.state).toBe("succeeded");
   }, 120_000);

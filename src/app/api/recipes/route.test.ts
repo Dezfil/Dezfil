@@ -84,7 +84,7 @@ async function newStep(
   name: string,
 ): Promise<Json> {
   const response = await addStep(
-    post({ operation: "sql_step", parameters: { sql, name } }),
+    testAccountRequest(post({ operation: "sql_step", parameters: { sql, name } })),
     { params: Promise.resolve({ id: recipeId }) },
   );
   expect(response.status).toBe(201);
@@ -98,23 +98,23 @@ describe("a recipe round-trips", () => {
     expect(created.status).toBe(201);
     const id = ((await body(created)).recipe as Json).id as string;
     const read = (await body(
-      await readRecipe(post({}), { params: Promise.resolve({ id }) }),
+      await readRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) }),
     )).recipe as Json;
     expect(read.name).toBe("Cafés within reach");
     // Blank and whitespace-only are refused at create and at rename alike.
     expect((await createRecipeRoute(testAccountRequest(post({ name: "" })))).status).toBe(400);
     expect((await createRecipeRoute(testAccountRequest(post({ name: "   " })))).status).toBe(400);
     expect(
-      (await renameRecipe(post({ name: " " }), { params: Promise.resolve({ id }) })).status,
+      (await renameRecipe(testAccountRequest(post({ name: " " })), { params: Promise.resolve({ id }) })).status,
     ).toBe(400);
     // One past the limit is refused; the limit itself passes.
     const long = "x".repeat(121);
     expect((await createRecipeRoute(testAccountRequest(post({ name: long })))).status).toBe(400);
     expect(
-      (await renameRecipe(post({ name: long }), { params: Promise.resolve({ id }) })).status,
+      (await renameRecipe(testAccountRequest(post({ name: long })), { params: Promise.resolve({ id }) })).status,
     ).toBe(400);
     expect(
-      (await renameRecipe(post({ name: "y".repeat(120) }), { params: Promise.resolve({ id }) })).status,
+      (await renameRecipe(testAccountRequest(post({ name: "y".repeat(120) })), { params: Promise.resolve({ id }) })).status,
     ).toBe(200);
     // A name another recipe already has is fine, as it is for maps.
     const twin = await createRecipeRoute(testAccountRequest(post({ name: "y".repeat(120) })));
@@ -131,12 +131,12 @@ describe("a recipe round-trips", () => {
     expect((await createRecipeRoute(testAccountRequest(post({ name: "x", origin: "canvas" })))).status).toBe(400);
     // Listed with it, and a rename leaves it alone.
     const renamed = (await body(
-      await renameRecipe(post({ name: "Still the builder's" }), {
+      await renameRecipe(testAccountRequest(post({ name: "Still the builder's" })), {
         params: Promise.resolve({ id: built.id as string }),
       }),
     )).recipe as Json;
     expect(renamed.origin).toBe("builder");
-    const listed = (await body(await listRecipes(new Request("http://test/api/recipes")))).recipes as Json[];
+    const listed = (await body(await listRecipes(testAccountRequest(new Request("http://test/api/recipes"))))).recipes as Json[];
     expect(listed.find((r) => r.id === built.id)?.origin).toBe("builder");
     expect(listed.find((r) => r.id === plain.id)?.origin).toBe("workflow");
   });
@@ -159,7 +159,7 @@ describe("a recipe round-trips", () => {
       "Only workflows can be project members.",
     );
     const afterRefusal = (await body(
-      await listRecipes(new Request("http://test/api/recipes")),
+      await listRecipes(testAccountRequest(new Request("http://test/api/recipes"))),
     )).recipes as Json[];
     expect(
       afterRefusal.some((recipe) => recipe.name === "Builder tool in a project"),
@@ -179,12 +179,12 @@ describe("a recipe round-trips", () => {
   it("a refused node leaves the last-edited time alone; an accepted one advances it", async () => {
     const id = await newRecipe("Edits");
     const at = async () =>
-      ((await body(await readRecipe(post({}), { params: Promise.resolve({ id }) }))).recipe as Json)
+      ((await body(await readRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) }))).recipe as Json)
         .updatedAt as string;
     const before = await at();
     // Reads its own output: refused at the change, and a refusal is not an edit.
     const refused = await addStep(
-      post({ operation: "sql_step", parameters: { sql: "SELECT * FROM self_out", name: "self_out" } }),
+      testAccountRequest(post({ operation: "sql_step", parameters: { sql: "SELECT * FROM self_out", name: "self_out" } })),
       { params: Promise.resolve({ id }) },
     );
     expect(refused.status).toBe(400);
@@ -200,12 +200,12 @@ describe("a recipe round-trips", () => {
     )).recipe as Json;
     await newStep(w.id as string, "SELECT name FROM stations", "sum_one");
     const list = async (query: string) =>
-      (await body(await listRecipes(new Request("http://test/api/recipes" + query)))).recipes as Json[];
+      (await body(await listRecipes(testAccountRequest(new Request("http://test/api/recipes" + query))))).recipes as Json[];
     const ids = (rs: Json[]) => rs.map((r) => r.id);
     expect(ids(await list(""))).toEqual(expect.arrayContaining([w.id, b.id]));
     expect(ids(await list("?origin=workflow"))).toEqual([w.id]);
     expect(ids(await list("?origin=builder"))).toEqual([b.id]);
-    expect((await listRecipes(new Request("http://test/api/recipes?origin=canvas"))).status).toBe(400);
+    expect((await listRecipes(testAccountRequest(new Request("http://test/api/recipes?origin=canvas")))).status).toBe(400);
     const summaries = new Map((await list("")).map((r) => [r.id, r.summary as Json]));
     expect(summaries.get(w.id as string)).toEqual({
       nodes: 1, sources: 1, liveOutputs: 0, status: "never_run", count: 1,
@@ -220,11 +220,11 @@ describe("a recipe round-trips", () => {
     const one = await newStep(id, "SELECT 1 AS n", "rt_one");
     const two = await newStep(id, "SELECT 2 AS n", "rt_two");
 
-    const listed = (await body(await listRecipes(new Request("http://test/api/recipes")))).recipes as Json[];
+    const listed = (await body(await listRecipes(testAccountRequest(new Request("http://test/api/recipes"))))).recipes as Json[];
     expect(listed.map((r) => r.id)).toContain(id);
 
     const read = (await body(
-      await readRecipe(post({}), { params: Promise.resolve({ id }) }),
+      await readRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) }),
     )).recipe as Json;
     expect(read.name).toBe("Accidents near schools");
     expect((read.steps as Json[]).map((s) => s.id)).toEqual([one.id, two.id]);
@@ -232,19 +232,19 @@ describe("a recipe round-trips", () => {
     expect((read.steps as Json[])[0].condition).toBe("never_run");
 
     const renamed = (await body(
-      await renameRecipe(post({ name: "Renamed" }), {
+      await renameRecipe(testAccountRequest(post({ name: "Renamed" })), {
         params: Promise.resolve({ id }),
       }),
     )).recipe as Json;
     expect(renamed.name).toBe("Renamed");
 
     const deleted = await body(
-      await deleteRecipeRoute(post({}), { params: Promise.resolve({ id }) }),
+      await deleteRecipeRoute(testAccountRequest(post({})), { params: Promise.resolve({ id }) }),
     );
     expect(deleted.outputsRemain).toBe(true);
     expect(deleted.message).toMatch(/remain in the workspace/i);
 
-    const gone = await readRecipe(post({}), { params: Promise.resolve({ id }) });
+    const gone = await readRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) });
     expect(gone.status).toBe(404);
   }, 60_000);
 
@@ -255,7 +255,7 @@ describe("a recipe round-trips", () => {
     const three = await newStep(id, "SELECT 3 AS n", "ord_three");
 
     const moved = (await body(
-      await moveStep(post({ ordinal: 0 }), {
+      await moveStep(testAccountRequest(post({ ordinal: 0 })), {
         params: Promise.resolve({ id, stepId: three.id as string }),
       }),
     )).recipe as Json;
@@ -266,7 +266,7 @@ describe("a recipe round-trips", () => {
     ]);
 
     const reread = (await body(
-      await readRecipe(post({}), { params: Promise.resolve({ id }) }),
+      await readRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) }),
     )).recipe as Json;
     expect((reread.steps as Json[]).map((s) => s.ordinal)).toEqual([0, 1, 2]);
   }, 60_000);
@@ -276,17 +276,17 @@ describe("the backward-only rule is refused at the change", () => {
   it("refuses a step that would read its own output", async () => {
     const id = await newRecipe();
     const response = await addStep(
-      post({
+      testAccountRequest(post({
         operation: "sql_step",
         parameters: { sql: "SELECT * FROM self_out", name: "self_out" },
-      }),
+      })),
       { params: Promise.resolve({ id }) },
     );
     expect(response.status).toBe(400);
     expect(((await body(response)).error as Json).code).toBe("invalid_request");
     // Refused means not added.
     const read = (await body(
-      await readRecipe(post({}), { params: Promise.resolve({ id }) }),
+      await readRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) }),
     )).recipe as Json;
     expect(read.steps).toHaveLength(0);
   }, 60_000);
@@ -299,12 +299,12 @@ describe("the backward-only rule is refused at the change", () => {
     // The rule stands — a step reads earlier steps only — and the edit is
     // what moves: the reader goes after its producer, together with the edit.
     const response = await editStep(
-      post({ parameters: { sql: "SELECT * FROM back_two", name: "back_one" } }),
+      testAccountRequest(post({ parameters: { sql: "SELECT * FROM back_two", name: "back_one" } })),
       { params: Promise.resolve({ id, stepId: first.id as string }) },
     );
     expect(response.status).toBe(200);
     const read = (await body(
-      await readRecipe(post({}), { params: Promise.resolve({ id }) }),
+      await readRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) }),
     )).recipe as Json;
     expect((read.steps as Json[]).map((s) => (s.parameters as Json).name)).toEqual(["back_two", "back_one"]);
     expect((read.steps as Json[])[1].reads).toEqual(["back_two"]);
@@ -317,13 +317,13 @@ describe("the backward-only rule is refused at the change", () => {
 
     // Dragging the producer to the end breaks its consumer, not itself — the
     // case a check on only the moved step would pass.
-    const response = await moveStep(post({ ordinal: 1 }), {
+    const response = await moveStep(testAccountRequest(post({ ordinal: 1 })), {
       params: Promise.resolve({ id, stepId: producer.id as string }),
     });
     expect(response.status).toBe(400);
 
     const read = (await body(
-      await readRecipe(post({}), { params: Promise.resolve({ id }) }),
+      await readRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) }),
     )).recipe as Json;
     expect((read.steps as Json[])[0].id).toBe(producer.id);
   }, 60_000);
@@ -366,11 +366,11 @@ describe("authoring a step from a layer", () => {
 
     const step = (await body(
       await addStep(
-        post({
+        testAccountRequest(post({
           operation: "sql_step",
           parameters: { name: "from_layer" },
           fromLayerId: layer.id,
-        }),
+        })),
         { params: Promise.resolve({ id }) },
       ),
     )).step as Json;
@@ -389,7 +389,7 @@ describe("authoring a step from a layer", () => {
     // follow it.
     insertLayer({ ...layer, id: randomUUID(), filters: [] });
     const reread = (await body(
-      await readStep(post({}), {
+      await readStep(testAccountRequest(post({})), {
         params: Promise.resolve({ id, stepId: step.id as string }),
       }),
     )).step as Json;
@@ -418,11 +418,11 @@ describe("authoring a step from a layer", () => {
       const layer = layerOn(map.id, { viz });
       const step = (await body(
         await addStep(
-          post({
+          testAccountRequest(post({
             operation: "sql_step",
             parameters: { name },
             fromLayerId: layer.id,
-          }),
+          })),
           { params: Promise.resolve({ id }) },
         ),
       )).step as Json;
@@ -462,7 +462,7 @@ describe("running through the surface", () => {
     expect(((listedSingle[0].members as Json[])[0].attempt as Json).state).toBe("succeeded");
 
     const read = (await body(
-      await readStep(post({}), {
+      await readStep(testAccountRequest(post({})), {
         params: Promise.resolve({ id, stepId: step.id as string }),
       }),
     )).step as Json;
@@ -618,7 +618,7 @@ describe("editing and removing through the surface", () => {
     expect(bySql.inputs).toEqual([]);
     const byInput = await body(
       await addStep(
-        post({ operation: "filter_rows", parameters: { input: "stations", name: "reads_input" } }),
+        testAccountRequest(post({ operation: "filter_rows", parameters: { input: "stations", name: "reads_input" } })),
         { params: Promise.resolve({ id }) },
       ),
     );
@@ -636,13 +636,13 @@ describe("editing and removing through the surface", () => {
     });
     await laneSettled();
     const ran = (await body(
-      await readStep(post({}), { params: Promise.resolve({ id, stepId: step.id as string }) }),
+      await readStep(testAccountRequest(post({})), { params: Promise.resolve({ id, stepId: step.id as string }) }),
     )).step as Json;
     expect((ran.inputs as Json[]).map((i) => i.name)).toEqual(["stations"]);
     expect(ran.reads).toEqual(["stations"]);
     const edited = (await body(
       await editStep(
-        post({ parameters: { sql: "SELECT 1 AS n", name: "reads_moved" } }),
+        testAccountRequest(post({ parameters: { sql: "SELECT 1 AS n", name: "reads_moved" } })),
         { params: Promise.resolve({ id, stepId: step.id as string }) },
       ),
     )).step as Json;
@@ -655,7 +655,7 @@ describe("editing and removing through the surface", () => {
     const one = await newStep(id, "SELECT name FROM stations", "dup_one");
     const two = await body(
       await addStep(
-        post({ operation: "filter_rows", parameters: { input: "dup_one", field: "name", comparison: "equals", value: "alex", name: "dup_two" } }),
+        testAccountRequest(post({ operation: "filter_rows", parameters: { input: "dup_one", field: "name", comparison: "equals", value: "alex", name: "dup_two" } })),
         { params: Promise.resolve({ id }) },
       ),
     );
@@ -674,10 +674,10 @@ describe("editing and removing through the surface", () => {
     )).run as Json;
     expect(settled.outcome, JSON.stringify(settled.members)).toBe("completed");
     // A pending edit on the first node, which the copy must not carry.
-    await editStep(post({ parameters: { sql: "SELECT name, lon FROM stations", name: "dup_one" } }), {
+    await editStep(testAccountRequest(post({ parameters: { sql: "SELECT name, lon FROM stations", name: "dup_one" } })), {
       params: Promise.resolve({ id, stepId: one.id as string }),
     });
-    const originalBefore = (await body(await readRecipe(post({}), { params: Promise.resolve({ id }) }))).recipe as Json;
+    const originalBefore = (await body(await readRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) }))).recipe as Json;
     expect(((originalBefore.steps as Json[])[0].proposedParameters as Json).sql).toBe("SELECT name, lon FROM stations");
 
     const duplicated = await duplicateRecipeRoute(testAccountRequest(post({})), { params: Promise.resolve({ id }) });
@@ -702,7 +702,7 @@ describe("editing and removing through the surface", () => {
     expect(cSteps[0].reads).toEqual(["stations"]);
     expect((two.step as Json).id).not.toBe(cSteps[1].id);
     // The original is untouched: definitions, proposal, outputs, all as before.
-    const originalAfter = (await body(await readRecipe(post({}), { params: Promise.resolve({ id }) }))).recipe as Json;
+    const originalAfter = (await body(await readRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) }))).recipe as Json;
     expect(originalAfter).toEqual(originalBefore);
     expect((originalAfter.steps as Json[]).map((s) => (s.output as Json).name)).toEqual(["dup_one", "dup_two", "dup_three", "dup_four"]);
 
@@ -710,13 +710,13 @@ describe("editing and removing through the surface", () => {
     const copyRun = await runRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id: copy.id as string }) });
     expect(copyRun.status).toBe(202);
     await cascadeSettled(((await body(copyRun)).run as Json).id as string);
-    const ranCopy = (await body(await readRecipe(post({}), { params: Promise.resolve({ id: copy.id as string }) }))).recipe as Json;
+    const ranCopy = (await body(await readRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id: copy.id as string }) }))).recipe as Json;
     expect((ranCopy.steps as Json[]).map((s) => s.condition)).toEqual(["current", "current", "current", "current"]);
     expect((ranCopy.summary as Json).status).toBe("up_to_date");
     for (const name of ["dup_one", "dup_two", "dup_three", "dup_four", "dup_one_copy", "dup_two_copy", "dup_three_copy", "dup_four_copy"]) {
       expect(getTableByName(name), name).not.toBeNull();
     }
-    const originalStill = (await body(await readRecipe(post({}), { params: Promise.resolve({ id }) }))).recipe as Json;
+    const originalStill = (await body(await readRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) }))).recipe as Json;
     expect((originalStill.steps as Json[]).map((s) => (s.output as Json).id)).toEqual(
       (originalBefore.steps as Json[]).map((s) => (s.output as Json).id),
     );
@@ -740,7 +740,7 @@ describe("editing and removing through the surface", () => {
 
     const edited = await body(
       await editStep(
-        post({ parameters: { sql: "SELECT 2 AS n", name: "prop_out" } }),
+        testAccountRequest(post({ parameters: { sql: "SELECT 2 AS n", name: "prop_out" } })),
         { params: Promise.resolve({ id, stepId: step.id as string }) },
       ),
     );
@@ -760,7 +760,7 @@ describe("editing and removing through the surface", () => {
     await laneSettled();
 
     const removed = await body(
-      await removeStep(post({}), {
+      await removeStep(testAccountRequest(post({})), {
         params: Promise.resolve({ id, stepId: step.id as string }),
       }),
     );

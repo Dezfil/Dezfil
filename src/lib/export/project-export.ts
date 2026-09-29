@@ -113,11 +113,11 @@ export async function assembleProjectExport(
   });
   const workflowDocs = await Promise.all(
     recipes.map(async (id) => {
-      const wire = recipePayload(await readRecipe(id));
+      const wire = recipePayload(await readRecipe(scope, id));
       return {
         id,
         name: wire.name,
-        doc: workflowProjection(wire, layoutPayload(readLayout(id))),
+        doc: workflowProjection(wire, layoutPayload(readLayout(scope, id))),
       };
     }),
   );

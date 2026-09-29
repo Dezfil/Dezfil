@@ -168,8 +168,8 @@ async function assertPublished(stepId: string, input: DataTable, expectedValue: 
   }]);
   expect.soft(edgesForStep(stepId)).toHaveLength(1);
   // First public service reads, independent of the persisted edge assertion.
-  const single = await readStep(recipeId, stepId);
-  const whole = await readRecipe(recipeId);
+  const single = await readStep(testAccountScope(), recipeId, stepId);
+  const whole = await readRecipe(testAccountScope(), recipeId);
   for (const view of [single, whole.steps.find((s) => s.step.id === stepId)!]) {
     expect.soft(view.latestAttempt?.state).toBe("succeeded");
     expect.soft(view.condition.primary).toBe(condition);
@@ -284,7 +284,7 @@ describe("lineage pinned to the run", () => {
       inputTableId: producer.id, inputTableName: producer.name, boundArtifact: producer.file,
     }]);
     expect(edgesForStep(two.id)).toHaveLength(1);
-    for (const view of [await readStep(recipeId, two.id), (await readRecipe(recipeId)).steps[1]]) {
+    for (const view of [await readStep(testAccountScope(), recipeId, two.id), (await readRecipe(testAccountScope(), recipeId)).steps[1]]) {
       expect(view.latestAttempt?.state).toBe("succeeded");
       expect.soft(view.condition.primary).toBe("stale");
       expect.soft(view.condition.causes).toEqual([{
@@ -299,7 +299,7 @@ describe("lineage pinned to the run", () => {
     await cascadeSettled(clean.id);
     expect(readCascade(clean.id).outcome).toBe("completed");
     expect(readCascade(clean.id).members.map((m) => m.state)).toEqual(["succeeded", "succeeded"]);
-    const recipe = await readRecipe(recipeId);
+    const recipe = await readRecipe(testAccountScope(), recipeId);
     expect(recipe.steps.map((s) => s.condition.primary)).toEqual(["current", "current"]);
     expect(recipe.steps.map((s) => s.condition.causes)).toEqual([[], []]);
     for (const [s, previous] of [[one, producer], [two, dependent]] as const) {

@@ -58,10 +58,10 @@ async function newRecipe(name = "R"): Promise<string> {
 }
 const sqlStep = (sql: string, name: unknown) => ({ operation: "sql_step", parameters: name === undefined ? { sql } : { sql, name } });
 async function add(id: string, sql: string, name: unknown) {
-  return addStep(post(sqlStep(sql, name)), P(id));
+  return addStep(testAccountRequest(post(sqlStep(sql, name))), P(id));
 }
 async function stepsOf(id: string): Promise<Json[]> {
-  return ((await body(await readRecipe(post({}), P(id)))).recipe as Json).steps as Json[];
+  return ((await body(await readRecipe(testAccountRequest(post({})), P(id)))).recipe as Json).steps as Json[];
 }
 async function refused(response: Response, code: string, pattern: RegExp) {
   expect(response.status).toBe(400);
@@ -98,13 +98,13 @@ describe("the name rule at add and edit", () => {
     expect(second.status).toBe(201);
     const secondId = ((await body(second)).step as Json).id as string;
     await refused(
-      await editStep(post({ parameters: { sql: "SELECT 1 AS n", name: "first_out" } }), PS(id, secondId)),
+      await editStep(testAccountRequest(post({ parameters: { sql: "SELECT 1 AS n", name: "first_out" } })), PS(id, secondId)),
       "name_taken",
       /already declares "first_out"/,
     );
     // Its own name again is not a conflict, and a free one is stored registered.
-    expect((await editStep(post({ parameters: { sql: "SELECT 2 AS n", name: "second_out" } }), PS(id, secondId))).status).toBe(200);
-    const renamed = await editStep(post({ parameters: { sql: "SELECT 2 AS n", name: "Second Out Two" } }), PS(id, secondId));
+    expect((await editStep(testAccountRequest(post({ parameters: { sql: "SELECT 2 AS n", name: "second_out" } })), PS(id, secondId))).status).toBe(200);
+    const renamed = await editStep(testAccountRequest(post({ parameters: { sql: "SELECT 2 AS n", name: "Second Out Two" } })), PS(id, secondId));
     expect(renamed.status).toBe(200);
     expect((((await body(renamed)).step as Json).parameters as Json).name).toBe("second_out_two");
     // Another workflow may declare first_out too: no reservation across workflows.
@@ -120,17 +120,17 @@ describe("the name rule at add and edit", () => {
     await laneSettled();
     expect(((await stepsOf(id))[0].output as Json).name).toBe("frozen_out");
     await refused(
-      await editStep(post({ parameters: { sql: "SELECT name FROM stations", name: "frozen_out_2" } }), PS(id, stepId)),
+      await editStep(testAccountRequest(post({ parameters: { sql: "SELECT name FROM stations", name: "frozen_out_2" } })), PS(id, stepId)),
       "invalid_request",
       /"frozen_out" keeps its name after its first run/,
     );
     // A definition that leaves the name out is a change to it: refused the same way.
     await refused(
-      await editStep(post({ parameters: { sql: "SELECT name FROM stations" } }), PS(id, stepId)),
+      await editStep(testAccountRequest(post({ parameters: { sql: "SELECT name FROM stations" } })), PS(id, stepId)),
       "invalid_request",
       /"frozen_out" keeps its name after its first run/,
     );
-    const other = await editStep(post({ parameters: { sql: "SELECT name, lon FROM stations", name: "frozen_out" } }), PS(id, stepId));
+    const other = await editStep(testAccountRequest(post({ parameters: { sql: "SELECT name, lon FROM stations", name: "frozen_out" } })), PS(id, stepId));
     expect(other.status).toBe(200);
     expect((await body(other)).applied).toBe("proposed");
   }, 90_000);
@@ -145,24 +145,24 @@ describe("proposals and their discard", () => {
     expect((await runStep(testAccountRequest(post({})), PS(id, stepId))).status).toBe(202);
     await laneSettled();
     // A change after the run is a proposal.
-    const changed = await editStep(post({ parameters: { sql: "SELECT name, lon FROM stations", name: "prop_out" } }), PS(id, stepId));
+    const changed = await editStep(testAccountRequest(post({ parameters: { sql: "SELECT name, lon FROM stations", name: "prop_out" } })), PS(id, stepId));
     expect((await body(changed)).applied).toBe("proposed");
     expect((await stepsOf(id))[0].proposedParameters).not.toBeNull();
     // Putting the active values back, keys in another order, clears it.
-    const restored = await editStep(post({ parameters: { name: "prop_out", sql: "SELECT name FROM stations" } }), PS(id, stepId));
+    const restored = await editStep(testAccountRequest(post({ parameters: { name: "prop_out", sql: "SELECT name FROM stations" } })), PS(id, stepId));
     expect((await body(restored)).applied).toBe("active");
     expect((await stepsOf(id))[0].proposedParameters).toBeNull();
     // Discard clears a fresh proposal in one call; without one it changes nothing and says so.
-    await editStep(post({ parameters: { sql: "SELECT name, lat FROM stations", name: "prop_out" } }), PS(id, stepId));
-    const dropped = await discard(post({}), PS(id, stepId));
+    await editStep(testAccountRequest(post({ parameters: { sql: "SELECT name, lat FROM stations", name: "prop_out" } })), PS(id, stepId));
+    const dropped = await discard(testAccountRequest(post({})), PS(id, stepId));
     expect(dropped.status).toBe(200);
     expect((await body(dropped)).discarded).toBe(true);
     const steps = await stepsOf(id);
     expect(steps[0].proposedParameters).toBeNull();
     expect((steps[0].parameters as Json).sql).toBe("SELECT name FROM stations");
-    const nothing = await discard(post({}), PS(id, stepId));
+    const nothing = await discard(testAccountRequest(post({})), PS(id, stepId));
     expect((await body(nothing)).discarded).toBe(false);
-    expect((await discard(post({}), PS(id, "nope"))).status).toBe(404);
+    expect((await discard(testAccountRequest(post({})), PS(id, "nope"))).status).toBe(404);
   }, 90_000);
 
 });
@@ -179,18 +179,18 @@ describe("the order inside an edit, and SQL that does not parse", () => {
     await add(id, "SELECT lon FROM stations", "ord_d");
     expect(await order(id)).toEqual(["ord_a", "ord_b", "ord_c", "ord_d"]);
     // a now reads d: a and b move after d; c keeps its place before d.
-    const linked = await editStep(post({ parameters: { sql: "SELECT * FROM ord_d", name: "ord_a" } }), PS(id, a));
+    const linked = await editStep(testAccountRequest(post({ parameters: { sql: "SELECT * FROM ord_d", name: "ord_a" } })), PS(id, a));
     expect(linked.status).toBe(200);
     expect(await order(id)).toEqual(["ord_c", "ord_d", "ord_a", "ord_b"]);
     // d cannot come to read b: b depends on a, which now depends on d — a cycle;
     // the input and the order are both as they were.
     const d = (await stepsOf(id)).find((s) => (s.parameters as Json).name === "ord_d")!.id as string;
-    const cyclic = await editStep(post({ parameters: { sql: "SELECT * FROM ord_b", name: "ord_d" } }), PS(id, d));
+    const cyclic = await editStep(testAccountRequest(post({ parameters: { sql: "SELECT * FROM ord_b", name: "ord_d" } })), PS(id, d));
     expect(cyclic.status).toBe(400);
     expect(await order(id)).toEqual(["ord_c", "ord_d", "ord_a", "ord_b"]);
     expect(((await stepsOf(id)).find((s) => s.id === d)!.parameters as Json).sql).toBe("SELECT lon FROM stations");
     // A self-read is still refused.
-    expect((await editStep(post({ parameters: { sql: "SELECT * FROM ord_d", name: "ord_d" } }), PS(id, d))).status).toBe(400);
+    expect((await editStep(testAccountRequest(post({ parameters: { sql: "SELECT * FROM ord_d", name: "ord_d" } })), PS(id, d))).status).toBe(400);
   });
 
   it("keeps the other steps' reads for the reorder when a sibling's SQL cannot be read", async () => {
@@ -203,7 +203,7 @@ describe("the order inside an edit, and SQL that does not parse", () => {
     expect(await order(id)).toEqual(["tol_a", "tol_b", "tol_bad", "tol_d"]);
     // a now reads d: b, which reads a, must move with it — the malformed
     // sibling must not have erased b's read of a.
-    const linked = await editStep(post({ parameters: { sql: "SELECT * FROM tol_d", name: "tol_a" } }), PS(id, a));
+    const linked = await editStep(testAccountRequest(post({ parameters: { sql: "SELECT * FROM tol_d", name: "tol_a" } })), PS(id, a));
     expect(linked.status).toBe(200);
     expect(await order(id)).toEqual(["tol_bad", "tol_d", "tol_a", "tol_b"]);
   });
@@ -216,19 +216,19 @@ describe("the order inside an edit, and SQL that does not parse", () => {
     expect(steps[0].reads).toEqual([]);
     expect((steps[0].parameters as Json).sql).toBe("SELEC nonsense FROM");
     const stepId = steps[0].id as string;
-    const edited = await editStep(post({ parameters: { sql: "SELECT name FROM stations WHERE", name: "bad_sql" } }), PS(id, stepId));
+    const edited = await editStep(testAccountRequest(post({ parameters: { sql: "SELECT name FROM stations WHERE", name: "bad_sql" } })), PS(id, stepId));
     expect(edited.status).toBe(200);
     steps = await stepsOf(id);
     expect(steps[0].reads).toEqual([]);
     // Once it parses, the reads are back.
-    await editStep(post({ parameters: { sql: "SELECT name FROM stations", name: "bad_sql" } }), PS(id, stepId));
+    await editStep(testAccountRequest(post({ parameters: { sql: "SELECT name FROM stations", name: "bad_sql" } })), PS(id, stepId));
     expect((await stepsOf(id))[0].reads).toEqual(["stations"]);
   });
 
 });
 
 describe("removal truth", () => {
-  const remove = (id: string, stepId: string) => removeStep(post({}), PS(id, stepId));
+  const remove = (id: string, stepId: string) => removeStep(testAccountRequest(post({})), PS(id, stepId));
 
   it("says whether the dataset exists, was deleted, or never was, and who reads its name", async () => {
     const id = await newRecipe();

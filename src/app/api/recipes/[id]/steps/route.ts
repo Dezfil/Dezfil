@@ -1,3 +1,5 @@
+import { resourceAbsent } from "@/lib/auth/owned-resource";
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
@@ -7,7 +9,7 @@ import {
   listSteps,
   touchRecipe,
   type RecipeStep,
-} from "@/lib/metadata/recipes";
+} from "@/lib/metadata/owned-recipes";
 import { findOperation } from "@/lib/operations/catalog";
 import { outputNameRefusal, registeredOutputName } from "@/lib/operations/output-names";
 import { assertBackwardOnly } from "@/lib/operations/recipe-order";
@@ -38,9 +40,10 @@ type Params = { params: Promise<{ id: string }> };
  */
 export async function POST(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
-    if (!getRecipe(id)) {
-      throw new ApiError("not_found", `No recipe with id "${id}".`, 404);
+    if (!getRecipe(scope, id)) {
+      throw resourceAbsent();
     }
     const body = await jsonBody(request);
     const operation = findOperation(requireString(body, "operation"));
@@ -53,7 +56,7 @@ export async function POST(request: Request, { params }: Params) {
 
     let origin: Record<string, unknown> | null = null;
     if (typeof body.fromLayerId === "string" && body.fromLayerId !== "") {
-      const captured = captureLayerSource(body.fromLayerId);
+      const captured = captureLayerSource(scope, body.fromLayerId);
       parameters.sql = captured.sql;
       origin = captured.origin;
     }
@@ -61,10 +64,10 @@ export async function POST(request: Request, { params }: Params) {
     const db = metadataDb();
     // The name rule: refused in its own words, or stored in its
     // registered form.
-    const refusal = outputNameRefusal({ db, recipeId: id, stepId: null, produced: null, typed: parameters.name });
+    const refusal = outputNameRefusal({ scope, db, recipeId: id, stepId: null, produced: null, typed: parameters.name });
     if (refusal) throw refusal;
     if (typeof parameters.name === "string") parameters.name = registeredOutputName(parameters.name);
-    const existing = listSteps(id, db);
+    const existing = listSteps(scope, id, db);
     const stamp = (list: RecipeStep[]) => list.map((s) => `${s.id}:${s.ordinal}:${s.updatedAt}`).join("|");
     const before = stamp(existing);
     // What the new step would read, resolved before anything is written:
@@ -91,18 +94,18 @@ export async function POST(request: Request, { params }: Params) {
     // Committed only if nothing moved under the checks — another edit may
     // have claimed the name or changed the order meanwhile.
     const step = db.transaction(() => {
-      if (stamp(listSteps(id, db)) !== before) {
+      if (stamp(listSteps(scope, id, db)) !== before) {
         throw new ApiError("invalid_request", "This workflow changed while the node was being checked. Try again.", 409);
       }
-      const again = outputNameRefusal({ db, recipeId: id, stepId: null, produced: null, typed: parameters.name });
+      const again = outputNameRefusal({ scope, db, recipeId: id, stepId: null, produced: null, typed: parameters.name });
       if (again) throw again;
-      const added = addStep(id, { operation: operation.id, parameters, origin }, db);
+      const added = addStep(scope, id, { operation: operation.id, parameters, origin }, db);
       // Accepted, so the recipe is edited.
-      touchRecipe(id, db);
+      touchRecipe(scope, id, db);
       return added;
     })();
     return NextResponse.json(
-      { step: stepPayload(await readStep(id, step.id)) },
+      { step: stepPayload(await readStep(scope, id, step.id)) },
       {
         status: 201,
         headers: { Location: `/api/recipes/${id}/steps/${step.id}` },

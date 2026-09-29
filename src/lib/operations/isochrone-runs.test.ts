@@ -577,13 +577,13 @@ describe("lineage is the source's, and the fence holds", () => {
     const edges = edgesForStep(step.id);
     expect(edges).toHaveLength(1);
     expect(edges[0].boundArtifact).toBe(before);
-    expect((await readStep(recipe.id, step.id)).condition.primary).toBe(
+    expect((await readStep(testAccountScope(), recipe.id, step.id)).condition.primary).toBe(
       "current",
     );
 
     await refreshTable(testAccountScope(), "origins");
     expect(getTableByName("origins")!.file).not.toBe(before);
-    const condition = (await readStep(recipe.id, step.id)).condition;
+    const condition = (await readStep(testAccountScope(), recipe.id, step.id)).condition;
     expect(condition.primary).toBe("stale");
     expect(condition.causes.map((c) => c.reason)).toContain("source_changed");
   });

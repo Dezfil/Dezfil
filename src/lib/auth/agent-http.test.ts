@@ -1,3 +1,6 @@
+import { createRecipe, addStep } from "@/lib/metadata/recipes";
+import { GET as workflowRead } from "@/app/api/recipes/[id]/route";
+import { GET as workflowStepRead } from "@/app/api/recipes/[id]/steps/[stepId]/route";
 import { insertConnection } from "@/lib/metadata/connections";
 import { GET as connectionSnapshots } from "@/app/api/connections/postgis/[id]/snapshots/route";
 import { GET as connectionsRead } from "@/app/api/connections/postgis/route";
@@ -117,6 +120,8 @@ function actualApi() {
       seen.push({ path, accountId: actor.account.id, authorization: req.headers.get("authorization") ?? "", cookie: req.headers.get("cookie") });
       if (path === "/api/connections/postgis") return connectionsRead(req);
       if (/^\/api\/connections\/postgis\/[^/]+\/snapshots$/.test(path)) return connectionSnapshots(req, { params: Promise.resolve({ id: path.split("/")[4] }) });
+      if (/^\/api\/recipes\/[^/]+$/.test(path)) return workflowRead(req, { params: Promise.resolve({ id: path.split("/")[3] }) });
+      if (/^\/api\/recipes\/[^/]+\/steps\/[^/]+$/.test(path)) return workflowStepRead(req, { params: Promise.resolve({ id: path.split("/")[3], stepId: path.split("/")[5] }) });
       if (path === "/api/tables") return datasetsRead(req);
       if (/^\/api\/tables\/[^/]+\/features$/.test(path)) return datasetFeatures(req, { params: Promise.resolve({ name: path.split("/")[3] }) });
       if (path === "/api/account") return accountRead(req);
@@ -467,4 +472,33 @@ it.each(["cookie", "token"])("MCP and assistant %s calls preserve connection own
     expect(results[0].body).toMatchObject({ error: { code: "not_found" } }); expect(results[0].body).toEqual(results[1].body);
   }
   expect(db.prepare("SELECT * FROM pg_connections ORDER BY id").all()).toEqual(before);
+});
+it.each(["cookie", "token"])("MCP and assistant %s calls preserve workflow parent and step ownership", async mode => {
+  actualApi();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db), actors = [admin, member, other];
+  const recipes = actors.map(actor => createRecipe(accountScope(authenticateSession(actor.secret, db)!, db), "Private workflow", db));
+  const steps = recipes.map(recipe => addStep(recipe.id, { operation: "sql_step", parameters: { name: "roads", sql: "SELECT 1" } }, db));
+  const before = db.prepare("SELECT * FROM recipe_steps ORDER BY id").all();
+  for (let i = 0; i < actors.length; i++) {
+    const actor = actors[i], next = (i + 1) % actors.length;
+    const credential = createApiToken(authenticateSession(actor.secret, db)!, "Private workflows", db);
+    const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+    expect(await rpc("get_recipe_step", { id: recipes[i].id, stepId: steps[i].id }, headers)).toMatchObject({ isError: false });
+    const hidden = await rpc("get_recipe_step", { id: recipes[i].id, stepId: steps[next].id }, headers);
+    expect(hidden).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "not_found" } } } });
+    expect(hidden).toEqual(await rpc("get_recipe_step", { id: recipes[i].id, stepId: "missing" }, headers));
+    factory.provider = stubProvider([
+      { text: "", toolCalls: [
+        { id: "hidden", name: "get_recipe", args: { id: recipes[next].id } },
+        { id: "missing", name: "get_recipe", args: { id: "missing" } },
+      ] },
+      { text: "Unavailable", toolCalls: [] },
+    ]);
+    const events = await send({ runId: await ownReservation(headers), message: "Read these workflows" }, headers);
+    const results = events.filter((event): event is Extract<AssistantEvent, { type: "tool_result" }> => event.type === "tool_result");
+    expect(results).toHaveLength(2); expect(results.map(result => result.ok)).toEqual([false, false]);
+    expect(results[0].body).toMatchObject({ error: { code: "not_found" } }); expect(results[0].body).toEqual(results[1].body);
+  }
+  expect(db.prepare("SELECT * FROM recipe_steps ORDER BY id").all()).toEqual(before);
 });

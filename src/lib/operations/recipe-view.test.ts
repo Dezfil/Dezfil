@@ -46,7 +46,7 @@ const sql = (query: string, name: string) => ({
 async function publish(recipeId: string, stepId: string) {
   const run = await startSingleRun(testAccountScope(), recipeId, stepId);
   await cascadeSettled(run.id);
-  const step = (await readRecipe(recipeId)).steps.find((candidate) => candidate.step.id === stepId);
+  const step = (await readRecipe(testAccountScope(), recipeId)).steps.find((candidate) => candidate.step.id === stepId);
   expect(step?.step.outputTableId).not.toBeNull();
 }
 
@@ -64,7 +64,7 @@ describe("prospective missing inputs use the next-run definition", () => {
     );
     await publish(recipe.id, consumer.id);
 
-    const before = await readRecipe(recipe.id);
+    const before = await readRecipe(testAccountScope(), recipe.id);
     expect(before.steps.map((candidate) => candidate.condition.primary)).toEqual([
       "current",
       "current",
@@ -77,7 +77,7 @@ describe("prospective missing inputs use the next-run definition", () => {
       }),
     ).toBe("proposed");
 
-    const view = await readRecipe(recipe.id);
+    const view = await readRecipe(testAccountScope(), recipe.id);
     const pending = view.steps.find(
       (candidate) => candidate.step.id === producer.id,
     )!;
@@ -94,7 +94,7 @@ describe("prospective missing inputs use the next-run definition", () => {
     expect(view.summary).toMatchObject({ status: "cannot_run", count: 1 });
 
     discardProposal(producer.id);
-    const restored = await readRecipe(recipe.id);
+    const restored = await readRecipe(testAccountScope(), recipe.id);
     expect(restored.steps.map((candidate) => candidate.condition.primary)).toEqual([
       "current",
       "current",
@@ -109,7 +109,7 @@ describe("prospective missing inputs use the next-run definition", () => {
       sql("SELECT * FROM unpublished_table_that_does_not_exist", "never_out"),
     );
 
-    const view = await readRecipe(recipe.id);
+    const view = await readRecipe(testAccountScope(), recipe.id);
     const unpublished = view.steps.find((candidate) => candidate.step.id === step.id)!;
     expect(unpublished.condition.conditions).toEqual(["broken", "never_run"]);
     expect(unpublished.condition.missingInputs.map((input) => input.tableName)).toEqual([
@@ -126,7 +126,7 @@ describe("prospective missing inputs use the next-run definition", () => {
     );
     addStep(recipe.id, sql("SELECT name FROM stations", "produced_later"));
 
-    const view = await readRecipe(recipe.id);
+    const view = await readRecipe(testAccountScope(), recipe.id);
     const unpublished = view.steps.find(
       (candidate) => candidate.step.id === forward.id,
     )!;
@@ -153,7 +153,7 @@ describe("prospective missing inputs use the next-run definition", () => {
       ),
     ).toBe("proposed");
 
-    const view = await readRecipe(recipe.id);
+    const view = await readRecipe(testAccountScope(), recipe.id);
     const pending = view.steps.find((candidate) => candidate.step.id === consumer.id)!;
     expect(pending.reads).toEqual(["planned_source"]);
     expect(pending.condition.conditions).not.toContain("broken");
@@ -169,7 +169,7 @@ describe("prospective missing inputs use the next-run definition", () => {
       editStep(step.id, { sql: "SELEC nonsense FROM", name: "unreadable_out" }),
     ).toBe("proposed");
 
-    const view = await readRecipe(recipe.id);
+    const view = await readRecipe(testAccountScope(), recipe.id);
     const pending = view.steps.find((candidate) => candidate.step.id === step.id)!;
     expect(pending.reads).toEqual([]);
     expect(pending.condition.conditions).not.toContain("broken");

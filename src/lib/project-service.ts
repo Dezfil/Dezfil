@@ -8,7 +8,7 @@ import {
   type MemberChange,
   type ProjectRecord,
 } from "@/lib/metadata/projects";
-import { listRecipes } from "@/lib/metadata/recipes";
+import { listRecipes } from "@/lib/metadata/owned-recipes";
 import { mapsOverview, type MapOverview } from "@/lib/map-service";
 import { listTablesWithSize, type TableListing } from "@/lib/table-service";
 import { readRecipe } from "@/lib/operations/recipe-view";
@@ -110,8 +110,8 @@ export async function projectMembers(scope: AccountScope, id: string): Promise<P
   requireOwnedResource(scope, "project", id);
   requireProject(id);
   const recipes = await Promise.all(
-    listRecipes(undefined, { origin: "workflow", project: id }).map(async (r) =>
-      recipePayload(await readRecipe(r.id)),
+    listRecipes(scope, undefined, { origin: "workflow", project: id }).map(async (r) =>
+      recipePayload(await readRecipe(scope, r.id)),
     ),
   );
   return {

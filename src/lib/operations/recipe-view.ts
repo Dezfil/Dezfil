@@ -1,13 +1,15 @@
-import { ApiError } from "@/lib/api/errors";
+import type { AccountScope } from "@/lib/auth/scope";
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { listJobs, type OperationJob } from "@/lib/metadata/jobs";
 import { edgesForStep, type LineageEdge } from "@/lib/metadata/lineage";
 import {
-  getRecipe,
+  requireRecipe,
+  requireStep,
   listSteps,
   type Recipe,
   type RecipeStep,
-} from "@/lib/metadata/recipes";
-import { listTables } from "@/lib/metadata/tables";
+} from "@/lib/metadata/owned-recipes";
+import { listOwnedTables } from "@/lib/metadata/owned-tables";
 import {
   deriveConditions,
   type ConditionEdge,
@@ -58,8 +60,8 @@ export interface RecipeView {
 /** The artifact each registered table currently holds. A table absent from
  * this map has been deleted, which is what makes a step *broken* rather than
  * merely out of date. */
-export function currentArtifacts(): Map<string, string> {
-  return new Map(listTables().map((t) => [t.id, t.file]));
+export function currentArtifacts(scope: AccountScope): Map<string, string> {
+  return new Map(listOwnedTables(scope).map((t) => [t.id, t.file]));
 }
 
 /**
@@ -72,11 +74,12 @@ export function currentArtifacts(): Map<string, string> {
  * broken and can never make one stale: nothing was ever bound to be behind.
  */
 function prospectiveEdges(
+  scope: AccountScope,
   steps: RecipeStep[],
   readsByStepId: Map<string, string[]>,
   recordedByStepId: Map<string, { inputTableName: string }[]>,
 ): ConditionEdge[] {
-  const byName = new Map(listTables().map((t) => [t.name.toLowerCase(), t]));
+  const byName = new Map(listOwnedTables(scope).map((t) => [t.name.toLowerCase(), t]));
   const reads = steps.map((step) => {
     const names = readsByStepId.get(step.id) ?? [];
     const earlier = steps.filter((candidate) => candidate.ordinal < step.ordinal);
@@ -127,18 +130,15 @@ async function presentReads(steps: RecipeStep[]): Promise<Map<string, string[]>>
   return new Map(entries);
 }
 
-export async function readRecipe(recipeId: string): Promise<RecipeView> {
-  const recipe = getRecipe(recipeId);
-  if (!recipe) {
-    throw new ApiError("not_found", `No recipe with id "${recipeId}".`, 404);
-  }
-  const steps = listSteps(recipeId);
+export async function readRecipe(scope: AccountScope, recipeId: string): Promise<RecipeView> {
+  const recipe = requireRecipe(scope, recipeId);
+  const steps = listSteps(scope, recipeId);
   const reads = await presentReads(steps);
   const edgesByStep = new Map(steps.map((s) => [s.id, edgesForStep(s.id)]));
-  for (const edge of prospectiveEdges(steps, reads, edgesByStep)) {
+  for (const edge of prospectiveEdges(scope, steps, reads, edgesByStep)) {
     edgesByStep.get(edge.stepId)?.push(edge);
   }
-  const artifacts = currentArtifacts();
+  const artifacts = currentArtifacts(scope);
   const conditions = deriveConditions({
     steps,
     edges: [...edgesByStep.values()].flat(),
@@ -153,23 +153,19 @@ export async function readRecipe(recipeId: string): Promise<RecipeView> {
     edges: edgesByStep.get(step.id) ?? [],
     reads: reads.get(step.id) ?? [],
   }));
+  requireOwnedResource(scope, "workflow", recipeId);
   return { recipe, steps: views, summary: summarizeRecipe(views, artifacts) };
 }
 
 /** One step's view, for the surfaces that address a step directly. */
 export async function readStep(
+  scope: AccountScope,
   recipeId: string,
   stepId: string,
 ): Promise<StepView> {
-  const found = (await readRecipe(recipeId)).steps.find(
+  requireStep(scope, recipeId, stepId);
+  const found = (await readRecipe(scope, recipeId)).steps.find(
     (s) => s.step.id === stepId,
   );
-  if (!found) {
-    throw new ApiError(
-      "not_found",
-      `No step with id "${stepId}" in this recipe.`,
-      404,
-    );
-  }
-  return found;
+  return found!;
 }
