@@ -1,3 +1,4 @@
+import { AuthError } from "@/lib/auth/errors";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { createWriteStream } from "node:fs";
@@ -9,7 +10,7 @@ import { ApiError } from "@/lib/api/errors";
 import { dataDir } from "@/lib/config";
 import type { DataTable } from "@/lib/metadata/tables";
 import { listOwnedTables } from "@/lib/metadata/owned-tables";
-import { projectMemberIds, requireProject } from "@/lib/metadata/projects";
+import { projectMemberIds, requireProject } from "@/lib/metadata/owned-projects";
 import { mapWithLayers } from "@/lib/map-service";
 import { recipePayload } from "@/lib/operations/recipe-api";
 import { readRecipe } from "@/lib/operations/recipe-view";
@@ -86,8 +87,11 @@ export async function assembleProjectExport(
   selection: ProjectExportSelection,
 ): Promise<PreparedProjectExport> {
   requireOwnedResource(scope, "project", projectId);
-  const project = requireProject(projectId);
-  const members = projectMemberIds(projectId);
+  const project = requireProject(scope, projectId);
+  const members = projectMemberIds(scope, projectId);
+  for (const id of selection.maps) requireOwnedResource(scope, "map", id);
+  for (const id of selection.recipes) requireOwnedResource(scope, "workflow", id);
+  for (const id of selection.tables) requireOwnedResource(scope, "dataset", id);
   const maps = canonical("maps", selection.maps, members.maps);
   const recipes = canonical("workflows", selection.recipes, members.recipes);
   const tables = canonical("datasets", selection.tables, members.tables);
@@ -222,6 +226,7 @@ export async function assembleProjectExport(
       try {
         converted = await exportTable(scope, t.name, effective);
       } catch (e) {
+        if (e instanceof AuthError || (e instanceof ApiError && e.code === "not_found")) throw e;
         throw new ApiError(
           "export_failed",
           `The dataset "${t.name}" could not be written as ` +
@@ -246,10 +251,14 @@ export async function assembleProjectExport(
         zip.end();
       }),
     );
+    await cleanConversions();
+    const { size } = await stat(staged);
+    requireProject(scope, projectId);
+    return { path: staged, filename: `${base}.zip`, size };
   } catch (e) {
     await rm(staged, { force: true });
     await cleanConversions();
-    if (e instanceof ApiError) throw e;
+    if (e instanceof ApiError || e instanceof AuthError) throw e;
     throw new ApiError(
       "export_failed",
       `The archive could not be assembled: ${
@@ -258,8 +267,4 @@ export async function assembleProjectExport(
       500,
     );
   }
-  await cleanConversions();
-
-  const { size } = await stat(staged);
-  return { path: staged, filename: `${base}.zip`, size };
 }

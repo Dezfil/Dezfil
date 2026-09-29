@@ -1,3 +1,4 @@
+import { projectAccess } from "./openapi-project-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { PROJECT_EXPORT_TICKET } from "./openapi-tool-responses";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_TRANSIENT_READ, LOCAL_REPLACE } from "./operation-mcp";
@@ -19,7 +20,7 @@ export const PROJECT_SCOPE_PARAM = {
 
 export const PROJECT_PATHS = {
   "/api/projects": {
-    get: op({
+    get: op(projectAccess({
       summary: "List projects",
       description:
         "Every project with its member counts (maps, workflows as " +
@@ -33,8 +34,8 @@ export const PROJECT_PATHS = {
       display: {"verb": "Listed the projects"},
       effects: READ_ONLY,
       responses: { "200": jsonOk("#/components/schemas/ProjectList") },
-    }),
-    post: ownedCreationOp({
+    })),
+    post: ownedCreationOp(projectAccess({
       summary: "Create a project",
       description:
         "The name is trimmed, must not be empty, and is at most 120 " +
@@ -68,10 +69,10 @@ export const PROJECT_PATHS = {
       responses: {
         "201": jsonOk("#/components/schemas/Project", "Created."),
       },
-    }),
+    })),
   },
   "/api/projects/{id}": {
-    get: op({
+    get: op(projectAccess({
       summary: "Read a project",
       description:
         "One project with its member counts and size. Its workflows " +
@@ -82,8 +83,8 @@ export const PROJECT_PATHS = {
       effects: READ_ONLY,
       parameters: [pathParam("id", "Project id.")],
       responses: { "200": jsonOk("#/components/schemas/Project") },
-    }),
-    patch: op({
+    })),
+    patch: op(projectAccess({
       summary: "Rename a project or edit its note",
       description:
         "Renaming and the note follow the creation rules; a null " +
@@ -110,8 +111,8 @@ export const PROJECT_PATHS = {
         },
       },
       responses: { "200": jsonOk("#/components/schemas/Project") },
-    }),
-    delete: op({
+    })),
+    delete: op(projectAccess({
       summary: "Delete a project",
       description:
         "The set dissolves: memberships are removed and every map, " +
@@ -142,10 +143,10 @@ export const PROJECT_PATHS = {
           },
         },
       },
-    }),
+    })),
   },
   "/api/projects/{id}/members": {
-    get: op({
+    get: op(projectAccess({
       summary: "Read a project's members",
       description:
         "The composite: the project's maps, workflow-origin recipes " +
@@ -157,8 +158,8 @@ export const PROJECT_PATHS = {
       effects: READ_ONLY,
       parameters: [pathParam("id", "Project id.")],
       responses: { "200": jsonOk("#/components/schemas/ProjectMembers") },
-    }),
-    patch: op({
+    })),
+    patch: op(projectAccess({
       summary: "Change a project's members",
       description:
         "One atomic change: adds and removes for maps, " +
@@ -185,10 +186,10 @@ export const PROJECT_PATHS = {
         },
       },
       responses: { "200": jsonOk("#/components/schemas/ProjectMembers") },
-    }),
+    })),
   },
   "/api/projects/{id}/export": {
-    post: op({
+    post: op(projectAccess({
       summary: "Export a project as one archive",
       description:
         "A chosen subset of the project's members as one zip: " +
@@ -284,7 +285,7 @@ export const PROJECT_PATHS = {
           },
         },
       },
-    }),
+    })),
     get: op({
       summary: "Redeem a prepared project export",
       description:

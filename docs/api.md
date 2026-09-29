@@ -314,3 +314,14 @@ requests. Refused compound changes leave definitions and filing unchanged.
 Output-name conflicts and duplication consider only that account's datasets
 and declarations; same-workflow conflicts and the frozen name of an existing
 output retain their previous rules. Deleting a workflow leaves its datasets.
+
+Projects, member counts and membership operations are account-scoped. Every
+member in a compound change must have the same owner as the project; a hidden
+or missing member returns the generic `404 not_found` and the whole change
+rolls back. Initial filing follows the same rule. Deleting a project unfiles
+its contents without deleting or transferring them. Export selections are
+checked before archive assembly and account activity is checked again before
+returning the completed file. A hidden or missing selected export member now
+returns `404 not_found` rather than `400 invalid_request`; this is a breaking
+error-contract change. An owned resource outside the project still returns
+`400 invalid_request`.

@@ -125,7 +125,7 @@ describe("project rows", () => {
         { name: "Doomed", members: { addMaps: ["m1"], addTables: ["t-none"] } },
         db,
       ),
-    ).toThrow(/No dataset/);
+    ).toThrow(expect.objectContaining({ code: "not_found", status: 404 }));
     expect(listProjects(db).length).toBe(before);
     expect(mapProjectId("m1", db)).toBeNull();
   });

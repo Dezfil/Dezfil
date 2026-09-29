@@ -3,7 +3,7 @@ import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { sqlReferencesTable } from "@/lib/table-deps";
 import { metadataDb } from "./db";
-import { fileTable } from "./projects";
+import { fileTable } from "./owned-projects";
 import { tableFromRow, updateTableData, type TableRow, type DataTable, type TableDataUpdate } from "./tables";
 
 /** Select private rows before decoding provenance or inspecting an artifact. */
@@ -42,7 +42,7 @@ export function ownedTableProjectIds(scope: AccountScope, db: Database = metadat
 export function fileOwnedTable(scope: AccountScope, tableId: string, projectId: string, db: Database = metadataDb()): void {
   requireOwnedResource(scope, "dataset", tableId, db);
   requireOwnedResource(scope, "project", projectId, db);
-  fileTable(tableId, projectId, db);
+  fileTable(scope, tableId, projectId, db);
 }
 /** Dataset mutations invalidate only maps in the same account's SQL space. */
 export function ownedDependentLayerIds(scope: AccountScope, name: string, db: Database = metadataDb()): string[] {

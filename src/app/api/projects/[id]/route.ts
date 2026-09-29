@@ -5,7 +5,7 @@ import {
   deleteProject,
   requireProject,
   updateProject,
-} from "@/lib/metadata/projects";
+} from "@/lib/metadata/owned-projects";
 import { projectOverview } from "@/lib/project-service";
 
 type Params = { params: Promise<{ id: string }> };
@@ -36,7 +36,7 @@ export async function PATCH(request: Request, { params }: Params) {
       throw new ApiError("invalid_request", "Expected a JSON object body.", 400);
     }
     const body = parsed as Record<string, unknown>;
-    updateProject(id, { name: body.name, note: body.note });
+    updateProject(scope, id, { name: body.name, note: body.note });
     return NextResponse.json(await projectOverview(scope, id));
   } catch (error) {
     return errorResponse(error);
@@ -48,9 +48,10 @@ export async function PATCH(request: Request, { params }: Params) {
  * is a deletion that leaves things behind. */
 export async function DELETE(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id } = await params;
-    requireProject(id);
-    deleteProject(id);
+    requireProject(scope, id);
+    deleteProject(scope, id);
     return NextResponse.json({
       deleted: true,
       contentsRemain: true,

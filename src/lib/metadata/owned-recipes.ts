@@ -3,7 +3,7 @@ import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
 import { metadataDb } from "./db";
 import * as recipes from "./recipes";
-import { fileRecipe as fileRecipeRecord } from "./projects";
+export { fileRecipe } from "./owned-projects";
 export { createRecipe } from "./recipes";
 export type { Recipe, RecipeStep, NewStep, RecipeOrigin } from "./recipes";
 
@@ -87,13 +87,6 @@ export function reorderSteps(scope: AccountScope, recipeId: string, ids: string[
 }
 export function moveStep(scope: AccountScope, id: string, ordinal: number, db: Database = metadataDb()) {
   return db.transaction(() => { requireOwnedResource(scope, "step", id, db); return recipes.moveStep(id, ordinal, db); })();
-}
-export function fileRecipe(scope: AccountScope, id: string, projectId: string | null, db: Database = metadataDb()) {
-  return db.transaction(() => {
-    requireOwnedResource(scope, "workflow", id, db);
-    if (projectId !== null) requireOwnedResource(scope, "project", projectId, db);
-    return fileRecipeRecord(id, projectId, db);
-  })();
 }
 /** A copied definition keeps the owned source step's historical origin.
  * Captured SQL remains a snapshot after the original layer is deleted. */

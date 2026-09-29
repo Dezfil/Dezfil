@@ -1,3 +1,6 @@
+import { createProject } from "@/lib/metadata/projects";
+import { GET as projectRead, PATCH as projectUpdate } from "@/app/api/projects/[id]/route";
+import { GET as projectMembersRead } from "@/app/api/projects/[id]/members/route";
 import { createRecipe, addStep } from "@/lib/metadata/recipes";
 import { GET as workflowRead } from "@/app/api/recipes/[id]/route";
 import { GET as workflowStepRead } from "@/app/api/recipes/[id]/steps/[stepId]/route";
@@ -122,6 +125,11 @@ function actualApi() {
       if (/^\/api\/connections\/postgis\/[^/]+\/snapshots$/.test(path)) return connectionSnapshots(req, { params: Promise.resolve({ id: path.split("/")[4] }) });
       if (/^\/api\/recipes\/[^/]+$/.test(path)) return workflowRead(req, { params: Promise.resolve({ id: path.split("/")[3] }) });
       if (/^\/api\/recipes\/[^/]+\/steps\/[^/]+$/.test(path)) return workflowStepRead(req, { params: Promise.resolve({ id: path.split("/")[3], stepId: path.split("/")[5] }) });
+      if (/^\/api\/projects\/[^/]+$/.test(path)) {
+        const params = { params: Promise.resolve({ id: path.split("/")[3] }) };
+        return req.method === "PATCH" ? projectUpdate(req, params) : projectRead(req, params);
+      }
+      if (/^\/api\/projects\/[^/]+\/members$/.test(path)) return projectMembersRead(req, { params: Promise.resolve({ id: path.split("/")[3] }) });
       if (path === "/api/tables") return datasetsRead(req);
       if (/^\/api\/tables\/[^/]+\/features$/.test(path)) return datasetFeatures(req, { params: Promise.resolve({ name: path.split("/")[3] }) });
       if (path === "/api/account") return accountRead(req);
@@ -501,4 +509,32 @@ it.each(["cookie", "token"])("MCP and assistant %s calls preserve workflow paren
     expect(results[0].body).toMatchObject({ error: { code: "not_found" } }); expect(results[0].body).toEqual(results[1].body);
   }
   expect(db.prepare("SELECT * FROM recipe_steps ORDER BY id").all()).toEqual(before);
+});
+it.each(["cookie", "token"])("MCP and assistant %s calls preserve project ownership", async mode => {
+  actualApi();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db), actors = [admin, member, other];
+  const projects = actors.map(actor => createProject(accountScope(authenticateSession(actor.secret, db)!, db), { name: "Private project" }, db));
+  const before = db.prepare("SELECT * FROM projects ORDER BY id").all();
+  for (let i = 0; i < actors.length; i++) {
+    const actor = actors[i], hiddenId = projects[(i + 1) % actors.length].id;
+    const credential = createApiToken(authenticateSession(actor.secret, db)!, "Private projects", db);
+    const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+    expect(await rpc("get_project", { id: projects[i].id }, headers)).toMatchObject({ isError: false });
+    const hidden = await rpc("update_project", { id: hiddenId, name: "Changed" }, headers);
+    expect(hidden).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "not_found" } } } });
+    expect(hidden).toEqual(await rpc("update_project", { id: "missing", name: "Changed" }, headers));
+    factory.provider = stubProvider([
+      { text: "", toolCalls: [
+        { id: "hidden", name: "get_project_members", args: { id: hiddenId } },
+        { id: "missing", name: "get_project_members", args: { id: "missing" } },
+      ] },
+      { text: "Unavailable", toolCalls: [] },
+    ]);
+    const events = await send({ runId: await ownReservation(headers), message: "Read these projects" }, headers);
+    const results = events.filter((event): event is Extract<AssistantEvent, { type: "tool_result" }> => event.type === "tool_result");
+    expect(results).toHaveLength(2); expect(results.map(result => result.ok)).toEqual([false, false]);
+    expect(results[0].body).toMatchObject({ error: { code: "not_found" } }); expect(results[0].body).toEqual(results[1].body);
+  }
+  expect(db.prepare("SELECT * FROM projects ORDER BY id").all()).toEqual(before);
 });

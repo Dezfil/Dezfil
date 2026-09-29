@@ -1,8 +1,7 @@
-import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
-import { randomUUID } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "./db";
+export { createProject } from "./owned-projects";
 
 /**
  * Projects: the optional named set over maps, recipes and data tables.
@@ -302,31 +301,6 @@ export function changeMembers(
       unfileTable(id, projectId, db, at);
     }
   })();
-}
-
-export function createProject(
-  scope: AccountScope,
-  input: { name: unknown; note?: unknown; members?: MemberChange },
-  db: Database = metadataDb(),
-): ProjectRecord {
-  const ownerId = requireAccountScope(scope, db);
-  const now = new Date().toISOString();
-  const project: ProjectRecord = {
-    id: randomUUID(),
-    name: projectName(input.name),
-    note: input.note === undefined ? null : projectNote(input.note),
-    createdAt: now,
-    updatedAt: now,
-  };
-  db.transaction(() => {
-    db.prepare(
-      `INSERT INTO projects (owner_id, id, name, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
-    ).run(ownerId, project.id, project.name, project.note, project.createdAt, project.updatedAt);
-    // Initial members ride the same transaction: one invalid member
-    // leaves neither the project nor any membership.
-    if (input.members) changeMembers(project.id, input.members, db);
-  })();
-  return getProject(project.id, db) ?? project;
 }
 
 export function updateProject(

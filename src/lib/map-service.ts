@@ -1,3 +1,4 @@
+import { fileMap } from "@/lib/metadata/owned-projects";
 import { assertMapLayerRefs } from "./map-layer-refs";
 import { requireMap, mapWithLayers } from "./map-access";
 export { requireMap, mapWithLayers } from "./map-access";
@@ -41,7 +42,6 @@ import {
   type Viewport,
 } from "@/lib/metadata/maps";
 import {
-  fileMap,
   mapProjectId,
   touchProjectsOf,
 } from "@/lib/metadata/projects";
@@ -300,7 +300,7 @@ export function createMap(scope: AccountScope, name: string, projectId: string |
   metadataDb().transaction(() => {
     if (projectId) requireOwnedResource(scope, "project", projectId);
     insertMap(scope, map);
-    if (projectId) fileMap(map.id, projectId);
+    if (projectId) fileMap(scope, map.id, projectId);
   })();
   return map;
 }
@@ -596,7 +596,7 @@ export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
     const sourceProject = mapProjectId(id);
     if (sourceProject) {
       requireOwnedResource(scope, "project", sourceProject);
-      fileMap(newId, sourceProject);
+      fileMap(scope, newId, sourceProject);
     }
   })();
   return mapWithLayers(scope, newId);
