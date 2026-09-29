@@ -17,6 +17,28 @@ it("binds same-origin requests to the document account and preserves explicit ca
   await fetch("https://basemap.test/tile", { credentials: "omit" });
   expect(transport.mock.calls[1]).toEqual(["https://basemap.test/tile", { credentials: "omit" }]);
 });
+it.each([204, 205, 304])("discards a transport body for null-body status %s without losing the account fence", async status => {
+  const lifetime = new AbortController();
+  const response = new Response(null, { status, statusText: "No body", headers: { "x-sentinel": "retained" } });
+  // A browser transport can expose a stream even for a null-body status.
+  const pull = vi.fn();
+  vi.spyOn(response, "body", "get").mockReturnValue(new ReadableStream({ pull }, { highWaterMark: 0 }));
+  const fetch = privateFetch("alice", origin, vi.fn(async () => response), lifetime.signal, vi.fn());
+  const held = await fetch("/api/tables/stations");
+  expect(held.status).toBe(status);
+  expect(held.statusText).toBe("No body");
+  expect(held.headers.get("x-sentinel")).toBe("retained");
+  expect(held.body).toBeNull();
+  expect(await held.text()).toBe("");
+  const clone = held.clone();
+  expect(clone.status).toBe(status);
+  expect(clone.body).toBeNull();
+  expect(pull).not.toHaveBeenCalled();
+  lifetime.abort();
+  await expect(held.text()).rejects.toMatchObject({ name: "AbortError" });
+  await expect(clone.text()).rejects.toMatchObject({ name: "AbortError" });
+  expect(() => held.clone()).toThrow(expect.objectContaining({ name: "AbortError" }));
+});
 it("drops late headers even when the transport ignores cancellation and prevents later dispatch", async () => {
   const lifetime = new AbortController(), pending = deferred<Response>();
   const transport = vi.fn<typeof fetch>(() => pending.promise);

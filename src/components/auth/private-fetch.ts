@@ -3,7 +3,8 @@
  * body or a transport that settles after cancellation. */
 function guardedResponse(response: Response, assertCurrent: () => void): Response {
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
-  const body = response.body ? new ReadableStream<Uint8Array>({
+  const nullBodyStatus = response.status === 204 || response.status === 205 || response.status === 304;
+  const body = !nullBodyStatus && response.body ? new ReadableStream<Uint8Array>({
     async pull(controller) {
       try {
         assertCurrent();
