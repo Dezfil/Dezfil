@@ -1,26 +1,23 @@
+import { admit, type RunRequest } from "./run-admission";
+import { prune } from "./run-history";
+export { admitOwned, type RunRequest } from "./run-admission";
+export { prune, cancelRun, markAndSignalRunCancellation, pruneRunCancellation, waitForRunCancellation, type RunCancellation } from "./run-history";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { limits } from "@/lib/limits";
-import { boundedEvaluation } from "@/lib/query/bounded";
-import { assertReadOnlySelect } from "@/lib/query/guard";
-import { getTableByName, type DataTable } from "@/lib/metadata/tables";
-import { deriveTableName } from "@/lib/ingest/naming";
+import type { DataTable } from "@/lib/metadata/tables";
 import {
   deleteJob,
   finish,
-  getJob,
   insertJob,
   markRunning,
-  pruneSubject,
-  isTerminal,
   type OperationJob,
 } from "@/lib/metadata/jobs";
-import {
-  compileOperation,
-  type CompiledRun,
-  type PreparedPublication,
+import type {
+  CompiledRun,
+  PreparedPublication,
 } from "./compile";
 import { LostAuthority, materialize, type BoundInput } from "./materialize";
 import * as lane from "./lane";
@@ -40,18 +37,6 @@ import * as lane from "./lane";
  * an output behind.
  */
 
-export interface RunRequest {
-  operation: string;
-  parameters: Record<string, unknown>;
-  /**
-   * What groups this run with others in history. A caller may supply one —
-   * steps will supply their step id — and runs sharing it are one subject.
-   * Omitted, the run is its own subject, which is honest for a one-off and
-   * keeps history complete either way.
-   */
-  subject?: string;
-}
-
 function operationTimeout(): ApiError {
   return new ApiError(
     "operation_timeout",
@@ -60,110 +45,6 @@ function operationTimeout(): ApiError {
     )}s execution budget. Narrow it, or raise DEZFIL_OPERATION_TIMEOUT_S.`,
     408,
   );
-}
-
-/**
- * Everything refused before a job exists.
- *
- * Each of these is knowable without running the operation, so answering
- * immediately is both cheaper and more useful than a job that was doomed when
- * it was minted. Compiling the verb is part of that: a spatial join naming an
- * input that does not exist, or an aggregate a column cannot take, is refused
- * here rather than becoming a job that was doomed when it was minted.
- *
- * **`owns` is the one narrow amendment to that boundary**. A run may be
- * admitted for a name that is already taken **only** when the caller has
- * already proven, from stored state, that it owns exactly that table. It is
- * never derived from anything in the request — `subject` is a grouping identity
- * any client may send, and reading it as authorization would let any caller
- * overwrite any table.
- */
-async function admit(
-  request: RunRequest,
-  owns?: { id: string; name: string },
-): Promise<{
-  sql: string;
-  name: string;
-  operationId: string;
-  measurement?: Record<string, unknown>;
-  warnings?: string[];
-  bindings?: Record<string, string>;
-  prepare?: CompiledRun["prepare"];
-}> {
-  const params = request.parameters ?? {};
-  const { sql, name, measurement, bindings, prepare, assumedCrs: ownRoute } = await compileOperation(
-    request.operation,
-    params,
-  );
-
-  // An empty subject is refused rather than quietly treated as absent: it
-  // would be stored as a shared identity that groups unrelated runs, while
-  // reading as self-owned and being unfilterable — three disagreements from
-  // one falsy value.
-  if (
-    request.subject !== undefined &&
-    (typeof request.subject !== "string" || request.subject.trim() === "")
-  ) {
-    throw new ApiError(
-      "invalid_request",
-      `"subject" must be a non-empty string when given.`,
-      400,
-    );
-  }
-  // Against the name the registry will actually use, not the one typed. The
-  // materializer sanitizes into a SQL identifier, so "Bus Stops" becomes
-  // "bus_stops" — checking the raw text here would miss a real collision, and
-  // the run would be accepted only to fail at its commit, which is precisely
-  // the wrong side of the admission boundary.
-  const registered = deriveTableName(name, new Set());
-  const existing = getTableByName(registered);
-  if (existing && !(owns && owns.id === existing.id && owns.name === existing.name)) {
-    throw new ApiError(
-      "name_taken",
-      `A table named "${name}" already exists. An operation never replaces or ` +
-        `renames around an existing table. Choose another name.`,
-      409,
-    );
-  }
-  // Not a read-only SELECT: the guard's refusal, before anything is minted.
-  //
-  // **A prepared run has no statement yet**: its SQL names a staging path that
-  // does not exist until the preparation has written it, so there is nothing
-  // here to classify. The statement the preparation returns goes through the
-  // same guard inside the materializer, which is where every run's SQL is
-  // checked in any case — so this skips a check that cannot run, not one that
-  // matters.
-  if (!prepare) {
-    await boundedEvaluation(async (conn) => assertReadOnlySelect(conn, sql));
-  }
-
-  // The assumed-CRS observation, said **before the run**: a metric answer over data whose WGS84 was guessed is still
-  // computed, and the caller is told rather than refused. Either road: the
-  // measurement record where one exists, the compiled run's own field
-  // where the verb makes no measurement.
-  const assumed = measurement?.assumedCrs ?? ownRoute ?? [];
-  return {
-    sql,
-    name,
-    operationId: request.operation,
-    ...(measurement ? { measurement: measurement as unknown as Record<string, unknown> } : {}),
-    ...(bindings ? { bindings } : {}),
-    ...(prepare ? { prepare } : {}),
-    ...(assumed.length
-      ? {
-          warnings: [
-            `${assumed.map((n) => `"${n}"`).join(", ")} ${
-              assumed.length === 1 ? "was" : "were"
-            } imported without a declared coordinate system, so WGS84 was ` +
-              // K7b: a verb with no measurement record must not call its
-              // answer one — the warning is about trusting coordinates.
-              `assumed. ${measurement ? "This measurement" : "The result"} is ` +
-              `only as trustworthy as that assumption, and the output ` +
-              `records it.`,
-          ],
-        }
-      : {}),
-  };
 }
 
 /**
@@ -331,27 +212,6 @@ export function submitRun(scope: AccountScope, options: SubmitOptions): Operatio
   return job;
 }
 
-/**
- * Hold a subject's history to its cap, from every path that settles a run.
- *
- * Pruning only from the lane's work would miss the terminal transitions that
- * never reach it — a queued run cancelled before it starts, and every run
- * startup recovery settles — so a subject cancelled repeatedly would grow past
- * its documented depth. A stumble here is logged and never turned into a
- * failure answer for a run that already finished.
- */
-export function prune(subjectId: string, subjectKind?: OperationJob["subjectKind"]): void {
-  try {
-    pruneSubject(subjectId, undefined, undefined, subjectKind);
-  } catch (error) {
-    console.warn(
-      `history pruning failed for subject "${subjectId}": ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-  }
-}
-
 function settleFailure(job: OperationJob, error: unknown): void {
   // The run lost its claim (E10's fence). Who took it away decides how this
   // settles, and the *job's own row* is the honest way to ask: a cancel wrote
@@ -422,83 +282,3 @@ export async function startRun(scope: AccountScope, request: RunRequest): Promis
     ...(request.subject !== undefined ? { subject: request.subject } : {}),
   });
 }
-
-/** Admit a run that a caller has already proven owns the name it reuses. */
-export async function admitOwned(
-  request: RunRequest,
-  owns: { id: string; name: string } | undefined,
-) {
-  return admit(request, owns);
-}
-
-export interface RunCancellation {
-  job: OperationJob;
-  wasTerminal: boolean;
-  settled: Promise<void>;
-}
-
-/** Raise the publication fence and signal the lane, without waiting or pruning. */
-export function markAndSignalRunCancellation(jobId: string): RunCancellation {
-  const job = getJob(jobId);
-  if (!job) {
-    throw new ApiError("not_found", `No run with id "${jobId}".`, 404);
-  }
-  if (isTerminal(job.state)) {
-    return { job, wasTerminal: true, settled: Promise.resolve() };
-  }
-
-  // Mark first, then signal. The mark is what removes the run's authority to
-  // publish, so a run that finishes during the signal still cannot commit —
-  // this ordering closes the race and is not incidental.
-  finish(jobId, { state: "cancelled" }, new Date().toISOString());
-  lane.cancel(jobId);
-  const marked = getJob(jobId) ?? { ...job, state: "cancelled" as const };
-  const settled = Promise.race([
-    lane.jobSettled(jobId),
-    new Promise<void>((resolve) => setTimeout(resolve, CANCEL_SETTLE_GRACE_MS)),
-  ]);
-  return { job: marked, wasTerminal: false, settled };
-}
-
-/** Apply the ordinary subject-history cap after a cancellation mark. */
-export function pruneRunCancellation(cancellation: RunCancellation): void {
-  if (!cancellation.wasTerminal) {
-    prune(cancellation.job.subjectId, cancellation.job.subjectKind);
-  }
-}
-
-/** Wait within the existing engine-settlement budget, without pruning. */
-export async function waitForRunCancellation(
-  cancellation: RunCancellation,
-): Promise<OperationJob> {
-  await cancellation.settled;
-  return getJob(cancellation.job.id) ?? cancellation.job;
-}
-
-/**
- * Stop a run.
- *
- * Terminal is not an error (G5): cancel means *make sure this is not running*,
- * and for a job that already finished that is true. Answering a conflict would
- * turn the commonest race — cancel clicked as the run lands — into a failure
- * where nothing went wrong.
- */
-export async function cancelRun(jobId: string): Promise<OperationJob> {
-  const cancellation = markAndSignalRunCancellation(jobId);
-  if (cancellation.wasTerminal) return cancellation.job;
-
-  // Preserve the ordinary single-job road: its history is capped as soon as
-  // the terminal mark lands. Cascade cancellation uses the callable boundary
-  // to keep its own member attempt before invoking this same prune phase.
-  pruneRunCancellation(cancellation);
-
-  // Then wait for the engine to actually let go before reporting terminal.
-  // Marking is immediate because it fences publication; *saying* the run has
-  // stopped while its statement is still winding down would be the same
-  // bookkeeping-instead-of-truth this spec refuses elsewhere. The wait is
-  // bounded so a statement that will not yield cannot hold the response.
-  return waitForRunCancellation(cancellation);
-}
-
-/** How long a cancel waits for the engine to let go before answering anyway. */
-const CANCEL_SETTLE_GRACE_MS = 10_000;
