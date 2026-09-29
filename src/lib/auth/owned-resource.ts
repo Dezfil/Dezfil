@@ -1,3 +1,4 @@
+import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 import type { Database } from "better-sqlite3";
 import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
@@ -19,7 +20,7 @@ export type OwnedResourceKind = keyof typeof relations;
 
 /** The same failure for hidden and nonexistent identities on every transport. */
 export function resourceAbsent(): ApiError {
-  return new ApiError("not_found", "The requested resource was not found.", 404);
+  return new ApiError("not_found", ERROR_CATALOGUE.not_found, 404);
 }
 
 /** Resolve authority before a service reads content, artifacts or secrets. */

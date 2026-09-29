@@ -729,3 +729,26 @@ it.each(["cookie", "token"])("REST, MCP and assistant %s refuse file SQL before 
     }
   } finally { resetQueryInstance(); }
 });
+
+it.each(["cookie", "token"])("REST, MCP and assistant %s carry identical safe absent-table refusals", async mode => {
+  actualApi();
+  const { materialize } = await import("@/lib/operations/materialize");
+  const { resetQueryInstance } = await import("@/lib/duckdb"); resetQueryInstance();
+  const headers = mode === "cookie" ? cookie(member.secret) : { authorization: `Bearer ${token.secret}` };
+  try {
+    await materialize(adminScope, { name: "hidden_roads", sql: "SELECT 'private-schema-fact' AS private_field", operation: "sql_step" });
+    const bodies: unknown[] = [];
+    for (const name of ["hidden_roads", "absent_roads"]) {
+      const sql = `SELECT * FROM ${name}`;
+      const response = await sqlQuery(request("/api/query", "POST", { sql }, headers));
+      expect(response.status).toBe(400); const body = await response.json(); bodies.push(body);
+      const tool = await rpc("run_sql", { sql }, headers);
+      expect(tool).toMatchObject({ isError: true, structuredContent: { result: body } });
+      factory.provider = stubProvider([{ text: "", toolCalls: [{ id: "absent-sql", name: "run_sql", args: { sql } }] }, { text: "Unavailable", toolCalls: [] }]);
+      const events = await send({ runId: await ownReservation(headers), message: "Run the supplied SQL" }, headers);
+      expect(events).toContainEqual(expect.objectContaining({ type: "tool_result", tool: "run_sql", ok: false, body }));
+    }
+    expect(bodies[0]).toEqual(bodies[1]);
+    expect(JSON.stringify(bodies)).not.toMatch(/hidden_roads|absent_roads|private-schema-fact|private_field|Did you mean|Candidate|\.parquet/);
+  } finally { resetQueryInstance(); }
+});

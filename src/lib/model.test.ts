@@ -390,10 +390,10 @@ describe("deleted table leaves an errored layer", () => {
     expect(getLayer(dependent.id)).not.toBeNull();
     const broken = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), dependent.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), dependent.id)).id) });
     expect(broken.ok).toBe(false);
-    expect(broken.error?.message).toMatch(/stations/);
+    expect(broken.error?.message).toBe("The query refers to an unknown table.");
     // the layer lane answers unknown-table for a deleted name — the same
     // kind of error a never-imported name gets, no artifact paths.
-    expect(broken.error?.message).toMatch(/does not exist/);
+    expect(broken.error?.code).toBe("sql_error");
     expect(broken.error?.message).not.toMatch(/parquet|tables\//i);
 
     const working = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), independent.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), independent.id)).id) });

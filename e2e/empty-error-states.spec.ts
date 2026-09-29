@@ -426,7 +426,7 @@ test("zero-row results and the deleted-table degradation are designed states", a
       sql_error: "The SQL failed to parse or execute.",
       query_failed: "The layer's query failed to execute.",
       internal: "Something went wrong on this server. The detail is in the server log.",
-      not_found: "The requested resource does not exist.",
+      not_found: "The requested resource was not found.",
     };
     const code = envelope.error?.code ?? "";
     expect(

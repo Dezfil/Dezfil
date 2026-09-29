@@ -4,6 +4,7 @@ import { buildTools } from "@/lib/tools/tools";
 import { SQL_POLICY } from "./openapi-sql";
 it("publishes file SQL withdrawal in the API and generated SQL tools", () => {
   expect(SQL_POLICY).toContain("File-referencing PROJ");
+  expect(SQL_POLICY).toContain("same sql_error whether hidden or nonexistent");
   const document = buildOpenApiDocument();
   expect(document.paths["/api/query"].post.description).toContain(SQL_POLICY);
   const tools = buildTools();

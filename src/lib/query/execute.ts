@@ -3,7 +3,7 @@ import { limits } from "@/lib/limits";
 import { ApiError } from "@/lib/api/errors";
 import { namedSql } from "./named-sql";
 import { wrappable } from "./compile";
-import { enginePosition, stripStatementQuote } from "./engine-message";
+import { enginePosition, sqlError } from "./engine-message";
 import {
   boundedEvaluation,
   isOutOfMemory,
@@ -117,26 +117,17 @@ export async function executeQuery(
       };
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      // Binder/runtime problems — the engine's own message, per spec.
+      // Binder/runtime problems retain safe input diagnostics.
       // The bound's concerns — interruption, the memory budget — are the
       // boundary's to map, not ours.
       if (isOutOfMemory(error)) throw error;
-      const message =
-        error instanceof Error
-          ? stripStatementQuote(error.message)
-          : "Query execution failed";
       // Where the engine says the problem is, in the user's coordinates —
       // additional to the message, absent when it cannot be mapped.
       const position =
         error instanceof Error && sql === submittedSql
           ? enginePosition(error.message, probePrefix)
           : null;
-      throw new ApiError(
-        "sql_error",
-        message,
-        400,
-        position ? { position } : {},
-      );
+      throw sqlError(error, position ? { position } : {});
     }
   }, { ...options, scope });
 }

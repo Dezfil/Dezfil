@@ -253,6 +253,11 @@ also covers computed and per-row CRS values, WKT file parameters and PROJJSON
 file parameters, before the native projection library receives them. EPSG
 identifiers and inline definitions without files remain supported.
 
+SQL referring to a table outside the caller's space returns the same
+`sql_error` for a hidden or nonexistent table. It includes no name suggestions.
+Engine failures omit internal statements, artifact paths and native-library
+internals. Input diagnostics and a source position remain when available.
+
 Stored SQL is not rewritten. A saved file query or affected published layer
 returns its normal error treatment until its owner changes the query to use a
 named dataset. Rendering, widgets, search, exports, materialization, REST, MCP

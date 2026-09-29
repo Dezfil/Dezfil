@@ -4,7 +4,7 @@ import { localName, qualifiedNameParts } from "./qualified-name";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { ApiError } from "@/lib/api/errors";
 import { isOutOfMemory } from "./bounded";
-import { stripStatementQuote } from "./engine-message";
+import { sqlError } from "./engine-message";
 import { readOnlySql } from "./guard";
 
 /** Compile catalog-qualified saved SQL against this connection's temporary
@@ -73,6 +73,6 @@ export async function namedSql(conn: DuckDBConnection, sql: string): Promise<str
   try { return await compileNamedSql(conn, sql); }
   catch (error) {
     if (error instanceof ApiError || isOutOfMemory(error)) throw error;
-    throw new ApiError("sql_error", stripStatementQuote(error instanceof Error ? error.message : "The query could not be compiled."), 400);
+    throw sqlError(error);
   }
 }

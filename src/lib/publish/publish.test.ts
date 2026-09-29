@@ -632,7 +632,7 @@ describe("rate limit", () => {
 });
 
 describe("published error disclosure", () => {
-  it("an errored view-payload envelope carries the catalogue sentence; the builder keeps the raw diagnostic", async () => {
+  it("an errored view-payload envelope carries the catalogue sentence; the builder keeps the safe input diagnostic", async () => {
     const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "l",
@@ -653,11 +653,10 @@ describe("published error disclosure", () => {
       /does not exist|Catalog|Binder|LINE \d/,
     );
 
-    // The author's own surface keeps the engine's diagnostic — the
-    // documented carve-out on the authenticated-equivalent boundary.
+    // The author's own surface keeps the safe input diagnostic.
     const raw = await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
     expect(raw.ok).toBe(false);
-    expect(raw.error!.message).toMatch(/does not exist|Catalog/i);
+    expect(raw.error!.message).toBe("The query refers to an unknown table.");
     expect(raw.error!.message).not.toBe(render.error!.message);
   });
 

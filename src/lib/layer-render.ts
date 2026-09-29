@@ -4,7 +4,7 @@ import type { TileAccess } from "./tiles/access";
 import type { DatasetScope } from "./query/access";
 import { limits } from "./limits";
 import { ApiError } from "./api/errors";
-import { stripStatementQuote } from "./query/engine-message";
+import { safeEngineMessage } from "./query/engine-message";
 import { boundedEvaluation, EvaluationCancelled } from "./query/bounded";
 import { effectiveSql, wrappable, OD_GEOMETRY } from "./query/compile";
 import type { Layer } from "./metadata/maps";
@@ -288,7 +288,7 @@ export async function renderLayer(
       layer.id,
       error instanceof ApiError ? error.code : "sql_error",
       error instanceof Error
-        ? stripStatementQuote(error.message)
+        ? safeEngineMessage(error.message)
         : "The layer could not render.",
     );
   }

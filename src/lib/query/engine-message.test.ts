@@ -99,3 +99,30 @@ describe("offsetPosition", () => {
     expect(offsetPosition("SELECT 1", -1)).toBeNull();
   });
 });
+
+describe("safe query failures", () => {
+  it("omits catalogue suggestions and normalizes all absent relations", async () => {
+    const { safeEngineMessage } = await import("./engine-message");
+    for (const kind of ["Table", "Schema", "Catalog"]) {
+      expect(safeEngineMessage(`Catalog Error: ${kind} with name private_name does not exist!\nDid you mean "hidden_schema"?`))
+        .toBe("The query refers to an unknown table.");
+    }
+    expect(safeEngineMessage('Binder Error: Referenced column "value" not found.\nCandidate bindings: "hidden_name"'))
+      .toBe('Binder Error: Referenced column "value" not found.');
+  });
+  it("keeps file paths and engine traces out of query failures", async () => {
+    const { safeEngineMessage, normalizeEngineError } = await import("./engine-message");
+    const { ApiError } = await import("@/lib/api/errors");
+    for (const message of [
+      'IO Error: Cannot open file "/private/hidden/secret.parquet"',
+      'Invalid Input Error: No magic bytes at end of file "C:\\private\\secret.parquet"',
+      'Internal Error: failed at /source/native.cpp\nStack Trace: private',
+      'Binder Error: failed for "\\\\private\\connection"',
+    ]) expect(safeEngineMessage(message)).not.toMatch(/private|secret|native|Stack|parquet|connection/);
+    const error = normalizeEngineError(new ApiError("sql_error", "Binder Error: input invalid", 400, {
+      position: { line: 2, column: 3, hidden: "secret" }, path: "/private/secret", owner: "hidden",
+    }));
+    expect(error).toMatchObject({ code: "sql_error", extra: { position: { line: 2, column: 3 } } });
+    expect((error as InstanceType<typeof ApiError>).extra).toEqual({ position: { line: 2, column: 3 } });
+  });
+});

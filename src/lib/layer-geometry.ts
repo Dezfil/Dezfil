@@ -2,7 +2,7 @@ import type { DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
 import { NOT_MAPPABLE_COPY } from "@/lib/layer-copy";
 import { namedSql } from "@/lib/query/named-sql";
-import { stripStatementQuote } from "@/lib/query/engine-message";
+import { sqlError } from "@/lib/query/engine-message";
 import {
   boundedEvaluation,
   isOutOfMemory,
@@ -49,13 +49,7 @@ export async function inspectLayerGeometry(
       // The memory budget is the boundary's outcome, not a SQL problem —
       // even a DESCRIBE can trip it while binding.
       if (isOutOfMemory(error)) throw error;
-      throw new ApiError(
-        "sql_error",
-        error instanceof Error
-          ? stripStatementQuote(error.message)
-          : "The query could not run.",
-        400,
-      );
+      throw sqlError(error);
     }
 
     const geometryColumns = columns.filter((c) =>

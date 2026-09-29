@@ -3,7 +3,7 @@ import type { DuckDBConnection } from "@duckdb/node-api";
 import { ApiError } from "@/lib/api/errors";
 import { parseSql, sqlText } from "./sql-tree";
 import { enforceFilePolicy } from "./file-policy";
-import { offsetPosition } from "./engine-message";
+import { offsetPosition, safeEngineMessage } from "./engine-message";
 
 /**
  * First hardening layer: only read-only SELECT statements pass (spec:
@@ -48,7 +48,7 @@ export async function readOnlySql(conn: DuckDBConnection, sql: string): Promise<
     const position = offsetPosition(sql, parsed.position);
     throw new ApiError(
       "sql_error",
-      parsed.error_message ?? "The query could not be parsed.",
+      safeEngineMessage(parsed.error_message ?? "The query could not be parsed."),
       400,
       position ? { position } : {},
     );

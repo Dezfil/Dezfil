@@ -5,7 +5,7 @@ import { rm } from "node:fs/promises";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { ApiError } from "@/lib/api/errors";
 import { namedSql } from "@/lib/query/named-sql";
-import { stripStatementQuote } from "@/lib/query/engine-message";
+import { sqlError } from "@/lib/query/engine-message";
 import { boundedEvaluation, isOutOfMemory } from "@/lib/query/bounded";
 import {
   effectiveSql,
@@ -179,13 +179,7 @@ export async function exportLayerResult(
         } catch (error) {
           if (error instanceof ApiError) throw error;
           if (isOutOfMemory(error)) throw error;
-          throw new ApiError(
-            "sql_error",
-            error instanceof Error
-              ? stripStatementQuote(error.message)
-              : "The export could not run.",
-            400,
-          );
+          throw sqlError(error);
         }
       },
       { scope, signal },
@@ -271,13 +265,7 @@ export async function exportQueryResult(
         } catch (error) {
           if (error instanceof ApiError) throw error;
           if (isOutOfMemory(error)) throw error;
-          throw new ApiError(
-            "sql_error",
-            error instanceof Error
-              ? stripStatementQuote(error.message)
-              : "The export could not run.",
-            400,
-          );
+          throw sqlError(error);
         }
       },
       { scope, signal },
@@ -313,12 +301,6 @@ async function describe(
   } catch (error) {
     if (error instanceof ApiError) throw error;
     if (isOutOfMemory(error)) throw error;
-    throw new ApiError(
-      "sql_error",
-      error instanceof Error
-        ? stripStatementQuote(error.message)
-        : "The query could not run.",
-      400,
-    );
+    throw sqlError(error);
   }
 }

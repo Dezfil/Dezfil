@@ -11,7 +11,7 @@ import path from "node:path";
 import { dataDir } from "@/lib/config";
 import { ApiError } from "@/lib/api/errors";
 import { boundedEvaluation, isOutOfMemory } from "@/lib/query/bounded";
-import { stripStatementQuote } from "@/lib/query/engine-message";
+import { safeEngineMessage, engineRefusal } from "@/lib/query/engine-message";
 import { findOperation } from "./catalog";
 import { namedSql } from "@/lib/query/named-sql";
 import {
@@ -192,10 +192,12 @@ export interface DryRun {
 const ENGINE_CLASS_PREFIX = /^[A-Z][A-Za-z ]{0,40} Error:\s*/;
 
 function asSqlError(error: unknown, operation?: string): never {
+  const refusal = engineRefusal(error);
+  if (refusal) throw refusal;
   if (error instanceof ApiError) throw error;
   if (isOutOfMemory(error)) throw error;
   const diagnostic =
-    error instanceof Error ? stripStatementQuote(error.message) : null;
+    error instanceof Error ? safeEngineMessage(error.message) : null;
   if (!operation || operation === "sql_step") {
     throw new ApiError(
       "sql_error",

@@ -1,3 +1,4 @@
+import { engineRefusal } from "@/lib/query/engine-message";
 import { namedSql } from "@/lib/query/named-sql";
 import type { DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
@@ -200,6 +201,8 @@ export async function classifyFill(
         hi = row?.hi == null ? NaN : Number(row.hi);
         mean = row?.mean == null ? NaN : Number(row.mean);
       } catch (error) {
+        const refusal = engineRefusal(error);
+        if (refusal) throw refusal;
         if (error instanceof ApiError) throw error;
         // The memory budget is the boundary's outcome, not a type problem.
         if (isOutOfMemory(error)) throw error;
@@ -247,6 +250,8 @@ export async function classifyFill(
               ? await equalBreaks(conn, sub, col, classes)
               : await naturalBreaks(conn, sub, col, classes);
       } catch (error) {
+        const refusal = engineRefusal(error);
+        if (refusal) throw refusal;
         if (error instanceof ApiError) throw error;
         if (isOutOfMemory(error)) throw error;
         throw new ApiError(
@@ -340,6 +345,8 @@ export async function computeSizeScale(
       lo = row?.lo == null ? NaN : Number(row.lo);
       hi = row?.hi == null ? NaN : Number(row.hi);
     } catch (error) {
+      const refusal = engineRefusal(error);
+      if (refusal) throw refusal;
       if (error instanceof ApiError) throw error;
       if (isOutOfMemory(error)) throw error;
       throw new ApiError(

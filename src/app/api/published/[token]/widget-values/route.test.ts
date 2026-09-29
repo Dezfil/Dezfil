@@ -191,7 +191,7 @@ describe("published widget-values reader gate", () => {
     expect(body.error.message).toBe("Expected a JSON body.");
   });
 
-  it("failed widgets carry the catalogue sentence on the wire; the builder lane keeps the raw text", async () => {
+  it("failed widgets carry the catalogue sentence on the wire; the builder lane keeps safe input detail", async () => {
     await removeTable(testAccountScope(), "points");
     const res = await values([]);
     expect(res.status).toBe(200);
@@ -215,7 +215,7 @@ describe("published widget-values reader gate", () => {
     );
     expect(failed.length).toBeGreaterThan(0);
     expect(
-      failed.some((w) => /does not exist|Catalog/i.test(w.error)),
+      failed.some((w) => w.error === "The query refers to an unknown table."),
     ).toBe(true);
   });
 });

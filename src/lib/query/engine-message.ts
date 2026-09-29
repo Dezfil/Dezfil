@@ -1,3 +1,6 @@
+import { ApiError } from "@/lib/api/errors";
+import { projectionRejection } from "./projection-policy";
+
 /**
  * DuckDB appends the statement it ran to binder/parser/catalog errors —
  * a `LINE n:` quote with a caret under the offending token. For user SQL
@@ -64,4 +67,55 @@ export function enginePosition(
     return { line: 1, column: column + 1 };
   }
   return { line, column: caret + 1 };
+}
+
+export const UNKNOWN_TABLE_MESSAGE = "The query refers to an unknown table.";
+export const DATASET_READ_MESSAGE = "The query's dataset could not be read.";
+const FAILED_QUERY_MESSAGE = "The query could not be completed.";
+const ENGINE_PREFIX = /^(?:Catalog|Binder|Parser|Conversion|Invalid(?: Input| Type)?|IO|Permission|Not implemented|Internal|Transaction|Constraint|Serialization|Connection|Syntax|Type) Error:/i;
+const ABSENT_TABLE = /(?:Catalog Error:\s*)?(?:Table|Schema|Catalog) with name [\s\S]*? does not exist[!.]?/i;
+const FILE_DIAGNOSTIC = /(?:\b(?:IO|Permission) Error:|\b(?:parquet|read_parquet|magic bytes|No files found|failed to open file|cannot open file)\b)/i;
+const PRIVATE_PATH = /(?:^|[\s"'(:])(?:\/(?!\s)|[a-z]:[\\/]|\\\\|~[\\/])[^\s"')]+/i;
+
+/** Only input-facing diagnosis travels. Engine suggestions and internal
+ * statements are never a discovery API; artifact and native-library failures
+ * do not disclose filenames, schemas, library internals or stack traces. */
+export function safeEngineMessage(message: string): string {
+  const diagnosis = stripStatementQuote(message);
+  if (ABSENT_TABLE.test(diagnosis)) return UNKNOWN_TABLE_MESSAGE;
+  if (FILE_DIAGNOSTIC.test(diagnosis)) return DATASET_READ_MESSAGE;
+  const withoutSuggestions = diagnosis.split(/\n\s*(?:Did you mean\b|Candidate (?:bindings|functions)\s*:|Candidates\s*:)/i, 1)[0].trimEnd();
+  if (PRIVATE_PATH.test(withoutSuggestions) || /\bInternal Error:|__dezfil_|Stack Trace:/i.test(withoutSuggestions)) return FAILED_QUERY_MESSAGE;
+  return withoutSuggestions;
+}
+
+/** Refusals that must survive per-consumer fallbacks such as numeric-column
+ * hints. Other conversion failures keep those consumers' existing treatment. */
+export function engineRefusal(error: unknown): ApiError | null {
+  const projection = projectionRejection(error);
+  if (projection) return projection;
+  if (!(error instanceof Error)) return null;
+  const message = stripStatementQuote(error.message);
+  return ABSENT_TABLE.test(message) || FILE_DIAGNOSTIC.test(message)
+    ? new ApiError("sql_error", safeEngineMessage(message), 400) : null;
+}
+
+/** One coded failure at the evaluation boundary, including consumers that do
+ * not have their own catch. Existing input positions survive only as numbers. */
+export function normalizeEngineError(error: unknown): unknown {
+  const projection = projectionRejection(error);
+  if (projection) return projection;
+  if (!(error instanceof Error)) return error;
+  if (error instanceof ApiError ? error.code !== "sql_error" : !ENGINE_PREFIX.test(error.message)) return error;
+  const position = error instanceof ApiError ? error.extra.position as Partial<SqlPosition> | undefined : undefined;
+  const extra = position && Number.isInteger(position.line) && Number.isInteger(position.column) && position.line! > 0 && position.column! > 0
+    ? { position: { line: position.line, column: position.column } } : {};
+  return new ApiError("sql_error", safeEngineMessage(error.message), error instanceof ApiError ? error.status : 400, extra);
+}
+
+/** Convert a native failure without discarding its policy classification
+ * before the diagnostic is sanitized. */
+export function sqlError(error: unknown, extra: Record<string, unknown> = {}, fallback = FAILED_QUERY_MESSAGE): ApiError {
+  const refusal = engineRefusal(error);
+  return new ApiError(refusal?.code ?? "sql_error", refusal?.message ?? safeEngineMessage(error instanceof Error ? error.message : fallback), 400, extra);
 }

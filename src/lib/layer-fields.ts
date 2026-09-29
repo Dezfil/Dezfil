@@ -82,7 +82,7 @@ export async function fieldsForWrite(
   try {
     return withStyling(await describeBase(scope, { sql } as Layer, signal), viz);
   } catch (error) {
-    if (error instanceof EvaluationCancelled || error instanceof ApiError) {
+    if (error instanceof EvaluationCancelled || (error instanceof ApiError && error.code !== "sql_error")) {
       throw error;
     }
     throw new ApiError(

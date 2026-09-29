@@ -98,10 +98,10 @@ describe("executeQuery", () => {
     expect(result.preview[0].geometry).toBeNull();
   });
 
-  it("surfaces missing tables as the engine's own error", async () => {
+  it("reports an unknown table without catalogue details", async () => {
     await expect(executeQuery(testAccountScope(), "SELECT * FROM nope")).rejects.toMatchObject({
       code: "sql_error",
-      message: expect.stringMatching(/nope/),
+      message: "The query refers to an unknown table.",
     });
   });
 

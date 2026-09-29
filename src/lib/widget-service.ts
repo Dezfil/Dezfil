@@ -1,4 +1,4 @@
-import { projectionRejection } from "@/lib/query/projection-policy";
+import { normalizeEngineError } from "@/lib/query/engine-message";
 import { namedSql } from "@/lib/query/named-sql";
 import type { DatasetScope } from "@/lib/query/access";
 import { boundedEvaluation, isOutOfMemory } from "@/lib/query/bounded";
@@ -366,7 +366,7 @@ export async function assertPublishedSelections(
       // memory refusal here must surface, not roll into a second full
       // evaluation downstream. Only a genuine schema
       // failure skips the gate into per-widget degradation.
-      if (error instanceof EvaluationCancelled || error instanceof ApiError) {
+      if (error instanceof EvaluationCancelled || (error instanceof ApiError && error.code !== "sql_error")) {
         throw error;
       }
       continue;
@@ -448,7 +448,7 @@ export async function computeWidgetValues(
         // per-widget engine noise. The boundary's own flag decides, never
         // the message text, which user data can forge.
         if (bounds.interrupted() || isOutOfMemory(error)) throw error;
-        error = projectionRejection(error) ?? error;
+        error = normalizeEngineError(error);
         values.push({
           id: widget.id,
           error:

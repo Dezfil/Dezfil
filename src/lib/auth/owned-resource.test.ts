@@ -1,3 +1,4 @@
+import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 import type { Database } from "better-sqlite3";
 import { beforeEach, afterEach, expect, it } from "vitest";
 import { open } from "@/lib/metadata/db";
@@ -57,7 +58,7 @@ it.each(kinds)("resolves only each owner's %s and refuses hidden like missing, i
     for (const other of Object.keys(scopes).filter(id => id !== account)) {
       const hidden = failure(() => requireOwnedResource(scope, kind, `${other}-${kind}`, db));
       const missing = failure(() => requireOwnedResource(scope, kind, "missing", db));
-      expect(hidden).toMatchObject({ code: "not_found", status: 404 });
+      expect(hidden).toMatchObject({ code: "not_found", status: 404, message: ERROR_CATALOGUE.not_found });
       const response = errorResponse(hidden);
       expect(response.status).toBe(errorResponse(missing).status);
       expect(await response.json()).toEqual(await errorResponse(missing).json());

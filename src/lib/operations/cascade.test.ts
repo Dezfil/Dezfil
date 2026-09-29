@@ -871,11 +871,11 @@ describe("a run reads whole on its own", () => {
     expect(first.attempt?.acceptedAt).toBeTruthy();
     expect(first.attempt?.finishedAt).toBeTruthy();
     expect(first.attempt?.output?.name).toBe("whole_one");
-    // The failed member's attempt says why, in the engine's words.
+    // The failed member's attempt retains the safe query failure.
     const failed = memberOf(run, two.id);
     expect(failed.state).toBe("failed");
     expect(failed.attempt?.state).toBe("failed");
-    expect(failed.attempt?.error?.message).toMatch(/nowhere_at_all/);
+    expect(failed.attempt?.error?.message).toBe("The query refers to an unknown table.");
     // A member never attempted has no attempt.
     const blocked = memberOf(run, three.id);
     expect(blocked.state).toBe("not_run");
@@ -887,7 +887,7 @@ describe("a run reads whole on its own", () => {
     const after = readCascade(testAccountScope(), run.id);
     expect(memberOf(after, one.id).attempt?.state).toBe("succeeded");
     expect(memberOf(after, one.id).attempt?.output?.name).toBe("whole_one");
-    expect(memberOf(after, two.id).attempt?.error?.message).toMatch(/nowhere_at_all/);
+    expect(memberOf(after, two.id).attempt?.error?.message).toBe("The query refers to an unknown table.");
     // The node removed, the run still names it.
     removeStep(two.id);
     expect(memberOf(readCascade(testAccountScope(), run.id), two.id).name).toBe("whole_two");
