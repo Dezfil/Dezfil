@@ -11,6 +11,7 @@ import { getTileRecord, upsertTileRecord } from "@/lib/metadata/tiles";
 import { dataDir } from "@/lib/config";
 import { resetQueryInstance, connectQueryInstance } from "@/lib/duckdb";
 import { boundedEvaluation } from "@/lib/query/bounded";
+import { ApiError } from "@/lib/api/errors";
 import { registerTableViews } from "@/lib/query/views";
 import { ingestFile } from "./ingest";
 import { importFromUrl } from "./remote";
@@ -81,6 +82,13 @@ async function evalCount(name: string): Promise<number> {
     );
     return Number((reader.getRowObjectsJson()[0] as { n: unknown }).n);
   }, { scope: testAccountScope() });
+}
+
+async function evaluationFailure(evaluation: Promise<unknown>) {
+  const error = await evaluation.then(() => null, (error: unknown) => error);
+  expect(error).toBeInstanceOf(ApiError);
+  const failure = error as ApiError;
+  return { code: failure.code, status: failure.status, message: failure.message, extra: failure.extra };
 }
 
 /** Register a map + layer whose SQL references the table, plus a tile record. */
@@ -349,47 +357,40 @@ describe("refreshTable", () => {
     expect(await readdir(path.join(dataDir(), "tables"))).toEqual([]);
   });
 
-  it("the registration pass drops views for vanished tables — a lost drop self-heals", async () => {
+  it("a fresh evaluation omits vanished tables even when deletion bypasses invalidation", async () => {
     const before = await importOne(`${base}/points.csv`);
     await boundedEvaluation(async (conn) => {
       await conn.runAndReadAll(`SELECT count(*) FROM points`);
     }, { scope: testAccountScope() });
-    // The row goes without the delete service ever running its view drop —
-    // the lost-drop shape. The next pass reconciles against the registry.
+    // Bypass the delete service and its artifact-cache invalidation. A fresh
+    // connection must mount the current registry, never an earlier view.
     metadataDb()
       .prepare(`DELETE FROM data_tables WHERE name = ?`)
       .run(before.name);
-    const message = await boundedEvaluation(async (conn) => {
+    const failure = await evaluationFailure(boundedEvaluation(async (conn) => {
       await conn.runAndReadAll(`SELECT * FROM points`);
-    }, { scope: testAccountScope() }).then(
-      () => "no error",
-      (e: unknown) => (e instanceof Error ? e.message : String(e)),
-    );
-    expect(message).toMatch(/points does not exist/);
-    expect(message).not.toMatch(/parquet|tables\//i);
+    }, { scope: testAccountScope() }));
+    expect(failure).toEqual({ code: "sql_error", status: 400,
+      message: "The query refers to an unknown table.", extra: {} });
   });
 
   it("a deleted table answers unknown-table SQL, like a never-imported name", async () => {
     const before = await importOne(`${base}/points.csv`);
-    // Materialize the view in the shared catalog, then delete the table.
+    // Mount the table on an evaluation-local connection, then delete it.
     await boundedEvaluation(async (conn) => {
       await conn.runAndReadAll(`SELECT count(*) FROM points`);
     }, { scope: testAccountScope() });
     await removeTable(testAccountScope(), before.name);
 
     const errorOf = (sql: string) =>
-      boundedEvaluation(async (conn) => {
+      evaluationFailure(boundedEvaluation(async (conn) => {
         await conn.runAndReadAll(sql);
-      }, { scope: testAccountScope() }).then(
-        () => "no error",
-        (e: unknown) => (e instanceof Error ? e.message : String(e)),
-      );
+      }, { scope: testAccountScope() }));
     const deleted = await errorOf(`SELECT * FROM points`);
     const never = await errorOf(`SELECT * FROM never_imported`);
-    expect(deleted).toMatch(/points does not exist/);
-    expect(never).toMatch(/never_imported does not exist/);
-    // No artifact paths leak into the deleted table's answer.
-    expect(deleted).not.toMatch(/parquet|tables\//i);
+    expect(deleted).toEqual(never);
+    expect(deleted).toEqual({ code: "sql_error", status: 400,
+      message: "The query refers to an unknown table.", extra: {} });
   });
 
   it("never yanks the artifact from an in-flight evaluation; retirement lands after it settles", async () => {
@@ -469,17 +470,14 @@ describe("refreshTable", () => {
 describe("mutations committing during an in-flight registration pass", () => {
   /**
    * Pin a registration pass mid-flight: a long statement occupies the
-   * shared connection, so the pass's own statements — queued behind it on
+   * same connection, so the pass's own statements — queued behind it on
    * the same connection — genuinely span the mutation each test commits.
    * The pass snapshots the registry before the mutation and finishes after
    * it, which is exactly the window under test. `settled` lets
    * each test PROVE the overlap happened rather than assume it.
    *
-   * The catalog is reset first so the pinned pass has real writes to do: a
-   * warm incremental pass performs no catalog statements at all, would
-   * never queue behind the pinned connection, and the "overlap" this
-   * fixture promises would be vacuous — the same trap the guard test
-   * names, biting the overlap fixture.
+   * Every pass creates connection-local views, even with warm artifact
+   * metadata. Reset also exercises mounting without that cached metadata.
    */
   async function pinnedPass() {
     resetQueryInstance();
@@ -534,14 +532,17 @@ describe("mutations committing during an in-flight registration pass", () => {
     expect(await evalCount("points")).toBe(2);
 
     const pin = await pinnedPass();
-    // The registry row goes synchronously at the call; the chained view
-    // drop lands behind the pinned pass, so the removal settles after it.
+    // The registry row goes while the older connection is still mounting.
+    // Its local snapshot cannot carry the deleted name into a new evaluation.
     const removal = removeTable(testAccountScope(), "points");
     expect(pin.settled()).toBe(false);
     await pin.drain();
     await removal;
 
-    await expect(evalCount("points")).rejects.toThrow(/points/i);
+    const deleted = await evaluationFailure(evalCount("points"));
+    expect(deleted).toEqual(await evaluationFailure(evalCount("never_imported")));
+    expect(deleted).toEqual({ code: "sql_error", status: 400,
+      message: "The query refers to an unknown table.", extra: {} });
   });
 });
 
