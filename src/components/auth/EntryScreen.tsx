@@ -8,6 +8,7 @@ import { ErrorNote } from "@/components/ui/ErrorNote";
 import { EyeIcon, EyeOffIcon } from "@/components/ui/icons";
 import { RhumbChart } from "./RhumbChart";
 import styles from "./EntryScreen.module.css";
+import { accountChanged } from "./private-state";
 
 type Mode = "setup" | "sign-in" | "redeem";
 interface Entry { instanceName: string | null; setupRequired: boolean; prefillName?: string; }
@@ -45,8 +46,8 @@ export function EntryScreen({ mode }: { mode: Mode }) {
         if (error?.code === "rate_limited" && error.retryAt) throw new Error(`Too many sign-in attempts. Try again at ${new Date(error.retryAt).toLocaleTimeString()}.`);
         throw new Error(error?.message ?? "This request could not be completed. Try again.");
       }
-      // A full navigation drops client state when the signed-in account changes.
-      window.location.assign(new URL("/", window.location.origin).href);
+      accountChanged();
+      window.location.replace(new URL("/", window.location.origin).href);
     } catch (error) { setFailure(error instanceof Error ? error.message : "This instance could not be reached. Try again."); }
     finally { setBusy(false); }
   }

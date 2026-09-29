@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   mkdir,
@@ -120,7 +121,7 @@ describe("detectFormat additions", () => {
 describe("shapefile zip", () => {
   it("lands a declared-WGS84 shapefile as a table named from the zip", async () => {
     const zipPath = await mintShapefileZip("stations.zip");
-    const result = await ingestSource(zipPath, "stations.zip");
+    const result = await ingestSource(testAccountScope(), zipPath, "stations.zip");
     expect(result.tables).toHaveLength(1);
     const table = result.tables[0];
     expect(table.name).toBe("stations");
@@ -133,14 +134,14 @@ describe("shapefile zip", () => {
 
   it("flags a .prj-less shapefile as CRS-assumed", async () => {
     const zipPath = await mintShapefileZip("noprj.zip", { includePrj: false });
-    const result = await ingestSource(zipPath, "noprj.zip");
+    const result = await ingestSource(testAccountScope(), zipPath, "noprj.zip");
     expect(result.tables[0].crsAssumed).toBe(true);
     expect(result.tables[0].rowCount).toBe(4);
   });
 
   it("reprojects a declared non-WGS84 shapefile and keeps it unflagged", async () => {
     const zipPath = await mintShapefileZip("utm.zip", { srs: "EPSG:32632" });
-    const result = await ingestSource(zipPath, "utm.zip");
+    const result = await ingestSource(testAccountScope(), zipPath, "utm.zip");
     const table = result.tables[0];
     expect(table.crsAssumed).toBe(false);
     // Back in degrees: the first minted point sits near 7.0 E, 51.0 N.
@@ -176,7 +177,7 @@ describe("shapefile zip", () => {
     void zipA;
     void zipB;
 
-    const result = await ingestSource(bundle, "bundle.zip");
+    const result = await ingestSource(testAccountScope(), bundle, "bundle.zip");
     expect(result.tables.map((t) => t.name).sort()).toEqual([
       "bundle_roads",
       "bundle_stops",
@@ -210,7 +211,7 @@ describe("shapefile zip", () => {
     ];
     const zipPath = path.join(dir, "regions.zip");
     await writeFile(zipPath, buildZip(members));
-    const result = await ingestSource(zipPath, "regions.zip");
+    const result = await ingestSource(testAccountScope(), zipPath, "regions.zip");
     expect(result.tables.map((t) => t.name).sort()).toEqual([
       "regions_north_roads",
       "regions_south_roads",
@@ -228,7 +229,7 @@ describe("shapefile zip", () => {
       zipPath,
       buildZip([{ name: "readme.txt", data: "no shapes here" }]),
     );
-    await expect(ingestSource(zipPath, "nada.zip")).rejects.toMatchObject({
+    await expect(ingestSource(testAccountScope(), zipPath, "nada.zip")).rejects.toMatchObject({
       code: "malformed_file",
     });
     expect(listTables()).toEqual([]);
@@ -243,7 +244,7 @@ describe("shapefile zip", () => {
       zipPath,
       buildZip([{ name: "huge.shp", data: Buffer.alloc(2 * 1024 * 1024) }]),
     );
-    await expect(ingestSource(zipPath, "bomb.zip")).rejects.toMatchObject({
+    await expect(ingestSource(testAccountScope(), zipPath, "bomb.zip")).rejects.toMatchObject({
       code: "archive_too_large",
       status: 413,
     });
@@ -256,7 +257,7 @@ describe("shapefile zip", () => {
     const whole = buildZip([{ name: "x.shp", data: Buffer.alloc(5000, 3) }]);
     const zipPath = path.join(dir, "cut.zip");
     await writeFile(zipPath, whole.subarray(2000));
-    await expect(ingestSource(zipPath, "cut.zip")).rejects.toMatchObject({
+    await expect(ingestSource(testAccountScope(), zipPath, "cut.zip")).rejects.toMatchObject({
       code: "malformed_file",
     });
     expect(listTables()).toEqual([]);
@@ -269,7 +270,7 @@ describe("empty spatial containers", () => {
   it("retains the declared geometry column and WGS84 certainty", async () => {
     const file = path.join(dir, "empty-points.gpkg");
     buildGpkg(file, [{ name: "empty_points", kind: "points", rows: [] }]);
-    const result = await ingestSource(file, "empty-points.gpkg");
+    const result = await ingestSource(testAccountScope(), file, "empty-points.gpkg");
     expect(result.tables).toHaveLength(1);
     expect(result.tables[0]).toMatchObject({
       geometryColumn: "geom",
@@ -293,7 +294,7 @@ describe("geopackage", () => {
         ],
       },
     ]);
-    const result = await ingestSource(file, "harbours.gpkg");
+    const result = await ingestSource(testAccountScope(), file, "harbours.gpkg");
     expect(result.tables).toHaveLength(1);
     expect(result.tables[0].name).toBe("harbours");
     expect(result.tables[0].format).toBe("geopackage");
@@ -332,7 +333,7 @@ describe("geopackage", () => {
       },
       { name: "lookup", kind: "attributes", rows: [["A", "Alpha"]] },
     ]);
-    const result = await ingestSource(file, "city.gpkg");
+    const result = await ingestSource(testAccountScope(), file, "city.gpkg");
     expect(result.tables.map((t) => t.name)).toEqual([
       "city_stations",
       "city_zones",
@@ -369,7 +370,7 @@ describe("geopackage", () => {
     buildGpkg(file, [
       { name: "lookup", kind: "attributes", rows: [["A", "Alpha"]] },
     ]);
-    await expect(ingestSource(file, "flat.gpkg")).rejects.toMatchObject({
+    await expect(ingestSource(testAccountScope(), file, "flat.gpkg")).rejects.toMatchObject({
       code: "malformed_file",
       message: expect.stringContaining("lookup"),
     });
@@ -387,7 +388,7 @@ describe("geopackage", () => {
       },
       { name: "broken", kind: "corrupt" },
     ]);
-    await expect(ingestSource(file, "half.gpkg")).rejects.toMatchObject({
+    await expect(ingestSource(testAccountScope(), file, "half.gpkg")).rejects.toMatchObject({
       code: "malformed_file",
     });
     // The good layer's artifact was built before the bad one failed —
@@ -399,7 +400,7 @@ describe("geopackage", () => {
   it("refuses bytes that are not a GeoPackage, leaving nothing", async () => {
     const file = path.join(dir, "fake.gpkg");
     await writeFile(file, "not a sqlite database at all");
-    await expect(ingestSource(file, "fake.gpkg")).rejects.toMatchObject({
+    await expect(ingestSource(testAccountScope(), file, "fake.gpkg")).rejects.toMatchObject({
       code: "malformed_file",
     });
     expect(listTables()).toEqual([]);
@@ -422,7 +423,7 @@ describe("geopackage", () => {
         ],
       }),
     );
-    await expect(ingestSource(file, "sneaky.gpkg")).rejects.toMatchObject({
+    await expect(ingestSource(testAccountScope(), file, "sneaky.gpkg")).rejects.toMatchObject({
       code: "malformed_file",
     });
     expect(listTables()).toEqual([]);
@@ -444,7 +445,7 @@ describe("kml / kmz", () => {
         },
       ]),
     );
-    const result = await ingestSource(file, "stops.kml");
+    const result = await ingestSource(testAccountScope(), file, "stops.kml");
     expect(result.tables).toHaveLength(1);
     expect(result.tables[0].name).toBe("stops");
     expect(result.tables[0].format).toBe("kml");
@@ -463,7 +464,7 @@ describe("kml / kmz", () => {
         { name: "Sights", points: [[7.3, 51.3, "C"]] },
       ]),
     );
-    const result = await ingestSource(file, "trip.kml");
+    const result = await ingestSource(testAccountScope(), file, "trip.kml");
     expect(result.tables.map((t) => t.name).sort()).toEqual([
       "trip_sights",
       "trip_stops",
@@ -486,7 +487,7 @@ describe("kml / kmz", () => {
     ]);
     const file = path.join(dir, "packed.kmz");
     await writeFile(file, buildZip([{ name: "doc.kml", data: kml }]));
-    const result = await ingestSource(file, "packed.kmz");
+    const result = await ingestSource(testAccountScope(), file, "packed.kmz");
     expect(result.tables).toHaveLength(1);
     expect(result.tables[0].name).toBe("packed");
     expect(result.tables[0].rowCount).toBe(3);
@@ -496,7 +497,7 @@ describe("kml / kmz", () => {
   it("refuses a .kmz with no KML document inside", async () => {
     const file = path.join(dir, "empty.kmz");
     await writeFile(file, buildZip([{ name: "notes.txt", data: "hi" }]));
-    await expect(ingestSource(file, "empty.kmz")).rejects.toMatchObject({
+    await expect(ingestSource(testAccountScope(), file, "empty.kmz")).rejects.toMatchObject({
       code: "malformed_file",
     });
     expect(listTables()).toEqual([]);
@@ -506,7 +507,7 @@ describe("kml / kmz", () => {
   it("refuses malformed KML, leaving nothing", async () => {
     const file = path.join(dir, "broken.kml");
     await writeFile(file, "<kml><Document><Folder>never closed");
-    await expect(ingestSource(file, "broken.kml")).rejects.toMatchObject({
+    await expect(ingestSource(testAccountScope(), file, "broken.kml")).rejects.toMatchObject({
       code: "malformed_file",
     });
     expect(listTables()).toEqual([]);
@@ -531,9 +532,9 @@ describe("the container road's project context", () => {
   }
 
   it("files every table of the group in the same transaction", async () => {
-    const p = createProject({ name: "A" });
+    const p = createProject(testAccountScope(), { name: "A" });
     const bundle = await bundleOf(["roads", "stops"]);
-    const result = await ingestSource(bundle, "group.zip", {
+    const result = await ingestSource(testAccountScope(), bundle, "group.zip", {
       source: "upload",
       sourceParams: null,
       projectId: p.id,
@@ -546,7 +547,7 @@ describe("the container road's project context", () => {
   it("an unknown project rolls the whole group back: no tables, no artifacts", async () => {
     const bundle = await bundleOf(["roads", "stops"]);
     await expect(
-      ingestSource(bundle, "group.zip", {
+      ingestSource(testAccountScope(), bundle, "group.zip", {
         source: "upload",
         sourceParams: null,
         projectId: "p-vanished",

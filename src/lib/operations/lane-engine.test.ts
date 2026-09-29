@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -37,9 +38,9 @@ beforeEach(async () => {
   resetQueryInstance();
   const src = path.join(dir, "stations.csv");
   await writeFile(src, "name,lon,lat\nalexanderplatz,13.41,52.52\nzoo,13.33,52.51\n");
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
   // Warm the hardened instance so lazy creation is not inside a measurement.
-  await boundedEvaluation(async () => undefined);
+  await boundedEvaluation(async () => undefined, { scope: testAccountScope() });
 });
 
 afterEach(async () => {
@@ -73,7 +74,7 @@ describe("cancelling a running operation", () => {
             events.push("statement-issued");
             return conn.runAndReadAll(ENDLESS_SQL);
           },
-          { signal },
+          { scope: testAccountScope(), signal },
         );
       } catch {
         // Cancellation surfaces here; the outcome mapping is the caller's job.
@@ -120,7 +121,7 @@ describe("cancelling a running operation", () => {
 
   it("leaves the engine usable afterwards", async () => {
     submit("slow", async (signal) => {
-      await boundedEvaluation(async (conn) => conn.runAndReadAll(ENDLESS_SQL), {
+      await boundedEvaluation(async (conn) => conn.runAndReadAll(ENDLESS_SQL), { scope: testAccountScope(),
         signal,
       }).catch(() => undefined);
     });
@@ -132,7 +133,7 @@ describe("cancelling a running operation", () => {
     const rows = await boundedEvaluation(async (conn) => {
       const r = await conn.runAndReadAll("SELECT count(*) AS n FROM stations");
       return r.getRowObjects();
-    });
+    }, { scope: testAccountScope() });
     expect(Number(rows[0].n)).toBe(2);
   }, 120_000);
 });

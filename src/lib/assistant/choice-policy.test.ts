@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -66,8 +67,8 @@ beforeEach(async () => {
     wire.dispatched.push(`${request.method} ${new URL(request.url).pathname}`);
     return dispatchAssistantTestRoute(request);
   });
-  mapId = createMap("Policy").id;
-  const recipe = createRecipe("Workflow");
+  mapId = createMap(testAccountScope(), "Policy").id;
+  const recipe = createRecipe(testAccountScope(), "Workflow");
   recipeId = recipe.id;
   stepId = addStep(recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 1 AS value", name: "output" } }).id;
 });
@@ -98,10 +99,10 @@ async function refusedOn(context: Record<string, unknown>) {
     () => responseWire([outputText("I cannot do that here.")], "gpt-6-astra"),
   );
   const runId = await reserve();
-  const before = allMaps().length;
+  const before = allMaps(testAccountScope()).length;
   const stream = events(await (await post({ runId, message: "Make a map.", history: [], choice: CHOICE, context })).text());
   const result = stream.find((event) => event.type === "tool_result");
-  return { runId, result, maps: { before, after: allMaps().length }, receipt: await read(runId) };
+  return { runId, result, maps: { before, after: allMaps(testAccountScope()).length }, receipt: await read(runId) };
 }
 
 describe("a chosen model widens no page's policy", () => {

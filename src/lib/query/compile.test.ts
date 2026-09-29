@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -158,7 +159,7 @@ beforeEach(async () => {
       "sudkreuz,s,13.360,52.480,120",
     ].join("\n"),
   );
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
 });
 
 afterEach(async () => {
@@ -171,7 +172,7 @@ afterEach(async () => {
 async function run(sql: string): Promise<Record<string, unknown>[]> {
   const conn = await connectQueryInstance();
   try {
-    await registerTableViews(conn);
+    await registerTableViews(testAccountScope(), conn);
     const reader = await conn.runAndReadAll(sql);
     return reader.getRowObjectsJson() as Record<string, unknown>[];
   } finally {
@@ -200,7 +201,7 @@ async function ingestHexPoints(dir: string) {
       ...HEX_POINTS.map((p) => `${p.name},${p.lon},${p.lat},${p.riders}`),
     ].join("\n"),
   );
-  await ingestFile(src, "hexpoints.csv");
+  await ingestFile(testAccountScope(), src, "hexpoints.csv");
 }
 
 const hexBase = "SELECT name, riders, geometry FROM hexpoints";
@@ -326,7 +327,7 @@ describe("effective queries on the hardened engine", () => {
         "c,13.41,52.53,,52.51,50",
       ].join("\n"),
     );
-    await ingestFile(src, "flows.csv");
+    await ingestFile(testAccountScope(), src, "flows.csv");
     const viz: LayerViz = {
       type: "arc",
       origin: { kind: "lonlat", lon: "origin_lon", lat: "origin_lat" },

@@ -1,3 +1,4 @@
+import { testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "./route";
 import { POINTS_VIZ, type LayerViz } from "@/lib/viz";
@@ -38,7 +39,7 @@ beforeEach(() => {
 });
 
 const get = (query: string) =>
-  GET(new Request(`http://test/api/maps/m1/search?${query}`), {
+  GET(testAccountRequest(new Request(`http://test/api/maps/m1/search?${query}`)), {
     params: Promise.resolve({ id: "m1" }),
   });
 
@@ -54,7 +55,7 @@ describe("GET /api/maps/[id]/search", () => {
   it("hands value search only visible, non-aggregated layers", async () => {
     await get("q=x");
     expect(searchValues).toHaveBeenCalledTimes(1);
-    const [layers, q] = searchValues.mock.calls[0];
+    const [, layers, q] = searchValues.mock.calls[0];
     expect(q).toBe("x");
     expect(layers.map((l: { layerId: string }) => l.layerId)).toEqual(["l1"]);
     // The effective SQL, not the raw layer SQL, is what the scan reads.
@@ -71,7 +72,7 @@ describe("GET /api/maps/[id]/search", () => {
       ],
     });
     await get("q=x");
-    const [layers] = searchValues.mock.calls[0];
+    const [, layers] = searchValues.mock.calls[0];
     expect(layers[0].sql).toContain("line");
   });
 
@@ -94,7 +95,7 @@ describe("GET /api/maps/[id]/search", () => {
   it("refuses an empty query", async () => {
     const res = await get("q=");
     expect(res.status).toBe(400);
-    const missing = await GET(new Request("http://test/api/maps/m1/search"), {
+    const missing = await GET(testAccountRequest(new Request("http://test/api/maps/m1/search")), {
       params: Promise.resolve({ id: "m1" }),
     });
     expect(missing.status).toBe(400);

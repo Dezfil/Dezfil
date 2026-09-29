@@ -1,3 +1,5 @@
+import { privateTileAccess } from "@/lib/tiles/access";
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -40,7 +42,7 @@ beforeEach(async () => {
   resetRateLimits();
   const src = path.join(dir, "s.csv");
   await writeFile(src, "name,lon,lat\na,1,2\nb,3,4\n");
-  await ingestFile(src, "s.csv");
+  await ingestFile(testAccountScope(), src, "s.csv");
 });
 
 afterEach(async () => {
@@ -53,8 +55,8 @@ afterEach(async () => {
 });
 
 async function mapWithLayer() {
-  const map = createMap("m");
-  await createLayer(map.id, { name: "l", sql: "SELECT * FROM s" });
+  const map = createMap(testAccountScope(), "m");
+  await createLayer(testAccountScope(), map.id, { name: "l", sql: "SELECT * FROM s" });
   return map;
 }
 
@@ -71,16 +73,16 @@ describe("generateToken", () => {
 describe("publish / unpublish", () => {
   it("publishing is idempotent while published (same token)", async () => {
     const map = await mapWithLayer();
-    const first = publishMap(map.id);
-    const second = publishMap(map.id);
+    const first = publishMap(testAccountScope(), map.id);
+    const second = publishMap(testAccountScope(), map.id);
     expect(second.token).toBe(first.token);
   });
 
   it("the token is not derived from the map id or name", async () => {
-    const a = createMap("Shared Name");
-    const b = createMap("Shared Name");
-    const ta = publishMap(a.id).token;
-    const tb = publishMap(b.id).token;
+    const a = createMap(testAccountScope(), "Shared Name");
+    const b = createMap(testAccountScope(), "Shared Name");
+    const ta = publishMap(testAccountScope(), a.id).token;
+    const tb = publishMap(testAccountScope(), b.id).token;
     // Not the id, and two identically-named maps get unrelated tokens.
     expect(ta).not.toContain(a.id);
     expect(ta).not.toBe(tb);
@@ -88,7 +90,7 @@ describe("publish / unpublish", () => {
 
   it("resolves a published view and 404s an unknown token", async () => {
     const map = await mapWithLayer();
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     expect(view?.name).toBe("m");
     expect(view?.layers[0].render.ok).toBe(true);
@@ -97,19 +99,19 @@ describe("publish / unpublish", () => {
 
   it("unpublish stops resolution immediately; republish rotates the token", async () => {
     const map = await mapWithLayer();
-    const first = publishMap(map.id);
-    unpublishMap(map.id);
+    const first = publishMap(testAccountScope(), map.id);
+    unpublishMap(testAccountScope(), map.id);
     expect(await getPublishedView(first.token, Date.now())).toBeNull();
-    const second = publishMap(map.id);
+    const second = publishMap(testAccountScope(), map.id);
     expect(second.token).not.toBe(first.token);
   });
 
   it("map deletion revokes a warmed token", async () => {
     const map = await mapWithLayer();
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     expect(await getPublishedView(token, Date.now())).not.toBeNull();
 
-    await removeMap(map.id);
+    await removeMap(testAccountScope(), map.id);
     expect(await getPublishedView(token, Date.now())).toBeNull();
     resetPublishCache();
     closeMetadataDb();
@@ -118,13 +120,13 @@ describe("publish / unpublish", () => {
 
   it("an in-flight assembly cannot return or restore a revoked token", async () => {
     const map = await mapWithLayer();
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
 
     // Rendering crosses an asynchronous query boundary. The synchronous
     // mutation therefore lands after the ownership snapshot but before the
     // final durable check.
     const inFlight = getPublishedView(token, Date.now());
-    unpublishMap(map.id);
+    unpublishMap(testAccountScope(), map.id);
 
     expect(await inFlight).toBeNull();
     expect(await getPublishedView(token, Date.now())).toBeNull();
@@ -135,10 +137,10 @@ describe("publish / unpublish", () => {
 
   it("an in-flight assembly cannot cross map deletion", async () => {
     const map = await mapWithLayer();
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
 
     const inFlight = getPublishedView(token, Date.now());
-    await removeMap(map.id);
+    await removeMap(testAccountScope(), map.id);
 
     expect(await inFlight).toBeNull();
     expect(await getPublishedView(token, Date.now())).toBeNull();
@@ -149,7 +151,7 @@ describe("freshness bound", () => {
   it("serves within the bound from cache, refreshes after it", async () => {
     process.env.DEZFIL_PUBLISH_FRESHNESS_S = "30";
     const map = await mapWithLayer();
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     const t0 = 1_000_000;
     const a = await getPublishedView(token, t0);
     const b = await getPublishedView(token, t0 + 10_000); // within bound
@@ -161,24 +163,24 @@ describe("freshness bound", () => {
 
   it("unpublish invalidates the cache even within the bound", async () => {
     const map = await mapWithLayer();
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     const t0 = 2_000_000;
     await getPublishedView(token, t0);
-    unpublishMap(map.id);
+    unpublishMap(testAccountScope(), map.id);
     expect(await getPublishedView(token, t0 + 1000)).toBeNull();
   });
 
   it("a metadata revision retires a cached note immediately", async () => {
     process.env.DEZFIL_PUBLISH_FRESHNESS_S = "30";
     const map = await mapWithLayer();
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     const t0 = 3_000_000;
     const before = await getPublishedView(token, t0);
     expect(before?.widgets).toEqual([]); // no cards — as ever
 
     // Notes are widgets now; a fresh one must reach the viewer inside
     // the freshness bound like any metadata revision.
-    updateMap(map.id, {
+    updateMap(testAccountScope(), map.id, {
       widgets: [
         {
           id: "n1",
@@ -207,12 +209,12 @@ describe("freshness bound", () => {
   it("a metadata revision retires cached basemap toggles", async () => {
     process.env.DEZFIL_PUBLISH_FRESHNESS_S = "30";
     const map = await mapWithLayer();
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     const t0 = 4_000_000;
     const before = await getPublishedView(token, t0);
     expect(before?.basemapLayers).toBeNull(); // everything visible, as ever
 
-    updateMap(map.id, { basemapLayers: { labels: false, roads: false } });
+    updateMap(testAccountScope(), map.id, { basemapLayers: { labels: false, roads: false } });
     const after = await getPublishedView(token, t0 + 1000);
     expect(after?.basemapLayers).toEqual({ labels: false, roads: false });
   });
@@ -220,7 +222,7 @@ describe("freshness bound", () => {
   it("imagery resolves with its configured kind and credit in the payload", async () => {
     process.env.DEZFIL_PUBLISH_FRESHNESS_S = "30";
     const map = await mapWithLayer();
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     const t0 = 6_000_000;
     const before = await getPublishedView(token, t0);
     // Default (Auto): vector, with the lean required credit
@@ -235,7 +237,7 @@ describe("freshness bound", () => {
       "https://imagery.example/tiles/{z}/{y}/{x}?key=SECRET";
     process.env.DEZFIL_SATELLITE_ATTRIBUTION = "© Imagery Provider";
     try {
-      updateMap(map.id, { basemap: "satellite" });
+      updateMap(testAccountScope(), map.id, { basemap: "satellite" });
       const after = await getPublishedView(token, t0 + 31_000);
       expect(after?.basemapUrl).toBe("/api/basemaps/satellite");
       expect(after?.basemapKind).toBe("imagery");
@@ -251,9 +253,9 @@ describe("freshness bound", () => {
   it("a custom style wins in both themes with its snapshot credit", async () => {
     process.env.DEZFIL_PUBLISH_FRESHNESS_S = "30";
     const map = await mapWithLayer();
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     const t0 = 4_000_000;
-    updateMap(map.id, {
+    updateMap(testAccountScope(), map.id, {
       customBasemap: {
         url: "https://styles.example/dark.json",
         name: "Company dark",
@@ -272,7 +274,7 @@ describe("freshness bound", () => {
     ]);
     expect(view?.basemapKey).toBeNull();
     // Clearing reveals the stored key's own resolution again.
-    updateMap(map.id, { customBasemap: null });
+    updateMap(testAccountScope(), map.id, { customBasemap: null });
     const cleared = await getPublishedView(token, t0 + 31_000);
     expect(cleared?.customBasemap).toBeNull();
     expect(cleared?.basemapAttribution?.[0]?.label).toBe("© OpenMapTiles");
@@ -281,11 +283,11 @@ describe("freshness bound", () => {
   it("a metadata revision retires the cached legend corner", async () => {
     process.env.DEZFIL_PUBLISH_FRESHNESS_S = "30";
     const map = await mapWithLayer();
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     const t0 = 5_000_000;
     expect((await getPublishedView(token, t0))?.legendCorner).toBeNull();
 
-    updateMap(map.id, { legendCorner: "top-right" });
+    updateMap(testAccountScope(), map.id, { legendCorner: "top-right" });
     const after = await getPublishedView(token, t0 + 1000);
     expect(after?.legendCorner).toBe("top-right");
   });
@@ -295,7 +297,7 @@ describe("freshness bound", () => {
     const { updateLayer } = await import("@/lib/layer-service");
     const { listLayers } = await import("@/lib/metadata/maps");
     const [layer] = listLayers(map.id);
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       popup: ["name"],
       style: {
         ...layer.style,
@@ -307,7 +309,7 @@ describe("freshness bound", () => {
         },
       },
     });
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, 5_000_000);
     expect(view?.layers[0].popup).toEqual(["name"]);
     expect(view?.layers[0].style.label?.attribute).toBe("name");
@@ -321,9 +323,9 @@ describe("published-field projection", () => {
       src,
       "name,secret,riders,lon,lat\na,s1,10,1,2\nb,s2,20,3,4\n",
     );
-    await ingestFile(src, "w.csv");
-    const map = createMap("wide");
-    const layer = await createLayer(map.id, {
+    await ingestFile(testAccountScope(), src, "w.csv");
+    const map = createMap(testAccountScope(), "wide");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "l",
       sql: "SELECT * FROM w",
     });
@@ -341,8 +343,8 @@ describe("published-field projection", () => {
 
   it("view payload carries exactly the explicit interaction fields", async () => {
     const { map, layer } = await wideMap();
-    await updateLayer(layer.id, { tooltip: ["name"], popup: [] });
-    const { token } = publishMap(map.id);
+    await updateLayer(testAccountScope(), layer.id, { tooltip: ["name"], popup: [] });
+    const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     // The hidden column is absent from the wire, not merely undisplayed.
     expect(keysOf(view?.layers[0].render)).toEqual(["name"]);
@@ -350,19 +352,19 @@ describe("published-field projection", () => {
 
   it("automatic tooltips publish what the builder shows — no more", async () => {
     const { map, layer } = await wideMap();
-    const builder = await renderLayer(layer);
-    const { token } = publishMap(map.id);
+    const builder = await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
+    const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     expect(keysOf(view?.layers[0].render)).toEqual(keysOf(builder));
   });
 
   it("the override is the functional core plus exactly the listed fields", async () => {
     const { map, layer } = await wideMap();
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       tooltip: ["name", "secret"],
       publishedFields: ["riders"],
     });
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     // Tooltip entries outside the effective set do not ship; the viewer
     // shows only what ships.
@@ -374,7 +376,7 @@ describe("published-field projection", () => {
 
   it("the settle lane projects for its reader audience only", async () => {
     const { layer } = await wideMap();
-    const clustered = await updateLayer(layer.id, {
+    const clustered = await updateLayer(testAccountScope(), layer.id, {
       tooltip: ["name"],
       popup: [],
       viz: { type: "cluster", radiusPx: 64, color: "fixed", showCounts: true },
@@ -384,21 +386,21 @@ describe("published-field projection", () => {
       widgets: [],
       widgetsPublished: true,
     };
-    const reader = await renderLayerWithSelections(clustered, [], undefined, {
+    const reader = await renderLayerWithSelections(testAccountScope(), clustered, [], undefined, {
       published,
     });
     expect(keysOf(reader)).toEqual(["name"]);
     // The builder's settle preview keeps the full row.
-    const builder = await renderLayerWithSelections(clustered, []);
+    const builder = await renderLayerWithSelections(testAccountScope(), clustered, []);
     expect(keysOf(builder)).toContain("secret");
   });
 
   it("aggregated layers are unchanged: computed columns only", async () => {
     const { map, layer } = await wideMap();
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 50, aggregate: { fn: "count" } },
     });
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     // __anchor is the reserved label anchor for non-point cells — part of
     // the documented reserved presentation values, not data.
@@ -411,16 +413,16 @@ describe("published-field projection", () => {
 
   it("the builder render still carries every column", async () => {
     const { layer } = await wideMap();
-    const updated = await updateLayer(layer.id, {
+    const updated = await updateLayer(testAccountScope(), layer.id, {
       tooltip: ["name"],
       publishedFields: ["riders"],
     });
-    expect(keysOf(await renderLayer(updated))).toContain("secret");
+    expect(keysOf(await renderLayer(testAccountScope(), updated, undefined, { tileAccess: privateTileAccess(testAccountScope(), (updated).id) }))).toContain("secret");
   });
 
   it("an errored render ships explicit interaction lists empty (round two)", async () => {
     const { map, layer } = await wideMap();
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       tooltip: ["name", "secret"],
       publishedFields: ["riders"],
     });
@@ -429,7 +431,7 @@ describe("published-field projection", () => {
     // name columns the (absent) wire never carried.
     const { updateLayerFields } = await import("@/lib/metadata/maps");
     updateLayerFields(layer.id, { sql: "SELECT * FROM vanished" });
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     expect(view?.layers[0].render.ok).toBe(false);
     expect(view?.layers[0].tooltip).toEqual([]);
@@ -441,13 +443,13 @@ describe("published-field projection", () => {
       src,
       "origin_lon,origin_lat,dest_lon,dest_lat,riders\n1,2,3,4,10\n5,6,7,8,20\n",
     );
-    await ingestFile(src, "flows.csv");
-    const map = createMap("flows");
-    const layer = await createLayer(map.id, {
+    await ingestFile(testAccountScope(), src, "flows.csv");
+    const map = createMap(testAccountScope(), "flows");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "l",
       sql: "SELECT * FROM flows",
     });
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       viz: {
         type: "arc",
         origin: { kind: "lonlat", lon: "origin_lon", lat: "origin_lat" },
@@ -457,7 +459,7 @@ describe("published-field projection", () => {
       tooltip: ["riders"],
       popup: [],
     });
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     const viz = view?.layers[0].viz as {
       type: string;
@@ -473,7 +475,7 @@ describe("published-field projection", () => {
     // The custom icon markup, by contrast, IS the icon — it rides the
     // published viz whole, which is what lets the reader and the
     // exported image draw it with no asset resolution.
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       viz: {
         type: "icon",
         glyph: "marker",
@@ -491,7 +493,7 @@ describe("published-field projection", () => {
 
   it("a hidden layer ships no feature data; its widgets keep computing", async () => {
     const { map, layer } = await wideMap();
-    updateMap(map.id, {
+    updateMap(testAccountScope(), map.id, {
       widgets: [
         {
           id: "w1",
@@ -508,16 +510,16 @@ describe("published-field projection", () => {
         },
       ],
     });
-    await updateLayer(layer.id, { visible: false });
-    const { token } = publishMap(map.id);
+    await updateLayer(testAccountScope(), layer.id, { visible: false });
+    const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     // No entry at all: no rows, no attributes, no extent to frame.
     expect(view?.layers).toEqual([]);
     // The widget still ships and its aggregate still answers — hide the
     // geometry, keep the numbers.
     expect(view?.widgets.map((w) => w.id)).toEqual(["w1"]);
-    const record = mapWithLayers(map.id);
-    const values = await computeWidgetValues(record, record.layers, []);
+    const record = mapWithLayers(testAccountScope(), map.id);
+    const values = await computeWidgetValues(testAccountScope(), record, record.layers, []);
     expect(values.widgets[0]).toMatchObject({ type: "formula", value: 30 });
   });
 
@@ -573,7 +575,7 @@ describe("published-field projection", () => {
       src,
       "name,secret,riders,lon,lat\na,s1,10,1,2\nb,s2,20,3,4\n",
     );
-    await ingestFile(src, "w.csv");
+    await ingestFile(testAccountScope(), src, "w.csv");
 
     const { getLayer } = await import("@/lib/metadata/maps");
     expect(getLayer("legacy-layer")?.publishedFields).toBeNull();
@@ -595,22 +597,22 @@ describe("published-field projection", () => {
       src,
       "name,seen,lon,lat\na,2021-01-01T00:00:00Z,1,2\nb,2021-06-01T00:00:00Z,3,4\n",
     );
-    await ingestFile(src, "t.csv");
-    const map = createMap("timed");
-    const layer = await createLayer(map.id, {
+    await ingestFile(testAccountScope(), src, "t.csv");
+    const map = createMap(testAccountScope(), "timed");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "l",
       sql: "SELECT * FROM t",
     });
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       filters: [{ field: "seen", kind: "timerange", min: null, max: null }],
     });
-    updateMap(map.id, {
+    updateMap(testAccountScope(), map.id, {
       timeline: { layerId: layer.id, field: "seen", speed: 1 },
     });
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     expect((await getPublishedView(token, Date.now()))?.timeline).not.toBeNull();
 
-    await updateLayer(layer.id, { visible: false });
+    await updateLayer(testAccountScope(), layer.id, { visible: false });
     expect((await getPublishedView(token, Date.now()))?.timeline).toBeNull();
   });
 });
@@ -630,14 +632,14 @@ describe("rate limit", () => {
 });
 
 describe("published error disclosure", () => {
-  it("an errored view-payload envelope carries the catalogue sentence; the builder keeps the raw diagnostic", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, {
+  it("an errored view-payload envelope carries the catalogue sentence; the builder keeps the safe input diagnostic", async () => {
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "l",
       sql: "SELECT * FROM s",
     });
-    const { token } = publishMap(map.id);
-    await removeTable("s");
+    const { token } = publishMap(testAccountScope(), map.id);
+    await removeTable(testAccountScope(), "s");
     resetPublishCache();
 
     const view = await getPublishedView(token, Date.now());
@@ -651,11 +653,10 @@ describe("published error disclosure", () => {
       /does not exist|Catalog|Binder|LINE \d/,
     );
 
-    // The author's own surface keeps the engine's diagnostic — the
-    // documented carve-out on the authenticated-equivalent boundary.
-    const raw = await renderLayer(layer);
+    // The author's own surface keeps the safe input diagnostic.
+    const raw = await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
     expect(raw.ok).toBe(false);
-    expect(raw.error!.message).toMatch(/does not exist|Catalog/i);
+    expect(raw.error!.message).toBe("The query refers to an unknown table.");
     expect(raw.error!.message).not.toBe(render.error!.message);
   });
 
@@ -685,14 +686,14 @@ describe("published error disclosure", () => {
 describe("published theme", () => {
   it("a first publication with no stated mode reads dark", async () => {
     const map = await mapWithLayer();
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     expect(view!.theme).toBe("dark");
   });
 
   it("a stated light mode is captured and resolves the Auto basemap light", async () => {
     const map = await mapWithLayer();
-    const { token } = publishMap(map.id, { theme: "light" });
+    const { token } = publishMap(testAccountScope(), map.id, { theme: "light" });
     const view = await getPublishedView(token, Date.now());
     expect(view!.theme).toBe("light");
     expect(view!.basemapForTheme).not.toBeNull();
@@ -702,10 +703,10 @@ describe("published theme", () => {
 
   it("a stated mode on an active publication updates in place: same token, cached payload retired", async () => {
     const map = await mapWithLayer();
-    const first = publishMap(map.id, { theme: "dark" });
+    const first = publishMap(testAccountScope(), map.id, { theme: "dark" });
     const before = await getPublishedView(first.token, Date.now());
     expect(before!.theme).toBe("dark");
-    const second = publishMap(map.id, { theme: "light" });
+    const second = publishMap(testAccountScope(), map.id, { theme: "light" });
     expect(second.token).toBe(first.token);
     // Same freshness window: the revision moved, so the cache misses.
     const after = await getPublishedView(first.token, Date.now());
@@ -714,33 +715,33 @@ describe("published theme", () => {
 
   it("an omitted mode on an active publication changes nothing", async () => {
     const map = await mapWithLayer();
-    const { token } = publishMap(map.id, { theme: "light" });
-    publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id, { theme: "light" });
+    publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     expect(view!.theme).toBe("light");
   });
 
   it("unpublish clears the default; the next publication captures fresh", async () => {
     const map = await mapWithLayer();
-    publishMap(map.id, { theme: "light" });
-    unpublishMap(map.id);
-    const { token } = publishMap(map.id);
+    publishMap(testAccountScope(), map.id, { theme: "light" });
+    unpublishMap(testAccountScope(), map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     expect(view!.theme).toBe("dark");
   });
 
   it("an ordinary map edit does not change the active publication's default", async () => {
     const map = await mapWithLayer();
-    const { token } = publishMap(map.id, { theme: "light" });
-    updateMap(map.id, { name: "renamed" });
+    const { token } = publishMap(testAccountScope(), map.id, { theme: "light" });
+    updateMap(testAccountScope(), map.id, { name: "renamed" });
     const view = await getPublishedView(token, Date.now());
     expect(view!.theme).toBe("light");
   });
 
   it("an explicit basemap never follows the theme", async () => {
     const map = await mapWithLayer();
-    updateMap(map.id, { basemap: "streets" });
-    const { token } = publishMap(map.id, { theme: "light" });
+    updateMap(testAccountScope(), map.id, { basemap: "streets" });
+    const { token } = publishMap(testAccountScope(), map.id, { theme: "light" });
     const view = await getPublishedView(token, Date.now());
     expect(view!.theme).toBe("light");
     expect(view!.basemapForTheme).toBeNull();
@@ -751,7 +752,7 @@ describe("published theme", () => {
     process.env.DEZFIL_BASEMAP_URL = "https://example.test/pinned.json";
     try {
       const map = await mapWithLayer();
-      const { token } = publishMap(map.id, { theme: "light" });
+      const { token } = publishMap(testAccountScope(), map.id, { theme: "light" });
       const view = await getPublishedView(token, Date.now());
       expect(view!.basemapForTheme).toBeNull();
       expect(view!.basemapUrl).toBe("https://example.test/pinned.json");
@@ -762,16 +763,16 @@ describe("published theme", () => {
 
   it("a duplicated map carries no publication default", async () => {
     const map = await mapWithLayer();
-    publishMap(map.id, { theme: "light" });
-    const copy = duplicateMap(map.id);
-    const { token } = publishMap(copy.id);
+    publishMap(testAccountScope(), map.id, { theme: "light" });
+    const copy = duplicateMap(testAccountScope(), map.id);
+    const { token } = publishMap(testAccountScope(), copy.id);
     const view = await getPublishedView(token, Date.now());
     expect(view!.theme).toBe("dark");
   });
 
   it("a publication with no stored default (pre-) reads dark", async () => {
     const map = await mapWithLayer();
-    const { token } = publishMap(map.id, { theme: "light" });
+    const { token } = publishMap(testAccountScope(), map.id, { theme: "light" });
     // Simulate the earlier row state the migration leaves behind.
     setPublishedTheme(map.id, null);
     const view = await getPublishedView(token, Date.now());

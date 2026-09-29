@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -27,7 +28,7 @@ beforeEach(async () => {
     source,
     "name,value,lon,lat\na,1000,13.4,52.5\nb,3500,13.5,52.6\nc,12000,13.6,52.7\n",
   );
-  await ingestFile(source, "values.csv");
+  await ingestFile(testAccountScope(), source, "values.csv");
 });
 
 afterEach(async () => {
@@ -39,8 +40,8 @@ afterEach(async () => {
 
 describe("opening a stored data-driven Fill panel", () => {
   it("leaves quantile breaks and colors byte-stable across the read path", async () => {
-    const map = createMap("Quantile inspection");
-    const layer = await createLayer(map.id, {
+    const map = createMap(testAccountScope(), "Quantile inspection");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "Values",
       sql: "SELECT name, value, geometry FROM values",
     });
@@ -56,22 +57,22 @@ describe("opening a stored data-driven Fill panel", () => {
         { r: 221, g: 197, b: 71, a: 1 },
       ],
     };
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       style: { ...layer.style, fill },
     });
-    const stored = requireLayer(layer.id);
+    const stored = requireLayer(testAccountScope(), layer.id);
     const before = JSON.stringify(stored.style);
 
     // StylePanel's open read: resolve fields, fetch the ramp distribution,
     // and project the stored paint into PaintControls' display state.
-    const fields = await layerFields(stored);
-    await layerFieldStats(stored, fill.attribute);
+    const fields = await layerFields(testAccountScope(), stored);
+    await layerFieldStats(testAccountScope(), stored, fill.attribute);
     const opened = paintControlsOpenState(stored.style.fill, fields.styling);
 
     expect(opened.method).toBe("quantile");
     expect(opened.legend?.entries.map((entry) => entry.color)).toEqual(
       fill.colors,
     );
-    expect(JSON.stringify(requireLayer(layer.id).style)).toBe(before);
+    expect(JSON.stringify(requireLayer(testAccountScope(), layer.id).style)).toBe(before);
   });
 });

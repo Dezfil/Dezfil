@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -55,7 +56,7 @@ function dataset(name: string, over: Partial<DataTable> = {}): DataTable {
 }
 
 const read = async (recipeId: string) =>
-  GET(new Request("http://test"), { params: Promise.resolve({ id: recipeId }) });
+  GET(testAccountRequest(new Request("http://test")), { params: Promise.resolve({ id: recipeId }) });
 
 type Wire = {
   id: string;
@@ -75,11 +76,11 @@ describe("the datasets a workflow reads and writes", () => {
     const buffers = dataset("station_buffers", { source: "operation" });
     const joined = dataset("stations_by_district", { source: "operation" });
     const unrelated = dataset("harbor_depths");
-    for (const t of [stations, districts, buffers, joined, unrelated]) insertTable(t);
-    const berlin = createProject({ name: "Berlin" });
+    for (const t of [stations, districts, buffers, joined, unrelated]) insertTable(testAccountScope(), t);
+    const berlin = createProject(testAccountScope(), { name: "Berlin" });
     fileTable(districts.id, berlin.id);
 
-    const wf = createRecipe("Station catchments");
+    const wf = createRecipe(testAccountScope(), "Station catchments");
     // Two nodes read stations: one declares it, one names it in SQL.
     const buffer = addStep(wf.id, {
       operation: "buffer",
@@ -117,11 +118,11 @@ describe("the datasets a workflow reads and writes", () => {
   it("describes the current definition: a pending edit's reads over the active definition's", async () => {
     const stations = dataset("stations");
     const lanes = dataset("bike_lanes", { geometryType: "LINESTRING" });
-    insertTable(stations);
-    insertTable(lanes);
+    insertTable(testAccountScope(), stations);
+    insertTable(testAccountScope(), lanes);
     const density = dataset("density", { source: "operation" });
-    insertTable(density);
-    const wf = createRecipe("Lane density");
+    insertTable(testAccountScope(), density);
+    const wf = createRecipe(testAccountScope(), "Lane density");
     const step = addStep(wf.id, {
       operation: "sql_step",
       parameters: { sql: "SELECT * FROM stations", name: "density" },
@@ -136,7 +137,7 @@ describe("the datasets a workflow reads and writes", () => {
   });
 
   it("returns none for a workflow with no registered dependencies; unregistered names are not entries", async () => {
-    const wf = createRecipe("Empty");
+    const wf = createRecipe(testAccountScope(), "Empty");
     expect((await (await read(wf.id)).json()) as unknown).toEqual({ datasets: [] });
     addStep(wf.id, {
       operation: "sql_step",
@@ -147,8 +148,8 @@ describe("the datasets a workflow reads and writes", () => {
 
   it("fails the whole read when one current definition cannot be analyzed — never an empty or partial answer", async () => {
     const stations = dataset("stations");
-    insertTable(stations);
-    const wf = createRecipe("Broken");
+    insertTable(testAccountScope(), stations);
+    const wf = createRecipe(testAccountScope(), "Broken");
     addStep(wf.id, {
       operation: "sql_step",
       parameters: { sql: "SELECT * FROM stations", name: "fine" },

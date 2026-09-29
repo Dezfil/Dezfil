@@ -1,7 +1,9 @@
+import { resourceAbsent } from "@/lib/auth/owned-resource";
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
-import { getRecipe, getStep, listSteps, moveStep } from "@/lib/metadata/recipes";
+import { getRecipe, getStep, listSteps, moveStep } from "@/lib/metadata/owned-recipes";
 import { assertOrderingValid } from "@/lib/operations/recipe-order";
 import { readRecipe } from "@/lib/operations/recipe-view";
 import { readsByStep } from "@/lib/operations/step-reads";
@@ -22,17 +24,14 @@ type Params = { params: Promise<{ id: string; stepId: string }> };
  */
 export async function POST(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id, stepId } = await params;
-    if (!getRecipe(id)) {
-      throw new ApiError("not_found", `No recipe with id "${id}".`, 404);
+    if (!getRecipe(scope, id)) {
+      throw resourceAbsent();
     }
-    const step = getStep(stepId);
+    const step = getStep(scope, stepId);
     if (!step || step.recipeId !== id) {
-      throw new ApiError(
-        "not_found",
-        `No step with id "${stepId}" in this recipe.`,
-        404,
-      );
+      throw resourceAbsent();
     }
     const body = await jsonBody(request);
     if (typeof body.ordinal !== "number" || !Number.isInteger(body.ordinal)) {
@@ -43,7 +42,7 @@ export async function POST(request: Request, { params }: Params) {
       );
     }
 
-    const steps = listSteps(id);
+    const steps = listSteps(scope, id);
     // Resolving what each step reads needs the engine's parser, which is
     // asynchronous — so the arrangement this validates is a snapshot, and a
     // concurrent edit can make it stale before the move lands. The move
@@ -51,7 +50,7 @@ export async function POST(request: Request, { params }: Params) {
     const stamp = (list: typeof steps) =>
       list.map((s) => `${s.id}:${s.ordinal}:${s.updatedAt}`).join("|");
     const before = stamp(steps);
-    const reads = await readsByStep(steps);
+    const reads = await readsByStep(scope, steps);
     const target = Math.max(0, Math.min(body.ordinal, steps.length - 1));
     const proposed = steps.filter((s) => s.id !== stepId);
     proposed.splice(target, 0, step);
@@ -61,7 +60,7 @@ export async function POST(request: Request, { params }: Params) {
     db.transaction(() => {
       // Re-read inside the commit. Without this the promised refusal is
       // only true of an arrangement nobody may still be in.
-      if (stamp(listSteps(id, db)) !== before) {
+      if (stamp(listSteps(scope, id, db)) !== before) {
         throw new ApiError(
           "invalid_request",
           `This recipe changed while the move was being checked. Read it ` +
@@ -69,10 +68,10 @@ export async function POST(request: Request, { params }: Params) {
           409,
         );
       }
-      moveStep(stepId, target, db);
+      moveStep(scope, stepId, target, db);
     })();
 
-    return NextResponse.json({ recipe: recipePayload(await readRecipe(id)) });
+    return NextResponse.json({ recipe: recipePayload(await readRecipe(scope, id)) });
   } catch (error) {
     return errorResponse(error);
   }

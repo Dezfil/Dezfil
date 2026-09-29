@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { limits } from "@/lib/limits";
 import { lookFacts, type LookFacts, type LookResult } from "./map-look";
 
@@ -14,7 +15,7 @@ import { lookFacts, type LookFacts, type LookResult } from "./map-look";
 export { THUMBNAIL_WIDTH } from "./look-thumbnail";
 export type LookVariant = "full" | "thumbnail";
 
-interface Retained { id: string; facts: LookFacts; full: Uint8Array; thumbnail: Uint8Array; at: number }
+interface Retained { accountId: string; id: string; facts: LookFacts; full: Uint8Array; thumbnail: Uint8Array; at: number }
 
 export interface RetentionBounds { count: number; bytes: number }
 
@@ -24,9 +25,10 @@ export class LookRetention {
   constructor(private readonly bounds: RetentionBounds | (() => RetentionBounds), private readonly now: () => number = Date.now) {}
   private limit(): RetentionBounds { return typeof this.bounds === "function" ? this.bounds() : this.bounds; }
   /** Keep a check's image and its thumbnail; evict the oldest until both bounds hold. */
-  retain(result: LookResult): { id: string; fullBytes: number; thumbnailBytes: number } {
+  retain(scope: AccountScope, result: LookResult): { id: string; fullBytes: number; thumbnailBytes: number } {
+    const accountId = requireAccountScope(scope);
     const thumbnail = result.thumbnail.png;
-    const entry: Retained = { id: result.id, facts: lookFacts(result), full: result.image.png, thumbnail, at: this.now() };
+    const entry: Retained = { accountId, id: result.id, facts: lookFacts(result), full: result.image.png, thumbnail, at: this.now() };
     this.entries.set(entry.id, entry);
     this.total += entry.full.byteLength + entry.thumbnail.byteLength;
     const { count, bytes } = this.limit();
@@ -40,15 +42,19 @@ export class LookRetention {
     return { id: entry.id, fullBytes: entry.full.byteLength, thumbnailBytes: thumbnail.byteLength };
   }
   /** The retained bytes, or null once evicted or after a restart. */
-  read(id: string, variant: LookVariant): Uint8Array | null {
+  read(scope: AccountScope, id: string, variant: LookVariant): Uint8Array | null {
+    const accountId = requireAccountScope(scope);
     const entry = this.entries.get(id);
-    if (!entry) return null;
+    if (!entry || entry.accountId !== accountId) return null;
     return variant === "thumbnail" ? entry.thumbnail : entry.full;
   }
-  facts(id: string): LookFacts | null { return this.entries.get(id)?.facts ?? null; }
-  size(): { count: number; bytes: number } { return { count: this.entries.size, bytes: this.total }; }
+  facts(scope: AccountScope, id: string): LookFacts | null {
+    const accountId = requireAccountScope(scope), entry = this.entries.get(id);
+    return entry?.accountId === accountId ? structuredClone(entry.facts) : null;
+  }
+  sizeForTests(): { count: number; bytes: number } { return { count: this.entries.size, bytes: this.total }; }
   /** Oldest first. */
-  ids(): string[] { return [...this.entries.keys()]; }
+  idsForTests(): string[] { return [...this.entries.keys()]; }
   /** Test seams: an eviction and the process's restart, never exposed by the API. */
   evictForTests(id: string) { const entry = this.entries.get(id); if (entry) { this.entries.delete(id); this.total -= entry.full.byteLength + entry.thumbnail.byteLength; } }
   resetForTests() { this.entries.clear(); this.total = 0; }

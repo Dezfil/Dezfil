@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
@@ -96,14 +97,14 @@ describe("the boundary the map's history gives", () => {
   it("undoes consecutive grouped edits as one step, and stops at an edit from outside the group", async () => {
     // Grouped and consecutive: two different fields, so the timeline's
     // coalescing of same-shaped edits is not what is being measured.
-    const grouped = createMap("Original A");
+    const grouped = createMap(testAccountScope(), "Original A");
     await edit(grouped.id, { name: "Renamed A" }, "turn-a");
     await edit(grouped.id, { legendCorner: "top-right" }, "turn-a");
     await undo(grouped.id);
     expect(await readMap(grouped.id)).toMatchObject({ name: "Original A", legendCorner: null });
 
     // The same group, with one ungrouped edit between its two edits.
-    const split = createMap("Original B");
+    const split = createMap(testAccountScope(), "Original B");
     await edit(split.id, { name: "First" }, "turn-b");
     await edit(split.id, { name: "Manual" });
     await edit(split.id, { legendCorner: "top-right" }, "turn-b");

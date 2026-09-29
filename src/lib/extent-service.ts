@@ -1,3 +1,5 @@
+import { namedSql } from "@/lib/query/named-sql";
+import type { DatasetScope } from "@/lib/query/access";
 import { boundedEvaluation } from "@/lib/query/bounded";
 import { effectiveSql } from "@/lib/query/compile";
 import { inspectLayerGeometry } from "@/lib/layer-geometry";
@@ -62,6 +64,7 @@ function composeFilters(
 }
 
 export async function layerExtent(
+  scope: DatasetScope,
   layer: Layer,
   /** Constraints the canvas is enforcing — a reader's timeline window,
    * widget selections, the current bounds of a delegated filter. A range
@@ -69,7 +72,7 @@ export async function layerExtent(
   extra: LayerFilter[] = [],
   signal?: AbortSignal,
 ): Promise<LayerExtent> {
-  const inspection = await inspectLayerGeometry(layer.sql, signal);
+  const inspection = await inspectLayerGeometry(scope, layer.sql, signal);
   // Which column holds the geometry that is actually drawn: an aggregation
   // computes its own cells, an origin→destination viz builds its line, and
   // everything else draws the base result's geometry. The same choice the
@@ -87,7 +90,7 @@ export async function layerExtent(
   return boundedEvaluation(async (conn) => {
     const sub = `(${effectiveSql(
       {
-        sql: layer.sql,
+        sql: await namedSql(conn, layer.sql),
         filters: composeFilters(layer.filters, extra),
         viz: layer.viz,
       },
@@ -120,5 +123,5 @@ export async function layerExtent(
     const box = raw.map(Number) as ExtentBox;
     if (!box.every((n) => Number.isFinite(n))) return { kind: "empty" };
     return { kind: "extent", box };
-  }, { signal });
+  }, { signal, scope });
 }

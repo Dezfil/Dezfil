@@ -17,8 +17,8 @@ import { POLICY_REFUSAL_CODE } from "./policy";
  * count is a reviewed change, never a side effect of the policy.
  * Authenticated settings adds its read and update operations. Own-account
  * profile, password and token controls add six operations; user administration
- * adds four more. */
-const GENERATED_TOOLS = 128;
+ * adds four more. Token-addressed publication revocation adds one. */
+const GENERATED_TOOLS = 129;
 
 describe("the page action policy is documented", () => {
   const document = buildOpenApiDocument();

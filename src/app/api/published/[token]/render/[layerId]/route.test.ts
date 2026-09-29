@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -50,21 +51,21 @@ beforeEach(async () => {
     source,
     "id,kind,score,lon,lat\n1,a,10,1,2\n2,b,20,3,4\n3,a,30,5,6\n",
   );
-  await ingestFile(source, "points.csv");
-  const map = createMap("m");
-  const layer = await createLayer(map.id, {
+  await ingestFile(testAccountScope(), source, "points.csv");
+  const map = createMap(testAccountScope(), "m");
+  const layer = await createLayer(testAccountScope(), map.id, {
     name: "l",
     sql: "SELECT * FROM points",
   });
   layerId = layer.id;
   mapId = map.id;
-  await updateLayer(layerId, {
+  await updateLayer(testAccountScope(), layerId, {
     viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
   });
-  updateMap(map.id, {
+  updateMap(testAccountScope(), map.id, {
     widgets: [{ ...CATEGORY_WIDGET, layerId: layer.id }],
   });
-  token = publishMap(map.id).token;
+  token = publishMap(testAccountScope(), map.id).token;
 });
 
 afterEach(async () => {
@@ -141,7 +142,7 @@ describe("published settle route", () => {
   });
 
   it("a range on a declared numeric field still evaluates", async () => {
-    updateMap(mapId, {
+    updateMap(testAccountScope(), mapId, {
       widgets: [
         { ...CATEGORY_WIDGET, layerId },
         {
@@ -163,7 +164,7 @@ describe("published settle route", () => {
   });
 
   it("a declared field the result no longer provides refuses cleanly, not with engine text", async () => {
-    await updateLayer(layerId, { sql: "SELECT id, score, geometry FROM points" });
+    await updateLayer(testAccountScope(), layerId, { sql: "SELECT id, score, geometry FROM points" });
     const res = await settle([{ field: "kind", kind: "values", values: ["a"] }]);
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { code: string; message: string } };
@@ -213,7 +214,7 @@ describe("published settle route", () => {
   });
 
   it("an errored settle envelope carries the catalogue sentence, never engine text", async () => {
-    await removeTable("points");
+    await removeTable(testAccountScope(), "points");
     const res = await settle([]);
     expect(res.status).toBe(200);
     const render = (await res.json()) as {
@@ -228,7 +229,7 @@ describe("published settle route", () => {
   });
 
   it("answers a hidden layer exactly like an absent one", async () => {
-    await updateLayer(layerId, { visible: false });
+    await updateLayer(testAccountScope(), layerId, { visible: false });
     const hidden = await settle([]);
     expect(hidden.status).toBe(404);
     expect((await hidden.json()).error.code).toBe("not_found");

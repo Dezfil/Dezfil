@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
@@ -40,15 +41,15 @@ function connection(hold?: Stage, failure?: Stage) {
   return { stages, sql, entered, release, run: vi.fn(execute), runAndReadAll: vi.fn(execute), interrupt: vi.fn(), disconnectSync: vi.fn() };
 }
 function preview(controller = new AbortController()) {
-  return POST(new Request("http://localhost/api/connections/postgis/c1/preview", {
+  return POST(testAccountRequest(new Request("http://localhost/api/connections/postgis/c1/preview", {
     method: "POST", body: JSON.stringify({ schema: "public", table: "attrs" }), signal: controller.signal,
-  }), { params: Promise.resolve({ id: target.id }) });
+  })), { params: Promise.resolve({ id: target.id }) });
 }
 let dir: string;
 beforeEach(() => {
   dir = mkdtempSync(path.join(process.cwd(), ".tmp-preview-"));
   vi.stubEnv("DEZFIL_DATA_DIR", dir);
-  closeMetadataDb(); resetSecretKeyCache(); insertConnection(target);
+  closeMetadataDb(); resetSecretKeyCache(); insertConnection(testAccountScope(), target);
   fixture.acquire.mockReset().mockImplementation(async () => connection());
   fixture.resolve.mockReset().mockResolvedValue(["192.0.2.1"]);
 });
@@ -64,7 +65,7 @@ describe("actual preview route owns its attachment", () => {
     const response = await preview(controller);
     expect(response.status).toBe(499); expect(await response.text()).toBe("");
     expect(fixture.resolve).not.toHaveBeenCalled(); expect(fixture.acquire).not.toHaveBeenCalled();
-    expect(getConnection(target.id)?.status).toBe("never_checked");
+    expect(getConnection(testAccountScope(), target.id)?.status).toBe("never_checked");
   });
   it.each(["egress", "acquisition"])("stops after a departed %s wait without starting a source stage", async (stage) => {
     const wait = deferred(); const entered = deferred(); const conn = connection();
@@ -90,7 +91,7 @@ describe("actual preview route owns its attachment", () => {
       expect(response.status).toBe(499); expect(await response.text()).toBe("");
       expect(conn.stages.slice(conn.stages.indexOf(stage) + 1)).toEqual(stage === "load" ? [] : ["detach"]);
       expect(conn.disconnectSync).toHaveBeenCalledOnce();
-      expect(getConnection(target.id)?.status).toBe("never_checked");
+      expect(getConnection(testAccountScope(), target.id)?.status).toBe("never_checked");
     },
   );
   it("discards a result when departure occurs during teardown", async () => {
@@ -99,7 +100,7 @@ describe("actual preview route owns its attachment", () => {
     await conn.entered.promise; controller.abort(); conn.release.resolve();
     expect((await pending).status).toBe(499);
     expect(conn.disconnectSync).toHaveBeenCalledOnce();
-    expect(getConnection(target.id)?.status).toBe("never_checked");
+    expect(getConnection(testAccountScope(), target.id)?.status).toBe("never_checked");
   });
   it("interrupts only the departing preview while a sibling completes", async () => {
     const first = connection("rows"), second = connection();
@@ -118,7 +119,7 @@ describe("actual preview route owns its attachment", () => {
       const response = await preview();
       expect(response.status).toBe(408);
       expect(await response.json()).toEqual({ error: { code: "query_timeout", message: "The PostGIS source query took too long." } });
-      expect(getConnection(target.id)?.status).toBe("never_checked");
+      expect(getConnection(testAccountScope(), target.id)?.status).toBe("never_checked");
       expect(conn.disconnectSync).toHaveBeenCalledOnce();
     },
   );
@@ -127,7 +128,7 @@ describe("actual preview route owns its attachment", () => {
     const controller = new AbortController(); const pending = preview(controller);
     await conn.entered.promise; controller.abort(); conn.release.resolve();
     expect((await pending).status).toBe(499);
-    expect(getConnection(target.id)?.status).toBe("never_checked");
+    expect(getConnection(testAccountScope(), target.id)?.status).toBe("never_checked");
   });
   it("carries a unique preview identity and ceiling in source startup options only for previews", async () => {
     const connections = [connection(), connection(), connection(), connection(), connection()];

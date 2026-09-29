@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { assistantRuns } from "@/lib/assistant/runs";
 import { POST as reserveRunHandler } from "@/app/api/assistant/runs/route";
@@ -33,11 +34,11 @@ async function dispatch(request: Request): Promise<Response> {
   const url = new URL(request.url);
   contexts.push(url.pathname);
   const p = url.pathname.split("/").map(decodeURIComponent);
-  if (url.pathname === "/api/catalogue/tables") return catalogueGet(request);
-  if (p[2] === "maps" && p.length === 4) return mapGet(request, { params: Promise.resolve({ id: p[3] }) });
-  if (p[2] === "maps" && p[4] === "dependencies") return dependenciesGet(request, { params: Promise.resolve({ id: p[3] }) });
-  if (p[2] === "recipes" && p.length === 4) return recipeGet(request, { params: Promise.resolve({ id: p[3] }) });
-  if (p[2] === "recipes" && p[4] === "runs") return runGet(request, { params: Promise.resolve({ id: p[3], runId: p[5] }) });
+  if (url.pathname === "/api/catalogue/tables") return catalogueGet(testAccountRequest(request));
+  if (p[2] === "maps" && p.length === 4) return mapGet(testAccountRequest(request), { params: Promise.resolve({ id: p[3] }) });
+  if (p[2] === "maps" && p[4] === "dependencies") return dependenciesGet(testAccountRequest(request), { params: Promise.resolve({ id: p[3] }) });
+  if (p[2] === "recipes" && p.length === 4) return recipeGet(testAccountRequest(request), { params: Promise.resolve({ id: p[3] }) });
+  if (p[2] === "recipes" && p[4] === "runs") return runGet(testAccountRequest(request), { params: Promise.resolve({ id: p[3], runId: p[5] }) });
   throw new Error(`Unexpected test API call: ${request.method} ${url.pathname}`);
 }
 beforeEach(async () => {
@@ -68,9 +69,9 @@ async function send(context?: AssistantContext) {
 }
 async function seedMap() {
   const csv = path.join(dir, "facts.csv"); await writeFile(csv, "city,lon,lat,value\nBerlin,13.4,52.5,4\n");
-  await ingestFile(csv, "facts.csv");
-  const map = createMap("Original map");
-  const layer = await createLayer(map.id, { name: "Chosen layer", sql: "SELECT * FROM facts" });
+  await ingestFile(testAccountScope(), csv, "facts.csv");
+  const map = createMap(testAccountScope(), "Original map");
+  const layer = await createLayer(testAccountScope(), map.id, { name: "Chosen layer", sql: "SELECT * FROM facts" });
   return { map, layer, context: { page: "builder", mapId: map.id, selectedLayerId: layer.id } as const };
 }
 
@@ -82,9 +83,9 @@ describe("grounding through real message and resource routes", () => {
     expect(first.map).toMatchObject({ id: map.id, name: "Original map", layers: { items: [{ id: layer.id, name: "Chosen layer", sql: "SELECT * FROM facts" }] } });
     expect(first.catalogue.items[0]).toMatchObject({ name: "facts", rowCount: 1, geometryColumn: "geometry", geometryType: "POINT" });
     expect(first.catalogue.items[0].columns.map((column: { name: string }) => column.name)).toContain("value");
-    await updateMap(map.id, { name: "Changed map" });
-    await updateLayer(layer.id, { name: "Changed layer", visible: false });
-    const nextCsv = path.join(dir, "new.csv"); await writeFile(nextCsv, "new_column\ncurrent\n"); await ingestFile(nextCsv, "new.csv");
+    await updateMap(testAccountScope(), map.id, { name: "Changed map" });
+    await updateLayer(testAccountScope(), layer.id, { name: "Changed layer", visible: false });
+    const nextCsv = path.join(dir, "new.csv"); await writeFile(nextCsv, "new_column\ncurrent\n"); await ingestFile(testAccountScope(), nextCsv, "new.csv");
     const second = await send(context);
     expect(second.map).toMatchObject({ name: "Changed map", layers: { items: [{ name: "Changed layer", visible: false }] } });
     expect(second.catalogue.items.find((table: { name: string }) => table.name === "new").columns).toEqual([{ name: "new_column", type: "VARCHAR" }]);
@@ -98,10 +99,10 @@ describe("grounding through real message and resource routes", () => {
     const initial = await post({ message: "Delete this layer", context });
     const events = (await initial.text()).trim().split("\n").map((line) => JSON.parse(line));
     const pending = events.find((event) => event.type === "confirm_required").id;
-    expect(pendingActions.peek(pending)?.calls[0].args).toEqual({ id: layer.id });
-    await updateMap(map.id, { name: "Name changed while pending" });
-    await updateLayer(layer.id, { visible: false });
-    const csv = path.join(dir, "later.csv"); await writeFile(csv, "later_column\n9\n"); await ingestFile(csv, "later.csv");
+    expect(pendingActions.peek(testAccountScope(), pending)?.calls[0].args).toEqual({ id: layer.id });
+    await updateMap(testAccountScope(), map.id, { name: "Name changed while pending" });
+    await updateLayer(testAccountScope(), layer.id, { visible: false });
+    const csv = path.join(dir, "later.csv"); await writeFile(csv, "later_column\n9\n"); await ingestFile(testAccountScope(), csv, "later.csv");
     const response = await post({ resolution: { pending, approved: false } });
     expect(response.status).toBe(200); await response.text();
     expect(provider.recording.exchanges).toHaveLength(1);
@@ -123,7 +124,7 @@ describe("grounding through real message and resource routes", () => {
     const noContext = await send(); expect(noContext.context).toBeNull(); expect(noContext.map).toBeUndefined(); expect(noContext.recipe).toBeUndefined();
   });
   it("captures active/proposed workflow definitions and a failed member with a cancelled attempt", async () => {
-    const recipe = createRecipe("Workflow");
+    const recipe = createRecipe(testAccountScope(), "Workflow");
     const step = addStep(recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 1 AS value", name: "output" } });
     metadataDb().prepare("UPDATE recipe_steps SET proposed_parameters = ? WHERE id = ?").run(JSON.stringify({ sql: "SELECT 2 AS value", name: "output" }), step.id);
     const run = createCascade(recipe.id, "run_all", [{ stepId: step.id, ordinal: 0, operation: "sql_step", name: "Node" }]);
@@ -138,8 +139,8 @@ describe("grounding through real message and resource routes", () => {
   });
   it("refuses missing, wrong-parent, malformed, oversized and preview context before provider work", async () => {
     const { context } = await seedMap();
-    const otherMap = createMap("Other");
-    const recipe = createRecipe("First"); const otherRecipe = createRecipe("Other");
+    const otherMap = createMap(testAccountScope(), "Other");
+    const recipe = createRecipe(testAccountScope(), "First"); const otherRecipe = createRecipe(testAccountScope(), "Other");
     const step = addStep(otherRecipe.id, { operation: "sql_step", parameters: { sql: "SELECT 1", name: "output" } });
     const run = createCascade(otherRecipe.id, "run_all", [{ stepId: step.id, ordinal: 0 }]);
     for (const bad of [

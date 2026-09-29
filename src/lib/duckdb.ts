@@ -1,3 +1,5 @@
+import { registerCrsValidator } from "./query/projection-policy";
+import type { DatasetScope } from "@/lib/query/access";
 import {
   DuckDBInstance,
   type DuckDBConnection,
@@ -87,9 +89,9 @@ export function h3Available(): boolean {
  * reason, so readiness is established inside it. Found at the cross-model
  * review.
  */
-export async function h3Ready(): Promise<boolean> {
+export async function h3Ready(scope: DatasetScope): Promise<boolean> {
   const { boundedEvaluation } = await import("@/lib/query/bounded");
-  await boundedEvaluation(async () => undefined);
+  await boundedEvaluation(async () => undefined, { scope });
   return h3Loaded;
 }
 
@@ -138,6 +140,7 @@ async function createHardenedInstance(): Promise<DuckDBInstance> {
       await loadSpatial(conn);
       await loadH3(conn);
       await loadJson(conn);
+      registerCrsValidator(conn);
       // allowed_directories only applies once external access is disabled:
       // together they fence the filesystem to the artifact directory plus the
       // tile scratch directory — the one writable spot, where tile builds

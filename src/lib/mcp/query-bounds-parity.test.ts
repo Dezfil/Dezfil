@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -27,7 +28,7 @@ beforeEach(async () => {
   resetQueryInstance();
   const src = path.join(dir, "assets.csv");
   await writeFile(src, "name,lon,lat\na,1,2\nb,3,4\n");
-  await ingestFile(src, "assets.csv");
+  await ingestFile(testAccountScope(), src, "assets.csv");
 
   const handler = buildMcpFetchHandler();
   vi.stubGlobal(
@@ -35,7 +36,7 @@ beforeEach(async () => {
     (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input instanceof Request ? input.url : String(input);
       const { pathname } = new URL(url);
-      const request = input instanceof Request ? input : new Request(url, init);
+      const request = testAccountRequest(input instanceof Request ? input : new Request(url, init));
       if (pathname === "/api/mcp") return handler.fetch(request);
       if (pathname === "/api/query") return queryRoute(request);
       throw new Error(`Unexpected self-call in test: ${pathname}`);
@@ -78,11 +79,11 @@ describe("query bounds parity", () => {
     await client.close();
 
     const direct = await queryRoute(
-      new Request("http://localhost:3000/api/query", {
+      testAccountRequest(new Request("http://localhost:3000/api/query", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ sql: SLOW_SQL }),
-      }),
+      })),
     );
     expect(direct.status).toBe(408);
     const body = (await direct.json()) as {

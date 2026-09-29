@@ -1,6 +1,8 @@
+import { resourceAbsent } from "@/lib/auth/owned-resource";
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
-import { ApiError, errorResponse } from "@/lib/api/errors";
-import { deleteRecipe, getRecipe, renameRecipe } from "@/lib/metadata/recipes";
+import { errorResponse } from "@/lib/api/errors";
+import { deleteRecipe, getRecipe, renameRecipe } from "@/lib/metadata/owned-recipes";
 import { readRecipe } from "@/lib/operations/recipe-view";
 import { jsonBody, recipeName, recipePayload } from "@/lib/operations/recipe-api";
 
@@ -8,8 +10,9 @@ type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id } = await params;
-    return NextResponse.json({ recipe: recipePayload(await readRecipe(id)) });
+    return NextResponse.json({ recipe: recipePayload(await readRecipe(scope, id)) });
   } catch (error) {
     return errorResponse(error);
   }
@@ -17,12 +20,13 @@ export async function GET(_request: Request, { params }: Params) {
 
 export async function PATCH(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
     const body = await jsonBody(request);
-    if (!renameRecipe(id, recipeName(body))) {
-      throw new ApiError("not_found", `No recipe with id "${id}".`, 404);
+    if (!renameRecipe(scope, id, recipeName(body))) {
+      throw resourceAbsent();
     }
-    return NextResponse.json({ recipe: recipePayload(await readRecipe(id)) });
+    return NextResponse.json({ recipe: recipePayload(await readRecipe(scope, id)) });
   } catch (error) {
     return errorResponse(error);
   }
@@ -38,10 +42,11 @@ export async function PATCH(request: Request, { params }: Params) {
  */
 export async function DELETE(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id } = await params;
-    const recipe = getRecipe(id);
-    if (!recipe || !deleteRecipe(id)) {
-      throw new ApiError("not_found", `No recipe with id "${id}".`, 404);
+    const recipe = getRecipe(scope, id);
+    if (!recipe || !deleteRecipe(scope, id)) {
+      throw resourceAbsent();
     }
     return NextResponse.json({
       deleted: id,

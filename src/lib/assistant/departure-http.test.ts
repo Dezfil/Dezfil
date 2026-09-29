@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { createRecipe, addStep } from "@/lib/metadata/recipes";
 import { cascadeSettled, readCascade } from "@/lib/operations/cascade";
@@ -63,14 +64,14 @@ beforeEach(async () => {
       if (url.pathname === "/api/assistant/messages") response = await send(request);
       else if (url.pathname === "/api/assistant/runs") response = await reserve();
       else if (p[2] === "assistant" && p[3] === "runs") response = p[5] === "cancel" ? await cancel(request, params(p[4])) : await recover(request, params(p[4]));
-      else if (url.pathname === "/api/catalogue/tables") response = await catalogue(request);
+      else if (url.pathname === "/api/catalogue/tables") response = await catalogue(testAccountRequest(request));
       else if (url.pathname === "/api/maps" && request.method === "POST") {
-        mutations++; await beforeMutation?.(); response = await mapsPost(request);
+        mutations++; await beforeMutation?.(); response = await mapsPost(testAccountRequest(request));
         if (loseMutation) { outgoing.destroy(); return; }
-      } else if (url.pathname === "/api/maps") response = await mapsGet(request);
-      else if (p[2] === "maps") response = await mapGet(request, params(p[3]));
-      else if (p[2] === "recipes" && p[4] === "runs") response = await recipeRun(request, params(p[3]));
-      else if (p[2] === "recipes") response = await recipeGet(request, params(p[3]));
+      } else if (url.pathname === "/api/maps") response = await mapsGet(testAccountRequest(request));
+      else if (p[2] === "maps") response = await mapGet(testAccountRequest(request), params(p[3]));
+      else if (p[2] === "recipes" && p[4] === "runs") response = await recipeRun(testAccountRequest(request), params(p[3]));
+      else if (p[2] === "recipes") response = await recipeGet(testAccountRequest(request), params(p[3]));
       else if (url.pathname === "/api/query") { response = await query(request); queryStatus = response.status; querySettled.resolve(); }
       else response = new Response(null, { status: 404 });
       outgoing.statusCode = response.status;
@@ -138,7 +139,7 @@ it("a dispatched mutation settles after outer disconnect and admits no next step
   const id = await reserveId(); const controller = new AbortController();
   const response = await post("/api/assistant/messages", { runId: id, message: "Create" }, controller.signal);
   await entered.promise; controller.abort();
-  await expect.poll(() => assistantRuns.signal(id).aborted).toBe(true);
+  await expect.poll(() => assistantRuns.signal(testAccountScope(), id).aborted).toBe(true);
   expect((await receipt(id)).state).toBe("running"); release.resolve(); await interrupted(id);
   const maps = await (await fetch(origin + "/api/maps")).json(); expect(maps).toHaveLength(1); expect(maps[0].name).toBe("Settled map");
   expect((await receipt(id)).actions).toEqual([expect.objectContaining({ id: "once", status: "succeeded", effects: { readOnly: false, writes: [{ resource: "maps", ids: [maps[0].id], collection: false }, { resource: "projects", ids: [], collection: true }] } })]);
@@ -165,12 +166,12 @@ it("closing a duplicate observer leaves execution alone; explicit cancellation s
   const execution = post("/api/assistant/messages", body); await entered.promise;
   const observation = await post("/api/assistant/messages", body); await observation.body!.cancel();
   const read = await fetch(`${origin}/api/assistant/runs/${id}`); await read.body!.cancel();
-  expect(assistantRuns.signal(id).aborted).toBe(false); expect((await receipt(id)).state).toBe("running");
+  expect(assistantRuns.signal(testAccountScope(), id).aborted).toBe(false); expect((await receipt(id)).state).toBe("running");
   await post(`/api/assistant/runs/${id}/cancel`, {}); await aborted.promise; await (await execution).text(); await interrupted(id);
 });
 
 it("accepted asynchronous work retains its job identity and its independent lifecycle after departure", async () => {
-  const recipe = createRecipe("Accepted job"); const step = addStep(recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 7 AS value", name: "accepted_output" } });
+  const recipe = createRecipe(testAccountScope(), "Accepted job"); const step = addStep(recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 7 AS value", name: "accepted_output" } });
   const continued = deferred();
   factory.provider = { id: "scripted", model: "accepted-case", exchange: () => ({
     async send() { return { text: "", toolCalls: [{ id: "job", name: "run_recipe", args: { id: recipe.id, fromStepId: step.id } }] }; },
@@ -181,7 +182,7 @@ it("accepted asynchronous work retains its job identity and its independent life
   await continued.promise; controller.abort(); await interrupted(id);
   const action = (await receipt(id)).actions[0]; expect(action.status).toBe("accepted"); expect(typeof action.jobId).toBe("string");
   await cascadeSettled(action.jobId);
-  expect(readCascade(action.jobId).outcome).toBe("completed");
+  expect(readCascade(testAccountScope(), action.jobId).outcome).toBe("completed");
   expect((await receipt(id)).actions[0].status).toBe("accepted"); void response;
 });
 

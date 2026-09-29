@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { changeGroupOf } from "@/lib/api/change-group";
@@ -26,8 +27,9 @@ type Params = { params: Promise<{ id: string }> };
 /** Read a layer's full definition (SQL, name, style, visibility). */
 export async function GET(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id } = await params;
-    return NextResponse.json(requireLayer(id));
+    return NextResponse.json(requireLayer(scope, id));
   } catch (error) {
     return errorResponse(error);
   }
@@ -36,7 +38,9 @@ export async function GET(_request: Request, { params }: Params) {
 /** Update a layer's SQL, name, style, visibility, tooltip, or legend flag. */
 export async function PATCH(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
+    requireLayer(scope, id);
     let body: Record<string, unknown>;
     try {
       body = (await request.json()) as Record<string, unknown>;
@@ -193,7 +197,7 @@ export async function PATCH(request: Request, { params }: Params) {
       fields.legendAttrs = body.legendAttrs;
     }
     return NextResponse.json(
-      await updateLayer(id, fields, {
+      await updateLayer(scope, id, fields, {
         groupId: changeGroupOf(request),
         signal: request.signal,
       }),
@@ -210,13 +214,15 @@ export async function PATCH(request: Request, { params }: Params) {
  * an orphaned dataset plus an undoable step. */
 export async function DELETE(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
-    const owned = sketchOwnedByLayer(id);
+    requireLayer(scope, id);
+    const owned = sketchOwnedByLayer(scope, id);
     if (owned) {
-      await cascadeDeleteSketch(owned.name);
+      await cascadeDeleteSketch(scope, owned.name);
       return new NextResponse(null, { status: 204 });
     }
-    await removeLayer(id, { groupId: changeGroupOf(request) });
+    await removeLayer(scope, id, { groupId: changeGroupOf(request) });
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return errorResponse(error);

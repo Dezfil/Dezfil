@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { cameraBoundsProblem } from "@/lib/camera-bounds";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
@@ -7,8 +8,9 @@ import {
   updateMap,
   removeMap,
   validateMapWriteRefs,
+  requireMap,
 } from "@/lib/map-service";
-import { mapProjectId } from "@/lib/metadata/projects";
+import { ownedMapProjectId } from "@/lib/metadata/map-queries";
 import { isBasemapKey, type BasemapKey } from "@/lib/basemap";
 import { resolveCustomBasemapWrite } from "@/lib/basemap-custom";
 import type { CustomBasemap, Viewport } from "@/lib/metadata/maps";
@@ -18,10 +20,11 @@ type Params = { params: Promise<{ id: string }> };
 /** Read a map's full definition, including its layers. */
 export async function GET(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id } = await params;
     return NextResponse.json({
-      ...mapWithLayers(id),
-      projectId: mapProjectId(id),
+      ...mapWithLayers(scope, id),
+      projectId: ownedMapProjectId(scope, id),
     });
   } catch (error) {
     return errorResponse(error);
@@ -31,7 +34,9 @@ export async function GET(_request: Request, { params }: Params) {
 /** Update a map: name, viewport, basemap, basemap layers, note, legend corner, timeline, and/or layer order. */
 export async function PATCH(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
+    requireMap(scope, id);
     let body: Record<string, unknown>;
     try {
       body = (await request.json()) as Record<string, unknown>;
@@ -160,10 +165,10 @@ export async function PATCH(request: Request, { params }: Params) {
     // Semantic gate first: column references the request introduces or
     // changes resolve against their layer's result before the
     // synchronous write runs.
-    await validateMapWriteRefs(id, fields, request.signal);
+    await validateMapWriteRefs(scope, id, fields, request.signal);
     return NextResponse.json({
-      ...(await updateMap(id, fields, { groupId: changeGroupOf(request) })),
-      projectId: mapProjectId(id),
+      ...(await updateMap(scope, id, fields, { groupId: changeGroupOf(request) })),
+      projectId: ownedMapProjectId(scope, id),
     });
   } catch (error) {
     return errorResponse(error);
@@ -173,8 +178,9 @@ export async function PATCH(request: Request, { params }: Params) {
 /** Delete a map and its layers. */
 export async function DELETE(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id } = await params;
-    await removeMap(id);
+    await removeMap(scope, id);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return errorResponse(error);

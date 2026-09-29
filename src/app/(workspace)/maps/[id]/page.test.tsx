@@ -1,3 +1,4 @@
+import { testAccountRequest } from "@/lib/test-support/accounts";
 import type { ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -7,6 +8,8 @@ import MapBuilderPage from "./page";
 vi.mock("@/components/builder/MapBuilder", () => ({
   MapBuilder: () => null,
 }));
+
+vi.mock("next/headers", () => ({ headers: async () => testAccountRequest(new Request("http://instance.test/maps/map-1")).headers }));
 
 const originalQueryTimeout = process.env.DEZFIL_QUERY_TIMEOUT_S;
 

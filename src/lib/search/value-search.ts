@@ -1,5 +1,6 @@
+import type { DatasetScope } from "@/lib/query/access";
 import { boundedEvaluation, isOutOfMemory } from "@/lib/query/bounded";
-import { assertReadOnlySelect } from "@/lib/query/guard";
+import { namedSql } from "@/lib/query/named-sql";
 import { wrappable } from "@/lib/query/compile";
 import { foldCase } from "./match";
 import { VALUE_ROW_BOUND, type ValueRow } from "./contract";
@@ -43,6 +44,7 @@ interface ScanRow {
 }
 
 export async function searchValues(
+  scope: DatasetScope,
   layers: ValueSearchLayer[],
   query: string,
   options: { signal?: AbortSignal; bound?: number } = {},
@@ -55,8 +57,8 @@ export async function searchValues(
     for (const layer of layers) {
       if (rows.length >= bound) break;
       try {
-        await assertReadOnlySelect(conn, layer.sql);
-        const sub = `(${wrappable(layer.sql)}) AS q`;
+        const compiledSql = await namedSql(conn, layer.sql);
+        const sub = `(${wrappable(compiledSql)}) AS q`;
 
         const described = await conn.runAndReadAll(
           `DESCRIBE SELECT * FROM ${sub}`,
@@ -139,5 +141,5 @@ export async function searchValues(
       }
     }
     return rows;
-  }, { signal: options.signal });
+  }, { scope, signal: options.signal });
 }

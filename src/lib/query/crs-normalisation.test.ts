@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -41,7 +42,7 @@ beforeEach(async () => {
   // The CSV path builds geometry from lon/lat columns.
   const csv = path.join(dir, "stations.csv");
   await writeFile(csv, "name,lon,lat\nalpha,0.5,0.5\nbeta,1.5,0.5\n");
-  await ingestFile(csv, "stations.csv");
+  await ingestFile(testAccountScope(), csv, "stations.csv");
 
   // The file path reads it through GDAL, which labels it differently.
   const geojson = path.join(dir, "districts.geojson");
@@ -69,7 +70,7 @@ beforeEach(async () => {
       ],
     }),
   );
-  await ingestFile(geojson, "districts.geojson");
+  await ingestFile(testAccountScope(), geojson, "districts.geojson");
 });
 
 afterEach(async () => {
@@ -81,7 +82,7 @@ afterEach(async () => {
 });
 
 async function run(operation: string, parameters: Record<string, unknown>) {
-  const job = await startRun({ operation, parameters });
+  const job = await startRun(testAccountScope(), { operation, parameters });
   await laneSettled();
   return getJob(job.id)!;
 }
@@ -95,7 +96,7 @@ describe("geometry from different ingest paths", () => {
   it("compares in user SQL", async () => {
     // The bind-time refusal, at its narrowest: one predicate, two tables, two
     // labels for the same coordinates.
-    const result = await executeQuery(
+    const result = await executeQuery(testAccountScope(),
       `SELECT count(*) AS n FROM stations s, districts d
        WHERE ST_Within(s.${geometryOf("stations")}, d.${geometryOf("districts")})`,
     );
@@ -110,8 +111,8 @@ describe("geometry from different ingest paths", () => {
   ])("content CSV %s compares with existing GeoJSON without moving coordinates", async (value) => {
     const file = path.join(dir, "content.csv");
     await writeFile(file, 'payload,label\n"' + value.replaceAll('"', '""') + '",a\n');
-    const table = await ingestFile(file, "content.csv");
-    const result = await executeQuery(
+    const table = await ingestFile(testAccountScope(), file, "content.csv");
+    const result = await executeQuery(testAccountScope(),
       `SELECT ST_X(c.geometry) x, ST_Y(c.geometry) y
        FROM ${table.name} c, districts d WHERE ST_Within(c.geometry, d.${geometryOf("districts")})`,
     );
@@ -127,7 +128,7 @@ describe("geometry from different ingest paths", () => {
       name: "enriched",
     });
     expect(job.state, job.errorMessage ?? "").toBe("succeeded");
-    const rows = (await executeQuery(`SELECT * FROM enriched`)).preview;
+    const rows = (await executeQuery(testAccountScope(), `SELECT * FROM enriched`)).preview;
     expect(rows).toHaveLength(1);
     // The west district contains exactly one of the two stations.
     expect(Number(rows[0].match_count ?? rows[0].count)).toBe(1);
@@ -159,7 +160,7 @@ describe("geometry from different ingest paths", () => {
     // **Coordinates unchanged.** A repair that normalised by transforming
     // would pass every assertion above and put every feature somewhere else.
     const geom = geometryOf("stations");
-    const result = await executeQuery(
+    const result = await executeQuery(testAccountScope(),
       `SELECT ST_X(${geom}) AS x, ST_Y(${geom}) AS y FROM stations ORDER BY x`,
     );
     expect(Number(result.preview[0].x)).toBeCloseTo(0.5, 9);
@@ -168,7 +169,7 @@ describe("geometry from different ingest paths", () => {
   }, 60_000);
 
   it("presents one label to whatever reads the view", async () => {
-    const types = await executeQuery(
+    const types = await executeQuery(testAccountScope(),
       `SELECT column_name, column_type FROM (DESCRIBE SELECT * FROM stations)`,
     );
     const geometry = types.preview.find(

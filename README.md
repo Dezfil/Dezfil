@@ -36,11 +36,20 @@ the volume works, but state then lasts only for that container's lifetime.
 
 On first run, create the initial admin account. Application pages and APIs
 require a session or an account API token; admins manage accounts and the
-instance name. Signed-in accounts still share the same maps, datasets and
-workflows. Published links and embeds remain readable without an account,
+instance name. Each account's maps, datasets, workflows, connections and
+projects are private, including from admins. Dataset and connection names
+belong to that account's space. Basemap, palette, operation and model
+catalogues remain shared; any signed-in account can save or delete a custom
+palette. Published links and embeds remain readable without an account,
 as does the readiness probe. An instance upgraded from a release without accounts
 also shows setup once. Secure new and upgraded instances until you complete setup,
 and complete it promptly: whoever reaches setup first becomes the admin.
+
+Existing work belongs to the recorded original account after an upgrade.
+Read the [ownership upgrade instructions](docs/runbook.md#upgrading-ownership-storage)
+before updating. SQL uses your imported datasets by name. Direct file reads
+and file-referencing projection definitions are refused, including in saved
+queries and published layers; ordinary EPSG transforms remain supported.
 
 ## Configuration
 

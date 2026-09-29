@@ -1,3 +1,6 @@
+import { listOwnedTables } from "@/lib/metadata/owned-tables";
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
@@ -8,13 +11,11 @@ import { withConnection } from "@/lib/duckdb";
 import { isBbox, bboxAreaKm2, type Bbox } from "@/lib/bbox";
 import {
   registerTable,
-  deleteTable,
-  listTables,
   type DataTable,
 } from "@/lib/metadata/tables";
 import { buildArtifact, type ArtifactMeta } from "@/lib/ingest/ingest";
 import { metadataDb } from "@/lib/metadata/db";
-import { fileTable } from "@/lib/metadata/projects";
+import { fileOwnedTable } from "@/lib/metadata/owned-tables";
 import { importProjectId } from "@/lib/project-scope";
 import {
   buildOverpassQl,
@@ -339,8 +340,12 @@ export async function previewOsm(
 /** Import: fetch (cached), assemble, split, land one table per non-empty
  * class. All-or-nothing: a failure removes anything already registered. */
 export async function importOsm(
+  scope: AccountScope,
   request: OsmImportRequest,
 ): Promise<DataTable[]> {
+  requireAccountScope(scope);
+  const projectId = importProjectId(request.projectId);
+  if (projectId) requireOwnedResource(scope, "project", projectId);
   const resolved = resolveOsmRequest(request);
   const { response } = await fetchOverpass(resolved.finalQl);
   let split = assembleAndSplit(response, resolved.promoted);
@@ -355,7 +360,7 @@ export async function importOsm(
   }
 
   const group = randomUUID();
-  const projectId = importProjectId(request.projectId);
+
   const created: DataTable[] = [];
   // The class being built when a failure lands: its artifact exists but
   // its table is not yet in `created`, so the unwind below must know
@@ -408,8 +413,8 @@ export async function importOsm(
       const db = metadataDb();
       created.push(
         db.transaction(() => {
-          const table = registerTable(record, `${resolved.stem}_${cls}`, db);
-          if (projectId) fileTable(table.id, projectId, db);
+          const table = registerTable(scope, record, `${resolved.stem}_${cls}`, db);
+          if (projectId) fileOwnedTable(scope, table.id, projectId, db);
           return table;
         })(),
       );
@@ -420,7 +425,7 @@ export async function importOsm(
     // All-or-nothing: unwind anything this import already registered —
     // and the in-flight class's artifact, which no registry row names.
     for (const t of created) {
-      deleteTable(t.name);
+      metadataDb().prepare("DELETE FROM data_tables WHERE id = ? AND owner_id = ?").run(t.id, scope.accountId);
       await rm(path.join(dataDir(), t.file), { force: true });
     }
     if (inFlight) await rm(inFlight, { force: true });
@@ -429,8 +434,8 @@ export async function importOsm(
 }
 
 /** Every member of an import group, by any member's group id. */
-export function osmGroupMembers(group: string): DataTable[] {
-  return listTables().filter(
+export function osmGroupMembers(scope: AccountScope, group: string): DataTable[] {
+  return listOwnedTables(scope).filter(
     (t) => t.source === "osm" && t.sourceParams?.group === group,
   );
 }

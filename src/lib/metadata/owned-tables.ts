@@ -1,0 +1,67 @@
+import type { Database } from "better-sqlite3";
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
+import { dependentLayerIds } from "@/lib/table-deps";
+import { metadataDb } from "./db";
+import { fileTable } from "./owned-projects";
+import { tableFromRow, updateTableData, type TableRow, type DataTable, type TableDataUpdate } from "./tables";
+
+/** Select private rows before decoding provenance or inspecting an artifact. */
+export function listOwnedTables(scope: AccountScope, db: Database = metadataDb()): DataTable[] {
+  const owner = requireAccountScope(scope, db);
+  return (db.prepare("SELECT * FROM data_tables WHERE owner_id = ? ORDER BY created_at DESC, name").all(owner) as TableRow[]).map(tableFromRow);
+}
+export function getOwnedTableByName(scope: AccountScope, name: string, db: Database = metadataDb()): DataTable | null {
+  const owner = requireAccountScope(scope, db);
+  const row = db.prepare("SELECT * FROM data_tables WHERE owner_id = ? AND name = ?").get(owner, name) as TableRow | undefined;
+  return row ? tableFromRow(row) : null;
+}
+export function ownedTableNames(scope: AccountScope, db: Database = metadataDb()): Set<string> {
+  const owner = requireAccountScope(scope, db);
+  return new Set((db.prepare("SELECT name FROM data_tables WHERE owner_id = ?").all(owner) as { name: string }[]).map(r => r.name));
+}
+export function deleteOwnedTable(scope: AccountScope, table: Pick<DataTable, "id" | "name">, db: Database = metadataDb()): boolean {
+  const owner = requireAccountScope(scope, db);
+  return db.prepare("DELETE FROM data_tables WHERE owner_id = ? AND id = ? AND name = ?").run(owner, table.id, table.name).changes > 0;
+}
+export function updateOwnedTableData(scope: AccountScope, ref: { id: string; name: string; file?: string }, update: TableDataUpdate, db: Database = metadataDb()): boolean {
+  return db.transaction(() => {
+    const owner = requireAccountScope(scope, db);
+    // Admission already resolved the owned identity. A deleted member must
+    // reach the caller's guarded-swap failure, including group rollback.
+    if (!db.prepare("SELECT id FROM data_tables WHERE id = ? AND owner_id = ?").get(ref.id, owner)) return false;
+    return updateTableData(ref, update, db);
+  })();
+}
+/** Repair only the admitted owner's measured identity and artifact. A late
+ * read may finish after deletion without healing a replacement dataset. */
+export function updateOwnedTableGeometryType(scope: AccountScope, ref: Pick<DataTable, "id" | "name" | "file">,
+  geometryType: string | null, db: Database = metadataDb()): void {
+  const owner = requireAccountScope(scope, db);
+  db.prepare("UPDATE data_tables SET geometry_type = ? WHERE owner_id = ? AND id = ? AND name = ? AND file = ?")
+    .run(geometryType, owner, ref.id, ref.name, ref.file);
+}
+export function ownedTableProjectIds(scope: AccountScope, db: Database = metadataDb()): Map<string, string[]> {
+  const owner = requireAccountScope(scope, db);
+  const rows = db.prepare(`SELECT pd.table_id, pd.project_id FROM project_datasets pd
+    JOIN projects p ON p.id = pd.project_id JOIN data_tables t ON t.id = pd.table_id
+    WHERE p.owner_id = ? AND t.owner_id = ? ORDER BY pd.project_id`).all(owner, owner) as { table_id: string; project_id: string }[];
+  const memberships = new Map<string, string[]>();
+  for (const row of rows) memberships.set(row.table_id, [...(memberships.get(row.table_id) ?? []), row.project_id]);
+  return memberships;
+}
+export function fileOwnedTable(scope: AccountScope, tableId: string, projectId: string, db: Database = metadataDb()): void {
+  requireOwnedResource(scope, "dataset", tableId, db);
+  requireOwnedResource(scope, "project", projectId, db);
+  fileTable(scope, tableId, projectId, db);
+}
+/** Dataset mutations invalidate only maps in the same account's SQL space. */
+export function ownedDependentLayerIds(scope: AccountScope, name: string, db: Database = metadataDb()): string[] {
+  return dependentLayerIds(scope, name, db);
+}
+
+/** A replacement names one owned durable identity, never just a SQL name. */
+export function requireOwnedTableReference(scope: AccountScope, ref: { id: string; name: string }, db: Database = metadataDb()): void {
+  const owner = requireAccountScope(scope, db);
+  if (!db.prepare("SELECT id FROM data_tables WHERE id = ? AND name = ? AND owner_id = ?").get(ref.id, ref.name, owner)) throw resourceAbsent();
+}

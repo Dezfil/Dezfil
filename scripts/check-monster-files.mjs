@@ -23,9 +23,9 @@ const CEILINGS = {
   // basemap content-group lifecycle, tiled-layer construction, pointer
   // interaction, camera constraints, the shared paint readout and overlay lifetime.
   "src/components/map/MapCanvas.tsx": 1366,
-  // Layer service. Extractions so far: layer geometry inspection and the
-  // deletion cascade.
-  "src/lib/layer-service.ts": 1554,
+  // Layer service. Extractions so far: layer geometry inspection, the
+  // deletion cascade, field/schema/statistics queries, creation, access, rendering and slider previews.
+  "src/lib/layer-service.ts": 565,
   // The style panel. Extractions so far: the icon picker, the Label
   // section and the hover-field sections.
   "src/components/builder/StylePanel.tsx": 1191,

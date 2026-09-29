@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -53,15 +54,15 @@ beforeEach(async () => {
     source,
     "id,kind,score,lon,lat\n1,a,10,1,2\n2,b,20,3,4\n3,a,30,5,6\n",
   );
-  await ingestFile(source, "points.csv");
-  const map = createMap("m");
-  const layer = await createLayer(map.id, {
+  await ingestFile(testAccountScope(), source, "points.csv");
+  const map = createMap(testAccountScope(), "m");
+  const layer = await createLayer(testAccountScope(), map.id, {
     name: "l",
     sql: "SELECT * FROM points",
   });
   layerId = layer.id;
   mapId = map.id;
-  updateMap(map.id, {
+  updateMap(testAccountScope(), map.id, {
     widgets: [
       widget({ id: "wh", layerId }),
       widget({
@@ -73,7 +74,7 @@ beforeEach(async () => {
       }),
     ],
   });
-  token = publishMap(map.id).token;
+  token = publishMap(testAccountScope(), map.id).token;
 });
 
 afterEach(async () => {
@@ -107,7 +108,7 @@ describe("published widget-values reader gate", () => {
   it("a range on a histogram whose column went non-numeric refuses cleanly", async () => {
     // The stored histogram widget echoes through the SQL edit; only the
     // reader's selection meets the gate.
-    await updateLayer(layerId, {
+    await updateLayer(testAccountScope(), layerId, {
       sql: "SELECT id, kind, kind AS score, geometry FROM points",
     });
     const res = await values([
@@ -121,7 +122,7 @@ describe("published widget-values reader gate", () => {
   });
 
   it("a selection on a stranded column refuses cleanly", async () => {
-    await updateLayer(layerId, {
+    await updateLayer(testAccountScope(), layerId, {
       sql: "SELECT id, score, geometry FROM points",
     });
     const res = await values([
@@ -136,7 +137,7 @@ describe("published widget-values reader gate", () => {
   it("a hidden widget's retained id behaves like an unknown one", async () => {
     // Hide the histogram; its stored config is an echo, so the write
     // passes — and a reader's retained selection must filter nothing.
-    updateMap(mapId, {
+    updateMap(testAccountScope(), mapId, {
       widgets: [
         widget({ id: "wh", layerId, visible: false }),
         widget({
@@ -162,7 +163,7 @@ describe("published widget-values reader gate", () => {
   });
 
   it("an unresolvable layer keeps degrading per-widget, reader input or not", async () => {
-    await removeTable("points");
+    await removeTable(testAccountScope(), "points");
     const res = await values([
       { widgetId: "wc", kind: "exclude", values: ["a"] },
     ]);
@@ -190,8 +191,8 @@ describe("published widget-values reader gate", () => {
     expect(body.error.message).toBe("Expected a JSON body.");
   });
 
-  it("failed widgets carry the catalogue sentence on the wire; the builder lane keeps the raw text", async () => {
-    await removeTable("points");
+  it("failed widgets carry the catalogue sentence on the wire; the builder lane keeps safe input detail", async () => {
+    await removeTable(testAccountScope(), "points");
     const res = await values([]);
     expect(res.status).toBe(200);
     const body = res.body as {
@@ -207,14 +208,14 @@ describe("published widget-values reader gate", () => {
 
     // The builder's own computation keeps the engine's diagnostic — the
     // authenticated-equivalent carve-out.
-    const record = mapWithLayers(mapId);
-    const raw = await computeWidgetValues(record, record.layers, []);
+    const record = mapWithLayers(testAccountScope(), mapId);
+    const raw = await computeWidgetValues(testAccountScope(), record, record.layers, []);
     const failed = raw.widgets.filter(
       (w): w is { id: string; error: string; errorCode: never } => "error" in w,
     );
     expect(failed.length).toBeGreaterThan(0);
     expect(
-      failed.some((w) => /does not exist|Catalog/i.test(w.error)),
+      failed.some((w) => w.error === "The query refers to an unknown table."),
     ).toBe(true);
   });
 });

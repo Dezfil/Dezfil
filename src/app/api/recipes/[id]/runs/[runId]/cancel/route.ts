@@ -1,6 +1,8 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
+import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
 import { NextResponse } from "next/server";
-import { ApiError, errorResponse } from "@/lib/api/errors";
-import { getCascade } from "@/lib/metadata/cascades";
+import { errorResponse } from "@/lib/api/errors";
+import { getCascade } from "@/lib/metadata/owned-cascades";
 import { cancelCascade, readCascade } from "@/lib/operations/cascade";
 import { cascadePayload } from "@/lib/operations/recipe-api";
 
@@ -20,19 +22,19 @@ type Params = { params: Promise<{ id: string; runId: string }> };
  * Cancelling one that has already finished is not an error — "make sure this is
  * not running" is already true of it.
  */
-export async function POST(_request: Request, { params }: Params) {
+export async function POST(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id, runId } = await params;
-    const existing = getCascade(runId);
+    requireOwnedResource(scope, "workflow", id);
+    requireOwnedResource(scope, "cascade", runId);
+    const existing = getCascade(scope, runId);
     if (!existing || existing.recipeId !== id) {
-      throw new ApiError(
-        "not_found",
-        `No run with id "${runId}" on this recipe.`,
-        404,
-      );
+      throw resourceAbsent();
     }
-    await cancelCascade(runId);
-    return NextResponse.json({ run: cascadePayload(readCascade(runId)) });
+    await cancelCascade(scope, runId);
+    requireOwnedResource(scope, "cascade", runId);
+    return NextResponse.json({ run: cascadePayload(readCascade(scope, runId)) });
   } catch (error) {
     return errorResponse(error);
   }

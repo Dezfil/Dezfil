@@ -1,3 +1,5 @@
+import { privateStateOpen } from "../auth/private-state";
+
 /**
  * Per-browser memory for the SQL workspace: the draft, the history, the
  * pane width and the editor height. Presentation state, not a workspace
@@ -16,6 +18,7 @@ export const SQL_KEYS = {
 } as const;
 
 export function readStored<T>(key: string, fallback: T): T {
+  if (!privateStateOpen()) return fallback;
   try {
     const raw = globalThis.localStorage?.getItem(key);
     return raw === null || raw === undefined ? fallback : (JSON.parse(raw) as T);
@@ -25,6 +28,7 @@ export function readStored<T>(key: string, fallback: T): T {
 }
 
 export function writeStored(key: string, value: unknown): void {
+  if (!privateStateOpen()) return;
   try {
     if (value === null || value === undefined) {
       globalThis.localStorage?.removeItem(key);

@@ -1,3 +1,5 @@
+import type { AccountScope } from "@/lib/auth/scope";
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { geometryEvidence } from "@/lib/geometry-evidence";
 import { getGeometryState } from "@/lib/geometry/state";
 import path from "node:path";
@@ -7,7 +9,8 @@ import { dataDir } from "@/lib/config";
 import { ApiError } from "@/lib/api/errors";
 import { withConnection } from "@/lib/duckdb";
 import { metadataDb } from "@/lib/metadata/db";
-import { getTableByName, updateTableData, type DataTable } from "@/lib/metadata/tables";
+import type { DataTable } from "@/lib/metadata/tables";
+import { getOwnedTableByName, updateOwnedTableData } from "@/lib/metadata/owned-tables";
 import type { ArtifactMeta } from "./ingest";
 import {
   buildLayerArtifact,
@@ -29,9 +32,11 @@ import { postCommitCleanup } from "./refresh";
  * appearing in the file is not imported by a refresh.
  */
 export async function refreshUrlSpatial(
+  scope: AccountScope,
   requested: DataTable,
   name: string,
 ): Promise<DataTable> {
+  requireOwnedResource(scope, "dataset", requested.id);
   const p = requested.sourceParams ?? {};
   const url = typeof p.url === "string" ? p.url : null;
   const group = typeof p.group === "string" ? p.group : null;
@@ -42,7 +47,7 @@ export async function refreshUrlSpatial(
       409,
     );
   }
-  const members = group ? urlGroupMembers(group) : [requested];
+  const members = group ? urlGroupMembers(scope, group) : [requested];
   for (const member of members) {
     if (typeof member.sourceParams?.layer !== "string") {
       throw new ApiError(
@@ -101,7 +106,8 @@ export async function refreshUrlSpatial(
     // zero-match rolls the whole swap back.
     db.transaction(() => {
       for (const c of candidates) {
-        const swapped = updateTableData(
+        const swapped = updateOwnedTableData(
+          scope,
           { name: c.member.name, id: c.member.id, file: c.member.file },
           {
             file: c.relFile,
@@ -117,7 +123,7 @@ export async function refreshUrlSpatial(
           db,
         );
         if (!swapped) {
-          if (getTableByName(c.member.name, db)?.id === c.member.id) throw new ApiError("input_changed", "A dataset changed while the group refresh ran; the group was left as it was.", 409);
+          if (getOwnedTableByName(scope, c.member.name, db)?.id === c.member.id) throw new ApiError("input_changed", "A dataset changed while the group refresh ran; the group was left as it was.", 409);
           throw new ApiError(
             "not_found",
             `Table "${c.member.name}" was deleted while the refresh ran; ${
@@ -154,7 +160,7 @@ export async function refreshUrlSpatial(
   }
 
   for (const c of candidates) {
-    postCommitCleanup(c.member.name, path.join(dataDir(), c.member.file));
+    postCommitCleanup(scope, c.member.name, path.join(dataDir(), c.member.file));
   }
   // The answer is what the transaction committed — never a re-read that a
   // concurrent delete could turn into a silent null.

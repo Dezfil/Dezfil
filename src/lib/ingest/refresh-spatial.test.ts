@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
@@ -93,7 +94,7 @@ async function evalCount(name: string): Promise<number> {
       `SELECT count(*) AS n FROM "${name.replace(/"/g, '""')}"`,
     );
     return Number((reader.getRowObjectsJson()[0] as { n: unknown }).n);
-  });
+  }, { scope: testAccountScope() });
 }
 
 describe("URL imports of container formats", () => {
@@ -102,7 +103,7 @@ describe("URL imports of container formats", () => {
   });
 
   it("stores url + layer + group provenance for a multi-layer file", async () => {
-    const { tables } = await importFromUrl(`${base}/city.gpkg`);
+    const { tables } = await importFromUrl(testAccountScope(), `${base}/city.gpkg`);
     expect(tables.map((t) => t.name)).toEqual(["city_stations", "city_zones"]);
     for (const t of tables) {
       expect(t.source).toBe("url");
@@ -111,12 +112,12 @@ describe("URL imports of container formats", () => {
     }
     expect(tables[0].sourceParams?.group).toBe(tables[1].sourceParams?.group);
     // The group is one refresh unit (mirroring OSM).
-    expect(refreshUnit(tables[0])).toBe(refreshUnit(tables[1]));
-    expect(refreshUnit(tables[0]).startsWith("url:")).toBe(true);
+    expect(refreshUnit(testAccountScope(), tables[0])).toBe(refreshUnit(testAccountScope(), tables[1]));
+    expect(refreshUnit(testAccountScope(), tables[0]).startsWith("url:")).toBe(true);
   });
 
   it("refreshes the whole group from one download and swaps atomically", async () => {
-    const { tables } = await importFromUrl(`${base}/city.gpkg`);
+    const { tables } = await importFromUrl(testAccountScope(), `${base}/city.gpkg`);
     const [st, zn] = tables;
     expect(st.rowCount).toBe(2);
 
@@ -154,7 +155,7 @@ describe("URL imports of container formats", () => {
         ],
       },
     ];
-    const answer = await refreshTable(st.name);
+    const answer = await refreshTable(testAccountScope(), st.name);
     expect(answer.name).toBe(st.name);
     expect(answer.rowCount).toBe(4);
     expect(answer.file).not.toBe(st.file);
@@ -181,7 +182,7 @@ describe("URL imports of container formats", () => {
   });
 
   it("fails the whole refresh when a stored layer vanished from the file", async () => {
-    const { tables } = await importFromUrl(`${base}/city.gpkg`);
+    const { tables } = await importFromUrl(testAccountScope(), `${base}/city.gpkg`);
     const [st, zn] = tables;
 
     servedLayers = [
@@ -192,7 +193,7 @@ describe("URL imports of container formats", () => {
       ]),
       // zones is gone from the remote file.
     ];
-    await expect(refreshTable(st.name)).rejects.toMatchObject({
+    await expect(refreshTable(testAccountScope(), st.name)).rejects.toMatchObject({
       code: "malformed_file",
       message: expect.stringContaining('no longer contains layer "zones"'),
     });
@@ -211,14 +212,14 @@ describe("URL imports of container formats", () => {
         [7.2, 51.2, "b"],
       ]),
     ];
-    const { tables } = await importFromUrl(`${base}/city.gpkg`);
+    const { tables } = await importFromUrl(testAccountScope(), `${base}/city.gpkg`);
     expect(tables).toHaveLength(1);
     const before = tables[0];
     expect(before.sourceParams?.layer).toBe("stations");
     expect(before.sourceParams?.group).toBeUndefined();
 
     servedLayers = [stations([[7.1, 51.1, "solo"]])];
-    const after = await refreshTable(before.name);
+    const after = await refreshTable(testAccountScope(), before.name);
     expect(after.rowCount).toBe(1);
     expect(after.file).not.toBe(before.file);
   });
@@ -274,7 +275,7 @@ describe("URL imports of container formats", () => {
     try {
       // Inside the listener's lifetime, so a failed assertion still closes it.
       expect((extra.address() as AddressInfo).address).toBe("127.0.0.1");
-      const { tables } = await importFromUrl(`${origin}/regions.zip`);
+      const { tables } = await importFromUrl(testAccountScope(), `${origin}/regions.zip`);
       const byLayer = new Map(
         tables.map((t) => [String(t.sourceParams?.layer), t]),
       );
@@ -283,7 +284,7 @@ describe("URL imports of container formats", () => {
       expect(tables[0].format).toBe("shapefile");
 
       servedZip = await mint({ north: 5, south: 3 });
-      await refreshTable(byLayer.get("north/roads")!.name);
+      await refreshTable(testAccountScope(), byLayer.get("north/roads")!.name);
       expect(
         getTableByName(byLayer.get("north/roads")!.name)!.rowCount,
       ).toBe(5);
@@ -323,7 +324,7 @@ describe("URL imports of container formats", () => {
     try {
       // Inside the listener's lifetime, so a failed assertion still closes it.
       expect((extra.address() as AddressInfo).address).toBe("127.0.0.1");
-      const { tables, skipped } = await importFromUrl(`${origin}/daytrip.kmz`);
+      const { tables, skipped } = await importFromUrl(testAccountScope(), `${origin}/daytrip.kmz`);
       expect(tables).toHaveLength(1);
       expect(tables[0].name).toBe("daytrip");
       expect(tables[0].format).toBe("kml");
@@ -339,8 +340,8 @@ describe("URL imports of container formats", () => {
     const file = path.join(dir, "harbours.gpkg");
     buildGpkg(file, [stations([[7.1, 51.1, "a"]])]);
     const { ingestSource } = await import("./gdal-formats");
-    const { tables } = await ingestSource(file, "harbours.gpkg");
-    await expect(refreshTable(tables[0].name)).rejects.toMatchObject({
+    const { tables } = await ingestSource(testAccountScope(), file, "harbours.gpkg");
+    await expect(refreshTable(testAccountScope(), tables[0].name)).rejects.toMatchObject({
       code: "not_refreshable",
     });
   });

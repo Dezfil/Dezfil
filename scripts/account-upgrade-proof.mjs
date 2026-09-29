@@ -1,13 +1,13 @@
 // Executable migration, restore and restart proof. Never accepts an existing
 // data directory: it creates an old store and upgrades only a scratch copy.
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, cp, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { assertEvidenceWorktree } from './dezfil-plugin-safety.mjs';
-import { createLegacyStore, legacy, legacyFiles, legacyRows, readLegacyPassword } from './legacy-store-fixture.mjs';
+import { createLegacyStore, legacy, legacyFiles, legacyRows, readLegacyPassword, assertLegacyOwners } from './legacy-store-fixture.mjs';
 import { provisionJourney, journeyAccount } from './journey-auth.mjs';
 import { journeyApi } from './journey-http.mjs';
 
@@ -39,8 +39,10 @@ async function boot() {
 }
 async function stop() {
   if (!server || server.exitCode !== null) return;
+  const owners = execFileSync('lsof', ['-t', `-iTCP:${port}`, '-sTCP:LISTEN'], { encoding: 'utf8' }).trim().split('\n').filter(Boolean).map(Number);
+  assert.deepEqual(owners, [server.pid], 'only the proof server owns the port');
   const ended = new Promise(resolve => server.once('exit', resolve));
-  server.kill('SIGTERM'); await ended;
+  process.kill(owners[0], 'SIGTERM'); await ended;
 }
 try {
   const firstPid = await boot();
@@ -49,7 +51,8 @@ try {
   assert.equal((await anonymous('GET', `/api/published/${legacy.token}`)).status, 200, 'old publication remains anonymous before adoption');
   assert.equal((await anonymous('GET', '/api/maps')).status, 401);
   let db = new Database(path.join(copy, 'metadata.sqlite'));
-  assert.deepEqual(legacyRows(db), originalRows, 'startup migration preserves every legacy resource row'); db.close();
+  assert.deepEqual(legacyRows(db), originalRows, 'startup migration preserves every legacy resource row');
+  assertLegacyOwners(db, null); db.close();
   const first = await provisionJourney(base, { ...journeyAccount, name: legacy.name });
   assert.equal(first.setupRequired, true); assert.equal(first.account.isOriginal, true);
   const api = journeyApi(base, { token: first.token });
@@ -57,6 +60,7 @@ try {
   assert.equal(settings.json.displayName, legacy.name); assert.equal(settings.json.instanceName, legacy.instance); assert.deepEqual(settings.json.viewPrefs, legacy.preferences);
   db = new Database(path.join(copy, 'metadata.sqlite'));
   assert.deepEqual(legacyRows(db), originalRows, 'adoption does not rewrite resources or credentials');
+  assertLegacyOwners(db, first.account.id);
   assert.equal(db.prepare("SELECT count(*) AS n FROM workspace_settings WHERE key IN ('display_name', 'view_prefs')").get().n, 0);
   assert.equal(await readLegacyPassword(copy, db), legacy.password, 'copied key decrypts the original connection envelope');
   for (const [table, column, secret] of [['auth_sessions', 'secret_hash', first.cookie.split('=')[1]], ['auth_tokens', 'secret_hash', first.token]]) {
@@ -86,8 +90,18 @@ try {
   assert.equal((await fetch(base + '/api/auth/redeem', { method: 'POST', headers: { origin: base, 'content-type': 'application/json' }, body: JSON.stringify({ secret: link, password: 'paper cranes at sunrise' }) })).status, 200);
   const second = await provisionJourney(base, { name: 'Second admin', email: 'second-admin@example.test', password: 'paper cranes at sunrise' });
   const admin = journeyApi(base, { token: second.token });
+  for (const endpoint of [`/api/maps/${legacy.map}`, `/api/tables/${legacy.table}`, `/api/projects/${legacy.project}`, `/api/recipes/${legacy.workflow}`, '/api/operations/runs/legacy-job']) {
+    assert.equal((await admin('GET', endpoint)).status, 404, 'another admin cannot read adopted work');
+  }
+  assert.deepEqual((await admin('GET', '/api/connections/postgis')).json, []);
+  const hiddenSql = await admin('POST', '/api/query', { body: { sql: `SELECT * FROM ${legacy.table}` } });
+  assert.equal(hiddenSql.status, 400);
+  assert.deepEqual(hiddenSql, await admin('POST', '/api/query', { body: { sql: 'SELECT * FROM never_imported' } }));
   assert.equal((await admin('PATCH', `/api/users/${first.account.id}`, { body: { isAdmin: false } })).status, 200);
   await stop(); assert.notEqual(await boot(), firstPid);
+  db = new Database(path.join(copy, 'metadata.sqlite'));
+  assertLegacyOwners(db, first.account.id);
+  assert.deepEqual(legacyRows(db), originalRows, 'restart preserves identities, SQL, histories, memberships and lineage'); db.close();
   for (const credential of [{ cookie: first.cookie }, { token: first.token }]) {
     const response = await journeyApi(base, credential)('GET', '/api/account');
     assert.equal(response.status, 200); assert.equal(response.json.account.id, first.account.id); assert.equal(response.json.account.isOriginal, true); assert.equal(response.json.account.isAdmin, false);
@@ -97,6 +111,10 @@ try {
   assert.equal(users.json.users.filter(user => user.isOriginal).length, 1); assert.equal(users.json.users.find(user => user.isOriginal).id, first.account.id);
   assert.deepEqual((await api('GET', '/api/settings')).json.viewPrefs, legacy.preferences);
   assert.equal((await anonymous('GET', `/api/published/${legacy.token}`)).status, 200);
+  assert.equal((await admin('GET', `/api/maps/${legacy.map}`)).status, 404);
+  assert.equal((await api('GET', '/api/operations/runs/legacy-job')).status, 200);
+  const download = await api('GET', `/api/tables/${legacy.table}/export?format=csv`, { raw: true });
+  assert.equal(download.status, 200); assert.ok((await download.text()).includes('station'));
   const run = await api('POST', `/api/recipes/${legacy.workflow}/steps/${legacy.step}/run`); assert.equal(run.status, 202);
   let finished;
   for (let i = 0; i < 120; i++) {
@@ -106,7 +124,7 @@ try {
   }
   assert.equal(finished.json.run.outcome, 'completed');
   assert.equal((await api('POST', '/api/query', { body: { sql: 'SELECT value FROM legacy_result' } })).json.preview[0].value, 7);
-  console.log('confirmed: replacement PID preserves live sessions/tokens/preferences and original-account identity after another admin demotes it; revoked credentials stay refused; the old workflow runs against the old dataset');
+  console.log('confirmed: replacement PID preserves live sessions/tokens/preferences, all resource owners, histories, memberships and lineage after another admin demotes the original account; cross-account and revoked credentials stay refused; the old dataset exports and workflow runs');
   await stop();
   await cp(source, restored, { recursive: true });
   assert.deepEqual(await legacyFiles(source), originalFiles, 'old seed remains byte-for-byte untouched');

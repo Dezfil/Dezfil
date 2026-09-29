@@ -12,12 +12,11 @@ export interface BindingSnapshot {
 }
 
 /**
- * Called inside the serialized registration turn, after its catalog writes
- * committed and before another pass can replace a view.
+ * Called after this evaluation mounted its own local views.
  *
  * BEGIN alone does not pin DuckDB's catalog: its snapshot is lazy. A catalog
  * read establishes it here, so discovery, DESCRIBE, COPY and measurement all
- * see the same views even after another connection registers new artifacts.
+ * see the same views and the evidence captured for this connection.
  * The caller commits this read transaction BEFORE its metadata publication;
  * on failure the bounded boundary disconnects and rolls it back. The entire
  * lifetime remains an in-flight artifact reader, including this handoff.

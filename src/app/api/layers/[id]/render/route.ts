@@ -1,3 +1,5 @@
+import { privateTileAccess } from "@/lib/tiles/access";
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { requireLayer, renderLayer } from "@/lib/layer-service";
@@ -13,9 +15,12 @@ type Params = { params: Promise<{ id: string }> };
  */
 export async function GET(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
-    const layer = requireLayer(id);
-    return NextResponse.json(await renderLayer(layer, request.signal));
+    const layer = requireLayer(scope, id);
+    const render = await renderLayer(scope, layer, request.signal, { tileAccess: privateTileAccess(scope, id) });
+    requireLayer(scope, id);
+    return NextResponse.json(render);
   } catch (error) {
     return errorResponse(error);
   }
@@ -30,6 +35,7 @@ export async function GET(request: Request, { params }: Params) {
  */
 export async function POST(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
     let body: Record<string, unknown> = {};
     try {
@@ -47,10 +53,10 @@ export async function POST(request: Request, { params }: Params) {
         400,
       );
     }
-    const layer = requireLayer(id);
-    return NextResponse.json(
-      await renderLayerWithSelections(layer, selections, request.signal),
-    );
+    const layer = requireLayer(scope, id);
+    const render = await renderLayerWithSelections(scope, layer, selections, request.signal, { tileAccess: privateTileAccess(scope, id) });
+    requireLayer(scope, id);
+    return NextResponse.json(render);
   } catch (error) {
     return errorResponse(error);
   }

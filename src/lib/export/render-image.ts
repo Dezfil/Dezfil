@@ -1,3 +1,5 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { AuthError } from "@/lib/auth/errors";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { limits } from "@/lib/limits";
 import { renderRequestBoundMs } from "./render-stall";
@@ -190,8 +192,10 @@ export interface RenderImageResult {
 
 /** Render one map to PNG under the documented bounds. */
 export async function renderMapImage(
+  scope: AccountScope,
   input: RenderImageInput,
 ): Promise<RenderImageResult> {
+  requireAccountScope(scope);
   const budgetMs = input.budgetMs;
   const deadline = Date.now() + (budgetMs ?? limits.exportRenderTimeoutMs);
   await acquireSlot(deadline, input.signal, budgetMs);
@@ -208,6 +212,7 @@ export async function renderMapImage(
     Math.max(deadline - Date.now(), 1),
   );
   try {
+    requireAccountScope(scope);
     const driver = input.driver ?? (await puppeteerDriver());
     try {
       // Launch is inside the budget too: a stalled
@@ -237,7 +242,7 @@ export async function renderMapImage(
         throw error;
       });
     } catch (error) {
-      if (error instanceof ApiError) throw error;
+      if (error instanceof ApiError || error instanceof AuthError) throw error;
       throw new ApiError(
         "render_unavailable",
         "The image renderer's browser is not available on this instance. " +
@@ -246,6 +251,7 @@ export async function renderMapImage(
       );
     }
     if (input.signal?.aborted) throw new EvaluationCancelled();
+    requireAccountScope(scope);
     const outcome = await awaitActiveRender(
       browser,
       {
@@ -261,6 +267,7 @@ export async function renderMapImage(
       input.signal,
       budgetMs,
     );
+    requireAccountScope(scope);
     settled = true;
     if (input.signal?.aborted) throw new EvaluationCancelled();
     if ("failed" in outcome) {
@@ -270,7 +277,7 @@ export async function renderMapImage(
     }
     return { png: outcome.png, abandoned: outcome.abandoned ?? [], ...(outcome.consumed ? { consumed: outcome.consumed } : {}) };
   } catch (error) {
-    if (error instanceof ApiError || error instanceof EvaluationCancelled) {
+    if (error instanceof AuthError || error instanceof ApiError || error instanceof EvaluationCancelled) {
       throw error;
     }
     if (input.signal?.aborted) throw new EvaluationCancelled();

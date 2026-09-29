@@ -1,3 +1,4 @@
+import type { DatasetScope } from "@/lib/query/access";
 import { boundedEvaluation } from "@/lib/query/bounded";
 import type { RecipeStep } from "@/lib/metadata/recipes";
 import { findOperation } from "./catalog";
@@ -49,7 +50,7 @@ export function declaredReads(step: StepDefinition): string[] | null {
     .map((v) => v.toLowerCase());
 }
 
-export async function stepReads(step: StepDefinition): Promise<string[]> {
+export async function stepReads(scope: DatasetScope, step: StepDefinition): Promise<string[]> {
   const declared = declaredReads(step);
   if (declared !== null) return declared;
 
@@ -60,16 +61,17 @@ export async function stepReads(step: StepDefinition): Promise<string[]> {
   // registry would drop exactly the dependencies a not-yet-run producer
   // creates.
   return boundedEvaluation(async (conn) =>
-    (await queryInputs(conn, sql, () => null)).tables,
+    (await queryInputs(conn, sql, () => null)).tables, { scope },
   );
 }
 
 /** Every step's read set, which is what a whole-recipe check or plan needs. */
 export async function readsByStep(
+  scope: DatasetScope,
   steps: RecipeStep[],
 ): Promise<Map<string, string[]>> {
   const entries = await Promise.all(
-    steps.map(async (s) => [s.id, await stepReads(s)] as const),
+    steps.map(async (s) => [s.id, await stepReads(scope, s)] as const),
   );
   return new Map(entries);
 }

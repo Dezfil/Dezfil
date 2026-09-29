@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, rm, writeFile, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -72,7 +73,7 @@ describe("ingestFile", () => {
   it("ingests GeoJSON into a spatial table", async () => {
     const src = path.join(dir, "parks.geojson");
     await writeFile(src, geojson);
-    const table = await ingestFile(src, "parks.geojson");
+    const table = await ingestFile(testAccountScope(), src, "parks.geojson");
     expect(table.name).toBe("parks");
     expect(table.rowCount).toBe(2);
     expect(table.geometryColumn).not.toBeNull();
@@ -86,7 +87,7 @@ describe("ingestFile", () => {
       emptyGeojson,
       JSON.stringify({ type: "FeatureCollection", features: [] }),
     );
-    const empty = await ingestFile(emptyGeojson, "empty.geojson");
+    const empty = await ingestFile(testAccountScope(), emptyGeojson, "empty.geojson");
     expect(empty).toMatchObject({
       geometryColumn: "geom",
       geometryType: null,
@@ -96,7 +97,7 @@ describe("ingestFile", () => {
 
     const blankWkt = path.join(dir, "blank-wkt.csv");
     await writeFile(blankWkt, "name,wkt\na,\nb,\n");
-    const blank = await ingestFile(blankWkt, "blank-wkt.csv");
+    const blank = await ingestFile(testAccountScope(), blankWkt, "blank-wkt.csv");
     expect(blank).toMatchObject({
       geometryColumn: "geometry",
       geometryType: null,
@@ -108,7 +109,7 @@ describe("ingestFile", () => {
   it("ingests a coordinate-free CSV as a non-spatial table", async () => {
     const src = path.join(dir, "plain.csv");
     await writeFile(src, "name,value\na,1\nb,2\nc,3\n");
-    const table = await ingestFile(src, "plain.csv");
+    const table = await ingestFile(testAccountScope(), src, "plain.csv");
     expect(table.rowCount).toBe(3);
     expect(table.geometryColumn).toBeNull();
     expect(table.geometryType).toBeNull();
@@ -126,7 +127,7 @@ describe("ingestFile", () => {
     );
     const src = path.join(dir, "unsplit.csv");
     await writeFile(src, bytes);
-    const table = await ingestFile(src, "unsplit.csv");
+    const table = await ingestFile(testAccountScope(), src, "unsplit.csv");
     expect(table.headerSuspect).toBe(true);
     expect(table.geometryColumn).toBeNull(); // still the lenient road
   });
@@ -134,7 +135,7 @@ describe("ingestFile", () => {
   it("a consumed numeric header imports warned through signal (b)", async () => {
     const src = path.join(dir, "years.csv");
     await writeFile(src, "2019,2020,2021\nBerlin,Hamburg,Munich\nx,y,z\n");
-    const table = await ingestFile(src, "years.csv");
+    const table = await ingestFile(testAccountScope(), src, "years.csv");
     expect(table.headerSuspect).toBe(true);
     expect(table.rowCount).toBe(2); // the first row was eaten as the header
   });
@@ -148,7 +149,7 @@ describe("ingestFile", () => {
       src,
       'name,lon,lat,"note, aside"\nA,13.4,52.5,x\nB,13.5,52.6,y\n',
     );
-    const table = await ingestFile(src, "spatialwarn.csv");
+    const table = await ingestFile(testAccountScope(), src, "spatialwarn.csv");
     expect(table.headerSuspect).toBe(true);
     expect(table.geometryType).toBe("POINT");
   });
@@ -170,7 +171,7 @@ describe("ingestFile", () => {
         ],
       }),
     );
-    const table = await ingestFile(src, "oddprops.geojson");
+    const table = await ingestFile(testAccountScope(), src, "oddprops.geojson");
     expect(table.headerSuspect).toBe(false);
   });
 
@@ -182,7 +183,7 @@ describe("ingestFile", () => {
          TO '${src.replace(/'/g, "''")}' (FORMAT PARQUET)`,
       );
     });
-    const table = await ingestFile(src, "points.parquet");
+    const table = await ingestFile(testAccountScope(), src, "points.parquet");
     expect(table.geometryColumn).toBe("geometry");
     expect(table.geometryType).toBe("POINT");
     expect(table.rowCount).toBe(1);
@@ -209,6 +210,7 @@ describe("ingestFile", () => {
     });
     await writeFile(path.join(dir, "divisions.geojson"), polygons);
     const collapsed = await ingestFile(
+      testAccountScope(),
       path.join(dir, "divisions.geojson"),
       "divisions.geojson",
     );
@@ -223,6 +225,7 @@ describe("ingestFile", () => {
     });
     await writeFile(path.join(dir, "grab-bag.geojson"), heterogeneous);
     const mixed = await ingestFile(
+      testAccountScope(),
       path.join(dir, "grab-bag.geojson"),
       "grab-bag.geojson",
     );
@@ -249,7 +252,7 @@ describe("ingestFile", () => {
          (FORMAT PARQUET, KV_METADATA {geo: '${geo.replace(/'/g, "''")}'})`,
       );
     });
-    const table = await ingestFile(src, "utm.parquet");
+    const table = await ingestFile(testAccountScope(), src, "utm.parquet");
     expect(table.geometryType).toBe("POINT");
     expect(table.crsAssumed).toBe(false);
     const artifact = path
@@ -273,7 +276,7 @@ describe("ingestFile", () => {
          TO '${src.replace(/'/g, "''")}' (FORMAT PARQUET)`,
       );
     });
-    const table = await ingestFile(src, "blob.parquet");
+    const table = await ingestFile(testAccountScope(), src, "blob.parquet");
     expect(table.geometryColumn).toBe("geom");
     expect(table.geometryType).toBe("POINT");
     expect(table.crsAssumed).toBe(true);
@@ -287,7 +290,7 @@ describe("ingestFile", () => {
          TO '${src.replace(/'/g, "''")}' (FORMAT PARQUET)`,
       );
     });
-    const table = await ingestFile(src, "notwkb.parquet");
+    const table = await ingestFile(testAccountScope(), src, "notwkb.parquet");
     expect(table.geometryColumn).toBeNull();
     expect(table.crsAssumed).toBe(false);
     expect(table.rowCount).toBe(1);
@@ -296,8 +299,8 @@ describe("ingestFile", () => {
   it("deduplicates colliding table names", async () => {
     const src = path.join(dir, "parks.geojson");
     await writeFile(src, geojson);
-    const first = await ingestFile(src, "parks.geojson");
-    const second = await ingestFile(src, "parks.geojson");
+    const first = await ingestFile(testAccountScope(), src, "parks.geojson");
+    const second = await ingestFile(testAccountScope(), src, "parks.geojson");
     expect(first.name).toBe("parks");
     expect(second.name).toBe("parks_2");
   });
@@ -308,7 +311,7 @@ describe("ingestFile", () => {
       src,
       "name,lon,lat\nalexanderplatz,13.41,52.52\nzoo,13.33,52.51\n",
     );
-    const table = await ingestFile(src, "stations.csv");
+    const table = await ingestFile(testAccountScope(), src, "stations.csv");
     expect(table.geometryColumn).toBe("geometry");
     expect(table.geometryType).toBe("POINT");
     expect(table.crsAssumed).toBe(true);
@@ -334,7 +337,7 @@ describe("ingestFile", () => {
       const src = path.join(dir, filename);
       await writeFile(src, csv);
 
-      const table = await ingestFile(src, filename);
+      const table = await ingestFile(testAccountScope(), src, filename);
       expect(table).toMatchObject({
         geometryColumn: "geometry",
         geometryType: null,
@@ -342,7 +345,7 @@ describe("ingestFile", () => {
         rowCount: 2,
       });
 
-      const detail = await inspectTable(table.name);
+      const detail = await inspectTable(testAccountScope(), table.name);
       expect(detail.columns.map((column) => column.name)).toEqual([
         "name",
         "lon",
@@ -353,7 +356,7 @@ describe("ingestFile", () => {
       expect(detail.preview.map((row) => row.lat)).toEqual([null, null]);
       expect(detail.preview.map((row) => row.geometry)).toEqual([null, null]);
 
-      await expect(tableFeatures(table.name)).resolves.toMatchObject({
+      await expect(tableFeatures(testAccountScope(), table.name)).resolves.toMatchObject({
         ok: true,
         geometryType: null,
         featureCount: 0,
@@ -373,14 +376,14 @@ describe("ingestFile", () => {
       const src = path.join(dir, filename);
       await writeFile(src, `name,${lon},${lat}\na,"",""\n`);
 
-      const table = await ingestFile(src, filename);
+      const table = await ingestFile(testAccountScope(), src, filename);
       expect(table).toMatchObject({
         geometryColumn: "geometry",
         geometryType: null,
         crsAssumed: true,
         rowCount: 1,
       });
-      const detail = await inspectTable(table.name);
+      const detail = await inspectTable(testAccountScope(), table.name);
       expect(detail.columns.map((column) => column.name)).toEqual([
         "name",
         lon,
@@ -399,14 +402,14 @@ describe("ingestFile", () => {
     const src = path.join(dir, "header-only.csv");
     await writeFile(src, "name,LoN,lAt\n");
 
-    const table = await ingestFile(src, "header-only.csv");
+    const table = await ingestFile(testAccountScope(), src, "header-only.csv");
     expect(table).toMatchObject({
       geometryColumn: "geometry",
       geometryType: null,
       crsAssumed: true,
       rowCount: 0,
     });
-    const detail = await inspectTable(table.name);
+    const detail = await inspectTable(testAccountScope(), table.name);
     expect(detail.columns.map((column) => column.name)).toEqual([
       "name",
       "LoN",
@@ -423,20 +426,20 @@ describe("ingestFile", () => {
       'name,lon,lat\ncomplete,13.4,52.5\nno-lon,,52.6\nno-lat,13.6,""\n',
     );
 
-    const table = await ingestFile(src, "partial-pair.csv");
+    const table = await ingestFile(testAccountScope(), src, "partial-pair.csv");
     expect(table).toMatchObject({
       geometryColumn: "geometry",
       geometryType: "POINT",
       crsAssumed: true,
       rowCount: 3,
     });
-    const detail = await inspectTable(table.name);
+    const detail = await inspectTable(testAccountScope(), table.name);
     expect(String(detail.preview[0].geometry)).toMatch(/^POINT \(13\.4 52\.5\)$/);
     expect(detail.preview.slice(1).map((row) => row.geometry)).toEqual([
       null,
       null,
     ]);
-    await expect(tableFeatures(table.name)).resolves.toMatchObject({
+    await expect(tableFeatures(testAccountScope(), table.name)).resolves.toMatchObject({
       ok: true,
       geometryType: "POINT",
       featureCount: 1,
@@ -452,14 +455,14 @@ describe("ingestFile", () => {
         "2,,,13.5,52.6,2.36,48.86\n",
     );
 
-    const table = await ingestFile(src, "blank-exact-with-flow-pairs.csv");
+    const table = await ingestFile(testAccountScope(), src, "blank-exact-with-flow-pairs.csv");
     expect(table).toMatchObject({
       geometryColumn: "geometry",
       geometryType: "POINT",
       crsAssumed: true,
       rowCount: 2,
     });
-    await expect(tableFeatures(table.name)).resolves.toMatchObject({
+    await expect(tableFeatures(testAccountScope(), table.name)).resolves.toMatchObject({
       ok: true,
       geometryType: "POINT",
       featureCount: 2,
@@ -474,7 +477,7 @@ describe("ingestFile", () => {
     const src = path.join(dir, filename);
     await writeFile(src, csv);
 
-    const table = await ingestFile(src, filename);
+    const table = await ingestFile(testAccountScope(), src, filename);
     expect(table).toMatchObject({
       geometryColumn: null,
       geometryType: null,
@@ -490,7 +493,7 @@ describe("ingestFile", () => {
       'name,origin_lon,origin_lat\na,,\nb,"",""\n',
     );
 
-    const table = await ingestFile(src, "blank-prefixed.csv");
+    const table = await ingestFile(testAccountScope(), src, "blank-prefixed.csv");
     expect(table).toMatchObject({
       geometryColumn: null,
       geometryType: null,
@@ -506,14 +509,14 @@ describe("ingestFile", () => {
       'name,wkt,lon,lat\na,,13.4,52.5\nb,"",13.5,52.6\n',
     );
 
-    const table = await ingestFile(src, "blank-wkt-with-pair.csv");
+    const table = await ingestFile(testAccountScope(), src, "blank-wkt-with-pair.csv");
     expect(table).toMatchObject({
       geometryColumn: "geometry",
       geometryType: null,
       crsAssumed: true,
       rowCount: 2,
     });
-    const detail = await inspectTable(table.name);
+    const detail = await inspectTable(testAccountScope(), table.name);
     expect(detail.columns.map((column) => column.name)).toEqual([
       "name",
       "lon",
@@ -521,7 +524,7 @@ describe("ingestFile", () => {
       "geometry",
     ]);
     expect(detail.preview.map((row) => row.geometry)).toEqual([null, null]);
-    await expect(tableFeatures(table.name)).resolves.toMatchObject({
+    await expect(tableFeatures(testAccountScope(), table.name)).resolves.toMatchObject({
       ok: true,
       geometryType: null,
       featureCount: 0,
@@ -534,7 +537,7 @@ describe("ingestFile", () => {
       src,
       'name,wkt,lon,lat\na,"POLYGON ((0 0, 1 0, 1 1, 0 0))",1,2\n',
     );
-    const table = await ingestFile(src, "areas.csv");
+    const table = await ingestFile(testAccountScope(), src, "areas.csv");
     expect(table.geometryColumn).toBe("geometry");
     expect(table.geometryType).toBe("POLYGON");
     expect(table.crsAssumed).toBe(true);
@@ -543,7 +546,7 @@ describe("ingestFile", () => {
   it("retains an all-unreadable named WKT column as a weak candidate", async () => {
     const src = path.join(dir, "bad-wkt.csv");
     await writeFile(src, "name,wkt\na,NOT A SHAPE\n");
-    await expect(ingestFile(src, "bad-wkt.csv")).resolves.toMatchObject({
+    await expect(ingestFile(testAccountScope(), src, "bad-wkt.csv")).resolves.toMatchObject({
       rowCount: 1, geometryColumn: null, geometryType: null, crsAssumed: false,
       geometryCandidates: [expect.objectContaining({ columns: ["wkt"], strength: "weak", reasons: ["unreadable"], sourceRetained: true })],
     });
@@ -553,7 +556,7 @@ describe("ingestFile", () => {
   it("rejects a corrupt file and leaves no partial state", async () => {
     const src = path.join(dir, "broken.geojson");
     await writeFile(src, "this is not json {{{");
-    await expect(ingestFile(src, "broken.geojson")).rejects.toMatchObject({
+    await expect(ingestFile(testAccountScope(), src, "broken.geojson")).rejects.toMatchObject({
       code: "malformed_file",
     });
     expect(listTables()).toEqual([]);
@@ -573,7 +576,7 @@ describe("ingestFile", () => {
         Buffer.alloc(64, 7),
       ]),
     );
-    await expect(ingestFile(src, "image.parquet")).rejects.toMatchObject({
+    await expect(ingestFile(testAccountScope(), src, "image.parquet")).rejects.toMatchObject({
       code: "malformed_file",
     });
     expect(listTables()).toEqual([]);
@@ -590,7 +593,7 @@ describe("ingestFile", () => {
     const bytes = await readFile(whole);
     const src = path.join(dir, "truncated.parquet");
     await writeFile(src, bytes.subarray(0, Math.floor(bytes.length / 2)));
-    await expect(ingestFile(src, "truncated.parquet")).rejects.toMatchObject({
+    await expect(ingestFile(testAccountScope(), src, "truncated.parquet")).rejects.toMatchObject({
       code: "malformed_file",
     });
     expect(listTables()).toEqual([]);

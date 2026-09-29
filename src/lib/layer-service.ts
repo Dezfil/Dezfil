@@ -1,26 +1,22 @@
-import { randomUUID } from "node:crypto";
-import { limits } from "@/lib/limits";
+import type { DatasetScope } from "@/lib/query/access";
+import type { AccountScope } from "@/lib/auth/scope";
+import { requireLayer } from "./layer-access";
+import { assertWritableRefs } from "./layer-write-refs";
+export { requireLayer } from "./layer-access";
+export { createLayer, duplicateLayer } from "./layer-creation";
+export { layerImage } from "./layer-history-image";
+export { fieldKind, layerFields, fieldsForWrite, baseFields, layerFieldStats, DISTRIBUTION_BINS,
+  type FieldKind, type LayerField, type LayerFieldsResult, type FieldStats } from "./layer-fields";
 import { ApiError } from "@/lib/api/errors";
-import { stripStatementQuote } from "@/lib/query/engine-message";
 import {
-  boundedEvaluation,
   isBoundedOutcome,
-  EvaluationCancelled,
 } from "@/lib/query/bounded";
 import {
   effectiveSql,
-  filteredSql,
-  wrappable,
-  OD_GEOMETRY,
 } from "@/lib/query/compile";
 import { inspectLayerGeometry } from "@/lib/layer-geometry";
 import {
-  getMap,
-  getLayer,
-  insertLayer,
   updateLayerFields,
-  updateMapFields,
-  nextOrdinal,
   type Layer,
 } from "@/lib/metadata/maps";
 import { metadataDb } from "@/lib/metadata/db";
@@ -28,7 +24,6 @@ import {
   recordStep,
   diffImages,
   stableJson,
-  type HistoryImage,
 } from "@/lib/metadata/history";
 import {
   styleProblem,
@@ -36,13 +31,10 @@ import {
   type FillPaint,
   type LayerStyle,
 } from "@/lib/style/style";
-import { defaultStyle } from "@/lib/style/defaults";
 import { classifyFill, computeSizeScale } from "@/lib/style/classify";
 import {
-  POINTS_VIZ,
   AGG_VALUE,
   AGG_ELEV,
-  AGG_COUNT,
   isAggregated,
   isOdViz,
   effectiveStyle,
@@ -54,493 +46,15 @@ import {
   type LegendChannelKey,
 } from "@/lib/viz";
 import {
-  changedRefs,
   filterRefs,
   listRefs,
-  refProblem,
   styleRefs,
   vizRefs,
   type ColumnRef,
 } from "@/lib/column-validation";
-import { liveFilters, type LiveFilter } from "@/lib/live-filters";
-import {
-  publishedFieldsFor,
-  publishedFieldsSignature,
-  type PublishedMapContext,
-} from "@/lib/publish/published-fields";
 import { legendFor, legendSlotCount } from "@/lib/style/legend";
-import { ensureTiles } from "@/lib/tiles/build";
-import { tilerAvailable } from "@/lib/tiles/tiler";
-import { tileArchiveInfo } from "@/lib/tiles/serve";
-import type { SliderPreviewData } from "@/lib/slider-preview";
-import { renderCapRefusal, tilerUnavailable } from "./layer-render-copy";
-
-function ident(s: string): string {
-  return `"${s.replace(/"/g, '""')}"`;
-}
-
-/** The full layer as one image — what an add or delete step records;
- * shared with the removal cascade. */
-export function layerImage(layer: Layer): HistoryImage {
-  return { ...layer };
-}
-
-/** A new layer enters a manual legend arrangement at the top, durably
- * left unstored, its slot would re-derive from the panel on every render
- * and move when the panel does. Recorded in the add's own gesture, so
- * one undo removes layer and slot together. */
-function enterArrangement(
-  mapId: string,
-  layerId: string,
-  arrangement: string[],
-  groupId: string | null | undefined,
-): void {
-  const next = [layerId, ...arrangement];
-  updateMapFields(mapId, { legendOrder: next });
-  recordStep({
-    mapId,
-    scope: "map",
-    targetId: mapId,
-    op: "update",
-    before: { legendOrder: arrangement },
-    after: { legendOrder: next },
-    groupId,
-  });
-}
-
-export async function createLayer(
-  mapId: string,
-  input: { name: string; sql: string; style?: LayerStyle },
-  opts: { groupId?: string | null; signal?: AbortSignal } = {},
-): Promise<Layer> {
-  if (!getMap(mapId)) {
-    throw new ApiError("not_found", `No map with id ${mapId}.`, 404);
-  }
-  const { geometryType } = await inspectLayerGeometry(input.sql, opts.signal);
-  if (input.style !== undefined) {
-    const problem = styleProblem(input.style);
-    if (problem) {
-      throw new ApiError("invalid_request", `The style is not valid: ${problem}`, 400);
-    }
-    // A created layer has no stored config to echo: every reference the
-    // style carries is introduced here and validates.
-    await assertWritableRefs(
-      styleRefs(input.style),
-      [],
-      input.sql,
-      POINTS_VIZ,
-      opts.signal,
-    );
-  }
-  const now = new Date().toISOString();
-  const ordinal = nextOrdinal(mapId);
-  const layer: Layer = {
-    id: randomUUID(),
-    mapId,
-    name: input.name,
-    sql: input.sql,
-    // Default colors cycle by creation order (kepler defaults).
-    style: input.style
-      ? normalizeStyle(input.style)
-      : defaultStyle(geometryType, ordinal),
-    visible: true,
-    tooltip: null,
-    popup: null,
-    publishedFields: null,
-    inLegend: true,
-    viz: POINTS_VIZ,
-    filters: [],
-    legendTitle: null,
-    legendLabels: null,
-    legendAttrs: null,
-    ordinal,
-    createdAt: now,
-    updatedAt: now,
-  };
-  const arrangement = getMap(mapId)?.legendOrder ?? null;
-  metadataDb().transaction(() => {
-    const groupId = arrangement
-      ? (opts.groupId ?? randomUUID())
-      : opts.groupId;
-    insertLayer(layer);
-    recordStep({
-      mapId,
-      scope: "layer",
-      targetId: layer.id,
-      op: "add",
-      before: null,
-      after: layerImage(layer),
-      groupId,
-    });
-    if (arrangement) enterArrangement(mapId, layer.id, arrangement, groupId);
-  })();
-  return layer;
-}
-
-/** Duplicate a layer in place: full copy — SQL, style, tooltip, legend flag —
- * with a suffixed name, stacked on top. */
-export function duplicateLayer(
-  id: string,
-  opts: { groupId?: string | null } = {},
-): Layer {
-  const source = requireLayer(id);
-  const now = new Date().toISOString();
-  const copy: Layer = {
-    ...source,
-    id: randomUUID(),
-    name: `${source.name} copy`,
-    ordinal: nextOrdinal(source.mapId),
-    createdAt: now,
-    updatedAt: now,
-  };
-  const arrangement = getMap(source.mapId)?.legendOrder ?? null;
-  metadataDb().transaction(() => {
-    const groupId = arrangement
-      ? (opts.groupId ?? randomUUID())
-      : opts.groupId;
-    insertLayer(copy);
-    recordStep({
-      mapId: source.mapId,
-      scope: "layer",
-      targetId: copy.id,
-      op: "add",
-      before: null,
-      after: layerImage(copy),
-      groupId,
-    });
-    if (arrangement)
-      enterArrangement(source.mapId, copy.id, arrangement, groupId);
-  })();
-  return copy;
-}
-
-export function requireLayer(id: string): Layer {
-  const layer = getLayer(id);
-  if (!layer) throw new ApiError("not_found", `No layer with id ${id}.`, 404);
-  return layer;
-}
-
-/** The three field families: they decide the filter control and
- * the picker badge. Time covers date/timestamp column types. */
-export type FieldKind = "numeric" | "time" | "text";
-
-export interface LayerField {
-  name: string;
-  type: string;
-  /** Numeric fields can be quantile-classified; all fields can be categorical. */
-  numeric: boolean;
-  kind: FieldKind;
-}
-
-const NUMERIC_TYPE = /^(DOUBLE|FLOAT|REAL|DECIMAL|(U?(TINY|SMALL|BIG|HUGE)?INT))/;
-const TIME_TYPE = /^(DATE|TIMESTAMP)/;
-
-export function fieldKind(columnType: string): FieldKind {
-  if (NUMERIC_TYPE.test(columnType)) return "numeric";
-  if (TIME_TYPE.test(columnType)) return "time";
-  return "text";
-}
-
-export interface LayerFieldsResult {
-  /** Columns of the effective result — what fills and tooltips can use. An
-   * aggregated layer exposes exactly its aggregate value and count. */
-  styling: LayerField[];
-  /** Columns of the layer's own SQL result — what filters apply to. */
-  filterable: LayerField[];
-  /** Geometry columns of the layer's own SQL result, in SELECT order —
-   * what origin→destination endpoints can map to. */
-  geometryColumns: string[];
-}
-
-export async function layerFields(
-  layer: Layer,
-  signal?: AbortSignal,
-): Promise<LayerFieldsResult> {
-  const described = await describeBase(layer, signal);
-  return withStyling(described, layer.viz);
-}
-
-function withStyling(
-  described: { fields: LayerField[]; geometryColumns: string[] },
-  viz: LayerViz,
-): LayerFieldsResult {
-  const filterable = described.fields;
-  const styling = isAggregated(viz)
-    ? [
-        { name: "value", type: "DOUBLE", numeric: true, kind: "numeric" as const },
-        { name: "count", type: "BIGINT", numeric: true, kind: "numeric" as const },
-      ]
-    : filterable;
-  return { styling, filterable, geometryColumns: described.geometryColumns };
-}
-
-/**
- * The schema a write validates against — the result as the request would
- * leave it. When it cannot be resolved (the table is gone, the SQL
- * errors), a write introducing references is refused with the state
- * named rather than validated blind; bounded outcomes (timeout, memory,
- * cancellation) stay themselves.
- */
-export async function fieldsForWrite(
-  sql: string,
-  viz: LayerViz,
-  signal?: AbortSignal,
-): Promise<LayerFieldsResult> {
-  try {
-    return withStyling(await describeBase({ sql } as Layer, signal), viz);
-  } catch (error) {
-    if (error instanceof EvaluationCancelled || error instanceof ApiError) {
-      throw error;
-    }
-    throw new ApiError(
-      "column_unavailable",
-      "The layer's result schema could not be resolved, so the column references this write introduces cannot be validated. Repair the layer's SQL (or its table) first.",
-      400,
-    );
-  }
-}
-
-/** Refuse the references this write introduces or changes that the
- * post-request schema cannot honor; an empty diff resolves nothing and
- * costs nothing. */
-async function assertWritableRefs(
-  incoming: ColumnRef[],
-  stored: ColumnRef[],
-  sql: string,
-  viz: LayerViz,
-  signal?: AbortSignal,
-): Promise<void> {
-  const refs = changedRefs(incoming, stored);
-  if (refs.length === 0) return;
-  const problem = refProblem(refs, await fieldsForWrite(sql, viz, signal));
-  if (problem) throw new ApiError("column_unavailable", problem, 400);
-}
-
-/** Non-geometry columns of the layer's own SQL result — what filters apply to. */
-export async function baseFields(
-  layer: Layer,
-  signal?: AbortSignal,
-): Promise<LayerField[]> {
-  return (await describeBase(layer, signal)).fields;
-}
-
-async function describeBase(
-  layer: Layer,
-  signal?: AbortSignal,
-): Promise<{ fields: LayerField[]; geometryColumns: string[] }> {
-  return boundedEvaluation(async (conn) => {
-    const sub = `(${wrappable(layer.sql)}) AS q`;
-    const described = await conn.runAndReadAll(`DESCRIBE SELECT * FROM ${sub}`);
-    const columns = (
-      described.getRowObjects() as unknown as {
-        column_name: string;
-        column_type: string;
-      }[]
-    ).map((c) => ({ name: c.column_name, type: c.column_type }));
-    return {
-      fields: columns
-        .filter((c) => !c.type.startsWith("GEOMETRY"))
-        .map((c) => ({
-          name: c.name,
-          type: c.type,
-          numeric: NUMERIC_TYPE.test(c.type),
-          kind: fieldKind(c.type),
-        })),
-      geometryColumns: columns
-        .filter((c) => c.type.startsWith("GEOMETRY"))
-        .map((c) => c.name),
-    };
-  }, { signal });
-}
-
-/** Distinct values shown when seeding a value-set filter. */
-const MAX_STAT_VALUES = 50;
-
-/** Bars in a filter's distribution histogram. */
-export const DISTRIBUTION_BINS = 40;
-
-export type FieldStats =
-  | {
-      field: string;
-      kind: "numeric";
-      numeric: true;
-      min: number | null;
-      max: number | null;
-      /** Arithmetic mean over non-null values (spec the ramp's
-       * distribution header). */
-      mean: number | null;
-      /** Row counts over equal bins across [min, max]; empty when the
-       * extent is missing or a single value. */
-      bins: number[];
-    }
-  | {
-      field: string;
-      kind: "time";
-      numeric: false;
-      /** ISO-8601 without timezone — the values as stored. */
-      min: string | null;
-      max: string | null;
-      bins: number[];
-    }
-  | {
-      field: string;
-      kind: "text";
-      numeric: false;
-      values: string[];
-      truncated: boolean;
-    };
-
-type QueryConnection = Parameters<Parameters<typeof boundedEvaluation>[0]>[0];
-
-/** Numeric field stats — extent, mean, distribution — over a subquery. */
-async function numericFieldStats(
-  conn: QueryConnection,
-  sub: string,
-  field: string,
-): Promise<FieldStats> {
-  const col = ident(field);
-  const expr = `${col}::DOUBLE`;
-  const reader = await conn.runAndReadAll(
-    `SELECT min(${expr}) AS lo, max(${expr}) AS hi, avg(${expr}) AS mean
-     FROM ${sub} WHERE ${col} IS NOT NULL`,
-  );
-  const row = reader.getRowObjects()[0] as {
-    lo: unknown;
-    hi: unknown;
-    mean: unknown;
-  };
-  const lo = Number(row?.lo);
-  const hi = Number(row?.hi);
-  const avg = Number(row?.mean);
-  const min = Number.isFinite(lo) ? lo : null;
-  const max = Number.isFinite(hi) ? hi : null;
-  return {
-    field,
-    kind: "numeric" as const,
-    numeric: true as const,
-    min,
-    max,
-    mean: Number.isFinite(avg) ? avg : null,
-    bins: await distribution(conn, sub, expr, min, max),
-  };
-}
-
-/** Row counts over equal bins of a numeric expression's [lo, hi]. */
-async function distribution(
-  conn: QueryConnection,
-  sub: string,
-  expr: string,
-  lo: number | null,
-  hi: number | null,
-): Promise<number[]> {
-  if (lo === null || hi === null || !(hi > lo)) return [];
-  const step = (hi - lo) / DISTRIBUTION_BINS;
-  const reader = await conn.runAndReadAll(
-    `SELECT least(floor((${expr} - (${lo})) / (${step})), ${DISTRIBUTION_BINS - 1})::INT AS b,
-            count(*) AS n
-     FROM ${sub} WHERE ${expr} IS NOT NULL
-     GROUP BY b`,
-  );
-  const bins = new Array<number>(DISTRIBUTION_BINS).fill(0);
-  for (const row of reader.getRowObjects() as { b: unknown; n: unknown }[]) {
-    const i = Number(row.b);
-    if (Number.isInteger(i) && i >= 0 && i < DISTRIBUTION_BINS) {
-      bins[i] = Number(row.n);
-    }
-  }
-  return bins;
-}
-
-/**
- * Seed data for a filter control: extent and distribution for numeric and
- * time fields, distinct values (bounded, by frequency) for text. Computed on
- * the layer's own result — the unfiltered extent — so controls always show
- * the full range (filters; kinds, distributions).
- */
-export async function layerFieldStats(
-  layer: Layer,
-  field: string,
-  signal?: AbortSignal,
-): Promise<FieldStats> {
-  // An aggregated layer styles value/count — computed by the aggregation,
-  // absent from the base result. Their distribution comes from the
-  // effective query, the same values classification sees.
-  if (
-    isAggregated(layer.viz) &&
-    (field === AGG_VALUE || field === AGG_COUNT)
-  ) {
-    const inspection = await inspectLayerGeometry(layer.sql, signal);
-    return boundedEvaluation(async (conn) => {
-      const sub = `(${effectiveSql(
-        { sql: layer.sql, filters: layer.filters, viz: layer.viz },
-        inspection.geometryColumn,
-      )}) AS q`;
-      return numericFieldStats(conn, sub, field);
-    }, { signal });
-  }
-  const fields = await baseFields(layer, signal);
-  const target = fields.find((f) => f.name === field);
-  if (!target) {
-    throw new ApiError(
-      "invalid_request",
-      `The layer's result has no field "${field}".`,
-      400,
-    );
-  }
-  return boundedEvaluation(async (conn) => {
-    const sub = `(${wrappable(layer.sql)}) AS q`;
-    const col = ident(field);
-    if (target.kind === "numeric") {
-      return numericFieldStats(conn, sub, field);
-    }
-    if (target.kind === "time") {
-      // Extent as ISO for the control, as epoch seconds for the bins —
-      // one convention (naive/as-stored) at both ends, so nothing shifts.
-      const ts = `CAST(${col} AS TIMESTAMP)`;
-      const reader = await conn.runAndReadAll(
-        `SELECT strftime(min(${ts}), '%Y-%m-%dT%H:%M:%S') AS lo_iso,
-                strftime(max(${ts}), '%Y-%m-%dT%H:%M:%S') AS hi_iso,
-                epoch(min(${ts})) AS lo, epoch(max(${ts})) AS hi
-         FROM ${sub} WHERE ${col} IS NOT NULL`,
-      );
-      const row = reader.getRowObjects()[0] as {
-        lo_iso: unknown;
-        hi_iso: unknown;
-        lo: unknown;
-        hi: unknown;
-      };
-      const lo = Number(row?.lo);
-      const hi = Number(row?.hi);
-      return {
-        field,
-        kind: "time" as const,
-        numeric: false as const,
-        min: row?.lo_iso == null ? null : String(row.lo_iso),
-        max: row?.hi_iso == null ? null : String(row.hi_iso),
-        bins: await distribution(
-          conn,
-          sub,
-          `epoch(${ts})`,
-          Number.isFinite(lo) ? lo : null,
-          Number.isFinite(hi) ? hi : null,
-        ),
-      };
-    }
-    const reader = await conn.runAndReadAll(
-      `SELECT ${col}::VARCHAR AS v, count(*) AS n FROM ${sub}
-       WHERE ${col} IS NOT NULL
-       GROUP BY 1 ORDER BY n DESC, v LIMIT ${MAX_STAT_VALUES + 1}`,
-    );
-    const values = reader.getRowObjects().map((r) => String(r.v));
-    return {
-      field,
-      kind: "text" as const,
-      numeric: false as const,
-      values: values.slice(0, MAX_STAT_VALUES),
-      truncated: values.length > MAX_STAT_VALUES,
-    };
-  }, { signal });
-}
+export { renderLayer, type LayerRenderData, type LayerTiles, type LayerRenderGeometryType, type RenderLayerOpts } from "./layer-render";
+export { liveRenderFilters, renderFilters } from "./layer-render-filters";
 
 /**
  * The attribute-name overrides that survive a style/viz change: a channel
@@ -593,6 +107,7 @@ type UpdateLayerFields = Partial<{
 }>;
 
 export async function updateLayer(
+  scope: AccountScope,
   id: string,
   fields: UpdateLayerFields,
   opts: { groupId?: string | null; signal?: AbortSignal } = {},
@@ -603,7 +118,7 @@ export async function updateLayer(
   // fresh snapshot until the commit's read matches the one the derivation
   // used — no accepted write is lost.
   for (let attempt = 0; attempt < 5; attempt++) {
-    const applied = await deriveAndCommitUpdate(id, fields, opts);
+    const applied = await deriveAndCommitUpdate(scope, id, fields, opts);
     if (applied) return applied;
   }
   // Practically unreachable: it needs a concurrent write landing inside
@@ -618,11 +133,12 @@ export async function updateLayer(
 }
 
 async function deriveAndCommitUpdate(
+  scope: AccountScope,
   id: string,
   fields: UpdateLayerFields,
   opts: { groupId?: string | null; signal?: AbortSignal },
 ): Promise<Layer | null> {
-  const layer = requireLayer(id);
+  const layer = requireLayer(scope, id);
   // A repeated write of the same filter image is a true no-op: in
   // particular, it must not turn into a classification-only history step.
   // stableJson makes this insensitive to object key order at the API edge.
@@ -631,7 +147,7 @@ async function deriveAndCommitUpdate(
     stableJson(fields.filters) !== stableJson(layer.filters);
   if (fields.sql !== undefined && fields.sql !== layer.sql) {
     // Editing SQL revalidates geometry, but the layer is not recreated.
-    await inspectLayerGeometry(fields.sql, opts.signal);
+    await inspectLayerGeometry(scope, fields.sql, opts.signal);
   }
   if (fields.style !== undefined) {
     const problem = styleProblem(fields.style);
@@ -686,7 +202,7 @@ async function deriveAndCommitUpdate(
     const validating = isAggregated(nextViz)
       ? incoming.filter((ref) => ref.channel !== "label")
       : incoming;
-    await assertWritableRefs(
+    await assertWritableRefs(scope,
       validating,
       stored,
       fields.sql ?? layer.sql,
@@ -702,7 +218,7 @@ async function deriveAndCommitUpdate(
     // Hexbin, grid, and heatmap draw point results; line and polygon layers
     // keep simple rendering. Arc/line ignore the primary geometry entirely
     // — their endpoints are mapped.
-    const inspection = await inspectLayerGeometry(
+    const inspection = await inspectLayerGeometry(scope,
       fields.sql ?? layer.sql,
       opts.signal,
     );
@@ -720,7 +236,7 @@ async function deriveAndCommitUpdate(
         // aggregation edit. Settle the authoritative stored fill over the
         // complete next filter set; previews deliberately keep the old fill
         // only until this mutation is accepted.
-        viz.fill = await filterSettledAggregatedFill(
+        viz.fill = await filterSettledAggregatedFill(scope,
           {
             sql: fields.sql ?? layer.sql,
             filters: fields.filters ?? layer.filters,
@@ -735,7 +251,7 @@ async function deriveAndCommitUpdate(
         // The aggregation changed, so its value distribution did too: assign
         // a fill over the aggregate value, keeping any prior ramp choices
         // (classification applies to the aggregate value).
-        viz.fill = await aggregatedFill(
+        viz.fill = await aggregatedFill(scope,
           {
             sql: fields.sql ?? layer.sql,
             filters: fields.filters ?? layer.filters,
@@ -765,7 +281,7 @@ async function deriveAndCommitUpdate(
             JSON.stringify(viz.elevation.aggregate);
         viz.elevation = unchangedQuery
           ? { ...viz.elevation, domain: prior!.domain }
-          : await settledElevation(
+          : await settledElevation(scope,
               {
                 sql: fields.sql ?? layer.sql,
                 filters: fields.filters ?? layer.filters,
@@ -789,12 +305,12 @@ async function deriveAndCommitUpdate(
     fields.viz === undefined &&
     isAggregated(layer.viz)
   ) {
-    const inspection = await inspectLayerGeometry(
+    const inspection = await inspectLayerGeometry(scope,
       fields.sql ?? layer.sql,
       opts.signal,
     );
     const viz = { ...layer.viz };
-    viz.fill = await filterSettledAggregatedFill(
+    viz.fill = await filterSettledAggregatedFill(scope,
       {
         sql: fields.sql ?? layer.sql,
         filters: fields.filters ?? layer.filters,
@@ -806,7 +322,7 @@ async function deriveAndCommitUpdate(
       opts.signal,
     );
     if (viz.elevation) {
-      viz.elevation = await settledElevation(
+      viz.elevation = await settledElevation(scope,
         {
           sql: fields.sql ?? layer.sql,
           filters: fields.filters ?? layer.filters,
@@ -881,14 +397,14 @@ async function deriveAndCommitUpdate(
     // same layer may have landed since. History must diff against the state
     // this write actually replaces, or undo restores a state that never
     // existed.
-    const prior = requireLayer(id);
+    const prior = requireLayer(scope, id);
     // The derivations above were computed against the entry snapshot. If
     // the layer moved while they settled, committing them would overwrite
     // the concurrent write with stale derived containers — abort and let
     // the caller re-derive against the fresh state.
     if (stableJson(prior) !== stableJson(layer)) return;
     updateLayerFields(id, fields);
-    fresh = requireLayer(id);
+    fresh = requireLayer(scope, id);
     // Record what actually changed, as stored — post-normalization, so a
     // redo re-applies exactly what this write produced. The keys cover
     // the request plus the coupled adjustments folded into `fields`
@@ -924,6 +440,7 @@ async function deriveAndCommitUpdate(
  * heights that lie.
  */
 async function settledElevation(
+  scope: DatasetScope,
   input: { sql: string; filters: LayerFilter[]; viz: AggregatedViz },
   geometryColumn: string,
   signal?: AbortSignal,
@@ -932,7 +449,7 @@ async function settledElevation(
   if (!elevation) return undefined;
   try {
     const sql = effectiveSql(input, geometryColumn);
-    const scale = await computeSizeScale(
+    const scale = await computeSizeScale(scope,
       sql,
       AGG_ELEV,
       [0, elevation.height],
@@ -966,6 +483,7 @@ function priorAggregatedFill(layer: Layer): FillPaint | undefined {
  * a constant so the layer stays usable — render reports its own errors.
  */
 async function aggregatedFill(
+  scope: DatasetScope,
   input: { sql: string; filters: LayerFilter[]; viz: AggregatedViz },
   geometryColumn: string,
   prior: FillPaint | undefined,
@@ -990,7 +508,7 @@ async function aggregatedFill(
         : priorRamp?.method === "custom"
           ? (priorRamp.baseMethod ?? "quantile")
           : (priorRamp?.method ?? "quantile");
-    const fresh = await classifyFill(
+    const fresh = await classifyFill(scope,
       sql,
       AGG_VALUE,
       priorMethod,
@@ -1033,6 +551,7 @@ async function aggregatedFill(
  * path (including Custom returning to its remembered named method).
  */
 async function filterSettledAggregatedFill(
+  scope: DatasetScope,
   input: { sql: string; filters: LayerFilter[]; viz: AggregatedViz },
   geometryColumn: string,
   prior: FillPaint | undefined,
@@ -1040,515 +559,7 @@ async function filterSettledAggregatedFill(
   signal?: AbortSignal,
 ): Promise<FillPaint> {
   if (prior?.type === "constant") return prior;
-  return aggregatedFill(input, geometryColumn, prior, style, signal);
+  return aggregatedFill(scope, input, geometryColumn, prior, style, signal);
 }
 
-/** The layer's effective query — SQL, then filters, then aggregation — for
- * consumers outside the render path (classification, previews). */
-export async function layerEffectiveSql(
-  layer: Layer,
-  signal?: AbortSignal,
-): Promise<string> {
-  if (!isAggregated(layer.viz)) {
-    return effectiveSql(
-      { sql: layer.sql, filters: layer.filters, viz: layer.viz },
-      null,
-    );
-  }
-  const { geometryColumn } = await inspectLayerGeometry(layer.sql, signal);
-  return effectiveSql(
-    { sql: layer.sql, filters: layer.filters, viz: layer.viz },
-    geometryColumn,
-  );
-}
-
-/**
- * The filters this layer's render delegates to the client: the shared rule,
- * resolved against the map's docked timeline. Every other surface (previews,
- * classification, aggregated stats) keeps applying all filters.
- */
-export function liveRenderFilters(
-  layer: Layer,
-  timeline = getMap(layer.mapId)?.timeline,
-): LiveFilter[] {
-  const dockedField =
-    timeline && timeline.layerId === layer.id ? timeline.field : null;
-  return liveFilters(layer.viz, layer.filters, dockedField);
-}
-
-/**
- * Filters as the render path enforces them (generalized): live filters are
- * delegated to the canvas — the data ships without them, so slider drags
- * and playback never wait on the server.
- */
-export function renderFilters(
-  layer: Layer,
-  timeline = getMap(layer.mapId)?.timeline,
-): LayerFilter[] {
-  const live = new Set<LayerFilter>(liveRenderFilters(layer, timeline));
-  if (live.size === 0) return layer.filters;
-  return layer.filters.filter((f) => !live.has(f));
-}
-
-/** How a tiled layer stands: preparing in the background, ready
- * with a tile URL template, or — as an errored layer — failed. */
-export interface LayerTiles {
-  state: "building" | "ready";
-  /** Present when ready: a template with {z}/{x}/{y} placeholders. */
-  url?: string;
-  /** Present when ready: [west, south, east, north] of the tiled data. */
-  bounds?: [number, number, number, number];
-  minZoom?: number;
-  maxZoom?: number;
-  builtAt?: string;
-}
-
-/** Canonical geometry family of one successful render result. Multi-geometry
- * variants collapse into their simple family; empty or unsupported results
- * are unknown rather than guessed from the column's generic DuckDB type. */
-export type LayerRenderGeometryType =
-  | "POINT"
-  | "LINESTRING"
-  | "POLYGON"
-  | "MIXED"
-  | null;
-
-export interface LayerRenderData {
-  layerId: string;
-  ok: boolean;
-  /** Inline carries the GeoJSON itself; tiled points at served tiles. */
-  mode?: "inline" | "tiled";
-  /** Present when ok and inline: a GeoJSON FeatureCollection of the result. */
-  geojson?: unknown;
-  featureCount?: number;
-  /** Canonical family of the effective result, independent of render mode. */
-  geometryType?: LayerRenderGeometryType;
-  /** Present when ok and tiled. */
-  tiles?: LayerTiles;
-  /** True when the data ships without the layer's live filters
-   * — the client enforces them on the GPU. Absent = every filter is
-   * already applied in the SQL. */
-  liveFiltered?: boolean;
-  /** Present on published-audience renders: the effective
-   * published field set the properties carry — what the assembly filters
-   * the interaction lists through, so the response never names a field
-   * the wire lacks. */
-  publishedFields?: string[];
-  /** Present when not ok: why the layer cannot render right now. */
-  error?: { code: string; message: string };
-}
-
-function renderGeometryType(types: string[]): LayerRenderGeometryType {
-  if (types.length === 0) return null;
-  const families = types.map((type) => {
-    if (type === "POINT" || type === "MULTIPOINT") return "POINT" as const;
-    if (type === "LINESTRING" || type === "MULTILINESTRING") {
-      return "LINESTRING" as const;
-    }
-    if (type === "POLYGON" || type === "MULTIPOLYGON") {
-      return "POLYGON" as const;
-    }
-    return null;
-  });
-  if (families.some((family) => family === null)) return null;
-  return families.every((family) => family === families[0])
-    ? families[0]
-    : "MIXED";
-}
-
-/** Base-result attributes the canvas may need while durable layer state stays
- * unchanged. Automatic tooltips are deliberately absent during a preview. */
-function sliderPreviewFieldNames(layer: Layer): Set<string> {
-  const names = new Set<string>();
-  for (const filter of layer.filters) {
-    if (filter.kind === "range" || filter.kind === "timerange") {
-      names.add(filter.field);
-    }
-  }
-  if (isAggregated(layer.viz) && layer.viz.aggregate.fn !== "count") {
-    names.add(layer.viz.aggregate.attribute);
-  }
-  // Extruded cells re-aggregate their height locally too.
-  const elevation = isAggregated(layer.viz) ? layer.viz.elevation : undefined;
-  if (elevation && elevation.aggregate.fn !== "count") {
-    names.add(elevation.aggregate.attribute);
-  }
-  if (layer.viz.type === "heatmap" && layer.viz.weight) {
-    names.add(layer.viz.weight);
-  }
-  const paints = [layer.style.fill, layer.style.strokeBy];
-  for (const paint of paints) {
-    if (paint && paint.type !== "constant") names.add(paint.attribute);
-  }
-  if (layer.style.pointRadiusBy) names.add(layer.style.pointRadiusBy.attribute);
-  if (layer.style.strokeWidthBy) names.add(layer.style.strokeWidthBy.attribute);
-  if (layer.style.label?.attribute) names.add(layer.style.label.attribute);
-  return names;
-}
-
-/**
- * Geometry input used while a human manipulates a query-shaping slider.
- * Range/time filters are intentionally omitted so a local preview can widen as
- * well as narrow; discrete filters remain server-applied. Above the dedicated
- * input budget, a hash-ordered subset stays stable across requests.
- */
-export async function sliderPreviewData(
-  layer: Layer,
-  signal?: AbortSignal,
-): Promise<SliderPreviewData> {
-  const inspection = await inspectLayerGeometry(layer.sql, signal);
-  const base = await baseFields(layer, signal);
-  const wanted = sliderPreviewFieldNames(layer);
-  const fields = base
-    .filter((field) => wanted.has(field.name))
-    .map(({ name, kind }) => ({ name, kind }));
-  const filters = layer.filters.filter((filter) => filter.kind === "values");
-  const source = `(${filteredSql(layer.sql, filters)}) AS q`;
-  const geom = ident(inspection.geometryColumn);
-  // Aggregation and heatmaps are point visualizations. Plain layers keep
-  // their original geometry so range/time fallback previews also work for
-  // lines and polygons that cannot use the canvas's point-oriented fast path.
-  const geometryPredicate =
-    layer.viz.type === "points"
-      ? `${geom} IS NOT NULL`
-      : `${geom} IS NOT NULL AND ST_GeometryType(${geom}) = 'POINT'`;
-  const budget = limits.sliderPreviewRows;
-
-  return boundedEvaluation(async (conn) => {
-    const counted = await conn.runAndReadAll(
-      `SELECT count(*) AS n FROM ${source} WHERE ${geometryPredicate}`,
-    );
-    const sourceCount = Number(counted.getRowObjects()[0]?.n ?? 0);
-    const exact = sourceCount <= budget;
-    const props = fields.length
-      ? `to_json({${fields
-          .map(
-            (field) =>
-              `'${field.name.replace(/'/g, "''")}': ${ident(field.name)}`,
-          )
-          .join(", ")}})`
-      : `'{}'`;
-    const hashArgs = [
-      `ST_AsWKB(${geom})`,
-      ...fields.map((field) => ident(field.name)),
-    ].join(", ");
-    const sampled = await conn.runAndReadAll(
-      `SELECT ST_AsGeoJSON(${geom}) AS geometry, ${props} AS props
-       FROM ${source} WHERE ${geometryPredicate}
-       ${exact ? "" : `ORDER BY hash(${hashArgs})`}
-       LIMIT ${budget}`,
-    );
-    const features = sampled.getRowObjects().map((row) => ({
-      type: "Feature",
-      geometry: JSON.parse(String(row.geometry)),
-      properties: JSON.parse(String(row.props)),
-    }));
-    return {
-      layerId: layer.id,
-      exact,
-      sourceCount,
-      sampledCount: features.length,
-      budget,
-      fields,
-      geojson: { type: "FeatureCollection", features },
-    };
-  }, { signal });
-}
-
-/** Options for a published-audience render: with the map's
- * context supplied, feature properties carry exactly the layer's effective
- * published field set. Absent — every builder lane — properties carry every
- * non-geometry column, as always. */
-export interface RenderLayerOpts {
-  published?: PublishedMapContext;
-}
-
-/**
- * Render data for one layer. Failures are returned, not thrown: a layer whose
- * table was deleted (or whose result exceeds the render cap) enters a visible
- * errored state while the rest of the map keeps working (spec: Layers).
- */
-export async function renderLayer(
-  layer: Layer,
-  signal?: AbortSignal,
-  opts: RenderLayerOpts = {},
-): Promise<LayerRenderData> {
-  try {
-    return await boundedEvaluation(async (conn) => {
-      const aggregated = isAggregated(layer.viz);
-      const rawSub = `(${wrappable(layer.sql)}) AS q`;
-      const described = await conn.runAndReadAll(
-        `DESCRIBE SELECT * FROM ${rawSub}`,
-      );
-      const columns = (
-        described.getRowObjects() as unknown as {
-          column_name: string;
-          column_type: string;
-        }[]
-      ).map((c) => ({ name: c.column_name, type: c.column_type }));
-      const rawGeomCol = columns.find((c) => c.type.startsWith("GEOMETRY"));
-      if (!rawGeomCol) {
-        return errored(
-          layer.id,
-          "invalid_request",
-          "This layer's query no longer returns a geometry column.",
-        );
-      }
-
-      // The effective query is the layer's SQL refined by its filters, then
-      // aggregated by its viz. Live filters stay out of the query and ship
-      // to the client instead — the cap applies to what is actually drawn,
-      // which for a live-filtered layer is the undelegated result (the dock
-      // decision, generalized).
-      let filters = renderFilters(layer);
-      let liveFiltered = filters.length !== layer.filters.length;
-      const od = isOdViz(layer.viz);
-      const geomName = aggregated
-        ? "geometry"
-        : od
-          ? OD_GEOMETRY
-          : rawGeomCol.name;
-      const geom = ident(geomName);
-      // Properties carry every non-geometry column — additional geometry
-      // columns (O→D endpoints and beyond) stay out of tooltips. A
-      // published-audience render narrows to the effective published
-      // field set instead; aggregated results are already exactly their
-      // computed columns on every audience.
-      const nonGeometry = columns.filter(
-        (c) => !c.type.startsWith("GEOMETRY"),
-      );
-      const propsCols = aggregated
-        ? [
-            { name: "value" },
-            { name: "count" },
-            // The reserved extrusion value rides along when configured;
-            // the canvas keeps it out of tooltips.
-            ...(isAggregated(layer.viz) && layer.viz.elevation
-              ? [{ name: AGG_ELEV }]
-              : []),
-          ]
-        : opts.published
-          ? (() => {
-              const effective = new Set(
-                publishedFieldsFor(
-                  layer,
-                  opts.published,
-                  nonGeometry.map((c) => c.name),
-                ),
-              );
-              return nonGeometry.filter((c) => effective.has(c.name));
-            })()
-          : nonGeometry;
-      const publishedFields = opts.published
-        ? { publishedFields: propsCols.map((c) => c.name) }
-        : null;
-      const subFor = (fs: LayerFilter[]) =>
-        `(${effectiveSql(
-          { sql: layer.sql, filters: fs, viz: layer.viz },
-          rawGeomCol.name,
-        )}) AS q`;
-      const summarize = async (s: string) => {
-        const counted = await conn.runAndReadAll(
-          `SELECT ST_GeometryType(${geom}) AS geometry_type, count(*) AS n
-           FROM ${s} WHERE ${geom} IS NOT NULL GROUP BY 1`,
-        );
-        const rows = counted.getRowObjects() as unknown as {
-          geometry_type: string;
-          n: bigint | number;
-        }[];
-        return {
-          featureCount: rows.reduce((sum, row) => sum + Number(row.n), 0),
-          geometryType: renderGeometryType(
-            rows.map((row) => String(row.geometry_type)),
-          ),
-        };
-      };
-
-      let sub = subFor(filters);
-      let summary = await summarize(sub);
-      let { featureCount, geometryType } = summary;
-      if (featureCount > limits.renderCapFeatures) {
-        // Simple features over the cap switch to tiles — live filtering
-        // rides the tiles.
-        if (layer.viz.type === "points") {
-          return tiledRender(
-            layer,
-            filters,
-            rawGeomCol,
-            nonGeometry.map((c) => c.name),
-            featureCount,
-            geometryType,
-            { liveFiltered, published: opts.published !== undefined },
-          );
-        }
-        // A heatmap whose undelegated result cannot ship falls back to
-        // every filter in SQL: correct results, settled on release,
-        // just not live.
-        if (liveFiltered) {
-          filters = layer.filters;
-          liveFiltered = false;
-          sub = subFor(filters);
-          summary = await summarize(sub);
-          ({ featureCount, geometryType } = summary);
-        }
-      }
-      if (featureCount > limits.renderCapFeatures) {
-        // The cap error remains for what still cannot render: an over-cap
-        // aggregation, the heatmap, which draws raw points by design, and
-        // the O→D types, which apply to the standard rendering path only.
-        return errored(
-          layer.id,
-          "render_cap_exceeded",
-          renderCapRefusal(
-            { aggregated, od, vizType: layer.viz.type },
-            featureCount,
-            limits.renderCapFeatures,
-          ),
-        );
-      }
-
-      const propsStruct = propsCols.length
-        ? `to_json({${propsCols
-            .map((c) => `'${c.name.replace(/'/g, "''")}': ${ident(c.name)}`)
-            .join(", ")}})`
-        : `'{}'`;
-      // Labels anchor non-point features on a server-computed interior
-      // point — a client centroid lands outside concave shapes. Delivered
-      // as the reserved __anchor property; the canvas keeps it out of
-      // tooltips and pop-ups.
-      const anchor = `CASE WHEN ST_GeometryType(${geom}) = 'POINT' THEN NULL
-              ELSE ST_AsGeoJSON(ST_PointOnSurface(${geom})) END`;
-      const geo = await conn.runAndReadAll(
-        `SELECT ST_AsGeoJSON(${geom}) AS geometry, ${propsStruct} AS props,
-                ${anchor} AS anchor
-         FROM ${sub} WHERE ${geom} IS NOT NULL`,
-      );
-      const features = geo.getRowObjects().map((r) => {
-        const properties = JSON.parse(String(r.props)) as Record<
-          string,
-          unknown
-        >;
-        if (r.anchor != null) {
-          properties.__anchor = (
-            JSON.parse(String(r.anchor)) as { coordinates: [number, number] }
-          ).coordinates;
-        }
-        return {
-          type: "Feature",
-          geometry: JSON.parse(String(r.geometry)),
-          properties,
-        };
-      });
-
-      return {
-        layerId: layer.id,
-        ok: true,
-        mode: "inline" as const,
-        geojson: { type: "FeatureCollection", features },
-        featureCount: features.length,
-        geometryType,
-        ...(liveFiltered ? { liveFiltered } : null),
-        ...publishedFields,
-      };
-    }, { signal });
-  } catch (error) {
-    // A departed caller gets nothing, not an errored layer: the envelope
-    // is for states a viewer will look at, and nobody is looking.
-    if (error instanceof EvaluationCancelled) throw error;
-    return errored(
-      layer.id,
-      error instanceof ApiError ? error.code : "sql_error",
-      error instanceof Error
-        ? stripStatementQuote(error.message)
-        : "The layer could not render.",
-    );
-  }
-}
-
-/**
- * The tiled render response for an over-cap simple-features layer: report
- * the build state for the layer's current effective query, kicking a build
- * off when tiles are missing or stale. A failed build is an errored layer;
- * a missing tiler degrades the same way h3 does.
- */
-async function tiledRender(
-  layer: Layer,
-  filters: LayerFilter[],
-  geometryColumn: { name: string; type: string },
-  nonGeometryColumns: string[],
-  featureCount: number,
-  geometryType: LayerRenderGeometryType,
-  opts: { liveFiltered?: boolean; published?: boolean } = {},
-): Promise<LayerRenderData> {
-  if (!(await tilerAvailable())) {
-    return errored(
-      layer.id,
-      "tiler_unavailable",
-      tilerUnavailable(featureCount),
-    );
-  }
-  // One shared archive serves builder and published routes, built with the
-  // effective published field set — resolved here against the map's own
-  // context, whichever audience triggered the build. The signature folds
-  // into the fingerprint; the published tile authorization recomputes it
-  // from the same inputs.
-  const mapRecord = getMap(layer.mapId);
-  const context: PublishedMapContext = mapRecord
-    ? {
-        timeline: mapRecord.timeline,
-        widgets: mapRecord.widgets,
-        widgetsPublished: mapRecord.widgetsPublished,
-      }
-    : { timeline: null, widgets: [], widgetsPublished: false };
-  const archiveColumns = publishedFieldsFor(layer, context, nonGeometryColumns);
-  const status = ensureTiles({
-    layerId: layer.id,
-    sql: layer.sql,
-    // Live filters stay out of the fingerprint: window and slider moves
-    // must never look like a data change and rebuild.
-    filters,
-    geometryColumn: geometryColumn.name,
-    columns: archiveColumns,
-    projection: publishedFieldsSignature(layer, context),
-  });
-  if (status.state === "failed") {
-    return errored(
-      layer.id,
-      "tile_build_failed",
-      `Preparing tiles failed: ${status.error ?? "unknown error"}`,
-    );
-  }
-  const base = {
-    layerId: layer.id,
-    ok: true,
-    mode: "tiled" as const,
-    featureCount,
-    geometryType,
-    ...(opts.liveFiltered ? { liveFiltered: true } : null),
-    ...(opts.published ? { publishedFields: archiveColumns } : null),
-  };
-  if (status.state === "building") {
-    return { ...base, tiles: { state: "building" } };
-  }
-  const info = await tileArchiveInfo(layer.id);
-  // The version parameter lets tiles cache aggressively: a rebuild changes
-  // builtAt, which changes every tile URL.
-  const version = status.builtAt ? Date.parse(status.builtAt) : 0;
-  return {
-    ...base,
-    tiles: {
-      state: "ready",
-      url: `/api/layers/${layer.id}/tiles/{z}/{x}/{y}?v=${version}`,
-      builtAt: status.builtAt,
-      ...(info ?? {}),
-    },
-  };
-}
-
-function errored(
-  layerId: string,
-  code: string,
-  message: string,
-): LayerRenderData {
-  return { layerId, ok: false, error: { code, message } };
-}
+export { layerEffectiveSql, sliderPreviewData } from "./layer-preview";

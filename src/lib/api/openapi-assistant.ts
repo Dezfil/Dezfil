@@ -60,7 +60,7 @@ export const ASSISTANT_PATHS = {
             "action resolves at most once (409 pending_resolved on a repeat); " +
             "a new message may name a pending action it supersedes (the " +
             "implicit decline), after which resolution answers 409 " +
-            "pending_superseded. Pending actions are working state, and " +
+            "pending_superseded. A hidden or unknown pending id cannot be resolved; naming one only to supersede it is a harmless no-op. Pending actions are working state, and " +
             "bounded: after a container replacement resolution answers 404 " +
             "pending_unknown and nothing re-runs; only a small number of " +
             "reserved, running or parked runs share eight admission slots. " +

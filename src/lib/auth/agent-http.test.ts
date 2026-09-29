@@ -1,3 +1,33 @@
+import { POST as sqlQuery } from "@/app/api/query/route";
+import { DELETE as revokePublication } from "@/app/api/publications/[token]/route";
+import { publishMap, getPublishedView } from "@/lib/publish/publish-service";
+import { lookRetention } from "@/lib/export/look-retention";
+import { GET as retainedImage } from "@/app/api/maps/look/[renderId]/route";
+import { encodePng } from "@/lib/export/png-codec";
+import { GET as cascadeRead } from "@/app/api/recipes/[id]/runs/[runId]/route";
+import { POST as cascadeCancel } from "@/app/api/recipes/[id]/runs/[runId]/cancel/route";
+import { createCascade } from "@/lib/metadata/cascades";
+import { insertJob } from "@/lib/metadata/jobs";
+import { GET as jobRead } from "@/app/api/operations/runs/[id]/route";
+import { POST as jobCancel } from "@/app/api/operations/runs/[id]/cancel/route";
+import { createProject } from "@/lib/metadata/projects";
+import { GET as projectRead, PATCH as projectUpdate } from "@/app/api/projects/[id]/route";
+import { GET as projectMembersRead } from "@/app/api/projects/[id]/members/route";
+import { createRecipe, addStep } from "@/lib/metadata/recipes";
+import { GET as workflowRead } from "@/app/api/recipes/[id]/route";
+import { GET as workflowStepRead } from "@/app/api/recipes/[id]/steps/[stepId]/route";
+import { insertConnection } from "@/lib/metadata/connections";
+import { GET as connectionSnapshots } from "@/app/api/connections/postgis/[id]/snapshots/route";
+import { GET as connectionsRead } from "@/app/api/connections/postgis/route";
+import { insertTable } from "@/lib/metadata/tables";
+import { GET as datasetFeatures } from "@/app/api/tables/[name]/features/route";
+import { GET as datasetsRead } from "@/app/api/tables/route";
+import { GET as historyRead } from "@/app/api/maps/[id]/history/route";
+import { POST as historyUndo } from "@/app/api/maps/[id]/undo/route";
+import { POST as historyRedo } from "@/app/api/maps/[id]/redo/route";
+import { GET as layerRead, PATCH as layerUpdate } from "@/app/api/layers/[id]/route";
+import { defaultStyle } from "@/lib/style/defaults";
+import { accountScope, type AccountScope } from "./scope";
 import { GET as accountRead } from "@/app/api/account/route";
 import { GET as usersRead } from "@/app/api/users/route";
 import { PATCH as userAccess } from "@/app/api/users/[id]/route";
@@ -32,6 +62,7 @@ const factory = vi.hoisted(() => ({ provider: null as ModelProvider | null, call
 vi.mock("@/lib/assistant/factory", () => ({ createProvider: () => { factory.calls++; return factory.provider; } }));
 const origin = "http://127.0.0.1:3216", password = "field notebooks at dawn";
 let db: Database, admin: Awaited<ReturnType<typeof createFirstAccount>>, member: typeof admin;
+let adminScope: AccountScope, memberScope: AccountScope;
 let token: ReturnType<typeof createApiToken>, runId: string;
 const cookie = (secret = admin.secret) => ({ cookie: `dezfil_session=${secret}` });
 function request(path: string, method = "GET", body?: unknown, headers: Record<string, string> = cookie()) {
@@ -57,18 +88,20 @@ function invoke(operation: typeof operations[number], headers: Record<string, st
 beforeEach(async () => {
   db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db);
   vi.stubEnv("PORT", "3216"); vi.stubEnv("ANTHROPIC_API_KEY", "fixture-never-sent");
-  assistantRuns.resetForTests(); pendingActions.resetForTests(); factory.calls = 0;
+  assistantRuns.resetForTests(); pendingActions.resetForTests(); lookRetention.resetForTests(); factory.calls = 0;
   factory.provider = stubProvider([{ text: "Read", toolCalls: [] }]);
   vi.stubGlobal("fetch", vi.fn(async () => Response.json({ tables: [], total: 0, nextAfter: null })));
   admin = await createFirstAccount({ name: "Admin", email: "admin@example.test", password }, db);
   const link = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Member", email: "member@example.test" }, db);
   member = await redeemSignInLink(link.secret, password, db);
   token = createApiToken(authenticateSession(member.secret, db)!, "Member CLI", db);
+  adminScope = accountScope(authenticateSession(admin.secret, db)!, db);
+  memberScope = accountScope(authenticateSession(member.secret, db)!, db);
   const response = await invoke("reserve", cookie()); expect(response.status).toBe(201); runId = (await response.json()).id;
 });
-afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); db.close(); });
+afterEach(() => { lookRetention.resetForTests(); vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); db.close(); });
 function state() {
-  return { run: assistantRuns.read(runId), pending: assistantRuns.pending(), rows: ["SELECT * FROM accounts ORDER BY id",
+  return { run: assistantRuns.read(adminScope, runId), pending: assistantRuns.pending(adminScope), rows: ["SELECT * FROM accounts ORDER BY id",
     "SELECT id, account_id, secret_hash, revoked_at FROM auth_sessions ORDER BY id",
     "SELECT id, account_id, name, secret_hash, revoked_at FROM auth_tokens ORDER BY id"].map(sql => db.prepare(sql).all()) };
 }
@@ -103,14 +136,43 @@ function actualApi() {
     try {
       const actor = requireRequestAuth(req), path = new URL(req.url).pathname;
       seen.push({ path, accountId: actor.account.id, authorization: req.headers.get("authorization") ?? "", cookie: req.headers.get("cookie") });
+      if (/^\/api\/operations\/runs\/[^/]+(?:\/cancel)?$/.test(path)) {
+        const params = { params: Promise.resolve({ id: path.split("/")[4] }) };
+        return req.method === "POST" ? jobCancel(req, params) : jobRead(req, params);
+      }
+      if (/^\/api\/recipes\/[^/]+\/runs\/[^/]+(?:\/cancel)?$/.test(path)) {
+        const params = { params: Promise.resolve({ id: path.split("/")[3], runId: path.split("/")[5] }) };
+        return req.method === "POST" ? cascadeCancel(req, params) : cascadeRead(req, params);
+      }
+      if (path === "/api/connections/postgis") return connectionsRead(req);
+      if (/^\/api\/connections\/postgis\/[^/]+\/snapshots$/.test(path)) return connectionSnapshots(req, { params: Promise.resolve({ id: path.split("/")[4] }) });
+      if (/^\/api\/recipes\/[^/]+$/.test(path)) return workflowRead(req, { params: Promise.resolve({ id: path.split("/")[3] }) });
+      if (/^\/api\/recipes\/[^/]+\/steps\/[^/]+$/.test(path)) return workflowStepRead(req, { params: Promise.resolve({ id: path.split("/")[3], stepId: path.split("/")[5] }) });
+      if (/^\/api\/projects\/[^/]+$/.test(path)) {
+        const params = { params: Promise.resolve({ id: path.split("/")[3] }) };
+        return req.method === "PATCH" ? projectUpdate(req, params) : projectRead(req, params);
+      }
+      if (/^\/api\/projects\/[^/]+\/members$/.test(path)) return projectMembersRead(req, { params: Promise.resolve({ id: path.split("/")[3] }) });
+      if (path === "/api/tables") return datasetsRead(req);
+      if (path === "/api/query") return sqlQuery(req);
+      if (/^\/api\/tables\/[^/]+\/features$/.test(path)) return datasetFeatures(req, { params: Promise.resolve({ name: path.split("/")[3] }) });
       if (path === "/api/account") return accountRead(req);
+      if (path.startsWith("/api/publications/")) return revokePublication(req, { params: Promise.resolve({ token: path.split("/")[3] }) });
       if (path === "/api/users") return usersRead(req);
       if (path.startsWith("/api/users/")) return userAccess(req, { params: Promise.resolve({ id: path.split("/")[3] }) });
       if (path === "/api/catalogue/tables") return Response.json({ tables: [], total: 0, nextAfter: null });
+      if (path.startsWith("/api/maps/look/")) return retainedImage(req, { params: Promise.resolve({ renderId: path.split("/")[4] }) });
       if (path === "/api/maps/look") return Response.json({ error: { code: "render_unavailable", message: "No renderer fixture." } }, { status: 503 });
+      if (path.startsWith("/api/layers/")) {
+        const params = { params: Promise.resolve({ id: path.split("/")[3] }) };
+        return req.method === "PATCH" ? layerUpdate(req, params) : layerRead(req, params);
+      }
       if (path.startsWith("/api/maps/")) {
         const params = { params: Promise.resolve({ id: path.split("/")[3] }) };
         if (path.endsWith("/dependencies")) return mapDependencies(req, params);
+        if (path.endsWith("/history")) return historyRead(req, params);
+        if (path.endsWith("/undo")) return historyUndo(req, params);
+        if (path.endsWith("/redo")) return historyRedo(req, params);
         return req.method === "PATCH" ? mapUpdate(req, params) : mapRead(req, params);
       }
       throw new Error(`Unexpected fixture route: ${path}`);
@@ -159,7 +221,7 @@ it.each(["cookie", "token", "demoted-token"])("assistant %s cannot confirm itsel
   const events = await send({ runId: own, message: "Change admin access" }, headers);
   const confirmation = events.find((event): event is Extract<AssistantEvent, { type: "confirm_required" }> => event.type === "confirm_required")!;
   expect(confirmation).toBeDefined();
-  const parked = pendingActions.peek(confirmation.id)!;
+  const parked = pendingActions.peek(memberScope, confirmation.id)!;
   expect(parked.accountId).toBe(member.account.id);
   expect(JSON.stringify(parked)).not.toMatch(/dz_(?:token|session|delegation)_/);
   if (mode === "demoted-token") changeAccountAccess(authenticateSession(admin.secret, db)!, member.account.id, { isAdmin: false }, db);
@@ -171,7 +233,7 @@ it.each(["cookie", "token", "demoted-token"])("assistant %s cannot confirm itsel
   expect(seen.some(item => item.path === "/api/users")).toBe(true);
   expect(seen.some(item => item.path === `/api/users/${member.account.id}`)).toBe(true);
   expect(seen.every(item => item.accountId === member.account.id && item.cookie === null)).toBe(true);
-  const retained = JSON.stringify({ recording: provider.recording, receipt: assistantRuns.read(own) });
+  const retained = JSON.stringify({ recording: provider.recording, receipt: assistantRuns.read(memberScope, own) });
   expect(retained).not.toContain(token.secret); expect(retained).not.toContain(member.secret); expect(retained).not.toContain("dz_delegation_");
 });
 it("foreign pending actions cannot be read, resolved or superseded", async () => {
@@ -180,13 +242,17 @@ it("foreign pending actions cannot be read, resolved or superseded", async () =>
   const confirmation = events.find((event): event is Extract<AssistantEvent, { type: "confirm_required" }> => event.type === "confirm_required")!;
   const foreign = { authorization: `Bearer ${token.secret}` }, owned = await ownReservation(foreign);
   expect(await (await invoke("pending", foreign)).json()).toEqual({ pending: [] });
-  const before = state(), reserved = assistantRuns.read(owned);
-  for (const body of [{ resolution: { pending: confirmation.id, approved: true } }, { runId: owned, message: "Another turn", supersedes: confirmation.id }]) {
+  const before = state(), reserved = assistantRuns.read(memberScope, owned);
+  for (const body of [{ resolution: { pending: confirmation.id, approved: true } }]) {
     const response = await message(request("/api/assistant/messages", "POST", body, foreign));
     expect(response.status).toBe(404); expect(await response.json()).toMatchObject({ error: { code: "pending_unknown" } });
-    expect(state()).toEqual(before); expect(assistantRuns.read(owned)).toEqual(reserved); expect(pendingActions.peek(confirmation.id)).toBeDefined();
+    expect(state()).toEqual(before); expect(assistantRuns.read(memberScope, owned)).toEqual(reserved); expect(pendingActions.peek(adminScope, confirmation.id)).toBeDefined();
   }
-  factory.provider = stubProvider([{ text: "Unused", toolCalls: [] }]);
+  factory.provider = stubProvider([{ text: "Unrelated turn", toolCalls: [] }]);
+  const abandoned = await message(request("/api/assistant/messages", "POST", { runId: owned, message: "Another turn", supersedes: confirmation.id }, foreign));
+  expect(abandoned.status).toBe(200); await abandoned.text();
+  expect(pendingActions.peek(adminScope, confirmation.id)).toBeDefined();
+  expect(assistantRuns.read(adminScope, runId)).toEqual(before.run);
 });
 it("revocation while parked refuses continuation and preserves the pending action", async () => {
   actualApi(); factory.provider = stubProvider([{ text: "", toolCalls: [{ id: "grant", name: "update_user_access", args: { id: member.account.id, isAdmin: true } }] }]);
@@ -195,11 +261,11 @@ it("revocation while parked refuses continuation and preserves the pending actio
   signOut(authenticateSession(admin.secret, db)!, db);
   const before = state();
   const response = await message(request("/api/assistant/messages", "POST", { resolution: { pending: confirmation.id, approved: true } }));
-  expect(response.status).toBe(401); expect(state()).toEqual(before); expect(pendingActions.peek(confirmation.id)).toBeDefined();
+  expect(response.status).toBe(401); expect(state()).toEqual(before); expect(pendingActions.peek(adminScope, confirmation.id)).toBeDefined();
 });
 it("grounding, a mutation and its automatic map check retain the cookie caller", async () => {
   vi.stubEnv("DEZFIL_ASSISTANT_AUTO_CHECK", "1");
-  const seen = actualApi(), map = createMap("Before"), headers = cookie(member.secret);
+  const seen = actualApi(), map = createMap(accountScope(authenticateSession(member.secret, db)!, db), "Before"), headers = cookie(member.secret);
   const own = await ownReservation(headers);
   factory.provider = stubProvider([
     { text: "", toolCalls: [{ id: "rename", name: "update_map", args: { id: map.id, name: "After" } }] },
@@ -269,4 +335,420 @@ it.each([
       body: { error: { code: "authentication_required", message: "Sign in to continue." } } }));
     expect(reads).toHaveLength(1);
   }
+});
+
+it.each(["cookie", "token"])("MCP and assistant %s calls preserve map ownership and hidden-versus-missing errors", async mode => {
+  actualApi();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db);
+  const actors = [admin, member, other];
+  const maps = actors.map(actor => createMap(accountScope(authenticateSession(actor.secret, db)!, db), `Private ${actor.account.name}`));
+  const before = db.prepare("SELECT * FROM maps ORDER BY id").all();
+  for (let i = 0; i < actors.length; i++) {
+    const actor = actors[i], hiddenId = maps[(i + 1) % actors.length].id;
+    const credential = createApiToken(authenticateSession(actor.secret, db)!, "Private maps", db);
+    const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+    expect(await rpc("get_map", { id: maps[i].id }, headers)).toMatchObject({ isError: false, structuredContent: { result: { id: maps[i].id } } });
+    const hidden = await rpc("get_map", { id: hiddenId }, headers);
+    expect(hidden).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "not_found" } } } });
+    expect(hidden).toEqual(await rpc("get_map", { id: "missing" }, headers));
+    expect(JSON.stringify(hidden)).not.toMatch(/Private|SELECT|example|owner/);
+    factory.provider = stubProvider([
+      { text: "", toolCalls: [
+        { id: "hidden", name: "update_map", args: { id: hiddenId, name: "Changed" } },
+        { id: "missing", name: "update_map", args: { id: "missing", name: "Changed" } },
+      ] },
+      { text: "Unavailable", toolCalls: [] },
+    ]);
+    const events = await send({ runId: await ownReservation(headers), message: "Rename these maps" }, headers);
+    const results = events.filter((event): event is Extract<AssistantEvent, { type: "tool_result" }> => event.type === "tool_result");
+    expect(results).toHaveLength(2);
+    expect(results.map(result => result.ok)).toEqual([false, false]);
+    expect(results[0].body).toMatchObject({ error: { code: "not_found" } });
+    expect(results[0].body).toEqual(results[1].body);
+    expect(JSON.stringify(results)).not.toContain("Private");
+  }
+  expect(db.prepare("SELECT * FROM maps ORDER BY id").all()).toEqual(before);
+});
+
+it.each(["cookie", "token"])("MCP and assistant %s calls preserve layer ownership and hidden-versus-missing errors", async mode => {
+  actualApi();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db);
+  const actors = [admin, member, other];
+  const maps = actors.map(actor => createMap(accountScope(authenticateSession(actor.secret, db)!, db), `Private ${actor.account.name}`));
+  const layers = maps.map((map, i) => {
+    const id = `private-layer-${i}`;
+    db.prepare(`INSERT INTO layers (id, map_id, name, sql, style, ordinal, created_at, updated_at)
+      VALUES (?, ?, 'Private layer', 'SELECT 1 AS secret', ?, 0, 'time', 'time')`).run(id, map.id, JSON.stringify(defaultStyle(null)));
+    return { id };
+  });
+  const before = db.prepare("SELECT * FROM layers ORDER BY id").all();
+  for (let i = 0; i < actors.length; i++) {
+    const actor = actors[i], hiddenId = layers[(i + 1) % actors.length].id;
+    const credential = createApiToken(authenticateSession(actor.secret, db)!, "Private maps", db);
+    const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+    expect(await rpc("get_layer", { id: layers[i].id }, headers)).toMatchObject({ isError: false, structuredContent: { result: { id: layers[i].id } } });
+    const hidden = await rpc("get_layer", { id: hiddenId }, headers);
+    expect(hidden).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "not_found" } } } });
+    expect(hidden).toEqual(await rpc("get_layer", { id: "missing" }, headers));
+    expect(JSON.stringify(hidden)).not.toMatch(/Private|SELECT|example|owner/);
+    factory.provider = stubProvider([
+      { text: "", toolCalls: [
+        { id: "hidden", name: "update_layer", args: { id: hiddenId, name: "Changed" } },
+        { id: "missing", name: "update_layer", args: { id: "missing", name: "Changed" } },
+      ] },
+      { text: "Unavailable", toolCalls: [] },
+    ]);
+    const events = await send({ runId: await ownReservation(headers), message: "Rename these maps" }, headers);
+    const results = events.filter((event): event is Extract<AssistantEvent, { type: "tool_result" }> => event.type === "tool_result");
+    expect(results).toHaveLength(2);
+    expect(results.map(result => result.ok)).toEqual([false, false]);
+    expect(results[0].body).toMatchObject({ error: { code: "not_found" } });
+    expect(results[0].body).toEqual(results[1].body);
+    expect(JSON.stringify(results)).not.toContain("Private");
+  }
+  expect(db.prepare("SELECT * FROM layers ORDER BY id").all()).toEqual(before);
+});
+
+it.each(["cookie", "token"])("MCP and assistant %s calls preserve history ownership and hidden-versus-missing errors", async mode => {
+  actualApi();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db);
+  const actors = [admin, member, other];
+  const maps = actors.map(actor => createMap(accountScope(authenticateSession(actor.secret, db)!, db), `Private ${actor.account.name}`));
+  const before = db.prepare("SELECT * FROM maps ORDER BY id").all();
+  for (let i = 0; i < actors.length; i++) {
+    const actor = actors[i], hiddenId = maps[(i + 1) % actors.length].id;
+    const credential = createApiToken(authenticateSession(actor.secret, db)!, "Private maps", db);
+    const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+    expect(await rpc("get_history", { id: maps[i].id }, headers)).toMatchObject({ isError: false, structuredContent: { result: { canUndo: false, canRedo: false } } });
+    const hidden = await rpc("get_history", { id: hiddenId }, headers);
+    expect(hidden).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "not_found" } } } });
+    expect(hidden).toEqual(await rpc("get_history", { id: "missing" }, headers));
+    expect(JSON.stringify(hidden)).not.toMatch(/Private|SELECT|example|owner/);
+    factory.provider = stubProvider([
+      { text: "", toolCalls: [
+        { id: "hidden", name: "undo_change", args: { id: hiddenId } },
+        { id: "missing", name: "undo_change", args: { id: "missing" } },
+      ] },
+      { text: "Unavailable", toolCalls: [] },
+    ]);
+    const events = await send({ runId: await ownReservation(headers), message: "Rename these maps" }, headers);
+    const results = events.filter((event): event is Extract<AssistantEvent, { type: "tool_result" }> => event.type === "tool_result");
+    expect(results).toHaveLength(2);
+    expect(results.map(result => result.ok)).toEqual([false, false]);
+    expect(results[0].body).toMatchObject({ error: { code: "not_found" } });
+    expect(results[0].body).toEqual(results[1].body);
+    expect(JSON.stringify(results)).not.toContain("Private");
+  }
+  expect(db.prepare("SELECT * FROM maps ORDER BY id").all()).toEqual(before);
+});
+
+it.each(["cookie", "token"])("MCP and assistant %s calls preserve dataset ownership and absent-name errors", async mode => {
+  actualApi();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db);
+  const actors = [admin, member, other];
+  for (const actor of actors) insertTable(accountScope(authenticateSession(actor.secret, db)!, db), {
+    id: actor.account.id, name: actor.account.id, file: "tables/private.parquet", format: "csv", sourceFilename: "private.csv",
+    rowCount: 1, geometryColumn: null, geometryType: null, crsAssumed: false, headerSuspect: false,
+    source: "upload", sourceParams: null, importedAt: null, createdAt: "time",
+  }, db);
+  const before = db.prepare("SELECT * FROM data_tables ORDER BY id").all();
+  for (let i = 0; i < actors.length; i++) {
+    const actor = actors[i], hiddenName = actors[(i + 1) % actors.length].account.id;
+    const credential = createApiToken(authenticateSession(actor.secret, db)!, "Private datasets", db);
+    const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+    expect(await rpc("get_table_features", { name: actor.account.id }, headers)).toMatchObject({ isError: false });
+    const hidden = await rpc("get_table_features", { name: hiddenName }, headers);
+    expect(hidden).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "not_found" } } } });
+    expect(hidden).toEqual(await rpc("get_table_features", { name: "missing" }, headers));
+    factory.provider = stubProvider([
+      { text: "", toolCalls: [
+        { id: "hidden", name: "get_table_features", args: { name: hiddenName } },
+        { id: "missing", name: "get_table_features", args: { name: "missing" } },
+      ] },
+      { text: "Unavailable", toolCalls: [] },
+    ]);
+    const events = await send({ runId: await ownReservation(headers), message: "Read these datasets" }, headers);
+    const results = events.filter((event): event is Extract<AssistantEvent, { type: "tool_result" }> => event.type === "tool_result");
+    expect(results).toHaveLength(2); expect(results.map(result => result.ok)).toEqual([false, false]);
+    expect(results[0].body).toMatchObject({ error: { code: "not_found" } }); expect(results[0].body).toEqual(results[1].body);
+  }
+  expect(db.prepare("SELECT * FROM data_tables ORDER BY id").all()).toEqual(before);
+});
+
+it.each(["cookie", "token"])("MCP and assistant %s calls preserve connection ownership and absent-id errors", async mode => {
+  actualApi();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db);
+  const actors = [admin, member, other];
+  for (const actor of actors) insertConnection(accountScope(authenticateSession(actor.secret, db)!, db), {
+    id: actor.account.id, name: "Same connection name", host: "private.example.test", port: 5432,
+    database: "private", username: "private", password: "never returned", ssl: true,
+  }, db);
+  const before = db.prepare("SELECT * FROM pg_connections ORDER BY id").all();
+  for (let i = 0; i < actors.length; i++) {
+    const actor = actors[i], hiddenId = actors[(i + 1) % actors.length].account.id;
+    const credential = createApiToken(authenticateSession(actor.secret, db)!, "Private connections", db);
+    const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+    expect(await rpc("list_postgis_snapshots", { id: actor.account.id }, headers)).toMatchObject({ isError: false });
+    const hidden = await rpc("list_postgis_snapshots", { id: hiddenId }, headers);
+    expect(hidden).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "not_found" } } } });
+    expect(hidden).toEqual(await rpc("list_postgis_snapshots", { id: "missing" }, headers));
+    factory.provider = stubProvider([
+      { text: "", toolCalls: [
+        { id: "hidden", name: "list_postgis_snapshots", args: { id: hiddenId } },
+        { id: "missing", name: "list_postgis_snapshots", args: { id: "missing" } },
+      ] },
+      { text: "Unavailable", toolCalls: [] },
+    ]);
+    const events = await send({ runId: await ownReservation(headers), message: "Read these connection snapshots" }, headers);
+    const results = events.filter((event): event is Extract<AssistantEvent, { type: "tool_result" }> => event.type === "tool_result");
+    expect(results).toHaveLength(2); expect(results.map(result => result.ok)).toEqual([false, false]);
+    expect(results[0].body).toMatchObject({ error: { code: "not_found" } }); expect(results[0].body).toEqual(results[1].body);
+  }
+  expect(db.prepare("SELECT * FROM pg_connections ORDER BY id").all()).toEqual(before);
+});
+it.each(["cookie", "token"])("MCP and assistant %s calls preserve workflow parent and step ownership", async mode => {
+  actualApi();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db), actors = [admin, member, other];
+  const recipes = actors.map(actor => createRecipe(accountScope(authenticateSession(actor.secret, db)!, db), "Private workflow", db));
+  const steps = recipes.map(recipe => addStep(recipe.id, { operation: "sql_step", parameters: { name: "roads", sql: "SELECT 1" } }, db));
+  const before = db.prepare("SELECT * FROM recipe_steps ORDER BY id").all();
+  for (let i = 0; i < actors.length; i++) {
+    const actor = actors[i], next = (i + 1) % actors.length;
+    const credential = createApiToken(authenticateSession(actor.secret, db)!, "Private workflows", db);
+    const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+    expect(await rpc("get_recipe_step", { id: recipes[i].id, stepId: steps[i].id }, headers)).toMatchObject({ isError: false });
+    const hidden = await rpc("get_recipe_step", { id: recipes[i].id, stepId: steps[next].id }, headers);
+    expect(hidden).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "not_found" } } } });
+    expect(hidden).toEqual(await rpc("get_recipe_step", { id: recipes[i].id, stepId: "missing" }, headers));
+    factory.provider = stubProvider([
+      { text: "", toolCalls: [
+        { id: "hidden", name: "get_recipe", args: { id: recipes[next].id } },
+        { id: "missing", name: "get_recipe", args: { id: "missing" } },
+      ] },
+      { text: "Unavailable", toolCalls: [] },
+    ]);
+    const events = await send({ runId: await ownReservation(headers), message: "Read these workflows" }, headers);
+    const results = events.filter((event): event is Extract<AssistantEvent, { type: "tool_result" }> => event.type === "tool_result");
+    expect(results).toHaveLength(2); expect(results.map(result => result.ok)).toEqual([false, false]);
+    expect(results[0].body).toMatchObject({ error: { code: "not_found" } }); expect(results[0].body).toEqual(results[1].body);
+  }
+  expect(db.prepare("SELECT * FROM recipe_steps ORDER BY id").all()).toEqual(before);
+});
+it.each(["cookie", "token"])("MCP and assistant %s calls preserve project ownership", async mode => {
+  actualApi();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db), actors = [admin, member, other];
+  const projects = actors.map(actor => createProject(accountScope(authenticateSession(actor.secret, db)!, db), { name: "Private project" }, db));
+  const before = db.prepare("SELECT * FROM projects ORDER BY id").all();
+  for (let i = 0; i < actors.length; i++) {
+    const actor = actors[i], hiddenId = projects[(i + 1) % actors.length].id;
+    const credential = createApiToken(authenticateSession(actor.secret, db)!, "Private projects", db);
+    const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+    expect(await rpc("get_project", { id: projects[i].id }, headers)).toMatchObject({ isError: false });
+    const hidden = await rpc("update_project", { id: hiddenId, name: "Changed" }, headers);
+    expect(hidden).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "not_found" } } } });
+    expect(hidden).toEqual(await rpc("update_project", { id: "missing", name: "Changed" }, headers));
+    factory.provider = stubProvider([
+      { text: "", toolCalls: [
+        { id: "hidden", name: "get_project_members", args: { id: hiddenId } },
+        { id: "missing", name: "get_project_members", args: { id: "missing" } },
+      ] },
+      { text: "Unavailable", toolCalls: [] },
+    ]);
+    const events = await send({ runId: await ownReservation(headers), message: "Read these projects" }, headers);
+    const results = events.filter((event): event is Extract<AssistantEvent, { type: "tool_result" }> => event.type === "tool_result");
+    expect(results).toHaveLength(2); expect(results.map(result => result.ok)).toEqual([false, false]);
+    expect(results[0].body).toMatchObject({ error: { code: "not_found" } }); expect(results[0].body).toEqual(results[1].body);
+  }
+  expect(db.prepare("SELECT * FROM projects ORDER BY id").all()).toEqual(before);
+});
+
+it.each(["cookie", "token"])("MCP and assistant %s calls preserve private job identity without outputs", async mode => {
+  actualApi();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db), actors = [admin, member, other];
+  for (const actor of actors) insertJob(accountScope(authenticateSession(actor.secret, db)!, db), {
+    id: actor.account.id, subjectKind: "client", subjectId: "shared-subject", operation: "sql_step", parameters: { private: actor.account.id }, state: "queued",
+    errorCode: null, errorMessage: null, outputId: null, outputName: null, acceptedAt: "time", startedAt: null, finishedAt: null,
+  }, db);
+  const before = db.prepare("SELECT * FROM operation_jobs ORDER BY id").all();
+  for (let i = 0; i < actors.length; i++) {
+    const actor = actors[i], hiddenId = actors[(i + 1) % actors.length].account.id;
+    const credential = createApiToken(authenticateSession(actor.secret, db)!, "Private jobs", db);
+    const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+    expect(await rpc("get_operation_run", { id: actor.account.id }, headers)).toMatchObject({ isError: false });
+    const hidden = await rpc("cancel_operation_run", { id: hiddenId }, headers);
+    expect(hidden).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "not_found" } } } });
+    expect(hidden).toEqual(await rpc("cancel_operation_run", { id: "missing" }, headers));
+    factory.provider = stubProvider([
+      { text: "", toolCalls: [
+        { id: "hidden", name: "get_operation_run", args: { id: hiddenId } },
+        { id: "missing", name: "get_operation_run", args: { id: "missing" } },
+      ] },
+      { text: "Unavailable", toolCalls: [] },
+    ]);
+    const events = await send({ runId: await ownReservation(headers), message: "Read these job results" }, headers);
+    const results = events.filter((event): event is Extract<AssistantEvent, { type: "tool_result" }> => event.type === "tool_result");
+    expect(results).toHaveLength(2); expect(results.map(result => result.ok)).toEqual([false, false]);
+    expect(results[0].body).toMatchObject({ error: { code: "not_found" } }); expect(results[0].body).toEqual(results[1].body);
+  }
+  expect(db.prepare("SELECT * FROM operation_jobs ORDER BY id").all()).toEqual(before);
+});
+
+it.each(["cookie", "token"])("MCP and assistant %s calls preserve private workflow run identity without outputs", async mode => {
+  actualApi();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db), actors = [admin, member, other];
+  const recipes = actors.map(actor => createRecipe(accountScope(authenticateSession(actor.secret, db)!, db), "Private workflow", db));
+  const steps = recipes.map(recipe => addStep(recipe.id, { operation: "sql_step", parameters: { name: "roads", sql: "SELECT 1" } }, db));
+  const runs = recipes.map((recipe, i) => createCascade(recipe.id, "single", [{ stepId: steps[i].id, ordinal: 0 }], db));
+  const before = db.prepare("SELECT * FROM cascade_runs ORDER BY id").all();
+  for (let i = 0; i < actors.length; i++) {
+    const actor = actors[i], hiddenId = runs[(i + 1) % actors.length].id;
+    const credential = createApiToken(authenticateSession(actor.secret, db)!, "Private jobs", db);
+    const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+    expect(await rpc("get_recipe_run", { id: recipes[i].id, runId: runs[i].id }, headers)).toMatchObject({ isError: false });
+    const hidden = await rpc("cancel_recipe_run", { id: recipes[i].id, runId: hiddenId }, headers);
+    expect(hidden).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "not_found" } } } });
+    expect(hidden).toEqual(await rpc("cancel_recipe_run", { id: recipes[i].id, runId: "missing" }, headers));
+    factory.provider = stubProvider([
+      { text: "", toolCalls: [
+        { id: "hidden", name: "get_recipe_run", args: { id: recipes[i].id, runId: hiddenId } },
+        { id: "missing", name: "get_recipe_run", args: { id: recipes[i].id, runId: "missing" } },
+      ] },
+      { text: "Unavailable", toolCalls: [] },
+    ]);
+    const events = await send({ runId: await ownReservation(headers), message: "Read these job results" }, headers);
+    const results = events.filter((event): event is Extract<AssistantEvent, { type: "tool_result" }> => event.type === "tool_result");
+    expect(results).toHaveLength(2); expect(results.map(result => result.ok)).toEqual([false, false]);
+    expect(results[0].body).toMatchObject({ error: { code: "not_found" } }); expect(results[0].body).toEqual(results[1].body);
+  }
+  expect(db.prepare("SELECT * FROM cascade_runs ORDER BY id").all()).toEqual(before);
+});
+
+it.each(["cookie", "token"])("MCP and assistant %s calls cannot retrieve another account's retained image after source deletion", async mode => {
+  actualApi();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db), actors = [admin, member, other];
+  const png = encodePng({ width: 1, height: 1, rgba: new Uint8Array([1, 2, 3, 255]) });
+  for (const actor of actors) {
+    const scope = accountScope(authenticateSession(actor.secret, db)!, db), map = createMap(scope, "Private image");
+    lookRetention.retain(scope, { id: `render-${actor.account.id}`, mapId: map.id, mapName: map.name, appearance: "light",
+      state: { map: map.id, camera: { lng: 0, lat: 0, zoom: 1, pitch: 0, bearing: 0 }, layers: [], legend: { visible: false, corner: "bottom-left", order: [] }, widgets: [], appearance: "light", digest: "fixture" },
+      image: { width: 1, height: 1, bytes: png.length, png }, thumbnail: { width: 1, height: 1, bytes: png.length, png }, source: { width: 1, height: 1 }, attribution: "", composition: { failures: [], abandoned: [] }, elapsedMs: 1 });
+    db.prepare("DELETE FROM maps WHERE id = ?").run(map.id);
+  }
+  for (let i = 0; i < actors.length; i++) {
+    const actor = actors[i], hiddenId = `render-${actors[(i + 1) % actors.length].account.id}`;
+    const credential = createApiToken(authenticateSession(actor.secret, db)!, "Private images", db);
+    const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+    const own = await rpc("read_map_look_image", { renderId: `render-${actor.account.id}` }, headers);
+    expect(own.isError).toBe(false); expect(own.content.some((item: { type: string }) => item.type === "image")).toBe(true);
+    const hidden = await rpc("read_map_look_image", { renderId: hiddenId }, headers);
+    expect(hidden.isError).toBe(true); expect(hidden).toEqual(await rpc("read_map_look_image", { renderId: "missing" }, headers));
+    factory.provider = stubProvider([{ text: "", toolCalls: [
+      { id: "hidden-image", name: "read_map_look_image", args: { renderId: hiddenId } },
+      { id: "missing-image", name: "read_map_look_image", args: { renderId: "missing" } },
+    ] }, { text: "Unavailable", toolCalls: [] }]);
+    const events = await send({ runId: await ownReservation(headers), message: "Read those images" }, headers);
+    const results = events.filter((event): event is Extract<AssistantEvent, { type: "tool_result" }> => event.type === "tool_result");
+    expect(results).toHaveLength(2); expect(results.map(result => result.ok)).toEqual([false, false]);
+    expect(results[0].body).toEqual(results[1].body); expect(JSON.stringify(results)).not.toContain("Private image");
+  }
+});
+
+it.each(["cookie", "token"])("MCP and assistant %s can revoke a deactivated owner's known token without reading content", async mode => {
+  const seen = actualApi(), map = createMap(memberScope, "Private revoked content");
+  const first = publishMap(memberScope, map.id).token;
+  const adminToken = createApiToken(authenticateSession(admin.secret, db)!, "Moderation", db);
+  const headers = mode === "cookie" ? cookie() : { authorization: `Bearer ${adminToken.secret}` };
+  const active = await rpc("revoke_inactive_publication", { token: first }, headers);
+  expect(active.isError).toBe(true); expect(active).toEqual(await rpc("revoke_inactive_publication", { token: "missing" }, headers));
+  changeAccountAccess(authenticateSession(admin.secret, db)!, member.account.id, { status: "deactivated" }, db);
+  expect(await rpc("revoke_inactive_publication", { token: first }, headers)).toMatchObject({ isError: false });
+  expect(await getPublishedView(first, Date.now())).toBeNull();
+  db.prepare("UPDATE accounts SET status = 'active' WHERE id = ?").run(member.account.id);
+  const second = publishMap(memberScope, map.id).token;
+  db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = ?").run(member.account.id);
+  factory.provider = stubProvider([{ text: "", toolCalls: [{ id: "revoke", name: "revoke_inactive_publication", args: { token: second } }] }, { text: "Done", toolCalls: [] }]);
+  const events = await send({ runId: await ownReservation(headers), message: "Revoke this known public link" }, headers);
+  const confirmation = events.find((event): event is Extract<AssistantEvent, { type: "confirm_required" }> => event.type === "confirm_required")!;
+  expect(confirmation).toBeDefined(); expect(JSON.stringify(confirmation)).toContain(second);
+  expect((await getPublishedView(second, Date.now()))?.name).toBe("Private revoked content");
+  const resumed = await send({ resolution: { pending: confirmation.id, approved: true } }, headers);
+  expect(resumed).toContainEqual(expect.objectContaining({ type: "tool_result", tool: "revoke_inactive_publication", ok: true }));
+  expect(await getPublishedView(second, Date.now())).toBeNull();
+  expect(seen.filter(item => item.path.startsWith("/api/maps/") || item.path.startsWith("/api/published/"))).toEqual([]);
+  expect(JSON.stringify([...events, ...resumed])).not.toContain("Private revoked content");
+});
+
+it.each(["cookie", "token"])("MCP and assistant %s SQL use independent same-name dataset mounts", async mode => {
+  actualApi();
+  const { materialize } = await import("@/lib/operations/materialize");
+  const { resetQueryInstance } = await import("@/lib/duckdb");
+  resetQueryInstance();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db), actors = [admin, member, other];
+  try {
+    for (const actor of actors) await materialize(accountScope(authenticateSession(actor.secret, db)!, db), {
+      name: "roads", sql: `SELECT '${actor.account.id}' AS sentinel`, operation: "sql_step",
+    });
+    for (const actor of actors) {
+      const credential = createApiToken(authenticateSession(actor.secret, db)!, "Scoped SQL", db);
+      const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+      const sql = "SELECT sentinel FROM query('SELECT * FROM memory.main.roads')";
+      const result = await rpc("run_sql", { sql }, headers);
+      expect(result).toMatchObject({ isError: false, structuredContent: { result: { preview: [{ sentinel: actor.account.id }] } } });
+      factory.provider = stubProvider([{ text: "", toolCalls: [{ id: "local-sql", name: "run_sql", args: { sql } }] }, { text: "Done", toolCalls: [] }]);
+      const events = await send({ runId: await ownReservation(headers), message: "Query my roads" }, headers);
+      expect(events).toContainEqual(expect.objectContaining({ type: "tool_result", tool: "run_sql", ok: true,
+        body: expect.objectContaining({ preview: [{ sentinel: actor.account.id }] }) }));
+    }
+  } finally { resetQueryInstance(); }
+});
+
+it.each(["cookie", "token"])("REST, MCP and assistant %s refuse file SQL before evaluation", async mode => {
+  actualApi();
+  const { resetQueryInstance } = await import("@/lib/duckdb"); resetQueryInstance();
+  const headers = mode === "cookie" ? cookie(member.secret) : { authorization: `Bearer ${createApiToken(authenticateSession(member.secret, db)!, "SQL refusal", db).secret}` };
+  try {
+    for (const sql of ["SELECT * FROM read_parquet('missing.parquet')", "SELECT * FROM query('SELECT * FROM read_text(''missing'')')", "SELECT sql FROM duckdb_views()", "SELECT ST_Transform(ST_Point(1, 2), '+init=missing:local +type=crs', 'EPSG:4326', true)", "SELECT ST_Transform(ST_Point(1, 2), '+init=' || 'missing:local +type=crs', 'EPSG:4326', true)"] ) {
+      const response = await sqlQuery(request("/api/query", "POST", { sql }, headers));
+      expect(response.status).toBe(400); expect(await response.json()).toMatchObject({ error: { code: "sql_rejected" } });
+      expect(await rpc("run_sql", { sql }, headers)).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "sql_rejected" } } } });
+      factory.provider = stubProvider([{ text: "", toolCalls: [{ id: "refused-sql", name: "run_sql", args: { sql } }] }, { text: "Done", toolCalls: [] }]);
+      const events = await send({ runId: await ownReservation(headers), message: "Run the supplied SQL" }, headers);
+      expect(events).toContainEqual(expect.objectContaining({ type: "tool_result", tool: "run_sql", ok: false,
+        body: expect.objectContaining({ error: expect.objectContaining({ code: "sql_rejected" }) }) }));
+    }
+  } finally { resetQueryInstance(); }
+});
+
+it.each(["cookie", "token"])("REST, MCP and assistant %s carry identical safe absent-table refusals", async mode => {
+  actualApi();
+  const { materialize } = await import("@/lib/operations/materialize");
+  const { resetQueryInstance } = await import("@/lib/duckdb"); resetQueryInstance();
+  const headers = mode === "cookie" ? cookie(member.secret) : { authorization: `Bearer ${token.secret}` };
+  try {
+    await materialize(adminScope, { name: "hidden_roads", sql: "SELECT 'private-schema-fact' AS private_field", operation: "sql_step" });
+    const bodies: unknown[] = [];
+    for (const name of ["hidden_roads", "absent_roads"]) {
+      const sql = `SELECT * FROM ${name}`;
+      const response = await sqlQuery(request("/api/query", "POST", { sql }, headers));
+      expect(response.status).toBe(400); const body = await response.json(); bodies.push(body);
+      const tool = await rpc("run_sql", { sql }, headers);
+      expect(tool).toMatchObject({ isError: true, structuredContent: { result: body } });
+      factory.provider = stubProvider([{ text: "", toolCalls: [{ id: "absent-sql", name: "run_sql", args: { sql } }] }, { text: "Unavailable", toolCalls: [] }]);
+      const events = await send({ runId: await ownReservation(headers), message: "Run the supplied SQL" }, headers);
+      expect(events).toContainEqual(expect.objectContaining({ type: "tool_result", tool: "run_sql", ok: false, body }));
+    }
+    expect(bodies[0]).toEqual(bodies[1]);
+    expect(JSON.stringify(bodies)).not.toMatch(/hidden_roads|absent_roads|private-schema-fact|private_field|Did you mean|Candidate|\.parquet/);
+  } finally { resetQueryInstance(); }
 });

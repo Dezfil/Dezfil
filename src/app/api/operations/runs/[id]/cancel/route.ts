@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
 import { cancelRun } from "@/lib/operations/run";
@@ -19,12 +20,13 @@ type Params = { params: Promise<{ id: string }> };
  * the commonest race, a cancel clicked as the run lands, into a failure where
  * nothing went wrong.
  */
-export async function POST(_request: Request, { params }: Params) {
+export async function POST(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
     // Awaited: the run answers terminal once the engine has actually let go,
     // within a bounded grace, rather than the instant the record is marked.
-    return NextResponse.json({ run: jobView(await cancelRun(id)) });
+    return NextResponse.json({ run: jobView(await cancelRun(scope, id)) });
   } catch (error) {
     return errorResponse(error);
   }

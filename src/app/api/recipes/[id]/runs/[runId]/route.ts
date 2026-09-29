@@ -1,5 +1,7 @@
+import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
-import { ApiError, errorResponse } from "@/lib/api/errors";
+import { errorResponse } from "@/lib/api/errors";
 import { readCascade } from "@/lib/operations/cascade";
 import { cascadePayload } from "@/lib/operations/recipe-api";
 
@@ -15,14 +17,12 @@ type Params = { params: Promise<{ id: string; runId: string }> };
  */
 export async function GET(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id, runId } = await params;
-    const cascade = readCascade(runId);
+    requireOwnedResource(scope, "workflow", id);
+    const cascade = readCascade(scope, runId);
     if (cascade.recipeId !== id) {
-      throw new ApiError(
-        "not_found",
-        `No run with id "${runId}" on this recipe.`,
-        404,
-      );
+      throw resourceAbsent();
     }
     return NextResponse.json({ run: cascadePayload(cascade) });
   } catch (error) {

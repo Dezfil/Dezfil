@@ -4,6 +4,7 @@ import { useCallback, useEffect, useSyncExternalStore } from "react";
 import type { TableListing } from "../../api";
 import type { RecipeSummary } from "./recipe-model";
 import { stepsByOutput } from "./derived-tables";
+import { onPrivateReset, privateStateOpen } from "../../auth/private-state";
 
 /**
  * What a layer card knows about the output it draws (narrowing recipe-wide
@@ -46,6 +47,7 @@ const EMPTY: Snapshot = { recipes: [], tables: [], labels: {} };
 /** Publish what the drawer has read. Called from the drawer's own composition,
  * which is the one place both halves are already in hand. */
 export function publishRecipeNotes(next: Snapshot): void {
+  if (!privateStateOpen()) return;
   snapshot = next;
   for (const listener of listeners) listener();
 }
@@ -72,6 +74,7 @@ export function useRecipeNotePublisher(
  * reloads. One registrar, the host; one caller, the strip.
  */
 let reloadFn: (() => void) | null = null;
+onPrivateReset(() => { snapshot = EMPTY; reloadFn = null; });
 export function registerNotesReload(fn: (() => void) | null): void {
   reloadFn = fn;
 }

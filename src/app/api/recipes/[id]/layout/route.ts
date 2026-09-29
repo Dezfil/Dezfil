@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
 import { jsonBody } from "@/lib/operations/recipe-api";
@@ -12,8 +13,9 @@ type Params = { params: Promise<{ id: string }> };
  */
 export async function GET(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id } = await params;
-    return NextResponse.json({ layout: layoutPayload(readLayout(id)) });
+    return NextResponse.json({ layout: layoutPayload(readLayout(scope, id)) });
   } catch (error) {
     return errorResponse(error);
   }
@@ -21,9 +23,10 @@ export async function GET(_request: Request, { params }: Params) {
 
 export async function PUT(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
     const body = await jsonBody(request);
-    return NextResponse.json({ layout: layoutPayload(writeLayout(id, body)) });
+    return NextResponse.json({ layout: layoutPayload(writeLayout(scope, id, body)) });
   } catch (error) {
     return errorResponse(error);
   }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
+import { onPrivateReset, privateStateOpen } from "../auth/private-state";
 
 /**
  * The shell's one path model: object pages contribute what they know —
@@ -26,6 +27,7 @@ const PATH_EVENT = "dezfil:path";
 export const INSTANCE_NAME_EVENT = "dezfil:instance-name";
 
 let current: { path: string; object: PathObject } | null = null;
+onPrivateReset(() => { current = null; });
 
 function broadcast(): void {
   window.dispatchEvent(new Event(PATH_EVENT));
@@ -33,6 +35,7 @@ function broadcast(): void {
 
 /** An object page announces itself for the route it owns. */
 export function contributePath(path: string, object: PathObject): void {
+  if (!privateStateOpen()) return;
   current = { path, object };
   broadcast();
 }

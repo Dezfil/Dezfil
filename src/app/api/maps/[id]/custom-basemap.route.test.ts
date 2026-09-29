@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -24,11 +25,11 @@ let mapId: string;
 
 const patch = (body: unknown) =>
   PATCH(
-    new Request("http://localhost/x", {
+    testAccountRequest(new Request("http://localhost/x", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    }),
+    })),
     { params: Promise.resolve({ id: mapId }) },
   );
 
@@ -36,7 +37,7 @@ beforeEach(async () => {
   dir = await mkdtemp(path.join(process.cwd(), ".tmp-test-"));
   process.env.DEZFIL_DATA_DIR = path.join(dir, "data");
   closeMetadataDb();
-  const map = createMap("m");
+  const map = createMap(testAccountScope(), "m");
   mapId = map.id;
   inspection = {
     verdict: "valid",
@@ -117,9 +118,9 @@ describe("custom basemap PATCH", () => {
     // key behaves.
     await patch({ customBasemap: { url: "https://x.test/a.json" } });
     await patch({ customBasemap: { url: "https://x.test/b.json" } });
-    const undone = await undoChange(mapId);
+    const undone = await undoChange(testAccountScope(), mapId);
     expect(undone.customBasemap).toBeNull();
-    const redone = await redoChange(mapId);
+    const redone = await redoChange(testAccountScope(), mapId);
     expect(redone.customBasemap?.url).toBe("https://x.test/b.json");
   });
 });

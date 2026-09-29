@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DuckDBConnection } from "@duckdb/node-api";
 import path from "node:path";
@@ -9,7 +10,7 @@ import { inspectTable, exportTable, removeTable } from "@/lib/table-service";
 import { boundedEvaluation } from "@/lib/query/bounded";
 import { readHold } from "@/lib/test-support/read-hold";
 import { refreshTable } from "@/lib/ingest/refresh";
-import * as dependencies from "@/lib/table-deps";
+import * as dependencies from "@/lib/metadata/owned-tables";
 import { retirementsSettled } from "@/lib/ingest/retire";
 import * as retirement from "@/lib/ingest/retire";
 import * as builder from "./build";
@@ -38,10 +39,10 @@ function holdBuild() {
 it.each(["set", "clear", "refresh"])("a running set fences a competing %s before it can build", async operation => {
   const t = await stored("SELECT 'POINT (10 20)' payload, 30 x, 40 y", { source: "url", sourceParams: { url: "https://fixture.test/data.csv", group: "group" } });
   const sibling = await stored("SELECT 'POINT (1 2)' payload, 3 x, 4 y", { source: "url", sourceParams: { url: "https://fixture.test/data.csv", group: "group" } });
-  const gate = holdBuild(), run = setGeometry(t.name, reader.geometryRevision(t), wkt); void run.catch(() => {});
+  const gate = holdBuild(), run = setGeometry(testAccountScope(), t.name, reader.geometryRevision(t), wkt); void run.catch(() => {});
   try {
     await gate.beforeMutation();
-    const competing = operation === "set" ? setGeometry(sibling.name, reader.geometryRevision(sibling), pair) : operation === "clear" ? clearGeometry(sibling.name, reader.geometryRevision(sibling)) : refreshTable(sibling.name);
+    const competing = operation === "set" ? setGeometry(testAccountScope(), sibling.name, reader.geometryRevision(sibling), pair) : operation === "clear" ? clearGeometry(testAccountScope(), sibling.name, reader.geometryRevision(sibling)) : refreshTable(testAccountScope(), sibling.name);
     await expect(competing).rejects.toMatchObject({ code: operation === "refresh" ? "refresh_in_flight" : "geometry_in_flight", status: 409 });
     expect(getTableByName(sibling.name)).toEqual(sibling);
   } finally { gate.release(); await run; }
@@ -50,19 +51,19 @@ it.each(["set", "clear"])("URL group refresh fences a competing %s in another me
   const t = await stored("SELECT 'POINT (10 20)' payload, 30 x, 40 y", { source: "url", sourceParams: { url: "https://fixture.test/data.csv", group: "group" } });
   const sibling = await stored("SELECT 'POINT (1 2)' payload", { source: "url", sourceParams: { url: "https://fixture.test/data.csv", group: "group" } });
   remoteHold = readHold("URL fetch");
-  const run = refreshTable(t.name); void run.catch(() => {});
+  const run = refreshTable(testAccountScope(), t.name); void run.catch(() => {});
   try {
     await remoteHold.beforeMutation();
-    await expect(operation === "set" ? setGeometry(sibling.name, reader.geometryRevision(sibling), wkt) : clearGeometry(sibling.name, reader.geometryRevision(sibling))).rejects.toMatchObject({ code: "geometry_in_flight", status: 409 });
+    await expect(operation === "set" ? setGeometry(testAccountScope(), sibling.name, reader.geometryRevision(sibling), wkt) : clearGeometry(testAccountScope(), sibling.name, reader.geometryRevision(sibling))).rejects.toMatchObject({ code: "geometry_in_flight", status: 409 });
   } finally { remoteHold.release(); await run; }
 });
 it.each(["delete-reclaim", "identity", "generation"])("prepared set cannot publish after %s and leaves no candidate", async fault => {
   const t = await base(), gate = holdBuild();
-  const run = setGeometry(t.name, reader.geometryRevision(t), wkt).then(value => ({ value }), error => ({ error }));
+  const run = setGeometry(testAccountScope(), t.name, reader.geometryRevision(t), wkt).then(value => ({ value }), error => ({ error }));
   let replacementFile = t.file;
   try {
     await gate.beforeMutation();
-    if (fault === "delete-reclaim") { await removeTable(t.name); const replacement = await stored("SELECT 90 x, 80 y", { name: t.name }); replacementFile = replacement.file; }
+    if (fault === "delete-reclaim") { await removeTable(testAccountScope(), t.name); const replacement = await stored("SELECT 90 x, 80 y", { name: t.name }); replacementFile = replacement.file; }
     if (fault === "identity") metadataDb().prepare("UPDATE data_tables SET id = 'reclaimed-id' WHERE id = ?").run(t.id);
     if (fault === "generation") {
       replacementFile = "tables/new-generation.parquet";
@@ -79,7 +80,7 @@ it.each(["delete-reclaim", "identity", "generation"])("prepared set cannot publi
   } finally { gate.release(); await run; }
 });
 it.each(["candidates", "preview", "sql", "export"])("captured %s reader survives two actual swaps and then retires old files", async kind => {
-  const raw = await base(); const first = await setGeometry(raw.name,reader.geometryRevision(raw),wkt);
+  const raw = await base(); const first = await setGeometry(testAccountScope(), raw.name,reader.geometryRevision(raw),wkt);
   await retirementsSettled();
   const table = first.table, oldFile = path.join(process.env.DEZFIL_DATA_DIR!,table.file);
   const gate = readHold(`${kind} reader`);
@@ -95,13 +96,13 @@ it.each(["candidates", "preview", "sql", "export"])("captured %s reader survives
       return run.call(this,sql,...args);
     });
   }
-  const reading = kind === "candidates" ? inspectGeometry(table.name) : kind === "preview" ? previewGeometry(table.name,first.revision,wkt) : kind === "export" ? exportTable(table.name,"csv") : boundedEvaluation(async conn => { await gate.engage(); return (await conn.runAndReadAll(`SELECT ST_AsText(geometry) shape FROM ${table.name}`)).getRowObjectsJson(); });
+  const reading = kind === "candidates" ? inspectGeometry(testAccountScope(), table.name) : kind === "preview" ? previewGeometry(testAccountScope(), table.name,first.revision,wkt) : kind === "export" ? exportTable(testAccountScope(), table.name,"csv") : boundedEvaluation(async conn => { await gate.engage(); return (await conn.runAndReadAll(`SELECT ST_AsText(geometry) shape FROM ${table.name}`)).getRowObjectsJson(); }, { scope: testAccountScope() });
   void reading.catch(() => {});
   try {
     await gate.beforeMutation();
-    const second = await setGeometry(table.name,first.revision,pair);
+    const second = await setGeometry(testAccountScope(), table.name,first.revision,pair);
     const secondFile = path.join(process.env.DEZFIL_DATA_DIR!,second.table.file);
-    await clearGeometry(table.name,second.revision);
+    await clearGeometry(testAccountScope(), table.name,second.revision);
     expect(existsSync(oldFile)).toBe(true); expect(existsSync(secondFile)).toBe(true);
     gate.release(); const result = await reading;
     if (kind === "candidates") expect(result).toMatchObject({ revision: first.revision, geometryRecord: { columns: ["payload"] } });
@@ -115,7 +116,7 @@ it.each(["candidates", "preview", "sql", "export"])("captured %s reader survives
   } finally { gate.release(); await reading.catch(() => {}); }
 });
 it("late legacy classification cannot overwrite a new geometry class", async () => {
-  const raw = await base(); const first = await setGeometry(raw.name,reader.geometryRevision(raw),wkt);
+  const raw = await base(); const first = await setGeometry(testAccountScope(), raw.name,reader.geometryRevision(raw),wkt);
   metadataDb().prepare("UPDATE data_tables SET geometry_type = 'MIXED' WHERE id = ?").run(raw.id);
   const gate = readHold("late classification"), original = DuckDBConnection.prototype.runAndReadAll;
   vi.spyOn(DuckDBConnection.prototype,"runAndReadAll").mockImplementation(async function(this: DuckDBConnection,sql,...args) {
@@ -123,9 +124,9 @@ it("late legacy classification cannot overwrite a new geometry class", async () 
     if (sql.includes("SELECT DISTINCT ST_GeometryType") && sql.includes("LIMIT 5")) await gate.engage();
     return result;
   });
-  const pending = inspectTable(raw.name); void pending.catch(() => {});
+  const pending = inspectTable(testAccountScope(), raw.name); void pending.catch(() => {});
   try {
-    await gate.beforeMutation(); await clearGeometry(raw.name,first.revision);
+    await gate.beforeMutation(); await clearGeometry(testAccountScope(), raw.name,first.revision);
     gate.release(); expect((await pending).geometryType).toBe("POINT");
     expect(getTableByName(raw.name)?.geometryType).toBeNull();
   } finally { gate.release(); await pending.catch(() => {}); }
@@ -133,24 +134,24 @@ it("late legacy classification cannot overwrite a new geometry class", async () 
 it.each(["retirement", "tiles"])("committed %s cleanup failure still answers success", async fault => {
   const t=await base(); const warn=vi.spyOn(console,"warn").mockImplementation(()=>{});
   if (fault === "retirement") vi.spyOn(retirement,"retireArtifact").mockImplementationOnce(()=>{throw new Error("cleanup failed");});
-  else vi.spyOn(dependencies,"dependentLayerIds").mockImplementationOnce(()=>{throw new Error("tile dependency read failed");});
-  const result=await setGeometry(t.name,reader.geometryRevision(t),wkt);
+  else vi.spyOn(dependencies,"ownedDependentLayerIds").mockImplementationOnce(()=>{throw new Error("tile dependency read failed");});
+  const result=await setGeometry(testAccountScope(), t.name,reader.geometryRevision(t),wkt);
   expect(result.table.file).not.toBe(t.file); expect(getTableByName(t.name)?.file).toBe(result.table.file);
   expect(warn).toHaveBeenCalled();
 });
 it("a revision from a reclaimed name refuses as not found, while a replaced generation conflicts", async () => {
   const t=await base(),revision=reader.geometryRevision(t);
-  await removeTable(t.name);
+  await removeTable(testAccountScope(), t.name);
   const replacement=await stored("SELECT 'POINT (90 80)' payload",{name:t.name});
-  await expect(async()=>previewGeometry(t.name,revision,wkt)).rejects.toMatchObject({code:"not_found",status:404});
-  const set=await setGeometry(t.name,reader.geometryRevision(replacement),wkt);
-  await expect(async()=>previewGeometry(t.name,reader.geometryRevision(replacement),wkt)).rejects.toMatchObject({code:"input_changed",status:409});
+  await expect(async()=>previewGeometry(testAccountScope(), t.name,revision,wkt)).rejects.toMatchObject({code:"not_found",status:404});
+  const set=await setGeometry(testAccountScope(), t.name,reader.geometryRevision(replacement),wkt);
+  await expect(async()=>previewGeometry(testAccountScope(), t.name,reader.geometryRevision(replacement),wkt)).rejects.toMatchObject({code:"input_changed",status:409});
   expect(getTableByName(t.name)?.file).toBe(set.table.file);
 });
 it("refresh refuses a changed generation with input_changed and cleans its candidate", async () => {
   const t=await stored("SELECT 'POINT (10 20)' payload",{source:"url",sourceParams:{url:"https://fixture.test/data.csv"}});
   remoteHold=readHold("refresh generation");
-  const pending=refreshTable(t.name).then(value=>({value}),error=>({error}));
+  const pending=refreshTable(testAccountScope(), t.name).then(value=>({value}),error=>({error}));
   try {
     await remoteHold.beforeMutation();
     const replacement="tables/new-generation.parquet";

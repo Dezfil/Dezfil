@@ -8,6 +8,7 @@ import {
   basemapUrl,
 } from "@/lib/basemap";
 import { limits } from "@/lib/limits";
+import { requirePageScope } from "@/lib/auth/scope-page";
 
 export default async function MapBuilderPage({
   params,
@@ -16,6 +17,7 @@ export default async function MapBuilderPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ layer?: string }>;
 }) {
+  await requirePageScope();
   const { id } = await params;
   // A promotion flow arrives with?layer=<id> so the landed layer opens
   // selected. Read server-side — a client-side URL sniff races the

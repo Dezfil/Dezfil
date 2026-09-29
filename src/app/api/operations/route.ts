@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { errorResponse } from "@/lib/api/errors";
+import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
 import { OPERATIONS } from "@/lib/operations/catalog";
 import { withAvailability } from "@/lib/operations/capability";
 
@@ -11,10 +11,11 @@ import { withAvailability } from "@/lib/operations/capability";
  * is a fact about the deployment: an administrator who configures a provider changes
  * the answer without changing a verb.
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    return NextResponse.json({ operations: withAvailability(OPERATIONS) });
+    requireRequestAuth(request);
+    return privateResponse(NextResponse.json({ operations: withAvailability(OPERATIONS) }));
   } catch (error) {
-    return errorResponse(error);
+    return authFailure(error);
   }
 }

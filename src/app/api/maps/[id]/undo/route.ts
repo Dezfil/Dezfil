@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
 import { undoChange } from "@/lib/map-service";
@@ -8,8 +9,9 @@ type Params = { params: Promise<{ id: string }> };
  * Returns the refreshed map with fresh history availability. */
 export async function POST(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id } = await params;
-    return NextResponse.json(await undoChange(id));
+    return NextResponse.json(await undoChange(scope, id));
   } catch (error) {
     return errorResponse(error);
   }

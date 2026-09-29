@@ -1,6 +1,7 @@
+import type { DatasetScope } from "@/lib/query/access";
 import { limits } from "@/lib/limits";
 import { ApiError } from "@/lib/api/errors";
-import { assertReadOnlySelect } from "@/lib/query/guard";
+import { namedSql } from "@/lib/query/named-sql";
 import { boundedEvaluation, isOutOfMemory } from "@/lib/query/bounded";
 import { filteredSql } from "@/lib/query/compile";
 import type { LayerFilter } from "@/lib/viz";
@@ -38,14 +39,15 @@ export interface ExportInput {
  * of features written. NULL geometries are dropped, matching the inline
  * render path. */
 export async function exportGeoJsonSeq(
+  scope: DatasetScope,
   input: ExportInput,
   outFile: string,
 ): Promise<number> {
   return boundedEvaluation(
     async (conn) => {
-      await assertReadOnlySelect(conn, input.sql);
+      const compiledSql = await namedSql(conn, input.sql);
 
-      const source = filteredSql(input.sql, input.filters);
+      const source = filteredSql(compiledSql, input.filters);
       const geom = ident(input.geometryColumn);
       const target = outFile.replace(/'/g, "''");
       const selectList = [...input.columns.map(ident), geom].join(", ");
@@ -65,6 +67,7 @@ export async function exportGeoJsonSeq(
       }
     },
     {
+      scope,
       budgetMs: limits.tileBuildTimeoutMs,
       timeoutError: () =>
         new ApiError(

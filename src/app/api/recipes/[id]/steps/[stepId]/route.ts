@@ -1,15 +1,15 @@
+import { requireStep } from "@/lib/metadata/owned-recipes";
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
 import {
   editStep,
-  getRecipe,
-  getStep,
   listSteps,
   removeStep,
   reorderSteps,
   type RecipeStep,
-} from "@/lib/metadata/recipes";
+} from "@/lib/metadata/owned-recipes";
 import { outputNameRefusal, registeredOutputName } from "@/lib/operations/output-names";
 import {
   assertBackwardOnly,
@@ -18,7 +18,7 @@ import {
   orderAfterProducers, tolerantReadsByStep } from "@/lib/operations/recipe-order";
 import { readStep } from "@/lib/operations/recipe-view";
 import { stepReads } from "@/lib/operations/step-reads";
-import { listTables } from "@/lib/metadata/tables";
+import { listOwnedTables } from "@/lib/metadata/owned-tables";
 import { findOperation } from "@/lib/operations/catalog";
 import {
   captureLayerSource,
@@ -28,26 +28,12 @@ import {
 
 type Params = { params: Promise<{ id: string; stepId: string }> };
 
-function requireStep(recipeId: string, stepId: string) {
-  if (!getRecipe(recipeId)) {
-    throw new ApiError("not_found", `No recipe with id "${recipeId}".`, 404);
-  }
-  const step = getStep(stepId);
-  if (!step || step.recipeId !== recipeId) {
-    throw new ApiError(
-      "not_found",
-      `No step with id "${stepId}" in this recipe.`,
-      404,
-    );
-  }
-  return step;
-}
-
 export async function GET(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id, stepId } = await params;
-    requireStep(id, stepId);
-    return NextResponse.json({ step: stepPayload(await readStep(id, stepId)) });
+    requireStep(scope, id, stepId);
+    return NextResponse.json({ step: stepPayload(await readStep(scope, id, stepId)) });
   } catch (error) {
     return errorResponse(error);
   }
@@ -63,8 +49,9 @@ export async function GET(_request: Request, { params }: Params) {
  */
 export async function PATCH(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id, stepId } = await params;
-    const step = requireStep(id, stepId);
+    const step = requireStep(scope, id, stepId);
     const body = await jsonBody(request);
 
     const parameters =
@@ -79,7 +66,7 @@ export async function PATCH(request: Request, { params }: Params) {
     // origin must go on describing *that*.
     let origin: Record<string, unknown> | undefined;
     if (typeof body.fromLayerId === "string" && body.fromLayerId !== "") {
-      const captured = captureLayerSource(body.fromLayerId);
+      const captured = captureLayerSource(scope, body.fromLayerId);
       parameters.sql = captured.sql;
       origin = captured.origin;
     }
@@ -87,7 +74,7 @@ export async function PATCH(request: Request, { params }: Params) {
     const db = metadataDb();
     // The name rule: a produced output keeps its name; otherwise refused
     // in its own words, or stored registered.
-    const refusal = outputNameRefusal({
+    const refusal = outputNameRefusal({ scope,
       db,
       recipeId: id,
       stepId: step.id,
@@ -96,13 +83,13 @@ export async function PATCH(request: Request, { params }: Params) {
     });
     if (refusal) throw refusal;
     if (typeof parameters.name === "string") parameters.name = registeredOutputName(parameters.name);
-    const steps = listSteps(id, db);
+    const steps = listSteps(scope, id, db);
     const stamp = (list: RecipeStep[]) => list.map((s) => `${s.id}:${s.ordinal}:${s.updatedAt}`).join("|");
     const before = stamp(steps);
     // What the step would read next. SQL the parser cannot read is accepted
     // here with no reads: the canvas saves what is typed, and the dry run
     // and the run refuse it and say why.
-    const reads = await stepReads({ operation: step.operation, parameters, proposedParameters: null }).catch(
+    const reads = await stepReads(scope, { operation: step.operation, parameters, proposedParameters: null }).catch(
       () => [] as string[],
     );
     // A read of a producer that stands later is not refused but ordered:
@@ -112,7 +99,7 @@ export async function PATCH(request: Request, { params }: Params) {
     const later = dependenciesWithin(steps, reads).filter((d) => d.id !== step.id && d.ordinal >= step.ordinal);
     let order: string[] | null = null;
     if (later.length > 0) {
-      const readsOf = await tolerantReadsByStep(steps.filter((s) => s.id !== step.id), stepReads);
+      const readsOf = await tolerantReadsByStep(steps.filter((s) => s.id !== step.id), step => stepReads(scope, step));
       readsOf.set(step.id, reads);
       const proposed = orderAfterProducers(steps, step.id, later.map((d) => d.id), readsOf);
       assertOrderingValid(proposed, readsOf);
@@ -122,17 +109,17 @@ export async function PATCH(request: Request, { params }: Params) {
     }
     // Committed only if nothing moved under the checks.
     const landed = db.transaction(() => {
-      if (stamp(listSteps(id, db)) !== before) {
+      if (stamp(listSteps(scope, id, db)) !== before) {
         throw new ApiError("invalid_request", "This workflow changed while the edit was being checked. Try again.", 409);
       }
-      const again = outputNameRefusal({ db, recipeId: id, stepId: step.id, produced: step.outputTableName, typed: parameters.name });
+      const again = outputNameRefusal({ scope, db, recipeId: id, stepId: step.id, produced: step.outputTableName, typed: parameters.name });
       if (again) throw again;
-      const applied = editStep(stepId, parameters, db, origin);
-      if (order) reorderSteps(id, order, db);
+      const applied = editStep(scope, stepId, parameters, db, origin);
+      if (order) reorderSteps(scope, id, order, db);
       return applied;
     })();
     return NextResponse.json({
-      step: stepPayload(await readStep(id, stepId)),
+      step: stepPayload(await readStep(scope, id, stepId)),
       // "active" changed what the step means; "proposed" is waiting on a run.
       applied: landed,
     });
@@ -153,11 +140,12 @@ export async function PATCH(request: Request, { params }: Params) {
  */
 export async function DELETE(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id, stepId } = await params;
-    const step = requireStep(id, stepId);
-    const steps = listSteps(id);
+    const step = requireStep(scope, id, stepId);
+    const steps = listSteps(scope, id);
     const exists =
-      step.outputTableId !== null && listTables().some((t) => t.id === step.outputTableId);
+      step.outputTableId !== null && listOwnedTables(scope).some((t) => t.id === step.outputTableId);
     const state: "exists" | "deleted" | "never" =
       step.outputTableId === null ? "never" : exists ? "exists" : "deleted";
     const declared =
@@ -165,11 +153,11 @@ export async function DELETE(_request: Request, { params }: Params) {
       (typeof step.parameters.name === "string" && step.parameters.name !== ""
         ? registeredOutputName(step.parameters.name)
         : null);
-    const reads = await tolerantReadsByStep(steps.filter((s) => s.id !== stepId), stepReads);
+    const reads = await tolerantReadsByStep(steps.filter((s) => s.id !== stepId), step => stepReads(scope, step));
     const readers = steps
       .filter((s) => s.id !== stepId && declared !== null && (reads.get(s.id) ?? []).includes(declared))
       .map((s) => ({ id: s.id, operation: s.operation, label: findOperation(s.operation).label }));
-    removeStep(stepId);
+    removeStep(scope, stepId);
     const name = step.outputTableName ?? (declared ? declared : null);
     const message =
       state === "exists"

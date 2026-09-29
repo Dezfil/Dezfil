@@ -1,3 +1,5 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { openPrivateExport } from "@/lib/export/private-file";
 import { open, stat } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
@@ -6,7 +8,8 @@ import {
   errorResponse,
   EvaluationCancelled,
 } from "@/lib/api/errors";
-import { getLayer } from "@/lib/metadata/maps";
+import { requireLayer } from "@/lib/layer-access";
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import {
   exportLayerResult,
   isLayerExportFormat,
@@ -90,6 +93,7 @@ function unavailable(): ApiError {
 export async function GET(request: Request, { params }: Params) {
   const mode = uiMode(request);
   try {
+    const scope = requireRequestScope(request);
     const { id, format } = await params;
     if (!isLayerExportFormat(format)) {
       throw new ApiError(
@@ -109,12 +113,12 @@ export async function GET(request: Request, { params }: Params) {
     }
     if (mode.kind === "status") {
       if (mode.release) {
-        if (!(await layerDownloadTickets.release(mode.ticket, binding))) {
+        if (!(await layerDownloadTickets.release(scope, mode.ticket, binding))) {
           throw unavailable();
         }
         return noStore(new NextResponse(null, { status: 204 }));
       }
-      const status = layerDownloadTickets.status(mode.ticket, binding);
+      const status = layerDownloadTickets.status(scope, mode.ticket, binding);
       if (!status) throw unavailable();
       return NextResponse.json(
         { status },
@@ -122,18 +126,15 @@ export async function GET(request: Request, { params }: Params) {
       );
     }
     if (mode.kind === "download") {
-      return await preparedDownload(request, binding, mode.ticket);
+      return await preparedDownload(scope, request, binding, mode.ticket);
     }
 
-    const layer = getLayer(id);
-    if (!layer) {
-      throw new ApiError("not_found", `No layer with id "${id}".`, 404);
-    }
+    const layer = requireLayer(scope, id);
     if (mode.kind === "prepare") {
-      return await prepareDownload(request, layer, binding);
+      return await prepareDownload(scope, request, layer, binding);
     }
 
-    return await directDownload(request, layer, format);
+    return await directDownload(scope, request, layer, format);
   } catch (error) {
     const response = errorResponse(error);
     return mode.kind === "direct" ? response : noStore(response);
@@ -141,8 +142,9 @@ export async function GET(request: Request, { params }: Params) {
 }
 
 async function prepareDownload(
+  scope: AccountScope,
   request: Request,
-  layer: NonNullable<ReturnType<typeof getLayer>>,
+  layer: NonNullable<ReturnType<typeof requireLayer>>,
   binding: LayerDownloadBinding,
 ): Promise<NextResponse> {
   let ticket: string | null = null;
@@ -151,6 +153,7 @@ async function prepareDownload(
     ticket = await trackInflight(
       (async () => {
         const file = await exportLayerResult(
+          scope,
           layer,
           binding.format,
           request.signal,
@@ -158,6 +161,7 @@ async function prepareDownload(
         try {
           const size = (await stat(file.path)).size;
           return layerDownloadTickets.prepare(
+            scope,
             binding,
             { ...file, size },
             request.signal,
@@ -176,15 +180,16 @@ async function prepareDownload(
     );
   } catch (error) {
     if (ticket !== null) {
-      await layerDownloadTickets.release(ticket, binding);
+      await layerDownloadTickets.release(scope, ticket, binding);
     }
     throw error;
   }
 }
 
 async function directDownload(
+  scope: AccountScope,
   request: Request,
-  layer: NonNullable<ReturnType<typeof getLayer>>,
+  layer: NonNullable<ReturnType<typeof requireLayer>>,
   format: LayerExportFormat,
 ): Promise<NextResponse> {
   // The evaluation itself is bounded (and cancels with the caller); the
@@ -192,9 +197,8 @@ async function directDownload(
   // scratch sweep cannot land between write and open.
   const { file, handle, size } = await trackInflight(
     (async () => {
-      const file = await exportLayerResult(layer, format, request.signal);
-      const handle = await open(file.path);
-      const size = (await handle.stat()).size;
+      const file = await exportLayerResult(scope, layer, format, request.signal);
+      const { handle, size } = await openPrivateExport(scope, file);
       return { file, handle, size };
     })(),
   );
@@ -212,18 +216,20 @@ async function directDownload(
 }
 
 async function preparedDownload(
+  scope: AccountScope,
   request: Request,
   binding: LayerDownloadBinding,
   ticket: string,
 ): Promise<NextResponse> {
-  const claimed = layerDownloadTickets.claim(ticket, binding);
+  const claimed = layerDownloadTickets.claim(scope, ticket, binding);
   if (!claimed) throw unavailable();
 
   let handle: Awaited<ReturnType<typeof open>>;
   try {
-    handle = await open(claimed.path);
+    handle = (await openPrivateExport(scope, { path: claimed.path, cleanup: async () => claimed.fail() })).handle;
   } catch {
     claimed.fail();
+    requireAccountScope(scope);
     throw unavailable();
   }
 

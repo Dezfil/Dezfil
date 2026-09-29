@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -23,8 +24,8 @@ beforeEach(async () => {
   resetQueryInstance();
   const src = path.join(dir, "stations.csv");
   await writeFile(src, "name,lon,lat\nalexanderplatz,13.41,52.52\nzoo,13.33,52.51\n");
-  await ingestFile(src, "stations.csv");
-  await boundedEvaluation(async () => undefined);
+  await ingestFile(testAccountScope(), src, "stations.csv");
+  await boundedEvaluation(async () => undefined, { scope: testAccountScope() });
 });
 
 afterEach(async () => {
@@ -51,7 +52,7 @@ const step = (sql: string, name: string, subject?: string) => ({
 
 describe("the run endpoint answers before the work is done", () => {
   it("accepts with 202, a non-terminal run, and nowhere yet to find the output", async () => {
-    const response = await runOperation(post(step("SELECT name FROM stations", "accepted")));
+    const response = await runOperation(testAccountRequest(post(step("SELECT name FROM stations", "accepted"))));
     expect(response.status).toBe(202);
 
     const { run } = (await response.json()) as { run: Record<string, unknown> };
@@ -67,11 +68,11 @@ describe("the run endpoint answers before the work is done", () => {
   }, 30_000);
 
   it("is later terminal, with its output registered and queryable", async () => {
-    const accepted = await runOperation(post(step("SELECT name FROM stations", "eventual")));
+    const accepted = await runOperation(testAccountRequest(post(step("SELECT name FROM stations", "eventual"))));
     const { run } = (await accepted.json()) as { run: { id: string } };
     await laneSettled();
 
-    const read = await readRun(new Request("http://test"), {
+    const read = await readRun(testAccountRequest(new Request("http://test")), {
       params: Promise.resolve({ id: run.id }),
     });
     expect(read.status).toBe(200);
@@ -85,7 +86,7 @@ describe("the run endpoint answers before the work is done", () => {
 describe("a malformed body is an admission refusal, not a server error", () => {
   const send = (raw: string) =>
     runOperation(
-      new Request("http://test/api/operations/run", { method: "POST", body: raw }),
+      testAccountRequest(new Request("http://test/api/operations/run", { method: "POST", body: raw })),
     );
 
   it("refuses invalid JSON with the documented code", async () => {
@@ -114,14 +115,14 @@ describe("the poll contract, proven on one seeded slow run (F3)", () => {
     "SELECT count(*) AS n FROM range(40000) a, range(40000) b WHERE (a.range * b.range) % 7 = 3";
 
   async function pollRun(id: string) {
-    const response = await readRun(new Request("http://test"), {
+    const response = await readRun(testAccountRequest(new Request("http://test")), {
       params: Promise.resolve({ id }),
     });
     return ((await response.json()) as { run: Record<string, unknown> }).run;
   }
 
   it("is observed non-terminal, then terminal with its output registered", async () => {
-    const accepted = await runOperation(post(step(SLOW, "slow_result")));
+    const accepted = await runOperation(testAccountRequest(post(step(SLOW, "slow_result"))));
     const { run } = (await accepted.json()) as { run: { id: string } };
 
     // The decisive part: a re-read of the durable record, not the acceptance
@@ -157,7 +158,7 @@ describe("an accepted run outlives its request", () => {
   it("succeeds even though the caller left immediately", async () => {
     const controller = new AbortController();
     const response = await runOperation(
-      post(step("SELECT name FROM stations", "abandoned"), controller.signal),
+      testAccountRequest(post(step("SELECT name FROM stations", "abandoned"), controller.signal)),
     );
     const { run } = (await response.json()) as { run: { id: string; state: string } };
     // Observed accepted and non-terminal, then abandoned — the order matters,
@@ -167,7 +168,7 @@ describe("an accepted run outlives its request", () => {
 
     await laneSettled();
 
-    const read = await readRun(new Request("http://test"), {
+    const read = await readRun(testAccountRequest(new Request("http://test")), {
       params: Promise.resolve({ id: run.id }),
     });
     const body = (await read.json()) as { run: Record<string, unknown> };
@@ -178,7 +179,7 @@ describe("an accepted run outlives its request", () => {
 
 describe("the run resource", () => {
   it("answers not_found for an unknown id", async () => {
-    const response = await readRun(new Request("http://test"), {
+    const response = await readRun(testAccountRequest(new Request("http://test")), {
       params: Promise.resolve({ id: "nope" }),
     });
     expect(response.status).toBe(404);
@@ -187,30 +188,30 @@ describe("the run resource", () => {
   });
 
   it("lists newest first and filters to one subject", async () => {
-    await runOperation(post(step("SELECT 1 AS n", "one", "shared")));
+    await runOperation(testAccountRequest(post(step("SELECT 1 AS n", "one", "shared"))));
     await laneSettled();
-    await runOperation(post(step("SELECT 2 AS n", "two", "shared")));
+    await runOperation(testAccountRequest(post(step("SELECT 2 AS n", "two", "shared"))));
     await laneSettled();
-    await runOperation(post(step("SELECT 3 AS n", "three", "other")));
+    await runOperation(testAccountRequest(post(step("SELECT 3 AS n", "three", "other"))));
     await laneSettled();
 
-    const all = (await (await listRuns(new Request("http://test/api/operations/runs"))).json()) as {
+    const all = (await (await listRuns(testAccountRequest(new Request("http://test/api/operations/runs")))).json()) as {
       runs: { parameters: { name: string } }[];
     };
     expect(all.runs.map((r) => r.parameters.name)).toEqual(["three", "two", "one"]);
 
     const mine = (await (
-      await listRuns(new Request("http://test/api/operations/runs?subject=shared"))
+      await listRuns(testAccountRequest(new Request("http://test/api/operations/runs?subject=shared")))
     ).json()) as { runs: { parameters: { name: string } }[] };
     expect(mine.runs.map((r) => r.parameters.name)).toEqual(["two", "one"]);
   }, 60_000);
 
   it("cancelling a finished run answers it unchanged, not an error", async () => {
-    const accepted = await runOperation(post(step("SELECT 1 AS n", "already_done")));
+    const accepted = await runOperation(testAccountRequest(post(step("SELECT 1 AS n", "already_done"))));
     const { run } = (await accepted.json()) as { run: { id: string } };
     await laneSettled();
 
-    const response = await cancelRunRoute(new Request("http://test", { method: "POST" }), {
+    const response = await cancelRunRoute(testAccountRequest(new Request("http://test", { method: "POST" })), {
       params: Promise.resolve({ id: run.id }),
     });
     expect(response.status).toBe(200);
@@ -219,7 +220,7 @@ describe("the run resource", () => {
   }, 30_000);
 
   it("cancelling an unknown run answers not_found", async () => {
-    const response = await cancelRunRoute(new Request("http://test", { method: "POST" }), {
+    const response = await cancelRunRoute(testAccountRequest(new Request("http://test", { method: "POST" })), {
       params: Promise.resolve({ id: "nope" }),
     });
     expect(response.status).toBe(404);
@@ -228,7 +229,7 @@ describe("the run resource", () => {
 
 describe("a run reports timings and no percentage", () => {
   it("carries no percentage while queued, and no start time either", async () => {
-    const response = await runOperation(post(step("SELECT 1 AS n", "timed")));
+    const response = await runOperation(testAccountRequest(post(step("SELECT 1 AS n", "timed"))));
     const { run } = (await response.json()) as { run: Record<string, unknown> };
 
     const keys = Object.keys(run).join(" ").toLowerCase();
@@ -241,12 +242,12 @@ describe("a run reports timings and no percentage", () => {
   }, 30_000);
 
   it("carries a start time once it has run, and still no percentage", async () => {
-    const accepted = await runOperation(post(step("SELECT 1 AS n", "timed_done")));
+    const accepted = await runOperation(testAccountRequest(post(step("SELECT 1 AS n", "timed_done"))));
     const { run } = (await accepted.json()) as { run: { id: string } };
     await laneSettled();
 
     const body = (await (
-      await readRun(new Request("http://test"), { params: Promise.resolve({ id: run.id }) })
+      await readRun(testAccountRequest(new Request("http://test")), { params: Promise.resolve({ id: run.id }) })
     ).json()) as { run: Record<string, unknown> };
 
     expect(body.run.startedAt).toBeTruthy();

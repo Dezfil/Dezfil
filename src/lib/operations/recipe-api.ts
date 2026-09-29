@@ -1,6 +1,7 @@
+import type { AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
 import { WORKFLOW_JSON_BODY_MAX_BYTES } from "@/lib/api/request-bounds";
-import { getLayer } from "@/lib/metadata/maps";
+import { getOwnedLayer } from "@/lib/metadata/map-queries";
 import type { RecipeOrigin } from "@/lib/metadata/recipes";
 import type { CascadeRun } from "@/lib/metadata/cascades";
 import { jobView } from "./job-view";
@@ -99,14 +100,11 @@ export function cascadePayload(cascade: CascadeView | CascadeRun) {
  * follow it. Reading the layer again at run time is the one implementation this
  * must not be.
  */
-export function captureLayerSource(layerId: string): {
+export function captureLayerSource(scope: AccountScope, layerId: string): {
   sql: string;
   origin: Record<string, unknown>;
 } {
-  const layer = getLayer(layerId);
-  if (!layer) {
-    throw new ApiError("not_found", `No layer with id "${layerId}".`, 404);
-  }
+  const layer = getOwnedLayer(scope, layerId);
   const captured = captureFromLayer({
     id: layer.id,
     mapId: layer.mapId,

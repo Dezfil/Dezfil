@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { authenticatedRoute, TEST_ACCOUNT_ID } from "@/lib/assistant/testing/account";
 import { assistantRuns } from "@/lib/assistant/runs";
 import { POST as reserveRunHandler } from "@/app/api/assistant/runs/route";
@@ -43,7 +44,7 @@ async function events(res: Response): Promise<Record<string, unknown>[]> {
  * outcome, answers with plain text and stops. */
 function park(overrides: Partial<ParkedRun> = {}) {
   const seen: ToolOutcome[][] = [];
-  const id = pendingActions.park({
+  const id = pendingActions.park(testAccountScope(), {
     accountId: TEST_ACCOUNT_ID,
     exchange: {
       async send() {

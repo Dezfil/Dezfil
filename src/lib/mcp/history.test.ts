@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -16,9 +17,9 @@ beforeEach(async () => {
   dir = await mkdtemp(path.join(process.cwd(), '.tmp-history-'));
   vi.stubEnv('DEZFIL_DATA_DIR', dir);
   closeMetadataDb(); resetQueryInstance();
-  const csv = path.join(dir, 'facts.csv'); await writeFile(csv, 'name,lon,lat\na,0,0\n'); await ingestFile(csv, 'facts.csv');
-  mapId = createMap('Original').id;
-  layerId = (await createLayer(mapId, { name: 'Layer', sql: 'SELECT * FROM facts' })).id;
+  const csv = path.join(dir, 'facts.csv'); await writeFile(csv, 'name,lon,lat\na,0,0\n'); await ingestFile(testAccountScope(), csv, 'facts.csv');
+  mapId = createMap(testAccountScope(), 'Original').id;
+  layerId = (await createLayer(testAccountScope(), mapId, { name: 'Layer', sql: 'SELECT * FROM facts' })).id;
   metadataDb().prepare('DELETE FROM map_history').run();
   seen = [];
   client = await testClient(request => { seen.push(request.clone()); return dispatchAssistantTestRoute(request); });
@@ -83,7 +84,7 @@ describe('external group association', () => {
     expect(result.structuredContent?.history).toBeNull();
   });
   it('two maps and a manual interleaving have independent literal undo/redo states', async () => {
-    const other = createMap('Other').id;
+    const other = createMap(testAccountScope(), 'Other').id;
     await call('update_map', { id: mapId, name: 'First', change_group: 'shared' });
     await call('update_map', { id: other, name: 'Other changed', change_group: 'shared' });
     await call('update_map', { id: mapId, name: 'Manual' });

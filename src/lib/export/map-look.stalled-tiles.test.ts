@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { delegateCredential } from "@/lib/auth/delegation";
 import { requireRequestAuth } from "@/lib/auth/http";
 import { authenticatedRequest } from "@/lib/assistant/testing/account";
@@ -94,13 +95,13 @@ describe.skipIf(!port)("the check outlives a stalled tile host", () => {
     await writeFile(file, JSON.stringify({ type: "FeatureCollection", features: [
       { type: "Feature", properties: { kind: "a" }, geometry: { type: "Point", coordinates: [13.4, 52.5] } },
     ] }));
-    const table = await ingestFile(file, path.basename(file));
-    mapId = createMap("Stalled tiles").id;
-    updateMap(mapId, {
+    const table = await ingestFile(testAccountScope(), file, path.basename(file));
+    mapId = createMap(testAccountScope(), "Stalled tiles").id;
+    updateMap(testAccountScope(), mapId, {
       viewport: { lng: 13.4, lat: 52.5, zoom: 12, pitch: 0, bearing: 0 },
       customBasemap: { url: basemap.styleUrl, name: "Stalling tiles", attribution: [{ label: "Stall fixture" }] },
     });
-    await createLayer(mapId, { name: "Point", sql: `SELECT * FROM ${table.name}`, style: { fill: { type: "constant", color: { r: 26, g: 93, b: 74, a: 1 } }, fillOpacity: 1, stroke: { r: 0, g: 0, b: 0, a: 1 }, strokeOpacity: 1, strokeWidth: 0, pointRadius: 10, opacity: 1 } });
+    await createLayer(testAccountScope(), mapId, { name: "Point", sql: `SELECT * FROM ${table.name}`, style: { fill: { type: "constant", color: { r: 26, g: 93, b: 74, a: 1 } }, fillOpacity: 1, stroke: { r: 0, g: 0, b: 0, a: 1 }, strokeOpacity: 1, strokeWidth: 0, pointRadius: 10, opacity: 1 } });
   }, 120_000);
 
   afterAll(async () => { await basemap?.close(); vi.unstubAllEnvs(); });
@@ -109,7 +110,7 @@ describe.skipIf(!port)("the check outlives a stalled tile host", () => {
     const budget = limits.assistantLookTimeoutMs;
     const bound = renderRequestBoundMs(budget);
     const started = Date.now();
-    const result = await lookAtMap({ mapId, credential: delegateCredential(requireRequestAuth(authenticatedRequest())), baseUrl: `http://127.0.0.1:${port}` });
+    const result = await lookAtMap(testAccountScope(), { mapId, credential: delegateCredential(requireRequestAuth(authenticatedRequest())), baseUrl: `http://127.0.0.1:${port}` });
     const elapsed = Date.now() - started;
     console.info(JSON.stringify({
       budgetMs: budget, elapsedMs: result.elapsedMs, wallMs: elapsed,

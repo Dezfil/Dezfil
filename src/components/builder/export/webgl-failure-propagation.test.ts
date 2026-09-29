@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, expect, it } from "vitest";
 import { INITIAL_WEBGL_FAILURE_MESSAGE } from "../../map/initial-webgl-failure";
 import { renderMapImage, type RenderBrowser } from "@/lib/export/render-image";
@@ -24,7 +25,7 @@ describe("initial WebGL failure propagation", () => {
     };
 
     await expect(
-      renderMapImage({
+      renderMapImage(testAccountScope(), {
         mapId: "map-webgl-failure",
         definition,
         credential: "fixture-render-credential", baseUrl: "http://127.0.0.1:3000",

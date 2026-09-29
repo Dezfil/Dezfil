@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect } from "vitest";
 import { executeQuery } from "./execute";
 
@@ -20,7 +21,7 @@ describe.skipIf(!asChild)(
   () => {
     it("user SQL through the public boundary answers without any prior arrangement", async () => {
       for (const name of ["alpha", "beta"]) {
-        const result = await executeQuery(
+        const result = await executeQuery(testAccountScope(),
           `SELECT count(*) AS n FROM "${name}"`,
         );
         expect(Number(result.preview[0]?.n)).toBe(2);

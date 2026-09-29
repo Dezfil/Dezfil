@@ -1,3 +1,9 @@
+import type { StagingInput } from "@/lib/query/staging";
+import type { DatasetScope } from "@/lib/query/access";
+import { getOwnedTableByName, requireOwnedTableReference } from "@/lib/metadata/owned-tables";
+import { publishDataset, nameTaken } from "./dataset-publication";
+export { LostAuthority } from "./dataset-publication";
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
@@ -5,23 +11,19 @@ import path from "node:path";
 import { dataDir } from "@/lib/config";
 import { ApiError } from "@/lib/api/errors";
 import { boundedEvaluation, isOutOfMemory } from "@/lib/query/bounded";
-import { stripStatementQuote } from "@/lib/query/engine-message";
+import { safeEngineMessage, engineRefusal } from "@/lib/query/engine-message";
 import { findOperation } from "./catalog";
-import { assertReadOnlySelect } from "@/lib/query/guard";
+import { namedSql } from "@/lib/query/named-sql";
 import {
   collapseGeometryTypes,
   ident,
   measureArtifact,
 } from "@/lib/ingest/ingest";
 import { deriveTableName } from "@/lib/ingest/naming";
-import { metadataDb } from "@/lib/metadata/db";
 import type { BoundTable } from "@/lib/query/binding-snapshot";
 import { retireArtifact } from "@/lib/ingest/retire";
 import {
   type DataTable,
-  getTableByName,
-  insertTable,
-  updateTableData,
 } from "@/lib/metadata/tables";
 import { queryInputs } from "./inputs";
 
@@ -51,6 +53,8 @@ import { queryInputs } from "./inputs";
  */
 
 export interface MaterializeRequest {
+  /** Internal provider inputs; never parsed from public request fields. */
+  inputs?: readonly StagingInput[];
   /** The read-only SELECT whose result becomes the dataset. */
   sql: string;
   /** The name the caller asked for; sanitized, never de-duplicated. */
@@ -73,7 +77,7 @@ export interface MaterializeRequest {
    * What the output's record carries **in place of** the statement that ran.
    *
    * A provider operation discloses the request it made rather than the query it
-   * did not write — and its statement names a private staging path, so
+   * did not write — and its statement names a private staging input, so
    * publishing it would put an internal path in the registry. The record
    * carries this and **no SQL at all**: an absence is a better contract than a
    * redaction that must never miss.
@@ -100,7 +104,7 @@ export interface MaterializeRequest {
    * transaction, so no reader can ever see an output whose lineage has not
    * landed. The artifact is the one the engine's catalog actually bound, not
    * the one a later registry or shared catalog read names. Execution and
-   * evidence are pinned together inside the serialized registration turn.
+   * evidence are pinned together on the evaluation’s own connection.
    */
   authorize?: (
     table: DataTable,
@@ -154,13 +158,6 @@ export interface BoundInput {
   artifact: string;
 }
 
-/** Thrown when `authorize` refused: the run lost its claim while it worked. */
-export class LostAuthority extends Error {
-  constructor() {
-    super("This run is no longer the live attempt, so it did not publish.");
-  }
-}
-
 export interface DryRun {
   rowCount: number;
   /** The registry's own vocabulary, so one result is never described twice. */
@@ -195,10 +192,12 @@ export interface DryRun {
 const ENGINE_CLASS_PREFIX = /^[A-Z][A-Za-z ]{0,40} Error:\s*/;
 
 function asSqlError(error: unknown, operation?: string): never {
+  const refusal = engineRefusal(error);
+  if (refusal) throw refusal;
   if (error instanceof ApiError) throw error;
   if (isOutOfMemory(error)) throw error;
   const diagnostic =
-    error instanceof Error ? stripStatementQuote(error.message) : null;
+    error instanceof Error ? safeEngineMessage(error.message) : null;
   if (!operation || operation === "sql_step") {
     throw new ApiError(
       "sql_error",
@@ -279,13 +278,14 @@ function exactName(desired: string): string {
  * the disagreement this contract forbids.
  */
 export async function dryRun(
+  scope: DatasetScope,
   sql: string,
   signal?: AbortSignal,
   operation?: string,
 ): Promise<DryRun> {
   return boundedEvaluation(async (conn) => {
-    await assertReadOnlySelect(conn, sql);
-    const from = `(${nestable(sql)})`;
+    const compiledSql = await namedSql(conn, sql);
+    const from = `(${nestable(compiledSql)})`;
     try {
       return await describeResult(conn, from);
     } catch (error) {
@@ -293,7 +293,7 @@ export async function dryRun(
       // the coded error directly — it mints no job.
       asSqlError(error, operation);
     }
-  }, { signal });
+  }, { scope, signal });
 }
 
 async function describeResult(
@@ -337,8 +337,10 @@ async function describeResult(
 }
 
 export async function materialize(
+  scope: AccountScope,
   request: MaterializeRequest,
 ): Promise<DataTable> {
+  requireAccountScope(scope);
   const {
     sql,
     operation,
@@ -347,22 +349,22 @@ export async function materialize(
     signal,
     budgetMs,
     timeoutError,
-    authorize,
     replaceTable,
   } = request;
+  if (replaceTable) requireOwnedTableReference(scope, replaceTable);
   const name = exactName(request.name);
 
   return boundedEvaluation(async (conn, bounds) => {
-    await assertReadOnlySelect(conn, sql);
+    const compiledSql = await namedSql(conn, sql);
 
     // Refuse a taken name before doing the work, so the common collision
     // costs the caller nothing. The race is refused again at the insert.
     // A replacement is the one exception: it is *supposed* to find its own
     // table there, and the caller has already proven it owns it.
-    if (!replaceTable && getTableByName(name)) throw nameTaken(name);
+    if (!replaceTable && getOwnedTableByName(scope, name)) throw nameTaken(name);
 
     const snapshot = bounds.bindings!;
-    const inputs = await queryInputs(conn, sql, snapshot.geometryOf);
+    const inputs = await queryInputs(conn, compiledSql, snapshot.geometryOf);
     const resolved = inputs.tables
       .map((t) => snapshot.byName.get(t))
       .filter((t): t is BoundTable => t !== undefined);
@@ -390,9 +392,9 @@ export async function materialize(
     try {
       let measured;
       try {
-        const geometryColumn = await geometryColumnOfResult(conn, sql);
+        const geometryColumn = await geometryColumnOfResult(conn, compiledSql);
         await conn.run(
-          `COPY (${nestable(sql)}) TO '${abs.replace(/'/g, "''")}' (FORMAT PARQUET)`,
+          `COPY (${nestable(compiledSql)}) TO '${abs.replace(/'/g, "''")}' (FORMAT PARQUET)`,
         );
         measured = await measureArtifact(conn, abs, geometryColumn);
         // Finish fallible engine work before the atomic metadata publication.
@@ -428,7 +430,7 @@ export async function materialize(
           operation,
           parameters: parameters ?? {},
           // **A disclosure replaces the statement; it never joins it** (J9).
-          // This run's SQL names a private staging path, so a record carrying
+          // This run's SQL names a private staging input, so a record carrying
           // both would publish the path it promised never to. The absence is
           // the contract: a reader finding no `sql` is reading a run whose
           // answers came off a wire, and the disclosure says what was asked.
@@ -446,50 +448,7 @@ export async function materialize(
         // reports its last run, so it is not the one row with no age.
         importedAt: now,
       };
-      // One transaction: the run's claim to publish and the dataset row commit
-      // together, or neither does. A cancel that lands mid-run is decided here,
-      // once, by the database — not by a read taken a moment earlier.
-      const db = metadataDb();
-      // Kept so the replaced generation can be retired after the commit. Read
-      // before the swap, because after it the row names the new file.
-      const replaced = replaceTable
-        ? (getTableByName(replaceTable.name)?.file ?? null)
-        : null;
-      try {
-        db.transaction(() => {
-          if (authorize && !authorize(table, db, bound)) throw new LostAuthority();
-          if (replaceTable) {
-            // Keyed on name AND id: a re-run racing a delete, or a name
-            // reclaimed by a newer table, matches nothing and says so rather
-            // than writing into a stranger.
-            const swapped = updateTableData(
-              { name: replaceTable.name, id: replaceTable.id },
-              {
-                file: table.file,
-                geometryColumn: table.geometryColumn,
-                geometryType: table.geometryType,
-                crsAssumed: table.crsAssumed,
-                headerSuspect: false,
-                rowCount: table.rowCount,
-                importedAt: table.importedAt ?? now,
-                sourceParams: table.sourceParams ?? undefined,
-              },
-              db,
-            );
-            if (!swapped) throw outputGone(replaceTable.name);
-          } else {
-            insertTable(table, db);
-            request.onPublished?.(table, db);
-          }
-        })();
-      } catch (error) {
-        if (error instanceof LostAuthority) throw error;
-        if (error instanceof ApiError) throw error;
-        if (error instanceof Error && /UNIQUE constraint/i.test(error.message)) {
-          throw nameTaken(name);
-        }
-        throw error;
-      }
+      const replaced = publishDataset(scope, table, bound, request);
       committed = true;
       // The generation this replaced is now unreferenced. Retiring it is
       // post-commit and best-effort, exactly as a refresh's is: the swap is the
@@ -515,18 +474,7 @@ export async function materialize(
       // points at it, and removing it here would strand a registered table.
       if (!committed) await rm(abs, { force: true });
     }
-  }, { pinBindings: true, signal, ...(budgetMs !== undefined ? { budgetMs } : {}), ...(timeoutError ? { timeoutError } : {}) });
-}
-
-/** A replacement whose target vanished — deleted, or its name reclaimed by a
- * different table — while the run was working. */
-function outputGone(name: string): ApiError {
-  return new ApiError(
-    "not_found",
-    `The dataset "${name}" this run was replacing no longer exists, or its ` +
-      `name now belongs to a different table. Nothing was written.`,
-    404,
-  );
+  }, { scope, inputs: request.inputs, pinBindings: true, signal, ...(budgetMs !== undefined ? { budgetMs } : {}), ...(timeoutError ? { timeoutError } : {}) });
 }
 
 /**
@@ -556,13 +504,4 @@ function inputChanged(name: string, measured: boolean): ApiError {
           `written. Run it again against the current data.`,
         409,
       );
-}
-
-function nameTaken(name: string): ApiError {
-  return new ApiError(
-    "name_taken",
-    `A table named "${name}" already exists. An operation never replaces or ` +
-      `renames around an existing table. Choose another name.`,
-    409,
-  );
 }

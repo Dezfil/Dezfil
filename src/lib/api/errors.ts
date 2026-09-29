@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ERROR_CATALOGUE } from "./error-catalogue";
-import type { AuthErrorCode } from "@/lib/auth/errors";
+import { AuthError, type AuthErrorCode } from "@/lib/auth/errors";
 
 /**
  * Every API error carries a stable machine-readable code plus a
@@ -146,7 +146,7 @@ export function errorResponse(error: unknown): NextResponse {
   if (error instanceof EvaluationCancelled) {
     return new NextResponse(null, { status: 499 });
   }
-  if (error instanceof ApiError) {
+  if (error instanceof ApiError || error instanceof AuthError) {
     return NextResponse.json(
       { error: { code: error.code, message: error.message, ...error.extra } },
       { status: error.status },

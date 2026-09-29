@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -38,14 +39,14 @@ const SQL = `
 `;
 
 async function layerOf(sql = SQL) {
-  const map = createMap("extent");
-  const created = await createLayer(map.id, { name: "l", sql });
+  const map = createMap(testAccountScope(), "extent");
+  const created = await createLayer(testAccountScope(), map.id, { name: "l", sql });
   return getLayer(created.id)!;
 }
 
 describe("a layer's current extent", () => {
   it("spans every feature when nothing constrains it", async () => {
-    const extent = await layerExtent(await layerOf());
+    const extent = await layerExtent(testAccountScope(), await layerOf());
     expect(extent.kind).toBe("extent");
     if (extent.kind !== "extent") return;
     expect(extent.box).toEqual([0, 0, 50, 50]);
@@ -54,7 +55,7 @@ describe("a layer's current extent", () => {
   it("narrows to the features a stated constraint leaves", async () => {
     // The constraint arrives as an extra, exactly as a canvas-enforced
     // range or a reader's selection would.
-    const extent = await layerExtent(await layerOf(), [
+    const extent = await layerExtent(testAccountScope(), await layerOf(), [
       { field: "n", kind: "range", min: null, max: 2 },
     ]);
     expect(extent.kind).toBe("extent");
@@ -63,7 +64,7 @@ describe("a layer's current extent", () => {
   });
 
   it("reports empty — not a failure — when nothing survives", async () => {
-    const extent = await layerExtent(await layerOf(), [
+    const extent = await layerExtent(testAccountScope(), await layerOf(), [
       { field: "n", kind: "range", min: 900, max: 999 },
     ]);
     expect(extent.kind).toBe("empty");
@@ -77,7 +78,7 @@ describe("a layer's current extent", () => {
         { field: "n", kind: "range" as const, min: null, max: 2 },
       ],
     };
-    const extent = await layerExtent(stored);
+    const extent = await layerExtent(testAccountScope(), stored);
     expect(extent.kind).toBe("extent");
     if (extent.kind !== "extent") return;
     expect(extent.box).toEqual([0, 0, 10, 10]);
@@ -109,7 +110,7 @@ describe("composing the caller's constraints with the layer's own", () => {
         },
       ],
     };
-    const extent = await layerExtent(january, [
+    const extent = await layerExtent(testAccountScope(), january, [
       { field: "ts", kind: "timerange", min: "2024-02-01", max: "2024-02-28" },
     ]);
     expect(extent.kind).toBe("extent");
@@ -129,7 +130,7 @@ describe("composing the caller's constraints with the layer's own", () => {
         range: [Date.UTC(2024, 0, 1), Date.UTC(2024, 0, 31)],
       },
     ]);
-    const extent = await layerExtent(layer, bound);
+    const extent = await layerExtent(testAccountScope(), layer, bound);
     expect(extent.kind).toBe("extent");
     if (extent.kind !== "extent") return;
     expect(extent.box).toEqual([0, 0, 0, 0]);
@@ -137,7 +138,7 @@ describe("composing the caller's constraints with the layer's own", () => {
 
   it("keeps a category selection alongside a stored filter on the same field", async () => {
     const layer = await layerOf();
-    const extent = await layerExtent(
+    const extent = await layerExtent(testAccountScope(),
       { ...layer, filters: [{ field: "n", kind: "range", min: null, max: 2 }] },
       [{ field: "n", kind: "values", values: ["1"], exclude: true }],
     );

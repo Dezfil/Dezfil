@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile, readdir } from "node:fs/promises";
 import path from "node:path";
@@ -54,12 +55,12 @@ beforeEach(async () => {
 
   const zones = path.join(dir, "zones.csv");
   await writeFile(zones, ZONES);
-  await ingestFile(zones, "zones.csv");
+  await ingestFile(testAccountScope(), zones, "zones.csv");
   const points = path.join(dir, "points.csv");
   await writeFile(points, POINTS);
-  await ingestFile(points, "points.csv");
+  await ingestFile(testAccountScope(), points, "points.csv");
 
-  recipeId = createRecipe("R").id;
+  recipeId = createRecipe(testAccountScope(), "R").id;
 });
 
 afterEach(async () => {
@@ -86,7 +87,7 @@ const joinStep = (name: string, carry: unknown[]) =>
   });
 
 async function runStep(stepId: string) {
-  const job = await startStepRun(stepId);
+  const job = await startStepRun(testAccountScope(), stepId);
   await laneSettled();
   return getJob(job.id)!;
 }
@@ -103,9 +104,9 @@ describe("a SQL step's run", () => {
     expect(after.outputTableId).toBe(job.outputId);
     expect(after.outputTableName).toBe("big_zones");
     // And its lineage, from the parse of the SQL that actually ran.
-    expect(edgesForStep(step.id).map((e) => e.inputTableName)).toEqual(["zones"]);
+    expect(edgesForStep(testAccountScope(), step.id).map((e) => e.inputTableName)).toEqual(["zones"]);
     expect(
-      Number((await executeQuery("SELECT count(*) AS n FROM big_zones")).preview[0].n),
+      Number((await executeQuery(testAccountScope(), "SELECT count(*) AS n FROM big_zones")).preview[0].n),
     ).toBe(4);
   }, 60_000);
 
@@ -139,7 +140,7 @@ describe("a spatial join's run", () => {
     // The right input's table is named only inside a correlated subquery, so
     // an implementation reading dependencies from the outer FROM alone finds
     // one edge here and would leave a refresh of `points` unnoticed.
-    expect(edgesForStep(step.id).map((e) => e.inputTableName).sort()).toEqual([
+    expect(edgesForStep(testAccountScope(), step.id).map((e) => e.inputTableName).sort()).toEqual([
       "points",
       "zones",
     ]);
@@ -149,7 +150,7 @@ describe("a spatial join's run", () => {
     const step = joinStep("enriched", [{ aggregate: "count" }]);
     await runStep(step.id);
 
-    const result = await executeQuery("SELECT name, match_count FROM enriched");
+    const result = await executeQuery(testAccountScope(), "SELECT name, match_count FROM enriched");
     expect(result.rowCount).toBe(4);
     expect(
       Object.fromEntries(
@@ -168,7 +169,7 @@ describe("re-running in place", () => {
     // A layer's SQL names the table, not the run — this is the whole point of
     // keeping identity across a re-run.
     const reader = "SELECT n FROM in_place";
-    expect((await executeQuery(reader)).preview[0].n).toBe(1);
+    expect((await executeQuery(testAccountScope(), reader)).preview[0].n).toBe(1);
 
     editStep(step.id, { sql: "SELECT 2 AS n", name: "in_place" });
     const second = await runStep(step.id);
@@ -178,7 +179,7 @@ describe("re-running in place", () => {
     const table = getTableByName("in_place")!;
     expect(table.id).toBe(firstId);
     expect(second.outputId).toBe(firstId);
-    expect((await executeQuery(reader)).preview[0].n).toBe(2);
+    expect((await executeQuery(testAccountScope(), reader)).preview[0].n).toBe(2);
     // And the proposal became what the step means, now that a run of it worked.
     expect(getStep(step.id)!.parameters).toEqual({
       sql: "SELECT 2 AS n",
@@ -213,7 +214,7 @@ describe("the admission exception cannot be forged", () => {
     // client may send — and asks for the name that step owns. Ownership is a
     // stored fact about the step, so this is an ordinary taken name.
     await expect(
-      startRun({
+      startRun(testAccountScope(), {
         operation: "sql_step",
         parameters: { sql: "SELECT 99 AS n", name: "owned_out" },
         subject: step.id,
@@ -222,7 +223,7 @@ describe("the admission exception cannot be forged", () => {
 
     // No job at all, and the step's data untouched.
     expect(listJobs()).toHaveLength(before);
-    expect((await executeQuery("SELECT n FROM owned_out")).preview[0].n).toBe(1);
+    expect((await executeQuery(testAccountScope(), "SELECT n FROM owned_out")).preview[0].n).toBe(1);
   }, 60_000);
 
   it("still refuses a taken name for a step that owns nothing", async () => {
@@ -230,7 +231,7 @@ describe("the admission exception cannot be forged", () => {
     await runStep(owner.id);
 
     const other = sqlStep("SELECT 2 AS n", "someones_table");
-    await expect(startStepRun(other.id)).rejects.toMatchObject({
+    await expect(startStepRun(testAccountScope(), other.id)).rejects.toMatchObject({
       code: "name_taken",
     });
   }, 60_000);

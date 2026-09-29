@@ -1,7 +1,7 @@
+import type { AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
-import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
-import { getRecipe, listSteps, touchRecipe } from "@/lib/metadata/recipes";
+import { requireRecipe, listSteps, touchRecipe } from "@/lib/metadata/owned-recipes";
 import {
   canonicalLayout,
   getLayout,
@@ -27,29 +27,24 @@ import { normalizeLayout, pruneLayout } from "./layout-document";
  * Sending back exactly what a read returned is never an edit.
  */
 
-const stepIdsOf = (recipeId: string, db: Database) =>
-  new Set(listSteps(recipeId, db).map((s) => s.id));
+const stepIdsOf = (scope: AccountScope, recipeId: string, db: Database) =>
+  new Set(listSteps(scope, recipeId, db).map((s) => s.id));
 
-function requireRecipe(recipeId: string, db: Database): void {
-  if (!getRecipe(recipeId, db)) {
-    throw new ApiError("not_found", `No recipe with id "${recipeId}".`, 404);
-  }
-}
-
-export function readLayout(recipeId: string, db: Database = metadataDb()): StoredLayout {
-  requireRecipe(recipeId, db);
+export function readLayout(scope: AccountScope, recipeId: string, db: Database = metadataDb()): StoredLayout {
+  requireRecipe(scope, recipeId, db);
   const stored = getLayout(recipeId, db);
-  return { ...stored, document: pruneLayout(stored.document, stepIdsOf(recipeId, db)) };
+  return { ...stored, document: pruneLayout(stored.document, stepIdsOf(scope, recipeId, db)) };
 }
 
 export function writeLayout(
+  scope: AccountScope,
   recipeId: string,
   body: unknown,
   db: Database = metadataDb(),
 ): StoredLayout {
   return db.transaction(() => {
-    requireRecipe(recipeId, db);
-    const stepIds = stepIdsOf(recipeId, db);
+    requireRecipe(scope, recipeId, db);
+    const stepIds = stepIdsOf(scope, recipeId, db);
     const document = normalizeLayout(body, stepIds);
     const current = getLayout(recipeId, db);
     const seen = pruneLayout(current.document, stepIds);
@@ -57,7 +52,7 @@ export function writeLayout(
       return { document, updatedAt: current.updatedAt };
     }
     const written = putLayout(recipeId, document, db);
-    touchRecipe(recipeId, db);
+    touchRecipe(scope, recipeId, db);
     return { document, updatedAt: written.updatedAt };
   })();
 }

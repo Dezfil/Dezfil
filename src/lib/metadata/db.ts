@@ -27,10 +27,15 @@ export function metadataDb(): Database.Database {
 /** Open (and migrate) a metadata database at an explicit path — used by tests. */
 export function open(file: string): Database.Database {
   const db = new Database(file);
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
-  migrate(db);
-  return db;
+  try {
+    db.pragma("journal_mode = WAL");
+    db.pragma("foreign_keys = ON");
+    migrate(db);
+    return db;
+  } catch (error) {
+    db.close();
+    throw error;
+  }
 }
 
 function migrate(db: Database.Database): void {

@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import {
@@ -126,7 +127,7 @@ beforeEach(async () => {
   await new Promise<void>((resolve) => server.listen(0, () => resolve()));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   process.env.DEZFIL_GEOCODER_URL = base;
-  await importFromUrl(`${base}/addresses.csv`, "addresses");
+  await importFromUrl(testAccountScope(), `${base}/addresses.csv`, "addresses");
 });
 
 afterEach(async () => {
@@ -146,13 +147,13 @@ afterEach(async () => {
 });
 
 async function run(parameters: Record<string, unknown>) {
-  const job = await startRun({ operation: "geocode_addresses", parameters });
+  const job = await startRun(testAccountScope(), { operation: "geocode_addresses", parameters });
   await laneSettled();
   return getJob(job.id)!;
 }
 
 const located = () =>
-  executeQuery(
+  executeQuery(testAccountScope(),
     `SELECT label, geocode_status, geocode_source, geocode_match,
             geocode_attribution, ST_X(geom) AS x, ST_Y(geom) AS y
      FROM located ORDER BY label`,
@@ -178,7 +179,7 @@ describe("one row out for every row in", () => {
     expect(job.state, job.errorMessage ?? "").toBe("succeeded");
 
     const columns = (
-      await executeQuery("SELECT * FROM (DESCRIBE SELECT * FROM located)")
+      await executeQuery(testAccountScope(), "SELECT * FROM (DESCRIBE SELECT * FROM located)")
     ).preview.map((r) => String(r.column_name));
     // The exact column list, so a stray column fails rather than passing a
     // containment check — the original columns, untouched, then the five.
@@ -272,7 +273,7 @@ describe("what the publication records", () => {
       fromWire: 3,
     });
     // An ordinary run carries none: its evidence is the SQL its output holds.
-    const plain = await startRun({
+    const plain = await startRun(testAccountScope(), {
       operation: "sql_step",
       parameters: { sql: "SELECT 1 AS n", name: "plain" },
     });
@@ -321,29 +322,29 @@ describe("what the publication records", () => {
   });
 
   it("records the edge at the source's exact artifact, and goes stale with it", async () => {
-    const recipe = createRecipe("R");
+    const recipe = createRecipe(testAccountScope(), "R");
     const step = addStep(recipe.id, {
       operation: "geocode_addresses",
       parameters: { input: "addresses", column: "address", name: "located" },
     });
-    const job = await startStepRun(step.id).then(async (j) => {
+    const job = await startStepRun(testAccountScope(), step.id).then(async (j) => {
       await laneSettled();
       return getJob(j.id)!;
     });
     expect(job.state, job.errorMessage ?? "").toBe("succeeded");
 
     const before = getTableByName("addresses")!.file;
-    const edges = edgesForStep(step.id);
+    const edges = edgesForStep(testAccountScope(), step.id);
     expect(edges).toHaveLength(1);
     // The artifact, not merely the identity: staleness is a generation
     // mismatch, and an edge that recorded only the name could not see one.
     expect(edges[0].boundArtifact).toBe(before);
-    expect((await readStep(recipe.id, step.id)).condition.primary).toBe("current");
+    expect((await readStep(testAccountScope(), recipe.id, step.id)).condition.primary).toBe("current");
 
     // A new generation of the source underneath it.
-    await refreshTable("addresses");
+    await refreshTable(testAccountScope(), "addresses");
     expect(getTableByName("addresses")!.file).not.toBe(before);
-    const condition = (await readStep(recipe.id, step.id)).condition;
+    const condition = (await readStep(testAccountScope(), recipe.id, step.id)).condition;
     expect(condition.primary).toBe("stale");
     expect(condition.causes.map((c) => c.reason)).toContain("source_changed");
   });
@@ -364,12 +365,12 @@ describe("the fence, in its own words", () => {
         );
       }, 250);
     };
-    const job = await startRun({
+    const job = await startRun(testAccountScope(), {
       operation: "geocode_addresses",
       parameters: { input: "addresses", column: "address", name: "located" },
     });
     await until(() => asked.length >= 1);
-    await refreshTable("addresses");
+    await refreshTable(testAccountScope(), "addresses");
     await laneSettled();
 
     const settled = getJob(job.id)!;
@@ -401,7 +402,7 @@ describe("the run's bounds", () => {
     let cleaned = 0;
     const { submitRun } = await import("./run");
 
-    const slow = submitRun({
+    const slow = submitRun(testAccountScope(), {
       operationId: "sql_step",
       parameters: {},
       sql: "",
@@ -428,7 +429,7 @@ describe("the run's bounds", () => {
 
     // The control: the same publication, with a preparation that costs
     // nothing, succeeds — so the failure above is the budget and not the SQL.
-    const quick = submitRun({
+    const quick = submitRun(testAccountScope(), {
       operationId: "sql_step",
       parameters: {},
       sql: "",
@@ -452,14 +453,14 @@ describe("the run's bounds", () => {
   it("cancelling closes the exchange in flight and registers nothing", async () => {
     // A provider that accepts the connection and never answers.
     handler = () => {};
-    const job = await startRun({
+    const job = await startRun(testAccountScope(), {
       operation: "geocode_addresses",
       parameters: { input: "addresses", column: "address", name: "located" },
     });
     await until(() => asked.length >= 1);
     const closedBefore = closed;
 
-    await cancelRun(job.id);
+    await cancelRun(testAccountScope(), job.id);
     // **Observed at the fixture**: the connection closes, rather than the job
     // merely reporting itself cancelled while the socket runs to its deadline.
     await until(() => closed > closedBefore);
@@ -480,14 +481,14 @@ describe("the pace is the instance's", () => {
     process.env.DEZFIL_OPERATION_CONCURRENCY = "2";
     resetLane();
     resetLimiter();
-    await importFromUrl(`${base}/many.csv`, "many");
+    await importFromUrl(testAccountScope(), `${base}/many.csv`, "many");
     // Two runs over inputs with no cached answers between them, genuinely
     // overlapping in the lane.
-    const first = startRun({
+    const first = startRun(testAccountScope(), {
       operation: "geocode_addresses",
       parameters: { input: "many", column: "address", name: "one" },
     });
-    const second = startRun({
+    const second = startRun(testAccountScope(), {
       operation: "geocode_addresses",
       parameters: { input: "addresses", column: "address", name: "two" },
     });
@@ -511,8 +512,8 @@ describe("the pace is the instance's", () => {
   it("lets an interactive search take the next slot, ahead of a waiting batch", async () => {
     process.env.DEZFIL_GEOCODE_PACE_MS = "300";
     resetLimiter();
-    await importFromUrl(`${base}/many.csv`, "many");
-    const job = startRun({
+    await importFromUrl(testAccountScope(), `${base}/many.csv`, "many");
+    const job = startRun(testAccountScope(), {
       operation: "geocode_addresses",
       parameters: { input: "many", column: "address", name: "one" },
     });
@@ -541,7 +542,7 @@ describe("the cache makes a second run cheap", () => {
    * one is the *resumed* case below, where asking again is the point.
    */
   it("makes no request at all on a second run over cacheable answers", async () => {
-    await importFromUrl(`${base}/many.csv`, "many");
+    await importFromUrl(testAccountScope(), `${base}/many.csv`, "many");
     await run({ input: "many", column: "address", name: "located" });
     const first = asked.length;
     expect(first).toBe(6);
@@ -550,7 +551,7 @@ describe("the cache makes a second run cheap", () => {
     expect(asked.length).toBe(first);
     // And the second run's rows say where they came from.
     const sources = (
-      await executeQuery("SELECT DISTINCT geocode_source FROM again")
+      await executeQuery(testAccountScope(), "SELECT DISTINCT geocode_source FROM again")
     ).preview.map((r) => r.geocode_source);
     expect(sources).toEqual(["cache"]);
   }, 30_000);
@@ -571,13 +572,13 @@ describe("the cache makes a second run cheap", () => {
   it("goes to the wire only for addresses it has never answered", async () => {
     await run({ input: "addresses", column: "address", name: "located" });
     const before = asked.length;
-    await importFromUrl(`${base}/many.csv`, "many");
+    await importFromUrl(testAccountScope(), `${base}/many.csv`, "many");
     await run({ input: "many", column: "address", name: "more" });
     // Six new addresses, six questions — nothing the first run answered is
     // among them, and nothing is asked twice.
     expect(asked.length - before).toBe(6);
     const third = (
-      await executeQuery(
+      await executeQuery(testAccountScope(),
         "SELECT geocode_source FROM more WHERE geocode_status = 'matched'",
       )
     ).preview;
@@ -589,7 +590,7 @@ describe("a dry run touches nobody", () => {
   it("answers the admitted row count and the fixed point output, asking nothing", async () => {
     const { POST } = await import("@/app/api/operations/run/route");
     const response = await POST(
-      new Request("http://test/api/operations/run", {
+      testAccountRequest(new Request("http://test/api/operations/run", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -597,7 +598,7 @@ describe("a dry run touches nobody", () => {
           dryRun: true,
           parameters: { input: "addresses", column: "address" },
         }),
-      }),
+      })),
     );
     expect(response.status).toBe(200);
     const body = (await response.json()) as {
@@ -617,7 +618,7 @@ describe("run-wide failures, one at a time", () => {
   it("refuses an unconfigured endpoint before a job exists", async () => {
     delete process.env.DEZFIL_GEOCODER_URL;
     await expect(
-      startRun({
+      startRun(testAccountScope(), {
         operation: "geocode_addresses",
         parameters: { input: "addresses", column: "address", name: "located" },
       }),

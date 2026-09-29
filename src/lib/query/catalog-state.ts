@@ -1,34 +1,21 @@
-/**
- * What the process knows it bound into the hardened catalog: per table
- * name, the identity and artifact whose CREATE VIEW actually succeeded.
- * The registration pass consults this to skip tables whose binding
- * cannot have changed — a refresh keeps the name but swaps the
- * artifact, and a reclaimed name changes identity, so both re-register.
- * Only success is remembered: a failed registration leaves no entry and
- * therefore retries on the next pass.
- *
- * The memory belongs to a catalog generation, never to the process. A
- * newer generation swaps in fresh memory lazily; a pass still working
- * for a discarded catalog is handed an orphan map, because its late
- * recordings describe a catalog nobody will query again and must not
- * mark the replacement current (the plan's counter-ordering: a pass
- * acquires its connection before joining the serialized chain, so it
- * can outlive a reset).
- */
+import type { ArtifactRelation } from "./artifact-relation";
 
-export interface TableBinding {
-  id: string;
-  file: string;
-  geometryColumn: string | null;
-}
-
+/** Only immutable artifact projections are cached. A successful view on one
+ * connection never proves that another connection mounted anything. A reset
+ * retires this cache; late work on an older instance gets an orphan map. */
 let generation = -1;
-let bindings = new Map<string, TableBinding>();
-
-export function catalogBindings(gen: number): Map<string, TableBinding> {
+let relations = new Map<string, ArtifactRelation>();
+export function artifactRelations(gen: number): Map<string, ArtifactRelation> {
   if (gen > generation) {
     generation = gen;
-    bindings = new Map();
+    relations = new Map();
   }
-  return gen === generation ? bindings : new Map();
+  return gen === generation ? relations : new Map();
+}
+
+export function invalidateArtifactRelations(owner: string | null, name: string): void {
+  for (const key of relations.keys()) {
+    const [boundOwner, boundName] = JSON.parse(key);
+    if (boundOwner === owner && boundName === name) relations.delete(key);
+  }
 }

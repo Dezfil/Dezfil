@@ -1,3 +1,4 @@
+import { testAccountRequest } from "@/lib/test-support/accounts";
 import { authenticatedRequest } from "./testing/account";
 import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { pendingActions } from "./pending";
@@ -33,7 +34,7 @@ async function reserve() {
   expect(response.status).toBe(201);
   return (await response.json()).id as string;
 }
-async function maps() { return (await (await listMaps(new Request(origin + "/api/maps"))).json()) as { id: string; name: string }[]; }
+async function maps() { return (await (await listMaps(testAccountRequest(new Request(origin + "/api/maps")))).json()) as { id: string; name: string }[]; }
 function provider(gate = false): ModelProvider {
   return { id: "scripted", model: "recovery-real-routes", exchange() {
     factory.exchanges++;
@@ -58,8 +59,8 @@ beforeEach(async () => {
   vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
     const req = input instanceof Request ? input : new Request(String(input), init);
     const url = new URL(req.url);
-    if (url.pathname === "/api/maps" && req.method === "POST") return createMap(req);
-    if (url.pathname === "/api/catalogue/tables") return catalogue(req);
+    if (url.pathname === "/api/maps" && req.method === "POST") return createMap(testAccountRequest(req));
+    if (url.pathname === "/api/catalogue/tables") return catalogue(testAccountRequest(req));
     throw new Error(`Unexpected test route: ${req.method} ${url.pathname}`);
   });
 });

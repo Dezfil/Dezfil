@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 // Ordinary CI proves the scenario harness with a scripted provider. Explicit
 // DEZFIL_ASSISTANT_LIVE=openai|anthropic replaces only the provider seam with
 // that vendor, on isolated real routes/data. It never discovers credentials.
@@ -126,10 +127,10 @@ for (const provider of ["openai", "anthropic"] as const) describe.skipIf(Boolean
     evidence = { runLineage: [], scenario: test.task.name, configuredModel: "", returnedModels: [], events: [], outcomes: {} };
     const csv = path.join(dir, "population.csv");
     await writeFile(csv, "lon,lat,population\n13.4,52.5,100\n13.5,52.6,200\n");
-    await ingestFile(csv, "population.csv");
-    const map = createMap("Scenario map");
-    const layer = await createLayer(map.id, { name: "Selected population", sql: "SELECT * FROM population" });
-    const second = await createLayer(map.id, { name: "Other population", sql: "SELECT * FROM population" });
+    await ingestFile(testAccountScope(), csv, "population.csv");
+    const map = createMap(testAccountScope(), "Scenario map");
+    const layer = await createLayer(testAccountScope(), map.id, { name: "Selected population", sql: "SELECT * FROM population" });
+    const second = await createLayer(testAccountScope(), map.id, { name: "Other population", sql: "SELECT * FROM population" });
     context = { page: "builder", mapId: map.id, selectedLayerId: layer.id }; otherLayer = second.id;
   });
   afterEach(async (test) => {

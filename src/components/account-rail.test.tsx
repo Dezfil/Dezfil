@@ -1,10 +1,13 @@
 import { type MouseEvent } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Account } from "@/lib/metadata/accounts";
 import { AccountRailView } from "./AccountRail";
 import { UserBadge } from "./UserBadge";
 import { sectionFor } from "./NavLinks";
+import { conversation, LOCATOR_KEY } from "./builder/assistant/conversation-store";
+import { SQL_KEYS, readStored, writeStored } from "./sql/sql-storage";
+import { openPrivateState } from "./auth/private-state";
 
 const controls = vi.hoisted(() => ({ signOut: undefined as ((event: MouseEvent<HTMLButtonElement>) => void) | undefined }));
 vi.mock("./ui/IconButton", async original => {
@@ -14,6 +17,7 @@ vi.mock("./ui/IconButton", async original => {
     return <IconButton {...props} />;
   } };
 });
+beforeEach(() => openPrivateState("one"));
 afterEach(() => vi.unstubAllGlobals());
 vi.mock("next/navigation", () => ({ usePathname: () => "/settings" }));
 const account = { id: "one", name: "Frida Merian", email: "frida@example.test", isAdmin: true } as Account;
@@ -46,19 +50,46 @@ describe("the account rail", () => {
     }
   });
   it("ends the session before a full navigation discards account state", async () => {
-    const assign = vi.fn(), request = vi.fn(async () => Response.json({ signedOut: true }));
-    vi.stubGlobal("fetch", request); vi.stubGlobal("window", { location: { assign } });
+    const replace = vi.fn(), request = vi.fn(async () => Response.json({ signedOut: true }));
+    vi.stubGlobal("fetch", request); vi.stubGlobal("window", { location: { replace, origin: "http://instance.test" }, dispatchEvent: vi.fn() });
     renderToStaticMarkup(<UserBadge account={account} />);
     await controls.signOut?.({} as MouseEvent<HTMLButtonElement>);
     expect(request).toHaveBeenCalledWith("/api/auth/sign-out", { method: "POST", cache: "no-store" });
-    expect(assign).toHaveBeenCalledWith("/sign-in");
+    expect(replace).toHaveBeenCalledWith("http://instance.test/sign-in");
   });
   it("keeps the current screen when the server refuses sign-out", async () => {
-    const assign = vi.fn();
+    const replace = vi.fn();
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: { code: "unavailable", message: "Please try again." } }, { status: 503 })));
-    vi.stubGlobal("window", { location: { assign } });
+    vi.stubGlobal("window", { location: { replace, origin: "http://instance.test" }, dispatchEvent: vi.fn() });
     renderToStaticMarkup(<UserBadge account={account} />);
     await controls.signOut?.({} as MouseEvent<HTMLButtonElement>);
-    expect(assign).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
+  });
+  it("clears private drafts and assistant receipts and aborts their flight on sign-out", async () => {
+    const values = new Map<string, string>();
+    const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key), key: (index: number) => [...values.keys()][index] ?? null, get length() { return values.size; } };
+    vi.stubGlobal("localStorage", storage); vi.stubGlobal("sessionStorage", storage);
+    vi.stubGlobal("window", { location: { assign: vi.fn(), replace: vi.fn(), origin: "http://instance.test" }, dispatchEvent: vi.fn() });
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ signedOut: true })));
+    writeStored(SQL_KEYS.draft, { text: "SELECT private_sentinel FROM roads" });
+    writeStored(SQL_KEYS.history, ["private_sentinel"]);
+    const flight = new AbortController();
+    conversation.active = { id: "private-receipt", message: "private_sentinel" };
+    conversation.flight = flight; conversation.set({ input: "private_sentinel" });
+    renderToStaticMarkup(<UserBadge account={account} />);
+    await controls.signOut?.({} as MouseEvent<HTMLButtonElement>);
+    expect(readStored(SQL_KEYS.draft, null)).toBeNull();
+    expect(readStored(SQL_KEYS.history, null)).toBeNull();
+    expect(values.has(LOCATOR_KEY)).toBe(false);
+    expect(values.has(SQL_KEYS.draft)).toBe(false);
+    expect(values.has(SQL_KEYS.history)).toBe(false);
+    expect(conversation.get().input).toBe("");
+    expect(flight.signal.aborted).toBe(true);
+    writeStored(SQL_KEYS.draft, "late private result");
+    conversation.active = { id: "late-ticket", message: "late private result" };
+    conversation.set({ input: "late private result" });
+    expect(values.has(SQL_KEYS.draft)).toBe(false);
+    expect(values.has(LOCATOR_KEY)).toBe(false);
+    expect(conversation.get().input).toBe("");
   });
 });

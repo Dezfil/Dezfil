@@ -1,3 +1,5 @@
+import { resourceAbsent, requireOwnedResource } from "@/lib/auth/owned-resource";
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
@@ -5,7 +7,7 @@ import { dataDir } from "@/lib/config";
 import { ApiError } from "@/lib/api/errors";
 import { registerTable, type DataTable } from "@/lib/metadata/tables";
 import { metadataDb } from "@/lib/metadata/db";
-import { fileTable } from "@/lib/metadata/projects";
+import { fileOwnedTable } from "@/lib/metadata/owned-tables";
 import { importProjectId } from "@/lib/project-scope";
 import {
   getConnection,
@@ -40,18 +42,15 @@ function ident(s: string): string {
   return `"${s.replace(/"/g, '""')}"`;
 }
 
-export function requireTarget(connectionId: string): {
+export function requireTarget(scope: AccountScope, connectionId: string): {
   connection: PgConnection;
   target: ConnectionTarget;
 } {
-  const connection = getConnection(connectionId);
-  const password = connectionPassword(connectionId);
+  requireOwnedResource(scope, "connection", connectionId);
+  const connection = getConnection(scope, connectionId);
+  const password = connectionPassword(scope, connectionId);
   if (!connection || password === null) {
-    throw new ApiError(
-      "not_found",
-      `No PostGIS connection with id "${connectionId}".`,
-      404,
-    );
+    throw resourceAbsent();
   }
   return { connection, target: { ...connection, password } };
 }
@@ -182,11 +181,16 @@ export function resolvePostgisRequest(request: PostgisImportRequest): {
 
 /** Import a PostGIS table as a snapshot. */
 export async function importPostgis(
+  scope: AccountScope,
   request: PostgisImportRequest,
   build: typeof buildPostgisArtifact = buildPostgisArtifact,
 ): Promise<DataTable> {
+  requireAccountScope(scope);
+  const projectId = importProjectId(request.projectId);
+  if (projectId) requireOwnedResource(scope, "project", projectId);
   const { recipe, requestedName } = resolvePostgisRequest(request);
-  const { connection, target } = requireTarget(recipe.connectionId);
+  requireOwnedResource(scope, "connection", recipe.connectionId);
+  const { connection, target } = requireTarget(scope, recipe.connectionId);
 
   const id = randomUUID();
   const relFile = path.join("tables", `${id}.parquet`);
@@ -198,16 +202,17 @@ export async function importPostgis(
       observedHealth = health;
     });
   } catch (error) {
-    if (isConnectionLevelFailure(error)) {
-      recordConnectionFailure(recipe.connectionId, error);
-    } else if (observedHealth) {
-      recordConnectionHealth(recipe.connectionId, observedHealth);
-    }
     await rm(artifact, { force: true });
+    requireOwnedResource(scope, "connection", recipe.connectionId);
+    if (isConnectionLevelFailure(error)) {
+      recordConnectionFailure(scope, recipe.connectionId, error);
+    } else if (observedHealth) {
+      recordConnectionHealth(scope, recipe.connectionId, observedHealth);
+    }
     throw error;
   }
-  recordConnectionHealth(recipe.connectionId, meta.connectionHealth);
   try {
+    recordConnectionHealth(scope, recipe.connectionId, meta.connectionHealth);
     const record: Omit<DataTable, "name"> = {
       id,
       sourceFilename: `${recipe.schema}.${recipe.table}`,
@@ -233,10 +238,11 @@ export async function importPostgis(
     // Derive-and-register in one synchronous step; the project
     // membership commits with it.
     const db = metadataDb();
-    const projectId = importProjectId(request.projectId);
+
     return db.transaction(() => {
-      const table = registerTable(record, requestedName ?? recipe.table, db);
-      if (projectId) fileTable(table.id, projectId, db);
+      requireOwnedResource(scope, "connection", recipe.connectionId, db);
+      const table = registerTable(scope, record, requestedName ?? recipe.table, db);
+      if (projectId) fileOwnedTable(scope, table.id, projectId, db);
       return table;
     })();
   } catch (error) {

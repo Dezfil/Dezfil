@@ -1,3 +1,5 @@
+import { privateTileAccess } from "@/lib/tiles/access";
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -79,7 +81,7 @@ beforeEach(async () => {
       "sudkreuz,120,13.360,52.480",
     ].join("\n"),
   );
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
 });
 
 afterEach(async () => {
@@ -97,30 +99,30 @@ function timeoutNow() {
 
 describe("query bounds — layer admission lanes", () => {
   it("layer creation times out with the documented error", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     timeoutNow();
     await expect(
-      createLayer(map.id, { name: "slow", sql: SLOW_EVERYWHERE }),
+      createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_EVERYWHERE }),
     ).rejects.toMatchObject({ code: "query_timeout", status: 408 });
   }, 30_000);
 
   it("a SQL edit times out the same way", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, { name: "fast", sql: FAST });
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST });
     timeoutNow();
     await expect(
-      updateLayer(layer.id, { sql: SLOW_EVERYWHERE }),
+      updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE }),
     ).rejects.toMatchObject({ code: "query_timeout", status: 408 });
   }, 30_000);
 
   it("the fields lane is bounded through preparation", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, { name: "fast", sql: FAST });
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST });
     timeoutNow();
     vi.mocked(registerTableViews).mockImplementationOnce(
       () => new Promise<void>(() => {}),
     );
-    await expect(layerFields(layer)).rejects.toMatchObject({
+    await expect(layerFields(testAccountScope(), layer)).rejects.toMatchObject({
       code: "query_timeout",
     });
   }, 30_000);
@@ -128,10 +130,10 @@ describe("query bounds — layer admission lanes", () => {
 
 describe("query bounds — stats and styling lanes", () => {
   it("field stats time out with the documented error", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, { name: "slow", sql: SLOW_VALUES });
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES });
     timeoutNow();
-    await expect(layerFieldStats(layer, "v")).rejects.toMatchObject({
+    await expect(layerFieldStats(testAccountScope(), layer, "v")).rejects.toMatchObject({
       code: "query_timeout",
       status: 408,
     });
@@ -140,36 +142,36 @@ describe("query bounds — stats and styling lanes", () => {
   it("classification breaks time out with the documented error", async () => {
     timeoutNow();
     await expect(
-      classifyFill(SLOW_VALUES, "v", "quantile"),
+      classifyFill(testAccountScope(), SLOW_VALUES, "v", "quantile"),
     ).rejects.toMatchObject({ code: "query_timeout", status: 408 });
   }, 30_000);
 
   it("size scales time out with the documented error", async () => {
     timeoutNow();
     await expect(
-      computeSizeScale(SLOW_VALUES, "v", [0, 30]),
+      computeSizeScale(testAccountScope(), SLOW_VALUES, "v", [0, 30]),
     ).rejects.toMatchObject({ code: "query_timeout", status: 408 });
   }, 30_000);
 
   it("slider previews time out with the documented error", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, { name: "slow", sql: SLOW_VALUES });
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES });
     timeoutNow();
-    await expect(sliderPreviewData(layer)).rejects.toMatchObject({
+    await expect(sliderPreviewData(testAccountScope(), layer)).rejects.toMatchObject({
       code: "query_timeout",
       status: 408,
     });
   }, 30_000);
 
   it("an edit's classification recomputation times out, never degrades", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, { name: "slow", sql: SLOW_VALUES });
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES });
     // Budget above the (shortcut-fast) inspection, below the aggregation
     // scan — pinning the timeout to the recompute itself, and proving the
     // fill fallback does not swallow the bound into a constant fill.
     process.env.DEZFIL_QUERY_TIMEOUT_S = "1";
     await expect(
-      updateLayer(layer.id, {
+      updateLayer(testAccountScope(), layer.id, {
         viz: { type: "grid", cellKm: 1, aggregate: { fn: "sum", attribute: "v" } },
       }),
     ).rejects.toMatchObject({ code: "query_timeout", status: 408 });
@@ -178,11 +180,11 @@ describe("query bounds — stats and styling lanes", () => {
 
 describe("query bounds — render lanes", () => {
   it("a render times out into the errored envelope with the documented code", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, { name: "fast", sql: FAST });
-    const slow = await updateLayer(layer.id, { sql: SLOW_EVERYWHERE });
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST });
+    const slow = await updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE });
     timeoutNow();
-    const render = await renderLayer(slow);
+    const render = await renderLayer(testAccountScope(), slow, undefined, { tileAccess: privateTileAccess(testAccountScope(), (slow).id) });
     expect(render).toMatchObject({
       ok: false,
       error: { code: "query_timeout" },
@@ -190,9 +192,9 @@ describe("query bounds — render lanes", () => {
   }, 30_000);
 
   it("a settle render with selections times out the same way", async () => {
-    const map = createMap("m");
-    const created = await createLayer(map.id, { name: "slow", sql: SLOW_VALUES });
-    const gridded = await updateLayer(created.id, {
+    const map = createMap(testAccountScope(), "m");
+    const created = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES });
+    const gridded = await updateLayer(testAccountScope(), created.id, {
       viz: {
         type: "grid",
         cellKm: 1,
@@ -203,7 +205,7 @@ describe("query bounds — render lanes", () => {
       },
     });
     timeoutNow();
-    const render = await renderLayerWithSelections(gridded, [
+    const render = await renderLayerWithSelections(testAccountScope(), gridded, [
       { field: "v", kind: "values", values: ["1", "2"] },
     ]);
     expect(render).toMatchObject({
@@ -215,9 +217,9 @@ describe("query bounds — render lanes", () => {
 
 describe("query bounds — widget lanes", () => {
   it("widget values time out with the documented error, not per-widget noise", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, { name: "slow", sql: SLOW_VALUES });
-    const withWidgets = updateMap(map.id, {
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES });
+    const withWidgets = updateMap(testAccountScope(), map.id, {
       widgets: [
         {
           id: "wf",
@@ -236,17 +238,17 @@ describe("query bounds — widget lanes", () => {
     });
     timeoutNow();
     await expect(
-      computeWidgetValues(withWidgets, withWidgets.layers, []),
+      computeWidgetValues(testAccountScope(), withWidgets, withWidgets.layers, []),
     ).rejects.toMatchObject({ code: "query_timeout", status: 408 });
   }, 30_000);
 });
 
 describe("query bounds — published lanes", () => {
   it("published view assembly bounds each layer, visible as the coded error", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, { name: "fast", sql: FAST });
-    await updateLayer(layer.id, { sql: SLOW_EVERYWHERE });
-    const { token } = publishMap(map.id);
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST });
+    await updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE });
+    const { token } = publishMap(testAccountScope(), map.id);
     timeoutNow();
     const view = await getPublishedView(token, Date.now());
     if (!view) throw new Error("view did not assemble");
@@ -264,9 +266,9 @@ describe("query bounds — published lanes", () => {
   }, 30_000);
 
   it("the published selection re-render route reports the coded envelope", async () => {
-    const map = createMap("m");
-    const created = await createLayer(map.id, { name: "slow", sql: SLOW_VALUES });
-    const gridded = await updateLayer(created.id, {
+    const map = createMap(testAccountScope(), "m");
+    const created = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES });
+    const gridded = await updateLayer(testAccountScope(), created.id, {
       viz: {
         type: "grid",
         cellKm: 1,
@@ -276,7 +278,7 @@ describe("query bounds — published lanes", () => {
     });
     // The selection's field must be one the published surface declares
     // — as every real dashboard selection is.
-    updateMap(map.id, {
+    updateMap(testAccountScope(), map.id, {
       widgets: [
         {
           id: "wc",
@@ -293,7 +295,7 @@ describe("query bounds — published lanes", () => {
         },
       ],
     });
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     timeoutNow();
     const response = await publishedRenderRoute(
       new Request("http://localhost:3000/x", {
@@ -317,9 +319,9 @@ describe("query bounds — published lanes", () => {
   }, 30_000);
 
   it("the published widget-values route fails with the documented code", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, { name: "slow", sql: SLOW_VALUES });
-    updateMap(map.id, {
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES });
+    updateMap(testAccountScope(), map.id, {
       widgets: [
         {
           id: "wf",
@@ -336,7 +338,7 @@ describe("query bounds — published lanes", () => {
         },
       ],
     });
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     timeoutNow();
     const response = await publishedWidgetValuesRoute(
       new Request("http://localhost:3000/x", {
@@ -354,14 +356,14 @@ describe("query bounds — published lanes", () => {
 
 describe("trailing comments: valid SQL is not broken by its own comments", () => {
   it("the workspace accepts every trailing-comment shape", async () => {
-    expect((await executeQuery("SELECT * FROM stations -- note")).rowCount).toBe(3);
+    expect((await executeQuery(testAccountScope(), "SELECT * FROM stations -- note")).rowCount).toBe(3);
     expect(
-      (await executeQuery("SELECT * FROM stations\n-- LIMIT 1")).rowCount,
+      (await executeQuery(testAccountScope(), "SELECT * FROM stations\n-- LIMIT 1")).rowCount,
     ).toBe(3);
     expect(
-      (await executeQuery("SELECT * FROM stations; -- note")).rowCount,
+      (await executeQuery(testAccountScope(), "SELECT * FROM stations; -- note")).rowCount,
     ).toBe(3);
-    const literal = await executeQuery(
+    const literal = await executeQuery(testAccountScope(),
       "SELECT 'a -- b' AS t FROM stations LIMIT 1",
     );
     expect(literal.preview[0].t).toBe("a -- b");
@@ -369,7 +371,7 @@ describe("trailing comments: valid SQL is not broken by its own comments", () =>
 
   it("a genuinely invalid query still points at the user's SQL", async () => {
     await expect(
-      executeQuery("SELECT nope FROM stations -- x"),
+      executeQuery(testAccountScope(), "SELECT nope FROM stations -- x"),
     ).rejects.toMatchObject({
       code: "sql_error",
       message: expect.stringMatching(/nope/),
@@ -377,14 +379,14 @@ describe("trailing comments: valid SQL is not broken by its own comments", () =>
   }, 30_000);
 
   it("layer, widget and published lanes evaluate commented SQL", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, {
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "commented",
       sql: `${FAST} -- note`,
     });
-    expect((await renderLayer(layer)).ok).toBe(true);
+    expect((await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) })).ok).toBe(true);
 
-    const withWidgets = updateMap(map.id, {
+    const withWidgets = updateMap(testAccountScope(), map.id, {
       widgets: [
         {
           id: "wf",
@@ -401,11 +403,11 @@ describe("trailing comments: valid SQL is not broken by its own comments", () =>
         },
       ],
     });
-    const values = await computeWidgetValues(withWidgets, withWidgets.layers, []);
+    const values = await computeWidgetValues(testAccountScope(), withWidgets, withWidgets.layers, []);
     expect(values.widgets[0]).toMatchObject({ id: "wf" });
     expect(values.widgets[0]).not.toHaveProperty("error");
 
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     if (!view) throw new Error("view did not assemble");
     expect(view.layers[0].render.ok).toBe(true);
@@ -414,12 +416,12 @@ describe("trailing comments: valid SQL is not broken by its own comments", () =>
 
 describe("query bounds — outcome attribution", () => {
   it("a value literally named 'interrupt' stays a per-widget error", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, {
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "tricky",
       sql: "SELECT 'interrupt' AS v, geometry FROM stations",
     });
-    const withWidgets = updateMap(map.id, {
+    const withWidgets = updateMap(testAccountScope(), map.id, {
       widgets: [
         {
           id: "wf",
@@ -439,7 +441,7 @@ describe("query bounds — outcome attribution", () => {
     // The engine's conversion error quotes the value; the boundary's own
     // flag — not the message text — decides, so this degrades per widget
     // instead of escaping as a request-level failure.
-    const values = await computeWidgetValues(withWidgets, withWidgets.layers, []);
+    const values = await computeWidgetValues(testAccountScope(), withWidgets, withWidgets.layers, []);
     expect(values.widgets[0].id).toBe("wf");
     expect(values.widgets[0]).toHaveProperty("error");
   }, 30_000);
@@ -453,7 +455,7 @@ describe("query bounds — the export lane", () => {
     timeoutNow();
     await expect(
       exportLayerResult(
-        { name: "slow", sql: SLOW_EVERYWHERE, filters: [], viz: POINTS_VIZ },
+        testAccountScope(), { name: "slow", sql: SLOW_EVERYWHERE, filters: [], viz: POINTS_VIZ },
         "csv",
       ),
     ).rejects.toMatchObject({ code: "query_timeout" });
@@ -465,7 +467,7 @@ describe("query bounds — the export lane", () => {
     try {
       await expect(
         exportLayerResult(
-          {
+          testAccountScope(), {
             name: "hungry",
             sql: "SELECT geometry, hash(a.range) AS h FROM stations, (SELECT * FROM range(50000000) ORDER BY hash(range)) a",
             filters: [],
@@ -484,7 +486,7 @@ describe("query bounds — the export lane", () => {
     const caller = new AbortController();
     const started = Date.now();
     const run = exportLayerResult(
-      { name: "slow", sql: SLOW_EVERYWHERE, filters: [], viz: POINTS_VIZ },
+      testAccountScope(), { name: "slow", sql: SLOW_EVERYWHERE, filters: [], viz: POINTS_VIZ },
       "csv",
       caller.signal,
     );
@@ -497,7 +499,7 @@ describe("query bounds — the export lane", () => {
     // The read-only guard rejects a mutation before it can run…
     await expect(
       exportLayerResult(
-        {
+        testAccountScope(), {
           name: "evil",
           sql: "DELETE FROM stations",
           filters: [],
@@ -506,11 +508,10 @@ describe("query bounds — the export lane", () => {
         "csv",
       ),
     ).rejects.toMatchObject({ code: "sql_rejected" });
-    // …and user SQL cannot read outside the fence — the main instance
-    // would serve this path; the hardened one refuses it.
+    // File SQL is refused before binding, even when the path exists.
     await expect(
       exportLayerResult(
-        {
+        testAccountScope(), {
           name: "reach",
           sql: `SELECT geometry, * FROM read_csv('${path
             .join(dir, "stations.csv")
@@ -520,7 +521,7 @@ describe("query bounds — the export lane", () => {
         },
         "csv",
       ),
-    ).rejects.toMatchObject({ code: "sql_error" });
+    ).rejects.toMatchObject({ code: "sql_rejected" });
   }, 30_000);
 });
 
@@ -530,11 +531,11 @@ describe("query bounds — the memory budget", () => {
     resetQueryInstance();
     try {
       await expect(
-        executeQuery(
+        executeQuery(testAccountScope(),
           "SELECT count(*) FROM (SELECT * FROM range(50000000) ORDER BY hash(range)) t",
         ),
       ).rejects.toMatchObject({ code: "query_memory_exceeded" });
-      const after = await executeQuery("SELECT count(*) AS n FROM stations");
+      const after = await executeQuery(testAccountScope(), "SELECT count(*) AS n FROM stations");
       expect(after.rowCount).toBe(1);
       expect(Number(after.preview[0].n)).toBe(3);
     } finally {
@@ -546,22 +547,22 @@ describe("query bounds — the memory budget", () => {
 
 describe("query bounds — a caller that leaves takes its work with it", () => {
   it("a builder render cancels with its departed caller", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, { name: "fast", sql: FAST });
-    const slow = await updateLayer(layer.id, { sql: SLOW_EVERYWHERE });
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST });
+    const slow = await updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE });
     const caller = new AbortController();
     const started = Date.now();
-    const render = renderLayer(slow, caller.signal);
+    const render = renderLayer(testAccountScope(), slow, caller.signal, { tileAccess: privateTileAccess(testAccountScope(), (slow).id) });
     setTimeout(() => caller.abort(), 150);
     await expect(render).rejects.toBeInstanceOf(EvaluationCancelled);
     expect(Date.now() - started).toBeLessThan(10_000);
   }, 30_000);
 
   it("a published view assembly cancels with its departed reader", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, { name: "fast", sql: FAST });
-    await updateLayer(layer.id, { sql: SLOW_EVERYWHERE });
-    const { token } = publishMap(map.id);
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST });
+    await updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE });
+    const { token } = publishMap(testAccountScope(), map.id);
     const reader = new AbortController();
     const started = Date.now();
     const view = getPublishedView(token, Date.now(), reader.signal);

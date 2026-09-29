@@ -1,3 +1,5 @@
+import { privateTileAccess } from "@/lib/tiles/access";
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -40,7 +42,7 @@ beforeEach(async () => {
     src,
     "name,lon,lat,riders\na,13.4,52.5,100\nb,13.3,52.4,500\nc,13.2,52.6,900\n",
   );
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
 });
 
 afterEach(async () => {
@@ -52,30 +54,30 @@ afterEach(async () => {
 
 describe("maps", () => {
   it("creates, lists, reads, renames, and deletes", async () => {
-    const map = createMap("Transit");
-    expect(allMaps().map((m) => m.id)).toContain(map.id);
-    expect(mapWithLayers(map.id).name).toBe("Transit");
-    updateMap(map.id, { name: "Transit v2" });
-    expect(mapWithLayers(map.id).name).toBe("Transit v2");
-    await removeMap(map.id);
-    expect(allMaps()).toEqual([]);
+    const map = createMap(testAccountScope(), "Transit");
+    expect(allMaps(testAccountScope()).map((m) => m.id)).toContain(map.id);
+    expect(mapWithLayers(testAccountScope(), map.id).name).toBe("Transit");
+    updateMap(testAccountScope(), map.id, { name: "Transit v2" });
+    expect(mapWithLayers(testAccountScope(), map.id).name).toBe("Transit v2");
+    await removeMap(testAccountScope(), map.id);
+    expect(allMaps(testAccountScope())).toEqual([]);
   });
 
   it("lists overviews with layer count and colors", async () => {
-    const map = createMap("Overview");
-    await createLayer(map.id, {
+    const map = createMap(testAccountScope(), "Overview");
+    await createLayer(testAccountScope(), map.id, {
       name: "Stations",
       sql: "SELECT * FROM stations",
     });
-    const overview = mapsOverview().find((m) => m.id === map.id);
+    const overview = mapsOverview(testAccountScope()).find((m) => m.id === map.id);
     expect(overview?.layerCount).toBe(1);
     expect(overview?.layerColors).toHaveLength(1);
     expect(overview?.layerColors[0]).toMatch(/^rgba\(/);
   });
 
   it("duplicates a map as an unpublished draft with copied layers", async () => {
-    const map = createMap("Original");
-    updateMap(map.id, {
+    const map = createMap(testAccountScope(), "Original");
+    updateMap(testAccountScope(), map.id, {
       viewport: {
         lng: 13.4,
         lat: 52.5,
@@ -84,14 +86,14 @@ describe("maps", () => {
         bearing: 0,
       },
     });
-    const layer = await createLayer(map.id, {
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "Stations",
       sql: "SELECT * FROM stations",
     });
-    publishMap(map.id);
+    publishMap(testAccountScope(), map.id);
 
     // The custom icon markup rides the copied viz whole.
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       viz: {
         type: "icon",
         glyph: "marker",
@@ -100,7 +102,7 @@ describe("maps", () => {
       },
     });
 
-    const copy = duplicateMap(map.id);
+    const copy = duplicateMap(testAccountScope(), map.id);
     expect(copy.name).toBe("Original copy");
     expect(copy.publishToken).toBeNull();
     expect(
@@ -117,22 +119,22 @@ describe("maps", () => {
     expect(copy.layers[0].sql).toBe("SELECT * FROM stations");
     expect(copy.layers[0].id).not.toBe(layer.id);
     // The original keeps its publish state and layers.
-    expect(mapWithLayers(map.id).publishToken).not.toBeNull();
-    expect(mapWithLayers(map.id).layers).toHaveLength(1);
+    expect(mapWithLayers(testAccountScope(), map.id).publishToken).not.toBeNull();
+    expect(mapWithLayers(testAccountScope(), map.id).layers).toHaveLength(1);
   });
 
   it("lists tables with their size on disk", async () => {
-    const listing = await listTablesWithSize();
+    const listing = await listTablesWithSize(testAccountScope());
     const stations = listing.find((t) => t.name === "stations");
     expect(stations?.sizeBytes).toBeGreaterThan(0);
   });
 
   it("persists viewport round-trips, camera included", () => {
-    const map = createMap("m");
-    updateMap(map.id, {
+    const map = createMap(testAccountScope(), "m");
+    updateMap(testAccountScope(), map.id, {
       viewport: { lng: 13.4, lat: 52.5, zoom: 11, pitch: 45, bearing: -15 },
     });
-    expect(mapWithLayers(map.id).viewport).toEqual({
+    expect(mapWithLayers(testAccountScope(), map.id).viewport).toEqual({
       lng: 13.4,
       lat: 52.5,
       zoom: 11,
@@ -142,19 +144,19 @@ describe("maps", () => {
   });
 
   it("persists the basemap choice; null means deployment default", () => {
-    const map = createMap("m");
-    expect(mapWithLayers(map.id).basemap).toBeNull();
-    updateMap(map.id, { basemap: "light" });
-    expect(mapWithLayers(map.id).basemap).toBe("light");
-    updateMap(map.id, { basemap: null });
-    expect(mapWithLayers(map.id).basemap).toBeNull();
+    const map = createMap(testAccountScope(), "m");
+    expect(mapWithLayers(testAccountScope(), map.id).basemap).toBeNull();
+    updateMap(testAccountScope(), map.id, { basemap: "light" });
+    expect(mapWithLayers(testAccountScope(), map.id).basemap).toBe("light");
+    updateMap(testAccountScope(), map.id, { basemap: null });
+    expect(mapWithLayers(testAccountScope(), map.id).basemap).toBeNull();
   });
 });
 
 describe("layers as source of truth", () => {
   it("creates a layer from a spatial result with a default style", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, {
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "stations",
       sql: "SELECT * FROM stations",
     });
@@ -162,14 +164,14 @@ describe("layers as source of truth", () => {
     expect(layer.visible).toBe(true);
     expect(layer.tooltip).toBeNull();
     expect(layer.inLegend).toBe(true);
-    expect(requireLayer(layer.id).sql).toBe("SELECT * FROM stations");
+    expect(requireLayer(testAccountScope(), layer.id).sql).toBe("SELECT * FROM stations");
   });
 
   it("cycles default layer colors by creation order (kepler cycle)", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const sql = "SELECT * FROM stations";
-    const first = await createLayer(map.id, { name: "a", sql });
-    const second = await createLayer(map.id, { name: "b", sql });
+    const first = await createLayer(testAccountScope(), map.id, { name: "a", sql });
+    const second = await createLayer(testAccountScope(), map.id, { name: "b", sql });
     const fill = (l: typeof first) =>
       l.style.fill.type === "constant" ? l.style.fill.color : null;
     expect(fill(first)).toMatchObject(
@@ -181,31 +183,31 @@ describe("layers as source of truth", () => {
   });
 
   it("round-trips tooltip fields and legend inclusion", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, {
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "stations",
       sql: "SELECT * FROM stations",
     });
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       tooltip: ["name", "riders"],
       inLegend: false,
     });
-    const read = requireLayer(layer.id);
+    const read = requireLayer(testAccountScope(), layer.id);
     expect(read.tooltip).toEqual(["name", "riders"]);
     expect(read.inLegend).toBe(false);
-    await updateLayer(layer.id, { tooltip: null });
-    expect(requireLayer(layer.id).tooltip).toBeNull();
+    await updateLayer(testAccountScope(), layer.id, { tooltip: null });
+    expect(requireLayer(testAccountScope(), layer.id).tooltip).toBeNull();
   });
 
   it("round-trips the published-field list; [] and null differ", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, {
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "stations",
       sql: "SELECT * FROM stations",
     });
     expect(layer.publishedFields).toBeNull();
 
-    const set = await updateLayer(layer.id, {
+    const set = await updateLayer(testAccountScope(), layer.id, {
       publishedFields: ["riders", "name"],
     });
     expect(set.publishedFields).toEqual(["riders", "name"]);
@@ -213,24 +215,24 @@ describe("layers as source of truth", () => {
 
     // The empty list is a real override — the functional core only —
     // distinct from null, which restores the derived projection.
-    await updateLayer(layer.id, { publishedFields: [] });
+    await updateLayer(testAccountScope(), layer.id, { publishedFields: [] });
     expect(getLayer(layer.id)?.publishedFields).toEqual([]);
-    await updateLayer(layer.id, { publishedFields: null });
+    await updateLayer(testAccountScope(), layer.id, { publishedFields: null });
     expect(getLayer(layer.id)?.publishedFields).toBeNull();
   });
 
   it("published-field list rides the headless PATCH lane", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, {
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "stations",
       sql: "SELECT * FROM stations",
     });
     const patch = (body: unknown) =>
       patchLayerRoute(
-        new Request(`http://localhost/api/layers/${layer.id}`, {
+        testAccountRequest(new Request(`http://localhost/api/layers/${layer.id}`, {
           method: "PATCH",
           body: JSON.stringify(body),
-        }),
+        })),
         { params: Promise.resolve({ id: layer.id }) },
       );
 
@@ -246,14 +248,14 @@ describe("layers as source of truth", () => {
   });
 
   it("duplicates a layer as a full copy, suffixed, stacked on top", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, {
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "stations",
       sql: "SELECT * FROM stations",
     });
-    await updateLayer(layer.id, { tooltip: ["name"], inLegend: false });
-    await updateLayer(layer.id, { publishedFields: ["riders"] });
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, { tooltip: ["name"], inLegend: false });
+    await updateLayer(testAccountScope(), layer.id, { publishedFields: ["riders"] });
+    await updateLayer(testAccountScope(), layer.id, {
       viz: {
         type: "icon",
         glyph: "cafe",
@@ -261,7 +263,7 @@ describe("layers as source of truth", () => {
           '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 4"><path d="M0 0h4"/></svg>',
       },
     });
-    const copy = duplicateLayer(layer.id);
+    const copy = duplicateLayer(testAccountScope(), layer.id);
     expect(copy.id).not.toBe(layer.id);
     expect(copy.name).toBe("stations copy");
     expect(copy.sql).toBe(layer.sql);
@@ -273,21 +275,21 @@ describe("layers as source of truth", () => {
     expect(copy.publishedFields).toEqual(["riders"]);
     expect(copy.inLegend).toBe(false);
     expect(copy.ordinal).toBeGreaterThan(layer.ordinal);
-    expect(mapWithLayers(map.id).layers).toHaveLength(2);
+    expect(mapWithLayers(testAccountScope(), map.id).layers).toHaveLength(2);
   });
 
   it("rejects zero-geometry results; multiple geometries render the first", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     await expect(
-      createLayer(map.id, { name: "x", sql: "SELECT name FROM stations" }),
+      createLayer(testAccountScope(), map.id, { name: "x", sql: "SELECT name FROM stations" }),
     ).rejects.toMatchObject({ code: "invalid_request" });
     // O→D results carry two geometry columns: allowed, the first is the
     // layer's primary geometry, the rest stay out of props.
-    const twin = await createLayer(map.id, {
+    const twin = await createLayer(testAccountScope(), map.id, {
       name: "twin",
       sql: "SELECT geometry, ST_Centroid(geometry) AS g2, name FROM stations",
     });
-    const render = await renderLayer(requireLayer(twin.id));
+    const render = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), twin.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), twin.id)).id) });
     expect(render.ok).toBe(true);
     expect(render.featureCount).toBe(3);
     const feature = (
@@ -300,44 +302,44 @@ describe("layers as source of truth", () => {
   });
 
   it("editing SQL changes what renders without recreating the layer", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, {
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "all",
       sql: "SELECT * FROM stations",
     });
-    const before = await renderLayer(requireLayer(layer.id));
+    const before = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(before.featureCount).toBe(3);
 
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       sql: "SELECT * FROM stations WHERE riders > 400",
     });
     // same layer id, same created_at
     expect(getLayer(layer.id)!.createdAt).toBe(layer.createdAt);
-    const after = await renderLayer(requireLayer(layer.id));
+    const after = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(after.featureCount).toBe(2);
-    expect(requireLayer(layer.id).sql).toBe(
+    expect(requireLayer(testAccountScope(), layer.id).sql).toBe(
       "SELECT * FROM stations WHERE riders > 400",
     );
   });
 
   it("renders a zero-row query as a valid empty layer", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, {
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "none",
       sql: "SELECT * FROM stations WHERE riders > 100000",
     });
-    const render = await renderLayer(requireLayer(layer.id));
+    const render = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(render.ok).toBe(true);
     expect(render.featureCount).toBe(0);
   });
 
   it("produces GeoJSON features with non-geometry columns as properties", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, {
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "s",
       sql: "SELECT name, riders, geometry FROM stations ORDER BY riders",
     });
-    const render = await renderLayer(requireLayer(layer.id));
+    const render = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     const fc = render.geojson as {
       features: { geometry: unknown; properties: Record<string, unknown> }[];
     };
@@ -349,15 +351,15 @@ describe("layers as source of truth", () => {
   });
 
   it("non-point features carry an interior label anchor", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     // An L-shape: the bounding-box center (2, 2) lies OUTSIDE the polygon,
     // so a naive centroid would anchor the label off the feature.
-    const layer = await createLayer(map.id, {
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "L",
       sql: `SELECT 'L' AS name, ST_GeomFromText(
               'POLYGON((0 0, 4 0, 4 1, 1 1, 1 4, 0 4, 0 0))') AS geometry`,
     });
-    const render = await renderLayer(requireLayer(layer.id));
+    const render = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     const fc = render.geojson as {
       features: { properties: Record<string, unknown> }[];
     };
@@ -372,29 +374,29 @@ describe("layers as source of truth", () => {
 
 describe("deleted table leaves an errored layer", () => {
   it("keeps the layer but renders an error while other layers work", async () => {
-    const map = createMap("m");
-    const dependent = await createLayer(map.id, {
+    const map = createMap(testAccountScope(), "m");
+    const dependent = await createLayer(testAccountScope(), map.id, {
       name: "dependent",
       sql: "SELECT * FROM stations",
     });
-    const independent = await createLayer(map.id, {
+    const independent = await createLayer(testAccountScope(), map.id, {
       name: "independent",
       sql: "SELECT ST_Point(0, 0) AS geometry",
     });
 
-    await removeTable("stations");
+    await removeTable(testAccountScope(), "stations");
 
     // The layer still exists (spec: deleting a table does not delete layers).
     expect(getLayer(dependent.id)).not.toBeNull();
-    const broken = await renderLayer(requireLayer(dependent.id));
+    const broken = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), dependent.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), dependent.id)).id) });
     expect(broken.ok).toBe(false);
-    expect(broken.error?.message).toMatch(/stations/);
+    expect(broken.error?.message).toBe("The query refers to an unknown table.");
     // the layer lane answers unknown-table for a deleted name — the same
     // kind of error a never-imported name gets, no artifact paths.
-    expect(broken.error?.message).toMatch(/does not exist/);
+    expect(broken.error?.code).toBe("sql_error");
     expect(broken.error?.message).not.toMatch(/parquet|tables\//i);
 
-    const working = await renderLayer(requireLayer(independent.id));
+    const working = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), independent.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), independent.id)).id) });
     expect(working.ok).toBe(true);
     expect(working.featureCount).toBe(1);
   });
@@ -422,60 +424,60 @@ describe("legend attribute overrides", () => {
   });
 
   it("persist, round-trip, copy on duplicate, and survive unrelated updates", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, {
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "L",
       sql: "SELECT * FROM stations",
     });
     expect(layer.legendAttrs).toBeNull();
-    await updateLayer(layer.id, { style: ramp("riders") });
-    const withAttrs = await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, { style: ramp("riders") });
+    const withAttrs = await updateLayer(testAccountScope(), layer.id, {
       legendAttrs: { fill: "Riders (daily)" },
     });
     expect(withAttrs.legendAttrs).toEqual({ fill: "Riders (daily)" });
-    const renamed = await updateLayer(layer.id, { name: "L2" });
+    const renamed = await updateLayer(testAccountScope(), layer.id, { name: "L2" });
     expect(renamed.legendAttrs).toEqual({ fill: "Riders (daily)" });
-    const copy = duplicateLayer(layer.id);
+    const copy = duplicateLayer(testAccountScope(), layer.id);
     expect(copy.legendAttrs).toEqual({ fill: "Riders (daily)" });
   });
 
   it("a channel's override drops when its driving attribute changes", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, {
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "L",
       sql: "SELECT * FROM stations",
     });
-    await updateLayer(layer.id, { style: ramp("riders") });
-    await updateLayer(layer.id, { legendAttrs: { fill: "Riders" } });
+    await updateLayer(testAccountScope(), layer.id, { style: ramp("riders") });
+    await updateLayer(testAccountScope(), layer.id, { legendAttrs: { fill: "Riders" } });
     // Same attribute, new breaks: the override still names the right variable.
-    const rebucketed = await updateLayer(layer.id, { style: ramp("riders") });
+    const rebucketed = await updateLayer(testAccountScope(), layer.id, { style: ramp("riders") });
     expect(rebucketed.legendAttrs).toEqual({ fill: "Riders" });
     // Different attribute: the override would lie — dropped to automatic.
-    const switched = await updateLayer(layer.id, { style: ramp("lat") });
+    const switched = await updateLayer(testAccountScope(), layer.id, { style: ramp("lat") });
     expect(switched.legendAttrs).toBeNull();
   });
 
   it("an attribute name can be hidden — distinct from cleared", async () => {
-    const map = createMap("m");
-    const layer = await createLayer(map.id, {
+    const map = createMap(testAccountScope(), "m");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "L",
       sql: "SELECT * FROM stations",
     });
-    await updateLayer(layer.id, { style: ramp("riders") });
+    await updateLayer(testAccountScope(), layer.id, { style: ramp("riders") });
 
     // Hidden is an explicit per-channel state and persists.
-    const hidden = await updateLayer(layer.id, {
+    const hidden = await updateLayer(testAccountScope(), layer.id, {
       legendAttrs: { fill: null },
     });
     expect(hidden.legendAttrs).toEqual({ fill: null });
 
     // Clearing the whole field returns to automatic — never to hidden.
-    const cleared = await updateLayer(layer.id, { legendAttrs: null });
+    const cleared = await updateLayer(testAccountScope(), layer.id, { legendAttrs: null });
     expect(cleared.legendAttrs).toBeNull();
 
     // A hidden marker drops with its channel like any override.
-    await updateLayer(layer.id, { legendAttrs: { fill: null } });
-    const switched = await updateLayer(layer.id, { style: ramp("lat") });
+    await updateLayer(testAccountScope(), layer.id, { legendAttrs: { fill: null } });
+    const switched = await updateLayer(testAccountScope(), layer.id, { style: ramp("lat") });
     expect(switched.legendAttrs).toBeNull();
   });
 });
@@ -484,7 +486,7 @@ describe("stale geometry type heals on inspect", () => {
   it("re-measures a stored MIXED and persists the collapse", async () => {
     updateTableGeometryType(getTableByName("stations")!, "MIXED");
     expect(getTableByName("stations")!.geometryType).toBe("MIXED");
-    const inspected = await inspectTable("stations");
+    const inspected = await inspectTable(testAccountScope(), "stations");
     expect(inspected.geometryType).toBe("POINT");
     expect(getTableByName("stations")!.geometryType).toBe("POINT");
   });
@@ -492,7 +494,7 @@ describe("stale geometry type heals on inspect", () => {
 
 describe("dataset export", () => {
   it("geoparquet streams the stored artifact itself", async () => {
-    const file = await exportTable("stations", "geoparquet");
+    const file = await exportTable(testAccountScope(), "stations", "geoparquet");
     expect(file.filename).toBe("stations.parquet");
     const { readFile } = await import("node:fs/promises");
     const stored = getTableByName("stations")!;
@@ -503,7 +505,7 @@ describe("dataset export", () => {
   });
 
   it("geojson converts and cleans up after itself", async () => {
-    const file = await exportTable("stations", "geojson");
+    const file = await exportTable(testAccountScope(), "stations", "geojson");
     expect(file.filename).toBe("stations.geojson");
     const { readFile, stat } = await import("node:fs/promises");
     const body = JSON.parse(await readFile(file.path, "utf8")) as {
@@ -517,7 +519,7 @@ describe("dataset export", () => {
   });
 
   it("csv renders geometry as WKT", async () => {
-    const file = await exportTable("stations", "csv");
+    const file = await exportTable(testAccountScope(), "stations", "csv");
     const { readFile } = await import("node:fs/promises");
     const csv = await readFile(file.path, "utf8");
     expect(csv.split("\n")[0]).toContain("name");
@@ -529,11 +531,11 @@ describe("dataset export", () => {
     const src = path.join(dir, "plain.csv");
     const { writeFile: write } = await import("node:fs/promises");
     await write(src, "label,value\nx,1\ny,2\n");
-    await ingestFile(src, "plain.csv");
-    await expect(exportTable("plain", "geojson")).rejects.toMatchObject({
+    await ingestFile(testAccountScope(), src, "plain.csv");
+    await expect(exportTable(testAccountScope(), "plain", "geojson")).rejects.toMatchObject({
       code: "invalid_request",
     });
-    const file = await exportTable("plain", "csv");
+    const file = await exportTable(testAccountScope(), "plain", "csv");
     const { readFile } = await import("node:fs/promises");
     expect(await readFile(file.path, "utf8")).toContain("label,value");
     await file.cleanup();

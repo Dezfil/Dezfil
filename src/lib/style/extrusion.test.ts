@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -199,6 +200,7 @@ describe("camera persistence", () => {
   it("stores pitch and bearing, defaulting flat and north-up", () => {
     const now = new Date().toISOString();
     insertMap(
+      testAccountScope(db),
       {
         id: "m1",
         name: "Tilted",

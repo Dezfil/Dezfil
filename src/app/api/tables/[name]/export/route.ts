@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { open } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
@@ -11,6 +12,7 @@ type Params = { params: Promise<{ name: string }> };
  * DuckDB-written GeoJSON/CSV conversion, streamed as an attachment. */
 export async function GET(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { name } = await params;
     const format =
       new URL(request.url).searchParams.get("format") ?? "geoparquet";
@@ -27,7 +29,7 @@ export async function GET(request: Request, { params }: Params) {
     // descriptor outlives any removal for the whole download.
     const { file, handle, size } = await trackInflight(
       (async () => {
-        const file = await exportTable(name, format);
+        const file = await exportTable(scope, name, format);
         const handle = await open(file.path);
         const size = (await handle.stat()).size;
         return { file, handle, size };

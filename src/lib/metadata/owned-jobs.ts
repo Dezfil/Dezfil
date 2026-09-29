@@ -1,0 +1,49 @@
+import type { Database } from "better-sqlite3";
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
+import { metadataDb } from "./db";
+import * as jobs from "./jobs";
+export type { OperationJob, JobQuery, JobOutcome } from "./jobs";
+
+export function getJob(scope: AccountScope, id: string, db: Database = metadataDb()) {
+  const owner = requireAccountScope(scope, db);
+  const row = db.prepare("SELECT * FROM operation_jobs WHERE id = ? AND owner_id = ?").get(id, owner) as jobs.JobRow | undefined;
+  return row ? jobs.jobFromRow(row) : null;
+}
+export function requireJob(scope: AccountScope, id: string, db: Database = metadataDb()) {
+  const job = getJob(scope, id, db);
+  if (!job) throw resourceAbsent();
+  return job;
+}
+export function listJobs(scope: AccountScope, query: jobs.JobQuery = {}, db: Database = metadataDb()) {
+  const owner = requireAccountScope(scope, db);
+  const where = ["owner_id = ?"], args = [owner];
+  if (query.subjectId) { where.push("subject_id = ?"); args.push(query.subjectId); }
+  if (query.subjectKind) { where.push("subject_kind = ?"); args.push(query.subjectKind); }
+  const limit = Math.max(1, Math.min(query.limit ?? 100, 1000));
+  return (db.prepare(`SELECT * FROM operation_jobs WHERE ${where.join(" AND ")}
+    ORDER BY accepted_at DESC, id DESC LIMIT ${limit}`).all(...args) as jobs.JobRow[]).map(jobs.jobFromRow);
+}
+export function insertJob(scope: AccountScope, job: jobs.OperationJob, db: Database = metadataDb()) {
+  return db.transaction(() => {
+    requireAccountScope(scope, db);
+    if (job.subjectKind === "step") requireOwnedResource(scope, "step", job.subjectId, db);
+    jobs.insertJob(scope, job, db);
+  })();
+}
+function mutate(scope: AccountScope, id: string, db: Database, action: () => boolean) {
+  return db.transaction(() => {
+    const owner = requireAccountScope(scope, db);
+    if (!db.prepare("SELECT id FROM operation_jobs WHERE id = ? AND owner_id = ?").get(id, owner)) return false;
+    return action();
+  })();
+}
+export function deleteJob(scope: AccountScope, id: string, db: Database = metadataDb()) {
+  return mutate(scope, id, db, () => jobs.deleteJob(id, db));
+}
+export function markRunning(scope: AccountScope, id: string, startedAt: string, db: Database = metadataDb()) {
+  return mutate(scope, id, db, () => jobs.markRunning(id, startedAt, db));
+}
+export function finish(scope: AccountScope, id: string, outcome: jobs.JobOutcome, finishedAt: string, db: Database = metadataDb()) {
+  return mutate(scope, id, db, () => jobs.finish(id, outcome, finishedAt, db));
+}

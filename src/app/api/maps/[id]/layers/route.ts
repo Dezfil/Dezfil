@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { changeGroupOf } from "@/lib/api/change-group";
@@ -11,8 +12,9 @@ type Params = { params: Promise<{ id: string }> };
 /** List a map's layers. */
 export async function GET(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id } = await params;
-    requireMap(id);
+    requireMap(scope, id);
     return NextResponse.json(listLayers(id));
   } catch (error) {
     return errorResponse(error);
@@ -22,7 +24,9 @@ export async function GET(_request: Request, { params }: Params) {
 /** Create a layer on a map from a SQL result. */
 export async function POST(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
+    requireMap(scope, id);
     let body: { name?: unknown; sql?: unknown; style?: unknown };
     try {
       body = (await request.json()) as typeof body;
@@ -40,7 +44,7 @@ export async function POST(request: Request, { params }: Params) {
       typeof body.name === "string" && body.name.trim()
         ? body.name
         : "Untitled layer";
-    const layer = await createLayer(
+    const layer = await createLayer(scope,
       id,
       {
         name,

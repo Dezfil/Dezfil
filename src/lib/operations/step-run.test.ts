@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -34,9 +35,9 @@ beforeEach(async () => {
   resetQueryInstance();
   const src = path.join(dir, "stations.csv");
   await writeFile(src, "name,lon,lat\nalexanderplatz,13.41,52.52\nzoo,13.33,52.51\n");
-  await ingestFile(src, "stations.csv");
-  await boundedEvaluation(async () => undefined);
-  recipeId = createRecipe("R").id;
+  await ingestFile(testAccountScope(), src, "stations.csv");
+  await boundedEvaluation(async () => undefined, { scope: testAccountScope() });
+  recipeId = createRecipe(testAccountScope(), "R").id;
 });
 
 afterEach(async () => {
@@ -70,7 +71,7 @@ function seedTable(id: string, name: string, file = `tables/${id}.parquet`): Dat
     sourceParams: null,
     importedAt: new Date().toISOString(),
   };
-  insertTable(t);
+  insertTable(testAccountScope(), t);
   return t;
 }
 
@@ -78,7 +79,7 @@ const alwaysFinishes = () => true;
 
 describe("planning how a step publishes", () => {
   it("registers afresh for a step that has never produced anything", () => {
-    const plan = planPublication(newStep().id);
+    const plan = planPublication(testAccountScope(), newStep().id);
     expect(plan.replaceTable).toBeUndefined();
     expect(plan.isProposal).toBe(false);
   });
@@ -88,7 +89,7 @@ describe("planning how a step publishes", () => {
     seedTable("t1", "out");
     recordOutput(step.id, { id: "t1", name: "out" }, new Date().toISOString());
 
-    const plan = planPublication(step.id);
+    const plan = planPublication(testAccountScope(), step.id);
     expect(plan.replaceTable).toEqual({ id: "t1", name: "out" });
   });
 
@@ -98,7 +99,7 @@ describe("planning how a step publishes", () => {
     recordOutput(step.id, { id: "t1", name: "out" }, new Date().toISOString());
     deleteTable("out");
 
-    const plan = planPublication(step.id);
+    const plan = planPublication(testAccountScope(), step.id);
     // A deleted table's id is gone; pretending to restore it would be
     // inventing identity.
     expect(plan.replaceTable).toBeUndefined();
@@ -112,7 +113,7 @@ describe("planning how a step publishes", () => {
     seedTable("usurper", "out");
 
     try {
-      planPublication(step.id);
+      planPublication(testAccountScope(), step.id);
       throw new Error("should have refused");
     } catch (e) {
       expect(e).toBeInstanceOf(ApiError);
@@ -126,7 +127,7 @@ describe("planning how a step publishes", () => {
     recordOutput(step.id, { id: "t1", name: "out" }, new Date().toISOString());
     editStep(step.id, { sql: "SELECT 2 AS n", name: "out" });
 
-    const plan = planPublication(step.id);
+    const plan = planPublication(testAccountScope(), step.id);
     expect(plan.isProposal).toBe(true);
     expect(plan.running).toEqual({ sql: "SELECT 2 AS n", name: "out" });
     // And the step still means what its output was produced from.
@@ -134,7 +135,7 @@ describe("planning how a step publishes", () => {
   });
 
   it("answers not_found for a step that does not exist", () => {
-    expect(() => planPublication("nope")).toThrow(ApiError);
+    expect(() => planPublication(testAccountScope(), "nope")).toThrow(ApiError);
   });
 });
 
@@ -143,9 +144,9 @@ describe("the authority callback", () => {
 
   it("records ownership and lineage together", () => {
     const step = newStep();
-    const plan = planPublication(step.id);
+    const plan = planPublication(testAccountScope(), step.id);
 
-    const ok = stepAuthorizer(plan, alwaysFinishes)(
+    const ok = stepAuthorizer(testAccountScope(), plan, alwaysFinishes)(
       { id: "new-1", name: "out" },
       metadataDb(),
       inputs,
@@ -153,7 +154,7 @@ describe("the authority callback", () => {
 
     expect(ok).toBe(true);
     expect(getStep(step.id)!.outputTableId).toBe("new-1");
-    const edges = edgesForStep(step.id);
+    const edges = edgesForStep(testAccountScope(), step.id);
     expect(edges).toHaveLength(1);
     expect(edges[0].boundArtifact).toBe("tables/src@1.parquet");
   });
@@ -163,9 +164,9 @@ describe("the authority callback", () => {
     seedTable("t1", "out");
     recordOutput(step.id, { id: "t1", name: "out" }, new Date().toISOString());
     editStep(step.id, { sql: "SELECT 2 AS n", name: "out" });
-    const plan = planPublication(step.id);
+    const plan = planPublication(testAccountScope(), step.id);
 
-    stepAuthorizer(plan, alwaysFinishes)({ id: "t1", name: "out" }, metadataDb(), inputs);
+    stepAuthorizer(testAccountScope(), plan, alwaysFinishes)({ id: "t1", name: "out" }, metadataDb(), inputs);
 
     const after = getStep(step.id)!;
     expect(after.parameters).toEqual({ sql: "SELECT 2 AS n", name: "out" });
@@ -174,11 +175,11 @@ describe("the authority callback", () => {
 
   it("refuses when the step was deleted while the run worked (E10's fence)", () => {
     const step = newStep();
-    const plan = planPublication(step.id);
+    const plan = planPublication(testAccountScope(), step.id);
     removeStep(step.id);
 
     expect(
-      stepAuthorizer(plan, alwaysFinishes)({ id: "x", name: "out" }, metadataDb(), inputs),
+      stepAuthorizer(testAccountScope(), plan, alwaysFinishes)({ id: "x", name: "out" }, metadataDb(), inputs),
     ).toBe(false);
   });
 
@@ -186,13 +187,13 @@ describe("the authority callback", () => {
     const step = newStep();
     seedTable("t1", "out");
     recordOutput(step.id, { id: "t1", name: "out" }, new Date().toISOString());
-    const plan = planPublication(step.id);
+    const plan = planPublication(testAccountScope(), step.id);
 
     // Someone edits the step while this run is working.
     editStep(step.id, { sql: "SELECT 99 AS n", name: "out" });
 
     expect(
-      stepAuthorizer(plan, alwaysFinishes)({ id: "t1", name: "out" }, metadataDb(), inputs),
+      stepAuthorizer(testAccountScope(), plan, alwaysFinishes)({ id: "t1", name: "out" }, metadataDb(), inputs),
     ).toBe(false);
   });
 
@@ -200,23 +201,23 @@ describe("the authority callback", () => {
     const step = newStep();
     seedTable("t1", "out");
     recordOutput(step.id, { id: "t1", name: "out" }, new Date().toISOString());
-    const plan = planPublication(step.id);
+    const plan = planPublication(testAccountScope(), step.id);
     expect(plan.replaceTable).toBeDefined();
 
     // The step's recorded output changes under the run — it no longer owns t1.
     recordOutput(step.id, { id: "t2", name: "other" }, new Date().toISOString());
 
     expect(
-      stepAuthorizer(plan, alwaysFinishes)({ id: "t1", name: "out" }, metadataDb(), inputs),
+      stepAuthorizer(testAccountScope(), plan, alwaysFinishes)({ id: "t1", name: "out" }, metadataDb(), inputs),
     ).toBe(false);
   });
 
   it("refuses when the job itself could not be settled", () => {
     const step = newStep();
-    const plan = planPublication(step.id);
+    const plan = planPublication(testAccountScope(), step.id);
 
     // The job was cancelled: its terminal write refuses, and so must this.
-    const ok = stepAuthorizer(plan, () => false)(
+    const ok = stepAuthorizer(testAccountScope(), plan, () => false)(
       { id: "x", name: "out" },
       metadataDb(),
       inputs,
@@ -225,13 +226,13 @@ describe("the authority callback", () => {
     expect(ok).toBe(false);
     // And nothing was recorded on the step.
     expect(getStep(step.id)!.outputTableId).toBeNull();
-    expect(edgesForStep(step.id)).toEqual([]);
+    expect(edgesForStep(testAccountScope(), step.id)).toEqual([]);
   });
 
   it("replaces a step's edges rather than adding to them", () => {
     const step = newStep();
-    const plan = planPublication(step.id);
-    const authorize = stepAuthorizer(plan, alwaysFinishes);
+    const plan = planPublication(testAccountScope(), step.id);
+    const authorize = stepAuthorizer(testAccountScope(), plan, alwaysFinishes);
 
     authorize({ id: "out-1", name: "out" }, metadataDb(), [
       { id: "a", name: "alpha", artifact: "tables/a@1.parquet" },
@@ -240,7 +241,7 @@ describe("the authority callback", () => {
       { id: "b", name: "beta", artifact: "tables/b@1.parquet" },
     ]);
 
-    const edges = edgesForStep(step.id);
+    const edges = edgesForStep(testAccountScope(), step.id);
     expect(edges.map((e) => e.inputTableId)).toEqual(["b"]);
   });
 });
@@ -258,13 +259,13 @@ describe("ownership is not forgeable", () => {
 
     // My step has produced nothing, so it plans a fresh registration — it
     // cannot nominate someone else's table as its replacement target.
-    const plan = planPublication(mine.id);
+    const plan = planPublication(testAccountScope(), mine.id);
     expect(plan.replaceTable).toBeUndefined();
 
     // And forcing one in is refused by the stored-ownership check.
     const forged = { ...plan, replaceTable: { id: "t-theirs", name: "theirs" } };
     expect(
-      stepAuthorizer(forged, alwaysFinishes)(
+      stepAuthorizer(testAccountScope(), forged, alwaysFinishes)(
         { id: "t-theirs", name: "theirs" },
         metadataDb(),
         [],

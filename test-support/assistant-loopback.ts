@@ -1,4 +1,5 @@
 // Real route handlers — the assistant's tools call these through fetch.
+import { authenticatedRequest } from "@/lib/assistant/testing/account";
 import { GET as tablesGet } from "@/app/api/tables/route";
 import { POST as queryPost } from "@/app/api/query/route";
 import { GET as mapsGet, POST as mapsPost } from "@/app/api/maps/route";
@@ -15,6 +16,7 @@ import { POST as publishPost } from "@/app/api/maps/[id]/publish/route";
 /** Dispatch a self-call to the real route handler (the subset the journey
  * touches). Mirrors Next.js routing: path params arrive as a Promise. */
 export async function dispatchAssistantJourney(req: Request): Promise<Response> {
+  req = authenticatedRequest(req);
   const { pathname } = new URL(req.url);
   const method = req.method.toUpperCase();
   let m: RegExpMatchArray | null;

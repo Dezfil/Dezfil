@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -32,7 +33,7 @@ beforeEach(async () => {
       "sudkreuz,s,13.360,52.480,120",
     ].join("\n"),
   );
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
   ensureTileDirs();
 });
 
@@ -63,7 +64,7 @@ async function readSeq(file: string): Promise<Feature[]> {
 describe("tile export", () => {
   it("streams the result as one GeoJSON feature per line", async () => {
     const out = path.join(tileScratchDir(), "layer.geojsonl");
-    const written = await exportGeoJsonSeq(
+    const written = await exportGeoJsonSeq(testAccountScope(),
       { sql: SQL, filters: [], geometryColumn: "geometry", columns: COLUMNS },
       out,
     );
@@ -78,7 +79,7 @@ describe("tile export", () => {
 
   it("exports exactly the listed columns — the projection happens at the SELECT", async () => {
     const out = path.join(tileScratchDir(), "projected.geojsonl");
-    const written = await exportGeoJsonSeq(
+    const written = await exportGeoJsonSeq(testAccountScope(),
       { sql: SQL, filters: [], geometryColumn: "geometry", columns: ["name"] },
       out,
     );
@@ -91,7 +92,7 @@ describe("tile export", () => {
 
   it("applies the layer's filters before exporting", async () => {
     const out = path.join(tileScratchDir(), "filtered.geojsonl");
-    const written = await exportGeoJsonSeq(
+    const written = await exportGeoJsonSeq(testAccountScope(),
       {
         sql: SQL,
         filters: [{ field: "riders", kind: "range", min: 400, max: null }],
@@ -107,7 +108,7 @@ describe("tile export", () => {
 
   it("drops NULL geometries like the inline render path", async () => {
     const out = path.join(tileScratchDir(), "nulls.geojsonl");
-    const written = await exportGeoJsonSeq(
+    const written = await exportGeoJsonSeq(testAccountScope(),
       {
         sql: `SELECT name, CASE WHEN riders > 400 THEN geometry END AS geometry
               FROM stations`,
@@ -123,7 +124,7 @@ describe("tile export", () => {
   it("rejects user SQL that is not a read-only SELECT", async () => {
     const out = path.join(tileScratchDir(), "evil.geojsonl");
     await expect(
-      exportGeoJsonSeq(
+      exportGeoJsonSeq(testAccountScope(),
         {
           sql: `COPY (SELECT 1) TO '${path.join(dir, "escape.csv")}'`,
           filters: [],
@@ -139,14 +140,14 @@ describe("tile export", () => {
     // One level up — where served archives live — must stay unwritable.
     const out = path.join(tilesDir(), "escape.geojsonl");
     await expect(
-      exportGeoJsonSeq({ sql: SQL, filters: [], geometryColumn: "geometry", columns: COLUMNS }, out),
+      exportGeoJsonSeq(testAccountScope(), { sql: SQL, filters: [], geometryColumn: "geometry", columns: COLUMNS }, out),
     ).rejects.toMatchObject({ code: "sql_error" });
   });
 
   it("fence: refuses to write over a data artifact", async () => {
     const out = path.join(dir, "data", "metadata.sqlite");
     await expect(
-      exportGeoJsonSeq({ sql: SQL, filters: [], geometryColumn: "geometry", columns: COLUMNS }, out),
+      exportGeoJsonSeq(testAccountScope(), { sql: SQL, filters: [], geometryColumn: "geometry", columns: COLUMNS }, out),
     ).rejects.toMatchObject({ code: "sql_error" });
   });
 });

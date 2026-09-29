@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -25,9 +26,9 @@ beforeEach(async () => {
   resetQueryInstance();
   const source = path.join(dir, "points.csv");
   await writeFile(source, "name,val,lon,lat\na,1,13.4,52.5\n");
-  await ingestFile(source, "points.csv");
-  const map = createMap("caps");
-  const layer = await createLayer(map.id, {
+  await ingestFile(testAccountScope(), source, "points.csv");
+  const map = createMap(testAccountScope(), "caps");
+  const layer = await createLayer(testAccountScope(), map.id, {
     name: "l",
     sql: "SELECT * FROM points",
   });
@@ -43,11 +44,11 @@ afterEach(async () => {
 
 function patch(body: unknown) {
   return PATCH(
-    new Request(`http://test/api/layers/${layerId}`, {
+    testAccountRequest(new Request(`http://test/api/layers/${layerId}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
-    }),
+    })),
     { params: Promise.resolve({ id: layerId }) },
   );
 }

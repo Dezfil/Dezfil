@@ -266,6 +266,7 @@ describe("tool parity", () => {
       "publish_map",
       "remove_recipe_step",
       "revoke_api_token",
+      "revoke_inactive_publication",
       "unpublish_map",
       "update_user_access",
     ]);

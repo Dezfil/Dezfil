@@ -1,3 +1,4 @@
+import type { DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
 import { ident } from "@/lib/ingest/ingest";
 import { boundedEvaluation } from "@/lib/query/bounded";
@@ -89,8 +90,8 @@ function boundedInteger(
  * function, and posture is that an absent optional extension degrades the
  * capabilities that need it, not the ones that do not.
  */
-async function requireH3(label: string): Promise<void> {
-  if (await h3Ready()) return;
+async function requireH3(scope: DatasetScope, label: string): Promise<void> {
+  if (await h3Ready(scope)) return;
   throw new ApiError(
     "invalid_request",
     `${label} needs the H3 extension, which is not loaded on this instance. ` +
@@ -121,12 +122,13 @@ function geometryOf(table: DataTable, label: string): string {
  * the engine's business — so the answer arrives under a name nobody chose.
  */
 async function refuseGeneratedCollisions(
+  scope: DatasetScope,
   table: DataTable,
   generated: string[],
   label: string,
 ): Promise<void> {
   const existing = new Set(
-    (await columnsOf(table)).map((column) => column.name.toLowerCase()),
+    (await columnsOf(scope, table)).map((column) => column.name.toLowerCase()),
   );
   const collides = generated.filter((name) => existing.has(name.toLowerCase()));
   if (collides.length > 0) {
@@ -149,6 +151,7 @@ async function refuseGeneratedCollisions(
  * answer and is not one.
  */
 async function refuseFlatUniverse(
+  scope: DatasetScope,
   table: DataTable,
   geometry: string,
   resolution: number,
@@ -180,7 +183,7 @@ async function refuseFlatUniverse(
          HAVING cell IS NOT NULL AND ${aggregate} IS NOT NULL)`,
     );
     return reader.getRowObjects()[0] as Record<string, unknown> | undefined;
-  });
+  }, { scope });
   const cells = Number(row?.cells ?? 0);
   if (cells === 0) {
     throw new ApiError(
@@ -221,6 +224,7 @@ export function isStatisticsVerb(id: string): boolean {
 }
 
 export async function compileStatisticsVerb(
+  scope: DatasetScope,
   operation: OperationDef,
   params: Record<string, unknown>,
   requireName: boolean,
@@ -231,7 +235,7 @@ export async function compileStatisticsVerb(
 
   const named = str(params, "input");
   if (!named) required(label, "input");
-  const table = inputTable(named, "input");
+  const table = inputTable(scope, named, "input");
   const accepts = operation.inputs[0].accepts;
   const held = geometryClassOf(table);
   if (!table.geometryColumn || (held !== null && !accepts.includes(held))) {
@@ -247,7 +251,7 @@ export async function compileStatisticsVerb(
 
   switch (operation.id) {
     case "h3_cell": {
-      await requireH3(label);
+      await requireH3(scope, label);
       const resolution = boundedInteger(
         params,
         "resolution",
@@ -257,12 +261,12 @@ export async function compileStatisticsVerb(
         null,
       );
       const boundary = params.boundary === true;
-      await refuseGeneratedCollisions(table, [H3_CELL_COLUMN], label);
+      await refuseGeneratedCollisions(scope, table, [H3_CELL_COLUMN], label);
       geometryOf(table, label);
       return { sql: h3CellSql(table, resolution, boundary), name, bindings };
     }
     case "hotspot": {
-      await requireH3(label);
+      await requireH3(scope, label);
       const geometry = geometryOf(table, label);
       const resolution = boundedInteger(
         params,
@@ -290,10 +294,10 @@ export async function compileStatisticsVerb(
       }
       let field: string | null = null;
       if (mode === "sum") {
-        const named = await fields(table, params.field, "value column");
+        const named = await fields(scope, table, params.field, "value column");
         if (named.length !== 1) required(label, "field");
         field = named[0];
-        const column = (await columnsOf(table)).find(
+        const column = (await columnsOf(scope, table)).find(
           (c) => c.name.toLowerCase() === field!.toLowerCase(),
         );
         if (!column || !isScalarNumeric(column.type)) {
@@ -305,7 +309,7 @@ export async function compileStatisticsVerb(
           );
         }
       }
-      await refuseFlatUniverse(table, geometry, resolution, mode, field, label);
+      await refuseFlatUniverse(scope, table, geometry, resolution, mode, field, label);
       return {
         sql: hotspotSql(table, resolution, neighbours, mode, field),
         name,
@@ -328,12 +332,12 @@ export async function compileStatisticsVerb(
           400,
         );
       }
-      await refuseGeneratedCollisions(
+      await refuseGeneratedCollisions(scope,
         table,
         [...CLUSTER_COLUMNS, ...CLUSTER_HELPER_COLUMNS],
         label,
       );
-      const crs = await crsFor([table], "clustering");
+      const crs = await crsFor(scope, [table], "clustering");
       return {
         sql: clusterByDistanceSql(table, distance, crs),
         name,

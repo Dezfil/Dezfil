@@ -16,7 +16,7 @@ export async function executeMcpTool(tool: ToolDef, args: Record<string, unknown
   };
   let knownMapId: string | undefined;
   const subject = tool.effects.history && group ? tool.confirmation?.subject : undefined;
-  if (subject) {
+  if (subject?.path) {
     const pathname = subject.path.replace(/\{([^}]+)\}/g, (_, key: string) => encodeURIComponent(String(args[key] ?? '')));
     const response = await transport(baseUrl.replace(/\/$/, '') + pathname, { signal });
     if (!response.ok) {

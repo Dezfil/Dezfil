@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -69,7 +70,7 @@ beforeEach(async () => {
     wire.dispatched.push(`${request.method} ${new URL(request.url).pathname}`);
     return dispatchAssistantTestRoute(request);
   });
-  mapId = createMap("Checked").id;
+  mapId = createMap(testAccountScope(), "Checked").id;
   const driver: RenderDriver = { launch: async () => ({
     render: async () => ({ png: FIXTURE, consumed: JSON.stringify({ map: mapId, layers: [{ id: "layer-1", filters: "0000000000000000" }], legend: { visible: true, corner: "bottom-left", order: ["layer-1"] }, widgets: ["w-1"], attribution: "© Fixture", failures: [] }) }),
     close: async () => {}, kill: () => {},
@@ -186,7 +187,7 @@ describe("checks under a chosen model", () => {
     await (await post({ runId, message: "Rename it.", history: [], choice: CHOICE, context: builder() })).text();
     expect(wire.sent).toHaveLength(3);
     const workAtFailure = productWork().length;
-    const maps = allMaps().length;
+    const maps = allMaps(testAccountScope()).length;
     const receipt = await read(runId);
     const check = receipt.actions.find((action) => action.tool === "look_at_map");
     expect({
@@ -200,7 +201,7 @@ describe("checks under a chosen model", () => {
       channel: imageChannel(wire.sent[2]),
       // Nothing was dispatched after the failure.
       workAfter: productWork().length - workAtFailure,
-      maps: allMaps().length - maps,
+      maps: allMaps(testAccountScope()).length - maps,
     }).toEqual({
       state: "failed", error: "assistant_provider",
       render: { status: "succeeded", name: "Renamed", image: RENDERED },

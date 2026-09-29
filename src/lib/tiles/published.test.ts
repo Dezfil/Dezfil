@@ -1,3 +1,5 @@
+import { privateTileAccess } from "@/lib/tiles/access";
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { gunzipSync } from "node:zlib";
@@ -34,7 +36,7 @@ function builtFingerprint(id: string): string {
       timeline: map.timeline,
       widgets: map.widgets,
       widgetsPublished: map.widgetsPublished,
-    }),
+    }), id,
   );
 }
 
@@ -54,12 +56,12 @@ beforeEach(async () => {
   resetTileBuilds();
   const source = path.join(dir, "points.csv");
   await writeFile(source, "id,kind,score,lon,lat\n1,a,10,1,2\n2,b,20,3,4\n");
-  await ingestFile(source, "points.csv");
-  const map = createMap("m");
+  await ingestFile(testAccountScope(), source, "points.csv");
+  const map = createMap(testAccountScope(), "m");
   mapId = map.id;
-  const layer = await createLayer(map.id, { name: "l", sql });
+  const layer = await createLayer(testAccountScope(), map.id, { name: "l", sql });
   layerId = layer.id;
-  token = publishMap(map.id).token;
+  token = publishMap(testAccountScope(), map.id).token;
   ensureTileDirs();
   await writeFile(tileArchivePath(layerId), "artifact");
   upsertTileRecord({
@@ -86,7 +88,7 @@ describe("current published tile eligibility", () => {
   it("keeps a current artifact across style edits and live-filter bound moves", async () => {
     // The live filter exists when the archive is minted; its field is
     // already part of the projection the fingerprint saw.
-    await updateLayer(layerId, {
+    await updateLayer(testAccountScope(), layerId, {
       filters: [{ field: "score", kind: "range", min: 10, max: 20 }],
     });
     upsertTileRecord({
@@ -104,7 +106,7 @@ describe("current published tile eligibility", () => {
     // Paint and slider bounds never look like data changes: the
     // signature carries field names, not values.
     const layer = getLayer(layerId)!;
-    await updateLayer(layerId, {
+    await updateLayer(testAccountScope(), layerId, {
       style: { ...layer.style, opacity: 0.5 },
       filters: [{ field: "score", kind: "range", min: 12, max: 18 }],
     });
@@ -114,7 +116,7 @@ describe("current published tile eligibility", () => {
   it("a new live filter re-fingerprints — its field must reach the wire", async () => {
     const version = String(Date.parse(builtAt));
     expect(currentPublishedTile(token, layerId, version)).not.toBeNull();
-    await updateLayer(layerId, {
+    await updateLayer(testAccountScope(), layerId, {
       filters: [{ field: "score", kind: "range", min: 10, max: 20 }],
     });
     expect(currentPublishedTile(token, layerId, version)).toBeNull();
@@ -124,14 +126,14 @@ describe("current published tile eligibility", () => {
     const version = String(Date.parse(builtAt));
     expect(currentPublishedTile(token, layerId, "1")).toBeNull();
 
-    await updateLayer(layerId, {
+    await updateLayer(testAccountScope(), layerId, {
       filters: [{ field: "kind", kind: "values", values: ["a"] }],
     });
     expect(currentPublishedTile(token, layerId, version)).toBeNull();
     closeMetadataDb();
     expect(currentPublishedTile(token, layerId, version)).toBeNull();
 
-    await updateLayer(layerId, { filters: [] });
+    await updateLayer(testAccountScope(), layerId, { filters: [] });
     upsertTileRecord({
       layerId,
       state: "ready",
@@ -145,30 +147,30 @@ describe("current published tile eligibility", () => {
 
   it("uses current publication ownership on every check", () => {
     expect(currentPublishedTile(token, layerId, null)).not.toBeNull();
-    unpublishMap(mapId);
+    unpublishMap(testAccountScope(), mapId);
     expect(currentPublishedTile(token, layerId, null)).toBeNull();
   });
 
   it("denies a hidden layer's tiles; visibility restores them", async () => {
     expect(currentPublishedTile(token, layerId, null)).not.toBeNull();
-    await updateLayer(layerId, { visible: false });
+    await updateLayer(testAccountScope(), layerId, { visible: false });
     // The artifact is retained — the builder may still use it — but the
     // published surface stops serving it.
     expect(currentPublishedTile(token, layerId, null)).toBeNull();
-    await updateLayer(layerId, { visible: true });
+    await updateLayer(testAccountScope(), layerId, { visible: true });
     expect(currentPublishedTile(token, layerId, null)).not.toBeNull();
   });
 
   it("a built archive carries exactly the effective set and the gate authorizes it — the decoded-tile check", async () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "1";
-    const layer = await updateLayer(layerId, { tooltip: ["kind"], popup: [] });
+    const layer = await updateLayer(testAccountScope(), layerId, { tooltip: ["kind"], popup: [] });
 
     // A real build through the builder lane: the shared archive is minted
     // by the same path both audiences use.
-    const kicked = await renderLayer(layer);
+    const kicked = await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
     expect(kicked.mode).toBe("tiled");
     await tileBuildsSettled();
-    const ready = await renderLayer(layer);
+    const ready = await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
     expect(ready.tiles?.state).toBe("ready");
 
     // The parity pair: the published authorization recomputes the
@@ -193,12 +195,12 @@ describe("current published tile eligibility", () => {
 
   it("denies the old artifact while an over-cap SQL replacement prepares", async () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "1";
-    const edited = await updateLayer(layerId, {
+    const edited = await updateLayer(testAccountScope(), layerId, {
       sql: `${sql} WHERE id >= 1`,
     });
 
     expect(currentPublishedTile(token, layerId, null)).toBeNull();
-    const replacement = await renderLayer(edited);
+    const replacement = await renderLayer(testAccountScope(), edited, undefined, { tileAccess: privateTileAccess(testAccountScope(), (edited).id) });
     expect(replacement.mode).toBe("tiled");
     expect(replacement.tiles?.state).toBe("building");
   });

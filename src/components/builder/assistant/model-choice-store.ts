@@ -2,6 +2,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 import type { ModelKnowledge } from "@/lib/assistant/model-knowledge";
 import { chooseModel, defaultChoice, reconcile, type ModelChoice } from "./model-choice";
+import { onPrivateReset, privateStateOpen } from "../../auth/private-state";
 
 /**
  * The remembered model and effort, kept apart from the conversation and
@@ -27,6 +28,7 @@ import { chooseModel, defaultChoice, reconcile, type ModelChoice } from "./model
 export const CHOICE_KEY = "dezfil.assistant.choice";
 
 function read(): ModelChoice | null {
+  if (!privateStateOpen()) return null;
   try {
     const raw = typeof sessionStorage === "undefined" ? null : sessionStorage.getItem(CHOICE_KEY);
     if (!raw) return null;
@@ -51,6 +53,7 @@ export class ModelChoiceStore {
     return () => { this.listeners.delete(listener); };
   };
   set(next: ModelChoice | null) {
+    if (next !== null && !privateStateOpen()) return;
     this.choice = next;
     write(next);
     for (const listener of this.listeners) listener();
@@ -61,6 +64,7 @@ export class ModelChoiceStore {
 
 /** The tab's one remembered choice. */
 export const modelChoice = new ModelChoiceStore();
+onPrivateReset(() => modelChoice.set(null));
 
 /** The selection the next message will carry, and how a pick changes it.
  * Nothing remembered is the instance's own default, so an instance that

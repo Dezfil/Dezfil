@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createServer,
@@ -94,7 +95,7 @@ const CSV = [
 
 async function ingest(): Promise<void> {
   await writeFile(path.join(dir, "places.csv"), `${CSV}\n`);
-  await ingestFile(path.join(dir, "places.csv"), "places.csv");
+  await ingestFile(testAccountScope(), path.join(dir, "places.csv"), "places.csv");
 }
 
 const NEVER_TIMES_OUT = () => new ApiError("operation_timeout", "too slow", 408);
@@ -126,7 +127,7 @@ afterEach(async () => {
 });
 
 async function stage(signal?: AbortSignal, deadlineAt = Date.now() + 30_000) {
-  return stageBatch({
+  return stageBatch(testAccountScope(), {
     table: getTableByName("places")!,
     column: "address",
     ...(signal ? { signal } : {}),
@@ -164,10 +165,11 @@ describe("what the batch asks, and what it stages", () => {
     process.env.DEZFIL_GEOCODER_URL = `http://127.0.0.1:${await provider()}`;
     const result = await stage();
     const table = getTableByName("places")!;
-    const answer = await executeQuery(
+    const answer = await executeQuery(testAccountScope(),
       `SELECT label, geocode_status, geocode_source, geocode_match,
               geocode_attribution, ST_X(geom) AS x, ST_Y(geom) AS y
        FROM (${publicationSql(table, "address", result.stage)}) ORDER BY label`,
+      { inputs: [result.stage] },
     );
     const rows = answer.preview as Record<string, unknown>[];
     expect(rows).toHaveLength(7);
@@ -208,12 +210,13 @@ describe("what the batch asks, and what it stages", () => {
     process.env.DEZFIL_GEOCODER_URL = `http://127.0.0.1:${await provider()}`;
     const result = await stage();
     const table = getTableByName("places")!;
-    const described = await executeQuery(
+    const described = await executeQuery(testAccountScope(),
       `SELECT * FROM (DESCRIBE SELECT * FROM (${publicationSql(
         table,
         "address",
         result.stage,
       )}))`,
+      { inputs: [result.stage] },
     );
     expect(described.preview.map((r) => String(r.column_name))).toEqual([
       "label",

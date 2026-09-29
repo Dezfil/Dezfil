@@ -1,3 +1,4 @@
+import { testAccountRequest } from "@/lib/test-support/accounts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/errors";
 
@@ -25,7 +26,7 @@ describe("POST /api/connections/postgis/{id}/preview", () => {
       rows: [],
     });
     const response = await POST(
-      request({ schema: "public", table: "roads", filter: "false" }),
+      testAccountRequest(request({ schema: "public", table: "roads", filter: "false" })),
       { params: Promise.resolve({ id: "c1" }) },
     );
     expect(response.status).toBe(200);
@@ -33,7 +34,7 @@ describe("POST /api/connections/postgis/{id}/preview", () => {
       columns: [{ name: "id", type: "int4", spatialKind: null }],
       rows: [],
     });
-    expect(previewPostgis).toHaveBeenCalledWith("c1", {
+    expect(previewPostgis).toHaveBeenCalledWith(expect.objectContaining({ accountId: "test-account" }), "c1", {
       schema: "public",
       table: "roads",
       filter: "false",
@@ -49,7 +50,7 @@ describe("POST /api/connections/postgis/{id}/preview", () => {
       ),
     );
     const response = await POST(
-      request({ schema: "public", table: "roads", filter: "true; SELECT 1" }),
+      testAccountRequest(request({ schema: "public", table: "roads", filter: "true; SELECT 1" })),
       { params: Promise.resolve({ id: "c1" }) },
     );
     expect(response.status).toBe(400);
@@ -66,7 +67,7 @@ describe("POST /api/connections/postgis/{id}/preview", () => {
       new Error(`source failure carrying ${secret}`),
     );
     const response = await POST(
-      request({ schema: "public", table: "roads" }),
+      testAccountRequest(request({ schema: "public", table: "roads" })),
       { params: Promise.resolve({ id: "c1" }) },
     );
     expect(response.status).toBe(500);

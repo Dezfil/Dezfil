@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect } from "vitest";
 import { buildOpenApiDocument } from "@/lib/api/openapi";
 import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
@@ -222,7 +223,7 @@ describe("a distance is a number, not something that looks like one", () => {
       // buffer; `Number(["500"])` is 500. Both are malformed requests, and a
       // measurement built from one is a number nobody asked for.
       await expect(
-        compileOperation("buffer", { input: "anything", distance, name: "x" }),
+        compileOperation(testAccountScope(), "buffer", { input: "anything", distance, name: "x" }),
       ).rejects.toBeInstanceOf(ApiError);
     });
   }

@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
 import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 import { CHANGE_GROUP_HEADER } from "@/lib/api/change-group";
@@ -24,7 +25,7 @@ import { shapeLookOutcome } from "./look-outcome";
 
 /** Per-run context: everything a step needs that is not batch state. */
 export interface ActionContext {
-  accountId?: string;
+  scope: AccountScope;
   runId?: string;
   context?: AssistantContext;
   policy: AssistantPolicy;
@@ -66,6 +67,7 @@ export async function* execAndRecord(
   batch: ActionBatch,
   settled: SettledGate = {},
 ): AsyncGenerator<AssistantEvent> {
+  requireAccountScope(ctx.scope);
   yield { type: "tool_call", id: call.id, tool: call.name, args: call.args, effects: actionEffects(tool, call.args), ...words(tool, call.args) };
   let result;
   let dispatched = false;
@@ -89,6 +91,7 @@ export async function* execAndRecord(
   // Attachment bytes never enter model text: the model sees the
   // envelope's metadata with the content elided; the event stream and MCP
   // clients keep the full envelope.
+  requireAccountScope(ctx.scope);
   const elapsedMs = Math.round(performance.now() - started);
   // The map check's image goes to the model natively and to nothing
   // else: the events and the receipt carry the facts alone.

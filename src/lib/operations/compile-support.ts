@@ -1,8 +1,9 @@
+import { scopedDatasets, type DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
 import { boundedEvaluation } from "@/lib/query/bounded";
 import { GROUND_METRES_MAX } from "./catalog";
 import { ident } from "@/lib/ingest/ingest";
-import { getTableByName, type DataTable } from "@/lib/metadata/tables";
+import type { DataTable } from "@/lib/metadata/tables";
 import { resolveMeasurementCrs, type Extent, type MeasurementCrs } from "./measurement";
 import { requireColumn } from "./table-verbs";
 import type { CarriedField, ColumnType } from "./spatial-join";
@@ -41,8 +42,8 @@ export function str(params: Record<string, unknown>, key: string): string {
 }
 
 /** Read a table the caller named, or say which one it could not find. */
-export function inputTable(name: string, role: string): DataTable {
-  const table = getTableByName(name);
+export function inputTable(scope: DatasetScope, name: string, role: string): DataTable {
+  const table = scopedDatasets(scope).find(table => table.name.toLowerCase() === name.toLowerCase());
   if (!table) {
     // Most roles read as adjectives ("left", "clip", "buffer's") — but the
     // generic single-input key is literally "input", and doubling it shipped
@@ -58,7 +59,7 @@ export function inputTable(name: string, role: string): DataTable {
 }
 
 /** The columns and types the engine reports for a registered table. */
-export async function columnsOf(table: DataTable): Promise<ColumnType[]> {
+export async function columnsOf(scope: DatasetScope, table: DataTable): Promise<ColumnType[]> {
   return boundedEvaluation(async (conn) => {
     const described = await conn.runAndReadAll(
       `DESCRIBE SELECT * FROM ${ident(table.name)}`,
@@ -69,7 +70,7 @@ export async function columnsOf(table: DataTable): Promise<ColumnType[]> {
         column_type: string;
       }[]
     ).map((c) => ({ name: String(c.column_name), type: String(c.column_type) }));
-  });
+  }, { scope });
 }
 
 /**
@@ -105,7 +106,7 @@ export function carriedFields(value: unknown): CarriedField[] {
   });
 }
 
-export async function extentOf(table: DataTable, verb: string): Promise<Extent> {
+export async function extentOf(scope: DatasetScope, table: DataTable, verb: string): Promise<Extent> {
   if (!table.geometryColumn) {
     throw new ApiError(
       "invalid_request",
@@ -123,7 +124,7 @@ export async function extentOf(table: DataTable, verb: string): Promise<Extent> 
              WHERE ${geom} IS NOT NULL)`,
     );
     return reader.getRowObjects()[0] as Record<string, unknown> | undefined;
-  });
+  }, { scope });
   const raw = [
     bounds?.min_lon,
     bounds?.min_lat,
@@ -190,6 +191,7 @@ export function metres(
 
 /** The columns a caller named, checked against the table's own. */
 export async function fields(
+  scope: DatasetScope,
   table: DataTable,
   value: unknown,
   role: string,
@@ -197,7 +199,7 @@ export async function fields(
 ): Promise<string[]> {
   if (value === undefined || value === null) return [];
   const list = Array.isArray(value) ? value : [value];
-  const columns = (await columnsOf(table)).map((c) => c.name);
+  const columns = (await columnsOf(scope, table)).map((c) => c.name);
   return list.map((entry) => {
     if (typeof entry !== "string") {
       throw new ApiError(
@@ -237,10 +239,11 @@ export async function fields(
  * prevent. Found at the cross-model review.
  */
 export async function crsFor(
+  scope: DatasetScope,
   tables: DataTable[],
   verb: string,
 ): Promise<MeasurementCrs> {
-  const extents = await Promise.all(tables.map((t) => extentOf(t, verb)));
+  const extents = await Promise.all(tables.map((t) => extentOf(scope, t, verb)));
   const combined = extents.reduce((a, b) => ({
     minLon: Math.min(a.minLon, b.minLon),
     minLat: Math.min(a.minLat, b.minLat),

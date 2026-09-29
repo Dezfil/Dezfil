@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -38,12 +39,12 @@ beforeEach(async () => {
   readTileMock.mockReset();
   const source = path.join(dir, "points.csv");
   await writeFile(source, "id,lon,lat\n1,1,2\n2,3,4\n");
-  await ingestFile(source, "points.csv");
-  const map = createMap("m");
+  await ingestFile(testAccountScope(), source, "points.csv");
+  const map = createMap(testAccountScope(), "m");
   mapId = map.id;
-  const layer = await createLayer(map.id, { name: "l", sql });
+  const layer = await createLayer(testAccountScope(), map.id, { name: "l", sql });
   layerId = layer.id;
-  token = publishMap(map.id).token;
+  token = publishMap(testAccountScope(), map.id).token;
   const builtAt = "2026-07-14T12:00:00.123Z";
   version = String(Date.parse(builtAt));
   ensureTileDirs();
@@ -61,7 +62,7 @@ beforeEach(async () => {
         timeline: map.timeline,
         widgets: map.widgets,
         widgetsPublished: map.widgetsPublished,
-      }),
+      }), layerId,
     ),
     error: null,
     featureCount: 2,
@@ -123,7 +124,7 @@ describe("published tile route", () => {
     const inFlight = GET(request(), context());
     await vi.waitFor(() => expect(readTileMock).toHaveBeenCalledOnce());
 
-    unpublishMap(mapId);
+    unpublishMap(testAccountScope(), mapId);
     release(new Uint8Array([1, 2, 3]));
 
     const response = await inFlight;

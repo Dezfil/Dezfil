@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { requireRequestAuth } from "@/lib/auth/http";
 import { instanceFetch } from "@/lib/auth/instance-fetch";
 import { authenticatedRequest } from "./testing/account";
@@ -50,7 +51,7 @@ beforeEach(async () => {
     if (mutating.has(request.method) && !new URL(request.url).pathname.startsWith("/api/maps/look") && !new URL(request.url).pathname.startsWith("/api/assistant")) counts.dispatches += 1;
     return dispatchAssistantTestRoute(request);
   });
-  mapId = createMap("Observed").id;
+  mapId = createMap(testAccountScope(), "Observed").id;
   const driver: RenderDriver = { launch: async () => {
     counts.launches += 1;
     if (launchFails) throw new Error("ENOENT");
@@ -66,14 +67,14 @@ let seq = 0;
 const call = (name: string, args: Record<string, unknown>) => ({ id: `o${++seq}`, name, args });
 /** Drive the loop as the route does: every event recorded on the run, then finished. */
 async function drive(provider: ModelProvider, deps: Partial<LoopDeps> = {}, signal?: AbortSignal): Promise<{ events: AssistantEvent[]; receipt: RunReceipt; threw?: unknown }> {
-  const run = assistantRuns.reserve(); assistantRuns.bind(run.id, { message: "go" });
+  const run = assistantRuns.reserve(testAccountScope()); assistantRuns.bind(testAccountScope(), run.id, { message: "go" });
   const events: AssistantEvent[] = [];
-  const loop: LoopDeps = { baseUrl: origin, fetchImpl: instanceFetch(origin, requireRequestAuth(authenticatedRequest())), pending: new PendingActionStore(), stepBudget: 8, runId: run.id, signal, ...deps };
+  const loop: LoopDeps = { scope: testAccountScope(), baseUrl: origin, fetchImpl: instanceFetch(origin, requireRequestAuth(authenticatedRequest())), pending: new PendingActionStore(), stepBudget: 8, runId: run.id, signal, ...deps };
   let threw: unknown;
-  try { for await (const event of runAssistant(provider, { message: "go", history: [], context: builder() }, loop)) { events.push(event); assistantRuns.record(run.id, event); } }
-  catch (error) { threw = error; assistantRuns.record(run.id, { type: "error", code: "internal", message: "x" }); }
-  assistantRuns.finish(run.id);
-  return { events, receipt: assistantRuns.read(run.id), threw };
+  try { for await (const event of runAssistant(provider, { message: "go", history: [], context: builder() }, loop)) { events.push(event); assistantRuns.record(testAccountScope(), run.id, event); } }
+  catch (error) { threw = error; assistantRuns.record(testAccountScope(), run.id, { type: "error", code: "internal", message: "x" }); }
+  assistantRuns.finish(testAccountScope(), run.id);
+  return { events, receipt: assistantRuns.read(testAccountScope(), run.id), threw };
 }
 const checkAction = (receipt: RunReceipt): RecoveryAction => { const action = receipt.actions.find((a) => a.tool === "look_at_map"); expect(action).toBeDefined(); return action!; };
 const observations = (events: AssistantEvent[]) => events.filter((e): e is Extract<AssistantEvent, { type: "observation" }> => e.type === "observation");
@@ -156,10 +157,10 @@ describe("4c and 4e: each lifecycle state, read back distinctly", () => {
     expect(action.observation!.text).toBeUndefined();
   });
   it("awaited while the run is live: a receipt read after the check settled and before the text shows the state, not silence", () => {
-    const run = assistantRuns.reserve(); assistantRuns.bind(run.id, { message: "go" });
-    assistantRuns.record(run.id, { type: "tool_call", id: "look-x", tool: "look_at_map", args: { mapId } });
-    assistantRuns.record(run.id, { type: "tool_result", id: "look-x", tool: "look_at_map", ok: true, body: {}, outcome: "succeeded", render: { id: "r", mapId, mapName: "Observed", appearance: "light", state: { map: mapId, camera: { lng: 0, lat: 0, zoom: 1, pitch: 0, bearing: 0 }, layers: [], legend: { visible: false, corner: "bottom-left", order: [] }, widgets: [], appearance: "light", digest: "0" }, image: { width: 1024, height: 640, bytes: 1 }, source: { width: 1024, height: 640 }, attribution: "", composition: { failures: [], abandoned: [] }, elapsedMs: 1 } });
-    const live = assistantRuns.read(run.id);
+    const run = assistantRuns.reserve(testAccountScope()); assistantRuns.bind(testAccountScope(), run.id, { message: "go" });
+    assistantRuns.record(testAccountScope(), run.id, { type: "tool_call", id: "look-x", tool: "look_at_map", args: { mapId } });
+    assistantRuns.record(testAccountScope(), run.id, { type: "tool_result", id: "look-x", tool: "look_at_map", ok: true, body: {}, outcome: "succeeded", render: { id: "r", mapId, mapName: "Observed", appearance: "light", state: { map: mapId, camera: { lng: 0, lat: 0, zoom: 1, pitch: 0, bearing: 0 }, layers: [], legend: { visible: false, corner: "bottom-left", order: [] }, widgets: [], appearance: "light", digest: "0" }, image: { width: 1024, height: 640, bytes: 1 }, source: { width: 1024, height: 640 }, attribution: "", composition: { failures: [], abandoned: [] }, elapsedMs: 1 } });
+    const live = assistantRuns.read(testAccountScope(), run.id);
     expect(live.state).toBe("running");
     expect(checkAction(live).observation).toEqual(expect.objectContaining({ state: "awaited" }));
   });
@@ -255,7 +256,7 @@ describe("a recovery read reproduces the facts and starts nothing", () => {
       }
       if (dropped) { await reader.cancel(); break; }
     }
-    for (let i = 0; i < 300; i += 1) { const r = assistantRuns.read(reserved.id); if (r.state !== "running") break; await new Promise((resolve) => setTimeout(resolve, 10)); }
+    for (let i = 0; i < 300; i += 1) { const r = assistantRuns.read(testAccountScope(), reserved.id); if (r.state !== "running") break; await new Promise((resolve) => setTimeout(resolve, 10)); }
     return reserved.id;
   }
   const read = async (id: string) => (await dispatchAssistantTestRoute(new Request(`${origin}/api/assistant/runs/${id}`))).json() as Promise<RunReceipt>;
@@ -289,12 +290,12 @@ describe("a recovery read reproduces the facts and starts nothing", () => {
 
 describe("a parked run released by Stop", () => {
   it("interrupts the check's awaited observation as cancelled, never leaving it awaited", () => {
-    const run = assistantRuns.reserve(); assistantRuns.bind(run.id, { message: "go" });
-    assistantRuns.record(run.id, { type: "tool_call", id: "look-p", tool: "look_at_map", args: { mapId } });
-    assistantRuns.record(run.id, { type: "tool_result", id: "look-p", tool: "look_at_map", ok: true, body: {}, outcome: "succeeded", render: { id: "r", mapId, mapName: "Observed", appearance: "light", state: { map: mapId, camera: { lng: 0, lat: 0, zoom: 1, pitch: 0, bearing: 0 }, layers: [], legend: { visible: false, corner: "bottom-left", order: [] }, widgets: [], appearance: "light", digest: "0" }, image: { width: 1024, height: 640, bytes: 1 }, source: { width: 1024, height: 640 }, attribution: "", composition: { failures: [], abandoned: [] }, elapsedMs: 1 } });
-    assistantRuns.record(run.id, { type: "confirm_required", id: "pending-1", tool: "delete_layer", args: { id: "l" }, callId: "c-2" });
-    assistantRuns.release(run.id);
-    const receipt = assistantRuns.read(run.id);
+    const run = assistantRuns.reserve(testAccountScope()); assistantRuns.bind(testAccountScope(), run.id, { message: "go" });
+    assistantRuns.record(testAccountScope(), run.id, { type: "tool_call", id: "look-p", tool: "look_at_map", args: { mapId } });
+    assistantRuns.record(testAccountScope(), run.id, { type: "tool_result", id: "look-p", tool: "look_at_map", ok: true, body: {}, outcome: "succeeded", render: { id: "r", mapId, mapName: "Observed", appearance: "light", state: { map: mapId, camera: { lng: 0, lat: 0, zoom: 1, pitch: 0, bearing: 0 }, layers: [], legend: { visible: false, corner: "bottom-left", order: [] }, widgets: [], appearance: "light", digest: "0" }, image: { width: 1024, height: 640, bytes: 1 }, source: { width: 1024, height: 640 }, attribution: "", composition: { failures: [], abandoned: [] }, elapsedMs: 1 } });
+    assistantRuns.record(testAccountScope(), run.id, { type: "confirm_required", id: "pending-1", tool: "delete_layer", args: { id: "l" }, callId: "c-2" });
+    assistantRuns.release(testAccountScope(), run.id);
+    const receipt = assistantRuns.read(testAccountScope(), run.id);
     expect(receipt.state).toBe("interrupted");
     expect(checkAction(receipt).observation).toEqual(expect.objectContaining({ state: "interrupted", reason: "cancelled" }));
   });

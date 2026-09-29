@@ -10,7 +10,8 @@ let bundle: string;
 
 // Compile just this boundary into an isolated Node process. The listener in
 // the child sees unowned rejections without Vitest's global handler. Only
-// downstream ingestion/metadata is replaced; receiver and HTTP mapper are real.
+// downstream ingestion/metadata and authenticated scope are supplied as fixtures;
+// receiver and HTTP mapper are real.
 beforeAll(async () => {
   bundle = await mkdtemp(path.join(process.cwd(), ".tmp-upload-"));
   const files = [
@@ -22,13 +23,14 @@ beforeAll(async () => {
     ["src/lib/ingest/gdal-formats.ts", `
       const fs = require("node:fs/promises");
       exports.calls = [];
-      exports.ingestSource = async (target, filename) => {
+      exports.ingestSource = async (_scope, target, filename) => {
         exports.calls.push({ filename, bytes: await fs.readFile(target, "utf8") });
         return { tables: [{ id: "fixture-table", name: filename }] };
       };
       exports.toIngestResponse = (result) => result;
     `],
-    ["src/lib/metadata/projects.ts", "exports.requireProject = () => { throw new Error('unexpected project lookup'); };"],
+    ["src/lib/auth/scope-http.ts", "exports.requireRequestScope = () => ({ accountId: 'upload-fixture' });"],
+    ["src/lib/auth/owned-resource.ts", "exports.requireOwnedResource = () => { throw new Error('unexpected resource lookup'); };"],
     ["src/lib/table-service.ts", "exports.listTablesWithSize = () => [];"],
   ]);
   const output = (file: string) => path.join(bundle, file.replace(/\.ts$/, ".cjs"));

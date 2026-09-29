@@ -84,7 +84,7 @@ function account(id = "first", email = "first@example.test") {
 }
 
 describe("account storage upgrade", () => {
-  it("only appends empty account storage, preserving every legacy row until adoption", () => {
+  it("adds empty account storage and preserves every legacy field until adoption", () => {
     db = new Database(file);
     for (const migration of MIGRATIONS.slice(0, 39)) db.exec(migration);
     db.pragma("user_version = 39");
@@ -106,7 +106,8 @@ describe("account storage upgrade", () => {
     const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
       .all() as { name: string }[]).map(({ name }) => name);
     const snapshot = () => Object.fromEntries(tables.map(name =>
-      [name, db.prepare(`SELECT * FROM "${name}"`).all()]));
+      [name, db.prepare(`SELECT * FROM "${name}"`).all().map(row =>
+        Object.fromEntries(Object.entries(row as object).filter(([key]) => key !== "owner_id")))]));
     const before = snapshot();
     db.close();
     db = open(file);

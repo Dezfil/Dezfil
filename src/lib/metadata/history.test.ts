@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type { Database } from "better-sqlite3";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -41,7 +42,7 @@ function makeMap(id: string, db: Database): void {
     createdAt: now,
     updatedAt: now,
   };
-  insertMap(m, db);
+  insertMap(testAccountScope(db), m, db);
 }
 
 function nameStep(mapId: string, from: string, to: string, at: number) {

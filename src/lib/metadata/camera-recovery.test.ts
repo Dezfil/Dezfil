@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -23,15 +24,15 @@ function seed(viewport: typeof ordinary) {
     .run(viewport.lng, viewport.lat, viewport.zoom, viewport.pitch, viewport.bearing, id);
 }
 async function patch(body: unknown) {
-  return PATCH(new Request("http://test", { method: "PATCH", body: JSON.stringify(body) }), { params: Promise.resolve({ id }) });
+  return PATCH(testAccountRequest(new Request("http://test", { method: "PATCH", body: JSON.stringify(body) })), { params: Promise.resolve({ id }) });
 }
 beforeEach(async () => {
   dir = await mkdtemp(path.join(process.cwd(), ".tmp-camera-recovery-"));
   process.env.DEZFIL_DATA_DIR = dir;
   closeMetadataDb();
   resetPublishCache();
-  id = createMap("Legacy camera").id;
-  token = publishMap(id).token;
+  id = createMap(testAccountScope(), "Legacy camera").id;
+  token = publishMap(testAccountScope(), id).token;
   vi.mocked(renderMapImage).mockReset().mockResolvedValue({ png: new Uint8Array([137, 80, 78, 71]), abandoned: [] });
 });
 afterEach(async () => {
@@ -62,7 +63,7 @@ describe("legacy camera recovery", () => {
     expect(getMapByToken(token)?.viewport).toEqual(effective);
     expect(getPublishedSnapshot(token)?.map.viewport).toEqual(effective);
     expect((await getPublishedView(token, Date.now()))?.viewport).toEqual(effective);
-    const read = await GET(new Request("http://test"), { params: Promise.resolve({ id }) });
+    const read = await GET(testAccountRequest(new Request("http://test")), { params: Promise.resolve({ id }) });
     expect(read.status).toBe(200);
     expect((await read.json()).viewport).toEqual(effective);
     expect(raw()).toEqual(before);
@@ -83,7 +84,7 @@ describe("legacy camera recovery", () => {
   it("duplicates the effective camera without rewriting the original", () => {
     seed({ ...ordinary, pitch: 85, lat: 91, zoom: 26 });
     const before = raw();
-    const copy = duplicateMap(id);
+    const copy = duplicateMap(testAccountScope(), id);
     expect(copy.viewport).toEqual({ ...ordinary, pitch: 60, lat: 85.051129, zoom: 24 });
     expect(metadataDb().prepare("SELECT view_pitch, view_lat, view_zoom FROM maps WHERE id = ?").get(copy.id))
       .toEqual({ view_pitch: 60, view_lat: 85.051129, view_zoom: 24 });
@@ -98,7 +99,7 @@ describe("legacy camera recovery", () => {
     expect(definition.viewport).toEqual({ ...ordinary, pitch: 60, lat: 85.051129, zoom: 24 });
     const response = await POST(new Request("http://test", { method: "POST", body: JSON.stringify({ definition }) }), { params: Promise.resolve({ id }) });
     expect(response.status).toBe(200);
-    expect(renderMapImage).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ definition }));
+    expect(renderMapImage).toHaveBeenCalledExactlyOnceWith(testAccountScope(), expect.objectContaining({ definition }));
   });
   it("keeps valid fractional and short-stage cameras unchanged", () => {
     seed({ ...ordinary, zoom: -0.5 });

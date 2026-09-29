@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { publishedMessage } from "@/lib/api/error-catalogue";
-import { getPublishedSnapshot } from "@/lib/metadata/maps";
+import { resolvePublication, requirePublicationScope } from "@/lib/publish/publication-scope";
 import {
   assertPublishedSelections,
   computeWidgetValues,
@@ -51,7 +51,7 @@ export async function POST(request: Request, { params }: Params) {
       );
     }
 
-    const snapshot = getPublishedSnapshot(token);
+    const snapshot = resolvePublication(token);
     if (!snapshot || !snapshot.map.widgetsPublished) {
       throw new ApiError("not_found", "This map is not available.", 404);
     }
@@ -65,13 +65,13 @@ export async function POST(request: Request, { params }: Params) {
     const active = selections.filter((s) => visible.has(s.widgetId));
     // Reader selections must be evaluable before anything evaluates —
     // the induction half of the disclosure guard on this lane.
-    await assertPublishedSelections(
+    await assertPublishedSelections(snapshot.scope,
       snapshot.map,
       snapshot.layers,
       active,
       request.signal,
     );
-    const values = await computeWidgetValues(
+    const values = await computeWidgetValues(snapshot.scope,
       snapshot.map,
       snapshot.layers,
       active,
@@ -87,6 +87,7 @@ export async function POST(request: Request, { params }: Params) {
         "error" in w ? { ...w, error: publishedMessage(w.errorCode) } : w,
       ),
     };
+    requirePublicationScope(snapshot.scope);
     return NextResponse.json(wire, {
       // Values are live truth for the current token row; never store them.
       headers: { "cache-control": "private, no-store" },

@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { requireRequestAuth } from "@/lib/auth/http";
 import { instanceFetch } from "@/lib/auth/instance-fetch";
 import { authenticatedRequest } from "./testing/account";
@@ -50,11 +51,11 @@ beforeEach(async () => {
   });
   const file = path.join(dir, "pts.geojson");
   await writeFile(file, JSON.stringify({ type: "FeatureCollection", features: [{ type: "Feature", properties: { n: 1 }, geometry: { type: "Point", coordinates: [13.4, 52.5] } }] }));
-  table = (await ingestFile(file, "pts.geojson")).name;
-  mapId = createMap("Auto").id;
-  layerId = (await createLayer(mapId, { name: "Points", sql: `SELECT * FROM ${table}` })).id;
+  table = (await ingestFile(testAccountScope(), file, "pts.geojson")).name;
+  mapId = createMap(testAccountScope(), "Auto").id;
+  layerId = (await createLayer(testAccountScope(), mapId, { name: "Points", sql: `SELECT * FROM ${table}` })).id;
   const driver: RenderDriver = { launch: async () => ({ render: async (input) => {
-    counts.renders += 1; counts.appearances.push(input.definition.appearance); counts.namesAtRender.push(mapWithLayers(mapId).name);
+    counts.renders += 1; counts.appearances.push(input.definition.appearance); counts.namesAtRender.push(mapWithLayers(testAccountScope(), mapId).name);
     return { png: FIXTURE, consumed: JSON.stringify({ map: mapId, layers: [{ id: layerId, filters: [] }], legend: { visible: true, corner: "bottom-left", order: [layerId] }, widgets: [], attribution: "", failures: [] }) };
   }, close: async () => {}, kill: () => {} }) };
   setLookDriverForTests(driver);
@@ -78,7 +79,7 @@ const done = (events: AssistantEvent[]) => events.find((e): e is Extract<Assista
 function run(script: ScriptEntry[], context: AssistantContext | undefined, deps: Partial<LoopDeps> = {}) {
   const stub = stubProvider(script);
   const store = new PendingActionStore();
-  const loop: LoopDeps = { baseUrl: origin, fetchImpl: instanceFetch(origin, requireRequestAuth(authenticatedRequest())), pending: store, stepBudget: 8, ...deps };
+  const loop: LoopDeps = { scope: testAccountScope(), baseUrl: origin, fetchImpl: instanceFetch(origin, requireRequestAuth(authenticatedRequest())), pending: store, stepBudget: 8, ...deps };
   return { stub, store, loop, start: (message = "go") => collect(runAssistant(stub, { message, history: [], context }, loop)) };
 }
 
@@ -170,7 +171,7 @@ describe("2c and 1l across a confirmation", () => {
     expect(counts.renders).toBe(0);
     expect(automatic(parked.events)).toHaveLength(0);
     const pending = parked.events.find((e): e is Extract<AssistantEvent, { type: "confirm_required" }> => e.type === "confirm_required")!;
-    const resumed = await collect(resumeAssistant(store.claim(pending.id, "approved")!, true, loop));
+    const resumed = await collect(resumeAssistant(store.claim(testAccountScope(), pending.id, "approved")!, true, loop));
     expect(counts.renders).toBe(1);
     expect(automatic(resumed.events)).toHaveLength(1);
     expect(done(resumed.events)?.reason).toBe("end");
@@ -179,7 +180,7 @@ describe("2c and 1l across a confirmation", () => {
     const { store, loop, start } = run([reply("", call("delete_layer", { id: layerId })), reply("Deleted.")], builder(), { stepBudget: 2 });
     const parked = await start();
     const pending = parked.events.find((e): e is Extract<AssistantEvent, { type: "confirm_required" }> => e.type === "confirm_required")!;
-    const resumed = await collect(resumeAssistant(store.claim(pending.id, "approved")!, true, loop));
+    const resumed = await collect(resumeAssistant(store.claim(testAccountScope(), pending.id, "approved")!, true, loop));
     expect(counts.renders).toBe(0);
     expect(automatic(resumed.events)).toHaveLength(0);
     expect(done(resumed.events)?.reason).toBe("end");
@@ -188,7 +189,7 @@ describe("2c and 1l across a confirmation", () => {
     const { stub, store, loop, start } = run([reply("", call("delete_layer", { id: layerId })), reply("", call("look_at_map", { mapId })), reply("never asked")], builder(), { stepBudget: 2 });
     const parked = await start();
     const pending = parked.events.find((e): e is Extract<AssistantEvent, { type: "confirm_required" }> => e.type === "confirm_required")!;
-    const resumed = await collect(resumeAssistant(store.claim(pending.id, "approved")!, true, loop));
+    const resumed = await collect(resumeAssistant(store.claim(testAccountScope(), pending.id, "approved")!, true, loop));
     expect(checks(resumed.events)[0].ok).toBe(true);
     expect(checks(resumed.events)[0].render).toBeDefined();
     expect(done(resumed.events)?.reason).toBe("budget");
@@ -293,7 +294,7 @@ describe("2f and 2f.i: the map in context", () => {
     expect(checks(events)[0].ok).toBe(true);
     expect(automatic(events)).toHaveLength(0);
     expect(counts.renders).toBe(1);
-    expect(mapWithLayers(mapId).name).toBe("Auto");
+    expect(mapWithLayers(testAccountScope(), mapId).name).toBe("Auto");
   });
 });
 
@@ -307,7 +308,7 @@ describe("the observation ends the turn", () => {
       expect(counts.renders).toBe(1);
       expect(counts.dispatches - before).toBe(1);
       expect(requests(stub)).toBe(3);
-      expect(mapWithLayers(mapId).name).toBe("Changed");
+      expect(mapWithLayers(testAccountScope(), mapId).name).toBe("Changed");
       expect(events.filter((e) => e.type === "tool_call")).toHaveLength(2);
     });
   }
@@ -315,7 +316,7 @@ describe("the observation ends the turn", () => {
 
 describe("scheduling facts are the contextual map's", () => {
   it("an explicit look at another map does not clear the contextual map's pending check", async () => {
-    const other = createMap("Other").id;
+    const other = createMap(testAccountScope(), "Other").id;
     const { start } = run([reply("", call("update_map", { id: mapId, name: "Changed" })), reply("", call("look_at_map", { mapId: other })), reply("Looked elsewhere."), reply("Seen.")], builder());
     const { events } = await start();
     // Seeded defect on the shipped rule: the look at the other map cleared mutatedSince, so the
@@ -325,8 +326,8 @@ describe("scheduling facts are the contextual map's", () => {
     expect(automatic(events)[0].render?.mapId).toBe(mapId);
   });
   it("a layer change on another map schedules no picture of the unchanged contextual map", async () => {
-    const other = createMap("Other").id;
-    const otherLayer = (await createLayer(other, { name: "Elsewhere", sql: `SELECT * FROM ${table}` })).id;
+    const other = createMap(testAccountScope(), "Other").id;
+    const otherLayer = (await createLayer(testAccountScope(), other, { name: "Elsewhere", sql: `SELECT * FROM ${table}` })).id;
     const { start } = run([reply("", call("update_layer", { id: otherLayer, name: "Renamed elsewhere" })), reply("Renamed the other map's layer.")], builder());
     const { events } = await start();
     expect(events.some((e) => e.type === "tool_result" && e.tool === "update_layer" && e.ok)).toBe(true);
@@ -337,7 +338,7 @@ describe("scheduling facts are the contextual map's", () => {
 
 describe("every successful check in a batch awaits the observation", () => {
   it("two looks in one batch both receive the subsequent sentence", async () => {
-    const other = createMap("Other").id;
+    const other = createMap(testAccountScope(), "Other").id;
     const { start } = run([reply("", call("look_at_map", { mapId }), call("look_at_map", { mapId: other })), reply("Both maps are nearly empty. One point each.")], builder());
     const { events } = await start();
     const observations = events.filter((e): e is Extract<AssistantEvent, { type: "observation" }> => e.type === "observation");

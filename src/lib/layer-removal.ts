@@ -7,7 +7,9 @@ import {
 } from "@/lib/metadata/maps";
 import { recordStep } from "@/lib/metadata/history";
 import { removeTileArtifacts } from "@/lib/tiles/build";
-import { requireLayer, layerImage } from "@/lib/layer-service";
+import { requireLayer } from "./layer-access";
+import { layerImage } from "./layer-history-image";
+import type { AccountScope } from "@/lib/auth/scope";
 
 /**
  * The layer deletion cascade, out of `layer-service.ts` (at-touch
@@ -22,16 +24,17 @@ import { requireLayer, layerImage } from "@/lib/layer-service";
  * restore rebuilds them at render time — tile building is idempotent.
  */
 export async function removeLayer(
+  scope: AccountScope,
   id: string,
   opts: { groupId?: string | null } = {},
 ): Promise<void> {
-  const layer = requireLayer(id);
-  const map = getMap(layer.mapId);
-  const widgets = map?.widgets ?? [];
-  const bound = widgets.filter((w) => w.layerId === id);
-  const arrangement = map?.legendOrder ?? null;
-  const arranged = arrangement?.includes(id) === true;
   metadataDb().transaction(() => {
+    const layer = requireLayer(scope, id);
+    const map = getMap(layer.mapId);
+    const widgets = map?.widgets ?? [];
+    const bound = widgets.filter((w) => w.layerId === id);
+    const arrangement = map?.legendOrder ?? null;
+    const arranged = arrangement?.includes(id) === true;
     // A shared group makes the cascade one undo gesture.
     const groupId =
       bound.length || arranged

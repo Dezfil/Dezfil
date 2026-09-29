@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -68,7 +69,7 @@ beforeEach(async () => {
       (p) => `${p.name},${p.lon},${p.lat},${p.kind},${p.weight}`,
     ).join("\n")}\n`,
   );
-  await ingestFile(points, "points.csv");
+  await ingestFile(testAccountScope(), points, "points.csv");
 
   const squares = path.join(dir, "squares.geojson");
   await writeFile(
@@ -82,7 +83,7 @@ beforeEach(async () => {
       })),
     }),
   );
-  await ingestFile(squares, "squares.geojson");
+  await ingestFile(testAccountScope(), squares, "squares.geojson");
 
   // A second polygon table on the same side of the CRS seam as `squares` (a
   // derived table and an imported one cannot be joined), for the two-input
@@ -110,11 +111,11 @@ beforeEach(async () => {
       ],
     }),
   );
-  await ingestFile(strip, "strip.geojson");
+  await ingestFile(testAccountScope(), strip, "strip.geojson");
 
   const keys = path.join(dir, "keys.csv");
   await writeFile(keys, "kind,label\nwest,Western\neast,Eastern\n");
-  await ingestFile(keys, "keys.csv");
+  await ingestFile(testAccountScope(), keys, "keys.csv");
 });
 
 afterEach(async () => {
@@ -135,17 +136,17 @@ function wktToGeoJson(wkt: string): { type: string; coordinates: number[][][] } 
 }
 
 async function run(operation: string, parameters: Record<string, unknown>) {
-  const job = await startRun({ operation, parameters });
+  const job = await startRun(testAccountScope(), { operation, parameters });
   await laneSettled();
   return getJob(job.id)!;
 }
 
 const rowsOf = async (table: string) =>
-  (await executeQuery(`SELECT * FROM ${table}`)).preview;
+  (await executeQuery(testAccountScope(), `SELECT * FROM ${table}`)).preview;
 
 /** The table's column names, sorted — for exact-schema assertions. */
 const columnsOfTable = async (table: string) =>
-  (await executeQuery(`SELECT * FROM ${table} LIMIT 0`)).columns
+  (await executeQuery(testAccountScope(), `SELECT * FROM ${table} LIMIT 0`)).columns
     .map((c) => c.name)
     .sort();
 
@@ -215,7 +216,7 @@ describe("every verb runs, and produces what it promises", () => {
         ],
       }),
     );
-    await ingestFile(mixed, "mixed.geojson");
+    await ingestFile(testAccountScope(), mixed, "mixed.geojson");
     const job = await run("simplify", {
       input: "mixed",
       tolerance: 1000,
@@ -233,12 +234,12 @@ describe("every verb runs, and produces what it promises", () => {
     // The silent case the browser round found: a blank layer
     // asserting the full count. Now the dry run reports what will survive
     // **before** anything is written, and the output holds what it says.
-    const compiled = await compileOperation(
+    const compiled = await compileOperation(testAccountScope(),
       "simplify",
       { input: "squares", tolerance: 1_000_000 },
       { requireName: false },
     );
-    expect((await dryRun(compiled.sql)).rowCount).toBe(0);
+    expect((await dryRun(testAccountScope(), compiled.sql)).rowCount).toBe(0);
 
     const job = await run("simplify", {
       input: "squares",
@@ -373,7 +374,7 @@ describe("every verb runs, and produces what it promises", () => {
         ],
       }),
     );
-    await ingestFile(theirs, "theirs.geojson");
+    await ingestFile(testAccountScope(), theirs, "theirs.geojson");
     expect(await columnsOfTable("theirs")).toContain("__dezfil_clipped");
 
     for (const [operation, key, name] of [
@@ -510,7 +511,7 @@ describe("a failure speaks the product's language", () => {
     // route is what forwards the operation identity, and a test that hands
     // it over itself would stay green with the wiring broken.
     const response = await runRoute(
-      new Request("http://localhost/api/operations/run", {
+      testAccountRequest(new Request("http://localhost/api/operations/run", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -518,7 +519,7 @@ describe("a failure speaks the product's language", () => {
           parameters: seededValue,
           dryRun: true,
         }),
-      }),
+      })),
     );
     expect(response.status).toBe(400);
     const body = (await response.json()) as {
@@ -547,7 +548,7 @@ describe("a failure speaks the product's language", () => {
     // A bind-time failure, deliberately: the runtime cast seed survives a
     // dry run because counting rows prunes the failing column away.
     const response = await runRoute(
-      new Request("http://localhost/api/operations/run", {
+      testAccountRequest(new Request("http://localhost/api/operations/run", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -555,7 +556,7 @@ describe("a failure speaks the product's language", () => {
           parameters: { sql: "SELECT name > 5 AS broken FROM points" },
           dryRun: true,
         }),
-      }),
+      })),
     );
     expect(response.status).toBe(400);
     const body = (await response.json()) as {
@@ -593,7 +594,7 @@ describe("a failure speaks the product's language", () => {
 describe("what a verb refuses, it refuses at admission", () => {
   const refusal = async (operation: string, parameters: Record<string, unknown>) => {
     try {
-      await startRun({ operation, parameters });
+      await startRun(testAccountScope(), { operation, parameters });
       return null;
     } catch (error) {
       return error as { code?: string; message?: string };
@@ -650,7 +651,7 @@ describe("what a verb refuses, it refuses at admission", () => {
       expect(error?.code, operation).toBe("invalid_request");
       expect(error?.message, operation).toContain("20,003,932");
       await expect(
-        compileOperation(
+        compileOperation(testAccountScope(),
           operation,
           { ...base, [key]: GROUND_METRES_MAX },
           { requireName: false },
@@ -707,7 +708,7 @@ describe("what a verb refuses, it refuses at admission", () => {
         })),
       }),
     );
-    await ingestFile(wide, "wide.geojson");
+    await ingestFile(testAccountScope(), wide, "wide.geojson");
 
     const error = await refusal("nearest_join", {
       left: "wide",

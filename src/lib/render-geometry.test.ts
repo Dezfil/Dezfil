@@ -1,3 +1,5 @@
+import { privateTileAccess } from "@/lib/tiles/access";
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -28,9 +30,9 @@ afterEach(async () => {
 });
 
 async function geometryTypeFor(sql: string): Promise<LayerRenderGeometryType> {
-  const map = createMap("geometry");
-  const layer = await createLayer(map.id, { name: "geometry", sql });
-  const result = await renderLayer(layer);
+  const map = createMap(testAccountScope(), "geometry");
+  const layer = await createLayer(testAccountScope(), map.id, { name: "geometry", sql });
+  const result = await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
   expect(result.ok).toBe(true);
   return result.geometryType ?? null;
 }
@@ -54,24 +56,24 @@ describe("render geometry metadata", () => {
   });
 
   it("reports the effective mixed, filtered, and empty result", async () => {
-    const map = createMap("effective geometry");
-    const layer = await createLayer(map.id, {
+    const map = createMap(testAccountScope(), "effective geometry");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "mixed",
       sql: `SELECT kind, ST_GeomFromText(wkt) AS geometry
         FROM (VALUES ('point', 'POINT (0 0)'),
                      ('line', 'LINESTRING (0 0, 1 1)')) AS v(kind, wkt)`,
     });
 
-    expect((await renderLayer(layer)).geometryType).toBe("MIXED");
+    expect((await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) })).geometryType).toBe("MIXED");
 
-    const points = await updateLayer(layer.id, {
+    const points = await updateLayer(testAccountScope(), layer.id, {
       filters: [{ field: "kind", kind: "values", values: ["point"] }],
     });
-    expect((await renderLayer(points)).geometryType).toBe("POINT");
+    expect((await renderLayer(testAccountScope(), points, undefined, { tileAccess: privateTileAccess(testAccountScope(), (points).id) })).geometryType).toBe("POINT");
 
-    const empty = await updateLayer(layer.id, {
+    const empty = await updateLayer(testAccountScope(), layer.id, {
       filters: [{ field: "kind", kind: "values", values: [] }],
     });
-    expect((await renderLayer(empty)).geometryType).toBeNull();
+    expect((await renderLayer(testAccountScope(), empty, undefined, { tileAccess: privateTileAccess(testAccountScope(), (empty).id) })).geometryType).toBeNull();
   });
 });

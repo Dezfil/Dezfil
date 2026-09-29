@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -28,7 +29,7 @@ async function seed(count = 1, columns = 3, namePadding = 0) {
     const fields = Array.from({ length: columns }, (_, i) => `${i} AS "column_${i}${"x".repeat(namePadding)}"`).join(", ");
     await conn.run(`COPY (SELECT ${fields} FROM range(2)) TO '${dir.replace(/'/g, "''")}/private.parquet' (FORMAT PARQUET)`);
   });
-  for (let i = 0; i < count; i++) insertTable({
+  for (let i = 0; i < count; i++) insertTable(testAccountScope(), {
     id: `table-${i}`, name: `table_${String(i).padStart(2, "0")}`, file: "private.parquet",
     sourceFilename: "secret-source.csv", format: "geoparquet", geometryColumn: null, geometryType: null,
     crsAssumed: false, headerSuspect: false, rowCount: 987, createdAt: "2026-09-15T00:00:00Z",
@@ -42,7 +43,7 @@ describe("schema-only catalogue", () => {
     await seed();
     const read = vi.spyOn(DuckDBConnection.prototype, "runAndReadAll");
     const run = vi.spyOn(DuckDBConnection.prototype, "run");
-    const response = await GET(request());
+    const response = await GET(testAccountRequest(request()));
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toEqual({ total: 1, nextAfter: null, tables: [{
@@ -66,7 +67,7 @@ describe("schema-only catalogue", () => {
   it("pages 32 tables and 64 columns, inspecting only admitted schemas", async () => {
     await seed(33, 65);
     const read = vi.spyOn(DuckDBConnection.prototype, "runAndReadAll");
-    const first = await (await GET(request())).json();
+    const first = await (await GET(testAccountRequest(request()))).json();
     expect(first.total).toBe(33);
     expect(first.tables).toHaveLength(32);
     expect(first.nextAfter).toBe("table_31");
@@ -74,36 +75,36 @@ describe("schema-only catalogue", () => {
     expect(first.tables[0].columnCount).toBe(65);
     expect(first.tables[0].nextColumnOffset).toBe(64);
     expect(read).toHaveBeenCalledTimes(64);
-    const second = await (await GET(request("?after=table_31"))).json();
+    const second = await (await GET(testAccountRequest(request("?after=table_31")))).json();
     expect(second.tables.map((t: { name: string }) => t.name)).toEqual(["table_32"]);
     expect(second.nextAfter).toBeNull();
-    const remaining = await (await GET(request("?names=table_00&columnOffset=64"))).json();
+    const remaining = await (await GET(testAccountRequest(request("?names=table_00&columnOffset=64")))).json();
     expect(remaining.tables[0].columns).toEqual([{ name: "column_64", type: "INTEGER" }]);
     expect(remaining.tables[0].nextColumnOffset).toBeNull();
   });
   it("distinguishes empty catalogue, missing named table and failed artifact read", async () => {
-    expect(await (await GET(request())).json()).toEqual({ tables: [], total: 0, nextAfter: null });
-    expect((await GET(request("?names=missing"))).status).toBe(404);
+    expect(await (await GET(testAccountRequest(request()))).json()).toEqual({ tables: [], total: 0, nextAfter: null });
+    expect((await GET(testAccountRequest(request("?names=missing")))).status).toBe(404);
     await seed();
     await rm(path.join(dir, "private.parquet"));
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const response = await GET(request());
+    const response = await GET(testAccountRequest(request()));
     expect(response.status).toBe(500);
     expect((await response.json()).error.code).toBe("internal");
   });
   it("validates each page bound before schema work", async () => {
     const read = vi.spyOn(DuckDBConnection.prototype, "runAndReadAll");
     for (const query of ["?limit=33", "?limit=0", "?columns=65", "?columns=-1", "?columnOffset=-1", "?columnOffset=1.5", "?names=", "?names=a,a", "?names=" + Array.from({ length: 33 }, (_, i) => i).join(","), "?extra=x", "?limit=1&limit=2"]) {
-      expect((await GET(request(query))).status, query).toBe(400);
+      expect((await GET(testAccountRequest(request(query)))).status, query).toBe(400);
     }
     expect(read).not.toHaveBeenCalled();
   });
   it("refuses a response above 96 KiB and permits a smaller column page", async () => {
     await seed(1, 64, 2000);
-    const response = await GET(request());
+    const response = await GET(testAccountRequest(request()));
     expect(response.status).toBe(422);
     expect((await response.json()).error.code).toBe("catalogue_too_large");
-    const smaller = await GET(request("?columns=1"));
+    const smaller = await GET(testAccountRequest(request("?columns=1")));
     expect(smaller.status).toBe(200);
     const body = await smaller.json();
     expect(body.tables[0].columns[0].name).toHaveLength(2008);
@@ -114,12 +115,12 @@ describe("schema-only catalogue", () => {
     await seed(2, 2);
     const tool = buildTools().find((entry) => entry.name === "read_table_catalogue")!;
     expect(tool.effects).toEqual({ readOnly: true, writes: [] });
-    const response = await executeTool(tool, { limit: 1, columns: 1 }, "http://localhost:3201", async (url) => GET(new Request(String(url))));
+    const response = await executeTool(tool, { limit: 1, columns: 1 }, "http://localhost:3201", async (url) => GET(testAccountRequest(new Request(String(url)))));
     expect(response.ok).toBe(true);
     expect(response.body).toMatchObject({ total: 2, nextAfter: "table_00", tables: [{ name: "table_00", columnCount: 2, columns: [{ name: "column_0" }], nextColumnOffset: 1 }] });
   });
   it("refuses an already cancelled read before acquiring the engine", async () => {
     const controller = new AbortController(); controller.abort();
-    await expect(readTableCatalogue(parseCatalogueQuery(new URL(request().url)), controller.signal)).rejects.toThrow("abandoned");
+    await expect(readTableCatalogue(testAccountScope(), parseCatalogueQuery(new URL(request().url)), controller.signal)).rejects.toThrow("abandoned");
   });
 });

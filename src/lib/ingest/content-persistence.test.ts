@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import Database from "better-sqlite3";
 import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
@@ -37,7 +38,7 @@ afterEach(async () => {
 });
 async function local(csv: string, name = "local.csv") {
   const file = path.join(dir, name); await writeFile(file, csv);
-  return ingestFile(file, name);
+  return ingestFile(testAccountScope(), file, name);
 }
 type WithRecord = DataTable & { geometryRecord?: { columns: string[]; unreadableCount: number }; geometryCandidates?: unknown[] };
 
@@ -45,14 +46,14 @@ it("actual upload response, close/reopen and table inspection preserve the selec
   const csv = 'label,payload\n' + Array.from({ length: 1000 }, () => 'a,"POINT (10 20)"\n').join("") + 'b,bad\n';
   const form = new FormData();
   form.set("file", new Blob([csv], { type: "text/csv" }), "upload.csv");
-  const response = await POST(new Request("http://dezfil.test/api/tables", { method: "POST", body: form }));
+  const response = await POST(testAccountRequest(new Request("http://dezfil.test/api/tables", { method: "POST", body: form })));
   expect(response.status).toBe(201);
   const body = await response.json();
   expect(body).toMatchObject({ geometryRecord: { columns: ["payload"], unreadableCount: 1 }, geometryCandidates: [{ applied: true, sample: { rows: 1000, nonNull: 1000, readable: 1000 } }] });
   const record = body.geometryRecord;
   closeMetadataDb();
   expect(getTableByName(body.name)).toMatchObject({ geometryRecord: record, geometryCandidates: body.geometryCandidates });
-  const inspected = await inspectTable(body.name);
+  const inspected = await inspectTable(testAccountScope(), body.name);
   expect(inspected).toMatchObject({ geometryRecord: record, rowCount: 1001 });
 });
 
@@ -77,28 +78,28 @@ it("legacy records remain absent after the next migration", async () => {
 it("local and URL imports agree; a successful refresh replaces record and candidates with its artifact", async () => {
   remoteCsv = 'payload,label\n"SRID=4326;POINT (10 20)",a\n';
   const file = await local(remoteCsv) as WithRecord;
-  const url = (await importFromUrl("https://fixture.test/remote.csv")).tables[0] as WithRecord;
+  const url = (await importFromUrl(testAccountScope(), "https://fixture.test/remote.csv")).tables[0] as WithRecord;
   expect(file.geometryRecord).toMatchObject({ columns: ["payload"], unreadableCount: 0 });
   expect(url.geometryRecord).toEqual(file.geometryRecord);
   expect(url.geometryCandidates).toEqual(file.geometryCandidates);
   remoteCsv = 'other,label\n"LINESTRING (30 40, 31 41)",a\n';
-  const refreshed = await refreshTable(url.name) as WithRecord;
+  const refreshed = await refreshTable(testAccountScope(), url.name) as WithRecord;
   expect(refreshed.file).not.toBe(url.file);
   expect(refreshed.geometryRecord).toMatchObject({ columns: ["other"], unreadableCount: 0 });
   expect(getTableByName(url.name)).toMatchObject({ geometryRecord: refreshed.geometryRecord, geometryCandidates: refreshed.geometryCandidates });
   remoteCsv = "name,value\na,1\n";
-  expect(await refreshTable(url.name)).toMatchObject({ geometryColumn: null, geometryRecord: null, geometryCandidates: [] });
+  expect(await refreshTable(testAccountScope(), url.name)).toMatchObject({ geometryColumn: null, geometryRecord: null, geometryCandidates: [] });
 });
 
 it("a failure after conversion keeps the old artifact and record together", async () => {
   remoteCsv = 'payload,label\n"POINT (10 20)",a\n';
-  const before = (await importFromUrl("https://fixture.test/remote.csv")).tables[0] as WithRecord;
+  const before = (await importFromUrl(testAccountScope(), "https://fixture.test/remote.csv")).tables[0] as WithRecord;
   expect(before.geometryRecord).toMatchObject({ columns: ["payload"] });
   const tablesDir = path.join(process.env.DEZFIL_DATA_DIR!, "tables");
   const filesBefore = await readdir(tablesDir);
   metadataDb().exec("CREATE TRIGGER fail_refresh BEFORE UPDATE ON data_tables BEGIN SELECT RAISE(ABORT, 'seeded publication failure'); END");
   remoteCsv = 'new_shape,label\n"POINT (30 40)",b\n';
-  await expect(refreshTable(before.name)).rejects.toThrow("seeded publication failure");
+  await expect(refreshTable(testAccountScope(), before.name)).rejects.toThrow("seeded publication failure");
   expect(getTableByName(before.name)).toEqual(before);
   expect(await readdir(tablesDir)).toEqual(filesBefore);
 });

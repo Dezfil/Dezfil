@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
@@ -35,7 +36,7 @@ beforeEach(async () => {
   vi.stubEnv("DEZFIL_DATA_DIR", dir); vi.stubEnv("PORT", "3314"); vi.stubEnv("OPENAI_API_KEY", "fixture-never-sent"); vi.stubEnv("DEZFIL_AI_PROVIDER", "openai");
   closeMetadataDb(); assistantRuns.resetForTests(); renders = 0;
   vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => dispatchAssistantTestRoute(input instanceof Request ? input : new Request(String(input), init)));
-  mapId = createMap("Setting").id;
+  mapId = createMap(testAccountScope(), "Setting").id;
   const driver: RenderDriver = { launch: async () => ({ render: async () => { renders += 1; return { png: FIXTURE, consumed: JSON.stringify({ map: mapId, layers: [], legend: { visible: false, corner: "bottom-left", order: [] }, widgets: [], attribution: "", failures: [] }) }; }, close: async () => {}, kill: () => {} }) };
   setLookDriverForTests(driver);
 });

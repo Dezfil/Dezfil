@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
 import { mapDependencies } from "@/lib/map-dependencies";
@@ -8,8 +9,9 @@ type Params = { params: Promise<{ id: string }> };
  * documented read. */
 export async function GET(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id } = await params;
-    return NextResponse.json({ datasets: await mapDependencies(id) });
+    return NextResponse.json({ datasets: await mapDependencies(scope, id) });
   } catch (error) {
     return errorResponse(error);
   }

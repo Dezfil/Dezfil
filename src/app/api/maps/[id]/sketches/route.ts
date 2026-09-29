@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { createSketch, mapSketches } from "@/lib/sketch/store";
@@ -8,9 +9,10 @@ type Params = { params: Promise<{ id: string }> };
 /** The map's sketch datasets — provenance and per-kind counts. */
 export async function GET(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id } = await params;
-    requireMap(id);
-    return NextResponse.json(await mapSketches(id));
+    requireMap(scope, id);
+    return NextResponse.json(await mapSketches(scope, id));
   } catch (error) {
     return errorResponse(error);
   }
@@ -23,6 +25,7 @@ export async function GET(_request: Request, { params }: Params) {
  */
 export async function POST(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
     let body: { feature?: unknown };
     try {
@@ -30,7 +33,7 @@ export async function POST(request: Request, { params }: Params) {
     } catch {
       throw new ApiError("invalid_request", "Expected a JSON body.", 400);
     }
-    const created = await createSketch(id, body.feature);
+    const created = await createSketch(scope, id, body.feature);
     return NextResponse.json(
       {
         table: created.table.name,

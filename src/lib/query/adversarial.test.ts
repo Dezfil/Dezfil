@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -21,7 +22,7 @@ beforeEach(async () => {
   resetQueryInstance();
   const src = path.join(dir, "assets.csv");
   await writeFile(src, "name,lon,lat\na,1,2\nb,3,4\n");
-  await ingestFile(src, "assets.csv");
+  await ingestFile(testAccountScope(), src, "assets.csv");
 });
 
 afterEach(async () => {
@@ -32,7 +33,7 @@ afterEach(async () => {
 });
 
 async function assertDataIntact() {
-  const check = await executeQuery("SELECT count(*) AS n FROM assets");
+  const check = await executeQuery(testAccountScope(), "SELECT count(*) AS n FROM assets");
   expect(Number(check.preview[0].n)).toBe(2);
 }
 
@@ -65,14 +66,14 @@ describe("read-only enforcement", () => {
       "begin transaction",
     ];
     for (const sql of attempts) {
-      await expect(executeQuery(sql), sql).rejects.toMatchObject({
+      await expect(executeQuery(testAccountScope(), sql), sql).rejects.toMatchObject({
         code: "sql_rejected",
       });
     }
     await assertDataIntact();
   });
 
-  it("fences SELECT-shaped filesystem escapes to the artifact directory", async () => {
+  it("refuses SELECT-shaped filesystem access before binding", async () => {
     const escapes = [
       "SELECT * FROM read_csv('/etc/hosts')",
       "SELECT * FROM read_parquet('/etc/hosts')",
@@ -80,22 +81,22 @@ describe("read-only enforcement", () => {
       "SELECT * FROM glob('/etc/*')",
     ];
     for (const sql of escapes) {
-      await expect(executeQuery(sql), sql).rejects.toMatchObject({
-        code: "sql_error",
+      await expect(executeQuery(testAccountScope(), sql), sql).rejects.toMatchObject({
+        code: "sql_rejected",
       });
     }
-    // The metadata store sits outside the fence too.
+    // The metadata store is refused by the same parsed policy.
     const metadata = path
       .join(process.env.DEZFIL_DATA_DIR!, "metadata.sqlite")
       .replace(/'/g, "''");
     await expect(
-      executeQuery(`SELECT * FROM read_text('${metadata}')`),
-    ).rejects.toMatchObject({ code: "sql_error" });
+      executeQuery(testAccountScope(), `SELECT * FROM read_text('${metadata}')`),
+    ).rejects.toMatchObject({ code: "sql_rejected" });
     await assertDataIntact();
   });
 
-  it("keeps the artifact directory itself readable", async () => {
-    const result = await executeQuery(
+  it("keeps owned datasets readable by SQL name", async () => {
+    const result = await executeQuery(testAccountScope(),
       "SELECT count(*) AS n FROM assets WHERE ST_X(geometry) > 0",
     );
     expect(Number(result.preview[0].n)).toBe(2);

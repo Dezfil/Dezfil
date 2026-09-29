@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -24,7 +25,7 @@ beforeEach(async () => {
   resetQueryInstance();
   const src = path.join(dir, "assets.csv");
   await writeFile(src, "name,lon,lat\na,1,2\nb,3,4\n");
-  await ingestFile(src, "assets.csv");
+  await ingestFile(testAccountScope(), src, "assets.csv");
 
   const handler = buildMcpFetchHandler();
   vi.stubGlobal(
@@ -32,7 +33,7 @@ beforeEach(async () => {
     (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input instanceof Request ? input.url : String(input);
       const { pathname } = new URL(url);
-      const request = input instanceof Request ? input : new Request(url, init);
+      const request = testAccountRequest(input instanceof Request ? input : new Request(url, init));
       if (pathname === "/api/mcp") return handler.fetch(request);
       if (pathname === "/api/query") return queryRoute(request);
       throw new Error(`Unexpected self-call in test: ${pathname}`);
@@ -98,7 +99,7 @@ describe("read-only enforcement through MCP", () => {
     await client.close();
   });
 
-  it("fences filesystem escapes identically through MCP", async () => {
+  it("refuses filesystem access identically through MCP", async () => {
     const client = await connectedClient();
     for (const sql of [
       "SELECT * FROM read_csv('/etc/hosts')",
@@ -106,7 +107,7 @@ describe("read-only enforcement through MCP", () => {
     ]) {
       const r = await runSql(client, sql);
       expect(r.error, sql).toBe(true);
-      expect(r.body?.error?.code, sql).toBe("sql_error");
+      expect(r.body?.error?.code, sql).toBe("sql_rejected");
     }
     await client.close();
   });

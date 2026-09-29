@@ -1,3 +1,4 @@
+import { testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { GET } from "./route";
 import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
@@ -29,7 +30,7 @@ afterEach(() => {
 describe("builder route unexpected failure", () => {
   it("answers 500 with the documented sentence and no internals", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
-    const res = await GET(new Request("http://dezfil.test/api/tables"));
+    const res = await GET(testAccountRequest(new Request("http://dezfil.test/api/tables")));
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.error.code).toBe("internal");

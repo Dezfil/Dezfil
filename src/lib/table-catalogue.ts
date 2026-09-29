@@ -1,3 +1,4 @@
+import type { AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { dataDir } from "@/lib/config";
@@ -39,9 +40,9 @@ export function parseCatalogueQuery(url: URL): CatalogueQuery {
 /** Only Parquet footer/schema metadata is evaluated. In particular this does
  * not use artifactRelation's row probe or inspection's preview/healing path.
  */
-export async function readTableCatalogue(query: CatalogueQuery, signal?: AbortSignal): Promise<TableCatalogue> {
+export async function readTableCatalogue(scope: AccountScope, query: CatalogueQuery, signal?: AbortSignal): Promise<TableCatalogue> {
   if (signal?.aborted) throw new EvaluationCancelled();
-  const { records, total, more } = catalogueRecords(query);
+  const { records, total, more } = catalogueRecords(scope, query);
   return trackInflight(withConnection(async (conn) => {
     const abort = () => conn.interrupt();
     signal?.addEventListener("abort", abort, { once: true });

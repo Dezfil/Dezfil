@@ -59,7 +59,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   mcp_transport_failed: "The operation's response could not be received. Its outcome is unknown.",
   mcp_response_invalid: "The instance returned a response that does not match this operation's documented result.",
   invalid_request: "The request was malformed or failed validation.",
-  not_found: "The requested resource does not exist.",
+  not_found: "The requested resource was not found.",
   sql_rejected: "The SQL was not an accepted read-only query.",
   sql_error: "The SQL failed to parse or execute.",
   query_timeout: "The query exceeded the configured timeout.",

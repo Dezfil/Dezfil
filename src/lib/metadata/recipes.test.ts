@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -39,7 +40,7 @@ const step = (n: string) => ({ operation: "sql_step", parameters: { name: n } })
 
 describe("recipes", () => {
   it("round-trips: created, listed, read back, renamed, deleted", () => {
-    const r = createRecipe("Accidents by borough", db);
+    const r = createRecipe(testAccountScope(db), "Accidents by borough", db);
     expect(getRecipe(r.id, db)).toEqual(r);
     expect(listRecipes(db).map((x) => x.id)).toEqual([r.id]);
 
@@ -51,8 +52,8 @@ describe("recipes", () => {
   });
 
   it("carries which surface made it, fixed at creation, and lists by it", () => {
-    const w = createRecipe("Cafés within reach of stations", db);
-    const b = createRecipe("Analysis of stations", db, "builder");
+    const w = createRecipe(testAccountScope(db), "Cafés within reach of stations", db);
+    const b = createRecipe(testAccountScope(db), "Analysis of stations", db, "builder");
     expect(getRecipe(w.id, db)?.origin).toBe("workflow");
     expect(getRecipe(b.id, db)?.origin).toBe("builder");
     expect(listRecipes(db, { origin: "workflow" }).map((r) => r.id)).toEqual([w.id]);
@@ -72,7 +73,7 @@ describe("recipes", () => {
 
 describe("steps", () => {
   it("append in order, and list in that order", () => {
-    const r = createRecipe("R", db);
+    const r = createRecipe(testAccountScope(db), "R", db);
     const a = addStep(r.id, step("a"), db);
     const b = addStep(r.id, step("b"), db);
     const c = addStep(r.id, step("c"), db);
@@ -81,14 +82,14 @@ describe("steps", () => {
   });
 
   it("deleting a recipe takes its steps with it", () => {
-    const r = createRecipe("R", db);
+    const r = createRecipe(testAccountScope(db), "R", db);
     addStep(r.id, step("a"), db);
     deleteRecipe(r.id, db);
     expect(listSteps(r.id, db)).toEqual([]);
   });
 
   it("reorders densely, so 'earlier than' stays unambiguous", () => {
-    const r = createRecipe("R", db);
+    const r = createRecipe(testAccountScope(db), "R", db);
     const a = addStep(r.id, step("a"), db);
     const b = addStep(r.id, step("b"), db);
     const c = addStep(r.id, step("c"), db);
@@ -101,7 +102,7 @@ describe("steps", () => {
   });
 
   it("closes the gap when a step is removed", () => {
-    const r = createRecipe("R", db);
+    const r = createRecipe(testAccountScope(db), "R", db);
     const a = addStep(r.id, step("a"), db);
     const b = addStep(r.id, step("b"), db);
     const c = addStep(r.id, step("c"), db);
@@ -114,7 +115,7 @@ describe("steps", () => {
   });
 
   it("removing a step keeps the output table it produced — the row goes, the data does not", () => {
-    const r = createRecipe("R", db);
+    const r = createRecipe(testAccountScope(db), "R", db);
     const a = addStep(r.id, step("a"), db);
     recordOutput(a.id, { id: "t1", name: "out_a" }, "2026-08-12T00:00:00Z", db);
 
@@ -128,7 +129,7 @@ describe("steps", () => {
 
 describe("editing a step that has already produced an output (G3)", () => {
   it("edits a never-run step in place", () => {
-    const r = createRecipe("R", db);
+    const r = createRecipe(testAccountScope(db), "R", db);
     const s = addStep(r.id, step("a"), db);
 
     expect(editStep(s.id, { name: "changed" }, db)).toBe("active");
@@ -139,7 +140,7 @@ describe("editing a step that has already produced an output (G3)", () => {
   });
 
   it("holds an edit as a proposal once the step owns an output", () => {
-    const r = createRecipe("R", db);
+    const r = createRecipe(testAccountScope(db), "R", db);
     const s = addStep(r.id, step("a"), db);
     recordOutput(s.id, { id: "t1", name: "out_a" }, "2026-08-12T00:00:00Z", db);
 
@@ -152,7 +153,7 @@ describe("editing a step that has already produced an output (G3)", () => {
   });
 
   it("promotes a proposal only when told to", () => {
-    const r = createRecipe("R", db);
+    const r = createRecipe(testAccountScope(db), "R", db);
     const s = addStep(r.id, step("a"), db);
     recordOutput(s.id, { id: "t1", name: "out_a" }, "2026-08-12T00:00:00Z", db);
     editStep(s.id, { name: "changed" }, db);
@@ -165,7 +166,7 @@ describe("editing a step that has already produced an output (G3)", () => {
   });
 
   it("discards a proposal without disturbing the active definition", () => {
-    const r = createRecipe("R", db);
+    const r = createRecipe(testAccountScope(db), "R", db);
     const s = addStep(r.id, step("a"), db);
     recordOutput(s.id, { id: "t1", name: "out_a" }, "2026-08-12T00:00:00Z", db);
     editStep(s.id, { name: "changed" }, db);
@@ -180,7 +181,7 @@ describe("editing a step that has already produced an output (G3)", () => {
 
 describe("ownership is a stored fact", () => {
   it("is true only for the exact table the step produced", () => {
-    const r = createRecipe("R", db);
+    const r = createRecipe(testAccountScope(db), "R", db);
     const s = addStep(r.id, step("a"), db);
     recordOutput(s.id, { id: "t1", name: "out_a" }, "2026-08-12T00:00:00Z", db);
 
@@ -193,7 +194,7 @@ describe("ownership is a stored fact", () => {
   });
 
   it("is false for a step that has produced nothing", () => {
-    const r = createRecipe("R", db);
+    const r = createRecipe(testAccountScope(db), "R", db);
     const s = addStep(r.id, step("a"), db);
     expect(stepOwnsOutput(s.id, { id: "t1", name: "out_a" }, db)).toBe(false);
   });
@@ -207,7 +208,7 @@ describe("last edited", () => {
   const stampOf = (id: string) => getRecipe(id, db)!.updatedAt;
 
   it("advances strictly on every accepted edit, never on a run", () => {
-    const r = createRecipe("Reach", db);
+    const r = createRecipe(testAccountScope(db), "Reach", db);
     let last = stampOf(r.id);
     const later = (label: string) => {
       const next = stampOf(r.id);

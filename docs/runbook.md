@@ -24,6 +24,57 @@ builds), `cache/overpass/` once an OSM import runs, and `secret.key` on
 first boot unless `DEZFIL_SECRET_KEY` was set first. An optional
 `assistant-models.json` placed there by hand is read as described below.
 
+## Upgrading ownership storage
+
+Stop the instance and back up the complete data directory before upgrading,
+including SQLite journal files, artifacts and `secret.key`. Preserve any
+externally configured encryption key as well. Rehearse the upgrade on a copy.
+
+The upgrade assigns existing maps, datasets, workflows, connections, projects
+and operation job records to the recorded original account, even when another
+account is now admin or the original account is deactivated. An installation
+without accounts keeps these records pending until first-account setup. Setup
+adopts them in the same transaction as the account, preferences and session.
+Failed adoption rolls back and can be retried. Existing identities, SQL,
+public links, credentials, memberships and artifact paths are preserved.
+Other accounts start with their own empty space. An admin flag does not grant
+access to the original account's content, and there is no ownership transfer
+operation. Deactivation freezes private work; reactivation restores access to
+the same records. Existing published links keep their read-only projection.
+New resources take their owner from the authenticated creator; request fields
+cannot assign a different owner. Dataset and connection names are unique within
+that owner; two accounts may use the same names and keep distinct identities.
+After duplicate names exist across accounts, an older build with global name
+constraints cannot read that store safely. Restore its matching backup as well.
+
+Restore the matching old application and the complete pre-upgrade backup to
+roll back. An older build cannot safely write the upgraded metadata schema.
+Account for work written after the backup before restoring it.
+
+Named SQL runs against connection-local temporary views for its owner. Existing
+`main.table`, `memory.table`, `memory.main.table` and computed dynamic named
+references remain valid without editing saved SQL. A warm artifact metadata
+cache does not retain dataset views between evaluations. Publication queries
+retain their owner's scope even when that account is deactivated.
+
+**Breaking SQL change:** user file readers and engine path discovery are refused
+even for an owned file or an existing path. File-referencing PROJ definitions
+(including computed CRS values, initialization files, grids and models) are
+also refused. EPSG identifiers and inline definitions without files still work.
+Saved SQL and publication tokens survive unchanged; an affected query or published layer fails until its owner
+changes the SQL to refer to an uploaded dataset by name. Review saved queries
+for file readers, file-relation shorthand and metadata definition/path access
+before upgrading. See
+[the SQL boundary](api.md#the-read-only-sql-instance) for the execution rules.
+
+Unlabelled browser SQL drafts and history from older releases cannot be
+attributed to an account and are discarded when the private workspace first
+opens. Copy any draft you need before upgrading. Once labelled, same-account
+reloads retain drafts; sign-out or an account change clears private browser
+memory, including assistant recovery locators and prepared download state.
+Saved layer and workflow SQL in the data directory is unaffected by this
+browser cleanup.
+
 ## A second isolated instance
 
 Two instances must not share a port or a data directory. Give the second one
@@ -167,7 +218,23 @@ under `.claude/`, upgrades a copy, exercises the old data through authenticated
 HTTP, restarts the server, and restores a separate copy from the unchanged
 seed. Its evidence records file hashes and distinguishes copied credential
 usability from an unexecuted live external PostGIS connection. It never takes
-an operator data-directory argument.
+an operator data-directory argument. Owner stamps, histories, memberships,
+lineage and standalone jobs must survive adoption and restart; another admin
+must still receive the same refusal as for missing private work.
+
+`node scripts/ownership-journey.mjs seed <base-url> <scratch-state-file>`
+provisions an admin and two ordinary accounts on an empty scratch instance.
+Each imports the same SQL name and completes a map, workflow, publication and
+export loop. The journey compares hidden and missing resources through REST
+sessions, tokens and MCP, checks compound-write rollback, concurrent queries
+and anonymous publication scope. Replace the server against the same store,
+then run `verify <base-url> <scratch-state-file>` to repeat those assertions
+with the saved sessions and tokens. Use an owned loopback port of 3300 or
+higher. The state file is created exclusively with mode 0600.
+
+The ownership journey's route-handler tests also run without a listening
+socket. Their SQLite reopen and engine reset do not establish process or
+container restart behavior; run the HTTP commands for that evidence.
 
 `node scripts/mcp-journey.mjs <base-url>` runs the same journey over the MCP
 endpoint with no model involved; `--render` adds the real-render arm, which

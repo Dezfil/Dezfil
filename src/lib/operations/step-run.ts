@@ -1,15 +1,17 @@
+import { getStep as getOwnedStep } from "@/lib/metadata/owned-recipes";
+import type { AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { ApiError } from "@/lib/api/errors";
-import { setMember } from "@/lib/metadata/cascades";
+import { setMember, requireCascadeMember } from "@/lib/metadata/owned-cascades";
+import { resourceAbsent } from "@/lib/auth/owned-resource";
 import { replaceEdges } from "@/lib/metadata/lineage";
 import {
-  getStep,
   promoteProposal,
   recordOutput,
   stepOwnsOutput,
   type RecipeStep,
 } from "@/lib/metadata/recipes";
-import { getTableByName } from "@/lib/metadata/tables";
+import { getOwnedTableByName } from "@/lib/metadata/owned-tables";
 import type { BoundInput } from "./materialize";
 
 /**
@@ -54,17 +56,17 @@ export interface StepPublication {
  * new dataset carries a **new id**, because a deleted table's id is gone and
  * pretending otherwise would be inventing identity.
  */
-export function planPublication(stepId: string): StepPublication {
-  const step = getStep(stepId);
+export function planPublication(scope: AccountScope, stepId: string): StepPublication {
+  const step = getOwnedStep(scope, stepId);
   if (!step) {
-    throw new ApiError("not_found", `No step with id "${stepId}".`, 404);
+    throw resourceAbsent();
   }
 
   const running = step.proposedParameters ?? step.parameters;
   const isProposal = step.proposedParameters !== null;
 
   if (step.outputTableId && step.outputTableName) {
-    const live = getTableByName(step.outputTableName);
+    const live = getOwnedTableByName(scope, step.outputTableName);
     if (live && live.id === step.outputTableId) {
       return { step, running, isProposal, replaceTable: { id: live.id, name: live.name } };
     }
@@ -92,6 +94,7 @@ export function planPublication(stepId: string): StepPublication {
  * its claim leaves no output behind.
  */
 export function stepAuthorizer(
+  scope: AccountScope,
   plan: StepPublication,
   jobFinished: (db: Database, output: { id: string; name: string }) => boolean,
   /** When this run is a cascade member, its success is recorded there too —
@@ -106,8 +109,9 @@ export function stepAuthorizer(
     // Still the live attempt? A step deleted, or its recipe deleted, while the
     // run worked has no row here — and E10's fence says a lost attempt may
     // finish computing but may not publish.
-    const current = getStep(plan.step.id, db);
+    const current = getOwnedStep(scope, plan.step.id, db);
     if (!current) return false;
+    if (cascadeId) requireCascadeMember(scope, cascadeId, plan.step.id, db);
 
     // Superseded: the definition this run was executing is no longer the one
     // the step would run now.
@@ -142,6 +146,7 @@ export function stepAuthorizer(
     // Replace, never append: a re-run may read different tables, and an edge
     // left behind would keep propagating staleness from one it no longer reads.
     replaceEdges(
+      scope,
       plan.step.id,
       table.id,
       inputs.map((i) => ({
@@ -156,6 +161,7 @@ export function stepAuthorizer(
 
     if (cascadeId) {
       setMember(
+        scope,
         cascadeId,
         plan.step.id,
         { state: "succeeded", output: { id: table.id, name: table.name } },

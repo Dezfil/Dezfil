@@ -1,3 +1,4 @@
+import type { AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
@@ -8,9 +9,9 @@ import { geometryColumns, readGeometry } from "./read";
 import { geometryOwnership, sourceUnavailable } from "./ownership";
 import { geometryMutationResult, publishGeometry, withGeometryMutation } from "./mutate";
 
-export function clearGeometry(name: string, expectedRevision: string) {
-  return withGeometryMutation(name, expectedRevision, async (table, state) => {
-    if (!table.geometryColumn) return geometryMutationResult(table, state, null);
+export function clearGeometry(scope: AccountScope, name: string, expectedRevision: string) {
+  return withGeometryMutation(scope, name, expectedRevision, async (table, state) => {
+    if (!table.geometryColumn) return geometryMutationResult(scope, table, state, null);
     const file = path.join("tables", `${randomUUID()}.parquet`), artifact = path.join(dataDir(), file);
     try {
       const meta = await readGeometry(table, async (conn, from) => {
@@ -21,7 +22,7 @@ export function clearGeometry(name: string, expectedRevision: string) {
         await conn.run(`COPY (SELECT * EXCLUDE (${ident(table.geometryColumn!)}) FROM ${from}) TO ${lit(artifact)} (FORMAT PARQUET)`);
         return measureArtifact(conn, artifact);
       });
-      return publishGeometry(table, {
+      return publishGeometry(scope, table, {
         ...meta, file, importedAt: table.importedAt, headerSuspect: table.headerSuspect,
         geometryRecord: null, geometryCandidates: [],
         geometryState: { mode: "cleared", choice: null, outputColumn: null, sourceRetained: true },

@@ -1,7 +1,15 @@
+import { fileMap } from "@/lib/metadata/owned-projects";
+import { assertMapLayerRefs } from "./map-layer-refs";
+import { requireMap, mapWithLayers } from "./map-access";
+export { requireMap, mapWithLayers } from "./map-access";
+export { mapHistory, undoChange, redoChange, type MapWithHistory } from "./map-history";
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
+import { listOwnedMaps, ownedMapProjectId } from "@/lib/metadata/map-queries";
 import { randomUUID } from "node:crypto";
 import { ApiError } from "@/lib/api/errors";
 import { removeTileArtifacts } from "@/lib/tiles/build";
-import { removeThumbnail } from "@/lib/map-thumbnails";
+import { prepareThumbnailRemoval } from "@/lib/map-thumbnails";
 import { invalidatePublishedToken } from "@/lib/publish/publish-service";
 import { CORNERS, isCorner, type Corner } from "@/lib/corners";
 import { isValidTimeline, TIMELINE_SPEED, type MapTimeline } from "@/lib/timeline";
@@ -23,25 +31,18 @@ import {
 import {
   insertMap,
   getMap,
-  listMaps,
   updateMapFields,
   deleteMap,
   listLayers,
   insertLayer,
-  updateLayerFields,
-  deleteLayer,
   reorderLayers,
   type CustomBasemap,
-  type Layer,
   type MapRecord,
   type MapWithLayers,
   type Viewport,
 } from "@/lib/metadata/maps";
 import {
-  fileMap,
   mapProjectId,
-  mapProjectIds,
-  requireProject,
   touchProjectsOf,
 } from "@/lib/metadata/projects";
 import { metadataDb } from "@/lib/metadata/db";
@@ -49,13 +50,7 @@ import {
   recordStep,
   diffImages,
   stableJson,
-  undoSteps,
-  redoSteps,
-  setHistoryCursor,
-  historyAvailability,
-  type HistoryAvailability,
   type HistoryImage,
-  type HistoryStep,
 } from "@/lib/metadata/history";
 
 /** Map fields the timeline records. The viewport is deliberately
@@ -222,13 +217,14 @@ function normalizeWidgets(input: unknown, mapId: string): MapWidget[] {
  * validates.
  */
 export async function validateMapWriteRefs(
+  scope: AccountScope,
   mapId: string,
-  fields: { timeline?: unknown; widgets?: unknown },
+  fields: { timeline?: unknown; widgets?: unknown; layerOrder?: unknown; legendOrder?: unknown },
   signal?: AbortSignal,
 ): Promise<void> {
-  const map = getMap(mapId);
-  if (!map) return; // the write itself answers 404
+  const map = requireMap(scope, mapId);
   const layers = new Map(listLayers(mapId).map((l) => [l.id, l]));
+  assertMapLayerRefs(map, [...layers.values()], fields);
   const perLayer = new Map<string, ColumnRef[]>();
   const collect = (layerId: string, refs: ColumnRef[]) => {
     if (refs.length === 0 || !layers.has(layerId)) return;
@@ -273,13 +269,15 @@ export async function validateMapWriteRefs(
     const layer = layers.get(layerId)!;
     const problem = refProblem(
       refs,
-      await fieldsForWrite(layer.sql, layer.viz, signal),
+      await fieldsForWrite(scope, layer.sql, layer.viz, signal),
     );
     if (problem) throw new ApiError("column_unavailable", problem, 400);
   }
 }
 
-export function createMap(name: string): MapRecord {
+export function createMap(scope: AccountScope, name: string, projectId: string | null = null): MapRecord {
+  requireAccountScope(scope);
+  if (projectId) requireOwnedResource(scope, "project", projectId);
   const now = new Date().toISOString();
   const map: MapRecord = {
     id: randomUUID(),
@@ -299,12 +297,16 @@ export function createMap(name: string): MapRecord {
     createdAt: now,
     updatedAt: now,
   };
-  insertMap(map);
+  metadataDb().transaction(() => {
+    if (projectId) requireOwnedResource(scope, "project", projectId);
+    insertMap(scope, map);
+    if (projectId) fileMap(scope, map.id, projectId);
+  })();
   return map;
 }
 
-export function allMaps(): MapRecord[] {
-  return listMaps();
+export function allMaps(scope: AccountScope): MapRecord[] {
+  return listOwnedMaps(scope);
 }
 
 /** A listed map plus what its card needs: how many layers it
@@ -322,17 +324,17 @@ function cssColor(c: { r: number; g: number; b: number; a: number }): string {
   return `rgba(${c.r}, ${c.g}, ${c.b}, ${c.a})`;
 }
 
-export function mapsOverview(project?: string | "none"): MapOverview[] {
+export function mapsOverview(scope: AccountScope, project?: string | "none"): MapOverview[] {
   // An unknown project refuses — a silently empty list would read as an
   // empty project.
-  if (project && project !== "none") requireProject(project);
-  const memberships = mapProjectIds();
-  return listMaps()
+  requireAccountScope(scope);
+  if (project && project !== "none") requireOwnedResource(scope, "project", project);
+  return listOwnedMaps(scope)
     .map((m) => {
       const layers = listLayers(m.id);
       return {
         ...m,
-        projectId: memberships.get(m.id) ?? null,
+        projectId: ownedMapProjectId(scope, m.id),
         layerCount: layers.length,
         layerColors: layers.map((l) => cssColor(representativeColor(l.style))),
       };
@@ -346,18 +348,8 @@ export function mapsOverview(project?: string | "none"): MapOverview[] {
     );
 }
 
-export function requireMap(id: string): MapRecord {
-  const map = getMap(id);
-  if (!map) throw new ApiError("not_found", `No map with id ${id}.`, 404);
-  return map;
-}
-
-export function mapWithLayers(id: string): MapWithLayers {
-  const map = requireMap(id);
-  return { ...map, layers: listLayers(id) };
-}
-
 export function updateMap(
+  scope: AccountScope,
   id: string,
   fields: Partial<{
     name: string;
@@ -375,7 +367,8 @@ export function updateMap(
   }>,
   opts: { groupId?: string | null } = {},
 ): MapWithLayers {
-  const prior = requireMap(id);
+  const prior = requireMap(scope, id);
+  assertMapLayerRefs(prior, listLayers(id), fields);
   // Validate everything before writing anything — no partial writes.
   const basemapLayers =
     fields.basemapLayers === undefined
@@ -461,6 +454,7 @@ export function updateMap(
     }
   }
   metadataDb().transaction(() => {
+    requireMap(scope, id);
     if (
       fields.name !== undefined ||
       fields.viewport !== undefined ||
@@ -519,95 +513,7 @@ export function updateMap(
       });
     }
   })();
-  return mapWithLayers(id);
-}
-
-// undo / redo ----
-
-/** The map + fresh history availability — what undo/redo return, and what
- * the builder seeds its buttons from. */
-export interface MapWithHistory extends MapWithLayers {
-  history: HistoryAvailability;
-}
-
-export function mapHistory(id: string): HistoryAvailability {
-  requireMap(id);
-  return historyAvailability(id);
-}
-
-/**
- * Apply one step's recorded image — verbatim, straight to the repositories,
- * never through the edit pipeline: coupled server-side adjustments must not
- * drift a revert. Rows deleted here are collected so their tile artifacts
- * can be removed after the transaction.
- */
-function applyStep(
-  step: HistoryStep,
-  direction: "undo" | "redo",
-  removedLayers: string[],
-): void {
-  const image = direction === "undo" ? step.before : step.after;
-  if (step.op === "update") {
-    if (step.scope === "map") {
-      const { layerOrder, ...rest } = image as HistoryImage & {
-        layerOrder?: string[];
-      };
-      if (Object.keys(rest).length) {
-        updateMapFields(step.targetId, rest as Parameters<typeof updateMapFields>[1]);
-      }
-      if (layerOrder) reorderLayers(step.mapId, layerOrder);
-    } else {
-      updateLayerFields(
-        step.targetId,
-        image as Parameters<typeof updateLayerFields>[1],
-      );
-    }
-    return;
-  }
-  // add/delete: undoing an add (or redoing a delete) removes the row;
-  // the opposite direction re-inserts the recorded row whole — same id,
-  // same ordinal, so later steps referencing it stay valid.
-  const removes =
-    (step.op === "add") === (direction === "undo");
-  if (removes) {
-    deleteLayer(step.targetId);
-    removedLayers.push(step.targetId);
-  } else {
-    insertLayer(image as unknown as Layer);
-  }
-}
-
-async function applyHistory(
-  id: string,
-  direction: "undo" | "redo",
-): Promise<MapWithHistory> {
-  requireMap(id);
-  const steps = direction === "undo" ? undoSteps(id) : redoSteps(id);
-  if (steps.length === 0) {
-    throw new ApiError(
-      "invalid_request",
-      direction === "undo" ? "Nothing to undo." : "Nothing to redo.",
-      409,
-    );
-  }
-  const removedLayers: string[] = [];
-  metadataDb().transaction(() => {
-    for (const step of steps) applyStep(step, direction, removedLayers);
-    const last = steps[steps.length - 1];
-    setHistoryCursor(id, direction === "undo" ? last.seq - 1 : last.seq);
-  })();
-  await Promise.all(removedLayers.map((lid) => removeTileArtifacts(lid)));
-  return { ...mapWithLayers(id), history: historyAvailability(id) };
-}
-
-/** Revert the newest step — or the whole group an assistant turn wrote. */
-export function undoChange(id: string): Promise<MapWithHistory> {
-  return applyHistory(id, "undo");
-}
-
-/** Re-apply the newest undone step (or group). */
-export function redoChange(id: string): Promise<MapWithHistory> {
-  return applyHistory(id, "redo");
+  return mapWithLayers(scope, id);
 }
 
 /**
@@ -616,14 +522,16 @@ export function redoChange(id: string): Promise<MapWithHistory> {
  * stays behind; a docked timeline follows its copied layer. Tiles rebuild
  * lazily for the new layer ids, like any new layer.
  */
-export function duplicateMap(id: string): MapWithLayers {
-  const source = requireMap(id);
+export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
+  requireAccountScope(scope);
+  const source = requireMap(scope, id);
   const layers = listLayers(id);
   const now = new Date().toISOString();
   const newId = randomUUID();
   metadataDb().transaction(() => {
+    requireMap(scope, id);
     const layerIds = new Map<string, string>();
-    insertMap({
+    insertMap(scope, {
       ...source,
       id: newId,
       name: `${source.name} copy`,
@@ -686,20 +594,27 @@ export function duplicateMap(id: string): MapWithLayers {
     // transaction, so a move racing the copy cannot file it where the
     // source no longer is (found at review).
     const sourceProject = mapProjectId(id);
-    if (sourceProject) fileMap(newId, sourceProject);
+    if (sourceProject) {
+      requireOwnedResource(scope, "project", sourceProject);
+      fileMap(scope, newId, sourceProject);
+    }
   })();
-  return mapWithLayers(newId);
+  return mapWithLayers(scope, newId);
 }
 
-export async function removeMap(id: string): Promise<void> {
-  const map = requireMap(id);
-  const layerIds = listLayers(id).map((l) => l.id);
-  // The set the map leaves must notice: the cascade removes nothing
-  // here (the reference nulls), but the project's own clock advances.
-  touchProjectsOf({ mapId: id });
-  deleteMap(id); // layers (and their tile records) cascade
+export async function removeMap(scope: AccountScope, id: string): Promise<void> {
+  const { map, layerIds, removeImages } = metadataDb().transaction(() => {
+    const map = requireMap(scope, id);
+    const layerIds = listLayers(id).map((l) => l.id);
+    // The set the map leaves must notice: the cascade removes nothing
+    // here (the reference nulls), but the project's own clock advances.
+    touchProjectsOf({ mapId: id });
+    const removeImages = prepareThumbnailRemoval(scope, id);
+    deleteMap(id); // layers (and their tile records) cascade
+    return { map, layerIds, removeImages };
+  })();
   if (map.publishToken) invalidatePublishedToken(map.publishToken);
   // Archives and thumbnails are files, not rows — remove them explicitly.
-  await removeThumbnail(id);
+  await removeImages();
   await Promise.all(layerIds.map((lid) => removeTileArtifacts(lid)));
 }

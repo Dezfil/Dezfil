@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -45,7 +46,7 @@ beforeEach(async () => {
   process.env.DEZFIL_DATA_DIR = path.join(dir, "data");
   closeMetadataDb();
   resetSecretKeyCache();
-  insertConnection(connection);
+  insertConnection(testAccountScope(), connection);
 });
 
 afterEach(async () => {
@@ -78,7 +79,7 @@ describe("PostGIS preview request", () => {
   it("returns zero rows with columns", async () => {
     const built = async () => result;
     await expect(
-      previewPostgis(
+      previewPostgis(testAccountScope(),
         connection.id,
         { schema: "public", table: "roads", filter: "false" },
         built,
@@ -91,22 +92,22 @@ describe("PostGIS preview request", () => {
   // health is the opposite of what each branch used to write, so a
   // surviving write shows up as a difference rather than as agreement.
   it("records nothing, whichever way the preview ends", async () => {
-    recordConnectionCheck(connection.id, {
+    recordConnectionCheck(testAccountScope(), connection.id, {
       outcome: "failing",
       checkedAt: "2026-09-01T10:00:00.000Z",
       error: "The server is unreachable. Check host, port, and network.",
     });
-    const before = getConnection(connection.id);
+    const before = getConnection(testAccountScope(), connection.id);
     expect(before).toMatchObject({ status: "failing" });
 
     await expect(
-      previewPostgis(
+      previewPostgis(testAccountScope(),
         connection.id,
         { schema: "public", table: "roads", filter: "false" },
         async () => result,
       ),
     ).resolves.toEqual({ columns: result.columns, rows: [] });
-    expect(getConnection(connection.id)).toEqual(before);
+    expect(getConnection(testAccountScope(), connection.id)).toEqual(before);
 
     const sourceRejected = async (
       _target: unknown,
@@ -121,13 +122,13 @@ describe("PostGIS preview request", () => {
       );
     };
     await expect(
-      previewPostgis(
+      previewPostgis(testAccountScope(),
         connection.id,
         { schema: "public", table: "roads", filter: "not_a_column" },
         sourceRejected,
       ),
     ).rejects.toMatchObject({ code: "malformed_file" });
-    expect(getConnection(connection.id)).toEqual(before);
+    expect(getConnection(testAccountScope(), connection.id)).toEqual(before);
 
     const connectionFailed = async () => {
       throw new ApiError(
@@ -137,18 +138,18 @@ describe("PostGIS preview request", () => {
       );
     };
     await expect(
-      previewPostgis(
+      previewPostgis(testAccountScope(),
         connection.id,
         { schema: "public", table: "roads" },
         connectionFailed,
       ),
     ).rejects.toMatchObject({ code: "connection_failed" });
-    expect(getConnection(connection.id)).toEqual(before);
+    expect(getConnection(testAccountScope(), connection.id)).toEqual(before);
   });
 
   it("keeps the stored credential outside the request and result", async () => {
     const request = { schema: "public", table: "roads" };
-    const response = await previewPostgis(connection.id, request, async () => ({
+    const response = await previewPostgis(testAccountScope(), connection.id, request, async () => ({
       ...result,
       rows: [{ id: 1, label: "safe" }],
     }));

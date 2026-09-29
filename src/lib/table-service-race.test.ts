@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DuckDBConnection } from "@duckdb/node-api";
 import { createServer, type Server } from "node:http";
@@ -46,7 +47,7 @@ afterEach(async () => {
 });
 
 async function legacyPoint() {
-  const table = (await importFromUrl(url)).tables[0];
+  const table = (await importFromUrl(testAccountScope(), url)).tables[0];
   expect(table.geometryType).toBe("POINT");
   metadataDb().prepare("UPDATE data_tables SET geometry_type = 'MIXED' WHERE id = ?").run(table.id);
   return table;
@@ -66,7 +67,7 @@ function heldInspection(name: string, label: string) {
     }
     return result;
   });
-  const inspection = inspectTable(name);
+  const inspection = inspectTable(testAccountScope(), name);
   void inspection.catch(() => undefined);
   return { ...hold, inspection, assertSingleHold: () => expect(hits).toBe(1) };
 }
@@ -78,7 +79,7 @@ describe("late geometry repair", () => {
     try {
       await held.beforeMutation();
       polygon = true;
-      const fresh = await refreshTable(old.name);
+      const fresh = await refreshTable(testAccountScope(), old.name);
       expect(fresh.id).toBe(old.id);
       expect(fresh.file).not.toBe(old.file);
       expect(fresh.geometryType).toBe("POLYGON");
@@ -97,9 +98,9 @@ describe("late geometry repair", () => {
     const held = heldInspection(old.name, "name reclamation");
     try {
       await held.beforeMutation();
-      await removeTable(old.name);
+      await removeTable(testAccountScope(), old.name);
       polygon = true;
-      const fresh = (await importFromUrl(url)).tables[0];
+      const fresh = (await importFromUrl(testAccountScope(), url)).tables[0];
       expect(fresh.name).toBe(old.name);
       expect(fresh.id).not.toBe(old.id);
       expect(fresh.file).not.toBe(old.file);

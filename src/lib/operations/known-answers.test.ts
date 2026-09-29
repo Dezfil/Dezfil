@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -62,7 +63,7 @@ beforeEach(async () => {
   for (const place of PLACES) {
     const file = path.join(dir, `${place.name}.csv`);
     await writeFile(file, `name,lon,lat\n${place.name},${place.lon},${place.lat}\n`);
-    await ingestFile(file, `${place.name}.csv`);
+    await ingestFile(testAccountScope(), file, `${place.name}.csv`);
   }
 });
 
@@ -75,13 +76,13 @@ afterEach(async () => {
 });
 
 async function run(operation: string, parameters: Record<string, unknown>) {
-  const job = await startRun({ operation, parameters });
+  const job = await startRun(testAccountScope(), { operation, parameters });
   await laneSettled();
   return getJob(job.id)!;
 }
 
 async function runStep(stepId: string) {
-  const job = await startStepRun(stepId);
+  const job = await startStepRun(testAccountScope(), stepId);
   await laneSettled();
   return getJob(job.id)!;
 }
@@ -104,7 +105,7 @@ const near = (actual: number, expected: number) =>
 
 /** The buffer's extent in degrees, which is where the ground truth shows. */
 async function ringExtent(table: string) {
-  const result = await executeQuery(
+  const result = await executeQuery(testAccountScope(),
     `SELECT ST_XMin(ST_Extent(geometry)) AS x0, ST_XMax(ST_Extent(geometry)) AS x1,
             ST_YMin(ST_Extent(geometry)) AS y0, ST_YMax(ST_Extent(geometry)) AS y1
      FROM ${table}`,
@@ -159,7 +160,7 @@ describe("a distance is ground metres", () => {
     // some 4,500 km away. A believable distance between two real places that
     // are not the two places asked about is the failure this catches.
     await run("buffer", { input: "berlin", distance: 500, name: "berlin_centre" });
-    const result = await executeQuery(
+    const result = await executeQuery(testAccountScope(),
       `SELECT ST_X(ST_Centroid(geometry)) AS x, ST_Y(ST_Centroid(geometry)) AS y
        FROM berlin_centre`,
     );
@@ -187,7 +188,7 @@ describe("an area and a length are asserted separately", () => {
       });
       expect(job.state).toBe("succeeded");
 
-      const result = await executeQuery(
+      const result = await executeQuery(testAccountScope(),
         `SELECT area_m2, length_m FROM ${place.name}_measured`,
       );
       const area = Number(result.preview[0].area_m2);
@@ -211,7 +212,7 @@ describe("an area and a length are asserted separately", () => {
       name: "berlin_xy",
     });
     expect(job.state).toBe("succeeded");
-    const result = await executeQuery("SELECT x, y FROM berlin_xy");
+    const result = await executeQuery(testAccountScope(), "SELECT x, y FROM berlin_xy");
     expect(Number(result.preview[0].x)).toBeCloseTo(13.405, 3);
     expect(Number(result.preview[0].y)).toBeCloseTo(52.52, 3);
     // Named as coordinates: no metre column appears for a measure that is not
@@ -246,7 +247,7 @@ describe("the seeded defect, exercised", () => {
     const assertHonest = (h: number) =>
       expect(near(h, expectedHeight)).toBeLessThan(TOLERANCE);
     const measure = async (sql: string) => {
-      const r = await executeQuery(
+      const r = await executeQuery(testAccountScope(),
         `SELECT ST_YMax(ST_Extent(geometry)) - ST_YMin(ST_Extent(geometry)) AS h
          FROM (${sql})`,
       );
@@ -268,7 +269,7 @@ describe("the same verbs run as recipe steps", () => {
     // Criterion 19 is conjunctive — both verbs, both as steps and as one-off
     // runs — and an earlier version of this record marked it confirmed on the
     // one-off half alone.
-    const recipeId = createRecipe("metric").id;
+    const recipeId = createRecipe(testAccountScope(), "metric").id;
     const buffer = addStep(recipeId, {
       operation: "buffer",
       parameters: { input: "berlin", distance: 500, name: "step_ring" },
@@ -289,7 +290,7 @@ describe("the same verbs run as recipe steps", () => {
 
     // The same known answers as the one-off path: a step is not a different
     // measurement.
-    const result = await executeQuery(
+    const result = await executeQuery(testAccountScope(),
       "SELECT area_m2, length_m FROM step_measured",
     );
     expect(near(Number(result.preview[0].area_m2), Math.PI * 500 * 500))
@@ -313,7 +314,7 @@ describe("a measurement is pinned to the data it was prepared for", () => {
     // describing neither, with nothing downstream to notice.
     const table = getTableByName("berlin")!;
     await expect(
-      materialize({
+      materialize(testAccountScope(), {
         sql: `SELECT geometry FROM berlin`,
         name: "pinned_out",
         operation: "buffer",

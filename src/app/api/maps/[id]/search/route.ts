@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { mapWithLayers } from "@/lib/map-service";
@@ -24,6 +25,7 @@ type Params = { params: Promise<{ id: string }> };
  */
 export async function GET(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
     const url = new URL(request.url);
     const q = url.searchParams.get("q") ?? "";
@@ -31,7 +33,7 @@ export async function GET(request: Request, { params }: Params) {
       throw new ApiError("invalid_request", "Provide a search text as q.", 400);
     }
 
-    const map = mapWithLayers(id);
+    const map = mapWithLayers(scope, id);
     const visible = map.layers.filter((l) => l.visible);
 
     // Places join only when asked for — a submitted search (S3a): the
@@ -40,7 +42,7 @@ export async function GET(request: Request, { params }: Params) {
     const places =
       url.searchParams.get("places") === "1" ? searchPlaces(q) : null;
 
-    const values = await searchValues(
+    const values = await searchValues(scope,
       visible
         .filter((l) => !isAggregated(l.viz))
         .map((l) => ({

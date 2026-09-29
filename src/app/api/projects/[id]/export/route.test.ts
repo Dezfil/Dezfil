@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createHash } from "node:crypto";
 import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
@@ -70,7 +71,7 @@ function seedMap(
     createdAt: when,
     updatedAt: when,
   };
-  insertMap(map);
+  insertMap(testAccountScope(), map);
   return map;
 }
 
@@ -95,26 +96,26 @@ async function seedDataset(
     sourceParams: null,
     importedAt: null,
   };
-  insertTable(table);
+  insertTable(testAccountScope(), table);
   await writeFile(path.join(data, table.file), bytes);
   return table;
 }
 
 const post = async (projectId: string, body: Record<string, unknown>) =>
   POST(
-    new Request("http://test", {
+    testAccountRequest(new Request("http://test", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ prepare: true, ...body }),
-    }),
+    })),
     { params: Promise.resolve({ id: projectId }) },
   );
 
 const redeem = async (projectId: string, ticket: string, key: string) =>
   GET(
-    new Request(
+    testAccountRequest(new Request(
       `http://test?ticket=${encodeURIComponent(ticket)}&key=${encodeURIComponent(key)}`,
-    ),
+    )),
     { params: Promise.resolve({ id: projectId }) },
   );
 
@@ -131,7 +132,7 @@ describe("the project export capability", () => {
     // runtime facts and a layout, three datasets with known bytes.
     seedMap("m-old", "Transit map", at(1));
     seedMap("m-new", "Transit map", at(3), "tok-secret-value");
-    const recipe = createRecipe("Catchments", undefined, "workflow");
+    const recipe = createRecipe(testAccountScope(), "Catchments", undefined, "workflow");
     const step = addStep(recipe.id, {
       operation: "sql_step",
       parameters: { sql: "SELECT 1 AS x", name: "catch_out" },
@@ -139,7 +140,7 @@ describe("the project export capability", () => {
     const outBytes = Buffer.from("parquet-bytes-out");
     const tOut = await seedDataset("t-out", "catch_out", outBytes);
     recordOutput(step.id, { id: tOut.id, name: tOut.name }, at(5));
-    writeLayout(recipe.id, {
+    writeLayout(testAccountScope(), recipe.id, {
       steps: { [step.id]: { x: 40, y: 80 } },
       sources: {},
       notes: [],
@@ -147,7 +148,7 @@ describe("the project export capability", () => {
     const aBytes = Buffer.from("parquet-bytes-a");
     const tA = await seedDataset("t-a", "stations", aBytes);
     const tLeft = await seedDataset("t-left", "left_out", Buffer.from("x"));
-    const project = createProject({
+    const project = createProject(testAccountScope(), {
       name: "Berlin mobility study",
       note: "The staged note",
       members: {
@@ -287,7 +288,7 @@ describe("the project export capability", () => {
 
   it("refuses an unknown project, a non-member id and an empty selection", async () => {
     seedMap("m-1", "Solo", at(1));
-    const project = createProject({
+    const project = createProject(testAccountScope(), {
       name: "Shelf",
       members: { addMaps: ["m-1"] },
     });
@@ -317,9 +318,9 @@ describe("the project export capability", () => {
   });
 
   it("refuses a directly filed builder-origin recipe while exporting a workflow-origin recipe", async () => {
-    const project = createProject({ name: "Workflow shelf" });
-    const workflow = createRecipe("Exported workflow", undefined, "workflow");
-    const builder = createRecipe("Builder tool", undefined, "builder");
+    const project = createProject(testAccountScope(), { name: "Workflow shelf" });
+    const workflow = createRecipe(testAccountScope(), "Exported workflow", undefined, "workflow");
+    const builder = createRecipe(testAccountScope(), "Builder tool", undefined, "builder");
     metadataDb()
       .prepare(`UPDATE recipes SET project_id = ? WHERE id IN (?, ?)`)
       .run(project.id, workflow.id, builder.id);
@@ -342,7 +343,7 @@ describe("the project export capability", () => {
 
   it("a failed assembly is a refusal with no residue, never a truncated success", async () => {
     const t = await seedDataset("t-gone", "vanishing", Buffer.from("y"));
-    const project = createProject({
+    const project = createProject(testAccountScope(), {
       name: "Shelf",
       members: { addTables: [t.id] },
     });
@@ -357,16 +358,16 @@ describe("the project export capability", () => {
 
   it("without prepare, the attachment streams directly (the agent road)", async () => {
     const t = await seedDataset("t-d", "direct", Buffer.from("direct-bytes"));
-    const project = createProject({
+    const project = createProject(testAccountScope(), {
       name: "Shelf",
       members: { addTables: [t.id] },
     });
     const res = await POST(
-      new Request("http://test", {
+      testAccountRequest(new Request("http://test", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ datasets: [t.id], file: "direct" }),
-      }),
+      })),
       { params: Promise.resolve({ id: project.id }) },
     );
     expect(res.status).toBe(200);
@@ -384,7 +385,7 @@ describe("the project export capability", () => {
 
   it("tickets are single-use and key-checked", async () => {
     seedMap("m-1", "Solo", at(1));
-    const project = createProject({
+    const project = createProject(testAccountScope(), {
       name: "Shelf",
       members: { addMaps: ["m-1"] },
     });
@@ -409,7 +410,7 @@ describe("the project export capability", () => {
 async function ingestCsv(name: string, csv: string): Promise<DataTable> {
   const src = path.join(dir, `${name}.csv`);
   await writeFile(src, csv);
-  return ingestFile(src, `${name}.csv`);
+  return ingestFile(testAccountScope(), src, `${name}.csv`);
 }
 
 const tmpResidue = async () =>
@@ -424,7 +425,7 @@ describe("the dataset format", () => {
     const readings = await ingestCsv("readings", "sensor,value\na,1\nb,2\n");
     expect(stations.geometryColumn).not.toBeNull();
     expect(readings.geometryColumn).toBeNull();
-    const project = createProject({ name: "Kinds" });
+    const project = createProject(testAccountScope(), { name: "Kinds" });
     const { fileTable } = await import("@/lib/metadata/projects");
     fileTable(stations.id, project.id);
     fileTable(readings.id, project.id);
@@ -493,7 +494,7 @@ describe("the dataset format", () => {
       "stations",
       "name,lon,lat\nalexanderplatz,13.41,52.52\n",
     );
-    const project = createProject({ name: "Kinds" });
+    const project = createProject(testAccountScope(), { name: "Kinds" });
     const { fileTable } = await import("@/lib/metadata/projects");
     fileTable(stations.id, project.id);
     const stored = sha256(
@@ -540,7 +541,7 @@ describe("the dataset format", () => {
   });
 
   it("refuses an unknown format; a failed conversion is the existing refusal with no download and no residue", async () => {
-    const project = createProject({ name: "Kinds" });
+    const project = createProject(testAccountScope(), { name: "Kinds" });
     const fake = await seedDataset(
       "t-fake",
       "fake",

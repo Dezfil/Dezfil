@@ -1,8 +1,9 @@
+import type { AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { ApiError } from "@/lib/api/errors";
 import { deriveTableName } from "@/lib/ingest/naming";
-import { listSteps, type RecipeStep } from "@/lib/metadata/recipes";
-import { listTables } from "@/lib/metadata/tables";
+import { requireRecipe, listSteps, type RecipeStep } from "@/lib/metadata/owned-recipes";
+import { listOwnedTables } from "@/lib/metadata/owned-tables";
 import { findOperation } from "./catalog";
 
 /**
@@ -30,12 +31,13 @@ const declared = (params: Record<string, unknown> | null): string | null =>
 
 /** Every name a step of the recipe declares or holds, other than `stepId`'s. */
 export function siblingNames(
+  scope: AccountScope,
   recipeId: string,
   stepId: string | null,
   db: Database,
 ): Map<string, RecipeStep> {
   const held = new Map<string, RecipeStep>();
-  for (const s of listSteps(recipeId, db)) {
+  for (const s of listSteps(scope, recipeId, db)) {
     if (s.id === stepId) continue;
     for (const n of [declared(s.parameters), declared(s.proposedParameters), s.outputTableName?.toLowerCase() ?? null]) {
       if (n && !held.has(n)) held.set(n, s);
@@ -50,6 +52,7 @@ export function siblingNames(
  * refuses a nameless one.
  */
 export function outputNameRefusal(args: {
+  scope: AccountScope;
   db: Database;
   recipeId: string;
   /** The step being edited; null for one being added. */
@@ -58,7 +61,8 @@ export function outputNameRefusal(args: {
   produced: string | null;
   typed: unknown;
 }): ApiError | null {
-  const { db, recipeId, stepId, produced, typed } = args;
+  const { scope, db, recipeId, stepId, produced, typed } = args;
+  requireRecipe(scope, recipeId, db);
   // An edit replaces the whole definition: leaving the name out of a
   // produced step's definition would drop its frozen name.
   if (typed === undefined) {
@@ -91,7 +95,7 @@ export function outputNameRefusal(args: {
     }
     return null;
   }
-  const table = listTables(db).find((t) => t.name.toLowerCase() === registered);
+  const table = listOwnedTables(scope, db).find((t) => t.name.toLowerCase() === registered);
   if (table) {
     return new ApiError(
       "name_taken",
@@ -100,7 +104,7 @@ export function outputNameRefusal(args: {
       400,
     );
   }
-  const sibling = siblingNames(recipeId, stepId, db).get(registered);
+  const sibling = siblingNames(scope, recipeId, stepId, db).get(registered);
   if (sibling) {
     return new ApiError(
       "name_taken",

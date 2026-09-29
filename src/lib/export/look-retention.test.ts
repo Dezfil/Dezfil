@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
@@ -37,42 +38,42 @@ function resultOf(bytes: Uint8Array, width = 1024, height = 640): LookResult {
 describe("the two bounds evict independently, oldest first", () => {
   it("the count bound: the fourth render evicts the first, the thumbnail counted with the image", () => {
     const store = new LookRetention({ count: 3, bytes: 64 * 1024 * 1024 });
-    const first = store.retain(resultOf(png(64, 40, 1)));
-    store.retain(resultOf(png(64, 40, 2)));
-    store.retain(resultOf(png(64, 40, 3)));
-    expect(store.size().count).toBe(3);
-    expect(store.read(first.id, "full")).not.toBeNull();
-    const fourth = store.retain(resultOf(png(64, 40, 4)));
-    expect(store.size().count).toBe(3);
-    expect(store.read(first.id, "full")).toBeNull();
-    expect(store.read(first.id, "thumbnail")).toBeNull();
-    expect(store.read(fourth.id, "full")).not.toBeNull();
-    expect(store.ids()).not.toContain(first.id);
-    expect(store.size().bytes).toBe(store.ids().reduce((sum, id) => sum + store.read(id, "full")!.byteLength + store.read(id, "thumbnail")!.byteLength, 0));
+    const first = store.retain(testAccountScope(), resultOf(png(64, 40, 1)));
+    store.retain(testAccountScope(), resultOf(png(64, 40, 2)));
+    store.retain(testAccountScope(), resultOf(png(64, 40, 3)));
+    expect(store.sizeForTests().count).toBe(3);
+    expect(store.read(testAccountScope(), first.id, "full")).not.toBeNull();
+    const fourth = store.retain(testAccountScope(), resultOf(png(64, 40, 4)));
+    expect(store.sizeForTests().count).toBe(3);
+    expect(store.read(testAccountScope(), first.id, "full")).toBeNull();
+    expect(store.read(testAccountScope(), first.id, "thumbnail")).toBeNull();
+    expect(store.read(testAccountScope(), fourth.id, "full")).not.toBeNull();
+    expect(store.idsForTests()).not.toContain(first.id);
+    expect(store.sizeForTests().bytes).toBe(store.idsForTests().reduce((sum, id) => sum + store.read(testAccountScope(), id, "full")!.byteLength + store.read(testAccountScope(), id, "thumbnail")!.byteLength, 0));
   });
   it("the byte bound: retaining past it evicts the oldest until the total fits, the count bound untouched", () => {
     const big = png(256, 160, 5);
-    const thumb = new LookRetention({ count: 100, bytes: 1 }).retain(resultOf(big));
+    const thumb = new LookRetention({ count: 100, bytes: 1 }).retain(testAccountScope(), resultOf(big));
     const perRender = big.byteLength + thumb.thumbnailBytes;
     const store = new LookRetention({ count: 100, bytes: perRender * 2 + 10 });
     // The same pattern three times: identical byte sizes, distinct identities.
-    const a = store.retain(resultOf(png(256, 160, 5)));
-    const b = store.retain(resultOf(png(256, 160, 5)));
-    expect(store.size()).toEqual({ count: 2, bytes: perRender * 2 });
-    const c = store.retain(resultOf(png(256, 160, 5)));
-    expect(store.ids()).toEqual([b.id, c.id]);
-    expect(store.read(a.id, "full")).toBeNull();
-    expect(store.size().bytes).toBeLessThanOrEqual(perRender * 2 + 10);
+    const a = store.retain(testAccountScope(), resultOf(png(256, 160, 5)));
+    const b = store.retain(testAccountScope(), resultOf(png(256, 160, 5)));
+    expect(store.sizeForTests()).toEqual({ count: 2, bytes: perRender * 2 });
+    const c = store.retain(testAccountScope(), resultOf(png(256, 160, 5)));
+    expect(store.idsForTests()).toEqual([b.id, c.id]);
+    expect(store.read(testAccountScope(), a.id, "full")).toBeNull();
+    expect(store.sizeForTests().bytes).toBeLessThanOrEqual(perRender * 2 + 10);
   });
   it("the thumbnail is derived once with the check and kept at retention, at the documented width and the image's aspect", () => {
     const store = new LookRetention({ count: 4, bytes: 64 * 1024 * 1024 });
-    const kept = store.retain(resultOf(png(1024, 640, 8)));
-    const thumbnail = store.read(kept.id, "thumbnail")!;
+    const kept = store.retain(testAccountScope(), resultOf(png(1024, 640, 8)));
+    const thumbnail = store.read(testAccountScope(), kept.id, "thumbnail")!;
     expect(pngDimensions(thumbnail)).toEqual({ width: THUMBNAIL_WIDTH, height: Math.round((THUMBNAIL_WIDTH * 640) / 1024) });
     expect(decodePng(thumbnail).width).toBe(THUMBNAIL_WIDTH);
-    const smaller = store.retain(resultOf(png(512, 320, 9), 512, 320));
-    expect(pngDimensions(store.read(smaller.id, "thumbnail")!)).toEqual({ width: THUMBNAIL_WIDTH, height: Math.round((THUMBNAIL_WIDTH * 320) / 512) });
-    expect(Buffer.from(store.read(kept.id, "full")!).equals(Buffer.from(png(1024, 640, 8)))).toBe(true);
+    const smaller = store.retain(testAccountScope(), resultOf(png(512, 320, 9), 512, 320));
+    expect(pngDimensions(store.read(testAccountScope(), smaller.id, "thumbnail")!)).toEqual({ width: THUMBNAIL_WIDTH, height: Math.round((THUMBNAIL_WIDTH * 320) / 512) });
+    expect(Buffer.from(store.read(testAccountScope(), kept.id, "full")!).equals(Buffer.from(png(1024, 640, 8)))).toBe(true);
   });
 });
 
@@ -85,7 +86,7 @@ describe("6b and 6c: the read route", () => {
     dir = await mkdtemp(path.join(process.cwd(), ".tmp-retention-"));
     vi.stubEnv("DEZFIL_DATA_DIR", dir); vi.stubEnv("PORT", "3300");
     closeMetadataDb(); lookRetention.resetForTests(); counts.launches = 0;
-    mapId = createMap("Retained").id;
+    mapId = createMap(testAccountScope(), "Retained").id;
     const driver: RenderDriver = { launch: async () => { counts.launches += 1; return { render: async () => ({ png: FIXTURE, consumed: JSON.stringify({ map: mapId, layers: [], legend: { visible: false, corner: "bottom-left", order: [] }, widgets: [], attribution: "", failures: [] }) }), close: async () => {}, kill: () => {} }; } };
     setLookDriverForTests(driver);
   });
@@ -129,8 +130,8 @@ describe("an entry that cannot fit by itself is not kept", () => {
   it("under a byte cap smaller than one image the store stays at zero and the read is unavailable", () => {
     const image = png(256, 160, 5);
     const store = new LookRetention({ count: 100, bytes: image.byteLength - 1 });
-    const kept = store.retain(resultOf(image));
-    expect(store.size()).toEqual({ count: 0, bytes: 0 });
-    expect(store.read(kept.id, "full")).toBeNull();
+    const kept = store.retain(testAccountScope(), resultOf(image));
+    expect(store.sizeForTests()).toEqual({ count: 0, bytes: 0 });
+    expect(store.read(testAccountScope(), kept.id, "full")).toBeNull();
   });
 });

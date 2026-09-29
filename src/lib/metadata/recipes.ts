@@ -1,8 +1,11 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import { metadataDb } from "./db";
 import { touchProjectsOf } from "./projects";
 import { ApiError } from "@/lib/api/errors";
+
+export { recordOutput, stepOwnsOutput } from "./recipe-outputs";
 
 /**
  * Recipes and their steps.
@@ -154,10 +157,12 @@ export function touchRecipe(id: string, db: Database = metadataDb()): string | n
 // ---- recipes ----
 
 export function createRecipe(
+  scope: AccountScope,
   name: string,
   db: Database = metadataDb(),
   origin: RecipeOrigin = "workflow",
 ): Recipe {
+  const ownerId = requireAccountScope(scope, db);
   // Creation is always unfiled; filing is fileRecipe's one job, so the
   // project's clock has a single owner.
   const now = new Date().toISOString();
@@ -170,8 +175,9 @@ export function createRecipe(
     updatedAt: now,
   };
   db.prepare(
-    `INSERT INTO recipes (id, name, origin, project_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO recipes (owner_id, id, name, origin, project_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).run(
+    ownerId,
     recipe.id,
     recipe.name,
     recipe.origin,
@@ -451,43 +457,6 @@ export function discardProposal(id: string, db: Database = metadataDb()): void {
     ).run(new Date().toISOString(), id);
     touchRecipe(step.recipeId, db);
   })();
-}
-
-/** Record the dataset a successful run produced, and when it succeeded. This
- * is the stored ownership the re-run exception rests on. */
-export function recordOutput(
-  id: string,
-  output: { id: string; name: string },
-  succeededAt: string,
-  db: Database = metadataDb(),
-): void {
-  db.prepare(
-    `UPDATE recipe_steps
-     SET output_table_id = ?, output_table_name = ?, last_success_at = ?, updated_at = ?
-     WHERE id = ?`,
-  ).run(output.id, output.name, succeededAt, succeededAt, id);
-}
-
-/**
- * Whether this step owns exactly this table.
- *
- * The one question the admission exception may ask. It is answered from the
- * stored row and never from anything a caller supplied — subject is a grouping
- * identity any client may send, and treating it as ownership would make "reuse
- * a taken name" forgeable.
- */
-export function stepOwnsOutput(
-  stepId: string,
-  table: { id: string; name: string },
-  db: Database = metadataDb(),
-): boolean {
-  const row = db
-    .prepare(
-      `SELECT 1 AS ok FROM recipe_steps
-       WHERE id = ? AND output_table_id = ? AND output_table_name = ?`,
-    )
-    .get(stepId, table.id, table.name) as { ok: number } | undefined;
-  return row !== undefined;
 }
 
 /** Detach a step, keeping its output table and its run history (G3). Its

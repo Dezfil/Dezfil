@@ -1,11 +1,13 @@
+import type { AccountScope } from "@/lib/auth/scope";
+import { requireMap } from "./map-access";
+import { metadataDb } from "@/lib/metadata/db";
+import { renameSync } from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import {
-  copyFile,
   mkdir,
   readdir,
   readFile,
-  rename,
   rm,
   stat,
   writeFile,
@@ -103,12 +105,15 @@ const otherTheme = (theme: ThumbnailTheme): ThumbnailTheme =>
   theme === "light" ? "dark" : "light";
 
 /** Write whole, then rename into place: a reader never sees a partial file. */
-async function writeAtomically(target: string, bytes: Uint8Array | string) {
+async function writeAtomically(target: string, bytes: Uint8Array | string, authorize: () => void) {
   await mkdir(path.dirname(target), { recursive: true });
+  authorize();
   const temp = `${target}.${randomBytes(6).toString("hex")}.tmp`;
   try {
     await writeFile(temp, bytes);
-    await rename(temp, target);
+    // Authorization and publication share one event-loop turn.
+    authorize();
+    renameSync(temp, target);
   } catch (error) {
     await rm(temp, { force: true });
     throw error;
@@ -135,6 +140,11 @@ async function readSet(mapId: string): Promise<ThumbnailSet | null> {
     if (typeof parsed.light !== "string" || typeof parsed.dark !== "string") {
       return null;
     }
+    const lightCycle = parsed.light.slice(mapId.length + 1, -".light.png".length);
+    const darkCycle = parsed.dark.slice(mapId.length + 1, -".dark.png".length);
+    if (!isThumbnailCycle(lightCycle) || lightCycle !== darkCycle ||
+      parsed.light !== thumbnailSetFile(mapId, lightCycle, "light") ||
+      parsed.dark !== thumbnailSetFile(mapId, darkCycle, "dark")) return null;
     return { light: parsed.light, dark: parsed.dark };
   } catch {
     return null;
@@ -192,11 +202,15 @@ async function expireHeld(
 /** The single image: published at once under its historical name, and
  * the map returns to one image. */
 export function saveThumbnail(
+  scope: AccountScope,
   mapId: string,
   bytes: Uint8Array,
 ): Promise<void> {
+  const authorize = () => { requireMap(scope, mapId); };
+  authorize();
   return inTurn(mapId, async () => {
-    await writeAtomically(thumbnailPath(mapId), bytes);
+    authorize();
+    await writeAtomically(thumbnailPath(mapId), bytes, authorize);
     await rm(thumbnailManifestPath(mapId), { force: true });
     await retireUnreferenced(mapId, null);
   });
@@ -208,24 +222,31 @@ export function saveThumbnail(
  * manifest switch, and everything the map had before is retired.
  */
 export function saveThemedThumbnail(
+  scope: AccountScope,
   mapId: string,
   theme: ThumbnailTheme,
   cycle: string,
   bytes: Uint8Array,
 ): Promise<"held" | "published"> {
+  const authorize = () => { requireMap(scope, mapId); };
+  authorize();
   return inTurn(mapId, async () => {
+    authorize();
     const previous = await readSet(mapId);
+    authorize();
     await expireHeld(mapId, previous);
     const own = thumbnailSetFile(mapId, cycle, theme);
-    await writeAtomically(inDir(own), bytes);
+    await writeAtomically(inDir(own), bytes, authorize);
     const partner = thumbnailSetFile(mapId, cycle, otherTheme(theme));
-    if (!(await exists(inDir(partner)))) return "held";
+    const paired = await exists(inDir(partner));
+    authorize();
+    if (!paired) return "held";
     // The switch: one rename, after which the new pair is the map's set
     // and the previous one is not. Nothing before it changes a read;
     // a failure here leaves the previous set exactly as it was.
     const next: ThumbnailSet =
       theme === "light" ? { light: own, dark: partner } : { light: partner, dark: own };
-    await writeAtomically(thumbnailManifestPath(mapId), JSON.stringify(next));
+    await writeAtomically(thumbnailManifestPath(mapId), JSON.stringify(next), authorize);
     await rm(thumbnailPath(mapId), { force: true });
     await retireUnreferenced(mapId, next);
     return "published";
@@ -241,9 +262,11 @@ export function saveThemedThumbnail(
  * refuses, the card draws its placeholder.
  */
 export async function readThumbnail(
+  scope: AccountScope,
   mapId: string,
   theme?: ThumbnailTheme | null,
 ): Promise<Buffer | null> {
+  requireMap(scope, mapId);
   const set = await readSet(mapId);
   const single = thumbnailPath(mapId);
   const order = theme
@@ -251,43 +274,67 @@ export async function readThumbnail(
     : [set ? inDir(set.light) : null, set ? inDir(set.dark) : null, single];
   for (const file of order) {
     if (!file) continue;
-    try {
-      return await readFile(file);
-    } catch {
-      // Try the next name.
-    }
+    requireMap(scope, mapId);
+    let bytes: Buffer | undefined;
+    try { bytes = await readFile(file); } catch { /* Try the next name. */ }
+    requireMap(scope, mapId);
+    if (bytes) return bytes;
   }
+  requireMap(scope, mapId);
   return null;
 }
 
 /** Every image the map has, published or held. */
-export function removeThumbnail(mapId: string): Promise<void> {
+function removeThumbnailFiles(mapId: string, authorize: () => void): Promise<void> {
   return inTurn(mapId, async () => {
+    authorize();
     await rm(thumbnailManifestPath(mapId), { force: true });
     await rm(thumbnailPath(mapId), { force: true });
     await retireUnreferenced(mapId, null);
   });
 }
 
-/** A duplicated map keeps its look until its own first capture: every
- * published image travels, never a held one. Read in the source's turn,
- * so a publication in flight is seen whole or not at all. */
-export function copyThumbnail(from: string, to: string): Promise<void> {
-  return inTurn(from, async () => {
-    await mkdir(thumbnailsDir(), { recursive: true });
-    try {
-      await copyFile(thumbnailPath(from), thumbnailPath(to));
-    } catch {
-      // No single image — the copy has whatever the source has.
-    }
+/** Mint cleanup while the parent still exists. The owning delete transaction
+ * returns this closure only after committing; it cannot read or publish files. */
+export function prepareThumbnailRemoval(scope: AccountScope, mapId: string): () => Promise<void> {
+  requireMap(scope, mapId);
+  return () => removeThumbnailFiles(mapId, () => {
+    // An already committed deletion may finish its cleanup. A live or
+    // replaced parent still requires current authority when the turn starts.
+    if (metadataDb().prepare("SELECT id FROM maps WHERE id = ?").get(mapId)) requireMap(scope, mapId);
+  });
+}
+
+export function removeThumbnail(scope: AccountScope, mapId: string): Promise<void> {
+  requireMap(scope, mapId);
+  return removeThumbnailFiles(mapId, () => { requireMap(scope, mapId); });
+}
+
+/** A duplicated map keeps its look until its first capture. Lock both parents
+ * in stable order, so a queued destination write cannot interleave the copy. */
+export function copyThumbnail(scope: AccountScope, from: string, to: string): Promise<void> {
+  const authorize = () => { requireMap(scope, from); requireMap(scope, to); };
+  authorize();
+  if (from === to) return Promise.resolve();
+  const [first, second] = [from, to].sort();
+  return inTurn(first, () => inTurn(second, async () => {
+    authorize();
+    let single: Buffer | undefined;
+    try { single = await readFile(thumbnailPath(from)); } catch { /* No single image. */ }
+    authorize();
+    if (single) await writeAtomically(thumbnailPath(to), single, authorize);
     const set = await readSet(from);
+    authorize();
     if (!set) return;
     const copied: ThumbnailSet = {
       light: set.light.replace(from, to),
       dark: set.dark.replace(from, to),
     };
-    await copyFile(inDir(set.light), inDir(copied.light));
-    await copyFile(inDir(set.dark), inDir(copied.dark));
-    await writeAtomically(thumbnailManifestPath(to), JSON.stringify(copied));
-  });
+    const light = await readFile(inDir(set.light));
+    authorize();
+    const dark = await readFile(inDir(set.dark));
+    await writeAtomically(inDir(copied.light), light, authorize);
+    await writeAtomically(inDir(copied.dark), dark, authorize);
+    await writeAtomically(thumbnailManifestPath(to), JSON.stringify(copied), authorize);
+  }));
 }

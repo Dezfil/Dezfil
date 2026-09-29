@@ -1,3 +1,7 @@
+import type { AccountScope } from "@/lib/auth/scope";
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
+import { getOwnedTableByName, updateOwnedTableData, ownedDependentLayerIds } from "@/lib/metadata/owned-tables";
+import { requireTable } from "@/lib/table-service";
 import { getGeometryState } from "@/lib/geometry/state";
 import { geometryEvidence } from "@/lib/geometry-evidence";
 import path from "node:path";
@@ -7,8 +11,6 @@ import { dataDir } from "@/lib/config";
 import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
 import {
-  getTableByName,
-  updateTableData,
   type DataTable,
 } from "@/lib/metadata/tables";
 import {
@@ -42,7 +44,6 @@ import { isGdalFormat } from "./gdal-formats";
 import { refreshUrlSpatial } from "./refresh-spatial";
 import { resolveRemoteSource } from "./remote";
 import { invalidateTileBuild } from "@/lib/tiles/build";
-import { dependentLayerIds } from "@/lib/table-deps";
 import { beginRefresh, endRefresh, refreshUnit } from "./fence";
 import { retireArtifact } from "./retire";
 
@@ -60,9 +61,9 @@ import { retireArtifact } from "./retire";
  * invalidation makes the rebuild prompt rather than next-render-lazy. The
  * fence inside covers an attempt already running when the refresh
  * commits — it can no longer register old-data tiles as ready. */
-export function invalidateTilesForTable(name: string): number {
+export function invalidateTilesForTable(scope: AccountScope, name: string): number {
   let changes = 0;
-  for (const id of dependentLayerIds(name)) {
+  for (const id of ownedDependentLayerIds(scope, name)) {
     if (invalidateTileBuild(id)) changes += 1;
   }
   return changes;
@@ -79,10 +80,10 @@ export interface RefreshOptions {
  * invalidation — is logged, never a failure answer for a refresh that
  * succeeded; the boot sweep and the next render absorb the leftovers.
  * Exported for the container-format refresh road. */
-export function postCommitCleanup(name: string, oldArtifact: string): void {
+export function postCommitCleanup(scope: AccountScope, name: string, oldArtifact: string): void {
   try {
     retireArtifact(oldArtifact);
-    invalidateTilesForTable(name);
+    invalidateTilesForTable(scope, name);
   } catch (error) {
     console.warn(
       `post-refresh cleanup failed for "${name}": ${
@@ -113,6 +114,7 @@ async function rebuildFromUrl(
  * vanished rebuild to empty rather than vanish.
  */
 async function refreshOsmGroup(
+  scope: AccountScope,
   requested: DataTable,
   name: string,
 ): Promise<DataTable> {
@@ -124,7 +126,7 @@ async function refreshOsmGroup(
       409,
     );
   }
-  const members = osmGroupMembers(p.group);
+  const members = osmGroupMembers(scope, p.group);
   const promoted = Array.isArray(p.promoted)
     ? p.promoted.map(String)
     : ["name"];
@@ -169,8 +171,9 @@ async function refreshOsmGroup(
     // rolls the whole group swap back (spec: races leave no residue).
     db.transaction(() => {
       for (const c of candidates) {
-        const swapped = updateTableData(
-          { name: c.member.name, id: c.member.id },
+        const swapped = updateOwnedTableData(
+          scope,
+          { name: c.member.name, id: c.member.id, file: c.member.file },
           {
             file: c.relFile,
             geometryColumn: c.meta.geometryColumn,
@@ -197,7 +200,7 @@ async function refreshOsmGroup(
   }
 
   for (const c of candidates) {
-    postCommitCleanup(c.member.name, path.join(dataDir(), c.member.file));
+    postCommitCleanup(scope, c.member.name, path.join(dataDir(), c.member.file));
   }
   // The answer is what the transaction committed — never a re-read that a
   // concurrent delete could turn into a silent null.
@@ -214,25 +217,24 @@ async function refreshOsmGroup(
 }
 
 export async function refreshTable(
+  scope: AccountScope,
   name: string,
   options: RefreshOptions = {},
 ): Promise<DataTable> {
-  const table = getTableByName(name);
-  if (!table) {
-    throw new ApiError("not_found", `No table named "${name}".`, 404);
-  }
+  const table = requireTable(scope, name);
   // Single-flight per provenance unit: the claim happens before the first
   // await, so a second caller can never start a second build.
-  const unit = refreshUnit(table);
+  const unit = refreshUnit(scope, table);
   beginRefresh(unit, name);
   try {
-    return await performRefresh(table, name, options);
+    return await performRefresh(scope, table, name, options);
   } finally {
     endRefresh(unit);
   }
 }
 
 async function performRefresh(
+  scope: AccountScope,
   table: DataTable,
   name: string,
   options: RefreshOptions,
@@ -244,7 +246,7 @@ async function performRefresh(
       400,
     );
   }
-  if (table.source === "osm") return refreshOsmGroup(table, name);
+  if (table.source === "osm") return refreshOsmGroup(scope, table, name);
 
   const relFile = path.join("tables", `${randomUUID()}.parquet`);
   const artifact = path.join(dataDir(), relFile);
@@ -264,7 +266,7 @@ async function performRefresh(
         }
         // Container formats re-run per stored layer, group-wide.
         if (isGdalFormat(table.format)) {
-          return refreshUrlSpatial(table, name);
+          return refreshUrlSpatial(scope, table, name);
         }
         meta = await rebuildFromUrl(table, artifact);
         break;
@@ -282,16 +284,7 @@ async function performRefresh(
             409,
           );
         }
-        let required: ReturnType<typeof requireTarget>;
-        try {
-          required = requireTarget(p.connectionId);
-        } catch {
-          throw new ApiError(
-            "not_refreshable",
-            `The connection "${String(p.connectionName ?? p.connectionId)}" behind this snapshot was deleted. The table keeps serving its last data.`,
-            409,
-          );
-        }
+        const required = requireTarget(scope, p.connectionId);
         if (statusBlocksRefresh(required.connection)) {
           throw new ApiError(
             "connection_failed",
@@ -302,6 +295,7 @@ async function performRefresh(
         const target: ConnectionTarget = required.target;
         const connectionId = required.connection.id;
         let observedHealth: ConnectionHealth | null = null;
+        let completedHealth: ConnectionHealth;
         try {
           const built = await buildPostgisArtifact(
             target,
@@ -318,19 +312,21 @@ async function performRefresh(
             },
           );
           meta = built;
-          recordConnectionHealth(connectionId, built.connectionHealth);
+          completedHealth = built.connectionHealth;
         } catch (error) {
+          requireOwnedResource(scope, "connection", connectionId);
           if (error instanceof ApiError && error.code === "not_found") {
             const message = `The stored recipe for "${p.schema}.${p.table}" no longer resolves on this connection. The previous snapshot data is unchanged.`;
             throw new ApiError("not_refreshable", message, 409);
           }
           if (isConnectionLevelFailure(error)) {
-            recordConnectionFailure(connectionId, error);
+            recordConnectionFailure(scope, connectionId, error);
           } else if (observedHealth) {
-            recordConnectionHealth(connectionId, observedHealth);
+            recordConnectionHealth(scope, connectionId, observedHealth);
           }
           throw error;
         }
+        recordConnectionHealth(scope, connectionId, completedHealth);
         break;
       }
       case "overture": {
@@ -374,7 +370,8 @@ async function performRefresh(
     // statement, so provenance can never claim data the refresh failed to
     // produce — and data can never lose the recipe that produced it.
     now = new Date().toISOString();
-    const swapped = updateTableData(
+    const swapped = updateOwnedTableData(
+      scope,
       { name, id: table.id, file: table.file },
       {
         file: relFile,
@@ -392,7 +389,7 @@ async function performRefresh(
       },
     );
     if (!swapped) {
-      if (getTableByName(name)?.id === table.id) throw new ApiError("input_changed", "The dataset changed while the refresh ran; nothing was replaced.", 409);
+      if (getOwnedTableByName(scope, name)?.id === table.id) throw new ApiError("input_changed", "The dataset changed while the refresh ran; nothing was replaced.", 409);
       throw new ApiError(
         "not_found",
         `Table "${name}" was deleted while the refresh ran; nothing was replaced.`,
@@ -406,7 +403,7 @@ async function performRefresh(
 
   // The swap is registered; the old artifact retires (removed once the
   // readers that predate the swap settle) and stale tile records go.
-  postCommitCleanup(name, path.join(dataDir(), table.file));
+  postCommitCleanup(scope, name, path.join(dataDir(), table.file));
   // The answer is what the swap committed — never a re-read that a
   // concurrent delete could turn into a silent null.
   return {

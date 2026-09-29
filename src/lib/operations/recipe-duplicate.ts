@@ -1,18 +1,20 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
 import { deriveTableName } from "@/lib/ingest/naming";
 import { metadataDb } from "@/lib/metadata/db";
 import { getLayout, putLayout } from "@/lib/metadata/recipe-layouts";
-import { fileRecipe } from "@/lib/metadata/projects";
+import { fileRecipe } from "@/lib/metadata/owned-recipes";
 import {
-  addStep,
+  copyStep,
   createRecipe,
   getRecipe,
+  requireRecipe,
   listRecipes,
   listSteps,
   type Recipe,
   type RecipeStep,
-} from "@/lib/metadata/recipes";
-import { listTables } from "@/lib/metadata/tables";
+} from "@/lib/metadata/owned-recipes";
+import { listOwnedTables } from "@/lib/metadata/owned-tables";
 import type { Database } from "better-sqlite3";
 import { findOperation } from "./catalog";
 import { rewriteTableReferences } from "./sql-references";
@@ -26,7 +28,7 @@ import { stepReads } from "./step-reads";
  * outputs would be two recipes sharing data while looking independent. So
  * the copy: takes each node's **active** definition and provenance under a
  * fresh id, in order; renames every declared output to a name that is free
- * — against registered tables and every name any recipe declares, active or
+ * — against owned tables and every name an owned recipe declares, active or
  * pending, through the same normalization the engine applies at admission;
  * redirects every read of an original output to the copy's, in named inputs
  * and in SQL table references; carries no output, proposal or history.
@@ -50,11 +52,11 @@ function declaredName(params: Record<string, unknown> | null): string | null {
 }
 
 /** Every name a new output may not take: registered tables, and what every
- * recipe's nodes declare or hold, active or pending. */
-function takenNames(db: Database): Set<string> {
-  const taken = new Set<string>(listTables(db).map((t) => t.name.toLowerCase()));
-  for (const recipe of listRecipes(db)) {
-    for (const step of listSteps(recipe.id, db)) {
+ * owned recipe's nodes declare or hold, active or pending. */
+function takenNames(scope: AccountScope, db: Database): Set<string> {
+  const taken = new Set<string>(listOwnedTables(scope, db).map((t) => t.name.toLowerCase()));
+  for (const recipe of listRecipes(scope, db)) {
+    for (const step of listSteps(scope, recipe.id, db)) {
       for (const n of [declaredName(step.parameters), declaredName(step.proposedParameters), step.outputTableName?.toLowerCase() ?? null]) {
         if (n) taken.add(n);
       }
@@ -78,17 +80,15 @@ interface PlannedStep {
   origin: Record<string, unknown> | null;
 }
 
-export async function duplicateRecipe(sourceId: string): Promise<Recipe> {
+export async function duplicateRecipe(scope: AccountScope, sourceId: string): Promise<Recipe> {
+  requireAccountScope(scope);
   const db = metadataDb();
-  const source = getRecipe(sourceId, db);
-  if (!source) {
-    throw new ApiError("not_found", `No recipe with id "${sourceId}".`, 404);
-  }
-  const steps = listSteps(sourceId, db);
+  const source = requireRecipe(scope, sourceId, db);
+  const steps = listSteps(scope, sourceId, db);
   const before = stamp(steps);
 
   // 1. Plan: fresh names, redirected reads — from the active definitions.
-  const taken = takenNames(db);
+  const taken = takenNames(scope, db);
   const renamed = new Map<string, string>();
   const planned: PlannedStep[] = steps.map((step) => {
     const parameters: Record<string, unknown> = { ...step.parameters };
@@ -119,7 +119,7 @@ export async function duplicateRecipe(sourceId: string): Promise<Recipe> {
   //    original read, with the copy's names where the original's stood.
   for (let i = 0; i < steps.length; i++) {
     if (typeof planned[i].parameters.sql !== "string") continue;
-    const original = await stepReads({
+    const original = await stepReads(scope, {
       operation: steps[i].operation,
       parameters: steps[i].parameters,
       proposedParameters: null,
@@ -127,7 +127,7 @@ export async function duplicateRecipe(sourceId: string): Promise<Recipe> {
     // SQL the parser cannot read is copied as it is: the copy refuses to run
     // it exactly as the original does, and says why.
     if (original === null) continue;
-    const copied = await stepReads({
+    const copied = await stepReads(scope, {
       operation: planned[i].operation,
       parameters: planned[i].parameters,
       proposedParameters: null,
@@ -151,14 +151,15 @@ export async function duplicateRecipe(sourceId: string): Promise<Recipe> {
   // 3. Write, after checking that nothing moved under the plan.
   const name = copyName(source.name);
   return db.transaction(() => {
-    if (stamp(listSteps(sourceId, db)) !== before) {
+    requireRecipe(scope, sourceId, db);
+    if (stamp(listSteps(scope, sourceId, db)) !== before) {
       throw new ApiError(
         "invalid_request",
         "This workflow changed while its copy was being prepared. Try again.",
         409,
       );
     }
-    const now = takenNames(db);
+    const now = takenNames(scope, db);
     for (const fresh of renamed.values()) {
       if (now.has(fresh)) {
         throw new ApiError(
@@ -168,16 +169,16 @@ export async function duplicateRecipe(sourceId: string): Promise<Recipe> {
         );
       }
     }
-    const copy = createRecipe(name, db, "workflow");
+    const copy = createRecipe(scope, name, db, "workflow");
     // The copy lands in its source's project — the source re-read
     // INSIDE this transaction, so a move during the asynchronous
     // preparation files the copy where the source is NOW, and a
     // dissolved project reads null (found at review).
-    const live = getRecipe(sourceId, db);
-    if (live?.projectId) fileRecipe(copy.id, live.projectId, db);
+    const live = getRecipe(scope, sourceId, db);
+    if (live?.projectId) fileRecipe(scope, copy.id, live.projectId, db);
     const copiedIds = new Map<string, string>();
     planned.forEach((p, i) => {
-      copiedIds.set(steps[i].id, addStep(copy.id, p, db).id);
+      copiedIds.set(steps[i].id, copyStep(scope, steps[i].id, copy.id, p.parameters, db).id);
     });
     // The layout goes with the copy: each node's position under the copy's
     // identity, sources and notes as they are. A never-written document

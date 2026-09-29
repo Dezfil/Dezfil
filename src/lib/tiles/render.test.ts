@@ -1,3 +1,5 @@
+import { privateTileAccess } from "@/lib/tiles/access";
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -37,9 +39,9 @@ beforeEach(async () => {
   }
   const src = path.join(dir, "points.csv");
   await writeFile(src, rows.join("\n"));
-  await ingestFile(src, "points.csv");
-  const map = createMap("m");
-  const layer = await createLayer(map.id, {
+  await ingestFile(testAccountScope(), src, "points.csv");
+  const map = createMap(testAccountScope(), "m");
+  const layer = await createLayer(testAccountScope(), map.id, {
     name: "Points",
     sql: "SELECT id, kind, geometry FROM points",
   });
@@ -61,9 +63,9 @@ afterEach(async () => {
 describe("the render decision", () => {
   it("over-cap points switch to tiles: preparing, then ready with a URL", async () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "10";
-    const layer = requireLayer(layerId);
+    const layer = requireLayer(testAccountScope(), layerId);
 
-    const preparing = await renderLayer(layer);
+    const preparing = await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
     expect(preparing.ok).toBe(true);
     expect(preparing.mode).toBe("tiled");
     expect(preparing.tiles?.state).toBe("building");
@@ -72,7 +74,7 @@ describe("the render decision", () => {
     expect(preparing.geojson).toBeUndefined();
 
     await tileBuildsSettled();
-    const ready = await renderLayer(layer);
+    const ready = await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
     expect(ready.mode).toBe("tiled");
     expect(ready.tiles?.state).toBe("ready");
     expect(ready.geometryType).toBe("POINT");
@@ -101,22 +103,22 @@ describe("the render decision", () => {
 
   it("a filter under the cap returns to inline with no wait — and back", async () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "10";
-    const filtered = await updateLayer(layerId, {
+    const filtered = await updateLayer(testAccountScope(), layerId, {
       filters: [{ field: "kind", kind: "values", values: ["k0"] }],
     });
-    const inline = await renderLayer(filtered);
+    const inline = await renderLayer(testAccountScope(), filtered, undefined, { tileAccess: privateTileAccess(testAccountScope(), (filtered).id) });
     expect(inline.mode).toBe("inline");
     expect(inline.featureCount).toBe(10);
     expect(inline.geometryType).toBe("POINT");
 
-    const unfiltered = await updateLayer(layerId, { filters: [] });
-    const tiled = await renderLayer(unfiltered);
+    const unfiltered = await updateLayer(testAccountScope(), layerId, { filters: [] });
+    const tiled = await renderLayer(testAccountScope(), unfiltered, undefined, { tileAccess: privateTileAccess(testAccountScope(), (unfiltered).id) });
     expect(tiled.mode).toBe("tiled");
   });
 
   it("under-cap layers keep today's inline path untouched", async () => {
-    const layer = requireLayer(layerId);
-    const render = await renderLayer(layer);
+    const layer = requireLayer(testAccountScope(), layerId);
+    const render = await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
     expect(render.mode).toBe("inline");
     expect(render.featureCount).toBe(40);
     expect(render.geometryType).toBe("POINT");
@@ -126,7 +128,7 @@ describe("the render decision", () => {
   it("a missing tiler degrades h3-style: only this layer errors", async () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "10";
     process.env.DEZFIL_TIPPECANOE = "/nonexistent/tippecanoe";
-    const render = await renderLayer(requireLayer(layerId));
+    const render = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layerId), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layerId)).id) });
     expect(render.ok).toBe(false);
     expect(render.error?.code).toBe("tiler_unavailable");
     expect(render.error?.message).toMatch(/tippecanoe/);
@@ -143,11 +145,11 @@ describe("the render decision", () => {
     );
     process.env.DEZFIL_TIPPECANOE = fake;
 
-    const preparing = await renderLayer(requireLayer(layerId));
+    const preparing = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layerId), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layerId)).id) });
     expect(preparing.tiles?.state).toBe("building");
     await tileBuildsSettled();
 
-    const failed = await renderLayer(requireLayer(layerId));
+    const failed = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layerId), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layerId)).id) });
     expect(failed.ok).toBe(false);
     expect(failed.error?.code).toBe("tile_build_failed");
     expect(failed.error?.message).toMatch(/boom/);

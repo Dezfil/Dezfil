@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -32,7 +33,7 @@ beforeEach(async () => {
     src,
     "name,lon,lat,riders\na,13.4,52.5,100\nb,13.3,52.4,500\nc,13.2,52.6,900\n",
   );
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
 });
 
 afterEach(async () => {
@@ -43,10 +44,10 @@ afterEach(async () => {
 });
 
 async function seedThree() {
-  const map = createMap("Legend order");
+  const map = createMap(testAccountScope(), "Legend order");
   const ids: string[] = [];
   for (const name of ["Alpha", "Beta", "Gamma"]) {
-    const layer = await createLayer(map.id, {
+    const layer = await createLayer(testAccountScope(), map.id, {
       name,
       sql: "SELECT * FROM stations",
     });
@@ -94,20 +95,20 @@ describe("orderForLegend — the one ordering decision", () => {
 describe("legendOrder — the stored arrangement", () => {
   it("starts automatic, stores an exact permutation, and resets to null", async () => {
     const { map, ids } = await seedThree();
-    expect(mapWithLayers(map.id).legendOrder).toBeNull();
+    expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toBeNull();
 
     const arrangement = [ids[1], ids[2], ids[0]];
-    updateMap(map.id, { legendOrder: arrangement });
-    expect(mapWithLayers(map.id).legendOrder).toEqual(arrangement);
+    updateMap(testAccountScope(), map.id, { legendOrder: arrangement });
+    expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toEqual(arrangement);
 
-    updateMap(map.id, { legendOrder: null });
-    expect(mapWithLayers(map.id).legendOrder).toBeNull();
+    updateMap(testAccountScope(), map.id, { legendOrder: null });
+    expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toBeNull();
   });
 
   it("rejects misses, strangers, doubles and junk — leaving the map unchanged", async () => {
     const { map, ids } = await seedThree();
     const stored = [ids[2], ids[0], ids[1]];
-    updateMap(map.id, { legendOrder: stored });
+    updateMap(testAccountScope(), map.id, { legendOrder: stored });
 
     const rejects: unknown[] = [
       [ids[0], ids[1]], // incomplete
@@ -119,74 +120,75 @@ describe("legendOrder — the stored arrangement", () => {
     ];
     for (const bad of rejects) {
       expect(() =>
-        updateMap(map.id, { legendOrder: bad }),
-      ).toThrowError(/legendOrder/);
-      expect(mapWithLayers(map.id).legendOrder).toEqual(stored);
+        updateMap(testAccountScope(), map.id, { legendOrder: bad }),
+      ).toThrowError(Array.isArray(bad) && bad.includes("not-a-layer")
+        ? expect.objectContaining({ code: "not_found", status: 404 }) : /legendOrder/);
+      expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toEqual(stored);
     }
   });
 
   it("prunes a deleted layer's slot in the same undo gesture", async () => {
     const { map, ids } = await seedThree();
-    updateMap(map.id, { legendOrder: [ids[1], ids[0], ids[2]] });
+    updateMap(testAccountScope(), map.id, { legendOrder: [ids[1], ids[0], ids[2]] });
 
-    await removeLayer(ids[0]);
-    const after = mapWithLayers(map.id);
+    await removeLayer(testAccountScope(), ids[0]);
+    const after = mapWithLayers(testAccountScope(), map.id);
     expect(after.layers.map((l) => l.id)).toEqual([ids[1], ids[2]]);
     expect(after.legendOrder).toEqual([ids[1], ids[2]]);
 
     // One undo restores the layer and its slot together (one group).
-    await undoChange(map.id);
-    const restored = mapWithLayers(map.id);
+    await undoChange(testAccountScope(), map.id);
+    const restored = mapWithLayers(testAccountScope(), map.id);
     expect(restored.layers).toHaveLength(3);
     expect(restored.legendOrder).toEqual([ids[1], ids[0], ids[2]]);
   });
 
   it("deleting the last arranged layer returns the map to automatic", async () => {
-    const map = createMap("Single");
-    const layer = await createLayer(map.id, {
+    const map = createMap(testAccountScope(), "Single");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "Only",
       sql: "SELECT * FROM stations",
     });
-    updateMap(map.id, { legendOrder: [layer.id] });
-    await removeLayer(layer.id);
-    expect(mapWithLayers(map.id).legendOrder).toBeNull();
+    updateMap(testAccountScope(), map.id, { legendOrder: [layer.id] });
+    await removeLayer(testAccountScope(), layer.id);
+    expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toBeNull();
   });
 
   it("a layer added or duplicated under a manual order takes the top, durably", async () => {
     const { map, ids } = await seedThree();
     // ids: [Alpha, Beta, Gamma] in creation order.
     const manual = [ids[1], ids[0], ids[2]];
-    updateMap(map.id, { legendOrder: manual });
+    updateMap(testAccountScope(), map.id, { legendOrder: manual });
 
     // Created: stored at the front — the slot is durable, not derived
     // from the panel on each render.
-    const delta = await createLayer(map.id, {
+    const delta = await createLayer(testAccountScope(), map.id, {
       name: "Delta",
       sql: "SELECT * FROM stations",
     });
-    expect(mapWithLayers(map.id).legendOrder).toEqual([delta.id, ...manual]);
+    expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toEqual([delta.id, ...manual]);
 
     // Duplicated: same entry rule.
-    const copy = duplicateLayer(delta.id);
-    expect(mapWithLayers(map.id).legendOrder).toEqual([
+    const copy = duplicateLayer(testAccountScope(), delta.id);
+    expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toEqual([
       copy.id,
       delta.id,
       ...manual,
     ]);
 
     // One undo removes the duplicate and its slot together.
-    await undoChange(map.id);
-    const after = mapWithLayers(map.id);
+    await undoChange(testAccountScope(), map.id);
+    const after = mapWithLayers(testAccountScope(), map.id);
     expect(after.layers.some((l) => l.id === copy.id)).toBe(false);
     expect(after.legendOrder).toEqual([delta.id, ...manual]);
   });
 
   it("a duplicate carries the arrangement under its copied layer ids", async () => {
     const { map, ids } = await seedThree();
-    updateMap(map.id, { legendOrder: [ids[2], ids[0], ids[1]] });
+    updateMap(testAccountScope(), map.id, { legendOrder: [ids[2], ids[0], ids[1]] });
 
-    const copy = duplicateMap(map.id);
-    const copied = mapWithLayers(copy.id);
+    const copy = duplicateMap(testAccountScope(), map.id);
+    const copied = mapWithLayers(testAccountScope(), copy.id);
     const byName = new Map(copied.layers.map((l) => [l.name, l.id]));
     expect(copied.legendOrder).toEqual([
       byName.get("Gamma"),
@@ -200,15 +202,15 @@ describe("legendOrder — the stored arrangement", () => {
     const arrangement = [ids[2], ids[1], ids[0]];
     // Distinct groups make distinct gestures: within one group (or the
     // 3s coalesce window) rapid same-shape writes merge by design.
-    updateMap(map.id, { legendOrder: arrangement }, { groupId: "move" });
+    updateMap(testAccountScope(), map.id, { legendOrder: arrangement }, { groupId: "move" });
 
-    await undoChange(map.id);
-    expect(mapWithLayers(map.id).legendOrder).toBeNull();
-    await redoChange(map.id);
-    expect(mapWithLayers(map.id).legendOrder).toEqual(arrangement);
+    await undoChange(testAccountScope(), map.id);
+    expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toBeNull();
+    await redoChange(testAccountScope(), map.id);
+    expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toEqual(arrangement);
 
-    updateMap(map.id, { legendOrder: null }, { groupId: "reset" });
-    await undoChange(map.id);
-    expect(mapWithLayers(map.id).legendOrder).toEqual(arrangement);
+    updateMap(testAccountScope(), map.id, { legendOrder: null }, { groupId: "reset" });
+    await undoChange(testAccountScope(), map.id);
+    expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toEqual(arrangement);
   });
 });

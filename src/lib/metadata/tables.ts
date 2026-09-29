@@ -1,8 +1,11 @@
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "./db";
 import { deriveTableName } from "@/lib/ingest/naming";
 import { geometryEvidence, type GeometryEvidence } from "@/lib/geometry-evidence";
 import { serializeGeometryStorage, type GeometryStorage } from "@/lib/geometry/state";
+import { listOwnedTables, ownedTableNames } from "./owned-tables";
 import { ApiError } from "@/lib/api/errors";
 
 export type TableFormat =
@@ -29,7 +32,7 @@ export type TableSource =
 
 export interface DataTable extends GeometryEvidence {
   id: string;
-  /** SQL identifier the user queries; unique per instance. */
+  /** SQL identifier the user queries; unique within its owner. */
   name: string;
   /** The file this arrived as. Null for a derived table: an
    * operation's output never was a file, and filler here would state
@@ -63,7 +66,7 @@ export interface DataTable extends GeometryEvidence {
   importedAt: string | null;
 }
 
-interface Row {
+export interface TableRow {
   id: string;
   name: string;
   source_filename: string | null;
@@ -81,7 +84,7 @@ interface Row {
   imported_at: string | null;
 }
 
-function fromRow(r: Row): DataTable {
+export function tableFromRow(r: TableRow): DataTable {
   return {
     ...(r.geometry_recognition ? geometryEvidence(JSON.parse(r.geometry_recognition) as GeometryEvidence) : {}),
     id: r.id,
@@ -111,17 +114,19 @@ function fromRow(r: Row): DataTable {
  * UNIQUE constraint.
  */
 export function registerTable(
+  scope: AccountScope,
   record: Omit<DataTable, "name">,
   desiredName: string,
   db: Database = metadataDb(),
 ): DataTable {
+  requireAccountScope(scope, db);
   for (let attempt = 0; ; attempt++) {
     const named: DataTable = {
       ...record,
-      name: deriveTableName(desiredName, tableNames(db)),
+      name: deriveTableName(desiredName, ownedTableNames(scope, db)),
     };
     try {
-      insertTable(named, db);
+      insertTable(scope, named, db);
       return named;
     } catch (error) {
       const unique =
@@ -139,14 +144,16 @@ export function registerTable(
   }
 }
 
-export function insertTable(t: DataTable, db: Database = metadataDb()): void {
+export function insertTable(scope: AccountScope, t: DataTable, db: Database = metadataDb()): void {
+  const ownerId = requireAccountScope(scope, db);
   db.prepare(
     `INSERT INTO data_tables
-       (id, name, source_filename, format, file, geometry_column,
+       (owner_id, id, name, source_filename, format, file, geometry_column,
         geometry_type, crs_assumed, header_suspect, row_count, created_at,
         source, source_params, imported_at, geometry_recognition)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
+    ownerId,
     t.id,
     t.name,
     t.sourceFilename,
@@ -233,17 +240,19 @@ export function updateTableGeometryType(
 export function listTables(db: Database = metadataDb()): DataTable[] {
   const rows = db
     .prepare(`SELECT * FROM data_tables ORDER BY created_at DESC, name`)
-    .all() as Row[];
-  return rows.map(fromRow);
+    .all() as TableRow[];
+  return rows.map(tableFromRow);
 }
 
 /** PostGIS snapshots owned by one durable connection id. The stored display
  * name is provenance text only and never participates in ownership. */
 export function listPostgisSnapshots(
+  scope: AccountScope,
   connectionId: string,
   db: Database = metadataDb(),
 ): DataTable[] {
-  return listTables(db).filter(
+  requireOwnedResource(scope, "connection", connectionId, db);
+  return listOwnedTables(scope, db).filter(
     (table) =>
       table.source === "postgis" &&
       table.sourceParams?.connectionId === connectionId,
@@ -256,8 +265,8 @@ export function getTableByName(
 ): DataTable | null {
   const row = db
     .prepare(`SELECT * FROM data_tables WHERE name = ?`)
-    .get(name) as Row | undefined;
-  return row ? fromRow(row) : null;
+    .get(name) as TableRow | undefined;
+  return row ? tableFromRow(row) : null;
 }
 
 export function tableNames(db: Database = metadataDb()): Set<string> {

@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -65,7 +66,7 @@ beforeEach(async () => {
       "r14,,140,13.53,52.63",
     ].join("\n"),
   );
-  await ingestFile(source, "trips.csv");
+  await ingestFile(testAccountScope(), source, "trips.csv");
 });
 
 afterEach(async () => {
@@ -132,8 +133,8 @@ const WIDGETS: MapWidget[] = [
 ];
 
 async function dashboard() {
-  const map = createMap("dash");
-  const layer = await createLayer(map.id, {
+  const map = createMap(testAccountScope(), "dash");
+  const layer = await createLayer(testAccountScope(), map.id, {
     name: "Trips",
     sql: "SELECT name, cat, val, geometry FROM trips",
   });
@@ -141,14 +142,14 @@ async function dashboard() {
     ...w,
     layerId: w.type === "note" ? null : layer.id,
   }));
-  const withWidgets = updateMap(map.id, { widgets });
+  const withWidgets = updateMap(testAccountScope(), map.id, { widgets });
   return { map: withWidgets, layer };
 }
 
 describe("widget values", () => {
   it("computes all three types over the effective query", async () => {
     const { map } = await dashboard();
-    const values = await computeWidgetValues(map, map.layers, []);
+    const values = await computeWidgetValues(testAccountScope(), map, map.layers, []);
 
     // The note is authored text — nothing computed for it.
     expect(values.widgets.map((w) => w.id)).toEqual(["wf", "wc", "wh"]);
@@ -185,7 +186,7 @@ describe("widget values", () => {
 
     // A draft carrying wf's id replaces it for this read: sum, not avg.
     const stored = map.widgets.find((w) => w.id === "wf")!;
-    const over = await computeWidgetValues(map, map.layers, [], {
+    const over = await computeWidgetValues(testAccountScope(), map, map.layers, [], {
       ...stored,
       agg: "sum",
     });
@@ -196,7 +197,7 @@ describe("widget values", () => {
     });
 
     // A draft under a fresh id joins the computed set as a new card.
-    const added = await computeWidgetValues(map, map.layers, [], {
+    const added = await computeWidgetValues(testAccountScope(), map, map.layers, [], {
       ...stored,
       id: "widget-draft-preview",
       agg: "count",
@@ -214,7 +215,7 @@ describe("widget values", () => {
 
     // Nothing wrote — the same read without a draft answers from the
     // stored config again.
-    const plain = await computeWidgetValues(map, map.layers, []);
+    const plain = await computeWidgetValues(testAccountScope(), map, map.layers, []);
     expect(plain.widgets.find((w) => w.id === "wf")).toMatchObject({
       value: 75,
     });
@@ -225,7 +226,7 @@ describe("widget values", () => {
     const { map } = await dashboard();
     // Deactivating "A": its rows leave — and so does the NULL-category
     // row, exactly as SQL's NOT IN decides.
-    const values = await computeWidgetValues(map, map.layers, [
+    const values = await computeWidgetValues(testAccountScope(), map, map.layers, [
       { widgetId: "wc", kind: "exclude", values: ["A"] },
     ]);
 
@@ -253,7 +254,7 @@ describe("widget values", () => {
 
   it("composes AND across widgets — a brush narrows the ranking", async () => {
     const { map } = await dashboard();
-    const values = await computeWidgetValues(map, map.layers, [
+    const values = await computeWidgetValues(testAccountScope(), map, map.layers, [
       { widgetId: "wh", kind: "range", min: 45, max: null },
     ]);
     const category = values.widgets.find((w) => w.id === "wc");
@@ -269,7 +270,7 @@ describe("widget values", () => {
       w.id === "wf" ? { ...w, field: "gone" } : w,
     );
     const patched = { ...map, widgets };
-    const values = await computeWidgetValues(patched, map.layers, []);
+    const values = await computeWidgetValues(testAccountScope(), patched, map.layers, []);
     const formula = values.widgets.find((w) => w.id === "wf");
     expect(formula && "error" in formula).toBe(true);
     // The rest of the dashboard keeps working.
@@ -281,29 +282,29 @@ describe("widget authoring", () => {
   it("validates widgets against the map's layers", async () => {
     const { map } = await dashboard();
     expect(() =>
-      updateMap(map.id, {
+      updateMap(testAccountScope(), map.id, {
         widgets: [{ ...WIDGETS[0], layerId: "not-a-layer" }],
       }),
     ).toThrow(ApiError);
-    expect(() => updateMap(map.id, { widgets: [{ bad: true }] })).toThrow(
+    expect(() => updateMap(testAccountScope(), map.id, { widgets: [{ bad: true }] })).toThrow(
       ApiError,
     );
-    expect(() => updateMap(map.id, { widgetsPublished: "yes" })).toThrow(
+    expect(() => updateMap(testAccountScope(), map.id, { widgetsPublished: "yes" })).toThrow(
       ApiError,
     );
   });
 
   it("records history — undo removes the widget step, redo restores it", async () => {
     const { map } = await dashboard();
-    const undone = await undoChange(map.id);
+    const undone = await undoChange(testAccountScope(), map.id);
     expect(undone.widgets).toEqual([]);
-    const redone = await redoChange(map.id);
+    const redone = await redoChange(testAccountScope(), map.id);
     expect(redone.widgets.map((w) => w.id)).toEqual(["wf", "wc", "wh", "wn"]);
   });
 
   it("duplicating a map remaps widgets to the copied layers", async () => {
     const { map } = await dashboard();
-    const copy = duplicateMap(map.id);
+    const copy = duplicateMap(testAccountScope(), map.id);
     expect(copy.widgets).toHaveLength(4);
     expect(copy.layers[0].id).not.toBe(map.layers[0].id);
     for (const w of copy.widgets) {
@@ -314,15 +315,15 @@ describe("widget authoring", () => {
 
   it("deleting a layer removes its widgets in the same undoable step", async () => {
     const { map, layer } = await dashboard();
-    await removeLayer(layer.id);
+    await removeLayer(testAccountScope(), layer.id);
     // The bound data widgets went with the layer; the note stays.
     expect(getMap(map.id)!.widgets.map((w) => w.id)).toEqual(["wn"]);
     // One undo gesture restores layer and widgets together.
-    const undone = await undoChange(map.id);
+    const undone = await undoChange(testAccountScope(), map.id);
     expect(undone.layers.map((l) => l.id)).toContain(layer.id);
     expect(undone.widgets.map((w) => w.id)).toEqual(["wf", "wc", "wh", "wn"]);
     // Redo removes both again — never an orphan in the stored row.
-    const redone = await redoChange(map.id);
+    const redone = await redoChange(testAccountScope(), map.id);
     expect(redone.layers.map((l) => l.id)).not.toContain(layer.id);
     expect(redone.widgets.map((w) => w.id)).toEqual(["wn"]);
   });
@@ -342,11 +343,11 @@ describe("widget authoring", () => {
       before: { ...layer }, // the whole-layer image an earlier delete wrote
       after: null,
     });
-    const restored = await undoChange(map.id);
+    const restored = await undoChange(testAccountScope(), map.id);
     expect(restored.layers.map((l) => l.id)).toContain(layer.id);
     expect(restored.widgets).toHaveLength(4);
 
-    const redone = await redoChange(map.id);
+    const redone = await redoChange(testAccountScope(), map.id);
     expect(redone.layers.map((l) => l.id)).not.toContain(layer.id);
     // The widgets are KEPT, not swept: undoing again must restore the
     // author's configuration whole, so the replay never destroys it. They are inert on every read
@@ -357,10 +358,10 @@ describe("widget authoring", () => {
     // list back succeeds, while INTRODUCING a foreign reference is still
     // refused — the distinction that keeps the validator useful.
     expect(() =>
-      updateMap(map.id, { widgets: redone.widgets }),
+      updateMap(testAccountScope(), map.id, { widgets: redone.widgets }),
     ).not.toThrow();
     expect(() =>
-      updateMap(map.id, {
+      updateMap(testAccountScope(), map.id, {
         widgets: [
           ...redone.widgets,
           { ...WIDGETS[1], id: "wnew", layerId: "another-dead-layer" },
@@ -370,7 +371,7 @@ describe("widget authoring", () => {
 
     // Undoing the replay restores the layer, and every widget resolves
     // again — nothing was lost on the way through.
-    const restoredAgain = await undoChange(map.id);
+    const restoredAgain = await undoChange(testAccountScope(), map.id);
     expect(restoredAgain.layers.map((l) => l.id)).toContain(layer.id);
     expect(restoredAgain.widgets).toHaveLength(4);
   });
@@ -385,7 +386,7 @@ describe("widget authoring", () => {
         { ...WIDGETS[0], id: "worphan", layerId: "dead-layer" },
       ],
     });
-    const copy = duplicateMap(map.id);
+    const copy = duplicateMap(testAccountScope(), map.id);
     // The orphan is absent; every survivor resolves inside the copy.
     expect(copy.widgets).toHaveLength(4);
     for (const w of copy.widgets) {
@@ -397,14 +398,14 @@ describe("widget authoring", () => {
 describe("the settle lane", () => {
   it("re-aggregates a hexbin layer under ephemeral selections, no writes", async () => {
     const { map, layer } = await dashboard();
-    const hexLayer = await updateLayer(layer.id, {
+    const hexLayer = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
     });
-    const full = await renderLayerWithSelections(hexLayer, []);
-    const constrained = await renderLayerWithSelections(hexLayer, [
+    const full = await renderLayerWithSelections(testAccountScope(), hexLayer, []);
+    const constrained = await renderLayerWithSelections(testAccountScope(), hexLayer, [
       { field: "cat", kind: "values", values: ["A"] },
     ]);
-    const excluded = await renderLayerWithSelections(hexLayer, [
+    const excluded = await renderLayerWithSelections(testAccountScope(), hexLayer, [
       { field: "cat", kind: "values", values: ["A"], exclude: true },
     ]);
     if (!full.ok || !constrained.ok || !excluded.ok) {
@@ -423,7 +424,7 @@ describe("the settle lane", () => {
   it("rejects viz types that enforce selections client-side", async () => {
     const { layer } = await dashboard();
     await expect(
-      renderLayerWithSelections(layer, [
+      renderLayerWithSelections(testAccountScope(), layer, [
         { field: "cat", kind: "values", values: ["A"] },
       ]),
     ).rejects.toThrow(ApiError);
@@ -433,7 +434,7 @@ describe("the settle lane", () => {
 describe("published selection bounding", () => {
   it("refuses a reader selection on an undeclared field, before evaluation", async () => {
     const { map, layer } = await dashboard();
-    const hexLayer = await updateLayer(layer.id, {
+    const hexLayer = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
     });
     const published = {
@@ -443,7 +444,7 @@ describe("published selection bounding", () => {
     };
     // "name" ships in no widget and no wire column of the computed cells.
     await expect(
-      renderLayerWithSelections(
+      renderLayerWithSelections(testAccountScope(),
         hexLayer,
         [{ field: "name", kind: "values", values: ["r1"] }],
         undefined,
@@ -454,7 +455,7 @@ describe("published selection bounding", () => {
 
   it("refuses a computed layer's output names — selections fold pre-aggregation (round two)", async () => {
     const { map, layer } = await dashboard();
-    const hexLayer = await updateLayer(layer.id, {
+    const hexLayer = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
     });
     const published = {
@@ -466,7 +467,7 @@ describe("published selection bounding", () => {
     // selection folds into the base query, where they are undeclared.
     for (const field of ["value", "count"]) {
       await expect(
-        renderLayerWithSelections(
+        renderLayerWithSelections(testAccountScope(),
           hexLayer,
           [{ field, kind: "range", min: 1, max: null }],
           undefined,
@@ -478,7 +479,7 @@ describe("published selection bounding", () => {
 
   it("allows selections on published widget fields of computed layers", async () => {
     const { map, layer } = await dashboard();
-    const hexLayer = await updateLayer(layer.id, {
+    const hexLayer = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
     });
     const published = {
@@ -488,7 +489,7 @@ describe("published selection bounding", () => {
     };
     // "cat" is the published category widget's field — the cells no longer
     // carry it, but the published surface declares it.
-    const constrained = await renderLayerWithSelections(
+    const constrained = await renderLayerWithSelections(testAccountScope(),
       hexLayer,
       [{ field: "cat", kind: "values", values: ["A"] }],
       undefined,
@@ -503,7 +504,7 @@ describe("published selection bounding", () => {
 
   it("declares wire fields too, and keeps the builder lane unbounded", async () => {
     const { map, layer } = await dashboard();
-    const clustered = await updateLayer(layer.id, {
+    const clustered = await updateLayer(testAccountScope(), layer.id, {
       tooltip: ["name"],
       popup: [],
       viz: { type: "cluster", radiusPx: 64, color: "fixed", showCounts: true },
@@ -514,7 +515,7 @@ describe("published selection bounding", () => {
       widgetsPublished: true,
     };
     // A published tooltip field is on the wire — selectable.
-    const byName = await renderLayerWithSelections(
+    const byName = await renderLayerWithSelections(testAccountScope(),
       clustered,
       [{ field: "name", kind: "values", values: ["r1"] }],
       undefined,
@@ -523,7 +524,7 @@ describe("published selection bounding", () => {
     expect(byName.ok).toBe(true);
     // "val" is neither on the wire nor a published widget field here.
     await expect(
-      renderLayerWithSelections(
+      renderLayerWithSelections(testAccountScope(),
         clustered,
         [{ field: "val", kind: "range", min: 100, max: null }],
         undefined,
@@ -531,7 +532,7 @@ describe("published selection bounding", () => {
       ),
     ).rejects.toMatchObject({ code: "field_not_published" });
     // The builder's own settle lane stays unbounded.
-    const builder = await renderLayerWithSelections(clustered, [
+    const builder = await renderLayerWithSelections(testAccountScope(), clustered, [
       { field: "val", kind: "range", min: 100, max: null },
     ]);
     expect(builder.ok).toBe(true);
@@ -548,7 +549,7 @@ describe("published selection bounding", () => {
       values: ["A"],
       field: "val",
     } as unknown as import("@/lib/widgets").WidgetSelection;
-    const values = await computeWidgetValues(map, map.layers, [smuggled]);
+    const values = await computeWidgetValues(testAccountScope(), map, map.layers, [smuggled]);
     const formula = values.widgets.find((w) => w.id === "wf");
     // Excluding cat A (and the NULL row, per NOT IN) leaves values
     // 50..130 — avg 90. Filtering by the smuggled field would leave 75.
@@ -559,18 +560,18 @@ describe("published selection bounding", () => {
 describe("published dashboards", () => {
   it("ships visible widgets, honors the toggle, and hides drifted ones", async () => {
     const { map } = await dashboard();
-    updateMap(map.id, {
+    updateMap(testAccountScope(), map.id, {
       widgets: map.widgets.map((w) =>
         w.id === "wh" ? { ...w, visible: false } : w,
       ),
     });
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
 
     const view = await getPublishedView(token, Date.now());
     // The note ships like any visible widget.
     expect(view?.widgets.map((w) => w.id)).toEqual(["wf", "wc", "wn"]);
 
-    updateMap(map.id, { widgetsPublished: false });
+    updateMap(testAccountScope(), map.id, { widgetsPublished: false });
     const hidden = await getPublishedView(token, Date.now());
     expect(hidden?.widgets).toEqual([]);
   });

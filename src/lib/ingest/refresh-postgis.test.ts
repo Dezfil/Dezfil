@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
@@ -24,7 +25,7 @@ import { ApiError } from "@/lib/api/errors";
 let dir: string;
 
 function seed(): void {
-  const connection = insertConnection({
+  const connection = insertConnection(testAccountScope(), {
     id: "c1",
     name: "City",
     host: "db.example.org",
@@ -35,13 +36,13 @@ function seed(): void {
     ssl: true,
   });
   requireTarget.mockImplementation(() => {
-    const current = getConnection("c1")!;
+    const current = getConnection(testAccountScope(), "c1")!;
     return {
       connection: current,
       target: { ...current, password: "stored-value" },
     };
   });
-  insertTable({
+  insertTable(testAccountScope(), {
     id: "t1",
     name: "roads",
     sourceFilename: "public.roads",
@@ -83,7 +84,7 @@ describe("PostGIS refresh status", () => {
   });
 
   it("blocks a stored Failing connection before source contact", async () => {
-    recordConnectionCheck("c1", {
+    recordConnectionCheck(testAccountScope(), "c1", {
       outcome: "failing",
       error: "Authentication failed. Check the username and password.",
     });
@@ -94,13 +95,13 @@ describe("PostGIS refresh status", () => {
       headerSuspect: false,
       rowCount: 20,
     });
-    await expect(refreshTable("roads")).rejects.toMatchObject({
+    await expect(refreshTable(testAccountScope(), "roads")).rejects.toMatchObject({
       code: "connection_failed",
       message: "Authentication failed. Check the username and password.",
     });
     expect(buildPostgisArtifact).not.toHaveBeenCalled();
     expect(getTableByName("roads")?.rowCount).toBe(12);
-    expect(getConnection("c1")?.status).toBe("failing");
+    expect(getConnection(testAccountScope(), "c1")?.status).toBe("failing");
   });
 
   it("records a successful refresh and swaps only after the build succeeds", async () => {
@@ -115,9 +116,9 @@ describe("PostGIS refresh status", () => {
         postgisVersion: "3.4.3",
       },
     });
-    const refreshed = await refreshTable("roads");
+    const refreshed = await refreshTable(testAccountScope(), "roads");
     expect(refreshed.rowCount).toBe(20);
-    expect(getConnection("c1")).toMatchObject({
+    expect(getConnection(testAccountScope(), "c1")).toMatchObject({
       status: "connected",
       serverVersion: "PostgreSQL 16.4",
       postgisVersion: "3.4.3",
@@ -126,13 +127,13 @@ describe("PostGIS refresh status", () => {
 
   it("maps a missing stored source table and leaves the previous data intact", async () => {
     const before = getTableByName("roads");
-    recordConnectionCheck("c1", {
+    recordConnectionCheck(testAccountScope(), "c1", {
       outcome: "connected",
       checkedAt: "2026-08-31T10:00:00.000Z",
       serverVersion: "PostgreSQL 16.4",
       postgisVersion: "3.4.3",
     });
-    const connectionBefore = getConnection("c1");
+    const connectionBefore = getConnection(testAccountScope(), "c1");
     buildPostgisArtifact.mockImplementation(
       async (_target, _recipe, _artifact, observeHealth) => {
         observeHealth({
@@ -146,12 +147,12 @@ describe("PostGIS refresh status", () => {
         );
       },
     );
-    await expect(refreshTable("roads")).rejects.toMatchObject({
+    await expect(refreshTable(testAccountScope(), "roads")).rejects.toMatchObject({
       code: "not_refreshable",
       message:
         'The stored recipe for "public.roads" no longer resolves on this connection. The previous snapshot data is unchanged.',
     });
     expect(getTableByName("roads")).toEqual(before);
-    expect(getConnection("c1")).toEqual(connectionBefore);
+    expect(getConnection(testAccountScope(), "c1")).toEqual(connectionBefore);
   });
 });

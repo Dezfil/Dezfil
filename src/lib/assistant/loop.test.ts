@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, expect, it } from "vitest";
 import { buildTools } from "@/lib/tools/tools";
 import { runAssistant, resumeAssistant, type AssistantEvent } from "./loop";
@@ -56,11 +57,11 @@ function harness(
     store,
     recording: provider.recording,
     run: (message: string) =>
-      collect(runAssistant(provider, { message, history: [] }, deps)),
+      collect(runAssistant(provider, { message, history: [] }, { scope: testAccountScope(), ...deps })),
     resume: (pendingId: string, approved: boolean) => {
-      const parked = store.claim(pendingId, approved ? "approved" : "declined");
+      const parked = store.claim(testAccountScope(), pendingId, approved ? "approved" : "declined");
       if (!parked) throw new Error(`No parked run for ${pendingId}`);
-      return collect(resumeAssistant(parked, approved, deps));
+      return collect(resumeAssistant(parked, approved, { scope: testAccountScope(), ...deps }));
     },
   };
 }
@@ -323,7 +324,7 @@ describe("runAssistant", () => {
     for await (const event of runAssistant(
       provider,
       { message: "hi", history: [] },
-      { baseUrl: "http://127.0.0.1:3000" },
+      { scope: testAccountScope(), baseUrl: "http://127.0.0.1:3000" },
     )) {
       events.push(event);
     }

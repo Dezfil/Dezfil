@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -49,13 +50,14 @@ function sample(overrides: Partial<DataTable> = {}): DataTable {
 
 describe("tables repository", () => {
   it("round-trips a table through insert and get", () => {
-    insertTable(sample(), db);
+    insertTable(testAccountScope(db), sample(), db);
     expect(getTableByName("parks", db)).toEqual(sample());
   });
 
   it("lists tables newest first and reports names", () => {
-    insertTable(sample(), db);
+    insertTable(testAccountScope(db), sample(), db);
     insertTable(
+      testAccountScope(db),
       sample({
         id: "id-2",
         name: "stations",
@@ -68,12 +70,13 @@ describe("tables repository", () => {
   });
 
   it("rejects duplicate names", () => {
-    insertTable(sample(), db);
-    expect(() => insertTable(sample({ id: "id-2" }), db)).toThrow();
+    insertTable(testAccountScope(db), sample(), db);
+    expect(() => insertTable(testAccountScope(db), sample({ id: "id-2" }), db)).toThrow();
   });
 
   it("preserves non-spatial and crs-assumed flags", () => {
     insertTable(
+      testAccountScope(db),
       sample({ geometryColumn: null, geometryType: null, crsAssumed: true }),
       db,
     );
@@ -83,7 +86,7 @@ describe("tables repository", () => {
   });
 
   it("deletes by name and reports whether anything was deleted", () => {
-    insertTable(sample(), db);
+    insertTable(testAccountScope(db), sample(), db);
     expect(deleteTable("parks", db)).toBe(true);
     expect(deleteTable("parks", db)).toBe(false);
     expect(listTables(db)).toEqual([]);
@@ -91,6 +94,7 @@ describe("tables repository", () => {
 
   it("round-trips provenance and applies data updates atomically", () => {
     insertTable(
+      testAccountScope(db),
       sample({
         source: "url",
         sourceParams: { url: "https://example.org/parks.parquet" },
@@ -128,7 +132,7 @@ describe("tables repository", () => {
   });
 
   it("reports whether a data update matched a row", () => {
-    insertTable(sample(), db);
+    insertTable(testAccountScope(db), sample(), db);
     const update = {
       file: "tables/parks-v2.parquet",
       geometryColumn: "geometry",
@@ -152,6 +156,7 @@ describe("tables repository", () => {
 
   it("swaps data and recipe in one statement when the update carries params", () => {
     insertTable(
+      testAccountScope(db),
       sample({
         source: "overture",
         sourceParams: { theme: "places", release: "2026-05-01.0" },
@@ -198,11 +203,11 @@ describe("registerTable", () => {
     const [a, b] = await Promise.all([
       (async () => {
         await new Promise((r) => setTimeout(r, 10));
-        return registerTable(base("id-a"), "parks", db);
+        return registerTable(testAccountScope(db), base("id-a"), "parks", db);
       })(),
       (async () => {
         await new Promise((r) => setTimeout(r, 10));
-        return registerTable(base("id-b"), "parks", db);
+        return registerTable(testAccountScope(db), base("id-b"), "parks", db);
       })(),
     ]);
     expect(new Set([a.name, b.name]).size).toBe(2);
@@ -210,7 +215,7 @@ describe("registerTable", () => {
   });
 
   it("keeps the sanitizing behavior of derived names", () => {
-    const record = registerTable(base("id-c"), "NYC Taxi Zones (2024).csv", db);
+    const record = registerTable(testAccountScope(db), base("id-c"), "NYC Taxi Zones (2024).csv", db);
     expect(record.name).toBe("nyc_taxi_zones_2024");
   });
 });

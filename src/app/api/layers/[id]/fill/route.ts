@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { requireLayer, layerEffectiveSql } from "@/lib/layer-service";
@@ -14,8 +15,9 @@ type Params = { params: Promise<{ id: string }> };
  */
 export async function POST(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
-    const layer = requireLayer(id);
+    const layer = requireLayer(scope, id);
     let body: {
       attribute?: unknown;
       method?: unknown;
@@ -55,8 +57,8 @@ export async function POST(request: Request, { params }: Params) {
     }
     // Classify what is actually drawn: the effective query, so filters are
     // respected and aggregated layers classify their aggregate value.
-    const fill = await classifyFill(
-      await layerEffectiveSql(layer, request.signal),
+    const fill = await classifyFill(scope,
+      await layerEffectiveSql(scope, layer, request.signal),
       body.attribute,
       body.method as ClassifyMethod,
       {

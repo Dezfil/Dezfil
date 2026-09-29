@@ -1,6 +1,6 @@
 import { metadataDb } from "./db";
-import { requireProject } from "./projects";
-import { ApiError } from "@/lib/api/errors";
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
 
 export interface CatalogueQuery {
   after?: string;
@@ -16,20 +16,21 @@ export interface CatalogueRecord {
 }
 
 /** Bound enumeration inside the metadata query before inspecting artifacts. */
-export function catalogueRecords(query: CatalogueQuery) {
+export function catalogueRecords(scope: AccountScope, query: CatalogueQuery) {
   const db = metadataDb();
-  if (query.project && query.project !== "none") requireProject(query.project);
-  const predicates: string[] = [];
-  const args: string[] = [];
+  const owner = requireAccountScope(scope, db);
+  if (query.project && query.project !== "none") requireOwnedResource(scope, "project", query.project, db);
+  const predicates: string[] = ["t.owner_id = ?"];
+  const args: string[] = [owner];
   if (query.names) {
-    const found = db.prepare(`SELECT name FROM data_tables WHERE name IN (${query.names.map(() => "?").join(",")})`).all(...query.names) as { name: string }[];
-    if (found.length !== query.names.length) throw new ApiError("not_found", "A requested table is unavailable.", 404);
+    const found = db.prepare(`SELECT name FROM data_tables WHERE owner_id = ? AND name IN (${query.names.map(() => "?").join(",")})`).all(owner, ...query.names) as { name: string }[];
+    if (found.length !== query.names.length) throw resourceAbsent();
     predicates.push(`t.name IN (${query.names.map(() => "?").join(",")})`);
     args.push(...query.names);
   }
-  if (query.project === "none") predicates.push("NOT EXISTS (SELECT 1 FROM project_datasets p WHERE p.table_id = t.id)");
+  if (query.project === "none") predicates.push("NOT EXISTS (SELECT 1 FROM project_datasets p JOIN projects owned ON owned.id = p.project_id AND owned.owner_id = t.owner_id WHERE p.table_id = t.id)");
   else if (query.project) {
-    predicates.push("EXISTS (SELECT 1 FROM project_datasets p WHERE p.table_id = t.id AND p.project_id = ?)");
+    predicates.push("EXISTS (SELECT 1 FROM project_datasets p JOIN projects owned ON owned.id = p.project_id AND owned.owner_id = t.owner_id WHERE p.table_id = t.id AND p.project_id = ?)");
     args.push(query.project);
   }
   const where = predicates.length ? " WHERE " + predicates.join(" AND ") : "";

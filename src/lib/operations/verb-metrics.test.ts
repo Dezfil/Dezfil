@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -67,7 +68,7 @@ beforeEach(async () => {
         ],
       }),
     );
-    await ingestFile(file, `${place.name}.geojson`);
+    await ingestFile(testAccountScope(), file, `${place.name}.geojson`);
 
     const neighbour = path.join(dir, `${place.name}_near.geojson`);
     await writeFile(
@@ -86,7 +87,7 @@ beforeEach(async () => {
         ],
       }),
     );
-    await ingestFile(neighbour, `${place.name}_near.geojson`);
+    await ingestFile(testAccountScope(), neighbour, `${place.name}_near.geojson`);
   }
 });
 
@@ -99,7 +100,7 @@ afterEach(async () => {
 });
 
 async function run(operation: string, parameters: Record<string, unknown>) {
-  const job = await startRun({ operation, parameters });
+  const job = await startRun(testAccountScope(), { operation, parameters });
   await laneSettled();
   return getJob(job.id)!;
 }
@@ -122,7 +123,7 @@ describe("a nearest join reports ground metres", () => {
       });
       expect(job.state, job.errorMessage ?? "").toBe("succeeded");
 
-      const result = await executeQuery(
+      const result = await executeQuery(testAccountScope(),
         `SELECT nearest_distance_m FROM ${place.name}_nearest`,
       );
       const measured = Number(result.preview[0].nearest_distance_m);
@@ -176,7 +177,7 @@ describe("a location filter's radius is ground metres too", () => {
       name: "within_800",
     });
     expect(near.state, near.errorMessage ?? "").toBe("succeeded");
-    const kept = await executeQuery(`SELECT count(*) AS n FROM within_800`);
+    const kept = await executeQuery(testAccountScope(), `SELECT count(*) AS n FROM within_800`);
     expect(Number(kept.preview[0].n)).toBe(1);
 
     const far = await run("filter_by_location", {
@@ -187,7 +188,7 @@ describe("a location filter's radius is ground metres too", () => {
       name: "within_500",
     });
     expect(far.state, far.errorMessage ?? "").toBe("succeeded");
-    const dropped = await executeQuery(`SELECT count(*) AS n FROM within_500`);
+    const dropped = await executeQuery(testAccountScope(), `SELECT count(*) AS n FROM within_500`);
     expect(Number(dropped.preview[0].n)).toBe(0);
   }, 60_000);
 });

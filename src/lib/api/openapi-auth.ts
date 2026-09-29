@@ -2,9 +2,10 @@ import { ERROR_RESPONSE, jsonOk, op } from "./openapi-helpers";
 import { READ_ONLY, resource, writes } from "./operation-metadata";
 
 export const AUTH_SECURITY = [{ CookieSession: [] }, { BearerToken: [] }];
+const accountPrecondition = " Optional X-Dezfil-Account asserts the credential's expected account ID. A mismatch returns 401 authentication_required before dispatch. This transport precondition never supplies identity or changes ownership.";
 export const AUTH_SECURITY_SCHEMES = {
-  CookieSession: { type: "apiKey", in: "cookie", name: "dezfil_session", description: "HttpOnly, SameSite=Lax session. Secure over HTTPS. Thirty days, rolling with use." },
-  BearerToken: { type: "http", scheme: "bearer", description: "An account's API token. Its current account status and privileges are checked on every request." },
+  CookieSession: { type: "apiKey", in: "cookie", name: "dezfil_session", description: "HttpOnly, SameSite=Lax session. Secure over HTTPS. Thirty days, rolling with use." + accountPrecondition },
+  BearerToken: { type: "http", scheme: "bearer", description: "An account's API token. Its current account status and privileges are checked on every request." + accountPrecondition },
 };
 const body = (properties: Record<string, unknown>, required = Object.keys(properties)) => ({
   required: true, content: { "application/json": { schema: { type: "object", additionalProperties: false, properties, required } } },

@@ -23,6 +23,7 @@ export async function prepareConfirmation(tool: ToolDef, call: ToolCall, deps: C
   const identity = String(call.args[words.subject.argument] ?? "");
   let name: string | undefined;
   let read: unknown;
+  if (words.subject.path === null) return { words: { target: words.target.replace("{target}", identity), consequence: words.consequence } };
   const pathname = words.subject.path.replace(/\{([^}]+)\}/g, (_, key: string) => encodeURIComponent(String(call.args[key] ?? "")));
   try {
     const response = await (deps.fetchImpl ?? fetch)(deps.baseUrl.replace(/\/$/, "") + pathname, { signal: deps.signal });

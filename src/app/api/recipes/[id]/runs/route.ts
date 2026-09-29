@@ -1,6 +1,7 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
-import { listCascades } from "@/lib/metadata/cascades";
+import { listCascades } from "@/lib/metadata/owned-cascades";
 import { planCascade, readCascade, startCascade } from "@/lib/operations/cascade";
 import { cascadePayload, optionalJsonBody } from "@/lib/operations/recipe-api";
 
@@ -10,9 +11,10 @@ type Params = { params: Promise<{ id: string }> };
  * after it finished. */
 export async function GET(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id } = await params;
     return NextResponse.json({
-      runs: listCascades(id).map((c) => cascadePayload(readCascade(c.id))),
+      runs: listCascades(scope, id).map((c) => cascadePayload(readCascade(scope, c.id))),
     });
   } catch (error) {
     return errorResponse(error);
@@ -36,6 +38,7 @@ export async function GET(_request: Request, { params }: Params) {
  */
 export async function POST(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
     // **Absent is not the same as malformed here, and conflating them is not a
     // tidiness question.** On this endpoint an absent body means *run the whole
@@ -66,7 +69,7 @@ export async function POST(request: Request, { params }: Params) {
     const members = Array.isArray(body.members) ? (body.members as string[]) : undefined;
 
     if (body.plan === true) {
-      const plan = await planCascade({
+      const plan = await planCascade(scope, {
         recipeId: id,
         ...(fromStepId ? { fromStepId } : {}),
       });
@@ -79,13 +82,13 @@ export async function POST(request: Request, { params }: Params) {
       });
     }
 
-    const cascade = await startCascade({
+    const cascade = await startCascade(scope, {
       recipeId: id,
       ...(fromStepId ? { fromStepId } : {}),
       ...(members ? { members } : {}),
     });
     return NextResponse.json(
-      { run: cascadePayload(readCascade(cascade.id)) },
+      { run: cascadePayload(readCascade(scope, cascade.id)) },
       {
         status: 202,
         headers: { Location: `/api/recipes/${id}/runs/${cascade.id}` },

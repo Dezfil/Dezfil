@@ -1,7 +1,8 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { rm } from "node:fs/promises";
 import { ApiError, errorResponse } from "@/lib/api/errors";
-import { requireProject } from "@/lib/metadata/projects";
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { receiveUpload } from "@/lib/ingest/receive";
 import { ingestSource, toIngestResponse } from "@/lib/ingest/gdal-formats";
 import { listTablesWithSize } from "@/lib/table-service";
@@ -12,7 +13,8 @@ import { projectScope } from "@/lib/project-scope";
  * the unfiled; an unknown project answers not found. */
 export async function GET(request: Request) {
   try {
-    return NextResponse.json(await listTablesWithSize(projectScope(request)));
+    const scope = requireRequestScope(request);
+    return NextResponse.json(await listTablesWithSize(scope, projectScope(request)));
   } catch (error) {
     return errorResponse(error);
   }
@@ -22,6 +24,7 @@ export async function GET(request: Request) {
  * container formats land one table per spatial layer). */
 export async function POST(request: Request) {
   try {
+    const scope = requireRequestScope(request);
     // Preflight: an unknown project refuses before the upload is even
     // received.
     const projectId = projectScope(request);
@@ -32,10 +35,10 @@ export async function POST(request: Request) {
         400,
       );
     }
-    if (projectId) requireProject(projectId);
+    if (projectId) requireOwnedResource(scope, "project", projectId);
     const { tmpPath, filename } = await receiveUpload(request);
     try {
-      const result = await ingestSource(tmpPath, filename, {
+      const result = await ingestSource(scope, tmpPath, filename, {
         source: "upload",
         sourceParams: null,
         projectId: projectId ?? null,

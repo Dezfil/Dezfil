@@ -1,3 +1,5 @@
+import type { AccountScope } from "@/lib/auth/scope";
+import type { DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
 import {
   isochronePublicationSql,
@@ -134,6 +136,7 @@ function modeOf(
  * physically carry exactly one geometry column, because every one of them
  * is excluded and `geom` replaces them all (K3). */
 async function refuseWrongGeometry(
+  scope: DatasetScope,
   table: DataTable,
   label: string,
 ): Promise<void> {
@@ -155,7 +158,7 @@ async function refuseWrongGeometry(
       400,
     );
   }
-  const geometryColumns = (await columnsOf(table)).filter(
+  const geometryColumns = (await columnsOf(scope, table)).filter(
     // GEOMETRY bare or with the engine's parenthesised CRS qualifier — and
     // never the prefix test alone, which is how swallowed GEOMETRY_TYPE.
     (column) => /^GEOMETRY($|\()/.test(column.type.toUpperCase()),
@@ -173,10 +176,10 @@ async function refuseWrongGeometry(
   }
 }
 
-async function refuseCollisions(table: DataTable, label: string): Promise<void> {
+async function refuseCollisions(scope: DatasetScope, table: DataTable, label: string): Promise<void> {
   const active = table.geometryColumn?.toLowerCase();
   const existing = new Set(
-    (await columnsOf(table))
+    (await columnsOf(scope, table))
       .map((column) => column.name.toLowerCase())
       .filter((name) => name !== active),
   );
@@ -212,6 +215,7 @@ export function isIsochroneVerb(id: string): boolean {
 }
 
 export async function compileIsochrone(
+  scope: AccountScope,
   operation: OperationDef,
   params: Record<string, unknown>,
   requireName: boolean,
@@ -224,13 +228,13 @@ export async function compileIsochrone(
   if (requireName && !name) required(label, "name");
   const named = str(params, "input");
   if (!named) required(label, "input");
-  const table = inputTable(named, "input");
+  const table = inputTable(scope, named, "input");
   const assumed = assumedCrsOf([table]);
 
-  await refuseWrongGeometry(table, label);
+  await refuseWrongGeometry(scope, table, label);
   const mode = modeOf(operation, params, label);
   const bands = bandsOf(params, label);
-  await refuseCollisions(table, label);
+  await refuseCollisions(scope, table, label);
   refuseSize(table, label);
 
   return {
@@ -251,7 +255,7 @@ export async function compileIsochrone(
     // router a start somewhere else entirely.
     assumedCrs: assumed,
     prepare: async (context) => {
-      const staged = await stageIsochroneBatch({
+      const staged = await stageIsochroneBatch(scope, {
         table,
         mode,
         bands,
@@ -260,6 +264,7 @@ export async function compileIsochrone(
         timeoutError: context.timeoutError,
       });
       return {
+        inputs: [staged.stage],
         sql: isochronePublicationSql(table, mode, bands, staged.stage),
         disclosure: {
           kind: "provider_request",

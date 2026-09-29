@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import {
   describe,
   it,
@@ -197,8 +198,8 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
       approxRows: 2,
     });
 
-    insertConnection({ id: "geography-live", name: "geography", ...target });
-    const imported = await importPostgis({
+    insertConnection(testAccountScope(), { id: "geography-live", name: "geography", ...target });
+    const imported = await importPostgis(testAccountScope(), {
       connectionId: "geography-live",
       schema: "public",
       table: "dezfil_live_geography",
@@ -306,7 +307,7 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
   });
 
   it("previews the guarded filtered SELECT at a fixed five rows without mutating the source", async () => {
-    insertConnection({ id: "preview-live", name: "preview", ...target });
+    insertConnection(testAccountScope(), { id: "preview-live", name: "preview", ...target });
     const sourceCount = async () =>
       withPg(target, async (conn, passthrough) => {
         const read = await conn.runAndReadAll(
@@ -316,16 +317,16 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
       });
     const before = await sourceCount();
 
-    const unfiltered = await previewPostgis("preview-live", {
+    const unfiltered = await previewPostgis(testAccountScope(), "preview-live", {
       schema: "public",
       table: "dezfil_live_pts",
     });
-    const filtered = await previewPostgis("preview-live", {
+    const filtered = await previewPostgis(testAccountScope(), "preview-live", {
       schema: "public",
       table: "dezfil_live_pts",
       filter: "id > 5",
     });
-    const empty = await previewPostgis("preview-live", {
+    const empty = await previewPostgis(testAccountScope(), "preview-live", {
       schema: "public",
       table: "dezfil_live_pts",
       filter: "false",
@@ -342,7 +343,7 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
       "geom",
     ]);
     await expect(
-      previewPostgis("preview-live", {
+      previewPostgis(testAccountScope(), "preview-live", {
         schema: "public",
         table: "dezfil_live_pts",
         filter: "true; SELECT 1",
@@ -353,7 +354,7 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
         "The filter must be a single WHERE expression: no statement separators or comments.",
     });
     await expect(
-      previewPostgis("preview-live", {
+      previewPostgis(testAccountScope(), "preview-live", {
         schema: "public",
         table: "dezfil_live_pts",
         filter: "missing_column = 1",
@@ -363,9 +364,9 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
   });
 
   it("imports, transforms to WGS84, filters, refreshes atomically", async () => {
-    insertConnection({ id: "live-1", name: "live", ...target });
+    insertConnection(testAccountScope(), { id: "live-1", name: "live", ...target });
 
-    const imported = await importPostgis({
+    const imported = await importPostgis(testAccountScope(), {
       connectionId: "live-1",
       schema: "public",
       table: "dezfil_live_pts",
@@ -391,12 +392,12 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
     expect(Number(x.x)).toBeCloseTo(13.4, 3);
     expect(Number(x.y)).toBeCloseTo(52.5, 3);
 
-    const refreshed = await refreshTable("pg_live_import");
+    const refreshed = await refreshTable(testAccountScope(), "pg_live_import");
     expect(refreshed.rowCount).toBe(2);
     expect(getTableByName("pg_live_import")?.file).not.toBe(imported.file);
 
     // attribute-only table imports too (joins are the point)
-    const attrs = await importPostgis({
+    const attrs = await importPostgis(testAccountScope(), {
       connectionId: "live-1",
       schema: "public",
       table: "dezfil_live_attrs",
@@ -409,16 +410,16 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
   it("keeps one snapshot refreshable through password rotation and reports a repointed missing recipe", async () => {
     const reader = { ...target, username: rotationRole, password: oldPassword };
     const create = await createConnection(
-      new Request("http://localhost/api/connections/postgis", {
+      testAccountRequest(new Request("http://localhost/api/connections/postgis", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ name: "Rotation source", ...reader }),
-      }),
+      })),
     );
     expect(create.status).toBe(201);
     const created = (await create.json()) as { id: string };
 
-    const imported = await importPostgis({
+    const imported = await importPostgis(testAccountScope(), {
       connectionId: created.id,
       schema: "dezfil_live_rotation",
       table: "rotation_source",
@@ -431,48 +432,48 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
       "INSERT INTO dezfil_live_rotation.rotation_source VALUES (2, 'after rotation')",
     ]);
     const beforeCredentialFailure = getTableByName(imported.name);
-    await expect(refreshTable(imported.name)).rejects.toMatchObject({
+    await expect(refreshTable(testAccountScope(), imported.name)).rejects.toMatchObject({
       code: "connection_failed",
       message: "Authentication failed. Check the username and password.",
     });
     expect(getTableByName(imported.name)).toEqual(beforeCredentialFailure);
 
     const savePassword = await updateConnection(
-      new Request(`http://localhost/api/connections/postgis/${created.id}`, {
+      testAccountRequest(new Request(`http://localhost/api/connections/postgis/${created.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ password: newPassword }),
-      }),
+      })),
       { params: Promise.resolve({ id: created.id }) },
     );
     expect(savePassword.status).toBe(200);
     expect(((await savePassword.json()) as { id: string }).id).toBe(created.id);
 
-    const refreshed = await refreshTable(imported.name);
+    const refreshed = await refreshTable(testAccountScope(), imported.name);
     expect(refreshed.id).toBe(imported.id);
     expect(refreshed.rowCount).toBe(2);
     expect(refreshed.sourceParams?.connectionId).toBe(created.id);
     expect(refreshed.file).not.toBe(imported.file);
 
     const repoint = await updateConnection(
-      new Request(`http://localhost/api/connections/postgis/${created.id}`, {
+      testAccountRequest(new Request(`http://localhost/api/connections/postgis/${created.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ database: "template1" }),
-      }),
+      })),
       { params: Promise.resolve({ id: created.id }) },
     );
     expect(repoint.status).toBe(200);
     expect(((await repoint.json()) as { id: string }).id).toBe(created.id);
-    expect(getConnection(created.id)?.database).toBe("template1");
+    expect(getConnection(testAccountScope(), created.id)?.database).toBe("template1");
 
-    const beforeHostRepoint = getConnection(created.id);
+    const beforeHostRepoint = getConnection(testAccountScope(), created.id);
     const refusedHostRepoint = await updateConnection(
-      new Request(`http://localhost/api/connections/postgis/${created.id}`, {
+      testAccountRequest(new Request(`http://localhost/api/connections/postgis/${created.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ host: "localhost" }),
-      }),
+      })),
       { params: Promise.resolve({ id: created.id }) },
     );
     expect(refusedHostRepoint.status).toBe(400);
@@ -483,21 +484,21 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
           "Enter the password again when changing the host or port, or turning SSL off.",
       },
     });
-    expect(getConnection(created.id)).toEqual(beforeHostRepoint);
+    expect(getConnection(testAccountScope(), created.id)).toEqual(beforeHostRepoint);
 
     const completedHostRepoint = await updateConnection(
-      new Request(`http://localhost/api/connections/postgis/${created.id}`, {
+      testAccountRequest(new Request(`http://localhost/api/connections/postgis/${created.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ host: "localhost", password: newPassword }),
-      }),
+      })),
       { params: Promise.resolve({ id: created.id }) },
     );
     expect(completedHostRepoint.status).toBe(200);
-    expect(getConnection(created.id)?.host).toBe("localhost");
+    expect(getConnection(testAccountScope(), created.id)?.host).toBe("localhost");
 
     const beforeMissingRecipe = getTableByName(imported.name);
-    await expect(refreshTable(imported.name)).rejects.toMatchObject({
+    await expect(refreshTable(testAccountScope(), imported.name)).rejects.toMatchObject({
       code: "not_refreshable",
       message:
         'The stored recipe for "dezfil_live_rotation.rotation_source" no longer resolves on this connection. The previous snapshot data is unchanged.',

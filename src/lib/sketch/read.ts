@@ -1,9 +1,12 @@
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
+import { listOwnedTables } from "@/lib/metadata/owned-tables";
+import type { AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { dataDir } from "@/lib/config";
 import { withConnection } from "@/lib/duckdb";
 import { ApiError } from "@/lib/api/errors";
 import { lit } from "@/lib/ingest/ingest";
-import { listTables, type DataTable } from "@/lib/metadata/tables";
+import { type DataTable } from "@/lib/metadata/tables";
 import { requireTable } from "@/lib/table-service";
 import { trackInflight } from "@/lib/query/inflight";
 import type { SketchFeature, SketchGeometry, SketchKind } from "./geometry";
@@ -21,8 +24,8 @@ export interface SketchSummary {
   counts: Partial<Record<SketchKind, number>>;
 }
 
-export function requireSketch(name: string): DataTable {
-  const table = requireTable(name);
+export function requireSketch(scope: AccountScope, name: string): DataTable {
+  const table = requireTable(scope, name);
   if (table.source !== "sketch")
     throw new ApiError(
       "not_a_sketch",
@@ -68,19 +71,21 @@ export async function readFeatures(abs: string): Promise<StoredSketchFeature[]> 
 }
 
 export function listFeatures(
+  scope: AccountScope,
   name: string,
 ): Promise<StoredSketchFeature[]> {
   // Register before capture; protection spans both count and geometry opens.
   return trackInflight(Promise.resolve().then(() => {
-    const table = requireSketch(name);
+    const table = requireSketch(scope, name);
     return readFeatures(absOf(table.file));
   }));
 }
 
-export function mapSketches(mapId: string): Promise<SketchSummary[]> {
+export function mapSketches(scope: AccountScope, mapId: string): Promise<SketchSummary[]> {
+  requireOwnedResource(scope, "map", mapId);
   // One registry snapshot and one tracked lifetime for the whole traversal.
   return trackInflight(Promise.resolve().then(async () => {
-    const tables = listTables().filter(
+    const tables = listOwnedTables(scope).filter(
       (t) => t.source === "sketch" && ownerOf(t).mapId === mapId,
     );
     const summaries: SketchSummary[] = [];

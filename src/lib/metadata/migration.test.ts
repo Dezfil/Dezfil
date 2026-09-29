@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect } from "vitest";
 import Database from "better-sqlite3";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -167,7 +168,7 @@ describe("v36: PostGIS status memory", () => {
 
       const db = open(file);
       expect(db.pragma("user_version", { simple: true })).toBe(MIGRATIONS.length);
-      expect(getConnection("legacy", db)).toMatchObject({
+      expect(getConnection(testAccountScope(db), "legacy", db)).toMatchObject({
         status: "never_checked",
         lastCheckedAt: null,
         lastCheckError: null,
@@ -469,17 +470,18 @@ describe("v25: a derived table has no source filename", () => {
       expect(derived.source_filename).toBeNull();
       expect(derived.source).toBe("operation");
 
-      // The unique-name constraint survives the rebuild.
+      // Adoption keeps unique names within the original owner.
+      const owner = testAccountScope(db).accountId;
       expect(() =>
         db
           .prepare(
             `INSERT INTO data_tables
                (id, name, source_filename, format, file, crs_assumed,
-                row_count, created_at, source)
+                row_count, created_at, source, owner_id)
              VALUES ('t3', 'stations', NULL, 'geoparquet', 'tables/c.parquet',
-                     0, 1, ?, 'operation')`,
+                     0, 1, ?, 'operation', ?)` ,
           )
-          .run(now),
+          .run(now, owner),
       ).toThrow(/UNIQUE/i);
       db.close();
     } finally {
@@ -517,7 +519,7 @@ describe("v33: recipe origin", () => {
       expect(getRecipe("r2", db)?.origin).toBe("builder");
       expect(listRecipes(db, { origin: "workflow" })).toEqual([]);
       // And a recipe created without saying is a workflow, the default.
-      const fresh = createRecipe("Cafés within reach", db);
+      const fresh = createRecipe(testAccountScope(db), "Cafés within reach", db);
       expect(getRecipe(fresh.id, db)?.origin).toBe("workflow");
       expect(listRecipes(db, { origin: "workflow" }).map((r) => r.id)).toEqual([fresh.id]);
       expect(listRecipes(db, { origin: "builder" }).map((r) => r.id).sort()).toEqual(["r1", "r2"]);
@@ -602,7 +604,7 @@ describe("v37: projects", () => {
       // The projects store exists and is empty; an unknown id reads null.
       expect(getProject("p-nowhere", db)).toBeNull();
       // A recipe created without a project context reads the same unfiled state.
-      const fresh = createRecipe("Cafés within reach", db);
+      const fresh = createRecipe(testAccountScope(db), "Cafés within reach", db);
       expect(getRecipe(fresh.id, db)?.projectId).toBeNull();
       db.close();
     } finally {

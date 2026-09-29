@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { ResolvedConfirmation } from "./action-metadata";
 import { ApiError } from "@/lib/api/errors";
 import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
@@ -22,7 +23,7 @@ import type { ProviderExchange, ToolCall, ToolOutcome } from "./provider";
 
 export interface ParkedRun {
   /** Account binding only; the resolving request supplies a fresh credential. */
-  accountId?: string;
+  accountId: string;
   confirmation?: ResolvedConfirmation;
   /** The map the gated change belongs to, read with the subject before
    * the pause, for a change whose response names no map. */
@@ -64,24 +65,28 @@ const MAX_TRACE = 256;
 
 export class PendingActionStore {
   private parked = new Map<string, ParkedRun>();
-  private trace = new Map<string, { resolution: Resolution; accountId?: string }>();
+  private trace = new Map<string, { resolution: Resolution; accountId: string }>();
 
-  peek(id: string): ParkedRun | undefined { return this.parked.get(id); }
+  peek(scope: AccountScope, id: string): ParkedRun | undefined {
+    const accountId = requireAccountScope(scope), run = this.parked.get(id);
+    return run?.accountId === accountId ? run : undefined;
+  }
 
-  park(run: ParkedRun): string {
+  park(scope: AccountScope, run: Omit<ParkedRun, "accountId">): string {
+    const accountId = requireAccountScope(scope);
     if (this.parked.size >= MAX_PARKED) throw new ApiError("assistant_capacity", ERROR_CATALOGUE.assistant_capacity, 409);
     const { exchange, ...data } = run;
     void exchange;
     if (parkedBytes(data) > RECOVERY_LIMITS.liveBytes) recoveryLimit();
     const id = randomUUID();
-    this.parked.set(id, run);
+    this.parked.set(id, Object.freeze({ ...run, accountId }));
     return id;
   }
 
   /** Claim the pending action for resolution. At most one caller ever
    * receives the run; a repeat claim finds only the trace. */
-  claim(id: string, how: "approved" | "declined"): ParkedRun | undefined {
-    const run = this.parked.get(id);
+  claim(scope: AccountScope, id: string, how: "approved" | "declined"): ParkedRun | undefined {
+    const run = this.peek(scope, id);
     if (!run) return undefined;
     this.parked.delete(id);
     this.remember(id, how, run.accountId);
@@ -91,21 +96,22 @@ export class PendingActionStore {
   /** The implicit decline: a new message names the confirmation it abandons
    * Unknown ids are ignored — the client is abandoning the action either
    * way. */
-  supersede(id: string): void {
-    const accountId = this.parked.get(id)?.accountId;
-    if (this.parked.delete(id)) this.remember(id, "superseded", accountId);
+  supersede(scope: AccountScope, id: string): void {
+    const run = this.peek(scope, id);
+    if (run && this.parked.delete(id)) this.remember(id, "superseded", run.accountId);
   }
 
   /** How a no-longer-pending id was resolved, when the trace still holds
    * it — distinguishes "already resolved" from "unknown". */
-  resolutionOf(id: string, accountId?: string): Resolution | undefined {
+  resolutionOf(scope: AccountScope, id: string): Resolution | undefined {
+    const accountId = requireAccountScope(scope);
     const trace = this.trace.get(id);
-    return trace && (accountId === undefined || trace.accountId === accountId) ? trace.resolution : undefined;
+    return trace && trace.accountId === accountId ? trace.resolution : undefined;
   }
 
   resetForTests() { this.parked.clear(); this.trace.clear(); }
 
-  private remember(id: string, how: Resolution, accountId?: string): void {
+  private remember(id: string, how: Resolution, accountId: string): void {
     while (this.trace.size >= MAX_TRACE) {
       const oldest = this.trace.keys().next().value;
       if (oldest === undefined) break;

@@ -85,11 +85,12 @@ test("the live screens hold pending truthfully and retry their failed loads", as
   });
   page.on("pageerror", (err) => consoleErrors.push({ text: String(err) }));
 
-  // Per-screen fault control: hold keeps the answer in flight, abort-once
-  // drives the failed state, empty resolves with a deterministic [].
+  // Hold every load, including development effect replays. Keep failures
+  // armed until retry: aborting once lets a second load resolve empty.
   let armedPath = "";
-  let mode: "off" | "hold" | "abort-once" | "empty" = "off";
-  let held: Route | null = null;
+  let mode: "off" | "hold" | "fail" | "empty" = "off";
+  let held: Route[] = [];
+  const injectedFailures = new Set<string>();
   await routeHouse(context, {
     handler: async (route) => {
       const url = new URL(route.request().url());
@@ -100,11 +101,11 @@ test("the live screens hold pending truthfully and retry their failed loads", as
       )
         return false;
       if (mode === "hold") {
-        held = route;
+        held.push(route);
         return true;
       }
-      if (mode === "abort-once") {
-        mode = "empty";
+      if (mode === "fail") {
+        injectedFailures.add(route.request().url());
         await route.abort();
         return true;
       }
@@ -121,7 +122,7 @@ test("the live screens hold pending truthfully and retry their failed loads", as
     await test.step(`${screen.path}: pending is visible, counts stay silent`, async () => {
       armedPath = screen.api;
       mode = "hold";
-      held = null;
+      held = [];
       await page.goto(screen.path);
       await expect(page.getByText(screen.pendingLabel)).toBeVisible();
       if (screen.chip) {
@@ -138,12 +139,13 @@ test("the live screens hold pending truthfully and retry their failed loads", as
       ).toHaveCount(0);
       // Release the held answer: only now do the actionable empty state
       // and the zero count appear.
+      await expect.poll(() => held.length).toBeGreaterThan(0);
       mode = "empty";
-      await held!.fulfill({
+      await Promise.all(held.map((route) => route.fulfill({
         status: 200,
         contentType: "application/json",
         body: "[]",
-      });
+      })));
       await expect(
         page.getByRole("button", { name: screen.emptyName }),
       ).toBeVisible();
@@ -155,7 +157,7 @@ test("the live screens hold pending truthfully and retry their failed loads", as
     });
 
     await test.step(`${screen.path}: a failed load offers a retry that succeeds`, async () => {
-      mode = "abort-once";
+      mode = "fail";
       await page.goto(screen.path);
       const retry = page.getByRole("button", { name: "Try again" });
       await expect(retry).toBeVisible();
@@ -164,6 +166,7 @@ test("the live screens hold pending truthfully and retry their failed loads", as
         consoleErrors,
         new RegExp(screen.api.replaceAll("/", "\\/")),
       );
+      mode = "empty";
       await retry.click();
       await expect(
         page.getByRole("button", { name: screen.emptyName }),
@@ -173,7 +176,10 @@ test("the live screens hold pending truthfully and retry their failed loads", as
 
   mode = "off";
   const unexpected = consoleErrors.filter(
-    (e) => !isAllowedConsoleError(e.text, e.url),
+    (e) => !isAllowedConsoleError(e.text, e.url) && !(
+      e.text === "Failed to load resource: net::ERR_FAILED" &&
+      injectedFailures.has(e.url ?? "")
+    ),
   );
   expect(unexpected).toEqual([]);
 });
@@ -426,7 +432,7 @@ test("zero-row results and the deleted-table degradation are designed states", a
       sql_error: "The SQL failed to parse or execute.",
       query_failed: "The layer's query failed to execute.",
       internal: "Something went wrong on this server. The detail is in the server log.",
-      not_found: "The requested resource does not exist.",
+      not_found: "The requested resource was not found.",
     };
     const code = envelope.error?.code ?? "";
     expect(

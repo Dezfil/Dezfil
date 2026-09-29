@@ -1,10 +1,11 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { ApiError } from "@/lib/api/errors";
-import { assertReadOnlySelect } from "@/lib/query/guard";
-import { stripStatementQuote } from "@/lib/query/engine-message";
+import { namedSql } from "@/lib/query/named-sql";
+import { sqlError } from "@/lib/query/engine-message";
 import { boundedEvaluation, isOutOfMemory } from "@/lib/query/bounded";
 import {
   effectiveSql,
@@ -91,10 +92,12 @@ const CONTENT_TYPE: Record<LayerExportFormat, string> = {
  * budget is a single wall-clock bound, not a sum of separate ones.
  */
 export async function exportLayerResult(
+  scope: AccountScope,
   layer: ExportableLayer,
   format: LayerExportFormat,
   signal?: AbortSignal,
 ): Promise<LayerExportFile> {
+  requireAccountScope(scope);
   ensureTileDirs();
   const outFile = path.join(
     tileScratchDir(),
@@ -104,13 +107,14 @@ export async function exportLayerResult(
   try {
     await boundedEvaluation(
       async (conn) => {
-        await assertReadOnlySelect(conn, layer.sql);
+        requireAccountScope(scope);
+        const compiledSql = await namedSql(conn, layer.sql);
 
         // Aggregation bins over the base result's geometry; resolve it the
         // way the render path does — the first geometry column.
         let baseGeometry: string | null = null;
         if (isAggregated(layer.viz)) {
-          const described = await describe(conn, wrappable(layer.sql));
+          const described = await describe(conn, wrappable(compiledSql));
           baseGeometry =
             described.find((c) => c.type.startsWith("GEOMETRY"))?.name ?? null;
           if (!baseGeometry) {
@@ -128,9 +132,9 @@ export async function exportLayerResult(
         // them — they travel as WKT under the multi-geometry rule
         // (the "no supported layer silently loses a column" rule).
         const sql = isOdViz(layer.viz)
-          ? odExportSql(filteredSql(layer.sql, layer.filters), layer.viz)
+          ? odExportSql(filteredSql(compiledSql, layer.filters), layer.viz)
           : effectiveSql(
-              { sql: layer.sql, filters: layer.filters, viz: layer.viz },
+              { sql: compiledSql, filters: layer.filters, viz: layer.viz },
               baseGeometry,
             );
 
@@ -175,17 +179,12 @@ export async function exportLayerResult(
         } catch (error) {
           if (error instanceof ApiError) throw error;
           if (isOutOfMemory(error)) throw error;
-          throw new ApiError(
-            "sql_error",
-            error instanceof Error
-              ? stripStatementQuote(error.message)
-              : "The export could not run.",
-            400,
-          );
+          throw sqlError(error);
         }
       },
-      { signal },
+      { scope, signal },
     );
+    requireAccountScope(scope);
   } catch (error) {
     await rm(outFile, { force: true }).catch(() => undefined);
     throw error;
@@ -210,11 +209,13 @@ export async function exportLayerResult(
  * dropped for a NULL feature geometry: a download means every row.
  */
 export async function exportQueryResult(
+  scope: AccountScope,
   sql: string,
   format: LayerExportFormat,
   signal?: AbortSignal,
   name = "query_result",
 ): Promise<LayerExportFile> {
+  requireAccountScope(scope);
   ensureTileDirs();
   const outFile = path.join(
     tileScratchDir(),
@@ -224,7 +225,8 @@ export async function exportQueryResult(
   try {
     await boundedEvaluation(
       async (conn) => {
-        await assertReadOnlySelect(conn, sql);
+        requireAccountScope(scope);
+        sql = await namedSql(conn, sql);
         const body = wrappable(sql);
         const columns = await describe(conn, body);
         const geometryColumns = columns
@@ -263,17 +265,12 @@ export async function exportQueryResult(
         } catch (error) {
           if (error instanceof ApiError) throw error;
           if (isOutOfMemory(error)) throw error;
-          throw new ApiError(
-            "sql_error",
-            error instanceof Error
-              ? stripStatementQuote(error.message)
-              : "The export could not run.",
-            400,
-          );
+          throw sqlError(error);
         }
       },
-      { signal },
+      { scope, signal },
     );
+    requireAccountScope(scope);
   } catch (error) {
     await rm(outFile, { force: true }).catch(() => undefined);
     throw error;
@@ -304,12 +301,6 @@ async function describe(
   } catch (error) {
     if (error instanceof ApiError) throw error;
     if (isOutOfMemory(error)) throw error;
-    throw new ApiError(
-      "sql_error",
-      error instanceof Error
-        ? stripStatementQuote(error.message)
-        : "The query could not run.",
-      400,
-    );
+    throw sqlError(error);
   }
 }

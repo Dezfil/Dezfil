@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -17,7 +18,7 @@ beforeEach(async () => {
   dir = await mkdtemp(path.join(process.cwd(), ".tmp-camera-"));
   process.env.DEZFIL_DATA_DIR = dir;
   closeMetadataDb();
-  id = createMap("Camera bounds").id;
+  id = createMap(testAccountScope(), "Camera bounds").id;
   vi.mocked(renderMapImage).mockReset().mockResolvedValue({ png: new Uint8Array([137, 80, 78, 71]), abandoned: [] });
 });
 afterEach(async () => {
@@ -71,12 +72,12 @@ describe("image camera contract", () => {
     const viewport = { ...camera, [field]: value };
     const response = await submit(viewport);
     expect(response.status).toBe(200);
-    expect(renderMapImage).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ definition: definition(viewport) }));
+    expect(renderMapImage).toHaveBeenCalledExactlyOnceWith(testAccountScope(), expect.objectContaining({ definition: definition(viewport) }));
   });
   it("preserves a fractional camera", async () => {
     const response = await submit(camera);
     expect(response.status).toBe(200);
-    expect(renderMapImage).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ definition: definition(camera) }));
+    expect(renderMapImage).toHaveBeenCalledExactlyOnceWith(testAccountScope(), expect.objectContaining({ definition: definition(camera) }));
   });
   it("keeps the coverage-zoom refusal with the required zoom", async () => {
     const def = definition({ ...camera, zoom: 0 });

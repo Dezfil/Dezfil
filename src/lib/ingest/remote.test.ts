@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, readdir, readFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
@@ -15,7 +16,7 @@ import {
 
 /** Single-table imports, unwrapped (made the answer a result set). */
 const importOne = async (url: string, name?: string) =>
-  (await importFromUrl(url, name)).tables[0];
+  (await importFromUrl(testAccountScope(), url, name)).tables[0];
 
 let dir: string;
 let server: Server;
@@ -120,7 +121,7 @@ describe("importFromUrl over http", () => {
   });
 
   it("fails specifically on a missing remote file, registering nothing", async () => {
-    await expect(importFromUrl(`${base}/gone.csv`)).rejects.toMatchObject({
+    await expect(importFromUrl(testAccountScope(), `${base}/gone.csv`)).rejects.toMatchObject({
       code: "remote_fetch_failed",
     });
     expect(listTables()).toEqual([]);
@@ -133,13 +134,13 @@ describe("importFromUrl over http", () => {
 
   it("fails specifically when the connection is refused", async () => {
     await expect(
-      importFromUrl("http://127.0.0.1:9/points.csv"),
+      importFromUrl(testAccountScope(), "http://127.0.0.1:9/points.csv"),
     ).rejects.toMatchObject({ code: "remote_fetch_failed" });
   });
 
   it("enforces the remote size cap mid-stream", async () => {
     process.env.DEZFIL_REMOTE_MAX_MB = "1";
-    await expect(importFromUrl(`${base}/big.csv`)).rejects.toMatchObject({
+    await expect(importFromUrl(testAccountScope(), `${base}/big.csv`)).rejects.toMatchObject({
       code: "remote_too_large",
     });
     expect(listTables()).toEqual([]);
@@ -147,7 +148,7 @@ describe("importFromUrl over http", () => {
 
   it("throws ApiError instances agents can branch on", async () => {
     try {
-      await importFromUrl(`${base}/gone.csv`);
+      await importFromUrl(testAccountScope(), `${base}/gone.csv`);
       expect.unreachable();
     } catch (error) {
       expect(error).toBeInstanceOf(ApiError);
@@ -156,7 +157,7 @@ describe("importFromUrl over http", () => {
 
   it("fails a hung remote with the coded timeout error", async () => {
     process.env.DEZFIL_REMOTE_TIMEOUT_S = "0.2";
-    await expect(importFromUrl(`${base}/hang.csv`)).rejects.toMatchObject({
+    await expect(importFromUrl(testAccountScope(), `${base}/hang.csv`)).rejects.toMatchObject({
       code: "remote_timeout",
       status: 504,
     });
@@ -165,7 +166,7 @@ describe("importFromUrl over http", () => {
 
   it("fails a transfer that stalls mid-body with the same coded error", async () => {
     process.env.DEZFIL_REMOTE_TIMEOUT_S = "0.2";
-    await expect(importFromUrl(`${base}/stall.csv`)).rejects.toMatchObject({
+    await expect(importFromUrl(testAccountScope(), `${base}/stall.csv`)).rejects.toMatchObject({
       code: "remote_timeout",
     });
     const entries = await readdir(path.join(dir, "data", "tmp")).catch(
@@ -177,7 +178,7 @@ describe("importFromUrl over http", () => {
   it("is blocked by the egress policy without the allowlist", async () => {
     delete process.env.DEZFIL_EGRESS_ALLOWLIST;
     const before = seen.length;
-    await expect(importFromUrl(`${base}/points.csv`)).rejects.toMatchObject({
+    await expect(importFromUrl(testAccountScope(), `${base}/points.csv`)).rejects.toMatchObject({
       code: "egress_blocked",
       status: 403,
     });

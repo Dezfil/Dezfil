@@ -1,23 +1,16 @@
-import { ApiError } from "@/lib/api/errors";
+import type { PublicationScope } from "./publication-scope";
+import { publishedTileAccess } from "@/lib/tiles/access";
 import { publishedMessage } from "@/lib/api/error-catalogue";
 import {
-  getMap,
-  getMapByToken,
-  getPublishedSnapshot,
-  getPublishedTheme,
-  getViewerControls,
   normalizeViewerControls,
-  setPublishedTheme,
-  setViewerControls,
-  updateMapFields,
   type CustomBasemap,
   type Layer,
+  type MapRecord,
   type MapNote,
   type PublishedTheme,
   type ViewerControls,
   type Viewport,
 } from "@/lib/metadata/maps";
-import { metadataDb } from "@/lib/metadata/db";
 import type { BasemapLayers } from "@/lib/basemap-layers";
 import type { Corner } from "@/lib/corners";
 import type { MapTimeline } from "@/lib/timeline";
@@ -47,106 +40,11 @@ import {
 } from "@/lib/viz";
 import { liveFilters, liveDim, type LiveDim } from "@/lib/live-filters";
 import { isBoundedOutcome } from "@/lib/query/bounded";
-import { limits } from "@/lib/limits";
 import type { MapWidget } from "@/lib/widgets";
-import { generateToken } from "./token";
-
-export interface PublishState {
-  token: string;
-  publishedAt: string;
-}
-
-/** The active publication's authored settings. The author
- * surface reads this: a map record deliberately carries no publication
- * state, so without it the publish surface could not show the default it
- * is about to change. */
-export interface PublicationState extends PublishState {
-  theme: PublishedTheme;
-  viewerControls: ViewerControls;
-}
-
-/** What a publish call may state. Each field is independently optional,
- * and that independence is load-bearing: the builder's workspace-theme
- * sync states a theme and nothing else, and must never re-enable
- * controls the author unchecked. */
-export interface PublishSettings {
-  theme?: PublishedTheme;
-  viewerControls?: Partial<ViewerControls>;
-}
-
-/** Read an active publication's settings, or null when the map is not
- * published. Normalizing here — not at each surface — is what keeps a
- * earlier publication, an unstated setting and an omitted member all
- * reading as every control on. */
-export function getPublicationState(id: string): PublicationState | null {
-  const map = requirePublishedMapOwner(id);
-  if (!map.publishToken || !map.publishedAt) return null;
-  return {
-    token: map.publishToken,
-    publishedAt: map.publishedAt,
-    theme: getPublishedTheme(id) ?? "dark",
-    viewerControls: normalizeViewerControls(getViewerControls(id)),
-  };
-}
-
-function requirePublishedMapOwner(id: string) {
-  const map = getMap(id);
-  if (!map) throw new ApiError("not_found", `No map with id ${id}.`, 404);
-  return map;
-}
-
-/** Publish a map, or return the existing link unchanged if already published
- * (spec: one active link per map; republish returns the same URL). The
- * authored theme is captured here: stated wins; omitted reads dark on a
- * first publication and changes nothing on an active one. A stated mode
- * on an active publication updates the stored default in place — the link
- * is the contract and the token never moves for a theme. The viewer
- * controls follow the same in-place rule, and the two settings are tested
- * for presence independently: a call stating only a theme leaves the
- * checklist exactly as the author left it. */
-export function publishMap(
-  id: string,
-  settings: PublishSettings = {},
-): PublishState {
-  const map = requirePublishedMapOwner(id);
-  const { theme, viewerControls } = settings;
-  if (map.publishToken && map.publishedAt) {
-    if (theme) setPublishedTheme(id, theme);
-    if (viewerControls) {
-      setViewerControls(id, normalizeViewerControls(viewerControls));
-    }
-    return { token: map.publishToken, publishedAt: map.publishedAt };
-  }
-  const token = generateToken();
-  const publishedAt = new Date().toISOString();
-  metadataDb().transaction(() => {
-    updateMapFields(id, { publishToken: token, publishedAt });
-    setPublishedTheme(id, theme ?? "dark");
-    // An unstated set is stored as null, which reads as every control on;
-    // storing the normalized default instead would be indistinguishable
-    // but says something the author never stated.
-    setViewerControls(
-      id,
-      viewerControls ? normalizeViewerControls(viewerControls) : null,
-    );
-  })();
-  return { token, publishedAt };
-}
-
-/** Unpublish: the link stops resolving immediately; a later republish mints a
- * fresh, unrelated token (spec: rotation is the revocation story). */
-export function unpublishMap(id: string): void {
-  const map = requirePublishedMapOwner(id);
-  metadataDb().transaction(() => {
-    updateMapFields(id, { publishToken: null, publishedAt: null });
-    // The authored theme is publication state: it leaves with the token,
-    // so the next publication captures fresh. The viewer controls are
-    // publication state too and leave with it.
-    setPublishedTheme(id, null);
-    setViewerControls(id, null);
-  })();
-  if (map.publishToken) invalidatePublishedToken(map.publishToken);
-}
+import { resolvePublishedView } from "./publication-resolution";
+export { invalidatePublishedToken, resetPublishCache } from "./publication-resolution";
+export { getPublicationState, publishMap, unpublishMap, assertNotUsingPublishTokenAsAuth,
+  type PublishState, type PublicationState, type PublishSettings } from "./publication-state";
 
 export interface PublishedLayer {
   id: string;
@@ -237,85 +135,15 @@ export interface PublishedView {
   viewerControls: ViewerControls;
 }
 
-// Freshness cache: published views are live within a documented bound. A cache
-// hit within the bound returns instantly; a popular link cannot melt the
-// instance. Unpublish invalidates by construction.
-interface CacheEntry {
-  view: PublishedView;
-  mapId: string;
-  revision: string;
-  expiresAt: number;
-}
-const cache = new Map<string, CacheEntry>();
-
-export function invalidatePublishedToken(token: string): void {
-  cache.delete(token);
-}
-
-/** Tests reset shared state. */
-export function resetPublishCache(): void {
-  cache.clear();
-}
-
-/**
- * Assemble the read-only view for a published token, or null if the token
- * does not resolve. Read-only by construction: this reads map/layer state and
- * renders; it never mutates. Served within the freshness bound from cache.
- */
-export async function getPublishedView(
-  token: string,
-  now: number,
-  signal?: AbortSignal,
-): Promise<PublishedView | null> {
-  let snapshot = getPublishedSnapshot(token);
-  if (!snapshot) {
-    invalidatePublishedToken(token);
-    return null;
-  }
-  const cached = cache.get(token);
-  if (
-    cached &&
-    cached.mapId === snapshot.map.id &&
-    cached.revision === snapshot.revision &&
-    now < cached.expiresAt
-  ) {
-    return cached.view;
-  }
-
-  // Assembly performs asynchronous queries. If durable state changes across
-  // one pass, discard the mixed result and assemble again from the new
-  // snapshot. Revocation returns null and can never repopulate the cache.
-  while (true) {
-    const { map, layers, publishedTheme, viewerControls, revision } = snapshot;
-    const view = await assemblePublishedView(
-      map,
-      layers,
-      publishedTheme,
-      viewerControls,
-      token,
-      signal,
-    );
-    const current = getPublishedSnapshot(token);
-    if (!current) {
-      invalidatePublishedToken(token);
-      return null;
-    }
-    if (current.map.id !== map.id || current.revision !== revision) {
-      snapshot = current;
-      continue;
-    }
-    cache.set(token, {
-      view,
-      mapId: map.id,
-      revision,
-      expiresAt: now + limits.publishFreshnessS * 1000,
-    });
-    return view;
-  }
+/** Resolve the current token and assemble only a stable published snapshot. */
+export function getPublishedView(token: string, now: number, signal?: AbortSignal): Promise<PublishedView | null> {
+  return resolvePublishedView(token, now, ({ map, layers, publishedTheme, viewerControls, scope }) =>
+    assemblePublishedView(scope, map, layers, publishedTheme, viewerControls, token, signal));
 }
 
 async function assemblePublishedView(
-  map: ReturnType<typeof requirePublishedMapOwner>,
+  scope: PublicationScope,
+  map: MapRecord,
   layers: Layer[],
   publishedTheme: PublishedTheme | null,
   viewerControls: ViewerControls | null,
@@ -338,7 +166,7 @@ async function assemblePublishedView(
       .filter((l) => l.visible)
       .map(async (l): Promise<PublishedLayer> => {
         const render = publishedRender(
-          await renderLayer(l, signal, { published }),
+          await renderLayer(scope, l, signal, { published, tileAccess: publishedTileAccess(token, l.id) }),
           token,
           l.id,
         );
@@ -426,7 +254,7 @@ async function assemblePublishedView(
     note: map.note,
     legendCorner: map.legendCorner,
     legendOrder: map.legendOrder,
-    timeline: await publishedTimeline(map.timeline, layers, signal),
+    timeline: await publishedTimeline(scope, map.timeline, layers, signal),
     layers: rendered,
     // A widget whose layer drifted away degrades to absence, never an
     // error — the published page must keep rendering (the rule). Notes
@@ -449,6 +277,7 @@ async function assemblePublishedView(
  * page must keep rendering.
  */
 async function publishedTimeline(
+  scope: PublicationScope,
   timeline: MapTimeline | null,
   layers: Layer[],
   signal?: AbortSignal,
@@ -464,7 +293,7 @@ async function publishedTimeline(
   );
   if (!filter || filter.kind !== "timerange") return null;
   try {
-    const stats = await layerFieldStats(layer, timeline.field, signal);
+    const stats = await layerFieldStats(scope, layer, timeline.field, signal);
     if (stats.kind !== "time" || stats.min == null || stats.max == null) {
       return null;
     }
@@ -521,14 +350,4 @@ function publishedRender(
       }`,
     },
   };
-}
-
-/** Guard used by mutation endpoints: a published token never authorizes a
- * write. Kept explicit so the read-only guarantee is testable. */
-export function assertNotUsingPublishTokenAsAuth(id: string): void {
-  // Map ids and publish tokens are distinct namespaces; a token is never a
-  // valid map id for mutation. Present for clarity and future-proofing.
-  if (getMapByToken(id) && !getMap(id)) {
-    throw new ApiError("not_found", "No such map.", 404);
-  }
 }

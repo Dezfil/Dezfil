@@ -1,3 +1,7 @@
+import { NAMED_TABLE_FUNCTIONS } from "@/lib/query/file-policy";
+import { readOnlySql } from "@/lib/query/guard";
+import { parseSqlJson } from "@/lib/query/sql-json";
+import { qualifiedNameParts } from "@/lib/query/qualified-name";
 import type { DuckDBConnection } from "@duckdb/node-api";
 
 /**
@@ -26,7 +30,7 @@ import type { DuckDBConnection } from "@duckdb/node-api";
  */
 
 /** Dynamic table functions whose argument names a table, or carries SQL. */
-const NAMES_A_TABLE = new Set(["query_table"]);
+const NAMES_A_TABLE = NAMED_TABLE_FUNCTIONS;
 const CARRIES_SQL = new Set(["query"]);
 
 export interface QueryInputs {
@@ -54,7 +58,7 @@ async function serialize(
     "SELECT json_serialize_sql(?::VARCHAR) AS j",
     [sql],
   );
-  return JSON.parse(String(reader.getRowObjects()[0].j)) as Serialized;
+  return parseSqlJson(String(reader.getRowObjects()[0].j)) as unknown as Serialized;
 }
 
 /**
@@ -249,7 +253,7 @@ async function walk(
           ? node.alias.toLowerCase()
           : null;
       for (const one of named) {
-        const bare = one.toLowerCase().split(".").pop() ?? one.toLowerCase();
+        const bare = (qualifiedNameParts(one)?.at(-1) ?? one).toLowerCase();
         out.tables.add(bare);
         out.aliases.set(bare, bare);
         // `FROM query_table('assumed') AS q` puts the alias on the function
@@ -303,7 +307,8 @@ export async function queryInputs(
   if (parsed.error || !Array.isArray(parsed.statements)) {
     return { tables: [], geometryTables: [] };
   }
-  return collectInputs(conn, parsed.statements, geometryOf);
+  const admitted = await serialize(conn, await readOnlySql(conn, sql));
+  return collectInputs(conn, admitted.statements!, geometryOf);
 }
 
 /** The strict sibling: a statement that cannot be analyzed
@@ -322,7 +327,8 @@ export async function queryInputsStrict(
         : "The statement could not be analyzed.",
     );
   }
-  return collectInputs(conn, parsed.statements, geometryOf);
+  const admitted = await serialize(conn, await readOnlySql(conn, sql));
+  return collectInputs(conn, admitted.statements!, geometryOf);
 }
 
 async function collectInputs(

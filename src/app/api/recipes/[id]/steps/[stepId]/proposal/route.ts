@@ -1,6 +1,8 @@
+import { resourceAbsent } from "@/lib/auth/owned-resource";
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
-import { ApiError, errorResponse } from "@/lib/api/errors";
-import { discardProposal, getRecipe, getStep } from "@/lib/metadata/recipes";
+import { errorResponse } from "@/lib/api/errors";
+import { discardProposal, getRecipe, getStep } from "@/lib/metadata/owned-recipes";
 import { readStep } from "@/lib/operations/recipe-view";
 import { stepPayload } from "@/lib/operations/recipe-api";
 
@@ -14,18 +16,19 @@ type Params = { params: Promise<{ id: string; stepId: string }> };
  */
 export async function DELETE(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id, stepId } = await params;
-    if (!getRecipe(id)) {
-      throw new ApiError("not_found", `No recipe with id "${id}".`, 404);
+    if (!getRecipe(scope, id)) {
+      throw resourceAbsent();
     }
-    const step = getStep(stepId);
+    const step = getStep(scope, stepId);
     if (!step || step.recipeId !== id) {
-      throw new ApiError("not_found", `No step with id "${stepId}" in this recipe.`, 404);
+      throw resourceAbsent();
     }
     const discarded = step.proposedParameters !== null;
-    if (discarded) discardProposal(stepId);
+    if (discarded) discardProposal(scope, stepId);
     return NextResponse.json({
-      step: stepPayload(await readStep(id, stepId)),
+      step: stepPayload(await readStep(scope, id, stepId)),
       discarded,
     });
   } catch (error) {

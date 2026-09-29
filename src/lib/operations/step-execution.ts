@@ -1,10 +1,13 @@
+import { archiveCascadeAttempt } from "@/lib/metadata/cascades";
+import { requireCascadeMember } from "@/lib/metadata/owned-cascades";
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { deriveTableName } from "@/lib/ingest/naming";
 import type { Database } from "better-sqlite3";
 import type { OperationJob } from "@/lib/metadata/jobs";
 import { admitOwned, submitRun } from "./run";
 import { planPublication, stepAuthorizer } from "./step-run";
-import { getRecipe, getStep } from "@/lib/metadata/recipes";
-import { fileTable } from "@/lib/metadata/projects";
+import { getRecipe, getStep } from "@/lib/metadata/owned-recipes";
+import { fileTable } from "@/lib/metadata/owned-projects";
 
 /**
  * Running one recipe step.
@@ -42,12 +45,16 @@ export interface StepRunOptions {
 }
 
 export async function startStepRun(
+  scope: AccountScope,
   stepId: string,
   options: StepRunOptions = {},
 ): Promise<OperationJob> {
-  const plan = planPublication(stepId);
+  requireAccountScope(scope);
+  const plan = planPublication(scope, stepId);
+  if (options.cascadeId) requireCascadeMember(scope, options.cascadeId, stepId);
 
   const admitted = await admitOwned(
+    scope,
     {
       operation: plan.step.operation,
       parameters: plan.running,
@@ -57,6 +64,8 @@ export async function startStepRun(
     plan.replaceTable,
   );
 
+  if (options.cascadeId) requireCascadeMember(scope, options.cascadeId, stepId);
+
   // The registry's name, not the typed one — the same sanitization admission
   // checked against, so "is this the table we own" is asked of one string.
   const registered = deriveTableName(admitted.name, new Set());
@@ -65,7 +74,7 @@ export async function startStepRun(
       ? plan.replaceTable
       : undefined;
 
-  return submitRun({
+  return submitRun(scope, {
     operationId: admitted.operationId,
     parameters: plan.running,
     sql: admitted.sql,
@@ -82,9 +91,10 @@ export async function startStepRun(
     // publish a statement that does not exist.
     ...(admitted.prepare ? { prepare: admitted.prepare } : {}),
     ...(replaceTable ? { replaceTable } : {}),
+    ...(options.cascadeId ? { onSettled: (jobId: string) => archiveCascadeAttempt(options.cascadeId!, stepId, jobId) } : {}),
     publisher: (jobFinished) =>
-      stepAuthorizer(plan, jobFinished, options.cascadeId),
-    onPublished: stepOutputFiler(plan.step.id),
+      stepAuthorizer(scope, plan, jobFinished, options.cascadeId),
+    onPublished: stepOutputFiler(scope, plan.step.id),
   });
 }
 
@@ -92,10 +102,10 @@ export async function startStepRun(
  * COMMIT — read inside the publication transaction, never captured at
  * run start. Exported so the race test exercises the exact function
  * production runs. */
-export function stepOutputFiler(stepId: string) {
+export function stepOutputFiler(scope: AccountScope, stepId: string) {
   return (table: { id: string }, db: Database): void => {
-    const current = getStep(stepId, db);
-    const recipe = current ? getRecipe(current.recipeId, db) : null;
-    if (recipe?.projectId) fileTable(table.id, recipe.projectId, db);
+    const current = getStep(scope, stepId, db);
+    const recipe = current ? getRecipe(scope, current.recipeId, db) : null;
+    if (recipe?.projectId) fileTable(scope, table.id, recipe.projectId, db);
   };
 }

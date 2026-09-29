@@ -1,3 +1,4 @@
+import { datasetAccess } from "./openapi-dataset-access";
 import { LOCAL_READ } from "./operation-mcp";
 import { ERROR_RESPONSE, jsonOk, op } from "./openapi-helpers";
 import { READ_ONLY } from "./operation-metadata";
@@ -5,7 +6,7 @@ import { READ_ONLY } from "./operation-metadata";
 const query = (name: string, description: string, schema: unknown = { type: "string" }) => ({ name, in: "query", required: false, description, schema });
 export const TABLE_CATALOGUE_PATHS = {
   "/api/catalogue/tables": {
-    get: op({
+    get: op(datasetAccess({
       summary: "Read the schema-only table catalogue",
       description: "Names, stable identities, recorded row counts and geometry facts with stored artifact column names and types. Reads metadata only, without evaluating row previews or healing geometry records. Recorded geometry identity is separate from the physical column type. Stable name order, at most 32 tables and 64 columns per table per page. after continues tables; columnOffset continues columns for a named table. total counts matching tables, columnCount counts each table’s columns. Incomplete collections carry nextAfter or nextColumnOffset. A missing artifact fails the read instead of returning a false empty schema. Responses are bounded to 96 KiB; a response that cannot fit answers 422 catalogue_too_large so the caller can request fewer tables or columns. No artifact paths, source configuration, credentials, row samples or attachment bytes are returned.",
       tag: "Tables", tool: "read_table_catalogue", mcp: LOCAL_READ, display: {"verb": "Read the table catalogue"}, relevance: ["builder", "sql", "workflow"], effects: READ_ONLY,
@@ -18,7 +19,7 @@ export const TABLE_CATALOGUE_PATHS = {
         query("columnOffset", "Zero-based column cursor, default 0.", { type: "integer", minimum: 0 }),
       ],
       responses: { "200": jsonOk("#/components/schemas/TableCatalogue"), "400": ERROR_RESPONSE, "404": ERROR_RESPONSE, "422": ERROR_RESPONSE },
-    }),
+    })),
   },
 };
 export const TABLE_CATALOGUE_SCHEMAS = {

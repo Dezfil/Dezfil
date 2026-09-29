@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, readdir } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
@@ -86,7 +87,7 @@ describe("OSM group refresh racing a member delete", () => {
   // place of the 5s default absorbs runner stalls,
   // while a genuine hang still fails within the job's patience.
   it("rolls the whole group swap back, keeps the survivor's data, leaves no residue", { timeout: 60_000 }, async () => {
-    const tables = await importOsm({
+    const tables = await importOsm(testAccountScope(), {
       selectors: ["amenity", "highway"],
       bbox: [13.3, 52.4, 13.5, 52.6],
       name: "grouprace",
@@ -101,7 +102,7 @@ describe("OSM group refresh racing a member delete", () => {
     const arrived = new Promise<void>((resolve) => {
       overpassHit = resolve;
     });
-    const refresh = refreshTable("grouprace_points");
+    const refresh = refreshTable(testAccountScope(), "grouprace_points");
     // The promise must be observed before the race resolves either way.
     const settled = refresh.then(
       () => ({ ok: true as const }),
@@ -110,7 +111,7 @@ describe("OSM group refresh racing a member delete", () => {
     await arrived;
 
     // A member is deleted mid-flight, through the real delete road.
-    await removeTable("grouprace_lines");
+    await removeTable(testAccountScope(), "grouprace_lines");
     expect(getTableByName("grouprace_lines")).toBeNull();
 
     releaseHold?.();

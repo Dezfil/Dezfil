@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **117 paths, 155 operations, 147 named
+Measured from the current source: **118 paths, 156 operations, 147 named
 component schemas.**
 
 ## Base path and access
@@ -35,6 +35,22 @@ Account sessions and personal settings accept a session cookie or an account's
 bearer token. Setup, sign-in and link redemption are public entry operations;
 cookie mutations and entry submissions require a matching request Origin.
 Run the instance behind your own network controls.
+
+Authenticated requests may carry `X-Dezfil-Account` with the expected account
+ID. A mismatch returns `401 authentication_required` before dispatch. Like the
+credential itself, this is a transport precondition, not an operation input;
+it never selects an owner or grants access. The browser uses it to fence work
+started before a cookie changes. The workspace checks `/api/auth/session`
+before mounting, clears private drafts and retained results on account changes,
+and reloads cached back-navigation pages through the existing access checks.
+
+Maps, datasets, workflows, connections and projects are private to their
+creator. Contained layers, widgets, histories and runs follow their parent;
+standalone jobs and retained export/render results remain private even after
+failure or output deletion. Admin status grants no private-content access.
+Dataset and connection names are unique within one account. Hidden and missing
+resources receive the same refusal, and SQL mounts only the caller's datasets.
+There is no owner selector or ownership-transfer operation.
 
 The published surface remains anonymous. `GET /api/published/{token}`
 and its siblings are the read-only, anonymous face of a map someone chose to
@@ -55,6 +71,15 @@ return the caller's account display name and per-screen view preferences,
 plus the shared instance name. Only admins may change the instance name.
 Every field in a patch is validated and authorized before any write.
 `/api/palettes` manages saved color palettes.
+
+Built-in and configured basemaps, the palette catalogue, geometry projections,
+the API reference, operation catalogue and offered assistant models are shared
+instance resources. They require authentication but have no owner filter.
+Any authenticated account can create or delete a saved custom palette,
+including one created by another account. Deleting a palette keeps existing
+layer colors. A map's own styles and custom basemap remain private to its owner,
+including when another caller is an admin. Model and geocoder credentials are
+server settings; catalogue responses never return their secret values.
 
 **Settings compatibility change.** `/api/settings` now requires authentication
 and returns `401` for missing or invalid credentials. `displayName` and
@@ -238,14 +263,56 @@ serialized, and only `SELECT` statements serialize
 settings, load an extension, attach a database or write a file is refused
 with `sql_rejected`. More than one statement in a request is refused too.
 
+**Breaking SQL change:** direct file reads and path discovery are also refused
+with `sql_rejected`, regardless of ownership or whether a path exists. The parsed
+policy rejects file readers, file-relation shorthand, path-bearing settings and
+engine definitions before user targets can bind or probe the filesystem. Nested
+SQL and computed table names follow the same policy; admitted dynamic arguments
+are frozen for that evaluation. Explicit safe catalogue name/schema projections
+remain available, but definition/path columns, whole rows and stars over those
+catalogues are refused. Query uploaded data by its dataset name.
+
+Projection definitions supplied to `ST_Transform`, `ST_SetCRS` or a geometry
+type cannot reference PROJ initialization files, grid files or model files. This
+also covers computed and per-row CRS values, WKT file parameters and PROJJSON
+file parameters, before the native projection library receives them. EPSG
+identifiers and inline definitions without files remain supported.
+
+SQL referring to a table outside the caller's space returns the same
+`sql_error` for a hidden or nonexistent table. It includes no name suggestions.
+Engine failures omit internal statements, artifact paths and native-library
+internals. Input diagnostics and a source position remain when available.
+
+Stored SQL is not rewritten. A saved file query or affected published layer
+returns its normal error treatment until its owner changes the query to use a
+named dataset. Rendering, widgets, search, exports, materialization, REST, MCP
+and assistant calls all use this policy; search omits a failing layer as before.
+
 Second, the instance itself is locked down at creation
 (`src/lib/duckdb.ts`): extensions are loaded first and then further loading
 is disabled, external access is switched off, the filesystem is fenced to
 the dataset directory and the tile scratch directory, spilling to disk is
 disabled, the memory budget is applied, and the configuration is locked so
-none of that can be changed afterwards. Datasets are exposed to it as views
-over their files, so user SQL sees table names and never paths
-(`src/lib/query/views.ts`).
+none of that can be changed afterwards. Every evaluation gets a fresh connection
+and temporary views for its account's datasets only (`src/lib/query/views.ts`).
+One hardened engine serves all accounts under the same shared memory budget.
+The views disappear when the connection closes. Artifact projection metadata
+may be cached by owner, dataset identity, artifact and geometry metadata; the
+views and binding evidence are recreated on each connection.
+
+Unqualified names, `main.table`, `memory.table`, `memory.main.table`, and
+computed `query_table()` / nested `query()` references resolve inside that local
+catalogue. The compiler preserves stored SQL. Publication evaluations use the
+publication owner's dataset scope, including inactive owners and pending
+adoption. Refresh, deletion and name reuse affect later evaluations; an admitted
+materialization keeps its captured identities and artifacts until it completes.
+
+Geocode and isochrone preparation pass opaque, account-bound staging inputs
+only to the evaluation that publishes that job. Their SQL names temporary
+relations; it contains no file reader. Ordinary evaluations, including another
+query by the same account, cannot name those relations. JSON request fields
+cannot authorize a staging mount. Completion, failure, cancellation and timeout
+release the inputs; removal waits for any admitted reader to close.
 
 Everything that evaluates user SQL goes through this path: the SQL
 workspace, layer rendering, classification, published views, and every
@@ -266,3 +333,133 @@ supersede or resolve them. Confirmation reauthenticates the same account and
 checks current permissions during execution, including admin restrictions.
 Internal grounding, subject reads and tool calls carry a bearer-equivalent
 credential; the parked state retains the account binding and no credential.
+
+**Private layer reference compatibility change.** Layer routes require an
+active account and resolve each layer through its owning map. Administrators
+have the same private boundary. Hidden and missing layers both answer
+`not_found` (404), including fields, statistics, rendering, tiles and direct
+exports. New widget, timeline, legend-order and layer-order references must
+belong to the exact map being edited. A missing or mismatched reference now
+answers `not_found` (404), replacing the former `invalid_request` (400).
+Malformed input still answers `invalid_request`. An unchanged orphan widget
+already stored in history remains readable and can be echoed unchanged.
+
+History and thumbnails inherit the map's ownership. Undo and redo validate the
+whole recorded gesture, including layer targets and saved map references,
+before changing records or deleting artifacts. A foreign or mismatched replay
+reference returns `not_found` and leaves the cursor and all records unchanged.
+Restoring a deleted layer preserves its recorded identity and parent; it cannot
+replace a live layer belonging to another map. Thumbnail reads, writes and
+copies check the owning map, and staged writes recheck access before publishing.
+
+Dataset names belong to the authenticated account. Different accounts can each
+import `roads`; uploads and sketches choose suffixes using only the creator's
+names. Dataset lists, catalogue totals and schema pages, inspection, features,
+exports, sketch edits, geometry and refresh resolve that account's datasets.
+Administrator status grants no access to another account's data. Project contexts
+and sketch parents must belong to the same account and are checked before source
+or artifact work. Refresh and geometry changes keep the durable identity and
+owner, rechecking account activity before committing. Hidden and missing names
+and references return the same `404 not_found` response. This replaces the
+previous `map_not_found` response for a missing sketch parent.
+
+Saved PostGIS connections are private to their creator. The list, edits, tests,
+source catalogue, previews and snapshot lists use that account, including for
+admins. Names are unique within the account. Hidden and missing connection IDs
+both return `404 not_found` with the same generic message before credentials,
+source access or health writes. Stored import and refresh references obey the
+same rule; an imported dataset does not grant access to its source connection.
+Private source work rechecks access before committing or recording health.
+This is a breaking error-contract change for a snapshot whose saved connection
+is missing: refresh now returns `404 not_found` instead of `409 not_refreshable`.
+Connection absence messages no longer echo the submitted ID.
+
+Workflow definitions, steps, layouts and layer captures resolve within the
+caller's account. Hidden or missing workflow, step, captured-layer and project
+references use the same generic `404 not_found`, including mixed parent/child
+requests. Refused compound changes leave definitions and filing unchanged.
+Output-name conflicts and duplication consider only that account's datasets
+and declarations; same-workflow conflicts and the frozen name of an existing
+output retain their previous rules. Deleting a workflow leaves its datasets.
+
+Projects, member counts and membership operations are account-scoped. Every
+member in a compound change must have the same owner as the project; a hidden
+or missing member returns the generic `404 not_found` and the whole change
+rolls back. Initial filing follows the same rule. Deleting a project unfiles
+its contents without deleting or transferring them. Export selections are
+checked before archive assembly and account activity is checked again before
+returning the completed file. A hidden or missing selected export member now
+returns `404 not_found` rather than `400 invalid_request`; this is a breaking
+error-contract change. An owned resource outside the project still returns
+`400 invalid_request`.
+
+Dependency checklists resolve dataset identities, project memberships and
+workflow producers within the authenticated account. Workflow lineage retains
+the original input identity and bound artifact after deletion; a new dataset
+with the same name does not replace that history. Tile fingerprints include
+owner-selected dataset identities and artifacts, so another account's imports,
+refreshes or deletions do not change their freshness.
+
+Operation jobs keep their initiating owner independently of any output. Their
+parameters, errors, results, subject histories and cancellation are private,
+including after output deletion. Identical subject names and history limits are
+separate per account; output-name conflicts are checked in that account's space.
+Workers check current account activity before preparation and at publication.
+An unfinished job whose owner becomes inactive fails with
+`authentication_required` and keeps no new dataset or staging artifact. Restart
+reconciliation settles interrupted jobs without re-executing them, and prunes
+each recorded owner's history independently. Workflow cancellation carries the
+same account scope to each contained job.
+
+Workflow plans, run histories, member attempts and retained outputs follow the
+workflow owner's private scope. Every supplied step or run must belong to the
+addressed workflow. Hidden, missing and mixed-parent references return the same
+`404 not_found`, before planning or admission. A changed confirmation containing
+only current owned members still returns `409 plan_changed`.
+
+Workflow execution rechecks activity after planning, at worker entry and before
+publication. Deactivation drains admitted work, prevents further admission and
+publication, and preserves outputs already committed. The workflow keeps terminal
+attempts even when job history prunes them or a step or output is deleted. Startup
+reconciliation marks unfinished runs interrupted, including inactive owners' runs,
+and never re-executes them or attaches another owner's job attempt.
+
+Private layer renders, tile status and tile bytes follow the map owner, including
+for administrators. Builds retain their initiating account authority across the
+queue, export and atomic archive swap. Deactivation before publication prevents a
+new authoritative archive, and an in-flight private read rechecks activity before
+returning bytes. Deleting an owned layer fences its outstanding build; reactivation
+permits a fresh build. Visible published layers use their current publication token
+independently of owner activity. Revocation prevents that token's outstanding build
+from publishing an archive.
+
+Assistant receipts and parked confirmations are private to their initiating
+account, including for administrators. Ownership survives failure and deletion
+of an output. Deactivation interrupts unfinished execution, discards late
+provider content and prevents further tool admission; committed work remains.
+Reactivation restores access to the same receipts. A hidden confirmation cannot
+be resolved or consumed. Superseding an unknown or hidden confirmation is a
+harmless no-op for that confirmation.
+
+Retained map checks and prepared layer, query and project downloads also bind
+to the initiating account independently of their source. Only that account can
+retrieve, observe or release them, including after source deletion. Copied ids
+receive the same refusal as unknown ids without consuming the owner's result.
+Render and export execution rechecks activity before returning or retaining
+bytes; a deactivated caller cannot redeem a retained result. Existing eviction,
+expiry, stream cleanup and process-restart behavior remains unchanged.
+
+`DELETE /api/publications/{token}` lets a current admin revoke a known link
+only while its owner is deactivated. The authority and owner-status checks
+share the revocation transaction. An active owner's link, an unknown token,
+and an already revoked token receive the same `not_found`; success is `204`
+with no content. The operation provides no map discovery or private read
+access. Its generated tool is `revoke_inactive_publication`, with destructive
+consequence metadata and confirmation using only the submitted token.
+
+Anonymous publication queries retain the publisher's dataset scope rather
+than a signed-in visitor's. Deactivation does not revoke existing links.
+Before first-account setup, legacy links carry a publication-only
+pending-adoption scope; setup atomically replaces it with the original
+account's scope. Token revocation is rechecked after asynchronous widget,
+render and extent work, and retires cached or in-flight assembled views.

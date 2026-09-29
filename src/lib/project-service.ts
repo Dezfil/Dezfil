@@ -1,3 +1,5 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { ApiError } from "@/lib/api/errors";
 import {
   listProjects,
@@ -5,8 +7,8 @@ import {
   requireProject,
   type MemberChange,
   type ProjectRecord,
-} from "@/lib/metadata/projects";
-import { listRecipes } from "@/lib/metadata/recipes";
+} from "@/lib/metadata/owned-projects";
+import { listRecipes } from "@/lib/metadata/owned-recipes";
 import { mapsOverview, type MapOverview } from "@/lib/map-service";
 import { listTablesWithSize, type TableListing } from "@/lib/table-service";
 import { readRecipe } from "@/lib/operations/recipe-view";
@@ -64,9 +66,9 @@ export interface ProjectOverview extends ProjectRecord {
   sizeComplete: boolean;
 }
 
-export async function projectsOverview(): Promise<ProjectOverview[]> {
-  const counts = projectMemberCounts();
-  const tables = await listTablesWithSize();
+export async function projectsOverview(scope: AccountScope): Promise<ProjectOverview[]> {
+  const counts = projectMemberCounts(scope);
+  const tables = await listTablesWithSize(scope);
   const sizes = new Map<string, { sum: number; complete: boolean }>();
   for (const t of tables) {
     for (const p of t.projectIds) {
@@ -76,7 +78,8 @@ export async function projectsOverview(): Promise<ProjectOverview[]> {
       sizes.set(p, entry);
     }
   }
-  return listProjects().map((p) => ({
+  requireAccountScope(scope);
+  return listProjects(scope).map((p) => ({
     ...p,
     mapCount: counts.get(p.id)?.maps ?? 0,
     publishedMapCount: counts.get(p.id)?.publishedMaps ?? 0,
@@ -87,12 +90,12 @@ export async function projectsOverview(): Promise<ProjectOverview[]> {
   }));
 }
 
-export async function projectOverview(id: string): Promise<ProjectOverview> {
-  requireProject(id);
-  const overview = (await projectsOverview()).find((p) => p.id === id);
+export async function projectOverview(scope: AccountScope, id: string): Promise<ProjectOverview> {
+  requireProject(scope, id);
+  const overview = (await projectsOverview(scope)).find((p) => p.id === id);
   // The project exists (checked above); a race with a concurrent delete
   // answers not-found through the same door.
-  if (!overview) requireProject(id);
+  if (!overview) requireProject(scope, id);
   return overview as ProjectOverview;
 }
 
@@ -104,16 +107,15 @@ export interface ProjectMembers {
 
 /** The composite members read: each kind in its
  * ordinary listing shape and order. */
-export async function projectMembers(id: string): Promise<ProjectMembers> {
-  requireProject(id);
+export async function projectMembers(scope: AccountScope, id: string): Promise<ProjectMembers> {
+  requireOwnedResource(scope, "project", id);
+  requireProject(scope, id);
   const recipes = await Promise.all(
-    listRecipes(undefined, { origin: "workflow", project: id }).map(async (r) =>
-      recipePayload(await readRecipe(r.id)),
+    listRecipes(scope, undefined, { origin: "workflow", project: id }).map(async (r) =>
+      recipePayload(await readRecipe(scope, r.id)),
     ),
   );
-  return {
-    maps: mapsOverview(id),
-    recipes,
-    tables: await listTablesWithSize(id),
-  };
+  const tables = await listTablesWithSize(scope, id);
+  requireProject(scope, id);
+  return { maps: mapsOverview(scope, id), recipes, tables };
 }

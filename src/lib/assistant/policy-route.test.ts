@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -75,13 +76,13 @@ async function turn(script: ScriptEntry[], context?: AssistantContext, message =
   const provider = stubProvider(script); factory.provider = provider;
   const runId = (await (await api("/api/assistant/runs", {}, "POST")).json()).id as string;
   const stream = await events(await api("/api/assistant/messages", { runId, message, ...(context ? { context } : {}) }));
-  return { runId, provider, stream, receipt: assistantRuns.read(runId) };
+  return { runId, provider, stream, receipt: assistantRuns.read(testAccountScope(), runId) };
 }
 async function seed() {
   const csv = path.join(dir, "facts.csv"); await writeFile(csv, "city,lon,lat,value\nBerlin,13.4,52.5,4\n");
-  await ingestFile(csv, "facts.csv");
-  const map = createMap("Original map");
-  const recipe = createRecipe("Workflow");
+  await ingestFile(testAccountScope(), csv, "facts.csv");
+  const map = createMap(testAccountScope(), "Original map");
+  const recipe = createRecipe(testAccountScope(), "Workflow");
   const step = addStep(recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 1 AS value", name: "output" } });
   const sql: AssistantContext = { page: "sql", draft: "SELECT 1;", selection: null, lastExecution: null };
   const workflow: AssistantContext = { page: "workflow", recipeId: recipe.id, selectedStepId: step.id, lastRunId: null };
@@ -221,7 +222,7 @@ describe("the page action policy through the real message route", () => {
     expect(((await (await api(`/api/maps/${map.id}`)).json()) as { publishToken: string | null }).publishToken).toEqual(expect.any(String));
     expect(dispatched.filter((d) => d.method === "PATCH" && d.path === `/api/maps/${map.id}`)).toHaveLength(1);
     expect(await mapName(map.id)).toBe("Renamed after approval");
-    expect(assistantRuns.read(runId).actions).toEqual([
+    expect(assistantRuns.read(testAccountScope(), runId).actions).toEqual([
       expect.objectContaining({ tool: "publish_map", status: "succeeded" }),
       expect.objectContaining({ tool: "update_map", status: "succeeded" }),
     ]);

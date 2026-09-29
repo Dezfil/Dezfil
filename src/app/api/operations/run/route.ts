@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { findOperation } from "@/lib/operations/catalog";
@@ -17,13 +18,14 @@ import { jobView } from "@/lib/operations/job-view";
  * The caller's own cancellation is deliberately **not** passed into the work.
  * That is the whole point of the lane: an accepted run outlives the request
  * that started it, and closing a tab must not destroy work a user asked for.
- * Only an explicit cancel, or the lane's budget, ends a run early.
+ * Cancellation, loss of account activity or the lane's budget can stop publication.
  *
  * A dry run is unchanged: synchronous, minting no job, and still bounded by the
  * caller's departure, because nobody is waiting on it but them.
  */
 export async function POST(request: Request) {
   try {
+    const scope = requireRequestScope(request);
     // The admission table documents a malformed body as refused here. Left to
     // chance it is not: invalid JSON throws out of parsing and a literal `null`
     // body is dereferenced, and both would surface as an internal 500 — a
@@ -66,13 +68,13 @@ export async function POST(request: Request) {
         measurement,
         preview: declared,
         assumedCrs: ownRoute,
-      } = await compileOperation(operation.id, params, { requireName: false });
+      } = await compileOperation(scope, operation.id, params, { requireName: false });
       // **A verb that can answer without running answers without running**. For
       // a provider operation that is not an optimization: its statement does
       // not exist until it has spent requests, and a dry run that spent them
       // would not be dry.
       const preview =
-        declared ?? (await dryRun(sql, request.signal, operation.id));
+        declared ?? (await dryRun(scope, sql, request.signal, operation.id));
       // Either road (K7b): the measurement record where one exists, the
       // compiled run's own field where the verb makes no measurement.
       const assumed = measurement?.assumedCrs ?? ownRoute ?? [];
@@ -99,7 +101,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const job = await startRun({
+    const job = await startRun(scope, {
       operation: typeof body.operation === "string" ? body.operation : "",
       parameters: params,
       ...(body.subject !== undefined ? { subject: body.subject as string } : {}),

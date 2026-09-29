@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
 import { mapWithLayers } from "@/lib/map-service";
@@ -29,8 +30,9 @@ interface LayerStatement extends Partial<PublishedFieldsStatement> {
  */
 export async function GET(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
-    const map = mapWithLayers(id);
+    const map = mapWithLayers(scope, id);
     const layers: LayerStatement[] = await Promise.all(
       map.layers.map(async (layer): Promise<LayerStatement> => {
         if (!layer.visible) {
@@ -42,7 +44,7 @@ export async function GET(request: Request, { params }: Params) {
           };
         }
         try {
-          const columns = (await baseFields(layer, request.signal)).map(
+          const columns = (await baseFields(scope, layer, request.signal)).map(
             (f) => f.name,
           );
           return {

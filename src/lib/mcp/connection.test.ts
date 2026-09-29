@@ -25,13 +25,19 @@ it('initializes the real handler and counts the received tools with zero product
 });
 it('a held initialization remains pending until 10 seconds, settles by its bound and permits a real retry', async () => {
   vi.useFakeTimers(); const server = fixture(); let hold = true, aborted = 0, settled = false;
+  // A real fetch retains its request until settlement. Keep that lifetime in
+  // this fake transport too: Request's abort followers may be weakly held.
+  const requests: Request[] = [];
   const fetcher: typeof fetch = (input, init) => hold ? new Promise((_, reject) => {
-    const request = new Request(input, init);
+    const request = input instanceof Request ? input : new Request(input, init);
+    requests.push(request);
     request.signal.addEventListener('abort', () => { aborted++; reject(new DOMException('fixture', 'AbortError')); }, { once: true });
   }) : server.fetcher(input, init);
   const pending = checkMcpConnection('http://localhost:3307/api/mcp', fetcher).then(() => 'unexpected success', error => error.message).finally(() => { settled = true; });
   await vi.advanceTimersByTimeAsync(9999); expect(settled).toBe(false);
+  expect(requests).toHaveLength(1); expect(requests[0].signal.aborted).toBe(false);
   await vi.advanceTimersByTimeAsync(1); expect(await pending).toBe(MCP_CHECK_TIMEOUT); expect(aborted).toBe(1);
+  expect(requests[0].signal.aborted).toBe(true);
   hold = false; vi.useRealTimers();
   expect(await checkMcpConnection('http://localhost:3307/api/mcp', fetcher)).toBe(documentedTools(buildOpenApiDocument()).length);
   expect(server.productCalls()).toBe(0); expect(server.methods).not.toContain('tools/call');

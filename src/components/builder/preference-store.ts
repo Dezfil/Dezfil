@@ -1,3 +1,5 @@
+import { privateStateOpen } from "../auth/private-state";
+
 /**
  * localStorage-backed per-browser preference store: a snapshot read, a
  * write that notifies same-tab listeners, and a subscribe — the
@@ -15,6 +17,7 @@ export function createPreferenceStore(key: string): PreferenceStore {
   let listeners: (() => void)[] = [];
   return {
     read(): boolean {
+      if (!privateStateOpen()) return false;
       try {
         return localStorage.getItem(key) === "true";
       } catch {
@@ -22,6 +25,7 @@ export function createPreferenceStore(key: string): PreferenceStore {
       }
     },
     write(value: boolean) {
+      if (!privateStateOpen()) return;
       try {
         localStorage.setItem(key, String(value));
       } catch {
@@ -57,6 +61,7 @@ export function createValueStore(key: string): ValueStore {
   let listeners: (() => void)[] = [];
   return {
     read(): number | null {
+      if (!privateStateOpen()) return null;
       try {
         const raw = localStorage.getItem(key);
         if (raw === null) return null;
@@ -67,6 +72,7 @@ export function createValueStore(key: string): ValueStore {
       }
     },
     write(value: number) {
+      if (!privateStateOpen()) return;
       try {
         localStorage.setItem(key, String(value));
       } catch {
@@ -99,6 +105,7 @@ export function createStringStore(key: string): StringStore {
   let listeners: (() => void)[] = [];
   return {
     read(): string | null {
+      if (!privateStateOpen()) return null;
       try {
         return localStorage.getItem(key);
       } catch {
@@ -106,6 +113,7 @@ export function createStringStore(key: string): StringStore {
       }
     },
     write(value: string | null) {
+      if (!privateStateOpen()) return;
       try {
         if (value === null) localStorage.removeItem(key);
         else localStorage.setItem(key, value);

@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
@@ -41,26 +42,27 @@ let failPlan = false;
 let failMapAfterWrite = false;
 const calls: { path: string; method: string; body: unknown }[] = [];
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
-const req = (url: string, body?: unknown, method = body === undefined ? "GET" : "POST") => new Request(origin + url, { method, ...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }) });
+const req = (url: string, body?: unknown, method = body === undefined ? "GET" : "POST") => testAccountRequest(new Request(origin + url, { method, ...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }) }));
 async function dispatch(request: Request): Promise<Response> {
+  request = testAccountRequest(request);
   const url = new URL(request.url); const p = url.pathname.split("/");
   calls.push({ path: url.pathname, method: request.method, body: request.method === "GET" ? null : await request.clone().json().catch(() => null) });
-  if (url.pathname === "/api/catalogue/tables") return catalogue(request);
+  if (url.pathname === "/api/catalogue/tables") return catalogue(testAccountRequest(request));
   if (url.pathname === "/api/query") return query(request);
-  if (url.pathname === "/api/maps") return mapsPost(request);
+  if (url.pathname === "/api/maps") return mapsPost(testAccountRequest(request));
   if (p[2] === "maps") {
     if (p.length === 4) {
       const response = await mapRoute[request.method as "GET" | "PATCH" | "DELETE"](request, params(p[3]));
       return failMapAfterWrite && request.method === "PATCH"
         ? Response.json({ error: { code: "internal" } }, { status: 500 }) : response;
     }
-    if (p[4] === "dependencies") return dependencies(request, params(p[3]));
+    if (p[4] === "dependencies") return dependencies(testAccountRequest(request), params(p[3]));
     if (p[4] === "publish") return publishRoute[request.method as "POST" | "DELETE"](request, params(p[3]));
-    if (p[4] === "undo") return undo(request, params(p[3]));
-    if (p[4] === "redo") return redo(request, params(p[3]));
+    if (p[4] === "undo") return undo(testAccountRequest(request), params(p[3]));
+    if (p[4] === "redo") return redo(testAccountRequest(request), params(p[3]));
   }
-  if (p[2] === "recipes" && p.length === 4) return recipeGet(request, params(p[3]));
-  if (p[2] === "recipes" && p[4] === "runs") return failPlan ? Response.json({ error: { code: "internal" } }, { status: 500 }) : runRecipe(request, params(p[3]));
+  if (p[2] === "recipes" && p.length === 4) return recipeGet(testAccountRequest(request), params(p[3]));
+  if (p[2] === "recipes" && p[4] === "runs") return failPlan ? Response.json({ error: { code: "internal" } }, { status: 500 }) : runRecipe(testAccountRequest(request), params(p[3]));
   throw new Error(`Unexpected test route: ${request.method} ${url.pathname}`);
 }
 beforeEach(async () => {
@@ -87,7 +89,7 @@ async function resolve(id: string, approved = true, extra = {}) {
   const action = await open(id); expect(action).toBeDefined();
   return { action, response: await message(req("/api/assistant/messages", { resolution: { pending: action.id, approved }, ...extra })) };
 }
-async function seedMap(name = "Original") { return (await (await mapsPost(req("/api/maps", { name }))).json()).id as string; }
+async function seedMap(name = "Original") { return (await (await mapsPost(testAccountRequest(req("/api/maps", { name })))).json()).id as string; }
 async function map(id: string) { return (await (await mapRoute.GET(req(`/api/maps/${id}`), params(id))).json()); }
 
 for (const approved of [true, false]) it(`recovery ${approved ? "approval" : "decline"} binds original target and repeat executes nothing`, async () => {
@@ -157,7 +159,7 @@ it("the whole-turn budget spans two recovered pauses", async () => {
 });
 
 for (const change of ["membership", "order", "unavailable"] as const) it(`a ${change} recipe plan never starts an unspecified or changed wide run`, async () => {
-  const recipe = createRecipe("Workflow");
+  const recipe = createRecipe(testAccountScope(), "Workflow");
   const first = addStep(recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 1 AS v", name: "one" } });
   const second = addStep(recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 2 AS v", name: "two" } });
   failPlan = change === "unavailable";
@@ -175,7 +177,7 @@ for (const change of ["membership", "order", "unavailable"] as const) it(`a ${ch
 });
 
 it("real read-only POST and conditional plan events declare no mutation", async () => {
-  const recipe = createRecipe("Plan"); addStep(recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 1 AS v", name: "one" } });
+  const recipe = createRecipe(testAccountScope(), "Plan"); addStep(recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 1 AS v", name: "one" } });
   const { id } = await start([reply(tool("run_sql", { sql: "SELECT 7 AS value" }), tool("run_recipe", { id: recipe.id, plan: true })), reply()]);
   const actions = (await read(id)).actions;
   expect(actions).toHaveLength(2);

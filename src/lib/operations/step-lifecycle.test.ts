@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -42,8 +43,8 @@ beforeEach(async () => {
   resetQueryInstance();
   const src = path.join(dir, "stations.csv");
   await writeFile(src, "name,lon,lat\nalex,13.41,52.52\nzoo,13.33,52.51\n");
-  await ingestFile(src, "stations.csv");
-  recipeId = createRecipe("R").id;
+  await ingestFile(testAccountScope(), src, "stations.csv");
+  recipeId = createRecipe(testAccountScope(), "R").id;
 });
 
 afterEach(async () => {
@@ -58,7 +59,7 @@ const step = (sql: string, name: string) =>
   addStep(recipeId, { operation: "sql_step", parameters: { sql, name } });
 
 async function run(stepId: string) {
-  const job = await startStepRun(stepId);
+  const job = await startStepRun(testAccountScope(), stepId);
   await laneSettled();
   return getJob(job.id)!;
 }
@@ -73,7 +74,7 @@ describe("removing a completed step (G3)", () => {
     expect(listSteps(recipeId)).toHaveLength(0);
     const table = getTableByName("kept_output");
     expect(table).not.toBeNull();
-    expect(Number((await executeQuery("SELECT count(*) AS n FROM kept_output")).preview[0].n))
+    expect(Number((await executeQuery(testAccountScope(), "SELECT count(*) AS n FROM kept_output")).preview[0].n))
       .toBe(2);
   }, 60_000);
 
@@ -100,10 +101,10 @@ describe("removing a completed step (G3)", () => {
 
     // The consumer keeps its edge — it still reads that table — and is
     // *current*, not broken: nothing it depends on went away.
-    expect(edgesForStep(consumer.id).map((e) => e.inputTableName)).toEqual([
+    expect(edgesForStep(testAccountScope(), consumer.id).map((e) => e.inputTableName)).toEqual([
       "upstream_out",
     ]);
-    const view = (await readRecipe(recipeId));
+    const view = (await readRecipe(testAccountScope(), recipeId));
     expect(view.steps).toHaveLength(1);
     expect(view.steps[0].condition.primary).toBe("current");
   }, 90_000);
@@ -132,7 +133,7 @@ describe("a condition is not a job state", () => {
   it("leaves a current step current when a voluntary re-run of it fails", async () => {
     const s = step(SLOWISH, "still_current");
     expect((await run(s.id)).state).toBe("succeeded");
-    expect((await readStep(recipeId, s.id)).condition.primary).toBe("current");
+    expect((await readStep(testAccountScope(), recipeId, s.id)).condition.primary).toBe("current");
 
     // The step is **unchanged** — what fails is the budget it runs under, so
     // this is genuinely a re-run of a current step rather than a different
@@ -149,14 +150,14 @@ describe("a condition is not a job state", () => {
     expect(failed.state).toBe("failed");
     expect(failed.errorCode).toBe("operation_timeout");
 
-    const view = await readStep(recipeId, s.id);
+    const view = await readStep(testAccountScope(), recipeId, s.id);
     // Fresh output, latest attempt failed — the combination a model that
     // collapsed condition into job state could not express.
     expect(view.condition.primary).toBe("current");
     expect(view.latestAttempt?.state).toBe("failed");
     // And yesterday's answer is still served.
     expect(
-      Number((await executeQuery("SELECT n FROM still_current")).preview[0].n),
+      Number((await executeQuery(testAccountScope(), "SELECT n FROM still_current")).preview[0].n),
     ).toBeGreaterThan(0);
   }, 180_000);
 });
@@ -174,7 +175,7 @@ describe("deleting a recipe", () => {
     for (const name of ["recipe_out_a", "recipe_out_b"]) {
       expect(getTableByName(name)).not.toBeNull();
       expect(
-        Number((await executeQuery(`SELECT count(*) AS n FROM ${name}`)).preview[0].n),
+        Number((await executeQuery(testAccountScope(), `SELECT count(*) AS n FROM ${name}`)).preview[0].n),
       ).toBeGreaterThan(0);
     }
     expect(listSteps(recipeId)).toHaveLength(0);
@@ -187,8 +188,8 @@ describe("an output deleted under its step", () => {
     await run(s.id);
     const originalId = getTableByName("repairable")!.id;
 
-    await removeTable("repairable");
-    expect((await readRecipe(recipeId)).steps[0].condition.conditions).toContain(
+    await removeTable(testAccountScope(), "repairable");
+    expect((await readRecipe(testAccountScope(), recipeId)).steps[0].condition.conditions).toContain(
       "output_missing",
     );
 
@@ -200,28 +201,28 @@ describe("an output deleted under its step", () => {
     // old id would be inventing identity, which is the wrong reading even
     // though both are implementable.
     expect(now.id).not.toBe(originalId);
-    expect((await readStep(recipeId, s.id)).step.outputTableId).toBe(now.id);
-    expect((await readStep(recipeId, s.id)).condition.primary).toBe("current");
+    expect((await readStep(testAccountScope(), recipeId, s.id)).step.outputTableId).toBe(now.id);
+    expect((await readStep(testAccountScope(), recipeId, s.id)).condition.primary).toBe("current");
   }, 90_000);
 
   it("reports a naming conflict and writes nothing once the name is reclaimed", async () => {
     const s = step("SELECT name FROM stations", "reclaimed");
     await run(s.id);
-    await removeTable("reclaimed");
+    await removeTable(testAccountScope(), "reclaimed");
 
     // Someone else takes the name back.
     const usurper = step("SELECT 42 AS answer", "reclaimed");
     await run(usurper.id);
     const usurperId = getTableByName("reclaimed")!.id;
 
-    await expect(startStepRun(s.id)).rejects.toMatchObject({
+    await expect(startStepRun(testAccountScope(), s.id)).rejects.toMatchObject({
       code: "name_taken",
       status: 409,
     });
     // Nothing written: the other table is untouched, and what the user is
     // *offered* at this moment belongs to, not here.
     expect(getTableByName("reclaimed")!.id).toBe(usurperId);
-    expect((await executeQuery("SELECT answer FROM reclaimed")).preview[0].answer).toBe(42);
+    expect((await executeQuery(testAccountScope(), "SELECT answer FROM reclaimed")).preview[0].answer).toBe(42);
   }, 90_000);
 });
 
@@ -235,9 +236,9 @@ describe("an input deleted under its readers", () => {
     await run(three.id);
     const oneId = getTableByName("chain_one")!.id;
 
-    await removeTable("chain_one");
+    await removeTable(testAccountScope(), "chain_one");
 
-    const view = (await readRecipe(recipeId));
+    const view = (await readRecipe(testAccountScope(), recipeId));
     const [first, second, third] = view.steps;
     // One hop.
     expect(first.condition.conditions).toContain("output_missing");
@@ -259,9 +260,9 @@ describe("an input deleted under its readers", () => {
     await run(producer.id);
     const stationsId = getTableByName("stations")!.id;
 
-    await removeTable("stations");
+    await removeTable(testAccountScope(), "stations");
 
-    const view = await readStep(recipeId, producer.id);
+    const view = await readStep(testAccountScope(), recipeId, producer.id);
     expect(view.condition.primary).toBe("broken");
     // The whole array: the recorded lineage edge alone carries the loss.
     // A second, prospective entry with the synthetic missing: id doubled
@@ -277,10 +278,10 @@ describe("an input deleted under its readers", () => {
     const consumer = step("SELECT count(*) AS n FROM both_source", "both_out");
     await run(consumer.id);
 
-    await removeTable("both_source");
-    await removeTable("both_out");
+    await removeTable(testAccountScope(), "both_source");
+    await removeTable(testAccountScope(), "both_out");
 
-    const view = await readStep(recipeId, consumer.id);
+    const view = await readStep(testAccountScope(), recipeId, consumer.id);
     expect(view.condition.conditions).toEqual(["broken", "output_missing"]);
     // Un-runnable before un-current: offering a re-run that cannot succeed
     // tells the user the wrong thing.
@@ -292,7 +293,7 @@ describe("editing a step is reflected in a later read", () => {
   it("lands on the definition when nothing has been produced yet", async () => {
     const s = step("SELECT 1 AS n", "unrun");
     expect(editStep(s.id, { sql: "SELECT 2 AS n", name: "unrun" })).toBe("active");
-    expect((await readRecipe(recipeId)).steps[0].step.parameters).toEqual({
+    expect((await readRecipe(testAccountScope(), recipeId)).steps[0].step.parameters).toEqual({
       sql: "SELECT 2 AS n",
       name: "unrun",
     });
@@ -305,7 +306,7 @@ describe("editing a step is reflected in a later read", () => {
       "proposed",
     );
 
-    const view = (await readRecipe(recipeId)).steps[0];
+    const view = (await readRecipe(testAccountScope(), recipeId)).steps[0];
     // The step still means what its output was produced from, and says what is
     // waiting — the two facts a surface needs to explain the difference.
     expect(view.step.parameters).toEqual({ sql: "SELECT 1 AS n", name: "produced" });
@@ -326,13 +327,13 @@ describe("a step that has never run can still be broken", () => {
     // would offer a re-run that cannot succeed, which tells the user the
     // wrong thing.
     const s = step("SELECT count(*) AS n FROM stations", "not_yet");
-    expect((await readStep(recipeId, s.id)).condition.conditions).toEqual([
+    expect((await readStep(testAccountScope(), recipeId, s.id)).condition.conditions).toEqual([
       "never_run",
     ]);
 
-    await removeTable("stations");
+    await removeTable(testAccountScope(), "stations");
 
-    const view = await readStep(recipeId, s.id);
+    const view = await readStep(testAccountScope(), recipeId, s.id);
     expect(view.condition.conditions).toEqual(["broken", "never_run"]);
     expect(view.condition.primary).toBe("broken");
     expect(view.condition.missingInputs[0].tableName).toBe("stations");
@@ -346,7 +347,7 @@ describe("a step that has never run can still be broken", () => {
     step("SELECT name FROM stations", "fresh_one");
     const second = step("SELECT count(*) AS n FROM fresh_one", "fresh_two");
 
-    const view = await readStep(recipeId, second.id);
+    const view = await readStep(testAccountScope(), recipeId, second.id);
     expect(view.condition.conditions).toEqual(["never_run"]);
     expect(view.condition.missingInputs).toEqual([]);
   }, 60_000);
@@ -360,7 +361,7 @@ describe("a re-authored step brings its origin with it", () => {
       origin: { layerId: "layer-a", layerName: "A", substitutedSource: false },
     });
     await run(s.id);
-    expect((await readStep(recipeId, s.id)).step.origin).toMatchObject({
+    expect((await readStep(testAccountScope(), recipeId, s.id)).step.origin).toMatchObject({
       layerId: "layer-a",
     });
 
@@ -372,12 +373,12 @@ describe("a re-authored step brings its origin with it", () => {
     );
     // Until the proposal runs, the step still means what its output came from —
     // and so does the origin describing it.
-    expect((await readStep(recipeId, s.id)).step.origin).toMatchObject({
+    expect((await readStep(testAccountScope(), recipeId, s.id)).step.origin).toMatchObject({
       layerId: "layer-a",
     });
 
     await run(s.id);
-    expect((await readStep(recipeId, s.id)).step.origin).toMatchObject({
+    expect((await readStep(testAccountScope(), recipeId, s.id)).step.origin).toMatchObject({
       layerId: "layer-b",
     });
     expect(getStep(s.id)!.proposedOrigin).toBeNull();
@@ -396,7 +397,7 @@ describe("a re-authored step brings its origin with it", () => {
     // filter count for a query that was never captured from anything.
     editStep(s.id, { sql: "SELECT 1 AS n", name: "handwritten" });
     await run(s.id);
-    expect((await readStep(recipeId, s.id)).step.origin).toBeNull();
+    expect((await readStep(testAccountScope(), recipeId, s.id)).step.origin).toBeNull();
   }, 90_000);
 
   it("keeps the origin when an edit leaves the SQL alone", async () => {
@@ -410,7 +411,7 @@ describe("a re-authored step brings its origin with it", () => {
     // Renaming the output does not change where the query came from.
     editStep(s.id, { sql: "SELECT name FROM stations", name: "same_sql_two" });
     await run(s.id);
-    expect((await readStep(recipeId, s.id)).step.origin).toMatchObject({
+    expect((await readStep(testAccountScope(), recipeId, s.id)).step.origin).toMatchObject({
       layerId: "layer-a",
     });
   }, 90_000);

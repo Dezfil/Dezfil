@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm, stat } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
@@ -70,10 +71,10 @@ beforeEach(async () => {
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/source.csv`;
-  await importFromUrl(url, "lineage_source");
+  await importFromUrl(testAccountScope(), url, "lineage_source");
   source = getTableByName("lineage_source")!;
-  expect((await executeQuery(SQL)).preview).toEqual([{ value: 1 }]);
-  recipeId = createRecipe("Pinned lineage").id;
+  expect((await executeQuery(testAccountScope(), SQL)).preview).toEqual([{ value: 1 }]);
+  recipeId = createRecipe(testAccountScope(), "Pinned lineage").id;
 });
 
 afterEach(async () => {
@@ -145,7 +146,7 @@ async function readArtifact(table: DataTable) {
 
 async function refresh() {
   value = 2;
-  await refreshTable(source.name);
+  await refreshTable(testAccountScope(), source.name);
   const next = getTableByName(source.name)!;
   expect(next.id).toBe(source.id);
   expect(next.file).not.toBe(source.file);
@@ -162,13 +163,13 @@ async function assertPublished(stepId: string, input: DataTable, expectedValue: 
   const output = getTableByName(name)!;
   expect(output).not.toBeNull();
   expect.soft(await readArtifact(output)).toEqual([{ value: expectedValue }]);
-  expect.soft(edgesForStep(stepId)).toMatchObject([{
+  expect.soft(edgesForStep(testAccountScope(), stepId)).toMatchObject([{
     inputTableId: input.id, inputTableName: input.name, boundArtifact: input.file,
   }]);
-  expect.soft(edgesForStep(stepId)).toHaveLength(1);
+  expect.soft(edgesForStep(testAccountScope(), stepId)).toHaveLength(1);
   // First public service reads, independent of the persisted edge assertion.
-  const single = await readStep(recipeId, stepId);
-  const whole = await readRecipe(recipeId);
+  const single = await readStep(testAccountScope(), recipeId, stepId);
+  const whole = await readRecipe(testAccountScope(), recipeId);
   for (const view of [single, whole.steps.find((s) => s.step.id === stepId)!]) {
     expect.soft(view.latestAttempt?.state).toBe("succeeded");
     expect.soft(view.condition.primary).toBe(condition);
@@ -187,18 +188,18 @@ describe("lineage pinned to the run", () => {
   it("keeps copied lineage through real refresh and second registration, then reruns current", async () => {
     const s = step();
     const hold = holdAt("copied", s.id);
-    const job = await startStepRun(s.id);
+    const job = await startStepRun(testAccountScope(), s.id);
     await hold.reached();
     expect(getJob(job.id)!.state).toBe("running");
     const next = await refresh();
-    expect((await executeQuery(SQL)).preview).toEqual([{ value: 2 }]);
+    expect((await executeQuery(testAccountScope(), SQL)).preview).toEqual([{ value: 2 }]);
     hold.release();
     await laneSettled();
     const oldOutput = await assertPublished(s.id, source, 1, "stale");
     await retirementsSettled();
     await expect(stat(path.join(dir, "data", source.file))).rejects.toMatchObject({ code: "ENOENT" });
 
-    const rerun = await startStepRun(s.id);
+    const rerun = await startStepRun(testAccountScope(), s.id);
     await laneSettled();
     expect(getJob(rerun.id)!.state).toBe("succeeded");
     const newOutput = await assertPublished(s.id, next, 2, "current");
@@ -210,15 +211,15 @@ describe("lineage pinned to the run", () => {
   it("keeps the original identity when another table reclaims the input name", async () => {
     const s = step();
     const hold = holdAt("copied", s.id);
-    await startStepRun(s.id);
+    await startStepRun(testAccountScope(), s.id);
     await hold.reached();
-    await removeTable(source.name);
+    await removeTable(testAccountScope(), source.name);
     value = 2;
-    await importFromUrl(url, source.name);
+    await importFromUrl(testAccountScope(), url, source.name);
     const stranger = getTableByName(source.name)!;
     expect(stranger.id).not.toBe(source.id);
     expect(stranger.file).not.toBe(source.file);
-    expect((await executeQuery(SQL)).preview).toEqual([{ value: 2 }]);
+    expect((await executeQuery(testAccountScope(), SQL)).preview).toEqual([{ value: 2 }]);
     hold.release();
     await laneSettled();
     await assertPublished(s.id, source, 1, "broken");
@@ -227,7 +228,7 @@ describe("lineage pinned to the run", () => {
   it("uses catalog evidence when refresh lands before the run registry read", async () => {
     const s = step();
     const hold = holdAt("registered", s.id);
-    const job = await startStepRun(s.id);
+    const job = await startStepRun(testAccountScope(), s.id);
     await hold.reached();
     expect(getJob(job.id)!.state).toBe("running");
     await refresh(); // No executeQuery or other shared-view registration here.
@@ -239,10 +240,10 @@ describe("lineage pinned to the run", () => {
   it.each(["registered", "pre-copy"] as const)("keeps execution on the bound input through a pre-copy refresh (%s)", async (point) => {
     const s = step();
     const hold = holdAt(point, s.id);
-    await startStepRun(s.id);
+    await startStepRun(testAccountScope(), s.id);
     await hold.reached();
     await refresh();
-    expect((await executeQuery(SQL)).preview).toEqual([{ value: 2 }]);
+    expect((await executeQuery(testAccountScope(), SQL)).preview).toEqual([{ value: 2 }]);
     hold.release();
     await laneSettled();
     await assertPublished(s.id, source, 1, "stale");
@@ -250,7 +251,7 @@ describe("lineage pinned to the run", () => {
 
   it("publishes an unchanged input with exact lineage and no causes", async () => {
     const s = step();
-    const job = await startStepRun(s.id);
+    const job = await startStepRun(testAccountScope(), s.id);
     await laneSettled();
     expect(getJob(job.id)!.state).toBe("succeeded");
     await assertPublished(s.id, source, 1, "current");
@@ -261,14 +262,14 @@ describe("lineage pinned to the run", () => {
     const one = step();
     const two = step("lineage_dependent", "SELECT value FROM lineage_output");
     const hold = holdAt("copied", one.id);
-    const cascade = await startCascade({ recipeId });
+    const cascade = await startCascade(testAccountScope(), { recipeId });
     try {
       await hold.reached();
       await refresh();
-      expect((await executeQuery(SQL)).preview).toEqual([{ value: 2 }]);
+      expect((await executeQuery(testAccountScope(), SQL)).preview).toEqual([{ value: 2 }]);
     } finally { hold.release(); }
     await cascadeSettled(cascade.id);
-    const finished = readCascade(cascade.id);
+    const finished = readCascade(testAccountScope(), cascade.id);
     expect(finished.outcome).toBe("completed");
     expect(finished.members.map((m) => m.state)).toEqual(["succeeded", "succeeded"]);
     const producerJobs = listJobs({ subjectId: one.id });
@@ -279,11 +280,11 @@ describe("lineage pinned to the run", () => {
     const producer = await assertPublished(one.id, source, 1, "stale");
     const dependent = getTableByName("lineage_dependent")!;
     expect(await readArtifact(dependent)).toEqual([{ value: 1 }]);
-    expect(edgesForStep(two.id)).toMatchObject([{
+    expect(edgesForStep(testAccountScope(), two.id)).toMatchObject([{
       inputTableId: producer.id, inputTableName: producer.name, boundArtifact: producer.file,
     }]);
-    expect(edgesForStep(two.id)).toHaveLength(1);
-    for (const view of [await readStep(recipeId, two.id), (await readRecipe(recipeId)).steps[1]]) {
+    expect(edgesForStep(testAccountScope(), two.id)).toHaveLength(1);
+    for (const view of [await readStep(testAccountScope(), recipeId, two.id), (await readRecipe(testAccountScope(), recipeId)).steps[1]]) {
       expect(view.latestAttempt?.state).toBe("succeeded");
       expect.soft(view.condition.primary).toBe("stale");
       expect.soft(view.condition.causes).toEqual([{
@@ -294,11 +295,11 @@ describe("lineage pinned to the run", () => {
 
     // Explicit user rerun, after both outputs have published. This is the clean
     // cascade control, with the same identities and now the current values.
-    const clean = await startCascade({ recipeId });
+    const clean = await startCascade(testAccountScope(), { recipeId });
     await cascadeSettled(clean.id);
-    expect(readCascade(clean.id).outcome).toBe("completed");
-    expect(readCascade(clean.id).members.map((m) => m.state)).toEqual(["succeeded", "succeeded"]);
-    const recipe = await readRecipe(recipeId);
+    expect(readCascade(testAccountScope(), clean.id).outcome).toBe("completed");
+    expect(readCascade(testAccountScope(), clean.id).members.map((m) => m.state)).toEqual(["succeeded", "succeeded"]);
+    const recipe = await readRecipe(testAccountScope(), recipeId);
     expect(recipe.steps.map((s) => s.condition.primary)).toEqual(["current", "current"]);
     expect(recipe.steps.map((s) => s.condition.causes)).toEqual([[], []]);
     for (const [s, previous] of [[one, producer], [two, dependent]] as const) {

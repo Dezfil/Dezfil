@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { randomBytes } from "node:crypto";
 import type { Readable } from "node:stream";
 import type { LayerExportFile, LayerExportFormat } from "./layer-export";
@@ -28,6 +29,8 @@ export interface PreparedLayerDownload extends LayerExportFile {
 }
 
 interface TicketEntry {
+  scope: AccountScope;
+  accountId: string;
   binding: LayerDownloadBinding;
   file: PreparedLayerDownload;
   status: LayerDownloadStatus;
@@ -114,16 +117,19 @@ export class LayerDownloadTicketStore {
   }
 
   prepare(
+    scope: AccountScope,
     binding: LayerDownloadBinding,
     file: PreparedLayerDownload,
     signal?: AbortSignal,
   ): string {
+    const accountId = requireAccountScope(scope);
     let ticket: string;
     do {
       ticket = this.createToken();
     } while (this.entries.has(ticket));
 
     const entry: TicketEntry = {
+      scope, accountId,
       binding: { ...binding },
       file,
       status: "prepared",
@@ -155,10 +161,11 @@ export class LayerDownloadTicketStore {
   }
 
   claim(
+    scope: AccountScope,
     ticket: string,
     binding: LayerDownloadBinding,
   ): ClaimedLayerDownload | null {
-    const entry = this.boundEntry(ticket, binding);
+    const entry = this.boundEntry(scope, ticket, binding);
     if (!entry || entry.status !== "prepared") return null;
 
     this.transferPrepareOwnership(entry);
@@ -173,6 +180,7 @@ export class LayerDownloadTicketStore {
       contentType: entry.file.contentType,
       size: entry.file.size,
       registerAbort: (abort) => {
+        try { requireAccountScope(entry.scope); } catch { this.settle(ticket, entry, "failed"); abort(); return false; }
         if (!stillStreaming()) {
           abort();
           return false;
@@ -181,7 +189,9 @@ export class LayerDownloadTicketStore {
         return true;
       },
       complete: () => {
-        if (stillStreaming()) this.settle(ticket, entry, "complete");
+        if (!stillStreaming()) return;
+        try { requireAccountScope(entry.scope); } catch { this.settle(ticket, entry, "failed"); return; }
+        this.settle(ticket, entry, "complete");
       },
       fail: () => {
         if (stillStreaming()) this.settle(ticket, entry, "failed");
@@ -190,20 +200,22 @@ export class LayerDownloadTicketStore {
   }
 
   status(
+    scope: AccountScope,
     ticket: string,
     binding: LayerDownloadBinding,
   ): LayerDownloadStatus | null {
-    const entry = this.boundEntry(ticket, binding);
+    const entry = this.boundEntry(scope, ticket, binding);
     if (!entry) return null;
     this.transferPrepareOwnership(entry);
     return entry.status;
   }
 
   async release(
+    scope: AccountScope,
     ticket: string,
     binding: LayerDownloadBinding,
   ): Promise<boolean> {
-    const entry = this.boundEntry(ticket, binding);
+    const entry = this.boundEntry(scope, ticket, binding);
     if (!entry) return false;
 
     // A native attachment may already be consuming the file. The UI's
@@ -247,12 +259,14 @@ export class LayerDownloadTicketStore {
   }
 
   private boundEntry(
+    scope: AccountScope,
     ticket: string,
     binding: LayerDownloadBinding,
   ): TicketEntry | null {
+    const accountId = requireAccountScope(scope);
     const entry = this.entries.get(ticket);
     if (
-      !entry ||
+      !entry || entry.accountId !== accountId ||
       entry.binding.layerId !== binding.layerId ||
       entry.binding.format !== binding.format
     ) {

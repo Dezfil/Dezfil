@@ -1,8 +1,6 @@
-import { randomUUID } from "node:crypto";
-import { mkdir, rm } from "node:fs/promises";
-import path from "node:path";
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { prepareStagingInput, removeStagingInput, type StagingInput } from "@/lib/query/staging";
 import type { DuckDBConnection } from "@duckdb/node-api";
-import { dataDir } from "@/lib/config";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { ident } from "@/lib/ingest/ingest";
 import type { DataTable } from "@/lib/metadata/tables";
@@ -58,8 +56,8 @@ export interface Disclosure {
 }
 
 export interface BatchResult {
-  /** Absolute path of the staging artifact. Run-owned, and never published. */
-  stage: string;
+  /** Opaque input retained only by the preparing job. */
+  stage: StagingInput;
   /** Distinct address values staged — the join's own row count. */
   staged: number;
   disclosure: Disclosure;
@@ -169,7 +167,7 @@ async function writeStage(
 export function publicationSql(
   table: DataTable,
   column: string,
-  stage: string,
+  stage: StagingInput,
 ): string {
   const source = ident(table.name);
   return `SELECT s.*,
@@ -179,14 +177,14 @@ export function publicationSql(
        g.attribution AS geocode_attribution,
        g.source AS geocode_source
 FROM ${source} AS s
-LEFT JOIN read_parquet('${stage.replace(/'/g, "''")}') AS g
+LEFT JOIN ${ident(stage.name)} AS g
   ON s.${ident(column)} = g.address`;
 }
 
 /** Remove a stage, whatever the run's outcome was. Best-effort by design: the
  * boot sweep collects what a dying process abandons. */
-export async function removeStage(stage: string): Promise<void> {
-  await rm(stage, { force: true }).catch(() => {});
+export async function removeStage(stage: StagingInput): Promise<void> {
+  await removeStagingInput(stage);
 }
 
 /**
@@ -198,14 +196,14 @@ export async function removeStage(stage: string): Promise<void> {
  * is terminal** — the deadline and the signal are both checked between rows,
  * which is the only place a sequential batch can check them.
  */
-export async function stageBatch(options: BatchOptions): Promise<BatchResult> {
+export async function stageBatch(scope: AccountScope, options: BatchOptions): Promise<BatchResult> {
   const { table, column, signal, deadlineAt, timeoutError } = options;
   const endpoint = configuredEndpoint();
   if (!endpoint) throw unconfiguredError();
 
   const addresses = await boundedEvaluation(
     async (conn) => distinctAddresses(conn, table, column),
-    {
+    { scope,
       ...(signal ? { signal } : {}),
       budgetMs: remaining(deadlineAt, timeoutError),
       timeoutError,
@@ -218,6 +216,7 @@ export async function stageBatch(options: BatchOptions): Promise<BatchResult> {
   const attributions = new Set<string>();
   for (const address of addresses) {
     if (address === null) continue; // a NULL cannot be a join key
+    requireAccountScope(scope);
     if (signal?.aborted) throw new EvaluationCancelled();
     // Checked *before* the request rather than after it: a row that starts
     // inside the budget and finishes outside it is one thing; a request that
@@ -250,24 +249,13 @@ export async function stageBatch(options: BatchOptions): Promise<BatchResult> {
     });
   }
 
-  const stage = path.join(
-    dataDir(),
-    "tables",
-    `geocode-stage-${randomUUID()}.parquet`,
-  );
-  await mkdir(path.dirname(stage), { recursive: true });
-  try {
-    await boundedEvaluation(async (conn) => writeStage(conn, rows, stage), {
+  const stage = await prepareStagingInput(scope, "geocode", async file => {
+    await boundedEvaluation(async (conn) => writeStage(conn, rows, file), { scope,
       ...(signal ? { signal } : {}),
       budgetMs: remaining(deadlineAt, timeoutError),
       timeoutError,
     });
-  } catch (error) {
-    // A stage nobody will publish is removed here rather than left for the
-    // caller: the run may be about to fail, and the file is this function's.
-    await removeStage(stage);
-    throw error;
-  }
+  });
 
   return {
     stage,

@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
@@ -43,9 +44,9 @@ for (const [form, url] of Object.entries(forms)) {
     const edit = operation !== "create";
     const send = async (modes: string[], extra = {}) => {
       const body = { name: "TLS test", url: url(modes), ...extra };
-      if (!edit) return POST(request(body));
-      insertConnection({ ...saved, ssl: operation === "edit-on" });
-      return PATCH(request(body), { params: Promise.resolve({ id: saved.id }) });
+      if (!edit) return POST(testAccountRequest(request(body)));
+      insertConnection(testAccountScope(), { ...saved, ssl: operation === "edit-on" });
+      return PATCH(testAccountRequest(request(body)), { params: Promise.resolve({ id: saved.id }) });
     };
     describe(`${form} ${operation} through real route and outgoing attachment`, () => {
       it.each([
@@ -70,8 +71,8 @@ for (const [form, url] of Object.entries(forms)) {
           expect(response.status).toBe(400);
           expect(await response.json()).toEqual({ error: { code: "invalid_request", message: refusal } });
           if (edit) {
-            expect(getConnection(saved.id)).toMatchObject({ database: "old", ssl: operation === "edit-on", status: "never_checked" });
-            expect(connectionPassword(saved.id)).toBe(saved.password);
+            expect(getConnection(testAccountScope(), saved.id)).toMatchObject({ database: "old", ssl: operation === "edit-on", status: "never_checked" });
+            expect(connectionPassword(testAccountScope(), saved.id)).toBe(saved.password);
           }
         },
       );

@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync, readdirSync, writeFileSync } from "node:fs";
 import os from "node:os";
@@ -50,7 +51,7 @@ async function seedTable(
     await conn.run(`COPY (${select}) TO '${abs}' (FORMAT PARQUET)`);
     return measureArtifact(conn, abs);
   });
-  insertTable({
+  insertTable(testAccountScope(), {
     id: randomUUID(),
     name,
     sourceFilename: `${name}.geojson`,
@@ -93,7 +94,7 @@ describe("a result becomes a dataset", () => {
     // capped at the preview passes neither.
     await seedTable("wide", "SELECT * FROM range(2500) t(id)");
     const { materialize } = await import("./materialize");
-    const table = await materialize({
+    const table = await materialize(testAccountScope(), {
       sql: "SELECT id FROM wide",
       name: "wide_copy",
       operation: "sql_step",
@@ -101,14 +102,14 @@ describe("a result becomes a dataset", () => {
     expect(table.rowCount).toBe(2500);
 
     const { executeQuery } = await import("@/lib/query/execute");
-    const back = await executeQuery("SELECT count(*) AS n FROM wide_copy");
+    const back = await executeQuery(testAccountScope(), "SELECT count(*) AS n FROM wide_copy");
     expect(Number(back.preview[0].n)).toBe(2500);
   });
 
   it("registers a geometryless result as a first-class dataset", async () => {
     await seedTable("pts", "SELECT 1 AS id, ST_Point(1,2) AS geom");
     const { materialize } = await import("./materialize");
-    const table = await materialize({
+    const table = await materialize(testAccountScope(), {
       sql: "SELECT count(*) AS n FROM pts",
       name: "pt_count",
       operation: "sql_step",
@@ -120,7 +121,7 @@ describe("a result becomes a dataset", () => {
     expect(table.geometryType).toBeNull();
     expect(table.rowCount).toBe(1);
     const { executeQuery } = await import("@/lib/query/execute");
-    expect((await executeQuery("SELECT n FROM pt_count")).preview).toHaveLength(
+    expect((await executeQuery(testAccountScope(), "SELECT n FROM pt_count")).preview).toHaveLength(
       1,
     );
   });
@@ -130,7 +131,7 @@ describe("a result becomes a dataset", () => {
     const { getTableByName } = await import("@/lib/metadata/tables");
     const input = getTableByName("src_a");
     const { materialize } = await import("./materialize");
-    const table = await materialize({
+    const table = await materialize(testAccountScope(), {
       sql: "SELECT id FROM src_a",
       name: "derived",
       operation: "sql_step",
@@ -155,7 +156,7 @@ describe("assumed CRS is inherited from geometry, not from every input", () => {
       crsAssumed: true,
     });
     const { materialize } = await import("./materialize");
-    const table = await materialize({
+    const table = await materialize(testAccountScope(), {
       sql: "SELECT g.geom FROM guessy g",
       name: "carried",
       operation: "sql_step",
@@ -172,7 +173,7 @@ describe("assumed CRS is inherited from geometry, not from every input", () => {
     });
     await seedTable("sure", "SELECT 1 AS id, ST_Point(3,4) AS geom");
     const { materialize } = await import("./materialize");
-    const table = await materialize({
+    const table = await materialize(testAccountScope(), {
       sql: "SELECT s.geom FROM sure s JOIN guessy g ON g.id = s.id",
       name: "not_carried",
       operation: "sql_step",
@@ -188,7 +189,7 @@ describe("a taken name is refused", () => {
     const before = getTableByName("taken");
     const { materialize } = await import("./materialize");
     await expect(
-      materialize({
+      materialize(testAccountScope(), {
         sql: "SELECT 2 AS id",
         name: "taken",
         operation: "sql_step",
@@ -207,7 +208,7 @@ describe("a taken name is refused", () => {
     await seedTable("shared", "SELECT 1 AS id");
     const { materialize } = await import("./materialize");
     await expect(
-      materialize({ sql: "SELECT 1", name: "shared", operation: "sql_step" }),
+      materialize(testAccountScope(), { sql: "SELECT 1", name: "shared", operation: "sql_step" }),
     ).rejects.toMatchObject({ code: "name_taken" });
   });
 });
@@ -218,7 +219,7 @@ describe("a failure destroys nothing and leaves nothing", () => {
     const { listTables } = await import("@/lib/metadata/tables");
     const before = artifacts().length;
     await expect(
-      materialize({
+      materialize(testAccountScope(), {
         // A seeded fault the engine raises while producing rows, so the
         // failure lands after the write has begun rather than at parse time.
         sql: "SELECT CASE WHEN i > 5 THEN error('seeded fault') ELSE i END AS x FROM range(20) t(i)",
@@ -230,7 +231,7 @@ describe("a failure destroys nothing and leaves nothing", () => {
     expect(artifacts()).toHaveLength(before);
 
     // The name is still free for a later run to claim.
-    await materialize({ sql: "SELECT 1 AS x", name: "never", operation: "sql_step" });
+    await materialize(testAccountScope(), { sql: "SELECT 1 AS x", name: "never", operation: "sql_step" });
     expect(listTables().map((t) => t.name)).toContain("never");
   });
 
@@ -238,7 +239,7 @@ describe("a failure destroys nothing and leaves nothing", () => {
     const { materialize } = await import("./materialize");
     const { listTables } = await import("@/lib/metadata/tables");
     await expect(
-      materialize({
+      materialize(testAccountScope(), {
         sql: "CREATE TABLE sneaky AS SELECT 1",
         name: "sneaky_out",
         operation: "sql_step",
@@ -255,7 +256,7 @@ describe("a failure destroys nothing and leaves nothing", () => {
     writeFileSync(outside, "a\n1\n");
     try {
       await expect(
-        materialize({
+        materialize(testAccountScope(), {
           sql: `SELECT * FROM read_csv('${outside}')`,
           name: "exfil",
           operation: "sql_step",
@@ -278,7 +279,7 @@ describe("a failure destroys nothing and leaves nothing", () => {
     await seedTable("orphan_src", "SELECT 1 AS id");
     const before = artifacts().length;
     const { materialize } = await import("./materialize");
-    const table = await materialize({
+    const table = await materialize(testAccountScope(), {
       sql: "SELECT id FROM orphan_src",
       name: "orphan_out",
       operation: "sql_step",
@@ -306,8 +307,8 @@ describe("the dry run describes what the run will produce", () => {
     );
     const { dryRun, materialize } = await import("./materialize");
     const sql = "SELECT geom FROM mixedish";
-    const predicted = await dryRun(sql);
-    const table = await materialize({ sql, name: "written", operation: "sql_step" });
+    const predicted = await dryRun(testAccountScope(), sql);
+    const table = await materialize(testAccountScope(), { sql, name: "written", operation: "sql_step" });
     expect(predicted.geometryType).toBe(table.geometryType);
     expect(predicted.rowCount).toBe(table.rowCount);
   });
@@ -316,7 +317,7 @@ describe("the dry run describes what the run will produce", () => {
     await seedTable("src_b", "SELECT 1 AS id");
     const before = artifacts().length;
     const { dryRun } = await import("./materialize");
-    const r = await dryRun("SELECT id FROM src_b");
+    const r = await dryRun(testAccountScope(), "SELECT id FROM src_b");
     expect(r.rowCount).toBe(1);
     expect(artifacts()).toHaveLength(before);
   });
@@ -324,7 +325,7 @@ describe("the dry run describes what the run will produce", () => {
   it("reports a count past the preview cap, not a preview of it", async () => {
     await seedTable("big", "SELECT * FROM range(2500) t(id)");
     const { dryRun } = await import("./materialize");
-    expect((await dryRun("SELECT id FROM big")).rowCount).toBe(2500);
+    expect((await dryRun(testAccountScope(), "SELECT id FROM big")).rowCount).toBe(2500);
   });
 });
 
@@ -336,14 +337,14 @@ describe("the two defects the cross-model review found", () => {
     // flagship case — save the query you just ran — the one case that failed.
     await seedTable("term_src", "SELECT 1 AS id");
     const { materialize } = await import("./materialize");
-    const table = await materialize({
+    const table = await materialize(testAccountScope(), {
       sql: "SELECT id FROM term_src;",
       name: "terminated",
       operation: "sql_step",
     });
     expect(table.rowCount).toBe(1);
     const { executeQuery } = await import("@/lib/query/execute");
-    expect((await executeQuery("SELECT id FROM terminated")).preview).toHaveLength(1);
+    expect((await executeQuery(testAccountScope(), "SELECT id FROM terminated")).preview).toHaveLength(1);
   });
 
   it("cannot be made to run DDL through a crafted geometry alias", async () => {
@@ -366,14 +367,14 @@ describe("the two defects the cross-model review found", () => {
 
     // Whether the probe succeeds or refuses is not the claim; the claim is
     // that the injected statement never ran.
-    await dryRun(sql).catch(() => undefined);
+    await dryRun(testAccountScope(), sql).catch(() => undefined);
 
     const marker = await boundedEvaluation(async (conn) => {
       const r = await conn.runAndReadAll(
         "SELECT count(*) AS n FROM duckdb_views() WHERE view_name = 'injected_marker'",
       );
       return Number(r.getRowObjects()[0].n);
-    });
+    }, { scope: testAccountScope() });
     expect(marker).toBe(0);
   });
 });
@@ -385,7 +386,7 @@ describe("a derived table's inputs resolve by the id they were recorded under", 
     // reads as though the run had used the stranger now holding that name.
     await seedTable("shifty", "SELECT 1 AS id");
     const { materialize } = await import("./materialize");
-    const derived = await materialize({
+    const derived = await materialize(testAccountScope(), {
       sql: "SELECT id FROM shifty",
       name: "from_shifty",
       operation: "sql_step",
@@ -396,7 +397,7 @@ describe("a derived table's inputs resolve by the id they were recorded under", 
     await seedTable("shifty", "SELECT 9 AS id, 'different' AS what");
 
     const { inspectTable } = await import("@/lib/table-service");
-    const seen = await inspectTable(derived.name);
+    const seen = await inspectTable(testAccountScope(), derived.name);
     expect(seen.inputs).toHaveLength(1);
     expect(seen.inputs![0].missing).toBe(true);
     expect(seen.inputs![0].nameReclaimed).toBe(true);
@@ -407,13 +408,13 @@ describe("a derived table's inputs resolve by the id they were recorded under", 
   it("resolves a live input, and follows it through a rename", async () => {
     await seedTable("steady", "SELECT 1 AS id");
     const { materialize } = await import("./materialize");
-    const derived = await materialize({
+    const derived = await materialize(testAccountScope(), {
       sql: "SELECT id FROM steady",
       name: "from_steady",
       operation: "sql_step",
     });
     const { inspectTable } = await import("@/lib/table-service");
-    const seen = await inspectTable(derived.name);
+    const seen = await inspectTable(testAccountScope(), derived.name);
     expect(seen.inputs![0]).toMatchObject({
       name: "steady",
       currentName: "steady",
@@ -427,14 +428,14 @@ describe("the dry run says its three answers apart", () => {
     await seedTable("shapes", "SELECT 1 AS id, ST_Point(1,2) AS geom");
     const { dryRun } = await import("./materialize");
 
-    const none = await dryRun("SELECT id FROM shapes");
+    const none = await dryRun(testAccountScope(), "SELECT id FROM shapes");
     expect(none.geometry).toBe("none");
 
-    const empty = await dryRun("SELECT geom FROM shapes WHERE 1 = 0");
+    const empty = await dryRun(testAccountScope(), "SELECT geom FROM shapes WHERE 1 = 0");
     expect(empty.geometry).toBe("undetermined");
     expect(empty.rowCount).toBe(0);
 
-    const classified = await dryRun("SELECT geom FROM shapes");
+    const classified = await dryRun(testAccountScope(), "SELECT geom FROM shapes");
     expect(classified.geometry).toBe("classified");
     expect(classified.geometryType).toBe("POINT");
 
@@ -453,8 +454,8 @@ describe("the dry run says its three answers apart", () => {
     const { dryRun, materialize } = await import("./materialize");
 
     const zeroSql = "SELECT id, geom FROM empty_shapes_source WHERE false";
-    const zeroDry = await dryRun(zeroSql);
-    const first = await materialize({
+    const zeroDry = await dryRun(testAccountScope(), zeroSql);
+    const first = await materialize(testAccountScope(), {
       sql: zeroSql,
       name: "empty_shapes",
       operation: "simplify",
@@ -472,7 +473,7 @@ describe("the dry run says its three answers apart", () => {
       crsAssumed: true,
     });
 
-    const rerun = await materialize({
+    const rerun = await materialize(testAccountScope(), {
       sql: zeroSql,
       name: first.name,
       operation: "simplify",
@@ -484,8 +485,8 @@ describe("the dry run says its three answers apart", () => {
 
     const nullSql =
       "SELECT id, CASE WHEN id = 1 THEN NULL::GEOMETRY ELSE geom END AS geom FROM empty_shapes_source";
-    const nullDry = await dryRun(nullSql);
-    const sqlNode = await materialize({
+    const nullDry = await dryRun(testAccountScope(), nullSql);
+    const sqlNode = await materialize(testAccountScope(), {
       sql: nullSql,
       name: "all_null_shapes",
       operation: "sql_step",
@@ -513,7 +514,7 @@ describe("the suspect-header warning does not propagate", () => {
       headerSuspect: true,
     });
     const { materialize } = await import("./materialize");
-    const table = await materialize({
+    const table = await materialize(testAccountScope(), {
       sql: "SELECT * FROM warned_src",
       name: "derived_out",
       operation: "sql_step",

@@ -31,7 +31,8 @@ export interface ConfirmationWords {
   target: string;
   consequence: string;
   subject: {
-    path: string;
+    /** Null confirms the submitted identity without reading its content. */
+    path: string | null;
     argument: string;
     name: string;
     /** A list read locates the subject by this identity field.

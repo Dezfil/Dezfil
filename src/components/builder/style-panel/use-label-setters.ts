@@ -3,6 +3,7 @@
 import type { LabelStyle, LayerStyle } from "@/lib/style/style";
 
 import { LEGACY_HALO_COLOR } from "@/lib/style/style";
+import { onPrivateReset } from "../../auth/private-state";
 
 /** A fresh label (halo as width+color): plain
  * text, no halo — the halo is an opt-in for imagery and busy basemaps. */
@@ -24,6 +25,7 @@ const DEFAULT_LABEL: Omit<LabelStyle, "attribute"> = {
  * switches, collapse, layer changes — for the whole session (review
  * round one). Per layer id; never persisted. */
 const remembered = new Map<string, Omit<LabelStyle, "attribute">>();
+onPrivateReset(() => remembered.clear());
 
 export function useLabelSetters(
   layerId: string,

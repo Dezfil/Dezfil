@@ -12,7 +12,7 @@ export function privateResponse<T extends Response>(response: T): T {
   response.headers.set("cache-control", "private, no-store");
   return response;
 }
-export function requestIngress(request: Request): Ingress {
+export function requestIngress(request: Pick<Request, "headers">): Ingress {
   try { return requireIngress(request.headers); }
   catch { throw new AuthError("ingress_unavailable", "The instance cannot accept sign-ins yet.", 503); }
 }
@@ -40,6 +40,10 @@ export function requireRequestAuth(request: Request, db?: Database): AuthContext
   if (!request.headers.has("authorization")) assertRequestOrigin(request);
   const context = requestAuth(request, db);
   if (!context) throw new AuthError("authentication_required", "Sign in to continue.", 401);
+  const expectedAccount = request.headers.get("x-dezfil-account");
+  if (expectedAccount !== null && expectedAccount !== context.account.id) {
+    throw new AuthError("authentication_required", "Sign in to continue.", 401);
+  }
   assertRequestOrigin(request, context);
   return context;
 }

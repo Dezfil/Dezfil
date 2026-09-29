@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -25,8 +26,8 @@ beforeEach(async () => {
   resetQueryInstance();
   const source = path.join(dir, "stations.csv");
   await writeFile(source, "name,lon,lat\nalex,13.41,52.52\nzoo,13.33,52.51\n");
-  await ingestFile(source, "stations.csv");
-  await boundedEvaluation(async () => undefined);
+  await ingestFile(testAccountScope(), source, "stations.csv");
+  await boundedEvaluation(async () => undefined, { scope: testAccountScope() });
 });
 
 afterEach(async () => {
@@ -43,15 +44,15 @@ const sql = (query: string, name: string) => ({
 });
 
 async function publish(recipeId: string, stepId: string) {
-  const run = await startSingleRun(recipeId, stepId);
+  const run = await startSingleRun(testAccountScope(), recipeId, stepId);
   await cascadeSettled(run.id);
-  const step = (await readRecipe(recipeId)).steps.find((candidate) => candidate.step.id === stepId);
+  const step = (await readRecipe(testAccountScope(), recipeId)).steps.find((candidate) => candidate.step.id === stepId);
   expect(step?.step.outputTableId).not.toBeNull();
 }
 
 describe("prospective missing inputs use the next-run definition", () => {
   it("keeps a published downstream step current when its producer's pending missing input is prospective-only, then restores the producer on discard", async () => {
-    const recipe = createRecipe("Pending missing with live downstream");
+    const recipe = createRecipe(testAccountScope(), "Pending missing with live downstream");
     const producer = addStep(
       recipe.id,
       sql("SELECT name FROM stations", "published_a"),
@@ -63,7 +64,7 @@ describe("prospective missing inputs use the next-run definition", () => {
     );
     await publish(recipe.id, consumer.id);
 
-    const before = await readRecipe(recipe.id);
+    const before = await readRecipe(testAccountScope(), recipe.id);
     expect(before.steps.map((candidate) => candidate.condition.primary)).toEqual([
       "current",
       "current",
@@ -76,7 +77,7 @@ describe("prospective missing inputs use the next-run definition", () => {
       }),
     ).toBe("proposed");
 
-    const view = await readRecipe(recipe.id);
+    const view = await readRecipe(testAccountScope(), recipe.id);
     const pending = view.steps.find(
       (candidate) => candidate.step.id === producer.id,
     )!;
@@ -93,7 +94,7 @@ describe("prospective missing inputs use the next-run definition", () => {
     expect(view.summary).toMatchObject({ status: "cannot_run", count: 1 });
 
     discardProposal(producer.id);
-    const restored = await readRecipe(recipe.id);
+    const restored = await readRecipe(testAccountScope(), recipe.id);
     expect(restored.steps.map((candidate) => candidate.condition.primary)).toEqual([
       "current",
       "current",
@@ -102,13 +103,13 @@ describe("prospective missing inputs use the next-run definition", () => {
   }, 60_000);
 
   it("keeps the never-published missing-table condition", async () => {
-    const recipe = createRecipe("Never published missing");
+    const recipe = createRecipe(testAccountScope(), "Never published missing");
     const step = addStep(
       recipe.id,
       sql("SELECT * FROM unpublished_table_that_does_not_exist", "never_out"),
     );
 
-    const view = await readRecipe(recipe.id);
+    const view = await readRecipe(testAccountScope(), recipe.id);
     const unpublished = view.steps.find((candidate) => candidate.step.id === step.id)!;
     expect(unpublished.condition.conditions).toEqual(["broken", "never_run"]);
     expect(unpublished.condition.missingInputs.map((input) => input.tableName)).toEqual([
@@ -118,14 +119,14 @@ describe("prospective missing inputs use the next-run definition", () => {
   });
 
   it("marks an unpublished forward reference to a later producer broken", async () => {
-    const recipe = createRecipe("Forward reference");
+    const recipe = createRecipe(testAccountScope(), "Forward reference");
     const forward = addStep(
       recipe.id,
       sql("SELECT * FROM produced_later", "forward_consumer"),
     );
     addStep(recipe.id, sql("SELECT name FROM stations", "produced_later"));
 
-    const view = await readRecipe(recipe.id);
+    const view = await readRecipe(testAccountScope(), recipe.id);
     const unpublished = view.steps.find(
       (candidate) => candidate.step.id === forward.id,
     )!;
@@ -138,7 +139,7 @@ describe("prospective missing inputs use the next-run definition", () => {
   });
 
   it("treats a name an earlier step will produce as a dependency, not missing", async () => {
-    const recipe = createRecipe("Planned dependency");
+    const recipe = createRecipe(testAccountScope(), "Planned dependency");
     addStep(recipe.id, sql("SELECT name FROM stations", "planned_source"));
     const consumer = addStep(
       recipe.id,
@@ -152,7 +153,7 @@ describe("prospective missing inputs use the next-run definition", () => {
       ),
     ).toBe("proposed");
 
-    const view = await readRecipe(recipe.id);
+    const view = await readRecipe(testAccountScope(), recipe.id);
     const pending = view.steps.find((candidate) => candidate.step.id === consumer.id)!;
     expect(pending.reads).toEqual(["planned_source"]);
     expect(pending.condition.conditions).not.toContain("broken");
@@ -161,14 +162,14 @@ describe("prospective missing inputs use the next-run definition", () => {
   }, 60_000);
 
   it("keeps an unreadable pending definition as no reads, never broken", async () => {
-    const recipe = createRecipe("Unreadable proposal");
+    const recipe = createRecipe(testAccountScope(), "Unreadable proposal");
     const step = addStep(recipe.id, sql("SELECT name FROM stations", "unreadable_out"));
     await publish(recipe.id, step.id);
     expect(
       editStep(step.id, { sql: "SELEC nonsense FROM", name: "unreadable_out" }),
     ).toBe("proposed");
 
-    const view = await readRecipe(recipe.id);
+    const view = await readRecipe(testAccountScope(), recipe.id);
     const pending = view.steps.find((candidate) => candidate.step.id === step.id)!;
     expect(pending.reads).toEqual([]);
     expect(pending.condition.conditions).not.toContain("broken");

@@ -1,6 +1,8 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { metadataDb } from "@/lib/metadata/db";
 import { ApiError } from "@/lib/api/errors";
-import { getMap, listLayers } from "@/lib/metadata/maps";
-import { listRecipes, listSteps } from "@/lib/metadata/recipes";
+import { listLayers } from "@/lib/metadata/maps";
+import { requireMap } from "@/lib/map-access";
 import { queryInputsStrict } from "@/lib/operations/inputs";
 import { boundedEvaluation } from "@/lib/query/bounded";
 import { listTablesWithSize, type TableListing } from "@/lib/table-service";
@@ -38,16 +40,13 @@ export type Producer = { id: string; name: string };
 
 /** The workflow-origin producers by their current output identity: one
  * capture, shared by the map's and the workflow's reads. */
-export function currentProducers(): Map<string, Producer> {
-  const producers = new Map<string, Producer>();
-  for (const recipe of listRecipes(undefined, { origin: "workflow" })) {
-    for (const step of listSteps(recipe.id)) {
-      if (step.outputTableId) {
-        producers.set(step.outputTableId, { id: recipe.id, name: recipe.name });
-      }
-    }
-  }
-  return producers;
+export function currentProducers(scope: AccountScope): Map<string, Producer> {
+  const owner = requireAccountScope(scope);
+  const rows = metadataDb().prepare(`SELECT r.id, r.name, s.output_table_id FROM recipes r
+    JOIN recipe_steps s ON s.recipe_id = r.id JOIN data_tables t ON t.id = s.output_table_id
+    WHERE r.owner_id = ? AND t.owner_id = ? AND r.origin = 'workflow'
+    ORDER BY r.created_at DESC, r.id DESC, s.ordinal`).all(owner, owner) as { id: string; name: string; output_table_id: string }[];
+  return new Map(rows.map(row => [row.output_table_id, { id: row.id, name: row.name }]));
 }
 
 /** One dependency entry from a captured listing — the facts both
@@ -69,25 +68,24 @@ export function dependencyOf(
 }
 
 export async function mapDependencies(
+  scope: AccountScope,
   mapId: string,
 ): Promise<MapDependency[]> {
-  if (!getMap(mapId)) {
-    throw new ApiError("not_found", `No map with id ${mapId}.`, 404);
-  }
+  requireMap(scope, mapId);
   const layers = listLayers(mapId);
 
   // One captured world: the registry with memberships, and the
   // workflow-origin producers by their current output identity.
-  const tables = await listTablesWithSize();
+  const tables = await listTablesWithSize(scope);
   const byName = new Map(tables.map((t) => [t.name.toLowerCase(), t]));
-  const producers = currentProducers();
+  const producers = currentProducers(scope);
 
   const found = new Map<string, MapDependency>();
   for (const layer of layers) {
     let names: string[];
     try {
       names = await boundedEvaluation(async (conn) =>
-        (await queryInputsStrict(conn, layer.sql, () => null)).tables,
+        (await queryInputsStrict(conn, layer.sql, () => null)).tables, { scope },
       );
     } catch (cause) {
       throw new ApiError(
@@ -104,5 +102,6 @@ export async function mapDependencies(
       found.set(table.id, dependencyOf(table, producers));
     }
   }
+  requireMap(scope, mapId);
   return [...found.values()].sort((a, b) => a.name.localeCompare(b.name));
 }

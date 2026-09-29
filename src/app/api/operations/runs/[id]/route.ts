@@ -1,6 +1,7 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
-import { ApiError, errorResponse } from "@/lib/api/errors";
-import { getJob } from "@/lib/metadata/jobs";
+import { errorResponse } from "@/lib/api/errors";
+import { requireJob } from "@/lib/metadata/owned-jobs";
 import { jobView } from "@/lib/operations/job-view";
 
 type Params = { params: Promise<{ id: string }> };
@@ -14,13 +15,11 @@ type Params = { params: Promise<{ id: string }> };
  * failed one carries a coded error. Neither carries a percentage: the run
  * reports when it started, and elapsed time follows from that.
  */
-export async function GET(_request: Request, { params }: Params) {
+export async function GET(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
-    const job = getJob(id);
-    if (!job) {
-      throw new ApiError("not_found", `No run with id "${id}".`, 404);
-    }
+    const job = requireJob(scope, id);
     return NextResponse.json({ run: jobView(job) });
   } catch (error) {
     return errorResponse(error);

@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   mkdtemp,
@@ -52,7 +53,7 @@ describe("sweepTableArtifacts", () => {
     await mkdir(tables, { recursive: true });
     await writeFile(path.join(tables, "kept.parquet"), "k");
     await writeFile(path.join(tables, "orphan.parquet"), "o");
-    insertTable(registered("tables/kept.parquet"));
+    insertTable(testAccountScope(), registered("tables/kept.parquet"));
 
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {

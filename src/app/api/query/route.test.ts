@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -22,7 +23,7 @@ beforeEach(async () => {
   resetQueryInstance();
   const src = path.join(dir, "stations.csv");
   await writeFile(src, "name,lon,lat\nalexanderplatz,13.41,52.52\n");
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
 });
 afterEach(async () => {
   closeMetadataDb();
@@ -32,12 +33,12 @@ afterEach(async () => {
 });
 
 function post(body: unknown, signal?: AbortSignal): Request {
-  return new Request("http://test/api/query", {
+  return testAccountRequest(new Request("http://test/api/query", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
     signal,
-  });
+  }));
 }
 
 describe("POST /api/query — the caller's departure cancels (as Cancel uses it)", () => {

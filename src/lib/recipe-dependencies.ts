@@ -1,10 +1,12 @@
+import type { DatasetScope } from "@/lib/query/access";
+import type { AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
 import {
   currentProducers,
   dependencyOf,
   type MapDependency,
 } from "@/lib/map-dependencies";
-import { getRecipe, listSteps } from "@/lib/metadata/recipes";
+import { requireRecipe, listSteps } from "@/lib/metadata/owned-recipes";
 import { queryInputsStrict } from "@/lib/operations/inputs";
 import {
   currentDefinition,
@@ -33,35 +35,34 @@ import { listTablesWithSize } from "@/lib/table-service";
 
 export type WorkflowDependency = MapDependency;
 
-async function strictReads(step: StepDefinition): Promise<string[]> {
+async function strictReads(scope: DatasetScope, step: StepDefinition): Promise<string[]> {
   const declared = declaredReads(step);
   if (declared !== null) return declared;
   const params = currentDefinition(step);
   const sql = typeof params.sql === "string" ? params.sql : "";
   if (!sql) return [];
   return boundedEvaluation(async (conn) =>
-    (await queryInputsStrict(conn, sql, () => null)).tables,
+    (await queryInputsStrict(conn, sql, () => null)).tables, { scope },
   );
 }
 
 export async function workflowDependencies(
+  scope: AccountScope,
   recipeId: string,
 ): Promise<WorkflowDependency[]> {
-  if (!getRecipe(recipeId)) {
-    throw new ApiError("not_found", `No recipe with id "${recipeId}".`, 404);
-  }
-  const steps = listSteps(recipeId);
+  requireRecipe(scope, recipeId);
+  const steps = listSteps(scope, recipeId);
 
-  const tables = await listTablesWithSize();
+  const tables = await listTablesWithSize(scope);
   const byName = new Map(tables.map((t) => [t.name.toLowerCase(), t]));
   const byId = new Map(tables.map((t) => [t.id, t]));
-  const producers = currentProducers();
+  const producers = currentProducers(scope);
 
   const found = new Map<string, WorkflowDependency>();
   for (const step of steps) {
     let names: string[];
     try {
-      names = await strictReads(step);
+      names = await strictReads(scope, step);
     } catch (cause) {
       throw new ApiError(
         "dependencies_unresolved",
@@ -83,5 +84,6 @@ export async function workflowDependencies(
       found.set(output.id, dependencyOf(output, producers));
     }
   }
+  requireRecipe(scope, recipeId);
   return [...found.values()].sort((a, b) => a.name.localeCompare(b.name));
 }

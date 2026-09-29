@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, readFile, rm, writeFile, access, readdir } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
@@ -10,13 +11,14 @@ import { getTileRecord, upsertTileRecord } from "@/lib/metadata/tiles";
 import { dataDir } from "@/lib/config";
 import { resetQueryInstance, connectQueryInstance } from "@/lib/duckdb";
 import { boundedEvaluation } from "@/lib/query/bounded";
+import { ApiError } from "@/lib/api/errors";
 import { registerTableViews } from "@/lib/query/views";
 import { ingestFile } from "./ingest";
 import { importFromUrl } from "./remote";
 
 /** Single-table imports, unwrapped (made the answer a result set). */
 const importOne = async (url: string, name?: string) =>
-  (await importFromUrl(url, name)).tables[0];
+  (await importFromUrl(testAccountScope(), url, name)).tables[0];
 import { refreshTable, invalidateTilesForTable } from "./refresh";
 import { resetRefreshFences } from "./fence";
 import { retirementsSettled } from "./retire";
@@ -79,16 +81,24 @@ async function evalCount(name: string): Promise<number> {
       `SELECT count(*) AS n FROM "${name.replace(/"/g, '""')}"`,
     );
     return Number((reader.getRowObjectsJson()[0] as { n: unknown }).n);
-  });
+  }, { scope: testAccountScope() });
+}
+
+async function evaluationFailure(evaluation: Promise<unknown>) {
+  const error = await evaluation.then(() => null, (error: unknown) => error);
+  expect(error).toBeInstanceOf(ApiError);
+  const failure = error as ApiError;
+  return { code: failure.code, status: failure.status, message: failure.message, extra: failure.extra };
 }
 
 /** Register a map + layer whose SQL references the table, plus a tile record. */
 function seedDependentLayer(table: string, layerId: string): void {
   const db = metadataDb();
+  const scope = testAccountScope(db);
   const now = new Date().toISOString();
   db.prepare(
-    `INSERT INTO maps (id, name, created_at, updated_at) VALUES (?, 'm', ?, ?)`,
-  ).run(`map-${layerId}`, now, now);
+    `INSERT INTO maps (id, name, created_at, updated_at, owner_id) VALUES (?, 'm', ?, ?, ?)`,
+  ).run(`map-${layerId}`, now, now, scope.accountId);
   db.prepare(
     `INSERT INTO layers (id, map_id, name, sql, style, ordinal, created_at, updated_at)
      VALUES (?, ?, 'l', ?, '{}', 0, ?, ?)`,
@@ -111,7 +121,7 @@ describe("refreshTable", () => {
     const oldArtifact = path.join(dataDir(), before.file);
 
     rows = 5;
-    const after = await refreshTable(before.name);
+    const after = await refreshTable(testAccountScope(), before.name);
     expect(after.rowCount).toBe(5);
     expect(after.file).not.toBe(before.file);
     expect(after.sourceParams).toEqual({ url });
@@ -132,7 +142,7 @@ describe("refreshTable", () => {
     expect(before.crsAssumed).toBe(true);
 
     bodyOverride = "name,wkt\na,\nb,\n";
-    const after = await refreshTable(before.name);
+    const after = await refreshTable(testAccountScope(), before.name);
     expect(after).toMatchObject({
       geometryColumn: "geometry",
       geometryType: null,
@@ -148,7 +158,7 @@ describe("refreshTable", () => {
     expect(await evalCount(before.name)).toBe(2);
 
     rows = 7;
-    await refreshTable(before.name);
+    await refreshTable(testAccountScope(), before.name);
     // The registry row is necessary but not sufficient: the answer must
     // come through the catalog view, from the new artifact.
     expect(await evalCount(before.name)).toBe(7);
@@ -163,7 +173,7 @@ describe("refreshTable", () => {
     const before = await importOne(`${base}/points.csv`);
     expect(await evalCount(before.name)).toBe(2); // bound
 
-    await removeTable(before.name);
+    await removeTable(testAccountScope(), before.name);
     rows = 5;
     const reclaimed = await importOne(`${base}/points.csv`);
     expect(reclaimed.name).toBe(before.name);
@@ -175,7 +185,7 @@ describe("refreshTable", () => {
   it("re-enters the egress policy: a de-allowlisted source refuses to refresh", async () => {
     const before = await importOne(`${base}/points.csv`);
     delete process.env.DEZFIL_EGRESS_ALLOWLIST;
-    await expect(refreshTable(before.name)).rejects.toMatchObject({
+    await expect(refreshTable(testAccountScope(), before.name)).rejects.toMatchObject({
       code: "egress_blocked",
       status: 403,
     });
@@ -186,7 +196,7 @@ describe("refreshTable", () => {
   it("leaves the previous data fully intact when the source is down", async () => {
     const before = await importOne(`${base}/points.csv`);
     failNext = true;
-    await expect(refreshTable(before.name)).rejects.toMatchObject({
+    await expect(refreshTable(testAccountScope(), before.name)).rejects.toMatchObject({
       code: "remote_fetch_failed",
     });
     const still = getTableByName(before.name);
@@ -200,8 +210,8 @@ describe("refreshTable", () => {
   it("refuses to refresh an uploaded table, specifically", async () => {
     const src = path.join(dir, "plain.csv");
     await writeFile(src, "name,value\na,1\n");
-    const uploaded = await ingestFile(src, "plain.csv");
-    await expect(refreshTable(uploaded.name)).rejects.toMatchObject({
+    const uploaded = await ingestFile(testAccountScope(), src, "plain.csv");
+    await expect(refreshTable(testAccountScope(), uploaded.name)).rejects.toMatchObject({
       code: "not_refreshable",
     });
   });
@@ -211,35 +221,35 @@ describe("refreshTable", () => {
     seedDependentLayer(before.name, "layer-dep");
     seedDependentLayer("other_table", "layer-other");
 
-    await refreshTable(before.name);
+    await refreshTable(testAccountScope(), before.name);
     expect(getTileRecord("layer-dep")).toBeNull();
     expect(getTileRecord("layer-other")).not.toBeNull();
   });
 
   it("invalidateTilesForTable matches conservatively by name", () => {
     seedDependentLayer("stations", "layer-a");
-    expect(invalidateTilesForTable("stations")).toBe(1);
-    expect(invalidateTilesForTable("stations")).toBe(0);
+    expect(invalidateTilesForTable(testAccountScope(), "stations")).toBe(1);
+    expect(invalidateTilesForTable(testAccountScope(), "stations")).toBe(0);
   });
 
   it("does not treat identifier neighbors as references", () => {
     // Substring neighbors on both sides of the name...
     seedDependentLayer("main_roads", "layer-sub");
     seedDependentLayer("roads_2", "layer-suffix");
-    expect(invalidateTilesForTable("roads")).toBe(0);
+    expect(invalidateTilesForTable(testAccountScope(), "roads")).toBe(0);
     // ...and an underscore in the refreshed name is not a wildcard.
     seedDependentLayer("axb", "layer-underscore");
-    expect(invalidateTilesForTable("a_b")).toBe(0);
+    expect(invalidateTilesForTable(testAccountScope(), "a_b")).toBe(0);
     // The neighbors' own refreshes still find them.
-    expect(invalidateTilesForTable("main_roads")).toBe(1);
-    expect(invalidateTilesForTable("roads_2")).toBe(1);
+    expect(invalidateTilesForTable(testAccountScope(), "main_roads")).toBe(1);
+    expect(invalidateTilesForTable(testAccountScope(), "roads_2")).toBe(1);
   });
 
   it("still invalidates genuine references in any written form", () => {
     // The engine binds identifiers case-insensitively; quoting is bounding.
     seedDependentLayer("Stations", "layer-cased");
     seedDependentLayer('"stations"', "layer-quoted");
-    expect(invalidateTilesForTable("stations")).toBe(2);
+    expect(invalidateTilesForTable(testAccountScope(), "stations")).toBe(2);
   });
 
   it("refuses a second refresh of the same table while one runs, then allows the next", async () => {
@@ -247,8 +257,8 @@ describe("refreshTable", () => {
     rows = 5;
     // The fence is claimed before the first await, so the conflict is
     // deterministic — no timing games.
-    const first = refreshTable(before.name);
-    await expect(refreshTable(before.name)).rejects.toMatchObject({
+    const first = refreshTable(testAccountScope(), before.name);
+    await expect(refreshTable(testAccountScope(), before.name)).rejects.toMatchObject({
       code: "refresh_in_flight",
       status: 409,
     });
@@ -257,7 +267,7 @@ describe("refreshTable", () => {
     // The fence released: the next refresh runs, and the directory holds
     // exactly the one registered artifact.
     rows = 3;
-    const again = await refreshTable(before.name);
+    const again = await refreshTable(testAccountScope(), before.name);
     expect(again.rowCount).toBe(3);
     await retirementsSettled();
     const files = await readdir(path.join(dataDir(), "tables"));
@@ -270,7 +280,7 @@ describe("refreshTable", () => {
     // committed swap must still be the answer the caller reads.
     metadataDb().prepare(`DROP TABLE layer_tiles`).run();
     rows = 4;
-    const after = await refreshTable(before.name);
+    const after = await refreshTable(testAccountScope(), before.name);
     expect(after.rowCount).toBe(4);
     expect(getTableByName(before.name)?.rowCount).toBe(4);
     expect(getTableByName(before.name)?.file).toBe(after.file);
@@ -280,19 +290,19 @@ describe("refreshTable", () => {
     const a = await importOne(`${base}/alpha.csv`);
     const b = await importOne(`${base}/beta.csv`);
     const [ra, rb] = await Promise.all([
-      refreshTable(a.name),
-      refreshTable(b.name),
+      refreshTable(testAccountScope(), a.name),
+      refreshTable(testAccountScope(), b.name),
     ]);
     expect(ra.name).toBe(a.name);
     expect(rb.name).toBe(b.name);
 
     failNext = true;
-    await expect(refreshTable(a.name)).rejects.toMatchObject({
+    await expect(refreshTable(testAccountScope(), a.name)).rejects.toMatchObject({
       code: "remote_fetch_failed",
     });
     failNext = false;
     // A failed refresh does not wedge the unit.
-    await expect(refreshTable(a.name)).resolves.toMatchObject({
+    await expect(refreshTable(testAccountScope(), a.name)).resolves.toMatchObject({
       name: a.name,
     });
   });
@@ -306,7 +316,7 @@ describe("refreshTable", () => {
         .prepare(`DELETE FROM data_tables WHERE name = ?`)
         .run(before.name);
     };
-    await expect(refreshTable(before.name)).rejects.toMatchObject({
+    await expect(refreshTable(testAccountScope(), before.name)).rejects.toMatchObject({
       code: "not_found",
       status: 404,
     });
@@ -321,9 +331,9 @@ describe("refreshTable", () => {
     const a = await importOne(`${base}/alpha.csv`);
     let pendingDelete: Promise<void> | undefined;
     onRequest = () => {
-      pendingDelete = removeTable(a.name);
+      pendingDelete = removeTable(testAccountScope(), a.name);
     };
-    await expect(refreshTable(a.name)).rejects.toMatchObject({
+    await expect(refreshTable(testAccountScope(), a.name)).rejects.toMatchObject({
       code: "not_found",
       status: 404,
     });
@@ -333,8 +343,8 @@ describe("refreshTable", () => {
     // Order B: the refresh arrives after the delete began.
     onRequest = null;
     const b = await importOne(`${base}/beta.csv`);
-    const del = removeTable(b.name);
-    await expect(refreshTable(b.name)).rejects.toMatchObject({
+    const del = removeTable(testAccountScope(), b.name);
+    await expect(refreshTable(testAccountScope(), b.name)).rejects.toMatchObject({
       code: "not_found",
       status: 404,
     });
@@ -347,47 +357,40 @@ describe("refreshTable", () => {
     expect(await readdir(path.join(dataDir(), "tables"))).toEqual([]);
   });
 
-  it("the registration pass drops views for vanished tables — a lost drop self-heals", async () => {
+  it("a fresh evaluation omits vanished tables even when deletion bypasses invalidation", async () => {
     const before = await importOne(`${base}/points.csv`);
     await boundedEvaluation(async (conn) => {
       await conn.runAndReadAll(`SELECT count(*) FROM points`);
-    });
-    // The row goes without the delete service ever running its view drop —
-    // the lost-drop shape. The next pass reconciles against the registry.
+    }, { scope: testAccountScope() });
+    // Bypass the delete service and its artifact-cache invalidation. A fresh
+    // connection must mount the current registry, never an earlier view.
     metadataDb()
       .prepare(`DELETE FROM data_tables WHERE name = ?`)
       .run(before.name);
-    const message = await boundedEvaluation(async (conn) => {
+    const failure = await evaluationFailure(boundedEvaluation(async (conn) => {
       await conn.runAndReadAll(`SELECT * FROM points`);
-    }).then(
-      () => "no error",
-      (e: unknown) => (e instanceof Error ? e.message : String(e)),
-    );
-    expect(message).toMatch(/points does not exist/);
-    expect(message).not.toMatch(/parquet|tables\//i);
+    }, { scope: testAccountScope() }));
+    expect(failure).toEqual({ code: "sql_error", status: 400,
+      message: "The query refers to an unknown table.", extra: {} });
   });
 
   it("a deleted table answers unknown-table SQL, like a never-imported name", async () => {
     const before = await importOne(`${base}/points.csv`);
-    // Materialize the view in the shared catalog, then delete the table.
+    // Mount the table on an evaluation-local connection, then delete it.
     await boundedEvaluation(async (conn) => {
       await conn.runAndReadAll(`SELECT count(*) FROM points`);
-    });
-    await removeTable(before.name);
+    }, { scope: testAccountScope() });
+    await removeTable(testAccountScope(), before.name);
 
     const errorOf = (sql: string) =>
-      boundedEvaluation(async (conn) => {
+      evaluationFailure(boundedEvaluation(async (conn) => {
         await conn.runAndReadAll(sql);
-      }).then(
-        () => "no error",
-        (e: unknown) => (e instanceof Error ? e.message : String(e)),
-      );
+      }, { scope: testAccountScope() }));
     const deleted = await errorOf(`SELECT * FROM points`);
     const never = await errorOf(`SELECT * FROM never_imported`);
-    expect(deleted).toMatch(/points does not exist/);
-    expect(never).toMatch(/never_imported does not exist/);
-    // No artifact paths leak into the deleted table's answer.
-    expect(deleted).not.toMatch(/parquet|tables\//i);
+    expect(deleted).toEqual(never);
+    expect(deleted).toEqual({ code: "sql_error", status: 400,
+      message: "The query refers to an unknown table.", extra: {} });
   });
 
   it("never yanks the artifact from an in-flight evaluation; retirement lands after it settles", async () => {
@@ -411,11 +414,11 @@ describe("refreshTable", () => {
         `SELECT count(*)::INT AS c FROM points`,
       );
       return [Number(a.getRowObjects()[0].c), Number(b.getRowObjects()[0].c)];
-    });
+    }, { scope: testAccountScope() });
     await firstCounted;
 
     rows = 6;
-    await refreshTable(before.name);
+    await refreshTable(testAccountScope(), before.name);
     // Committed — but the old artifact is retired, not removed: the
     // in-flight evaluation still holds it.
     await expect(access(oldArtifact)).resolves.toBeUndefined();
@@ -433,7 +436,7 @@ describe("refreshTable", () => {
         `SELECT count(*)::INT AS c FROM points`,
       );
       return Number(r.getRowObjects()[0].c);
-    });
+    }, { scope: testAccountScope() });
     expect(fresh).toBe(6);
   });
 
@@ -446,14 +449,14 @@ describe("refreshTable", () => {
       metadataDb()
         .prepare(`DELETE FROM data_tables WHERE name = ?`)
         .run(before.name);
-      insertTable({
+      insertTable(testAccountScope(), {
         ...before,
         id: "reclaimed-id",
         file: "tables/reclaimed.parquet",
         rowCount: 1,
       });
     };
-    await expect(refreshTable(before.name)).rejects.toMatchObject({
+    await expect(refreshTable(testAccountScope(), before.name)).rejects.toMatchObject({
       code: "not_found",
       status: 404,
     });
@@ -467,17 +470,14 @@ describe("refreshTable", () => {
 describe("mutations committing during an in-flight registration pass", () => {
   /**
    * Pin a registration pass mid-flight: a long statement occupies the
-   * shared connection, so the pass's own statements — queued behind it on
+   * same connection, so the pass's own statements — queued behind it on
    * the same connection — genuinely span the mutation each test commits.
    * The pass snapshots the registry before the mutation and finishes after
    * it, which is exactly the window under test. `settled` lets
    * each test PROVE the overlap happened rather than assume it.
    *
-   * The catalog is reset first so the pinned pass has real writes to do: a
-   * warm incremental pass performs no catalog statements at all, would
-   * never queue behind the pinned connection, and the "overlap" this
-   * fixture promises would be vacuous — the same trap the guard test
-   * names, biting the overlap fixture.
+   * Every pass creates connection-local views, even with warm artifact
+   * metadata. Reset also exercises mounting without that cached metadata.
    */
   async function pinnedPass() {
     resetQueryInstance();
@@ -486,7 +486,7 @@ describe("mutations committing during an in-flight registration pass", () => {
       `SELECT sum(range) AS s FROM range(500000000)`,
     );
     let done = false;
-    const pass = registerTableViews(conn).finally(() => {
+    const pass = registerTableViews(testAccountScope(), conn).finally(() => {
       done = true;
     });
     return {
@@ -506,7 +506,7 @@ describe("mutations committing during an in-flight registration pass", () => {
     const pin = await pinnedPass();
     const src = path.join(dir, "fresh.csv");
     await writeFile(src, "name,lat,lon\nx,52.1,13.1\ny,52.2,13.2\nz,52.3,13.3\n");
-    await ingestFile(src, "fresh.csv");
+    await ingestFile(testAccountScope(), src, "fresh.csv");
     // The mutation committed while the pass was genuinely in flight.
     expect(pin.settled()).toBe(false);
     await pin.drain();
@@ -520,7 +520,7 @@ describe("mutations committing during an in-flight registration pass", () => {
 
     const pin = await pinnedPass();
     rows = 9;
-    await refreshTable(before.name);
+    await refreshTable(testAccountScope(), before.name);
     expect(pin.settled()).toBe(false);
     await pin.drain();
 
@@ -532,14 +532,17 @@ describe("mutations committing during an in-flight registration pass", () => {
     expect(await evalCount("points")).toBe(2);
 
     const pin = await pinnedPass();
-    // The registry row goes synchronously at the call; the chained view
-    // drop lands behind the pinned pass, so the removal settles after it.
-    const removal = removeTable("points");
+    // The registry row goes while the older connection is still mounting.
+    // Its local snapshot cannot carry the deleted name into a new evaluation.
+    const removal = removeTable(testAccountScope(), "points");
     expect(pin.settled()).toBe(false);
     await pin.drain();
     await removal;
 
-    await expect(evalCount("points")).rejects.toThrow(/points/i);
+    const deleted = await evaluationFailure(evalCount("points"));
+    expect(deleted).toEqual(await evaluationFailure(evalCount("never_imported")));
+    expect(deleted).toEqual({ code: "sql_error", status: 400,
+      message: "The query refers to an unknown table.", extra: {} });
   });
 });
 
@@ -556,13 +559,13 @@ describe("the suspect-header warning across refreshes", () => {
         path.join(process.cwd(), "e2e", "fixtures", "broken-header.csv"),
         "utf8",
       );
-      const warned = await refreshTable(before.name);
+      const warned = await refreshTable(testAccountScope(), before.name);
       expect(warned.headerSuspect).toBe(true);
 
       // And a repaired source CLEARS it — the warning is a description
       // of the latest read, never a permanent stain.
       bodyOverride = null;
-      const cleared = await refreshTable(before.name);
+      const cleared = await refreshTable(testAccountScope(), before.name);
       expect(cleared.headerSuspect).toBe(false);
     } finally {
       bodyOverride = null;

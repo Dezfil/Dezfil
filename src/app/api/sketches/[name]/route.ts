@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
 import { cascadeDeleteSketch } from "@/lib/sketch/store";
@@ -12,8 +13,9 @@ type Params = { params: Promise<{ name: string }> };
  */
 export async function DELETE(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { name } = await params;
-    await cascadeDeleteSketch(name);
+    await cascadeDeleteSketch(scope, name);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return errorResponse(error);

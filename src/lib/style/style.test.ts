@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -42,7 +43,7 @@ beforeEach(async () => {
   ];
   for (const r of data) rows.push(r.join(","));
   await writeFile(src, rows.join("\n"));
-  await ingestFile(src, "cities.csv");
+  await ingestFile(testAccountScope(), src, "cities.csv");
 });
 
 afterEach(async () => {
@@ -56,7 +57,7 @@ const SQL = "SELECT name, pop, region, geometry FROM cities";
 
 describe("classifyFill quantile", () => {
   it("splits skewed numeric data into distinct classes", async () => {
-    const fill = await classifyFill(SQL, "pop", "quantile");
+    const fill = await classifyFill(testAccountScope(), SQL, "pop", "quantile");
     if (fill.type !== "quantile") throw new Error("expected quantile");
     expect(fill.attribute).toBe("pop");
     expect(fill.colors.length).toBe(fill.breaks.length + 1);
@@ -68,19 +69,19 @@ describe("classifyFill quantile", () => {
   });
 
   it("rejects quantile on a non-numeric column", async () => {
-    await expect(classifyFill(SQL, "region", "quantile")).rejects.toMatchObject(
+    await expect(classifyFill(testAccountScope(), SQL, "region", "quantile")).rejects.toMatchObject(
       { code: "invalid_request" },
     );
   });
 
   it("defaults to kepler's Global Warming ramp", async () => {
-    const fill = await classifyFill(SQL, "pop", "quantile");
+    const fill = await classifyFill(testAccountScope(), SQL, "pop", "quantile");
     if (fill.type !== "quantile") throw new Error("expected quantile");
     expect(fill.palette).toBe("global_warming");
   });
 
   it("honors palette, class count, and reverse", async () => {
-    const fill = await classifyFill(SQL, "pop", "quantile", {
+    const fill = await classifyFill(testAccountScope(), SQL, "pop", "quantile", {
       palette: "ice_and_fire",
       classes: 4,
       reversed: true,
@@ -89,7 +90,7 @@ describe("classifyFill quantile", () => {
     expect(fill.palette).toBe("ice_and_fire");
     expect(fill.reversed).toBe(true);
     expect(fill.colors.length).toBeLessThanOrEqual(4);
-    const sparse = await classifyFill(
+    const sparse = await classifyFill(testAccountScope(),
       `SELECT * FROM (${SQL}) AS sparse LIMIT 1`,
       "pop",
       "quantile",
@@ -99,17 +100,17 @@ describe("classifyFill quantile", () => {
     expect(sparse.colors).toHaveLength(2);
     expect(sparse.classes).toBe(4);
     await expect(
-      classifyFill(SQL, "pop", "quantile", { palette: "nope" }),
+      classifyFill(testAccountScope(), SQL, "pop", "quantile", { palette: "nope" }),
     ).rejects.toMatchObject({ code: "invalid_request" });
     await expect(
-      classifyFill(SQL, "pop", "quantile", { classes: 40 }),
+      classifyFill(testAccountScope(), SQL, "pop", "quantile", { classes: 40 }),
     ).rejects.toMatchObject({ code: "invalid_request" });
   });
 });
 
 describe("classifyFill equal intervals", () => {
   it("produces evenly spaced nice breaks between min and max", async () => {
-    const fill = await classifyFill(SQL, "pop", "equal", { classes: 5 });
+    const fill = await classifyFill(testAccountScope(), SQL, "pop", "equal", { classes: 5 });
     if (fill.type !== "quantile") throw new Error("expected ramp fill");
     expect(fill.method).toBe("equal");
     expect(fill.breaks.length).toBe(4);
@@ -251,7 +252,7 @@ describe("natural breaks", () => {
   });
 
   it("isolates the outlier on skewed data where quantile splits clusters", async () => {
-    const fill = await classifyFill(SQL, "pop", "natural", { classes: 3 });
+    const fill = await classifyFill(testAccountScope(), SQL, "pop", "natural", { classes: 3 });
     if (fill.type !== "quantile") throw new Error("expected ramp fill");
     expect(fill.method).toBe("natural");
     // The 9,000,000 outlier sits alone above the last boundary; the small
@@ -263,7 +264,7 @@ describe("natural breaks", () => {
   });
 
   it("rejects natural breaks on a non-numeric column", async () => {
-    await expect(classifyFill(SQL, "region", "natural")).rejects.toMatchObject(
+    await expect(classifyFill(testAccountScope(), SQL, "region", "natural")).rejects.toMatchObject(
       { code: "invalid_request" },
     );
   });
@@ -271,7 +272,7 @@ describe("natural breaks", () => {
 
 describe("computeSizeScale", () => {
   it("resolves the attribute's range over the given result", async () => {
-    const scale = await computeSizeScale(SQL, "pop", [4, 28]);
+    const scale = await computeSizeScale(testAccountScope(), SQL, "pop", [4, 28]);
     expect(scale).toEqual({
       attribute: "pop",
       domain: [120, 9000000],
@@ -280,7 +281,7 @@ describe("computeSizeScale", () => {
   });
 
   it("respects the effective result it is given (filters shrink the domain)", async () => {
-    const scale = await computeSizeScale(
+    const scale = await computeSizeScale(testAccountScope(),
       `SELECT * FROM (${SQL}) AS f WHERE pop < 10000`,
       "pop",
       [2, 20],
@@ -289,18 +290,18 @@ describe("computeSizeScale", () => {
   });
 
   it("explains non-numeric and empty attributes", async () => {
-    await expect(computeSizeScale(SQL, "region", [4, 28])).rejects.toMatchObject(
+    await expect(computeSizeScale(testAccountScope(), SQL, "region", [4, 28])).rejects.toMatchObject(
       { code: "invalid_request" },
     );
     await expect(
-      computeSizeScale(`SELECT * FROM (${SQL}) AS f WHERE 1=0`, "pop", [4, 28]),
+      computeSizeScale(testAccountScope(), `SELECT * FROM (${SQL}) AS f WHERE 1=0`, "pop", [4, 28]),
     ).rejects.toMatchObject({ code: "invalid_request" });
   });
 });
 
 describe("classifyFill categorical", () => {
   it("assigns a distinct color per category", async () => {
-    const fill = await classifyFill(SQL, "region", "categorical");
+    const fill = await classifyFill(testAccountScope(), SQL, "region", "categorical");
     if (fill.type !== "categorical") throw new Error("expected categorical");
     expect(fill.map.map((m) => m.value).sort()).toEqual([
       "east",
@@ -318,21 +319,21 @@ describe("legendFor", () => {
   });
 
   it("produces range labels for quantile and value labels for categorical", async () => {
-    const q = await classifyFill(SQL, "pop", "quantile");
+    const q = await classifyFill(testAccountScope(), SQL, "pop", "quantile");
     const style: LayerStyle = { ...defaultStyle("POINT"), fill: q };
     const legend = legendFor(style)?.paints[0];
     expect(legend?.kind).toBe("quantile");
     expect(legend?.entries[0].label).toMatch(/^</);
     expect(legend?.entries.at(-1)?.label).toMatch(/^≥/);
 
-    const cat = await classifyFill(SQL, "region", "categorical");
+    const cat = await classifyFill(testAccountScope(), SQL, "region", "categorical");
     const legend2 = legendFor({ ...style, fill: cat })?.paints[0];
     expect(legend2?.kind).toBe("categorical");
     expect(legend2?.entries.at(-1)?.label).toBe("other");
   });
 
   it("shows every data-driven channel: outline classes and size rows", async () => {
-    const strokeBy = await classifyFill(SQL, "region", "categorical");
+    const strokeBy = await classifyFill(testAccountScope(), SQL, "region", "categorical");
     const style: LayerStyle = {
       ...defaultStyle("POINT"),
       strokeBy,
@@ -353,7 +354,7 @@ describe("legendFor", () => {
 describe("isValidStyle", () => {
   it("accepts the default and computed styles, rejects malformed", async () => {
     expect(isValidStyle(defaultStyle("POLYGON"))).toBe(true);
-    const q = await classifyFill(SQL, "pop", "quantile");
+    const q = await classifyFill(testAccountScope(), SQL, "pop", "quantile");
     expect(isValidStyle({ ...defaultStyle("POINT"), fill: q })).toBe(true);
     expect(isValidStyle({ fill: { type: "constant" } })).toBe(false);
     expect(isValidStyle({ ...defaultStyle("POINT"), opacity: 5 })).toBe(false);
@@ -420,7 +421,7 @@ describe("data-driven channels", () => {
   };
 
   it("accepts a style with outline paint and size scales", async () => {
-    const strokeBy = await classifyFill(SQL, "region", "categorical");
+    const strokeBy = await classifyFill(testAccountScope(), SQL, "region", "categorical");
     const style: LayerStyle = {
       ...defaultStyle("POINT"),
       strokeBy,
@@ -447,7 +448,7 @@ describe("data-driven channels", () => {
   });
 
   it("rejects out-of-order class boundaries with an explanation", async () => {
-    const q = await classifyFill(SQL, "pop", "quantile");
+    const q = await classifyFill(testAccountScope(), SQL, "pop", "quantile");
     if (q.type !== "quantile") throw new Error("expected quantile");
     const scrambled = { ...q, breaks: [...q.breaks].reverse() };
     const problem = styleProblem({ ...defaultStyle("POINT"), fill: scrambled });
@@ -661,21 +662,21 @@ describe("curated palette catalogue", () => {
     expect(styleProblem(style)).toBeNull();
     // Classifying anew with a retired name is rejected with an explanation.
     await expect(
-      classifyFill(SQL, "pop", "quantile", { palette: "emerald" }),
+      classifyFill(testAccountScope(), SQL, "pop", "quantile", { palette: "emerald" }),
     ).rejects.toMatchObject({ code: "invalid_request" });
     await expect(
-      classifyFill(SQL, "region", "categorical", { palette: "pink_wine" }),
+      classifyFill(testAccountScope(), SQL, "region", "categorical", { palette: "pink_wine" }),
     ).rejects.toMatchObject({ code: "invalid_request" });
   });
 
   it("classifies with a new palette end to end", async () => {
-    const fill = await classifyFill(SQL, "pop", "quantile", {
+    const fill = await classifyFill(testAccountScope(), SQL, "pop", "quantile", {
       palette: "viridis",
       classes: 5,
     });
     if (fill.type !== "quantile") throw new Error("expected quantile");
     expect(fill.palette).toBe("viridis");
-    const cat = await classifyFill(SQL, "region", "categorical", {
+    const cat = await classifyFill(testAccountScope(), SQL, "region", "categorical", {
       palette: "tab10",
     });
     if (cat.type !== "categorical") throw new Error("expected categorical");
@@ -701,7 +702,7 @@ describe("new-layer defaults (quiet by default)", () => {
 
 describe("classifyFill continuous", () => {
   it("resolves the domain and bakes ramp stops", async () => {
-    const fill = await classifyFill(SQL, "pop", "continuous", {
+    const fill = await classifyFill(testAccountScope(), SQL, "pop", "continuous", {
       palette: "viridis",
     });
     if (fill.type !== "continuous") throw new Error("expected continuous");
@@ -714,7 +715,7 @@ describe("classifyFill continuous", () => {
   });
 
   it("centers diverging palettes on the field's mean", async () => {
-    const fill = await classifyFill(SQL, "pop", "continuous", {
+    const fill = await classifyFill(testAccountScope(), SQL, "pop", "continuous", {
       palette: "rdbu",
     });
     if (fill.type !== "continuous") throw new Error("expected continuous");
@@ -724,10 +725,10 @@ describe("classifyFill continuous", () => {
 
   it("rejects non-numeric columns and unknown palettes", async () => {
     await expect(
-      classifyFill(SQL, "region", "continuous"),
+      classifyFill(testAccountScope(), SQL, "region", "continuous"),
     ).rejects.toMatchObject({ code: "invalid_request" });
     await expect(
-      classifyFill(SQL, "pop", "continuous", { palette: "nope" }),
+      classifyFill(testAccountScope(), SQL, "pop", "continuous", { palette: "nope" }),
     ).rejects.toMatchObject({ code: "invalid_request" });
   });
 
@@ -740,13 +741,13 @@ describe("classifyFill continuous", () => {
         { color: "#ffffff", position: 1 },
       ],
     });
-    const cont = await classifyFill(SQL, "pop", "continuous", {
+    const cont = await classifyFill(testAccountScope(), SQL, "pop", "continuous", {
       palette: saved.name,
     });
     if (cont.type !== "continuous") throw new Error("expected continuous");
     expect(cont.palette).toBe(saved.name);
     expect(cont.positions).toEqual([0, 0.8, 1]);
-    const reversedFill = await classifyFill(SQL, "pop", "continuous", {
+    const reversedFill = await classifyFill(testAccountScope(), SQL, "pop", "continuous", {
       palette: saved.name,
       reversed: true,
     });
@@ -757,7 +758,7 @@ describe("classifyFill continuous", () => {
     expect(reversedFill.positions?.[1]).toBeCloseTo(0.2, 10);
     expect(reversedFill.positions?.[2]).toBe(1);
     expect(reversedFill.stops[0]).toMatchObject({ r: 255, g: 255, b: 255 });
-    const classed = await classifyFill(SQL, "pop", "quantile", {
+    const classed = await classifyFill(testAccountScope(), SQL, "pop", "quantile", {
       palette: saved.name,
     });
     if (classed.type !== "quantile") throw new Error("expected quantile");

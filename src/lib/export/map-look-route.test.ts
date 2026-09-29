@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
@@ -33,7 +34,7 @@ beforeEach(async () => {
   dir = await mkdtemp(path.join(process.cwd(), ".tmp-look-route-"));
   vi.stubEnv("DEZFIL_DATA_DIR", dir); vi.stubEnv("PORT", "3300");
   closeMetadataDb();
-  mapId = createMap("Route look").id;
+  mapId = createMap(testAccountScope(), "Route look").id;
 });
 afterEach(async () => { setLookDriverForTests(null); closeMetadataDb(); vi.unstubAllEnvs(); await rm(dir, { recursive: true, force: true }); });
 
@@ -114,6 +115,6 @@ describe("the request-to-response budget covers the thumbnail's preparation", ()
     const response = await look(request({ mapId }));
     expect(response.status).toBe(408);
     expect(await response.json()).toMatchObject({ error: { code: "render_timeout" } });
-    expect(lookRetention.size().count).toBe(0);
+    expect(lookRetention.sizeForTests().count).toBe(0);
   });
 });

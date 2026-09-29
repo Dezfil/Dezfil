@@ -1,10 +1,11 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DuckDBConnection } from "@duckdb/node-api";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { closeMetadataDb } from "@/lib/metadata/db";
-import * as tables from "@/lib/metadata/tables";
+import * as tables from "@/lib/metadata/owned-tables";
 import * as inflight from "@/lib/query/inflight";
 import { retirementsSettled } from "@/lib/ingest/retire";
 import { createMap } from "@/lib/map-service";
@@ -40,30 +41,30 @@ const abs = (file: string) => path.join(process.env.DEZFIL_DATA_DIR!, file);
 const exists = (file: string) => access(file).then(() => true, () => false);
 
 async function seed() {
-  const map = createMap("Retained sketch");
-  const sketch = await createSketch(map.id, polygon);
-  const other = await createSketch(map.id, point);
+  const map = createMap(testAccountScope(), "Retained sketch");
+  const sketch = await createSketch(testAccountScope(), map.id, polygon);
+  const other = await createSketch(testAccountScope(), map.id, point);
   return { map, sketch, other };
 }
 
 function request(reader: Reader, mapId: string, name: string) {
   const req = new Request("http://localhost/api/test");
   return readerScope.run(true, () => reader === "summary"
-    ? summariesGET(req, { params: Promise.resolve({ id: mapId }) })
-    : featuresGET(req, { params: Promise.resolve({ name }) }));
+    ? summariesGET(testAccountRequest(req), { params: Promise.resolve({ id: mapId }) })
+    : featuresGET(testAccountRequest(req), { params: Promise.resolve({ name }) }));
 }
 
 function captureCount(reader: Reader) {
   let captures = 0;
   if (reader === "summary") {
-    const original = tables.listTables;
-    vi.spyOn(tables, "listTables").mockImplementation((...args) => {
+    const original = tables.listOwnedTables;
+    vi.spyOn(tables, "listOwnedTables").mockImplementation((...args) => {
       if (readerScope.getStore()) captures++;
       return original(...args);
     });
   } else {
-    const original = tables.getTableByName;
-    vi.spyOn(tables, "getTableByName").mockImplementation((...args) => {
+    const original = tables.getOwnedTableByName;
+    vi.spyOn(tables, "getOwnedTableByName").mockImplementation((...args) => {
       if (readerScope.getStore()) captures++;
       return original(...args);
     });
@@ -147,7 +148,7 @@ describe("sketch API artifact retention", () => {
       const reading = request(reader, map.id, sketch.table.name);
       try {
         await hold.beforeMutation();
-        const appended = await appendFeature(sketch.table.name, point);
+        const appended = await appendFeature(testAccountScope(), sketch.table.name, point);
         expect(appended.table.file).not.toBe(sketch.table.file);
         await drainUnheld(1);
         expect.soft(await exists(abs(sketch.table.file)), "captured file survives hold").toBe(true);
@@ -156,7 +157,7 @@ describe("sketch API artifact retention", () => {
         checkCapture();
         await retirementsSettled();
         expect(await exists(abs(sketch.table.file)), "old file removed after release").toBe(false);
-        expect(await listFeatures(sketch.table.name)).toEqual([
+        expect(await listFeatures(testAccountScope(), sketch.table.name)).toEqual([
           { id: sketch.featureId, ...polygon }, { id: appended.featureId, ...point },
         ]);
       } finally {
@@ -176,9 +177,9 @@ describe("sketch API artifact retention", () => {
       const reading = request(reader, map.id, sketch.table.name);
       try {
         await hold.beforeMutation();
-        const appended = await appendFeature(sketch.table.name, point);
+        const appended = await appendFeature(testAccountScope(), sketch.table.name, point);
         await hold.beforeMutation();
-        const moved = await moveVertex(sketch.table.name, sketch.featureId, 1, [13.6, 52.5]);
+        const moved = await moveVertex(testAccountScope(), sketch.table.name, sketch.featureId, 1, [13.6, 52.5]);
         expect(new Set([sketch.table.file, appended.table.file, moved.table.file]).size).toBe(3);
         await drainUnheld(2);
         for (const file of [sketch.table.file, appended.table.file])
@@ -193,7 +194,7 @@ describe("sketch API artifact retention", () => {
         const movedPolygon = { ...polygon, geometry: { type: "Polygon", coordinates: [[
           [13.4, 52.5], [13.6, 52.5], [13.5, 52.6], [13.4, 52.5],
         ]] } };
-        expect(await listFeatures(sketch.table.name)).toEqual([
+        expect(await listFeatures(testAccountScope(), sketch.table.name)).toEqual([
           { id: sketch.featureId, ...movedPolygon }, { id: appended.featureId, ...point },
         ]);
       } finally {
@@ -211,7 +212,7 @@ describe("sketch API artifact retention", () => {
       const reading = request(reader, map.id, sketch.table.name);
       try {
         await hold.beforeMutation();
-        await cascadeDeleteSketch(sketch.table.name);
+        await cascadeDeleteSketch(testAccountScope(), sketch.table.name);
         await drainUnheld(1);
         expect.soft(await exists(abs(sketch.table.file)), "deleted file survives captured read").toBe(true);
         hold.release();
@@ -247,9 +248,9 @@ describe("sketch API artifact retention", () => {
           code: "internal", message: "An unexpected server error occurred.",
         } });
         checkCapture();
-        expect(tables.getTableByName(sketch.table.name)?.file).toBe(sketch.table.file);
+        expect(tables.getOwnedTableByName(testAccountScope(), sketch.table.name)?.file).toBe(sketch.table.file);
         // A rejected reader must release tracking, too: cascade can retire it.
-        await cascadeDeleteSketch(sketch.table.name);
+        await cascadeDeleteSketch(testAccountScope(), sketch.table.name);
         await retirementsSettled();
         expect(await exists(abs(sketch.table.file))).toBe(false);
       });

@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import {
@@ -196,7 +197,7 @@ beforeEach(async () => {
   await new Promise<void>((resolve) => server.listen(0, () => resolve()));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   process.env.DEZFIL_ISOCHRONE_URL = `${base}?key=SECRETTOKEN`;
-  await importFromUrl(`${base}/origins.csv`, "origins");
+  await importFromUrl(testAccountScope(), `${base}/origins.csv`, "origins");
 });
 
 afterEach(async () => {
@@ -215,7 +216,7 @@ afterEach(async () => {
 });
 
 async function run(parameters: Record<string, unknown>) {
-  const job = await startRun({ operation: "isochrone", parameters });
+  const job = await startRun(testAccountScope(), { operation: "isochrone", parameters });
   await laneSettled();
   return getJob(job.id)!;
 }
@@ -238,7 +239,7 @@ describe("one row per origin per band", () => {
     expect(job.state, job.errorMessage ?? "").toBe("succeeded");
 
     const columns = (
-      await executeQuery("SELECT * FROM (DESCRIBE SELECT * FROM reachable)")
+      await executeQuery(testAccountScope(), "SELECT * FROM (DESCRIBE SELECT * FROM reachable)")
     ).preview.map((r) => [String(r.column_name), String(r.column_type)]);
     // The exact list: the input's non-geometry columns, then the nine —
     // and exactly one geometry column among them.
@@ -262,7 +263,7 @@ describe("one row per origin per band", () => {
     ).toHaveLength(1);
 
     const rows = (
-      await executeQuery(
+      await executeQuery(testAccountScope(),
         `SELECT label, band_minutes, isochrone_status, isochrone_source,
                 geom IS NOT NULL AS drawn
          FROM reachable ORDER BY label, band_minutes`,
@@ -284,7 +285,7 @@ describe("one row per origin per band", () => {
   });
 
   it("three distinct origins are three requests, the cache empty first", async () => {
-    await importFromUrl(`${base}/three.csv`, "three");
+    await importFromUrl(testAccountScope(), `${base}/three.csv`, "three");
     // The cache asserted empty before the run, as the criterion demands —
     // a warm entry would make this count a cache fact, not a pacing one.
     const cacheFiles = await readdir(
@@ -303,7 +304,7 @@ describe("one row per origin per band", () => {
     expect(again.state).toBe("succeeded");
     expect(asked.length).toBe(before);
     const sources = (
-      await executeQuery(
+      await executeQuery(testAccountScope(),
         "SELECT DISTINCT isochrone_source FROM reachable_again",
       )
     ).preview.map((r) => r.isochrone_source);
@@ -319,12 +320,12 @@ describe("one row per origin per band", () => {
 
 describe("each row outcome, on its own", () => {
   it("unreachable, absent band, unreadable and no-origin rows on one succeeding run", async () => {
-    await importFromUrl(`${base}/outcomes.csv`, "outcomes");
+    await importFromUrl(testAccountScope(), `${base}/outcomes.csv`, "outcomes");
     const job = await run({ ...good, input: "outcomes", name: "mixed" });
     expect(job.state, job.errorMessage ?? "").toBe("succeeded");
 
     const rows = (
-      await executeQuery(
+      await executeQuery(testAccountScope(),
         `SELECT label, band_minutes, isochrone_status,
                 geom IS NOT NULL AS drawn
          FROM mixed ORDER BY label, band_minutes`,
@@ -404,7 +405,7 @@ describe("the area is the provider's (the engine half)", () => {
     });
     expect(job.state, job.errorMessage ?? "").toBe("succeeded");
     const facts = (
-      await executeQuery(
+      await executeQuery(testAccountScope(),
         `SELECT ST_AsText(geom) AS wkt,
                 ST_Contains(geom, ST_Point(13.4, 52.5)) AS centre_in_hole,
                 ST_Contains(geom, ST_Point(13.4, 52.503)) AS ring_body
@@ -445,7 +446,7 @@ describe("the provider's structured refusal is a row's business", () => {
     const job = await run({ ...good, name: "edged" });
     expect(job.state, job.errorMessage ?? "").toBe("succeeded");
     const rows = (
-      await executeQuery(
+      await executeQuery(testAccountScope(),
         `SELECT label, isochrone_status FROM edged ORDER BY label, band_minutes`,
       )
     ).preview as Record<string, unknown>[];
@@ -460,7 +461,7 @@ describe("an origin off the earth never leaves the house", () => {
   it("a finite but out-of-range point reads no_origin with zero requests for it", async () => {
     // A SQL step mints a point at (181, 0) — finite, legal to store,
     // nowhere on the earth.
-    const mint = await startRun({
+    const mint = await startRun(testAccountScope(), {
       operation: "sql_step",
       parameters: {
         sql: `SELECT 'off' AS label, ST_Point(181, 0) AS geom`,
@@ -470,7 +471,7 @@ describe("an origin off the earth never leaves the house", () => {
     await laneSettled();
     expect(getJob(mint.id)!.state).toBe("succeeded");
     asked = [];
-    const job = await startRun({
+    const job = await startRun(testAccountScope(), {
       operation: "isochrone",
       parameters: { ...good, input: "off_earth", name: "off_out" },
     });
@@ -478,7 +479,7 @@ describe("an origin off the earth never leaves the house", () => {
     const settled = getJob(job.id)!;
     expect(settled.state, settled.errorMessage ?? "").toBe("succeeded");
     const rows = (
-      await executeQuery(`SELECT isochrone_status FROM off_out`)
+      await executeQuery(testAccountScope(), `SELECT isochrone_status FROM off_out`)
     ).preview as Record<string, unknown>[];
     expect(rows.map((r) => r.isochrone_status)).toEqual([
       "no_origin",
@@ -530,11 +531,11 @@ describe("one exchange at a time", () => {
         res.end(answerFor({ ...request, raw: "", at: 0 }));
       }, 60);
     };
-    const first = await startRun({
+    const first = await startRun(testAccountScope(), {
       operation: "isochrone",
       parameters: { ...good, name: "lane_one" },
     });
-    const second = await startRun({
+    const second = await startRun(testAccountScope(), {
       operation: "isochrone",
       parameters: { ...good, name: "lane_two" },
     });
@@ -561,28 +562,28 @@ describe("lineage is the source's, and the fence holds", () => {
   });
 
   it("records the edge at the source's exact artifact, and goes stale with it", async () => {
-    const recipe = createRecipe("R");
+    const recipe = createRecipe(testAccountScope(), "R");
     const step = addStep(recipe.id, {
       operation: "isochrone",
       parameters: good,
     });
-    const job = await startStepRun(step.id).then(async (j) => {
+    const job = await startStepRun(testAccountScope(), step.id).then(async (j) => {
       await laneSettled();
       return getJob(j.id)!;
     });
     expect(job.state, job.errorMessage ?? "").toBe("succeeded");
 
     const before = getTableByName("origins")!.file;
-    const edges = edgesForStep(step.id);
+    const edges = edgesForStep(testAccountScope(), step.id);
     expect(edges).toHaveLength(1);
     expect(edges[0].boundArtifact).toBe(before);
-    expect((await readStep(recipe.id, step.id)).condition.primary).toBe(
+    expect((await readStep(testAccountScope(), recipe.id, step.id)).condition.primary).toBe(
       "current",
     );
 
-    await refreshTable("origins");
+    await refreshTable(testAccountScope(), "origins");
     expect(getTableByName("origins")!.file).not.toBe(before);
-    const condition = (await readStep(recipe.id, step.id)).condition;
+    const condition = (await readStep(testAccountScope(), recipe.id, step.id)).condition;
     expect(condition.primary).toBe("stale");
     expect(condition.causes.map((c) => c.reason)).toContain("source_changed");
   });
@@ -606,13 +607,13 @@ describe("lineage is the source's, and the fence holds", () => {
         };
       };
     });
-    const job = await startRun({
+    const job = await startRun(testAccountScope(), {
       operation: "isochrone",
       parameters: { ...good, name: "fenced" },
     });
     await firstRequestSeen;
     // The source's generation moves while the provider is still thinking.
-    await refreshTable("origins");
+    await refreshTable(testAccountScope(), "origins");
     handler = null;
     release!();
     await laneSettled();
@@ -649,7 +650,7 @@ describe("nothing leaks the endpoint's query string", () => {
 describe("the dry run and the warning's two roads", () => {
   it("answers origins x bands with zero requests, and says the assumed CRS on both roads", async () => {
     const { compileOperation } = await import("./compile");
-    const compiled = await compileOperation("isochrone", good, {
+    const compiled = await compileOperation(testAccountScope(), "isochrone", good, {
       requireName: false,
     });
     expect(compiled.preview).toMatchObject({

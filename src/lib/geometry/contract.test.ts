@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { buildOpenApiDocument } from "@/lib/api/openapi";
 import { buildTools } from "@/lib/tools/tools";
@@ -49,7 +50,7 @@ it("manual record additions and error details are published without widening can
 });
 it("all five actual handlers return the documented envelopes and tools forward body/query unchanged",async()=>{
   const table=await stored("SELECT 'POINT (10 20)' payload, 30 x, 40 y");
-  const inspectionResponse=await resource.GET(req("GET"),context(table.name)); expect(inspectionResponse.status).toBe(200);
+  const inspectionResponse=await resource.GET(testAccountRequest(req("GET")),context(table.name)); expect(inspectionResponse.status).toBe(200);
   const inspected=await inspectionResponse.json();
   expect(Object.keys(inspected).sort()).toEqual(["tableId","revision","columns","geometryColumn","geometryRecord","currentChoice","mode","candidates"].sort());
   const names=["preview_table_geometry","set_table_geometry","clear_table_geometry","list_geometry_projections"];
@@ -59,10 +60,10 @@ it("all five actual handlers return the documented envelopes and tools forward b
     const choice={format:"pair",columns:["y","x"],epsg:4326};
     const forwarded:typeof fetch=async(input,init)=>{
       const request=new Request(String(input),init),url=new URL(request.url);
-      if(name==="list_geometry_projections") return projections(request);
-      if(name==="clear_table_geometry") { expect(url.searchParams.get("expectedRevision")).toBe(revision);return resource.DELETE(request,context(table.name)); }
+      if(name==="list_geometry_projections") return projections(testAccountRequest(request));
+      if(name==="clear_table_geometry") { expect(url.searchParams.get("expectedRevision")).toBe(revision);return resource.DELETE(testAccountRequest(request),context(table.name)); }
       expect(await request.clone().json()).toEqual({expectedRevision:revision,choice});
-      return name==="preview_table_geometry" ? preview(request,context(table.name)) : resource.PUT(request,context(table.name));
+      return name==="preview_table_geometry" ? preview(testAccountRequest(request),context(table.name)) : resource.PUT(testAccountRequest(request),context(table.name));
     };
     const args=name==="list_geometry_projections" ? {epsg:"EPSG:31467"} : name==="clear_table_geometry" ? {name:table.name,expectedRevision:revision} : {name:table.name,expectedRevision:revision,choice};
     const result=await executeTool(tool,args,"http://dezfil.test",forwarded);
@@ -75,7 +76,7 @@ it("all five actual handlers return the documented envelopes and tools forward b
     }
     if(name==="list_geometry_projections") expect(body.resolved).toEqual({epsg:31467,name:"EPSG:31467",unit:null});
   }
-  expect((await inspectTable(table.name)).geometryColumn).toBeNull();
+  expect((await inspectTable(testAccountScope(), table.name)).geometryColumn).toBeNull();
 });
 it.each([
   ["wkt","POINT (10 20)"], ["wkt","SRID=3857;POINT (1113194.9079327357 0)"],
@@ -85,11 +86,11 @@ it.each([
   ["geojson",'{"type":"Point","coordinates":[10,20]}'], ["h3","8928308280fffff"],
 ])("actual handlers preview and apply %s %s",async(format,value)=>{
   const t=await stored(`SELECT ${lit(value)} payload`),choice={format,columns:["payload"]},body={expectedRevision:geometryRevision(t),choice};
-  const p=await preview(req("POST",body),context(t.name)); expect(p.status).toBe(200);
+  const p=await preview(testAccountRequest(req("POST",body)),context(t.name)); expect(p.status).toBe(200);
   const previewed=await p.json();expect(previewed.canApply).toBe(true);
-  const applied=await resource.PUT(req("PUT",body),context(t.name));expect(applied.status).toBe(200);
+  const applied=await resource.PUT(testAccountRequest(req("PUT",body)),context(t.name));expect(applied.status).toBe(200);
   const result=await applied.json();expect(result.extent).toEqual(previewed.extent);
-  expect((await inspectTable(t.name)).geometryType).toBe(format==="h3"?"POLYGON":"POINT");
+  expect((await inspectTable(testAccountScope(), t.name)).geometryType).toBe(format==="h3"?"POLYGON":"POINT");
   expect(previewed.sample.features.features[0].geometry).toMatchObject(format==="h3"?{type:"Polygon"}:{type:"Point",coordinates:value.includes("3857")||value.includes("110F")||value.includes("0F11")?[10,0]:[10,20]});
 });
 it.each([
@@ -97,7 +98,7 @@ it.each([
 ] as const)("every geometry handler refuses excluded source %s %j without mutation",async(source,sourceParams)=>{
   const t=await stored("SELECT 'POINT (10 20)' payload",{source,sourceParams});
   const body={expectedRevision:geometryRevision(t),choice:{format:"wkt",columns:["payload"]}};
-  for(const response of [await resource.GET(req("GET"),context(t.name)),await preview(req("POST",body),context(t.name)),await resource.PUT(req("PUT",body),context(t.name)),await resource.DELETE(req("DELETE",undefined,`?expectedRevision=${geometryRevision(t)}`),context(t.name))]) {
+  for(const response of [await resource.GET(testAccountRequest(req("GET")),context(t.name)),await preview(testAccountRequest(req("POST",body)),context(t.name)),await resource.PUT(testAccountRequest(req("PUT",body)),context(t.name)),await resource.DELETE(testAccountRequest(req("DELETE",undefined,`?expectedRevision=${geometryRevision(t)}`)),context(t.name))]) {
     expect(response.status).toBe(409);expect(await response.json()).toMatchObject({error:{code:"geometry_not_supported",message:expect.stringContaining("file uploads and URL imports")}});
   }
   expect(getTableByName(t.name)).toEqual(t);
@@ -106,21 +107,21 @@ it("invalid bodies, unavailable columns, projection issues and contention have s
   const t=await stored("SELECT 'POINT (500000 5800000)' payload");
   const good={expectedRevision:geometryRevision(t),choice:{format:"wkt",columns:["payload"]}};
   for(const body of [null,[],{}, {...good,extra:1}, {...good,expectedRevision:4}, {...good,choice:{...good.choice,extra:true}}, {...good,choice:{format:"pair",columns:["payload","payload"]}}, {...good,choice:{format:"geojson",columns:["payload"],epsg:4326}}]) {
-    expect((await resource.PUT(req("PUT",body),context(t.name))).status).toBe(400);
+    expect((await resource.PUT(testAccountRequest(req("PUT",body)),context(t.name))).status).toBe(400);
   }
-  const malformed=new Request("http://dezfil.test",{method:"PUT",body:"{"});expect((await resource.PUT(malformed,context(t.name))).status).toBe(400);
-  const absent=await resource.PUT(req("PUT",{...good,choice:{format:"wkt",columns:["missing\"; DROP TABLE data_tables;--"]}}),context(t.name));
+  const malformed=new Request("http://dezfil.test",{method:"PUT",body:"{"});expect((await resource.PUT(testAccountRequest(malformed),context(t.name))).status).toBe(400);
+  const absent=await resource.PUT(testAccountRequest(req("PUT",{...good,choice:{format:"wkt",columns:["missing\"; DROP TABLE data_tables;--"]}})),context(t.name));
   expect(absent.status).toBe(400);expect(await absent.json()).toMatchObject({error:{code:"column_unavailable"}});
-  expect((await resource.DELETE(req("DELETE"),context(t.name))).status).toBe(400);
-  expect((await preview(req("POST",good),context(t.name))).status).toBe(200);
-  const invalid=await resource.PUT(req("PUT",good),context(t.name));expect(invalid.status).toBe(422);expect(await invalid.json()).toMatchObject({error:{code:"geometry_choice_invalid",issues:[{code:"projection_required"}]}});
-  expect((await resource.PUT(req("PUT",{...good,expectedRevision:"stale"}),context(t.name))).status).toBe(409);
-  expect((await resource.GET(req("GET"),context("unknown"))).status).toBe(404);
-  beginRefresh(refreshUnit(t),t.name);
-  try {const response=await resource.PUT(req("PUT",good),context(t.name));expect(response.status).toBe(409);expect(await response.json()).toMatchObject({error:{code:"geometry_in_flight"}});} finally {endRefresh(refreshUnit(t));}
+  expect((await resource.DELETE(testAccountRequest(req("DELETE")),context(t.name))).status).toBe(400);
+  expect((await preview(testAccountRequest(req("POST",good)),context(t.name))).status).toBe(200);
+  const invalid=await resource.PUT(testAccountRequest(req("PUT",good)),context(t.name));expect(invalid.status).toBe(422);expect(await invalid.json()).toMatchObject({error:{code:"geometry_choice_invalid",issues:[{code:"projection_required"}]}});
+  expect((await resource.PUT(testAccountRequest(req("PUT",{...good,expectedRevision:"stale"})),context(t.name))).status).toBe(409);
+  expect((await resource.GET(testAccountRequest(req("GET")),context("unknown"))).status).toBe(404);
+  beginRefresh(refreshUnit(testAccountScope(), t),t.name);
+  try {const response=await resource.PUT(testAccountRequest(req("PUT",good)),context(t.name));expect(response.status).toBe(409);expect(await response.json()).toMatchObject({error:{code:"geometry_in_flight"}});} finally {endRefresh(refreshUnit(testAccountScope(), t));}
   expect(getTableByName(t.name)).toEqual(t);
-  expect((await projections(req("GET",undefined,"?epsg=999999999"))).status).toBe(422);
-  expect((await projections(req("GET",undefined,"?epsg=not-code"))).status).toBe(400);
+  expect((await projections(testAccountRequest(req("GET",undefined,"?epsg=999999999")))).status).toBe(422);
+  expect((await projections(testAccountRequest(req("GET",undefined,"?epsg=not-code")))).status).toBe(400);
 });
 it("response schemas require every preview/mutation fact and bound corresponding rows",()=>{
   const s=buildOpenApiDocument().components.schemas;

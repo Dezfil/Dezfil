@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   mkdtemp,
@@ -51,7 +52,7 @@ beforeEach(async () => {
       "sudkreuz,s,13.360,52.480,120",
     ].join("\n"),
   );
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
   ensureTileDirs();
 });
 
@@ -77,7 +78,7 @@ function layer(overrides: Partial<ExportableLayer> = {}): ExportableLayer {
 describe("layer export — the effective result", () => {
   it("a SQL predicate narrows the export", async () => {
     const file = await exportLayerResult(
-      layer({
+      testAccountScope(), layer({
         sql: "SELECT name, geometry FROM stations WHERE riders > 400",
       }),
       "geojson",
@@ -93,7 +94,7 @@ describe("layer export — the effective result", () => {
     // The SQL is untouched; only the stored filter carries the predicate.
     // An export of the raw SQL would pass the sibling test and fail here.
     const file = await exportLayerResult(
-      layer({
+      testAccountScope(), layer({
         filters: [{ field: "riders", kind: "range", min: 400, max: null }],
       }),
       "geojson",
@@ -109,7 +110,7 @@ describe("layer export — the effective result", () => {
 describe("layer export — every format reopens", () => {
   it("GeoParquet reopens spatially with the filtered count", async () => {
     const file = await exportLayerResult(
-      layer({
+      testAccountScope(), layer({
         filters: [{ field: "category", kind: "values", values: ["u"] }],
       }),
       "geoparquet",
@@ -129,7 +130,7 @@ describe("layer export — every format reopens", () => {
   });
 
   it("GeoJSON reopens as GeoJSON with geometry", async () => {
-    const file = await exportLayerResult(layer(), "geojson");
+    const file = await exportLayerResult(testAccountScope(), layer(), "geojson");
     const parsed = JSON.parse(await readFile(file.path, "utf8")) as {
       type: string;
       features: { geometry: { type: string } }[];
@@ -141,7 +142,7 @@ describe("layer export — every format reopens", () => {
   });
 
   it("CSV keeps every column with geometry as WKT", async () => {
-    const file = await exportLayerResult(layer(), "csv");
+    const file = await exportLayerResult(testAccountScope(), layer(), "csv");
     const text = await readFile(file.path, "utf8");
     const [header, ...rows] = text.trim().split("\n");
     expect(header).toBe("name,category,riders,geometry");
@@ -156,7 +157,7 @@ describe("layer export — every format reopens", () => {
       sql: `SELECT name, geometry, ST_Point(lon + 0.01, lat + 0.01) AS dest
             FROM stations`,
     });
-    const file = await exportLayerResult(twoGeom, "geoparquet");
+    const file = await exportLayerResult(testAccountScope(), twoGeom, "geoparquet");
     const target = file.path.replace(/'/g, "''");
     const row = await withConnection(async (conn) => {
       const read = await conn.runAndReadAll(
@@ -172,7 +173,7 @@ describe("layer export — every format reopens", () => {
 
     // GeoJSON takes the same projection: one feature geometry, dest as a
     // WKT property rather than a dropped column.
-    const gj = await exportLayerResult(twoGeom, "geojson");
+    const gj = await exportLayerResult(testAccountScope(), twoGeom, "geojson");
     const parsed = JSON.parse(await readFile(gj.path, "utf8")) as {
       features: {
         geometry: { type: string };
@@ -204,7 +205,7 @@ describe("layer export — the O→D visualization road", () => {
         height: 0,
       },
     });
-    const file = await exportLayerResult(odLayer, "geojson");
+    const file = await exportLayerResult(testAccountScope(), odLayer, "geojson");
     const parsed = JSON.parse(await readFile(file.path, "utf8")) as {
       features: {
         geometry: { type: string };
@@ -230,8 +231,8 @@ describe("layer export — the agent road", () => {
     const { buildTools } = await import("@/lib/tools/tools");
     const { executeTool } = await import("@/lib/tools/execute");
 
-    const map = createMap("m");
-    const stored = await createLayer(map.id, {
+    const map = createMap(testAccountScope(), "m");
+    const stored = await createLayer(testAccountScope(), map.id, {
       name: "Stations",
       sql: "SELECT name, geometry FROM stations",
     });
@@ -241,7 +242,7 @@ describe("layer export — the agent road", () => {
     const routeFetch = (async (url: RequestInfo | URL, init?: RequestInit) => {
       const m = /\/api\/layers\/([^/]+)\/export\/([^/?]+)/.exec(String(url));
       if (!m) throw new Error(`unexpected url: ${String(url)}`);
-      return GET(new Request(String(url), init), {
+      return GET(testAccountRequest(new Request(String(url), init)), {
         params: Promise.resolve({
           id: decodeURIComponent(m[1]),
           format: decodeURIComponent(m[2]),
@@ -280,7 +281,7 @@ describe("layer export — the agent road", () => {
 
 describe("layer export — lifecycle and hygiene", () => {
   it("writes inside the scratch directory and cleanup removes the file", async () => {
-    const file = await exportLayerResult(layer(), "csv");
+    const file = await exportLayerResult(testAccountScope(), layer(), "csv");
     expect(path.dirname(file.path)).toBe(tileScratchDir());
     await expect(stat(file.path)).resolves.toBeTruthy();
     await file.cleanup();
@@ -289,7 +290,7 @@ describe("layer export — lifecycle and hygiene", () => {
 
   it("a failing export leaves no file behind", async () => {
     await expect(
-      exportLayerResult(layer({ sql: "SELECT nope FROM missing" }), "csv"),
+      exportLayerResult(testAccountScope(), layer({ sql: "SELECT nope FROM missing" }), "csv"),
     ).rejects.toMatchObject({ code: "sql_error" });
     const { readdir } = await import("node:fs/promises");
     const remaining = (await readdir(tileScratchDir())).filter((f) =>
@@ -309,7 +310,7 @@ describe("layer export — lifecycle and hygiene", () => {
     try {
       // Pay the cold hardened-instance setup before the cancellation clock:
       // the test is about interrupting COPY, not extension startup.
-      const warm = await exportLayerResult(layer(), "csv");
+      const warm = await exportLayerResult(testAccountScope(), layer(), "csv");
       await warm.cleanup();
       process.env.DEZFIL_QUERY_TIMEOUT_S = "5";
 
@@ -318,7 +319,7 @@ describe("layer export — lifecycle and hygiene", () => {
       // is a second hard stop if the scratch observation itself fails.
       failSafe = setTimeout(() => controller.abort(), 1_000);
       exporting = exportLayerResult(
-        layer({
+        testAccountScope(), layer({
           sql: `SELECT i,
                        ST_Point((i % 360)::DOUBLE, (i % 180)::DOUBLE) AS geometry
                 FROM range(10000000) AS generated(i)`,
@@ -360,7 +361,7 @@ describe("layer export — lifecycle and hygiene", () => {
 
       // Interruption is connection-local; the hardened instance remains fit
       // for the next real export after the cancelled writer has drained.
-      const follower = await exportLayerResult(layer(), "csv");
+      const follower = await exportLayerResult(testAccountScope(), layer(), "csv");
       await expect(stat(follower.path)).resolves.toBeTruthy();
       await follower.cleanup();
     } finally {
@@ -379,14 +380,14 @@ describe("layer export — lifecycle and hygiene", () => {
   }, 15_000);
 
   it("keeps an emitted-but-unreachable real artifact until the production expiry reaper removes it", async () => {
-    const file = await exportLayerResult(layer(), "csv");
+    const file = await exportLayerResult(testAccountScope(), layer(), "csv");
     const cleanup = vi.spyOn(file, "cleanup");
     const store = new LayerDownloadTicketStore();
     const binding = { layerId: "layer-expiry", format: "csv" } as const;
 
     try {
       vi.useFakeTimers();
-      const ticket = store.prepare(binding, {
+      const ticket = store.prepare(testAccountScope(), binding, {
         ...file,
         size: (await stat(file.path)).size,
       });
@@ -399,7 +400,7 @@ describe("layer export — lifecycle and hygiene", () => {
       await expect(stat(file.path)).resolves.toBeTruthy();
 
       await vi.advanceTimersByTimeAsync(1);
-      expect(store.status(ticket, binding)).toBe("failed");
+      expect(store.status(testAccountScope(), ticket, binding)).toBe("failed");
       expect(cleanup).toHaveBeenCalledOnce();
       await cleanup.mock.results[0].value;
       await expect(stat(file.path)).rejects.toThrow();
@@ -412,7 +413,7 @@ describe("layer export — lifecycle and hygiene", () => {
 
   it("a free-text layer name becomes a safe filename", async () => {
     const file = await exportLayerResult(
-      layer({ name: 'we/ird "name" !' }),
+      testAccountScope(), layer({ name: 'we/ird "name" !' }),
       "csv",
     );
     expect(file.filename).toBe("we ird name.csv");
@@ -431,8 +432,8 @@ describe("layer export — private native-download hand-off", () => {
     const { createMap } = await import("@/lib/map-service");
     const { createLayer } = await import("@/lib/layer-service");
     const { updateLayerFields } = await import("@/lib/metadata/maps");
-    const map = createMap("download-map");
-    const layer = await createLayer(map.id, {
+    const map = createMap(testAccountScope(), "download-map");
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "Stations",
       sql: "SELECT name, geometry FROM stations",
     });
@@ -448,10 +449,10 @@ describe("layer export — private native-download hand-off", () => {
   ) {
     const { GET } = await import("@/app/api/layers/[id]/export/[format]/route");
     return GET(
-      new Request(
+      testAccountRequest(new Request(
         `http://localhost/api/layers/${id}/export/${format}${search}`,
         { signal },
-      ),
+      )),
       { params: Promise.resolve({ id, format }) },
     );
   }
@@ -585,9 +586,9 @@ describe("layer export — private native-download hand-off", () => {
     let mintedTicket: string | null = null;
     let preparedPath: string | null = null;
     vi.spyOn(layerDownloadTickets, "prepare").mockImplementation(
-      (binding, file, signal) => {
+      (scope, binding, file, signal) => {
         preparedPath = file.path;
-        mintedTicket = originalPrepare(binding, file, signal);
+        mintedTicket = originalPrepare(scope, binding, file, signal);
         return mintedTicket;
       },
     );
@@ -610,7 +611,7 @@ describe("layer export — private native-download hand-off", () => {
     // was the former false ownership boundary.
     controller.abort();
     expect(
-      layerDownloadTickets.status(mintedTicket!, {
+      layerDownloadTickets.status(testAccountScope(), mintedTicket!, {
         layerId: layer.id,
         format: "csv",
       }),
@@ -680,7 +681,7 @@ describe("layer export — private native-download hand-off", () => {
     let receivedSignal: AbortSignal | undefined;
     const layerExport = await import("./layer-export");
     vi.spyOn(layerExport, "exportLayerResult").mockImplementationOnce(
-      async (_layer, _format, signal) => {
+      async (_scope, _layer, _format, signal) => {
         receivedSignal = signal;
         // This controlled exporter isolates the route boundary. The sibling
         // unmocked export test holds production scratch reclamation itself;
@@ -823,7 +824,7 @@ describe("layer export — private native-download hand-off", () => {
 describe("query result export", () => {
   it("CSV carries every row of a spatial result with geometry as WKT", async () => {
     const file = await exportQueryResult(
-      "SELECT name, riders, geometry FROM stations ORDER BY name",
+      testAccountScope(), "SELECT name, riders, geometry FROM stations ORDER BY name",
       "csv",
     );
     const text = await readFile(file.path, "utf8");
@@ -836,7 +837,7 @@ describe("query result export", () => {
 
   it("CSV and parquet export a non-spatial result; GeoJSON refuses it with a reason", async () => {
     const csv = await exportQueryResult(
-      "SELECT category, count(*) AS n FROM stations GROUP BY category ORDER BY category",
+      testAccountScope(), "SELECT category, count(*) AS n FROM stations GROUP BY category ORDER BY category",
       "csv",
     );
     expect((await readFile(csv.path, "utf8")).trim().split("\n")).toEqual([
@@ -846,7 +847,7 @@ describe("query result export", () => {
     ]);
     await csv.cleanup();
     const parquet = await exportQueryResult(
-      "SELECT category, count(*) AS n FROM stations GROUP BY category",
+      testAccountScope(), "SELECT category, count(*) AS n FROM stations GROUP BY category",
       "geoparquet",
     );
     const reopened = await withConnection(async (conn) => {
@@ -858,7 +859,7 @@ describe("query result export", () => {
     expect(reopened).toBe(2);
     await parquet.cleanup();
     await expect(
-      exportQueryResult("SELECT category FROM stations", "geojson"),
+      exportQueryResult(testAccountScope(), "SELECT category FROM stations", "geojson"),
     ).rejects.toMatchObject({
       code: "invalid_request",
       message: expect.stringMatching(/GeoJSON needs a geometry column/),
@@ -867,7 +868,7 @@ describe("query result export", () => {
 
   it("GeoJSON keeps a row whose feature geometry is NULL", async () => {
     const file = await exportQueryResult(
-      "SELECT name, CASE WHEN name = 'zoo' THEN NULL ELSE geometry END AS geometry FROM stations",
+      testAccountScope(), "SELECT name, CASE WHEN name = 'zoo' THEN NULL ELSE geometry END AS geometry FROM stations",
       "geojson",
     );
     const parsed = JSON.parse(await readFile(file.path, "utf8")) as {
@@ -882,13 +883,13 @@ describe("query result export", () => {
   it("rejects a write statement at the guard and leaves no file", async () => {
     const before = await readdir(tileScratchDir());
     await expect(
-      exportQueryResult("CREATE TABLE x AS SELECT 1", "csv"),
+      exportQueryResult(testAccountScope(), "CREATE TABLE x AS SELECT 1", "csv"),
     ).rejects.toMatchObject({ code: "sql_rejected" });
     expect(await readdir(tileScratchDir())).toEqual(before);
   });
 
   it("names the download after the caller's name", async () => {
-    const file = await exportQueryResult("SELECT 1 AS one", "csv", undefined, "My Result!");
+    const file = await exportQueryResult(testAccountScope(), "SELECT 1 AS one", "csv", undefined, "My Result!");
     expect(file.filename).toBe("My Result.csv");
     await file.cleanup();
   });

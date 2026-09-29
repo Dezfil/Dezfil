@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { lookRetention } from '@/lib/export/look-retention';
@@ -23,7 +24,7 @@ function retained(id: string): LookResult {
 const connect = () => testClient(request => readImage(request, { params: Promise.resolve({ renderId: new URL(request.url).pathname.split('/').at(-1)! }) }));
 describe('retained image transport through the actual read route', () => {
   it.each(['full', 'thumbnail'] as const)('%s travels byte-true with actual media and two byte copies', async variant => {
-    const source = retained('retained-source'); lookRetention.retain(source);
+    const source = retained('retained-source'); lookRetention.retain(testAccountScope(), source);
     const expected = variant === 'full' ? source.image.png : source.thumbnail.png;
     const client = await connect();
     try {
@@ -39,8 +40,8 @@ describe('retained image transport through the actual read route', () => {
     } finally { await client.close(); }
   });
   for (const departure of ['eviction', 'process-state reset'] as const) it(`${departure} refuses both variants with no render`, async () => {
-    const source = retained('gone-source'); lookRetention.retain(source);
-    expect(lookRetention.read(source.id, 'full')).not.toBeNull();
+    const source = retained('gone-source'); lookRetention.retain(testAccountScope(), source);
+    expect(lookRetention.read(testAccountScope(), source.id, 'full')).not.toBeNull();
     if (departure === 'eviction') lookRetention.evictForTests(source.id); else lookRetention.resetForTests();
     const client = await connect();
     try {

@@ -1,3 +1,8 @@
+import type { PreparationContext, PreparedPublication } from "./preparation";
+export type { PreparationContext, PreparedPublication } from "./preparation";
+import type { AccountScope } from "@/lib/auth/scope";
+import { compileSpatialJoin, compileBuffer, compileMeasureColumns } from "./compile-spatial";
+import type { DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
 import type { DataTable } from "@/lib/metadata/tables";
 import type { DryRun } from "./materialize";
@@ -5,26 +10,16 @@ import { findOperation } from "./catalog";
 import { compileGeocode } from "./compile-geocode";
 import { compileIsochrone } from "./compile-isochrone";
 import { compileStatisticsVerb } from "./compile-statistics";
-import { resolveMeasurementCrs } from "./measurement";
 import {
   assumedCrsOf,
-  carriedFields,
   columnsOf,
   crsFor,
-  extentOf,
   fields,
   inputTable,
   metres,
-  refusePastCeiling,
   required,
   str,
 } from "./compile-support";
-import {
-  bufferSql,
-  measureColumnsSql,
-  parseMeasures,
-  MEASURE_KIND,
-} from "./metric-verbs";
 import { centroidSql, convexHullSql, simplifySql } from "./shape-verbs";
 import { clipSql, differenceSql, unionSql } from "./overlay-verbs";
 import {
@@ -47,11 +42,7 @@ import {
 import type { OperationDef } from "./catalog";
 import { geometryClassOf } from "./geometry-class";
 import {
-  spatialJoinSql,
-  validateSpatialJoin,
   type ColumnType,
-  type Predicate,
-  type SpatialJoinParams,
 } from "./spatial-join";
 
 /**
@@ -75,39 +66,7 @@ import {
  * back as the reduction that happened to be executable.
  */
 
-/**
- * What a run has to do before it has a statement at all.
- *
- * The lane hands over its own signal and what is left of its own budget, so a
- * preparation is cancelled and timed exactly as the publication that follows
- * it is — contract is that execution is timed from when a run starts running,
- * and a provider phase outside that would be time nothing measured.
- */
-export interface PreparationContext {
-  signal?: AbortSignal;
-  /** Wall-clock instant by which the whole run must be over, publication
-   * included. Not a fresh budget: a slow preparation leaves less, never more. */
-  deadlineAt: number;
-  /** The lane's coded timeout, so work that runs long fails as a run that ran
-   * long rather than as a query that did. */
-  timeoutError: () => ApiError;
-}
 
-export interface PreparedPublication {
-  /** The statement to publish, now that what it reads exists. */
-  sql: string;
-  /**
-   * What the output's record carries **in place of** that statement (J9).
-   *
-   * A provider run's statement names a private staging path, so publishing it
-   * would put an internal path in the registry. The doctrine already says what
-   * belongs there instead: the request the run made.
-   */
-  disclosure: Record<string, unknown>;
-  /** Called whatever the run's outcome — success, failure, cancellation or
-   * timeout. The staging artifact is run-owned. */
-  cleanup: () => Promise<void>;
-}
 
 export interface CompiledRun {
   /** The read-only SELECT that will be materialized. Empty for a run whose
@@ -174,153 +133,9 @@ export interface CompileOptions {
   requireName?: boolean;
 }
 
-async function compileSpatialJoin(
-  params: Record<string, unknown>,
-  label: string,
-  requireName: boolean,
-): Promise<CompiledRun> {
-  const leftName = str(params, "left");
-  const rightName = str(params, "right");
-  const name = str(params, "name");
-  if (!leftName) required(label, "left");
-  if (!rightName) required(label, "right");
-  if (requireName && !name) required(label, "name");
-
-  const left = inputTable(leftName, "left");
-  const right = inputTable(rightName, "right");
-
-  const join: SpatialJoinParams = {
-    left: left.name,
-    right: right.name,
-    // Absent means the catalog's default rather than a silent failure: the
-    // catalog declares one and a caller reading it may reasonably omit it.
-    predicate: (str(params, "predicate") || "intersects") as Predicate,
-    carry: carriedFields(params.carry),
-  };
-
-  const [leftColumns, rightColumns] = await Promise.all([
-    columnsOf(left),
-    columnsOf(right),
-  ]);
-  validateSpatialJoin(
-    join,
-    { table: left, columns: leftColumns },
-    { table: right, columns: rightColumns },
-  );
-
-  return { sql: spatialJoinSql(join, left, right), name };
-}
-
-/**
- * The extent the engine reports for a registered table, as the strategy needs
- * it — **the whole table's, not its first row's**.
- *
- * `ST_Extent` is the *scalar* box of one geometry; `ST_Extent_Agg` is the
- * aggregate over many. Reading the scalar and taking the first row answered a
- * single feature's box, so a dataset spanning three UTM zones presented one,
- * ratified coverage refusal never fired, and every distance in that dataset
- * was measured in whichever zone the first row happened to fall in. Recorded
- * as; this is its repair.
- *
- * The bounds are read as numbers rather than parsed out of text, because the
- * aggregate's text form is polygon WKT, not `BOX(…)` — a one-word substitution
- * would have swapped a wrong answer for an unreadable one. The null check
- * comes before the numeric one for the reason `extent-service.ts` states:
- * `Number(null)` is a perfectly finite zero, so an empty table would otherwise
- * report a real extent at the origin.
- *
- * A table with no geometry cannot be measured, and says so.
- */
-async function compileBuffer(
-  params: Record<string, unknown>,
-  label: string,
-  requireName: boolean,
-): Promise<CompiledRun> {
-  const inputName = str(params, "input");
-  const name = str(params, "name");
-  if (!inputName) required(label, "input");
-  if (requireName && !name) required(label, "name");
-  // `typeof`, not coercion: `true` becomes a one-metre buffer, `"500"` and
-  // `[500]` become five hundred, and the catalog says this parameter is a
-  // number. A value that only looks like one is a malformed request, not a
-  // measurement.
-  const distance = params.distance;
-  if (typeof distance !== "number" || !Number.isFinite(distance) || distance <= 0) {
-    throw new ApiError(
-      "invalid_request",
-      `"distance" must be a positive number of metres on the ground.`,
-      400,
-    );
-  }
-  refusePastCeiling("distance", distance);
-
-  const table = inputTable(inputName, "buffer's");
-  // A distance: a local projection or a refusal, never a fallback.
-  const crs = resolveMeasurementCrs(await extentOf(table, "a buffer"), "distance");
-  return {
-    sql: bufferSql(table, distance, crs),
-    name,
-    measurement: {
-      crs: { distance: crs.crs },
-      fallback: !crs.local,
-      assumedCrs: assumedCrsOf([table]),
-    },
-    bindings: { [table.name.toLowerCase()]: table.file },
-  };
-}
-
-async function compileMeasureColumns(
-  params: Record<string, unknown>,
-  label: string,
-  requireName: boolean,
-): Promise<CompiledRun> {
-  const inputName = str(params, "input");
-  const name = str(params, "name");
-  if (!inputName) required(label, "input");
-  if (requireName && !name) required(label, "name");
-  const measures = parseMeasures(params.measures);
-
-  const table = inputTable(inputName, "measured");
-  const extent = await extentOf(table, "measure columns");
-  // **Both halves of the strategy, in one run.** A length is a distance and
-  // may not take the area fallback, so a dataset too wide for a local
-  // projection is refused for length and answered for area — which is why
-  // this operation is a proof operation rather than a convenience.
-  const needs = new Set(measures.map((m) => MEASURE_KIND[m]));
-  const area = needs.has("area")
-    ? resolveMeasurementCrs(extent, "area")
-    : undefined;
-  const distance = needs.has("distance")
-    ? resolveMeasurementCrs(extent, "distance")
-    : undefined;
-
-  const crs: Record<string, string> = {};
-  if (area) crs.area = area.crs;
-  if (distance) crs.distance = distance.crs;
-
-  const columns = await columnsOf(table);
-  return {
-    sql: measureColumnsSql(
-      table,
-      measures,
-      {
-        area: area ?? { crs: "", local: true },
-        distance: distance ?? { crs: "", local: true },
-      },
-      columns.map((c) => c.name),
-    ),
-    name,
-    measurement: {
-      crs,
-      fallback: area?.local === false,
-      assumedCrs: assumedCrsOf([table]),
-    },
-    bindings: { [table.name.toLowerCase()]: table.file },
-  };
-}
-
 /** A positive number of ground metres, or the refusal the catalog promises. */
 export async function compileOperation(
+  scope: AccountScope,
   operationId: string,
   parameters: Record<string, unknown>,
   options: CompileOptions = {},
@@ -340,11 +155,11 @@ export async function compileOperation(
       return { sql, name };
     }
     case "spatial_join":
-      return compileSpatialJoin(params, operation.label, requireName);
+      return compileSpatialJoin(scope, params, operation.label, requireName);
     case "buffer":
-      return compileBuffer(params, operation.label, requireName);
+      return compileBuffer(scope, params, operation.label, requireName);
     case "measure_columns":
-      return compileMeasureColumns(params, operation.label, requireName);
+      return compileMeasureColumns(scope, params, operation.label, requireName);
     case "centroid":
     case "convex_hull":
     case "simplify":
@@ -357,15 +172,15 @@ export async function compileOperation(
     case "union":
     case "nearest_join":
     case "filter_by_location":
-      return compileCatalogVerb(operation, params, requireName);
+      return compileCatalogVerb(scope, operation, params, requireName);
     case "h3_cell":
     case "hotspot":
     case "cluster_by_distance":
-      return compileStatisticsVerb(operation, params, requireName);
+      return compileStatisticsVerb(scope, operation, params, requireName);
     case "geocode_addresses":
-      return compileGeocode(operation, params, requireName);
+      return compileGeocode(scope, operation, params, requireName);
     case "isochrone":
-      return compileIsochrone(operation, params, requireName);
+      return compileIsochrone(scope, operation, params, requireName);
     default:
       throw new ApiError(
         "invalid_request",
@@ -386,6 +201,7 @@ export async function compileOperation(
  * judgement.
  */
 async function compileCatalogVerb(
+  scope: DatasetScope,
   operation: OperationDef,
   params: Record<string, unknown>,
   requireName: boolean,
@@ -406,7 +222,7 @@ async function compileCatalogVerb(
   const inputFor = (key: string): DataTable => {
     const named = str(params, key);
     if (!named) required(label, key);
-    const table = inputTable(named, key);
+    const table = inputTable(scope, named, key);
     const declared = operation.inputs.find((input) => input.name === key);
     if (declared && !declared.accepts.includes("any")) {
       const held = geometryClassOf(table);
@@ -438,7 +254,7 @@ async function compileCatalogVerb(
     }
     case "convex_hull": {
       const table = inputFor("input");
-      const groupBy = await fields(table, params.group_by, "grouping column");
+      const groupBy = await fields(scope, table, params.group_by, "grouping column");
       return {
         sql: convexHullSql(table, groupBy),
         name,
@@ -448,7 +264,7 @@ async function compileCatalogVerb(
     case "simplify": {
       const table = inputFor("input");
       const tolerance = metres(params, "tolerance", label, true)!;
-      const crs = await crsFor([table], "simplify");
+      const crs = await crsFor(scope, [table], "simplify");
       return {
         sql: simplifySql(table, tolerance, crs),
         name,
@@ -462,7 +278,7 @@ async function compileCatalogVerb(
     }
     case "dissolve": {
       const table = inputFor("input");
-      const groupBy = await fields(table, params.group_by, "grouping column");
+      const groupBy = await fields(scope, table, params.group_by, "grouping column");
       const geometry = table.geometryColumn;
       if (!geometry) {
         throw new ApiError(
@@ -480,10 +296,10 @@ async function compileCatalogVerb(
     }
     case "group_summarize": {
       const table = inputFor("input");
-      const groupBy = await fields(table, params.group_by, "grouping column", {
+      const groupBy = await fields(scope, table, params.group_by, "grouping column", {
         allowGeometry: false,
       });
-      const aggregates = await parseAggregates(table, params.aggregates, await columnsOf(table));
+      const aggregates = await parseAggregates(table, params.aggregates, await columnsOf(scope, table));
       return {
         sql: groupSummarizeSql(table, groupBy, aggregates),
         name,
@@ -492,7 +308,7 @@ async function compileCatalogVerb(
     }
     case "filter_rows": {
       const table = inputFor("input");
-      const [field] = await fields(table, str(params, "field"), "filter column");
+      const [field] = await fields(scope, table, str(params, "field"), "filter column");
       if (!field) required(label, "field");
       const comparison = (str(params, "comparison") || "equals") as Comparison;
       if (!COMPARISONS.includes(comparison)) {
@@ -516,12 +332,12 @@ async function compileCatalogVerb(
     case "join_by_key": {
       const left = inputFor("left");
       const right = inputFor("right");
-      const [leftKey] = await fields(left, str(params, "left_key"), "left key");
-      const [rightKey] = await fields(right, str(params, "right_key"), "right key");
+      const [leftKey] = await fields(scope, left, str(params, "left_key"), "left key");
+      const [rightKey] = await fields(scope, right, str(params, "right_key"), "right key");
       if (!leftKey) required(label, "left_key");
       if (!rightKey) required(label, "right_key");
-      const carry = await fields(right, params.carry, "carried column");
-      await refuseCarryCollisions(left, carry, ["join_match_count"]);
+      const carry = await fields(scope, right, params.carry, "carried column");
+      await refuseCarryCollisions(scope, left, carry, ["join_match_count"]);
       return {
         sql: joinByKeySql(left, right, leftKey, rightKey, carry),
         name,
@@ -550,16 +366,16 @@ async function compileCatalogVerb(
     case "nearest_join": {
       const left = inputFor("left");
       const right = inputFor("right");
-      const carry = await fields(right, params.carry, "carried column");
+      const carry = await fields(scope, right, params.carry, "carried column");
       // **A collision is refused, not silently renamed.** A left table with
       // its own `name` column and a carried `name` produced two columns of
       // that name, and the engine handed back the carried one as `name_1` —
       // a value under a name nobody asked for. `nearest_distance_m` is
       // reserved for the same reason.
-      await refuseCarryCollisions(left, carry, ["nearest_distance_m"]);
+      await refuseCarryCollisions(scope, left, carry, ["nearest_distance_m"]);
       const maxDistance = metres(params, "max_distance", label, false);
       // Both inputs: the nearest feature may lie outside the left's own zone.
-      const crs = await crsFor([left, right], "a nearest join");
+      const crs = await crsFor(scope, [left, right], "a nearest join");
       return {
         sql: nearestJoinSql(left, right, carry, crs, maxDistance),
         name,
@@ -587,7 +403,7 @@ async function compileCatalogVerb(
       // Only a distance-bearing relationship measures, so only it resolves a
       // projection — and only it can be refused for spanning too much earth.
       const crs = needsDistance
-        ? await crsFor([input, mask], "a location filter")
+        ? await crsFor(scope, [input, mask], "a location filter")
         : { crs: "", local: true };
       return {
         sql: filterByLocationSql(
@@ -696,13 +512,14 @@ async function parseAggregates(
  * dataset that will be read months later. Found at the cross-model review.
  */
 async function refuseCarryCollisions(
+  scope: DatasetScope,
   left: DataTable,
   carry: string[],
   reserved: string[],
 ): Promise<void> {
   if (carry.length === 0) return;
   const existing = new Set(
-    (await columnsOf(left)).map((column) => column.name.toLowerCase()),
+    (await columnsOf(scope, left)).map((column) => column.name.toLowerCase()),
   );
   for (const name of reserved) existing.add(name.toLowerCase());
   const collides = carry.filter((column) => existing.has(column.toLowerCase()));

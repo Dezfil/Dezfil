@@ -1,3 +1,4 @@
+import { testAccountRequest } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   Client,
@@ -38,7 +39,7 @@ beforeEach(() => {
       const { pathname } = new URL(url);
       const request = input instanceof Request ? input : new Request(url, init);
       if (pathname === "/api/mcp") return handler.fetch(request);
-      if (pathname === "/api/tables") return tablesRoute(new Request("http://dezfil.test/api/tables"));
+      if (pathname === "/api/tables") return tablesRoute(testAccountRequest(new Request("http://dezfil.test/api/tables")));
       throw new Error(`Unexpected self-call in test: ${pathname}`);
     }) as typeof fetch,
   );
@@ -73,7 +74,7 @@ describe("internal-500 parity", () => {
     expect(text).not.toContain("metadata.sqlite");
     await client.close();
 
-    const direct = await tablesRoute(new Request("http://dezfil.test/api/tables"));
+    const direct = await tablesRoute(testAccountRequest(new Request("http://dezfil.test/api/tables")));
     expect(direct.status).toBe(500);
     const body = (await direct.json()) as {
       error: { code: string; message: string };
