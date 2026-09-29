@@ -80,6 +80,7 @@ test("two ordinary accounts and an admin keep map lists and copied map URLs priv
       }
       expect((await contexts[i].request.get(`/api/layers/${layers[i].id}/render`)).status()).toBe(200);
       await page.goto(`/maps/${maps[i].id}`);
+      await page.getByRole("button", { name: maps[i].name, exact: true }).click();
       await expect(page.getByRole("textbox", { name: "Map name", exact: true })).toHaveValue(maps[i].name);
     }
   } finally {

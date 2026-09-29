@@ -40,6 +40,7 @@ test("two ordinary accounts and an admin keep same-name uploads and dataset page
       const downloaded = await context.request.get(`/api/tables/${stem}/export?format=csv`);
       expect(downloaded.status()).toBe(200); expect(await downloaded.text()).toContain(`account_${i}`);
       const page = await context.newPage(); await page.goto(`/tables/${stem}`);
+      await page.getByRole("tab", { name: "Data preview", exact: true }).click();
       await expect(page.getByText(`account_${i}`, { exact: true }).first()).toBeVisible();
       for (const name of distinct.filter((_, j) => j !== i)) {
         const hidden = await context.request.get(`/api/tables/${name}`);
