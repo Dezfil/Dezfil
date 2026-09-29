@@ -1,3 +1,6 @@
+import { requireMap, mapWithLayers } from "./map-access";
+export { requireMap, mapWithLayers } from "./map-access";
+export { mapHistory, undoChange, redoChange, type MapWithHistory } from "./map-history";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { randomUUID } from "node:crypto";
 import { ApiError } from "@/lib/api/errors";
@@ -29,11 +32,8 @@ import {
   deleteMap,
   listLayers,
   insertLayer,
-  updateLayerFields,
-  deleteLayer,
   reorderLayers,
   type CustomBasemap,
-  type Layer,
   type MapRecord,
   type MapWithLayers,
   type Viewport,
@@ -50,13 +50,7 @@ import {
   recordStep,
   diffImages,
   stableJson,
-  undoSteps,
-  redoSteps,
-  setHistoryCursor,
-  historyAvailability,
-  type HistoryAvailability,
   type HistoryImage,
-  type HistoryStep,
 } from "@/lib/metadata/history";
 
 /** Map fields the timeline records. The viewport is deliberately
@@ -348,17 +342,6 @@ export function mapsOverview(project?: string | "none"): MapOverview[] {
     );
 }
 
-export function requireMap(id: string): MapRecord {
-  const map = getMap(id);
-  if (!map) throw new ApiError("not_found", `No map with id ${id}.`, 404);
-  return map;
-}
-
-export function mapWithLayers(id: string): MapWithLayers {
-  const map = requireMap(id);
-  return { ...map, layers: listLayers(id) };
-}
-
 export function updateMap(
   id: string,
   fields: Partial<{
@@ -522,94 +505,6 @@ export function updateMap(
     }
   })();
   return mapWithLayers(id);
-}
-
-// undo / redo ----
-
-/** The map + fresh history availability — what undo/redo return, and what
- * the builder seeds its buttons from. */
-export interface MapWithHistory extends MapWithLayers {
-  history: HistoryAvailability;
-}
-
-export function mapHistory(id: string): HistoryAvailability {
-  requireMap(id);
-  return historyAvailability(id);
-}
-
-/**
- * Apply one step's recorded image — verbatim, straight to the repositories,
- * never through the edit pipeline: coupled server-side adjustments must not
- * drift a revert. Rows deleted here are collected so their tile artifacts
- * can be removed after the transaction.
- */
-function applyStep(
-  step: HistoryStep,
-  direction: "undo" | "redo",
-  removedLayers: string[],
-): void {
-  const image = direction === "undo" ? step.before : step.after;
-  if (step.op === "update") {
-    if (step.scope === "map") {
-      const { layerOrder, ...rest } = image as HistoryImage & {
-        layerOrder?: string[];
-      };
-      if (Object.keys(rest).length) {
-        updateMapFields(step.targetId, rest as Parameters<typeof updateMapFields>[1]);
-      }
-      if (layerOrder) reorderLayers(step.mapId, layerOrder);
-    } else {
-      updateLayerFields(
-        step.targetId,
-        image as Parameters<typeof updateLayerFields>[1],
-      );
-    }
-    return;
-  }
-  // add/delete: undoing an add (or redoing a delete) removes the row;
-  // the opposite direction re-inserts the recorded row whole — same id,
-  // same ordinal, so later steps referencing it stay valid.
-  const removes =
-    (step.op === "add") === (direction === "undo");
-  if (removes) {
-    deleteLayer(step.targetId);
-    removedLayers.push(step.targetId);
-  } else {
-    insertLayer(image as unknown as Layer);
-  }
-}
-
-async function applyHistory(
-  id: string,
-  direction: "undo" | "redo",
-): Promise<MapWithHistory> {
-  requireMap(id);
-  const steps = direction === "undo" ? undoSteps(id) : redoSteps(id);
-  if (steps.length === 0) {
-    throw new ApiError(
-      "invalid_request",
-      direction === "undo" ? "Nothing to undo." : "Nothing to redo.",
-      409,
-    );
-  }
-  const removedLayers: string[] = [];
-  metadataDb().transaction(() => {
-    for (const step of steps) applyStep(step, direction, removedLayers);
-    const last = steps[steps.length - 1];
-    setHistoryCursor(id, direction === "undo" ? last.seq - 1 : last.seq);
-  })();
-  await Promise.all(removedLayers.map((lid) => removeTileArtifacts(lid)));
-  return { ...mapWithLayers(id), history: historyAvailability(id) };
-}
-
-/** Revert the newest step — or the whole group an assistant turn wrote. */
-export function undoChange(id: string): Promise<MapWithHistory> {
-  return applyHistory(id, "undo");
-}
-
-/** Re-apply the newest undone step (or group). */
-export function redoChange(id: string): Promise<MapWithHistory> {
-  return applyHistory(id, "redo");
 }
 
 /**
