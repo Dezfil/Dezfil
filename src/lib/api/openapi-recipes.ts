@@ -1,3 +1,4 @@
+import { ownedCreationOp } from "./openapi-owned-creation";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE, WORKFLOW_RUN } from "./operation-mcp";
 import { READ_ONLY, writes, resource, planning } from "./operation-metadata";
 import { op, jsonOk, pathParam } from "./openapi-helpers";
@@ -38,7 +39,7 @@ export const RECIPE_PATHS = {
       ],
       responses: { "200": jsonOk("#/components/schemas/RecipeList") },
     }),
-    post: op({
+    post: ownedCreationOp({
       summary: "Create a recipe",
       description:
         WORKFLOW_JSON_BODY_BOUND +
@@ -147,7 +148,7 @@ export const RECIPE_PATHS = {
     }),
   },
   "/api/recipes/{id}/duplicate": {
-    post: op({
+    post: ownedCreationOp({
       summary: "Duplicate a recipe",
       description:
         "A copy named \"<name> copy\", a workflow, that has never run: " +
@@ -464,7 +465,7 @@ export const RECIPE_PATHS = {
     }),
   },
   "/api/recipes/{id}/steps/{stepId}/run": {
-    post: op({
+    post: ownedCreationOp({
       summary: "Run one step",
       description:
         "Answers **202** with one of the recipe's runs: a " +
@@ -517,7 +518,7 @@ export const RECIPE_PATHS = {
       parameters: [pathParam("id", "Recipe id.")],
       responses: { "200": jsonOk("#/components/schemas/RecipeRunList") },
     }),
-    post: op({
+    post: ownedCreationOp({
       summary: "Run a recipe, or a step and its dependents",
       description:
         WORKFLOW_JSON_BODY_BOUND +

@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -40,7 +41,7 @@ beforeEach(async () => {
     src,
     "name,lon,lat,riders\na,13.4,52.5,100\nb,13.3,52.4,500\nc,13.2,52.6,900\n",
   );
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
 });
 
 afterEach(async () => {
@@ -52,7 +53,7 @@ afterEach(async () => {
 
 describe("maps", () => {
   it("creates, lists, reads, renames, and deletes", async () => {
-    const map = createMap("Transit");
+    const map = createMap(testAccountScope(), "Transit");
     expect(allMaps().map((m) => m.id)).toContain(map.id);
     expect(mapWithLayers(map.id).name).toBe("Transit");
     updateMap(map.id, { name: "Transit v2" });
@@ -62,7 +63,7 @@ describe("maps", () => {
   });
 
   it("lists overviews with layer count and colors", async () => {
-    const map = createMap("Overview");
+    const map = createMap(testAccountScope(), "Overview");
     await createLayer(map.id, {
       name: "Stations",
       sql: "SELECT * FROM stations",
@@ -74,7 +75,7 @@ describe("maps", () => {
   });
 
   it("duplicates a map as an unpublished draft with copied layers", async () => {
-    const map = createMap("Original");
+    const map = createMap(testAccountScope(), "Original");
     updateMap(map.id, {
       viewport: {
         lng: 13.4,
@@ -100,7 +101,7 @@ describe("maps", () => {
       },
     });
 
-    const copy = duplicateMap(map.id);
+    const copy = duplicateMap(testAccountScope(), map.id);
     expect(copy.name).toBe("Original copy");
     expect(copy.publishToken).toBeNull();
     expect(
@@ -128,7 +129,7 @@ describe("maps", () => {
   });
 
   it("persists viewport round-trips, camera included", () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     updateMap(map.id, {
       viewport: { lng: 13.4, lat: 52.5, zoom: 11, pitch: 45, bearing: -15 },
     });
@@ -142,7 +143,7 @@ describe("maps", () => {
   });
 
   it("persists the basemap choice; null means deployment default", () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     expect(mapWithLayers(map.id).basemap).toBeNull();
     updateMap(map.id, { basemap: "light" });
     expect(mapWithLayers(map.id).basemap).toBe("light");
@@ -153,7 +154,7 @@ describe("maps", () => {
 
 describe("layers as source of truth", () => {
   it("creates a layer from a spatial result with a default style", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "stations",
       sql: "SELECT * FROM stations",
@@ -166,7 +167,7 @@ describe("layers as source of truth", () => {
   });
 
   it("cycles default layer colors by creation order (kepler cycle)", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const sql = "SELECT * FROM stations";
     const first = await createLayer(map.id, { name: "a", sql });
     const second = await createLayer(map.id, { name: "b", sql });
@@ -181,7 +182,7 @@ describe("layers as source of truth", () => {
   });
 
   it("round-trips tooltip fields and legend inclusion", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "stations",
       sql: "SELECT * FROM stations",
@@ -198,7 +199,7 @@ describe("layers as source of truth", () => {
   });
 
   it("round-trips the published-field list; [] and null differ", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "stations",
       sql: "SELECT * FROM stations",
@@ -220,7 +221,7 @@ describe("layers as source of truth", () => {
   });
 
   it("published-field list rides the headless PATCH lane", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "stations",
       sql: "SELECT * FROM stations",
@@ -246,7 +247,7 @@ describe("layers as source of truth", () => {
   });
 
   it("duplicates a layer as a full copy, suffixed, stacked on top", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "stations",
       sql: "SELECT * FROM stations",
@@ -277,7 +278,7 @@ describe("layers as source of truth", () => {
   });
 
   it("rejects zero-geometry results; multiple geometries render the first", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     await expect(
       createLayer(map.id, { name: "x", sql: "SELECT name FROM stations" }),
     ).rejects.toMatchObject({ code: "invalid_request" });
@@ -300,7 +301,7 @@ describe("layers as source of truth", () => {
   });
 
   it("editing SQL changes what renders without recreating the layer", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "all",
       sql: "SELECT * FROM stations",
@@ -321,7 +322,7 @@ describe("layers as source of truth", () => {
   });
 
   it("renders a zero-row query as a valid empty layer", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "none",
       sql: "SELECT * FROM stations WHERE riders > 100000",
@@ -332,7 +333,7 @@ describe("layers as source of truth", () => {
   });
 
   it("produces GeoJSON features with non-geometry columns as properties", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "s",
       sql: "SELECT name, riders, geometry FROM stations ORDER BY riders",
@@ -349,7 +350,7 @@ describe("layers as source of truth", () => {
   });
 
   it("non-point features carry an interior label anchor", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     // An L-shape: the bounding-box center (2, 2) lies OUTSIDE the polygon,
     // so a naive centroid would anchor the label off the feature.
     const layer = await createLayer(map.id, {
@@ -372,7 +373,7 @@ describe("layers as source of truth", () => {
 
 describe("deleted table leaves an errored layer", () => {
   it("keeps the layer but renders an error while other layers work", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const dependent = await createLayer(map.id, {
       name: "dependent",
       sql: "SELECT * FROM stations",
@@ -422,7 +423,7 @@ describe("legend attribute overrides", () => {
   });
 
   it("persist, round-trip, copy on duplicate, and survive unrelated updates", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "L",
       sql: "SELECT * FROM stations",
@@ -440,7 +441,7 @@ describe("legend attribute overrides", () => {
   });
 
   it("a channel's override drops when its driving attribute changes", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "L",
       sql: "SELECT * FROM stations",
@@ -456,7 +457,7 @@ describe("legend attribute overrides", () => {
   });
 
   it("an attribute name can be hidden — distinct from cleared", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "L",
       sql: "SELECT * FROM stations",
@@ -529,7 +530,7 @@ describe("dataset export", () => {
     const src = path.join(dir, "plain.csv");
     const { writeFile: write } = await import("node:fs/promises");
     await write(src, "label,value\nx,1\ny,2\n");
-    await ingestFile(src, "plain.csv");
+    await ingestFile(testAccountScope(), src, "plain.csv");
     await expect(exportTable("plain", "geojson")).rejects.toMatchObject({
       code: "invalid_request",
     });

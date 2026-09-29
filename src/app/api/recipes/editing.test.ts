@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -31,7 +32,7 @@ beforeEach(async () => {
   resetQueryInstance();
   const src = path.join(dir, "stations.csv");
   await writeFile(src, "name,lon,lat\nalex,13.41,52.52\nzoo,13.33,52.51\n");
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
   await boundedEvaluation(async () => undefined);
 });
 
@@ -51,7 +52,7 @@ const P = (id: string) => ({ params: Promise.resolve({ id }) });
 const PS = (id: string, stepId: string) => ({ params: Promise.resolve({ id, stepId }) });
 
 async function newRecipe(name = "R"): Promise<string> {
-  const r = await createRecipeRoute(post({ name }));
+  const r = await createRecipeRoute(testAccountRequest(post({ name })));
   expect(r.status).toBe(201);
   return ((await body(r)).recipe as Json).id as string;
 }
@@ -115,7 +116,7 @@ describe("the name rule at add and edit", () => {
     const id = await newRecipe();
     const added = await add(id, "SELECT name FROM stations", "frozen_out");
     const stepId = ((await body(added)).step as Json).id as string;
-    expect((await runStep(post({}), PS(id, stepId))).status).toBe(202);
+    expect((await runStep(testAccountRequest(post({})), PS(id, stepId))).status).toBe(202);
     await laneSettled();
     expect(((await stepsOf(id))[0].output as Json).name).toBe("frozen_out");
     await refused(
@@ -141,7 +142,7 @@ describe("proposals and their discard", () => {
     const id = await newRecipe();
     const added = await add(id, "SELECT name FROM stations", "prop_out");
     const stepId = ((await body(added)).step as Json).id as string;
-    expect((await runStep(post({}), PS(id, stepId))).status).toBe(202);
+    expect((await runStep(testAccountRequest(post({})), PS(id, stepId))).status).toBe(202);
     await laneSettled();
     // A change after the run is a proposal.
     const changed = await editStep(post({ parameters: { sql: "SELECT name, lon FROM stations", name: "prop_out" } }), PS(id, stepId));
@@ -234,7 +235,7 @@ describe("removal truth", () => {
     // A produced node with one reader.
     const a = ((await body(await add(id, "SELECT name FROM stations", "rm_a"))).step as Json).id as string;
     await add(id, "SELECT * FROM rm_a", "rm_b");
-    expect((await runStep(post({}), PS(id, a))).status).toBe(202);
+    expect((await runStep(testAccountRequest(post({})), PS(id, a))).status).toBe(202);
     await laneSettled();
     const gone = await body(await remove(id, a));
     expect(gone.output).toEqual({ name: "rm_a", state: "exists" });
@@ -243,7 +244,7 @@ describe("removal truth", () => {
     expect(gone.message).toMatch(/remains.*One node reads it as a workspace table now/);
     // A produced node whose dataset was deleted since.
     const c = ((await body(await add(id, "SELECT name FROM stations", "rm_c"))).step as Json).id as string;
-    expect((await runStep(post({}), PS(id, c))).status).toBe(202);
+    expect((await runStep(testAccountRequest(post({})), PS(id, c))).status).toBe(202);
     await laneSettled();
     expect((await deleteTable(post({}), { params: Promise.resolve({ name: "rm_c" }) })).status).toBeLessThan(300);
     const deleted = await body(await remove(id, c));

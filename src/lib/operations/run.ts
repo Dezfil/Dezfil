@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
@@ -216,7 +217,7 @@ export interface SubmitOptions {
 
 /** The work the lane runs for one job. It reports the job's own outcome and
  * never throws into the lane. */
-function workFor(job: OperationJob, options: SubmitOptions): lane.LaneWork {
+function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions): lane.LaneWork {
   return async (signal: AbortSignal) => {
     // Cancelled between admission and its turn: it never starts.
     if (!markRunning(job.id, new Date().toISOString())) return;
@@ -257,7 +258,7 @@ function workFor(job: OperationJob, options: SubmitOptions): lane.LaneWork {
           timeoutError: operationTimeout,
         });
       }
-      await materialize({
+      await materialize(scope, {
         sql: prepared ? prepared.sql : options.sql,
         name: options.name,
         operation: job.operation,
@@ -293,7 +294,8 @@ function workFor(job: OperationJob, options: SubmitOptions): lane.LaneWork {
  * Shared by every path that runs something, so a step's run and a one-off run
  * cannot drift in how they are recorded, cancelled or recovered.
  */
-export function submitRun(options: SubmitOptions): OperationJob {
+export function submitRun(scope: AccountScope, options: SubmitOptions): OperationJob {
+  requireAccountScope(scope);
   const id = randomUUID();
   const job: OperationJob = {
     id,
@@ -317,9 +319,9 @@ export function submitRun(options: SubmitOptions): OperationJob {
   // happens inside `submit`. The row has to exist by then or that claim finds
   // nothing, returns false, and the run sits queued forever having quietly
   // done nothing.
-  insertJob(job);
+  insertJob(scope, job);
   try {
-    lane.submit(id, workFor(job, options));
+    lane.submit(id, workFor(scope, job, options));
   } catch (error) {
     // The lane refused it, so the server never took responsibility for this
     // work and must leave no record of it.
@@ -403,11 +405,12 @@ function settleFailure(job: OperationJob, error: unknown): void {
  * Answers as soon as the job exists, which is the whole point: the caller holds
  * an identity, not a result, and the work is no longer tied to their request.
  */
-export async function startRun(request: RunRequest): Promise<OperationJob> {
+export async function startRun(scope: AccountScope, request: RunRequest): Promise<OperationJob> {
+  requireAccountScope(scope);
   // No `owns` argument: a one-off run never holds the admission exception, so
   // a caller cannot reach it by imitating a step.
   const admitted = await admit(request);
-  return submitRun({
+  return submitRun(scope, {
     operationId: admitted.operationId,
     parameters: request.parameters ?? {},
     sql: admitted.sql,

@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -55,9 +56,9 @@ beforeEach(async () => {
   resetQueryInstance();
   const src = path.join(dir, "stations.csv");
   await writeFile(src, "name,lon,lat\nalex,13.41,52.52\nzoo,13.33,52.51\n");
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
   await boundedEvaluation(async () => undefined);
-  recipeId = createRecipe("R").id;
+  recipeId = createRecipe(testAccountScope(), "R").id;
 });
 
 afterEach(async () => {
@@ -73,7 +74,7 @@ const step = (sql: string, name: string) =>
   addStep(recipeId, { operation: "sql_step", parameters: { sql, name } });
 
 async function runAll(fromStepId?: string) {
-  const cascade = await startCascade({
+  const cascade = await startCascade(testAccountScope(), {
     recipeId,
     ...(fromStepId ? { fromStepId } : {}),
   });
@@ -227,12 +228,12 @@ describe("a coordinator metadata failure", () => {
     });
     const admissionSpy = vi
       .spyOn(stepExecution, "startStepRun")
-      .mockImplementation(async (stepId, options) => {
+      .mockImplementation(async (_scope, stepId, options) => {
         if (stepId === quick.id) {
           admissionEntered();
           await admissionHeld;
         }
-        return originalStart(stepId, options);
+        return originalStart(_scope, stepId, options);
       });
 
     const cascadeMetadata = await import("@/lib/metadata/cascades");
@@ -258,7 +259,7 @@ describe("a coordinator metadata failure", () => {
 
     let cascade: CascadeRun | undefined;
     try {
-      cascade = await startCascade({ recipeId });
+      cascade = await startCascade(testAccountScope(), { recipeId });
       await entered;
 
       const armed = listCascades(recipeId)[0];
@@ -315,12 +316,12 @@ describe("coordinator failure settlement", () => {
     });
     const admissionSpy = vi
       .spyOn(stepExecution, "startStepRun")
-      .mockImplementation(async (stepId, options) => {
+      .mockImplementation(async (_scope, stepId, options) => {
         if (stepId === quick.id) {
           admissionEntered();
           await admissionHeld;
         }
-        return originalStart(stepId, options);
+        return originalStart(_scope, stepId, options);
       });
 
     const cascadeMetadata = await import("@/lib/metadata/cascades");
@@ -357,7 +358,7 @@ describe("coordinator failure settlement", () => {
 
     let cascade: CascadeRun | undefined;
     try {
-      cascade = await startCascade({ recipeId });
+      cascade = await startCascade(testAccountScope(), { recipeId });
       await entered;
       const armed = listCascades(recipeId)[0];
       const slowMember = memberOf(armed, slow.id);
@@ -439,7 +440,7 @@ describe("coordinator failure settlement", () => {
     expect(driven.run.outcome).toBeNull();
     expect(getJob(driven.slowJobId)?.state).toBe("cancelled");
 
-    await expect(startCascade({ recipeId })).rejects.toMatchObject({ code: "run_in_flight" });
+    await expect(startCascade(testAccountScope(), { recipeId })).rejects.toMatchObject({ code: "run_in_flight" });
     expect(recoverInterruptedCascades()).toBe(1);
     const recovered = readCascade(driven.run.id);
     expect(recovered.outcome).toBe("interrupted");
@@ -497,13 +498,13 @@ describe("the confirmation property", () => {
 describe("cancelling a cascade", () => {
   it("interrupts the running statement early, admits nothing further, and keeps what finished", async () => {
     const quick = step("SELECT 1 AS n", "cancel_done");
-    await startStepRun(quick.id);
+    await startStepRun(testAccountScope(), quick.id);
     await laneSettled();
 
     const slow = step(ENDLESS, "cancel_slow");
     const after = step("SELECT n + 1 AS n FROM cancel_slow", "cancel_never");
 
-    const cascade = await startCascade({ recipeId, fromStepId: slow.id });
+    const cascade = await startCascade(testAccountScope(), { recipeId, fromStepId: slow.id });
     // Wait until the slow member is genuinely executing.
     const deadline = Date.now() + 60_000;
     while (
@@ -561,7 +562,7 @@ describe("cancelling a cascade with more than one member admitted", () => {
   async function twoRootsCancelledMidRun() {
     const left = step(ENDLESS, "n85_left");
     const right = step(ENDLESS, "n85_right");
-    const cascade = await startCascade({ recipeId });
+    const cascade = await startCascade(testAccountScope(), { recipeId });
     const deadline = Date.now() + 60_000;
     while (
       readCascade(cascade.id).members.filter((m) => m.state === "running").length < 2
@@ -618,7 +619,7 @@ describe("cancelling a cascade with more than one member admitted", () => {
     delete process.env.DEZFIL_OPERATION_CONCURRENCY;
     const left = step(ENDLESS, "n108_left");
     const right = step(ENDLESS, "n108_right");
-    const cascade = await startCascade({ recipeId });
+    const cascade = await startCascade(testAccountScope(), { recipeId });
     const deadline = Date.now() + 60_000;
     let admitted: CascadeRun | undefined;
     while (Date.now() < deadline) {
@@ -687,7 +688,7 @@ describe("what the cascade record keeps for itself", () => {
 
       // Re-run the step on its own, twice, past the history depth.
       for (let i = 0; i < 3; i += 1) {
-        await startStepRun(one.id);
+        await startStepRun(testAccountScope(), one.id);
         await laneSettled();
       }
 
@@ -702,14 +703,14 @@ describe("what the cascade record keeps for itself", () => {
     process.env.DEZFIL_OPERATION_HISTORY_PER_SUBJECT = "1";
     try {
       const target = step("SELECT 1 AS n", "n109_output");
-      const older = await startStepRun(target.id);
+      const older = await startStepRun(testAccountScope(), target.id);
       await laneSettled();
       expect(getJob(older.id)?.state).toBe("succeeded");
 
       expect(
         editStep(target.id, { sql: ENDLESS, name: "n109_output" }),
       ).toBe("proposed");
-      const cascade = await startSingleRun(recipeId, target.id);
+      const cascade = await startSingleRun(testAccountScope(), recipeId, target.id);
       const newerId = memberOf(cascade, target.id).jobId!;
       expect(newerId).not.toBe(older.id);
       expect(getJob(newerId)?.state).toBe("running");
@@ -735,7 +736,7 @@ describe("what the cascade record keeps for itself", () => {
   it("keeps a depth-1 attempt when cancellation wins a held single admission", async () => {
     process.env.DEZFIL_OPERATION_HISTORY_PER_SUBJECT = "1";
     const target = step("SELECT 1 AS n", "depth_one_single_admission");
-    const older = await startStepRun(target.id);
+    const older = await startStepRun(testAccountScope(), target.id);
     await laneSettled();
     expect(getJob(older.id)?.state).toBe("succeeded");
     expect(
@@ -760,7 +761,7 @@ describe("what the cascade record keeps for itself", () => {
         return originalStart(...args);
       });
 
-    const started = startSingleRun(recipeId, target.id);
+    const started = startSingleRun(testAccountScope(), recipeId, target.id);
     let cancelled: Promise<CascadeRun> | undefined;
     try {
       await entered;
@@ -797,7 +798,7 @@ describe("what the cascade record keeps for itself", () => {
   it("keeps a depth-1 attempt when the driver finds the fence after admission", async () => {
     process.env.DEZFIL_OPERATION_HISTORY_PER_SUBJECT = "1";
     const target = step("SELECT 1 AS n", "depth_one_driver_fence");
-    const older = await startStepRun(target.id);
+    const older = await startStepRun(testAccountScope(), target.id);
     await laneSettled();
     expect(getJob(older.id)?.state).toBe("succeeded");
     expect(
@@ -824,7 +825,7 @@ describe("what the cascade record keeps for itself", () => {
 
     let cancelled: Promise<CascadeRun> | undefined;
     try {
-      const cascade = await startCascade({ recipeId });
+      const cascade = await startCascade(testAccountScope(), { recipeId });
       await entered;
       expect(memberOf(readCascade(cascade.id), target.id)).toMatchObject({
         state: "pending",
@@ -895,7 +896,7 @@ describe("a run reads whole on its own", () => {
 
   it("reads a live member's attempt from its job: queued or running, which the member's own state cannot say", async () => {
     const slow = step(ENDLESS, "live_slow");
-    const cascade = await startCascade({ recipeId, fromStepId: slow.id });
+    const cascade = await startCascade(testAccountScope(), { recipeId, fromStepId: slow.id });
     const deadline = Date.now() + 20_000;
     let seen: string | undefined;
     while (Date.now() < deadline) {
@@ -937,7 +938,7 @@ describe("a node's own run is one of the workflow's runs", () => {
         return originalStart(...args);
       });
 
-    const started = startSingleRun(recipeId, held.id);
+    const started = startSingleRun(testAccountScope(), recipeId, held.id);
     let cancelled: Promise<CascadeRun> | undefined;
     try {
       await entered;
@@ -1000,7 +1001,7 @@ describe("a node's own run is one of the workflow's runs", () => {
         throw new ApiError("name_taken", "The held admission was refused.", 409);
       });
 
-    const started = startSingleRun(recipeId, held.id);
+    const started = startSingleRun(testAccountScope(), recipeId, held.id);
     const refused = expect(started).rejects.toMatchObject({ code: "name_taken" });
     let cancelled: Promise<CascadeRun> | undefined;
     try {
@@ -1039,18 +1040,18 @@ describe("a node's own run is one of the workflow's runs", () => {
   it("runs one member as a single run, under the lock, cancellable as a run", async () => {
     const slow = step(ENDLESS, "single_slow");
     const other = step("SELECT name FROM stations", "single_other");
-    const run = await startSingleRun(recipeId, slow.id);
+    const run = await startSingleRun(testAccountScope(), recipeId, slow.id);
     expect(run.kind).toBe("single");
     expect(run.members.map((m) => m.stepId)).toEqual([slow.id]);
     // One run at a time: a cascade and another single run are refused, naming it.
-    await expect(startCascade({ recipeId })).rejects.toMatchObject({ code: "run_in_flight" });
-    await expect(startSingleRun(recipeId, other.id)).rejects.toMatchObject({ code: "run_in_flight" });
+    await expect(startCascade(testAccountScope(), { recipeId })).rejects.toMatchObject({ code: "run_in_flight" });
+    await expect(startSingleRun(testAccountScope(), recipeId, other.id)).rejects.toMatchObject({ code: "run_in_flight" });
     expect(listCascades(recipeId)).toHaveLength(1);
     const cancelled = await cancelCascade(run.id);
     expect(cancelled.outcome).toBe("cancelled");
     expect(memberOf(cancelled, slow.id).attempt?.state).toBe("cancelled");
     // Settled, the other runs.
-    const next = await startSingleRun(recipeId, other.id);
+    const next = await startSingleRun(testAccountScope(), recipeId, other.id);
     await cascadeSettled(next.id);
     expect(readCascade(next.id).outcome).toBe("completed");
   }, 60_000);
@@ -1060,7 +1061,7 @@ describe("a node's own run is one of the workflow's runs", () => {
     // any job exists (a SQL text naming a missing table is not: that fails
     // as an attempt, and the attempt says so).
     const taken = step("SELECT name FROM stations", "stations");
-    await expect(startSingleRun(recipeId, taken.id)).rejects.toMatchObject({ code: "name_taken" });
+    await expect(startSingleRun(testAccountScope(), recipeId, taken.id)).rejects.toMatchObject({ code: "name_taken" });
     expect(listCascades(recipeId)).toEqual([]);
     expect(listJobs({ subjectId: taken.id })).toEqual([]);
   }, 30_000);

@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { findOperation } from "@/lib/operations/catalog";
@@ -24,6 +25,7 @@ import { jobView } from "@/lib/operations/job-view";
  */
 export async function POST(request: Request) {
   try {
+    const scope = requireRequestScope(request);
     // The admission table documents a malformed body as refused here. Left to
     // chance it is not: invalid JSON throws out of parsing and a literal `null`
     // body is dereferenced, and both would surface as an internal 500 — a
@@ -99,7 +101,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const job = await startRun({
+    const job = await startRun(scope, {
       operation: typeof body.operation === "string" ? body.operation : "",
       parameters: params,
       ...(body.subject !== undefined ? { subject: body.subject as string } : {}),

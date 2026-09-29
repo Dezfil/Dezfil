@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -36,11 +37,11 @@ beforeEach(async () => {
   closeMetadataDb();
   resetQueryInstance();
   await writeFile(path.join(dir, "points.csv"), `${POINTS}\n`);
-  await ingestFile(path.join(dir, "points.csv"), "points.csv");
+  await ingestFile(testAccountScope(), path.join(dir, "points.csv"), "points.csv");
   await writeFile(path.join(dir, "colliding.csv"), `${COLLIDING}\n`);
-  await ingestFile(path.join(dir, "colliding.csv"), "colliding.csv");
+  await ingestFile(testAccountScope(), path.join(dir, "colliding.csv"), "colliding.csv");
   await writeFile(path.join(dir, "plain.csv"), `${NO_GEOMETRY}\n`);
-  await ingestFile(path.join(dir, "plain.csv"), "plain.csv");
+  await ingestFile(testAccountScope(), path.join(dir, "plain.csv"), "plain.csv");
 });
 
 afterEach(async () => {

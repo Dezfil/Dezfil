@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
@@ -182,9 +183,11 @@ export function resolvePostgisRequest(request: PostgisImportRequest): {
 
 /** Import a PostGIS table as a snapshot. */
 export async function importPostgis(
+  scope: AccountScope,
   request: PostgisImportRequest,
   build: typeof buildPostgisArtifact = buildPostgisArtifact,
 ): Promise<DataTable> {
+  requireAccountScope(scope);
   const { recipe, requestedName } = resolvePostgisRequest(request);
   const { connection, target } = requireTarget(recipe.connectionId);
 
@@ -235,7 +238,7 @@ export async function importPostgis(
     const db = metadataDb();
     const projectId = importProjectId(request.projectId);
     return db.transaction(() => {
-      const table = registerTable(record, requestedName ?? recipe.table, db);
+      const table = registerTable(scope, record, requestedName ?? recipe.table, db);
       if (projectId) fileTable(table.id, projectId, db);
       return table;
     })();

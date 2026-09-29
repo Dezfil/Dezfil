@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -48,7 +49,7 @@ beforeEach(async () => {
   resetQueryInstance();
   const src = path.join(dir, "stations.csv");
   await writeFile(src, "name,lon,lat\nalex,13.41,52.52\nzoo,13.33,52.51\n");
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
 });
 
 afterEach(async () => {
@@ -69,15 +70,15 @@ const jsonReq = (url: string, method: string, payload?: unknown) =>
 
 async function newProject(name = "Berlin mobility study"): Promise<Json> {
   const response = await createProjectRoute(
-    jsonReq("/api/projects", "POST", { name }),
+    testAccountRequest(jsonReq("/api/projects", "POST", { name })),
   );
   expect(response.status).toBe(201);
   return body(response);
 }
 
 function directlyFileBothRecipeOrigins(projectId: string) {
-  const workflow = createRecipeRecord("Filed workflow", undefined, "workflow");
-  const builder = createRecipeRecord("Filed builder recipe", undefined, "builder");
+  const workflow = createRecipeRecord(testAccountScope(), "Filed workflow", undefined, "workflow");
+  const builder = createRecipeRecord(testAccountScope(), "Filed builder recipe", undefined, "builder");
   metadataDb()
     .prepare(`UPDATE recipes SET project_id = ? WHERE id IN (?, ?)`)
     .run(projectId, workflow.id, builder.id);
@@ -91,7 +92,7 @@ describe("project CRUD over the API", () => {
     expect(p.mapCount).toBe(0);
     expect(p.sizeComplete).toBe(true);
 
-    const map = createMap("Stations map");
+    const map = createMap(testAccountScope(), "Stations map");
     const table = getTableByName("stations")!;
     const patched = await patchMembersRoute(
       jsonReq(`/api/projects/${p.id}/members`, "PATCH", {
@@ -125,12 +126,12 @@ describe("project CRUD over the API", () => {
   });
 
   it("creation with initial members is atomic at the route: one unknown member creates nothing", async () => {
-    const map = createMap("Stations map");
+    const map = createMap(testAccountScope(), "Stations map");
     const response = await createProjectRoute(
-      jsonReq("/api/projects", "POST", {
+      testAccountRequest(jsonReq("/api/projects", "POST", {
         name: "Doomed",
         members: { addMaps: [map.id], addTables: ["t-none"] },
-      }),
+      })),
     );
     expect(response.status).toBe(404);
     const listed = (await (await listProjectsRoute()).json()) as Json[];
@@ -139,7 +140,7 @@ describe("project CRUD over the API", () => {
   });
 
   it("delete answers the dissolution disclosure and every member survives", async () => {
-    const map = createMap("Stations map");
+    const map = createMap(testAccountScope(), "Stations map");
     const p = await newProject();
     await patchMembersRoute(
       jsonReq(`/api/projects/${p.id}/members`, "PATCH", { addMaps: [map.id] }),
@@ -159,7 +160,7 @@ describe("project CRUD over the API", () => {
 
 describe("the members surface", () => {
   it("reads the composite in listing shapes and applies mixed changes atomically", async () => {
-    const map = createMap("Stations map");
+    const map = createMap(testAccountScope(), "Stations map");
     const table = getTableByName("stations")!;
     const a = await newProject("A");
     const b = await newProject("B");
@@ -202,8 +203,8 @@ describe("the members surface", () => {
 describe("workflow-origin project membership", () => {
   it("refuses a builder-origin recipe in a compound members change and rolls back the valid workflow addition", async () => {
     const p = await newProject();
-    const workflow = createRecipeRecord("Valid workflow", undefined, "workflow");
-    const builder = createRecipeRecord("Builder tool", undefined, "builder");
+    const workflow = createRecipeRecord(testAccountScope(), "Valid workflow", undefined, "workflow");
+    const builder = createRecipeRecord(testAccountScope(), "Builder tool", undefined, "builder");
 
     const refused = await patchMembersRoute(
       jsonReq(`/api/projects/${p.id}/members`, "PATCH", {
@@ -233,14 +234,14 @@ describe("workflow-origin project membership", () => {
   });
 
   it("refuses an initial builder-origin member without creating the project, while a workflow-origin member succeeds", async () => {
-    const workflow = createRecipeRecord("Valid workflow", undefined, "workflow");
-    const builder = createRecipeRecord("Builder tool", undefined, "builder");
+    const workflow = createRecipeRecord(testAccountScope(), "Valid workflow", undefined, "workflow");
+    const builder = createRecipeRecord(testAccountScope(), "Builder tool", undefined, "builder");
 
     const refused = await createProjectRoute(
-      jsonReq("/api/projects", "POST", {
+      testAccountRequest(jsonReq("/api/projects", "POST", {
         name: "Doomed",
         members: { addRecipes: [workflow.id, builder.id] },
-      }),
+      })),
     );
     expect(refused.status).toBe(400);
     const refusal = (await refused.json()) as {
@@ -255,10 +256,10 @@ describe("workflow-origin project membership", () => {
     expect(getRecipe(builder.id)?.projectId).toBeNull();
 
     const accepted = await createProjectRoute(
-      jsonReq("/api/projects", "POST", {
+      testAccountRequest(jsonReq("/api/projects", "POST", {
         name: "Workflow shelf",
         members: { addRecipes: [workflow.id] },
-      }),
+      })),
     );
     expect(accepted.status).toBe(201);
     expect(getRecipe(workflow.id)?.projectId).not.toBeNull();
@@ -312,14 +313,14 @@ describe("creation and duplication contexts", () => {
   it("a map created with a project is a member at birth; unknown projects refuse and create nothing", async () => {
     const p = await newProject();
     const created = await body(
-      await createMapRoute(jsonReq("/api/maps", "POST", { name: "Filed", projectId: p.id })),
+      await createMapRoute(testAccountRequest(jsonReq("/api/maps", "POST", { name: "Filed", projectId: p.id }))),
     );
     expect(created.projectId).toBe(p.id);
     expect(mapProjectId(created.id as string)).toBe(p.id as string);
 
     const before = ((await (await listMapsRoute(jsonReq("/api/maps", "GET"))).json()) as Json[]).length;
     const refused = await createMapRoute(
-      jsonReq("/api/maps", "POST", { name: "Nowhere", projectId: "p-none" }),
+      testAccountRequest(jsonReq("/api/maps", "POST", { name: "Nowhere", projectId: "p-none" })),
     );
     expect(refused.status).toBe(404);
     const after = ((await (await listMapsRoute(jsonReq("/api/maps", "GET"))).json()) as Json[]).length;
@@ -329,7 +330,7 @@ describe("creation and duplication contexts", () => {
   it("a workflow created with a project is a member at birth", async () => {
     const p = await newProject();
     const response = await createRecipeRoute(
-      jsonReq("/api/recipes", "POST", { name: "Catchments", projectId: p.id }),
+      testAccountRequest(jsonReq("/api/recipes", "POST", { name: "Catchments", projectId: p.id })),
     );
     expect(response.status).toBe(201);
     const recipe = ((await response.json()) as { recipe: Json }).recipe;
@@ -339,17 +340,17 @@ describe("creation and duplication contexts", () => {
   it("a duplicate of a filed map lands in the source's project", async () => {
     const p = await newProject();
     const created = await body(
-      await createMapRoute(jsonReq("/api/maps", "POST", { name: "Filed", projectId: p.id })),
+      await createMapRoute(testAccountRequest(jsonReq("/api/maps", "POST", { name: "Filed", projectId: p.id }))),
     );
-    const copy = duplicateMap(created.id as string);
+    const copy = duplicateMap(testAccountScope(), created.id as string);
     expect(mapProjectId(copy.id)).toBe(p.id as string);
   });
 });
 
 describe("scoped listings", () => {
   it("each listing answers exactly the members, the unfiled for none, and everything unscoped, with membership fields", async () => {
-    const filed = createMap("Filed");
-    const loose = createMap("Loose");
+    const filed = createMap(testAccountScope(), "Filed");
+    const loose = createMap(testAccountScope(), "Loose");
     const table = getTableByName("stations")!;
     const p = await newProject();
     await patchMembersRoute(
@@ -372,7 +373,7 @@ describe("scoped listings", () => {
     expect(noTables.length).toBe(0);
 
     // Recipes: project composes with origin.
-    await createRecipeRoute(jsonReq("/api/recipes", "POST", { name: "W", projectId: p.id }));
+    await createRecipeRoute(testAccountRequest(jsonReq("/api/recipes", "POST", { name: "W", projectId: p.id })));
     const both = (await (
       await listRecipesRoute(jsonReq(`/api/recipes?origin=workflow&project=${p.id}`, "GET"))
     ).json()) as { recipes: Json[] };
@@ -401,7 +402,7 @@ describe("project ids on detail reads", () => {
     const p = await newProject();
     const table = getTableByName("stations")!;
     const created = await body(
-      await createMapRoute(jsonReq("/api/maps", "POST", { name: "Filed", projectId: p.id })),
+      await createMapRoute(testAccountRequest(jsonReq("/api/maps", "POST", { name: "Filed", projectId: p.id }))),
     );
     await patchMembersRoute(
       jsonReq(`/api/projects/${p.id}/members`, "PATCH", { addTables: [table.id] }),
@@ -422,7 +423,7 @@ describe("project ids on detail reads", () => {
   it("an empty projectId refuses; it never silently creates unfiled", async () => {
     const before = ((await (await listMapsRoute(jsonReq("/api/maps", "GET"))).json()) as Json[]).length;
     const refused = await createMapRoute(
-      jsonReq("/api/maps", "POST", { name: "X", projectId: "" }),
+      testAccountRequest(jsonReq("/api/maps", "POST", { name: "X", projectId: "" })),
     );
     expect(refused.status).toBe(400);
     const after = ((await (await listMapsRoute(jsonReq("/api/maps", "GET"))).json()) as Json[]).length;
@@ -433,14 +434,14 @@ describe("project ids on detail reads", () => {
     const a = await newProject("A");
     const b = await newProject("B");
     const created = await body(
-      await createMapRoute(jsonReq("/api/maps", "POST", { name: "Move me", projectId: a.id })),
+      await createMapRoute(testAccountRequest(jsonReq("/api/maps", "POST", { name: "Move me", projectId: a.id }))),
     );
     // Move the source, then duplicate: the copy belongs to B.
     await patchMembersRoute(
       jsonReq(`/api/projects/${b.id}/members`, "PATCH", { addMaps: [created.id as string] }),
       params(b.id as string),
     );
-    const copy = duplicateMap(created.id as string);
+    const copy = duplicateMap(testAccountScope(), created.id as string);
     expect(mapProjectId(copy.id)).toBe(b.id as string);
   });
 });

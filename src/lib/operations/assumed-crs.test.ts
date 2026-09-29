@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -36,7 +37,7 @@ beforeEach(async () => {
   resetQueryInstance();
   const file = path.join(dir, "guessed.csv");
   await writeFile(file, "name,lon,lat\nalex,13.405,52.52\n");
-  await ingestFile(file, "guessed.csv");
+  await ingestFile(testAccountScope(), file, "guessed.csv");
 });
 
 afterEach(async () => {
@@ -61,7 +62,7 @@ const buffer = (name: string) => ({
 
 describe("said before the run", () => {
   it("reports the assumption on the dry run", async () => {
-    const response = await runOperation(post({ ...buffer("x"), dryRun: true }));
+    const response = await runOperation(testAccountRequest(post({ ...buffer("x"), dryRun: true })));
     expect(response.status).toBe(200);
     const body = (await response.json()) as { warnings?: string[] };
     expect(body.warnings?.join(" ")).toMatch(/without a declared coordinate system/i);
@@ -69,7 +70,7 @@ describe("said before the run", () => {
   }, 60_000);
 
   it("reports it on the answer that accepts the run, and still accepts it", async () => {
-    const job = await startRun(buffer("accepted_out"));
+    const job = await startRun(testAccountScope(), buffer("accepted_out"));
     // Accepted, not refused: G1's whole ruling.
     expect(["queued", "running"]).toContain(job.state);
     expect(jobView(job).warnings?.join(" ")).toMatch(/WGS84 was assumed/i);
@@ -80,7 +81,7 @@ describe("said before the run", () => {
 
 describe("recorded on the output", () => {
   it("records the assumption AND the measurement CRS, not one of the two", async () => {
-    const job = await startRun(buffer("recorded_out"));
+    const job = await startRun(testAccountScope(), buffer("recorded_out"));
     await laneSettled();
     expect(getJob(job.id)!.state).toBe("succeeded");
 
@@ -112,7 +113,7 @@ describe("absent for a declared input", () => {
       },
     );
 
-    const job = await startRun(buffer("declared_out"));
+    const job = await startRun(testAccountScope(), buffer("declared_out"));
     expect(jobView(job).warnings).toBeUndefined();
     await laneSettled();
 

@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import path from "node:path";
 import { readFile, rm, writeFile } from "node:fs/promises";
@@ -41,10 +42,10 @@ it("stored detection keeps name precedence, weak order, ambiguity and the 1000-r
 it("current flags describe actual retained input and consumed names stay unavailable", async () => {
   const src = path.join(dir, "content.csv");
   await writeFile(src, 'payload,label\n"POINT (10 20)",a\n');
-  const retained = await ingestFile(src, "content.csv");
+  const retained = await ingestFile(testAccountScope(), src, "content.csv");
   expect(await inspectGeometry(retained.name)).toMatchObject({ currentChoice: { format: "wkt", columns: ["payload"] }, candidates: [expect.objectContaining({ applied: true })] });
   await writeFile(src, 'wkt,label\n"POINT (10 20)",a\n');
-  const consumed = await ingestFile(src, "named.csv");
+  const consumed = await ingestFile(testAccountScope(), src, "named.csv");
   const result = await inspectGeometry(consumed.name);
   expect(result.currentChoice).toBeNull();
   expect(result.candidates).toEqual([]);

@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -28,7 +29,7 @@ beforeEach(async () => {
     src,
     "name,lon,lat\nalexanderplatz,13.41,52.52\nzoo,13.33,52.51\nsudkreuz,13.36,52.48\n",
   );
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
   // Warm the hardened instance before any test arms a short budget:
   // lazy creation (extension loads, lockdown) can cost real time, and a
   // budget that fires during acquisition would leave a test's queued

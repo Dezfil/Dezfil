@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
@@ -520,9 +521,11 @@ export async function previewOvertureFeatures(
 /** Import an Overture slice as a table. The build seam
  * is injectable for tests, the PostGIS road's precedent. */
 export async function importOverture(
+  scope: AccountScope,
   request: OvertureImportRequest,
   build: typeof buildOvertureArtifact = buildOvertureArtifact,
 ): Promise<DataTable> {
+  requireAccountScope(scope);
   const { requestedName, ...params } = await resolveOvertureParams(request);
   const id = randomUUID();
   const relFile = path.join("tables", `${id}.parquet`);
@@ -557,7 +560,7 @@ export async function importOverture(
     const db = metadataDb();
     const projectId = importProjectId(request.projectId);
     return db.transaction(() => {
-      const table = registerTable(record, requestedName ?? `overture_${params.theme}`, db);
+      const table = registerTable(scope, record, requestedName ?? `overture_${params.theme}`, db);
       if (projectId) fileTable(table.id, projectId, db);
       return table;
     })();

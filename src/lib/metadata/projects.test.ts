@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -54,7 +55,7 @@ function seedMap(id: string, publishToken: string | null = null): MapRecord {
     createdAt: now,
     updatedAt: now,
   };
-  insertMap(map, db);
+  insertMap(testAccountScope(db), map, db);
   return map;
 }
 
@@ -76,24 +77,24 @@ function seedTable(id: string): DataTable {
     sourceParams: null,
     importedAt: null,
   };
-  insertTable(table, db);
+  insertTable(testAccountScope(db), table, db);
   return table;
 }
 
 describe("project rows", () => {
   it("stores the trimmed name, allows duplicates, refuses blank and over-long", () => {
-    const a = createProject({ name: "  Berlin mobility study  " }, db);
+    const a = createProject(testAccountScope(db), { name: "  Berlin mobility study  " }, db);
     expect(a.name).toBe("Berlin mobility study");
-    const b = createProject({ name: "Berlin mobility study" }, db);
+    const b = createProject(testAccountScope(db), { name: "Berlin mobility study" }, db);
     expect(b.id).not.toBe(a.id);
-    expect(() => createProject({ name: "   " }, db)).toThrow(/non-empty/);
+    expect(() => createProject(testAccountScope(db), { name: "   " }, db)).toThrow(/non-empty/);
     expect(() =>
-      createProject({ name: "x".repeat(PROJECT_NAME_MAX + 1) }, db),
+      createProject(testAccountScope(db), { name: "x".repeat(PROJECT_NAME_MAX + 1) }, db),
     ).toThrow(/at most/);
   });
 
   it("edits name and note, advancing updated_at; clearing the note stores null", () => {
-    const p = createProject({ name: "Study", note: "First pass" }, db);
+    const p = createProject(testAccountScope(db), { name: "Study", note: "First pass" }, db);
     const renamed = updateProject(p.id, { name: "Flood atlas" }, db);
     expect(renamed.name).toBe("Flood atlas");
     expect(renamed.note).toBe("First pass");
@@ -104,8 +105,8 @@ describe("project rows", () => {
   });
 
   it("lists most recent first", () => {
-    const a = createProject({ name: "A" }, db);
-    const b = createProject({ name: "B" }, db);
+    const a = createProject(testAccountScope(db), { name: "A" }, db);
+    const b = createProject(testAccountScope(db), { name: "B" }, db);
     expect(listProjects(db).map((p) => p.id)).toEqual(
       [b.id, a.id].sort((x, y) => {
         const pa = getProject(x, db)!;
@@ -120,6 +121,7 @@ describe("project rows", () => {
     const before = listProjects(db).length;
     expect(() =>
       createProject(
+        testAccountScope(db),
         { name: "Doomed", members: { addMaps: ["m1"], addTables: ["t-none"] } },
         db,
       ),
@@ -132,11 +134,11 @@ describe("project rows", () => {
 describe("membership", () => {
   it("a mixed change applies together; a map filed elsewhere moves; datasets can be in two projects; re-adding is idempotent", () => {
     seedMap("m1");
-    createRecipe("Catchments", db, "workflow");
+    createRecipe(testAccountScope(db), "Catchments", db, "workflow");
     const r = db.prepare(`SELECT id FROM recipes`).get() as { id: string };
     seedTable("t1");
-    const a = createProject({ name: "A" }, db);
-    const b = createProject({ name: "B" }, db);
+    const a = createProject(testAccountScope(db), { name: "A" }, db);
+    const b = createProject(testAccountScope(db), { name: "B" }, db);
 
     changeMembers(a.id, { addMaps: ["m1"], addRecipes: [r.id], addTables: ["t1"] }, db);
     expect(mapProjectId("m1", db)).toBe(a.id);
@@ -161,7 +163,7 @@ describe("membership", () => {
   it("one unknown member in a mixed change leaves every membership unchanged", () => {
     seedMap("m1");
     seedTable("t1");
-    const a = createProject({ name: "A" }, db);
+    const a = createProject(testAccountScope(db), { name: "A" }, db);
     changeMembers(a.id, { addTables: ["t1"] }, db);
     expect(() =>
       changeMembers(a.id, { addMaps: ["m1"], addTables: ["t-none"] }, db),
@@ -172,8 +174,8 @@ describe("membership", () => {
 
   it("filing never advances the member's own edited time; membership advances the project's, and a move touches both projects", () => {
     const m = seedMap("m1");
-    const a = createProject({ name: "A" }, db);
-    const b = createProject({ name: "B" }, db);
+    const a = createProject(testAccountScope(db), { name: "A" }, db);
+    const b = createProject(testAccountScope(db), { name: "B" }, db);
     changeMembers(a.id, { addMaps: ["m1"] }, db);
     expect(getMap("m1", db)?.updatedAt).toBe(m.updatedAt);
     const aAfterAdd = getProject(a.id, db)!;
@@ -187,9 +189,9 @@ describe("membership", () => {
   });
 
   it("can remove a directly seeded builder-origin membership without changing the remaining workflow", () => {
-    const project = createProject({ name: "A" }, db);
-    const workflow = createRecipe("Workflow", db, "workflow");
-    const builder = createRecipe("Builder tool", db, "builder");
+    const project = createProject(testAccountScope(db), { name: "A" }, db);
+    const workflow = createRecipe(testAccountScope(db), "Workflow", db, "workflow");
+    const builder = createRecipe(testAccountScope(db), "Builder tool", db, "builder");
     db.prepare(`UPDATE recipes SET project_id = ? WHERE id IN (?, ?)`).run(
       project.id,
       workflow.id,
@@ -212,6 +214,7 @@ describe("dissolution and member deletion", () => {
     seedMap("m1");
     seedTable("t1");
     const a = createProject(
+      testAccountScope(db),
       { name: "A", members: { addMaps: ["m1"], addTables: ["t1"] } },
       db,
     );
@@ -226,7 +229,7 @@ describe("dissolution and member deletion", () => {
   it("deleting a member removes only its memberships, and the affected projects' clocks advance when told", () => {
     seedTable("t1");
     seedTable("t2");
-    const a = createProject({ name: "A", members: { addTables: ["t1", "t2"] } }, db);
+    const a = createProject(testAccountScope(db), { name: "A", members: { addTables: ["t1", "t2"] } }, db);
     const before = getProject(a.id, db)!;
     touchProjectsOf({ tableId: "t1" }, db, "2027-01-01T00:00:00.000Z");
     db.prepare(`DELETE FROM data_tables WHERE id = 't1'`).run();
@@ -240,14 +243,15 @@ describe("member counts", () => {
   it("counts maps, published maps, workflows and datasets per project; a shared dataset counts once in each", () => {
     seedMap("m1", "tok-1");
     seedMap("m2");
-    createRecipe("W", db, "workflow");
+    createRecipe(testAccountScope(db), "W", db, "workflow");
     const r = db.prepare(`SELECT id FROM recipes`).get() as { id: string };
     seedTable("t1");
     const a = createProject(
+      testAccountScope(db),
       { name: "A", members: { addMaps: ["m1", "m2"], addRecipes: [r.id], addTables: ["t1"] } },
       db,
     );
-    const b = createProject({ name: "B", members: { addTables: ["t1"] } }, db);
+    const b = createProject(testAccountScope(db), { name: "B", members: { addTables: ["t1"] } }, db);
     const counts = projectMemberCounts(db);
     expect(counts.get(a.id)).toEqual({ maps: 2, publishedMaps: 1, recipes: 1, tables: 1 });
     expect(counts.get(b.id)).toEqual({ maps: 0, publishedMaps: 0, recipes: 0, tables: 1 });
@@ -265,14 +269,14 @@ describe("the export preflight's member ids", () => {
     ] as const) {
       const m = { ...seedMap(`tmp-${id}`), id, createdAt: when, updatedAt: when };
       db.prepare(`DELETE FROM maps WHERE id = ?`).run(`tmp-${id}`);
-      insertMap(m, db);
+      insertMap(testAccountScope(db), m, db);
     }
     seedTable("t-old");
     seedTable("t-new");
     db.prepare(`UPDATE data_tables SET created_at = ? WHERE id = ?`).run(at(1), "t-old");
     db.prepare(`UPDATE data_tables SET created_at = ? WHERE id = ?`).run(at(2), "t-new");
-    createRecipe("R older", db, "workflow");
-    createRecipe("R newer", db, "workflow");
+    createRecipe(testAccountScope(db), "R older", db, "workflow");
+    createRecipe(testAccountScope(db), "R newer", db, "workflow");
     const recipes = db
       .prepare(`SELECT id, name FROM recipes ORDER BY name`)
       .all() as { id: string; name: string }[];
@@ -282,6 +286,7 @@ describe("the export preflight's member ids", () => {
     db.prepare(`UPDATE recipes SET created_at = ? WHERE id = ?`).run(at(2), rNewer);
 
     const p = createProject(
+      testAccountScope(db),
       {
         name: "Order proof",
         members: {

@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { createMap, mapsOverview } from "@/lib/map-service";
@@ -20,6 +21,7 @@ export async function GET(request: Request) {
  * an unknown project refuses and creates nothing. */
 export async function POST(request: Request) {
   try {
+    const scope = requireRequestScope(request);
     let name = "Untitled map";
     let projectId: string | null = null;
     try {
@@ -38,7 +40,7 @@ export async function POST(request: Request) {
     }
     if (projectId) requireProject(projectId);
     const map = metadataDb().transaction(() => {
-      const created = createMap(name);
+      const created = createMap(scope, name);
       if (projectId) fileMap(created.id, projectId);
       return created;
     })();

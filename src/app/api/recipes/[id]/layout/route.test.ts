@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -31,7 +32,7 @@ beforeEach(async () => {
   resetQueryInstance();
   const src = path.join(dir, "stations.csv");
   await writeFile(src, "name,lon,lat\nalex,13.41,52.52\nzoo,13.33,52.51\n");
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
   await boundedEvaluation(async () => undefined);
 });
 
@@ -53,7 +54,7 @@ const req = (method: string, payload?: unknown, raw?: string) =>
 const P = (id: string) => ({ params: Promise.resolve({ id }) });
 
 async function newRecipe(name = "R"): Promise<string> {
-  const response = await createRecipeRoute(req("POST", { name }));
+  const response = await createRecipeRoute(testAccountRequest(req("POST", { name })));
   expect(response.status).toBe(201);
   return ((await body(response)).recipe as Json).id as string;
 }
@@ -278,7 +279,7 @@ describe("the layout document", () => {
     expect((await write(id, { notes: [note("a", "teal")] })).status).toBe(400);
     expect(await at()).toBe(t1);
     // A run is not an edit.
-    const run = await runStep(req("POST", {}), { params: Promise.resolve({ id, stepId: s1 }) });
+    const run = await runStep(testAccountRequest(req("POST", {})), { params: Promise.resolve({ id, stepId: s1 }) });
     expect(run.status).toBe(202);
     await laneSettled();
     expect(await at()).toBe(t1);
@@ -350,7 +351,7 @@ describe("the layout document", () => {
     };
     expect((await write(id, doc)).status).toBe(200);
     const original = await layout(id);
-    const dup = await duplicateRecipeRoute(req("POST"), P(id));
+    const dup = await duplicateRecipeRoute(testAccountRequest(req("POST")), P(id));
     expect(dup.status).toBe(201);
     const copy = (await body(dup)).recipe as Json;
     const [c1, c2] = (copy.steps as Json[]).map((s) => s.id as string);
@@ -364,7 +365,7 @@ describe("the layout document", () => {
     // A copy of a recipe never arranged reads the empty document.
     const bare = await newRecipe("Bare");
     await newStep(bare, "SELECT 1 AS n", "bare_one");
-    const bareCopy = (await body(await duplicateRecipeRoute(req("POST"), P(bare)))).recipe as Json;
+    const bareCopy = (await body(await duplicateRecipeRoute(testAccountRequest(req("POST")), P(bare)))).recipe as Json;
     expect(await layout(bareCopy.id as string)).toEqual(EMPTY);
   });
 });

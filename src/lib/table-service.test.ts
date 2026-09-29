@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   access,
@@ -42,7 +43,7 @@ async function ingestSample() {
     src,
     "name,lon,lat\nalexanderplatz,13.41,52.52\nzoo,13.33,52.51\n",
   );
-  return ingestFile(src, "stations.csv");
+  return ingestFile(testAccountScope(), src, "stations.csv");
 }
 
 async function seedRetainedEmpty(
@@ -61,7 +62,7 @@ async function seedRetainedEmpty(
       `COPY (${select}) TO '${abs.replace(/'/g, "''")}' (FORMAT PARQUET)`,
     );
   });
-  insertTable({
+  insertTable(testAccountScope(), {
     id: `${name}-id`,
     name,
     sourceFilename: null,
@@ -227,7 +228,7 @@ describe("removeTable", () => {
     const db = metadataDb();
     const now = new Date().toISOString();
     db.prepare(
-      `INSERT INTO maps (id, name, created_at, updated_at) VALUES ('m1', 'm', ?, ?)`,
+      `INSERT INTO maps (id, name, created_at, updated_at, owner_id) VALUES ('m1', 'm', ?, ?, 'test-account')`,
     ).run(now, now);
     const seedLayer = (id: string, sql: string) => {
       db.prepare(

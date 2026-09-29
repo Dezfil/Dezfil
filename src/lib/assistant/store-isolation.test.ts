@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -30,8 +31,8 @@ afterEach(async () => { closeMetadataDb(); resetQueryInstance(); vi.unstubAllEnv
 async function seed(name: string) {
   const file = path.join(dir, `${name}-${Date.now().toString(36)}.geojson`);
   await writeFile(file, JSON.stringify({ type: "FeatureCollection", features: [{ type: "Feature", properties: { n: 1 }, geometry: { type: "Point", coordinates: [13.4, 52.5] } }] }));
-  const table = (await ingestFile(file, path.basename(file))).name;
-  const map = createMap(name);
+  const table = (await ingestFile(testAccountScope(), file, path.basename(file))).name;
+  const map = createMap(testAccountScope(), name);
   await createLayer(map.id, { name: "Parks", sql: `SELECT * FROM ${table}` });
   return { map, table };
 }

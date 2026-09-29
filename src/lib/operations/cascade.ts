@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
 import {
   createCascade,
@@ -214,7 +215,8 @@ function basisOf(recipeId: string): string | null {
   return getRecipe(recipeId)?.updatedAt ?? null;
 }
 
-export async function startCascade(request: CascadeRequest): Promise<CascadeRun> {
+export async function startCascade(scope: AccountScope, request: CascadeRequest): Promise<CascadeRun> {
+  requireAccountScope(scope);
   // Planning waits on the parser, so the workflow may change while the
   // server plans; the record is made only from a plan of the workflow as
   // it stands, re-planned when the mark moved (a bounded number of times).
@@ -249,7 +251,7 @@ export async function startCascade(request: CascadeRequest): Promise<CascadeRun>
   const { kind, members, graph } = plan;
   void kind;
 
-  const drive = driveCascade(cascade.id, members, graph).finally(() => {
+  const drive = driveCascade(scope, cascade.id, members, graph).finally(() => {
     driving.delete(cascade.id);
   });
   driving.set(cascade.id, drive);
@@ -269,7 +271,8 @@ export async function startCascade(request: CascadeRequest): Promise<CascadeRun>
  * refusal still removes that row and leaves no attempt; accepted
  * cancellation retains the row and its refusal member.
  */
-export async function startSingleRun(recipeId: string, stepId: string): Promise<CascadeRun> {
+export async function startSingleRun(scope: AccountScope, recipeId: string, stepId: string): Promise<CascadeRun> {
+  requireAccountScope(scope);
   const recipe = getRecipe(recipeId);
   if (!recipe) {
     throw new ApiError("not_found", `No recipe with id "${recipeId}".`, 404);
@@ -294,7 +297,7 @@ export async function startSingleRun(recipeId: string, stepId: string): Promise<
     .then(async () => {
       let job;
       try {
-        job = await startStepRun(stepId, { cascadeId: cascade.id });
+        job = await startStepRun(scope, stepId, { cascadeId: cascade.id });
       } catch (error) {
         if (isCancelled(cascade.id)) {
           if (!(error instanceof ApiError)) {
@@ -337,7 +340,7 @@ export async function startSingleRun(recipeId: string, stepId: string): Promise<
       setMember(cascade.id, stepId, { state: "running", jobId: job.id });
       resolveStarted(getCascade(cascade.id)!);
       const graph: Graph = new Map([[stepId, []]]);
-      await driveCascade(cascade.id, [identity], graph, { stepId, jobId: job.id });
+      await driveCascade(scope, cascade.id, [identity], graph, { stepId, jobId: job.id });
     })
     .finally(() => {
       driving.delete(cascade.id);
@@ -449,6 +452,7 @@ async function settleCoordinatorFailure(
 }
 
 async function driveCascade(
+  scope: AccountScope,
   cascadeId: string,
   members: { stepId: string; ordinal: number }[],
   graph: Graph,
@@ -508,7 +512,7 @@ async function driveCascade(
       for (const member of ready) {
         if (isCancelled(cascadeId)) break;
         try {
-          const job = await startStepRun(member.stepId, { cascadeId });
+          const job = await startStepRun(scope, member.stepId, { cascadeId });
           // Record acceptance before any later coordinator metadata read can
           // fail, so the catch can still find and drain this job.
           admitted.set(member.stepId, job.id);

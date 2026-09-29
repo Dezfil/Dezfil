@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -96,9 +97,9 @@ describe("the datasets a map draws from", () => {
       ["plain", null, null],
     ];
     for (const [name, geometryColumn, geometryType] of seeds) {
-      insertTable(dataset(name, { geometryColumn, geometryType }));
+      insertTable(testAccountScope(), dataset(name, { geometryColumn, geometryType }));
     }
-    const map = createMap("Every kind");
+    const map = createMap(testAccountScope(), "Every kind");
     seedLayer(
       map.id,
       "all",
@@ -120,15 +121,15 @@ describe("the datasets a map draws from", () => {
     const stations = dataset("stations", { rowCount: 30 });
     const districts = dataset("districts", { rowCount: 6 });
     const unrelated = dataset("harbor_depths");
-    insertTable(stations);
-    insertTable(districts);
-    insertTable(unrelated);
-    const berlin = createProject({ name: "Berlin" });
-    const flood = createProject({ name: "Flood" });
+    insertTable(testAccountScope(), stations);
+    insertTable(testAccountScope(), districts);
+    insertTable(testAccountScope(), unrelated);
+    const berlin = createProject(testAccountScope(), { name: "Berlin" });
+    const flood = createProject(testAccountScope(), { name: "Flood" });
     fileTable(districts.id, berlin.id);
     fileTable(districts.id, flood.id);
 
-    const map = createMap("Stations map");
+    const map = createMap(testAccountScope(), "Stations map");
     // stations is used by TWO layers; one layer reads TWO datasets.
     seedLayer(map.id, "a", "SELECT * FROM stations");
     seedLayer(map.id, "b", "SELECT s.name FROM stations s JOIN districts d ON true");
@@ -159,17 +160,17 @@ describe("the datasets a map draws from", () => {
   it("names a workflow-origin producer by its current output; a builder-origin recipe is never one", async () => {
     const out = dataset("station_buffers", { source: "operation" });
     const toolOut = dataset("tool_result", { source: "operation" });
-    insertTable(out);
-    insertTable(toolOut);
+    insertTable(testAccountScope(), out);
+    insertTable(testAccountScope(), toolOut);
 
-    const wf = createRecipe("Station catchments");
+    const wf = createRecipe(testAccountScope(), "Station catchments");
     const step = addStep(wf.id, {
       operation: "sql_step",
       parameters: { sql: "SELECT 1", name: "station_buffers" },
     });
     recordOutput(step.id, { id: out.id, name: out.name }, "2026-09-01T01:00:00Z");
 
-    const builder = createRecipe("Tool recipe", undefined, "builder");
+    const builder = createRecipe(testAccountScope(), "Tool recipe", undefined, "builder");
     const bStep = addStep(builder.id, {
       operation: "sql_step",
       parameters: { sql: "SELECT 1", name: "tool_result" },
@@ -180,7 +181,7 @@ describe("the datasets a map draws from", () => {
       "2026-09-01T01:00:00Z",
     );
 
-    const map = createMap("Derived map");
+    const map = createMap(testAccountScope(), "Derived map");
     seedLayer(map.id, "a", "SELECT * FROM station_buffers JOIN tool_result ON true");
 
     const response = await read(map.id);
@@ -199,7 +200,7 @@ describe("the datasets a map draws from", () => {
   });
 
   it("a map with no used datasets returns an empty set; an unknown map is missing", async () => {
-    const map = createMap("Blank");
+    const map = createMap(testAccountScope(), "Blank");
     const response = await read(map.id);
     expect(response.status).toBe(200);
     expect(((await response.json()) as { datasets: unknown[] }).datasets).toEqual([]);
@@ -210,8 +211,8 @@ describe("the datasets a map draws from", () => {
 
   it("an unanalyzable layer fails the whole read, never a partial checklist", async () => {
     const stations = dataset("stations");
-    insertTable(stations);
-    const map = createMap("Broken");
+    insertTable(testAccountScope(), stations);
+    const map = createMap(testAccountScope(), "Broken");
     seedLayer(map.id, "ok", "SELECT * FROM stations");
     seedLayer(map.id, "broken", "SELEC nonsense FRM nowhere ((");
 

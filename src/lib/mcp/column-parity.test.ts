@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -50,8 +51,8 @@ beforeEach(async () => {
   resetQueryInstance();
   const src = path.join(dir, "assets.csv");
   await writeFile(src, "name,val,lon,lat\na,1,1,2\nb,2,3,4\n");
-  await ingestFile(src, "assets.csv");
-  const map = createMap("parity");
+  await ingestFile(testAccountScope(), src, "assets.csv");
+  const map = createMap(testAccountScope(), "parity");
   const layer = await createLayer(map.id, {
     name: "l",
     sql: "SELECT * FROM assets",

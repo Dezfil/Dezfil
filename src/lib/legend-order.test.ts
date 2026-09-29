@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -32,7 +33,7 @@ beforeEach(async () => {
     src,
     "name,lon,lat,riders\na,13.4,52.5,100\nb,13.3,52.4,500\nc,13.2,52.6,900\n",
   );
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
 });
 
 afterEach(async () => {
@@ -43,7 +44,7 @@ afterEach(async () => {
 });
 
 async function seedThree() {
-  const map = createMap("Legend order");
+  const map = createMap(testAccountScope(), "Legend order");
   const ids: string[] = [];
   for (const name of ["Alpha", "Beta", "Gamma"]) {
     const layer = await createLayer(map.id, {
@@ -142,7 +143,7 @@ describe("legendOrder — the stored arrangement", () => {
   });
 
   it("deleting the last arranged layer returns the map to automatic", async () => {
-    const map = createMap("Single");
+    const map = createMap(testAccountScope(), "Single");
     const layer = await createLayer(map.id, {
       name: "Only",
       sql: "SELECT * FROM stations",
@@ -185,7 +186,7 @@ describe("legendOrder — the stored arrangement", () => {
     const { map, ids } = await seedThree();
     updateMap(map.id, { legendOrder: [ids[2], ids[0], ids[1]] });
 
-    const copy = duplicateMap(map.id);
+    const copy = duplicateMap(testAccountScope(), map.id);
     const copied = mapWithLayers(copy.id);
     const byName = new Map(copied.layers.map((l) => [l.name, l.id]));
     expect(copied.legendOrder).toEqual([

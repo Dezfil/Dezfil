@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { requireRequestAuth } from "@/lib/auth/http";
 import { instanceFetch } from "@/lib/auth/instance-fetch";
 import { authenticatedRequest } from "@/lib/assistant/testing/account";
@@ -173,7 +174,7 @@ describe("1j through the loop: no event and no receipt carries the bytes", () =>
     vi.stubEnv("DEZFIL_DATA_DIR", dir); vi.stubEnv("PORT", "3311");
     closeMetadataDb();
     vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => dispatchAssistantTestRoute(input instanceof Request ? input : new Request(String(input), init)));
-    mapId = createMap("Wire").id;
+    mapId = createMap(testAccountScope(), "Wire").id;
     const driver: RenderDriver = { launch: async () => ({ render: async () => ({ png: FIXTURE, consumed: JSON.stringify({ map: mapId, layers: [], legend: { visible: false, corner: "bottom-left", order: [] }, widgets: [], attribution: "", failures: [] }) }), close: async () => {}, kill: () => {} }) };
     setLookDriverForTests(driver);
   });

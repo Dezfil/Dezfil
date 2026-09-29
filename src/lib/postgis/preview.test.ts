@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -45,7 +46,7 @@ beforeEach(async () => {
   process.env.DEZFIL_DATA_DIR = path.join(dir, "data");
   closeMetadataDb();
   resetSecretKeyCache();
-  insertConnection(connection);
+  insertConnection(testAccountScope(), connection);
 });
 
 afterEach(async () => {

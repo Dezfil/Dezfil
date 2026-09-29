@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { getRecipe, getStep } from "@/lib/metadata/recipes";
@@ -27,6 +28,7 @@ type Params = { params: Promise<{ id: string; stepId: string }> };
  */
 export async function POST(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id, stepId } = await params;
     if (!getRecipe(id)) {
       throw new ApiError("not_found", `No recipe with id "${id}".`, 404);
@@ -42,7 +44,7 @@ export async function POST(_request: Request, { params }: Params) {
     // A node's own run is one of the recipe's runs: one member, the same
     // lock, the same driver. Ordinary refusal removes it before the request
     // answers; accepted cancellation retains the listable exception.
-    const run = await startSingleRun(id, stepId);
+    const run = await startSingleRun(scope, id, stepId);
     return NextResponse.json(
       { run: cascadePayload(readCascade(run.id)) },
       {

@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -41,7 +42,7 @@ beforeEach(async () => {
   // The CSV path builds geometry from lon/lat columns.
   const csv = path.join(dir, "stations.csv");
   await writeFile(csv, "name,lon,lat\nalpha,0.5,0.5\nbeta,1.5,0.5\n");
-  await ingestFile(csv, "stations.csv");
+  await ingestFile(testAccountScope(), csv, "stations.csv");
 
   // The file path reads it through GDAL, which labels it differently.
   const geojson = path.join(dir, "districts.geojson");
@@ -69,7 +70,7 @@ beforeEach(async () => {
       ],
     }),
   );
-  await ingestFile(geojson, "districts.geojson");
+  await ingestFile(testAccountScope(), geojson, "districts.geojson");
 });
 
 afterEach(async () => {
@@ -81,7 +82,7 @@ afterEach(async () => {
 });
 
 async function run(operation: string, parameters: Record<string, unknown>) {
-  const job = await startRun({ operation, parameters });
+  const job = await startRun(testAccountScope(), { operation, parameters });
   await laneSettled();
   return getJob(job.id)!;
 }
@@ -110,7 +111,7 @@ describe("geometry from different ingest paths", () => {
   ])("content CSV %s compares with existing GeoJSON without moving coordinates", async (value) => {
     const file = path.join(dir, "content.csv");
     await writeFile(file, 'payload,label\n"' + value.replaceAll('"', '""') + '",a\n');
-    const table = await ingestFile(file, "content.csv");
+    const table = await ingestFile(testAccountScope(), file, "content.csv");
     const result = await executeQuery(
       `SELECT ST_X(c.geometry) x, ST_Y(c.geometry) y
        FROM ${table.name} c, districts d WHERE ST_Within(c.geometry, d.${geometryOf("districts")})`,

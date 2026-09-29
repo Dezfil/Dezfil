@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import { metadataDb } from "./db";
@@ -154,10 +155,12 @@ export function touchRecipe(id: string, db: Database = metadataDb()): string | n
 // ---- recipes ----
 
 export function createRecipe(
+  scope: AccountScope,
   name: string,
   db: Database = metadataDb(),
   origin: RecipeOrigin = "workflow",
 ): Recipe {
+  const ownerId = requireAccountScope(scope, db);
   // Creation is always unfiled; filing is fileRecipe's one job, so the
   // project's clock has a single owner.
   const now = new Date().toISOString();
@@ -170,8 +173,9 @@ export function createRecipe(
     updatedAt: now,
   };
   db.prepare(
-    `INSERT INTO recipes (id, name, origin, project_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO recipes (owner_id, id, name, origin, project_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).run(
+    ownerId,
     recipe.id,
     recipe.name,
     recipe.origin,

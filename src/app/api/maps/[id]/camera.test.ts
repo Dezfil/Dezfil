@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { beforeEach, afterEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -12,7 +13,7 @@ beforeEach(async () => {
   dir = await mkdtemp(path.join(process.cwd(), ".tmp-camera-"));
   process.env.DEZFIL_DATA_DIR = dir;
   closeMetadataDb();
-  id = createMap("Camera bounds").id;
+  id = createMap(testAccountScope(), "Camera bounds").id;
 });
 afterEach(async () => {
   closeMetadataDb();

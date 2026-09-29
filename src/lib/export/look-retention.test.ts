@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
@@ -85,7 +86,7 @@ describe("6b and 6c: the read route", () => {
     dir = await mkdtemp(path.join(process.cwd(), ".tmp-retention-"));
     vi.stubEnv("DEZFIL_DATA_DIR", dir); vi.stubEnv("PORT", "3300");
     closeMetadataDb(); lookRetention.resetForTests(); counts.launches = 0;
-    mapId = createMap("Retained").id;
+    mapId = createMap(testAccountScope(), "Retained").id;
     const driver: RenderDriver = { launch: async () => { counts.launches += 1; return { render: async () => ({ png: FIXTURE, consumed: JSON.stringify({ map: mapId, layers: [], legend: { visible: false, corner: "bottom-left", order: [] }, widgets: [], attribution: "", failures: [] }) }), close: async () => {}, kill: () => {} }; } };
     setLookDriverForTests(driver);
   });

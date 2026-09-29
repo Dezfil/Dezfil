@@ -1,4 +1,5 @@
 import { DATASET_CONNECTION_MIGRATIONS } from "./migrations-datasets-connections";
+import { OWNERSHIP_MIGRATION } from "./migrations-ownership";
 
 export const MIGRATIONS: string[] = [
   DATASET_CONNECTION_MIGRATIONS.v1,
@@ -475,4 +476,5 @@ export const MIGRATIONS: string[] = [
      pending INTEGER NOT NULL DEFAULT 0
    );
    CREATE INDEX idx_auth_login_limits_window ON auth_login_limits(window_started_at);`,
+  OWNERSHIP_MIGRATION,
 ];

@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { listCascades } from "@/lib/metadata/cascades";
@@ -36,6 +37,7 @@ export async function GET(_request: Request, { params }: Params) {
  */
 export async function POST(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
     // **Absent is not the same as malformed here, and conflating them is not a
     // tidiness question.** On this endpoint an absent body means *run the whole
@@ -79,7 +81,7 @@ export async function POST(request: Request, { params }: Params) {
       });
     }
 
-    const cascade = await startCascade({
+    const cascade = await startCascade(scope, {
       recipeId: id,
       ...(fromStepId ? { fromStepId } : {}),
       ...(members ? { members } : {}),

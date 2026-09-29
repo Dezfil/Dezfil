@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createServer,
@@ -94,7 +95,7 @@ const CSV = [
 
 async function ingest(): Promise<void> {
   await writeFile(path.join(dir, "places.csv"), `${CSV}\n`);
-  await ingestFile(path.join(dir, "places.csv"), "places.csv");
+  await ingestFile(testAccountScope(), path.join(dir, "places.csv"), "places.csv");
 }
 
 const NEVER_TIMES_OUT = () => new ApiError("operation_timeout", "too slow", 408);

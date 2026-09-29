@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { mkdir, rm } from "node:fs/promises";
@@ -196,11 +197,13 @@ export interface IngestProvenance {
  * artifact and registers nothing (spec: no partial table is ever created).
  */
 export async function ingestFile(
+  scope: AccountScope,
   sourcePath: string,
   originalFilename: string,
   provenance: IngestProvenance = { source: "upload", sourceParams: null },
   requestedName?: string,
 ): Promise<DataTable> {
+  requireAccountScope(scope);
   const format = detectFormat(originalFilename);
   const id = randomUUID();
   const relFile = path.join("tables", `${id}.parquet`);
@@ -215,6 +218,7 @@ export async function ingestFile(
     const db = metadataDb();
     return db.transaction(() => {
       const table = registerTable(
+        scope,
         {
           id,
           sourceFilename: originalFilename,

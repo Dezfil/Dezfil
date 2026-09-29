@@ -1,3 +1,4 @@
+import { ownedCreationOp } from "./openapi-owned-creation";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, REMOTE_REPLACE } from "./operation-mcp";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
 import { op, jsonOk, pathParam } from "./openapi-helpers";
@@ -19,7 +20,7 @@ export const TABLE_COLLECTION_PATHS = {
         "200": jsonOk("#/components/schemas/TableList"),
       },
     }),
-    post: op({
+    post: ownedCreationOp({
       summary: "Upload a file as one or more tables",
       description:
         "multipart/form-data with exactly one file part, named " +

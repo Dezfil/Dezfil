@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -41,9 +42,9 @@ afterEach(async () => {
 });
 
 it("an output publishing after a mid-run move files where the workflow is at the commit", async () => {
-  const a = createProject({ name: "A" });
-  const b = createProject({ name: "B" });
-  const recipe = createRecipe("Raced", undefined, "workflow");
+  const a = createProject(testAccountScope(), { name: "A" });
+  const b = createProject(testAccountScope(), { name: "B" });
+  const recipe = createRecipe(testAccountScope(), "Raced", undefined, "workflow");
   changeMembers(a.id, { addRecipes: [recipe.id] });
   const step = addStep(recipe.id, {
     operation: "sql_step",
@@ -55,7 +56,7 @@ it("an output publishing after a mid-run move files where the workflow is at the
   let release!: () => void;
   const gate = new Promise<void>((resolve) => (release = resolve));
 
-  const job = await submitRun({
+  const job = await submitRun(testAccountScope(), {
     operationId: "sql_step",
     parameters: { sql: "SELECT 1 AS x", name: "raced_out" },
     sql: "SELECT 1 AS x",

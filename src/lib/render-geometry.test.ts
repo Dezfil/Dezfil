@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -28,7 +29,7 @@ afterEach(async () => {
 });
 
 async function geometryTypeFor(sql: string): Promise<LayerRenderGeometryType> {
-  const map = createMap("geometry");
+  const map = createMap(testAccountScope(), "geometry");
   const layer = await createLayer(map.id, { name: "geometry", sql });
   const result = await renderLayer(layer);
   expect(result.ok).toBe(true);
@@ -54,7 +55,7 @@ describe("render geometry metadata", () => {
   });
 
   it("reports the effective mixed, filtered, and empty result", async () => {
-    const map = createMap("effective geometry");
+    const map = createMap(testAccountScope(), "effective geometry");
     const layer = await createLayer(map.id, {
       name: "mixed",
       sql: `SELECT kind, ST_GeomFromText(wkt) AS geometry

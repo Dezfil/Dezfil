@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { delegateCredential } from "@/lib/auth/delegation";
 import { requireRequestAuth } from "@/lib/auth/http";
 import { authenticatedRequest } from "@/lib/assistant/testing/account";
@@ -94,8 +95,8 @@ describe.skipIf(!port)("the check outlives a stalled tile host", () => {
     await writeFile(file, JSON.stringify({ type: "FeatureCollection", features: [
       { type: "Feature", properties: { kind: "a" }, geometry: { type: "Point", coordinates: [13.4, 52.5] } },
     ] }));
-    const table = await ingestFile(file, path.basename(file));
-    mapId = createMap("Stalled tiles").id;
+    const table = await ingestFile(testAccountScope(), file, path.basename(file));
+    mapId = createMap(testAccountScope(), "Stalled tiles").id;
     updateMap(mapId, {
       viewport: { lng: 13.4, lat: 52.5, zoom: 12, pitch: 0, bearing: 0 },
       customBasemap: { url: basemap.styleUrl, name: "Stalling tiles", attribution: [{ label: "Stall fixture" }] },

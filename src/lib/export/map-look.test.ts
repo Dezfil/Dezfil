@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deflateSync } from "node:zlib";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
@@ -94,7 +95,7 @@ beforeEach(async () => {
   dir = await mkdtemp(path.join(process.cwd(), ".tmp-look-test-"));
   vi.stubEnv("DEZFIL_DATA_DIR", dir);
   closeMetadataDb();
-  const map = createMap("Look");
+  const map = createMap(testAccountScope(), "Look");
   mapId = map.id;
 });
 afterEach(async () => { closeMetadataDb(); vi.unstubAllEnvs(); await rm(dir, { recursive: true, force: true }); });

@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
 import { duplicateRecipe } from "@/lib/operations/recipe-duplicate";
@@ -13,8 +14,9 @@ type Params = { params: Promise<{ id: string }> };
  */
 export async function POST(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id } = await params;
-    const copy = await duplicateRecipe(id);
+    const copy = await duplicateRecipe(scope, id);
     return NextResponse.json(
       { recipe: recipePayload(await readRecipe(copy.id)) },
       { status: 201, headers: { Location: `/api/recipes/${copy.id}` } },

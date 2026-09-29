@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -67,7 +68,7 @@ async function pingsTable(): Promise<void> {
       "d,13.360,52.480,2021-03-03 18:45:00",
     ].join("\n"),
   );
-  await ingestFile(src, "pings.csv");
+  await ingestFile(testAccountScope(), src, "pings.csv");
 }
 
 const PINGS_SQL = "SELECT name, seen, geometry FROM pings";
@@ -109,7 +110,7 @@ describe("timeline shape guard", () => {
 describe("docking the timeline", () => {
   it("docks onto an existing time filter, defaults the speed, undocks via null", async () => {
     await pingsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     expect(map.timeline).toBeNull(); // earlier semantics: nothing docked
     const layer = await createLayer(map.id, { name: "P", sql: PINGS_SQL });
     await updateLayer(layer.id, { filters: SEEN_FILTER });
@@ -130,7 +131,7 @@ describe("docking the timeline", () => {
 
   it("persists an explicit speed", async () => {
     await pingsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, { name: "P", sql: PINGS_SQL });
     await updateLayer(layer.id, { filters: SEEN_FILTER });
     updateMap(map.id, {
@@ -141,7 +142,7 @@ describe("docking the timeline", () => {
 
   it("rejects unknown layers, missing filters, and aggregated layers — no partial write", async () => {
     await pingsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, { name: "P", sql: PINGS_SQL });
 
     // Not a layer of this map.
@@ -172,7 +173,7 @@ describe("docking the timeline", () => {
 
   it("dock and undock are recorded, undoable steps", async () => {
     await pingsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, { name: "P", sql: PINGS_SQL });
     await updateLayer(layer.id, { filters: SEEN_FILTER });
 
@@ -189,7 +190,7 @@ describe("docking the timeline", () => {
 
   it("tolerates the docked layer going away — the map still reads, dock intact", async () => {
     await pingsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, { name: "P", sql: PINGS_SQL });
     await updateLayer(layer.id, { filters: SEEN_FILTER });
     updateMap(map.id, { timeline: { layerId: layer.id, field: "seen" } });
@@ -204,7 +205,7 @@ describe("docking the timeline", () => {
 describe("the render split: docked time filter is client-side", () => {
   it("ships the time filter to the client, docked or not", async () => {
     await pingsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, { name: "P", sql: PINGS_SQL });
     await updateLayer(layer.id, { filters: [DAY_ONE] });
 
@@ -227,7 +228,7 @@ describe("the render split: docked time filter is client-side", () => {
 
   it("keeps every other filter server-side while docked", async () => {
     await pingsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, { name: "P", sql: PINGS_SQL });
     // The day-one window would exclude c; the values filter keeps only c.
     await updateLayer(layer.id, {
@@ -242,7 +243,7 @@ describe("the render split: docked time filter is client-side", () => {
 
   it("falls back to server-side filtering when the layer drifts to aggregated", async () => {
     await pingsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, { name: "P", sql: PINGS_SQL });
     await updateLayer(layer.id, { filters: [DAY_ONE] });
     updateMap(map.id, { timeline: { layerId: layer.id, field: "seen" } });
@@ -262,7 +263,7 @@ describe("the render split: docked time filter is client-side", () => {
   it("window changes on a docked tiled layer rebuild nothing", async () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "3";
     await pingsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, { name: "P", sql: PINGS_SQL });
     await updateLayer(layer.id, { filters: [DAY_ONE] });
     updateMap(map.id, { timeline: { layerId: layer.id, field: "seen" } });
@@ -302,7 +303,7 @@ describe("the render split, generalized: live filters", () => {
 
   it("ships a numeric range filter to the client; a values filter stays in SQL", async () => {
     await pingsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, { name: "P", sql: XY_SQL });
     // The range would keep only c (x ≤ 13.35); the values filter keeps a+c.
     await updateLayer(layer.id, {
@@ -320,7 +321,7 @@ describe("the render split, generalized: live filters", () => {
 
   it("keeps filters past the slots in SQL — unless the dock claims one", async () => {
     await pingsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, { name: "P", sql: XY_SQL });
     // Four no-op ranges fill the slots; the day-one time filter overflows
     // into SQL, so it applies server-side (rows a and b).
@@ -348,7 +349,7 @@ describe("the render split, generalized: live filters", () => {
   it("falls back to SQL filtering when a heatmap's unfiltered result cannot ship", async () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "3";
     await pingsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, { name: "P", sql: PINGS_SQL });
     await updateLayer(layer.id, {
       viz: defaultViz("heatmap"),
@@ -366,7 +367,7 @@ describe("the render split, generalized: live filters", () => {
 
   it("publishes the resolved live filters for the viewer to enforce", async () => {
     await pingsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, { name: "P", sql: XY_SQL });
     await updateLayer(layer.id, {
       filters: [
@@ -391,7 +392,7 @@ describe("the render split, generalized: live filters", () => {
 
   it("a heatmap under the cap delegates like any other layer", async () => {
     await pingsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, { name: "P", sql: PINGS_SQL });
     await updateLayer(layer.id, {
       viz: defaultViz("heatmap"),
@@ -407,7 +408,7 @@ describe("the render split, generalized: live filters", () => {
 describe("published timeline", () => {
   it("carries the widget block and un-windowed data for the docked layer", async () => {
     await pingsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, { name: "P", sql: PINGS_SQL });
     await updateLayer(layer.id, { filters: [DAY_ONE] });
     updateMap(map.id, {
@@ -432,7 +433,7 @@ describe("published timeline", () => {
 
   it("degrades an unresolvable dock to no timeline, not an error", async () => {
     await pingsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, { name: "P", sql: PINGS_SQL });
     await updateLayer(layer.id, { filters: [DAY_ONE] });
     updateMap(map.id, { timeline: { layerId: layer.id, field: "seen" } });

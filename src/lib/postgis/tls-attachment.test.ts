@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
@@ -43,8 +44,8 @@ for (const [form, url] of Object.entries(forms)) {
     const edit = operation !== "create";
     const send = async (modes: string[], extra = {}) => {
       const body = { name: "TLS test", url: url(modes), ...extra };
-      if (!edit) return POST(request(body));
-      insertConnection({ ...saved, ssl: operation === "edit-on" });
+      if (!edit) return POST(testAccountRequest(request(body)));
+      insertConnection(testAccountScope(), { ...saved, ssl: operation === "edit-on" });
       return PATCH(request(body), { params: Promise.resolve({ id: saved.id }) });
     };
     describe(`${form} ${operation} through real route and outgoing attachment`, () => {

@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import Database from "better-sqlite3";
 import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
@@ -37,7 +38,7 @@ afterEach(async () => {
 });
 async function local(csv: string, name = "local.csv") {
   const file = path.join(dir, name); await writeFile(file, csv);
-  return ingestFile(file, name);
+  return ingestFile(testAccountScope(), file, name);
 }
 type WithRecord = DataTable & { geometryRecord?: { columns: string[]; unreadableCount: number }; geometryCandidates?: unknown[] };
 
@@ -45,7 +46,7 @@ it("actual upload response, close/reopen and table inspection preserve the selec
   const csv = 'label,payload\n' + Array.from({ length: 1000 }, () => 'a,"POINT (10 20)"\n').join("") + 'b,bad\n';
   const form = new FormData();
   form.set("file", new Blob([csv], { type: "text/csv" }), "upload.csv");
-  const response = await POST(new Request("http://dezfil.test/api/tables", { method: "POST", body: form }));
+  const response = await POST(testAccountRequest(new Request("http://dezfil.test/api/tables", { method: "POST", body: form })));
   expect(response.status).toBe(201);
   const body = await response.json();
   expect(body).toMatchObject({ geometryRecord: { columns: ["payload"], unreadableCount: 1 }, geometryCandidates: [{ applied: true, sample: { rows: 1000, nonNull: 1000, readable: 1000 } }] });
@@ -77,7 +78,7 @@ it("legacy records remain absent after the next migration", async () => {
 it("local and URL imports agree; a successful refresh replaces record and candidates with its artifact", async () => {
   remoteCsv = 'payload,label\n"SRID=4326;POINT (10 20)",a\n';
   const file = await local(remoteCsv) as WithRecord;
-  const url = (await importFromUrl("https://fixture.test/remote.csv")).tables[0] as WithRecord;
+  const url = (await importFromUrl(testAccountScope(), "https://fixture.test/remote.csv")).tables[0] as WithRecord;
   expect(file.geometryRecord).toMatchObject({ columns: ["payload"], unreadableCount: 0 });
   expect(url.geometryRecord).toEqual(file.geometryRecord);
   expect(url.geometryCandidates).toEqual(file.geometryCandidates);
@@ -92,7 +93,7 @@ it("local and URL imports agree; a successful refresh replaces record and candid
 
 it("a failure after conversion keeps the old artifact and record together", async () => {
   remoteCsv = 'payload,label\n"POINT (10 20)",a\n';
-  const before = (await importFromUrl("https://fixture.test/remote.csv")).tables[0] as WithRecord;
+  const before = (await importFromUrl(testAccountScope(), "https://fixture.test/remote.csv")).tables[0] as WithRecord;
   expect(before.geometryRecord).toMatchObject({ columns: ["payload"] });
   const tablesDir = path.join(process.env.DEZFIL_DATA_DIR!, "tables");
   const filesBefore = await readdir(tablesDir);

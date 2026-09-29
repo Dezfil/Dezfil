@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -27,7 +28,7 @@ beforeEach(async () => {
     source,
     "name,value,lon,lat\na,1000,13.4,52.5\nb,3500,13.5,52.6\nc,12000,13.6,52.7\n",
   );
-  await ingestFile(source, "values.csv");
+  await ingestFile(testAccountScope(), source, "values.csv");
 });
 
 afterEach(async () => {
@@ -39,7 +40,7 @@ afterEach(async () => {
 
 describe("opening a stored data-driven Fill panel", () => {
   it("leaves quantile breaks and colors byte-stable across the read path", async () => {
-    const map = createMap("Quantile inspection");
+    const map = createMap(testAccountScope(), "Quantile inspection");
     const layer = await createLayer(map.id, {
       name: "Values",
       sql: "SELECT name, value, geometry FROM values",

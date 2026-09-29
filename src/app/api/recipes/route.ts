@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { createRecipe, listRecipes } from "@/lib/metadata/recipes";
@@ -49,13 +50,14 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const scope = requireRequestScope(request);
     const body = await jsonBody(request);
     // Optionally filed at birth: an unknown project refuses and creates
     // nothing.
     const projectId = importProjectId(body.projectId);
     if (projectId) requireProject(projectId);
     const recipe = metadataDb().transaction(() => {
-      const created = createRecipe(recipeName(body), undefined, recipeOrigin(body));
+      const created = createRecipe(scope, recipeName(body), undefined, recipeOrigin(body));
       if (projectId) fileRecipe(created.id, projectId);
       return created;
     })();

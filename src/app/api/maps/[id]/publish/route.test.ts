@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -38,21 +39,21 @@ function post(id: string, body?: string) {
 
 describe("publish route theme body", () => {
   it("a bodyless publish stays valid and records dark", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const res = await post(map.id);
     expect(res.status).toBe(201);
     expect(getPublishedTheme(map.id)).toBe("dark");
   });
 
   it("a stated theme is captured", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const res = await post(map.id, JSON.stringify({ theme: "light" }));
     expect(res.status).toBe(201);
     expect(getPublishedTheme(map.id)).toBe("light");
   });
 
   it("an invalid theme answers the documented invalid_request code", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const res = await post(map.id, JSON.stringify({ theme: "sepia" }));
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { code: string } };
@@ -61,7 +62,7 @@ describe("publish route theme body", () => {
   });
 
   it("a malformed body answers invalid_request, not a 500", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const res = await post(map.id, "{not json");
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { code: string } };
@@ -71,7 +72,7 @@ describe("publish route theme body", () => {
 
 describe("publish route body strictness", () => {
   it("JSON null answers invalid_request, not a 500", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const res = await post(map.id, "null");
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { code: string } };
@@ -80,14 +81,14 @@ describe("publish route body strictness", () => {
   });
 
   it("a primitive body answers invalid_request rather than silently publishing", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const res = await post(map.id, JSON.stringify("light"));
     expect(res.status).toBe(400);
     expect(getPublishedTheme(map.id)).toBeNull();
   });
 
   it("an explicit null theme answers invalid_request", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const res = await post(map.id, JSON.stringify({ theme: null }));
     expect(res.status).toBe(400);
     expect(getPublishedTheme(map.id)).toBeNull();
@@ -109,12 +110,12 @@ describe("publish route viewer controls", () => {
   };
 
   it("an unpublished map has no publication to describe", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     expect(await state(map.id)).toBeNull();
   });
 
   it("a publication that states no set reports every control on", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     await post(map.id);
     expect((await state(map.id))!.viewerControls).toEqual({
       tilt: true,
@@ -126,7 +127,7 @@ describe("publish route viewer controls", () => {
   });
 
   it("a stated set is captured, and its omitted members read on", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     await post(
       map.id,
       JSON.stringify({ viewerControls: { basemap: false, tilt: false } }),
@@ -141,7 +142,7 @@ describe("publish route viewer controls", () => {
   });
 
   it("the coordinate readout can be unchecked and stays unchecked", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     await post(map.id, JSON.stringify({ viewerControls: { coords: false } }));
     const after = (await state(map.id))!.viewerControls;
     expect(after.coords).toBe(false);
@@ -149,7 +150,7 @@ describe("publish route viewer controls", () => {
   });
 
   it("updates in place on an active publication without moving the token", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const first = (await (await post(map.id)).json()) as { token: string };
     const res = await post(
       map.id,
@@ -162,7 +163,7 @@ describe("publish route viewer controls", () => {
   // The load-bearing one: the builder's workspace-theme sync sends a theme
   // and nothing else, and must not re-enable what the author unchecked.
   it("a theme-only update leaves the checklist exactly as it was", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     await post(
       map.id,
       JSON.stringify({ theme: "light", viewerControls: { theme: false } }),
@@ -174,7 +175,7 @@ describe("publish route viewer controls", () => {
   });
 
   it("a controls-only update leaves the authored theme alone", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     await post(map.id, JSON.stringify({ theme: "light" }));
     await post(map.id, JSON.stringify({ viewerControls: { tilt: false } }));
     const after = (await state(map.id))!;
@@ -183,7 +184,7 @@ describe("publish route viewer controls", () => {
   });
 
   it("unpublishing clears the set with the token", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     await post(map.id, JSON.stringify({ viewerControls: { fit: false } }));
     await DELETE(new Request("http://localhost/x", { method: "DELETE" }), {
       params: Promise.resolve({ id: map.id }),
@@ -194,7 +195,7 @@ describe("publish route viewer controls", () => {
   });
 
   it("a non-boolean member answers invalid_request", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const res = await post(
       map.id,
       JSON.stringify({ viewerControls: { fit: "yes" } }),
@@ -206,7 +207,7 @@ describe("publish route viewer controls", () => {
   });
 
   it("an unknown member answers invalid_request rather than being ignored", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const res = await post(
       map.id,
       JSON.stringify({ viewerControls: { zoom: false } }),
@@ -215,7 +216,7 @@ describe("publish route viewer controls", () => {
   });
 
   it("a non-object controls field answers invalid_request", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const res = await post(map.id, JSON.stringify({ viewerControls: true }));
     expect(res.status).toBe(400);
   });

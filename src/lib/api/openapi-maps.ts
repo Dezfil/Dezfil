@@ -1,3 +1,4 @@
+import { ownedCreationOp } from "./openapi-owned-creation";
 import { authenticatedOp } from "./openapi-authenticated";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE, MAP_LOOK, REMOTE_READ, REMOTE_REPLACE } from "./operation-mcp";
 import { changeGroupParam } from "./openapi-mcp";
@@ -28,7 +29,7 @@ export const MAP_COLLECTION_PATHS = {
       parameters: [PROJECT_SCOPE_PARAM],
       responses: { "200": jsonOk("#/components/schemas/MapList") },
     }),
-    post: op({
+    post: ownedCreationOp({
       summary: "Create a map",
       description:
         "Optionally filed into a project at birth: an " +
@@ -300,7 +301,7 @@ export const MAP_RESOURCE_PATHS = {
     }),
   },
   "/api/maps/{id}/duplicate": {
-    post: op({
+    post: ownedCreationOp({
       summary: "Duplicate a map",
       description:
         "Full copy — viewport, basemap, note, legend, timeline dock, and " +

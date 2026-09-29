@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -66,7 +67,7 @@ async function stationsTable(): Promise<void> {
       "sudkreuz,s,13.360,52.480,120",
     ].join("\n"),
   );
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
 }
 
 const STATIONS_SQL = "SELECT name, category, riders, geometry FROM stations";
@@ -87,7 +88,7 @@ function timeline(mapId: string): HistoryStep[] {
 
 describe("recording map changes", () => {
   it("records exactly the changed fields, as stored", () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     updateMap(map.id, { name: "Renamed", basemap: "dark" });
     const [step] = undoSteps(map.id);
     expect(step.scope).toBe("map");
@@ -97,7 +98,7 @@ describe("recording map changes", () => {
   });
 
   it("records stored values, not the request — a widget normalizes first", () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     updateMap(map.id, {
       widgets: [
         {
@@ -123,7 +124,7 @@ describe("recording map changes", () => {
   });
 
   it("never records the viewport, and skips no-op writes", () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     updateMap(map.id, { viewport: { lng: 13.4, lat: 52.5, zoom: 10 } });
     expect(historyAvailability(map.id)).toEqual({
       canUndo: false,
@@ -143,7 +144,7 @@ describe("recording map changes", () => {
 
   it("records a reorder as the layerOrder virtual field", async () => {
     await stationsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const a = await createLayer(map.id, { name: "A", sql: STATIONS_SQL });
     const b = await createLayer(map.id, { name: "B", sql: STATIONS_SQL });
     updateMap(map.id, { layerOrder: [b.id, a.id] });
@@ -156,7 +157,7 @@ describe("recording map changes", () => {
 describe("recording layer changes", () => {
   it("records update fields as stored, and skips no-ops", async () => {
     await stationsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "Stations",
       sql: STATIONS_SQL,
@@ -175,7 +176,7 @@ describe("recording layer changes", () => {
 
   it("a custom icon rides layer history: undo removes it, redo restores it", async () => {
     await stationsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "Stations",
       sql: STATIONS_SQL,
@@ -197,7 +198,7 @@ describe("recording layer changes", () => {
 
   it("captures coupled server-side adjustments post-normalization", async () => {
     await stationsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "Stations",
       sql: STATIONS_SQL,
@@ -215,7 +216,7 @@ describe("recording layer changes", () => {
 
   it("records an aggregate filter and its settled fill as one undoable image", async () => {
     await stationsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "Stations",
       sql: STATIONS_SQL,
@@ -261,7 +262,7 @@ describe("recording layer changes", () => {
 
   it("records add, duplicate, and delete as whole-layer images", async () => {
     await stationsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "Stations",
       sql: STATIONS_SQL,
@@ -282,7 +283,7 @@ describe("recording layer changes", () => {
 
   it("rapid sequential style updates coalesce into one step (a slider drag)", async () => {
     await stationsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "Stations",
       sql: STATIONS_SQL,
@@ -299,7 +300,7 @@ describe("recording layer changes", () => {
 
   it("threads the group marker into recorded steps", async () => {
     await stationsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "Stations",
       sql: STATIONS_SQL,
@@ -315,7 +316,7 @@ describe("recording layer changes", () => {
 describe("undo and redo application", () => {
   it("reverts and re-applies an update byte-identically", async () => {
     await stationsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "Stations",
       sql: STATIONS_SQL,
@@ -337,7 +338,7 @@ describe("undo and redo application", () => {
 
   it("re-applies coupled adjustments verbatim, never recomputing", async () => {
     await stationsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "Stations",
       sql: STATIONS_SQL,
@@ -355,7 +356,7 @@ describe("undo and redo application", () => {
 
   it("restores a deleted layer whole: id, ordinal, style, legend", async () => {
     await stationsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const a = await createLayer(map.id, { name: "A", sql: STATIONS_SQL });
     const b = await createLayer(map.id, { name: "B", sql: STATIONS_SQL });
     await updateLayer(a.id, { legendTitle: "Alpha", visible: false });
@@ -374,7 +375,7 @@ describe("undo and redo application", () => {
 
   it("undoes an add by removing the layer; redo brings it back", async () => {
     await stationsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "Stations",
       sql: STATIONS_SQL,
@@ -387,7 +388,7 @@ describe("undo and redo application", () => {
 
   it("restores the layer order", async () => {
     await stationsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const a = await createLayer(map.id, { name: "A", sql: STATIONS_SQL });
     const b = await createLayer(map.id, { name: "B", sql: STATIONS_SQL });
     updateMap(map.id, { layerOrder: [b.id, a.id] });
@@ -399,7 +400,7 @@ describe("undo and redo application", () => {
 
   it("undoes a grouped turn as one step, map and layer changes together", async () => {
     await stationsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "Stations",
       sql: STATIONS_SQL,
@@ -417,7 +418,7 @@ describe("undo and redo application", () => {
   });
 
   it("a fresh edit after undo discards the redo branch", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     updateMap(map.id, { name: "One" });
     await undoChange(map.id);
     expect(mapHistory(map.id).canRedo).toBe(true);
@@ -429,7 +430,7 @@ describe("undo and redo application", () => {
   });
 
   it("refuses cleanly when there is nothing to undo", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     await expect(undoChange(map.id)).rejects.toMatchObject({
       code: "invalid_request",
     });
@@ -437,7 +438,7 @@ describe("undo and redo application", () => {
 
   it("captures before-images against the state the write replaces, not its entry snapshot", async () => {
     await stationsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "Stations",
       sql: STATIONS_SQL,
@@ -493,7 +494,7 @@ describe("undo and redo application", () => {
 
   it("loses no accepted write across an interleaving on disjoint fields", async () => {
     await stationsTable();
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "Stations",
       sql: STATIONS_SQL,
@@ -531,7 +532,7 @@ describe("undo and redo application", () => {
   });
 
   it("round-trips map fields", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const note = {
       id: "n1",
       type: "note" as const,

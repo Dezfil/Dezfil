@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -27,7 +28,7 @@ beforeEach(async () => {
   resetQueryInstance();
   const src = path.join(dir, "assets.csv");
   await writeFile(src, "name,lon,lat\na,1,2\nb,3,4\n");
-  await ingestFile(src, "assets.csv");
+  await ingestFile(testAccountScope(), src, "assets.csv");
 
   const handler = buildMcpFetchHandler();
   vi.stubGlobal(

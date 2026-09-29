@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -25,7 +26,7 @@ beforeEach(async () => {
   dir = await mkdtemp(path.join(process.cwd(), ".tmp-test-"));
   process.env.DEZFIL_DATA_DIR = path.join(dir, "data");
   closeMetadataDb();
-  mapId = createMap("m").id;
+  mapId = createMap(testAccountScope(), "m").id;
 });
 
 afterEach(async () => {
@@ -109,7 +110,7 @@ describe("PUT and GET /api/maps/{id}/thumbnail by theme", () => {
     await put("?theme=light&cycle=c1", png("L"));
     await put("?theme=dark&cycle=c1", png("D"));
     const copy = (await (
-      await duplicate(new Request("http://test"), params(mapId))
+      await duplicate(testAccountRequest(new Request("http://test")), params(mapId))
     ).json()) as { id: string };
     expect(await get("?theme=light", copy.id)).toEqual({ status: 200, tag: "L" });
     expect(await get("?theme=dark", copy.id)).toEqual({ status: 200, tag: "D" });
@@ -124,7 +125,7 @@ describe("PUT and GET /api/maps/{id}/thumbnail by theme", () => {
   it("duplicating carries a single image; deleting the source leaves none", async () => {
     await put("", png("single"));
     const copy = (await (
-      await duplicate(new Request("http://test"), params(mapId))
+      await duplicate(testAccountRequest(new Request("http://test")), params(mapId))
     ).json()) as { id: string };
     expect(await get("", copy.id)).toEqual({ status: 200, tag: "single" });
     expect(await get("?theme=dark", copy.id)).toEqual({ status: 200, tag: "single" });

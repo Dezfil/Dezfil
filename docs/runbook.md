@@ -24,6 +24,26 @@ builds), `cache/overpass/` once an OSM import runs, and `secret.key` on
 first boot unless `DEZFIL_SECRET_KEY` was set first. An optional
 `assistant-models.json` placed there by hand is read as described below.
 
+## Upgrading ownership storage
+
+Stop the instance and back up the complete data directory before upgrading,
+including SQLite journal files, artifacts and `secret.key`. Preserve any
+externally configured encryption key as well. Rehearse the upgrade on a copy.
+
+The upgrade assigns existing maps, datasets, workflows, connections, projects
+and operation job records to the recorded original account, even when another
+account is now admin or the original account is deactivated. An installation
+without accounts keeps these records pending until first-account setup. Setup
+adopts them in the same transaction as the account, preferences and session.
+Failed adoption rolls back and can be retried. Existing identities, SQL,
+public links, credentials, memberships and artifact paths are preserved.
+New resources take their owner from the authenticated creator; request fields
+cannot assign a different owner.
+
+Restore the matching old application and the complete pre-upgrade backup to
+roll back. An older build cannot safely write the upgraded metadata schema.
+Account for work written after the backup before restoring it.
+
 ## A second isolated instance
 
 Two instances must not share a port or a data directory. Give the second one

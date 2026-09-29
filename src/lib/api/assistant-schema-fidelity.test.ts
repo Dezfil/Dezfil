@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { requireRequestAuth } from "@/lib/auth/http";
 import { instanceFetch } from "@/lib/auth/instance-fetch";
 import { authenticatedRequest } from "@/lib/assistant/testing/account";
@@ -62,7 +63,7 @@ beforeEach(async () => {
     if (new URL(request.url).origin !== origin) throw new Error(`Unexpected fixture network request: ${request.url}`);
     return dispatchAssistantTestRoute(request);
   });
-  mapId = createMap("Documented").id;
+  mapId = createMap(testAccountScope(), "Documented").id;
   const driver: RenderDriver = { launch: async () => ({
     render: async () => ({ png: FIXTURE, consumed: JSON.stringify({ map: mapId, layers: [{ id: "layer-1", filters: "0000000000000000" }], legend: { visible: true, corner: "bottom-left", order: ["layer-1"] }, widgets: ["w-1"], attribution: "© Fixture", failures: [] }) }),
     close: async () => {}, kill: () => {},

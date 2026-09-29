@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -49,7 +50,7 @@ beforeEach(async () => {
       "sudkreuz,s,13.360,52.480,120",
     ].join("\n"),
   );
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
 });
 
 afterEach(async () => {
@@ -65,7 +66,7 @@ afterEach(async () => {
 });
 
 async function pointLayer() {
-  const map = createMap("m");
+  const map = createMap(testAccountScope(), "m");
   return createLayer(map.id, {
     name: "Stations",
     sql: "SELECT name, category, riders, geometry FROM stations",
@@ -87,8 +88,8 @@ async function settlementLayer() {
       "f,v,2021-01-01,60,13.5,52.0",
     ].join("\n"),
   );
-  await ingestFile(src, "settlement.csv");
-  const map = createMap("settlement");
+  await ingestFile(testAccountScope(), src, "settlement.csv");
+  const map = createMap(testAccountScope(), "settlement");
   const layer = await createLayer(map.id, {
     name: "Settlement",
     sql: "SELECT label, category, seen, score, geometry FROM settlement",
@@ -250,7 +251,7 @@ describe("aggregated rendering", () => {
   });
 
   it("refuses aggregation on non-point layers", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const lines = await createLayer(map.id, {
       name: "Lines",
       sql: "SELECT ST_MakeLine(ST_Point(0,0), ST_Point(1,1)) AS geometry",
@@ -487,8 +488,8 @@ describe("filters", () => {
         "c,2021-04-01 10:15:00,13.20,52.60",
       ].join("\n"),
     );
-    await ingestFile(src, "pings.csv");
-    const map = createMap("t");
+    await ingestFile(testAccountScope(), src, "pings.csv");
+    const map = createMap(testAccountScope(), "t");
     const layer = await createLayer(map.id, {
       name: "Pings",
       sql: "SELECT label, seen, geometry FROM pings",

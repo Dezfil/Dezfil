@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { requireRequestAuth } from "@/lib/auth/http";
 import { instanceFetch } from "@/lib/auth/instance-fetch";
 import { authenticatedRequest } from "./testing/account";
@@ -50,8 +51,8 @@ beforeEach(async () => {
   });
   const file = path.join(dir, "pts.geojson");
   await writeFile(file, JSON.stringify({ type: "FeatureCollection", features: [{ type: "Feature", properties: { n: 1 }, geometry: { type: "Point", coordinates: [13.4, 52.5] } }] }));
-  table = (await ingestFile(file, "pts.geojson")).name;
-  mapId = createMap("Auto").id;
+  table = (await ingestFile(testAccountScope(), file, "pts.geojson")).name;
+  mapId = createMap(testAccountScope(), "Auto").id;
   layerId = (await createLayer(mapId, { name: "Points", sql: `SELECT * FROM ${table}` })).id;
   const driver: RenderDriver = { launch: async () => ({ render: async (input) => {
     counts.renders += 1; counts.appearances.push(input.definition.appearance); counts.namesAtRender.push(mapWithLayers(mapId).name);
@@ -315,7 +316,7 @@ describe("the observation ends the turn", () => {
 
 describe("scheduling facts are the contextual map's", () => {
   it("an explicit look at another map does not clear the contextual map's pending check", async () => {
-    const other = createMap("Other").id;
+    const other = createMap(testAccountScope(), "Other").id;
     const { start } = run([reply("", call("update_map", { id: mapId, name: "Changed" })), reply("", call("look_at_map", { mapId: other })), reply("Looked elsewhere."), reply("Seen.")], builder());
     const { events } = await start();
     // Seeded defect on the shipped rule: the look at the other map cleared mutatedSince, so the
@@ -325,7 +326,7 @@ describe("scheduling facts are the contextual map's", () => {
     expect(automatic(events)[0].render?.mapId).toBe(mapId);
   });
   it("a layer change on another map schedules no picture of the unchanged contextual map", async () => {
-    const other = createMap("Other").id;
+    const other = createMap(testAccountScope(), "Other").id;
     const otherLayer = (await createLayer(other, { name: "Elsewhere", sql: `SELECT * FROM ${table}` })).id;
     const { start } = run([reply("", call("update_layer", { id: otherLayer, name: "Renamed elsewhere" })), reply("Renamed the other map's layer.")], builder());
     const { events } = await start();
@@ -337,7 +338,7 @@ describe("scheduling facts are the contextual map's", () => {
 
 describe("every successful check in a batch awaits the observation", () => {
   it("two looks in one batch both receive the subsequent sentence", async () => {
-    const other = createMap("Other").id;
+    const other = createMap(testAccountScope(), "Other").id;
     const { start } = run([reply("", call("look_at_map", { mapId }), call("look_at_map", { mapId: other })), reply("Both maps are nearly empty. One point each.")], builder());
     const { events } = await start();
     const observations = events.filter((e): e is Extract<AssistantEvent, { type: "observation" }> => e.type === "observation");

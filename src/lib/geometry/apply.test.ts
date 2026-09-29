@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import path from "node:path";
 import { readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
@@ -41,7 +42,7 @@ it("writes long lines with bounded memory and no engine spill directory, then re
 it.each(["upload", "url"] as const)("legacy %s trajectories apply offline, keep all originals and project identity", async source => {
   const csv = path.join(dir, "gone.csv"); await writeFile(csv, await readFile("src/lib/ingest/fixtures/trajectories.csv"));
   const table = await stored(`SELECT * FROM read_csv(${lit(csv)})`, { source, sourceParams: source === "url" ? { url: "https://gone.test/route.csv" } : null });
-  await rm(csv); const project = createProject({ name: "Geometry" }); fileTable(table.id, project.id);
+  await rm(csv); const project = createProject(testAccountScope(), { name: "Geometry" }); fileTable(table.id, project.id);
   const before = await inspectTable(table.name);
   const result = await setGeometry(table.name, geometryRevision(table), { format: "wkt", columns: ["column01"] });
   expect(result).toMatchObject({ mode: "set", table: { id: table.id, name: table.name, rowCount: 3, geometryType: "LINESTRING", source, sourceParams: table.sourceParams, importedAt: table.importedAt, createdAt: table.createdAt, projectIds: [project.id], geometryRecord: { signal: "manual", rule: "manual", columns: ["column01"], unreadableCount: 0 } } });
@@ -93,7 +94,7 @@ it.each([false, true])("all-bad and empty applied output retains geometry identi
 });
 it("automatic retained source is replaceable but its generated output is not source text", async () => {
   const csv = path.join(dir, "content.csv"); await writeFile(csv, 'payload,x,y\n"POINT (10 20)",30,40\n');
-  const t = await ingestFile(csv, "content.csv");
+  const t = await ingestFile(testAccountScope(), csv, "content.csv");
   const result = await apply(t.name, { format: "pair", columns: ["y", "x"], epsg: 4326 });
   expect(result.table.geometryColumn).toBe(t.geometryColumn);
   expect(result.extent).toEqual([40, 30, 40, 30]);

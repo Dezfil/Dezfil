@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -66,7 +67,7 @@ beforeEach(async () => {
     wire.dispatched.push(`${request.method} ${new URL(request.url).pathname}`);
     return dispatchAssistantTestRoute(request);
   });
-  mapId = createMap("Provenance").id;
+  mapId = createMap(testAccountScope(), "Provenance").id;
   const driver: RenderDriver = { launch: async () => ({ render: async () => ({ png: FIXTURE, consumed: JSON.stringify({ map: mapId, layers: [], legend: { visible: false, corner: "bottom-left", order: [] }, widgets: [], attribution: "", failures: [] }) }), close: async () => {}, kill: () => {} }) };
   setLookDriverForTests(driver);
 });

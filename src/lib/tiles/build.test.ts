@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -48,9 +49,9 @@ beforeEach(async () => {
       "sudkreuz,s,13.360,52.480,120",
     ].join("\n"),
   );
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
   // Tile records reference real layers (FK) — build against one.
-  const map = createMap("m");
+  const map = createMap(testAccountScope(), "m");
   mapId = map.id;
   const layer = await createLayer(map.id, { name: "Stations", sql: SQL });
   layerId = layer.id;

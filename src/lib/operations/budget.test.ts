@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -30,7 +31,7 @@ beforeEach(async () => {
   resetQueryInstance();
   const src = path.join(dir, "stations.csv");
   await writeFile(src, "name,lon,lat\nalexanderplatz,13.41,52.52\nzoo,13.33,52.51\n");
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
   await boundedEvaluation(async () => undefined);
 });
 
@@ -55,7 +56,7 @@ describe("the lane budget replaces the query budget", () => {
     process.env.DEZFIL_QUERY_TIMEOUT_S = "1";
     process.env.DEZFIL_OPERATION_TIMEOUT_S = "120";
 
-    const job = await startRun({
+    const job = await startRun(testAccountScope(), {
       operation: "sql_step",
       parameters: { sql: SLOW, name: "past_the_query_bound" },
     });
@@ -74,7 +75,7 @@ describe("the lane budget replaces the query budget", () => {
     process.env.DEZFIL_QUERY_TIMEOUT_S = "600";
     process.env.DEZFIL_OPERATION_TIMEOUT_S = "1";
 
-    const job = await startRun({
+    const job = await startRun(testAccountScope(), {
       operation: "sql_step",
       parameters: { sql: SLOW, name: "past_the_lane_bound" },
     });
@@ -103,7 +104,7 @@ describe("queue wait is not charged against the run budget", () => {
     });
     submit("budget-test-blocker", async () => blocked);
     try {
-      const waited = await startRun({
+      const waited = await startRun(testAccountScope(), {
         operation: "sql_step",
         // Deliberately longer than a one-millisecond expired budget but well
         // inside three seconds. If the deadline starts at admission, the

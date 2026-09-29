@@ -1,3 +1,4 @@
+import { testAccountRequest } from "@/lib/test-support/accounts";
 import { authenticatedRequest } from "./testing/account";
 import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { pendingActions } from "./pending";
@@ -58,7 +59,7 @@ beforeEach(async () => {
   vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
     const req = input instanceof Request ? input : new Request(String(input), init);
     const url = new URL(req.url);
-    if (url.pathname === "/api/maps" && req.method === "POST") return createMap(req);
+    if (url.pathname === "/api/maps" && req.method === "POST") return createMap(testAccountRequest(req));
     if (url.pathname === "/api/catalogue/tables") return catalogue(req);
     throw new Error(`Unexpected test route: ${req.method} ${url.pathname}`);
   });

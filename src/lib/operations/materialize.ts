@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
@@ -337,8 +338,10 @@ async function describeResult(
 }
 
 export async function materialize(
+  scope: AccountScope,
   request: MaterializeRequest,
 ): Promise<DataTable> {
+  requireAccountScope(scope);
   const {
     sql,
     operation,
@@ -457,6 +460,7 @@ export async function materialize(
         : null;
       try {
         db.transaction(() => {
+          requireAccountScope(scope, db);
           if (authorize && !authorize(table, db, bound)) throw new LostAuthority();
           if (replaceTable) {
             // Keyed on name AND id: a re-run racing a delete, or a name
@@ -478,7 +482,7 @@ export async function materialize(
             );
             if (!swapped) throw outputGone(replaceTable.name);
           } else {
-            insertTable(table, db);
+            insertTable(scope, table, db);
             request.onPublished?.(table, db);
           }
         })();

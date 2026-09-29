@@ -1,3 +1,4 @@
+import { ownedCreationOp } from "./openapi-owned-creation";
 import { withRequestPolicy } from "./openapi-request-policy";
 import { USERS_PATHS, USERS_SCHEMAS } from "./openapi-users";
 import { ACCOUNT_PATHS, ACCOUNT_SCHEMAS } from "./openapi-account";
@@ -294,7 +295,7 @@ export function buildOpenApiDocument() {
         }),
       },
       "/api/operations/run": {
-        post: op({
+        post: ownedCreationOp({
           summary: "Run an operation",
           description:
             "Accepts one operation and answers **202** with a run, before " +

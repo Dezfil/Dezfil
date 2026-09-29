@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
 import { deriveTableName } from "@/lib/ingest/naming";
 import { metadataDb } from "@/lib/metadata/db";
@@ -78,7 +79,8 @@ interface PlannedStep {
   origin: Record<string, unknown> | null;
 }
 
-export async function duplicateRecipe(sourceId: string): Promise<Recipe> {
+export async function duplicateRecipe(scope: AccountScope, sourceId: string): Promise<Recipe> {
+  requireAccountScope(scope);
   const db = metadataDb();
   const source = getRecipe(sourceId, db);
   if (!source) {
@@ -168,7 +170,7 @@ export async function duplicateRecipe(sourceId: string): Promise<Recipe> {
         );
       }
     }
-    const copy = createRecipe(name, db, "workflow");
+    const copy = createRecipe(scope, name, db, "workflow");
     // The copy lands in its source's project — the source re-read
     // INSIDE this transaction, so a move during the asynchronous
     // preparation files the copy where the source is NOW, and a

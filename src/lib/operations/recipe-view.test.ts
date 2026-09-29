@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -25,7 +26,7 @@ beforeEach(async () => {
   resetQueryInstance();
   const source = path.join(dir, "stations.csv");
   await writeFile(source, "name,lon,lat\nalex,13.41,52.52\nzoo,13.33,52.51\n");
-  await ingestFile(source, "stations.csv");
+  await ingestFile(testAccountScope(), source, "stations.csv");
   await boundedEvaluation(async () => undefined);
 });
 
@@ -43,7 +44,7 @@ const sql = (query: string, name: string) => ({
 });
 
 async function publish(recipeId: string, stepId: string) {
-  const run = await startSingleRun(recipeId, stepId);
+  const run = await startSingleRun(testAccountScope(), recipeId, stepId);
   await cascadeSettled(run.id);
   const step = (await readRecipe(recipeId)).steps.find((candidate) => candidate.step.id === stepId);
   expect(step?.step.outputTableId).not.toBeNull();
@@ -51,7 +52,7 @@ async function publish(recipeId: string, stepId: string) {
 
 describe("prospective missing inputs use the next-run definition", () => {
   it("keeps a published downstream step current when its producer's pending missing input is prospective-only, then restores the producer on discard", async () => {
-    const recipe = createRecipe("Pending missing with live downstream");
+    const recipe = createRecipe(testAccountScope(), "Pending missing with live downstream");
     const producer = addStep(
       recipe.id,
       sql("SELECT name FROM stations", "published_a"),
@@ -102,7 +103,7 @@ describe("prospective missing inputs use the next-run definition", () => {
   }, 60_000);
 
   it("keeps the never-published missing-table condition", async () => {
-    const recipe = createRecipe("Never published missing");
+    const recipe = createRecipe(testAccountScope(), "Never published missing");
     const step = addStep(
       recipe.id,
       sql("SELECT * FROM unpublished_table_that_does_not_exist", "never_out"),
@@ -118,7 +119,7 @@ describe("prospective missing inputs use the next-run definition", () => {
   });
 
   it("marks an unpublished forward reference to a later producer broken", async () => {
-    const recipe = createRecipe("Forward reference");
+    const recipe = createRecipe(testAccountScope(), "Forward reference");
     const forward = addStep(
       recipe.id,
       sql("SELECT * FROM produced_later", "forward_consumer"),
@@ -138,7 +139,7 @@ describe("prospective missing inputs use the next-run definition", () => {
   });
 
   it("treats a name an earlier step will produce as a dependency, not missing", async () => {
-    const recipe = createRecipe("Planned dependency");
+    const recipe = createRecipe(testAccountScope(), "Planned dependency");
     addStep(recipe.id, sql("SELECT name FROM stations", "planned_source"));
     const consumer = addStep(
       recipe.id,
@@ -161,7 +162,7 @@ describe("prospective missing inputs use the next-run definition", () => {
   }, 60_000);
 
   it("keeps an unreadable pending definition as no reads, never broken", async () => {
-    const recipe = createRecipe("Unreadable proposal");
+    const recipe = createRecipe(testAccountScope(), "Unreadable proposal");
     const step = addStep(recipe.id, sql("SELECT name FROM stations", "unreadable_out"));
     await publish(recipe.id, step.id);
     expect(

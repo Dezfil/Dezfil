@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -61,11 +62,11 @@ beforeEach(async () => {
 
   const zones = path.join(dir, "zones.csv");
   await writeFile(zones, ZONES);
-  await ingestFile(zones, "zones.csv");
+  await ingestFile(testAccountScope(), zones, "zones.csv");
 
   const points = path.join(dir, "points.csv");
   await writeFile(points, POINTS);
-  await ingestFile(points, "points.csv");
+  await ingestFile(testAccountScope(), points, "points.csv");
 });
 
 afterEach(async () => {

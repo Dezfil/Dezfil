@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -43,13 +44,13 @@ beforeEach(async () => {
   // "parks near a station" style analytical query.
   const stations = path.join(dir, "stations.csv");
   await writeFile(stations, "name,lon,lat\nalexanderplatz,13.41,52.52\nzoo,13.33,52.51\n");
-  await ingestFile(stations, "stations.csv");
+  await ingestFile(testAccountScope(), stations, "stations.csv");
   const parks = path.join(dir, "parks.csv");
   await writeFile(
     parks,
     "name,lon,lat,area_ha\ntiergarten,13.35,52.514,210\nmonbijou,13.40,52.524,3\n",
   );
-  await ingestFile(parks, "parks.csv");
+  await ingestFile(testAccountScope(), parks, "parks.csv");
 
   vi.stubGlobal("fetch", assistantJourneyFetch);
 }, 60_000);
@@ -744,7 +745,7 @@ describe("assistant journey (exit gate)", () => {
 
   it("undoes a whole assistant turn as one step", async () => {
     // State built ahead of the turn: a map with a visible layer on Auto.
-    const map = createMap("Undoable");
+    const map = createMap(testAccountScope(), "Undoable");
     const layer = await createLayer(map.id, {
       name: "Stations",
       sql: "SELECT name, geometry FROM stations",
@@ -801,8 +802,8 @@ describe("assistant journey (exit gate)", () => {
         "b,13.40,52.523,2021-03-02 12:00:00",
       ].join("\n"),
     );
-    await ingestFile(pings, "pings.csv");
-    const map = createMap("Trips");
+    await ingestFile(testAccountScope(), pings, "pings.csv");
+    const map = createMap(testAccountScope(), "Trips");
     const layer = await createLayer(map.id, {
       name: "Pings",
       sql: "SELECT name, seen, geometry FROM pings",
@@ -993,7 +994,7 @@ describe("confirmation contract", () => {
   });
 
   it("an approved turn is one undo step across the pause", async () => {
-    const map = createMap("Voyage");
+    const map = createMap(testAccountScope(), "Voyage");
     const layer = await createLayer(map.id, {
       name: "Stations",
       sql: "SELECT name, geometry FROM stations",

@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import {
   describe,
   it,
@@ -197,8 +198,8 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
       approxRows: 2,
     });
 
-    insertConnection({ id: "geography-live", name: "geography", ...target });
-    const imported = await importPostgis({
+    insertConnection(testAccountScope(), { id: "geography-live", name: "geography", ...target });
+    const imported = await importPostgis(testAccountScope(), {
       connectionId: "geography-live",
       schema: "public",
       table: "dezfil_live_geography",
@@ -306,7 +307,7 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
   });
 
   it("previews the guarded filtered SELECT at a fixed five rows without mutating the source", async () => {
-    insertConnection({ id: "preview-live", name: "preview", ...target });
+    insertConnection(testAccountScope(), { id: "preview-live", name: "preview", ...target });
     const sourceCount = async () =>
       withPg(target, async (conn, passthrough) => {
         const read = await conn.runAndReadAll(
@@ -363,9 +364,9 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
   });
 
   it("imports, transforms to WGS84, filters, refreshes atomically", async () => {
-    insertConnection({ id: "live-1", name: "live", ...target });
+    insertConnection(testAccountScope(), { id: "live-1", name: "live", ...target });
 
-    const imported = await importPostgis({
+    const imported = await importPostgis(testAccountScope(), {
       connectionId: "live-1",
       schema: "public",
       table: "dezfil_live_pts",
@@ -396,7 +397,7 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
     expect(getTableByName("pg_live_import")?.file).not.toBe(imported.file);
 
     // attribute-only table imports too (joins are the point)
-    const attrs = await importPostgis({
+    const attrs = await importPostgis(testAccountScope(), {
       connectionId: "live-1",
       schema: "public",
       table: "dezfil_live_attrs",
@@ -409,16 +410,16 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
   it("keeps one snapshot refreshable through password rotation and reports a repointed missing recipe", async () => {
     const reader = { ...target, username: rotationRole, password: oldPassword };
     const create = await createConnection(
-      new Request("http://localhost/api/connections/postgis", {
+      testAccountRequest(new Request("http://localhost/api/connections/postgis", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ name: "Rotation source", ...reader }),
-      }),
+      })),
     );
     expect(create.status).toBe(201);
     const created = (await create.json()) as { id: string };
 
-    const imported = await importPostgis({
+    const imported = await importPostgis(testAccountScope(), {
       connectionId: created.id,
       schema: "dezfil_live_rotation",
       table: "rotation_source",

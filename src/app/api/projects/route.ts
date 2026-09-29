@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { createProject } from "@/lib/metadata/projects";
@@ -25,13 +26,14 @@ export async function GET() {
  * (the 14-A New-project gesture): one invalid member creates nothing. */
 export async function POST(request: Request) {
   try {
+    const scope = requireRequestScope(request);
     let body: Record<string, unknown>;
     try {
       body = (await request.json()) as Record<string, unknown>;
     } catch {
       throw new ApiError("invalid_request", "Expected a JSON body.", 400);
     }
-    const created = createProject({
+    const created = createProject(scope, {
       name: body.name,
       note: body.note,
       members: body.members === undefined ? undefined : memberChange(body.members),

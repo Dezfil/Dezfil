@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import {
@@ -196,7 +197,7 @@ beforeEach(async () => {
   await new Promise<void>((resolve) => server.listen(0, () => resolve()));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   process.env.DEZFIL_ISOCHRONE_URL = `${base}?key=SECRETTOKEN`;
-  await importFromUrl(`${base}/origins.csv`, "origins");
+  await importFromUrl(testAccountScope(), `${base}/origins.csv`, "origins");
 });
 
 afterEach(async () => {
@@ -215,7 +216,7 @@ afterEach(async () => {
 });
 
 async function run(parameters: Record<string, unknown>) {
-  const job = await startRun({ operation: "isochrone", parameters });
+  const job = await startRun(testAccountScope(), { operation: "isochrone", parameters });
   await laneSettled();
   return getJob(job.id)!;
 }
@@ -284,7 +285,7 @@ describe("one row per origin per band", () => {
   });
 
   it("three distinct origins are three requests, the cache empty first", async () => {
-    await importFromUrl(`${base}/three.csv`, "three");
+    await importFromUrl(testAccountScope(), `${base}/three.csv`, "three");
     // The cache asserted empty before the run, as the criterion demands —
     // a warm entry would make this count a cache fact, not a pacing one.
     const cacheFiles = await readdir(
@@ -319,7 +320,7 @@ describe("one row per origin per band", () => {
 
 describe("each row outcome, on its own", () => {
   it("unreachable, absent band, unreadable and no-origin rows on one succeeding run", async () => {
-    await importFromUrl(`${base}/outcomes.csv`, "outcomes");
+    await importFromUrl(testAccountScope(), `${base}/outcomes.csv`, "outcomes");
     const job = await run({ ...good, input: "outcomes", name: "mixed" });
     expect(job.state, job.errorMessage ?? "").toBe("succeeded");
 
@@ -460,7 +461,7 @@ describe("an origin off the earth never leaves the house", () => {
   it("a finite but out-of-range point reads no_origin with zero requests for it", async () => {
     // A SQL step mints a point at (181, 0) — finite, legal to store,
     // nowhere on the earth.
-    const mint = await startRun({
+    const mint = await startRun(testAccountScope(), {
       operation: "sql_step",
       parameters: {
         sql: `SELECT 'off' AS label, ST_Point(181, 0) AS geom`,
@@ -470,7 +471,7 @@ describe("an origin off the earth never leaves the house", () => {
     await laneSettled();
     expect(getJob(mint.id)!.state).toBe("succeeded");
     asked = [];
-    const job = await startRun({
+    const job = await startRun(testAccountScope(), {
       operation: "isochrone",
       parameters: { ...good, input: "off_earth", name: "off_out" },
     });
@@ -530,11 +531,11 @@ describe("one exchange at a time", () => {
         res.end(answerFor({ ...request, raw: "", at: 0 }));
       }, 60);
     };
-    const first = await startRun({
+    const first = await startRun(testAccountScope(), {
       operation: "isochrone",
       parameters: { ...good, name: "lane_one" },
     });
-    const second = await startRun({
+    const second = await startRun(testAccountScope(), {
       operation: "isochrone",
       parameters: { ...good, name: "lane_two" },
     });
@@ -561,12 +562,12 @@ describe("lineage is the source's, and the fence holds", () => {
   });
 
   it("records the edge at the source's exact artifact, and goes stale with it", async () => {
-    const recipe = createRecipe("R");
+    const recipe = createRecipe(testAccountScope(), "R");
     const step = addStep(recipe.id, {
       operation: "isochrone",
       parameters: good,
     });
-    const job = await startStepRun(step.id).then(async (j) => {
+    const job = await startStepRun(testAccountScope(), step.id).then(async (j) => {
       await laneSettled();
       return getJob(j.id)!;
     });
@@ -606,7 +607,7 @@ describe("lineage is the source's, and the fence holds", () => {
         };
       };
     });
-    const job = await startRun({
+    const job = await startRun(testAccountScope(), {
       operation: "isochrone",
       parameters: { ...good, name: "fenced" },
     });

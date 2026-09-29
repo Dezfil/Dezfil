@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -19,7 +20,7 @@ let other: RecipeStep;
 beforeEach(async () => {
   dir = await mkdtemp(path.join(process.cwd(), ".tmp-test-"));
   db = open(path.join(dir, "metadata.sqlite"));
-  const r = createRecipe("R", db);
+  const r = createRecipe(testAccountScope(db), "R", db);
   step = addStep(r.id, { operation: "sql_step", parameters: {} }, db);
   other = addStep(r.id, { operation: "sql_step", parameters: {} }, db);
 });

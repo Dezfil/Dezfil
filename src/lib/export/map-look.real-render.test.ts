@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { delegateCredential } from "@/lib/auth/delegation";
 import { requireRequestAuth } from "@/lib/auth/http";
 import { authenticatedRequest } from "@/lib/assistant/testing/account";
@@ -98,8 +99,8 @@ describe.skipIf(!port)("the real bounded check renders the map", () => {
       feature(LNG0, LAT0 + DLAT_120PX, { kind: "c", v: 1 }),
       feature(LNG0, LAT0 - DLAT_120PX, { kind: "c", v: 2 }),
     ] }));
-    const table = await ingestFile(file, path.basename(file));
-    mapId = createMap("Real look").id;
+    const table = await ingestFile(testAccountScope(), file, path.basename(file));
+    mapId = createMap(testAccountScope(), "Real look").id;
     updateMap(mapId, {
       viewport: { lng: LNG0, lat: LAT0, zoom: ZOOM, pitch: 0, bearing: 0 },
       customBasemap: { url: basemap.styleUrl, name: "Loopback", attribution: [{ label: "Loopback fixture" }] },

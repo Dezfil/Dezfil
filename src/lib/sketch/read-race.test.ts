@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DuckDBConnection } from "@duckdb/node-api";
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -40,9 +41,9 @@ const abs = (file: string) => path.join(process.env.DEZFIL_DATA_DIR!, file);
 const exists = (file: string) => access(file).then(() => true, () => false);
 
 async function seed() {
-  const map = createMap("Retained sketch");
-  const sketch = await createSketch(map.id, polygon);
-  const other = await createSketch(map.id, point);
+  const map = createMap(testAccountScope(), "Retained sketch");
+  const sketch = await createSketch(testAccountScope(), map.id, polygon);
+  const other = await createSketch(testAccountScope(), map.id, point);
   return { map, sketch, other };
 }
 

@@ -23,8 +23,11 @@ it("upgrades a copy of real old-schema artifacts without touching the seed or lo
     const db = open(path.join(copy, "metadata.sqlite"));
     try {
       expect(legacyRows(db)).toEqual(rows);
+      const owned = ["projects", "maps", "data_tables", "recipes", "pg_connections"];
+      for (const table of owned) expect(db.prepare(`SELECT DISTINCT owner_id FROM ${table}`).all()).toEqual([{ owner_id: null }]);
       const first = await createFirstAccount({ name: legacy.name, email: "upgrade@example.test", password: "field notebooks at dawn" }, db);
       expect(first.account.isOriginal).toBe(true);
+      for (const table of owned) expect(db.prepare(`SELECT DISTINCT owner_id FROM ${table}`).all()).toEqual([{ owner_id: first.account.id }]);
       expect(legacyRows(db)).toEqual(rows);
       expect(await readLegacyPassword(copy, db)).toBe(legacy.password);
       vi.stubEnv("DEZFIL_DATA_DIR", copy);

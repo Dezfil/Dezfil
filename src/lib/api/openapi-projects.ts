@@ -1,3 +1,4 @@
+import { ownedCreationOp } from "./openapi-owned-creation";
 import { PROJECT_EXPORT_TICKET } from "./openapi-tool-responses";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_TRANSIENT_READ, LOCAL_REPLACE } from "./operation-mcp";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
@@ -33,7 +34,7 @@ export const PROJECT_PATHS = {
       effects: READ_ONLY,
       responses: { "200": jsonOk("#/components/schemas/ProjectList") },
     }),
-    post: op({
+    post: ownedCreationOp({
       summary: "Create a project",
       description:
         "The name is trimmed, must not be empty, and is at most 120 " +

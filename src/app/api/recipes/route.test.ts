@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -50,7 +51,7 @@ beforeEach(async () => {
   resetQueryInstance();
   const src = path.join(dir, "stations.csv");
   await writeFile(src, "name,lon,lat\nalex,13.41,52.52\nzoo,13.33,52.51\n");
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
   await boundedEvaluation(async () => undefined);
 });
 
@@ -72,7 +73,7 @@ type Json = Record<string, unknown>;
 const body = async (r: Response) => (await r.json()) as Json;
 
 async function newRecipe(name = "R"): Promise<string> {
-  const response = await createRecipeRoute(post({ name }));
+  const response = await createRecipeRoute(testAccountRequest(post({ name })));
   expect(response.status).toBe(201);
   return ((await body(response)).recipe as Json).id as string;
 }
@@ -93,7 +94,7 @@ async function newStep(
 describe("a recipe round-trips", () => {
   it("keeps one name rule for create and rename: trimmed, non-empty, 120 at most, duplicates allowed", async () => {
     // Trimmed on the way in; the stored name is what the page shows.
-    const created = await createRecipeRoute(post({ name: "  Cafés within reach  " }));
+    const created = await createRecipeRoute(testAccountRequest(post({ name: "  Cafés within reach  " })));
     expect(created.status).toBe(201);
     const id = ((await body(created)).recipe as Json).id as string;
     const read = (await body(
@@ -101,14 +102,14 @@ describe("a recipe round-trips", () => {
     )).recipe as Json;
     expect(read.name).toBe("Cafés within reach");
     // Blank and whitespace-only are refused at create and at rename alike.
-    expect((await createRecipeRoute(post({ name: "" }))).status).toBe(400);
-    expect((await createRecipeRoute(post({ name: "   " }))).status).toBe(400);
+    expect((await createRecipeRoute(testAccountRequest(post({ name: "" })))).status).toBe(400);
+    expect((await createRecipeRoute(testAccountRequest(post({ name: "   " })))).status).toBe(400);
     expect(
       (await renameRecipe(post({ name: " " }), { params: Promise.resolve({ id }) })).status,
     ).toBe(400);
     // One past the limit is refused; the limit itself passes.
     const long = "x".repeat(121);
-    expect((await createRecipeRoute(post({ name: long }))).status).toBe(400);
+    expect((await createRecipeRoute(testAccountRequest(post({ name: long })))).status).toBe(400);
     expect(
       (await renameRecipe(post({ name: long }), { params: Promise.resolve({ id }) })).status,
     ).toBe(400);
@@ -116,18 +117,18 @@ describe("a recipe round-trips", () => {
       (await renameRecipe(post({ name: "y".repeat(120) }), { params: Promise.resolve({ id }) })).status,
     ).toBe(200);
     // A name another recipe already has is fine, as it is for maps.
-    const twin = await createRecipeRoute(post({ name: "y".repeat(120) }));
+    const twin = await createRecipeRoute(testAccountRequest(post({ name: "y".repeat(120) })));
     expect(twin.status).toBe(201);
   });
 
   it("carries the surface that made it: a workflow unless told, the builder when told, nothing else", async () => {
-    const plain = (await body(await createRecipeRoute(post({ name: "plain" })))).recipe as Json;
+    const plain = (await body(await createRecipeRoute(testAccountRequest(post({ name: "plain" }))))).recipe as Json;
     expect(plain.origin).toBe("workflow");
     const built = (await body(
-      await createRecipeRoute(post({ name: "Analysis of stations", origin: "builder" })),
+      await createRecipeRoute(testAccountRequest(post({ name: "Analysis of stations", origin: "builder" }))),
     )).recipe as Json;
     expect(built.origin).toBe("builder");
-    expect((await createRecipeRoute(post({ name: "x", origin: "canvas" }))).status).toBe(400);
+    expect((await createRecipeRoute(testAccountRequest(post({ name: "x", origin: "canvas" })))).status).toBe(400);
     // Listed with it, and a rename leaves it alone.
     const renamed = (await body(
       await renameRecipe(post({ name: "Still the builder's" }), {
@@ -141,13 +142,13 @@ describe("a recipe round-trips", () => {
   });
 
   it("refuses a builder-origin recipe created into a project without leaving the recipe, while a workflow-origin recipe files", async () => {
-    const project = createProject({ name: "Workflow shelf" });
+    const project = createProject(testAccountScope(), { name: "Workflow shelf" });
     const refused = await createRecipeRoute(
-      post({
+      testAccountRequest(post({
         name: "Builder tool in a project",
         origin: "builder",
         projectId: project.id,
-      }),
+      })),
     );
     expect(refused.status).toBe(400);
     const refusal = (await refused.json()) as {
@@ -165,11 +166,11 @@ describe("a recipe round-trips", () => {
     ).toBe(false);
 
     const accepted = await createRecipeRoute(
-      post({
+      testAccountRequest(post({
         name: "Workflow in a project",
         origin: "workflow",
         projectId: project.id,
-      }),
+      })),
     );
     expect(accepted.status).toBe(201);
     expect(((await body(accepted)).recipe as Json).projectId).toBe(project.id);
@@ -193,9 +194,9 @@ describe("a recipe round-trips", () => {
   });
 
   it("lists by origin on request, and answers a summary with every recipe", async () => {
-    const w = (await body(await createRecipeRoute(post({ name: "a workflow" })))).recipe as Json;
+    const w = (await body(await createRecipeRoute(testAccountRequest(post({ name: "a workflow" }))))).recipe as Json;
     const b = (await body(
-      await createRecipeRoute(post({ name: "Analysis of stations", origin: "builder" })),
+      await createRecipeRoute(testAccountRequest(post({ name: "Analysis of stations", origin: "builder" }))),
     )).recipe as Json;
     await newStep(w.id as string, "SELECT name FROM stations", "sum_one");
     const list = async (query: string) =>
@@ -357,7 +358,7 @@ describe("authoring a step from a layer", () => {
   }
 
   it("takes the layer's SQL with its filters applied", async () => {
-    const map = createMap("M");
+    const map = createMap(testAccountScope(), "M");
     const layer = layerOn(map.id, {
       filters: [{ field: "name", kind: "values", values: ["alex"] }],
     });
@@ -378,7 +379,7 @@ describe("authoring a step from a layer", () => {
     expect(sql).toContain("stations");
     // The filter is folded in — the row count changes, which is the proof the
     // criterion asks for.
-    await runStep(post({}), {
+    await runStep(testAccountRequest(post({})), {
       params: Promise.resolve({ id, stepId: step.id as string }),
     });
     await laneSettled();
@@ -396,7 +397,7 @@ describe("authoring a step from a layer", () => {
   }, 90_000);
 
   it("takes the source behind an aggregated layer, and says that it did", async () => {
-    const map = createMap("M");
+    const map = createMap(testAccountScope(), "M");
     const id = await newRecipe();
 
     // Each aggregates by a different path, so each is asserted separately.
@@ -431,7 +432,7 @@ describe("authoring a step from a layer", () => {
       // Said in as many words, rather than left to be discovered.
       expect(String(origin.substitutionNote)).toMatch(/rows behind/i);
 
-      await runStep(post({}), {
+      await runStep(testAccountRequest(post({})), {
         params: Promise.resolve({ id, stepId: step.id as string }),
       });
       await laneSettled();
@@ -446,7 +447,7 @@ describe("running through the surface", () => {
     const id = await newRecipe();
     const step = await newStep(id, "SELECT count(*) AS n FROM stations", "api_run_out");
 
-    const response = await runStep(post({}), {
+    const response = await runStep(testAccountRequest(post({})), {
       params: Promise.resolve({ id, stepId: step.id as string }),
     });
     expect(response.status).toBe(202);
@@ -476,8 +477,8 @@ describe("running through the surface", () => {
     const id = await newRecipe();
     await newStep(id, "SELECT count(*) AS n FROM stations", "lock_one");
     const [a, b] = await Promise.all([
-      runRecipe(post({}), { params: Promise.resolve({ id }) }),
-      runRecipe(post({}), { params: Promise.resolve({ id }) }),
+      runRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) }),
+      runRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) }),
     ]);
     const statuses = [a.status, b.status].sort();
     expect(statuses).toEqual([202, 409]);
@@ -488,13 +489,13 @@ describe("running through the surface", () => {
     expect(error.code).toBe("run_in_flight");
     expect(String(error.message)).toContain(run.id as string);
     // A later start while it is in flight is refused the same way; only one run exists.
-    const later = await runRecipe(post({}), { params: Promise.resolve({ id }) });
+    const later = await runRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) });
     expect(later.status).toBe(409);
     await cascadeSettled(run.id as string);
     const listed = (await body(await listRuns(post({}), { params: Promise.resolve({ id }) }))).runs as Json[];
     expect(listed).toHaveLength(1);
     // Settled, the next start is accepted.
-    const next = await runRecipe(post({}), { params: Promise.resolve({ id }) });
+    const next = await runRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) });
     expect(next.status).toBe(202);
     await cascadeSettled(((await body(next)).run as Json).id as string);
   }, 120_000);
@@ -503,7 +504,7 @@ describe("running through the surface", () => {
     const id = await newRecipe();
     const one = await newStep(id, "SELECT count(*) AS n FROM stations", "race_one");
     const two = await newStep(id, "SELECT count(*) AS m FROM stations", "race_two");
-    const step = (stepId: string) => runStep(post({}), { params: Promise.resolve({ id, stepId }) });
+    const step = (stepId: string) => runStep(testAccountRequest(post({})), { params: Promise.resolve({ id, stepId }) });
     const settleAll = async () => {
       for (const r of (await body(await listRuns(post({}), { params: Promise.resolve({ id }) }))).runs as Json[]) {
         await cascadeSettled(r.id as string);
@@ -518,7 +519,7 @@ describe("running through the surface", () => {
     expect(runs).toHaveLength(1);
     expect(jobsOf(one.id as string) + jobsOf(two.id as string)).toBe(1);
     // Node and cascade.
-    const [s1, c1] = await Promise.all([step(one.id as string), runRecipe(post({}), { params: Promise.resolve({ id }) })]);
+    const [s1, c1] = await Promise.all([step(one.id as string), runRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) })]);
     expect([s1.status, c1.status].sort()).toEqual([202, 409]);
     await settleAll();
     runs = (await body(await listRuns(post({}), { params: Promise.resolve({ id }) }))).runs as Json[];
@@ -531,20 +532,20 @@ describe("running through the surface", () => {
     const id = await newRecipe();
     const one = await newStep(id, "SELECT count(*) AS n FROM stations", "conf_one");
     const two = await newStep(id, "SELECT n FROM conf_one", "conf_two");
-    const plan = (await body(await runRecipe(post({ plan: true }), { params: Promise.resolve({ id }) }))).plan as Json;
+    const plan = (await body(await runRecipe(testAccountRequest(post({ plan: true })), { params: Promise.resolve({ id }) }))).plan as Json;
     expect(plan.members).toEqual([one.id, two.id]);
     // The order alone differs: refused, nothing started.
-    const reversed = await runRecipe(post({ members: [two.id, one.id] }), { params: Promise.resolve({ id }) });
+    const reversed = await runRecipe(testAccountRequest(post({ members: [two.id, one.id] })), { params: Promise.resolve({ id }) });
     expect(reversed.status).toBe(409);
     expect(((await body(reversed)).error as Json).code).toBe("plan_changed");
     // The membership differs (a node added since the confirmation): refused.
     const three = await newStep(id, "SELECT 1 AS k", "conf_three");
-    const stale = await runRecipe(post({ members: [one.id, two.id] }), { params: Promise.resolve({ id }) });
+    const stale = await runRecipe(testAccountRequest(post({ members: [one.id, two.id] })), { params: Promise.resolve({ id }) });
     expect(stale.status).toBe(409);
     expect(((await body(stale)).error as Json).code).toBe("plan_changed");
     expect(((await body(await listRuns(post({}), { params: Promise.resolve({ id }) }))).runs as Json[])).toHaveLength(0);
     // The plan as it stands now: accepted, exactly those members in that order.
-    const ok = await runRecipe(post({ members: [one.id, two.id, three.id] }), { params: Promise.resolve({ id }) });
+    const ok = await runRecipe(testAccountRequest(post({ members: [one.id, two.id, three.id] })), { params: Promise.resolve({ id }) });
     expect(ok.status).toBe(202);
     const run = (await body(ok)).run as Json;
     expect((run.members as Json[]).map((m) => m.stepId)).toEqual([one.id, two.id, three.id]);
@@ -557,7 +558,7 @@ describe("running through the surface", () => {
     const leaf = await newStep(id, "SELECT n FROM plan_one", "plan_two");
 
     const wide = (await body(
-      await runRecipe(post({ plan: true, fromStepId: producer.id }), {
+      await runRecipe(testAccountRequest(post({ plan: true, fromStepId: producer.id })), {
         params: Promise.resolve({ id }),
       }),
     )).plan as Json;
@@ -565,7 +566,7 @@ describe("running through the surface", () => {
     expect(wide.members).toHaveLength(2);
 
     const narrow = (await body(
-      await runRecipe(post({ plan: true, fromStepId: leaf.id }), {
+      await runRecipe(testAccountRequest(post({ plan: true, fromStepId: leaf.id })), {
         params: Promise.resolve({ id }),
       }),
     )).plan as Json;
@@ -578,7 +579,7 @@ describe("running through the surface", () => {
     await newStep(id, "SELECT count(*) AS n FROM stations", "whole_one");
     await newStep(id, "SELECT n * 2 AS n FROM whole_one", "whole_two");
 
-    const accepted = await runRecipe(post({}), {
+    const accepted = await runRecipe(testAccountRequest(post({})), {
       params: Promise.resolve({ id }),
     });
     expect(accepted.status).toBe(202);
@@ -630,7 +631,7 @@ describe("editing and removing through the surface", () => {
   it("present reads follow an edit while the recorded lineage stays what ran", async () => {
     const id = await newRecipe("Reads move");
     const step = await newStep(id, "SELECT name FROM stations", "reads_moved");
-    await runStep(post({}), {
+    await runStep(testAccountRequest(post({})), {
       params: Promise.resolve({ id, stepId: step.id as string }),
     });
     await laneSettled();
@@ -664,7 +665,7 @@ describe("editing and removing through the surface", () => {
     // The dynamic form the engine reads as a table.
     const four = await newStep(id, "SELECT count(*) AS c FROM query_table('dup_one')", "dup_four");
     expect(four.reads).toEqual(["dup_one"]);
-    const started = await runRecipe(post({}), { params: Promise.resolve({ id }) });
+    const started = await runRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) });
     expect(started.status).toBe(202);
     const startedRun = (await body(started)).run as Json;
     await cascadeSettled(startedRun.id as string);
@@ -679,7 +680,7 @@ describe("editing and removing through the surface", () => {
     const originalBefore = (await body(await readRecipe(post({}), { params: Promise.resolve({ id }) }))).recipe as Json;
     expect(((originalBefore.steps as Json[])[0].proposedParameters as Json).sql).toBe("SELECT name, lon FROM stations");
 
-    const duplicated = await duplicateRecipeRoute(post({}), { params: Promise.resolve({ id }) });
+    const duplicated = await duplicateRecipeRoute(testAccountRequest(post({})), { params: Promise.resolve({ id }) });
     expect(duplicated.status).toBe(201);
     const copy = (await body(duplicated)).recipe as Json;
     expect(copy.name).toBe("Reach copy");
@@ -706,7 +707,7 @@ describe("editing and removing through the surface", () => {
     expect((originalAfter.steps as Json[]).map((s) => (s.output as Json).name)).toEqual(["dup_one", "dup_two", "dup_three", "dup_four"]);
 
     // The copy runs end to end and writes its own datasets; the original's stand.
-    const copyRun = await runRecipe(post({}), { params: Promise.resolve({ id: copy.id as string }) });
+    const copyRun = await runRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id: copy.id as string }) });
     expect(copyRun.status).toBe(202);
     await cascadeSettled(((await body(copyRun)).run as Json).id as string);
     const ranCopy = (await body(await readRecipe(post({}), { params: Promise.resolve({ id: copy.id as string }) }))).recipe as Json;
@@ -720,19 +721,19 @@ describe("editing and removing through the surface", () => {
       (originalBefore.steps as Json[]).map((s) => (s.output as Json).id),
     );
     // A second copy finds the first copy's names taken and moves on.
-    const again = (await body(await duplicateRecipeRoute(post({}), { params: Promise.resolve({ id }) }))).recipe as Json;
+    const again = (await body(await duplicateRecipeRoute(testAccountRequest(post({})), { params: Promise.resolve({ id }) }))).recipe as Json;
     expect((again.steps as Json[]).map((s) => (s.parameters as Json).name)).toEqual(["dup_one_copy_2", "dup_two_copy_2", "dup_three_copy_2", "dup_four_copy_2"]);
     expect(((again.steps as Json[])[1].parameters as Json).input).toBe("dup_one_copy_2");
   }, 120_000);
 
   it("refuses to duplicate what does not exist", async () => {
-    expect((await duplicateRecipeRoute(post({}), { params: Promise.resolve({ id: "nope" }) })).status).toBe(404);
+    expect((await duplicateRecipeRoute(testAccountRequest(post({})), { params: Promise.resolve({ id: "nope" }) })).status).toBe(404);
   });
 
   it("holds an edit as a proposal once the step has produced something", async () => {
     const id = await newRecipe();
     const step = await newStep(id, "SELECT 1 AS n", "prop_out");
-    await runStep(post({}), {
+    await runStep(testAccountRequest(post({})), {
       params: Promise.resolve({ id, stepId: step.id as string }),
     });
     await laneSettled();
@@ -753,7 +754,7 @@ describe("editing and removing through the surface", () => {
   it("removes a step and says its output remains", async () => {
     const id = await newRecipe();
     const step = await newStep(id, "SELECT 1 AS n", "gone_step_out");
-    await runStep(post({}), {
+    await runStep(testAccountRequest(post({})), {
       params: Promise.resolve({ id, stepId: step.id as string }),
     });
     await laneSettled();
@@ -782,7 +783,7 @@ describe("a malformed run body never widens into run-all", () => {
     await newStep(id, "SELECT 1 AS n", "mal_one");
     await newStep(id, "SELECT 2 AS n", "mal_two");
 
-    const response = await runRecipe(raw('{"fromStepId":'), {
+    const response = await runRecipe(testAccountRequest(raw('{"fromStepId":')), {
       params: Promise.resolve({ id }),
     });
     expect(response.status).toBe(400);
@@ -797,7 +798,7 @@ describe("a malformed run body never widens into run-all", () => {
   it("refuses a fromStepId of the wrong type", async () => {
     const id = await newRecipe();
     await newStep(id, "SELECT 1 AS n", "mal_three");
-    const response = await runRecipe(raw('{"fromStepId": 7}'), {
+    const response = await runRecipe(testAccountRequest(raw('{"fromStepId": 7}')), {
       params: Promise.resolve({ id }),
     });
     expect(response.status).toBe(400);
@@ -807,7 +808,7 @@ describe("a malformed run body never widens into run-all", () => {
     const id = await newRecipe();
     await newStep(id, "SELECT 1 AS n", "mal_four");
     const response = await runRecipe(
-      new Request("http://test/api/recipes/x/runs", { method: "POST" }),
+      testAccountRequest(new Request("http://test/api/recipes/x/runs", { method: "POST" })),
       { params: Promise.resolve({ id }) },
     );
     expect(response.status).toBe(202);
@@ -817,13 +818,13 @@ describe("a malformed run body never widens into run-all", () => {
 
 describe("the workflow's project context", () => {
   it("outputs follow the workflow's project at the commit; re-runs and parent moves change nothing", async () => {
-    const a = createProject({ name: "A" });
-    const b = createProject({ name: "B" });
+    const a = createProject(testAccountScope(), { name: "A" });
+    const b = createProject(testAccountScope(), { name: "B" });
     const id = await newRecipe("Filed");
     changeMembers(a.id, { addRecipes: [id] });
 
     const step = await newStep(id, "SELECT * FROM stations", "filed_out");
-    await runStep(post({}), {
+    await runStep(testAccountRequest(post({})), {
       params: Promise.resolve({ id, stepId: step.id as string }),
     });
     await laneSettled();
@@ -836,7 +837,7 @@ describe("the workflow's project context", () => {
 
     // A re-run rewrites the same dataset (the replace path) and preserves
     // its memberships unchanged.
-    await runStep(post({}), {
+    await runStep(testAccountRequest(post({})), {
       params: Promise.resolve({ id, stepId: step.id as string }),
     });
     await laneSettled();
@@ -847,7 +848,7 @@ describe("the workflow's project context", () => {
     // A NEW output written after the move files where the workflow is at
     // that commit — not where it was when earlier outputs were made.
     const later = await newStep(id, "SELECT * FROM stations", "later_out");
-    await runStep(post({}), {
+    await runStep(testAccountRequest(post({})), {
       params: Promise.resolve({ id, stepId: later.id as string }),
     });
     await laneSettled();
@@ -859,7 +860,7 @@ describe("the workflow's project context", () => {
   it("an unfiled workflow writes unfiled outputs", async () => {
     const id = await newRecipe("Loose");
     const step = await newStep(id, "SELECT * FROM stations", "loose_out");
-    await runStep(post({}), {
+    await runStep(testAccountRequest(post({})), {
       params: Promise.resolve({ id, stepId: step.id as string }),
     });
     await laneSettled();

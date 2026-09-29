@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { recoverCamera } from "@/lib/camera-bounds";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "./db";
@@ -281,12 +282,14 @@ function layerFromRow(r: LayerRow): Layer {
 
 // ---- maps ----
 
-export function insertMap(m: MapRecord, db: Database = metadataDb()): void {
+export function insertMap(scope: AccountScope, m: MapRecord, db: Database = metadataDb()): void {
+  const ownerId = requireAccountScope(scope, db);
   db.prepare(
     `INSERT INTO maps
-       (id, name, view_lng, view_lat, view_zoom, view_pitch, view_bearing, basemap, custom_basemap, basemap_layers, note, legend_corner, legend_order, timeline, widgets, widgets_published, publish_token, published_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (owner_id, id, name, view_lng, view_lat, view_zoom, view_pitch, view_bearing, basemap, custom_basemap, basemap_layers, note, legend_corner, legend_order, timeline, widgets, widgets_published, publish_token, published_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
+    ownerId,
     m.id,
     m.name,
     m.viewport.lng,

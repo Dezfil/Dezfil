@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -51,7 +52,7 @@ beforeEach(async () => {
   closeMetadataDb();
   resetQueryInstance();
   await writeFile(path.join(dir, "sightings.csv"), pointsCsv());
-  await ingestFile(path.join(dir, "sightings.csv"), "sightings.csv");
+  await ingestFile(testAccountScope(), path.join(dir, "sightings.csv"), "sightings.csv");
 });
 
 afterEach(async () => {
@@ -63,7 +64,7 @@ afterEach(async () => {
 });
 
 async function run(operation: string, parameters: Record<string, unknown>) {
-  const job = await startRun({ operation, parameters });
+  const job = await startRun(testAccountScope(), { operation, parameters });
   await laneSettled();
   return getJob(job.id)!;
 }
@@ -288,7 +289,7 @@ describe("clustering, end to end", () => {
     const before = getTableByName("sightings")!.file;
 
     await expect(
-      materialize({
+      materialize(testAccountScope(), {
         sql: compiled.sql,
         name: "fenced",
         operation: "cluster_by_distance",

@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
@@ -51,8 +52,8 @@ beforeEach(async () => {
   resetQueryInstance();
   const src = path.join(dir, "stations.csv");
   await writeFile(src, "name,lon,lat\nalex,13.41,52.52\nzoo,13.33,52.51\n");
-  await ingestFile(src, "stations.csv");
-  recipeId = createRecipe("R").id;
+  await ingestFile(testAccountScope(), src, "stations.csv");
+  recipeId = createRecipe(testAccountScope(), "R").id;
 });
 
 afterEach(async () => {
@@ -89,7 +90,7 @@ describe("the lost-authority fence", () => {
   it("publishes nothing when the step is DELETED mid-run", async () => {
     const s = step(SLOW, "deleted_step_out");
     const before = new Set(await readdir(tablesDir()));
-    const job = await startStepRun(s.id);
+    const job = await startStepRun(testAccountScope(), s.id);
     await untilWriting(before);
 
     removeStep(s.id);
@@ -107,7 +108,7 @@ describe("the lost-authority fence", () => {
   it("publishes nothing when the step is SUPERSEDED mid-run", async () => {
     const s = step(SLOW, "superseded_step_out");
     const before = new Set(await readdir(tablesDir()));
-    const job = await startStepRun(s.id);
+    const job = await startStepRun(testAccountScope(), s.id);
     await untilWriting(before);
 
     // The step has produced nothing yet, so this edit lands on the active
@@ -126,7 +127,7 @@ describe("the lost-authority fence", () => {
   it("publishes nothing when the whole RECIPE is deleted mid-run", async () => {
     const s = step(SLOW, "deleted_recipe_out");
     const before = new Set(await readdir(tablesDir()));
-    const job = await startStepRun(s.id);
+    const job = await startStepRun(testAccountScope(), s.id);
     await untilWriting(before);
 
     expect(deleteRecipe(recipeId)).toBe(true);
@@ -143,7 +144,7 @@ describe("the lost-authority fence", () => {
 describe("a failed re-run leaves the previous output", () => {
   it("when the fault lands after the replacement began writing", async () => {
     const s = step("SELECT 7 AS n", "survivor_a");
-    await startStepRun(s.id);
+    await startStepRun(testAccountScope(), s.id);
     await laneSettled();
     const goodId = getTableByName("survivor_a")!.id;
     const goodArtifact = getTableByName("survivor_a")!.file;
@@ -151,7 +152,7 @@ describe("a failed re-run leaves the previous output", () => {
     // A re-run of the live output — this one really is replacing it.
     editStep(s.id, { sql: SLOW, name: "survivor_a" });
     const before = new Set(await readdir(tablesDir()));
-    const job = await startStepRun(s.id);
+    const job = await startStepRun(testAccountScope(), s.id);
     await untilWriting(before);
 
     // The fault: the definition moves under a replacement already writing.
@@ -167,7 +168,7 @@ describe("a failed re-run leaves the previous output", () => {
 
   it("when the fault lands between writing and publication", async () => {
     const s = step("SELECT 7 AS n", "survivor_b");
-    await startStepRun(s.id);
+    await startStepRun(testAccountScope(), s.id);
     await laneSettled();
     const good = getTableByName("survivor_b")!;
 
@@ -176,7 +177,7 @@ describe("a failed re-run leaves the previous output", () => {
     // the replacement's artifact fully written and nothing yet swapped.
     let artifactSize = 0;
     await expect(
-      materialize({
+      materialize(testAccountScope(), {
         sql: "SELECT 9 AS n",
         name: "survivor_b",
         operation: "sql_step",

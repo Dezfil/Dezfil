@@ -1,3 +1,4 @@
+import { ownedCreationOp } from "./openapi-owned-creation";
 import { SKETCH_ROW_COUNT_RESPONSE } from "./openapi-tool-responses";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE } from "./operation-mcp";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
@@ -44,7 +45,7 @@ export const SKETCH_PATHS = {
         },
       },
     }),
-    post: op({
+    post: ownedCreationOp({
       summary: "Start a sketch with its first feature",
       description:
         "First commit of a draw session: mints the sketch " +

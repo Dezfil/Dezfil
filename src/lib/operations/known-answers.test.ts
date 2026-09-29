@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -62,7 +63,7 @@ beforeEach(async () => {
   for (const place of PLACES) {
     const file = path.join(dir, `${place.name}.csv`);
     await writeFile(file, `name,lon,lat\n${place.name},${place.lon},${place.lat}\n`);
-    await ingestFile(file, `${place.name}.csv`);
+    await ingestFile(testAccountScope(), file, `${place.name}.csv`);
   }
 });
 
@@ -75,13 +76,13 @@ afterEach(async () => {
 });
 
 async function run(operation: string, parameters: Record<string, unknown>) {
-  const job = await startRun({ operation, parameters });
+  const job = await startRun(testAccountScope(), { operation, parameters });
   await laneSettled();
   return getJob(job.id)!;
 }
 
 async function runStep(stepId: string) {
-  const job = await startStepRun(stepId);
+  const job = await startStepRun(testAccountScope(), stepId);
   await laneSettled();
   return getJob(job.id)!;
 }
@@ -268,7 +269,7 @@ describe("the same verbs run as recipe steps", () => {
     // Criterion 19 is conjunctive — both verbs, both as steps and as one-off
     // runs — and an earlier version of this record marked it confirmed on the
     // one-off half alone.
-    const recipeId = createRecipe("metric").id;
+    const recipeId = createRecipe(testAccountScope(), "metric").id;
     const buffer = addStep(recipeId, {
       operation: "buffer",
       parameters: { input: "berlin", distance: 500, name: "step_ring" },
@@ -313,7 +314,7 @@ describe("a measurement is pinned to the data it was prepared for", () => {
     // describing neither, with nothing downstream to notice.
     const table = getTableByName("berlin")!;
     await expect(
-      materialize({
+      materialize(testAccountScope(), {
         sql: `SELECT geometry FROM berlin`,
         name: "pinned_out",
         operation: "buffer",

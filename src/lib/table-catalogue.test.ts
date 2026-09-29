@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -28,7 +29,7 @@ async function seed(count = 1, columns = 3, namePadding = 0) {
     const fields = Array.from({ length: columns }, (_, i) => `${i} AS "column_${i}${"x".repeat(namePadding)}"`).join(", ");
     await conn.run(`COPY (SELECT ${fields} FROM range(2)) TO '${dir.replace(/'/g, "''")}/private.parquet' (FORMAT PARQUET)`);
   });
-  for (let i = 0; i < count; i++) insertTable({
+  for (let i = 0; i < count; i++) insertTable(testAccountScope(), {
     id: `table-${i}`, name: `table_${String(i).padStart(2, "0")}`, file: "private.parquet",
     sourceFilename: "secret-source.csv", format: "geoparquet", geometryColumn: null, geometryType: null,
     crsAssumed: false, headerSuspect: false, rowCount: 987, createdAt: "2026-09-15T00:00:00Z",

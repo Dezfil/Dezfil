@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -39,7 +40,7 @@ beforeEach(async () => {
       "d,s,2021-03-04 11:00:00,13.36,52.48,120",
     ].join("\n"),
   );
-  await ingestFile(source, "preview.csv");
+  await ingestFile(testAccountScope(), source, "preview.csv");
 });
 
 afterEach(async () => {
@@ -51,7 +52,7 @@ afterEach(async () => {
 });
 
 async function previewLayer() {
-  const map = createMap("preview");
+  const map = createMap(testAccountScope(), "preview");
   const layer = await createLayer(map.id, {
     name: "Preview",
     sql: "SELECT name, category, seen, riders, geometry FROM preview",
@@ -250,7 +251,7 @@ describe("responsive slider preview input", () => {
   });
 
   it("keeps original geometry for non-aggregated filter fallbacks", async () => {
-    const map = createMap("line preview");
+    const map = createMap(testAccountScope(), "line preview");
     let layer = await createLayer(map.id, {
       name: "Lines",
       sql: `SELECT riders,

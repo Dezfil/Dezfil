@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -47,7 +48,7 @@ live("overture live integration", () => {
     "imports exactly the 16 states of Germany from a country scope",
     { timeout: 5 * MINUTES },
     async () => {
-      const table = await importOverture({
+      const table = await importOverture(testAccountScope(), {
         theme: "divisions",
         scope: { type: "country", code: "DE", label: "Germany" },
         level: "region",
@@ -99,7 +100,7 @@ live("overture live integration", () => {
       const [frankfurt] = searchIndex(index, "Frankfurt am Main");
       expect(frankfurt).toBeDefined();
 
-      const table = await importOverture({
+      const table = await importOverture(testAccountScope(), {
         theme: "divisions",
         scope: {
           type: "division",

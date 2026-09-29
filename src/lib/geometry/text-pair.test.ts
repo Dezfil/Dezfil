@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -49,7 +50,7 @@ it.each(["first set", "change"])("%s accepts a text-typed pair and retains its s
 });
 it("a pair selected as text on first use replays fresh text after restart", async () => {
   remote = csv;
-  const t = (await importFromUrl("https://fixture.test/text-pair.csv")).tables[0];
+  const t = (await importFromUrl(testAccountScope(), "https://fixture.test/text-pair.csv")).tables[0];
   await setGeometry(t.name, (await inspectGeometry(t.name)).revision, choice);
   closeMetadataDb();
   remote = 'x,y\n30,40\nbroken,50\n" ",60\n,70\n80,\n';

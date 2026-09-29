@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { assistantRuns } from "@/lib/assistant/runs";
 import { POST as reserveRunHandler } from "@/app/api/assistant/runs/route";
@@ -68,8 +69,8 @@ async function send(context?: AssistantContext) {
 }
 async function seedMap() {
   const csv = path.join(dir, "facts.csv"); await writeFile(csv, "city,lon,lat,value\nBerlin,13.4,52.5,4\n");
-  await ingestFile(csv, "facts.csv");
-  const map = createMap("Original map");
+  await ingestFile(testAccountScope(), csv, "facts.csv");
+  const map = createMap(testAccountScope(), "Original map");
   const layer = await createLayer(map.id, { name: "Chosen layer", sql: "SELECT * FROM facts" });
   return { map, layer, context: { page: "builder", mapId: map.id, selectedLayerId: layer.id } as const };
 }
@@ -84,7 +85,7 @@ describe("grounding through real message and resource routes", () => {
     expect(first.catalogue.items[0].columns.map((column: { name: string }) => column.name)).toContain("value");
     await updateMap(map.id, { name: "Changed map" });
     await updateLayer(layer.id, { name: "Changed layer", visible: false });
-    const nextCsv = path.join(dir, "new.csv"); await writeFile(nextCsv, "new_column\ncurrent\n"); await ingestFile(nextCsv, "new.csv");
+    const nextCsv = path.join(dir, "new.csv"); await writeFile(nextCsv, "new_column\ncurrent\n"); await ingestFile(testAccountScope(), nextCsv, "new.csv");
     const second = await send(context);
     expect(second.map).toMatchObject({ name: "Changed map", layers: { items: [{ name: "Changed layer", visible: false }] } });
     expect(second.catalogue.items.find((table: { name: string }) => table.name === "new").columns).toEqual([{ name: "new_column", type: "VARCHAR" }]);
@@ -101,7 +102,7 @@ describe("grounding through real message and resource routes", () => {
     expect(pendingActions.peek(pending)?.calls[0].args).toEqual({ id: layer.id });
     await updateMap(map.id, { name: "Name changed while pending" });
     await updateLayer(layer.id, { visible: false });
-    const csv = path.join(dir, "later.csv"); await writeFile(csv, "later_column\n9\n"); await ingestFile(csv, "later.csv");
+    const csv = path.join(dir, "later.csv"); await writeFile(csv, "later_column\n9\n"); await ingestFile(testAccountScope(), csv, "later.csv");
     const response = await post({ resolution: { pending, approved: false } });
     expect(response.status).toBe(200); await response.text();
     expect(provider.recording.exchanges).toHaveLength(1);
@@ -123,7 +124,7 @@ describe("grounding through real message and resource routes", () => {
     const noContext = await send(); expect(noContext.context).toBeNull(); expect(noContext.map).toBeUndefined(); expect(noContext.recipe).toBeUndefined();
   });
   it("captures active/proposed workflow definitions and a failed member with a cancelled attempt", async () => {
-    const recipe = createRecipe("Workflow");
+    const recipe = createRecipe(testAccountScope(), "Workflow");
     const step = addStep(recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 1 AS value", name: "output" } });
     metadataDb().prepare("UPDATE recipe_steps SET proposed_parameters = ? WHERE id = ?").run(JSON.stringify({ sql: "SELECT 2 AS value", name: "output" }), step.id);
     const run = createCascade(recipe.id, "run_all", [{ stepId: step.id, ordinal: 0, operation: "sql_step", name: "Node" }]);
@@ -138,8 +139,8 @@ describe("grounding through real message and resource routes", () => {
   });
   it("refuses missing, wrong-parent, malformed, oversized and preview context before provider work", async () => {
     const { context } = await seedMap();
-    const otherMap = createMap("Other");
-    const recipe = createRecipe("First"); const otherRecipe = createRecipe("Other");
+    const otherMap = createMap(testAccountScope(), "Other");
+    const recipe = createRecipe(testAccountScope(), "First"); const otherRecipe = createRecipe(testAccountScope(), "Other");
     const step = addStep(otherRecipe.id, { operation: "sql_step", parameters: { sql: "SELECT 1", name: "output" } });
     const run = createCascade(otherRecipe.id, "run_all", [{ stepId: step.id, ordinal: 0 }]);
     for (const bad of [

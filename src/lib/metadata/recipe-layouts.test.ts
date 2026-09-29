@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -30,7 +31,7 @@ const doc: LayoutDocument = {
 
 describe("the layout store", () => {
   it("reads the empty document, with no write time, for a recipe never arranged", () => {
-    const r = createRecipe("Unarranged", db);
+    const r = createRecipe(testAccountScope(db), "Unarranged", db);
     expect(getLayout(r.id, db)).toEqual({
       document: { steps: {}, sources: {}, notes: [] },
       updatedAt: null,
@@ -38,7 +39,7 @@ describe("the layout store", () => {
   });
 
   it("round-trips a document whole and stamps the write", () => {
-    const r = createRecipe("Arranged", db);
+    const r = createRecipe(testAccountScope(db), "Arranged", db);
     const written = putLayout(r.id, doc, db);
     const read = getLayout(r.id, db);
     expect(read.updatedAt).toBe(written.updatedAt);
@@ -74,7 +75,7 @@ describe("the layout store", () => {
   });
 
   it("goes with its recipe", () => {
-    const r = createRecipe("Doomed", db);
+    const r = createRecipe(testAccountScope(db), "Doomed", db);
     putLayout(r.id, doc, db);
     expect(deleteRecipe(r.id, db)).toBe(true);
     expect(db.prepare(`SELECT count(*) AS n FROM recipe_layouts`).get()).toEqual({ n: 0 });

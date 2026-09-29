@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
@@ -48,7 +49,7 @@ let dir: string;
 beforeEach(() => {
   dir = mkdtempSync(path.join(process.cwd(), ".tmp-preview-"));
   vi.stubEnv("DEZFIL_DATA_DIR", dir);
-  closeMetadataDb(); resetSecretKeyCache(); insertConnection(target);
+  closeMetadataDb(); resetSecretKeyCache(); insertConnection(testAccountScope(), target);
   fixture.acquire.mockReset().mockImplementation(async () => connection());
   fixture.resolve.mockReset().mockResolvedValue(["192.0.2.1"]);
 });

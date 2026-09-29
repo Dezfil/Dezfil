@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -65,7 +66,7 @@ beforeEach(async () => {
       "r14,,140,13.53,52.63",
     ].join("\n"),
   );
-  await ingestFile(source, "trips.csv");
+  await ingestFile(testAccountScope(), source, "trips.csv");
 });
 
 afterEach(async () => {
@@ -132,7 +133,7 @@ const WIDGETS: MapWidget[] = [
 ];
 
 async function dashboard() {
-  const map = createMap("dash");
+  const map = createMap(testAccountScope(), "dash");
   const layer = await createLayer(map.id, {
     name: "Trips",
     sql: "SELECT name, cat, val, geometry FROM trips",
@@ -303,7 +304,7 @@ describe("widget authoring", () => {
 
   it("duplicating a map remaps widgets to the copied layers", async () => {
     const { map } = await dashboard();
-    const copy = duplicateMap(map.id);
+    const copy = duplicateMap(testAccountScope(), map.id);
     expect(copy.widgets).toHaveLength(4);
     expect(copy.layers[0].id).not.toBe(map.layers[0].id);
     for (const w of copy.widgets) {
@@ -385,7 +386,7 @@ describe("widget authoring", () => {
         { ...WIDGETS[0], id: "worphan", layerId: "dead-layer" },
       ],
     });
-    const copy = duplicateMap(map.id);
+    const copy = duplicateMap(testAccountScope(), map.id);
     // The orphan is absent; every survivor resolves inside the copy.
     expect(copy.widgets).toHaveLength(4);
     for (const w of copy.widgets) {

@@ -61,7 +61,8 @@ export async function legacyFiles(directory) {
 }
 export function legacyRows(db) {
   return Object.fromEntries(['projects', 'maps', 'layers', 'data_tables', 'project_datasets', 'recipes', 'recipe_steps', 'pg_connections']
-    .map(table => [table, db.prepare(`SELECT * FROM ${table} ORDER BY 1, 2`).all()]));
+    .map(table => [table, db.prepare(`SELECT * FROM ${table} ORDER BY 1, 2`).all().map(row =>
+      Object.fromEntries(Object.entries(row).filter(([key]) => key !== "owner_id")))]));
 }
 export async function readLegacyPassword(directory, db) {
   const key = Buffer.from((await readFile(path.join(directory, 'secret.key'), 'utf8')).trim(), 'hex');

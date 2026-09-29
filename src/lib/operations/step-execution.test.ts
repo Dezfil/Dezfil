@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile, readdir } from "node:fs/promises";
 import path from "node:path";
@@ -54,12 +55,12 @@ beforeEach(async () => {
 
   const zones = path.join(dir, "zones.csv");
   await writeFile(zones, ZONES);
-  await ingestFile(zones, "zones.csv");
+  await ingestFile(testAccountScope(), zones, "zones.csv");
   const points = path.join(dir, "points.csv");
   await writeFile(points, POINTS);
-  await ingestFile(points, "points.csv");
+  await ingestFile(testAccountScope(), points, "points.csv");
 
-  recipeId = createRecipe("R").id;
+  recipeId = createRecipe(testAccountScope(), "R").id;
 });
 
 afterEach(async () => {
@@ -86,7 +87,7 @@ const joinStep = (name: string, carry: unknown[]) =>
   });
 
 async function runStep(stepId: string) {
-  const job = await startStepRun(stepId);
+  const job = await startStepRun(testAccountScope(), stepId);
   await laneSettled();
   return getJob(job.id)!;
 }
@@ -213,7 +214,7 @@ describe("the admission exception cannot be forged", () => {
     // client may send — and asks for the name that step owns. Ownership is a
     // stored fact about the step, so this is an ordinary taken name.
     await expect(
-      startRun({
+      startRun(testAccountScope(), {
         operation: "sql_step",
         parameters: { sql: "SELECT 99 AS n", name: "owned_out" },
         subject: step.id,
@@ -230,7 +231,7 @@ describe("the admission exception cannot be forged", () => {
     await runStep(owner.id);
 
     const other = sqlStep("SELECT 2 AS n", "someones_table");
-    await expect(startStepRun(other.id)).rejects.toMatchObject({
+    await expect(startStepRun(testAccountScope(), other.id)).rejects.toMatchObject({
       code: "name_taken",
     });
   }, 60_000);

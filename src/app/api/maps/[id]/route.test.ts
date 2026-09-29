@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -50,8 +51,8 @@ beforeEach(async () => {
       "c,C,30,2021-03-03T08:00:00,13.42,52.52",
     ].join("\n"),
   );
-  await ingestFile(source, "trips.csv");
-  const map = createMap("m");
+  await ingestFile(testAccountScope(), source, "trips.csv");
+  const map = createMap(testAccountScope(), "m");
   mapId = map.id;
   const layer = await createLayer(mapId, {
     name: "Trips",

@@ -15,7 +15,7 @@ beforeEach(() => {
   setSetting("view_prefs", JSON.stringify(prefs), db);
   setSetting("instance_name", "Field atlas", db);
   const now = "2026-01-01T00:00:00.000Z";
-  db.exec(`INSERT INTO projects VALUES ('project', 'Survey', 'Keep this', '${now}', '${now}');
+  db.exec(`INSERT INTO projects (id, name, note, created_at, updated_at) VALUES ('project', 'Survey', 'Keep this', '${now}', '${now}');
     INSERT INTO maps (id, name, publish_token, published_at, created_at, updated_at, project_id)
       VALUES ('map', 'Legacy map', 'legacy-publication', '${now}', '${now}', '${now}', 'project');
     INSERT INTO data_tables (id, name, format, file, row_count, created_at)
@@ -28,7 +28,8 @@ beforeEach(() => {
 });
 afterEach(() => db.close());
 const work = () => ["projects", "maps", "data_tables", "project_datasets", "recipes", "pg_connections"]
-  .map(table => db.prepare(`SELECT * FROM ${table}`).all());
+  .map(table => db.prepare(`SELECT * FROM ${table}`).all().map(row =>
+    Object.fromEntries(Object.entries(row as object).filter(([key]) => key !== "owner_id"))));
 
 it("adopts legacy preferences once and retires only personal settings inside first-account creation", async () => {
   const before = work();

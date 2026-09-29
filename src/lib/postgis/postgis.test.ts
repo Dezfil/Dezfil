@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, rm, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -95,7 +96,7 @@ describe("connections repository", () => {
   };
 
   it("stores encrypted, returns password-free shapes, decrypts internally", () => {
-    const created = insertConnection(sample);
+    const created = insertConnection(testAccountScope(), sample);
     expect(created).toMatchObject({
       status: "never_checked",
       lastCheckedAt: null,
@@ -118,7 +119,7 @@ describe("connections repository", () => {
   });
 
   it("persists status across restart and retains observed versions on failure", () => {
-    insertConnection(sample);
+    insertConnection(testAccountScope(), sample);
     const checkedAt = "2026-08-20T10:00:00.000Z";
     expect(
       recordConnectionCheck("c1", {
@@ -177,7 +178,7 @@ describe("connections repository", () => {
   });
 
   it("keeps status memory credential-free and never fails its source operation", () => {
-    insertConnection(sample);
+    insertConnection(testAccountScope(), sample);
     recordConnectionCheck("c1", {
       outcome: "failing",
       error: "Authentication failed. Check the username and password.",
@@ -199,7 +200,7 @@ describe("connections repository", () => {
   });
 
   it("renames and deletes; deletion reports honestly", () => {
-    insertConnection(sample);
+    insertConnection(testAccountScope(), sample);
     expect(renameConnection("c1", "Renamed")).toBe(true);
     expect(getConnection("c1")?.name).toBe("Renamed");
     expect(deleteConnection("c1")).toBe(true);
@@ -208,8 +209,8 @@ describe("connections repository", () => {
   });
 
   it("rejects duplicate names", () => {
-    insertConnection(sample);
-    expect(() => insertConnection({ ...sample, id: "c2" })).toThrow();
+    insertConnection(testAccountScope(), sample);
+    expect(() => insertConnection(testAccountScope(), { ...sample, id: "c2" })).toThrow();
   });
 });
 
@@ -341,11 +342,11 @@ describe("attach strings and SQL composition", () => {
 describe("connection input contract", () => {
   it("rejects an invalid URL with the form's server-owned sentence", async () => {
     const response = await createConnectionRoute(
-      new Request("http://localhost/api/connections/postgis", {
+      testAccountRequest(new Request("http://localhost/api/connections/postgis", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ name: "Broken", url: "jdbc:mysql://nope/db" }),
-      }),
+      })),
     );
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
@@ -575,8 +576,9 @@ describe("import status memory", () => {
   };
 
   it("records controlled import success", async () => {
-    insertConnection(sample);
+    insertConnection(testAccountScope(), sample);
     await importPostgis(
+      testAccountScope(),
       { connectionId: sample.id, schema: "public", table: "roads" },
       async () => ({
         geometryColumn: "geom",
@@ -599,9 +601,10 @@ describe("import status memory", () => {
   });
 
   it("records controlled import failure without persisting engine detail", async () => {
-    insertConnection(sample);
+    insertConnection(testAccountScope(), sample);
     await expect(
       importPostgis(
+        testAccountScope(),
         { connectionId: sample.id, schema: "public", table: "roads" },
         async (_target, _recipe, _artifact, observeHealth) => {
           observeHealth?.({
@@ -637,7 +640,7 @@ describe("snapshots by connection", () => {
       source: "postgis" as const,
       importedAt: "2026-08-02T00:00:00.000Z",
     };
-    insertTable({
+    insertTable(testAccountScope(), {
       ...base,
       id: "t1",
       name: "owned",
@@ -650,7 +653,7 @@ describe("snapshots by connection", () => {
         limit: 100,
       },
     });
-    insertTable({
+    insertTable(testAccountScope(), {
       ...base,
       id: "t2",
       name: "not_owned",
@@ -698,9 +701,10 @@ describe("the snapshot road's project context", () => {
   });
 
   it("files the snapshot in the same act", async () => {
-    insertConnection(sample);
-    const p = createProject({ name: "A" });
+    insertConnection(testAccountScope(), sample);
+    const p = createProject(testAccountScope(), { name: "A" });
     const table = await importPostgis(
+      testAccountScope(),
       { connectionId: sample.id, schema: "public", table: "roads", projectId: p.id },
       stubBuild,
     );
@@ -708,9 +712,10 @@ describe("the snapshot road's project context", () => {
   });
 
   it("an unknown project rolls the registration back", async () => {
-    insertConnection(sample);
+    insertConnection(testAccountScope(), sample);
     await expect(
       importPostgis(
+        testAccountScope(),
         { connectionId: sample.id, schema: "public", table: "roads", projectId: "p-vanished" },
         stubBuild,
       ),

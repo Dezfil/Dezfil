@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 /** Native copy-stage measurements and separately named controls.
  * Never joins the default unit suite. Fixtures are prepared once, then copied
  * outside each measured interval. No product COPY options or cleanup changed.
@@ -132,7 +133,7 @@ test("copy residue: cold and warm samples, controls and ownership", async () => 
           try {
             let requested: DataTable | undefined;
             if (scenario.road === "refresh") {
-              requested = (await ingestSpatialFile(fixtures.complete, "input.gpkg", { source: "url", sourceParams: { url: "https://fixture.invalid/input.gpkg" } })).tables[0];
+              requested = (await ingestSpatialFile(testAccountScope(), fixtures.complete, "input.gpkg", { source: "url", sourceParams: { url: "https://fixture.invalid/input.gpkg" } })).tables[0];
             }
             const registeredBefore = listTables();
             if (scenario.registrationFault) metadataDb().exec("CREATE TRIGGER registration_refusal BEFORE INSERT ON data_tables WHEN (SELECT count(*) FROM data_tables) = 1 BEGIN SELECT RAISE(ABORT, 'seeded registration refusal'); END;");
@@ -145,7 +146,7 @@ test("copy residue: cold and warm samples, controls and ownership", async () => 
                 const layers = await enumerateLayers(c, "geopackage", { datasets: [input], scratchDir: null });
                 await buildLayerArtifact(c, "geopackage", layers.spatial[0], path.join(process.env.DEZFIL_DATA_DIR!, "tables", "direct.parquet"));
               });
-              else await ingestSpatialFile(input, "input.gpkg");
+              else await ingestSpatialFile(testAccountScope(), input, "input.gpkg");
             } catch (e) { error = e; }
             const elapsedMs = performance.now() - start;
             const attempts = observed?.attempts ?? [], binds = observed?.binds ?? [];

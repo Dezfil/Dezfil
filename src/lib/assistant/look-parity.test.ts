@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { requireRequestAuth } from "@/lib/auth/http";
 import { instanceFetch } from "@/lib/auth/instance-fetch";
 import { authenticatedRequest } from "./testing/account";
@@ -41,8 +42,8 @@ beforeEach(async () => {
   });
   const file = path.join(dir, "pts.geojson");
   await writeFile(file, JSON.stringify({ type: "FeatureCollection", features: [{ type: "Feature", properties: { n: 1 }, geometry: { type: "Point", coordinates: [13.4, 52.5] } }] }));
-  const table = await ingestFile(file, "pts.geojson");
-  mapId = createMap("Parity").id;
+  const table = await ingestFile(testAccountScope(), file, "pts.geojson");
+  mapId = createMap(testAccountScope(), "Parity").id;
   layerId = (await createLayer(mapId, { name: "Points", sql: `SELECT * FROM ${table.name}` })).id;
   const driver: RenderDriver = { launch: async () => ({ render: async () => ({ png: FIXTURE, consumed: JSON.stringify({ map: mapId, layers: [{ id: layerId, filters: [] }], legend: { visible: true, corner: "bottom-left", order: [layerId] }, widgets: [], attribution: "© Fixture", failures: [] }) }), close: async () => {}, kill: () => {} }) };
   setLookDriverForTests(driver);

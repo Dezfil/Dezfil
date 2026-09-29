@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm, stat } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
@@ -70,10 +71,10 @@ beforeEach(async () => {
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/source.csv`;
-  await importFromUrl(url, "lineage_source");
+  await importFromUrl(testAccountScope(), url, "lineage_source");
   source = getTableByName("lineage_source")!;
   expect((await executeQuery(SQL)).preview).toEqual([{ value: 1 }]);
-  recipeId = createRecipe("Pinned lineage").id;
+  recipeId = createRecipe(testAccountScope(), "Pinned lineage").id;
 });
 
 afterEach(async () => {
@@ -187,7 +188,7 @@ describe("lineage pinned to the run", () => {
   it("keeps copied lineage through real refresh and second registration, then reruns current", async () => {
     const s = step();
     const hold = holdAt("copied", s.id);
-    const job = await startStepRun(s.id);
+    const job = await startStepRun(testAccountScope(), s.id);
     await hold.reached();
     expect(getJob(job.id)!.state).toBe("running");
     const next = await refresh();
@@ -198,7 +199,7 @@ describe("lineage pinned to the run", () => {
     await retirementsSettled();
     await expect(stat(path.join(dir, "data", source.file))).rejects.toMatchObject({ code: "ENOENT" });
 
-    const rerun = await startStepRun(s.id);
+    const rerun = await startStepRun(testAccountScope(), s.id);
     await laneSettled();
     expect(getJob(rerun.id)!.state).toBe("succeeded");
     const newOutput = await assertPublished(s.id, next, 2, "current");
@@ -210,11 +211,11 @@ describe("lineage pinned to the run", () => {
   it("keeps the original identity when another table reclaims the input name", async () => {
     const s = step();
     const hold = holdAt("copied", s.id);
-    await startStepRun(s.id);
+    await startStepRun(testAccountScope(), s.id);
     await hold.reached();
     await removeTable(source.name);
     value = 2;
-    await importFromUrl(url, source.name);
+    await importFromUrl(testAccountScope(), url, source.name);
     const stranger = getTableByName(source.name)!;
     expect(stranger.id).not.toBe(source.id);
     expect(stranger.file).not.toBe(source.file);
@@ -227,7 +228,7 @@ describe("lineage pinned to the run", () => {
   it("uses catalog evidence when refresh lands before the run registry read", async () => {
     const s = step();
     const hold = holdAt("registered", s.id);
-    const job = await startStepRun(s.id);
+    const job = await startStepRun(testAccountScope(), s.id);
     await hold.reached();
     expect(getJob(job.id)!.state).toBe("running");
     await refresh(); // No executeQuery or other shared-view registration here.
@@ -239,7 +240,7 @@ describe("lineage pinned to the run", () => {
   it.each(["registered", "pre-copy"] as const)("keeps execution on the bound input through a pre-copy refresh (%s)", async (point) => {
     const s = step();
     const hold = holdAt(point, s.id);
-    await startStepRun(s.id);
+    await startStepRun(testAccountScope(), s.id);
     await hold.reached();
     await refresh();
     expect((await executeQuery(SQL)).preview).toEqual([{ value: 2 }]);
@@ -250,7 +251,7 @@ describe("lineage pinned to the run", () => {
 
   it("publishes an unchanged input with exact lineage and no causes", async () => {
     const s = step();
-    const job = await startStepRun(s.id);
+    const job = await startStepRun(testAccountScope(), s.id);
     await laneSettled();
     expect(getJob(job.id)!.state).toBe("succeeded");
     await assertPublished(s.id, source, 1, "current");
@@ -261,7 +262,7 @@ describe("lineage pinned to the run", () => {
     const one = step();
     const two = step("lineage_dependent", "SELECT value FROM lineage_output");
     const hold = holdAt("copied", one.id);
-    const cascade = await startCascade({ recipeId });
+    const cascade = await startCascade(testAccountScope(), { recipeId });
     try {
       await hold.reached();
       await refresh();
@@ -294,7 +295,7 @@ describe("lineage pinned to the run", () => {
 
     // Explicit user rerun, after both outputs have published. This is the clean
     // cascade control, with the same identities and now the current values.
-    const clean = await startCascade({ recipeId });
+    const clean = await startCascade(testAccountScope(), { recipeId });
     await cascadeSettled(clean.id);
     expect(readCascade(clean.id).outcome).toBe("completed");
     expect(readCascade(clean.id).members.map((m) => m.state)).toEqual(["succeeded", "succeeded"]);

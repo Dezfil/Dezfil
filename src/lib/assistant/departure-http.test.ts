@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { createRecipe, addStep } from "@/lib/metadata/recipes";
 import { cascadeSettled, readCascade } from "@/lib/operations/cascade";
@@ -65,11 +66,11 @@ beforeEach(async () => {
       else if (p[2] === "assistant" && p[3] === "runs") response = p[5] === "cancel" ? await cancel(request, params(p[4])) : await recover(request, params(p[4]));
       else if (url.pathname === "/api/catalogue/tables") response = await catalogue(request);
       else if (url.pathname === "/api/maps" && request.method === "POST") {
-        mutations++; await beforeMutation?.(); response = await mapsPost(request);
+        mutations++; await beforeMutation?.(); response = await mapsPost(testAccountRequest(request));
         if (loseMutation) { outgoing.destroy(); return; }
       } else if (url.pathname === "/api/maps") response = await mapsGet(request);
       else if (p[2] === "maps") response = await mapGet(request, params(p[3]));
-      else if (p[2] === "recipes" && p[4] === "runs") response = await recipeRun(request, params(p[3]));
+      else if (p[2] === "recipes" && p[4] === "runs") response = await recipeRun(testAccountRequest(request), params(p[3]));
       else if (p[2] === "recipes") response = await recipeGet(request, params(p[3]));
       else if (url.pathname === "/api/query") { response = await query(request); queryStatus = response.status; querySettled.resolve(); }
       else response = new Response(null, { status: 404 });
@@ -170,7 +171,7 @@ it("closing a duplicate observer leaves execution alone; explicit cancellation s
 });
 
 it("accepted asynchronous work retains its job identity and its independent lifecycle after departure", async () => {
-  const recipe = createRecipe("Accepted job"); const step = addStep(recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 7 AS value", name: "accepted_output" } });
+  const recipe = createRecipe(testAccountScope(), "Accepted job"); const step = addStep(recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 7 AS value", name: "accepted_output" } });
   const continued = deferred();
   factory.provider = { id: "scripted", model: "accepted-case", exchange: () => ({
     async send() { return { text: "", toolCalls: [{ id: "job", name: "run_recipe", args: { id: recipe.id, fromStepId: step.id } }] }; },

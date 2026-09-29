@@ -1,3 +1,4 @@
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile, readdir } from "node:fs/promises";
 import path from "node:path";
@@ -45,9 +46,9 @@ async function csvSource(): Promise<string> {
 
 describe("the file road", () => {
   it("files the created table in the same act", async () => {
-    const p = createProject({ name: "A" });
+    const p = createProject(testAccountScope(), { name: "A" });
     const src = await csvSource();
-    const table = await ingestFile(src, "stations.csv", {
+    const table = await ingestFile(testAccountScope(), src, "stations.csv", {
       source: "upload",
       sourceParams: null,
       projectId: p.id,
@@ -62,7 +63,7 @@ describe("the file road", () => {
     // rolls back and the road's own catch removes the artifact.
     const src = await csvSource();
     await expect(
-      ingestFile(src, "stations.csv", {
+      ingestFile(testAccountScope(), src, "stations.csv", {
         source: "upload",
         sourceParams: null,
         projectId: "p-vanished",
@@ -78,7 +79,7 @@ describe("route preflight (before any source work)", () => {
     // No file part at all: if the refusal came after receipt this would
     // answer the upload's own invalid_request, not the project's 404.
     const response = await uploadRoute(
-      new Request("http://test/api/tables?project=p-none", { method: "POST" }),
+      testAccountRequest(new Request("http://test/api/tables?project=p-none", { method: "POST" })),
     );
     expect(response.status).toBe(404);
     const body = (await response.json()) as { error: { code: string } };
@@ -89,13 +90,13 @@ describe("route preflight (before any source work)", () => {
     // The URL points at a closed local port: contacting it would answer a
     // transport error, so a clean 404 proves the refusal came first.
     const response = await urlRoute(
-      new Request("http://test/api/imports/url", {
+      testAccountRequest(new Request("http://test/api/imports/url", {
         method: "POST",
         body: JSON.stringify({
           url: "https://127.0.0.1:1/void.geojson",
           projectId: "p-none",
         }),
-      }),
+      })),
     );
     expect(response.status).toBe(404);
     const body = (await response.json()) as { error: { code: string } };
@@ -126,8 +127,9 @@ describe("the Overture road (stub build, the injectable seam)", () => {
   };
 
   it("files the created table in the same act", async () => {
-    const p = createProject({ name: "A" });
+    const p = createProject(testAccountScope(), { name: "A" });
     const table = await importOverture(
+      testAccountScope(),
       { ...request, projectId: p.id },
       stubBuild as never,
     );
@@ -136,7 +138,7 @@ describe("the Overture road (stub build, the injectable seam)", () => {
 
   it("an unknown project rolls the registration back and removes the artifact", async () => {
     await expect(
-      importOverture({ ...request, projectId: "p-vanished" }, stubBuild as never),
+      importOverture(testAccountScope(), { ...request, projectId: "p-vanished" }, stubBuild as never),
     ).rejects.toMatchObject({ code: "not_found" });
     expect(listTables().length).toBe(0);
     expect(await tableArtifacts()).toEqual([]);
@@ -145,14 +147,14 @@ describe("the Overture road (stub build, the injectable seam)", () => {
 
 describe("what membership never changes", () => {
   it("dataset names collide instance-wide regardless of project", async () => {
-    const a = createProject({ name: "A" });
-    const b = createProject({ name: "B" });
-    const first = await ingestFile(await csvSource(), "stations.csv", {
+    const a = createProject(testAccountScope(), { name: "A" });
+    const b = createProject(testAccountScope(), { name: "B" });
+    const first = await ingestFile(testAccountScope(), await csvSource(), "stations.csv", {
       source: "upload",
       sourceParams: null,
       projectId: a.id,
     });
-    const second = await ingestFile(await csvSource(), "stations.csv", {
+    const second = await ingestFile(testAccountScope(), await csvSource(), "stations.csv", {
       source: "upload",
       sourceParams: null,
       projectId: b.id,
@@ -162,15 +164,15 @@ describe("what membership never changes", () => {
   });
 
   it("the repository listing the SQL catalog reads answers filed and unfiled tables alike", async () => {
-    const p = createProject({ name: "A" });
-    const filed = await ingestFile(await csvSource(), "stations.csv", {
+    const p = createProject(testAccountScope(), { name: "A" });
+    const filed = await ingestFile(testAccountScope(), await csvSource(), "stations.csv", {
       source: "upload",
       sourceParams: null,
       projectId: p.id,
     });
     const src = path.join(dir, "loose.csv");
     await writeFile(src, "name,lon,lat\nx,13.4,52.5\n");
-    const loose = await ingestFile(src, "loose.csv", {
+    const loose = await ingestFile(testAccountScope(), src, "loose.csv", {
       source: "upload",
       sourceParams: null,
     });

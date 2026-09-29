@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -38,7 +39,7 @@ const SQL = `
 `;
 
 async function layerOf(sql = SQL) {
-  const map = createMap("extent");
+  const map = createMap(testAccountScope(), "extent");
   const created = await createLayer(map.id, { name: "l", sql });
   return getLayer(created.id)!;
 }

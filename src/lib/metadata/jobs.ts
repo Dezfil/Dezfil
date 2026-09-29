@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "./db";
 import { limits } from "@/lib/limits";
@@ -127,14 +128,16 @@ function hydrate(r: Row): OperationJob {
   };
 }
 
-export function insertJob(job: OperationJob, db: Database = metadataDb()): void {
+export function insertJob(scope: AccountScope, job: OperationJob, db: Database = metadataDb()): void {
+  const ownerId = requireAccountScope(scope, db);
   db.prepare(
     `INSERT INTO operation_jobs
-       (id, subject_kind, subject_id, operation, parameters, state,
+       (owner_id, id, subject_kind, subject_id, operation, parameters, state,
         error_code, error_message, output_id, output_name,
         accepted_at, started_at, finished_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
+    ownerId,
     job.id,
     job.subjectKind,
     job.subjectId,

@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import path from "node:path";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
@@ -32,7 +33,7 @@ it("clear keeps every source and identity, repeats as a no-op and permits reappl
 });
 it("set, change, preview and clear preserve both undo and redo plus authored layer SQL/style", async () => {
   const t = await stored("SELECT 'POINT (10 20)' payload, 30 x, 40 y");
-  const map = createMap("Geometry map");
+  const map = createMap(testAccountScope(), "Geometry map");
   const layer = await createLayer(map.id, { name: "Points", sql: `SELECT ST_GeomFromText(payload) geometry FROM ${t.name}` });
   updateMap(map.id, { name: "Renamed", basemap: "dark" });
   await undoChange(map.id);
@@ -53,18 +54,18 @@ it.each(["consumed-wkt", "assumed-parquet", "shapefile-no-prj"])("%s accepts its
   let t;
   if (kind === "consumed-wkt") {
     const csv = path.join(dir, "named.csv"); await writeFile(csv, 'wkt,label\n"POINT (10 20)",a\n');
-    t = await ingestFile(csv, "named.csv");
+    t = await ingestFile(testAccountScope(), csv, "named.csv");
   } else if (kind === "assumed-parquet") {
     const file = path.join(dir, "assumed.parquet");
     await withConnection(conn => conn.run(`COPY (SELECT ST_AsWKB(ST_Point(391779.25925275,5820072.159211026)) geom, 'a' AS label) TO ${lit(file)} (FORMAT PARQUET)`));
-    t = await ingestFile(file, "assumed.parquet");
+    t = await ingestFile(testAccountScope(), file, "assumed.parquet");
   } else {
     const folder = path.join(dir, "shape"); await mkdir(folder);
     await withConnection(conn => conn.run(`COPY (SELECT ST_Point(391779.25925275,5820072.159211026) geom, 'a' AS label) TO ${lit(path.join(folder, "points.shp"))} (FORMAT GDAL, DRIVER 'ESRI Shapefile', SRS 'EPSG:25833')`));
     const members = [];
     for (const file of await readdir(folder)) if (!file.endsWith(".prj")) members.push({ name: file, data: await readFile(path.join(folder,file)) });
     const zip = path.join(dir, "noprj.zip"); await writeFile(zip, buildZip(members));
-    t = (await ingestSource(zip, "noprj.zip")).tables[0];
+    t = (await ingestSource(testAccountScope(), zip, "noprj.zip")).tables[0];
   }
   expect(t.crsAssumed).toBe(true);
   const choice = { format: kind === "consumed-wkt" ? "wkt" : "wkb", columns: [t.geometryColumn!], epsg: kind === "consumed-wkt" ? 3857 : 25833 } as const;
@@ -98,7 +99,7 @@ it("declared native geometry explains replacement refusal without claiming sourc
 it("consumed declared EWKT explains replacement refusal with neutral CRS copy", async () => {
   const csv = path.join(dir, "declared.csv");
   await writeFile(csv, 'wkt,label\n"SRID=3857;POINT (1113194.9079327357 0)",a\n');
-  const t = await ingestFile(csv, "declared.csv");
+  const t = await ingestFile(testAccountScope(), csv, "declared.csv");
   expect(t).toMatchObject({ crsAssumed: false, geometryRecord: { columns: ["wkt"], crs: { stance: "declared", srid: 3857 } } });
   const before = await inspectTable(t.name);
   expect(before.columns.map(column => column.name)).not.toContain("wkt");

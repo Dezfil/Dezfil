@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -36,6 +37,6 @@ export async function stored(select: string, overrides: Partial<DataTable> = {})
     source: "upload", sourceParams: null, rowCount: count,
     createdAt: "2026-09-01T00:00:00.000Z", importedAt: "2026-09-01T00:00:00.000Z", ...overrides,
   };
-  insertTable(table);
+  insertTable(testAccountScope(), table);
   return table;
 }

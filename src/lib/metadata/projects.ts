@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { randomUUID } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import { ApiError } from "@/lib/api/errors";
@@ -304,9 +305,11 @@ export function changeMembers(
 }
 
 export function createProject(
+  scope: AccountScope,
   input: { name: unknown; note?: unknown; members?: MemberChange },
   db: Database = metadataDb(),
 ): ProjectRecord {
+  const ownerId = requireAccountScope(scope, db);
   const now = new Date().toISOString();
   const project: ProjectRecord = {
     id: randomUUID(),
@@ -317,8 +320,8 @@ export function createProject(
   };
   db.transaction(() => {
     db.prepare(
-      `INSERT INTO projects (id, name, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
-    ).run(project.id, project.name, project.note, project.createdAt, project.updatedAt);
+      `INSERT INTO projects (owner_id, id, name, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run(ownerId, project.id, project.name, project.note, project.createdAt, project.updatedAt);
     // Initial members ride the same transaction: one invalid member
     // leaves neither the project nor any membership.
     if (input.members) changeMembers(project.id, input.members, db);

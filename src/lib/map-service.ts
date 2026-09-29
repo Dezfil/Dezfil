@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { randomUUID } from "node:crypto";
 import { ApiError } from "@/lib/api/errors";
 import { removeTileArtifacts } from "@/lib/tiles/build";
@@ -279,7 +280,8 @@ export async function validateMapWriteRefs(
   }
 }
 
-export function createMap(name: string): MapRecord {
+export function createMap(scope: AccountScope, name: string): MapRecord {
+  requireAccountScope(scope);
   const now = new Date().toISOString();
   const map: MapRecord = {
     id: randomUUID(),
@@ -299,7 +301,7 @@ export function createMap(name: string): MapRecord {
     createdAt: now,
     updatedAt: now,
   };
-  insertMap(map);
+  insertMap(scope, map);
   return map;
 }
 
@@ -616,14 +618,15 @@ export function redoChange(id: string): Promise<MapWithHistory> {
  * stays behind; a docked timeline follows its copied layer. Tiles rebuild
  * lazily for the new layer ids, like any new layer.
  */
-export function duplicateMap(id: string): MapWithLayers {
+export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
+  requireAccountScope(scope);
   const source = requireMap(id);
   const layers = listLayers(id);
   const now = new Date().toISOString();
   const newId = randomUUID();
   metadataDb().transaction(() => {
     const layerIds = new Map<string, string>();
-    insertMap({
+    insertMap(scope, {
       ...source,
       id: newId,
       name: `${source.name} copy`,

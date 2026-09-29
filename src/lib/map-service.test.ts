@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -20,7 +21,7 @@ afterEach(async () => {
 
 describe("map basemap choice (Auto is expressible)", () => {
   it("starts on Auto, takes an explicit choice, and returns to Auto via null", () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     expect(map.basemap).toBeNull(); // new maps start on Auto
 
     updateMap(map.id, { basemap: "streets" });
@@ -34,7 +35,7 @@ describe("map basemap choice (Auto is expressible)", () => {
   });
 
   it("accepts satellite like any style, with toggles preserved", () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     // Toggles saved on a vector style survive a switch to imagery — the
     // canvas skips them there, but nothing is erased.
     updateMap(map.id, { basemapLayers: { land: false } });
@@ -47,7 +48,7 @@ describe("map basemap choice (Auto is expressible)", () => {
 
 describe("basemap layer toggles", () => {
   it("hides groups, keeps only hidden entries, and clears via null", () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     expect(map.basemapLayers).toBeNull(); // earlier semantics: all visible
 
     // Visible entries normalize away — only hidden groups are stored.
@@ -76,7 +77,7 @@ describe("basemap layer toggles", () => {
   });
 
   it("rejects unknown groups and non-boolean values with no partial write", () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     updateMap(map.id, { basemapLayers: { labels: false } });
 
     const attempts: unknown[] = [
@@ -96,7 +97,7 @@ describe("basemap layer toggles", () => {
 
 describe("legend corner", () => {
   it("moves the legend, keeps it across unrelated updates, resets via null", () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     expect(map.legendCorner).toBeNull(); // earlier semantics: bottom-left
 
     updateMap(map.id, { legendCorner: "top-right" });
@@ -110,7 +111,7 @@ describe("legend corner", () => {
   });
 
   it("rejects unknown corners with no partial write", () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     updateMap(map.id, { legendCorner: "top-left" });
     for (const legendCorner of ["center", "top", 3, {}]) {
       expect(() =>
@@ -124,7 +125,7 @@ describe("legend corner", () => {
 
 describe("map note (retired into note widgets)", () => {
   it("keeps the legacy note column null and rejects nothing silently", () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     // No box anywhere: fresh maps never carry the note; notes are
     // widgets now and travel through `widgets`.
     expect(map.note).toBeNull();

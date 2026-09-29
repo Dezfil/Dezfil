@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   mkdtemp,
@@ -51,7 +52,7 @@ beforeEach(async () => {
       "sudkreuz,s,13.360,52.480,120",
     ].join("\n"),
   );
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
   ensureTileDirs();
 });
 
@@ -230,7 +231,7 @@ describe("layer export — the agent road", () => {
     const { buildTools } = await import("@/lib/tools/tools");
     const { executeTool } = await import("@/lib/tools/execute");
 
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const stored = await createLayer(map.id, {
       name: "Stations",
       sql: "SELECT name, geometry FROM stations",
@@ -431,7 +432,7 @@ describe("layer export — private native-download hand-off", () => {
     const { createMap } = await import("@/lib/map-service");
     const { createLayer } = await import("@/lib/layer-service");
     const { updateLayerFields } = await import("@/lib/metadata/maps");
-    const map = createMap("download-map");
+    const map = createMap(testAccountScope(), "download-map");
     const layer = await createLayer(map.id, {
       name: "Stations",
       sql: "SELECT name, geometry FROM stations",

@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "./db";
 import { encryptSecret, decryptSecret } from "@/lib/secrets";
@@ -112,15 +113,18 @@ function fromRow(r: Row, now: Date = new Date()): PgConnection {
 }
 
 export function insertConnection(
+  scope: AccountScope,
   c: NewPgConnection,
   db: Database = metadataDb(),
 ): PgConnection {
+  const ownerId = requireAccountScope(scope, db);
   const createdAt = new Date().toISOString();
   db.prepare(
     `INSERT INTO pg_connections
-       (id, name, host, port, database, username, password_encrypted, ssl, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (owner_id, id, name, host, port, database, username, password_encrypted, ssl, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
+    ownerId,
     c.id,
     c.name,
     c.host,

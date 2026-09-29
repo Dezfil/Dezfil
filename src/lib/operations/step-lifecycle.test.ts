@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -42,8 +43,8 @@ beforeEach(async () => {
   resetQueryInstance();
   const src = path.join(dir, "stations.csv");
   await writeFile(src, "name,lon,lat\nalex,13.41,52.52\nzoo,13.33,52.51\n");
-  await ingestFile(src, "stations.csv");
-  recipeId = createRecipe("R").id;
+  await ingestFile(testAccountScope(), src, "stations.csv");
+  recipeId = createRecipe(testAccountScope(), "R").id;
 });
 
 afterEach(async () => {
@@ -58,7 +59,7 @@ const step = (sql: string, name: string) =>
   addStep(recipeId, { operation: "sql_step", parameters: { sql, name } });
 
 async function run(stepId: string) {
-  const job = await startStepRun(stepId);
+  const job = await startStepRun(testAccountScope(), stepId);
   await laneSettled();
   return getJob(job.id)!;
 }
@@ -214,7 +215,7 @@ describe("an output deleted under its step", () => {
     await run(usurper.id);
     const usurperId = getTableByName("reclaimed")!.id;
 
-    await expect(startStepRun(s.id)).rejects.toMatchObject({
+    await expect(startStepRun(testAccountScope(), s.id)).rejects.toMatchObject({
       code: "name_taken",
       status: 409,
     });

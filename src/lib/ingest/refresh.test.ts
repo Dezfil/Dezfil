@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, readFile, rm, writeFile, access, readdir } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
@@ -16,7 +17,7 @@ import { importFromUrl } from "./remote";
 
 /** Single-table imports, unwrapped (made the answer a result set). */
 const importOne = async (url: string, name?: string) =>
-  (await importFromUrl(url, name)).tables[0];
+  (await importFromUrl(testAccountScope(), url, name)).tables[0];
 import { refreshTable, invalidateTilesForTable } from "./refresh";
 import { resetRefreshFences } from "./fence";
 import { retirementsSettled } from "./retire";
@@ -200,7 +201,7 @@ describe("refreshTable", () => {
   it("refuses to refresh an uploaded table, specifically", async () => {
     const src = path.join(dir, "plain.csv");
     await writeFile(src, "name,value\na,1\n");
-    const uploaded = await ingestFile(src, "plain.csv");
+    const uploaded = await ingestFile(testAccountScope(), src, "plain.csv");
     await expect(refreshTable(uploaded.name)).rejects.toMatchObject({
       code: "not_refreshable",
     });
@@ -446,7 +447,7 @@ describe("refreshTable", () => {
       metadataDb()
         .prepare(`DELETE FROM data_tables WHERE name = ?`)
         .run(before.name);
-      insertTable({
+      insertTable(testAccountScope(), {
         ...before,
         id: "reclaimed-id",
         file: "tables/reclaimed.parquet",
@@ -506,7 +507,7 @@ describe("mutations committing during an in-flight registration pass", () => {
     const pin = await pinnedPass();
     const src = path.join(dir, "fresh.csv");
     await writeFile(src, "name,lat,lon\nx,52.1,13.1\ny,52.2,13.2\nz,52.3,13.3\n");
-    await ingestFile(src, "fresh.csv");
+    await ingestFile(testAccountScope(), src, "fresh.csv");
     // The mutation committed while the pass was genuinely in flight.
     expect(pin.settled()).toBe(false);
     await pin.drain();

@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "./db";
 import { deriveTableName } from "@/lib/ingest/naming";
@@ -111,17 +112,19 @@ function fromRow(r: Row): DataTable {
  * UNIQUE constraint.
  */
 export function registerTable(
+  scope: AccountScope,
   record: Omit<DataTable, "name">,
   desiredName: string,
   db: Database = metadataDb(),
 ): DataTable {
+  requireAccountScope(scope, db);
   for (let attempt = 0; ; attempt++) {
     const named: DataTable = {
       ...record,
       name: deriveTableName(desiredName, tableNames(db)),
     };
     try {
-      insertTable(named, db);
+      insertTable(scope, named, db);
       return named;
     } catch (error) {
       const unique =
@@ -139,14 +142,16 @@ export function registerTable(
   }
 }
 
-export function insertTable(t: DataTable, db: Database = metadataDb()): void {
+export function insertTable(scope: AccountScope, t: DataTable, db: Database = metadataDb()): void {
+  const ownerId = requireAccountScope(scope, db);
   db.prepare(
     `INSERT INTO data_tables
-       (id, name, source_filename, format, file, geometry_column,
+       (owner_id, id, name, source_filename, format, file, geometry_column,
         geometry_type, crs_assumed, header_suspect, row_count, created_at,
         source, source_params, imported_at, geometry_recognition)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
+    ownerId,
     t.id,
     t.name,
     t.sourceFilename,

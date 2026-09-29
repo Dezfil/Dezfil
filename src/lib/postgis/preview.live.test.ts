@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { randomInt, randomUUID } from "node:crypto";
@@ -52,7 +53,7 @@ describe.skipIf(!url)(url ? "live preview ownership" : "SKIP: DEZFIL_TEST_PG_URL
     const lock = randomInt(1, 2 ** 30);
     const suffix = abort ? "aborted" : "timeout";
     const id = randomUUID();
-    insertConnection({ id, ...resolveCreateConnectionInput({ name: `Held source ${suffix}`, url: fixtureUrl(url!, "disable") }) });
+    insertConnection(testAccountScope(), { id, ...resolveCreateConnectionInput({ name: `Held source ${suffix}`, url: fixtureUrl(url!, "disable") }) });
     // The tag reports the timeout on the actual work backend before it waits.
     // Prefix matching still includes every sibling backend of this attachment.
     await source.exec(`CREATE FUNCTION ${schema}.hold_${suffix}() RETURNS TABLE(id integer) LANGUAGE plpgsql AS $fn$

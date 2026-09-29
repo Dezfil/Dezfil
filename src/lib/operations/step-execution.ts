@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { deriveTableName } from "@/lib/ingest/naming";
 import type { Database } from "better-sqlite3";
 import type { OperationJob } from "@/lib/metadata/jobs";
@@ -42,9 +43,11 @@ export interface StepRunOptions {
 }
 
 export async function startStepRun(
+  scope: AccountScope,
   stepId: string,
   options: StepRunOptions = {},
 ): Promise<OperationJob> {
+  requireAccountScope(scope);
   const plan = planPublication(stepId);
 
   const admitted = await admitOwned(
@@ -65,7 +68,7 @@ export async function startStepRun(
       ? plan.replaceTable
       : undefined;
 
-  return submitRun({
+  return submitRun(scope, {
     operationId: admitted.operationId,
     parameters: plan.running,
     sql: admitted.sql,

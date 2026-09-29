@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DuckDBConnection } from "@duckdb/node-api";
 import { createServer, type Server } from "node:http";
@@ -46,7 +47,7 @@ afterEach(async () => {
 });
 
 async function legacyPoint() {
-  const table = (await importFromUrl(url)).tables[0];
+  const table = (await importFromUrl(testAccountScope(), url)).tables[0];
   expect(table.geometryType).toBe("POINT");
   metadataDb().prepare("UPDATE data_tables SET geometry_type = 'MIXED' WHERE id = ?").run(table.id);
   return table;
@@ -99,7 +100,7 @@ describe("late geometry repair", () => {
       await held.beforeMutation();
       await removeTable(old.name);
       polygon = true;
-      const fresh = (await importFromUrl(url)).tables[0];
+      const fresh = (await importFromUrl(testAccountScope(), url)).tables[0];
       expect(fresh.name).toBe(old.name);
       expect(fresh.id).not.toBe(old.id);
       expect(fresh.file).not.toBe(old.file);

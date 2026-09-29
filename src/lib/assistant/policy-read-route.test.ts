@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -47,9 +48,9 @@ const sorted = (names: string[]) => [...names].sort();
 describe("the policy read equals what the route offers and admits", () => {
   it("per page, read independently", async () => {
     const csv = path.join(dir, "facts.csv"); await writeFile(csv, "city,lon,lat,value\nBerlin,13.4,52.5,4\n");
-    await ingestFile(csv, "facts.csv");
-    const map = createMap("Read map");
-    const recipe = createRecipe("Workflow");
+    await ingestFile(testAccountScope(), csv, "facts.csv");
+    const map = createMap(testAccountScope(), "Read map");
+    const recipe = createRecipe(testAccountScope(), "Workflow");
     const step = addStep(recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 1 AS value", name: "output" } });
     const contexts: Record<string, AssistantContext> = {
       builder: { page: "builder", mapId: map.id, selectedLayerId: null },

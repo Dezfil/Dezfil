@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { GET as accountRead } from "@/app/api/account/route";
 import { GET as usersRead } from "@/app/api/users/route";
 import { PATCH as userAccess } from "@/app/api/users/[id]/route";
@@ -199,7 +200,7 @@ it("revocation while parked refuses continuation and preserves the pending actio
 });
 it("grounding, a mutation and its automatic map check retain the cookie caller", async () => {
   vi.stubEnv("DEZFIL_ASSISTANT_AUTO_CHECK", "1");
-  const seen = actualApi(), map = createMap("Before"), headers = cookie(member.secret);
+  const seen = actualApi(), map = createMap(testAccountScope(), "Before"), headers = cookie(member.secret);
   const own = await ownReservation(headers);
   factory.provider = stubProvider([
     { text: "", toolCalls: [{ id: "rename", name: "update_map", args: { id: map.id, name: "After" } }] },

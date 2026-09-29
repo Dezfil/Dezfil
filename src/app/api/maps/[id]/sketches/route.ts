@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { createSketch, mapSketches } from "@/lib/sketch/store";
@@ -23,6 +24,7 @@ export async function GET(_request: Request, { params }: Params) {
  */
 export async function POST(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
     let body: { feature?: unknown };
     try {
@@ -30,7 +32,7 @@ export async function POST(request: Request, { params }: Params) {
     } catch {
       throw new ApiError("invalid_request", "Expected a JSON body.", 400);
     }
-    const created = await createSketch(id, body.feature);
+    const created = await createSketch(scope, id, body.feature);
     return NextResponse.json(
       {
         table: created.table.name,

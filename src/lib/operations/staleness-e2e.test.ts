@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, rm, writeFile, readdir } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
@@ -89,13 +90,13 @@ beforeEach(async () => {
   await new Promise<void>((resolve) => server.listen(0, resolve));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
-  await importFromUrl(`${base}/alpha.csv`, "alpha");
-  await importFromUrl(`${base}/beta.csv`, "beta");
+  await importFromUrl(testAccountScope(), `${base}/alpha.csv`, "alpha");
+  await importFromUrl(testAccountScope(), `${base}/beta.csv`, "beta");
   const zones = path.join(dir, "zones.csv");
   await writeFile(zones, ZONES);
-  await ingestFile(zones, "zones.csv");
+  await ingestFile(testAccountScope(), zones, "zones.csv");
 
-  recipeId = createRecipe("R").id;
+  recipeId = createRecipe(testAccountScope(), "R").id;
 });
 
 afterEach(async () => {
@@ -112,7 +113,7 @@ const step = (sql: string, name: string) =>
   addStep(recipeId, { operation: "sql_step", parameters: { sql, name } });
 
 async function run(stepId: string) {
-  const job = await startStepRun(stepId);
+  const job = await startStepRun(testAccountScope(), stepId);
   await laneSettled();
   return getJob(job.id)!;
 }
@@ -242,7 +243,7 @@ describe("a change arriving mid-run", () => {
     const s = step(SLOW, "mid_run_out");
     const tables = path.join(dir, "data", "tables");
     const before = new Set(await readdir(tables));
-    const job = await startStepRun(s.id);
+    const job = await startStepRun(testAccountScope(), s.id);
 
     // Wait until it is genuinely working, then move the ground under it.
     const deadline = Date.now() + 60_000;

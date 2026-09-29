@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse, ApiError } from "@/lib/api/errors";
 import { importOverture } from "@/lib/overture/import";
@@ -7,6 +8,7 @@ import { importProjectId } from "@/lib/project-scope";
 /** Import an Overture Maps slice as a table. */
 export async function POST(request: Request) {
   try {
+    const scope = requireRequestScope(request);
     const body = (await request.json().catch(() => null)) as Record<
       string,
       unknown
@@ -22,7 +24,7 @@ export async function POST(request: Request) {
     // contacted.
     const projectId = importProjectId(body.projectId);
     if (projectId) requireProject(projectId);
-    const table = await importOverture({
+    const table = await importOverture(scope, {
       theme: body.theme,
       scope: body.scope,
       semantics: body.semantics,

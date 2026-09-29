@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -73,8 +74,8 @@ function provider(script: ScriptEntry[]) {
 async function reserve() { return (await (await api("/api/assistant/runs", {}, "POST")).json()).id as string; }
 async function seed() {
   const csv = path.join(dir, "facts.csv"); await writeFile(csv, "city,lon,lat,value\nBerlin,13.4,52.5,4\n");
-  await ingestFile(csv, "facts.csv");
-  const map = createMap("Original map");
+  await ingestFile(testAccountScope(), csv, "facts.csv");
+  const map = createMap(testAccountScope(), "Original map");
   return { map, builder: { page: "builder", mapId: map.id, selectedLayerId: null } as AssistantContext };
 }
 const mapName = async (id: string) => ((await (await api(`/api/maps/${id}`)).json()) as { name: string }).name;

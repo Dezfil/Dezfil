@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { rm } from "node:fs/promises";
 import { ApiError, errorResponse } from "@/lib/api/errors";
@@ -22,6 +23,7 @@ export async function GET(request: Request) {
  * container formats land one table per spatial layer). */
 export async function POST(request: Request) {
   try {
+    const scope = requireRequestScope(request);
     // Preflight: an unknown project refuses before the upload is even
     // received.
     const projectId = projectScope(request);
@@ -35,7 +37,7 @@ export async function POST(request: Request) {
     if (projectId) requireProject(projectId);
     const { tmpPath, filename } = await receiveUpload(request);
     try {
-      const result = await ingestSource(tmpPath, filename, {
+      const result = await ingestSource(scope, tmpPath, filename, {
         source: "upload",
         sourceParams: null,
         projectId: projectId ?? null,

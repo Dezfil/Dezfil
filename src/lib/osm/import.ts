@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
@@ -339,8 +340,10 @@ export async function previewOsm(
 /** Import: fetch (cached), assemble, split, land one table per non-empty
  * class. All-or-nothing: a failure removes anything already registered. */
 export async function importOsm(
+  scope: AccountScope,
   request: OsmImportRequest,
 ): Promise<DataTable[]> {
+  requireAccountScope(scope);
   const resolved = resolveOsmRequest(request);
   const { response } = await fetchOverpass(resolved.finalQl);
   let split = assembleAndSplit(response, resolved.promoted);
@@ -408,7 +411,7 @@ export async function importOsm(
       const db = metadataDb();
       created.push(
         db.transaction(() => {
-          const table = registerTable(record, `${resolved.stem}_${cls}`, db);
+          const table = registerTable(scope, record, `${resolved.stem}_${cls}`, db);
           if (projectId) fileTable(table.id, projectId, db);
           return table;
         })(),

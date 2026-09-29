@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { appendFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -106,7 +107,7 @@ const rect = (w: number, e: number, s: number, n: number) => ({ type: "Polygon",
 const collection = (features: { properties: Record<string, unknown>; geometry: unknown }[]) => JSON.stringify({ type: "FeatureCollection", features: features.map((f) => ({ type: "Feature", ...f })) });
 async function seedTable(name: string, geojson: string) {
   const file = path.join(dir, `${name}.geojson`); await writeFile(file, geojson);
-  const table = await ingestFile(file, `${name}.geojson`);
+  const table = await ingestFile(testAccountScope(), file, `${name}.geojson`);
   const page = await json<{ tables: { name: string; geometryColumn: string }[] }>(`/api/catalogue/tables?names=${encodeURIComponent(table.name)}`);
   return { name: table.name, geometry: page.tables[0].geometryColumn };
 }
@@ -146,7 +147,7 @@ const occupancy = (values: number[], breaks: number[]) => {
 async function seedF1() {
   const squares = F1_VALUES.map((area_m2, i) => ({ properties: { square: `Q${i + 1}`, area_m2 }, geometry: rect(13.3 + (i % 8) * 0.002, 13.3 + (i % 8) * 0.002 + 0.001, 52.3 + Math.floor(i / 8) * 0.002, 52.3 + Math.floor(i / 8) * 0.002 + 0.001) }));
   const table = await seedTable("squares_f1", collection(squares));
-  const map = createMap("F1");
+  const map = createMap(testAccountScope(), "F1");
   const created = await createLayer(map.id, { name: "Squares", sql: `SELECT * FROM ${table.name}` });
   return { map, layerId: created.id, style: created.style as unknown as Record<string, unknown>, context: { page: "builder", mapId: map.id, selectedLayerId: created.id } as AssistantContext };
 }
@@ -191,7 +192,7 @@ async function assertF2(mapId: string) {
 // ---- F3: units ----
 async function seedF3() {
   const table = await seedTable("area_f3", collection([{ properties: { area: "A" }, geometry: rect(F3_BOX.west, F3_BOX.east, F3_BOX.south, F3_BOX.north) }]));
-  const map = createMap("F3");
+  const map = createMap(testAccountScope(), "F3");
   const created = await createLayer(map.id, { name: "Area", sql: `SELECT * FROM ${table.name}` });
   return { table, map, layerId: created.id, context: { page: "builder", mapId: map.id, selectedLayerId: created.id } as AssistantContext };
 }
@@ -213,7 +214,7 @@ async function assertF3(layerId: string) {
 
 // ---- F4: refinement ----
 async function seedF4(parks: { name: string }, stations: { name: string }) {
-  const map = createMap("F4");
+  const map = createMap(testAccountScope(), "F4");
   const l1 = await createLayer(map.id, { name: "Parks", sql: `SELECT * FROM ${parks.name}` });
   const l2 = await createLayer(map.id, { name: "Stations", sql: `SELECT * FROM ${stations.name}` });
   const l3 = await createLayer(map.id, { name: "Large parks", sql: `SELECT * FROM ${parks.name} WHERE area_ha > 3` });
@@ -256,7 +257,7 @@ describe("F1: classification", () => {
 describe("F2: spatial filtering", () => {
   it("keeps the two non-overlapping matches and the boundary-crossing one, the candidate filter alone conservative", async () => {
     const { stations, parks } = await seedF2();
-    const map = createMap("F2");
+    const map = createMap(testAccountScope(), "F2");
     const sql = f2Sql(parks, stations);
     const outcome = await turn(f2Script(map.id, SEEDED ? sql.seeded : sql.compliant), { page: "builder", mapId: map.id, selectedLayerId: null }, "Which parks are within 500 m of a station? Make one layer of exactly those parks on this map, keeping the park column");
     if (live) { await recordLive("F2", outcome, () => assertF2(map.id)); return; }
@@ -267,7 +268,7 @@ describe("F2: spatial filtering", () => {
   }, 300_000);
   it.skipIf(Boolean(live))("seed: an unexpanded bounding-box overlap loses P1 and P2", async () => {
     const { stations, parks } = await seedF2();
-    const map = createMap("F2 seed");
+    const map = createMap(testAccountScope(), "F2 seed");
     await turn(f2Script(map.id, f2Sql(parks, stations).seeded), { page: "builder", mapId: map.id, selectedLayerId: null }, "Which parks are within 500 m of a station?");
     await expect(assertF2(map.id)).rejects.toThrow(/the exact result/);
     const [only] = (await json<{ layers: { id: string }[] }>(`/api/maps/${map.id}`)).layers;

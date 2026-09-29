@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import path from "node:path";
 import { writeFile, readFile } from "node:fs/promises";
@@ -20,7 +21,7 @@ it("actual running tiles cannot publish after a geometry change; unrelated tiles
   const other=await stored("SELECT * FROM (VALUES ('POINT (50 60)'), ('POINT (51 61)')) t(payload)",{name:"points_extra"});
   const first=await setGeometry(t.name,geometryRevision(t),{format:"wkt",columns:["payload"]});
   await setGeometry(other.name,geometryRevision(other),{format:"wkt",columns:["payload"]});
-  const map=createMap("Tiles"), sql="SELECT * FROM points", otherSql="SELECT * FROM points_extra";
+  const map=createMap(testAccountScope(), "Tiles"), sql="SELECT * FROM points", otherSql="SELECT * FROM points_extra";
   const layer=await createLayer(map.id,{name:"changed",sql});
   const unrelated=await createLayer(map.id,{name:"unchanged",sql:otherSql});
   const input=(id:string,statement:string)=>({layerId:id,sql:statement,filters:[],geometryColumn:"geometry",columns:["payload"],projection:""});

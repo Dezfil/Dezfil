@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -69,7 +70,7 @@ beforeEach(async () => {
     wire.dispatched.push(`${request.method} ${new URL(request.url).pathname}`);
     return dispatchAssistantTestRoute(request);
   });
-  mapId = createMap("Checked").id;
+  mapId = createMap(testAccountScope(), "Checked").id;
   const driver: RenderDriver = { launch: async () => ({
     render: async () => ({ png: FIXTURE, consumed: JSON.stringify({ map: mapId, layers: [{ id: "layer-1", filters: "0000000000000000" }], legend: { visible: true, corner: "bottom-left", order: ["layer-1"] }, widgets: ["w-1"], attribution: "© Fixture", failures: [] }) }),
     close: async () => {}, kill: () => {},

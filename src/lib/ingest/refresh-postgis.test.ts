@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
@@ -24,7 +25,7 @@ import { ApiError } from "@/lib/api/errors";
 let dir: string;
 
 function seed(): void {
-  const connection = insertConnection({
+  const connection = insertConnection(testAccountScope(), {
     id: "c1",
     name: "City",
     host: "db.example.org",
@@ -41,7 +42,7 @@ function seed(): void {
       target: { ...current, password: "stored-value" },
     };
   });
-  insertTable({
+  insertTable(testAccountScope(), {
     id: "t1",
     name: "roads",
     sourceFilename: "public.roads",

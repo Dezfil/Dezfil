@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect } from "vitest";
 import Database from "better-sqlite3";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -517,7 +518,7 @@ describe("v33: recipe origin", () => {
       expect(getRecipe("r2", db)?.origin).toBe("builder");
       expect(listRecipes(db, { origin: "workflow" })).toEqual([]);
       // And a recipe created without saying is a workflow, the default.
-      const fresh = createRecipe("Cafés within reach", db);
+      const fresh = createRecipe(testAccountScope(db), "Cafés within reach", db);
       expect(getRecipe(fresh.id, db)?.origin).toBe("workflow");
       expect(listRecipes(db, { origin: "workflow" }).map((r) => r.id)).toEqual([fresh.id]);
       expect(listRecipes(db, { origin: "builder" }).map((r) => r.id).sort()).toEqual(["r1", "r2"]);
@@ -602,7 +603,7 @@ describe("v37: projects", () => {
       // The projects store exists and is empty; an unknown id reads null.
       expect(getProject("p-nowhere", db)).toBeNull();
       // A recipe created without a project context reads the same unfiled state.
-      const fresh = createRecipe("Cafés within reach", db);
+      const fresh = createRecipe(testAccountScope(db), "Cafés within reach", db);
       expect(getRecipe(fresh.id, db)?.projectId).toBeNull();
       db.close();
     } finally {

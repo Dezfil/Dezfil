@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { mkdir, rm } from "node:fs/promises";
@@ -154,9 +155,11 @@ export interface CreatedSketch {
  * a failed transaction removes the artifact.
  */
 export async function createSketch(
+  scope: AccountScope,
   mapId: string,
   feature: unknown,
 ): Promise<CreatedSketch> {
+  requireAccountScope(scope);
   const refusal = sketchFeatureError(feature);
   if (refusal) throw new ApiError("invalid_sketch_feature", refusal, 400);
   const map = getMap(mapId);
@@ -175,6 +178,7 @@ export async function createSketch(
     const db = metadataDb();
     const created = db.transaction(() => {
       const table = registerTable(
+        scope,
         {
           id: randomUUID(),
           sourceFilename: null,

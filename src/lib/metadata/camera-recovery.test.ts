@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -30,7 +31,7 @@ beforeEach(async () => {
   process.env.DEZFIL_DATA_DIR = dir;
   closeMetadataDb();
   resetPublishCache();
-  id = createMap("Legacy camera").id;
+  id = createMap(testAccountScope(), "Legacy camera").id;
   token = publishMap(id).token;
   vi.mocked(renderMapImage).mockReset().mockResolvedValue({ png: new Uint8Array([137, 80, 78, 71]), abandoned: [] });
 });
@@ -83,7 +84,7 @@ describe("legacy camera recovery", () => {
   it("duplicates the effective camera without rewriting the original", () => {
     seed({ ...ordinary, pitch: 85, lat: 91, zoom: 26 });
     const before = raw();
-    const copy = duplicateMap(id);
+    const copy = duplicateMap(testAccountScope(), id);
     expect(copy.viewport).toEqual({ ...ordinary, pitch: 60, lat: 85.051129, zoom: 24 });
     expect(metadataDb().prepare("SELECT view_pitch, view_lat, view_zoom FROM maps WHERE id = ?").get(copy.id))
       .toEqual({ view_pitch: 60, view_lat: 85.051129, view_zoom: 24 });

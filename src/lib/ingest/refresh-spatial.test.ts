@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
@@ -102,7 +103,7 @@ describe("URL imports of container formats", () => {
   });
 
   it("stores url + layer + group provenance for a multi-layer file", async () => {
-    const { tables } = await importFromUrl(`${base}/city.gpkg`);
+    const { tables } = await importFromUrl(testAccountScope(), `${base}/city.gpkg`);
     expect(tables.map((t) => t.name)).toEqual(["city_stations", "city_zones"]);
     for (const t of tables) {
       expect(t.source).toBe("url");
@@ -116,7 +117,7 @@ describe("URL imports of container formats", () => {
   });
 
   it("refreshes the whole group from one download and swaps atomically", async () => {
-    const { tables } = await importFromUrl(`${base}/city.gpkg`);
+    const { tables } = await importFromUrl(testAccountScope(), `${base}/city.gpkg`);
     const [st, zn] = tables;
     expect(st.rowCount).toBe(2);
 
@@ -181,7 +182,7 @@ describe("URL imports of container formats", () => {
   });
 
   it("fails the whole refresh when a stored layer vanished from the file", async () => {
-    const { tables } = await importFromUrl(`${base}/city.gpkg`);
+    const { tables } = await importFromUrl(testAccountScope(), `${base}/city.gpkg`);
     const [st, zn] = tables;
 
     servedLayers = [
@@ -211,7 +212,7 @@ describe("URL imports of container formats", () => {
         [7.2, 51.2, "b"],
       ]),
     ];
-    const { tables } = await importFromUrl(`${base}/city.gpkg`);
+    const { tables } = await importFromUrl(testAccountScope(), `${base}/city.gpkg`);
     expect(tables).toHaveLength(1);
     const before = tables[0];
     expect(before.sourceParams?.layer).toBe("stations");
@@ -274,7 +275,7 @@ describe("URL imports of container formats", () => {
     try {
       // Inside the listener's lifetime, so a failed assertion still closes it.
       expect((extra.address() as AddressInfo).address).toBe("127.0.0.1");
-      const { tables } = await importFromUrl(`${origin}/regions.zip`);
+      const { tables } = await importFromUrl(testAccountScope(), `${origin}/regions.zip`);
       const byLayer = new Map(
         tables.map((t) => [String(t.sourceParams?.layer), t]),
       );
@@ -323,7 +324,7 @@ describe("URL imports of container formats", () => {
     try {
       // Inside the listener's lifetime, so a failed assertion still closes it.
       expect((extra.address() as AddressInfo).address).toBe("127.0.0.1");
-      const { tables, skipped } = await importFromUrl(`${origin}/daytrip.kmz`);
+      const { tables, skipped } = await importFromUrl(testAccountScope(), `${origin}/daytrip.kmz`);
       expect(tables).toHaveLength(1);
       expect(tables[0].name).toBe("daytrip");
       expect(tables[0].format).toBe("kml");
@@ -339,7 +340,7 @@ describe("URL imports of container formats", () => {
     const file = path.join(dir, "harbours.gpkg");
     buildGpkg(file, [stations([[7.1, 51.1, "a"]])]);
     const { ingestSource } = await import("./gdal-formats");
-    const { tables } = await ingestSource(file, "harbours.gpkg");
+    const { tables } = await ingestSource(testAccountScope(), file, "harbours.gpkg");
     await expect(refreshTable(tables[0].name)).rejects.toMatchObject({
       code: "not_refreshable",
     });

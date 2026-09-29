@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile, readdir } from "node:fs/promises";
 import path from "node:path";
@@ -41,7 +42,7 @@ beforeEach(async () => {
   resetQueryInstance();
   const src = path.join(dir, "stations.csv");
   await writeFile(src, "name,lon,lat\nalexanderplatz,13.41,52.52\nzoo,13.33,52.51\n");
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
   await boundedEvaluation(async () => undefined);
 });
 
@@ -78,8 +79,8 @@ describe("a restart settles what the lane was holding", () => {
   it("settles both queued and running rows through the startup hook", async () => {
     const queued = stranded("queued");
     const running = stranded("running");
-    insertJob(queued);
-    insertJob(running);
+    insertJob(testAccountScope(), queued);
+    insertJob(testAccountScope(), running);
 
     await register();
 
@@ -94,8 +95,8 @@ describe("a restart settles what the lane was holding", () => {
   it("tells each one the truth about itself", async () => {
     const queued = stranded("queued");
     const running = stranded("running");
-    insertJob(queued);
-    insertJob(running);
+    insertJob(testAccountScope(), queued);
+    insertJob(testAccountScope(), running);
 
     await register();
 
@@ -107,8 +108,8 @@ describe("a restart settles what the lane was holding", () => {
   });
 
   it("re-executes nothing", async () => {
-    insertJob(stranded("queued"));
-    insertJob(stranded("running"));
+    insertJob(testAccountScope(), stranded("queued"));
+    insertJob(testAccountScope(), stranded("running"));
 
     await register();
     await laneSettled();
@@ -122,7 +123,7 @@ describe("a restart settles what the lane was holding", () => {
     await register();
     expect(listJobs()).toHaveLength(0);
 
-    const done = await startRun({
+    const done = await startRun(testAccountScope(), {
       operation: "sql_step",
       parameters: { sql: "SELECT 1 AS n", name: "finished" },
     });
@@ -139,7 +140,7 @@ describe("recovery never contradicts what was published", () => {
     // A run that published crashed *after* publication by definition: success
     // and registration commit together, so there is no other state it could be
     // left in. Seeding that state is faithful to the crash, not a shortcut.
-    const job = await startRun({
+    const job = await startRun(testAccountScope(), {
       operation: "sql_step",
       parameters: { sql: "SELECT name FROM stations", name: "published" },
     });
@@ -164,7 +165,7 @@ describe("recovery never contradicts what was published", () => {
     const orphan = path.join(dir, "data", "tables", `${randomUUID()}.parquet`);
     await writeFile(orphan, "not really parquet, but unreferenced all the same");
     const running = stranded("running");
-    insertJob(running);
+    insertJob(testAccountScope(), running);
 
     await register();
 
@@ -191,7 +192,7 @@ describe("recovery never contradicts what was published", () => {
 describe("the wiring", () => {
   it("is invoked by the startup hook, not merely importable", async () => {
     const running = stranded("running");
-    insertJob(running);
+    insertJob(testAccountScope(), running);
     // No direct call to the reconciler anywhere in this test.
     await register();
     expect(getJob(running.id)!.state).toBe("failed");
@@ -207,7 +208,7 @@ describe("the wiring", () => {
  */
 describe("a cascade a stopped process left active", () => {
   it("is settled interrupted, with its completed members still recorded", async () => {
-    const recipeId = createRecipe("R").id;
+    const recipeId = createRecipe(testAccountScope(), "R").id;
     const done = addStep(recipeId, {
       operation: "sql_step",
       parameters: { sql: "SELECT 1 AS n", name: "cascade_done" },
@@ -244,7 +245,7 @@ describe("a cascade a stopped process left active", () => {
   });
 
   it("leaves a cascade that already settled exactly as it was", async () => {
-    const recipeId = createRecipe("R").id;
+    const recipeId = createRecipe(testAccountScope(), "R").id;
     const only = addStep(recipeId, {
       operation: "sql_step",
       parameters: { sql: "SELECT 1 AS n", name: "cascade_terminal" },

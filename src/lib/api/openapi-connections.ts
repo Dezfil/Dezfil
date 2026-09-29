@@ -1,3 +1,4 @@
+import { ownedCreationOp } from "./openapi-owned-creation";
 import { LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE, REMOTE_ADD, REMOTE_READ, REMOTE_REPLACE } from "./operation-mcp";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
 import { op, jsonOk, pathParam } from "./openapi-helpers";
@@ -17,7 +18,7 @@ export const CONNECTION_PATHS = {
         "200": jsonOk("#/components/schemas/PgConnectionList"),
       },
     }),
-    post: op({
+    post: ownedCreationOp({
       summary: "Create a PostGIS connection",
       description:
         "Tests the connection first and saves only on success — " +
@@ -356,7 +357,7 @@ export const CONNECTION_PATHS = {
     }),
   },
   "/api/imports/postgis": {
-    post: op({
+    post: ownedCreationOp({
       summary: "Import a PostGIS table as a snapshot",
       description:
         "Materializes the table as a GeoParquet snapshot — read-only " +

@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { createMap } from "@/lib/map-service";
 import { createLayer } from "@/lib/layer-service";
 import { getTileRecord, upsertTileRecord } from "@/lib/metadata/tiles";
@@ -28,7 +29,7 @@ beforeEach(async () => { dir = await setupGeometryTest(); requests.mockClear(); 
 afterEach(async () => { await cleanupGeometryTest(dir); });
 it("manual URL choice survives restart and overrides fresh automatic recognition before WKT is consumed", async () => {
   remote = 'payload,other,x,y\n"POINT (1 2)","POINT (3 4)",391779.25925275,5820072.159211026\n';
-  const t = (await importFromUrl("https://fixture.test/data.csv")).tables[0];
+  const t = (await importFromUrl(testAccountScope(), "https://fixture.test/data.csv")).tables[0];
   await setGeometry(t.name, geometryRevision(t), { format: "pair", columns: ["x", "y"], epsg: 25833 });
   closeMetadataDb();
   remote = 'wkt,x,y\n"POINT (80 40)",500000,0\n"POINT (90 50)",NaN,1\n';
@@ -44,7 +45,7 @@ it("manual URL choice survives restart and overrides fresh automatic recognition
 });
 it("a consumed named-WKT correction replays its historical source name on fresh bytes", async () => {
   remote = 'wkt,label\n"POINT (10 20)",a\n';
-  const t = (await importFromUrl("https://fixture.test/named.csv")).tables[0];
+  const t = (await importFromUrl(testAccountScope(), "https://fixture.test/named.csv")).tables[0];
   await setGeometry(t.name, geometryRevision(t), { format: "wkt", columns: [t.geometryColumn!], epsg: 3857 });
   remote = 'wkt,label\n"POINT (1113194.9079327357 0)",b\n';
   const next = await refreshTable(t.name);
@@ -54,7 +55,7 @@ it("a consumed named-WKT correction replays its historical source name on fresh 
 });
 it("clear removes the override; refresh records fresh automatic recognition and unmodified mode", async () => {
   remote = 'payload,x,y\n"POINT (1 2)",10,20\n';
-  const t = (await importFromUrl("https://fixture.test/clear.csv")).tables[0];
+  const t = (await importFromUrl(testAccountScope(), "https://fixture.test/clear.csv")).tables[0];
   const set = await setGeometry(t.name, geometryRevision(t), { format: "pair", columns: ["y", "x"] });
   const clear = await clearGeometry(t.name, set.revision);
   expect(clear).toMatchObject({ mode: "cleared", currentChoice: null, table: { geometryRecord: null } });
@@ -69,10 +70,10 @@ it("clear removes the override; refresh records fresh automatic recognition and 
 });
 it.each(["column", "publication"])("%s failure keeps old artifact, manual choice and record together", async failure => {
   remote = 'payload,x,y\n"POINT (1 2)",10,20\n';
-  const t = (await importFromUrl("https://fixture.test/failure.csv")).tables[0];
+  const t = (await importFromUrl(testAccountScope(), "https://fixture.test/failure.csv")).tables[0];
   await setGeometry(t.name, geometryRevision(t), { format: "pair", columns: ["y", "x"] });
   await retirementsSettled();
-  const map=createMap("Retained tiles"),layer=await createLayer(map.id,{name:"Tiles",sql:`SELECT geometry FROM ${t.name}`});
+  const map=createMap(testAccountScope(), "Retained tiles"),layer=await createLayer(map.id,{name:"Tiles",sql:`SELECT geometry FROM ${t.name}`});
   upsertTileRecord({layerId:layer.id,state:"ready",fingerprint:"before-failed-refresh",error:null,featureCount:1,builtAt:"2026-09-01T00:00:00Z"});
   const tileFile=tileArchivePath(layer.id);await mkdir(path.dirname(tileFile),{recursive:true});await writeFile(tileFile,"existing archive bytes");
   const tileBefore=getTileRecord(layer.id);
@@ -96,7 +97,7 @@ async function shapeGroup(x: number, y: number) {
 }
 it("container members replay separate native choices in one download and atomic group commit", async () => {
   remote = await shapeGroup(391779.25925275,5820072.159211026);
-  const tables = (await importFromUrl("https://fixture.test/group.zip")).tables;
+  const tables = (await importFromUrl(testAccountScope(), "https://fixture.test/group.zip")).tables;
   expect(tables).toHaveLength(2);
   for (let i=0;i<2;i++) await setGeometry(tables[i].name, geometryRevision(tables[i]), { format: "wkb", columns: [tables[i].geometryColumn!], epsg: i === 0 ? 25833 : 25832 });
   closeMetadataDb(); requests.mockClear();
@@ -121,7 +122,7 @@ it("container members replay separate native choices in one download and atomic 
 
 it("a bad numeric source value remains an unreadable row when CSV inference widens its type", async () => {
   remote = 'payload,x,y\n"POINT (1 2)",10,20\n';
-  const t = (await importFromUrl("https://fixture.test/bad-pair.csv")).tables[0];
+  const t = (await importFromUrl(testAccountScope(), "https://fixture.test/bad-pair.csv")).tables[0];
   await setGeometry(t.name, geometryRevision(t), { format: "pair", columns: ["x", "y"] });
   remote = 'x,y\n30,40\nbroken,50\n,60\n';
   const next = await refreshTable(t.name);
@@ -134,7 +135,7 @@ it("native GeoParquet replay uses fresh raw bytes and refuses a newly declared c
   const file = path.join(dir, "remote.parquet");
   await withConnection(conn => conn.run(`COPY (SELECT ST_AsWKB(ST_Point(391779.25925275,5820072.159211026)) geom) TO ${lit(file)} (FORMAT PARQUET)`));
   remote = await readFile(file); await rm(file);
-  const t = (await importFromUrl("https://fixture.test/native.parquet")).tables[0];
+  const t = (await importFromUrl(testAccountScope(), "https://fixture.test/native.parquet")).tables[0];
   await setGeometry(t.name, geometryRevision(t), { format: "wkb", columns: [t.geometryColumn!], epsg: 25833 });
   await withConnection(conn => conn.run(`COPY (SELECT ST_AsWKB(ST_Point(500000,0)) geom) TO ${lit(file)} (FORMAT PARQUET)`));
   remote = await readFile(file); await rm(file);

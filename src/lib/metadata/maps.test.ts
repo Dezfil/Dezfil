@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -54,16 +55,16 @@ function sample(id: string, createdAt: string): MapRecord {
 
 describe("maps listing", () => {
   it("lists most recently created first", () => {
-    insertMap(sample("old", "2026-07-01T00:00:00Z"), db);
-    insertMap(sample("new", "2026-07-20T00:00:00Z"), db);
-    insertMap(sample("mid", "2026-07-10T00:00:00Z"), db);
+    insertMap(testAccountScope(db), sample("old", "2026-07-01T00:00:00Z"), db);
+    insertMap(testAccountScope(db), sample("new", "2026-07-20T00:00:00Z"), db);
+    insertMap(testAccountScope(db), sample("mid", "2026-07-10T00:00:00Z"), db);
     expect(listMaps(db).map((m) => m.id)).toEqual(["new", "mid", "old"]);
   });
 });
 
 describe("published theme metadata", () => {
   it("round-trips and clears; a fresh map holds none", () => {
-    insertMap(sample("m1", "2026-08-01T00:00:00Z"), db);
+    insertMap(testAccountScope(db), sample("m1", "2026-08-01T00:00:00Z"), db);
     expect(getPublishedTheme("m1", db)).toBeNull();
     setPublishedTheme("m1", "light", db);
     expect(getPublishedTheme("m1", db)).toBe("light");
@@ -72,7 +73,7 @@ describe("published theme metadata", () => {
   });
 
   it("stays off the map record — ordinary map reads cannot see it", () => {
-    insertMap(sample("m1", "2026-08-01T00:00:00Z"), db);
+    insertMap(testAccountScope(db), sample("m1", "2026-08-01T00:00:00Z"), db);
     setPublishedTheme("m1", "light", db);
     const record = getMap("m1", db);
     expect(record).not.toBeNull();
@@ -84,7 +85,7 @@ describe("published theme metadata", () => {
     const map = sample("m1", "2026-08-01T00:00:00Z");
     map.publishToken = "t".repeat(22);
     map.publishedAt = "2026-08-01T00:00:00Z";
-    insertMap(map, db);
+    insertMap(testAccountScope(db), map, db);
     const before = getPublishedSnapshot(map.publishToken!, db)!;
     expect(before.publishedTheme).toBeNull();
     setPublishedTheme("m1", "light", db);
@@ -96,9 +97,9 @@ describe("published theme metadata", () => {
     const map = sample("m2", "2026-08-02T00:00:00Z");
     map.publishToken = "u".repeat(22);
     map.publishedAt = "2026-08-02T00:00:00Z";
-    insertMap(map, db);
-    const a = createProject({ name: "A" }, db);
-    const b = createProject({ name: "B" }, db);
+    insertMap(testAccountScope(db), map, db);
+    const a = createProject(testAccountScope(db), { name: "A" }, db);
+    const b = createProject(testAccountScope(db), { name: "B" }, db);
     const before = getPublishedSnapshot(map.publishToken!, db)!;
     fileMap("m2", a.id, db);
     fileMap("m2", b.id, db);
@@ -120,7 +121,7 @@ describe("viewer controls metadata", () => {
   };
 
   it("round-trips and clears; a fresh map holds none", () => {
-    insertMap(sample("m1", "2026-08-01T00:00:00Z"), db);
+    insertMap(testAccountScope(db), sample("m1", "2026-08-01T00:00:00Z"), db);
     expect(getViewerControls("m1", db)).toBeNull();
     setViewerControls("m1", SOME, db);
     expect(getViewerControls("m1", db)).toEqual(SOME);
@@ -129,7 +130,7 @@ describe("viewer controls metadata", () => {
   });
 
   it("stays off the map record — ordinary map reads cannot see it", () => {
-    insertMap(sample("m1", "2026-08-01T00:00:00Z"), db);
+    insertMap(testAccountScope(db), sample("m1", "2026-08-01T00:00:00Z"), db);
     setViewerControls("m1", SOME, db);
     const record = getMap("m1", db);
     expect(record).not.toBeNull();
@@ -141,7 +142,7 @@ describe("viewer controls metadata", () => {
     const map = sample("m1", "2026-08-01T00:00:00Z");
     map.publishToken = "t".repeat(22);
     map.publishedAt = "2026-08-01T00:00:00Z";
-    insertMap(map, db);
+    insertMap(testAccountScope(db), map, db);
     const before = getPublishedSnapshot(map.publishToken!, db)!;
     expect(before.viewerControls).toBeNull();
     // Seed the column directly, leaving updated_at exactly where it was.
@@ -180,7 +181,7 @@ describe("viewer controls metadata", () => {
   });
 
   it("degrades unreadable stored text to none rather than throwing", () => {
-    insertMap(sample("m1", "2026-08-01T00:00:00Z"), db);
+    insertMap(testAccountScope(db), sample("m1", "2026-08-01T00:00:00Z"), db);
     db.prepare(`UPDATE maps SET viewer_controls = ? WHERE id = ?`).run(
       "{not json",
       "m1",

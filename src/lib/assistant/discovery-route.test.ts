@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -73,9 +74,9 @@ async function turn(script: ScriptEntry[], context?: AssistantContext, message =
 }
 async function seed() {
   const csv = path.join(dir, "facts.csv"); await writeFile(csv, "city,lon,lat,value\nBerlin,13.4,52.5,4\n");
-  await ingestFile(csv, "facts.csv");
-  const map = createMap("Original map");
-  const recipe = createRecipe("Workflow");
+  await ingestFile(testAccountScope(), csv, "facts.csv");
+  const map = createMap(testAccountScope(), "Original map");
+  const recipe = createRecipe(testAccountScope(), "Workflow");
   const step = addStep(recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 1 AS value", name: "output" } });
   return {
     map,

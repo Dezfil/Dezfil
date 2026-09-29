@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { requireRequestAuth } from "@/lib/auth/http";
 import { instanceFetch } from "@/lib/auth/instance-fetch";
 import { authenticatedRequest } from "./testing/account";
@@ -50,7 +51,7 @@ beforeEach(async () => {
     if (mutating.has(request.method) && !new URL(request.url).pathname.startsWith("/api/maps/look") && !new URL(request.url).pathname.startsWith("/api/assistant")) counts.dispatches += 1;
     return dispatchAssistantTestRoute(request);
   });
-  mapId = createMap("Observed").id;
+  mapId = createMap(testAccountScope(), "Observed").id;
   const driver: RenderDriver = { launch: async () => {
     counts.launches += 1;
     if (launchFails) throw new Error("ENOENT");

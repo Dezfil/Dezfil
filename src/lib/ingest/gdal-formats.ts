@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { replayGeometryRelation, type GeometryReplay } from "@/lib/geometry/replay";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
@@ -323,11 +324,13 @@ export async function buildLayerArtifact(
  * artifact the import built and registers nothing.
  */
 export async function ingestSpatialFile(
+  scope: AccountScope,
   sourcePath: string,
   originalFilename: string,
   provenance: IngestProvenance = { source: "upload", sourceParams: null },
   requestedName?: string,
 ): Promise<IngestResult> {
+  requireAccountScope(scope);
   const format = detectFormat(originalFilename) as GdalFormat;
   const prepared = await prepareSource(format, sourcePath, originalFilename);
   try {
@@ -397,7 +400,7 @@ export async function ingestSpatialFile(
               },
               importedAt: now,
             };
-            insertTable(record, db);
+            insertTable(scope, record, db);
             // Every table of a container files together — one
             // membership failure rolls the whole group's registration
             // back, the road's own atomicity.
@@ -437,14 +440,17 @@ export async function ingestSpatialFile(
  * else takes the existing single-table road unchanged.
  */
 export async function ingestSource(
+  scope: AccountScope,
   sourcePath: string,
   originalFilename: string,
   provenance?: IngestProvenance,
   requestedName?: string,
 ): Promise<IngestResult> {
+  requireAccountScope(scope);
   const format = detectFormat(originalFilename);
   if (isGdalFormat(format)) {
     return ingestSpatialFile(
+      scope,
       sourcePath,
       originalFilename,
       provenance,
@@ -452,6 +458,7 @@ export async function ingestSource(
     );
   }
   const table = await ingestFile(
+    scope,
     sourcePath,
     originalFilename,
     provenance,

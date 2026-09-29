@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -36,7 +37,7 @@ beforeEach(async () => {
       ).join("\n") +
       "\n",
   );
-  await ingestFile(csv, "sightings.csv");
+  await ingestFile(testAccountScope(), csv, "sightings.csv");
 
   const areas = path.join(dir, "areas.geojson");
   await writeFile(
@@ -63,7 +64,7 @@ beforeEach(async () => {
       ],
     }),
   );
-  await ingestFile(areas, "areas.geojson");
+  await ingestFile(testAccountScope(), areas, "areas.geojson");
 });
 
 afterEach(async () => {
@@ -212,7 +213,7 @@ describe("the admission matrix", () => {
     // would answer `h3_cell` and `h3_cell_1` and leave which is which to it.
     const csv = path.join(dir, "already.csv");
     await writeFile(csv, "lon,lat,H3_Cell\n0,0,x\n0.01,0.01,y\n");
-    await ingestFile(csv, "already.csv");
+    await ingestFile(testAccountScope(), csv, "already.csv");
     expect(
       await refusal("h3_cell", { input: "already", resolution: 8, name: "o" }),
     ).toMatch(/already has a column called/i);
@@ -240,7 +241,7 @@ describe("the admission matrix", () => {
     // Found at the cross-model review.
     const csv = path.join(dir, "helpers.csv");
     await writeFile(csv, "lon,lat,__dezfil_pt\n0,0,7\n0.01,0.01,8\n");
-    await ingestFile(csv, "helpers.csv");
+    await ingestFile(testAccountScope(), csv, "helpers.csv");
     expect(
       await refusal("cluster_by_distance", {
         input: "helpers",
@@ -253,7 +254,7 @@ describe("the admission matrix", () => {
   it("refuses when nothing lands on the grid", async () => {
     const empty = path.join(dir, "empty.csv");
     await writeFile(empty, "name,lon,lat\n");
-    await ingestFile(empty, "empty.csv");
+    await ingestFile(testAccountScope(), empty, "empty.csv");
     const message = await refusal("hotspot", { ...base, input: "empty" });
     expect(message).toMatch(/no geometry|no cells to score|not a table/i);
   });

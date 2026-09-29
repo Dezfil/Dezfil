@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile, readdir } from "node:fs/promises";
 import path from "node:path";
@@ -25,7 +26,7 @@ beforeEach(async () => {
     src,
     "name,lon,lat\nalexanderplatz,13.41,52.52\nzoo,13.33,52.51\nsudkreuz,13.36,52.48\n",
   );
-  await ingestFile(src, "stations.csv");
+  await ingestFile(testAccountScope(), src, "stations.csv");
   await boundedEvaluation(async () => undefined);
 });
 
@@ -44,7 +45,7 @@ const sqlStep = (sql: string, name: string, subject?: string) => ({
 });
 
 async function run(sql: string, name: string, subject?: string) {
-  const job = await startRun(sqlStep(sql, name, subject));
+  const job = await startRun(testAccountScope(), sqlStep(sql, name, subject));
   await laneSettled();
   return getJob(job.id)!;
 }
@@ -74,13 +75,13 @@ describe("the admission boundary", () => {
   for (const [label, request, code] of refusedAtAdmission) {
     it(`refuses ${label} without minting a job`, async () => {
       const before = listJobs().length;
-      await expect(startRun(request as never)).rejects.toMatchObject({ code });
+      await expect(startRun(testAccountScope(), request as never)).rejects.toMatchObject({ code });
       expect(listJobs()).toHaveLength(before);
     });
   }
 
   it("refuses a name already taken, without minting a job", async () => {
-    await expect(startRun(sqlStep("SELECT 1 AS n", "stations"))).rejects.toMatchObject({
+    await expect(startRun(testAccountScope(), sqlStep("SELECT 1 AS n", "stations"))).rejects.toMatchObject({
       code: "name_taken",
     });
     expect(listJobs()).toHaveLength(0);
@@ -119,7 +120,7 @@ describe("a run's outcome", () => {
   }, 30_000);
 
   it("is queued before it runs, and carries no start time then", async () => {
-    const job = await startRun(sqlStep("SELECT 1 AS n", "later"));
+    const job = await startRun(testAccountScope(), sqlStep("SELECT 1 AS n", "later"));
     expect(job.state).toBe("queued");
     expect(job.startedAt).toBeNull();
     expect(job.finishedAt).toBeNull();
@@ -167,7 +168,7 @@ describe("a name taken between admission and commit", () => {
     // regression mapping this to `internal` would otherwise stay green.
     const tables = path.join(dir, "data", "tables");
     const before = new Set(await readdir(tables));
-    const job = await startRun(sqlStep(SLOW, "claimed_late"));
+    const job = await startRun(testAccountScope(), sqlStep(SLOW, "claimed_late"));
 
     // Wait until the run has begun writing its artifact. Claiming the name
     // earlier would be caught by the materializer's own pre-work check, which
@@ -181,7 +182,7 @@ describe("a name taken between admission and commit", () => {
     expect(getJob(job.id)!.state).toBe("running");
 
     // Now claim it, from under a run that has already passed its own check.
-    insertTable({
+    insertTable(testAccountScope(), {
       id: "usurper",
       name: "claimed_late",
       sourceFilename: "other.csv",
@@ -218,12 +219,12 @@ describe("a full queue", () => {
     process.env.DEZFIL_OPERATION_CONCURRENCY = "1";
     process.env.DEZFIL_OPERATION_QUEUE_MAX = "1";
     try {
-      const blocker = await startRun(sqlStep(ENDLESS, "blocked_out"));
-      const queued = await startRun(sqlStep("SELECT 1 AS n", "waiting"));
+      const blocker = await startRun(testAccountScope(), sqlStep(ENDLESS, "blocked_out"));
+      const queued = await startRun(testAccountScope(), sqlStep("SELECT 1 AS n", "waiting"));
       const before = listJobs().length;
       expect(before).toBe(2);
 
-      await expect(startRun(sqlStep("SELECT 1 AS n", "refused"))).rejects.toMatchObject({
+      await expect(startRun(testAccountScope(), sqlStep("SELECT 1 AS n", "refused"))).rejects.toMatchObject({
         code: "operation_queue_full",
         status: 503,
       });
@@ -265,7 +266,7 @@ describe("cancellation", () => {
     const tables = path.join(dir, "data", "tables");
     const before = new Set(await readdir(tables));
 
-    const job = await startRun(sqlStep("SELECT name FROM stations", "authority_lost"));
+    const job = await startRun(testAccountScope(), sqlStep("SELECT name FROM stations", "authority_lost"));
     // Take the run's authority away while it works; the commit's conditional
     // update then refuses, and the finished artifact is ours to remove.
     finish(job.id, { state: "cancelled" }, new Date().toISOString());
@@ -284,7 +285,7 @@ describe("cancellation", () => {
     const tables = path.join(dir, "data", "tables");
     const before = new Set(await readdir(tables));
 
-    const job = await startRun(sqlStep(SLOW, "never_lands"));
+    const job = await startRun(testAccountScope(), sqlStep(SLOW, "never_lands"));
 
     // Wait until the run has actually put a candidate artifact on disk. A
     // cancel before that point would exercise nothing: there would be no file

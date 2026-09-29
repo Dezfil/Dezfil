@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { errorResponse, ApiError } from "@/lib/api/errors";
@@ -25,6 +26,7 @@ export async function GET() {
 /** Create a connection: tested first, saved only on success. */
 export async function POST(request: Request) {
   try {
+    const scope = requireRequestScope(request);
     const body = (await request.json().catch(() => null)) as Record<
       string,
       unknown
@@ -47,7 +49,7 @@ export async function POST(request: Request) {
     };
     // Nothing "working" is ever stored untested.
     const health = await testConnection(candidate);
-    const connection = insertConnection(candidate);
+    const connection = insertConnection(scope, candidate);
     recordConnectionHealth(connection.id, health);
     return NextResponse.json(getConnection(connection.id), { status: 201 });
   } catch (error) {

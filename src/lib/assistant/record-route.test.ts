@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -79,8 +80,8 @@ async function turn(script: ScriptEntry[], context?: AssistantContext, message =
 }
 async function seed() {
   const csv = path.join(dir, "facts.csv"); await writeFile(csv, "city,lon,lat,value\nBerlin,13.4,52.5,4\n");
-  await ingestFile(csv, "facts.csv");
-  const map = createMap("Original map");
+  await ingestFile(testAccountScope(), csv, "facts.csv");
+  const map = createMap(testAccountScope(), "Original map");
   return { map, builder: { page: "builder", mapId: map.id, selectedLayerId: null } as AssistantContext };
 }
 const mapName = async (id: string) => ((await (await api(`/api/maps/${id}`)).json()) as { name: string }).name;
@@ -149,7 +150,7 @@ describe("elapsed time is the dispatch alone, never the gate's wait", () => {
 describe("the recorded map and change group match the stored history steps", () => {
   it("two maps in one turn share the group; an excluded mutation exposes neither; a no-op update writes no step", async () => {
     const { map, builder } = await seed();
-    const other = createMap("Other map");
+    const other = createMap(testAccountScope(), "Other map");
     const layer = await createLayer(other.id, { name: "Facts", sql: "SELECT * FROM facts" });
     const { stream, runId } = await turn([
       { text: "", toolCalls: [
@@ -315,7 +316,7 @@ describe("the history association and the planning call", () => {
     // association, though undo and redo move the cursor without recording
     // the group and a deletion removes the map's history.
     const { map, builder } = await seed();
-    const other = createMap("Doomed map");
+    const other = createMap(testAccountScope(), "Doomed map");
     const { stream, runId } = await turn([
       { text: "", toolCalls: [
         { id: "rename", name: "update_map", args: { id: map.id, name: "Renamed" } },
@@ -344,7 +345,7 @@ describe("the history association and the planning call", () => {
     // Seeded defect: run_recipe with plan: true starts nothing but was
     // recorded "Ran the workflow …" with a done mark.
     const { builder } = await seed();
-    const recipe = createRecipe("Planned workflow");
+    const recipe = createRecipe(testAccountScope(), "Planned workflow");
     addStep(recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 1 AS value", name: "planned_output" } });
     const { stream, runId } = await turn([
       { text: "", toolCalls: [{ id: "plan", name: "run_recipe", args: { id: recipe.id, plan: true } }] },

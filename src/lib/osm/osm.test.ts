@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { chmod, mkdtemp, readdir, rm } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
@@ -440,7 +441,7 @@ describe("feature-geometry areas", () => {
 
 describe("importOsm", () => {
   it("lands split tables sharing a stem and one group", async () => {
-    const tables = await importOsm({
+    const tables = await importOsm(testAccountScope(), {
       selectors: ["amenity=restaurant", "building", "highway", "landuse"],
       bbox: BERLIN,
       name: "osm_mix",
@@ -461,9 +462,9 @@ describe("importOsm", () => {
   });
 
   it("serves an identical re-import from the cache", async () => {
-    await importOsm({ selectors: ["building"], bbox: BERLIN, name: "c1" });
+    await importOsm(testAccountScope(), { selectors: ["building"], bbox: BERLIN, name: "c1" });
     const before = hits;
-    await importOsm({ selectors: ["building"], bbox: BERLIN, name: "c2" });
+    await importOsm(testAccountScope(), { selectors: ["building"], bbox: BERLIN, name: "c2" });
     expect(hits).toBe(before); // no second endpoint hit
   });
 
@@ -472,8 +473,8 @@ describe("importOsm", () => {
     // between derivation and registration used to make the second one
     // trip the UNIQUE constraint. Registration now derives at insert time.
     const [first, second] = await Promise.all([
-      importOsm({ selectors: ["building"], bbox: BERLIN, name: "race" }),
-      importOsm({ selectors: ["building"], bbox: BERLIN, name: "race" }),
+      importOsm(testAccountScope(), { selectors: ["building"], bbox: BERLIN, name: "race" }),
+      importOsm(testAccountScope(), { selectors: ["building"], bbox: BERLIN, name: "race" }),
     ]);
     const names = [...first, ...second].map((t) => t.name);
     expect(new Set(names).size).toBe(names.length); // all distinct
@@ -483,7 +484,7 @@ describe("importOsm", () => {
   it("refuses empty results, oversized areas, and junk", async () => {
     fixture = { version: 0.6, elements: [] };
     await expect(
-      importOsm({ selectors: ["aeroway=spaceport"], bbox: BERLIN }),
+      importOsm(testAccountScope(), { selectors: ["aeroway=spaceport"], bbox: BERLIN }),
     ).rejects.toMatchObject({ code: "invalid_request" });
     expect(listTables()).toEqual([]);
 
@@ -502,7 +503,7 @@ describe("importOsm", () => {
   it("maps endpoint failures specifically and registers nothing", async () => {
     failNext = true;
     await expect(
-      importOsm({ selectors: ["building"], bbox: BERLIN }),
+      importOsm(testAccountScope(), { selectors: ["building"], bbox: BERLIN }),
     ).rejects.toMatchObject({ code: "remote_fetch_failed" });
     expect(listTables()).toEqual([]);
   });
@@ -518,7 +519,7 @@ describe("previewOsm — Run Query", () => {
     expect(preview.truncated).toBe(false);
     expect(preview.geojson.features).toHaveLength(preview.featureCount);
     expect(hits).toBe(1);
-    const tables = await importOsm({ selectors: ["building"], bbox: BERLIN });
+    const tables = await importOsm(testAccountScope(), { selectors: ["building"], bbox: BERLIN });
     expect(tables.length).toBeGreaterThan(0);
     // The preview's fetch serves the import — one endpoint hit total.
     expect(hits).toBe(1);
@@ -546,7 +547,7 @@ describe("previewOsm — Run Query", () => {
 
 describe("refreshTable for OSM groups", () => {
   it("re-runs once, bypasses the cache, updates every member", async () => {
-    const tables = await importOsm({
+    const tables = await importOsm(testAccountScope(), {
       selectors: ["amenity=restaurant", "highway"],
       bbox: BERLIN,
       name: "grp",
@@ -598,7 +599,7 @@ describe("refreshTable for OSM groups", () => {
   });
 
   it("fences the whole group as one unit: members contend, not just names", async () => {
-    await importOsm({
+    await importOsm(testAccountScope(), {
       selectors: ["amenity=restaurant", "highway"],
       bbox: BERLIN,
       name: "unit",
@@ -616,7 +617,7 @@ describe("refreshTable for OSM groups", () => {
   });
 
   it("cleans every candidate when a member build dies mid-group", async () => {
-    await importOsm({
+    await importOsm(testAccountScope(), {
       selectors: ["amenity=restaurant", "highway"],
       bbox: BERLIN,
       name: "hardy",
@@ -643,7 +644,7 @@ describe("refreshTable for OSM groups", () => {
   });
 
   it("leaves the whole group intact when the endpoint is down — and no candidate files", async () => {
-    await importOsm({
+    await importOsm(testAccountScope(), {
       selectors: ["amenity=restaurant", "highway"],
       bbox: BERLIN,
       name: "safe",
@@ -668,8 +669,8 @@ describe("refreshTable for OSM groups", () => {
 
 describe("the project context", () => {
   it("files every created class table in the same act", async () => {
-    const p = createProject({ name: "A" });
-    const tables = await importOsm({
+    const p = createProject(testAccountScope(), { name: "A" });
+    const tables = await importOsm(testAccountScope(), {
       selectors: ["amenity=restaurant", "highway"],
       bbox: BERLIN,
       name: "filed",
@@ -678,7 +679,7 @@ describe("the project context", () => {
     expect(tables.length).toBeGreaterThan(1);
     const memberships = tableProjectIds();
     for (const t of tables) expect(memberships.get(t.id)).toEqual([p.id]);
- 
+
     // A refresh rewrites the data under the same identity, so the
     // membership survives untouched.
     await refreshTable(tables[0].name);
@@ -690,7 +691,7 @@ describe("the project context", () => {
     // was built and its registration succeeded inside the transaction —
     // exactly the current-class residue the widened unwind exists for.
     await expect(
-      importOsm({
+      importOsm(testAccountScope(), {
         selectors: ["amenity=restaurant", "highway"],
         bbox: BERLIN,
         name: "doomed",

@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -53,7 +54,7 @@ function sample(overrides: Partial<OperationJob> = {}): OperationJob {
 describe("the job record", () => {
   it("round-trips a job, parameters included", () => {
     const job = sample();
-    insertJob(job, db);
+    insertJob(testAccountScope(db), job, db);
     expect(getJob(job.id, db)).toEqual(job);
   });
 
@@ -65,14 +66,14 @@ describe("the job record", () => {
     const a = sample();
     const b = sample();
     const c = sample();
-    for (const j of [a, b, c]) insertJob(j, db);
+    for (const j of [a, b, c]) insertJob(testAccountScope(db), j, db);
     expect(listJobs({}, db).map((j) => j.id)).toEqual([c.id, b.id, a.id]);
   });
 
   it("filters to one subject", () => {
-    insertJob(sample({ subjectId: "s1", subjectKind: "client" }), db);
-    insertJob(sample({ subjectId: "s2", subjectKind: "client" }), db);
-    insertJob(sample({ subjectId: "s1", subjectKind: "client" }), db);
+    insertJob(testAccountScope(db), sample({ subjectId: "s1", subjectKind: "client" }), db);
+    insertJob(testAccountScope(db), sample({ subjectId: "s2", subjectKind: "client" }), db);
+    insertJob(testAccountScope(db), sample({ subjectId: "s1", subjectKind: "client" }), db);
     const mine = listJobs({ subjectId: "s1" }, db);
     expect(mine).toHaveLength(2);
     expect(mine.every((j) => j.subjectId === "s1")).toBe(true);
@@ -80,7 +81,7 @@ describe("the job record", () => {
 
   it("a queued job has no start time until it starts", () => {
     const job = sample();
-    insertJob(job, db);
+    insertJob(testAccountScope(db), job, db);
     expect(getJob(job.id, db)!.startedAt).toBeNull();
     expect(markRunning(job.id, "2026-08-12T00:00:01.000Z", db)).toBe(true);
     expect(getJob(job.id, db)!.startedAt).toBe("2026-08-12T00:00:01.000Z");
@@ -90,7 +91,7 @@ describe("the job record", () => {
 describe("terminal writes are conditional — the authority check", () => {
   it("settles a running job", () => {
     const job = sample();
-    insertJob(job, db);
+    insertJob(testAccountScope(db), job, db);
     markRunning(job.id, "t1", db);
     expect(
       finish(job.id, { state: "succeeded", output: { id: "t", name: "out" } }, "t2", db),
@@ -102,7 +103,7 @@ describe("terminal writes are conditional — the authority check", () => {
 
   it("refuses a second terminal write, so a cancel cannot be overwritten", () => {
     const job = sample();
-    insertJob(job, db);
+    insertJob(testAccountScope(db), job, db);
     markRunning(job.id, "t1", db);
     expect(finish(job.id, { state: "cancelled" }, "t2", db)).toBe(true);
     // The run finished its work a moment later and tried to publish. This
@@ -117,7 +118,7 @@ describe("terminal writes are conditional — the authority check", () => {
 
   it("refuses to start a job that was cancelled while queued", () => {
     const job = sample();
-    insertJob(job, db);
+    insertJob(testAccountScope(db), job, db);
     expect(finish(job.id, { state: "cancelled" }, "t1", db)).toBe(true);
     expect(markRunning(job.id, "t2", db)).toBe(false);
     expect(getJob(job.id, db)!.startedAt).toBeNull();
@@ -127,7 +128,7 @@ describe("terminal writes are conditional — the authority check", () => {
     const queued = sample();
     const running = sample();
     const done = sample();
-    for (const j of [queued, running, done]) insertJob(j, db);
+    for (const j of [queued, running, done]) insertJob(testAccountScope(db), j, db);
     markRunning(running.id, "t1", db);
     finish(done.id, { state: "succeeded" }, "t2", db);
 
@@ -148,7 +149,7 @@ describe("retention", () => {
     const ids: string[] = [];
     for (let i = 0; i < count; i++) {
       const job = sample({ subjectId: subject, subjectKind: "client" });
-      insertJob(job, db);
+      insertJob(testAccountScope(db), job, db);
       finish(job.id, { state, errorCode: state === "failed" ? "sql_error" : null }, "t", db);
       ids.push(job.id);
     }
@@ -179,8 +180,8 @@ describe("retention", () => {
     drive("s", 8, "failed");
     const queued = sample({ subjectId: "s", subjectKind: "client" });
     const running = sample({ subjectId: "s", subjectKind: "client" });
-    insertJob(queued, db);
-    insertJob(running, db);
+    insertJob(testAccountScope(db), queued, db);
+    insertJob(testAccountScope(db), running, db);
     markRunning(running.id, "t1", db);
 
     pruneSubject("s", 2, db);

@@ -1,10 +1,11 @@
+import { ownedCreationOp } from "./openapi-owned-creation";
 import { REMOTE_ADD, REMOTE_READ } from "./operation-mcp";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
 import { op, jsonOk } from "./openapi-helpers";
 
 export const IMPORT_PATHS = {
   "/api/imports/url": {
-    post: op({
+    post: ownedCreationOp({
       summary: "Import a remote file as one or more tables",
       description:
         "Reads a remote Parquet, CSV, GeoJSON, Shapefile-zip, " +
@@ -56,7 +57,7 @@ export const IMPORT_PATHS = {
     }),
   },
   "/api/imports/overture": {
-    post: op({
+    post: ownedCreationOp({
       summary: "Import Overture Maps data as a table",
       description:
         "Reads one Overture theme (places, buildings, transportation, " +
@@ -537,7 +538,7 @@ export const IMPORT_PATHS = {
     }),
   },
   "/api/imports/osm": {
-    post: op({
+    post: ownedCreationOp({
       summary: "Import OpenStreetMap data as tables",
       description:
         "Queries the configured Overpass endpoint and lands " +

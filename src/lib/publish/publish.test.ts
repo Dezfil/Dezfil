@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -40,7 +41,7 @@ beforeEach(async () => {
   resetRateLimits();
   const src = path.join(dir, "s.csv");
   await writeFile(src, "name,lon,lat\na,1,2\nb,3,4\n");
-  await ingestFile(src, "s.csv");
+  await ingestFile(testAccountScope(), src, "s.csv");
 });
 
 afterEach(async () => {
@@ -53,7 +54,7 @@ afterEach(async () => {
 });
 
 async function mapWithLayer() {
-  const map = createMap("m");
+  const map = createMap(testAccountScope(), "m");
   await createLayer(map.id, { name: "l", sql: "SELECT * FROM s" });
   return map;
 }
@@ -77,8 +78,8 @@ describe("publish / unpublish", () => {
   });
 
   it("the token is not derived from the map id or name", async () => {
-    const a = createMap("Shared Name");
-    const b = createMap("Shared Name");
+    const a = createMap(testAccountScope(), "Shared Name");
+    const b = createMap(testAccountScope(), "Shared Name");
     const ta = publishMap(a.id).token;
     const tb = publishMap(b.id).token;
     // Not the id, and two identically-named maps get unrelated tokens.
@@ -321,8 +322,8 @@ describe("published-field projection", () => {
       src,
       "name,secret,riders,lon,lat\na,s1,10,1,2\nb,s2,20,3,4\n",
     );
-    await ingestFile(src, "w.csv");
-    const map = createMap("wide");
+    await ingestFile(testAccountScope(), src, "w.csv");
+    const map = createMap(testAccountScope(), "wide");
     const layer = await createLayer(map.id, {
       name: "l",
       sql: "SELECT * FROM w",
@@ -441,8 +442,8 @@ describe("published-field projection", () => {
       src,
       "origin_lon,origin_lat,dest_lon,dest_lat,riders\n1,2,3,4,10\n5,6,7,8,20\n",
     );
-    await ingestFile(src, "flows.csv");
-    const map = createMap("flows");
+    await ingestFile(testAccountScope(), src, "flows.csv");
+    const map = createMap(testAccountScope(), "flows");
     const layer = await createLayer(map.id, {
       name: "l",
       sql: "SELECT * FROM flows",
@@ -573,7 +574,7 @@ describe("published-field projection", () => {
       src,
       "name,secret,riders,lon,lat\na,s1,10,1,2\nb,s2,20,3,4\n",
     );
-    await ingestFile(src, "w.csv");
+    await ingestFile(testAccountScope(), src, "w.csv");
 
     const { getLayer } = await import("@/lib/metadata/maps");
     expect(getLayer("legacy-layer")?.publishedFields).toBeNull();
@@ -595,8 +596,8 @@ describe("published-field projection", () => {
       src,
       "name,seen,lon,lat\na,2021-01-01T00:00:00Z,1,2\nb,2021-06-01T00:00:00Z,3,4\n",
     );
-    await ingestFile(src, "t.csv");
-    const map = createMap("timed");
+    await ingestFile(testAccountScope(), src, "t.csv");
+    const map = createMap(testAccountScope(), "timed");
     const layer = await createLayer(map.id, {
       name: "l",
       sql: "SELECT * FROM t",
@@ -631,7 +632,7 @@ describe("rate limit", () => {
 
 describe("published error disclosure", () => {
   it("an errored view-payload envelope carries the catalogue sentence; the builder keeps the raw diagnostic", async () => {
-    const map = createMap("m");
+    const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, {
       name: "l",
       sql: "SELECT * FROM s",
@@ -763,7 +764,7 @@ describe("published theme", () => {
   it("a duplicated map carries no publication default", async () => {
     const map = await mapWithLayer();
     publishMap(map.id, { theme: "light" });
-    const copy = duplicateMap(map.id);
+    const copy = duplicateMap(testAccountScope(), map.id);
     const { token } = publishMap(copy.id);
     const view = await getPublishedView(token, Date.now());
     expect(view!.theme).toBe("dark");

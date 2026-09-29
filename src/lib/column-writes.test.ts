@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -43,7 +44,7 @@ beforeEach(async () => {
       "r3,C,30,13.42,52.52",
     ].join("\n"),
   );
-  await ingestFile(source, "trips.csv");
+  await ingestFile(testAccountScope(), source, "trips.csv");
 });
 
 afterEach(async () => {
@@ -74,7 +75,7 @@ const constantStyle: LayerStyle = {
 };
 
 async function makeLayer() {
-  const map = createMap("writes");
+  const map = createMap(testAccountScope(), "writes");
   return createLayer(map.id, {
     name: "Trips",
     sql: "SELECT name, cat, val, geometry FROM trips",
@@ -184,8 +185,8 @@ describe("layer style writes", () => {
   it("an unresolvable schema refuses new references but not other writes", async () => {
     const source = path.join(dir, "doomed.csv");
     await writeFile(source, "name,val,lon,lat\nr1,10,13.4,52.5");
-    await ingestFile(source, "doomed.csv");
-    const map = createMap("drift");
+    await ingestFile(testAccountScope(), source, "doomed.csv");
+    const map = createMap(testAccountScope(), "drift");
     const layer = await createLayer(map.id, {
       name: "Doomed",
       sql: "SELECT name, val, geometry FROM doomed",
@@ -203,7 +204,7 @@ describe("layer style writes", () => {
   });
 
   it("a created layer's style references validate", async () => {
-    const map = createMap("creates");
+    const map = createMap(testAccountScope(), "creates");
     const error = await refused(
       createLayer(map.id, {
         name: "bad",
@@ -292,7 +293,7 @@ describe("filter writes", () => {
 
 describe("read lanes stay degradation, never retro-refusal", () => {
   it("a stranded filter errors the render envelope; a stranded widget errors per-widget; unrelated writes keep working", async () => {
-    const map = createMap("drift-reads");
+    const map = createMap(testAccountScope(), "drift-reads");
     const layer = await createLayer(map.id, {
       name: "Trips",
       sql: "SELECT name, cat, val, geometry FROM trips",

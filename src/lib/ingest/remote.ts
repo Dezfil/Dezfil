@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { createWriteStream } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
@@ -375,13 +376,16 @@ async function resolveCredentialedObjectSource(
 /** Import a remote file as one or more tables (spec From URL,
  * materialized; container formats fan out per layer). */
 export async function importFromUrl(
+  scope: AccountScope,
   url: string,
   requestedName?: string,
   projectId?: string | null,
 ): Promise<IngestResult> {
+  requireAccountScope(scope);
   const source = await resolveRemoteSource(url);
   try {
     return await ingestSource(
+      scope,
       source.sourcePath,
       source.filename,
       { source: "url", sourceParams: { url }, projectId },
