@@ -144,7 +144,7 @@ function offerSensitiveWire(vendor: "openai" | "anthropic", label: string) {
 }
 async function drive(provider: ModelProvider, context: AssistantContext, discovery: boolean) {
   const out: AssistantEvent[] = [];
-  for await (const event of runAssistant(provider, { message: "Save these greens as a palette", history: [], context }, { baseUrl: origin, pending: new PendingActionStore(), discovery, stepBudget: 6 })) out.push(event);
+  for await (const event of runAssistant(provider, { message: "Save these greens as a palette", history: [], context }, { scope: testAccountScope(), baseUrl: origin, pending: new PendingActionStore(), discovery, stepBudget: 6 })) out.push(event);
   return out;
 }
 
@@ -220,12 +220,12 @@ describe("a discovered operation stays callable", () => {
     ]);
     void map;
     const out: AssistantEvent[] = [];
-    for await (const event of runAssistant(provider, { message: "Save", history: [], context: builder }, { baseUrl: origin, pending: new PendingActionStore(), stepBudget: 2 })) out.push(event);
+    for await (const event of runAssistant(provider, { message: "Save", history: [], context: builder }, { scope: testAccountScope(), baseUrl: origin, pending: new PendingActionStore(), stepBudget: 2 })) out.push(event);
     expect(out.at(-1)).toEqual({ type: "done", reason: "budget" });
     expect(results(out).map((r) => r.tool)).toEqual([DISCOVERY_TOOL, "create_palette"]);
     const cancelled: AssistantEvent[] = [];
     const late = stubProvider([() => { controller.abort(); return { text: "", toolCalls: [{ id: "find-4", name: DISCOVERY_TOOL, args: { query: "palette" } }] }; }]);
-    for await (const event of runAssistant(late, { message: "Save", history: [], context: builder }, { baseUrl: origin, pending: new PendingActionStore(), signal: controller.signal })) cancelled.push(event);
+    for await (const event of runAssistant(late, { message: "Save", history: [], context: builder }, { scope: testAccountScope(), baseUrl: origin, pending: new PendingActionStore(), signal: controller.signal })) cancelled.push(event);
     expect(cancelled).toEqual([{ type: "done", reason: "interrupted" }]);
   });
 });

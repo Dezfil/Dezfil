@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { randomUUID } from "node:crypto";
 import type { AssistantEvent } from "./loop";
 import type { ProviderCallOptions, ProviderReply } from "./provider";
@@ -11,10 +12,12 @@ import { assistantRuns } from "./runs";
  * the record sees a tool-only reply and a silent observation as plainly
  * as a message. */
 export async function* streamReply(
+  scope: AccountScope,
   request: (options: ProviderCallOptions) => Promise<ProviderReply>,
   signal?: AbortSignal,
   runId?: string,
 ): AsyncGenerator<AssistantEvent, ProviderReply> {
+  requireAccountScope(scope);
   const messageId = randomUUID();
   const chunks: string[] = [];
   let wake: (() => void) | undefined;
@@ -26,7 +29,7 @@ export async function* streamReply(
     (error) => { failure = error; },
   ).finally(() => { settled = true; wake?.(); });
   while (!settled || chunks.length) {
-    while (chunks.length) yield { type: "text_delta", messageId, text: chunks.shift()! };
+    while (chunks.length) { requireAccountScope(scope); yield { type: "text_delta", messageId, text: chunks.shift()! }; }
     if (!settled) await new Promise<void>((resolve) => { wake = resolve; });
   }
   await work;
@@ -35,6 +38,7 @@ export async function* streamReply(
   // One completed response: the identity it reported, or that it reported
   // none. A failure above returns before here, so no answer is recorded
   // for a request that never completed.
-  if (runId) assistantRuns.reported(runId, reply.model);
+  requireAccountScope(scope);
+  if (runId) assistantRuns.reported(scope, runId, reply.model);
   return { ...reply, messageId };
 }

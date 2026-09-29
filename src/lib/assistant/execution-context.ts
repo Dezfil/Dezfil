@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { limits } from "@/lib/limits";
 import { buildTools, type ToolDef } from "@/lib/tools/tools";
 import type { ActionContext } from "./action-execution";
@@ -9,7 +10,7 @@ import type { ProviderExchange } from "./provider";
 import { assistantTools } from "./tool-surface";
 
 export interface LoopDeps {
-  accountId?: string;
+  scope: AccountScope;
   runId?: string;
   grounding?: string;
   tools?: ToolDef[];
@@ -53,12 +54,13 @@ export function makeExecutionContext(
   discovery: boolean,
   turn: TurnFacts = emptyTurnFacts(),
 ): ExecutionContext {
+  requireAccountScope(deps.scope);
   const tools = assistantTools(deps.tools ?? buildTools());
   return {
     turn,
     autoCheck: deps.autoCheck ?? limits.assistantAutoCheck,
     runId: deps.runId,
-    accountId: deps.accountId,
+    scope: deps.scope,
     policy,
     admitted: new Set(admittedTools(policy, tools).map((t) => t.name)),
     offered: new Set(offered),

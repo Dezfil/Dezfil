@@ -115,6 +115,6 @@ describe("the request-to-response budget covers the thumbnail's preparation", ()
     const response = await look(request({ mapId }));
     expect(response.status).toBe(408);
     expect(await response.json()).toMatchObject({ error: { code: "render_timeout" } });
-    expect(lookRetention.size().count).toBe(0);
+    expect(lookRetention.sizeForTests().count).toBe(0);
   });
 });

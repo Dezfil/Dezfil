@@ -376,12 +376,12 @@ describe("a settled gate whose continuation stopped before its call", () => {
       { text: "Never reached", toolCalls: [] },
     ], builder, "Publish the map");
     const pending = stream.find((e): e is Extract<AssistantEvent, { type: "confirm_required" }> => e.type === "confirm_required")!;
-    const parked = pendingActions.claim(pending.id, "approved")!;
-    assistantRuns.resume(runId, "approved");
+    const parked = pendingActions.claim(testAccountScope(), pending.id, "approved")!;
+    assistantRuns.resume(testAccountScope(), runId, "approved");
     const controller = new AbortController(); controller.abort(new DOMException("departed", "AbortError"));
     const out: AssistantEvent[] = [];
-    for await (const event of resumeAssistant(parked, true, { baseUrl: origin, runId, pending: pendingActions, signal: controller.signal })) { assistantRuns.record(runId, event); out.push(event); }
-    assistantRuns.finish(runId);
+    for await (const event of resumeAssistant(parked, true, { scope: testAccountScope(), baseUrl: origin, runId, pending: pendingActions, signal: controller.signal })) { assistantRuns.record(testAccountScope(), runId, event); out.push(event); }
+    assistantRuns.finish(testAccountScope(), runId);
     expect(out).toEqual([{ type: "done", reason: "interrupted" }]);
     const receipt = await receiptOf(runId) as unknown as RunReceipt;
     expect(receipt.state).toBe("interrupted");

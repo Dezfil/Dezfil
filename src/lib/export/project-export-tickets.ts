@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { randomBytes } from "node:crypto";
 import { rm } from "node:fs/promises";
 
@@ -12,6 +13,8 @@ import { rm } from "node:fs/promises";
 export const PROJECT_EXPORT_TICKET_TTL_MS = 60_000;
 
 interface Entry {
+  accountId: string;
+  projectId: string;
   key: string;
   path: string;
   filename: string;
@@ -25,11 +28,12 @@ const discard = (path: string) => {
   void rm(path, { force: true }).catch(() => {});
 };
 
-export function createProjectExportTicket(file: {
+export function createProjectExportTicket(scope: AccountScope, projectId: string, file: {
   path: string;
   filename: string;
   size: number;
 }): { ticket: string; key: string } {
+  const accountId = requireAccountScope(scope);
   const ticket = randomBytes(16).toString("hex");
   const key = randomBytes(16).toString("hex");
   const timer = setTimeout(() => {
@@ -37,7 +41,7 @@ export function createProjectExportTicket(file: {
     discard(file.path);
   }, PROJECT_EXPORT_TICKET_TTL_MS);
   timer.unref?.();
-  entries.set(ticket, { key, ...file, timer });
+  entries.set(ticket, { accountId, projectId, key, ...file, timer });
   return { ticket, key };
 }
 
@@ -45,6 +49,8 @@ export function createProjectExportTicket(file: {
  * call settle() when its stream ends, however it ends — that is what
  * deletes the staged file. */
 export function claimProjectExportTicket(
+  scope: AccountScope,
+  projectId: string,
   ticket: string,
   key: string,
 ): {
@@ -53,8 +59,9 @@ export function claimProjectExportTicket(
   size: number;
   settle: () => void;
 } | null {
+  const accountId = requireAccountScope(scope);
   const entry = entries.get(ticket);
-  if (!entry || entry.key !== key) return null;
+  if (!entry || entry.accountId !== accountId || entry.projectId !== projectId || entry.key !== key) return null;
   clearTimeout(entry.timer);
   entries.delete(ticket);
   return {

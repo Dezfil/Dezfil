@@ -99,7 +99,7 @@ describe("legacy camera recovery", () => {
     expect(definition.viewport).toEqual({ ...ordinary, pitch: 60, lat: 85.051129, zoom: 24 });
     const response = await POST(new Request("http://test", { method: "POST", body: JSON.stringify({ definition }) }), { params: Promise.resolve({ id }) });
     expect(response.status).toBe(200);
-    expect(renderMapImage).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ definition }));
+    expect(renderMapImage).toHaveBeenCalledExactlyOnceWith(testAccountScope(), expect.objectContaining({ definition }));
   });
   it("keeps valid fractional and short-stage cameras unchanged", () => {
     seed({ ...ordinary, zoom: -0.5 });

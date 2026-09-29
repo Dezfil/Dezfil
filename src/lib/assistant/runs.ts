@@ -1,3 +1,5 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { getAccount } from "@/lib/metadata/accounts";
 import type { ActionEffects, ResolvedConfirmation } from "./action-metadata";
 import type { RecordedSubject } from "./record-label";
 import { RECOVERY_LIMITS, compactReceipt, jsonBytes, parkedBytes, recoveryLimit } from "./recovery-data";
@@ -92,7 +94,7 @@ export interface RunReceipt {
    * reported. */
   provenance?: RunProvenance;
 }
-interface RunEntry { accountId?: string; controller?: AbortController; currentText?: { id: string; start: number }; receipt: RunReceipt; fingerprint?: string; createdAt: number }
+interface RunEntry { scope: AccountScope; accountId: string; controller?: AbortController; currentText?: { id: string; start: number }; receipt: RunReceipt; fingerprint?: string; createdAt: number }
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
   if (value !== null && typeof value === "object") return `{${Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([k,v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(",")}}`;
@@ -115,24 +117,24 @@ export class AssistantRunStore {
     if (!this.terminals.includes(id)) this.terminals.push(id);
     while (this.terminals.length > RECOVERY_LIMITS.receipts) this.entries.delete(this.terminals.shift()!);
   }
-  reserve(accountId?: string): RunReceipt {
+  reserve(scope: AccountScope): RunReceipt {
+    const accountId = requireAccountScope(scope);
     this.expire();
     const occupied = [...this.entries.values()].filter(({ receipt }) => ["reserved", "running", "awaiting_confirmation"].includes(receipt.state)).length;
     if (occupied >= RECOVERY_LIMITS.slots) throw new ApiError("assistant_capacity", ERROR_CATALOGUE.assistant_capacity, 409);
     const receipt: RunReceipt = { id: randomUUID(), state: "reserved", text: "", actions: [], incomplete: false };
-    this.entries.set(receipt.id, { receipt, accountId, createdAt: this.now() });
+    this.entries.set(receipt.id, { receipt, scope, accountId, createdAt: this.now() });
     return structuredClone(receipt);
   }
-  requireAccount(id: string, accountId: string): void {
-    if (this.lookup(id).accountId !== accountId) throw new ApiError("assistant_run_unavailable", ERROR_CATALOGUE.assistant_run_unavailable, 404);
-  }
-  read(id: string): RunReceipt { return structuredClone(this.lookup(id).receipt); }
-  pending(accountId?: string): PendingReceipt[] {
+  requireAccount(scope: AccountScope, id: string): void { this.lookup(scope, id); }
+  read(scope: AccountScope, id: string): RunReceipt { return structuredClone(this.lookup(scope, id).receipt); }
+  pending(scope: AccountScope): PendingReceipt[] {
+    const accountId = requireAccountScope(scope);
     this.expire();
-    return structuredClone([...this.entries.values()].flatMap(entry => entry.receipt.pending && (accountId === undefined || entry.accountId === accountId) ? [entry.receipt.pending] : []));
+    return structuredClone([...this.entries.values()].flatMap(entry => entry.receipt.pending && entry.accountId === accountId ? [entry.receipt.pending] : []));
   }
-  release(id: string): string | undefined {
-    const receipt = this.lookup(id).receipt;
+  release(scope: AccountScope, id: string): string | undefined {
+    const receipt = this.lookup(scope, id).receipt;
     if (receipt.state !== "reserved" && receipt.state !== "awaiting_confirmation") throw new ApiError("assistant_run_state", ERROR_CATALOGUE.assistant_run_state, 409);
     const pendingId = receipt.pending?.id;
     receipt.state = pendingId ? "interrupted" : "unavailable";
@@ -145,8 +147,8 @@ export class AssistantRunStore {
   }
   /** Reserve space before admission, including the protected terminal receipt.
    * Result bodies never enter recovery; 4 KiB per action remains for outcome metadata. */
-  admit(id: string, call: { id: string; name: string; args: Record<string, unknown> }) {
-    const receipt = structuredClone(this.lookup(id).receipt);
+  admit(scope: AccountScope, id: string, call: { id: string; name: string; args: Record<string, unknown> }) {
+    const receipt = structuredClone(this.lookup(scope, id).receipt);
     receipt.actions.push({ id: call.id, tool: call.name, args: call.args, status: "attempted" });
     const compact = compactReceipt(receipt, RECOVERY_LIMITS.liveBytes, false);
     // The terminal projection: no action's or settled gate's arguments
@@ -155,12 +157,12 @@ export class AssistantRunStore {
       ...(compact.confirmations ? { confirmations: compact.confirmations.map(({ args, ...identity }) => { void args; return identity; }) } : {}) };
     if (jsonBytes(terminal) + 4096 > RECOVERY_LIMITS.receiptBytes) recoveryLimit();
   }
-  checkPark(id: string, data: unknown) {
-    if (parkedBytes(data) + jsonBytes(this.lookup(id).receipt) > RECOVERY_LIMITS.liveBytes) recoveryLimit();
+  checkPark(scope: AccountScope, id: string, data: unknown) {
+    if (parkedBytes(data) + jsonBytes(this.lookup(scope, id).receipt) > RECOVERY_LIMITS.liveBytes) recoveryLimit();
   }
   /** Synchronous claim before the first await: two callers cannot both win. */
-  bind(id: string, input: unknown): boolean {
-    const entry = this.lookup(id);
+  bind(scope: AccountScope, id: string, input: unknown): boolean {
+    const entry = this.lookup(scope, id);
     const fingerprint = createHash("sha256").update(canonical(input)).digest("hex");
     if (entry.fingerprint !== undefined) {
       if (entry.fingerprint !== fingerprint) throw new ApiError("assistant_run_conflict", ERROR_CATALOGUE.assistant_run_conflict, 409);
@@ -173,26 +175,27 @@ export class AssistantRunStore {
   /** The choice the accepted submission bound, written
    * before any provider request exists, so a run that fails before any
    * answer still says truthfully what it asked for. */
-  bindChoice(id: string, choice: { model: string; effort: string; defaulted: { model: boolean; effort: boolean } }) {
-    const receipt = this.lookup(id).receipt;
+  bindChoice(scope: AccountScope, id: string, choice: { model: string; effort: string; defaulted: { model: boolean; effort: boolean } }) {
+    const receipt = this.lookup(scope, id).receipt;
     (receipt.provenance ??= {}).requested = { model: choice.model, effort: choice.effort, defaulted: { ...choice.defaulted } };
   }
   /** A completed provider response and the identity it reported,
    * written at the provider-completion seam: a reply that only
    * called a tool and an observation that completed silently are recorded
    * exactly like a reply with text. A run the store no longer holds records
-   * nothing — the seam never throws into the loop. */
-  reported(id: string, model?: string) {
+   * nothing. An inactive account refuses before any new fact is retained. */
+  reported(scope: AccountScope, id: string, model?: string) {
+    const accountId = requireAccountScope(scope);
     const entry = this.entries.get(id);
-    if (!entry) return;
+    if (!entry || entry.accountId !== accountId) return;
     const seen = ((entry.receipt.provenance ??= {}).reported ??= []);
     const identity = model ?? null;
     if (!seen.includes(identity)) seen.push(identity);
   }
   /** A resolution re-enters the run; the pending representation becomes a
    * settled record carrying the decision. */
-  resume(id: string, decision: Extract<Decision, "approved" | "declined"> = "approved") {
-    const entry = this.lookup(id); entry.controller = new AbortController(); entry.receipt.state = "running";
+  resume(scope: AccountScope, id: string, decision: Extract<Decision, "approved" | "declined"> = "approved") {
+    const entry = this.lookup(scope, id); entry.controller = new AbortController(); entry.receipt.state = "running";
     this.settle(entry.receipt, decision);
   }
   private settle(receipt: RunReceipt, decision: Decision) {
@@ -200,13 +203,13 @@ export class AssistantRunStore {
     (receipt.confirmations ??= []).push({ ...receipt.pending, decision });
     delete receipt.pending;
   }
-  signal(id: string): AbortSignal { return (this.lookup(id).controller ??= new AbortController()).signal; }
-  cancel(id: string) {
-    const entry = this.lookup(id);
+  signal(scope: AccountScope, id: string): AbortSignal { return (this.lookup(scope, id).controller ??= new AbortController()).signal; }
+  cancel(scope: AccountScope, id: string) {
+    const entry = this.lookup(scope, id);
     if (entry.receipt.state === "running") entry.controller?.abort(new DOMException("Execution departed", "AbortError"));
   }
-  record(id: string, event: AssistantEvent) {
-    const entry = this.lookup(id);
+  record(scope: AccountScope, id: string, event: AssistantEvent) {
+    const entry = this.lookup(scope, id);
     const receipt = structuredClone(entry.receipt);
     if (event.type === "text_delta") {
       if (entry.currentText?.id !== event.messageId) {
@@ -255,23 +258,38 @@ export class AssistantRunStore {
     if (event.type === "error") { receipt.state = "failed"; receipt.error = { code: event.code, message: event.message }; }
     entry.receipt = compactReceipt(receipt, RECOVERY_LIMITS.liveBytes, false);
   }
-  finish(id: string) {
-    const r = this.lookup(id).receipt;
+  finish(scope: AccountScope, id: string) {
+    const r = this.lookup(scope, id).receipt;
     if (r.state === "running") r.state = "completed";
     // A run that completed with an observation still awaited: the model said nothing more.
     if (r.state === "completed") for (const action of r.actions) if (action.observation?.state === "awaited") action.observation = { ...action.observation, state: "silent" };
     if (["completed", "interrupted", "failed"].includes(r.state)) this.retainTerminal(id);
   }
-  fail(id: string, error: { code: string; message: string }) {
-    const r = this.lookup(id).receipt; r.state = "failed"; r.error = { code: error.code, message: error.message };
+  fail(scope: AccountScope, id: string, error: { code: string; message: string }) {
+    const r = this.lookup(scope, id).receipt; r.state = "failed"; r.error = { code: error.code, message: error.message };
     for (const action of r.actions) if (action.observation?.state === "awaited") action.observation = { ...action.observation, state: "interrupted", reason: "failed" };
     this.retainTerminal(id);
   }
-  private lookup(id: string): RunEntry {
+  private lookup(scope: AccountScope, id: string): RunEntry {
+    const accountId = requireAccountScope(scope);
     this.expire();
     const entry = this.entries.get(id);
-    if (!entry) throw new ApiError("assistant_run_unavailable", ERROR_CATALOGUE.assistant_run_unavailable, 404);
+    if (!entry || entry.accountId !== accountId) throw new ApiError("assistant_run_unavailable", ERROR_CATALOGUE.assistant_run_unavailable, 404);
     return entry;
+  }
+  /** Narrow terminal bookkeeping: no content can be supplied or returned,
+   * and an active owner's run cannot be changed through this path. */
+  settleInactive(id: string): boolean {
+    const entry = this.entries.get(id);
+    if (!entry || getAccount(entry.accountId)?.status === "active") return false;
+    if (entry.receipt.state === "running") {
+      entry.controller?.abort(new DOMException("Account is inactive", "AbortError"));
+      entry.receipt.state = "interrupted";
+      entry.receipt.error = { code: "authentication_required", message: "Sign in to continue." };
+      for (const action of entry.receipt.actions) if (action.observation?.state === "awaited") action.observation = { ...action.observation, state: "interrupted", reason: "cancelled" };
+      this.retainTerminal(id);
+    }
+    return true;
   }
   /** Isolate in-process route fixtures, never exposed by the API. */
   resetForTests() { this.entries.clear(); this.terminals = []; }

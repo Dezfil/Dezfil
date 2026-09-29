@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -90,11 +91,11 @@ describe("a refused first submission leaves the reservation as it was", () => {
     // itself, at the documented bound:
     let clock = 1_000_000;
     const store = new AssistantRunStore(() => clock);
-    const id = store.reserve().id;
+    const id = store.reserve(testAccountScope()).id;
     clock += RECOVERY_LIMITS.reservationMs - 1;
-    expect(store.read(id).state).toBe("reserved");
+    expect(store.read(testAccountScope(), id).state).toBe("reserved");
     clock += 1;
-    expect(store.read(id).state).toBe("unavailable");
+    expect(store.read(testAccountScope(), id).state).toBe("unavailable");
   });
 });
 

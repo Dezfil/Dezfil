@@ -1,3 +1,4 @@
+import { resultAccess } from "./openapi-result-access";
 import { mapChildren } from "./openapi-map-children";
 import { layerAccess } from "./openapi-layer-access";
 import { mapAccess } from "./openapi-map-access";
@@ -325,7 +326,7 @@ export const MAP_RESOURCE_PATHS = {
 
 export const MAP_RENDER_PATHS = {
   "/api/maps/look": {
-    post: authenticatedOp(mapAccess({
+    post: authenticatedOp(resultAccess(mapAccess({
       summary: "Look at a map: one bounded rendered image with its facts",
       description:
         "The model-facing check of a map: the map's stored " +
@@ -377,10 +378,10 @@ export const MAP_RENDER_PATHS = {
         "502": { description: "The render failed or the renderer did not report what it drew (render_failed)." },
         "503": { description: "No renderer browser on this instance (render_unavailable)." },
       },
-    })),
+    }))),
   },
   "/api/maps/look/{renderId}": {
-    get: authenticatedOp({
+    get: authenticatedOp(resultAccess({
       summary: "Read the retained image of a map check",
       description:
         "Exactly the PNG a check handed the model, or " +
@@ -405,10 +406,10 @@ export const MAP_RENDER_PATHS = {
         "200": { description: "The PNG, as an attachment.", content: { "image/png": { schema: { type: "string", format: "binary" } } } },
         "404": { description: "Evicted or gone with a restart (look_image_unavailable)." },
       },
-    }),
+    })),
   },
   "/api/maps/{id}/export/image": {
-    post: authenticatedOp(mapAccess({
+    post: authenticatedOp(resultAccess(mapAccess({
       summary: "Render a map to a PNG image",
       description:
         "Server-side image export: the map rendered by " +
@@ -467,7 +468,7 @@ export const MAP_RENDER_PATHS = {
           description: "No renderer browser on this instance.",
         },
       },
-    })),
+    }))),
   },
 };
 

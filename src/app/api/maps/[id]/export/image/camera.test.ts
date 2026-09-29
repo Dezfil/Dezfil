@@ -72,12 +72,12 @@ describe("image camera contract", () => {
     const viewport = { ...camera, [field]: value };
     const response = await submit(viewport);
     expect(response.status).toBe(200);
-    expect(renderMapImage).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ definition: definition(viewport) }));
+    expect(renderMapImage).toHaveBeenCalledExactlyOnceWith(testAccountScope(), expect.objectContaining({ definition: definition(viewport) }));
   });
   it("preserves a fractional camera", async () => {
     const response = await submit(camera);
     expect(response.status).toBe(200);
-    expect(renderMapImage).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ definition: definition(camera) }));
+    expect(renderMapImage).toHaveBeenCalledExactlyOnceWith(testAccountScope(), expect.objectContaining({ definition: definition(camera) }));
   });
   it("keeps the coverage-zoom refusal with the required zoom", async () => {
     const def = definition({ ...camera, zoom: 0 });

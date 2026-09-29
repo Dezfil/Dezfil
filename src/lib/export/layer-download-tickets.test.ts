@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { once } from "node:events";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -44,23 +45,23 @@ describe("layer download tickets — binding and one-use hand-off", () => {
   it("mints a high-entropy opaque token bound to one layer and format", async () => {
     const cleanup = vi.fn(async () => undefined);
     const store = new LayerDownloadTicketStore();
-    const ticket = store.prepare(binding, prepared(cleanup));
+    const ticket = store.prepare(testAccountScope(), binding, prepared(cleanup));
 
     expect(ticket).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    expect(store.status(ticket, binding)).toBe("prepared");
+    expect(store.status(testAccountScope(), ticket, binding)).toBe("prepared");
     expect(
-      store.status(ticket, { layerId: "other", format: "csv" }),
+      store.status(testAccountScope(), ticket, { layerId: "other", format: "csv" }),
     ).toBeNull();
     expect(
-      store.claim(ticket, { layerId: "layer-1", format: "geojson" }),
+      store.claim(testAccountScope(), ticket, { layerId: "layer-1", format: "geojson" }),
     ).toBeNull();
 
-    const claim = store.claim(ticket, binding);
+    const claim = store.claim(testAccountScope(), ticket, binding);
     expect(claim).not.toBeNull();
-    expect(store.status(ticket, binding)).toBe("streaming");
-    expect(store.claim(ticket, binding)).toBeNull();
+    expect(store.status(testAccountScope(), ticket, binding)).toBe("streaming");
+    expect(store.claim(testAccountScope(), ticket, binding)).toBeNull();
     claim!.complete();
-    expect(store.status(ticket, binding)).toBe("complete");
+    expect(store.status(testAccountScope(), ticket, binding)).toBe("complete");
     expect(cleanup).toHaveBeenCalledOnce();
     await store.dispose();
   });
@@ -68,14 +69,14 @@ describe("layer download tickets — binding and one-use hand-off", () => {
   it("never interprets a hostile token as a filesystem path", async () => {
     const cleanup = vi.fn(async () => undefined);
     const store = new LayerDownloadTicketStore({ createToken: () => "safe" });
-    const ticket = store.prepare(binding, prepared(cleanup));
+    const ticket = store.prepare(testAccountScope(), binding, prepared(cleanup));
 
-    expect(store.claim("../../ids.env", binding)).toBeNull();
-    expect(store.status("file:///etc/passwd", binding)).toBeNull();
-    await expect(store.release("../safe", binding)).resolves.toBe(false);
+    expect(store.claim(testAccountScope(), "../../ids.env", binding)).toBeNull();
+    expect(store.status(testAccountScope(), "file:///etc/passwd", binding)).toBeNull();
+    await expect(store.release(testAccountScope(), "../safe", binding)).resolves.toBe(false);
     expect(cleanup).not.toHaveBeenCalled();
 
-    await expect(store.release(ticket, binding)).resolves.toBe(true);
+    await expect(store.release(testAccountScope(), ticket, binding)).resolves.toBe(true);
     expect(cleanup).toHaveBeenCalledOnce();
   });
 
@@ -83,11 +84,11 @@ describe("layer download tickets — binding and one-use hand-off", () => {
     const cleanup = vi.fn(async () => undefined);
     const controller = new AbortController();
     const store = new LayerDownloadTicketStore();
-    const ticket = store.prepare(binding, prepared(cleanup), controller.signal);
+    const ticket = store.prepare(testAccountScope(), binding, prepared(cleanup), controller.signal);
 
     controller.abort();
 
-    expect(store.status(ticket, binding)).toBeNull();
+    expect(store.status(testAccountScope(), ticket, binding)).toBeNull();
     expect(cleanup).toHaveBeenCalledOnce();
     await store.dispose();
   });
@@ -96,14 +97,14 @@ describe("layer download tickets — binding and one-use hand-off", () => {
     const cleanup = vi.fn(async () => undefined);
     const controller = new AbortController();
     const store = new LayerDownloadTicketStore();
-    const ticket = store.prepare(binding, prepared(cleanup), controller.signal);
+    const ticket = store.prepare(testAccountScope(), binding, prepared(cleanup), controller.signal);
 
     expect(
-      store.status(ticket, { layerId: "other", format: "csv" }),
+      store.status(testAccountScope(), ticket, { layerId: "other", format: "csv" }),
     ).toBeNull();
     controller.abort();
 
-    expect(store.status(ticket, binding)).toBeNull();
+    expect(store.status(testAccountScope(), ticket, binding)).toBeNull();
     expect(cleanup).toHaveBeenCalledOnce();
   });
 
@@ -111,28 +112,28 @@ describe("layer download tickets — binding and one-use hand-off", () => {
     const cleanup = vi.fn(async () => undefined);
     const controller = new AbortController();
     const store = new LayerDownloadTicketStore();
-    const ticket = store.prepare(binding, prepared(cleanup), controller.signal);
+    const ticket = store.prepare(testAccountScope(), binding, prepared(cleanup), controller.signal);
 
-    expect(store.status(ticket, binding)).toBe("prepared");
+    expect(store.status(testAccountScope(), ticket, binding)).toBe("prepared");
     controller.abort();
 
-    expect(store.status(ticket, binding)).toBe("prepared");
+    expect(store.status(testAccountScope(), ticket, binding)).toBe("prepared");
     expect(cleanup).not.toHaveBeenCalled();
-    await store.release(ticket, binding);
+    await store.release(testAccountScope(), ticket, binding);
   });
 
   it("a correctly bound claim transfers ownership from the prepare signal", async () => {
     const cleanup = vi.fn(async () => undefined);
     const controller = new AbortController();
     const store = new LayerDownloadTicketStore();
-    const ticket = store.prepare(binding, prepared(cleanup), controller.signal);
+    const ticket = store.prepare(testAccountScope(), binding, prepared(cleanup), controller.signal);
 
-    expect(store.claim(ticket, binding)).not.toBeNull();
+    expect(store.claim(testAccountScope(), ticket, binding)).not.toBeNull();
     controller.abort();
 
-    expect(store.status(ticket, binding)).toBe("streaming");
+    expect(store.status(testAccountScope(), ticket, binding)).toBe("streaming");
     expect(cleanup).not.toHaveBeenCalled();
-    await store.release(ticket, binding);
+    await store.release(testAccountScope(), ticket, binding);
   });
 });
 
@@ -140,11 +141,11 @@ describe("layer download tickets — expiry and release", () => {
   it("unrefs its runtime expiry reaper", async () => {
     const timerSpy = vi.spyOn(globalThis, "setTimeout");
     const store = new LayerDownloadTicketStore();
-    const ticket = store.prepare(binding, prepared());
+    const ticket = store.prepare(testAccountScope(), binding, prepared());
     const timer = timerSpy.mock.results.at(-1)?.value as NodeJS.Timeout;
 
     expect(timer.hasRef()).toBe(false);
-    await store.release(ticket, binding);
+    await store.release(testAccountScope(), ticket, binding);
     timerSpy.mockRestore();
   });
 
@@ -152,17 +153,17 @@ describe("layer download tickets — expiry and release", () => {
     vi.useFakeTimers();
     const cleanup = vi.fn(async () => undefined);
     const store = new LayerDownloadTicketStore();
-    const ticket = store.prepare(binding, prepared(cleanup));
+    const ticket = store.prepare(testAccountScope(), binding, prepared(cleanup));
 
     await vi.advanceTimersByTimeAsync(LAYER_DOWNLOAD_PREPARED_TTL_MS - 1);
     expect(cleanup).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(1);
-    expect(store.status(ticket, binding)).toBe("failed");
+    expect(store.status(testAccountScope(), ticket, binding)).toBe("failed");
     expect(cleanup).toHaveBeenCalledOnce();
 
     await vi.advanceTimersByTimeAsync(LAYER_DOWNLOAD_TOMBSTONE_TTL_MS);
-    expect(store.status(ticket, binding)).toBeNull();
+    expect(store.status(testAccountScope(), ticket, binding)).toBeNull();
     await store.dispose();
   });
 
@@ -171,20 +172,20 @@ describe("layer download tickets — expiry and release", () => {
     const cleanup = vi.fn(async () => undefined);
     const abort = vi.fn();
     const store = new LayerDownloadTicketStore();
-    const ticket = store.prepare(binding, prepared(cleanup));
-    const claim = store.claim(ticket, binding)!;
+    const ticket = store.prepare(testAccountScope(), binding, prepared(cleanup));
+    const claim = store.claim(testAccountScope(), ticket, binding)!;
     expect(claim.registerAbort(abort)).toBe(true);
 
     await vi.advanceTimersByTimeAsync(
       LAYER_DOWNLOAD_PREPARED_TTL_MS + LAYER_DOWNLOAD_TOMBSTONE_TTL_MS + 1,
     );
-    expect(store.status(ticket, binding)).toBe("streaming");
+    expect(store.status(testAccountScope(), ticket, binding)).toBe("streaming");
     expect(cleanup).not.toHaveBeenCalled();
 
-    await expect(store.release(ticket, binding)).resolves.toBe(true);
+    await expect(store.release(testAccountScope(), ticket, binding)).resolves.toBe(true);
     expect(abort).not.toHaveBeenCalled();
     expect(cleanup).not.toHaveBeenCalled();
-    expect(store.status(ticket, binding)).toBe("streaming");
+    expect(store.status(testAccountScope(), ticket, binding)).toBe("streaming");
     await store.dispose();
     expect(abort).toHaveBeenCalledOnce();
     expect(cleanup).toHaveBeenCalledOnce();
@@ -193,14 +194,14 @@ describe("layer download tickets — expiry and release", () => {
   it("keeps settled state for one tombstone window", async () => {
     vi.useFakeTimers();
     const store = new LayerDownloadTicketStore();
-    const ticket = store.prepare(binding, prepared());
-    store.claim(ticket, binding)!.fail();
+    const ticket = store.prepare(testAccountScope(), binding, prepared());
+    store.claim(testAccountScope(), ticket, binding)!.fail();
 
-    expect(store.status(ticket, binding)).toBe("failed");
+    expect(store.status(testAccountScope(), ticket, binding)).toBe("failed");
     await vi.advanceTimersByTimeAsync(LAYER_DOWNLOAD_TOMBSTONE_TTL_MS - 1);
-    expect(store.status(ticket, binding)).toBe("failed");
+    expect(store.status(testAccountScope(), ticket, binding)).toBe("failed");
     await vi.advanceTimersByTimeAsync(1);
-    expect(store.status(ticket, binding)).toBeNull();
+    expect(store.status(testAccountScope(), ticket, binding)).toBeNull();
   });
 });
 
@@ -208,8 +209,8 @@ describe("layer download tickets — stream truth", () => {
   function streamCase() {
     const cleanup = vi.fn(async () => undefined);
     const store = new LayerDownloadTicketStore();
-    const ticket = store.prepare(binding, prepared(cleanup));
-    const claim = store.claim(ticket, binding)!;
+    const ticket = store.prepare(testAccountScope(), binding, prepared(cleanup));
+    const claim = store.claim(testAccountScope(), ticket, binding)!;
     const stream = new PassThrough();
     const controller = new AbortController();
     expect(observeLayerDownloadStream(stream, controller.signal, claim)).toBe(
@@ -224,7 +225,7 @@ describe("layer download tickets — stream truth", () => {
     stream.end("download bytes");
     await once(stream, "end");
 
-    expect(store.status(ticket, binding)).toBe("complete");
+    expect(store.status(testAccountScope(), ticket, binding)).toBe("complete");
     expect(cleanup).toHaveBeenCalledOnce();
     await closed(stream);
     await store.dispose();
@@ -235,7 +236,7 @@ describe("layer download tickets — stream truth", () => {
     stream.destroy(new Error("seeded read failure"));
     await closed(stream);
 
-    expect(store.status(ticket, binding)).toBe("failed");
+    expect(store.status(testAccountScope(), ticket, binding)).toBe("failed");
     expect(cleanup).toHaveBeenCalledOnce();
     await store.dispose();
   });
@@ -246,7 +247,7 @@ describe("layer download tickets — stream truth", () => {
     await closed(stream);
 
     expect(stream.destroyed).toBe(true);
-    expect(store.status(ticket, binding)).toBe("failed");
+    expect(store.status(testAccountScope(), ticket, binding)).toBe("failed");
     expect(cleanup).toHaveBeenCalledOnce();
     await store.dispose();
   });
@@ -256,17 +257,17 @@ describe("layer download tickets — stream truth", () => {
     stream.resume();
     stream.write("download bytes");
 
-    await expect(store.release(ticket, binding)).resolves.toBe(true);
+    await expect(store.release(testAccountScope(), ticket, binding)).resolves.toBe(true);
 
     expect(stream.destroyed).toBe(false);
-    expect(store.status(ticket, binding)).toBe("streaming");
+    expect(store.status(testAccountScope(), ticket, binding)).toBe("streaming");
     expect(cleanup).not.toHaveBeenCalled();
 
     const ended = once(stream, "end");
     stream.end();
     await ended;
 
-    expect(store.status(ticket, binding)).toBe("complete");
+    expect(store.status(testAccountScope(), ticket, binding)).toBe("complete");
     expect(cleanup).toHaveBeenCalledOnce();
     await closed(stream);
     await store.dispose();
@@ -277,7 +278,7 @@ describe("layer download tickets — stream truth", () => {
     stream.destroy();
     await closed(stream);
 
-    expect(store.status(ticket, binding)).toBe("failed");
+    expect(store.status(testAccountScope(), ticket, binding)).toBe("failed");
     expect(cleanup).toHaveBeenCalledOnce();
     await store.dispose();
   });

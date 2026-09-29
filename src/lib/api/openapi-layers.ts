@@ -1,3 +1,4 @@
+import { resultAccess } from "./openapi-result-access";
 import { tileAccess } from "./openapi-tile-access";
 import { layerAccess } from "./openapi-layer-access";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE } from "./operation-mcp";
@@ -156,7 +157,7 @@ export const LAYER_RESOURCE_PATHS = {
 
 export const LAYER_QUERY_PATHS = {
   "/api/layers/{id}/export/{format}": {
-    get: op(layerAccess({
+    get: op(resultAccess(layerAccess({
       summary: "Download a layer's effective result",
       description:
         "The layer's effective result as a file download: " +
@@ -205,7 +206,7 @@ export const LAYER_QUERY_PATHS = {
             "errors.",
         },
       },
-    })),
+    }))),
   },
   "/api/layers/{id}/render": {
     get: op(tileAccess(layerAccess({

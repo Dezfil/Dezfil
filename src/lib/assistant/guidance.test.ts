@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -23,7 +24,7 @@ const NEEDLE = "a plain box overlap loses the matches the distance is for";
 
 async function capturedSystem(): Promise<string> {
   const provider = stubProvider([{ text: "Hello.", toolCalls: [] }]);
-  const events = runAssistant(provider, { message: "Hi", history: [] }, { baseUrl: "http://127.0.0.1:3000", pending: new PendingActionStore() });
+  const events = runAssistant(provider, { message: "Hi", history: [] }, { scope: testAccountScope(), baseUrl: "http://127.0.0.1:3000", pending: new PendingActionStore() });
   for await (const event of events) void event;
   return provider.recording.exchanges[0].options.system;
 }

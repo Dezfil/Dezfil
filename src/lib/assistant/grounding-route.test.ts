@@ -99,7 +99,7 @@ describe("grounding through real message and resource routes", () => {
     const initial = await post({ message: "Delete this layer", context });
     const events = (await initial.text()).trim().split("\n").map((line) => JSON.parse(line));
     const pending = events.find((event) => event.type === "confirm_required").id;
-    expect(pendingActions.peek(pending)?.calls[0].args).toEqual({ id: layer.id });
+    expect(pendingActions.peek(testAccountScope(), pending)?.calls[0].args).toEqual({ id: layer.id });
     await updateMap(testAccountScope(), map.id, { name: "Name changed while pending" });
     await updateLayer(testAccountScope(), layer.id, { visible: false });
     const csv = path.join(dir, "later.csv"); await writeFile(csv, "later_column\n9\n"); await ingestFile(testAccountScope(), csv, "later.csv");

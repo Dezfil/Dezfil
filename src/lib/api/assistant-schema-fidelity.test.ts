@@ -88,16 +88,16 @@ async function exhaustedRun(): Promise<{ events: AssistantEvent[]; receipt: RunR
     { text: "", toolCalls: [call("look_at_map", { mapId })] },
     { text: "never asked", toolCalls: [] },
   ]);
-  const run = assistantRuns.reserve();
-  assistantRuns.bind(run.id, { message: "go" });
+  const run = assistantRuns.reserve(testAccountScope());
+  assistantRuns.bind(testAccountScope(), run.id, { message: "go" });
   const events: AssistantEvent[] = [];
   for await (const event of runAssistant(provider, { message: "go", history: [], context: builderContext(mapId, null, "dark") },
-    { baseUrl: origin, fetchImpl: instanceFetch(origin, requireRequestAuth(authenticatedRequest())), pending: new PendingActionStore(), stepBudget: 2, runId: run.id })) {
+    { scope: testAccountScope(), baseUrl: origin, fetchImpl: instanceFetch(origin, requireRequestAuth(authenticatedRequest())), pending: new PendingActionStore(), stepBudget: 2, runId: run.id })) {
     events.push(event);
-    assistantRuns.record(run.id, event);
+    assistantRuns.record(testAccountScope(), run.id, event);
   }
-  assistantRuns.finish(run.id);
-  return { events, receipt: assistantRuns.read(run.id) };
+  assistantRuns.finish(testAccountScope(), run.id);
+  return { events, receipt: assistantRuns.read(testAccountScope(), run.id) };
 }
 
 /** The terminal compaction's own output: the production function driven
@@ -220,14 +220,14 @@ describe("the model choice's documented shapes", () => {
     vi.stubEnv("DEZFIL_AI_MODELS_OPENAI", "gpt-6-astra, gpt-5.6-nova");
     const status = await (await dispatchAssistantTestRoute(new Request(`${origin}/api/assistant`))).json() as { models: { id: string; efforts: unknown[] }[] };
     expect(status.models.map((choice) => choice.id)).toEqual(["gpt-5.6-terra", "gpt-6-astra", "gpt-5.6-nova"]);
-    const run = assistantRuns.reserve();
-    assistantRuns.bind(run.id, { message: "go" });
-    assistantRuns.bindChoice(run.id, { model: "gpt-6-astra", effort: "xhigh", defaulted: { model: false, effort: false } });
-    assistantRuns.reported(run.id, "gpt-6-astra-2026-09-01");
+    const run = assistantRuns.reserve(testAccountScope());
+    assistantRuns.bind(testAccountScope(), run.id, { message: "go" });
+    assistantRuns.bindChoice(testAccountScope(), run.id, { model: "gpt-6-astra", effort: "xhigh", defaulted: { model: false, effort: false } });
+    assistantRuns.reported(testAccountScope(), run.id, "gpt-6-astra-2026-09-01");
     // A second response that named nothing: the null entry the schema has to admit.
-    assistantRuns.reported(run.id, undefined);
-    assistantRuns.finish(run.id);
-    const receipt = assistantRuns.read(run.id);
+    assistantRuns.reported(testAccountScope(), run.id, undefined);
+    assistantRuns.finish(testAccountScope(), run.id);
+    const receipt = assistantRuns.read(testAccountScope(), run.id);
     expect(receipt.provenance?.reported).toEqual(["gpt-6-astra-2026-09-01", null]);
     expect({
       status: check(status, "AssistantStatus"),

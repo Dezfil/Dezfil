@@ -28,7 +28,7 @@ beforeEach(async () => {
   signed = await createFirstAccount({ name: "Caller", email: "caller@example.test", password: "field notebooks at dawn" }, db);
   token = createApiToken(authenticateSession(signed.secret, db)!, "Render CLI", db); mapId = createMap(accountScope(authenticateSession(signed.secret, db)!, db), "Private image").id;
   lookRetention.resetForTests();
-  vi.mocked(renderMapImage).mockReset().mockImplementation(async input => ({
+  vi.mocked(renderMapImage).mockReset().mockImplementation(async (_scope, input) => ({
     png: encodePng({ width: 64, height: 40, rgba: new Uint8Array(64 * 40 * 4).fill(200) }), abandoned: [],
     consumed: JSON.stringify({ map: input.mapId, layers: [], legend: { visible: false, corner: "bottom-left", order: [] }, widgets: [], attribution: "Fixture", failures: [] }),
   }));
@@ -45,7 +45,7 @@ function invoke(operation: string, headers: Record<string, string>) {
   if (operation === "look") return look(request("/api/maps/look", "POST", { mapId }, headers));
   return retained(request("/api/maps/look/missing", "GET", undefined, headers), { params: Promise.resolve({ renderId: "missing" }) });
 }
-const state = () => ({ maps: db.prepare("SELECT * FROM maps").all(), retained: lookRetention.ids(), launches: vi.mocked(renderMapImage).mock.calls.length });
+const state = () => ({ maps: db.prepare("SELECT * FROM maps").all(), retained: lookRetention.idsForTests(), launches: vi.mocked(renderMapImage).mock.calls.length });
 for (const operation of ["image", "look", "retained"]) {
   it.each(["anonymous", "invalid", "revoked-cookie", "revoked-token", "deactivated"])(`${operation} refuses %s before private work`, async mode => {
     let headers: Record<string, string> = {};
@@ -73,7 +73,7 @@ it.each(["cookie", "token"])("%s identity reaches both render paths without ente
   for (const operation of ["image", "look"]) {
     const response = await invoke(operation, headers); expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
-    const input = vi.mocked(renderMapImage).mock.calls.at(-1)![0] as Parameters<typeof renderMapImage>[0] & { credential?: string };
+    const input = vi.mocked(renderMapImage).mock.calls.at(-1)![1] as Parameters<typeof renderMapImage>[1] & { credential?: string };
     expect(typeof input.credential).toBe("string");
     expect(authenticateDelegation(input.credential!, db)).toMatchObject({ account: { id: signed.account.id, isAdmin: false },
       credential: { kind: mode === "cookie" ? "session" : "token" } });
@@ -81,12 +81,12 @@ it.each(["cookie", "token"])("%s identity reaches both render paths without ente
     expect(input.credential).not.toContain(token.secret);
     expect(input.credential).not.toContain(signed.secret);
     expect(input.baseUrl).toBe(origin);
-    const responseBytes = await response.text(), facts = JSON.stringify(lookRetention.ids().map(id => lookRetention.facts(id)));
+    const responseBytes = await response.text(), facts = JSON.stringify(lookRetention.idsForTests().map(id => lookRetention.facts(accountScope(authenticateSession(signed.secret, db)!, db), id)));
     for (const value of [responseBytes, facts, JSON.stringify(input.definition), input.baseUrl]) {
       expect(value).not.toContain(token.secret); expect(value).not.toContain(signed.secret); expect(value).not.toContain("dz_delegation_");
     }
   }
-  const renderId = lookRetention.ids()[0];
+  const renderId = lookRetention.idsForTests()[0];
   const response = await retained(request(`/api/maps/look/${renderId}`, "GET", undefined, headers), { params: Promise.resolve({ renderId }) });
   expect(response.status).toBe(200); expect(response.headers.get("cache-control")).toBe("private, no-store");
 });

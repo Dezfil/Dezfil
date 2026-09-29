@@ -1,3 +1,4 @@
+import { resultAccess } from "./openapi-result-access";
 import { projectAccess } from "./openapi-project-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { PROJECT_EXPORT_TICKET } from "./openapi-tool-responses";
@@ -189,7 +190,7 @@ export const PROJECT_PATHS = {
     })),
   },
   "/api/projects/{id}/export": {
-    post: op(projectAccess({
+    post: op(resultAccess(projectAccess({
       summary: "Export a project as one archive",
       description:
         "A chosen subset of the project's members as one zip: " +
@@ -285,8 +286,8 @@ export const PROJECT_PATHS = {
           },
         },
       },
-    })),
-    get: op({
+    }))),
+    get: op(resultAccess({
       summary: "Redeem a prepared project export",
       description:
         "The second half of the page's download road: a ticket " +
@@ -325,7 +326,7 @@ export const PROJECT_PATHS = {
           },
         },
       },
-    }),
+    })),
   },
 };
 

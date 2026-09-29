@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { testClient } from "@/lib/mcp/test-client";
@@ -20,7 +21,7 @@ import {
  * captures it: the bytes the fixture is a capture of. */
 async function capturedSystem(): Promise<string> {
   const provider = stubProvider([{ text: "Hello.", toolCalls: [] }]);
-  for await (const event of runAssistant(provider, { message: "Hi", history: [] }, { baseUrl: "http://127.0.0.1:3391", pending: new PendingActionStore() })) void event;
+  for await (const event of runAssistant(provider, { message: "Hi", history: [] }, { scope: testAccountScope(), baseUrl: "http://127.0.0.1:3391", pending: new PendingActionStore() })) void event;
   return provider.recording.exchanges[0].options.system;
 }
 

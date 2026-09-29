@@ -182,15 +182,15 @@ describe("1j through the loop: no event and no receipt carries the bytes", () =>
   it("the model reads the decoded bytes while the events and the receipt hold only the facts", async () => {
     const stub = stubProvider([{ text: "", toolCalls: [{ id: "c1", name: "look_at_map", args: { mapId } }] }, { text: "One flat image.", toolCalls: [] }]);
     const runs = assistantRuns; runs.resetForTests();
-    const run = runs.reserve(); runs.bind(run.id, { message: "look" });
+    const run = runs.reserve(testAccountScope()); runs.bind(testAccountScope(), run.id, { message: "look" });
     const events: AssistantEvent[] = [];
-    for await (const event of runAssistant(stub, { message: "look", history: [], context: { page: "builder", mapId, selectedLayerId: null } }, { baseUrl: "http://127.0.0.1:3311", fetchImpl: instanceFetch("http://127.0.0.1:3311", requireRequestAuth(authenticatedRequest())), pending: new PendingActionStore(), runId: run.id })) { events.push(event); runs.record(run.id, event); }
-    runs.finish(run.id);
+    for await (const event of runAssistant(stub, { message: "look", history: [], context: { page: "builder", mapId, selectedLayerId: null } }, { scope: testAccountScope(), baseUrl: "http://127.0.0.1:3311", fetchImpl: instanceFetch("http://127.0.0.1:3311", requireRequestAuth(authenticatedRequest())), pending: new PendingActionStore(), runId: run.id })) { events.push(event); runs.record(testAccountScope(), run.id, event); }
+    runs.finish(testAccountScope(), run.id);
     const outcome = stub.recording.exchanges[0].outcomes[0][0];
     expect(Buffer.from(outcome.image!.data).equals(Buffer.from(FIXTURE))).toBe(true);
     expect(outcome.body).not.toContain(B64.slice(0, 40));
     expect(JSON.stringify(events)).not.toContain(B64.slice(0, 40));
-    expect(JSON.stringify(runs.read(run.id))).not.toContain(B64.slice(0, 40));
+    expect(JSON.stringify(runs.read(testAccountScope(), run.id))).not.toContain(B64.slice(0, 40));
     const result = events.find((e): e is Extract<AssistantEvent, { type: "tool_result" }> => e.type === "tool_result")!;
     expect(result.render).toMatchObject({ mapId, image: { width: 1024, height: 640, bytes: FIXTURE.byteLength } });
     expect((result.body as { image?: unknown }).image).toBeUndefined();

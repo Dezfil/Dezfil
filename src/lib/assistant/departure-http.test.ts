@@ -139,7 +139,7 @@ it("a dispatched mutation settles after outer disconnect and admits no next step
   const id = await reserveId(); const controller = new AbortController();
   const response = await post("/api/assistant/messages", { runId: id, message: "Create" }, controller.signal);
   await entered.promise; controller.abort();
-  await expect.poll(() => assistantRuns.signal(id).aborted).toBe(true);
+  await expect.poll(() => assistantRuns.signal(testAccountScope(), id).aborted).toBe(true);
   expect((await receipt(id)).state).toBe("running"); release.resolve(); await interrupted(id);
   const maps = await (await fetch(origin + "/api/maps")).json(); expect(maps).toHaveLength(1); expect(maps[0].name).toBe("Settled map");
   expect((await receipt(id)).actions).toEqual([expect.objectContaining({ id: "once", status: "succeeded", effects: { readOnly: false, writes: [{ resource: "maps", ids: [maps[0].id], collection: false }, { resource: "projects", ids: [], collection: true }] } })]);
@@ -166,7 +166,7 @@ it("closing a duplicate observer leaves execution alone; explicit cancellation s
   const execution = post("/api/assistant/messages", body); await entered.promise;
   const observation = await post("/api/assistant/messages", body); await observation.body!.cancel();
   const read = await fetch(`${origin}/api/assistant/runs/${id}`); await read.body!.cancel();
-  expect(assistantRuns.signal(id).aborted).toBe(false); expect((await receipt(id)).state).toBe("running");
+  expect(assistantRuns.signal(testAccountScope(), id).aborted).toBe(false); expect((await receipt(id)).state).toBe("running");
   await post(`/api/assistant/runs/${id}/cancel`, {}); await aborted.promise; await (await execution).text(); await interrupted(id);
 });
 

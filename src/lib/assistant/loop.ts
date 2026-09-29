@@ -1,3 +1,5 @@
+import { AuthError } from "@/lib/auth/errors";
+import { requireAccountScope } from "@/lib/auth/scope";
 import { assistantTools, assistantCall } from "./tool-surface";
 import { streamReply } from "./provider-step";
 import { ApiError } from "@/lib/api/errors";
@@ -121,6 +123,7 @@ export async function* runAssistant(
   input: RunInput,
   deps: LoopDeps,
 ): AsyncGenerator<AssistantEvent> {
+  requireAccountScope(deps.scope);
   if (deps.signal?.aborted) { yield { type: "done", reason: "interrupted" }; return; }
   // The policy binds here, at the first accepted submission: the model
   // is offered only what the run admits.
@@ -145,7 +148,7 @@ export async function* runAssistant(
 
   let reply;
   try {
-    reply = yield* streamReply((options) => exchange.send(input.message, options), ctx.signal, ctx.runId);
+    reply = yield* streamReply(ctx.scope, (options) => exchange.send(input.message, options), ctx.signal, ctx.runId);
   } catch (error) {
     yield ctx.signal?.aborted ? { type: "done", reason: "interrupted" } : errorEvent(error);
     return;
@@ -161,6 +164,7 @@ export async function* resumeAssistant(
   approved: boolean,
   deps: LoopDeps,
 ): AsyncGenerator<AssistantEvent> {
+  if (requireAccountScope(deps.scope) !== parked.accountId) throw new ApiError("pending_unknown", "No such pending action. It may have expired with the server's working state.", 404);
   // The parked run's own policy, never the resolving request's: a
   // continuation admits what the original submission admitted.
   const ctx = makeExecutionContext(deps, parked.headers, parked.exchange, parked.policy, parked.offered ?? [], parked.discovery ?? false, parked.turn ?? emptyTurnFacts());
@@ -209,7 +213,7 @@ export async function* resumeAssistant(
   }
   let reply;
   try {
-    reply = yield* streamReply((options) => ctx.exchange.continueWith(batch.outcomes, options), ctx.signal, ctx.runId);
+    reply = yield* streamReply(ctx.scope, (options) => ctx.exchange.continueWith(batch.outcomes, options), ctx.signal, ctx.runId);
   } catch (error) {
     yield ctx.signal?.aborted ? { type: "done", reason: "interrupted" } : errorEvent(error);
     return;
@@ -225,6 +229,7 @@ async function* runFromReply(
   steps: number,
 ): AsyncGenerator<AssistantEvent> {
   while (true) {
+    requireAccountScope(ctx.scope);
     if (ctx.signal?.aborted) { yield { type: "done", reason: "interrupted" }; return; }
     if (reply.text) yield { type: "message", text: reply.text, messageId: reply.messageId, ...(reply.model ? { model: reply.model } : {}) };
     // The observation: the first sentence of the text that follows a
@@ -256,7 +261,7 @@ async function* runFromReply(
     }
 
     try {
-      reply = yield* streamReply((options) => ctx.exchange.continueWith(batch.outcomes, options), ctx.signal, ctx.runId);
+      reply = yield* streamReply(ctx.scope, (options) => ctx.exchange.continueWith(batch.outcomes, options), ctx.signal, ctx.runId);
     } catch (error) {
       yield ctx.signal?.aborted ? { type: "done", reason: "interrupted" } : errorEvent(error);
       return;
@@ -288,7 +293,7 @@ async function* processCalls(
     // step spent like any call, admission untouched.
     if (ctx.discovery && raw.name === DISCOVERY_TOOL) {
       const call = raw;
-      if (ctx.runId) assistantRuns.admit(ctx.runId, call);
+      if (ctx.runId) assistantRuns.admit(ctx.scope, ctx.runId, call);
       const query = typeof call.args.query === "string" ? call.args.query : "";
       const label = `Looked up operations for ${JSON.stringify(query)}`;
       yield { type: "tool_call", id: call.id, tool: call.name, args: call.args, effects: noEffects, label };
@@ -334,7 +339,7 @@ async function* processCalls(
     // arrived.
     if (!ctx.admitted.has(call.name)) {
       const body = { error: { code: POLICY_REFUSAL_CODE, message: ERROR_CATALOGUE.assistant_action_not_admitted } };
-      if (ctx.runId) assistantRuns.admit(ctx.runId, call);
+      if (ctx.runId) assistantRuns.admit(ctx.scope, ctx.runId, call);
       yield { type: "tool_result", id: call.id, tool: call.name, ok: false, body, args: call.args, effects: actionEffects(tool, call.args), outcome: "refused", ...words(tool, call.args) };
       batch.outcomes.push({ toolCallId: call.id, body: JSON.stringify(body), isError: true });
       batch.index += 1;
@@ -356,10 +361,9 @@ async function* processCalls(
     try { confirmation = await prepareConfirmation(tool, call, ctx); }
     catch (error) { yield ctx.signal?.aborted ? { type: "done", reason: "interrupted" } : errorEvent(error); return true; }
     if (ctx.signal?.aborted) { yield { type: "done", reason: "interrupted" }; return true; }
-    if (ctx.runId) assistantRuns.admit(ctx.runId, call);
+    if (ctx.runId) assistantRuns.admit(ctx.scope, ctx.runId, call);
     if (confirmation) {
       const parked = {
-        accountId: ctx.accountId,
         confirmation: confirmation.words,
         historyMapId: subjectFacts(confirmation.subject)?.mapId,
         runId: ctx.runId,
@@ -378,9 +382,9 @@ async function* processCalls(
       if (ctx.runId) {
         const { exchange, ...data } = parked;
         void exchange;
-        assistantRuns.checkPark(ctx.runId, { ...data, pendingArguments: call.args });
+        assistantRuns.checkPark(ctx.scope, ctx.runId, { ...data, pendingArguments: call.args });
       }
-      const id = ctx.store.park(parked);
+      const id = ctx.store.park(ctx.scope, parked);
       yield { type: "confirm_required", id, tool: call.name, args: call.args, callId: call.id, confirmation: confirmation.words, effects: actionEffects(tool, call.args) };
       yield { type: "done", reason: "end" };
       return true;
@@ -420,7 +424,7 @@ async function* observed<R>(ctx: ExecutionContext, events: AsyncGenerator<Assist
 }
 
 function errorEvent(error: unknown): AssistantEvent {
-  if (error instanceof ApiError) return { type: "error", code: error.code, message: error.message };
+  if (error instanceof ApiError || error instanceof AuthError) return { type: "error", code: error.code, message: error.message };
   if (error instanceof ProviderError) {
     return {
       type: "error",

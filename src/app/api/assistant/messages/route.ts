@@ -1,3 +1,4 @@
+import { accountScope, type AccountScope } from "@/lib/auth/scope";
 import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
 import { requireCurrentActor } from "@/lib/auth/credentials";
 import { instanceFetch } from "@/lib/auth/instance-fetch";
@@ -73,10 +74,12 @@ function parseResolution(raw: unknown): { pending: string; approved: boolean } {
 }
 
 export async function POST(request: Request) {
+  let scope: AccountScope | undefined;
   let claimedRun: string | undefined;
   let control: ExecutionControl | undefined;
   try {
     const actor = requireRequestAuth(request);
+    scope = accountScope(actor);
     const baseUrl = selfBaseUrl(request);
     const fetchImpl = instanceFetch(baseUrl, actor);
     const availability = assistantAvailability();
@@ -96,18 +99,15 @@ export async function POST(request: Request) {
         );
       }
       const { pending, approved } = parseResolution(body.resolution);
-      const original = pendingActions.peek(pending);
-      if (original && original.accountId !== actor.account.id) {
-        throw new ApiError("pending_unknown", "No such pending action.", 404);
-      }
+      const original = pendingActions.peek(scope, pending);
       const grounding = original ? await loadGrounding(original.context, baseUrl, fetchImpl, request.signal) : undefined;
       requireCurrentActor(actor);
-      const parked = pendingActions.claim(
+      const parked = pendingActions.claim(scope,
         pending,
         approved ? "approved" : "declined",
       );
       if (!parked) {
-        const how = pendingActions.resolutionOf(pending, actor.account.id);
+        const how = pendingActions.resolutionOf(scope, pending);
         if (how === "superseded") {
           throw new ApiError(
             "pending_superseded",
@@ -129,12 +129,12 @@ export async function POST(request: Request) {
         );
       }
       claimedRun = parked.runId;
-      if (claimedRun) { assistantRuns.resume(claimedRun, approved ? "approved" : "declined"); control = executionControl(claimedRun, request.signal); }
-      return privateResponse(runStream(
+      if (claimedRun) { assistantRuns.resume(scope, claimedRun, approved ? "approved" : "declined"); control = executionControl(scope, claimedRun, request.signal); }
+      return privateResponse(runStream(scope,
         resumeAssistant(parked, approved, {
           grounding,
           runId: claimedRun,
-          baseUrl, fetchImpl, accountId: actor.account.id,
+          baseUrl, fetchImpl, scope,
           signal: control?.signal ?? request.signal,
         }),
         claimedRun,
@@ -152,11 +152,7 @@ export async function POST(request: Request) {
     if (typeof body.runId !== "string" || !body.runId) {
       throw new ApiError("assistant_reservation_required", ERROR_CATALOGUE.assistant_reservation_required, 400);
     }
-    assistantRuns.requireAccount(body.runId, actor.account.id);
-    if (typeof body.supersedes === "string") {
-      const abandoned = pendingActions.peek(body.supersedes);
-      if (abandoned && abandoned.accountId !== actor.account.id) throw new ApiError("pending_unknown", "No such pending action.", 404);
-    }
+    assistantRuns.requireAccount(scope, body.runId);
     const context = parseAssistantContext(body.context);
     // The choice this run will be bound to. Resolved and judged before the
     // run binds, so a refused submission spends nothing and the
@@ -165,23 +161,23 @@ export async function POST(request: Request) {
     if (!current.enabled) throw new ApiError("assistant_disabled", current.reason, 404);
     const choice = chooseForRequest(body.choice, current);
     const { runId, ...submission } = body;
-    if (!assistantRuns.bind(runId, submission)) {
-      return privateResponse(Response.json(assistantRuns.read(runId)));
+    if (!assistantRuns.bind(scope, runId, submission)) {
+      return privateResponse(Response.json(assistantRuns.read(scope, runId)));
     }
     claimedRun = runId;
     // What this run asked for, recorded before any provider request
     // exists: a run that fails before an answer still says it.
-    assistantRuns.bindChoice(runId, choice);
-    control = executionControl(runId, request.signal);
+    assistantRuns.bindChoice(scope, runId, choice);
+    control = executionControl(scope, runId, request.signal);
     const grounding = await loadGrounding(context, baseUrl, fetchImpl, control.signal);
     requireCurrentActor(actor);
     // The implicit decline: the client abandons the shown confirmation
     // by naming it. Unknown ids are ignored — abandoning an already-gone
     // action is not an error.
     if (typeof body.supersedes === "string") {
-      const abandoned = pendingActions.peek(body.supersedes);
-      if (abandoned?.runId) assistantRuns.release(abandoned.runId);
-      pendingActions.supersede(body.supersedes);
+      const abandoned = pendingActions.peek(scope, body.supersedes);
+      if (abandoned?.runId) assistantRuns.release(scope, abandoned.runId);
+      pendingActions.supersede(scope, body.supersedes);
     }
 
     const provider = createProvider({ model: choice.model, effort: choice.effort });
@@ -195,20 +191,21 @@ export async function POST(request: Request) {
       );
     }
 
-    return privateResponse(runStream(
+    return privateResponse(runStream(scope,
       runAssistant(
         provider,
         { message: body.message, history: parseHistory(body.history), context },
         // The page action policy binds with the context here.
-        { baseUrl, fetchImpl, accountId: actor.account.id, signal: control.signal, grounding, runId, policy: policyFor(context) },
+        { baseUrl, fetchImpl, scope, signal: control.signal, grounding, runId, policy: policyFor(context) },
       ),
       runId,
       control,
     ));
   } catch (error) {
     control?.detach();
-    if (claimedRun && control?.signal.aborted) { assistantRuns.record(claimedRun, { type: "done", reason: "interrupted" }); assistantRuns.finish(claimedRun); return authFailure(new EvaluationCancelled()); }
-    if (claimedRun) assistantRuns.fail(claimedRun, error instanceof ApiError ? error : { code: "internal", message: ERROR_CATALOGUE.internal });
+    if (claimedRun && assistantRuns.settleInactive(claimedRun)) return authFailure(error);
+    if (scope && claimedRun && control?.signal.aborted) { assistantRuns.record(scope, claimedRun, { type: "done", reason: "interrupted" }); assistantRuns.finish(scope, claimedRun); return authFailure(new EvaluationCancelled()); }
+    if (scope && claimedRun) assistantRuns.fail(scope, claimedRun, error instanceof ApiError ? error : { code: "internal", message: ERROR_CATALOGUE.internal });
     return authFailure(error);
   }
 }

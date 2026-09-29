@@ -1,3 +1,4 @@
+import { resultAccess } from "./openapi-result-access";
 import { JOB_PATHS } from "./openapi-jobs";
 import { withRequestPolicy } from "./openapi-request-policy";
 import { USERS_PATHS, USERS_SCHEMAS } from "./openapi-users";
@@ -337,7 +338,7 @@ export function buildOpenApiDocument() {
         }),
       },
       "/api/query/export": {
-        post: op({
+        post: op(resultAccess({
           summary: "Download a query's full result",
           description:
             "Every row the SQL produces — not the capped preview " +
@@ -412,8 +413,8 @@ export function buildOpenApiDocument() {
                 "the bounded lane's coded errors.",
             },
           },
-        }),
-        get: op({
+        })),
+        get: op(resultAccess({
           summary: "Redeem a prepared query-result download",
           description:
             "The second half of the page's download road: a " +
@@ -462,7 +463,7 @@ export function buildOpenApiDocument() {
             },
             "410": { description: "The ticket is gone." },
           },
-        }),
+        })),
       },
       ...MAP_COLLECTION_PATHS,
       ...PROJECT_PATHS,

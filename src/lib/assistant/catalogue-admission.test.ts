@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { authenticatedRoute, TEST_ACCOUNT_ID } from "@/lib/assistant/testing/account";
 import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -46,7 +47,7 @@ afterEach(() => {
 const put = (value: unknown) => { writeFileSync(`${file}.next`, JSON.stringify(value)); renameSync(`${file}.next`, file); };
 const entry = (id: string, efforts = ["low", "high"]) => ({ id, name: `Name ${id}`, efforts });
 const read = async () => (await status()).json() as Promise<{ models: ModelKnowledge[]; catalogue: catalogue.CatalogueState }>;
-const send = (choice: ProviderChoice, runId = assistantRuns.reserve(TEST_ACCOUNT_ID).id) => post(new Request("http://localhost:3410/api/assistant/messages", {
+const send = (choice: ProviderChoice, runId = assistantRuns.reserve(testAccountScope(undefined, TEST_ACCOUNT_ID)).id) => post(new Request("http://localhost:3410/api/assistant/messages", {
   method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ runId, message: "Hello", history: [], choice }),
 }));
 async function accepted(choice: ProviderChoice) {
@@ -56,7 +57,7 @@ async function accepted(choice: ProviderChoice) {
   expect(built.at(-1)).toEqual({ model: choice.model, effort: choice.effort ?? "default" });
 }
 async function refused(choice: ProviderChoice, code: string, replacement: ProviderChoice) {
-  const run = assistantRuns.reserve(TEST_ACCOUNT_ID);
+  const run = assistantRuns.reserve(testAccountScope(undefined, TEST_ACCOUNT_ID));
   const before = built.length;
   const work = network.mock.calls.length;
   const response = await send(choice, run.id);
@@ -64,8 +65,8 @@ async function refused(choice: ProviderChoice, code: string, replacement: Provid
   expect((await response.json()).error.code).toBe(code);
   expect(built.length).toBe(before);
   expect(network.mock.calls.length).toBe(work);
-  expect(assistantRuns.read(run.id)).toMatchObject({ state: "reserved", actions: [], text: "" });
-  expect(assistantRuns.read(run.id).provenance).toBeUndefined();
+  expect(assistantRuns.read(testAccountScope(), run.id)).toMatchObject({ state: "reserved", actions: [], text: "" });
+  expect(assistantRuns.read(testAccountScope(), run.id).provenance).toBeUndefined();
   const reused = await send(replacement, run.id);
   expect(reused.status).toBe(200);
   await reused.text();

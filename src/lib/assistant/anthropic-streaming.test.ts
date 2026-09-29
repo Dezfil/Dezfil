@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { expect, it } from "vitest";
 import { anthropicProvider } from "./providers/anthropic";
 import { runAssistant } from "./loop";
@@ -18,7 +19,7 @@ it("Anthropic text reaches NDJSON before held completion and all consumers keep 
     close = () => { for (const event of [textDelta("text"), stop(0), ...end()]) controller.enqueue(encode(event)); controller.close(); };
   } });
   const provider = anthropicProvider("fixture", "claude-opus-5", async () => new Response(stream, { headers: { "content-type": "text/event-stream" } }));
-  const response = runStream(runAssistant(provider, { message: "Hello", history: [] }, { baseUrl: "http://localhost:3201" }));
+  const response = runStream(testAccountScope(), runAssistant(provider, { message: "Hello", history: [] }, { scope: testAccountScope(), baseUrl: "http://localhost:3201" }));
   const reader = response.body!.getReader();
   const first = JSON.parse(new TextDecoder().decode((await reader.read()).value).trim());
   expect(first).toMatchObject({ type: "text_delta", text: "Early " }); close();
@@ -28,9 +29,9 @@ it("Anthropic text reaches NDJSON before held completion and all consumers keep 
   const delta = new Map<string, string>();
   for (const event of events) if (event.type === "text_delta") delta.set(event.messageId, (delta.get(event.messageId) ?? "") + event.text); else if (event.type === "message") delta.set(event.messageId, event.text);
   expect(legacy).toBe("Early text"); expect([...delta.values()].join("")).toBe(legacy);
-  const store = new AssistantRunStore(); const id = store.reserve().id; store.bind(id, {});
-  for (const event of events) store.record(id, event);
-  expect(store.read(id).text).toBe("Early text");
+  const store = new AssistantRunStore(); const id = store.reserve(testAccountScope()).id; store.bind(testAccountScope(), id, {});
+  for (const event of events) store.record(testAccountScope(), id, event);
+  expect(store.read(testAccountScope(), id).text).toBe("Early text");
 });
 
 it("Anthropic split arguments, multiple calls and private thinking retain native continuation", async () => {
@@ -73,7 +74,7 @@ for (const variant of ["truncated", "invalid", "missing-stop", "refusal", "provi
     ], true);
   };
   const events = [];
-  for await (const event of runAssistant(anthropicProvider("fixture", "claude-opus-5", fetchImpl), { message: "Work", history: [] }, { baseUrl: "http://localhost:3201", signal: abort.signal, fetchImpl: async () => { executed++; return Response.json({}); } })) events.push(event);
+  for await (const event of runAssistant(anthropicProvider("fixture", "claude-opus-5", fetchImpl), { message: "Work", history: [] }, { scope: testAccountScope(), baseUrl: "http://localhost:3201", signal: abort.signal, fetchImpl: async () => { executed++; return Response.json({}); } })) events.push(event);
   expect(executed).toBe(0); expect(events.some((e) => e.type === "tool_call")).toBe(false);
   expect(events.some((e) => variant === "refusal" ? e.type === "message" && e.text.includes("declined") : variant === "cancelled" ? e.type === "done" && e.reason === "interrupted" : e.type === "error")).toBe(true);
 });
@@ -139,7 +140,7 @@ async function replyOf(first: unknown[]) {
   const provider = anthropicProvider("fixture", "claude-opus-5", async () =>
     turn++ === 0 ? sse(first, true) : sse(anthropicEvents([{ type: "text", text: "Done" }]), true));
   const events: { type: string; [key: string]: unknown }[] = [];
-  for await (const event of runAssistant(provider, { message: "Work", history: [] }, {
+  for await (const event of runAssistant(provider, { message: "Work", history: [] }, { scope: testAccountScope(),
     baseUrl: "http://localhost:3201",
     fetchImpl: async (input) => { dispatched.push(new URL(String(input)).pathname); return Response.json({}); },
   })) events.push(event as { type: string });

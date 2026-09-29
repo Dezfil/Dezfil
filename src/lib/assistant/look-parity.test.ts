@@ -75,7 +75,7 @@ describe("one controlled render, both invocation paths", () => {
       { text: "One point near the centre.", toolCalls: [] },
     ]);
     const events: AssistantEvent[] = [];
-    for await (const event of runAssistant(provider, { message: "Look at the map", history: [], context: { page: "builder", mapId, selectedLayerId: null } }, { baseUrl: origin, fetchImpl: instanceFetch(origin, requireRequestAuth(authenticatedRequest())), pending: new PendingActionStore() })) events.push(event);
+    for await (const event of runAssistant(provider, { message: "Look at the map", history: [], context: { page: "builder", mapId, selectedLayerId: null } }, { scope: testAccountScope(), baseUrl: origin, fetchImpl: instanceFetch(origin, requireRequestAuth(authenticatedRequest())), pending: new PendingActionStore() })) events.push(event);
     const result = events.find((e): e is Extract<AssistantEvent, { type: "tool_result" }> => e.type === "tool_result" && e.tool === "look_at_map");
     expect(result).toBeDefined();
     expect(result!.ok).toBe(true);

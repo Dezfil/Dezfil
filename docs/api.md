@@ -365,3 +365,19 @@ returning bytes. Deleting an owned layer fences its outstanding build; reactivat
 permits a fresh build. Visible published layers use their current publication token
 independently of owner activity. Revocation prevents that token's outstanding build
 from publishing an archive.
+
+Assistant receipts and parked confirmations are private to their initiating
+account, including for administrators. Ownership survives failure and deletion
+of an output. Deactivation interrupts unfinished execution, discards late
+provider content and prevents further tool admission; committed work remains.
+Reactivation restores access to the same receipts. A hidden confirmation cannot
+be resolved or consumed. Superseding an unknown or hidden confirmation is a
+harmless no-op for that confirmation.
+
+Retained map checks and prepared layer, query and project downloads also bind
+to the initiating account independently of their source. Only that account can
+retrieve, observe or release them, including after source deletion. Copied ids
+receive the same refusal as unknown ids without consuming the owner's result.
+Render and export execution rechecks activity before returning or retaining
+bytes; a deactivated caller cannot redeem a retained result. Existing eviction,
+expiry, stream cleanup and process-restart behavior remains unchanged.

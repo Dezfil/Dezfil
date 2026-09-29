@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { buildOpenApiDocument } from "@/lib/api/openapi";
@@ -56,7 +57,7 @@ async function captureRequest(
       message: FIXTURE_TURN.message,
       history: FIXTURE_TURN.history.map((t) => ({ role: t.role, text: t.content })),
     },
-    { baseUrl: FIXTURE_TURN.baseUrl, pending: new PendingActionStore() },
+    { scope: testAccountScope(), baseUrl: FIXTURE_TURN.baseUrl, pending: new PendingActionStore() },
   );
   for await (const event of events) void event;
   if (bodies.length !== 1) throw new Error(`Expected one provider request, saw ${bodies.length}`);

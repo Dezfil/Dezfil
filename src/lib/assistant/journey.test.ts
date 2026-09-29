@@ -71,17 +71,17 @@ async function drive(script: ScriptEntry[], message: string) {
   for await (const event of runAssistant(
     provider,
     { message, history: [] },
-    deps,
+    { scope: testAccountScope(), ...deps },
   )) {
     events.push(event);
   }
   // Resolve a raised confirmation the way the endpoint does: claim the
   // parked run and re-enter it — the same exchange, never a fresh one.
   const resume = async (pendingId: string, approved: boolean) => {
-    const parked = store.claim(pendingId, approved ? "approved" : "declined");
+    const parked = store.claim(testAccountScope(), pendingId, approved ? "approved" : "declined");
     if (!parked) throw new Error(`No parked run for ${pendingId}`);
     const resumed: AssistantEvent[] = [];
-    for await (const event of resumeAssistant(parked, approved, deps)) {
+    for await (const event of resumeAssistant(parked, approved, { scope: testAccountScope(), ...deps })) {
       resumed.push(event);
     }
     return resumed;

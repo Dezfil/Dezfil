@@ -1,5 +1,5 @@
 import { delegateCredential } from "@/lib/auth/delegation";
-import { accountScope } from "@/lib/auth/scope";
+import { accountScope, requireAccountScope } from "@/lib/auth/scope";
 import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
 import { NextResponse } from "next/server";
 import { ApiError } from "@/lib/api/errors";
@@ -35,7 +35,8 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const actor = requireRequestAuth(request);
     const { id } = await params;
-    const map = requireMap(accountScope(actor), id);
+    const scope = accountScope(actor);
+    const map = requireMap(scope, id);
     let body: unknown;
     try {
       body = await request.json();
@@ -58,13 +59,14 @@ export async function POST(request: Request, { params }: Params) {
         400,
       );
     }
-    const { png, abandoned } = await renderMapImage({
+    const { png, abandoned } = await renderMapImage(scope, {
       mapId: id,
       definition: definition as ExportImageDefinition,
       baseUrl: selfBaseUrl(request),
       credential: delegateCredential(actor),
       signal: request.signal,
     });
+    requireAccountScope(scope);
     const headers: Record<string, string> = {
       "content-type": "image/png",
       "content-length": String(png.byteLength),

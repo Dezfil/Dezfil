@@ -79,7 +79,7 @@ const done = (events: AssistantEvent[]) => events.find((e): e is Extract<Assista
 function run(script: ScriptEntry[], context: AssistantContext | undefined, deps: Partial<LoopDeps> = {}) {
   const stub = stubProvider(script);
   const store = new PendingActionStore();
-  const loop: LoopDeps = { baseUrl: origin, fetchImpl: instanceFetch(origin, requireRequestAuth(authenticatedRequest())), pending: store, stepBudget: 8, ...deps };
+  const loop: LoopDeps = { scope: testAccountScope(), baseUrl: origin, fetchImpl: instanceFetch(origin, requireRequestAuth(authenticatedRequest())), pending: store, stepBudget: 8, ...deps };
   return { stub, store, loop, start: (message = "go") => collect(runAssistant(stub, { message, history: [], context }, loop)) };
 }
 
@@ -171,7 +171,7 @@ describe("2c and 1l across a confirmation", () => {
     expect(counts.renders).toBe(0);
     expect(automatic(parked.events)).toHaveLength(0);
     const pending = parked.events.find((e): e is Extract<AssistantEvent, { type: "confirm_required" }> => e.type === "confirm_required")!;
-    const resumed = await collect(resumeAssistant(store.claim(pending.id, "approved")!, true, loop));
+    const resumed = await collect(resumeAssistant(store.claim(testAccountScope(), pending.id, "approved")!, true, loop));
     expect(counts.renders).toBe(1);
     expect(automatic(resumed.events)).toHaveLength(1);
     expect(done(resumed.events)?.reason).toBe("end");
@@ -180,7 +180,7 @@ describe("2c and 1l across a confirmation", () => {
     const { store, loop, start } = run([reply("", call("delete_layer", { id: layerId })), reply("Deleted.")], builder(), { stepBudget: 2 });
     const parked = await start();
     const pending = parked.events.find((e): e is Extract<AssistantEvent, { type: "confirm_required" }> => e.type === "confirm_required")!;
-    const resumed = await collect(resumeAssistant(store.claim(pending.id, "approved")!, true, loop));
+    const resumed = await collect(resumeAssistant(store.claim(testAccountScope(), pending.id, "approved")!, true, loop));
     expect(counts.renders).toBe(0);
     expect(automatic(resumed.events)).toHaveLength(0);
     expect(done(resumed.events)?.reason).toBe("end");
@@ -189,7 +189,7 @@ describe("2c and 1l across a confirmation", () => {
     const { stub, store, loop, start } = run([reply("", call("delete_layer", { id: layerId })), reply("", call("look_at_map", { mapId })), reply("never asked")], builder(), { stepBudget: 2 });
     const parked = await start();
     const pending = parked.events.find((e): e is Extract<AssistantEvent, { type: "confirm_required" }> => e.type === "confirm_required")!;
-    const resumed = await collect(resumeAssistant(store.claim(pending.id, "approved")!, true, loop));
+    const resumed = await collect(resumeAssistant(store.claim(testAccountScope(), pending.id, "approved")!, true, loop));
     expect(checks(resumed.events)[0].ok).toBe(true);
     expect(checks(resumed.events)[0].render).toBeDefined();
     expect(done(resumed.events)?.reason).toBe("budget");

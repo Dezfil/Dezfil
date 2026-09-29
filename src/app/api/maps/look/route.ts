@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     // The retained working state: the image the model was given and its
     // thumbnail, for the pane's note and for a later read, under the
     // documented bounds.
-    lookRetention.retain(result);
+    lookRetention.retain(scope, result);
     return privateResponse(NextResponse.json({
       render: lookFacts(result),
       image: { content_type: "image/png", width: result.image.width, height: result.image.height, bytes: result.image.bytes, content_base64: Buffer.from(result.image.png).toString("base64") },

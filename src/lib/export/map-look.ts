@@ -1,4 +1,4 @@
-import type { AccountScope } from "@/lib/auth/scope";
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { createHash, randomUUID } from "node:crypto";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { limits } from "@/lib/limits";
@@ -186,10 +186,11 @@ export async function lookAtMap(scope: AccountScope, input: LookInput): Promise<
   // never a late success.
   const budgetMs = input.budgetMs ?? limits.assistantLookTimeoutMs;
   const deadline = Date.now() + budgetMs;
-  const rendered = await renderMapImage({
+  const rendered = await renderMapImage(scope, {
     mapId: map.id, definition, baseUrl: input.baseUrl, signal: input.signal, driver: input.driver ?? testDriver ?? undefined,
     budgetMs, credential: input.credential,
   });
+  requireAccountScope(scope);
   const consumed = parseConsumed(rendered.consumed);
   const image = deriveImage(rendered.png, input.signal);
   if (input.signal?.aborted) throw new EvaluationCancelled();
@@ -204,6 +205,7 @@ export async function lookAtMap(scope: AccountScope, input: LookInput): Promise<
     widgets: consumed.widgets.map(String),
     appearance,
   };
+  requireAccountScope(scope);
   return {
     id: randomUUID(),
     mapId: map.id,

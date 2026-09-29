@@ -1,3 +1,6 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { openPrivateExport } from "@/lib/export/private-file";
 import { createHash } from "node:crypto";
 import { open, stat } from "node:fs/promises";
 import { Readable } from "node:stream";
@@ -99,10 +102,11 @@ async function readBody(request: Request): Promise<Body> {
 
 export async function POST(request: Request) {
   try {
+    const scope = requireRequestScope(request);
     const body = await readBody(request);
     return body.prepare
-      ? await prepareDownload(request, body)
-      : await directDownload(request, body);
+      ? await prepareDownload(scope, request, body)
+      : await directDownload(scope, request, body);
   } catch (error) {
     return errorResponse(error);
   }
@@ -111,19 +115,21 @@ export async function POST(request: Request) {
 /** Redeem a prepared download: a single-use native attachment. */
 export async function GET(request: Request) {
   try {
+    const scope = requireRequestScope(request);
     const search = new URL(request.url).searchParams;
     const ticket = search.get("ticket") ?? "";
     const key = search.get("key") ?? "";
     const format = search.get("format");
     if (!ticket || !key || !isLayerExportFormat(format)) throw unavailable();
-    const claimed = queryDownloadTickets.claim(ticket, { layerId: key, format });
+    const claimed = queryDownloadTickets.claim(scope, ticket, { layerId: key, format });
     if (!claimed) throw unavailable();
 
     let handle: Awaited<ReturnType<typeof open>>;
     try {
-      handle = await open(claimed.path);
+      handle = (await openPrivateExport(scope, { path: claimed.path, cleanup: async () => claimed.fail() })).handle;
     } catch {
       claimed.fail();
+      requireAccountScope(scope);
       throw unavailable();
     }
     if (request.signal.aborted) {
@@ -149,20 +155,20 @@ export async function GET(request: Request) {
   }
 }
 
-async function directDownload(request: Request, body: Body) {
+async function directDownload(scope: AccountScope, request: Request, body: Body) {
   // Resolve-and-open is one tracked reader: the descriptor is held before
   // the response starts, so a scratch sweep cannot land between write and
   // open.
   const { file, handle, size } = await trackInflight(
     (async () => {
       const file = await exportQueryResult(
+        scope,
         body.sql,
         body.format,
         request.signal,
         body.name,
       );
-      const handle = await open(file.path);
-      const size = (await handle.stat()).size;
+      const { handle, size } = await openPrivateExport(scope, file);
       return { file, handle, size };
     })(),
   );
@@ -177,7 +183,7 @@ async function directDownload(request: Request, body: Body) {
   });
 }
 
-async function prepareDownload(request: Request, body: Body) {
+async function prepareDownload(scope: AccountScope, request: Request, body: Body) {
   const binding = bindingFor(body.sql, body.format);
   let ticket: string | null = null;
   try {
@@ -185,6 +191,7 @@ async function prepareDownload(request: Request, body: Body) {
     ticket = await trackInflight(
       (async () => {
         const file = await exportQueryResult(
+          scope,
           body.sql,
           body.format,
           request.signal,
@@ -193,6 +200,7 @@ async function prepareDownload(request: Request, body: Body) {
         try {
           const size = (await stat(file.path)).size;
           return queryDownloadTickets.prepare(
+            scope,
             binding,
             { ...file, size },
             request.signal,
@@ -209,7 +217,7 @@ async function prepareDownload(request: Request, body: Body) {
       { headers: { "cache-control": "no-store" } },
     );
   } catch (error) {
-    if (ticket !== null) await queryDownloadTickets.release(ticket, binding);
+    if (ticket !== null) await queryDownloadTickets.release(scope, ticket, binding);
     throw error;
   }
 }

@@ -1,5 +1,7 @@
+import type { AccountScope } from "@/lib/auth/scope";
+import { openPrivateExport } from "@/lib/export/private-file";
 import { requireRequestScope } from "@/lib/auth/scope-http";
-import { open, rm } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
@@ -51,12 +53,12 @@ const idList = (raw: unknown, field: string): string[] => {
 
 /** Stream a finalized staged archive as the attachment, deleting it
  * when the stream closes, however it closes. */
-async function streamStaged(prepared: {
+async function streamStaged(scope: AccountScope, prepared: {
   path: string;
   filename: string;
   size: number;
 }) {
-  const handle = await open(prepared.path);
+  const { handle } = await openPrivateExport(scope, { ...prepared, cleanup: () => rm(prepared.path, { force: true }) });
   const stream = handle.createReadStream();
   stream.once("close", () => {
     void rm(prepared.path, { force: true }).catch(() => {});
@@ -90,8 +92,8 @@ export async function POST(request: Request, { params }: Params) {
       datasetFormat: datasetFormatOf(body.datasetFormat),
     };
     const prepared = await assembleProjectExport(scope, id, selection);
-    if (body.prepare !== true) return streamStaged(prepared);
-    const { ticket, key } = createProjectExportTicket(prepared);
+    if (body.prepare !== true) return await streamStaged(scope, prepared);
+    const { ticket, key } = createProjectExportTicket(scope, id, prepared);
     return NextResponse.json({
       ticket,
       key,
@@ -107,9 +109,11 @@ export async function POST(request: Request, { params }: Params) {
  * file is deleted when the stream closes, however it closes. */
 export async function GET(request: Request, { params }: Params) {
   try {
-    await params;
+    const scope = requireRequestScope(request);
+    const { id } = await params;
     const search = new URL(request.url).searchParams;
     const claimed = claimProjectExportTicket(
+      scope, id,
       search.get("ticket") ?? "",
       search.get("key") ?? "",
     );
@@ -122,7 +126,7 @@ export async function GET(request: Request, { params }: Params) {
     }
     let handle;
     try {
-      handle = await open(claimed.path);
+      handle = (await openPrivateExport(scope, { path: claimed.path, cleanup: async () => claimed.settle() })).handle;
     } catch (e) {
       // The claim removed the entry and its expiry timer; a failed open
       // must still delete the staged file — nothing else

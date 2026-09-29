@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, expect, it } from "vitest";
 import { AssistantRunStore, type RunReceipt } from "./runs";
 import { compactReceipt, jsonBytes } from "./recovery-data";
@@ -28,9 +29,9 @@ const LIVE = 1_048_576;
 /** A bound run carrying both facts, and whatever else the caller records. */
 function run(record: (store: AssistantRunStore, id: string) => void = () => {}) {
   const store = new AssistantRunStore();
-  const id = store.reserve().id;
-  store.bind(id, {});
-  store.bindChoice(id, CHOICE);
+  const id = store.reserve(testAccountScope()).id;
+  store.bind(testAccountScope(), id, {});
+  store.bindChoice(testAccountScope(), id, CHOICE);
   record(store, id);
   return { store, id };
 }
@@ -38,13 +39,13 @@ function run(record: (store: AssistantRunStore, id: string) => void = () => {}) 
 describe("the model-choice facts inside bounds", () => {
   it("survives the terminal compaction that drops the text and the arguments", () => {
     const { store, id } = run((s, runId) => {
-      s.record(runId, { type: "message", text: "é".repeat(50_000) });
-      s.record(runId, { type: "tool_call", id: "call-1", tool: "create_map", args: { name: "x".repeat(80_000) } });
-      s.record(runId, { type: "tool_result", id: "call-1", tool: "create_map", ok: true, body: { rows: ["RAW_BODY_MUST_NOT_SURVIVE"] } });
-      s.reported(runId, REPORTED);
+      s.record(testAccountScope(), runId, { type: "message", text: "é".repeat(50_000) });
+      s.record(testAccountScope(), runId, { type: "tool_call", id: "call-1", tool: "create_map", args: { name: "x".repeat(80_000) } });
+      s.record(testAccountScope(), runId, { type: "tool_result", id: "call-1", tool: "create_map", ok: true, body: { rows: ["RAW_BODY_MUST_NOT_SURVIVE"] } });
+      s.reported(testAccountScope(), runId, REPORTED);
     });
-    store.finish(id);
-    const receipt = store.read(id);
+    store.finish(testAccountScope(), id);
+    const receipt = store.read(testAccountScope(), id);
     expect(bytes(receipt)).toBeLessThanOrEqual(TERMINAL);
     expect(receipt.incomplete).toBe(true);
     // The display detail went; the two facts are whole.
@@ -53,9 +54,9 @@ describe("the model-choice facts inside bounds", () => {
   });
 
   it("holds at the exact boundary of each bound, and past it trims the text and not the facts", () => {
-    const { store, id } = run((s, runId) => { s.reported(runId, REPORTED); s.reported(runId, undefined); });
-    store.finish(id);
-    const base = { ...store.read(id), text: "", incomplete: false };
+    const { store, id } = run((s, runId) => { s.reported(testAccountScope(), runId, REPORTED); s.reported(testAccountScope(), runId, undefined); });
+    store.finish(testAccountScope(), id);
+    const base = { ...store.read(testAccountScope(), id), text: "", incomplete: false };
     for (const [bound, terminal] of [[TERMINAL, true], [LIVE, false]] as const) {
       const exact = { ...base, text: "x".repeat(bound - jsonBytes(base)) };
       expect(bytes(exact)).toBe(bound);
@@ -73,24 +74,24 @@ describe("the model-choice facts inside bounds", () => {
   });
 
   it("a bound too small for the facts themselves refuses rather than dropping them", () => {
-    const { store, id } = run((s, runId) => s.reported(runId, REPORTED));
-    store.finish(id);
-    const receipt = store.read(id);
+    const { store, id } = run((s, runId) => s.reported(testAccountScope(), runId, REPORTED));
+    store.finish(testAccountScope(), id);
+    const receipt = store.read(testAccountScope(), id);
     // Everything trimmable is already gone at this bound, so what does not
     // fit is the record itself: the documented refusal, not a quiet loss.
     expect(() => compactReceipt(receipt, 64, true)).toThrow("live recovery bound");
-    expect(store.read(id).provenance).toEqual({ requested: CHOICE, reported: [REPORTED] });
+    expect(store.read(testAccountScope(), id).provenance).toEqual({ requested: CHOICE, reported: [REPORTED] });
   });
 
   it("a multibyte identity survives byte for byte, and the trimmed text stays whole", () => {
     const store = new AssistantRunStore();
-    const id = store.reserve().id;
-    store.bind(id, {});
-    store.bindChoice(id, { model: MULTIBYTE, effort: "max", defaulted: { model: false, effort: false } });
-    store.record(id, { type: "message", text: "🛰".repeat(40_000) });
-    store.reported(id, `${MULTIBYTE}-2026`);
-    store.finish(id);
-    const receipt = store.read(id);
+    const id = store.reserve(testAccountScope()).id;
+    store.bind(testAccountScope(), id, {});
+    store.bindChoice(testAccountScope(), id, { model: MULTIBYTE, effort: "max", defaulted: { model: false, effort: false } });
+    store.record(testAccountScope(), id, { type: "message", text: "🛰".repeat(40_000) });
+    store.reported(testAccountScope(), id, `${MULTIBYTE}-2026`);
+    store.finish(testAccountScope(), id);
+    const receipt = store.read(testAccountScope(), id);
     expect(bytes(receipt)).toBeLessThanOrEqual(TERMINAL);
     expect(receipt.provenance).toEqual({
       requested: { model: MULTIBYTE, effort: "max", defaulted: { model: false, effort: false } },
@@ -107,18 +108,18 @@ describe("the model-choice facts inside bounds", () => {
   });
 
   it("completed, failed and interrupted terminals each keep the facts", () => {
-    const completed = run((s, runId) => s.reported(runId, REPORTED));
-    completed.store.finish(completed.id);
-    const failed = run((s, runId) => s.reported(runId, REPORTED));
-    failed.store.fail(failed.id, { code: "assistant_provider", message: "The provider failed." });
-    const interrupted = run((s, runId) => s.reported(runId, REPORTED));
-    interrupted.store.record(interrupted.id, { type: "done", reason: "interrupted" });
-    interrupted.store.finish(interrupted.id);
+    const completed = run((s, runId) => s.reported(testAccountScope(), runId, REPORTED));
+    completed.store.finish(testAccountScope(), completed.id);
+    const failed = run((s, runId) => s.reported(testAccountScope(), runId, REPORTED));
+    failed.store.fail(testAccountScope(), failed.id, { code: "assistant_provider", message: "The provider failed." });
+    const interrupted = run((s, runId) => s.reported(testAccountScope(), runId, REPORTED));
+    interrupted.store.record(testAccountScope(), interrupted.id, { type: "done", reason: "interrupted" });
+    interrupted.store.finish(testAccountScope(), interrupted.id);
     // The fourth terminal: a parked run released without an answer at all.
-    const released = run((s, runId) => s.record(runId, { type: "confirm_required", id: "open", tool: "delete_map", args: { id: "m" } }));
-    released.store.release(released.id);
+    const released = run((s, runId) => s.record(testAccountScope(), runId, { type: "confirm_required", id: "open", tool: "delete_map", args: { id: "m" } }));
+    released.store.release(testAccountScope(), released.id);
     const facts = (entry: { store: AssistantRunStore; id: string }) => {
-      const receipt: RunReceipt = entry.store.read(entry.id);
+      const receipt: RunReceipt = entry.store.read(testAccountScope(), entry.id);
       return { state: receipt.state, provenance: receipt.provenance };
     };
     expect({
@@ -142,18 +143,18 @@ describe("the model-choice facts inside bounds", () => {
       while (lo < hi) {
         const mid = Math.ceil((lo + hi) / 2);
         const store = new AssistantRunStore();
-        const id = store.reserve().id;
-        store.bind(id, {});
-        if (facts) { store.bindChoice(id, CHOICE); store.reported(id, REPORTED); }
-        try { store.admit(id, { id: "a".repeat(mid), name: "create_map", args: {} }); lo = mid; }
+        const id = store.reserve(testAccountScope()).id;
+        store.bind(testAccountScope(), id, {});
+        if (facts) { store.bindChoice(testAccountScope(), id, CHOICE); store.reported(testAccountScope(), id, REPORTED); }
+        try { store.admit(testAccountScope(), id, { id: "a".repeat(mid), name: "create_map", args: {} }); lo = mid; }
         catch { hi = mid - 1; }
       }
       return lo;
     };
-    const bare = new AssistantRunStore(); const bareId = bare.reserve().id; bare.bind(bareId, {});
-    const carrying = new AssistantRunStore(); const carryingId = carrying.reserve().id; carrying.bind(carryingId, {});
-    carrying.bindChoice(carryingId, CHOICE); carrying.reported(carryingId, REPORTED);
-    const added = jsonBytes(carrying.read(carryingId)) - jsonBytes(bare.read(bareId));
+    const bare = new AssistantRunStore(); const bareId = bare.reserve(testAccountScope()).id; bare.bind(testAccountScope(), bareId, {});
+    const carrying = new AssistantRunStore(); const carryingId = carrying.reserve(testAccountScope()).id; carrying.bind(testAccountScope(), carryingId, {});
+    carrying.bindChoice(testAccountScope(), carryingId, CHOICE); carrying.reported(testAccountScope(), carryingId, REPORTED);
+    const added = jsonBytes(carrying.read(testAccountScope(), carryingId)) - jsonBytes(bare.read(testAccountScope(), bareId));
     expect(added).toBeGreaterThan(0);
     // Not counted, this difference would be zero.
     expect(largest(false) - largest(true)).toBe(added);
@@ -164,45 +165,45 @@ describe("the model-choice facts inside bounds", () => {
     const store = new AssistantRunStore();
     const ids: string[] = [];
     for (let i = 0; i < 256; i += 1) {
-      const id = store.reserve().id; ids.push(id);
-      store.bind(id, { message: "Once" }); store.bindChoice(id, CHOICE); store.reported(id, REPORTED);
-      store.finish(id);
+      const id = store.reserve(testAccountScope()).id; ids.push(id);
+      store.bind(testAccountScope(), id, { message: "Once" }); store.bindChoice(testAccountScope(), id, CHOICE); store.reported(testAccountScope(), id, REPORTED);
+      store.finish(testAccountScope(), id);
     }
-    expect(store.read(ids[0]).provenance).toEqual({ requested: CHOICE, reported: [REPORTED] });
-    const next = store.reserve().id; store.bind(next, {}); store.bindChoice(next, CHOICE); store.finish(next);
-    expect(() => store.read(ids[0])).toThrow("unavailable");
-    expect(store.read(ids[1]).provenance).toEqual({ requested: CHOICE, reported: [REPORTED] });
+    expect(store.read(testAccountScope(), ids[0]).provenance).toEqual({ requested: CHOICE, reported: [REPORTED] });
+    const next = store.reserve(testAccountScope()).id; store.bind(testAccountScope(), next, {}); store.bindChoice(testAccountScope(), next, CHOICE); store.finish(testAccountScope(), next);
+    expect(() => store.read(testAccountScope(), ids[0])).toThrow("unavailable");
+    expect(store.read(testAccountScope(), ids[1]).provenance).toEqual({ requested: CHOICE, reported: [REPORTED] });
 
     // Expiry and the live bound: a reservation still expires at five
     // minutes, a bound run carrying the facts does not, and its open
     // confirmation keeps its exact arguments.
     let clock = 0;
     const timed = new AssistantRunStore(() => clock);
-    const reserved = timed.reserve().id;
-    const running = timed.reserve().id;
-    timed.bind(running, { message: "Work" }); timed.bindChoice(running, CHOICE); timed.reported(running, REPORTED);
+    const reserved = timed.reserve(testAccountScope()).id;
+    const running = timed.reserve(testAccountScope()).id;
+    timed.bind(testAccountScope(), running, { message: "Work" }); timed.bindChoice(testAccountScope(), running, CHOICE); timed.reported(testAccountScope(), running, REPORTED);
     const args = { id: "target", detail: "a".repeat(100_000) };
-    timed.record(running, { type: "confirm_required", id: "open", tool: "delete_map", args });
-    timed.record(running, { type: "message", text: "é".repeat(600_000) });
-    clock = 299_999; expect(timed.read(reserved).state).toBe("reserved");
-    clock += 1; expect(timed.read(reserved).state).toBe("unavailable");
+    timed.record(testAccountScope(), running, { type: "confirm_required", id: "open", tool: "delete_map", args });
+    timed.record(testAccountScope(), running, { type: "message", text: "é".repeat(600_000) });
+    clock = 299_999; expect(timed.read(testAccountScope(), reserved).state).toBe("reserved");
+    clock += 1; expect(timed.read(testAccountScope(), reserved).state).toBe("unavailable");
     clock = 86_400_000;
-    const live = timed.read(running);
+    const live = timed.read(testAccountScope(), running);
     expect(live.state).toBe("awaiting_confirmation");
     expect(bytes(live)).toBeLessThanOrEqual(LIVE);
     expect(live.pending?.args).toEqual(args);
-    expect(timed.pending()[0].args).toEqual(args);
+    expect(timed.pending(testAccountScope())[0].args).toEqual(args);
     expect(live.provenance).toEqual({ requested: CHOICE, reported: [REPORTED] });
   });
 
   it("reading the record changes nothing about it", () => {
-    const { store, id } = run((s, runId) => s.reported(runId, REPORTED));
-    store.finish(id);
-    const first = store.read(id);
-    const second = store.read(id);
+    const { store, id } = run((s, runId) => s.reported(testAccountScope(), runId, REPORTED));
+    store.finish(testAccountScope(), id);
+    const first = store.read(testAccountScope(), id);
+    const second = store.read(testAccountScope(), id);
     expect(second).toEqual(first);
     // A read hands out a copy: writing to it reaches no stored state.
     first.provenance!.reported!.push("gpt-5.6-terra");
-    expect(store.read(id).provenance).toEqual({ requested: CHOICE, reported: [REPORTED] });
+    expect(store.read(testAccountScope(), id).provenance).toEqual({ requested: CHOICE, reported: [REPORTED] });
   });
 });

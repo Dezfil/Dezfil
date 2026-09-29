@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
@@ -91,10 +92,12 @@ const CONTENT_TYPE: Record<LayerExportFormat, string> = {
  * budget is a single wall-clock bound, not a sum of separate ones.
  */
 export async function exportLayerResult(
+  scope: AccountScope,
   layer: ExportableLayer,
   format: LayerExportFormat,
   signal?: AbortSignal,
 ): Promise<LayerExportFile> {
+  requireAccountScope(scope);
   ensureTileDirs();
   const outFile = path.join(
     tileScratchDir(),
@@ -104,6 +107,7 @@ export async function exportLayerResult(
   try {
     await boundedEvaluation(
       async (conn) => {
+        requireAccountScope(scope);
         await assertReadOnlySelect(conn, layer.sql);
 
         // Aggregation bins over the base result's geometry; resolve it the
@@ -186,6 +190,7 @@ export async function exportLayerResult(
       },
       { signal },
     );
+    requireAccountScope(scope);
   } catch (error) {
     await rm(outFile, { force: true }).catch(() => undefined);
     throw error;
@@ -210,11 +215,13 @@ export async function exportLayerResult(
  * dropped for a NULL feature geometry: a download means every row.
  */
 export async function exportQueryResult(
+  scope: AccountScope,
   sql: string,
   format: LayerExportFormat,
   signal?: AbortSignal,
   name = "query_result",
 ): Promise<LayerExportFile> {
+  requireAccountScope(scope);
   ensureTileDirs();
   const outFile = path.join(
     tileScratchDir(),
@@ -224,6 +231,7 @@ export async function exportQueryResult(
   try {
     await boundedEvaluation(
       async (conn) => {
+        requireAccountScope(scope);
         await assertReadOnlySelect(conn, sql);
         const body = wrappable(sql);
         const columns = await describe(conn, body);
@@ -274,6 +282,7 @@ export async function exportQueryResult(
       },
       { signal },
     );
+    requireAccountScope(scope);
   } catch (error) {
     await rm(outFile, { force: true }).catch(() => undefined);
     throw error;

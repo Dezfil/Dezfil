@@ -1,3 +1,6 @@
+import { lookRetention } from "@/lib/export/look-retention";
+import { GET as retainedImage } from "@/app/api/maps/look/[renderId]/route";
+import { encodePng } from "@/lib/export/png-codec";
 import { GET as cascadeRead } from "@/app/api/recipes/[id]/runs/[runId]/route";
 import { POST as cascadeCancel } from "@/app/api/recipes/[id]/runs/[runId]/cancel/route";
 import { createCascade } from "@/lib/metadata/cascades";
@@ -21,7 +24,7 @@ import { POST as historyUndo } from "@/app/api/maps/[id]/undo/route";
 import { POST as historyRedo } from "@/app/api/maps/[id]/redo/route";
 import { GET as layerRead, PATCH as layerUpdate } from "@/app/api/layers/[id]/route";
 import { defaultStyle } from "@/lib/style/defaults";
-import { accountScope } from "./scope";
+import { accountScope, type AccountScope } from "./scope";
 import { GET as accountRead } from "@/app/api/account/route";
 import { GET as usersRead } from "@/app/api/users/route";
 import { PATCH as userAccess } from "@/app/api/users/[id]/route";
@@ -56,6 +59,7 @@ const factory = vi.hoisted(() => ({ provider: null as ModelProvider | null, call
 vi.mock("@/lib/assistant/factory", () => ({ createProvider: () => { factory.calls++; return factory.provider; } }));
 const origin = "http://127.0.0.1:3216", password = "field notebooks at dawn";
 let db: Database, admin: Awaited<ReturnType<typeof createFirstAccount>>, member: typeof admin;
+let adminScope: AccountScope, memberScope: AccountScope;
 let token: ReturnType<typeof createApiToken>, runId: string;
 const cookie = (secret = admin.secret) => ({ cookie: `dezfil_session=${secret}` });
 function request(path: string, method = "GET", body?: unknown, headers: Record<string, string> = cookie()) {
@@ -81,18 +85,20 @@ function invoke(operation: typeof operations[number], headers: Record<string, st
 beforeEach(async () => {
   db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db);
   vi.stubEnv("PORT", "3216"); vi.stubEnv("ANTHROPIC_API_KEY", "fixture-never-sent");
-  assistantRuns.resetForTests(); pendingActions.resetForTests(); factory.calls = 0;
+  assistantRuns.resetForTests(); pendingActions.resetForTests(); lookRetention.resetForTests(); factory.calls = 0;
   factory.provider = stubProvider([{ text: "Read", toolCalls: [] }]);
   vi.stubGlobal("fetch", vi.fn(async () => Response.json({ tables: [], total: 0, nextAfter: null })));
   admin = await createFirstAccount({ name: "Admin", email: "admin@example.test", password }, db);
   const link = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Member", email: "member@example.test" }, db);
   member = await redeemSignInLink(link.secret, password, db);
   token = createApiToken(authenticateSession(member.secret, db)!, "Member CLI", db);
+  adminScope = accountScope(authenticateSession(admin.secret, db)!, db);
+  memberScope = accountScope(authenticateSession(member.secret, db)!, db);
   const response = await invoke("reserve", cookie()); expect(response.status).toBe(201); runId = (await response.json()).id;
 });
-afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); db.close(); });
+afterEach(() => { lookRetention.resetForTests(); vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); db.close(); });
 function state() {
-  return { run: assistantRuns.read(runId), pending: assistantRuns.pending(), rows: ["SELECT * FROM accounts ORDER BY id",
+  return { run: assistantRuns.read(adminScope, runId), pending: assistantRuns.pending(adminScope), rows: ["SELECT * FROM accounts ORDER BY id",
     "SELECT id, account_id, secret_hash, revoked_at FROM auth_sessions ORDER BY id",
     "SELECT id, account_id, name, secret_hash, revoked_at FROM auth_tokens ORDER BY id"].map(sql => db.prepare(sql).all()) };
 }
@@ -150,6 +156,7 @@ function actualApi() {
       if (path === "/api/users") return usersRead(req);
       if (path.startsWith("/api/users/")) return userAccess(req, { params: Promise.resolve({ id: path.split("/")[3] }) });
       if (path === "/api/catalogue/tables") return Response.json({ tables: [], total: 0, nextAfter: null });
+      if (path.startsWith("/api/maps/look/")) return retainedImage(req, { params: Promise.resolve({ renderId: path.split("/")[4] }) });
       if (path === "/api/maps/look") return Response.json({ error: { code: "render_unavailable", message: "No renderer fixture." } }, { status: 503 });
       if (path.startsWith("/api/layers/")) {
         const params = { params: Promise.resolve({ id: path.split("/")[3] }) };
@@ -209,7 +216,7 @@ it.each(["cookie", "token", "demoted-token"])("assistant %s cannot confirm itsel
   const events = await send({ runId: own, message: "Change admin access" }, headers);
   const confirmation = events.find((event): event is Extract<AssistantEvent, { type: "confirm_required" }> => event.type === "confirm_required")!;
   expect(confirmation).toBeDefined();
-  const parked = pendingActions.peek(confirmation.id)!;
+  const parked = pendingActions.peek(memberScope, confirmation.id)!;
   expect(parked.accountId).toBe(member.account.id);
   expect(JSON.stringify(parked)).not.toMatch(/dz_(?:token|session|delegation)_/);
   if (mode === "demoted-token") changeAccountAccess(authenticateSession(admin.secret, db)!, member.account.id, { isAdmin: false }, db);
@@ -221,7 +228,7 @@ it.each(["cookie", "token", "demoted-token"])("assistant %s cannot confirm itsel
   expect(seen.some(item => item.path === "/api/users")).toBe(true);
   expect(seen.some(item => item.path === `/api/users/${member.account.id}`)).toBe(true);
   expect(seen.every(item => item.accountId === member.account.id && item.cookie === null)).toBe(true);
-  const retained = JSON.stringify({ recording: provider.recording, receipt: assistantRuns.read(own) });
+  const retained = JSON.stringify({ recording: provider.recording, receipt: assistantRuns.read(memberScope, own) });
   expect(retained).not.toContain(token.secret); expect(retained).not.toContain(member.secret); expect(retained).not.toContain("dz_delegation_");
 });
 it("foreign pending actions cannot be read, resolved or superseded", async () => {
@@ -230,13 +237,17 @@ it("foreign pending actions cannot be read, resolved or superseded", async () =>
   const confirmation = events.find((event): event is Extract<AssistantEvent, { type: "confirm_required" }> => event.type === "confirm_required")!;
   const foreign = { authorization: `Bearer ${token.secret}` }, owned = await ownReservation(foreign);
   expect(await (await invoke("pending", foreign)).json()).toEqual({ pending: [] });
-  const before = state(), reserved = assistantRuns.read(owned);
-  for (const body of [{ resolution: { pending: confirmation.id, approved: true } }, { runId: owned, message: "Another turn", supersedes: confirmation.id }]) {
+  const before = state(), reserved = assistantRuns.read(memberScope, owned);
+  for (const body of [{ resolution: { pending: confirmation.id, approved: true } }]) {
     const response = await message(request("/api/assistant/messages", "POST", body, foreign));
     expect(response.status).toBe(404); expect(await response.json()).toMatchObject({ error: { code: "pending_unknown" } });
-    expect(state()).toEqual(before); expect(assistantRuns.read(owned)).toEqual(reserved); expect(pendingActions.peek(confirmation.id)).toBeDefined();
+    expect(state()).toEqual(before); expect(assistantRuns.read(memberScope, owned)).toEqual(reserved); expect(pendingActions.peek(adminScope, confirmation.id)).toBeDefined();
   }
-  factory.provider = stubProvider([{ text: "Unused", toolCalls: [] }]);
+  factory.provider = stubProvider([{ text: "Unrelated turn", toolCalls: [] }]);
+  const abandoned = await message(request("/api/assistant/messages", "POST", { runId: owned, message: "Another turn", supersedes: confirmation.id }, foreign));
+  expect(abandoned.status).toBe(200); await abandoned.text();
+  expect(pendingActions.peek(adminScope, confirmation.id)).toBeDefined();
+  expect(assistantRuns.read(adminScope, runId)).toEqual(before.run);
 });
 it("revocation while parked refuses continuation and preserves the pending action", async () => {
   actualApi(); factory.provider = stubProvider([{ text: "", toolCalls: [{ id: "grant", name: "update_user_access", args: { id: member.account.id, isAdmin: true } }] }]);
@@ -245,7 +256,7 @@ it("revocation while parked refuses continuation and preserves the pending actio
   signOut(authenticateSession(admin.secret, db)!, db);
   const before = state();
   const response = await message(request("/api/assistant/messages", "POST", { resolution: { pending: confirmation.id, approved: true } }));
-  expect(response.status).toBe(401); expect(state()).toEqual(before); expect(pendingActions.peek(confirmation.id)).toBeDefined();
+  expect(response.status).toBe(401); expect(state()).toEqual(before); expect(pendingActions.peek(adminScope, confirmation.id)).toBeDefined();
 });
 it("grounding, a mutation and its automatic map check retain the cookie caller", async () => {
   vi.stubEnv("DEZFIL_ASSISTANT_AUTO_CHECK", "1");
@@ -614,4 +625,35 @@ it.each(["cookie", "token"])("MCP and assistant %s calls preserve private workfl
     expect(results[0].body).toMatchObject({ error: { code: "not_found" } }); expect(results[0].body).toEqual(results[1].body);
   }
   expect(db.prepare("SELECT * FROM cascade_runs ORDER BY id").all()).toEqual(before);
+});
+
+it.each(["cookie", "token"])("MCP and assistant %s calls cannot retrieve another account's retained image after source deletion", async mode => {
+  actualApi();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db), actors = [admin, member, other];
+  const png = encodePng({ width: 1, height: 1, rgba: new Uint8Array([1, 2, 3, 255]) });
+  for (const actor of actors) {
+    const scope = accountScope(authenticateSession(actor.secret, db)!, db), map = createMap(scope, "Private image");
+    lookRetention.retain(scope, { id: `render-${actor.account.id}`, mapId: map.id, mapName: map.name, appearance: "light",
+      state: { map: map.id, camera: { lng: 0, lat: 0, zoom: 1, pitch: 0, bearing: 0 }, layers: [], legend: { visible: false, corner: "bottom-left", order: [] }, widgets: [], appearance: "light", digest: "fixture" },
+      image: { width: 1, height: 1, bytes: png.length, png }, thumbnail: { width: 1, height: 1, bytes: png.length, png }, source: { width: 1, height: 1 }, attribution: "", composition: { failures: [], abandoned: [] }, elapsedMs: 1 });
+    db.prepare("DELETE FROM maps WHERE id = ?").run(map.id);
+  }
+  for (let i = 0; i < actors.length; i++) {
+    const actor = actors[i], hiddenId = `render-${actors[(i + 1) % actors.length].account.id}`;
+    const credential = createApiToken(authenticateSession(actor.secret, db)!, "Private images", db);
+    const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+    const own = await rpc("read_map_look_image", { renderId: `render-${actor.account.id}` }, headers);
+    expect(own.isError).toBe(false); expect(own.content.some((item: { type: string }) => item.type === "image")).toBe(true);
+    const hidden = await rpc("read_map_look_image", { renderId: hiddenId }, headers);
+    expect(hidden.isError).toBe(true); expect(hidden).toEqual(await rpc("read_map_look_image", { renderId: "missing" }, headers));
+    factory.provider = stubProvider([{ text: "", toolCalls: [
+      { id: "hidden-image", name: "read_map_look_image", args: { renderId: hiddenId } },
+      { id: "missing-image", name: "read_map_look_image", args: { renderId: "missing" } },
+    ] }, { text: "Unavailable", toolCalls: [] }]);
+    const events = await send({ runId: await ownReservation(headers), message: "Read those images" }, headers);
+    const results = events.filter((event): event is Extract<AssistantEvent, { type: "tool_result" }> => event.type === "tool_result");
+    expect(results).toHaveLength(2); expect(results.map(result => result.ok)).toEqual([false, false]);
+    expect(results[0].body).toEqual(results[1].body); expect(JSON.stringify(results)).not.toContain("Private image");
+  }
 });

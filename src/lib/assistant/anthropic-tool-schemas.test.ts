@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, expect, it, vi } from "vitest";
 import { buildTools, type ToolDef } from "@/lib/tools/tools";
 import { executeTool } from "@/lib/tools/execute";
@@ -126,7 +127,7 @@ it("an argument set the union forbids is still refused before dispatch", async (
     ...anthropicEvents([], "tool_use").slice(-2),
   ], true);
   const provider = anthropicProvider("fixture", "claude-opus-5", async () => stream);
-  for await (const event of runAssistant(provider, { message: "Work", history: [] }, {
+  for await (const event of runAssistant(provider, { message: "Work", history: [] }, { scope: testAccountScope(),
     baseUrl: "http://localhost:3201",
     fetchImpl: async () => { dispatched++; return Response.json({}); },
   })) events.push(event);
@@ -183,7 +184,7 @@ it("what only the union forbade is still refused, though Anthropic no longer see
     ...anthropicEvents([], "tool_use").slice(-2),
   ], true);
   const provider = anthropicProvider("fixture", "claude-opus-5", async () => stream);
-  for await (const event of runAssistant(provider, { message: "Work", history: [] }, {
+  for await (const event of runAssistant(provider, { message: "Work", history: [] }, { scope: testAccountScope(),
     baseUrl: "http://localhost:3201", tools: [optionalBodyFixture], discovery: false,
     fetchImpl: async () => { dispatched++; return Response.json({}); },
   })) events.push(event);

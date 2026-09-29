@@ -1,4 +1,4 @@
-import { testAccountScope } from "@/lib/test-support/accounts";
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -34,11 +34,11 @@ afterEach(async () => {
 });
 
 function post(body: unknown): Request {
-  return new Request("http://test/api/query/export", {
+  return testAccountRequest(new Request("http://test/api/query/export", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
-  });
+  }));
 }
 
 describe("POST /api/query/export (direct)", () => {
@@ -70,20 +70,20 @@ describe("the prepared road", () => {
     const { ticket, key, format } = (await prep.json()) as { ticket: string; key: string; format: string };
     expect(ticket).toMatch(/^[A-Za-z0-9_-]{20,}$/);
     const url = `http://test/api/query/export?ticket=${ticket}&key=${key}&format=${format}`;
-    const first = await GET(new Request(url));
+    const first = await GET(testAccountRequest(new Request(url)));
     expect(first.status).toBe(200);
     expect(first.headers.get("content-disposition")).toBe('attachment; filename="query_result.csv"');
     expect((await first.text()).trim().split("\n")).toEqual(["name", "alexanderplatz", "zoo"]);
-    const second = await GET(new Request(url));
+    const second = await GET(testAccountRequest(new Request(url)));
     expect(second.status).toBe(410);
     expect((await second.json()).error.message).toMatch(/no longer available/);
   });
   it("a ticket bound to one SQL does not redeem under another key or format", async () => {
     const prep = await POST(post({ sql: "SELECT name FROM stations", format: "csv", prepare: true }));
     const { ticket, key } = (await prep.json()) as { ticket: string; key: string };
-    const wrongKey = await GET(new Request(`http://test/api/query/export?ticket=${ticket}&key=${key}x&format=csv`));
+    const wrongKey = await GET(testAccountRequest(new Request(`http://test/api/query/export?ticket=${ticket}&key=${key}x&format=csv`)));
     expect(wrongKey.status).toBe(410);
-    const wrongFormat = await GET(new Request(`http://test/api/query/export?ticket=${ticket}&key=${key}&format=geojson`));
+    const wrongFormat = await GET(testAccountRequest(new Request(`http://test/api/query/export?ticket=${ticket}&key=${key}&format=geojson`)));
     expect(wrongFormat.status).toBe(410);
   });
 });

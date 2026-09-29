@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -21,7 +22,7 @@ const NEEDLE = "do not claim anything the image does not show";
 
 async function capturedSystem(): Promise<string> {
   const provider = stubProvider([{ text: "Hello.", toolCalls: [] }]);
-  for await (const event of runAssistant(provider, { message: "Hi", history: [] }, { baseUrl: "http://127.0.0.1:3000", pending: new PendingActionStore() })) void event;
+  for await (const event of runAssistant(provider, { message: "Hi", history: [] }, { scope: testAccountScope(), baseUrl: "http://127.0.0.1:3000", pending: new PendingActionStore() })) void event;
   return provider.recording.exchanges[0].options.system;
 }
 function* production(dir: string): Generator<string> {

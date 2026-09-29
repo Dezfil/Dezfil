@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, afterEach } from "vitest";
 import { EvaluationCancelled } from "@/lib/api/errors";
 import {
@@ -75,7 +76,7 @@ afterEach(() => {
 describe("renderMapImage — bounds and lifecycle", () => {
   it("renders through the driver and returns the bytes", async () => {
     const { browser } = browserStub();
-    const png = await renderMapImage({
+    const png = await renderMapImage(testAccountScope(), {
       mapId: "m1",
       definition: def(),
       credential: "fixture-render-credential", baseUrl: "http://127.0.0.1:3000",
@@ -93,7 +94,7 @@ describe("renderMapImage — bounds and lifecycle", () => {
       },
     };
     await expect(
-      renderMapImage({
+      renderMapImage(testAccountScope(), {
         mapId: "m1",
         definition: def(),
         credential: "fixture-render-credential", baseUrl: "http://127.0.0.1:3000",
@@ -116,7 +117,7 @@ describe("renderMapImage — bounds and lifecycle", () => {
       },
     });
     const fast = browserStub();
-    const first = renderMapImage({
+    const first = renderMapImage(testAccountScope(), {
       mapId: "a",
       definition: def(),
       credential: "fixture-render-credential", baseUrl: "http://x",
@@ -124,7 +125,7 @@ describe("renderMapImage — bounds and lifecycle", () => {
     });
     // Give the first render its slot before the second asks.
     await new Promise((r) => setTimeout(r, 10));
-    const second = renderMapImage({
+    const second = renderMapImage(testAccountScope(), {
       mapId: "b",
       definition: def(),
       credential: "fixture-render-credential", baseUrl: "http://x",
@@ -153,7 +154,7 @@ describe("renderMapImage — bounds and lifecycle", () => {
         return { png: PNG };
       },
     });
-    const first = renderMapImage({
+    const first = renderMapImage(testAccountScope(), {
       mapId: "a",
       definition: def(),
       credential: "fixture-render-credential", baseUrl: "http://x",
@@ -161,7 +162,7 @@ describe("renderMapImage — bounds and lifecycle", () => {
     });
     process.env.DEZFIL_EXPORT_RENDER_TIMEOUT_S = "0.05";
     await expect(
-      renderMapImage({
+      renderMapImage(testAccountScope(), {
         mapId: "b",
         definition: def(),
         credential: "fixture-render-credential", baseUrl: "http://x",
@@ -180,7 +181,7 @@ describe("renderMapImage — bounds and lifecycle", () => {
       },
     });
     await expect(
-      renderMapImage({
+      renderMapImage(testAccountScope(), {
         mapId: "m1",
         definition: def(),
         credential: "fixture-render-credential", baseUrl: "http://x",
@@ -195,7 +196,7 @@ describe("renderMapImage — bounds and lifecycle", () => {
       render: async () => ({ failed: "The map could not be loaded (404)." }),
     });
     await expect(
-      renderMapImage({
+      renderMapImage(testAccountScope(), {
         mapId: "m1",
         definition: def(),
         credential: "fixture-render-credential", baseUrl: "http://x",
@@ -217,7 +218,7 @@ describe("renderMapImage — bounds and lifecycle", () => {
         return new Promise(() => {});
       },
     });
-    const first = renderMapImage({
+    const first = renderMapImage(testAccountScope(), {
       mapId: "held",
       definition: def(),
       credential: "fixture-render-credential", baseUrl: "http://x",
@@ -225,7 +226,7 @@ describe("renderMapImage — bounds and lifecycle", () => {
       driver: driverOf(held.browser),
     });
     await started.promise;
-    const second = renderMapImage({
+    const second = renderMapImage(testAccountScope(), {
       mapId: "queued",
       definition: def(),
       credential: "fixture-render-credential", baseUrl: "http://x",
@@ -245,7 +246,7 @@ describe("renderMapImage — bounds and lifecycle", () => {
     const hung = browserStub({
       render: () => new Promise(() => {}),
     });
-    const run = renderMapImage({
+    const run = renderMapImage(testAccountScope(), {
       mapId: "m1",
       definition: def(),
       credential: "fixture-render-credential", baseUrl: "http://x",
@@ -262,7 +263,7 @@ describe("renderMapImage — bounds and lifecycle", () => {
     process.env.DEZFIL_EXPORT_RENDER_TIMEOUT_S = "0.05";
     const late = deferred<{ png: Uint8Array } | { failed: string }>();
     const held = browserStub({ render: () => late.promise });
-    const run = renderMapImage({
+    const run = renderMapImage(testAccountScope(), {
       mapId: "m1",
       definition: def(),
       credential: "fixture-render-credential", baseUrl: "http://x",
@@ -292,7 +293,7 @@ describe("renderMapImage — bounds and lifecycle", () => {
           return late.promise;
         },
       });
-      const run = renderMapImage({
+      const run = renderMapImage(testAccountScope(), {
         mapId: "m1",
         definition: def(),
         credential: "fixture-render-credential", baseUrl: "http://x",
@@ -322,7 +323,7 @@ describe("renderMapImage — bounds and lifecycle", () => {
         abandoned: ["tiles.example", "tiles.example"],
       }),
     });
-    const result = await renderMapImage({
+    const result = await renderMapImage(testAccountScope(), {
       mapId: "m",
       definition: def(),
       credential: "fixture-render-credential", baseUrl: "http://127.0.0.1:3000",
@@ -337,8 +338,8 @@ describe("renderMapImage — bounds and lifecycle", () => {
     const { browser } = browserStub({
       render: async (input) => { seen.push(input.requestBoundMs); return { png: PNG }; },
     });
-    await renderMapImage({ mapId: "m", definition: def(), credential: "fixture-render-credential", baseUrl: "http://127.0.0.1:3000", driver: driverOf(browser) });
-    await renderMapImage({ mapId: "m", definition: def(), credential: "fixture-render-credential", baseUrl: "http://127.0.0.1:3000", driver: driverOf(browser), budgetMs: 30_000 });
+    await renderMapImage(testAccountScope(), { mapId: "m", definition: def(), credential: "fixture-render-credential", baseUrl: "http://127.0.0.1:3000", driver: driverOf(browser) });
+    await renderMapImage(testAccountScope(), { mapId: "m", definition: def(), credential: "fixture-render-credential", baseUrl: "http://127.0.0.1:3000", driver: driverOf(browser), budgetMs: 30_000 });
     expect(seen).toEqual([limits.exportRequestTimeoutMs, 10_000]);
     expect(seen[1]).toBeLessThan(seen[0]);
   });
@@ -348,8 +349,8 @@ describe("physical renders are counted at the renderer", () => {
   it("every launch attempt counts, a failed one too, so a live figure reads the renderer rather than successful results", async () => {
     const before = renderStats().launches;
     const { browser } = browserStub();
-    await renderMapImage({ mapId: "m1", definition: def(), credential: "fixture-render-credential", baseUrl: "http://x", driver: driverOf(browser) });
-    await expect(renderMapImage({ mapId: "m1", definition: def(), credential: "fixture-render-credential", baseUrl: "http://x", driver: { launch: async () => { throw new Error("ENOENT"); } } })).rejects.toMatchObject({ code: "render_unavailable" });
+    await renderMapImage(testAccountScope(), { mapId: "m1", definition: def(), credential: "fixture-render-credential", baseUrl: "http://x", driver: driverOf(browser) });
+    await expect(renderMapImage(testAccountScope(), { mapId: "m1", definition: def(), credential: "fixture-render-credential", baseUrl: "http://x", driver: { launch: async () => { throw new Error("ENOENT"); } } })).rejects.toMatchObject({ code: "render_unavailable" });
     expect(renderStats().launches - before).toBe(2);
   });
 });

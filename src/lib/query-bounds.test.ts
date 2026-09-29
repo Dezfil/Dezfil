@@ -455,7 +455,7 @@ describe("query bounds — the export lane", () => {
     timeoutNow();
     await expect(
       exportLayerResult(
-        { name: "slow", sql: SLOW_EVERYWHERE, filters: [], viz: POINTS_VIZ },
+        testAccountScope(), { name: "slow", sql: SLOW_EVERYWHERE, filters: [], viz: POINTS_VIZ },
         "csv",
       ),
     ).rejects.toMatchObject({ code: "query_timeout" });
@@ -467,7 +467,7 @@ describe("query bounds — the export lane", () => {
     try {
       await expect(
         exportLayerResult(
-          {
+          testAccountScope(), {
             name: "hungry",
             sql: "SELECT geometry, hash(a.range) AS h FROM stations, (SELECT * FROM range(50000000) ORDER BY hash(range)) a",
             filters: [],
@@ -486,7 +486,7 @@ describe("query bounds — the export lane", () => {
     const caller = new AbortController();
     const started = Date.now();
     const run = exportLayerResult(
-      { name: "slow", sql: SLOW_EVERYWHERE, filters: [], viz: POINTS_VIZ },
+      testAccountScope(), { name: "slow", sql: SLOW_EVERYWHERE, filters: [], viz: POINTS_VIZ },
       "csv",
       caller.signal,
     );
@@ -499,7 +499,7 @@ describe("query bounds — the export lane", () => {
     // The read-only guard rejects a mutation before it can run…
     await expect(
       exportLayerResult(
-        {
+        testAccountScope(), {
           name: "evil",
           sql: "DELETE FROM stations",
           filters: [],
@@ -512,7 +512,7 @@ describe("query bounds — the export lane", () => {
     // would serve this path; the hardened one refuses it.
     await expect(
       exportLayerResult(
-        {
+        testAccountScope(), {
           name: "reach",
           sql: `SELECT geometry, * FROM read_csv('${path
             .join(dir, "stations.csv")
