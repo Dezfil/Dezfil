@@ -1,6 +1,6 @@
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource } from "@/lib/auth/owned-resource";
-import { listJobs, type OperationJob } from "@/lib/metadata/jobs";
+import { listJobs, type OperationJob } from "@/lib/metadata/owned-jobs";
 import { edgesForStep, type LineageEdge } from "@/lib/metadata/lineage";
 import {
   requireRecipe,
@@ -149,7 +149,7 @@ export async function readRecipe(scope: AccountScope, recipeId: string): Promise
     step,
     condition: conditions.get(step.id)!,
     latestAttempt:
-      listJobs({ subjectId: step.id, subjectKind: "step", limit: 1 })[0] ?? null,
+      listJobs(scope, { subjectId: step.id, subjectKind: "step", limit: 1 })[0] ?? null,
     edges: edgesByStep.get(step.id) ?? [],
     reads: reads.get(step.id) ?? [],
   }));

@@ -332,3 +332,14 @@ the original input identity and bound artifact after deletion; a new dataset
 with the same name does not replace that history. Tile fingerprints include
 owner-selected dataset identities and artifacts, so another account's imports,
 refreshes or deletions do not change their freshness.
+
+Operation jobs keep their initiating owner independently of any output. Their
+parameters, errors, results, subject histories and cancellation are private,
+including after output deletion. Identical subject names and history limits are
+separate per account; output-name conflicts are checked in that account's space.
+Workers check current account activity before preparation and at publication.
+An unfinished job whose owner becomes inactive fails with
+`authentication_required` and keeps no new dataset or staging artifact. Restart
+reconciliation settles interrupted jobs without re-executing them, and prunes
+each recorded owner's history independently. Workflow cancellation carries the
+same account scope to each contained job.

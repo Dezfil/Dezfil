@@ -90,7 +90,7 @@ export interface OperationJob {
   finishedAt: string | null;
 }
 
-interface Row {
+export interface JobRow {
   id: string;
   subject_kind: SubjectKind;
   subject_id: string;
@@ -107,7 +107,7 @@ interface Row {
   finished_at: string | null;
 }
 
-function hydrate(r: Row): OperationJob {
+export function jobFromRow(r: JobRow): OperationJob {
   return {
     id: r.id,
     subjectKind: r.subject_kind,
@@ -163,8 +163,8 @@ export function deleteJob(id: string, db: Database = metadataDb()): boolean {
 export function getJob(id: string, db: Database = metadataDb()): OperationJob | null {
   const row = db
     .prepare(`SELECT * FROM operation_jobs WHERE id = ?`)
-    .get(id) as Row | undefined;
-  return row ? hydrate(row) : null;
+    .get(id) as JobRow | undefined;
+  return row ? jobFromRow(row) : null;
 }
 
 export interface JobQuery {
@@ -203,8 +203,8 @@ export function listJobs(
       `SELECT * FROM operation_jobs ${where}
        ORDER BY accepted_at DESC, id DESC LIMIT ${limit}`,
     )
-    .all(...args) as Row[];
-  return rows.map(hydrate);
+    .all(...args) as JobRow[];
+  return rows.map(jobFromRow);
 }
 
 /** Move a queued job into execution. False when it is no longer queued —
@@ -289,8 +289,8 @@ export function nonTerminalJobs(db: Database = metadataDb()): OperationJob[] {
       `SELECT * FROM operation_jobs WHERE state IN ('queued', 'running')
        ORDER BY accepted_at`,
     )
-    .all() as Row[];
-  return rows.map(hydrate);
+    .all() as JobRow[];
+  return rows.map(jobFromRow);
 }
 
 /**
@@ -307,6 +307,7 @@ export function nonTerminalJobs(db: Database = metadataDb()): OperationJob[] {
  * Returns how many rows were removed.
  */
 export function pruneSubject(
+  scope: AccountScope,
   subjectId: string,
   cap: number = limits.operationHistoryPerSubject,
   db: Database = metadataDb(),
@@ -315,14 +316,33 @@ export function pruneSubject(
    * own. `subjectId` alone is forgeable. */
   subjectKind?: SubjectKind,
 ): number {
+  return pruneOwnerSubject(requireAccountScope(scope, db), subjectId, cap, db, subjectKind);
+}
+
+/** Boot and worker settlement prune only the durable job owner's subject. */
+export function pruneJobHistory(id: string, db: Database = metadataDb()): number {
+  const row = db.prepare("SELECT owner_id, subject_id, subject_kind FROM operation_jobs WHERE id = ?").get(id) as
+    { owner_id: string | null; subject_id: string; subject_kind: SubjectKind } | undefined;
+  return row ? pruneOwnerSubject(row.owner_id, row.subject_id, limits.operationHistoryPerSubject, db, row.subject_kind) : 0;
+}
+
+/** Narrow maintenance settlement: it cannot change an active owner's job. */
+export function failInactiveJob(id: string, db: Database = metadataDb()): boolean {
+  return db.prepare(`UPDATE operation_jobs SET state = 'failed', error_code = 'authentication_required',
+    error_message = 'Sign in to continue.', finished_at = ? WHERE id = ? AND state IN ('queued', 'running')
+    AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = operation_jobs.owner_id AND a.status <> 'active')`)
+    .run(new Date().toISOString(), id).changes > 0;
+}
+
+function pruneOwnerSubject(ownerId: string | null, subjectId: string, cap: number, db: Database, subjectKind?: SubjectKind): number {
   const terminal = db
     .prepare(
       `SELECT id, state FROM operation_jobs
-       WHERE subject_id = ? ${subjectKind ? "AND subject_kind = ?" : ""}
+       WHERE (owner_id = ? OR (owner_id IS NULL AND ? IS NULL)) AND subject_id = ? ${subjectKind ? "AND subject_kind = ?" : ""}
          AND state IN ('succeeded', 'failed', 'cancelled')
        ORDER BY accepted_at DESC, id DESC`,
     )
-    .all(...(subjectKind ? [subjectId, subjectKind] : [subjectId])) as {
+    .all(ownerId, ownerId, ...(subjectKind ? [subjectId, subjectKind] : [subjectId])) as {
     id: string;
     state: JobState;
   }[];

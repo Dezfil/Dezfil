@@ -460,7 +460,7 @@ describe("the run's bounds", () => {
     await until(() => asked.length >= 1);
     const closedBefore = closed;
 
-    await cancelRun(job.id);
+    await cancelRun(testAccountScope(), job.id);
     // **Observed at the fixture**: the connection closes, rather than the job
     // merely reporting itself cancelled while the socket runs to its deadline.
     await until(() => closed > closedBefore);

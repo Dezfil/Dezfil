@@ -1,6 +1,6 @@
 import type { Database } from "better-sqlite3";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
-import { requireOwnedResource } from "@/lib/auth/owned-resource";
+import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
 import { dependentLayerIds } from "@/lib/table-deps";
 import { metadataDb } from "./db";
 import { fileTable } from "./owned-projects";
@@ -47,4 +47,10 @@ export function fileOwnedTable(scope: AccountScope, tableId: string, projectId: 
 /** Dataset mutations invalidate only maps in the same account's SQL space. */
 export function ownedDependentLayerIds(scope: AccountScope, name: string, db: Database = metadataDb()): string[] {
   return dependentLayerIds(scope, name, db);
+}
+
+/** A replacement names one owned durable identity, never just a SQL name. */
+export function requireOwnedTableReference(scope: AccountScope, ref: { id: string; name: string }, db: Database = metadataDb()): void {
+  const owner = requireAccountScope(scope, db);
+  if (!db.prepare("SELECT id FROM data_tables WHERE id = ? AND name = ? AND owner_id = ?").get(ref.id, ref.name, owner)) throw resourceAbsent();
 }

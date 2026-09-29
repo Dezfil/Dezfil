@@ -1,5 +1,8 @@
+import { requireOwnedTableReference } from "@/lib/metadata/owned-tables";
+import { AuthError } from "@/lib/auth/errors";
+import { failInactiveJob } from "@/lib/metadata/jobs";
 import { admit, type RunRequest } from "./run-admission";
-import { prune } from "./run-history";
+import { pruneAfterJob } from "./run-history";
 export { admitOwned, type RunRequest } from "./run-admission";
 export { prune, cancelRun, markAndSignalRunCancellation, pruneRunCancellation, waitForRunCancellation, type RunCancellation } from "./run-history";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
@@ -14,7 +17,7 @@ import {
   insertJob,
   markRunning,
   type OperationJob,
-} from "@/lib/metadata/jobs";
+} from "@/lib/metadata/owned-jobs";
 import type {
   CompiledRun,
   PreparedPublication,
@@ -100,9 +103,6 @@ export interface SubmitOptions {
  * never throws into the lane. */
 function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions): lane.LaneWork {
   return async (signal: AbortSignal) => {
-    // Cancelled between admission and its turn: it never starts.
-    if (!markRunning(job.id, new Date().toISOString())) return;
-
     // **One deadline over the whole run**, taken here — where the run starts
     // running, which is contract — rather than where publication begins. A
     // preparation that spends minutes leaves the publication what is left of
@@ -121,7 +121,7 @@ function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions)
       output: { id: string; name: string },
     ): boolean =>
       finish(
-        job.id,
+        scope, job.id,
         {
           state: "succeeded",
           output,
@@ -132,6 +132,8 @@ function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions)
       );
 
     try {
+      // Check the durable owner before a queued job can contact a source.
+      if (!markRunning(scope, job.id, new Date().toISOString())) return;
       if (options.prepare) {
         prepared = await options.prepare({
           signal,
@@ -158,13 +160,13 @@ function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions)
         ...(options.onPublished ? { onPublished: options.onPublished } : {}),
       });
     } catch (error) {
-      settleFailure(job, error);
+      settleFailure(scope, job, error);
     } finally {
       // **Whatever happened.** The staging a preparation owns is removed on
       // success, failure, cancellation and timeout alike — the boot sweep is
       // the backstop for a process that dies, not the ordinary path.
       if (prepared) await prepared.cleanup().catch(() => {});
-      prune(job.subjectId, job.subjectKind);
+      pruneAfterJob(job.id);
     }
   };
 }
@@ -177,6 +179,7 @@ function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions)
  */
 export function submitRun(scope: AccountScope, options: SubmitOptions): OperationJob {
   requireAccountScope(scope);
+  if (options.replaceTable) requireOwnedTableReference(scope, options.replaceTable);
   const id = randomUUID();
   const job: OperationJob = {
     id,
@@ -206,13 +209,14 @@ export function submitRun(scope: AccountScope, options: SubmitOptions): Operatio
   } catch (error) {
     // The lane refused it, so the server never took responsibility for this
     // work and must leave no record of it.
-    deleteJob(id);
+    deleteJob(scope, id);
     throw error;
   }
   return job;
 }
 
-function settleFailure(job: OperationJob, error: unknown): void {
+function settleFailure(scope: AccountScope, job: OperationJob, error: unknown): void {
+  if (failInactiveJob(job.id)) return;
   // The run lost its claim (E10's fence). Who took it away decides how this
   // settles, and the *job's own row* is the honest way to ask: a cancel wrote
   // `cancelled` before it signalled, so the row is already terminal and
@@ -223,7 +227,7 @@ function settleFailure(job: OperationJob, error: unknown): void {
   // rather than a sixth state.
   if (error instanceof LostAuthority) {
     finish(
-      job.id,
+      scope, job.id,
       {
         state: "failed",
         errorCode: "operation_superseded",
@@ -239,9 +243,9 @@ function settleFailure(job: OperationJob, error: unknown): void {
   if (error instanceof EvaluationCancelled) return;
 
   const now = new Date().toISOString();
-  if (error instanceof ApiError) {
+  if (error instanceof ApiError || error instanceof AuthError) {
     finish(
-      job.id,
+      scope, job.id,
       { state: "failed", errorCode: error.code, errorMessage: error.message },
       now,
     );
@@ -249,7 +253,7 @@ function settleFailure(job: OperationJob, error: unknown): void {
   }
   console.error(`[operations] run ${job.id} failed:`, error);
   finish(
-    job.id,
+    scope, job.id,
     {
       state: "failed",
       errorCode: "internal",
@@ -269,7 +273,7 @@ export async function startRun(scope: AccountScope, request: RunRequest): Promis
   requireAccountScope(scope);
   // No `owns` argument: a one-off run never holds the admission exception, so
   // a caller cannot reach it by imitating a step.
-  const admitted = await admit(request);
+  const admitted = await admit(scope, request);
   return submitRun(scope, {
     operationId: admitted.operationId,
     parameters: request.parameters ?? {},

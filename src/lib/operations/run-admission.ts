@@ -1,7 +1,8 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
 import { boundedEvaluation } from "@/lib/query/bounded";
 import { assertReadOnlySelect } from "@/lib/query/guard";
-import { getTableByName } from "@/lib/metadata/tables";
+import { getOwnedTableByName, requireOwnedTableReference } from "@/lib/metadata/owned-tables";
 import { deriveTableName } from "@/lib/ingest/naming";
 import { compileOperation, type CompiledRun } from "./compile";
 
@@ -34,6 +35,7 @@ export interface RunRequest {
  * overwrite any table.
  */
 export async function admit(
+  scope: AccountScope,
   request: RunRequest,
   owns?: { id: string; name: string },
 ): Promise<{
@@ -45,6 +47,8 @@ export async function admit(
   bindings?: Record<string, string>;
   prepare?: CompiledRun["prepare"];
 }> {
+  requireAccountScope(scope);
+  if (owns) requireOwnedTableReference(scope, owns);
   const params = request.parameters ?? {};
   const { sql, name, measurement, bindings, prepare, assumedCrs: ownRoute } = await compileOperation(
     request.operation,
@@ -71,7 +75,7 @@ export async function admit(
   // the run would be accepted only to fail at its commit, which is precisely
   // the wrong side of the admission boundary.
   const registered = deriveTableName(name, new Set());
-  const existing = getTableByName(registered);
+  const existing = getOwnedTableByName(scope, registered);
   if (existing && !(owns && owns.id === existing.id && owns.name === existing.name)) {
     throw new ApiError(
       "name_taken",
@@ -123,9 +127,10 @@ export async function admit(
 
 /** Admit a run that a caller has already proven owns the name it reuses. */
 export async function admitOwned(
+  scope: AccountScope,
   request: RunRequest,
   owns: { id: string; name: string } | undefined,
 ) {
-  return admit(request, owns);
+  return admit(scope, request, owns);
 }
 

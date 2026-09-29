@@ -1,3 +1,4 @@
+import { jobAccess } from "./openapi-job-access";
 import { workflowAccess } from "./openapi-workflow-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE, WORKFLOW_RUN } from "./operation-mcp";
@@ -631,7 +632,7 @@ export const RECIPE_PATHS = {
     }),
   },
   "/api/recipes/{id}/runs/{runId}/cancel": {
-    post: op({
+    post: op(jobAccess({
       summary: "Cancel a recipe run",
       description:
         "One thing to stop, whatever it was in the middle of: what has " +
@@ -653,6 +654,6 @@ export const RECIPE_PATHS = {
         pathParam("runId", "Recipe run id."),
       ],
       responses: { "200": jsonOk("#/components/schemas/RecipeRunEnvelope") },
-    }),
+    })),
   },
 };

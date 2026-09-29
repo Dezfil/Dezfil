@@ -1,7 +1,8 @@
+import { getOwnedTableByName, updateOwnedTableData, requireOwnedTableReference } from "@/lib/metadata/owned-tables";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
-import { getTableByName, insertTable, updateTableData, type DataTable } from "@/lib/metadata/tables";
+import { insertTable, type DataTable } from "@/lib/metadata/tables";
 import type { BoundInput, MaterializeRequest } from "./materialize";
 
 /** Thrown when `authorize` refused: the run lost its claim while it worked. */
@@ -29,17 +30,19 @@ export function publishDataset(
   // Kept so the replaced generation can be retired after the commit. Read
   // before the swap, because after it the row names the new file.
   const replaced = replaceTable
-    ? (getTableByName(replaceTable.name)?.file ?? null)
+    ? (getOwnedTableByName(scope, replaceTable.name)?.file ?? null)
     : null;
   try {
     db.transaction(() => {
       requireAccountScope(scope, db);
+      if (replaceTable) requireOwnedTableReference(scope, replaceTable, db);
       if (authorize && !authorize(table, db, bound)) throw new LostAuthority();
       if (replaceTable) {
         // Keyed on name AND id: a re-run racing a delete, or a name
         // reclaimed by a newer table, matches nothing and says so rather
         // than writing into a stranger.
-        const swapped = updateTableData(
+        const swapped = updateOwnedTableData(
+          scope,
           { name: replaceTable.name, id: replaceTable.id },
           {
             file: table.file,

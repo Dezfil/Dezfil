@@ -12,11 +12,12 @@ export type Graph = Map<string, string[]>;
 /** Cancel one newly admitted member without letting job-history pruning erase
  * the run's own attempt first. */
 export async function cancelAdmittedMember(
+  scope: AccountScope,
   cascadeId: string,
   stepId: string,
   jobId: string,
 ): Promise<void> {
-  const cancellation = markAndSignalRunCancellation(jobId);
+  const cancellation = markAndSignalRunCancellation(scope, jobId);
   const stopped = getJob(jobId) ?? cancellation.job;
   snapshotAttempt(cascadeId, stepId, stopped);
   pruneRunCancellation(cancellation);
@@ -38,6 +39,7 @@ function blockedBy(
 
 /** Stop admitted engine work before any failure-recording metadata writes. */
 async function drainAdmittedJobs(
+  scope: AccountScope,
   admitted: Map<string, string>,
 ): Promise<Map<string, OperationJob>> {
   const jobs = new Map<string, OperationJob>();
@@ -52,7 +54,7 @@ async function drainAdmittedJobs(
       jobs.set(stepId, job);
       continue;
     }
-    const cancellation = markAndSignalRunCancellation(jobId);
+    const cancellation = markAndSignalRunCancellation(scope, jobId);
     jobs.set(stepId, cancellation.job);
     cancellations.push({ stepId, cancellation });
   }
@@ -105,11 +107,12 @@ function recordFailedCascade(
 
 /** Drain once, then make one bounded fresh-read recording re-attempt. */
 async function settleCoordinatorFailure(
+  scope: AccountScope,
   cascadeId: string,
   members: { stepId: string }[],
   admitted: Map<string, string>,
 ): Promise<void> {
-  const drained = await drainAdmittedJobs(admitted);
+  const drained = await drainAdmittedJobs(scope, admitted);
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       recordFailedCascade(cascadeId, members, admitted, drained);
@@ -199,7 +202,7 @@ export async function driveCascade(
             // Admitted, then stopped: a failed member whose attempt was
             // cancelled, its job kept; not_run is for work never
             // admitted.
-            await cancelAdmittedMember(cascadeId, member.stepId, job.id);
+            await cancelAdmittedMember(scope, cascadeId, member.stepId, job.id);
             setMember(cascadeId, member.stepId, { state: "failed", jobId: job.id, stoppedBy: "cancelled" });
             states.set(member.stepId, "failed");
             break;
@@ -297,7 +300,7 @@ export async function driveCascade(
     // bounded recording retry is exhausted, restart owns the active record.
     console.error(`[operations] cascade ${cascadeId} failed to drive:`, error);
     try {
-      await settleCoordinatorFailure(cascadeId, members, admitted);
+      await settleCoordinatorFailure(scope, cascadeId, members, admitted);
     } catch (settlementError) {
       // The engine drain is attempted before any terminal parent write. A
       // metadata outage here leaves the active row for the retry/restart road,

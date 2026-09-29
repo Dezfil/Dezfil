@@ -1,6 +1,7 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
-import { listJobs } from "@/lib/metadata/jobs";
+import { listJobs } from "@/lib/metadata/owned-jobs";
 import { jobView } from "@/lib/operations/job-view";
 
 /**
@@ -13,12 +14,13 @@ import { jobView } from "@/lib/operations/job-view";
  */
 export async function GET(request: Request) {
   try {
+    const scope = requireRequestScope(request);
     const url = new URL(request.url);
     const subjectId = url.searchParams.get("subject") ?? undefined;
     const limitParam = url.searchParams.get("limit");
     const limit = limitParam ? Number(limitParam) : undefined;
 
-    const runs = listJobs({
+    const runs = listJobs(scope, {
       ...(subjectId ? { subjectId } : {}),
       ...(limit !== undefined && Number.isFinite(limit) ? { limit } : {}),
     });

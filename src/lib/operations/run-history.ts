@@ -1,5 +1,6 @@
-import { ApiError } from "@/lib/api/errors";
-import { finish, getJob, isTerminal, pruneSubject, type OperationJob } from "@/lib/metadata/jobs";
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { finish, getJob, requireJob, type OperationJob } from "@/lib/metadata/owned-jobs";
+import { isTerminal, pruneSubject, pruneJobHistory } from "@/lib/metadata/jobs";
 import * as lane from "./lane";
 
 /**
@@ -11,9 +12,10 @@ import * as lane from "./lane";
  * its documented depth. A stumble here is logged and never turned into a
  * failure answer for a run that already finished.
  */
-export function prune(subjectId: string, subjectKind?: OperationJob["subjectKind"]): void {
+export function prune(scope: AccountScope, subjectId: string, subjectKind?: OperationJob["subjectKind"]): void {
+  requireAccountScope(scope);
   try {
-    pruneSubject(subjectId, undefined, undefined, subjectKind);
+    pruneSubject(scope, subjectId, undefined, undefined, subjectKind);
   } catch (error) {
     console.warn(
       `history pruning failed for subject "${subjectId}": ${
@@ -24,38 +26,36 @@ export function prune(subjectId: string, subjectKind?: OperationJob["subjectKind
 }
 
 export interface RunCancellation {
+  scope: AccountScope;
   job: OperationJob;
   wasTerminal: boolean;
   settled: Promise<void>;
 }
 
 /** Raise the publication fence and signal the lane, without waiting or pruning. */
-export function markAndSignalRunCancellation(jobId: string): RunCancellation {
-  const job = getJob(jobId);
-  if (!job) {
-    throw new ApiError("not_found", `No run with id "${jobId}".`, 404);
-  }
+export function markAndSignalRunCancellation(scope: AccountScope, jobId: string): RunCancellation {
+  const job = requireJob(scope, jobId);
   if (isTerminal(job.state)) {
-    return { job, wasTerminal: true, settled: Promise.resolve() };
+    return { scope, job, wasTerminal: true, settled: Promise.resolve() };
   }
 
   // Mark first, then signal. The mark is what removes the run's authority to
   // publish, so a run that finishes during the signal still cannot commit —
   // this ordering closes the race and is not incidental.
-  finish(jobId, { state: "cancelled" }, new Date().toISOString());
+  finish(scope, jobId, { state: "cancelled" }, new Date().toISOString());
   lane.cancel(jobId);
-  const marked = getJob(jobId) ?? { ...job, state: "cancelled" as const };
+  const marked = getJob(scope, jobId) ?? { ...job, state: "cancelled" as const };
   const settled = Promise.race([
     lane.jobSettled(jobId),
     new Promise<void>((resolve) => setTimeout(resolve, CANCEL_SETTLE_GRACE_MS)),
   ]);
-  return { job: marked, wasTerminal: false, settled };
+  return { scope, job: marked, wasTerminal: false, settled };
 }
 
 /** Apply the ordinary subject-history cap after a cancellation mark. */
 export function pruneRunCancellation(cancellation: RunCancellation): void {
   if (!cancellation.wasTerminal) {
-    prune(cancellation.job.subjectId, cancellation.job.subjectKind);
+    prune(cancellation.scope, cancellation.job.subjectId, cancellation.job.subjectKind);
   }
 }
 
@@ -64,7 +64,7 @@ export async function waitForRunCancellation(
   cancellation: RunCancellation,
 ): Promise<OperationJob> {
   await cancellation.settled;
-  return getJob(cancellation.job.id) ?? cancellation.job;
+  return getJob(cancellation.scope, cancellation.job.id) ?? cancellation.job;
 }
 
 /**
@@ -75,8 +75,8 @@ export async function waitForRunCancellation(
  * turn the commonest race — cancel clicked as the run lands — into a failure
  * where nothing went wrong.
  */
-export async function cancelRun(jobId: string): Promise<OperationJob> {
-  const cancellation = markAndSignalRunCancellation(jobId);
+export async function cancelRun(scope: AccountScope, jobId: string): Promise<OperationJob> {
+  const cancellation = markAndSignalRunCancellation(scope, jobId);
   if (cancellation.wasTerminal) return cancellation.job;
 
   // Preserve the ordinary single-job road: its history is capped as soon as
@@ -94,3 +94,9 @@ export async function cancelRun(jobId: string): Promise<OperationJob> {
 
 /** How long a cancel waits for the engine to let go before answering anyway. */
 const CANCEL_SETTLE_GRACE_MS = 10_000;
+
+/** Maintenance follows a recorded job, never an untrusted subject or owner. */
+export function pruneAfterJob(id: string): void {
+  try { pruneJobHistory(id); }
+  catch (error) { console.warn(`history pruning failed for run "${id}": ${error instanceof Error ? error.message : String(error)}`); }
+}

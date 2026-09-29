@@ -158,7 +158,7 @@ describe("retention", () => {
 
   it("holds the cap", () => {
     drive("s", 10, "failed");
-    pruneSubject("s", 4, db);
+    pruneSubject(testAccountScope(db), "s", 4, db);
     expect(listJobs({ subjectId: "s" }, db)).toHaveLength(4);
   });
 
@@ -167,7 +167,7 @@ describe("retention", () => {
     const [success] = drive("s", 1, "succeeded");
     drive("s", 6, "failed");
 
-    pruneSubject("s", 3, db);
+    pruneSubject(testAccountScope(db), "s", 3, db);
 
     const kept = listJobs({ subjectId: "s" }, db);
     expect(kept).toHaveLength(3);
@@ -184,7 +184,7 @@ describe("retention", () => {
     insertJob(testAccountScope(db), running, db);
     markRunning(running.id, "t1", db);
 
-    pruneSubject("s", 2, db);
+    pruneSubject(testAccountScope(db), "s", 2, db);
 
     const survivors = listJobs({ subjectId: "s" }, db).map((j) => j.id);
     expect(survivors).toContain(queued.id);
@@ -194,14 +194,14 @@ describe("retention", () => {
   it("leaves other subjects alone", () => {
     drive("mine", 6, "failed");
     drive("theirs", 6, "failed");
-    pruneSubject("mine", 2, db);
+    pruneSubject(testAccountScope(db), "mine", 2, db);
     expect(listJobs({ subjectId: "mine" }, db)).toHaveLength(2);
     expect(listJobs({ subjectId: "theirs" }, db)).toHaveLength(6);
   });
 
   it("is a no-op below the cap", () => {
     drive("s", 3, "failed");
-    expect(pruneSubject("s", 10, db)).toBe(0);
+    expect(pruneSubject(testAccountScope(db), "s", 10, db)).toBe(0);
     expect(listJobs({ subjectId: "s" }, db)).toHaveLength(3);
   });
 });

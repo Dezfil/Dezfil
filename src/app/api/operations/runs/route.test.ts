@@ -72,7 +72,7 @@ describe("the run endpoint answers before the work is done", () => {
     const { run } = (await accepted.json()) as { run: { id: string } };
     await laneSettled();
 
-    const read = await readRun(new Request("http://test"), {
+    const read = await readRun(testAccountRequest(new Request("http://test")), {
       params: Promise.resolve({ id: run.id }),
     });
     expect(read.status).toBe(200);
@@ -115,7 +115,7 @@ describe("the poll contract, proven on one seeded slow run (F3)", () => {
     "SELECT count(*) AS n FROM range(40000) a, range(40000) b WHERE (a.range * b.range) % 7 = 3";
 
   async function pollRun(id: string) {
-    const response = await readRun(new Request("http://test"), {
+    const response = await readRun(testAccountRequest(new Request("http://test")), {
       params: Promise.resolve({ id }),
     });
     return ((await response.json()) as { run: Record<string, unknown> }).run;
@@ -168,7 +168,7 @@ describe("an accepted run outlives its request", () => {
 
     await laneSettled();
 
-    const read = await readRun(new Request("http://test"), {
+    const read = await readRun(testAccountRequest(new Request("http://test")), {
       params: Promise.resolve({ id: run.id }),
     });
     const body = (await read.json()) as { run: Record<string, unknown> };
@@ -179,7 +179,7 @@ describe("an accepted run outlives its request", () => {
 
 describe("the run resource", () => {
   it("answers not_found for an unknown id", async () => {
-    const response = await readRun(new Request("http://test"), {
+    const response = await readRun(testAccountRequest(new Request("http://test")), {
       params: Promise.resolve({ id: "nope" }),
     });
     expect(response.status).toBe(404);
@@ -195,13 +195,13 @@ describe("the run resource", () => {
     await runOperation(testAccountRequest(post(step("SELECT 3 AS n", "three", "other"))));
     await laneSettled();
 
-    const all = (await (await listRuns(new Request("http://test/api/operations/runs"))).json()) as {
+    const all = (await (await listRuns(testAccountRequest(new Request("http://test/api/operations/runs")))).json()) as {
       runs: { parameters: { name: string } }[];
     };
     expect(all.runs.map((r) => r.parameters.name)).toEqual(["three", "two", "one"]);
 
     const mine = (await (
-      await listRuns(new Request("http://test/api/operations/runs?subject=shared"))
+      await listRuns(testAccountRequest(new Request("http://test/api/operations/runs?subject=shared")))
     ).json()) as { runs: { parameters: { name: string } }[] };
     expect(mine.runs.map((r) => r.parameters.name)).toEqual(["two", "one"]);
   }, 60_000);
@@ -211,7 +211,7 @@ describe("the run resource", () => {
     const { run } = (await accepted.json()) as { run: { id: string } };
     await laneSettled();
 
-    const response = await cancelRunRoute(new Request("http://test", { method: "POST" }), {
+    const response = await cancelRunRoute(testAccountRequest(new Request("http://test", { method: "POST" })), {
       params: Promise.resolve({ id: run.id }),
     });
     expect(response.status).toBe(200);
@@ -220,7 +220,7 @@ describe("the run resource", () => {
   }, 30_000);
 
   it("cancelling an unknown run answers not_found", async () => {
-    const response = await cancelRunRoute(new Request("http://test", { method: "POST" }), {
+    const response = await cancelRunRoute(testAccountRequest(new Request("http://test", { method: "POST" })), {
       params: Promise.resolve({ id: "nope" }),
     });
     expect(response.status).toBe(404);
@@ -247,7 +247,7 @@ describe("a run reports timings and no percentage", () => {
     await laneSettled();
 
     const body = (await (
-      await readRun(new Request("http://test"), { params: Promise.resolve({ id: run.id }) })
+      await readRun(testAccountRequest(new Request("http://test")), { params: Promise.resolve({ id: run.id }) })
     ).json()) as { run: Record<string, unknown> };
 
     expect(body.run.startedAt).toBeTruthy();

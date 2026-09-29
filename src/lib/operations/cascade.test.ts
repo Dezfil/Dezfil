@@ -292,7 +292,7 @@ describe("a coordinator metadata failure", () => {
       admissionSpy.mockRestore();
       quiet.mockRestore();
       if (slowJobId && getJob(slowJobId) && getJob(slowJobId)!.state === "running") {
-        await cancelRun(slowJobId);
+        await cancelRun(testAccountScope(), slowJobId);
       }
       await laneSettled();
     }
@@ -395,7 +395,7 @@ describe("coordinator failure settlement", () => {
       quietError.mockRestore();
       quietWarn.mockRestore();
       if (slowJobId && getJob(slowJobId)?.state === "running") {
-        await cancelRun(slowJobId);
+        await cancelRun(testAccountScope(), slowJobId);
       }
       await laneSettled();
     }
@@ -518,7 +518,7 @@ describe("cancelling a cascade", () => {
     expect(memberOf(readCascade(cascade.id), after.id).state).toBe("pending");
 
     const started = Date.now();
-    const settled = await cancelCascade(cascade.id);
+    const settled = await cancelCascade(testAccountScope(), cascade.id);
     const elapsed = Date.now() - started;
 
     // The seeded statement is minutes of work. Its *own* settlement in seconds
@@ -543,7 +543,7 @@ describe("cancelling a cascade", () => {
   it("is not an error for a cascade that already finished", async () => {
     step("SELECT 1 AS n", "already_done");
     const done = await runAll();
-    const again = await cancelCascade(done.id);
+    const again = await cancelCascade(testAccountScope(), done.id);
     expect(again.outcome).toBe("completed");
     expect(again.finishedAt).toBe(done.finishedAt);
     expect(readCascade(done.id)).toEqual(done);
@@ -570,7 +570,7 @@ describe("cancelling a cascade with more than one member admitted", () => {
       if (Date.now() > deadline) throw new Error("the two roots were never both admitted");
       await new Promise((r) => setTimeout(r, 25));
     }
-    const settled = await cancelCascade(cascade.id);
+    const settled = await cancelCascade(testAccountScope(), cascade.id);
     return { settled, left, right };
   }
 
@@ -641,7 +641,7 @@ describe("cancelling a cascade with more than one member admitted", () => {
     expect(queued.startedAt).toBeNull();
     expect(isExecuting(queued.id)).toBe(false);
 
-    const settled = await cancelCascade(cascade.id);
+    const settled = await cancelCascade(testAccountScope(), cascade.id);
     const queuedAfter = getJob(queued.id)!;
     expect(settled.outcome).toBe("cancelled");
     expect(queuedAfter.state).toBe("cancelled");
@@ -715,7 +715,7 @@ describe("what the cascade record keeps for itself", () => {
       expect(newerId).not.toBe(older.id);
       expect(getJob(newerId)?.state).toBe("running");
 
-      const settled = await cancelCascade(cascade.id);
+      const settled = await cancelCascade(testAccountScope(), cascade.id);
       const history = listJobs({ subjectId: target.id });
       expect(settled.outcome).toBe("cancelled");
       expect(getJob(newerId)).toBeNull();
@@ -772,7 +772,7 @@ describe("what the cascade record keeps for itself", () => {
         attempt: null,
       });
 
-      cancelled = cancelCascade(pending.id);
+      cancelled = cancelCascade(testAccountScope(), pending.id);
       await Promise.resolve();
       await Promise.resolve();
       expect(readCascade(pending.id).cancelled).toBe(true);
@@ -833,7 +833,7 @@ describe("what the cascade record keeps for itself", () => {
         attempt: null,
       });
 
-      cancelled = cancelCascade(cascade.id);
+      cancelled = cancelCascade(testAccountScope(), cascade.id);
       await Promise.resolve();
       await Promise.resolve();
       expect(readCascade(cascade.id).cancelled).toBe(true);
@@ -908,7 +908,7 @@ describe("a run reads whole on its own", () => {
       await new Promise((r) => setTimeout(r, 50));
     }
     expect(seen).toBe("running");
-    await cancelCascade(cascade.id);
+    await cancelCascade(testAccountScope(), cascade.id);
     const done = readCascade(cascade.id);
     expect(done.outcome).toBe("cancelled");
     // The interrupted member: a failed member whose attempt was cancelled.
@@ -953,7 +953,7 @@ describe("a node's own run is one of the workflow's runs", () => {
       });
 
       let earlyAnswer: CascadeRun | undefined;
-      cancelled = cancelCascade(pending.id);
+      cancelled = cancelCascade(testAccountScope(), pending.id);
       void cancelled.then((answer) => {
         earlyAnswer = answer;
       });
@@ -1009,7 +1009,7 @@ describe("a node's own run is one of the workflow's runs", () => {
       const pending = listCascades(recipeId)[0];
       expect(memberOf(pending, held.id)).toMatchObject({ state: "pending", jobId: null });
 
-      cancelled = cancelCascade(pending.id);
+      cancelled = cancelCascade(testAccountScope(), pending.id);
       await Promise.resolve();
       await Promise.resolve();
       expect(readCascade(pending.id).cancelled).toBe(true);
@@ -1047,7 +1047,7 @@ describe("a node's own run is one of the workflow's runs", () => {
     await expect(startCascade(testAccountScope(), { recipeId })).rejects.toMatchObject({ code: "run_in_flight" });
     await expect(startSingleRun(testAccountScope(), recipeId, other.id)).rejects.toMatchObject({ code: "run_in_flight" });
     expect(listCascades(recipeId)).toHaveLength(1);
-    const cancelled = await cancelCascade(run.id);
+    const cancelled = await cancelCascade(testAccountScope(), run.id);
     expect(cancelled.outcome).toBe("cancelled");
     expect(memberOf(cancelled, slow.id).attempt?.state).toBe("cancelled");
     // Settled, the other runs.

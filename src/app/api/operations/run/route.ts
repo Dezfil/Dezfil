@@ -18,7 +18,7 @@ import { jobView } from "@/lib/operations/job-view";
  * The caller's own cancellation is deliberately **not** passed into the work.
  * That is the whole point of the lane: an accepted run outlives the request
  * that started it, and closing a tab must not destroy work a user asked for.
- * Only an explicit cancel, or the lane's budget, ends a run early.
+ * Cancellation, loss of account activity or the lane's budget can stop publication.
  *
  * A dry run is unchanged: synchronous, minting no job, and still bounded by the
  * caller's departure, because nobody is waiting on it but them.

@@ -1,3 +1,4 @@
+import { getOwnedTableByName, requireOwnedTableReference } from "@/lib/metadata/owned-tables";
 import { publishDataset, nameTaken } from "./dataset-publication";
 export { LostAuthority } from "./dataset-publication";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
@@ -21,7 +22,6 @@ import type { BoundTable } from "@/lib/query/binding-snapshot";
 import { retireArtifact } from "@/lib/ingest/retire";
 import {
   type DataTable,
-  getTableByName,
 } from "@/lib/metadata/tables";
 import { queryInputs } from "./inputs";
 
@@ -344,6 +344,7 @@ export async function materialize(
     timeoutError,
     replaceTable,
   } = request;
+  if (replaceTable) requireOwnedTableReference(scope, replaceTable);
   const name = exactName(request.name);
 
   return boundedEvaluation(async (conn, bounds) => {
@@ -353,7 +354,7 @@ export async function materialize(
     // costs the caller nothing. The race is refused again at the insert.
     // A replacement is the one exception: it is *supposed* to find its own
     // table there, and the caller has already proven it owns it.
-    if (!replaceTable && getTableByName(name)) throw nameTaken(name);
+    if (!replaceTable && getOwnedTableByName(scope, name)) throw nameTaken(name);
 
     const snapshot = bounds.bindings!;
     const inputs = await queryInputs(conn, sql, snapshot.geometryOf);

@@ -1,3 +1,6 @@
+import { insertJob } from "@/lib/metadata/jobs";
+import { GET as jobRead } from "@/app/api/operations/runs/[id]/route";
+import { POST as jobCancel } from "@/app/api/operations/runs/[id]/cancel/route";
 import { createProject } from "@/lib/metadata/projects";
 import { GET as projectRead, PATCH as projectUpdate } from "@/app/api/projects/[id]/route";
 import { GET as projectMembersRead } from "@/app/api/projects/[id]/members/route";
@@ -121,6 +124,10 @@ function actualApi() {
     try {
       const actor = requireRequestAuth(req), path = new URL(req.url).pathname;
       seen.push({ path, accountId: actor.account.id, authorization: req.headers.get("authorization") ?? "", cookie: req.headers.get("cookie") });
+      if (/^\/api\/operations\/runs\/[^/]+(?:\/cancel)?$/.test(path)) {
+        const params = { params: Promise.resolve({ id: path.split("/")[4] }) };
+        return req.method === "POST" ? jobCancel(req, params) : jobRead(req, params);
+      }
       if (path === "/api/connections/postgis") return connectionsRead(req);
       if (/^\/api\/connections\/postgis\/[^/]+\/snapshots$/.test(path)) return connectionSnapshots(req, { params: Promise.resolve({ id: path.split("/")[4] }) });
       if (/^\/api\/recipes\/[^/]+$/.test(path)) return workflowRead(req, { params: Promise.resolve({ id: path.split("/")[3] }) });
@@ -537,4 +544,36 @@ it.each(["cookie", "token"])("MCP and assistant %s calls preserve project owners
     expect(results[0].body).toMatchObject({ error: { code: "not_found" } }); expect(results[0].body).toEqual(results[1].body);
   }
   expect(db.prepare("SELECT * FROM projects ORDER BY id").all()).toEqual(before);
+});
+
+it.each(["cookie", "token"])("MCP and assistant %s calls preserve private job identity without outputs", async mode => {
+  actualApi();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db), actors = [admin, member, other];
+  for (const actor of actors) insertJob(accountScope(authenticateSession(actor.secret, db)!, db), {
+    id: actor.account.id, subjectKind: "client", subjectId: "shared-subject", operation: "sql_step", parameters: { private: actor.account.id }, state: "queued",
+    errorCode: null, errorMessage: null, outputId: null, outputName: null, acceptedAt: "time", startedAt: null, finishedAt: null,
+  }, db);
+  const before = db.prepare("SELECT * FROM operation_jobs ORDER BY id").all();
+  for (let i = 0; i < actors.length; i++) {
+    const actor = actors[i], hiddenId = actors[(i + 1) % actors.length].account.id;
+    const credential = createApiToken(authenticateSession(actor.secret, db)!, "Private jobs", db);
+    const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+    expect(await rpc("get_operation_run", { id: actor.account.id }, headers)).toMatchObject({ isError: false });
+    const hidden = await rpc("cancel_operation_run", { id: hiddenId }, headers);
+    expect(hidden).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "not_found" } } } });
+    expect(hidden).toEqual(await rpc("cancel_operation_run", { id: "missing" }, headers));
+    factory.provider = stubProvider([
+      { text: "", toolCalls: [
+        { id: "hidden", name: "get_operation_run", args: { id: hiddenId } },
+        { id: "missing", name: "get_operation_run", args: { id: "missing" } },
+      ] },
+      { text: "Unavailable", toolCalls: [] },
+    ]);
+    const events = await send({ runId: await ownReservation(headers), message: "Read these job results" }, headers);
+    const results = events.filter((event): event is Extract<AssistantEvent, { type: "tool_result" }> => event.type === "tool_result");
+    expect(results).toHaveLength(2); expect(results.map(result => result.ok)).toEqual([false, false]);
+    expect(results[0].body).toMatchObject({ error: { code: "not_found" } }); expect(results[0].body).toEqual(results[1].body);
+  }
+  expect(db.prepare("SELECT * FROM operation_jobs ORDER BY id").all()).toEqual(before);
 });

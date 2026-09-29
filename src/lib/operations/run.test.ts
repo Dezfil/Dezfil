@@ -234,8 +234,8 @@ describe("a full queue", () => {
       expect(listJobs()).toHaveLength(before);
       expect(listJobs().some((j) => j.parameters?.name === "refused")).toBe(false);
 
-      await cancelRun(queued.id);
-      await cancelRun(blocker.id);
+      await cancelRun(testAccountScope(), queued.id);
+      await cancelRun(testAccountScope(), blocker.id);
       await laneSettled();
     } finally {
       delete process.env.DEZFIL_OPERATION_CONCURRENCY;
@@ -246,13 +246,13 @@ describe("a full queue", () => {
 
 describe("cancellation", () => {
   it("answers not_found for an unknown run", async () => {
-    await expect(cancelRun("nope")).rejects.toBeInstanceOf(ApiError);
-    await expect(cancelRun("nope")).rejects.toMatchObject({ code: "not_found" });
+    await expect(cancelRun(testAccountScope(), "nope")).rejects.toBeInstanceOf(ApiError);
+    await expect(cancelRun(testAccountScope(), "nope")).rejects.toMatchObject({ code: "not_found" });
   });
 
   it("returns a terminal job unchanged and raises nothing (G5)", async () => {
     const job = await run("SELECT 1 AS n", "done_already");
-    const after = await cancelRun(job.id);
+    const after = await cancelRun(testAccountScope(), job.id);
     expect(after.state).toBe("succeeded");
     expect(after.finishedAt).toBe(job.finishedAt);
   }, 30_000);
@@ -298,7 +298,7 @@ describe("cancellation", () => {
       if (!candidate) await new Promise((r) => setTimeout(r, 50));
     }
 
-    await cancelRun(job.id);
+    await cancelRun(testAccountScope(), job.id);
     await laneSettled();
 
     const after = getJob(job.id)!;

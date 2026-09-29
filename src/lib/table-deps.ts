@@ -51,7 +51,7 @@ export function referencedTableArtifacts(sql: string, layerId: string, db: Datab
   const map = db.prepare(`SELECT m.owner_id FROM layers l JOIN maps m ON m.id = l.map_id WHERE l.id = ?`)
     .get(layerId) as { owner_id: string | null } | undefined;
   if (!map) throw resourceAbsent();
-  const tables = db.prepare("SELECT id, name, file FROM data_tables WHERE owner_id IS ? ORDER BY id")
-    .all(map.owner_id) as { id: string; name: string; file: string }[];
+  const tables = db.prepare("SELECT id, name, file FROM data_tables WHERE owner_id = ? OR (owner_id IS NULL AND ? IS NULL) ORDER BY id")
+    .all(map.owner_id, map.owner_id) as { id: string; name: string; file: string }[];
   return tables.filter(t => sqlReferencesTable(sql, t.name)).map(({ id, file }) => ({ id, file }));
 }

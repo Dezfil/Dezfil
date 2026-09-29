@@ -1,3 +1,4 @@
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { driveCascade, cancelAdmittedMember, type Graph } from "./cascade-driver";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
@@ -308,7 +309,7 @@ export async function startSingleRun(scope: AccountScope, recipeId: string, step
       // exists now, so stop it here and finish the retained parent before the
       // cancel waiter answers.
       if (isCancelled(cascade.id)) {
-        await cancelAdmittedMember(cascade.id, stepId, job.id);
+        await cancelAdmittedMember(scope, cascade.id, stepId, job.id);
         setMember(cascade.id, stepId, {
           state: "failed",
           jobId: job.id,
@@ -370,7 +371,8 @@ export function readCascade(id: string): CascadeView {
  * the driver, which records every interrupted member as it settles and only
  * then writes the outcome, so what this returns is the whole record.
  */
-export async function cancelCascade(id: string): Promise<CascadeRun> {
+export async function cancelCascade(scope: AccountScope, id: string): Promise<CascadeRun> {
+  requireOwnedResource(scope, "cascade", id);
   const beforeFence = getCascade(id);
   if (!beforeFence) {
     throw new ApiError("not_found", `No cascade with id "${id}".`, 404);
@@ -390,7 +392,7 @@ export async function cancelCascade(id: string): Promise<CascadeRun> {
     if (job && !isTerminal(job.state)) {
       cancellations.push({
         stepId: member.stepId,
-        cancellation: markAndSignalRunCancellation(member.jobId),
+        cancellation: markAndSignalRunCancellation(scope, member.jobId),
       });
     }
   }

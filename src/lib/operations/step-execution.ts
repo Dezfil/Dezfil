@@ -51,6 +51,7 @@ export async function startStepRun(
   const plan = planPublication(stepId);
 
   const admitted = await admitOwned(
+    scope,
     {
       operation: plan.step.operation,
       parameters: plan.running,
