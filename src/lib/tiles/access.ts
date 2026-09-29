@@ -19,7 +19,8 @@ function identity(layerId: string) {
 }
 export function privateTileAccess(scope: AccountScope, layerId: string): TileAccess {
   requireOwnedResource(scope, "layer", layerId);
-  const row = identity(layerId)!;
+  const row = identity(layerId);
+  if (!row) throw resourceAbsent();
   return Object.freeze({ [tileAccessBrand]: true as const, layerId, mapId: row.map_id, ownerId: row.owner_id, credential: Object.freeze({ scope }) });
 }
 /** A token grants only a visible published layer, including pending adoption

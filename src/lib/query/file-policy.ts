@@ -13,8 +13,8 @@ function refuse(): never { throw new ApiError("sql_rejected", REJECTION, 400); }
 const SAFE_TABLE_FUNCTIONS = new Set([
   "summary", "range", "generate_series", "repeat", "repeat_row", "unnest", "json_each", "json_tree",
   "st_generatepoints", "st_drivers", "duckdb_columns", "duckdb_constraints", "duckdb_dependencies",
-  "duckdb_keywords", "duckdb_memory", "duckdb_optimizers", "duckdb_schemas", "duckdb_sequences",
-  "duckdb_types", "duckdb_coordinate_systems", "duckdb_connection_count", "duckdb_approx_database_count",
+  "duckdb_keywords", "duckdb_optimizers", "duckdb_schemas", "duckdb_sequences",
+  "duckdb_types", "duckdb_coordinate_systems",
   "pragma_collations", "pragma_database_size", "pragma_platform", "pragma_user_agent", "pragma_version",
   "pg_timezone_names", "icu_calendar_names", "test_all_types", "test_vector_types",
 ]);

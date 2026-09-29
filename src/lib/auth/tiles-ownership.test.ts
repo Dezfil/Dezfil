@@ -41,6 +41,17 @@ function input(account: string) { return { layerId: layers[account], sql: `SELEC
 function build(account: string) { return ensureTiles(privateTileAccess(scopes[account], layers[account]), input(account)); }
 function deactivate(account: string) { metadataDb().prepare("UPDATE accounts SET status = 'deactivated' WHERE id = ?").run(account); }
 function gate() { let release!: () => void; const promise = new Promise<void>(resolve => { release = resolve; }); return { promise, release }; }
+it("refuses a layer deleted after its private tile ownership check", async () => {
+  const resources = await import("./owned-resource"), requireOwned = resources.requireOwnedResource;
+  vi.spyOn(resources, "requireOwnedResource").mockImplementationOnce((...args) => {
+    const id = requireOwned(...args);
+    metadataDb().prepare("DELETE FROM layers WHERE id = ?").run(id);
+    return id;
+  });
+  expect(() => privateTileAccess(scopes.alice, layers.alice)).toThrow(expect.objectContaining({
+    code: "not_found", status: 404, message: resources.resourceAbsent().message,
+  }));
+});
 it("does not export a private build whose owner was deactivated while queued", async () => {
   const held = gate(); effects.beforeExport = () => held.promise;
   build("bob"); await vi.waitFor(() => expect(effects.export).toHaveBeenCalledOnce()); build("alice"); deactivate("alice"); held.release(); await tileBuildsSettled();

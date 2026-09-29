@@ -34,6 +34,14 @@ it("refuses every file reader before any user target can be bound or probed", as
   }
  } finally { conn.disconnectSync(); }
 });
+it.each(["duckdb_connection_count", "duckdb_approx_database_count", "duckdb_memory"])("refuses instance-wide telemetry from %s before binding", async fn => {
+ const conn = await connectQueryInstance();
+ const calls = vi.spyOn(conn, "runAndReadAll");
+ try {
+  await expect(namedSql(conn, `SELECT * FROM ${fn}()`)).rejects.toMatchObject({ code: "sql_rejected", status: 400 });
+  expect(calls.mock.calls.every(([sql]) => String(sql).startsWith("SELECT json_serialize_sql("))).toBe(true);
+ } finally { conn.disconnectSync(); }
+});
 it("refuses owned, foreign, missing and scratch paths with the same result", async () => {
  const own = scopedDatasets(scope())[0];
  const bob = testAccountScope(undefined, "bob");
