@@ -1,3 +1,5 @@
+import { tiledRender, errored } from "./tiles/render";
+import type { TileAccess } from "./tiles/access";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireLayer } from "./layer-access";
 import { assertWritableRefs } from "./layer-write-refs";
@@ -63,15 +65,11 @@ import {
 import { liveFilters, type LiveFilter } from "@/lib/live-filters";
 import {
   publishedFieldsFor,
-  publishedFieldsSignature,
   type PublishedMapContext,
 } from "@/lib/publish/published-fields";
 import { legendFor, legendSlotCount } from "@/lib/style/legend";
-import { ensureTiles } from "@/lib/tiles/build";
-import { tilerAvailable } from "@/lib/tiles/tiler";
-import { tileArchiveInfo } from "@/lib/tiles/serve";
 import type { SliderPreviewData } from "@/lib/slider-preview";
-import { renderCapRefusal, tilerUnavailable } from "./layer-render-copy";
+import { renderCapRefusal } from "./layer-render-copy";
 
 function ident(s: string): string {
   return `"${s.replace(/"/g, '""')}"`;
@@ -798,6 +796,7 @@ export async function sliderPreviewData(
  * non-geometry column, as always. */
 export interface RenderLayerOpts {
   published?: PublishedMapContext;
+  tileAccess?: TileAccess;
 }
 
 /**
@@ -915,7 +914,7 @@ export async function renderLayer(
             nonGeometry.map((c) => c.name),
             featureCount,
             geometryType,
-            { liveFiltered, published: opts.published !== undefined },
+            { liveFiltered, published: opts.published !== undefined, tileAccess: opts.tileAccess },
           );
         }
         // A heatmap whose undelegated result cannot ship falls back to
@@ -1000,92 +999,4 @@ export async function renderLayer(
         : "The layer could not render.",
     );
   }
-}
-
-/**
- * The tiled render response for an over-cap simple-features layer: report
- * the build state for the layer's current effective query, kicking a build
- * off when tiles are missing or stale. A failed build is an errored layer;
- * a missing tiler degrades the same way h3 does.
- */
-async function tiledRender(
-  layer: Layer,
-  filters: LayerFilter[],
-  geometryColumn: { name: string; type: string },
-  nonGeometryColumns: string[],
-  featureCount: number,
-  geometryType: LayerRenderGeometryType,
-  opts: { liveFiltered?: boolean; published?: boolean } = {},
-): Promise<LayerRenderData> {
-  if (!(await tilerAvailable())) {
-    return errored(
-      layer.id,
-      "tiler_unavailable",
-      tilerUnavailable(featureCount),
-    );
-  }
-  // One shared archive serves builder and published routes, built with the
-  // effective published field set — resolved here against the map's own
-  // context, whichever audience triggered the build. The signature folds
-  // into the fingerprint; the published tile authorization recomputes it
-  // from the same inputs.
-  const mapRecord = getMap(layer.mapId);
-  const context: PublishedMapContext = mapRecord
-    ? {
-        timeline: mapRecord.timeline,
-        widgets: mapRecord.widgets,
-        widgetsPublished: mapRecord.widgetsPublished,
-      }
-    : { timeline: null, widgets: [], widgetsPublished: false };
-  const archiveColumns = publishedFieldsFor(layer, context, nonGeometryColumns);
-  const status = ensureTiles({
-    layerId: layer.id,
-    sql: layer.sql,
-    // Live filters stay out of the fingerprint: window and slider moves
-    // must never look like a data change and rebuild.
-    filters,
-    geometryColumn: geometryColumn.name,
-    columns: archiveColumns,
-    projection: publishedFieldsSignature(layer, context),
-  });
-  if (status.state === "failed") {
-    return errored(
-      layer.id,
-      "tile_build_failed",
-      `Preparing tiles failed: ${status.error ?? "unknown error"}`,
-    );
-  }
-  const base = {
-    layerId: layer.id,
-    ok: true,
-    mode: "tiled" as const,
-    featureCount,
-    geometryType,
-    ...(opts.liveFiltered ? { liveFiltered: true } : null),
-    ...(opts.published ? { publishedFields: archiveColumns } : null),
-  };
-  if (status.state === "building") {
-    return { ...base, tiles: { state: "building" } };
-  }
-  const info = await tileArchiveInfo(layer.id);
-  // The version parameter lets tiles cache aggressively: a rebuild changes
-  // builtAt, which changes every tile URL.
-  const version = status.builtAt ? Date.parse(status.builtAt) : 0;
-  return {
-    ...base,
-    tiles: {
-      state: "ready",
-      url: `/api/layers/${layer.id}/tiles/{z}/{x}/{y}?v=${version}`,
-      builtAt: status.builtAt,
-      ...(info ?? {}),
-    },
-  };
-}
-
-function errored(
-  layerId: string,
-  code: string,
-  message: string,
-): LayerRenderData {
-  return { layerId, ok: false, error: { code, message } };
 }

@@ -1,3 +1,5 @@
+import { metadataDb } from "@/lib/metadata/db";
+import { requireTileAccess, tileAccessAvailable, type TileAccess } from "./access";
 import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -11,7 +13,6 @@ import {
   upsertTileRecord,
   deleteTileRecord,
 } from "@/lib/metadata/tiles";
-import { getLayer } from "@/lib/metadata/maps";
 import { referencedTableArtifacts } from "@/lib/table-deps";
 import { exportGeoJsonSeq } from "./export";
 import { tippecanoePath } from "./tiler";
@@ -89,6 +90,7 @@ export function tileFingerprint(
 interface BuildAttempt {
   id: string;
   input: TileBuildInput;
+  access: TileAccess;
   fingerprint: string;
   generation: number;
 }
@@ -96,7 +98,7 @@ interface BuildAttempt {
 /** The layer's scheduled or running build. */
 const active = new Map<string, BuildAttempt>();
 /** A newer input that arrived while a build for the layer was running. */
-const pending = new Map<string, TileBuildInput>();
+const pending = new Map<string, { access: TileAccess; input: TileBuildInput }>();
 /** Deletion advances the generation, fencing every older attempt. */
 const generations = new Map<string, number>();
 /** Builds run one at a time process-wide. */
@@ -167,7 +169,7 @@ function attemptCanCommit(attempt: BuildAttempt): boolean {
     return (
       active.get(attempt.input.layerId) === attempt &&
       generation(attempt.input.layerId) === attempt.generation &&
-      getLayer(attempt.input.layerId) !== null
+      tileAccessAvailable(attempt.access)
     );
   } catch {
     return false;
@@ -197,6 +199,7 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
       },
       exportFile,
     );
+    if (!attemptCanCommit(attempt)) return;
     await runTippecanoe(exportFile, archiveFile);
     if (!attemptCanCommit(attempt)) return;
     // Same filesystem: the swap is atomic, the old archive serves until now.
@@ -209,14 +212,17 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
       finalArchiveNeedsRemoval = false;
       return;
     }
-    upsertTileRecord({
-      layerId: input.layerId,
-      state: "ready",
-      fingerprint,
-      error: null,
-      featureCount,
-      builtAt: new Date().toISOString(),
-    });
+    metadataDb().transaction(() => {
+      requireTileAccess(attempt.access, input.layerId);
+      upsertTileRecord({
+        layerId: input.layerId,
+        state: "ready",
+        fingerprint,
+        error: null,
+        featureCount,
+        builtAt: new Date().toISOString(),
+      });
+    })();
     finalArchiveNeedsRemoval = false;
   } catch (error) {
     if (finalArchiveNeedsRemoval) {
@@ -226,14 +232,17 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
     }
     if (attemptCanCommit(attempt)) {
       try {
-        upsertTileRecord({
-          layerId: input.layerId,
-          state: "failed",
-          fingerprint,
-          error: error instanceof Error ? error.message : "The build failed.",
-          featureCount: null,
-          builtAt: null,
-        });
+        metadataDb().transaction(() => {
+          requireTileAccess(attempt.access, input.layerId);
+          upsertTileRecord({
+            layerId: input.layerId,
+            state: "failed",
+            fingerprint,
+            error: error instanceof Error ? error.message : "The build failed.",
+            featureCount: null,
+            builtAt: null,
+          });
+        })();
       } catch {
         // A terminal metadata failure is contained here. A later render can
         // retry; the process-wide queue must remain usable.
@@ -244,32 +253,48 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
       rm(exportFile, { force: true }),
       rm(archiveFile, { force: true }),
     ]);
-    if (active.get(input.layerId) === attempt) active.delete(input.layerId);
+    if (active.get(input.layerId) === attempt) {
+      // A withdrawn capability leaves no stuck build status. Retrying after
+      // reactivation or through a current publication starts a fresh attempt.
+      try {
+        if (!tileAccessAvailable(attempt.access)) {
+          const record = getTileRecord(input.layerId);
+          if (record?.state === "building" && record.fingerprint === fingerprint) deleteTileRecord(input.layerId);
+        }
+      } catch (error) {
+        console.warn(`[tiles] abandoned build ${attempt.id} could not clear its status:`, error);
+      } finally { active.delete(input.layerId); }
+    }
     const next = pending.get(input.layerId);
     if (next) {
       pending.delete(input.layerId);
-      start(next);
+      if (tileAccessAvailable(next.access)) start(next.access, next.input);
     }
   }
 }
 
-function start(input: TileBuildInput): void {
+function start(access: TileAccess, input: TileBuildInput): void {
+  requireTileAccess(access, input.layerId);
   const fingerprint = tileFingerprint(input.sql, input.filters, input.projection, input.layerId);
   const attempt: BuildAttempt = {
+    access,
     id: randomUUID(),
     input,
     fingerprint,
     generation: generation(input.layerId),
   };
+  metadataDb().transaction(() => {
+    requireTileAccess(access, input.layerId);
+    upsertTileRecord({
+      layerId: input.layerId,
+      state: "building",
+      fingerprint,
+      error: null,
+      featureCount: null,
+      builtAt: null,
+    });
+  })();
   active.set(input.layerId, attempt);
-  upsertTileRecord({
-    layerId: input.layerId,
-    state: "building",
-    fingerprint,
-    error: null,
-    featureCount: null,
-    builtAt: null,
-  });
   const work = () => runBuild(attempt);
   // Contain every terminal failure so one bad target cannot poison the
   // global queue or become an unhandled rejection.
@@ -282,7 +307,8 @@ function start(input: TileBuildInput): void {
  * stays failed for that same effective query (no retry storm on render
  * polling); it re-runs when the query changes or the process restarts.
  */
-export function ensureTiles(input: TileBuildInput): TileStatus {
+export function ensureTiles(access: TileAccess, input: TileBuildInput): TileStatus {
+  requireTileAccess(access, input.layerId);
   const fingerprint = tileFingerprint(input.sql, input.filters, input.projection, input.layerId);
   const record = getTileRecord(input.layerId);
 
@@ -291,9 +317,9 @@ export function ensureTiles(input: TileBuildInput): TileStatus {
     if (running.generation !== generation(input.layerId)) {
       // The id was deleted and may have been restored by undo. Its fresh
       // lifecycle waits behind the fenced attempt, even when SQL is identical.
-      pending.set(input.layerId, input);
-    } else if (running.fingerprint !== fingerprint) {
-      pending.set(input.layerId, input); // latest wins
+      pending.set(input.layerId, { access, input });
+    } else if (running.fingerprint !== fingerprint || !tileAccessAvailable(running.access)) {
+      pending.set(input.layerId, { access, input }); // latest wins
     }
     return { state: "building" };
   }
@@ -315,7 +341,7 @@ export function ensureTiles(input: TileBuildInput): TileStatus {
     // "building" with nothing active: interrupted by a restart — rebuild.
   }
 
-  start(input);
+  start(access, input);
   return { state: "building" };
 }
 

@@ -1,3 +1,4 @@
+import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -288,7 +289,7 @@ describe("layers as source of truth", () => {
       name: "twin",
       sql: "SELECT geometry, ST_Centroid(geometry) AS g2, name FROM stations",
     });
-    const render = await renderLayer(requireLayer(testAccountScope(), twin.id));
+    const render = await renderLayer(requireLayer(testAccountScope(), twin.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), twin.id)).id) });
     expect(render.ok).toBe(true);
     expect(render.featureCount).toBe(3);
     const feature = (
@@ -306,7 +307,7 @@ describe("layers as source of truth", () => {
       name: "all",
       sql: "SELECT * FROM stations",
     });
-    const before = await renderLayer(requireLayer(testAccountScope(), layer.id));
+    const before = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(before.featureCount).toBe(3);
 
     await updateLayer(testAccountScope(), layer.id, {
@@ -314,7 +315,7 @@ describe("layers as source of truth", () => {
     });
     // same layer id, same created_at
     expect(getLayer(layer.id)!.createdAt).toBe(layer.createdAt);
-    const after = await renderLayer(requireLayer(testAccountScope(), layer.id));
+    const after = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(after.featureCount).toBe(2);
     expect(requireLayer(testAccountScope(), layer.id).sql).toBe(
       "SELECT * FROM stations WHERE riders > 400",
@@ -327,7 +328,7 @@ describe("layers as source of truth", () => {
       name: "none",
       sql: "SELECT * FROM stations WHERE riders > 100000",
     });
-    const render = await renderLayer(requireLayer(testAccountScope(), layer.id));
+    const render = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(render.ok).toBe(true);
     expect(render.featureCount).toBe(0);
   });
@@ -338,7 +339,7 @@ describe("layers as source of truth", () => {
       name: "s",
       sql: "SELECT name, riders, geometry FROM stations ORDER BY riders",
     });
-    const render = await renderLayer(requireLayer(testAccountScope(), layer.id));
+    const render = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     const fc = render.geojson as {
       features: { geometry: unknown; properties: Record<string, unknown> }[];
     };
@@ -358,7 +359,7 @@ describe("layers as source of truth", () => {
       sql: `SELECT 'L' AS name, ST_GeomFromText(
               'POLYGON((0 0, 4 0, 4 1, 1 1, 1 4, 0 4, 0 0))') AS geometry`,
     });
-    const render = await renderLayer(requireLayer(testAccountScope(), layer.id));
+    const render = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     const fc = render.geojson as {
       features: { properties: Record<string, unknown> }[];
     };
@@ -387,7 +388,7 @@ describe("deleted table leaves an errored layer", () => {
 
     // The layer still exists (spec: deleting a table does not delete layers).
     expect(getLayer(dependent.id)).not.toBeNull();
-    const broken = await renderLayer(requireLayer(testAccountScope(), dependent.id));
+    const broken = await renderLayer(requireLayer(testAccountScope(), dependent.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), dependent.id)).id) });
     expect(broken.ok).toBe(false);
     expect(broken.error?.message).toMatch(/stations/);
     // the layer lane answers unknown-table for a deleted name — the same
@@ -395,7 +396,7 @@ describe("deleted table leaves an errored layer", () => {
     expect(broken.error?.message).toMatch(/does not exist/);
     expect(broken.error?.message).not.toMatch(/parquet|tables\//i);
 
-    const working = await renderLayer(requireLayer(testAccountScope(), independent.id));
+    const working = await renderLayer(requireLayer(testAccountScope(), independent.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), independent.id)).id) });
     expect(working.ok).toBe(true);
     expect(working.featureCount).toBe(1);
   });

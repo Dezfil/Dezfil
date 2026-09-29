@@ -1,3 +1,4 @@
+import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -183,7 +184,7 @@ describe("query bounds — render lanes", () => {
     const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST });
     const slow = await updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE });
     timeoutNow();
-    const render = await renderLayer(slow);
+    const render = await renderLayer(slow, undefined, { tileAccess: privateTileAccess(testAccountScope(), (slow).id) });
     expect(render).toMatchObject({
       ok: false,
       error: { code: "query_timeout" },
@@ -383,7 +384,7 @@ describe("trailing comments: valid SQL is not broken by its own comments", () =>
       name: "commented",
       sql: `${FAST} -- note`,
     });
-    expect((await renderLayer(layer)).ok).toBe(true);
+    expect((await renderLayer(layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) })).ok).toBe(true);
 
     const withWidgets = updateMap(testAccountScope(), map.id, {
       widgets: [
@@ -552,7 +553,7 @@ describe("query bounds — a caller that leaves takes its work with it", () => {
     const slow = await updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE });
     const caller = new AbortController();
     const started = Date.now();
-    const render = renderLayer(slow, caller.signal);
+    const render = renderLayer(slow, caller.signal, { tileAccess: privateTileAccess(testAccountScope(), (slow).id) });
     setTimeout(() => caller.abort(), 150);
     await expect(render).rejects.toBeInstanceOf(EvaluationCancelled);
     expect(Date.now() - started).toBeLessThan(10_000);

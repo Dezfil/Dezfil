@@ -1,3 +1,4 @@
+import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -124,11 +125,11 @@ printf 'PMTiles%s' "$input" > "$out"
 
 describe("tile builds", () => {
   it("builds a PMTiles archive in the background and reports ready", async () => {
-    const first = ensureTiles(input());
+    const first = ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
     expect(first.state).toBe("building");
 
     await tileBuildsSettled();
-    const done = ensureTiles(input());
+    const done = ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
     expect(done.state).toBe("ready");
     expect(done.featureCount).toBe(4);
 
@@ -172,26 +173,26 @@ describe("tile builds", () => {
   });
 
   it("a ready archive is reused, not rebuilt", async () => {
-    ensureTiles(input());
+    ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
     await tileBuildsSettled();
     const before = getTileRecord(layerId)!.updatedAt;
-    const again = ensureTiles(input());
+    const again = ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
     expect(again.state).toBe("ready");
     await tileBuildsSettled();
     expect(getTileRecord(layerId)!.updatedAt).toBe(before);
   });
 
   it("a filter change re-fingerprints and rebuilds with the filtered result", async () => {
-    ensureTiles(input());
+    ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
     await tileBuildsSettled();
 
-    const filtered = ensureTiles(
+    const filtered = ensureTiles(privateTileAccess(testAccountScope(), (input([{ field: "riders", kind: "range", min: 400, max: null }])).layerId),
       input([{ field: "riders", kind: "range", min: 400, max: null }]),
     );
     expect(filtered.state).toBe("building");
     await tileBuildsSettled();
 
-    const done = ensureTiles(
+    const done = ensureTiles(privateTileAccess(testAccountScope(), (input([{ field: "riders", kind: "range", min: 400, max: null }])).layerId),
       input([{ field: "riders", kind: "range", min: 400, max: null }]),
     );
     expect(done.state).toBe("ready");
@@ -200,19 +201,19 @@ describe("tile builds", () => {
 
   it("a failed build sticks for that effective query and carries a message", async () => {
     process.env.DEZFIL_TIPPECANOE = "/nonexistent/tippecanoe";
-    ensureTiles(input());
+    ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
     await tileBuildsSettled();
 
-    const failed = ensureTiles(input());
+    const failed = ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
     expect(failed.state).toBe("failed");
     expect(failed.error).toBeTruthy();
     expect(existsSync(tileArchivePath(layerId))).toBe(false);
 
     // The same effective query does not retry-storm…
-    expect(ensureTiles(input()).state).toBe("failed");
+    expect(ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input()).state).toBe("failed");
     // …but a changed one builds again (with the tiler back).
     delete process.env.DEZFIL_TIPPECANOE;
-    const changed = ensureTiles(
+    const changed = ensureTiles(privateTileAccess(testAccountScope(), (input([{ field: "riders", kind: "range", min: 0, max: null }])).layerId),
       input([{ field: "riders", kind: "range", min: 0, max: null }]),
     );
     expect(changed.state).toBe("building");
@@ -229,14 +230,14 @@ describe("tile builds", () => {
       featureCount: null,
       builtAt: null,
     });
-    const status = ensureTiles(input());
+    const status = ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
     expect(status.state).toBe("building");
     await tileBuildsSettled();
-    expect(ensureTiles(input()).state).toBe("ready");
+    expect(ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input()).state).toBe("ready");
   });
 
   it("removeTileArtifacts deletes the archive and the record", async () => {
-    ensureTiles(input());
+    ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
     await tileBuildsSettled();
     expect(existsSync(tileArchivePath(layerId))).toBe(true);
 
@@ -248,17 +249,17 @@ describe("tile builds", () => {
   });
 
   it("edits during a build converge on the newest effective query", async () => {
-    ensureTiles(input());
+    ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
     // While that runs, two more edits arrive; the middle one is skipped.
-    ensureTiles(
+    ensureTiles(privateTileAccess(testAccountScope(), (input([{ field: "riders", kind: "range", min: 100, max: null }])).layerId),
       input([{ field: "riders", kind: "range", min: 100, max: null }]),
     );
-    ensureTiles(
+    ensureTiles(privateTileAccess(testAccountScope(), (input([{ field: "riders", kind: "range", min: 400, max: null }])).layerId),
       input([{ field: "riders", kind: "range", min: 400, max: null }]),
     );
     await tileBuildsSettled();
 
-    const done = ensureTiles(
+    const done = ensureTiles(privateTileAccess(testAccountScope(), (input([{ field: "riders", kind: "range", min: 400, max: null }])).layerId),
       input([{ field: "riders", kind: "range", min: 400, max: null }]),
     );
     expect(done.state).toBe("ready");
@@ -267,7 +268,7 @@ describe("tile builds", () => {
 
   it("fences a layer deletion during active preparation and keeps the queue usable", async () => {
     const gate = await gatedTiler();
-    ensureTiles(input());
+    ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
     await vi.waitFor(() => expect(existsSync(gate.started)).toBe(true));
 
     await removeLayer(testAccountScope(), layerId);
@@ -278,7 +279,7 @@ describe("tile builds", () => {
     expect(getTileRecord(layerId)).toBeNull();
 
     const unrelated = await createLayer(testAccountScope(), mapId, { name: "later", sql: SQL });
-    ensureTiles(inputFor(unrelated.id));
+    ensureTiles(privateTileAccess(testAccountScope(), (inputFor(unrelated.id)).layerId), inputFor(unrelated.id));
     await tileBuildsSettled();
     expect(getTileRecord(unrelated.id)?.state).toBe("ready");
     expect(existsSync(tileArchivePath(unrelated.id))).toBe(true);
@@ -287,8 +288,8 @@ describe("tile builds", () => {
   it("fences every queued and active layer when a map is deleted", async () => {
     const other = await createLayer(testAccountScope(), mapId, { name: "other", sql: SQL });
     const gate = await gatedTiler();
-    ensureTiles(input());
-    ensureTiles(inputFor(other.id));
+    ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
+    ensureTiles(privateTileAccess(testAccountScope(), (inputFor(other.id)).layerId), inputFor(other.id));
     await vi.waitFor(() => expect(existsSync(gate.started)).toBe(true));
 
     await removeMap(testAccountScope(), mapId);
@@ -303,7 +304,7 @@ describe("tile builds", () => {
 
   it("a refresh invalidation fences a build already running", async () => {
     const gate = await gatedTiler();
-    ensureTiles(input());
+    ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
     await vi.waitFor(() => expect(existsSync(gate.started)).toBe(true));
 
     // The table under the layer refreshes while the tiler is mid-run: the
@@ -317,14 +318,14 @@ describe("tile builds", () => {
     expect(existsSync(tileArchivePath(layerId))).toBe(false);
 
     // The next render re-decides freshness with a fresh build.
-    expect(ensureTiles(input()).state).toBe("building");
+    expect(ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input()).state).toBe("building");
     await tileBuildsSettled();
     expect(getTileRecord(layerId)?.state).toBe("ready");
     expect(existsSync(tileArchivePath(layerId))).toBe(true);
   });
 
   it("a data change alone re-decides freshness — a lost invalidation self-heals", async () => {
-    ensureTiles(input());
+    ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
     await tileBuildsSettled();
     expect(getTileRecord(layerId)?.state).toBe("ready");
 
@@ -349,13 +350,13 @@ describe("tile builds", () => {
     );
 
     // The stale-ready record no longer reads as fresh; the render rebuilds.
-    expect(ensureTiles(input()).state).toBe("building");
+    expect(ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input()).state).toBe("building");
     await tileBuildsSettled();
     expect(getTileRecord(layerId)?.state).toBe("ready");
   });
 
   it("boot sweep removes recordless archives and keeps authoritative ones", async () => {
-    ensureTiles(input());
+    ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
     await tileBuildsSettled();
     expect(getTileRecord(layerId)?.state).toBe("ready");
 
@@ -375,12 +376,12 @@ describe("tile builds", () => {
 
   it("undo restoration starts a fresh attempt instead of adopting deleted work", async () => {
     const gate = await gatedTiler();
-    ensureTiles(input());
+    ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
     await vi.waitFor(() => expect(existsSync(gate.started)).toBe(true));
 
     await removeLayer(testAccountScope(), layerId);
     await undoChange(testAccountScope(), mapId);
-    expect(ensureTiles(input()).state).toBe("building");
+    expect(ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input()).state).toBe("building");
 
     await gate.release();
     await tileBuildsSettled();

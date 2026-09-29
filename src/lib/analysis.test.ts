@@ -1,3 +1,4 @@
+import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -135,7 +136,7 @@ describe("aggregated rendering", () => {
       expect(viz.fill.palette).toBe("global_warming");
     }
 
-    const render = await renderLayer(updated);
+    const render = await renderLayer(updated, undefined, { tileAccess: privateTileAccess(testAccountScope(), (updated).id) });
     expect(render.ok).toBe(true);
     expect(render.featureCount).toBe(3); // two stations share a 3 km cell
     const cell = features(render).find((f) => f.properties.count === 2)!;
@@ -158,7 +159,7 @@ describe("aggregated rendering", () => {
     const back = await updateLayer(testAccountScope(), layer.id, { viz: { type: "points" } });
     expect(back.style).toEqual(layer.style);
     expect(back.sql).toBe(layer.sql);
-    const render = await renderLayer(back);
+    const render = await renderLayer(back, undefined, { tileAccess: privateTileAccess(testAccountScope(), (back).id) });
     expect(render.featureCount).toBe(4);
   });
 
@@ -244,7 +245,7 @@ describe("aggregated rendering", () => {
     const updated = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "grid", cellKm: 1000, aggregate: { fn: "sum", attribute: "riders" } },
     });
-    const render = await renderLayer(updated);
+    const render = await renderLayer(updated, undefined, { tileAccess: privateTileAccess(testAccountScope(), (updated).id) });
     expect(render.ok).toBe(true);
     expect(render.featureCount).toBe(1);
     expect(features(render)[0].properties.value).toBe(2220);
@@ -269,14 +270,14 @@ describe("aggregated rendering", () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "3";
     // supersedes the cap error for simple features: over-cap points
     // switch to tiles instead (tiled rendering has its own suite).
-    const asPoints = await renderLayer(layer);
+    const asPoints = await renderLayer(layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
     expect(asPoints.ok).toBe(true);
     expect(asPoints.mode).toBe("tiled");
 
     const updated = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 3, aggregate: { fn: "count" } },
     });
-    const asCells = await renderLayer(updated);
+    const asCells = await renderLayer(updated, undefined, { tileAccess: privateTileAccess(testAccountScope(), (updated).id) });
     expect(asCells.ok).toBe(true);
     expect(asCells.featureCount).toBe(3);
   });
@@ -285,7 +286,7 @@ describe("aggregated rendering", () => {
     const layer = await pointLayer();
     await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("heatmap") });
     process.env.DEZFIL_RENDER_CAP_FEATURES = "3";
-    const render = await renderLayer(requireLayer(testAccountScope(), layer.id));
+    const render = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(render.ok).toBe(false);
     expect(render.error?.code).toBe("render_cap_exceeded");
     expect(render.error?.message).toMatch(/hex bins or grid/i);
@@ -301,11 +302,11 @@ describe("filters", () => {
         { field: "category", kind: "values", values: ["u"] },
       ],
     });
-    const render = await renderLayer(filtered);
+    const render = await renderLayer(filtered, undefined, { tileAccess: privateTileAccess(testAccountScope(), (filtered).id) });
     expect(render.featureCount).toBe(2); // alexanderplatz + zoo
 
     const aggregated = await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") });
-    const cells = await renderLayer(aggregated);
+    const cells = await renderLayer(aggregated, undefined, { tileAccess: privateTileAccess(testAccountScope(), (aggregated).id) });
     const total = features(cells).reduce(
       (s, f) => s + Number(f.properties.count),
       0,
@@ -316,7 +317,7 @@ describe("filters", () => {
       filters: [],
       viz: { type: "points" },
     });
-    expect((await renderLayer(cleared)).featureCount).toBe(4); // restored exactly
+    expect((await renderLayer(cleared, undefined, { tileAccess: privateTileAccess(testAccountScope(), (cleared).id) })).featureCount).toBe(4); // restored exactly
   });
 
   it("settles aggregate breaks from every accepted filter while preserving ramp intent", async () => {
@@ -512,7 +513,7 @@ describe("filters", () => {
     const filtered = await updateLayer(testAccountScope(), layer.id, {
       filters: [{ field: "seen", kind: "timerange", min: "2021-03-15", max: null }],
     });
-    const render = await renderLayer(filtered);
+    const render = await renderLayer(filtered, undefined, { tileAccess: privateTileAccess(testAccountScope(), (filtered).id) });
     expect(render.featureCount).toBe(3);
     expect(render.liveFiltered).toBe(true);
   });

@@ -1,3 +1,4 @@
+import { privateTileAccess } from "@/lib/tiles/access";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
@@ -17,7 +18,9 @@ export async function GET(request: Request, { params }: Params) {
     const scope = requireRequestScope(request);
     const { id } = await params;
     const layer = requireLayer(scope, id);
-    return NextResponse.json(await renderLayer(layer, request.signal));
+    const render = await renderLayer(layer, request.signal, { tileAccess: privateTileAccess(scope, id) });
+    requireLayer(scope, id);
+    return NextResponse.json(render);
   } catch (error) {
     return errorResponse(error);
   }
@@ -51,9 +54,9 @@ export async function POST(request: Request, { params }: Params) {
       );
     }
     const layer = requireLayer(scope, id);
-    return NextResponse.json(
-      await renderLayerWithSelections(layer, selections, request.signal),
-    );
+    const render = await renderLayerWithSelections(layer, selections, request.signal, { tileAccess: privateTileAccess(scope, id) });
+    requireLayer(scope, id);
+    return NextResponse.json(render);
   } catch (error) {
     return errorResponse(error);
   }

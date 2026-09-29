@@ -1,3 +1,4 @@
+import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -140,7 +141,7 @@ describe("responsive slider preview input", () => {
         layer.viz as AggregatedViz,
         layer.filters,
       );
-      const server = await renderLayer(layer);
+      const server = await renderLayer(layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
       expect(canonical(local)).toEqual(canonical({ geojson: server.geojson }));
     }
   });
@@ -164,7 +165,7 @@ describe("responsive slider preview input", () => {
         layer.viz as AggregatedViz,
         layer.filters,
       );
-      const server = await renderLayer(layer);
+      const server = await renderLayer(layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
       expect(canonical(local)).toEqual(canonical({ geojson: server.geojson }));
     }
 
@@ -240,7 +241,7 @@ describe("responsive slider preview input", () => {
       layer.viz as AggregatedViz,
       layer.filters,
     );
-    const server = await renderLayer(layer);
+    const server = await renderLayer(layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
     const elevOf = (result: { geojson: unknown }) =>
       (result.geojson as SliderPreviewResult["geojson"]).features.map(
         (feature) => feature.properties.elev,

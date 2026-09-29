@@ -1,3 +1,4 @@
+import { publishedTileAccess } from "@/lib/tiles/access";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireMap } from "@/lib/map-access";
 import { ApiError } from "@/lib/api/errors";
@@ -340,7 +341,7 @@ async function assemblePublishedView(
       .filter((l) => l.visible)
       .map(async (l): Promise<PublishedLayer> => {
         const render = publishedRender(
-          await renderLayer(l, signal, { published }),
+          await renderLayer(l, signal, { published, tileAccess: publishedTileAccess(token, l.id) }),
           token,
           l.id,
         );

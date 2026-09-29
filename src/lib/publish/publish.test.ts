@@ -1,3 +1,4 @@
+import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -351,7 +352,7 @@ describe("published-field projection", () => {
 
   it("automatic tooltips publish what the builder shows — no more", async () => {
     const { map, layer } = await wideMap();
-    const builder = await renderLayer(layer);
+    const builder = await renderLayer(layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
     const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     expect(keysOf(view?.layers[0].render)).toEqual(keysOf(builder));
@@ -416,7 +417,7 @@ describe("published-field projection", () => {
       tooltip: ["name"],
       publishedFields: ["riders"],
     });
-    expect(keysOf(await renderLayer(updated))).toContain("secret");
+    expect(keysOf(await renderLayer(updated, undefined, { tileAccess: privateTileAccess(testAccountScope(), (updated).id) }))).toContain("secret");
   });
 
   it("an errored render ships explicit interaction lists empty (round two)", async () => {
@@ -654,7 +655,7 @@ describe("published error disclosure", () => {
 
     // The author's own surface keeps the engine's diagnostic — the
     // documented carve-out on the authenticated-equivalent boundary.
-    const raw = await renderLayer(layer);
+    const raw = await renderLayer(layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
     expect(raw.ok).toBe(false);
     expect(raw.error!.message).toMatch(/does not exist|Catalog/i);
     expect(raw.error!.message).not.toBe(render.error!.message);

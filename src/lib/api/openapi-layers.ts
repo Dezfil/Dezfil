@@ -1,3 +1,4 @@
+import { tileAccess } from "./openapi-tile-access";
 import { layerAccess } from "./openapi-layer-access";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE } from "./operation-mcp";
 import { changeGroupParam } from "./openapi-mcp";
@@ -207,7 +208,7 @@ export const LAYER_QUERY_PATHS = {
     })),
   },
   "/api/layers/{id}/render": {
-    get: op(layerAccess({
+    get: op(tileAccess(layerAccess({
       summary: "Render data for a layer",
       description:
         "The layer's effective result — its SQL refined by its filters, " +
@@ -226,8 +227,8 @@ export const LAYER_QUERY_PATHS = {
       effects: READ_ONLY,
       parameters: [pathParam("id", "Layer id.")],
       responses: { "200": jsonOk("#/components/schemas/LayerRender") },
-    })),
-    post: op(layerAccess({
+    }))),
+    post: op(tileAccess(layerAccess({
       summary: "Render a computed layer under ephemeral selections",
       description:
         "The settle lane for widget cross-filtering: " +
@@ -257,7 +258,7 @@ export const LAYER_QUERY_PATHS = {
         },
       },
       responses: { "200": jsonOk("#/components/schemas/LayerRender") },
-    })),
+    }))),
   },
   "/api/layers/{id}/slider-preview": {
     get: op(layerAccess({
@@ -278,7 +279,7 @@ export const LAYER_QUERY_PATHS = {
     })),
   },
   "/api/layers/{id}/tiles/{z}/{x}/{y}": {
-    get: op(layerAccess({
+    get: op(tileAccess(layerAccess({
       summary: "One vector tile of a tiled layer",
       description:
         "Mapbox Vector Tile bytes for the archive built from the layer's " +
@@ -305,7 +306,7 @@ export const LAYER_QUERY_PATHS = {
         },
         "204": { description: "No tile at these coordinates." },
       },
-    })),
+    }))),
   },
   "/api/layers/{id}/fields": {
     get: op(layerAccess({

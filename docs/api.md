@@ -356,3 +356,12 @@ publication, and preserves outputs already committed. The workflow keeps termina
 attempts even when job history prunes them or a step or output is deleted. Startup
 reconciliation marks unfinished runs interrupted, including inactive owners' runs,
 and never re-executes them or attaches another owner's job attempt.
+
+Private layer renders, tile status and tile bytes follow the map owner, including
+for administrators. Builds retain their initiating account authority across the
+queue, export and atomic archive swap. Deactivation before publication prevents a
+new authoritative archive, and an in-flight private read rechecks activity before
+returning bytes. Deleting an owned layer fences its outstanding build; reactivation
+permits a fresh build. Visible published layers use their current publication token
+independently of owner activity. Revocation prevents that token's outstanding build
+from publishing an archive.

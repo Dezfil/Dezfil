@@ -1,3 +1,4 @@
+import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import path from "node:path";
@@ -25,7 +26,7 @@ it("actual running tiles cannot publish after a geometry change; unrelated tiles
   const layer=await createLayer(testAccountScope(), map.id,{name:"changed",sql});
   const unrelated=await createLayer(testAccountScope(), map.id,{name:"unchanged",sql:otherSql});
   const input=(id:string,statement:string)=>({layerId:id,sql:statement,filters:[],geometryColumn:"geometry",columns:["payload"],projection:""});
-  ensureTiles(input(unrelated.id,otherSql)); await tileBuildsSettled();
+  ensureTiles(privateTileAccess(testAccountScope(), (input(unrelated.id,otherSql)).layerId), input(unrelated.id,otherSql)); await tileBuildsSettled();
   expect(getTileRecord(unrelated.id)).toMatchObject({state:"ready",error:null});
   const unrelatedRecord=getTileRecord(unrelated.id), unrelatedBytes=await readFile(tileArchivePath(unrelated.id));
   const beforeFingerprint=tileFingerprint(sql,[],"", layer.id), otherFingerprint=tileFingerprint(otherSql,[],"", unrelated.id);
@@ -38,7 +39,7 @@ exec tippecanoe "$@"
 `,{mode:0o755});
   process.env.DEZFIL_TIPPECANOE=executable; process.env.DEZFIL_GEOMETRY_TILER_STARTED=started; process.env.DEZFIL_GEOMETRY_TILER_RELEASE=released;
   release=()=>writeFile(released,"go");
-  ensureTiles(input(layer.id,sql));
+  ensureTiles(privateTileAccess(testAccountScope(), (input(layer.id,sql)).layerId), input(layer.id,sql));
   await vi.waitFor(()=>expect(existsSync(started),"tiler actually engaged before mutation").toBe(true),{timeout:3000});
   expect(getTileRecord(layer.id)?.state).toBe("building");
   const next=await setGeometry(testAccountScope(), t.name,first.revision,{format:"pair",columns:["x","y"]});
@@ -53,7 +54,7 @@ exec tippecanoe "$@"
   expect(await readFile(tileArchivePath(unrelated.id))).toEqual(unrelatedBytes);
   const rows=await boundedEvaluation(async conn=>(await conn.runAndReadAll("SELECT ST_X(geometry) x, ST_Y(geometry) y FROM points")).getRowObjectsJson());
   expect(rows).toEqual([{x:30,y:40},{x:31,y:41}]);
-  ensureTiles(input(layer.id,sql)); await tileBuildsSettled(); expect(getTileRecord(layer.id)?.state).toBe("ready");
+  ensureTiles(privateTileAccess(testAccountScope(), (input(layer.id,sql)).layerId), input(layer.id,sql)); await tileBuildsSettled(); expect(getTileRecord(layer.id)?.state).toBe("ready");
   await clearGeometry(testAccountScope(), t.name,next.revision);
   expect(getTileRecord(layer.id)).toBeNull();
   await expect(boundedEvaluation(conn=>conn.runAndReadAll("SELECT geometry FROM points"))).rejects.toThrow(/geometry|column/i);

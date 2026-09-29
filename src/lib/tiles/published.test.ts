@@ -1,3 +1,4 @@
+import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -166,10 +167,10 @@ describe("current published tile eligibility", () => {
 
     // A real build through the builder lane: the shared archive is minted
     // by the same path both audiences use.
-    const kicked = await renderLayer(layer);
+    const kicked = await renderLayer(layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
     expect(kicked.mode).toBe("tiled");
     await tileBuildsSettled();
-    const ready = await renderLayer(layer);
+    const ready = await renderLayer(layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
     expect(ready.tiles?.state).toBe("ready");
 
     // The parity pair: the published authorization recomputes the
@@ -199,7 +200,7 @@ describe("current published tile eligibility", () => {
     });
 
     expect(currentPublishedTile(token, layerId, null)).toBeNull();
-    const replacement = await renderLayer(edited);
+    const replacement = await renderLayer(edited, undefined, { tileAccess: privateTileAccess(testAccountScope(), (edited).id) });
     expect(replacement.mode).toBe("tiled");
     expect(replacement.tiles?.state).toBe("building");
   });

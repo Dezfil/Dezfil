@@ -1,3 +1,4 @@
+import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -330,7 +331,7 @@ describe("read lanes stay degradation, never retro-refusal", () => {
     await updateLayer(testAccountScope(), layer.id, {
       sql: "SELECT name, cat, geometry FROM trips",
     });
-    const render = await renderLayer(requireLayer(testAccountScope(), layer.id));
+    const render = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(render.ok).toBe(false);
     if (!render.ok) expect(render.error?.code).toBe("sql_error");
     const values = await computeWidgetValues(
