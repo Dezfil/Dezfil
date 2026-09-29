@@ -44,7 +44,7 @@ export async function GET(request: Request, { params }: Params) {
           };
         }
         try {
-          const columns = (await baseFields(layer, request.signal)).map(
+          const columns = (await baseFields(scope, layer, request.signal)).map(
             (f) => f.name,
           );
           return {

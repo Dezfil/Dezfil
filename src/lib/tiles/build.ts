@@ -190,7 +190,7 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
     // A queued attempt may have been deleted before its turn reached the
     // process-wide worker. It has nothing to do and must write no state.
     if (!attemptCanCommit(attempt)) return;
-    const featureCount = await exportGeoJsonSeq(
+    const featureCount = await exportGeoJsonSeq(tileQueryScope(attempt.access),
       {
         sql: input.sql,
         filters: input.filters,
@@ -198,7 +198,6 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
         columns: input.columns,
       },
       exportFile,
-      tileQueryScope(attempt.access),
     );
     if (!attemptCanCommit(attempt)) return;
     await runTippecanoe(exportFile, archiveFile);

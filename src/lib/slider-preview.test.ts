@@ -80,7 +80,7 @@ async function previewLayer() {
 describe("responsive slider preview input", () => {
   it("applies discrete filters but keeps range/time rows for widening", async () => {
     const layer = await previewLayer();
-    const result = await sliderPreviewData(layer);
+    const result = await sliderPreviewData(testAccountScope(), layer);
     expect(result).toMatchObject({
       exact: true,
       sourceCount: 2,
@@ -107,8 +107,8 @@ describe("responsive slider preview input", () => {
     const layer = await previewLayer();
     await updateLayer(testAccountScope(), layer.id, { filters: [] });
     process.env.DEZFIL_SLIDER_PREVIEW_ROWS = "2";
-    const first = await sliderPreviewData(requireLayer(testAccountScope(), layer.id));
-    const second = await sliderPreviewData(requireLayer(testAccountScope(), layer.id));
+    const first = await sliderPreviewData(testAccountScope(), requireLayer(testAccountScope(), layer.id));
+    const second = await sliderPreviewData(testAccountScope(), requireLayer(testAccountScope(), layer.id));
     expect(first).toMatchObject({
       exact: false,
       sourceCount: 4,
@@ -135,13 +135,13 @@ describe("responsive slider preview input", () => {
                 aggregate: { fn: "avg", attribute: "riders" },
               },
       });
-      const source = await sliderPreviewData(layer);
+      const source = await sliderPreviewData(testAccountScope(), layer);
       const local = aggregateSliderPreview(
         source,
         layer.viz as AggregatedViz,
         layer.filters,
       );
-      const server = await renderLayer(layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
+      const server = await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
       expect(canonical(local)).toEqual(canonical({ geojson: server.geojson }));
     }
   });
@@ -161,11 +161,11 @@ describe("responsive slider preview input", () => {
         viz: { type: "grid", cellKm: 1000, aggregate },
       });
       const local = aggregateSliderPreview(
-        await sliderPreviewData(layer),
+        await sliderPreviewData(testAccountScope(), layer),
         layer.viz as AggregatedViz,
         layer.filters,
       );
-      const server = await renderLayer(layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
+      const server = await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
       expect(canonical(local)).toEqual(canonical({ geojson: server.geojson }));
     }
 
@@ -235,13 +235,13 @@ describe("responsive slider preview input", () => {
         },
       },
     });
-    const source = await sliderPreviewData(layer);
+    const source = await sliderPreviewData(testAccountScope(), layer);
     const local = aggregateSliderPreview(
       source,
       layer.viz as AggregatedViz,
       layer.filters,
     );
-    const server = await renderLayer(layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
+    const server = await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
     const elevOf = (result: { geojson: unknown }) =>
       (result.geojson as SliderPreviewResult["geojson"]).features.map(
         (feature) => feature.properties.elev,
@@ -264,7 +264,7 @@ describe("responsive slider preview input", () => {
         { field: "riders", kind: "range", min: 600, max: null },
       ],
     });
-    const source = await sliderPreviewData(layer);
+    const source = await sliderPreviewData(testAccountScope(), layer);
     const result = filterSliderPreview(source, layer.filters);
     expect(source.sourceCount).toBe(4);
     expect(result.geojson.features).toHaveLength(2);

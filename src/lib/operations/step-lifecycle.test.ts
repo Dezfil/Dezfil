@@ -74,7 +74,7 @@ describe("removing a completed step (G3)", () => {
     expect(listSteps(recipeId)).toHaveLength(0);
     const table = getTableByName("kept_output");
     expect(table).not.toBeNull();
-    expect(Number((await executeQuery("SELECT count(*) AS n FROM kept_output")).preview[0].n))
+    expect(Number((await executeQuery(testAccountScope(), "SELECT count(*) AS n FROM kept_output")).preview[0].n))
       .toBe(2);
   }, 60_000);
 
@@ -157,7 +157,7 @@ describe("a condition is not a job state", () => {
     expect(view.latestAttempt?.state).toBe("failed");
     // And yesterday's answer is still served.
     expect(
-      Number((await executeQuery("SELECT n FROM still_current")).preview[0].n),
+      Number((await executeQuery(testAccountScope(), "SELECT n FROM still_current")).preview[0].n),
     ).toBeGreaterThan(0);
   }, 180_000);
 });
@@ -175,7 +175,7 @@ describe("deleting a recipe", () => {
     for (const name of ["recipe_out_a", "recipe_out_b"]) {
       expect(getTableByName(name)).not.toBeNull();
       expect(
-        Number((await executeQuery(`SELECT count(*) AS n FROM ${name}`)).preview[0].n),
+        Number((await executeQuery(testAccountScope(), `SELECT count(*) AS n FROM ${name}`)).preview[0].n),
       ).toBeGreaterThan(0);
     }
     expect(listSteps(recipeId)).toHaveLength(0);
@@ -222,7 +222,7 @@ describe("an output deleted under its step", () => {
     // Nothing written: the other table is untouched, and what the user is
     // *offered* at this moment belongs to, not here.
     expect(getTableByName("reclaimed")!.id).toBe(usurperId);
-    expect((await executeQuery("SELECT answer FROM reclaimed")).preview[0].answer).toBe(42);
+    expect((await executeQuery(testAccountScope(), "SELECT answer FROM reclaimed")).preview[0].answer).toBe(42);
   }, 90_000);
 });
 

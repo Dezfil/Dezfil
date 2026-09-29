@@ -27,7 +27,7 @@ beforeEach(async () => {
   const source = path.join(dir, "stations.csv");
   await writeFile(source, "name,lon,lat\nalex,13.41,52.52\nzoo,13.33,52.51\n");
   await ingestFile(testAccountScope(), source, "stations.csv");
-  await boundedEvaluation(async () => undefined);
+  await boundedEvaluation(async () => undefined, { scope: testAccountScope() });
 });
 
 afterEach(async () => {

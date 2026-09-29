@@ -212,18 +212,18 @@ describe("the render split: docked time filter is client-side", () => {
 
     // Since every range/time filter is live: the data carries the full
     // extent and says so; the canvas windows it.
-    const before = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
+    const before = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(before.featureCount).toBe(4);
     expect(before.liveFiltered).toBe(true);
 
     // The dock changes playback, never the data.
     updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } });
-    const docked = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
+    const docked = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(docked.featureCount).toBe(4);
     expect(docked.liveFiltered).toBe(true);
 
     updateMap(testAccountScope(), map.id, { timeline: null });
-    const after = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
+    const after = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(after.featureCount).toBe(4);
   });
 
@@ -237,7 +237,7 @@ describe("the render split: docked time filter is client-side", () => {
     });
     updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } });
 
-    const docked = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
+    const docked = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     // c survives: its time filter is delegated, the values filter is not.
     expect(docked.featureCount).toBe(1);
   });
@@ -252,7 +252,7 @@ describe("the render split: docked time filter is client-side", () => {
     // Aggregating after the dock: the dock is unresolvable, so the time
     // filter applies before aggregation again — cells reflect two rows.
     await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("grid") });
-    const render = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
+    const render = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(render.ok).toBe(true);
     const features = (
       render.geojson as { features: { properties: { count: number } }[] }
@@ -270,11 +270,11 @@ describe("the render split: docked time filter is client-side", () => {
     updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } });
 
     // Docked and over the cap (4 rows > 3): the tiled path, un-windowed.
-    const first = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
+    const first = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(first.mode).toBe("tiled");
     expect(first.featureCount).toBe(4);
     await tileBuildsSettled();
-    const ready = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
+    const ready = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(ready.tiles?.state).toBe("ready");
 
     // Moving the window changes the filter but not the tile fingerprint —
@@ -282,14 +282,14 @@ describe("the render split: docked time filter is client-side", () => {
     await updateLayer(testAccountScope(), layer.id, {
       filters: [{ ...DAY_ONE, max: "2021-03-02T23:59:59" }],
     });
-    const moved = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
+    const moved = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(moved.tiles?.state).toBe("ready");
     expect(moved.tiles?.builtAt).toBe(ready.tiles?.builtAt);
 
     // Undocking changes nothing: the time filter is live either way, so
     // the fingerprint — and the archive — hold steady.
     updateMap(testAccountScope(), map.id, { timeline: null });
-    const undocked = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
+    const undocked = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(undocked.mode).toBe("tiled");
     expect(undocked.tiles?.builtAt).toBe(ready.tiles?.builtAt);
   });
@@ -314,7 +314,7 @@ describe("the render split, generalized: live filters", () => {
       ],
     });
 
-    const render = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
+    const render = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     // The values filter applied (a, c); the range filter shipped instead.
     expect(render.featureCount).toBe(2);
     expect(render.liveFiltered).toBe(true);
@@ -335,7 +335,7 @@ describe("the render split, generalized: live filters", () => {
         DAY_ONE,
       ],
     });
-    const overflow = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
+    const overflow = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(overflow.featureCount).toBe(2);
     expect(overflow.liveFiltered).toBe(true);
 
@@ -343,7 +343,7 @@ describe("the render split, generalized: live filters", () => {
     // the client (full extent ships), one no-op range takes its place in
     // SQL — playback never sits on an undelegated filter.
     updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } });
-    const docked = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
+    const docked = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(docked.featureCount).toBe(4);
   });
 
@@ -359,7 +359,7 @@ describe("the render split, generalized: live filters", () => {
 
     // Unfiltered result (4) is over the cap and a heatmap cannot tile —
     // every filter returns to SQL: correct rows, nothing live.
-    const render = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
+    const render = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(render.ok).toBe(true);
     expect(render.mode).toBe("inline");
     expect(render.featureCount).toBe(2);
@@ -400,7 +400,7 @@ describe("the render split, generalized: live filters", () => {
       filters: [DAY_ONE],
     });
 
-    const render = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
+    const render = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(render.featureCount).toBe(4);
     expect(render.liveFiltered).toBe(true);
   });

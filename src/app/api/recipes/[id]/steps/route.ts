@@ -89,7 +89,7 @@ export async function POST(request: Request, { params }: Params) {
     } satisfies RecipeStep;
     // SQL the parser cannot read is accepted with no reads; the dry run
     // and the run refuse it and say why.
-    const reads = await stepReads(pending).catch(() => [] as string[]);
+    const reads = await stepReads(scope, pending).catch(() => [] as string[]);
     assertBackwardOnly([...existing, pending], { stepId: pending.id, ordinal: pending.ordinal, reads });
     // Committed only if nothing moved under the checks — another edit may
     // have claimed the name or changed the order meanwhile.

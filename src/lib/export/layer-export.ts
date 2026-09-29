@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { ApiError } from "@/lib/api/errors";
-import { assertReadOnlySelect } from "@/lib/query/guard";
+import { namedSql } from "@/lib/query/named-sql";
 import { stripStatementQuote } from "@/lib/query/engine-message";
 import { boundedEvaluation, isOutOfMemory } from "@/lib/query/bounded";
 import {
@@ -108,13 +108,13 @@ export async function exportLayerResult(
     await boundedEvaluation(
       async (conn) => {
         requireAccountScope(scope);
-        await assertReadOnlySelect(conn, layer.sql);
+        const compiledSql = await namedSql(conn, layer.sql);
 
         // Aggregation bins over the base result's geometry; resolve it the
         // way the render path does — the first geometry column.
         let baseGeometry: string | null = null;
         if (isAggregated(layer.viz)) {
-          const described = await describe(conn, wrappable(layer.sql));
+          const described = await describe(conn, wrappable(compiledSql));
           baseGeometry =
             described.find((c) => c.type.startsWith("GEOMETRY"))?.name ?? null;
           if (!baseGeometry) {
@@ -132,9 +132,9 @@ export async function exportLayerResult(
         // them — they travel as WKT under the multi-geometry rule
         // (the "no supported layer silently loses a column" rule).
         const sql = isOdViz(layer.viz)
-          ? odExportSql(filteredSql(layer.sql, layer.filters), layer.viz)
+          ? odExportSql(filteredSql(compiledSql, layer.filters), layer.viz)
           : effectiveSql(
-              { sql: layer.sql, filters: layer.filters, viz: layer.viz },
+              { sql: compiledSql, filters: layer.filters, viz: layer.viz },
               baseGeometry,
             );
 
@@ -188,7 +188,7 @@ export async function exportLayerResult(
           );
         }
       },
-      { signal },
+      { scope, signal },
     );
     requireAccountScope(scope);
   } catch (error) {
@@ -232,7 +232,7 @@ export async function exportQueryResult(
     await boundedEvaluation(
       async (conn) => {
         requireAccountScope(scope);
-        await assertReadOnlySelect(conn, sql);
+        sql = await namedSql(conn, sql);
         const body = wrappable(sql);
         const columns = await describe(conn, body);
         const geometryColumns = columns
@@ -280,7 +280,7 @@ export async function exportQueryResult(
           );
         }
       },
-      { signal },
+      { scope, signal },
     );
     requireAccountScope(scope);
   } catch (error) {

@@ -32,7 +32,7 @@ beforeEach(async () => {
   const src = path.join(dir, "stations.csv");
   await writeFile(src, "name,lon,lat\nalexanderplatz,13.41,52.52\nzoo,13.33,52.51\n");
   await ingestFile(testAccountScope(), src, "stations.csv");
-  await boundedEvaluation(async () => undefined);
+  await boundedEvaluation(async () => undefined, { scope: testAccountScope() });
 });
 
 afterEach(async () => {

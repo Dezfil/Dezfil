@@ -1,3 +1,5 @@
+import { parseSqlJson } from "@/lib/query/sql-json";
+import { qualifiedNameParts } from "@/lib/query/qualified-name";
 import type { DuckDBConnection } from "@duckdb/node-api";
 
 /**
@@ -54,7 +56,7 @@ async function serialize(
     "SELECT json_serialize_sql(?::VARCHAR) AS j",
     [sql],
   );
-  return JSON.parse(String(reader.getRowObjects()[0].j)) as Serialized;
+  return parseSqlJson(String(reader.getRowObjects()[0].j)) as unknown as Serialized;
 }
 
 /**
@@ -249,7 +251,7 @@ async function walk(
           ? node.alias.toLowerCase()
           : null;
       for (const one of named) {
-        const bare = one.toLowerCase().split(".").pop() ?? one.toLowerCase();
+        const bare = (qualifiedNameParts(one)?.at(-1) ?? one).toLowerCase();
         out.tables.add(bare);
         out.aliases.set(bare, bare);
         // `FROM query_table('assumed') AS q` puts the alias on the function

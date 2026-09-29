@@ -42,7 +42,7 @@ export async function GET(request: Request, { params }: Params) {
     const places =
       url.searchParams.get("places") === "1" ? searchPlaces(q) : null;
 
-    const values = await searchValues(
+    const values = await searchValues(scope,
       visible
         .filter((l) => !isAggregated(l.viz))
         .map((l) => ({

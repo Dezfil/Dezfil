@@ -239,7 +239,7 @@ describe("one row per origin per band", () => {
     expect(job.state, job.errorMessage ?? "").toBe("succeeded");
 
     const columns = (
-      await executeQuery("SELECT * FROM (DESCRIBE SELECT * FROM reachable)")
+      await executeQuery(testAccountScope(), "SELECT * FROM (DESCRIBE SELECT * FROM reachable)")
     ).preview.map((r) => [String(r.column_name), String(r.column_type)]);
     // The exact list: the input's non-geometry columns, then the nine —
     // and exactly one geometry column among them.
@@ -263,7 +263,7 @@ describe("one row per origin per band", () => {
     ).toHaveLength(1);
 
     const rows = (
-      await executeQuery(
+      await executeQuery(testAccountScope(),
         `SELECT label, band_minutes, isochrone_status, isochrone_source,
                 geom IS NOT NULL AS drawn
          FROM reachable ORDER BY label, band_minutes`,
@@ -304,7 +304,7 @@ describe("one row per origin per band", () => {
     expect(again.state).toBe("succeeded");
     expect(asked.length).toBe(before);
     const sources = (
-      await executeQuery(
+      await executeQuery(testAccountScope(),
         "SELECT DISTINCT isochrone_source FROM reachable_again",
       )
     ).preview.map((r) => r.isochrone_source);
@@ -325,7 +325,7 @@ describe("each row outcome, on its own", () => {
     expect(job.state, job.errorMessage ?? "").toBe("succeeded");
 
     const rows = (
-      await executeQuery(
+      await executeQuery(testAccountScope(),
         `SELECT label, band_minutes, isochrone_status,
                 geom IS NOT NULL AS drawn
          FROM mixed ORDER BY label, band_minutes`,
@@ -405,7 +405,7 @@ describe("the area is the provider's (the engine half)", () => {
     });
     expect(job.state, job.errorMessage ?? "").toBe("succeeded");
     const facts = (
-      await executeQuery(
+      await executeQuery(testAccountScope(),
         `SELECT ST_AsText(geom) AS wkt,
                 ST_Contains(geom, ST_Point(13.4, 52.5)) AS centre_in_hole,
                 ST_Contains(geom, ST_Point(13.4, 52.503)) AS ring_body
@@ -446,7 +446,7 @@ describe("the provider's structured refusal is a row's business", () => {
     const job = await run({ ...good, name: "edged" });
     expect(job.state, job.errorMessage ?? "").toBe("succeeded");
     const rows = (
-      await executeQuery(
+      await executeQuery(testAccountScope(),
         `SELECT label, isochrone_status FROM edged ORDER BY label, band_minutes`,
       )
     ).preview as Record<string, unknown>[];
@@ -479,7 +479,7 @@ describe("an origin off the earth never leaves the house", () => {
     const settled = getJob(job.id)!;
     expect(settled.state, settled.errorMessage ?? "").toBe("succeeded");
     const rows = (
-      await executeQuery(`SELECT isochrone_status FROM off_out`)
+      await executeQuery(testAccountScope(), `SELECT isochrone_status FROM off_out`)
     ).preview as Record<string, unknown>[];
     expect(rows.map((r) => r.isochrone_status)).toEqual([
       "no_origin",
@@ -650,7 +650,7 @@ describe("nothing leaks the endpoint's query string", () => {
 describe("the dry run and the warning's two roads", () => {
   it("answers origins x bands with zero requests, and says the assumed CRS on both roads", async () => {
     const { compileOperation } = await import("./compile");
-    const compiled = await compileOperation("isochrone", good, {
+    const compiled = await compileOperation(testAccountScope(), "isochrone", good, {
       requireName: false,
     });
     expect(compiled.preview).toMatchObject({

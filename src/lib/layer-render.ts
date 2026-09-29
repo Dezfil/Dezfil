@@ -1,3 +1,4 @@
+import { namedSql } from "@/lib/query/named-sql";
 import { tiledRender, errored } from "./tiles/render";
 import type { TileAccess } from "./tiles/access";
 import type { DatasetScope } from "./query/access";
@@ -85,7 +86,6 @@ function renderGeometryType(types: string[]): LayerRenderGeometryType {
  * published field set. Absent — every builder lane — properties carry every
  * non-geometry column, as always. */
 export interface RenderLayerOpts {
-  scope?: DatasetScope;
   published?: PublishedMapContext;
   tileAccess?: TileAccess;
 }
@@ -96,14 +96,16 @@ export interface RenderLayerOpts {
  * errored state while the rest of the map keeps working (spec: Layers).
  */
 export async function renderLayer(
+  scope: DatasetScope,
   layer: Layer,
   signal?: AbortSignal,
   opts: RenderLayerOpts = {},
 ): Promise<LayerRenderData> {
   try {
     return await boundedEvaluation(async (conn) => {
+      const compiledSql = await namedSql(conn, layer.sql);
       const aggregated = isAggregated(layer.viz);
-      const rawSub = `(${wrappable(layer.sql)}) AS q`;
+      const rawSub = `(${wrappable(compiledSql)}) AS q`;
       const described = await conn.runAndReadAll(
         `DESCRIBE SELECT * FROM ${rawSub}`,
       );
@@ -171,7 +173,7 @@ export async function renderLayer(
         : null;
       const subFor = (fs: LayerFilter[]) =>
         `(${effectiveSql(
-          { sql: layer.sql, filters: fs, viz: layer.viz },
+          { sql: compiledSql, filters: fs, viz: layer.viz },
           rawGeomCol.name,
         )}) AS q`;
       const summarize = async (s: string) => {
@@ -277,7 +279,7 @@ export async function renderLayer(
         ...(liveFiltered ? { liveFiltered } : null),
         ...publishedFields,
       };
-    }, { signal, scope: opts.scope });
+    }, { signal, scope });
   } catch (error) {
     // A departed caller gets nothing, not an errored layer: the envelope
     // is for states a viewer will look at, and nobody is looking.

@@ -1,3 +1,4 @@
+import { POST as sqlQuery } from "@/app/api/query/route";
 import { DELETE as revokePublication } from "@/app/api/publications/[token]/route";
 import { publishMap, getPublishedView } from "@/lib/publish/publish-service";
 import { lookRetention } from "@/lib/export/look-retention";
@@ -153,6 +154,7 @@ function actualApi() {
       }
       if (/^\/api\/projects\/[^/]+\/members$/.test(path)) return projectMembersRead(req, { params: Promise.resolve({ id: path.split("/")[3] }) });
       if (path === "/api/tables") return datasetsRead(req);
+      if (path === "/api/query") return sqlQuery(req);
       if (/^\/api\/tables\/[^/]+\/features$/.test(path)) return datasetFeatures(req, { params: Promise.resolve({ name: path.split("/")[3] }) });
       if (path === "/api/account") return accountRead(req);
       if (path.startsWith("/api/publications/")) return revokePublication(req, { params: Promise.resolve({ token: path.split("/")[3] }) });
@@ -684,4 +686,29 @@ it.each(["cookie", "token"])("MCP and assistant %s can revoke a deactivated owne
   expect(await getPublishedView(second, Date.now())).toBeNull();
   expect(seen.filter(item => item.path.startsWith("/api/maps/") || item.path.startsWith("/api/published/"))).toEqual([]);
   expect(JSON.stringify([...events, ...resumed])).not.toContain("Private revoked content");
+});
+
+it.each(["cookie", "token"])("MCP and assistant %s SQL use independent same-name dataset mounts", async mode => {
+  actualApi();
+  const { materialize } = await import("@/lib/operations/materialize");
+  const { resetQueryInstance } = await import("@/lib/duckdb");
+  resetQueryInstance();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db), actors = [admin, member, other];
+  try {
+    for (const actor of actors) await materialize(accountScope(authenticateSession(actor.secret, db)!, db), {
+      name: "roads", sql: `SELECT '${actor.account.id}' AS sentinel`, operation: "sql_step",
+    });
+    for (const actor of actors) {
+      const credential = createApiToken(authenticateSession(actor.secret, db)!, "Scoped SQL", db);
+      const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+      const sql = "SELECT sentinel FROM query('SELECT * FROM memory.main.roads')";
+      const result = await rpc("run_sql", { sql }, headers);
+      expect(result).toMatchObject({ isError: false, structuredContent: { result: { preview: [{ sentinel: actor.account.id }] } } });
+      factory.provider = stubProvider([{ text: "", toolCalls: [{ id: "local-sql", name: "run_sql", args: { sql } }] }, { text: "Done", toolCalls: [] }]);
+      const events = await send({ runId: await ownReservation(headers), message: "Query my roads" }, headers);
+      expect(events).toContainEqual(expect.objectContaining({ type: "tool_result", tool: "run_sql", ok: true,
+        body: expect.objectContaining({ preview: [{ sentinel: actor.account.id }] }) }));
+    }
+  } finally { resetQueryInstance(); }
 });

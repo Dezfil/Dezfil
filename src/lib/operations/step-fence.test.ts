@@ -163,7 +163,7 @@ describe("a failed re-run leaves the previous output", () => {
     const live = getTableByName("survivor_a")!;
     expect(live.id).toBe(goodId);
     expect(live.file).toBe(goodArtifact);
-    expect((await executeQuery("SELECT n FROM survivor_a")).preview[0].n).toBe(7);
+    expect((await executeQuery(testAccountScope(), "SELECT n FROM survivor_a")).preview[0].n).toBe(7);
   }, 180_000);
 
   it("when the fault lands between writing and publication", async () => {
@@ -194,7 +194,7 @@ describe("a failed re-run leaves the previous output", () => {
     const live = getTableByName("survivor_b")!;
     expect(live.id).toBe(good.id);
     expect(live.file).toBe(good.file);
-    expect((await executeQuery("SELECT n FROM survivor_b")).preview[0].n).toBe(7);
+    expect((await executeQuery(testAccountScope(), "SELECT n FROM survivor_b")).preview[0].n).toBe(7);
     artifactSize = (await stat(path.join(dir, "data", live.file))).size;
     expect(artifactSize).toBeGreaterThan(0);
   }, 120_000);

@@ -50,7 +50,7 @@ export async function POST(request: Request, { params }: Params) {
     const stamp = (list: typeof steps) =>
       list.map((s) => `${s.id}:${s.ordinal}:${s.updatedAt}`).join("|");
     const before = stamp(steps);
-    const reads = await readsByStep(steps);
+    const reads = await readsByStep(scope, steps);
     const target = Math.max(0, Math.min(body.ordinal, steps.length - 1));
     const proposed = steps.filter((s) => s.id !== stepId);
     proposed.splice(target, 0, step);

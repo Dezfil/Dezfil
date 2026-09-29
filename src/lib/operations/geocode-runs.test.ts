@@ -153,7 +153,7 @@ async function run(parameters: Record<string, unknown>) {
 }
 
 const located = () =>
-  executeQuery(
+  executeQuery(testAccountScope(),
     `SELECT label, geocode_status, geocode_source, geocode_match,
             geocode_attribution, ST_X(geom) AS x, ST_Y(geom) AS y
      FROM located ORDER BY label`,
@@ -179,7 +179,7 @@ describe("one row out for every row in", () => {
     expect(job.state, job.errorMessage ?? "").toBe("succeeded");
 
     const columns = (
-      await executeQuery("SELECT * FROM (DESCRIBE SELECT * FROM located)")
+      await executeQuery(testAccountScope(), "SELECT * FROM (DESCRIBE SELECT * FROM located)")
     ).preview.map((r) => String(r.column_name));
     // The exact column list, so a stray column fails rather than passing a
     // containment check — the original columns, untouched, then the five.
@@ -551,7 +551,7 @@ describe("the cache makes a second run cheap", () => {
     expect(asked.length).toBe(first);
     // And the second run's rows say where they came from.
     const sources = (
-      await executeQuery("SELECT DISTINCT geocode_source FROM again")
+      await executeQuery(testAccountScope(), "SELECT DISTINCT geocode_source FROM again")
     ).preview.map((r) => r.geocode_source);
     expect(sources).toEqual(["cache"]);
   }, 30_000);
@@ -578,7 +578,7 @@ describe("the cache makes a second run cheap", () => {
     // among them, and nothing is asked twice.
     expect(asked.length - before).toBe(6);
     const third = (
-      await executeQuery(
+      await executeQuery(testAccountScope(),
         "SELECT geocode_source FROM more WHERE geocode_status = 'matched'",
       )
     ).preview;

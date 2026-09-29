@@ -15,15 +15,14 @@ export { EvaluationCancelled };
  * The bounded-evaluation boundary: the one door to the hardened instance
  * for user SQL. Every evaluation gets a wall-clock budget covering the
  * whole thing — connection acquisition (the first caller after boot pays
- * for instance creation), the queued view registration, and the engine
+ * for instance creation), the connection-local view registration, and the engine
  * statements — and reaching the budget genuinely interrupts the engine on
  * the evaluation's own connection, which is never shared. The caller's
  * departure (an aborted request) cancels the same way, silently.
  *
  * An abandoned registration is interrupted until it settles: its per-table
  * error handling degrades that one pass (see query/views), the next
- * evaluation re-registers, and a stuck statement cannot hold the
- * process-wide chain hostage. The connection is released only once the
+ * evaluation re-registers. The connection is released only once the
  * abandoned work settles. Engine statements are bounded by interruption,
  * re-fired on an interval so a deadline that lands between two statements
  * still stops the next one.
@@ -35,7 +34,7 @@ const REINTERRUPT_MS = 250;
 
 export interface EvaluationOptions {
   /** Authority retained by this evaluation, independent of a visitor. */
-  scope?: DatasetScope;
+  scope: DatasetScope;
   /** The caller's departure; aborting cancels the evaluation silently. */
   signal?: AbortSignal;
   /** Budget override for the lanes with their own documented bound (the
@@ -109,7 +108,7 @@ function memoryError(): ApiError {
 
 export function boundedEvaluation<T>(
   fn: (conn: DuckDBConnection, bounds: EvaluationBounds) => Promise<T>,
-  options: EvaluationOptions = {},
+  options: EvaluationOptions,
 ): Promise<T> {
   // Registered as an in-flight reader: artifact retirement waits for
   // evaluations that may have bound a replaced artifact's path.
@@ -118,10 +117,10 @@ export function boundedEvaluation<T>(
 
 async function runBoundedEvaluation<T>(
   fn: (conn: DuckDBConnection, bounds: EvaluationBounds) => Promise<T>,
-  options: EvaluationOptions = {},
+  options: EvaluationOptions,
 ): Promise<T> {
-  const { signal, scope } = options;
-  if (scope) requireDatasetScope(scope);
+  const { signal, scope } = options ?? {};
+  requireDatasetScope(scope);
   if (signal?.aborted) throw new EvaluationCancelled();
 
   const budgetMs = options.budgetMs ?? limits.queryTimeoutMs;
@@ -154,13 +153,13 @@ async function runBoundedEvaluation<T>(
 
   let deferDisconnect = false;
   try {
-    // Preparation: wait for the serialized registration, racing the budget
+    // Preparation: mount only this scope’s local views, racing the budget
     // and the caller's departure. A genuine registration failure propagates
     // like it always has. The abandonment probe lets an interrupted pass
-    // exit without dropping shared views (see query/views).
+    // exit without affecting other connections (see query/views).
     let prepAbandoned = false;
     let bindings: BindingSnapshot | undefined;
-    const registration = registerTableViews(conn, () => prepAbandoned,
+    const registration = registerTableViews(scope, conn, () => prepAbandoned,
       options.pinBindings ? async (registered) => {
         bindings = await pinBindings(conn, registered);
       } : undefined,
@@ -183,9 +182,9 @@ async function runBoundedEvaluation<T>(
         });
       });
     } catch (error) {
-      // Abandoned mid-queue or mid-work: interrupt whatever the
+      // Abandoned during mounting: interrupt whatever the
       // registration is doing on this connection until it settles — a
-      // stuck statement must not hold the process-wide chain — and
+      // stuck statement must not hold the connection open — and
       // release the connection only then. The probe makes the interrupted
       // pass exit cleanly; the next evaluation re-registers.
       deferDisconnect = true;
@@ -228,9 +227,9 @@ async function runBoundedEvaluation<T>(
     };
 
     try {
-      if (scope) requireDatasetScope(scope);
+      requireDatasetScope(scope);
       const result = await fn(conn, bounds);
-      if (scope) requireDatasetScope(scope);
+      requireDatasetScope(scope);
       // The bound is wall-clock, not statements-only: a callback whose
       // engine work finished but whose tail (tile probes, archive reads)
       // outlived the budget or its caller does not return as a success.

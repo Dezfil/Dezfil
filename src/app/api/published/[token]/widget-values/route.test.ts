@@ -209,7 +209,7 @@ describe("published widget-values reader gate", () => {
     // The builder's own computation keeps the engine's diagnostic — the
     // authenticated-equivalent carve-out.
     const record = mapWithLayers(testAccountScope(), mapId);
-    const raw = await computeWidgetValues(record, record.layers, []);
+    const raw = await computeWidgetValues(testAccountScope(), record, record.layers, []);
     const failed = raw.widgets.filter(
       (w): w is { id: string; error: string; errorCode: never } => "error" in w,
     );

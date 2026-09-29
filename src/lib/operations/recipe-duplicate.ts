@@ -119,7 +119,7 @@ export async function duplicateRecipe(scope: AccountScope, sourceId: string): Pr
   //    original read, with the copy's names where the original's stood.
   for (let i = 0; i < steps.length; i++) {
     if (typeof planned[i].parameters.sql !== "string") continue;
-    const original = await stepReads({
+    const original = await stepReads(scope, {
       operation: steps[i].operation,
       parameters: steps[i].parameters,
       proposedParameters: null,
@@ -127,7 +127,7 @@ export async function duplicateRecipe(scope: AccountScope, sourceId: string): Pr
     // SQL the parser cannot read is copied as it is: the copy refuses to run
     // it exactly as the original does, and says why.
     if (original === null) continue;
-    const copied = await stepReads({
+    const copied = await stepReads(scope, {
       operation: planned[i].operation,
       parameters: planned[i].parameters,
       proposedParameters: null,

@@ -50,7 +50,7 @@ export async function admit(
   requireAccountScope(scope);
   if (owns) requireOwnedTableReference(scope, owns);
   const params = request.parameters ?? {};
-  const { sql, name, measurement, bindings, prepare, assumedCrs: ownRoute } = await compileOperation(
+  const { sql, name, measurement, bindings, prepare, assumedCrs: ownRoute } = await compileOperation(scope,
     request.operation,
     params,
   );
@@ -93,7 +93,7 @@ export async function admit(
   // checked in any case — so this skips a check that cannot run, not one that
   // matters.
   if (!prepare) {
-    await boundedEvaluation(async (conn) => assertReadOnlySelect(conn, sql));
+    await boundedEvaluation(async (conn) => assertReadOnlySelect(conn, sql), { scope });
   }
 
   // The assumed-CRS observation, said **before the run**: a metric answer over data whose WGS84 was guessed is still

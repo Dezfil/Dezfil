@@ -471,7 +471,7 @@ export async function cascadeDeleteSketch(scope: AccountScope, name: string): Pr
     })();
     for (const dependent of new Set([...(layerId ? [layerId] : []), ...dependents]))
       await removeTileArtifacts(dependent);
-    await dropTableView(fresh.name).catch((error: unknown) => {
+    await dropTableView(scope, fresh.name).catch((error: unknown) => {
       console.warn(
         `sketch cascade: view drop failed for ${fresh.name}: ${
           error instanceof Error ? error.message : String(error)

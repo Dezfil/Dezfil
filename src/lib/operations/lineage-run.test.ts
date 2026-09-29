@@ -73,7 +73,7 @@ beforeEach(async () => {
   url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/source.csv`;
   await importFromUrl(testAccountScope(), url, "lineage_source");
   source = getTableByName("lineage_source")!;
-  expect((await executeQuery(SQL)).preview).toEqual([{ value: 1 }]);
+  expect((await executeQuery(testAccountScope(), SQL)).preview).toEqual([{ value: 1 }]);
   recipeId = createRecipe(testAccountScope(), "Pinned lineage").id;
 });
 
@@ -192,7 +192,7 @@ describe("lineage pinned to the run", () => {
     await hold.reached();
     expect(getJob(job.id)!.state).toBe("running");
     const next = await refresh();
-    expect((await executeQuery(SQL)).preview).toEqual([{ value: 2 }]);
+    expect((await executeQuery(testAccountScope(), SQL)).preview).toEqual([{ value: 2 }]);
     hold.release();
     await laneSettled();
     const oldOutput = await assertPublished(s.id, source, 1, "stale");
@@ -219,7 +219,7 @@ describe("lineage pinned to the run", () => {
     const stranger = getTableByName(source.name)!;
     expect(stranger.id).not.toBe(source.id);
     expect(stranger.file).not.toBe(source.file);
-    expect((await executeQuery(SQL)).preview).toEqual([{ value: 2 }]);
+    expect((await executeQuery(testAccountScope(), SQL)).preview).toEqual([{ value: 2 }]);
     hold.release();
     await laneSettled();
     await assertPublished(s.id, source, 1, "broken");
@@ -243,7 +243,7 @@ describe("lineage pinned to the run", () => {
     await startStepRun(testAccountScope(), s.id);
     await hold.reached();
     await refresh();
-    expect((await executeQuery(SQL)).preview).toEqual([{ value: 2 }]);
+    expect((await executeQuery(testAccountScope(), SQL)).preview).toEqual([{ value: 2 }]);
     hold.release();
     await laneSettled();
     await assertPublished(s.id, source, 1, "stale");
@@ -266,7 +266,7 @@ describe("lineage pinned to the run", () => {
     try {
       await hold.reached();
       await refresh();
-      expect((await executeQuery(SQL)).preview).toEqual([{ value: 2 }]);
+      expect((await executeQuery(testAccountScope(), SQL)).preview).toEqual([{ value: 2 }]);
     } finally { hold.release(); }
     await cascadeSettled(cascade.id);
     const finished = readCascade(testAccountScope(), cascade.id);

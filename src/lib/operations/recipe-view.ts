@@ -1,3 +1,4 @@
+import type { DatasetScope } from "@/lib/query/access";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { listJobs, type OperationJob } from "@/lib/metadata/owned-jobs";
@@ -121,10 +122,10 @@ function prospectiveEdges(
 /** Every step's present reads, once per read of the recipe. A definition the
  * parser cannot read (a SQL node mid-edit) reads nothing rather than failing
  * the whole recipe's view. */
-async function presentReads(steps: RecipeStep[]): Promise<Map<string, string[]>> {
+async function presentReads(scope: DatasetScope, steps: RecipeStep[]): Promise<Map<string, string[]>> {
   const entries = await Promise.all(
     steps.map(
-      async (s) => [s.id, await stepReads(s).catch(() => [] as string[])] as const,
+      async (s) => [s.id, await stepReads(scope, s).catch(() => [] as string[])] as const,
     ),
   );
   return new Map(entries);
@@ -133,7 +134,7 @@ async function presentReads(steps: RecipeStep[]): Promise<Map<string, string[]>>
 export async function readRecipe(scope: AccountScope, recipeId: string): Promise<RecipeView> {
   const recipe = requireRecipe(scope, recipeId);
   const steps = listSteps(scope, recipeId);
-  const reads = await presentReads(steps);
+  const reads = await presentReads(scope, steps);
   const edgesByStep = new Map(steps.map((s) => [s.id, edgesForStep(scope, s.id)]));
   for (const edge of prospectiveEdges(scope, steps, reads, edgesByStep)) {
     edgesByStep.get(edge.stepId)?.push(edge);

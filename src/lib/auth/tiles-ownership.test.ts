@@ -15,7 +15,7 @@ const effects = vi.hoisted(() => ({ export: vi.fn(), beforeExport: undefined as 
 vi.mock("@/lib/tiles/export", () => ({ exportGeoJsonSeq: async (...args: unknown[]) => {
   effects.export(...args); await effects.beforeExport?.();
   const { writeFile } = await import("node:fs/promises");
-  await writeFile(args[1] as string, [13, 14].map(lon => JSON.stringify({ type: "Feature", geometry: { type: "Point", coordinates: [lon, 52] }, properties: { value: lon } })).join("\n") + "\n");
+  await writeFile(args[2] as string, [13, 14].map(lon => JSON.stringify({ type: "Feature", geometry: { type: "Point", coordinates: [lon, 52] }, properties: { value: lon } })).join("\n") + "\n");
   effects.afterExport?.(); return 2;
 } }));
 vi.mock("node:fs/promises", async original => { const actual = await original<typeof import("node:fs/promises")>(); return { ...actual, rename: async (...args: Parameters<typeof actual.rename>) => { await actual.rename(...args); effects.afterRename?.(); } }; });
@@ -93,7 +93,7 @@ it("completes separate real archives for three owners and exposes only their own
     expect(privateTileStatus(scopes[account], layers[account])).toMatchObject({ state: "ready", featureCount: 2 });
     expect(existsSync(tileArchivePath(layers[account]))).toBe(true); expect(await actual.tileArchiveInfo(layers[account])).not.toBeNull();
   }
-  expect(effects.export.mock.calls.map(call => call[0].sql)).toEqual(accounts.map(account => input(account).sql));
+  expect(effects.export.mock.calls.map(call => call[1].sql)).toEqual(accounts.map(account => input(account).sql));
 });
 it("lets only the owner delete and fence an in-flight private build", async () => {
   const held = gate(); effects.beforeExport = () => held.promise;

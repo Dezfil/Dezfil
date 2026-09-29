@@ -1,3 +1,4 @@
+import type { DatasetScope } from "@/lib/query/access";
 import type { AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
 import {
@@ -34,14 +35,14 @@ import { listTablesWithSize } from "@/lib/table-service";
 
 export type WorkflowDependency = MapDependency;
 
-async function strictReads(step: StepDefinition): Promise<string[]> {
+async function strictReads(scope: DatasetScope, step: StepDefinition): Promise<string[]> {
   const declared = declaredReads(step);
   if (declared !== null) return declared;
   const params = currentDefinition(step);
   const sql = typeof params.sql === "string" ? params.sql : "";
   if (!sql) return [];
   return boundedEvaluation(async (conn) =>
-    (await queryInputsStrict(conn, sql, () => null)).tables,
+    (await queryInputsStrict(conn, sql, () => null)).tables, { scope },
   );
 }
 
@@ -61,7 +62,7 @@ export async function workflowDependencies(
   for (const step of steps) {
     let names: string[];
     try {
-      names = await strictReads(step);
+      names = await strictReads(scope, step);
     } catch (cause) {
       throw new ApiError(
         "dependencies_unresolved",

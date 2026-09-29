@@ -44,7 +44,7 @@ export async function createLayer(
   opts: { groupId?: string | null; signal?: AbortSignal } = {},
 ): Promise<Layer> {
   requireMap(scope, mapId);
-  const { geometryType } = await inspectLayerGeometry(input.sql, opts.signal);
+  const { geometryType } = await inspectLayerGeometry(scope, input.sql, opts.signal);
   if (input.style !== undefined) {
     const problem = styleProblem(input.style);
     if (problem) {
@@ -52,7 +52,7 @@ export async function createLayer(
     }
     // A created layer has no stored config to echo: every reference the
     // style carries is introduced here and validates.
-    await assertWritableRefs(
+    await assertWritableRefs(scope,
       styleRefs(input.style),
       [],
       input.sql,

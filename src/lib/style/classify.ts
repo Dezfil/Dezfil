@@ -1,3 +1,5 @@
+import { namedSql } from "@/lib/query/named-sql";
+import type { DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
 import { boundedEvaluation, isOutOfMemory } from "@/lib/query/bounded";
 import { wrappable } from "@/lib/query/compile";
@@ -163,6 +165,7 @@ function classCount(classes: number | undefined): number {
  * palette. Runs on the hardened query engine.
  */
 export async function classifyFill(
+  scope: DatasetScope,
   sql: string,
   attribute: string,
   method: ClassifyMethod,
@@ -170,7 +173,7 @@ export async function classifyFill(
   signal?: AbortSignal,
 ): Promise<FillPaint> {
   return boundedEvaluation(async (conn) => {
-    const sub = `(${wrappable(sql)}) AS q`;
+    const sub = `(${wrappable(await namedSql(conn, sql))}) AS q`;
     const col = ident(attribute);
     const reversed = options.reversed === true;
 
@@ -305,7 +308,7 @@ export async function classifyFill(
       map: values.map((value, i) => ({ value, color: colors[i] })),
       other,
     };
-  }, { signal });
+  }, { scope, signal });
 }
 
 /**
@@ -315,13 +318,14 @@ export async function classifyFill(
  * Runs on the hardened query engine.
  */
 export async function computeSizeScale(
+  scope: DatasetScope,
   sql: string,
   attribute: string,
   range: [number, number],
   signal?: AbortSignal,
 ): Promise<SizeScale> {
   return boundedEvaluation(async (conn) => {
-    const sub = `(${wrappable(sql)}) AS q`;
+    const sub = `(${wrappable(await namedSql(conn, sql))}) AS q`;
     const col = ident(attribute);
     let lo: number;
     let hi: number;
@@ -352,7 +356,7 @@ export async function computeSizeScale(
       );
     }
     return { attribute, domain: [lo, hi], range };
-  }, { signal });
+  }, { scope, signal });
 }
 
 type Conn = import("@duckdb/node-api").DuckDBConnection;

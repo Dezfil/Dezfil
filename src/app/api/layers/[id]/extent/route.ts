@@ -78,7 +78,7 @@ export async function POST(request: Request, { params }: Params) {
       dims?: unknown;
     };
     const dims = parseDims(body.dims);
-    const extent = await layerExtent(layer, dimsToFilters(dims), request.signal);
+    const extent = await layerExtent(scope, layer, dimsToFilters(dims), request.signal);
     return NextResponse.json(extent);
   } catch (error) {
     return errorResponse(error);

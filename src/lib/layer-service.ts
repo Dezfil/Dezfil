@@ -1,21 +1,18 @@
+import type { DatasetScope } from "@/lib/query/access";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireLayer } from "./layer-access";
 import { assertWritableRefs } from "./layer-write-refs";
 export { requireLayer } from "./layer-access";
 export { createLayer, duplicateLayer } from "./layer-creation";
 export { layerImage } from "./layer-history-image";
-import { baseFields } from "./layer-fields";
 export { fieldKind, layerFields, fieldsForWrite, baseFields, layerFieldStats, DISTRIBUTION_BINS,
   type FieldKind, type LayerField, type LayerFieldsResult, type FieldStats } from "./layer-fields";
-import { limits } from "@/lib/limits";
 import { ApiError } from "@/lib/api/errors";
 import {
-  boundedEvaluation,
   isBoundedOutcome,
 } from "@/lib/query/bounded";
 import {
   effectiveSql,
-  filteredSql,
 } from "@/lib/query/compile";
 import { inspectLayerGeometry } from "@/lib/layer-geometry";
 import {
@@ -56,13 +53,8 @@ import {
   type ColumnRef,
 } from "@/lib/column-validation";
 import { legendFor, legendSlotCount } from "@/lib/style/legend";
-import type { SliderPreviewData } from "@/lib/slider-preview";
 export { renderLayer, type LayerRenderData, type LayerTiles, type LayerRenderGeometryType, type RenderLayerOpts } from "./layer-render";
 export { liveRenderFilters, renderFilters } from "./layer-render-filters";
-
-function ident(s: string): string {
-  return `"${s.replace(/"/g, '""')}"`;
-}
 
 /**
  * The attribute-name overrides that survive a style/viz change: a channel
@@ -155,7 +147,7 @@ async function deriveAndCommitUpdate(
     stableJson(fields.filters) !== stableJson(layer.filters);
   if (fields.sql !== undefined && fields.sql !== layer.sql) {
     // Editing SQL revalidates geometry, but the layer is not recreated.
-    await inspectLayerGeometry(fields.sql, opts.signal);
+    await inspectLayerGeometry(scope, fields.sql, opts.signal);
   }
   if (fields.style !== undefined) {
     const problem = styleProblem(fields.style);
@@ -210,7 +202,7 @@ async function deriveAndCommitUpdate(
     const validating = isAggregated(nextViz)
       ? incoming.filter((ref) => ref.channel !== "label")
       : incoming;
-    await assertWritableRefs(
+    await assertWritableRefs(scope,
       validating,
       stored,
       fields.sql ?? layer.sql,
@@ -226,7 +218,7 @@ async function deriveAndCommitUpdate(
     // Hexbin, grid, and heatmap draw point results; line and polygon layers
     // keep simple rendering. Arc/line ignore the primary geometry entirely
     // — their endpoints are mapped.
-    const inspection = await inspectLayerGeometry(
+    const inspection = await inspectLayerGeometry(scope,
       fields.sql ?? layer.sql,
       opts.signal,
     );
@@ -244,7 +236,7 @@ async function deriveAndCommitUpdate(
         // aggregation edit. Settle the authoritative stored fill over the
         // complete next filter set; previews deliberately keep the old fill
         // only until this mutation is accepted.
-        viz.fill = await filterSettledAggregatedFill(
+        viz.fill = await filterSettledAggregatedFill(scope,
           {
             sql: fields.sql ?? layer.sql,
             filters: fields.filters ?? layer.filters,
@@ -259,7 +251,7 @@ async function deriveAndCommitUpdate(
         // The aggregation changed, so its value distribution did too: assign
         // a fill over the aggregate value, keeping any prior ramp choices
         // (classification applies to the aggregate value).
-        viz.fill = await aggregatedFill(
+        viz.fill = await aggregatedFill(scope,
           {
             sql: fields.sql ?? layer.sql,
             filters: fields.filters ?? layer.filters,
@@ -289,7 +281,7 @@ async function deriveAndCommitUpdate(
             JSON.stringify(viz.elevation.aggregate);
         viz.elevation = unchangedQuery
           ? { ...viz.elevation, domain: prior!.domain }
-          : await settledElevation(
+          : await settledElevation(scope,
               {
                 sql: fields.sql ?? layer.sql,
                 filters: fields.filters ?? layer.filters,
@@ -313,12 +305,12 @@ async function deriveAndCommitUpdate(
     fields.viz === undefined &&
     isAggregated(layer.viz)
   ) {
-    const inspection = await inspectLayerGeometry(
+    const inspection = await inspectLayerGeometry(scope,
       fields.sql ?? layer.sql,
       opts.signal,
     );
     const viz = { ...layer.viz };
-    viz.fill = await filterSettledAggregatedFill(
+    viz.fill = await filterSettledAggregatedFill(scope,
       {
         sql: fields.sql ?? layer.sql,
         filters: fields.filters ?? layer.filters,
@@ -330,7 +322,7 @@ async function deriveAndCommitUpdate(
       opts.signal,
     );
     if (viz.elevation) {
-      viz.elevation = await settledElevation(
+      viz.elevation = await settledElevation(scope,
         {
           sql: fields.sql ?? layer.sql,
           filters: fields.filters ?? layer.filters,
@@ -448,6 +440,7 @@ async function deriveAndCommitUpdate(
  * heights that lie.
  */
 async function settledElevation(
+  scope: DatasetScope,
   input: { sql: string; filters: LayerFilter[]; viz: AggregatedViz },
   geometryColumn: string,
   signal?: AbortSignal,
@@ -456,7 +449,7 @@ async function settledElevation(
   if (!elevation) return undefined;
   try {
     const sql = effectiveSql(input, geometryColumn);
-    const scale = await computeSizeScale(
+    const scale = await computeSizeScale(scope,
       sql,
       AGG_ELEV,
       [0, elevation.height],
@@ -490,6 +483,7 @@ function priorAggregatedFill(layer: Layer): FillPaint | undefined {
  * a constant so the layer stays usable — render reports its own errors.
  */
 async function aggregatedFill(
+  scope: DatasetScope,
   input: { sql: string; filters: LayerFilter[]; viz: AggregatedViz },
   geometryColumn: string,
   prior: FillPaint | undefined,
@@ -514,7 +508,7 @@ async function aggregatedFill(
         : priorRamp?.method === "custom"
           ? (priorRamp.baseMethod ?? "quantile")
           : (priorRamp?.method ?? "quantile");
-    const fresh = await classifyFill(
+    const fresh = await classifyFill(scope,
       sql,
       AGG_VALUE,
       priorMethod,
@@ -557,6 +551,7 @@ async function aggregatedFill(
  * path (including Custom returning to its remembered named method).
  */
 async function filterSettledAggregatedFill(
+  scope: DatasetScope,
   input: { sql: string; filters: LayerFilter[]; viz: AggregatedViz },
   geometryColumn: string,
   prior: FillPaint | undefined,
@@ -564,123 +559,7 @@ async function filterSettledAggregatedFill(
   signal?: AbortSignal,
 ): Promise<FillPaint> {
   if (prior?.type === "constant") return prior;
-  return aggregatedFill(input, geometryColumn, prior, style, signal);
+  return aggregatedFill(scope, input, geometryColumn, prior, style, signal);
 }
 
-/** The layer's effective query — SQL, then filters, then aggregation — for
- * consumers outside the render path (classification, previews). */
-export async function layerEffectiveSql(
-  layer: Layer,
-  signal?: AbortSignal,
-): Promise<string> {
-  if (!isAggregated(layer.viz)) {
-    return effectiveSql(
-      { sql: layer.sql, filters: layer.filters, viz: layer.viz },
-      null,
-    );
-  }
-  const { geometryColumn } = await inspectLayerGeometry(layer.sql, signal);
-  return effectiveSql(
-    { sql: layer.sql, filters: layer.filters, viz: layer.viz },
-    geometryColumn,
-  );
-}
-
-/** Base-result attributes the canvas may need while durable layer state stays
- * unchanged. Automatic tooltips are deliberately absent during a preview. */
-function sliderPreviewFieldNames(layer: Layer): Set<string> {
-  const names = new Set<string>();
-  for (const filter of layer.filters) {
-    if (filter.kind === "range" || filter.kind === "timerange") {
-      names.add(filter.field);
-    }
-  }
-  if (isAggregated(layer.viz) && layer.viz.aggregate.fn !== "count") {
-    names.add(layer.viz.aggregate.attribute);
-  }
-  // Extruded cells re-aggregate their height locally too.
-  const elevation = isAggregated(layer.viz) ? layer.viz.elevation : undefined;
-  if (elevation && elevation.aggregate.fn !== "count") {
-    names.add(elevation.aggregate.attribute);
-  }
-  if (layer.viz.type === "heatmap" && layer.viz.weight) {
-    names.add(layer.viz.weight);
-  }
-  const paints = [layer.style.fill, layer.style.strokeBy];
-  for (const paint of paints) {
-    if (paint && paint.type !== "constant") names.add(paint.attribute);
-  }
-  if (layer.style.pointRadiusBy) names.add(layer.style.pointRadiusBy.attribute);
-  if (layer.style.strokeWidthBy) names.add(layer.style.strokeWidthBy.attribute);
-  if (layer.style.label?.attribute) names.add(layer.style.label.attribute);
-  return names;
-}
-
-/**
- * Geometry input used while a human manipulates a query-shaping slider.
- * Range/time filters are intentionally omitted so a local preview can widen as
- * well as narrow; discrete filters remain server-applied. Above the dedicated
- * input budget, a hash-ordered subset stays stable across requests.
- */
-export async function sliderPreviewData(
-  layer: Layer,
-  signal?: AbortSignal,
-): Promise<SliderPreviewData> {
-  const inspection = await inspectLayerGeometry(layer.sql, signal);
-  const base = await baseFields(layer, signal);
-  const wanted = sliderPreviewFieldNames(layer);
-  const fields = base
-    .filter((field) => wanted.has(field.name))
-    .map(({ name, kind }) => ({ name, kind }));
-  const filters = layer.filters.filter((filter) => filter.kind === "values");
-  const source = `(${filteredSql(layer.sql, filters)}) AS q`;
-  const geom = ident(inspection.geometryColumn);
-  // Aggregation and heatmaps are point visualizations. Plain layers keep
-  // their original geometry so range/time fallback previews also work for
-  // lines and polygons that cannot use the canvas's point-oriented fast path.
-  const geometryPredicate =
-    layer.viz.type === "points"
-      ? `${geom} IS NOT NULL`
-      : `${geom} IS NOT NULL AND ST_GeometryType(${geom}) = 'POINT'`;
-  const budget = limits.sliderPreviewRows;
-
-  return boundedEvaluation(async (conn) => {
-    const counted = await conn.runAndReadAll(
-      `SELECT count(*) AS n FROM ${source} WHERE ${geometryPredicate}`,
-    );
-    const sourceCount = Number(counted.getRowObjects()[0]?.n ?? 0);
-    const exact = sourceCount <= budget;
-    const props = fields.length
-      ? `to_json({${fields
-          .map(
-            (field) =>
-              `'${field.name.replace(/'/g, "''")}': ${ident(field.name)}`,
-          )
-          .join(", ")}})`
-      : `'{}'`;
-    const hashArgs = [
-      `ST_AsWKB(${geom})`,
-      ...fields.map((field) => ident(field.name)),
-    ].join(", ");
-    const sampled = await conn.runAndReadAll(
-      `SELECT ST_AsGeoJSON(${geom}) AS geometry, ${props} AS props
-       FROM ${source} WHERE ${geometryPredicate}
-       ${exact ? "" : `ORDER BY hash(${hashArgs})`}
-       LIMIT ${budget}`,
-    );
-    const features = sampled.getRowObjects().map((row) => ({
-      type: "Feature",
-      geometry: JSON.parse(String(row.geometry)),
-      properties: JSON.parse(String(row.props)),
-    }));
-    return {
-      layerId: layer.id,
-      exact,
-      sourceCount,
-      sampledCount: features.length,
-      budget,
-      fields,
-      geojson: { type: "FeatureCollection", features },
-    };
-  }, { signal });
-}
+export { layerEffectiveSql, sliderPreviewData } from "./layer-preview";

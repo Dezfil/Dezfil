@@ -8,7 +8,7 @@ import { requireRequestAuth } from "./http";
 
 import { createCascade, finishCascade } from "@/lib/metadata/cascades";
 const effects = vi.hoisted(() => ({ reads: vi.fn(async () => [] as string[]), engine: vi.fn() }));
-vi.mock("@/lib/operations/step-reads", async original => ({ ...await original<typeof import("@/lib/operations/step-reads")>(), stepReads: effects.reads, readsByStep: async (steps: { id: string }[]) => { await effects.reads(); return new Map(steps.map(step => [step.id, []])); } }));
+vi.mock("@/lib/operations/step-reads", async original => ({ ...await original<typeof import("@/lib/operations/step-reads")>(), stepReads: effects.reads, readsByStep: async (_scope: unknown, steps: { id: string }[]) => { await effects.reads(); return new Map(steps.map(step => [step.id, []])); } }));
 vi.mock("@/lib/duckdb", () => ({ withConnection: effects.engine, trustedH3Ready: vi.fn() }));
 let db: Database;
 let recipes: Record<string, string>, steps: Record<string, string>;

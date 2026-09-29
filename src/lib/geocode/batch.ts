@@ -1,3 +1,4 @@
+import type { DatasetScope } from "@/lib/query/access";
 import { randomUUID } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
@@ -198,14 +199,14 @@ export async function removeStage(stage: string): Promise<void> {
  * is terminal** — the deadline and the signal are both checked between rows,
  * which is the only place a sequential batch can check them.
  */
-export async function stageBatch(options: BatchOptions): Promise<BatchResult> {
+export async function stageBatch(scope: DatasetScope, options: BatchOptions): Promise<BatchResult> {
   const { table, column, signal, deadlineAt, timeoutError } = options;
   const endpoint = configuredEndpoint();
   if (!endpoint) throw unconfiguredError();
 
   const addresses = await boundedEvaluation(
     async (conn) => distinctAddresses(conn, table, column),
-    {
+    { scope,
       ...(signal ? { signal } : {}),
       budgetMs: remaining(deadlineAt, timeoutError),
       timeoutError,
@@ -257,7 +258,7 @@ export async function stageBatch(options: BatchOptions): Promise<BatchResult> {
   );
   await mkdir(path.dirname(stage), { recursive: true });
   try {
-    await boundedEvaluation(async (conn) => writeStage(conn, rows, stage), {
+    await boundedEvaluation(async (conn) => writeStage(conn, rows, stage), { scope,
       ...(signal ? { signal } : {}),
       budgetMs: remaining(deadlineAt, timeoutError),
       timeoutError,

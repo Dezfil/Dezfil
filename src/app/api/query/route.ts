@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { executeQuery, isGeometryEncoding } from "@/lib/query/execute";
@@ -5,6 +6,7 @@ import { executeQuery, isGeometryEncoding } from "@/lib/query/execute";
 /** Run read-only SQL against the uploaded tables (spec: Query). */
 export async function POST(request: Request) {
   try {
+    const scope = requireRequestScope(request);
     let sql: unknown;
     let geometry: unknown;
     try {
@@ -34,7 +36,7 @@ export async function POST(request: Request) {
       );
     }
     return NextResponse.json(
-      await executeQuery(sql, {
+      await executeQuery(scope, sql, {
         signal: request.signal,
         geometry: isGeometryEncoding(geometry) ? geometry : undefined,
       }),

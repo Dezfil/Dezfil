@@ -1,3 +1,4 @@
+import { namedSql } from "@/lib/query/named-sql";
 import type { DatasetScope } from "@/lib/query/access";
 import { boundedEvaluation } from "@/lib/query/bounded";
 import { effectiveSql } from "@/lib/query/compile";
@@ -63,15 +64,15 @@ function composeFilters(
 }
 
 export async function layerExtent(
+  scope: DatasetScope,
   layer: Layer,
   /** Constraints the canvas is enforcing — a reader's timeline window,
    * widget selections, the current bounds of a delegated filter. A range
    * or time entry REPLACES the layer's stored filter on that field. */
   extra: LayerFilter[] = [],
   signal?: AbortSignal,
-  scope?: DatasetScope,
 ): Promise<LayerExtent> {
-  const inspection = await inspectLayerGeometry(layer.sql, signal, scope);
+  const inspection = await inspectLayerGeometry(scope, layer.sql, signal);
   // Which column holds the geometry that is actually drawn: an aggregation
   // computes its own cells, an origin→destination viz builds its line, and
   // everything else draws the base result's geometry. The same choice the
@@ -89,7 +90,7 @@ export async function layerExtent(
   return boundedEvaluation(async (conn) => {
     const sub = `(${effectiveSql(
       {
-        sql: layer.sql,
+        sql: await namedSql(conn, layer.sql),
         filters: composeFilters(layer.filters, extra),
         viz: layer.viz,
       },

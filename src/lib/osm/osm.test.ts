@@ -578,7 +578,7 @@ describe("refreshTable for OSM groups", () => {
           `SELECT count(*) AS n FROM "${name}"`,
         );
         return Number((reader.getRowObjectsJson()[0] as { n: unknown }).n);
-      });
+      }, { scope: testAccountScope() });
     expect(await evalCount("grp_points")).toBe(1);
     expect(await evalCount("grp_lines")).toBe(1);
 

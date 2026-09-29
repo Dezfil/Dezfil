@@ -1,3 +1,4 @@
+import type { DatasetScope } from "@/lib/query/access";
 import { getOwnedTableByName, requireOwnedTableReference } from "@/lib/metadata/owned-tables";
 import { publishDataset, nameTaken } from "./dataset-publication";
 export { LostAuthority } from "./dataset-publication";
@@ -11,7 +12,7 @@ import { ApiError } from "@/lib/api/errors";
 import { boundedEvaluation, isOutOfMemory } from "@/lib/query/bounded";
 import { stripStatementQuote } from "@/lib/query/engine-message";
 import { findOperation } from "./catalog";
-import { assertReadOnlySelect } from "@/lib/query/guard";
+import { namedSql } from "@/lib/query/named-sql";
 import {
   collapseGeometryTypes,
   ident,
@@ -100,7 +101,7 @@ export interface MaterializeRequest {
    * transaction, so no reader can ever see an output whose lineage has not
    * landed. The artifact is the one the engine's catalog actually bound, not
    * the one a later registry or shared catalog read names. Execution and
-   * evidence are pinned together inside the serialized registration turn.
+   * evidence are pinned together on the evaluation’s own connection.
    */
   authorize?: (
     table: DataTable,
@@ -272,13 +273,14 @@ function exactName(desired: string): string {
  * the disagreement this contract forbids.
  */
 export async function dryRun(
+  scope: DatasetScope,
   sql: string,
   signal?: AbortSignal,
   operation?: string,
 ): Promise<DryRun> {
   return boundedEvaluation(async (conn) => {
-    await assertReadOnlySelect(conn, sql);
-    const from = `(${nestable(sql)})`;
+    const compiledSql = await namedSql(conn, sql);
+    const from = `(${nestable(compiledSql)})`;
     try {
       return await describeResult(conn, from);
     } catch (error) {
@@ -286,7 +288,7 @@ export async function dryRun(
       // the coded error directly — it mints no job.
       asSqlError(error, operation);
     }
-  }, { signal });
+  }, { scope, signal });
 }
 
 async function describeResult(
@@ -348,7 +350,7 @@ export async function materialize(
   const name = exactName(request.name);
 
   return boundedEvaluation(async (conn, bounds) => {
-    await assertReadOnlySelect(conn, sql);
+    const compiledSql = await namedSql(conn, sql);
 
     // Refuse a taken name before doing the work, so the common collision
     // costs the caller nothing. The race is refused again at the insert.
@@ -357,7 +359,7 @@ export async function materialize(
     if (!replaceTable && getOwnedTableByName(scope, name)) throw nameTaken(name);
 
     const snapshot = bounds.bindings!;
-    const inputs = await queryInputs(conn, sql, snapshot.geometryOf);
+    const inputs = await queryInputs(conn, compiledSql, snapshot.geometryOf);
     const resolved = inputs.tables
       .map((t) => snapshot.byName.get(t))
       .filter((t): t is BoundTable => t !== undefined);
@@ -385,9 +387,9 @@ export async function materialize(
     try {
       let measured;
       try {
-        const geometryColumn = await geometryColumnOfResult(conn, sql);
+        const geometryColumn = await geometryColumnOfResult(conn, compiledSql);
         await conn.run(
-          `COPY (${nestable(sql)}) TO '${abs.replace(/'/g, "''")}' (FORMAT PARQUET)`,
+          `COPY (${nestable(compiledSql)}) TO '${abs.replace(/'/g, "''")}' (FORMAT PARQUET)`,
         );
         measured = await measureArtifact(conn, abs, geometryColumn);
         // Finish fallible engine work before the atomic metadata publication.
@@ -467,7 +469,7 @@ export async function materialize(
       // points at it, and removing it here would strand a registered table.
       if (!committed) await rm(abs, { force: true });
     }
-  }, { pinBindings: true, signal, ...(budgetMs !== undefined ? { budgetMs } : {}), ...(timeoutError ? { timeoutError } : {}) });
+  }, { scope, pinBindings: true, signal, ...(budgetMs !== undefined ? { budgetMs } : {}), ...(timeoutError ? { timeoutError } : {}) });
 }
 
 /**

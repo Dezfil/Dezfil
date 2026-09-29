@@ -1,3 +1,4 @@
+import type { DatasetScope } from "@/lib/query/access";
 import { randomUUID } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
@@ -204,6 +205,7 @@ export async function removeIsochroneStage(stage: string): Promise<void> {
  * outlast the run.
  */
 export async function stageIsochroneBatch(
+  scope: DatasetScope,
   options: IsochroneBatchOptions,
 ): Promise<IsochroneBatchResult> {
   const { table, mode, bands, signal, deadlineAt, timeoutError } = options;
@@ -212,7 +214,7 @@ export async function stageIsochroneBatch(
 
   const origins = await boundedEvaluation(
     async (conn) => distinctOrigins(conn, table),
-    {
+    { scope,
       ...(signal ? { signal } : {}),
       budgetMs: remaining(deadlineAt, timeoutError),
       timeoutError,
@@ -255,7 +257,7 @@ export async function stageIsochroneBatch(
   );
   await mkdir(path.dirname(stage), { recursive: true });
   try {
-    await boundedEvaluation(async (conn) => writeStage(conn, rows, stage), {
+    await boundedEvaluation(async (conn) => writeStage(conn, rows, stage), { scope,
       ...(signal ? { signal } : {}),
       budgetMs: remaining(deadlineAt, timeoutError),
       timeoutError,

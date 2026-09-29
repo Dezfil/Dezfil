@@ -33,7 +33,7 @@ afterEach(async () => {
 });
 
 async function assertDataIntact() {
-  const check = await executeQuery("SELECT count(*) AS n FROM assets");
+  const check = await executeQuery(testAccountScope(), "SELECT count(*) AS n FROM assets");
   expect(Number(check.preview[0].n)).toBe(2);
 }
 
@@ -66,7 +66,7 @@ describe("read-only enforcement", () => {
       "begin transaction",
     ];
     for (const sql of attempts) {
-      await expect(executeQuery(sql), sql).rejects.toMatchObject({
+      await expect(executeQuery(testAccountScope(), sql), sql).rejects.toMatchObject({
         code: "sql_rejected",
       });
     }
@@ -81,7 +81,7 @@ describe("read-only enforcement", () => {
       "SELECT * FROM glob('/etc/*')",
     ];
     for (const sql of escapes) {
-      await expect(executeQuery(sql), sql).rejects.toMatchObject({
+      await expect(executeQuery(testAccountScope(), sql), sql).rejects.toMatchObject({
         code: "sql_error",
       });
     }
@@ -90,13 +90,13 @@ describe("read-only enforcement", () => {
       .join(process.env.DEZFIL_DATA_DIR!, "metadata.sqlite")
       .replace(/'/g, "''");
     await expect(
-      executeQuery(`SELECT * FROM read_text('${metadata}')`),
+      executeQuery(testAccountScope(), `SELECT * FROM read_text('${metadata}')`),
     ).rejects.toMatchObject({ code: "sql_error" });
     await assertDataIntact();
   });
 
   it("keeps the artifact directory itself readable", async () => {
-    const result = await executeQuery(
+    const result = await executeQuery(testAccountScope(),
       "SELECT count(*) AS n FROM assets WHERE ST_X(geometry) > 0",
     );
     expect(Number(result.preview[0].n)).toBe(2);

@@ -18,7 +18,7 @@ export async function GET(request: Request, { params }: Params) {
     const scope = requireRequestScope(request);
     const { id } = await params;
     const layer = requireLayer(scope, id);
-    const render = await renderLayer(layer, request.signal, { tileAccess: privateTileAccess(scope, id) });
+    const render = await renderLayer(scope, layer, request.signal, { tileAccess: privateTileAccess(scope, id) });
     requireLayer(scope, id);
     return NextResponse.json(render);
   } catch (error) {
@@ -54,7 +54,7 @@ export async function POST(request: Request, { params }: Params) {
       );
     }
     const layer = requireLayer(scope, id);
-    const render = await renderLayerWithSelections(layer, selections, request.signal, { tileAccess: privateTileAccess(scope, id) });
+    const render = await renderLayerWithSelections(scope, layer, selections, request.signal, { tileAccess: privateTileAccess(scope, id) });
     requireLayer(scope, id);
     return NextResponse.json(render);
   } catch (error) {

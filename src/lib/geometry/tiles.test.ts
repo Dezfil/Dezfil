@@ -52,10 +52,10 @@ exec tippecanoe "$@"
   expect(getTileRecord(layer.id)).toBeNull(); expect(existsSync(tileArchivePath(layer.id))).toBe(false);
   expect(getTileRecord(unrelated.id)).toEqual(unrelatedRecord);
   expect(await readFile(tileArchivePath(unrelated.id))).toEqual(unrelatedBytes);
-  const rows=await boundedEvaluation(async conn=>(await conn.runAndReadAll("SELECT ST_X(geometry) x, ST_Y(geometry) y FROM points")).getRowObjectsJson());
+  const rows=await boundedEvaluation(async conn=>(await conn.runAndReadAll("SELECT ST_X(geometry) x, ST_Y(geometry) y FROM points")).getRowObjectsJson(), { scope: testAccountScope() });
   expect(rows).toEqual([{x:30,y:40},{x:31,y:41}]);
   ensureTiles(privateTileAccess(testAccountScope(), (input(layer.id,sql)).layerId), input(layer.id,sql)); await tileBuildsSettled(); expect(getTileRecord(layer.id)?.state).toBe("ready");
   await clearGeometry(testAccountScope(), t.name,next.revision);
   expect(getTileRecord(layer.id)).toBeNull();
-  await expect(boundedEvaluation(conn=>conn.runAndReadAll("SELECT geometry FROM points"))).rejects.toThrow(/geometry|column/i);
+  await expect(boundedEvaluation(conn=>conn.runAndReadAll("SELECT geometry FROM points"), { scope: testAccountScope() })).rejects.toThrow(/geometry|column/i);
 });

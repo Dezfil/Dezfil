@@ -57,7 +57,7 @@ beforeEach(async () => {
   const src = path.join(dir, "stations.csv");
   await writeFile(src, "name,lon,lat\nalex,13.41,52.52\nzoo,13.33,52.51\n");
   await ingestFile(testAccountScope(), src, "stations.csv");
-  await boundedEvaluation(async () => undefined);
+  await boundedEvaluation(async () => undefined, { scope: testAccountScope() });
   recipeId = createRecipe(testAccountScope(), "R").id;
 });
 
@@ -113,7 +113,7 @@ describe("run all", () => {
     expect(at(three.id).startedAt! >= at(two.id).finishedAt!).toBe(true);
 
     // And the arithmetic only works out if they really ran in that order.
-    expect(Number((await executeQuery("SELECT n FROM cas_three")).preview[0].n)).toBe(21);
+    expect(Number((await executeQuery(testAccountScope(), "SELECT n FROM cas_three")).preview[0].n)).toBe(21);
   }, 180_000);
 
   it("mints only jobs in the five states published", async () => {
@@ -421,7 +421,7 @@ describe("coordinator failure settlement", () => {
     });
     expect(driven.run.outputs.map((output) => output.name)).toEqual(["retry_once_quick"]);
     expect(getTableByName("retry_once_quick")).not.toBeNull();
-    expect(Number((await executeQuery("SELECT n FROM retry_once_quick")).preview[0].n)).toBe(1);
+    expect(Number((await executeQuery(testAccountScope(), "SELECT n FROM retry_once_quick")).preview[0].n)).toBe(1);
     expect(getTableByName("retry_once_slow")).toBeNull();
     expect(getTableByName("retry_once_never")).toBeNull();
 
@@ -475,7 +475,7 @@ describe("a diamond", () => {
     // Once, not twice: the member set is keyed by step, so a step reachable by
     // two paths is one member.
     expect(listJobs({ subjectId: join.id })).toHaveLength(1);
-    expect(Number((await executeQuery("SELECT n FROM d_join")).preview[0].n)).toBe(5);
+    expect(Number((await executeQuery(testAccountScope(), "SELECT n FROM d_join")).preview[0].n)).toBe(5);
   }, 180_000);
 });
 
@@ -537,7 +537,7 @@ describe("cancelling a cascade", () => {
     expect(never.jobId).toBeNull();
     // …and what finished before the cascade stands.
     expect(getTableByName("cancel_done")).not.toBeNull();
-    expect((await executeQuery("SELECT n FROM cancel_done")).preview[0].n).toBe(1);
+    expect((await executeQuery(testAccountScope(), "SELECT n FROM cancel_done")).preview[0].n).toBe(1);
   }, 180_000);
 
   it("is not an error for a cascade that already finished", async () => {

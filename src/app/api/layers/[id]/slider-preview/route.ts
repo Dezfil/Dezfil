@@ -11,7 +11,7 @@ export async function GET(request: Request, { params }: Params) {
     const scope = requireRequestScope(request);
     const { id } = await params;
     return NextResponse.json(
-      await sliderPreviewData(requireLayer(scope, id), request.signal),
+      await sliderPreviewData(scope, requireLayer(scope, id), request.signal),
     );
   } catch (error) {
     return errorResponse(error);

@@ -352,7 +352,7 @@ describe("published-field projection", () => {
 
   it("automatic tooltips publish what the builder shows — no more", async () => {
     const { map, layer } = await wideMap();
-    const builder = await renderLayer(layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
+    const builder = await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
     const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     expect(keysOf(view?.layers[0].render)).toEqual(keysOf(builder));
@@ -386,12 +386,12 @@ describe("published-field projection", () => {
       widgets: [],
       widgetsPublished: true,
     };
-    const reader = await renderLayerWithSelections(clustered, [], undefined, {
+    const reader = await renderLayerWithSelections(testAccountScope(), clustered, [], undefined, {
       published,
     });
     expect(keysOf(reader)).toEqual(["name"]);
     // The builder's settle preview keeps the full row.
-    const builder = await renderLayerWithSelections(clustered, []);
+    const builder = await renderLayerWithSelections(testAccountScope(), clustered, []);
     expect(keysOf(builder)).toContain("secret");
   });
 
@@ -417,7 +417,7 @@ describe("published-field projection", () => {
       tooltip: ["name"],
       publishedFields: ["riders"],
     });
-    expect(keysOf(await renderLayer(updated, undefined, { tileAccess: privateTileAccess(testAccountScope(), (updated).id) }))).toContain("secret");
+    expect(keysOf(await renderLayer(testAccountScope(), updated, undefined, { tileAccess: privateTileAccess(testAccountScope(), (updated).id) }))).toContain("secret");
   });
 
   it("an errored render ships explicit interaction lists empty (round two)", async () => {
@@ -519,7 +519,7 @@ describe("published-field projection", () => {
     // geometry, keep the numbers.
     expect(view?.widgets.map((w) => w.id)).toEqual(["w1"]);
     const record = mapWithLayers(testAccountScope(), map.id);
-    const values = await computeWidgetValues(record, record.layers, []);
+    const values = await computeWidgetValues(testAccountScope(), record, record.layers, []);
     expect(values.widgets[0]).toMatchObject({ type: "formula", value: 30 });
   });
 
@@ -655,7 +655,7 @@ describe("published error disclosure", () => {
 
     // The author's own surface keeps the engine's diagnostic — the
     // documented carve-out on the authenticated-equivalent boundary.
-    const raw = await renderLayer(layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
+    const raw = await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
     expect(raw.ok).toBe(false);
     expect(raw.error!.message).toMatch(/does not exist|Catalog/i);
     expect(raw.error!.message).not.toBe(render.error!.message);

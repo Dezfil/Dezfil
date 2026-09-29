@@ -85,7 +85,7 @@ export async function mapDependencies(
     let names: string[];
     try {
       names = await boundedEvaluation(async (conn) =>
-        (await queryInputsStrict(conn, layer.sql, () => null)).tables,
+        (await queryInputsStrict(conn, layer.sql, () => null)).tables, { scope },
       );
     } catch (cause) {
       throw new ApiError(

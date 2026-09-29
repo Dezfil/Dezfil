@@ -65,20 +65,18 @@ export async function POST(request: Request, { params }: Params) {
     const active = selections.filter((s) => visible.has(s.widgetId));
     // Reader selections must be evaluable before anything evaluates —
     // the induction half of the disclosure guard on this lane.
-    await assertPublishedSelections(
+    await assertPublishedSelections(snapshot.scope,
       snapshot.map,
       snapshot.layers,
       active,
       request.signal,
-      snapshot.scope,
     );
-    const values = await computeWidgetValues(
+    const values = await computeWidgetValues(snapshot.scope,
       snapshot.map,
       snapshot.layers,
       active,
       undefined,
       request.signal,
-      snapshot.scope,
     );
     // A failed widget's message on the anonymous wire is the catalogue
     // sentence for its code; the raw engine text stays on the builder's

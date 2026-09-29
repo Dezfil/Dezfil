@@ -89,7 +89,7 @@ export async function PATCH(request: Request, { params }: Params) {
     // What the step would read next. SQL the parser cannot read is accepted
     // here with no reads: the canvas saves what is typed, and the dry run
     // and the run refuse it and say why.
-    const reads = await stepReads({ operation: step.operation, parameters, proposedParameters: null }).catch(
+    const reads = await stepReads(scope, { operation: step.operation, parameters, proposedParameters: null }).catch(
       () => [] as string[],
     );
     // A read of a producer that stands later is not refused but ordered:
@@ -99,7 +99,7 @@ export async function PATCH(request: Request, { params }: Params) {
     const later = dependenciesWithin(steps, reads).filter((d) => d.id !== step.id && d.ordinal >= step.ordinal);
     let order: string[] | null = null;
     if (later.length > 0) {
-      const readsOf = await tolerantReadsByStep(steps.filter((s) => s.id !== step.id), stepReads);
+      const readsOf = await tolerantReadsByStep(steps.filter((s) => s.id !== step.id), step => stepReads(scope, step));
       readsOf.set(step.id, reads);
       const proposed = orderAfterProducers(steps, step.id, later.map((d) => d.id), readsOf);
       assertOrderingValid(proposed, readsOf);
@@ -153,7 +153,7 @@ export async function DELETE(_request: Request, { params }: Params) {
       (typeof step.parameters.name === "string" && step.parameters.name !== ""
         ? registeredOutputName(step.parameters.name)
         : null);
-    const reads = await tolerantReadsByStep(steps.filter((s) => s.id !== stepId), stepReads);
+    const reads = await tolerantReadsByStep(steps.filter((s) => s.id !== stepId), step => stepReads(scope, step));
     const readers = steps
       .filter((s) => s.id !== stepId && declared !== null && (reads.get(s.id) ?? []).includes(declared))
       .map((s) => ({ id: s.id, operation: s.operation, label: findOperation(s.operation).label }));

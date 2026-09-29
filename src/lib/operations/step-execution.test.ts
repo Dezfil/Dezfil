@@ -106,7 +106,7 @@ describe("a SQL step's run", () => {
     // And its lineage, from the parse of the SQL that actually ran.
     expect(edgesForStep(testAccountScope(), step.id).map((e) => e.inputTableName)).toEqual(["zones"]);
     expect(
-      Number((await executeQuery("SELECT count(*) AS n FROM big_zones")).preview[0].n),
+      Number((await executeQuery(testAccountScope(), "SELECT count(*) AS n FROM big_zones")).preview[0].n),
     ).toBe(4);
   }, 60_000);
 
@@ -150,7 +150,7 @@ describe("a spatial join's run", () => {
     const step = joinStep("enriched", [{ aggregate: "count" }]);
     await runStep(step.id);
 
-    const result = await executeQuery("SELECT name, match_count FROM enriched");
+    const result = await executeQuery(testAccountScope(), "SELECT name, match_count FROM enriched");
     expect(result.rowCount).toBe(4);
     expect(
       Object.fromEntries(
@@ -169,7 +169,7 @@ describe("re-running in place", () => {
     // A layer's SQL names the table, not the run — this is the whole point of
     // keeping identity across a re-run.
     const reader = "SELECT n FROM in_place";
-    expect((await executeQuery(reader)).preview[0].n).toBe(1);
+    expect((await executeQuery(testAccountScope(), reader)).preview[0].n).toBe(1);
 
     editStep(step.id, { sql: "SELECT 2 AS n", name: "in_place" });
     const second = await runStep(step.id);
@@ -179,7 +179,7 @@ describe("re-running in place", () => {
     const table = getTableByName("in_place")!;
     expect(table.id).toBe(firstId);
     expect(second.outputId).toBe(firstId);
-    expect((await executeQuery(reader)).preview[0].n).toBe(2);
+    expect((await executeQuery(testAccountScope(), reader)).preview[0].n).toBe(2);
     // And the proposal became what the step means, now that a run of it worked.
     expect(getStep(step.id)!.parameters).toEqual({
       sql: "SELECT 2 AS n",
@@ -223,7 +223,7 @@ describe("the admission exception cannot be forged", () => {
 
     // No job at all, and the step's data untouched.
     expect(listJobs()).toHaveLength(before);
-    expect((await executeQuery("SELECT n FROM owned_out")).preview[0].n).toBe(1);
+    expect((await executeQuery(testAccountScope(), "SELECT n FROM owned_out")).preview[0].n).toBe(1);
   }, 60_000);
 
   it("still refuses a taken name for a step that owns nothing", async () => {

@@ -142,11 +142,11 @@ async function run(operation: string, parameters: Record<string, unknown>) {
 }
 
 const rowsOf = async (table: string) =>
-  (await executeQuery(`SELECT * FROM ${table}`)).preview;
+  (await executeQuery(testAccountScope(), `SELECT * FROM ${table}`)).preview;
 
 /** The table's column names, sorted — for exact-schema assertions. */
 const columnsOfTable = async (table: string) =>
-  (await executeQuery(`SELECT * FROM ${table} LIMIT 0`)).columns
+  (await executeQuery(testAccountScope(), `SELECT * FROM ${table} LIMIT 0`)).columns
     .map((c) => c.name)
     .sort();
 
@@ -234,12 +234,12 @@ describe("every verb runs, and produces what it promises", () => {
     // The silent case the browser round found: a blank layer
     // asserting the full count. Now the dry run reports what will survive
     // **before** anything is written, and the output holds what it says.
-    const compiled = await compileOperation(
+    const compiled = await compileOperation(testAccountScope(),
       "simplify",
       { input: "squares", tolerance: 1_000_000 },
       { requireName: false },
     );
-    expect((await dryRun(compiled.sql)).rowCount).toBe(0);
+    expect((await dryRun(testAccountScope(), compiled.sql)).rowCount).toBe(0);
 
     const job = await run("simplify", {
       input: "squares",
@@ -651,7 +651,7 @@ describe("what a verb refuses, it refuses at admission", () => {
       expect(error?.code, operation).toBe("invalid_request");
       expect(error?.message, operation).toContain("20,003,932");
       await expect(
-        compileOperation(
+        compileOperation(testAccountScope(),
           operation,
           { ...base, [key]: GROUND_METRES_MAX },
           { requireName: false },

@@ -96,7 +96,7 @@ it.each(["candidates", "preview", "sql", "export"])("captured %s reader survives
       return run.call(this,sql,...args);
     });
   }
-  const reading = kind === "candidates" ? inspectGeometry(testAccountScope(), table.name) : kind === "preview" ? previewGeometry(testAccountScope(), table.name,first.revision,wkt) : kind === "export" ? exportTable(testAccountScope(), table.name,"csv") : boundedEvaluation(async conn => { await gate.engage(); return (await conn.runAndReadAll(`SELECT ST_AsText(geometry) shape FROM ${table.name}`)).getRowObjectsJson(); });
+  const reading = kind === "candidates" ? inspectGeometry(testAccountScope(), table.name) : kind === "preview" ? previewGeometry(testAccountScope(), table.name,first.revision,wkt) : kind === "export" ? exportTable(testAccountScope(), table.name,"csv") : boundedEvaluation(async conn => { await gate.engage(); return (await conn.runAndReadAll(`SELECT ST_AsText(geometry) shape FROM ${table.name}`)).getRowObjectsJson(); }, { scope: testAccountScope() });
   void reading.catch(() => {});
   try {
     await gate.beforeMutation();

@@ -57,8 +57,8 @@ export async function POST(request: Request, { params }: Params) {
     }
     // Classify what is actually drawn: the effective query, so filters are
     // respected and aggregated layers classify their aggregate value.
-    const fill = await classifyFill(
-      await layerEffectiveSql(layer, request.signal),
+    const fill = await classifyFill(scope,
+      await layerEffectiveSql(scope, layer, request.signal),
       body.attribute,
       body.method as ClassifyMethod,
       {

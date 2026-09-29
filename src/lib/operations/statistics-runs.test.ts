@@ -74,7 +74,7 @@ async function run(operation: string, parameters: Record<string, unknown>) {
  * cannot see a stray helper column surviving into a published dataset. */
 const columnsOf = async (table: string): Promise<string[]> =>
   (
-    await executeQuery(`SELECT * FROM (DESCRIBE SELECT * FROM ${table})`)
+    await executeQuery(testAccountScope(), `SELECT * FROM (DESCRIBE SELECT * FROM ${table})`)
   ).preview.map((row) => String(row.column_name));
 
 /** The provenance every operation output carries, asserted the same way for
@@ -123,7 +123,7 @@ describe("H3 cell assignment, end to end", () => {
     // input's own, so the result still draws as points.
     expect(table.geometryType?.toLowerCase()).toContain("point");
 
-    const cells = await executeQuery(
+    const cells = await executeQuery(testAccountScope(),
       `SELECT count(DISTINCT h3_cell) AS n FROM celled WHERE h3_cell IS NOT NULL`,
     );
     // Three clusters and a loner, at a resolution coarse enough to hold each
@@ -181,7 +181,7 @@ describe("hotspot, end to end", () => {
 
     // The counts are the cluster sizes, and every cell is its own
     // neighbourhood here because the clusters are further apart than one step.
-    const values = await executeQuery(
+    const values = await executeQuery(testAccountScope(),
       `SELECT value, neighbour_count FROM hot ORDER BY value DESC`,
     );
     expect(values.preview.map((r) => Number(r.value))).toEqual([5, 4, 2, 1]);
@@ -231,7 +231,7 @@ describe("clustering, end to end", () => {
       distance: 200,
     });
 
-    const clusters = await executeQuery(
+    const clusters = await executeQuery(testAccountScope(),
       `SELECT count(DISTINCT cluster_id) AS n FROM clustered`,
     );
     expect(Number(clusters.preview[0].n)).toBe(4);
@@ -264,7 +264,7 @@ describe("clustering, end to end", () => {
    */
   it("compiles with the input's generation recorded", async () => {
     const { compileOperation } = await import("./compile");
-    const compiled = await compileOperation("cluster_by_distance", {
+    const compiled = await compileOperation(testAccountScope(), "cluster_by_distance", {
       input: "sightings",
       distance: 200,
       name: "fenced",
@@ -281,7 +281,7 @@ describe("clustering, end to end", () => {
   it("refuses to publish against a generation it was not compiled for", async () => {
     const { compileOperation } = await import("./compile");
     const { materialize } = await import("./materialize");
-    const compiled = await compileOperation("cluster_by_distance", {
+    const compiled = await compileOperation(testAccountScope(), "cluster_by_distance", {
       input: "sightings",
       distance: 200,
       name: "fenced",

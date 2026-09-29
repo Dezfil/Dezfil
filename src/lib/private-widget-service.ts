@@ -9,5 +9,5 @@ export async function privateWidgetValues(scope: AccountScope, mapId: string,
   selections: WidgetSelection[], draft?: MapWidget, signal?: AbortSignal) {
   const map = mapWithLayers(scope, mapId);
   if (draft?.layerId != null && !map.layers.some(layer => layer.id === draft.layerId)) throw resourceAbsent();
-  return computeWidgetValues(map, map.layers, selections, draft, signal);
+  return computeWidgetValues(scope, map, map.layers, selections, draft, signal);
 }

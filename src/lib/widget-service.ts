@@ -1,3 +1,4 @@
+import { namedSql } from "@/lib/query/named-sql";
 import type { DatasetScope } from "@/lib/query/access";
 import { boundedEvaluation, isOutOfMemory } from "@/lib/query/bounded";
 import { filteredSql } from "@/lib/query/compile";
@@ -88,7 +89,7 @@ export interface WidgetValues {
 type Conn = Parameters<Parameters<typeof boundedEvaluation>[0]>[0];
 
 async function scalar(conn: Conn, sql: string): Promise<number | null> {
-  const reader = await conn.runAndReadAll(sql);
+  const reader = await conn.runAndReadAll(await namedSql(conn, sql));
   const row = reader.getRowObjects()[0] as { v: unknown } | undefined;
   const n = Number(row?.v);
   return row?.v == null || !Number.isFinite(n) ? null : n;
@@ -133,9 +134,9 @@ async function categoryValue(
   const from = sub(layer.sql, [...layer.filters, ...constrained]);
   // NULL categories are dropped, matching aggregate semantics.
   const reader = await conn.runAndReadAll(
-    `SELECT CAST(${col} AS VARCHAR) AS v, ${rank} AS n FROM ${from}
+    await namedSql(conn, `SELECT CAST(${col} AS VARCHAR) AS v, ${rank} AS n FROM ${from}
      WHERE ${col} IS NOT NULL
-     GROUP BY 1 ORDER BY n DESC NULLS LAST, v LIMIT ${CATEGORY_TOP_N + 1}`,
+     GROUP BY 1 ORDER BY n DESC NULLS LAST, v LIMIT ${CATEGORY_TOP_N + 1}`),
   );
   const rows = reader
     .getRowObjects()
@@ -166,8 +167,8 @@ async function histogramValue(
   // Domain from the selection-free query, so the axis holds still while
   // other widgets cross-filter and bars shrink in place.
   const domainReader = await conn.runAndReadAll(
-    `SELECT min(${expr}) AS lo, max(${expr}) AS hi
-     FROM ${sub(layer.sql, layer.filters)} WHERE ${expr} IS NOT NULL`,
+    await namedSql(conn, `SELECT min(${expr}) AS lo, max(${expr}) AS hi
+     FROM ${sub(layer.sql, layer.filters)} WHERE ${expr} IS NOT NULL`),
   );
   const d = domainReader.getRowObjects()[0] as { lo: unknown; hi: unknown };
   const lo = Number(d?.lo);
@@ -177,10 +178,10 @@ async function histogramValue(
   }
   const step = (hi - lo) / WIDGET_HISTOGRAM_BINS;
   const reader = await conn.runAndReadAll(
-    `SELECT least(floor((${expr} - (${lo})) / (${step})), ${WIDGET_HISTOGRAM_BINS - 1})::INT AS b,
+    await namedSql(conn, `SELECT least(floor((${expr} - (${lo})) / (${step})), ${WIDGET_HISTOGRAM_BINS - 1})::INT AS b,
             count(*) AS n
      FROM ${sub(layer.sql, [...layer.filters, ...constrained])}
-     WHERE ${expr} IS NOT NULL GROUP BY b`,
+     WHERE ${expr} IS NOT NULL GROUP BY b`),
   );
   const bins = new Array<number>(WIDGET_HISTOGRAM_BINS).fill(0);
   for (const row of reader.getRowObjects() as { b: unknown; n: unknown }[]) {
@@ -214,6 +215,7 @@ const SETTLE_VIZ = new Set(["hexbin", "grid", "cluster", "heatmap"]);
  * stored filters.
  */
 export async function renderLayerWithSelections(
+  scope: DatasetScope,
   layer: Layer,
   filters: LayerFilter[],
   signal?: AbortSignal,
@@ -246,7 +248,7 @@ export async function renderLayerWithSelections(
     // names the published projection intersects.
     let resolved: { name: string; kind: string }[];
     try {
-      resolved = await baseFields(layer, signal, opts.scope);
+      resolved = await baseFields(scope, layer, signal);
     } catch (error) {
       // The check reads the result's columns, so it evaluates under the
       // same bounds as the render — and the settle lane's contract is
@@ -312,8 +314,8 @@ export async function renderLayerWithSelections(
       }
     }
   }
-  if (filters.length === 0) return renderLayer(layer, signal, opts);
-  return renderLayer(
+  if (filters.length === 0) return renderLayer(scope, layer, signal, opts);
+  return renderLayer(scope,
     { ...layer, sql: filteredSql(layer.sql, filters) },
     signal,
     opts,
@@ -332,11 +334,11 @@ export async function renderLayerWithSelections(
  * that failure. The builder lane stays author-facing and ungated.
  */
 export async function assertPublishedSelections(
+  scope: DatasetScope,
   map: MapRecord,
   layers: Layer[],
   selections: WidgetSelection[],
   signal?: AbortSignal,
-  scope?: DatasetScope,
 ): Promise<void> {
   if (selections.length === 0) return;
   const widgets = new Map(map.widgets.map((w) => [w.id, w]));
@@ -357,7 +359,7 @@ export async function assertPublishedSelections(
     const layer = layerById.get(layerId)!;
     let fields: { name: string; kind: string }[];
     try {
-      fields = await baseFields(layer, signal, scope);
+      fields = await baseFields(scope, layer, signal);
     } catch (error) {
       // Bounded outcomes are the request's outcome — a timeout or
       // memory refusal here must surface, not roll into a second full
@@ -398,12 +400,12 @@ export async function assertPublishedSelections(
  * stored self by id or joining as a new card, and never written.
  */
 export async function computeWidgetValues(
+  scope: DatasetScope,
   map: MapRecord,
   layers: Layer[],
   selections: WidgetSelection[],
   draft?: MapWidget,
   signal?: AbortSignal,
-  scope?: DatasetScope,
 ): Promise<WidgetValues> {
   const effective = draft
     ? map.widgets.some((w) => w.id === draft.id)

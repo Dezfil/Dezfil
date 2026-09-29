@@ -94,7 +94,7 @@ async function evalCount(name: string): Promise<number> {
       `SELECT count(*) AS n FROM "${name.replace(/"/g, '""')}"`,
     );
     return Number((reader.getRowObjectsJson()[0] as { n: unknown }).n);
-  });
+  }, { scope: testAccountScope() });
 }
 
 describe("URL imports of container formats", () => {

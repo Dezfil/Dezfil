@@ -68,13 +68,13 @@ export async function POST(request: Request) {
         measurement,
         preview: declared,
         assumedCrs: ownRoute,
-      } = await compileOperation(operation.id, params, { requireName: false });
+      } = await compileOperation(scope, operation.id, params, { requireName: false });
       // **A verb that can answer without running answers without running**. For
       // a provider operation that is not an optimization: its statement does
       // not exist until it has spent requests, and a dry run that spent them
       // would not be dry.
       const preview =
-        declared ?? (await dryRun(sql, request.signal, operation.id));
+        declared ?? (await dryRun(scope, sql, request.signal, operation.id));
       // Either road (K7b): the measurement record where one exists, the
       // compiled run's own field where the verb makes no measurement.
       const assumed = measurement?.assumedCrs ?? ownRoute ?? [];

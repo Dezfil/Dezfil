@@ -1,101 +1,60 @@
 import { testAccountScope } from "@/lib/test-support/accounts";
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { closeMetadataDb } from "@/lib/metadata/db";
 import { resetQueryInstance, connectQueryInstance } from "@/lib/duckdb";
 import { ingestFile } from "@/lib/ingest/ingest";
 import { registerTableViews, dropTableView } from "./views";
+import type { AccountScope } from "@/lib/auth/scope";
 
-/**
- * The write-write guard. Registration writes are serialized process-wide
- * because concurrent CREATE OR REPLACE VIEW on one name is a DuckDB
- * catalog write-write conflict — recorded roughly half of concurrent
- * renders failing before the guard and 12/12 after. What these tests
- * hold is the ORDERING the guard provides: while one pass's catalog
- * writes are genuinely pending, no other pass (and no delete-time drop)
- * may enter its own. Asserted by completion order under a pinned first
- * pass, which is deterministic in both directions — green with the
- * chain, red against a build whose passes run their work immediately. A
- * load test firing concurrent queries at a warm catalog would prove
- * nothing here: once registration skips unchanged work, a warm pass
- * performs no catalog writes at all.
- */
-
-let dir: string;
-
+const initialDir = process.env.DEZFIL_DATA_DIR!;
+let dir: string, alice: AccountScope, bob: AccountScope;
 beforeEach(async () => {
-  dir = await mkdtemp(path.join(process.cwd(), ".tmp-test-"));
-  process.env.DEZFIL_DATA_DIR = path.join(dir, "data");
-  closeMetadataDb();
-  resetQueryInstance();
-  for (const name of ["alpha", "beta"]) {
-    const src = path.join(dir, `${name}.csv`);
-    await writeFile(src, "name,lon,lat\na,13.4,52.5\nb,13.3,52.4\n");
-    await ingestFile(testAccountScope(), src, `${name}.csv`);
+  dir = await mkdtemp(path.join(initialDir, "local-views-"));
+  process.env.DEZFIL_DATA_DIR = dir;
+  closeMetadataDb(); resetQueryInstance();
+  alice = testAccountScope(undefined, "alice");
+  bob = testAccountScope(undefined, "bob");
+  for (const scope of [alice, bob]) {
+    const src = path.join(dir, `${scope.accountId}.csv`);
+    await writeFile(src, `sentinel,lon,lat\n${scope.accountId},1,2\n`);
+    await ingestFile(scope, src, "roads.csv");
   }
 });
-
 afterEach(async () => {
-  closeMetadataDb();
-  resetQueryInstance();
-  delete process.env.DEZFIL_DATA_DIR;
+  vi.restoreAllMocks(); closeMetadataDb(); resetQueryInstance();
+  process.env.DEZFIL_DATA_DIR = initialDir;
   await rm(dir, { recursive: true, force: true });
 });
 
-/** Pin a connection: statements queued behind this stay pending long
- * enough that an unserialized second pass would visibly finish first. */
-function pin(conn: Awaited<ReturnType<typeof connectQueryInstance>>) {
-  return conn.runAndReadAll(`SELECT sum(range) AS s FROM range(500000000)`);
-}
-
-describe("registration writes are serialized process-wide", () => {
-  it("a second pass cannot run while the first pass's writes are pending", async () => {
-    const conn1 = await connectQueryInstance();
-    const conn2 = await connectQueryInstance();
-    try {
-      // P1's writes queue behind the pinned statement — genuinely pending.
-      // P2 rides an unpinned connection: without the guard its writes
-      // would complete in milliseconds, while P1's are still pending.
-      const slow = pin(conn1);
-      let p1Settled = false;
-      let p1SettledWhenP2Finished: boolean | null = null;
-      const p1 = registerTableViews(conn1).finally(() => {
-        p1Settled = true;
-      });
-      const p2 = registerTableViews(conn2).finally(() => {
-        p1SettledWhenP2Finished = p1Settled;
-      });
-      await Promise.all([p1, p2, slow]);
-
-      // The guard's property: P2 finished only after P1 had settled.
-      expect(p1SettledWhenP2Finished).toBe(true);
-    } finally {
-      conn1.disconnectSync();
-      conn2.disconnectSync();
-    }
+it("mounts another account while the first connection's create is held", async () => {
+  const first = await connectQueryInstance(), second = await connectQueryInstance();
+  const entered = Promise.withResolvers<void>(), release = Promise.withResolvers<void>();
+  const run = first.run.bind(first);
+  vi.spyOn(first, "run").mockImplementation(async (...args) => {
+    if (String(args[0]).startsWith("CREATE")) { entered.resolve(); await release.promise; }
+    return run(...args);
   });
+  const pending = registerTableViews(alice, first);
+  try {
+    await entered.promise;
+    await registerTableViews(bob, second);
+    expect((await second.runAndReadAll("SELECT sentinel FROM roads")).getRowObjects()).toEqual([{ sentinel: "bob" }]);
+    release.resolve(); await pending;
+    expect((await first.runAndReadAll("SELECT sentinel FROM roads")).getRowObjects()).toEqual([{ sentinel: "alice" }]);
+  } finally {
+    release.resolve(); await pending;
+    first.disconnectSync(); second.disconnectSync();
+  }
+});
 
-  it("a delete's view drop queues behind pending registration writes", async () => {
-    const conn1 = await connectQueryInstance();
-    try {
-      const slow = pin(conn1);
-      let passSettled = false;
-      let passSettledWhenDropFinished: boolean | null = null;
-      const pass = registerTableViews(conn1).finally(() => {
-        passSettled = true;
-      });
-      // The drop rides its own connection; only the shared chain orders it
-      // behind the pass — which is exactly what must survive (a drop
-      // slipping between a pass's writes is the same conflict).
-      const drop = dropTableView("alpha").finally(() => {
-        passSettledWhenDropFinished = passSettled;
-      });
-      await Promise.all([pass, drop, slow]);
-
-      expect(passSettledWhenDropFinished).toBe(true);
-    } finally {
-      conn1.disconnectSync();
-    }
-  });
+it("invalidating one name never drops another connection's existing view", async () => {
+  const first = await connectQueryInstance(), second = await connectQueryInstance();
+  try {
+    await Promise.all([registerTableViews(alice, first), registerTableViews(bob, second)]);
+    await dropTableView(alice, "roads");
+    expect((await second.runAndReadAll("SELECT sentinel FROM roads")).getRowObjects()).toEqual([{ sentinel: "bob" }]);
+    expect((await first.runAndReadAll("SELECT sentinel FROM roads")).getRowObjects()).toEqual([{ sentinel: "alice" }]);
+  } finally { first.disconnectSync(); second.disconnectSync(); }
 });

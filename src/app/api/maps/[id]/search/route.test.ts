@@ -55,7 +55,7 @@ describe("GET /api/maps/[id]/search", () => {
   it("hands value search only visible, non-aggregated layers", async () => {
     await get("q=x");
     expect(searchValues).toHaveBeenCalledTimes(1);
-    const [layers, q] = searchValues.mock.calls[0];
+    const [, layers, q] = searchValues.mock.calls[0];
     expect(q).toBe("x");
     expect(layers.map((l: { layerId: string }) => l.layerId)).toEqual(["l1"]);
     // The effective SQL, not the raw layer SQL, is what the scan reads.
@@ -72,7 +72,7 @@ describe("GET /api/maps/[id]/search", () => {
       ],
     });
     await get("q=x");
-    const [layers] = searchValues.mock.calls[0];
+    const [, layers] = searchValues.mock.calls[0];
     expect(layers[0].sql).toContain("line");
   });
 

@@ -58,7 +58,7 @@ export async function POST(request: Request, { params }: Params) {
     if (!layer || !layer.visible) {
       throw new ApiError("not_found", "This map is not available.", 404);
     }
-    const render = await renderLayerWithSelections(
+    const render = await renderLayerWithSelections(snapshot.scope,
       layer,
       selections,
       request.signal,
@@ -66,7 +66,6 @@ export async function POST(request: Request, { params }: Params) {
         // The settle lane answers anonymous readers: properties carry the
         // effective published field set, exactly as the view payload
         // does.
-        scope: snapshot.scope,
         published: {
           timeline: snapshot.map.timeline,
           widgets: snapshot.map.widgets,

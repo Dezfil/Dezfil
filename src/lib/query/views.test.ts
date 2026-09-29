@@ -46,7 +46,7 @@ afterEach(async () => {
 async function run(sql: string): Promise<Record<string, unknown>[]> {
   const conn = await connectQueryInstance();
   try {
-    await registerTableViews(conn);
+    await registerTableViews(testAccountScope(), conn);
     const reader = await conn.runAndReadAll(sql);
     return reader.getRowObjectsJson() as Record<string, unknown>[];
   } finally {
@@ -206,15 +206,15 @@ describe("registerTableViews with a broken registration", () => {
 });
 
 describe("registerTableViews under abandonment", () => {
-  it("an abandoned pass drops nothing — shared views stay queryable", async () => {
+  it("an abandoned pass leaves other connections independently queryable", async () => {
     // Views exist from a normal pass.
     expect((await run("SELECT count(*) AS n FROM alpha"))[0].n).toBe("2");
 
     // A pass whose boundary abandoned it exits cleanly without touching
-    // the catalog, even though its statements would fail if interrupted.
+    // its local catalog, even though its statements would fail if interrupted.
     const conn = await connectQueryInstance();
     try {
-      await registerTableViews(conn, () => true);
+      await registerTableViews(testAccountScope(), conn, () => true);
     } finally {
       conn.disconnectSync();
     }
@@ -239,7 +239,7 @@ describe("registerTableViews under abandonment", () => {
       // geometry columns to relabel — an interrupted probe must not be taken
       // for "nothing to normalise". So the pass abandons on the third probe:
       // the first table registers fully, the second has not started.
-      await registerTableViews(conn, () => ++probes > 2);
+      await registerTableViews(testAccountScope(), conn, () => ++probes > 2);
 
       // Exactly one table completed before the abandonment and answers on
       // this catalog; the other is genuinely absent rather than half-made.
@@ -351,7 +351,7 @@ describe("catalog lifetime", () => {
     // catalog, not the replacement.
     const connA = await connectQueryInstance();
     try {
-      const pass = registerTableViews(connA);
+      const pass = registerTableViews(testAccountScope(), connA);
       resetQueryInstance(); // catalog A is gone before the pass's work ran
       await pass;
     } finally {

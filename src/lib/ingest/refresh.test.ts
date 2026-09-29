@@ -80,7 +80,7 @@ async function evalCount(name: string): Promise<number> {
       `SELECT count(*) AS n FROM "${name.replace(/"/g, '""')}"`,
     );
     return Number((reader.getRowObjectsJson()[0] as { n: unknown }).n);
-  });
+  }, { scope: testAccountScope() });
 }
 
 /** Register a map + layer whose SQL references the table, plus a tile record. */
@@ -353,7 +353,7 @@ describe("refreshTable", () => {
     const before = await importOne(`${base}/points.csv`);
     await boundedEvaluation(async (conn) => {
       await conn.runAndReadAll(`SELECT count(*) FROM points`);
-    });
+    }, { scope: testAccountScope() });
     // The row goes without the delete service ever running its view drop —
     // the lost-drop shape. The next pass reconciles against the registry.
     metadataDb()
@@ -361,7 +361,7 @@ describe("refreshTable", () => {
       .run(before.name);
     const message = await boundedEvaluation(async (conn) => {
       await conn.runAndReadAll(`SELECT * FROM points`);
-    }).then(
+    }, { scope: testAccountScope() }).then(
       () => "no error",
       (e: unknown) => (e instanceof Error ? e.message : String(e)),
     );
@@ -374,13 +374,13 @@ describe("refreshTable", () => {
     // Materialize the view in the shared catalog, then delete the table.
     await boundedEvaluation(async (conn) => {
       await conn.runAndReadAll(`SELECT count(*) FROM points`);
-    });
+    }, { scope: testAccountScope() });
     await removeTable(testAccountScope(), before.name);
 
     const errorOf = (sql: string) =>
       boundedEvaluation(async (conn) => {
         await conn.runAndReadAll(sql);
-      }).then(
+      }, { scope: testAccountScope() }).then(
         () => "no error",
         (e: unknown) => (e instanceof Error ? e.message : String(e)),
       );
@@ -413,7 +413,7 @@ describe("refreshTable", () => {
         `SELECT count(*)::INT AS c FROM points`,
       );
       return [Number(a.getRowObjects()[0].c), Number(b.getRowObjects()[0].c)];
-    });
+    }, { scope: testAccountScope() });
     await firstCounted;
 
     rows = 6;
@@ -435,7 +435,7 @@ describe("refreshTable", () => {
         `SELECT count(*)::INT AS c FROM points`,
       );
       return Number(r.getRowObjects()[0].c);
-    });
+    }, { scope: testAccountScope() });
     expect(fresh).toBe(6);
   });
 
@@ -488,7 +488,7 @@ describe("mutations committing during an in-flight registration pass", () => {
       `SELECT sum(range) AS s FROM range(500000000)`,
     );
     let done = false;
-    const pass = registerTableViews(conn).finally(() => {
+    const pass = registerTableViews(testAccountScope(), conn).finally(() => {
       done = true;
     });
     return {

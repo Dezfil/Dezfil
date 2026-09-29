@@ -1,3 +1,4 @@
+import type { DatasetScope } from "@/lib/query/access";
 import {
   DuckDBInstance,
   type DuckDBConnection,
@@ -87,9 +88,9 @@ export function h3Available(): boolean {
  * reason, so readiness is established inside it. Found at the cross-model
  * review.
  */
-export async function h3Ready(): Promise<boolean> {
+export async function h3Ready(scope: DatasetScope): Promise<boolean> {
   const { boundedEvaluation } = await import("@/lib/query/bounded");
-  await boundedEvaluation(async () => undefined);
+  await boundedEvaluation(async () => undefined, { scope });
   return h3Loaded;
 }
 

@@ -47,6 +47,13 @@ Restore the matching old application and the complete pre-upgrade backup to
 roll back. An older build cannot safely write the upgraded metadata schema.
 Account for work written after the backup before restoring it.
 
+Named SQL runs against connection-local temporary views for its owner. Existing
+`main.table`, `memory.table`, `memory.main.table` and computed dynamic named
+references remain valid without editing saved SQL. A warm artifact metadata
+cache does not retain dataset views between evaluations. Publication queries
+retain their owner's scope even when that account is deactivated. See
+[the SQL boundary](api.md#the-read-only-sql-instance) for the execution rules.
+
 ## A second isolated instance
 
 Two instances must not share a port or a data directory. Give the second one

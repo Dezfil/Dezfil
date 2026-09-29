@@ -1,3 +1,4 @@
+import type { DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
 import { publicationSql, removeStage, stageBatch } from "@/lib/geocode/batch";
 import { geocoderConfigured } from "@/lib/geocode/endpoint";
@@ -92,14 +93,15 @@ function refuseGeometry(table: DataTable, label: string): void {
 }
 
 async function addressColumn(
+  scope: DatasetScope,
   table: DataTable,
   params: Record<string, unknown>,
   label: string,
 ): Promise<string> {
-  const named = await fields(table, params.column, "address column");
+  const named = await fields(scope, table, params.column, "address column");
   if (named.length !== 1) required(label, "column");
   const column = named[0];
-  const described = (await columnsOf(table)).find(
+  const described = (await columnsOf(scope, table)).find(
     (c) => c.name.toLowerCase() === column.toLowerCase(),
   );
   // The same predicate the form offers columns by, so a caller that is not the
@@ -116,9 +118,9 @@ async function addressColumn(
   return column;
 }
 
-async function refuseCollisions(table: DataTable, label: string): Promise<void> {
+async function refuseCollisions(scope: DatasetScope, table: DataTable, label: string): Promise<void> {
   const existing = new Set(
-    (await columnsOf(table)).map((column) => column.name.toLowerCase()),
+    (await columnsOf(scope, table)).map((column) => column.name.toLowerCase()),
   );
   const collides = GEOCODE_COLUMNS.filter((name) => existing.has(name));
   if (collides.length > 0) {
@@ -159,6 +161,7 @@ export function isGeocodeVerb(id: string): boolean {
 }
 
 export async function compileGeocode(
+  scope: DatasetScope,
   operation: OperationDef,
   params: Record<string, unknown>,
   requireName: boolean,
@@ -172,11 +175,11 @@ export async function compileGeocode(
   if (requireName && !name) required(label, "name");
   const named = str(params, "input");
   if (!named) required(label, "input");
-  const table = inputTable(named, "input");
+  const table = inputTable(scope, named, "input");
 
   refuseGeometry(table, label);
-  const column = await addressColumn(table, params, label);
-  await refuseCollisions(table, label);
+  const column = await addressColumn(scope, table, params, label);
+  await refuseCollisions(scope, table, label);
   refuseSize(table, label);
 
   return {
@@ -198,7 +201,7 @@ export async function compileGeocode(
       geometry: "classified",
     },
     prepare: async (context) => {
-      const staged = await stageBatch({
+      const staged = await stageBatch(scope, {
         table,
         column,
         ...(context.signal ? { signal: context.signal } : {}),

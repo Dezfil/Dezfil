@@ -11,7 +11,7 @@ export async function GET(request: Request, { params }: Params) {
     const scope = requireRequestScope(request);
     const { id } = await params;
     const layer = requireLayer(scope, id);
-    return NextResponse.json(await layerFields(layer, request.signal));
+    return NextResponse.json(await layerFields(scope, layer, request.signal));
   } catch (error) {
     return errorResponse(error);
   }

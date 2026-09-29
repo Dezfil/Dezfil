@@ -172,7 +172,7 @@ afterEach(async () => {
 async function run(sql: string): Promise<Record<string, unknown>[]> {
   const conn = await connectQueryInstance();
   try {
-    await registerTableViews(conn);
+    await registerTableViews(testAccountScope(), conn);
     const reader = await conn.runAndReadAll(sql);
     return reader.getRowObjectsJson() as Record<string, unknown>[];
   } finally {

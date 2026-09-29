@@ -1,3 +1,4 @@
+import type { DatasetScope } from "@/lib/query/access";
 import { settleInactiveCascade } from "./cascade-inactive";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
 import { driveCascade, cancelAdmittedMember, settleCoordinatorFailure, type Graph } from "./cascade-driver";
@@ -65,8 +66,8 @@ export function cascadeSettled(id: string): Promise<void> {
   return driving.get(id) ?? Promise.resolve();
 }
 
-async function dependencyGraph(steps: RecipeStep[]): Promise<Graph> {
-  const reads = await readsByStep(steps);
+async function dependencyGraph(scope: DatasetScope, steps: RecipeStep[]): Promise<Graph> {
+  const reads = await readsByStep(scope, steps);
   const graph: Graph = new Map();
   for (const step of steps) {
     graph.set(
@@ -149,7 +150,7 @@ export async function planCascade(scope: AccountScope, request: CascadeRequest):
   if (steps.length === 0) {
     throw new ApiError("invalid_request", "This recipe has no steps to run.", 400);
   }
-  const graph = await dependencyGraph(steps);
+  const graph = await dependencyGraph(scope, steps);
   requireOwnedResource(scope, "workflow", request.recipeId);
 
   if (!request.fromStepId) {

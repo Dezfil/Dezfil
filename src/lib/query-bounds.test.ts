@@ -122,7 +122,7 @@ describe("query bounds — layer admission lanes", () => {
     vi.mocked(registerTableViews).mockImplementationOnce(
       () => new Promise<void>(() => {}),
     );
-    await expect(layerFields(layer)).rejects.toMatchObject({
+    await expect(layerFields(testAccountScope(), layer)).rejects.toMatchObject({
       code: "query_timeout",
     });
   }, 30_000);
@@ -133,7 +133,7 @@ describe("query bounds — stats and styling lanes", () => {
     const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES });
     timeoutNow();
-    await expect(layerFieldStats(layer, "v")).rejects.toMatchObject({
+    await expect(layerFieldStats(testAccountScope(), layer, "v")).rejects.toMatchObject({
       code: "query_timeout",
       status: 408,
     });
@@ -142,14 +142,14 @@ describe("query bounds — stats and styling lanes", () => {
   it("classification breaks time out with the documented error", async () => {
     timeoutNow();
     await expect(
-      classifyFill(SLOW_VALUES, "v", "quantile"),
+      classifyFill(testAccountScope(), SLOW_VALUES, "v", "quantile"),
     ).rejects.toMatchObject({ code: "query_timeout", status: 408 });
   }, 30_000);
 
   it("size scales time out with the documented error", async () => {
     timeoutNow();
     await expect(
-      computeSizeScale(SLOW_VALUES, "v", [0, 30]),
+      computeSizeScale(testAccountScope(), SLOW_VALUES, "v", [0, 30]),
     ).rejects.toMatchObject({ code: "query_timeout", status: 408 });
   }, 30_000);
 
@@ -157,7 +157,7 @@ describe("query bounds — stats and styling lanes", () => {
     const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES });
     timeoutNow();
-    await expect(sliderPreviewData(layer)).rejects.toMatchObject({
+    await expect(sliderPreviewData(testAccountScope(), layer)).rejects.toMatchObject({
       code: "query_timeout",
       status: 408,
     });
@@ -184,7 +184,7 @@ describe("query bounds — render lanes", () => {
     const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST });
     const slow = await updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE });
     timeoutNow();
-    const render = await renderLayer(slow, undefined, { tileAccess: privateTileAccess(testAccountScope(), (slow).id) });
+    const render = await renderLayer(testAccountScope(), slow, undefined, { tileAccess: privateTileAccess(testAccountScope(), (slow).id) });
     expect(render).toMatchObject({
       ok: false,
       error: { code: "query_timeout" },
@@ -205,7 +205,7 @@ describe("query bounds — render lanes", () => {
       },
     });
     timeoutNow();
-    const render = await renderLayerWithSelections(gridded, [
+    const render = await renderLayerWithSelections(testAccountScope(), gridded, [
       { field: "v", kind: "values", values: ["1", "2"] },
     ]);
     expect(render).toMatchObject({
@@ -238,7 +238,7 @@ describe("query bounds — widget lanes", () => {
     });
     timeoutNow();
     await expect(
-      computeWidgetValues(withWidgets, withWidgets.layers, []),
+      computeWidgetValues(testAccountScope(), withWidgets, withWidgets.layers, []),
     ).rejects.toMatchObject({ code: "query_timeout", status: 408 });
   }, 30_000);
 });
@@ -356,14 +356,14 @@ describe("query bounds — published lanes", () => {
 
 describe("trailing comments: valid SQL is not broken by its own comments", () => {
   it("the workspace accepts every trailing-comment shape", async () => {
-    expect((await executeQuery("SELECT * FROM stations -- note")).rowCount).toBe(3);
+    expect((await executeQuery(testAccountScope(), "SELECT * FROM stations -- note")).rowCount).toBe(3);
     expect(
-      (await executeQuery("SELECT * FROM stations\n-- LIMIT 1")).rowCount,
+      (await executeQuery(testAccountScope(), "SELECT * FROM stations\n-- LIMIT 1")).rowCount,
     ).toBe(3);
     expect(
-      (await executeQuery("SELECT * FROM stations; -- note")).rowCount,
+      (await executeQuery(testAccountScope(), "SELECT * FROM stations; -- note")).rowCount,
     ).toBe(3);
-    const literal = await executeQuery(
+    const literal = await executeQuery(testAccountScope(),
       "SELECT 'a -- b' AS t FROM stations LIMIT 1",
     );
     expect(literal.preview[0].t).toBe("a -- b");
@@ -371,7 +371,7 @@ describe("trailing comments: valid SQL is not broken by its own comments", () =>
 
   it("a genuinely invalid query still points at the user's SQL", async () => {
     await expect(
-      executeQuery("SELECT nope FROM stations -- x"),
+      executeQuery(testAccountScope(), "SELECT nope FROM stations -- x"),
     ).rejects.toMatchObject({
       code: "sql_error",
       message: expect.stringMatching(/nope/),
@@ -384,7 +384,7 @@ describe("trailing comments: valid SQL is not broken by its own comments", () =>
       name: "commented",
       sql: `${FAST} -- note`,
     });
-    expect((await renderLayer(layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) })).ok).toBe(true);
+    expect((await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) })).ok).toBe(true);
 
     const withWidgets = updateMap(testAccountScope(), map.id, {
       widgets: [
@@ -403,7 +403,7 @@ describe("trailing comments: valid SQL is not broken by its own comments", () =>
         },
       ],
     });
-    const values = await computeWidgetValues(withWidgets, withWidgets.layers, []);
+    const values = await computeWidgetValues(testAccountScope(), withWidgets, withWidgets.layers, []);
     expect(values.widgets[0]).toMatchObject({ id: "wf" });
     expect(values.widgets[0]).not.toHaveProperty("error");
 
@@ -441,7 +441,7 @@ describe("query bounds — outcome attribution", () => {
     // The engine's conversion error quotes the value; the boundary's own
     // flag — not the message text — decides, so this degrades per widget
     // instead of escaping as a request-level failure.
-    const values = await computeWidgetValues(withWidgets, withWidgets.layers, []);
+    const values = await computeWidgetValues(testAccountScope(), withWidgets, withWidgets.layers, []);
     expect(values.widgets[0].id).toBe("wf");
     expect(values.widgets[0]).toHaveProperty("error");
   }, 30_000);
@@ -532,11 +532,11 @@ describe("query bounds — the memory budget", () => {
     resetQueryInstance();
     try {
       await expect(
-        executeQuery(
+        executeQuery(testAccountScope(),
           "SELECT count(*) FROM (SELECT * FROM range(50000000) ORDER BY hash(range)) t",
         ),
       ).rejects.toMatchObject({ code: "query_memory_exceeded" });
-      const after = await executeQuery("SELECT count(*) AS n FROM stations");
+      const after = await executeQuery(testAccountScope(), "SELECT count(*) AS n FROM stations");
       expect(after.rowCount).toBe(1);
       expect(Number(after.preview[0].n)).toBe(3);
     } finally {
@@ -553,7 +553,7 @@ describe("query bounds — a caller that leaves takes its work with it", () => {
     const slow = await updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE });
     const caller = new AbortController();
     const started = Date.now();
-    const render = renderLayer(slow, caller.signal, { tileAccess: privateTileAccess(testAccountScope(), (slow).id) });
+    const render = renderLayer(testAccountScope(), slow, caller.signal, { tileAccess: privateTileAccess(testAccountScope(), (slow).id) });
     setTimeout(() => caller.abort(), 150);
     await expect(render).rejects.toBeInstanceOf(EvaluationCancelled);
     expect(Date.now() - started).toBeLessThan(10_000);

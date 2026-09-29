@@ -48,7 +48,7 @@ afterEach(async () => {
 });
 
 const compile = (parameters: Record<string, unknown>) =>
-  compileOperation("geocode_addresses", parameters);
+  compileOperation(testAccountScope(), "geocode_addresses", parameters);
 
 const good = { input: "addresses", column: "address", name: "located" };
 

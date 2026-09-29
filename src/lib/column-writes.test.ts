@@ -331,10 +331,10 @@ describe("read lanes stay degradation, never retro-refusal", () => {
     await updateLayer(testAccountScope(), layer.id, {
       sql: "SELECT name, cat, geometry FROM trips",
     });
-    const render = await renderLayer(requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
+    const render = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(render.ok).toBe(false);
     if (!render.ok) expect(render.error?.code).toBe("sql_error");
-    const values = await computeWidgetValues(
+    const values = await computeWidgetValues(testAccountScope(),
       getMap(map.id)!,
       [requireLayer(testAccountScope(), layer.id)],
       [],

@@ -302,12 +302,15 @@ export function buildOpenApiDocument() {
         post: op({
           summary: "Run read-only SQL",
           description:
-            "Only read-only SELECT queries are accepted. Returns a capped " +
+            "Only read-only SELECT queries are accepted. Named datasets resolve only " +
+            "inside the authenticated account, including catalog-qualified names " +
+            "and query()/query_table() expressions. Each evaluation uses fresh " +
+            "connection-local views on one shared hardened engine. Returns a capped " +
             "preview plus the exact total row count. Geometry cells in the " +
             "preview are WKT text by default; pass geometry: \"geojson\" " +
             "to receive GeoJSON geometry objects instead. A " +
             "failing statement answers with the engine's message and, when " +
-            "the engine reports where, a 1-based line and column into the " +
+            "the location maps to the submitted text, a 1-based line and column into the " +
             "submitted SQL.",
           tag: "Query",
           tool: "run_sql", mcp: LOCAL_READ,

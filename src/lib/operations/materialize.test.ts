@@ -102,7 +102,7 @@ describe("a result becomes a dataset", () => {
     expect(table.rowCount).toBe(2500);
 
     const { executeQuery } = await import("@/lib/query/execute");
-    const back = await executeQuery("SELECT count(*) AS n FROM wide_copy");
+    const back = await executeQuery(testAccountScope(), "SELECT count(*) AS n FROM wide_copy");
     expect(Number(back.preview[0].n)).toBe(2500);
   });
 
@@ -121,7 +121,7 @@ describe("a result becomes a dataset", () => {
     expect(table.geometryType).toBeNull();
     expect(table.rowCount).toBe(1);
     const { executeQuery } = await import("@/lib/query/execute");
-    expect((await executeQuery("SELECT n FROM pt_count")).preview).toHaveLength(
+    expect((await executeQuery(testAccountScope(), "SELECT n FROM pt_count")).preview).toHaveLength(
       1,
     );
   });
@@ -307,7 +307,7 @@ describe("the dry run describes what the run will produce", () => {
     );
     const { dryRun, materialize } = await import("./materialize");
     const sql = "SELECT geom FROM mixedish";
-    const predicted = await dryRun(sql);
+    const predicted = await dryRun(testAccountScope(), sql);
     const table = await materialize(testAccountScope(), { sql, name: "written", operation: "sql_step" });
     expect(predicted.geometryType).toBe(table.geometryType);
     expect(predicted.rowCount).toBe(table.rowCount);
@@ -317,7 +317,7 @@ describe("the dry run describes what the run will produce", () => {
     await seedTable("src_b", "SELECT 1 AS id");
     const before = artifacts().length;
     const { dryRun } = await import("./materialize");
-    const r = await dryRun("SELECT id FROM src_b");
+    const r = await dryRun(testAccountScope(), "SELECT id FROM src_b");
     expect(r.rowCount).toBe(1);
     expect(artifacts()).toHaveLength(before);
   });
@@ -325,7 +325,7 @@ describe("the dry run describes what the run will produce", () => {
   it("reports a count past the preview cap, not a preview of it", async () => {
     await seedTable("big", "SELECT * FROM range(2500) t(id)");
     const { dryRun } = await import("./materialize");
-    expect((await dryRun("SELECT id FROM big")).rowCount).toBe(2500);
+    expect((await dryRun(testAccountScope(), "SELECT id FROM big")).rowCount).toBe(2500);
   });
 });
 
@@ -344,7 +344,7 @@ describe("the two defects the cross-model review found", () => {
     });
     expect(table.rowCount).toBe(1);
     const { executeQuery } = await import("@/lib/query/execute");
-    expect((await executeQuery("SELECT id FROM terminated")).preview).toHaveLength(1);
+    expect((await executeQuery(testAccountScope(), "SELECT id FROM terminated")).preview).toHaveLength(1);
   });
 
   it("cannot be made to run DDL through a crafted geometry alias", async () => {
@@ -367,14 +367,14 @@ describe("the two defects the cross-model review found", () => {
 
     // Whether the probe succeeds or refuses is not the claim; the claim is
     // that the injected statement never ran.
-    await dryRun(sql).catch(() => undefined);
+    await dryRun(testAccountScope(), sql).catch(() => undefined);
 
     const marker = await boundedEvaluation(async (conn) => {
       const r = await conn.runAndReadAll(
         "SELECT count(*) AS n FROM duckdb_views() WHERE view_name = 'injected_marker'",
       );
       return Number(r.getRowObjects()[0].n);
-    });
+    }, { scope: testAccountScope() });
     expect(marker).toBe(0);
   });
 });
@@ -428,14 +428,14 @@ describe("the dry run says its three answers apart", () => {
     await seedTable("shapes", "SELECT 1 AS id, ST_Point(1,2) AS geom");
     const { dryRun } = await import("./materialize");
 
-    const none = await dryRun("SELECT id FROM shapes");
+    const none = await dryRun(testAccountScope(), "SELECT id FROM shapes");
     expect(none.geometry).toBe("none");
 
-    const empty = await dryRun("SELECT geom FROM shapes WHERE 1 = 0");
+    const empty = await dryRun(testAccountScope(), "SELECT geom FROM shapes WHERE 1 = 0");
     expect(empty.geometry).toBe("undetermined");
     expect(empty.rowCount).toBe(0);
 
-    const classified = await dryRun("SELECT geom FROM shapes");
+    const classified = await dryRun(testAccountScope(), "SELECT geom FROM shapes");
     expect(classified.geometry).toBe("classified");
     expect(classified.geometryType).toBe("POINT");
 
@@ -454,7 +454,7 @@ describe("the dry run says its three answers apart", () => {
     const { dryRun, materialize } = await import("./materialize");
 
     const zeroSql = "SELECT id, geom FROM empty_shapes_source WHERE false";
-    const zeroDry = await dryRun(zeroSql);
+    const zeroDry = await dryRun(testAccountScope(), zeroSql);
     const first = await materialize(testAccountScope(), {
       sql: zeroSql,
       name: "empty_shapes",
@@ -485,7 +485,7 @@ describe("the dry run says its three answers apart", () => {
 
     const nullSql =
       "SELECT id, CASE WHEN id = 1 THEN NULL::GEOMETRY ELSE geom END AS geom FROM empty_shapes_source";
-    const nullDry = await dryRun(nullSql);
+    const nullDry = await dryRun(testAccountScope(), nullSql);
     const sqlNode = await materialize(testAccountScope(), {
       sql: nullSql,
       name: "all_null_shapes",

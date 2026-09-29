@@ -1,7 +1,7 @@
 import type { DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
 import { NOT_MAPPABLE_COPY } from "@/lib/layer-copy";
-import { assertReadOnlySelect } from "@/lib/query/guard";
+import { namedSql } from "@/lib/query/named-sql";
 import { stripStatementQuote } from "@/lib/query/engine-message";
 import {
   boundedEvaluation,
@@ -26,12 +26,12 @@ interface GeometryInspection {
  * message. Returns the primary geometry column and its dominant type.
  */
 export async function inspectLayerGeometry(
+  scope: DatasetScope,
   sql: string,
   signal?: AbortSignal,
-  scope?: DatasetScope,
 ): Promise<GeometryInspection> {
   return boundedEvaluation(async (conn) => {
-    await assertReadOnlySelect(conn, sql);
+    sql = await namedSql(conn, sql);
 
     const sub = `(${wrappable(sql)}) AS q`;
     let columns: { name: string; type: string }[];

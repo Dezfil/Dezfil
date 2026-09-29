@@ -81,7 +81,7 @@ async function refusal(
   parameters: Record<string, unknown>,
 ): Promise<string> {
   try {
-    await compileOperation(operation, parameters);
+    await compileOperation(testAccountScope(), operation, parameters);
     return "";
   } catch (error) {
     return (error as Error).message;

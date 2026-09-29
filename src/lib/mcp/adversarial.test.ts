@@ -1,4 +1,4 @@
-import { testAccountScope } from "@/lib/test-support/accounts";
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -33,7 +33,7 @@ beforeEach(async () => {
     (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input instanceof Request ? input.url : String(input);
       const { pathname } = new URL(url);
-      const request = input instanceof Request ? input : new Request(url, init);
+      const request = testAccountRequest(input instanceof Request ? input : new Request(url, init));
       if (pathname === "/api/mcp") return handler.fetch(request);
       if (pathname === "/api/query") return queryRoute(request);
       throw new Error(`Unexpected self-call in test: ${pathname}`);

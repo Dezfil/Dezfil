@@ -123,7 +123,7 @@ describe("a nearest join reports ground metres", () => {
       });
       expect(job.state, job.errorMessage ?? "").toBe("succeeded");
 
-      const result = await executeQuery(
+      const result = await executeQuery(testAccountScope(),
         `SELECT nearest_distance_m FROM ${place.name}_nearest`,
       );
       const measured = Number(result.preview[0].nearest_distance_m);
@@ -177,7 +177,7 @@ describe("a location filter's radius is ground metres too", () => {
       name: "within_800",
     });
     expect(near.state, near.errorMessage ?? "").toBe("succeeded");
-    const kept = await executeQuery(`SELECT count(*) AS n FROM within_800`);
+    const kept = await executeQuery(testAccountScope(), `SELECT count(*) AS n FROM within_800`);
     expect(Number(kept.preview[0].n)).toBe(1);
 
     const far = await run("filter_by_location", {
@@ -188,7 +188,7 @@ describe("a location filter's radius is ground metres too", () => {
       name: "within_500",
     });
     expect(far.state, far.errorMessage ?? "").toBe("succeeded");
-    const dropped = await executeQuery(`SELECT count(*) AS n FROM within_500`);
+    const dropped = await executeQuery(testAccountScope(), `SELECT count(*) AS n FROM within_500`);
     expect(Number(dropped.preview[0].n)).toBe(0);
   }, 60_000);
 });

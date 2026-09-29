@@ -65,8 +65,8 @@ describe("opening a stored data-driven Fill panel", () => {
 
     // StylePanel's open read: resolve fields, fetch the ramp distribution,
     // and project the stored paint into PaintControls' display state.
-    const fields = await layerFields(stored);
-    await layerFieldStats(stored, fill.attribute);
+    const fields = await layerFields(testAccountScope(), stored);
+    await layerFieldStats(testAccountScope(), stored, fill.attribute);
     const opened = paintControlsOpenState(stored.style.fill, fields.styling);
 
     expect(opened.method).toBe("quantile");

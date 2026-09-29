@@ -149,7 +149,7 @@ async function dashboard() {
 describe("widget values", () => {
   it("computes all three types over the effective query", async () => {
     const { map } = await dashboard();
-    const values = await computeWidgetValues(map, map.layers, []);
+    const values = await computeWidgetValues(testAccountScope(), map, map.layers, []);
 
     // The note is authored text — nothing computed for it.
     expect(values.widgets.map((w) => w.id)).toEqual(["wf", "wc", "wh"]);
@@ -186,7 +186,7 @@ describe("widget values", () => {
 
     // A draft carrying wf's id replaces it for this read: sum, not avg.
     const stored = map.widgets.find((w) => w.id === "wf")!;
-    const over = await computeWidgetValues(map, map.layers, [], {
+    const over = await computeWidgetValues(testAccountScope(), map, map.layers, [], {
       ...stored,
       agg: "sum",
     });
@@ -197,7 +197,7 @@ describe("widget values", () => {
     });
 
     // A draft under a fresh id joins the computed set as a new card.
-    const added = await computeWidgetValues(map, map.layers, [], {
+    const added = await computeWidgetValues(testAccountScope(), map, map.layers, [], {
       ...stored,
       id: "widget-draft-preview",
       agg: "count",
@@ -215,7 +215,7 @@ describe("widget values", () => {
 
     // Nothing wrote — the same read without a draft answers from the
     // stored config again.
-    const plain = await computeWidgetValues(map, map.layers, []);
+    const plain = await computeWidgetValues(testAccountScope(), map, map.layers, []);
     expect(plain.widgets.find((w) => w.id === "wf")).toMatchObject({
       value: 75,
     });
@@ -226,7 +226,7 @@ describe("widget values", () => {
     const { map } = await dashboard();
     // Deactivating "A": its rows leave — and so does the NULL-category
     // row, exactly as SQL's NOT IN decides.
-    const values = await computeWidgetValues(map, map.layers, [
+    const values = await computeWidgetValues(testAccountScope(), map, map.layers, [
       { widgetId: "wc", kind: "exclude", values: ["A"] },
     ]);
 
@@ -254,7 +254,7 @@ describe("widget values", () => {
 
   it("composes AND across widgets — a brush narrows the ranking", async () => {
     const { map } = await dashboard();
-    const values = await computeWidgetValues(map, map.layers, [
+    const values = await computeWidgetValues(testAccountScope(), map, map.layers, [
       { widgetId: "wh", kind: "range", min: 45, max: null },
     ]);
     const category = values.widgets.find((w) => w.id === "wc");
@@ -270,7 +270,7 @@ describe("widget values", () => {
       w.id === "wf" ? { ...w, field: "gone" } : w,
     );
     const patched = { ...map, widgets };
-    const values = await computeWidgetValues(patched, map.layers, []);
+    const values = await computeWidgetValues(testAccountScope(), patched, map.layers, []);
     const formula = values.widgets.find((w) => w.id === "wf");
     expect(formula && "error" in formula).toBe(true);
     // The rest of the dashboard keeps working.
@@ -401,11 +401,11 @@ describe("the settle lane", () => {
     const hexLayer = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
     });
-    const full = await renderLayerWithSelections(hexLayer, []);
-    const constrained = await renderLayerWithSelections(hexLayer, [
+    const full = await renderLayerWithSelections(testAccountScope(), hexLayer, []);
+    const constrained = await renderLayerWithSelections(testAccountScope(), hexLayer, [
       { field: "cat", kind: "values", values: ["A"] },
     ]);
-    const excluded = await renderLayerWithSelections(hexLayer, [
+    const excluded = await renderLayerWithSelections(testAccountScope(), hexLayer, [
       { field: "cat", kind: "values", values: ["A"], exclude: true },
     ]);
     if (!full.ok || !constrained.ok || !excluded.ok) {
@@ -424,7 +424,7 @@ describe("the settle lane", () => {
   it("rejects viz types that enforce selections client-side", async () => {
     const { layer } = await dashboard();
     await expect(
-      renderLayerWithSelections(layer, [
+      renderLayerWithSelections(testAccountScope(), layer, [
         { field: "cat", kind: "values", values: ["A"] },
       ]),
     ).rejects.toThrow(ApiError);
@@ -444,7 +444,7 @@ describe("published selection bounding", () => {
     };
     // "name" ships in no widget and no wire column of the computed cells.
     await expect(
-      renderLayerWithSelections(
+      renderLayerWithSelections(testAccountScope(),
         hexLayer,
         [{ field: "name", kind: "values", values: ["r1"] }],
         undefined,
@@ -467,7 +467,7 @@ describe("published selection bounding", () => {
     // selection folds into the base query, where they are undeclared.
     for (const field of ["value", "count"]) {
       await expect(
-        renderLayerWithSelections(
+        renderLayerWithSelections(testAccountScope(),
           hexLayer,
           [{ field, kind: "range", min: 1, max: null }],
           undefined,
@@ -489,7 +489,7 @@ describe("published selection bounding", () => {
     };
     // "cat" is the published category widget's field — the cells no longer
     // carry it, but the published surface declares it.
-    const constrained = await renderLayerWithSelections(
+    const constrained = await renderLayerWithSelections(testAccountScope(),
       hexLayer,
       [{ field: "cat", kind: "values", values: ["A"] }],
       undefined,
@@ -515,7 +515,7 @@ describe("published selection bounding", () => {
       widgetsPublished: true,
     };
     // A published tooltip field is on the wire — selectable.
-    const byName = await renderLayerWithSelections(
+    const byName = await renderLayerWithSelections(testAccountScope(),
       clustered,
       [{ field: "name", kind: "values", values: ["r1"] }],
       undefined,
@@ -524,7 +524,7 @@ describe("published selection bounding", () => {
     expect(byName.ok).toBe(true);
     // "val" is neither on the wire nor a published widget field here.
     await expect(
-      renderLayerWithSelections(
+      renderLayerWithSelections(testAccountScope(),
         clustered,
         [{ field: "val", kind: "range", min: 100, max: null }],
         undefined,
@@ -532,7 +532,7 @@ describe("published selection bounding", () => {
       ),
     ).rejects.toMatchObject({ code: "field_not_published" });
     // The builder's own settle lane stays unbounded.
-    const builder = await renderLayerWithSelections(clustered, [
+    const builder = await renderLayerWithSelections(testAccountScope(), clustered, [
       { field: "val", kind: "range", min: 100, max: null },
     ]);
     expect(builder.ok).toBe(true);
@@ -549,7 +549,7 @@ describe("published selection bounding", () => {
       values: ["A"],
       field: "val",
     } as unknown as import("@/lib/widgets").WidgetSelection;
-    const values = await computeWidgetValues(map, map.layers, [smuggled]);
+    const values = await computeWidgetValues(testAccountScope(), map, map.layers, [smuggled]);
     const formula = values.widgets.find((w) => w.id === "wf");
     // Excluding cat A (and the NULL row, per NOT IN) leaves values
     // 50..130 — avg 90. Filtering by the smuggled field would leave 75.

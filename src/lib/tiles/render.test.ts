@@ -65,7 +65,7 @@ describe("the render decision", () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "10";
     const layer = requireLayer(testAccountScope(), layerId);
 
-    const preparing = await renderLayer(layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
+    const preparing = await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
     expect(preparing.ok).toBe(true);
     expect(preparing.mode).toBe("tiled");
     expect(preparing.tiles?.state).toBe("building");
@@ -74,7 +74,7 @@ describe("the render decision", () => {
     expect(preparing.geojson).toBeUndefined();
 
     await tileBuildsSettled();
-    const ready = await renderLayer(layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
+    const ready = await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
     expect(ready.mode).toBe("tiled");
     expect(ready.tiles?.state).toBe("ready");
     expect(ready.geometryType).toBe("POINT");
@@ -106,19 +106,19 @@ describe("the render decision", () => {
     const filtered = await updateLayer(testAccountScope(), layerId, {
       filters: [{ field: "kind", kind: "values", values: ["k0"] }],
     });
-    const inline = await renderLayer(filtered, undefined, { tileAccess: privateTileAccess(testAccountScope(), (filtered).id) });
+    const inline = await renderLayer(testAccountScope(), filtered, undefined, { tileAccess: privateTileAccess(testAccountScope(), (filtered).id) });
     expect(inline.mode).toBe("inline");
     expect(inline.featureCount).toBe(10);
     expect(inline.geometryType).toBe("POINT");
 
     const unfiltered = await updateLayer(testAccountScope(), layerId, { filters: [] });
-    const tiled = await renderLayer(unfiltered, undefined, { tileAccess: privateTileAccess(testAccountScope(), (unfiltered).id) });
+    const tiled = await renderLayer(testAccountScope(), unfiltered, undefined, { tileAccess: privateTileAccess(testAccountScope(), (unfiltered).id) });
     expect(tiled.mode).toBe("tiled");
   });
 
   it("under-cap layers keep today's inline path untouched", async () => {
     const layer = requireLayer(testAccountScope(), layerId);
-    const render = await renderLayer(layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
+    const render = await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) });
     expect(render.mode).toBe("inline");
     expect(render.featureCount).toBe(40);
     expect(render.geometryType).toBe("POINT");
@@ -128,7 +128,7 @@ describe("the render decision", () => {
   it("a missing tiler degrades h3-style: only this layer errors", async () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "10";
     process.env.DEZFIL_TIPPECANOE = "/nonexistent/tippecanoe";
-    const render = await renderLayer(requireLayer(testAccountScope(), layerId), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layerId)).id) });
+    const render = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layerId), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layerId)).id) });
     expect(render.ok).toBe(false);
     expect(render.error?.code).toBe("tiler_unavailable");
     expect(render.error?.message).toMatch(/tippecanoe/);
@@ -145,11 +145,11 @@ describe("the render decision", () => {
     );
     process.env.DEZFIL_TIPPECANOE = fake;
 
-    const preparing = await renderLayer(requireLayer(testAccountScope(), layerId), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layerId)).id) });
+    const preparing = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layerId), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layerId)).id) });
     expect(preparing.tiles?.state).toBe("building");
     await tileBuildsSettled();
 
-    const failed = await renderLayer(requireLayer(testAccountScope(), layerId), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layerId)).id) });
+    const failed = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layerId), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layerId)).id) });
     expect(failed.ok).toBe(false);
     expect(failed.error?.code).toBe("tile_build_failed");
     expect(failed.error?.message).toMatch(/boom/);

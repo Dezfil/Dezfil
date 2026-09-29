@@ -27,7 +27,7 @@ beforeEach(async () => {
     "name,lon,lat\nalexanderplatz,13.41,52.52\nzoo,13.33,52.51\nsudkreuz,13.36,52.48\n",
   );
   await ingestFile(testAccountScope(), src, "stations.csv");
-  await boundedEvaluation(async () => undefined);
+  await boundedEvaluation(async () => undefined, { scope: testAccountScope() });
 });
 
 afterEach(async () => {
@@ -115,7 +115,7 @@ describe("a run's outcome", () => {
 
     const registered = getTableByName("just_names")!;
     expect(registered.id).toBe(job.outputId);
-    const back = await executeQuery("SELECT count(*) AS n FROM just_names");
+    const back = await executeQuery(testAccountScope(), "SELECT count(*) AS n FROM just_names");
     expect(Number(back.preview[0].n)).toBe(3);
   }, 30_000);
 

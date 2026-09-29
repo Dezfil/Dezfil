@@ -56,8 +56,8 @@ export async function POST(request: Request, { params }: Params) {
       );
     }
     const range = r as [number, number];
-    const scale = await computeSizeScale(
-      await layerEffectiveSql(layer, request.signal),
+    const scale = await computeSizeScale(scope,
+      await layerEffectiveSql(scope, layer, request.signal),
       body.attribute,
       range,
       request.signal,

@@ -243,9 +243,19 @@ Second, the instance itself is locked down at creation
 is disabled, external access is switched off, the filesystem is fenced to
 the dataset directory and the tile scratch directory, spilling to disk is
 disabled, the memory budget is applied, and the configuration is locked so
-none of that can be changed afterwards. Datasets are exposed to it as views
-over their files, so user SQL sees table names and never paths
-(`src/lib/query/views.ts`).
+none of that can be changed afterwards. Every evaluation gets a fresh connection
+and temporary views for its account's datasets only (`src/lib/query/views.ts`).
+One hardened engine serves all accounts under the same shared memory budget.
+The views disappear when the connection closes. Artifact projection metadata
+may be cached by owner, dataset identity, artifact and geometry metadata; the
+views and binding evidence are recreated on each connection.
+
+Unqualified names, `main.table`, `memory.table`, `memory.main.table`, and
+computed `query_table()` / nested `query()` references resolve inside that local
+catalogue. The compiler preserves stored SQL. Publication evaluations use the
+publication owner's dataset scope, including inactive owners and pending
+adoption. Refresh, deletion and name reuse affect later evaluations; an admitted
+materialization keeps its captured identities and artifacts until it completes.
 
 Everything that evaluates user SQL goes through this path: the SQL
 workspace, layer rendering, classification, published views, and every

@@ -81,12 +81,11 @@ export async function POST(request: Request, { params }: Params) {
       // evaluable before anything evaluates it, so a drifted field or an
       // incompatible kind answers its documented code rather than
       // reaching the engine as a generic failure.
-      await assertPublishedSelections(
+      await assertPublishedSelections(snapshot.scope,
         snapshot.map,
         snapshot.layers,
         active,
         request.signal,
-        snapshot.scope,
       );
       for (const selection of active) {
         const filter = selectionFilter(selection, visible.get(selection.widgetId));
@@ -110,7 +109,7 @@ export async function POST(request: Request, { params }: Params) {
       });
     }
 
-    const extent = await layerExtent(layer, extra, request.signal, snapshot.scope);
+    const extent = await layerExtent(snapshot.scope, layer, extra, request.signal);
     requirePublicationScope(snapshot.scope);
     return NextResponse.json(extent, {
       headers: { "cache-control": "private, no-store" },

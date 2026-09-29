@@ -348,7 +348,7 @@ export async function removeTable(scope: AccountScope, name: string): Promise<vo
   // deleted table regains the artifact-path error this removes.
   const outcomes = await Promise.allSettled([
     ...dependents.map((lid) => removeTileArtifacts(lid)),
-    dropTableView(name),
+    dropTableView(scope, name),
   ]);
   for (const outcome of outcomes) {
     if (outcome.status === "rejected") {

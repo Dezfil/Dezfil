@@ -166,7 +166,7 @@ async function assemblePublishedView(
       .filter((l) => l.visible)
       .map(async (l): Promise<PublishedLayer> => {
         const render = publishedRender(
-          await renderLayer(l, signal, { scope, published, tileAccess: publishedTileAccess(token, l.id) }),
+          await renderLayer(scope, l, signal, { published, tileAccess: publishedTileAccess(token, l.id) }),
           token,
           l.id,
         );
@@ -293,7 +293,7 @@ async function publishedTimeline(
   );
   if (!filter || filter.kind !== "timerange") return null;
   try {
-    const stats = await layerFieldStats(layer, timeline.field, signal, scope);
+    const stats = await layerFieldStats(scope, layer, timeline.field, signal);
     if (stats.kind !== "time" || stats.min == null || stats.max == null) {
       return null;
     }

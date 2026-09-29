@@ -89,7 +89,7 @@ const join = (over: Partial<SpatialJoinParams> = {}): SpatialJoinParams => ({
 
 async function run(params: SpatialJoinParams) {
   const sql = spatialJoinSql(params, zonesTable(), pointsTable());
-  return executeQuery(sql);
+  return executeQuery(testAccountScope(), sql);
 }
 
 describe("the shape of the result", () => {
@@ -174,7 +174,7 @@ describe("the output's geometry is the left input's", () => {
     // whose is named `spot`. Now the two rules disagree if the wrong one wins.
     const left = { ...zonesTable(), name: "zones_named", geometryColumn: "outline" };
     const right = { ...pointsTable(), name: "points_named", geometryColumn: "spot" };
-    await executeQuery("SELECT 1");
+    await executeQuery(testAccountScope(), "SELECT 1");
     const sql = spatialJoinSql(
       { left: left.name, right: right.name, predicate: "contains", carry: [{ aggregate: "count" }] },
       left,
@@ -189,7 +189,7 @@ describe("the output's geometry is the left input's", () => {
     const renamed = sql
       .replace(/FROM "zones_named" AS l/, 'FROM (SELECT * EXCLUDE (geometry), geometry AS outline FROM zones) AS l')
       .replace(/FROM "points_named" AS r/g, 'FROM (SELECT * EXCLUDE (geometry), geometry AS spot FROM points) AS r');
-    const result = await executeQuery(renamed);
+    const result = await executeQuery(testAccountScope(), renamed);
     const geometry = result.columns.filter((c) => c.type.startsWith("GEOMETRY"));
     expect(geometry.map((c) => c.name)).toEqual(["outline"]);
     const a = result.preview.find((r) => r.name === "A")!;

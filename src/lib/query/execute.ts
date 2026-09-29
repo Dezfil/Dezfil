@@ -1,6 +1,7 @@
+import type { DatasetScope } from "@/lib/query/access";
 import { limits } from "@/lib/limits";
 import { ApiError } from "@/lib/api/errors";
-import { assertReadOnlySelect } from "./guard";
+import { namedSql } from "./named-sql";
 import { wrappable } from "./compile";
 import { enginePosition, stripStatementQuote } from "./engine-message";
 import {
@@ -33,7 +34,7 @@ export function isGeometryEncoding(value: unknown): value is GeometryEncoding {
   return (GEOMETRY_ENCODINGS as readonly unknown[]).includes(value);
 }
 
-export interface QueryOptions extends EvaluationOptions {
+export interface QueryOptions extends Omit<EvaluationOptions, "scope"> {
   geometry?: GeometryEncoding;
 }
 
@@ -42,12 +43,14 @@ function ident(s: string): string {
 }
 
 export async function executeQuery(
+  scope: DatasetScope,
   sql: string,
   options: QueryOptions = {},
 ): Promise<QueryResult> {
+  const submittedSql = sql;
   const encoding: GeometryEncoding = options.geometry ?? "wkt";
   return boundedEvaluation(async (conn) => {
-    await assertReadOnlySelect(conn, sql);
+    sql = await namedSql(conn, sql);
 
     const started = Date.now();
     // Wrap as a subquery to count and preview uniformly; a trailing
@@ -125,7 +128,7 @@ export async function executeQuery(
       // Where the engine says the problem is, in the user's coordinates —
       // additional to the message, absent when it cannot be mapped.
       const position =
-        error instanceof Error
+        error instanceof Error && sql === submittedSql
           ? enginePosition(error.message, probePrefix)
           : null;
       throw new ApiError(
@@ -135,5 +138,5 @@ export async function executeQuery(
         position ? { position } : {},
       );
     }
-  }, options);
+  }, { ...options, scope });
 }

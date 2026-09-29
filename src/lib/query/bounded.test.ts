@@ -34,7 +34,7 @@ beforeEach(async () => {
   // lazy creation (extension loads, lockdown) can cost real time, and a
   // budget that fires during acquisition would leave a test's queued
   // once-mock unconsumed for the next evaluation to inherit.
-  await boundedEvaluation(async () => undefined);
+  await boundedEvaluation(async () => undefined, { scope: testAccountScope() });
   vi.mocked(registerTableViews).mockClear();
 });
 
@@ -50,7 +50,7 @@ describe("boundedEvaluation", () => {
   it("interrupts work past the budget, and the engine answers again at once", async () => {
     process.env.DEZFIL_QUERY_TIMEOUT_S = "1";
     await expect(
-      boundedEvaluation(async (conn) => conn.runAndReadAll(SLOW_SQL)),
+      boundedEvaluation(async (conn) => conn.runAndReadAll(SLOW_SQL), { scope: testAccountScope() }),
     ).rejects.toMatchObject({ code: "query_timeout", status: 408 });
     // The engine was stopped, not abandoned: a follow-up evaluation answers
     // well inside the time the interrupted work would still be consuming.
@@ -58,7 +58,7 @@ describe("boundedEvaluation", () => {
     const rows = await boundedEvaluation(async (conn) => {
       const r = await conn.runAndReadAll("SELECT count(*) AS n FROM stations");
       return r.getRowObjects();
-    });
+    }, { scope: testAccountScope() });
     expect(Number(rows[0].n)).toBe(3);
     expect(Date.now() - started).toBeLessThan(5_000);
   }, 30_000);
@@ -72,7 +72,7 @@ describe("boundedEvaluation", () => {
     vi.mocked(registerTableViews).mockImplementationOnce(() => gate);
     const started = Date.now();
     await expect(
-      boundedEvaluation(async () => "unreachable"),
+      boundedEvaluation(async () => "unreachable", { scope: testAccountScope() }),
     ).rejects.toMatchObject({ code: "query_timeout" });
     expect(Date.now() - started).toBeLessThan(10_000);
     // Settle the abandoned registration so its drain releases (production
@@ -88,7 +88,7 @@ describe("boundedEvaluation", () => {
     });
     vi.mocked(registerTableViews).mockImplementationOnce(() => gate);
     const caller = new AbortController();
-    const evaluation = boundedEvaluation(async () => "unreachable", {
+    const evaluation = boundedEvaluation(async () => "unreachable", { scope: testAccountScope(),
       signal: caller.signal,
     });
     setTimeout(() => caller.abort(), 100);
@@ -104,7 +104,7 @@ describe("boundedEvaluation", () => {
     });
     vi.mocked(registerTableViews).mockImplementationOnce(() => gate);
     await expect(
-      boundedEvaluation(async () => "unreachable"),
+      boundedEvaluation(async () => "unreachable", { scope: testAccountScope() }),
     ).rejects.toMatchObject({ code: "query_timeout" });
     // The abandoned registration settles, as real ones do; the follower
     // then registers for real and queries normally.
@@ -112,7 +112,7 @@ describe("boundedEvaluation", () => {
     const rows = await boundedEvaluation(async (conn) => {
       const r = await conn.runAndReadAll("SELECT count(*) AS n FROM stations");
       return r.getRowObjects();
-    });
+    }, { scope: testAccountScope() });
     expect(Number(rows[0].n)).toBe(3);
   }, 30_000);
 
@@ -121,7 +121,7 @@ describe("boundedEvaluation", () => {
     const started = Date.now();
     const evaluation = boundedEvaluation(
       async (conn) => conn.runAndReadAll(SLOW_SQL),
-      { signal: caller.signal },
+      { scope: testAccountScope(), signal: caller.signal },
     );
     setTimeout(() => caller.abort(), 200);
     await expect(evaluation).rejects.toBeInstanceOf(EvaluationCancelled);
@@ -130,7 +130,7 @@ describe("boundedEvaluation", () => {
     const rows = await boundedEvaluation(async (conn) => {
       const r = await conn.runAndReadAll("SELECT 1 AS one");
       return r.getRowObjects();
-    });
+    }, { scope: testAccountScope() });
     expect(Number(rows[0].one)).toBe(1);
   }, 30_000);
 
@@ -138,7 +138,7 @@ describe("boundedEvaluation", () => {
     const caller = new AbortController();
     caller.abort();
     await expect(
-      boundedEvaluation(async () => "unreachable", { signal: caller.signal }),
+      boundedEvaluation(async () => "unreachable", { scope: testAccountScope(), signal: caller.signal }),
     ).rejects.toBeInstanceOf(EvaluationCancelled);
     expect(vi.mocked(registerTableViews)).not.toHaveBeenCalled();
   });
@@ -153,7 +153,7 @@ describe("boundedEvaluation", () => {
           await new Promise((r) => setTimeout(r, 800));
           return "too late";
         },
-        { budgetMs: 300 },
+        { scope: testAccountScope(), budgetMs: 300 },
       ),
     ).rejects.toMatchObject({ code: "query_timeout" });
   }, 30_000);
@@ -166,7 +166,7 @@ describe("boundedEvaluation", () => {
         await new Promise((r) => setTimeout(r, 800));
         return "nobody is listening";
       },
-      { signal: caller.signal },
+      { scope: testAccountScope(), signal: caller.signal },
     );
     setTimeout(() => caller.abort(), 150);
     await expect(evaluation).rejects.toBeInstanceOf(EvaluationCancelled);
@@ -174,7 +174,7 @@ describe("boundedEvaluation", () => {
 
   it("honors a lane's own budget and coded error", async () => {
     await expect(
-      boundedEvaluation(async (conn) => conn.runAndReadAll(SLOW_SQL), {
+      boundedEvaluation(async (conn) => conn.runAndReadAll(SLOW_SQL), { scope: testAccountScope(),
         budgetMs: 500,
         timeoutError: () =>
           new ApiError("tile_build_timeout", "the lane's own copy", 408),
