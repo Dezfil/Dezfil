@@ -12,7 +12,7 @@ export function privateResponse<T extends Response>(response: T): T {
   response.headers.set("cache-control", "private, no-store");
   return response;
 }
-export function requestIngress(request: Request): Ingress {
+export function requestIngress(request: Pick<Request, "headers">): Ingress {
   try { return requireIngress(request.headers); }
   catch { throw new AuthError("ingress_unavailable", "The instance cannot accept sign-ins yet.", 503); }
 }
