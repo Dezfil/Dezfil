@@ -1,3 +1,4 @@
+import type { AccountScope } from "@/lib/auth/scope";
 import type { DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
 import {
@@ -214,7 +215,7 @@ export function isIsochroneVerb(id: string): boolean {
 }
 
 export async function compileIsochrone(
-  scope: DatasetScope,
+  scope: AccountScope,
   operation: OperationDef,
   params: Record<string, unknown>,
   requireName: boolean,
@@ -263,6 +264,7 @@ export async function compileIsochrone(
         timeoutError: context.timeoutError,
       });
       return {
+        inputs: [staged.stage],
         sql: isochronePublicationSql(table, mode, bands, staged.stage),
         disclosure: {
           kind: "provider_request",

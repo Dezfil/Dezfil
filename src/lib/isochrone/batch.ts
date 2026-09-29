@@ -1,9 +1,6 @@
-import type { DatasetScope } from "@/lib/query/access";
-import { randomUUID } from "node:crypto";
-import { mkdir, rm } from "node:fs/promises";
-import path from "node:path";
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { prepareStagingInput, removeStagingInput, type StagingInput } from "@/lib/query/staging";
 import type { DuckDBConnection } from "@duckdb/node-api";
-import { dataDir } from "@/lib/config";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { ident } from "@/lib/ingest/ingest";
 import type { DataTable } from "@/lib/metadata/tables";
@@ -53,8 +50,8 @@ export interface IsochroneDisclosure {
 }
 
 export interface IsochroneBatchResult {
-  /** Absolute path of the staging artifact. Run-owned, never published. */
-  stage: string;
+  /** Opaque input retained only by the preparing job. */
+  stage: StagingInput;
   /** Distinct origin coordinates staged. */
   origins: number;
   disclosure: IsochroneDisclosure;
@@ -172,7 +169,7 @@ export function isochronePublicationSql(
   table: DataTable,
   mode: string,
   bands: number[],
-  stage: string,
+  stage: StagingInput,
 ): string {
   const source = ident(table.name);
   const geom = ident(table.geometryColumn!);
@@ -189,13 +186,13 @@ export function isochronePublicationSql(
        g.source AS isochrone_source
 FROM ${source} AS s
 CROSS JOIN (VALUES ${bandRows}) AS b(minutes)
-LEFT JOIN read_parquet('${stage.replace(/'/g, "''")}') AS g
+LEFT JOIN ${ident(stage.name)} AS g
   ON ST_X(s.${geom}) = g.lon AND ST_Y(s.${geom}) = g.lat
   AND b.minutes = g.band_minutes`;
 }
 
-export async function removeIsochroneStage(stage: string): Promise<void> {
-  await rm(stage, { force: true }).catch(() => {});
+export async function removeIsochroneStage(stage: StagingInput): Promise<void> {
+  await removeStagingInput(stage);
 }
 
 /**
@@ -205,7 +202,7 @@ export async function removeIsochroneStage(stage: string): Promise<void> {
  * outlast the run.
  */
 export async function stageIsochroneBatch(
-  scope: DatasetScope,
+  scope: AccountScope,
   options: IsochroneBatchOptions,
 ): Promise<IsochroneBatchResult> {
   const { table, mode, bands, signal, deadlineAt, timeoutError } = options;
@@ -225,6 +222,7 @@ export async function stageIsochroneBatch(
   let originsFromCache = 0;
   let originsFromWire = 0;
   for (const origin of origins) {
+    requireAccountScope(scope);
     if (signal?.aborted) throw new EvaluationCancelled();
     remaining(deadlineAt, timeoutError);
     const answer = await askIsochrone(origin, mode, bands, {
@@ -250,22 +248,13 @@ export async function stageIsochroneBatch(
     }
   }
 
-  const stage = path.join(
-    dataDir(),
-    "tables",
-    `isochrone-stage-${randomUUID()}.parquet`,
-  );
-  await mkdir(path.dirname(stage), { recursive: true });
-  try {
-    await boundedEvaluation(async (conn) => writeStage(conn, rows, stage), { scope,
+  const stage = await prepareStagingInput(scope, "isochrone", async file => {
+    await boundedEvaluation(async (conn) => writeStage(conn, rows, file), { scope,
       ...(signal ? { signal } : {}),
       budgetMs: remaining(deadlineAt, timeoutError),
       timeoutError,
     });
-  } catch (error) {
-    await removeIsochroneStage(stage);
-    throw error;
-  }
+  });
 
   return {
     stage,

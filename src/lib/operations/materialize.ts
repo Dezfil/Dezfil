@@ -1,3 +1,4 @@
+import type { StagingInput } from "@/lib/query/staging";
 import type { DatasetScope } from "@/lib/query/access";
 import { getOwnedTableByName, requireOwnedTableReference } from "@/lib/metadata/owned-tables";
 import { publishDataset, nameTaken } from "./dataset-publication";
@@ -52,6 +53,8 @@ import { queryInputs } from "./inputs";
  */
 
 export interface MaterializeRequest {
+  /** Internal provider inputs; never parsed from public request fields. */
+  inputs?: readonly StagingInput[];
   /** The read-only SELECT whose result becomes the dataset. */
   sql: string;
   /** The name the caller asked for; sanitized, never de-duplicated. */
@@ -74,7 +77,7 @@ export interface MaterializeRequest {
    * What the output's record carries **in place of** the statement that ran.
    *
    * A provider operation discloses the request it made rather than the query it
-   * did not write — and its statement names a private staging path, so
+   * did not write — and its statement names a private staging input, so
    * publishing it would put an internal path in the registry. The record
    * carries this and **no SQL at all**: an absence is a better contract than a
    * redaction that must never miss.
@@ -425,7 +428,7 @@ export async function materialize(
           operation,
           parameters: parameters ?? {},
           // **A disclosure replaces the statement; it never joins it** (J9).
-          // This run's SQL names a private staging path, so a record carrying
+          // This run's SQL names a private staging input, so a record carrying
           // both would publish the path it promised never to. The absence is
           // the contract: a reader finding no `sql` is reading a run whose
           // answers came off a wire, and the disclosure says what was asked.
@@ -469,7 +472,7 @@ export async function materialize(
       // points at it, and removing it here would strand a registered table.
       if (!committed) await rm(abs, { force: true });
     }
-  }, { scope, pinBindings: true, signal, ...(budgetMs !== undefined ? { budgetMs } : {}), ...(timeoutError ? { timeoutError } : {}) });
+  }, { scope, inputs: request.inputs, pinBindings: true, signal, ...(budgetMs !== undefined ? { budgetMs } : {}), ...(timeoutError ? { timeoutError } : {}) });
 }
 
 /**

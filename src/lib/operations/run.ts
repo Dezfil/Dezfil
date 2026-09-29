@@ -145,6 +145,7 @@ function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions)
       }
       await materialize(scope, {
         sql: prepared ? prepared.sql : options.sql,
+        ...(prepared?.inputs ? { inputs: prepared.inputs } : {}),
         name: options.name,
         operation: job.operation,
         parameters: job.parameters ?? {},

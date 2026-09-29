@@ -257,6 +257,13 @@ publication owner's dataset scope, including inactive owners and pending
 adoption. Refresh, deletion and name reuse affect later evaluations; an admitted
 materialization keeps its captured identities and artifacts until it completes.
 
+Geocode and isochrone preparation pass opaque, account-bound staging inputs
+only to the evaluation that publishes that job. Their SQL names temporary
+relations; it contains no file reader. Ordinary evaluations, including another
+query by the same account, cannot name those relations. JSON request fields
+cannot authorize a staging mount. Completion, failure, cancellation and timeout
+release the inputs; removal waits for any admitted reader to close.
+
 Everything that evaluates user SQL goes through this path: the SQL
 workspace, layer rendering, classification, published views, and every
 agent tool that runs SQL. There is no browser-side query engine.

@@ -169,6 +169,7 @@ describe("what the batch asks, and what it stages", () => {
       `SELECT label, geocode_status, geocode_source, geocode_match,
               geocode_attribution, ST_X(geom) AS x, ST_Y(geom) AS y
        FROM (${publicationSql(table, "address", result.stage)}) ORDER BY label`,
+      { inputs: [result.stage] },
     );
     const rows = answer.preview as Record<string, unknown>[];
     expect(rows).toHaveLength(7);
@@ -215,6 +216,7 @@ describe("what the batch asks, and what it stages", () => {
         "address",
         result.stage,
       )}))`,
+      { inputs: [result.stage] },
     );
     expect(described.preview.map((r) => String(r.column_name))).toEqual([
       "label",

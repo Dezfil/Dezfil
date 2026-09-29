@@ -1,3 +1,4 @@
+import { leaseStagingInputs, type StagingInput } from "./staging";
 import { requireDatasetScope, type DatasetScope } from "./access";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { connectQueryInstance } from "@/lib/duckdb";
@@ -35,6 +36,8 @@ const REINTERRUPT_MS = 250;
 export interface EvaluationOptions {
   /** Authority retained by this evaluation, independent of a visitor. */
   scope: DatasetScope;
+  /** Opaque inputs held only by the provider job that prepared them. */
+  inputs?: readonly StagingInput[];
   /** The caller's departure; aborting cancels the evaluation silently. */
   signal?: AbortSignal;
   /** Budget override for the lanes with their own documented bound (the
@@ -132,6 +135,7 @@ async function runBoundedEvaluation<T>(
   // reset) pays for instance creation and extension loading here, and a
   // stall in that must not outlive the budget or the caller. An abandoned
   // acquisition releases its connection whenever it finally arrives.
+  const staging = leaseStagingInputs(scope, options.inputs);
   const connecting = connectQueryInstance();
   connecting.catch(() => {});
   const conn = await new Promise<DuckDBConnection>((resolve, reject) => {
@@ -147,6 +151,7 @@ async function runBoundedEvaluation<T>(
       signal?.removeEventListener("abort", onAbort);
     });
   }).catch((error: unknown) => {
+    staging.release();
     connecting.then((late) => late.disconnectSync()).catch(() => {});
     throw error;
   });
@@ -160,9 +165,10 @@ async function runBoundedEvaluation<T>(
     let prepAbandoned = false;
     let bindings: BindingSnapshot | undefined;
     const registration = registerTableViews(scope, conn, () => prepAbandoned,
-      options.pinBindings ? async (registered) => {
-        bindings = await pinBindings(conn, registered);
-      } : undefined,
+      async (registered) => {
+        await staging.mount(conn, () => prepAbandoned);
+        if (options.pinBindings) bindings = await pinBindings(conn, registered);
+      },
     );
     registration.catch(() => {});
     try {
@@ -195,6 +201,7 @@ async function runBoundedEvaluation<T>(
         .finally(() => {
           clearInterval(drain);
           conn.disconnectSync();
+          staging.release();
         })
         .catch(() => {});
       throw error;
@@ -228,7 +235,9 @@ async function runBoundedEvaluation<T>(
 
     try {
       requireDatasetScope(scope);
+      staging.assertLive();
       const result = await fn(conn, bounds);
+      staging.assertLive();
       requireDatasetScope(scope);
       // The bound is wall-clock, not statements-only: a callback whose
       // engine work finished but whose tail (tile probes, archive reads)
@@ -249,6 +258,6 @@ async function runBoundedEvaluation<T>(
       signal?.removeEventListener("abort", onAbort);
     }
   } finally {
-    if (!deferDisconnect) conn.disconnectSync();
+    if (!deferDisconnect) { conn.disconnectSync(); staging.release(); }
   }
 }

@@ -1,3 +1,4 @@
+import type { AccountScope } from "@/lib/auth/scope";
 import type { DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
 import { publicationSql, removeStage, stageBatch } from "@/lib/geocode/batch";
@@ -161,7 +162,7 @@ export function isGeocodeVerb(id: string): boolean {
 }
 
 export async function compileGeocode(
-  scope: DatasetScope,
+  scope: AccountScope,
   operation: OperationDef,
   params: Record<string, unknown>,
   requireName: boolean,
@@ -184,7 +185,7 @@ export async function compileGeocode(
 
   return {
     // A prepared run has no statement until its preparation has run: the SQL
-    // names a staging path that does not exist yet.
+    // names a private staging input that does not exist yet.
     sql: "",
     name,
     // The generation the answers will be joined to, captured here — before a
@@ -209,8 +210,9 @@ export async function compileGeocode(
         timeoutError: context.timeoutError,
       });
       return {
+        inputs: [staged.stage],
         sql: publicationSql(table, column, staged.stage),
-        // Published **in place of** the SQL, which names a private path (J9).
+        // Published **in place of** the SQL, which names a private input (J9).
         disclosure: {
           kind: "provider_request",
           ...staged.disclosure,
