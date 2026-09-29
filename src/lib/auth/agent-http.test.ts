@@ -1,3 +1,6 @@
+import { GET as historyRead } from "@/app/api/maps/[id]/history/route";
+import { POST as historyUndo } from "@/app/api/maps/[id]/undo/route";
+import { POST as historyRedo } from "@/app/api/maps/[id]/redo/route";
 import { GET as layerRead, PATCH as layerUpdate } from "@/app/api/layers/[id]/route";
 import { defaultStyle } from "@/lib/style/defaults";
 import { accountScope } from "./scope";
@@ -118,6 +121,9 @@ function actualApi() {
       if (path.startsWith("/api/maps/")) {
         const params = { params: Promise.resolve({ id: path.split("/")[3] }) };
         if (path.endsWith("/dependencies")) return mapDependencies(req, params);
+        if (path.endsWith("/history")) return historyRead(req, params);
+        if (path.endsWith("/undo")) return historyUndo(req, params);
+        if (path.endsWith("/redo")) return historyRedo(req, params);
         return req.method === "PATCH" ? mapUpdate(req, params) : mapRead(req, params);
       }
       throw new Error(`Unexpected fixture route: ${path}`);
@@ -350,4 +356,38 @@ it.each(["cookie", "token"])("MCP and assistant %s calls preserve layer ownershi
     expect(JSON.stringify(results)).not.toContain("Private");
   }
   expect(db.prepare("SELECT * FROM layers ORDER BY id").all()).toEqual(before);
+});
+
+it.each(["cookie", "token"])("MCP and assistant %s calls preserve history ownership and hidden-versus-missing errors", async mode => {
+  actualApi();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db);
+  const actors = [admin, member, other];
+  const maps = actors.map(actor => createMap(accountScope(authenticateSession(actor.secret, db)!, db), `Private ${actor.account.name}`));
+  const before = db.prepare("SELECT * FROM maps ORDER BY id").all();
+  for (let i = 0; i < actors.length; i++) {
+    const actor = actors[i], hiddenId = maps[(i + 1) % actors.length].id;
+    const credential = createApiToken(authenticateSession(actor.secret, db)!, "Private maps", db);
+    const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+    expect(await rpc("get_history", { id: maps[i].id }, headers)).toMatchObject({ isError: false, structuredContent: { result: { canUndo: false, canRedo: false } } });
+    const hidden = await rpc("get_history", { id: hiddenId }, headers);
+    expect(hidden).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "not_found" } } } });
+    expect(hidden).toEqual(await rpc("get_history", { id: "missing" }, headers));
+    expect(JSON.stringify(hidden)).not.toMatch(/Private|SELECT|example|owner/);
+    factory.provider = stubProvider([
+      { text: "", toolCalls: [
+        { id: "hidden", name: "undo_change", args: { id: hiddenId } },
+        { id: "missing", name: "undo_change", args: { id: "missing" } },
+      ] },
+      { text: "Unavailable", toolCalls: [] },
+    ]);
+    const events = await send({ runId: await ownReservation(headers), message: "Rename these maps" }, headers);
+    const results = events.filter((event): event is Extract<AssistantEvent, { type: "tool_result" }> => event.type === "tool_result");
+    expect(results).toHaveLength(2);
+    expect(results.map(result => result.ok)).toEqual([false, false]);
+    expect(results[0].body).toMatchObject({ error: { code: "not_found" } });
+    expect(results[0].body).toEqual(results[1].body);
+    expect(JSON.stringify(results)).not.toContain("Private");
+  }
+  expect(db.prepare("SELECT * FROM maps ORDER BY id").all()).toEqual(before);
 });

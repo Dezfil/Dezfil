@@ -8,7 +8,7 @@ import { listOwnedMaps, ownedMapProjectId } from "@/lib/metadata/map-queries";
 import { randomUUID } from "node:crypto";
 import { ApiError } from "@/lib/api/errors";
 import { removeTileArtifacts } from "@/lib/tiles/build";
-import { removeThumbnail } from "@/lib/map-thumbnails";
+import { prepareThumbnailRemoval } from "@/lib/map-thumbnails";
 import { invalidatePublishedToken } from "@/lib/publish/publish-service";
 import { CORNERS, isCorner, type Corner } from "@/lib/corners";
 import { isValidTimeline, TIMELINE_SPEED, type MapTimeline } from "@/lib/timeline";
@@ -603,17 +603,18 @@ export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
 }
 
 export async function removeMap(scope: AccountScope, id: string): Promise<void> {
-  const { map, layerIds } = metadataDb().transaction(() => {
+  const { map, layerIds, removeImages } = metadataDb().transaction(() => {
     const map = requireMap(scope, id);
     const layerIds = listLayers(id).map((l) => l.id);
     // The set the map leaves must notice: the cascade removes nothing
     // here (the reference nulls), but the project's own clock advances.
     touchProjectsOf({ mapId: id });
+    const removeImages = prepareThumbnailRemoval(scope, id);
     deleteMap(id); // layers (and their tile records) cascade
-    return { map, layerIds };
+    return { map, layerIds, removeImages };
   })();
   if (map.publishToken) invalidatePublishedToken(map.publishToken);
   // Archives and thumbnails are files, not rows — remove them explicitly.
-  await removeThumbnail(id);
+  await removeImages();
   await Promise.all(layerIds.map((lid) => removeTileArtifacts(lid)));
 }

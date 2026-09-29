@@ -1,3 +1,4 @@
+import { mapChildren } from "./openapi-map-children";
 import { layerAccess } from "./openapi-layer-access";
 import { mapAccess } from "./openapi-map-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
@@ -123,7 +124,7 @@ export const MAP_RESOURCE_PATHS = {
     })),
   },
   "/api/maps/{id}/thumbnail": {
-    get: op(mapAccess({
+    get: op(mapChildren(mapAccess({
       summary: "Read a map's snapshot",
       description:
         "The PNG the builder last captured for this map — the " +
@@ -132,7 +133,7 @@ export const MAP_RESOURCE_PATHS = {
         "name the theme to read that one. The fallback order: " +
         "the named theme's image, then the map's single image, then " +
         "the other theme's; a request naming no theme answers the " +
-        "single image, then light, then dark. Only a map with no " +
+        "light image, then dark, then the single image. Only a map with no " +
         "image at all is refused.",
       tag: "Maps",
       // UI sugar, not a map capability — outside the agent tool set.
@@ -146,8 +147,8 @@ export const MAP_RESOURCE_PATHS = {
         },
         "404": { description: "No snapshot yet." },
       },
-    })),
-    put: op(mapAccess({
+    }))),
+    put: op(mapChildren(mapAccess({
       summary: "Store a map's snapshot",
       description:
         "A PNG body, at most 4 MB — captured by the builder after " +
@@ -189,7 +190,7 @@ export const MAP_RESOURCE_PATHS = {
             "same cycle. The map's images are unchanged.",
         },
       },
-    })),
+    }))),
   },
   "/api/maps/{id}/widget-values": {
     post: op(layerAccess(mapAccess({

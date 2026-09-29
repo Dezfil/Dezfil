@@ -12,7 +12,7 @@ import { createApiToken } from "./credentials";
 const effects = vi.hoisted(() => ({ inspect: vi.fn(async () => ({ url: "https://styles.example.test/style.json", name: null, attribution: [] })),
   thumbnail: vi.fn(async () => {}), tiles: vi.fn(async () => {}) }));
 vi.mock("@/lib/basemap-custom", () => ({ resolveCustomBasemapWrite: effects.inspect }));
-vi.mock("@/lib/map-thumbnails", () => ({ removeThumbnail: effects.thumbnail, copyThumbnail: effects.thumbnail }));
+vi.mock("@/lib/map-thumbnails", () => ({ prepareThumbnailRemoval: () => effects.thumbnail, removeThumbnail: effects.thumbnail, copyThumbnail: effects.thumbnail }));
 vi.mock("@/lib/tiles/build", () => ({ removeTileArtifacts: effects.tiles }));
 
 let db: Database;

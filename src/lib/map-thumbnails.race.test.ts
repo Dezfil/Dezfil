@@ -1,3 +1,7 @@
+import { closeMetadataDb } from "@/lib/metadata/db";
+import { createMap } from "@/lib/map-service";
+import { insertMap } from "@/lib/metadata/maps";
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import path from "node:path";
@@ -5,8 +9,8 @@ import path from "node:path";
 /**
  * a themed pair must publish as one set. Two cycles completing at
  * once interleaved their per-theme renames in the review's reproduction, leaving A's light
- * beside B's dark. The ordering is forced here rather than hoped for: a rename yields, and
- * cycle A's light rename (its partner, renamed second) yields longest, so without one
+ * beside B's dark. The ordering is forced here rather than hoped for: a staged write yields, and
+ * cycle A's light write yields longest, so without one
  * publication per map the order would be A dark, B dark, B light, A light, the cleanups after
  * (the manifest switch makes the pair one file; the case still holds that one
  * cycle's pair results).
@@ -16,10 +20,10 @@ vi.mock("node:fs/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs/promises")>();
   return {
     ...actual,
-    rename: async (from: string, to: string) => {
-      const wait = /\.A\.light\.png$/.test(from) ? 4 : 2;
+    writeFile: async (...args: Parameters<typeof actual.writeFile>) => {
+      const wait = /\.A\.light\.png/.test(String(args[0])) ? 4 : 2;
       await new Promise((r) => setTimeout(r, wait));
-      return actual.rename(from, to);
+      return actual.writeFile(...args);
     },
     // The cleanup's listing yields longest, so a publication's sweep
     // cannot hide the interleaving by deleting the other cycle's file
@@ -38,23 +42,28 @@ let dir: string;
 beforeEach(async () => {
   dir = await mkdtemp(path.join(process.cwd(), ".tmp-test-"));
   process.env.DEZFIL_DATA_DIR = path.join(dir, "data");
+  closeMetadataDb();
+  const scope = testAccountScope();
+  const template = createMap(scope, "Thumbnail fixture");
+  for (const id of ["m"]) insertMap(scope, { ...template, id });
 });
 
 afterEach(async () => {
+  closeMetadataDb();
   delete process.env.DEZFIL_DATA_DIR;
   await rm(dir, { recursive: true, force: true });
 });
 
 describe("a themed pair publishes as one set", () => {
   it("two cycles completing at once leave one cycle's pair and nothing pending", async () => {
-    await saveThemedThumbnail("m", "light", "A", Buffer.from("light-A"));
-    await saveThemedThumbnail("m", "light", "B", Buffer.from("light-B"));
+    await saveThemedThumbnail(testAccountScope(), "m", "light", "A", Buffer.from("light-A"));
+    await saveThemedThumbnail(testAccountScope(), "m", "light", "B", Buffer.from("light-B"));
     const outcomes = await Promise.all([
-      saveThemedThumbnail("m", "dark", "A", Buffer.from("dark-A")),
-      saveThemedThumbnail("m", "dark", "B", Buffer.from("dark-B")),
+      saveThemedThumbnail(testAccountScope(), "m", "dark", "A", Buffer.from("dark-A")),
+      saveThemedThumbnail(testAccountScope(), "m", "dark", "B", Buffer.from("dark-B")),
     ]);
-    const light = (await readThumbnail("m", "light"))!.toString();
-    const dark = (await readThumbnail("m", "dark"))!.toString();
+    const light = (await readThumbnail(testAccountScope(), "m", "light"))!.toString();
+    const dark = (await readThumbnail(testAccountScope(), "m", "dark"))!.toString();
     expect(light.slice(-1), `${light} + ${dark}`).toBe(dark.slice(-1));
     // Exactly one publication. The other cycle's dark write ran in the
     // next turn, found its light already discarded, and is held alone:

@@ -46,6 +46,18 @@ test("two ordinary accounts and an admin keep map lists and copied map URLs priv
         const missing = await contexts[i].request.get("/api/maps/absent-map");
         expect(hidden.status()).toBe(404);
         expect(await hidden.json()).toEqual(await missing.json());
+        for (const suffix of ["history", "thumbnail"]) {
+          const hiddenChild = await contexts[i].request.get(`/api/maps/${other.id}/${suffix}`);
+          const absentChild = await contexts[i].request.get(`/api/maps/absent-map/${suffix}`);
+          expect(hiddenChild.status()).toBe(404);
+          expect(await hiddenChild.json()).toEqual(await absentChild.json());
+        }
+        for (const suffix of ["undo", "redo"]) {
+          const hiddenChild = await contexts[i].request.post(`/api/maps/${other.id}/${suffix}`);
+          const absentChild = await contexts[i].request.post(`/api/maps/absent-map/${suffix}`);
+          expect(hiddenChild.status()).toBe(404);
+          expect(await hiddenChild.json()).toEqual(await absentChild.json());
+        }
         await page.goto(`/maps/${other.id}`);
         await expect(page.getByText("The requested resource was not found.", { exact: true })).toBeVisible();
         await expect(page.getByText(other.name, { exact: true })).toHaveCount(0);

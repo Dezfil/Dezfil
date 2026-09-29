@@ -14,7 +14,7 @@ export async function POST(_request: Request, { params }: Params) {
     const { id } = await params;
     const copy = duplicateMap(scope, id);
     // The copy keeps the original's snapshot until its own first capture.
-    await copyThumbnail(id, copy.id);
+    await copyThumbnail(scope, id, copy.id);
     return NextResponse.json(
       { ...copy, projectId: ownedMapProjectId(scope, copy.id) },
       { status: 201 },

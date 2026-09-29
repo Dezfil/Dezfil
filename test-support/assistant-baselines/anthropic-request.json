@@ -3003,7 +3003,7 @@
     },
     {
       "name": "get_history",
-      "description": "Undo/redo availability. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. Whether the map currently has anything to undo or redo. Every qualifying change (style, viz, filters, names, visibility, layer add/delete, basemap, note, legend, layer order, timeline dock) lands on one per-map history, whoever made it; viewport moves, publish state, and a playing timeline do not.",
+      "description": "Undo/redo availability. History and thumbnails inherit the map owner's private access. Replay checks every target and parent reference before changing the whole gesture; hidden, missing or mismatched references return not_found and leave history and artifacts unchanged. A deleted layer can be restored under its recorded identity and parent. Thumbnail writes recheck access after waiting and before publication. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. Whether the map currently has anything to undo or redo. Every qualifying change (style, viz, filters, names, visibility, layer add/delete, basemap, note, legend, layer order, timeline dock) lands on one per-map history, whoever made it; viewport moves, publish state, and a playing timeline do not.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -3019,7 +3019,7 @@
     },
     {
       "name": "undo_change",
-      "description": "Undo the newest change. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. Reverts the latest step on the map's history. Consecutive edits in a group form a step, and an edit from outside the group between them starts a new one, so one turn's edits can span several steps. Restores are verbatim: exactly the values stored before the change. Returns the refreshed map with fresh availability; 409 when there is nothing to undo. Redo re-applies the stored change.",
+      "description": "Undo the newest change. History and thumbnails inherit the map owner's private access. Replay checks every target and parent reference before changing the whole gesture; hidden, missing or mismatched references return not_found and leave history and artifacts unchanged. A deleted layer can be restored under its recorded identity and parent. Thumbnail writes recheck access after waiting and before publication. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. Reverts the latest step on the map's history. Consecutive edits in a group form a step, and an edit from outside the group between them starts a new one, so one turn's edits can span several steps. Restores are verbatim: exactly the values stored before the change. Returns the refreshed map with fresh availability; 409 when there is nothing to undo. Redo re-applies the stored change.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -3035,7 +3035,7 @@
     },
     {
       "name": "redo_change",
-      "description": "Redo the newest undone change. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. Re-applies the most recently undone change (or grouped turn), exactly as it was stored. Any fresh edit after an undo discards the redo branch. 409 when there is nothing to redo.",
+      "description": "Redo the newest undone change. History and thumbnails inherit the map owner's private access. Replay checks every target and parent reference before changing the whole gesture; hidden, missing or mismatched references return not_found and leave history and artifacts unchanged. A deleted layer can be restored under its recorded identity and parent. Thumbnail writes recheck access after waiting and before publication. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. Re-applies the most recently undone change (or grouped turn), exactly as it was stored. Any fresh edit after an undo discards the redo branch. 409 when there is nothing to redo.",
       "input_schema": {
         "type": "object",
         "properties": {

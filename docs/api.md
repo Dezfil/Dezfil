@@ -276,3 +276,11 @@ belong to the exact map being edited. A missing or mismatched reference now
 answers `not_found` (404), replacing the former `invalid_request` (400).
 Malformed input still answers `invalid_request`. An unchanged orphan widget
 already stored in history remains readable and can be echoed unchanged.
+
+History and thumbnails inherit the map's ownership. Undo and redo validate the
+whole recorded gesture, including layer targets and saved map references,
+before changing records or deleting artifacts. A foreign or mismatched replay
+reference returns `not_found` and leaves the cursor and all records unchanged.
+Restoring a deleted layer preserves its recorded identity and parent; it cannot
+replace a live layer belonging to another map. Thumbnail reads, writes and
+copies check the owning map, and staged writes recheck access before publishing.

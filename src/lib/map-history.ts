@@ -1,3 +1,4 @@
+import { assertHistoryRefs } from "./map-history-refs";
 import type { AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
@@ -66,17 +67,18 @@ async function applyHistory(
   id: string,
   direction: "undo" | "redo",
 ): Promise<MapWithHistory> {
-  requireMap(scope, id);
-  const steps = direction === "undo" ? undoSteps(id) : redoSteps(id);
-  if (steps.length === 0) {
-    throw new ApiError(
-      "invalid_request",
-      direction === "undo" ? "Nothing to undo." : "Nothing to redo.",
-      409,
-    );
-  }
   const removedLayers: string[] = [];
   metadataDb().transaction(() => {
+    requireMap(scope, id);
+    const steps = direction === "undo" ? undoSteps(id) : redoSteps(id);
+    if (steps.length === 0) {
+      throw new ApiError(
+        "invalid_request",
+        direction === "undo" ? "Nothing to undo." : "Nothing to redo.",
+        409,
+      );
+    }
+    assertHistoryRefs(scope, id, steps, direction);
     for (const step of steps) applyStep(step, direction, removedLayers);
     const last = steps[steps.length - 1];
     setHistoryCursor(id, direction === "undo" ? last.seq - 1 : last.seq);

@@ -39,7 +39,7 @@ export async function GET(request: Request, { params }: Params) {
     const scope = requireRequestScope(request);
     const { id } = await params;
     requireMap(scope, id);
-    const png = await readThumbnail(id, themeOf(request));
+    const png = await readThumbnail(scope, id, themeOf(request));
     if (!png) {
       throw new ApiError("not_found", "This map has no snapshot yet.", 404);
     }
@@ -92,12 +92,12 @@ export async function PUT(request: Request, { params }: Params) {
       throw new ApiError("invalid_request", "The body is not a PNG.", 400);
     }
     if (theme) {
-      const outcome = await saveThemedThumbnail(id, theme, cycle!, body);
+      const outcome = await saveThemedThumbnail(scope, id, theme, cycle!, body);
       return new NextResponse(null, {
         status: outcome === "held" ? 202 : 204,
       });
     }
-    await saveThumbnail(id, body);
+    await saveThumbnail(scope, id, body);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return errorResponse(error);

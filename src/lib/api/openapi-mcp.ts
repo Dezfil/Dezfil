@@ -1,3 +1,4 @@
+import { mapChildren } from "./openapi-map-children";
 import { mapAccess } from "./openapi-map-access";
 import { authenticatedOp } from "./openapi-authenticated";
 import { HISTORY_MOVE, LOCAL_READ } from "./operation-mcp";
@@ -22,7 +23,7 @@ export const changeGroupParam = {
 
 export const HISTORY_PATHS = {
       "/api/maps/{id}/history": {
-        get: op(mapAccess({
+        get: op(mapChildren(mapAccess({
           summary: "Undo/redo availability",
           description:
             "Whether the map currently has anything to undo or redo. Every " +
@@ -37,10 +38,10 @@ export const HISTORY_PATHS = {
           effects: READ_ONLY,
           parameters: [pathParam("id", "Map id.")],
           responses: { "200": jsonOk("#/components/schemas/History") },
-        })),
+        }))),
       },
       "/api/maps/{id}/undo": {
-        post: op(mapAccess({
+        post: op(mapChildren(mapAccess({
           summary: "Undo the newest change",
           description:
             "Reverts the latest step on the map's history. Consecutive " +
@@ -56,10 +57,10 @@ export const HISTORY_PATHS = {
           effects: writes(resource("maps", "id"), resource("layers")),
           parameters: [pathParam("id", "Map id.")],
           responses: { "200": jsonOk("#/components/schemas/MapWithHistory") },
-        })),
+        }))),
       },
       "/api/maps/{id}/redo": {
-        post: op(mapAccess({
+        post: op(mapChildren(mapAccess({
           summary: "Redo the newest undone change",
           description:
             "Re-applies the most recently undone change (or grouped turn), " +
@@ -71,7 +72,7 @@ export const HISTORY_PATHS = {
           effects: writes(resource("maps", "id"), resource("layers")),
           parameters: [pathParam("id", "Map id.")],
           responses: { "200": jsonOk("#/components/schemas/MapWithHistory") },
-        })),
+        }))),
       },
 };
 
