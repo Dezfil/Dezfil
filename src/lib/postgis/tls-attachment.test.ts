@@ -46,7 +46,7 @@ for (const [form, url] of Object.entries(forms)) {
       const body = { name: "TLS test", url: url(modes), ...extra };
       if (!edit) return POST(testAccountRequest(request(body)));
       insertConnection(testAccountScope(), { ...saved, ssl: operation === "edit-on" });
-      return PATCH(request(body), { params: Promise.resolve({ id: saved.id }) });
+      return PATCH(testAccountRequest(request(body)), { params: Promise.resolve({ id: saved.id }) });
     };
     describe(`${form} ${operation} through real route and outgoing attachment`, () => {
       it.each([
@@ -71,8 +71,8 @@ for (const [form, url] of Object.entries(forms)) {
           expect(response.status).toBe(400);
           expect(await response.json()).toEqual({ error: { code: "invalid_request", message: refusal } });
           if (edit) {
-            expect(getConnection(saved.id)).toMatchObject({ database: "old", ssl: operation === "edit-on", status: "never_checked" });
-            expect(connectionPassword(saved.id)).toBe(saved.password);
+            expect(getConnection(testAccountScope(), saved.id)).toMatchObject({ database: "old", ssl: operation === "edit-on", status: "never_checked" });
+            expect(connectionPassword(testAccountScope(), saved.id)).toBe(saved.password);
           }
         },
       );

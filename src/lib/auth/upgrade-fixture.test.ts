@@ -1,3 +1,4 @@
+import { testAccountScope } from "@/lib/test-support/accounts";
 import { cp, mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import Database from "better-sqlite3";
@@ -33,7 +34,7 @@ it("upgrades a copy of real old-schema artifacts without touching the seed or lo
       vi.stubEnv("DEZFIL_DATA_DIR", copy);
       vi.stubEnv("DEZFIL_SECRET_KEY", undefined);
       resetSecretKeyCache();
-      expect(connectionPassword(legacy.connection, db)).toBe(legacy.password);
+      expect(connectionPassword(testAccountScope(db, first.account.id), legacy.connection, db)).toBe(legacy.password);
       expect(await legacyFiles(source)).toEqual(original);
       expect((await legacyFiles(copy))["tables/legacy.parquet"]).toBe(original["tables/legacy.parquet"]);
     } finally { db.close(); }

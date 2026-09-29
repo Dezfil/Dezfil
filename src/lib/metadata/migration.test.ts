@@ -168,7 +168,7 @@ describe("v36: PostGIS status memory", () => {
 
       const db = open(file);
       expect(db.pragma("user_version", { simple: true })).toBe(MIGRATIONS.length);
-      expect(getConnection("legacy", db)).toMatchObject({
+      expect(getConnection(testAccountScope(db), "legacy", db)).toMatchObject({
         status: "never_checked",
         lastCheckedAt: null,
         lastCheckError: null,

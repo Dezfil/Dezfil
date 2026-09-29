@@ -1,10 +1,11 @@
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "./db";
 import { deriveTableName } from "@/lib/ingest/naming";
 import { geometryEvidence, type GeometryEvidence } from "@/lib/geometry-evidence";
 import { serializeGeometryStorage, type GeometryStorage } from "@/lib/geometry/state";
-import { ownedTableNames } from "./owned-tables";
+import { listOwnedTables, ownedTableNames } from "./owned-tables";
 import { ApiError } from "@/lib/api/errors";
 
 export type TableFormat =
@@ -246,10 +247,12 @@ export function listTables(db: Database = metadataDb()): DataTable[] {
 /** PostGIS snapshots owned by one durable connection id. The stored display
  * name is provenance text only and never participates in ownership. */
 export function listPostgisSnapshots(
+  scope: AccountScope,
   connectionId: string,
   db: Database = metadataDb(),
 ): DataTable[] {
-  return listTables(db).filter(
+  requireOwnedResource(scope, "connection", connectionId, db);
+  return listOwnedTables(scope, db).filter(
     (table) =>
       table.source === "postgis" &&
       table.sourceParams?.connectionId === connectionId,

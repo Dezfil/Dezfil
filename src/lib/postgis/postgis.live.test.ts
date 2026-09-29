@@ -317,16 +317,16 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
       });
     const before = await sourceCount();
 
-    const unfiltered = await previewPostgis("preview-live", {
+    const unfiltered = await previewPostgis(testAccountScope(), "preview-live", {
       schema: "public",
       table: "dezfil_live_pts",
     });
-    const filtered = await previewPostgis("preview-live", {
+    const filtered = await previewPostgis(testAccountScope(), "preview-live", {
       schema: "public",
       table: "dezfil_live_pts",
       filter: "id > 5",
     });
-    const empty = await previewPostgis("preview-live", {
+    const empty = await previewPostgis(testAccountScope(), "preview-live", {
       schema: "public",
       table: "dezfil_live_pts",
       filter: "false",
@@ -343,7 +343,7 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
       "geom",
     ]);
     await expect(
-      previewPostgis("preview-live", {
+      previewPostgis(testAccountScope(), "preview-live", {
         schema: "public",
         table: "dezfil_live_pts",
         filter: "true; SELECT 1",
@@ -354,7 +354,7 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
         "The filter must be a single WHERE expression: no statement separators or comments.",
     });
     await expect(
-      previewPostgis("preview-live", {
+      previewPostgis(testAccountScope(), "preview-live", {
         schema: "public",
         table: "dezfil_live_pts",
         filter: "missing_column = 1",
@@ -439,11 +439,11 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
     expect(getTableByName(imported.name)).toEqual(beforeCredentialFailure);
 
     const savePassword = await updateConnection(
-      new Request(`http://localhost/api/connections/postgis/${created.id}`, {
+      testAccountRequest(new Request(`http://localhost/api/connections/postgis/${created.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ password: newPassword }),
-      }),
+      })),
       { params: Promise.resolve({ id: created.id }) },
     );
     expect(savePassword.status).toBe(200);
@@ -456,24 +456,24 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
     expect(refreshed.file).not.toBe(imported.file);
 
     const repoint = await updateConnection(
-      new Request(`http://localhost/api/connections/postgis/${created.id}`, {
+      testAccountRequest(new Request(`http://localhost/api/connections/postgis/${created.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ database: "template1" }),
-      }),
+      })),
       { params: Promise.resolve({ id: created.id }) },
     );
     expect(repoint.status).toBe(200);
     expect(((await repoint.json()) as { id: string }).id).toBe(created.id);
-    expect(getConnection(created.id)?.database).toBe("template1");
+    expect(getConnection(testAccountScope(), created.id)?.database).toBe("template1");
 
-    const beforeHostRepoint = getConnection(created.id);
+    const beforeHostRepoint = getConnection(testAccountScope(), created.id);
     const refusedHostRepoint = await updateConnection(
-      new Request(`http://localhost/api/connections/postgis/${created.id}`, {
+      testAccountRequest(new Request(`http://localhost/api/connections/postgis/${created.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ host: "localhost" }),
-      }),
+      })),
       { params: Promise.resolve({ id: created.id }) },
     );
     expect(refusedHostRepoint.status).toBe(400);
@@ -484,18 +484,18 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
           "Enter the password again when changing the host or port, or turning SSL off.",
       },
     });
-    expect(getConnection(created.id)).toEqual(beforeHostRepoint);
+    expect(getConnection(testAccountScope(), created.id)).toEqual(beforeHostRepoint);
 
     const completedHostRepoint = await updateConnection(
-      new Request(`http://localhost/api/connections/postgis/${created.id}`, {
+      testAccountRequest(new Request(`http://localhost/api/connections/postgis/${created.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ host: "localhost", password: newPassword }),
-      }),
+      })),
       { params: Promise.resolve({ id: created.id }) },
     );
     expect(completedHostRepoint.status).toBe(200);
-    expect(getConnection(created.id)?.host).toBe("localhost");
+    expect(getConnection(testAccountScope(), created.id)?.host).toBe("localhost");
 
     const beforeMissingRecipe = getTableByName(imported.name);
     await expect(refreshTable(testAccountScope(), imported.name)).rejects.toMatchObject({

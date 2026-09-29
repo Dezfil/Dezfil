@@ -295,3 +295,14 @@ or artifact work. Refresh and geometry changes keep the durable identity and
 owner, rechecking account activity before committing. Hidden and missing names
 and references return the same `404 not_found` response. This replaces the
 previous `map_not_found` response for a missing sketch parent.
+
+Saved PostGIS connections are private to their creator. The list, edits, tests,
+source catalogue, previews and snapshot lists use that account, including for
+admins. Names are unique within the account. Hidden and missing connection IDs
+both return `404 not_found` with the same generic message before credentials,
+source access or health writes. Stored import and refresh references obey the
+same rule; an imported dataset does not grant access to its source connection.
+Private source work rechecks access before committing or recording health.
+This is a breaking error-contract change for a snapshot whose saved connection
+is missing: refresh now returns `404 not_found` instead of `409 not_refreshable`.
+Connection absence messages no longer echo the submitted ID.

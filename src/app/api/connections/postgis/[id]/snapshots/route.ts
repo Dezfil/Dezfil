@@ -1,26 +1,12 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
-import { ApiError, errorResponse } from "@/lib/api/errors";
-import { getConnection } from "@/lib/metadata/connections";
-import { listPostgisSnapshots } from "@/lib/metadata/tables";
-import { tableProjectIds } from "@/lib/metadata/projects";
+import { errorResponse } from "@/lib/api/errors";
+import { connectionSnapshots } from "@/lib/postgis/connection-service";
 
 type Params = { params: Promise<{ id: string }> };
-
-/** List workspace snapshots by their stored connection id. */
-export async function GET(_request: Request, { params }: Params) {
+export async function GET(request: Request, { params }: Params) {
   try {
-    const { id } = await params;
-    if (!getConnection(id)) {
-      throw new ApiError("not_found", `No connection with id "${id}".`, 404);
-    }
-    const memberships = tableProjectIds();
-    return NextResponse.json({
-      snapshots: listPostgisSnapshots(id).map((t) => ({
-        ...t,
-        projectIds: memberships.get(t.id) ?? [],
-      })),
-    });
-  } catch (error) {
-    return errorResponse(error);
-  }
+    const scope = requireRequestScope(request);
+    return NextResponse.json(await connectionSnapshots(scope, (await params).id));
+  } catch (error) { return errorResponse(error); }
 }

@@ -91,3 +91,6 @@ export const OWNERSHIP_MIGRATION = `
 
 /** Name-addressed dataset services now select an explicit owner. */
 export const DATASET_NAMES_MIGRATION = `DROP INDEX idx_data_tables_name_transition;`;
+
+/** Connection lookup and mutations now require account scope. */
+export const CONNECTION_NAMES_MIGRATION = `DROP INDEX idx_pg_connections_name_transition;`;

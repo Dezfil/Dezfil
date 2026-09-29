@@ -1,3 +1,5 @@
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
+import type { AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
 import {
   recordConnectionCheck,
@@ -31,10 +33,11 @@ export function connectionFailureSentence(error: unknown): string {
 }
 
 export function recordConnectionHealth(
+  scope: AccountScope,
   id: string,
   health: ConnectionHealth,
 ): void {
-  recordConnectionCheck(id, {
+  recordConnectionCheck(scope, id, {
     outcome: health.postgisVersion ? "connected" : "no_postgis",
     serverVersion: health.serverVersion,
     postgisVersion: health.postgisVersion,
@@ -48,16 +51,18 @@ export function isConnectionLevelFailure(error: unknown): error is ApiError {
   );
 }
 
-export function recordConnectionFailure(id: string, error: unknown): void {
+export function recordConnectionFailure(scope: AccountScope, id: string, error: unknown): void {
+  requireOwnedResource(scope, "connection", id);
   if (!isConnectionLevelFailure(error)) return;
-  recordConnectionFailureMessage(id, connectionFailureSentence(error));
+  recordConnectionFailureMessage(scope, id, connectionFailureSentence(error));
 }
 
 export function recordConnectionFailureMessage(
+  scope: AccountScope,
   id: string,
   message: string,
 ): void {
-  recordConnectionCheck(id, {
+  recordConnectionCheck(scope, id, {
     outcome: "failing",
     error: message,
   });

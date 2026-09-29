@@ -1,4 +1,4 @@
-import { testAccountScope } from "@/lib/test-support/accounts";
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { randomInt, randomUUID } from "node:crypto";
@@ -69,9 +69,9 @@ describe.skipIf(!url)(url ? "live preview ownership" : "SKIP: DEZFIL_TEST_PG_URL
     let pending: Promise<Response> | undefined;
     let response: Response | undefined;
     let measured = false;
-    const makeRequest = (table: string, signal?: AbortSignal) => POST(new Request("http://localhost/api/connections/postgis/fixture/preview", {
+    const makeRequest = (table: string, signal?: AbortSignal) => POST(testAccountRequest(new Request("http://localhost/api/connections/postgis/fixture/preview", {
       method: "POST", body: JSON.stringify({ schema, table }), signal,
-    }), { params: Promise.resolve({ id }) });
+    })), { params: Promise.resolve({ id }) });
     let identity: string | undefined;
     const owned = async () => {
       expect(identity, "The production attachment must have a unique source identity").toMatch(/^dezfil_preview_[a-f0-9]{32}$/);
@@ -118,8 +118,8 @@ describe.skipIf(!url)(url ? "live preview ownership" : "SKIP: DEZFIL_TEST_PG_URL
       }
       // the preview records no health, so the connection inserted for
       // this run stays unchecked however the preview ended.
-      expect(getConnection(id)?.status).toBe("never_checked");
-      expect(getConnection(id)?.lastCheckError).toBeNull();
+      expect(getConnection(testAccountScope(), id)?.status).toBe("never_checked");
+      expect(getConnection(testAccountScope(), id)?.lastCheckError).toBeNull();
       // The independent holder is still held; a normal sibling must work.
       const normal = await makeRequest("normal");
       expect(normal.status).toBe(200);

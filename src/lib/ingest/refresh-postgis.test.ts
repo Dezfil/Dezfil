@@ -36,7 +36,7 @@ function seed(): void {
     ssl: true,
   });
   requireTarget.mockImplementation(() => {
-    const current = getConnection("c1")!;
+    const current = getConnection(testAccountScope(), "c1")!;
     return {
       connection: current,
       target: { ...current, password: "stored-value" },
@@ -84,7 +84,7 @@ describe("PostGIS refresh status", () => {
   });
 
   it("blocks a stored Failing connection before source contact", async () => {
-    recordConnectionCheck("c1", {
+    recordConnectionCheck(testAccountScope(), "c1", {
       outcome: "failing",
       error: "Authentication failed. Check the username and password.",
     });
@@ -101,7 +101,7 @@ describe("PostGIS refresh status", () => {
     });
     expect(buildPostgisArtifact).not.toHaveBeenCalled();
     expect(getTableByName("roads")?.rowCount).toBe(12);
-    expect(getConnection("c1")?.status).toBe("failing");
+    expect(getConnection(testAccountScope(), "c1")?.status).toBe("failing");
   });
 
   it("records a successful refresh and swaps only after the build succeeds", async () => {
@@ -118,7 +118,7 @@ describe("PostGIS refresh status", () => {
     });
     const refreshed = await refreshTable(testAccountScope(), "roads");
     expect(refreshed.rowCount).toBe(20);
-    expect(getConnection("c1")).toMatchObject({
+    expect(getConnection(testAccountScope(), "c1")).toMatchObject({
       status: "connected",
       serverVersion: "PostgreSQL 16.4",
       postgisVersion: "3.4.3",
@@ -127,13 +127,13 @@ describe("PostGIS refresh status", () => {
 
   it("maps a missing stored source table and leaves the previous data intact", async () => {
     const before = getTableByName("roads");
-    recordConnectionCheck("c1", {
+    recordConnectionCheck(testAccountScope(), "c1", {
       outcome: "connected",
       checkedAt: "2026-08-31T10:00:00.000Z",
       serverVersion: "PostgreSQL 16.4",
       postgisVersion: "3.4.3",
     });
-    const connectionBefore = getConnection("c1");
+    const connectionBefore = getConnection(testAccountScope(), "c1");
     buildPostgisArtifact.mockImplementation(
       async (_target, _recipe, _artifact, observeHealth) => {
         observeHealth({
@@ -153,6 +153,6 @@ describe("PostGIS refresh status", () => {
         'The stored recipe for "public.roads" no longer resolves on this connection. The previous snapshot data is unchanged.',
     });
     expect(getTableByName("roads")).toEqual(before);
-    expect(getConnection("c1")).toEqual(connectionBefore);
+    expect(getConnection(testAccountScope(), "c1")).toEqual(connectionBefore);
   });
 });

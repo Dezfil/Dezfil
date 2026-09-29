@@ -1,3 +1,5 @@
+import type { AccountScope } from "@/lib/auth/scope";
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { assertPreviewActive } from "./preview-owner";
 import type { RemoteColumn } from "./access";
@@ -168,6 +170,7 @@ export async function buildPostgisPreview(
  * status memory exactly as they found it. The connection test, an import
  * and a refresh remain the operations that write it. */
 export async function previewPostgis(
+  scope: AccountScope,
   connectionId: string,
   input: unknown,
   build: typeof buildPostgisPreview = buildPostgisPreview,
@@ -175,11 +178,12 @@ export async function previewPostgis(
 ): Promise<Omit<PostgisPreviewResult, "connectionHealth">> {
   assertPreviewActive(signal);
   const request = resolvePostgisPreviewRequest(input);
-  const { target } = requireTarget(connectionId);
+  const { target } = requireTarget(scope, connectionId);
   let result: PostgisPreviewResult;
   try {
     result = await build(target, request, undefined, signal);
     assertPreviewActive(signal);
+    requireOwnedResource(scope, "connection", connectionId);
   } catch (caught) {
     throw signal?.aborted ? new EvaluationCancelled() : caught;
   }

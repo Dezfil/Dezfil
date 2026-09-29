@@ -1201,7 +1201,7 @@
     },
     {
       "name": "list_postgis_connections",
-      "description": "List PostGIS connections. Saved connections — passwords are write-only and never appear in any response.",
+      "description": "List PostGIS connections. Connections are private to the authenticated account, including for administrators. Names are unique only within that account. Hidden or missing connection references return not_found before reading credentials, contacting the source or changing stored health. Imports and refreshes recheck connection ownership and account activity before committing. Snapshots and their project memberships include only the caller's datasets. Saved connections — passwords are write-only and never appear in any response.",
       "input_schema": {
         "type": "object",
         "properties": {}
@@ -1209,7 +1209,7 @@
     },
     {
       "name": "create_postgis_connection",
-      "description": "Create a PostGIS connection. Created resources belong to the authenticated account. Submitted owner identities cannot assign or transfer ownership. Tests the connection first and saves only on success — nothing broken is ever stored. The password is encrypted at rest and never returned.",
+      "description": "Create a PostGIS connection. Created resources belong to the authenticated account. Submitted owner identities cannot assign or transfer ownership. Connections are private to the authenticated account, including for administrators. Names are unique only within that account. Hidden or missing connection references return not_found before reading credentials, contacting the source or changing stored health. Imports and refreshes recheck connection ownership and account activity before committing. Snapshots and their project memberships include only the caller's datasets. Tests the connection first and saves only on success — nothing broken is ever stored. The password is encrypted at rest and never returned.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1251,7 +1251,7 @@
     },
     {
       "name": "update_postgis_connection",
-      "description": "Update a PostGIS connection. Accepts any subset of editable fields. Connectivity changes are tested as a merged candidate before storage. A blank or omitted password keeps the stored password only when the host and port still identify the saved endpoint and the update does not turn SSL off. Changing the host or port, or turning SSL off, requires an entered password. Credentials and a submitted URL are never returned.",
+      "description": "Update a PostGIS connection. Connections are private to the authenticated account, including for administrators. Names are unique only within that account. Hidden or missing connection references return not_found before reading credentials, contacting the source or changing stored health. Imports and refreshes recheck connection ownership and account activity before committing. Snapshots and their project memberships include only the caller's datasets. Accepts any subset of editable fields. Connectivity changes are tested as a merged candidate before storage. A blank or omitted password keeps the stored password only when the host and port still identify the saved endpoint and the update does not turn SSL off. Changing the host or port, or turning SSL off, requires an entered password. Credentials and a submitted URL are never returned.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1296,7 +1296,7 @@
     },
     {
       "name": "delete_postgis_connection",
-      "description": "Delete a PostGIS connection. Imported snapshots stay intact; their refresh then reports the missing connection.",
+      "description": "Delete a PostGIS connection. Connections are private to the authenticated account, including for administrators. Names are unique only within that account. Hidden or missing connection references return not_found before reading credentials, contacting the source or changing stored health. Imports and refreshes recheck connection ownership and account activity before committing. Snapshots and their project memberships include only the caller's datasets. Imported snapshots stay intact; their refresh then reports the missing connection.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1312,7 +1312,7 @@
     },
     {
       "name": "test_postgis_connection",
-      "description": "Test a PostGIS connection. Reachability, authentication, and PostGIS presence — each failure is specific.",
+      "description": "Test a PostGIS connection. Connections are private to the authenticated account, including for administrators. Names are unique only within that account. Hidden or missing connection references return not_found before reading credentials, contacting the source or changing stored health. Imports and refreshes recheck connection ownership and account activity before committing. Snapshots and their project memberships include only the caller's datasets. Reachability, authentication, and PostGIS presence — each failure is specific.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1328,7 +1328,7 @@
     },
     {
       "name": "list_postgis_tables",
-      "description": "List relations on a PostGIS connection. Lists importable tables, views, and materialized views with independent PostGIS-extension membership, geometry or geography facts, and honest planner-estimate states.",
+      "description": "List relations on a PostGIS connection. Connections are private to the authenticated account, including for administrators. Names are unique only within that account. Hidden or missing connection references return not_found before reading credentials, contacting the source or changing stored health. Imports and refreshes recheck connection ownership and account activity before committing. Snapshots and their project memberships include only the caller's datasets. Lists importable tables, views, and materialized views with independent PostGIS-extension membership, geometry or geography facts, and honest planner-estimate states.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1344,7 +1344,7 @@
     },
     {
       "name": "preview_postgis_relation",
-      "description": "Preview a PostGIS relation. Reads at most five rows from one saved connection and relation. The optional WHERE expression passes through the import guard and is applied to the preview. The caller cannot supply credentials, source SQL, or a row limit. Caller departure prevents later stages of this preview and discards late results (empty HTTP 499). Every source connection opened by the preview attachment has a 30-second per-statement ceiling; timeout answers HTTP 408 query_timeout. A departed caller's blocked source statement runs to that ceiling: the interrupt is observed between scan chunks and cannot reach a scan blocked in a libpq read. The aborted case's 35-second bound on responsive source and transport is met by the ceiling and is not evidence of interrupt propagation. The preview records nothing about the connection: neither its success nor any failure, cancellation or timeout changes the stored health, which answers for the last connection test, import or refresh. Connection tests, catalogue reads, imports and refreshes keep their existing limits.",
+      "description": "Preview a PostGIS relation. Connections are private to the authenticated account, including for administrators. Names are unique only within that account. Hidden or missing connection references return not_found before reading credentials, contacting the source or changing stored health. Imports and refreshes recheck connection ownership and account activity before committing. Snapshots and their project memberships include only the caller's datasets. Reads at most five rows from one saved connection and relation. The optional WHERE expression passes through the import guard and is applied to the preview. The caller cannot supply credentials, source SQL, or a row limit. Caller departure prevents later stages of this preview and discards late results (empty HTTP 499). Every source connection opened by the preview attachment has a 30-second per-statement ceiling; timeout answers HTTP 408 query_timeout. A departed caller's blocked source statement runs to that ceiling: the interrupt is observed between scan chunks and cannot reach a scan blocked in a libpq read. The aborted case's 35-second bound on responsive source and transport is met by the ceiling and is not evidence of interrupt propagation. The preview records nothing about the connection: neither its success nor any failure, cancellation or timeout changes the stored health, which answers for the last connection test, import or refresh. Connection tests, catalogue reads, imports and refreshes keep their existing limits.",
       "input_schema": {
         "type": "object",
         "additionalProperties": false,
@@ -1373,7 +1373,7 @@
     },
     {
       "name": "list_postgis_snapshots",
-      "description": "List snapshots for a PostGIS connection. Returns exactly the workspace tables whose stored provenance carries this connection id, including refresh and recipe facts.",
+      "description": "List snapshots for a PostGIS connection. Connections are private to the authenticated account, including for administrators. Names are unique only within that account. Hidden or missing connection references return not_found before reading credentials, contacting the source or changing stored health. Imports and refreshes recheck connection ownership and account activity before committing. Snapshots and their project memberships include only the caller's datasets. Returns exactly the workspace tables whose stored provenance carries this connection id, including refresh and recipe facts.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1389,7 +1389,7 @@
     },
     {
       "name": "import_table_from_postgis",
-      "description": "Import a PostGIS table as a snapshot. Created resources belong to the authenticated account. Submitted owner identities cannot assign or transfer ownership. Dataset names and identities resolve only in the authenticated account's space, including for administrators. Lists, schema discovery and counts include only that account's datasets. Upload and sketch suffixes ignore other accounts' names. Hidden or missing datasets, maps and project references return not_found before source or artifact access; a refused change leaves resources unchanged. Refresh and geometry changes preserve the dataset's identity and owner and recheck account activity at commit. Materializes the table as a GeoParquet snapshot — read-only against the source, geometry normalized to WGS84 on the source side. An optional attribute filter and row limit narrow the import and become part of the stored import parameters, so refresh honours them. Live federation is deliberately not offered.",
+      "description": "Import a PostGIS table as a snapshot. Created resources belong to the authenticated account. Submitted owner identities cannot assign or transfer ownership. Connections are private to the authenticated account, including for administrators. Names are unique only within that account. Hidden or missing connection references return not_found before reading credentials, contacting the source or changing stored health. Imports and refreshes recheck connection ownership and account activity before committing. Snapshots and their project memberships include only the caller's datasets. Dataset names and identities resolve only in the authenticated account's space, including for administrators. Lists, schema discovery and counts include only that account's datasets. Upload and sketch suffixes ignore other accounts' names. Hidden or missing datasets, maps and project references return not_found before source or artifact access; a refused change leaves resources unchanged. Refresh and geometry changes preserve the dataset's identity and owner and recheck account activity at commit. Materializes the table as a GeoParquet snapshot — read-only against the source, geometry normalized to WGS84 on the source side. An optional attribute filter and row limit narrow the import and become part of the stored import parameters, so refresh honours them. Live federation is deliberately not offered.",
       "input_schema": {
         "type": "object",
         "properties": {

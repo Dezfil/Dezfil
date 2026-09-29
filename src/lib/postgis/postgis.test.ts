@@ -105,8 +105,8 @@ describe("connections repository", () => {
       postgisVersion: null,
     });
     expect("password" in created).toBe(false);
-    expect(JSON.stringify(listConnections())).not.toContain("pass'word");
-    expect(JSON.stringify(getConnection("c1"))).not.toContain("pass'word");
+    expect(JSON.stringify(listConnections(testAccountScope()))).not.toContain("pass'word");
+    expect(JSON.stringify(getConnection(testAccountScope(), "c1"))).not.toContain("pass'word");
 
     // at rest: the row carries an envelope, not the plaintext
     const raw = metadataDb()
@@ -115,14 +115,14 @@ describe("connections repository", () => {
     expect(raw.password_encrypted).not.toContain("pass'word");
 
     // the internal accessor is the only way back
-    expect(connectionPassword("c1")).toBe("pass'word\\!");
+    expect(connectionPassword(testAccountScope(), "c1")).toBe("pass'word\\!");
   });
 
   it("persists status across restart and retains observed versions on failure", () => {
     insertConnection(testAccountScope(), sample);
     const checkedAt = "2026-08-20T10:00:00.000Z";
     expect(
-      recordConnectionCheck("c1", {
+      recordConnectionCheck(testAccountScope(), "c1", {
         outcome: "connected",
         checkedAt,
         serverVersion: "PostgreSQL 16.4",
@@ -131,7 +131,7 @@ describe("connections repository", () => {
     ).toBe(true);
 
     closeMetadataDb();
-    expect(getConnection("c1", undefined, new Date("2026-08-21T10:00:00Z"))).toMatchObject({
+    expect(getConnection(testAccountScope(), "c1", undefined, new Date("2026-08-21T10:00:00Z"))).toMatchObject({
       status: "connected",
       lastCheckedAt: checkedAt,
       lastCheckError: null,
@@ -139,12 +139,12 @@ describe("connections repository", () => {
       postgisVersion: "3.4.3",
     });
 
-    recordConnectionCheck("c1", {
+    recordConnectionCheck(testAccountScope(), "c1", {
       outcome: "failing",
       checkedAt: "2026-08-22T10:00:00.000Z",
       error: "Authentication failed. Check the username and password.",
     });
-    expect(getConnection("c1")).toMatchObject({
+    expect(getConnection(testAccountScope(), "c1")).toMatchObject({
       status: "failing",
       lastCheckError: "Authentication failed. Check the username and password.",
       serverVersion: "PostgreSQL 16.4",
@@ -177,19 +177,20 @@ describe("connections repository", () => {
     ).toBe("failing");
   });
 
-  it("keeps status memory credential-free and never fails its source operation", () => {
+  it("keeps status memory credential-free and tolerates bookkeeping failures after authorization", () => {
     insertConnection(testAccountScope(), sample);
-    recordConnectionCheck("c1", {
+    recordConnectionCheck(testAccountScope(), "c1", {
       outcome: "failing",
       error: "Authentication failed. Check the username and password.",
     });
-    expect(JSON.stringify(getConnection("c1"))).not.toContain(sample.password);
+    expect(JSON.stringify(getConnection(testAccountScope(), "c1"))).not.toContain(sample.password);
 
     const db = metadataDb();
-    db.close();
+    db.exec(`CREATE TRIGGER reject_status BEFORE UPDATE OF last_checked_at ON pg_connections
+      BEGIN SELECT RAISE(ABORT, 'Bookkeeping unavailable'); END;`);
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(() =>
-      recordConnectionCheck("c1", { outcome: "connected" }, db),
+      recordConnectionCheck(testAccountScope(), "c1", { outcome: "connected" }, db),
     ).not.toThrow();
     expect(log).toHaveBeenCalledWith(
       "[connections] status memory could not be recorded.",
@@ -201,11 +202,11 @@ describe("connections repository", () => {
 
   it("renames and deletes; deletion reports honestly", () => {
     insertConnection(testAccountScope(), sample);
-    expect(renameConnection("c1", "Renamed")).toBe(true);
-    expect(getConnection("c1")?.name).toBe("Renamed");
-    expect(deleteConnection("c1")).toBe(true);
-    expect(deleteConnection("c1")).toBe(false);
-    expect(connectionPassword("c1")).toBeNull();
+    expect(renameConnection(testAccountScope(), "c1", "Renamed")).toBe(true);
+    expect(getConnection(testAccountScope(), "c1")?.name).toBe("Renamed");
+    expect(deleteConnection(testAccountScope(), "c1")).toBe(true);
+    expect(deleteConnection(testAccountScope(), "c1")).toBe(false);
+    expect(connectionPassword(testAccountScope(), "c1")).toBeNull();
   });
 
   it("rejects duplicate names", () => {
@@ -592,7 +593,7 @@ describe("import status memory", () => {
         },
       }),
     );
-    expect(getConnection(sample.id)).toMatchObject({
+    expect(getConnection(testAccountScope(), sample.id)).toMatchObject({
       status: "connected",
       lastCheckedAt: expect.any(String),
       serverVersion: "PostgreSQL 16.4",
@@ -615,7 +616,7 @@ describe("import status memory", () => {
         },
       ),
     ).rejects.toThrow();
-    expect(getConnection(sample.id)).toMatchObject({
+    expect(getConnection(testAccountScope(), sample.id)).toMatchObject({
       status: "connected",
       lastCheckedAt: expect.any(String),
       lastCheckError: null,
@@ -627,6 +628,8 @@ describe("import status memory", () => {
 
 describe("snapshots by connection", () => {
   it("uses only the stored connection id and retains recipe facts", () => {
+    insertConnection(testAccountScope(), { id: "c1", name: "Current name", host: "db.example.org", port: 5432,
+      database: "geodata", username: "reader", password: "fixture-only", ssl: true });
     const base = {
       sourceFilename: "public.roads",
       format: "geoparquet" as const,
@@ -664,7 +667,7 @@ describe("snapshots by connection", () => {
         table: "roads",
       },
     });
-    expect(listPostgisSnapshots("c1")).toEqual([
+    expect(listPostgisSnapshots(testAccountScope(), "c1")).toEqual([
       expect.objectContaining({
         name: "owned",
         sourceParams: expect.objectContaining({

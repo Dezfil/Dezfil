@@ -1,3 +1,4 @@
+import { connectionAccess } from "./openapi-connection-access";
 import { datasetAccess } from "./openapi-dataset-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE, REMOTE_ADD, REMOTE_READ, REMOTE_REPLACE } from "./operation-mcp";
@@ -6,7 +7,7 @@ import { op, jsonOk, pathParam } from "./openapi-helpers";
 
 export const CONNECTION_PATHS = {
   "/api/connections/postgis": {
-    get: op({
+    get: op(connectionAccess({
       summary: "List PostGIS connections",
       description:
         "Saved connections — passwords are write-only and never appear " +
@@ -18,8 +19,8 @@ export const CONNECTION_PATHS = {
       responses: {
         "200": jsonOk("#/components/schemas/PgConnectionList"),
       },
-    }),
-    post: ownedCreationOp({
+    })),
+    post: ownedCreationOp(connectionAccess({
       summary: "Create a PostGIS connection",
       description:
         "Tests the connection first and saves only on success — " +
@@ -74,10 +75,10 @@ export const CONNECTION_PATHS = {
           "Created and tested.",
         ),
       },
-    }),
+    })),
   },
   "/api/connections/postgis/{id}": {
-    patch: op({
+    patch: op(connectionAccess({
       summary: "Update a PostGIS connection",
       description:
         "Accepts any subset of editable fields. Connectivity changes " +
@@ -137,8 +138,8 @@ export const CONNECTION_PATHS = {
       responses: {
         "200": jsonOk("#/components/schemas/PgConnection"),
       },
-    }),
-    delete: op({
+    })),
+    delete: op(connectionAccess({
       summary: "Delete a PostGIS connection",
       description:
         "Imported snapshots stay intact; their refresh then reports " +
@@ -151,10 +152,10 @@ export const CONNECTION_PATHS = {
       confirm: true,
       parameters: [pathParam("id", "Connection id.")],
       responses: { "204": { description: "Deleted." } },
-    }),
+    })),
   },
   "/api/connections/postgis/{id}/test": {
-    post: op({
+    post: op(connectionAccess({
       summary: "Test a PostGIS connection",
       description:
         "Reachability, authentication, and PostGIS presence — each " +
@@ -167,10 +168,10 @@ export const CONNECTION_PATHS = {
       responses: {
         "200": jsonOk("#/components/schemas/PgConnection"),
       },
-    }),
+    })),
   },
   "/api/connections/postgis/{id}/tables": {
-    get: op({
+    get: op(connectionAccess({
       summary: "List relations on a PostGIS connection",
       description:
         "Lists importable tables, views, and materialized views with " +
@@ -237,10 +238,10 @@ export const CONNECTION_PATHS = {
           },
         },
       },
-    }),
+    })),
   },
   "/api/connections/postgis/{id}/preview": {
-    post: op({
+    post: op(connectionAccess({
       summary: "Preview a PostGIS relation",
       description:
         "Reads at most five rows from one saved connection and relation. " +
@@ -327,10 +328,10 @@ export const CONNECTION_PATHS = {
           },
         },
       },
-    }),
+    })),
   },
   "/api/connections/postgis/{id}/snapshots": {
-    get: op({
+    get: op(connectionAccess({
       summary: "List snapshots for a PostGIS connection",
       description:
         "Returns exactly the workspace tables whose stored provenance " +
@@ -355,10 +356,10 @@ export const CONNECTION_PATHS = {
           },
         },
       },
-    }),
+    })),
   },
   "/api/imports/postgis": {
-    post: ownedCreationOp(datasetAccess({
+    post: ownedCreationOp(connectionAccess(datasetAccess({
       summary: "Import a PostGIS table as a snapshot",
       description:
         "Materializes the table as a GeoParquet snapshot — read-only " +
@@ -407,7 +408,7 @@ export const CONNECTION_PATHS = {
       responses: {
         "201": jsonOk("#/components/schemas/Table", "Created."),
       },
-    })),
+    }))),
   },
 };
 

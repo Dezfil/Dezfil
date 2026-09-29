@@ -284,17 +284,7 @@ async function performRefresh(
             409,
           );
         }
-        requireOwnedResource(scope, "connection", p.connectionId);
-        let required: ReturnType<typeof requireTarget>;
-        try {
-          required = requireTarget(p.connectionId);
-        } catch {
-          throw new ApiError(
-            "not_refreshable",
-            `The connection "${String(p.connectionName ?? p.connectionId)}" behind this snapshot was deleted. The table keeps serving its last data.`,
-            409,
-          );
-        }
+        const required = requireTarget(scope, p.connectionId);
         if (statusBlocksRefresh(required.connection)) {
           throw new ApiError(
             "connection_failed",
@@ -305,6 +295,7 @@ async function performRefresh(
         const target: ConnectionTarget = required.target;
         const connectionId = required.connection.id;
         let observedHealth: ConnectionHealth | null = null;
+        let completedHealth: ConnectionHealth;
         try {
           const built = await buildPostgisArtifact(
             target,
@@ -321,19 +312,21 @@ async function performRefresh(
             },
           );
           meta = built;
-          recordConnectionHealth(connectionId, built.connectionHealth);
+          completedHealth = built.connectionHealth;
         } catch (error) {
+          requireOwnedResource(scope, "connection", connectionId);
           if (error instanceof ApiError && error.code === "not_found") {
             const message = `The stored recipe for "${p.schema}.${p.table}" no longer resolves on this connection. The previous snapshot data is unchanged.`;
             throw new ApiError("not_refreshable", message, 409);
           }
           if (isConnectionLevelFailure(error)) {
-            recordConnectionFailure(connectionId, error);
+            recordConnectionFailure(scope, connectionId, error);
           } else if (observedHealth) {
-            recordConnectionHealth(connectionId, observedHealth);
+            recordConnectionHealth(scope, connectionId, observedHealth);
           }
           throw error;
         }
+        recordConnectionHealth(scope, connectionId, completedHealth);
         break;
       }
       case "overture": {

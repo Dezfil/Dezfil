@@ -1,3 +1,4 @@
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "./db";
@@ -117,156 +118,180 @@ export function insertConnection(
   c: NewPgConnection,
   db: Database = metadataDb(),
 ): PgConnection {
-  const ownerId = requireAccountScope(scope, db);
-  const createdAt = new Date().toISOString();
-  db.prepare(
-    `INSERT INTO pg_connections
-       (owner_id, id, name, host, port, database, username, password_encrypted, ssl, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    ownerId,
-    c.id,
-    c.name,
-    c.host,
-    c.port,
-    c.database,
-    c.username,
-    encryptSecret(c.password),
-    c.ssl ? 1 : 0,
-    createdAt,
-  );
-  return {
-    id: c.id,
-    name: c.name,
-    host: c.host,
-    port: c.port,
-    database: c.database,
-    username: c.username,
-    ssl: c.ssl,
-    createdAt,
-    status: "never_checked",
-    lastCheckedAt: null,
-    lastCheckError: null,
-    serverVersion: null,
-    postgisVersion: null,
-  };
+  return db.transaction((): PgConnection => {
+    const ownerId = requireAccountScope(scope, db);
+    const createdAt = new Date().toISOString();
+    db.prepare(
+      `INSERT INTO pg_connections
+         (owner_id, id, name, host, port, database, username, password_encrypted, ssl, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      ownerId,
+      c.id,
+      c.name,
+      c.host,
+      c.port,
+      c.database,
+      c.username,
+      encryptSecret(c.password),
+      c.ssl ? 1 : 0,
+      createdAt,
+    );
+    return {
+      id: c.id,
+      name: c.name,
+      host: c.host,
+      port: c.port,
+      database: c.database,
+      username: c.username,
+      ssl: c.ssl,
+      createdAt,
+      status: "never_checked",
+      lastCheckedAt: null,
+      lastCheckError: null,
+      serverVersion: null,
+      postgisVersion: null,
+    };
+  })();
 }
 
 export function listConnections(
+  scope: AccountScope,
   db: Database = metadataDb(),
   now: Date = new Date(),
 ): PgConnection[] {
+  const owner = requireAccountScope(scope, db);
   const rows = db
-    .prepare(`SELECT * FROM pg_connections ORDER BY created_at, name`)
-    .all() as Row[];
+    .prepare(`SELECT * FROM pg_connections WHERE owner_id = ? ORDER BY created_at, name`)
+    .all(owner) as Row[];
   return rows.map((row) => fromRow(row, now));
 }
 
 export function getConnection(
+  scope: AccountScope,
   id: string,
   db: Database = metadataDb(),
   now: Date = new Date(),
 ): PgConnection | null {
+  const owner = requireAccountScope(scope, db);
   const row = db
-    .prepare(`SELECT * FROM pg_connections WHERE id = ?`)
-    .get(id) as Row | undefined;
+    .prepare(`SELECT * FROM pg_connections WHERE id = ? AND owner_id = ?`)
+    .get(id, owner) as Row | undefined;
   return row ? fromRow(row, now) : null;
 }
 
-/** Best-effort status memory. A bookkeeping failure never changes the
- * source operation's own result, and the log carries no error detail that
- * could contain a submitted credential. */
+/** Authority is required even for best-effort status memory. Once access
+ * is established, a bookkeeping failure leaves the source result intact;
+ * the log contains no submitted credential or source error detail. */
 export function recordConnectionCheck(
+  scope: AccountScope,
   id: string,
   check: ConnectionCheck,
   db: Database = metadataDb(),
 ): boolean {
-  try {
-    const checkedAt = check.checkedAt ?? new Date().toISOString();
-    const info = db
-      .prepare(
-        `UPDATE pg_connections
-         SET last_checked_at = ?,
-             last_check_outcome = ?,
-             last_check_error = ?,
-             server_version = COALESCE(?, server_version),
-             postgis_version = CASE
-               WHEN ? = 'no_postgis' THEN NULL
-               ELSE COALESCE(?, postgis_version)
-             END
-         WHERE id = ?`,
-      )
-      .run(
-        checkedAt,
-        check.outcome,
-        check.outcome === "failing" ? (check.error ?? "The last check failed.") : null,
-        check.serverVersion ?? null,
-        check.outcome,
-        check.postgisVersion ?? null,
-        id,
-      );
-    return info.changes > 0;
-  } catch {
-    console.error("[connections] status memory could not be recorded.");
-    return false;
-  }
+  return db.transaction(() => {
+    requireOwnedResource(scope, "connection", id, db);
+    try {
+      const checkedAt = check.checkedAt ?? new Date().toISOString();
+      const info = db
+        .prepare(
+          `UPDATE pg_connections
+           SET last_checked_at = ?,
+               last_check_outcome = ?,
+               last_check_error = ?,
+               server_version = COALESCE(?, server_version),
+               postgis_version = CASE
+                 WHEN ? = 'no_postgis' THEN NULL
+                 ELSE COALESCE(?, postgis_version)
+               END
+           WHERE id = ?`,
+        )
+        .run(
+          checkedAt,
+          check.outcome,
+          check.outcome === "failing" ? (check.error ?? "The last check failed.") : null,
+          check.serverVersion ?? null,
+          check.outcome,
+          check.postgisVersion ?? null,
+          id,
+        );
+      return info.changes > 0;
+    } catch {
+      console.error("[connections] status memory could not be recorded.");
+      return false;
+    }
+  })();
 }
 
 /** Internal-only: the decrypted password for attach strings. Never expose
  * through any API response (write-only credentials). */
 export function connectionPassword(
+  scope: AccountScope,
   id: string,
   db: Database = metadataDb(),
 ): string | null {
+  const owner = requireAccountScope(scope, db);
   const row = db
-    .prepare(`SELECT password_encrypted FROM pg_connections WHERE id = ?`)
-    .get(id) as { password_encrypted: string } | undefined;
+    .prepare(`SELECT password_encrypted FROM pg_connections WHERE id = ? AND owner_id = ?`)
+    .get(id, owner) as { password_encrypted: string } | undefined;
   return row ? decryptSecret(row.password_encrypted) : null;
 }
 
 export function renameConnection(
+  scope: AccountScope,
   id: string,
   name: string,
   db: Database = metadataDb(),
 ): boolean {
-  return (
-    db.prepare(`UPDATE pg_connections SET name = ? WHERE id = ?`).run(name, id)
-      .changes > 0
-  );
+  return db.transaction(() => {
+    const owner = requireAccountScope(scope, db);
+    return (
+      db.prepare(`UPDATE pg_connections SET name = ? WHERE id = ? AND owner_id = ?`).run(name, id, owner)
+        .changes > 0
+    );
+  })();
 }
 
 /** Replace the editable fields only after the caller has accepted the merged
  * candidate. The id, created time, and status memory stay on the same row. */
 export function updateConnection(
+  scope: AccountScope,
   id: string,
   values: PgConnectionUpdate,
   db: Database = metadataDb(),
 ): PgConnection | null {
-  const info = db
-    .prepare(
-      `UPDATE pg_connections
-       SET name = ?, host = ?, port = ?, database = ?, username = ?,
-           password_encrypted = ?, ssl = ?
-       WHERE id = ?`,
-    )
-    .run(
-      values.name,
-      values.host,
-      values.port,
-      values.database,
-      values.username,
-      encryptSecret(values.password),
-      values.ssl ? 1 : 0,
-      id,
-    );
-  return info.changes > 0 ? getConnection(id, db) : null;
+  return db.transaction(() => {
+    requireOwnedResource(scope, "connection", id, db);
+    const info = db
+      .prepare(
+        `UPDATE pg_connections
+         SET name = ?, host = ?, port = ?, database = ?, username = ?,
+             password_encrypted = ?, ssl = ?
+         WHERE id = ?`,
+      )
+      .run(
+        values.name,
+        values.host,
+        values.port,
+        values.database,
+        values.username,
+        encryptSecret(values.password),
+        values.ssl ? 1 : 0,
+        id,
+      );
+    return info.changes > 0 ? getConnection(scope, id, db) : null;
+  })();
 }
 
 export function deleteConnection(
+  scope: AccountScope,
   id: string,
   db: Database = metadataDb(),
 ): boolean {
-  return (
-    db.prepare(`DELETE FROM pg_connections WHERE id = ?`).run(id).changes > 0
-  );
+  return db.transaction(() => {
+    const owner = requireAccountScope(scope, db);
+    return (
+      db.prepare(`DELETE FROM pg_connections WHERE id = ? AND owner_id = ?`).run(id, owner).changes > 0
+    );
+  })();
 }

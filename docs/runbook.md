@@ -38,8 +38,8 @@ adopts them in the same transaction as the account, preferences and session.
 Failed adoption rolls back and can be retried. Existing identities, SQL,
 public links, credentials, memberships and artifact paths are preserved.
 New resources take their owner from the authenticated creator; request fields
-cannot assign a different owner. Dataset names are unique within that owner;
-two accounts may use the same SQL name and keep distinct dataset identities.
+cannot assign a different owner. Dataset and connection names are unique within
+that owner; two accounts may use the same names and keep distinct identities.
 After duplicate names exist across accounts, an older build with global name
 constraints cannot read that store safely. Restore its matching backup as well.
 

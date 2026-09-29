@@ -92,7 +92,7 @@ describe("POST /api/connections/postgis validation", () => {
       password: "stored-value",
       ssl: true,
     });
-    recordConnectionCheck("c1", {
+    recordConnectionCheck(testAccountScope(), "c1", {
       outcome: "connected",
       checkedAt: "2026-08-30T10:00:00.000Z",
       serverVersion: "PostgreSQL 16.4",
@@ -105,7 +105,7 @@ describe("POST /api/connections/postgis validation", () => {
       serverVersion: "PostgreSQL 16.4",
       postgisVersion: "3.4.3",
     });
-    const response = await PATCH(request(body), {
+    const response = await PATCH(testAccountRequest(request(body)), {
       params: Promise.resolve({ id: "c1" }),
     });
 
@@ -143,7 +143,7 @@ describe("POST /api/connections/postgis validation", () => {
       postgisVersion: "3.4.3",
     });
 
-    const response = await PATCH(request(body), {
+    const response = await PATCH(testAccountRequest(request(body)), {
       params: Promise.resolve({ id: "c1" }),
     });
 
@@ -152,8 +152,8 @@ describe("POST /api/connections/postgis validation", () => {
     expect(testConnection).toHaveBeenCalledWith(
       expect.objectContaining({ password: "stored-value", ...changed }),
     );
-    expect(getConnection("c1")).toMatchObject(changed);
-    expect(connectionPassword("c1")).toBe("stored-value");
+    expect(getConnection(testAccountScope(), "c1")).toMatchObject(changed);
+    expect(connectionPassword(testAccountScope(), "c1")).toBe("stored-value");
   });
 
   it.each([
@@ -198,7 +198,7 @@ describe("POST /api/connections/postgis validation", () => {
       postgisVersion: "3.4.3",
     });
 
-    const response = await PATCH(request(body), {
+    const response = await PATCH(testAccountRequest(request(body)), {
       params: Promise.resolve({ id: "c1" }),
     });
 
@@ -207,12 +207,12 @@ describe("POST /api/connections/postgis validation", () => {
     expect(testConnection).toHaveBeenCalledWith(
       expect.objectContaining(candidate),
     );
-    expect(getConnection("c1")).toMatchObject({
+    expect(getConnection(testAccountScope(), "c1")).toMatchObject({
       id: "c1",
       host: candidate.host,
       status: "connected",
     });
-    expect(connectionPassword("c1")).toBe(candidate.password);
+    expect(connectionPassword(testAccountScope(), "c1")).toBe(candidate.password);
   });
 
   it("seeds create status and never echoes field or URL credentials", async () => {
@@ -264,7 +264,7 @@ describe("POST /api/connections/postgis validation", () => {
     expect(result.status).toBe(201);
     expect(JSON.stringify(result.body)).not.toContain(distinctive);
     expect(JSON.stringify(tool)).not.toContain(distinctive);
-    expect(JSON.stringify(getConnection((result.body as { id: string }).id))).not.toContain(
+    expect(JSON.stringify(getConnection(testAccountScope(), (result.body as { id: string }).id))).not.toContain(
       distinctive,
     );
   });
@@ -299,13 +299,13 @@ describe("POST /api/connections/postgis validation", () => {
       password: "stored-value",
       ssl: true,
     });
-    const response = await PATCH(request({ name: "Renamed" }), {
+    const response = await PATCH(testAccountRequest(request({ name: "Renamed" })), {
       params: Promise.resolve({ id: "c1" }),
     });
     expect(response.status).toBe(200);
     expect(testConnection).not.toHaveBeenCalled();
-    expect(getConnection("c1")?.name).toBe("Renamed");
-    expect(connectionPassword("c1") === "stored-value").toBe(true);
+    expect(getConnection(testAccountScope(), "c1")?.name).toBe("Renamed");
+    expect(connectionPassword(testAccountScope(), "c1") === "stored-value").toBe(true);
   });
 
   it("leaves fields, password, and status unchanged when the candidate fails", async () => {
@@ -319,13 +319,13 @@ describe("POST /api/connections/postgis validation", () => {
       password: "stored-value",
       ssl: true,
     });
-    recordConnectionCheck("c1", {
+    recordConnectionCheck(testAccountScope(), "c1", {
       outcome: "connected",
       checkedAt: "2026-08-30T10:00:00.000Z",
       serverVersion: "PostgreSQL 16.4",
       postgisVersion: "3.4.3",
     });
-    const before = getConnection("c1");
+    const before = getConnection(testAccountScope(), "c1");
     testConnection.mockRejectedValue(
       new ApiError(
         "connection_failed",
@@ -334,12 +334,12 @@ describe("POST /api/connections/postgis validation", () => {
       ),
     );
     const response = await PATCH(
-      request({ host: "rejected.example.org", password: "rejected-value" }),
+      testAccountRequest(request({ host: "rejected.example.org", password: "rejected-value" })),
       { params: Promise.resolve({ id: "c1" }) },
     );
     expect(response.status).toBe(502);
-    expect(getConnection("c1")).toEqual(before);
-    expect(connectionPassword("c1") === "stored-value").toBe(true);
+    expect(getConnection(testAccountScope(), "c1")).toEqual(before);
+    expect(connectionPassword(testAccountScope(), "c1") === "stored-value").toBe(true);
     expect(await response.text()).not.toContain("rejected-value");
   });
 
@@ -358,11 +358,11 @@ describe("POST /api/connections/postgis validation", () => {
       serverVersion: "PostgreSQL 16.4",
       postgisVersion: "3.4.3",
     });
-    const response = await testSavedConnection(new Request("http://localhost"), {
+    const response = await testSavedConnection(testAccountRequest(new Request("http://localhost")), {
       params: Promise.resolve({ id: "c1" }),
     });
     expect(response.status).toBe(200);
-    expect(getConnection("c1")?.status).toBe("connected");
+    expect(getConnection(testAccountScope(), "c1")?.status).toBe("connected");
   });
 
   it("persists explicit-test failure without losing observed versions", async () => {
@@ -376,7 +376,7 @@ describe("POST /api/connections/postgis validation", () => {
       password: "stored-value",
       ssl: true,
     });
-    recordConnectionCheck("c1", {
+    recordConnectionCheck(testAccountScope(), "c1", {
       outcome: "connected",
       serverVersion: "PostgreSQL 16.4",
       postgisVersion: "3.4.3",
@@ -388,11 +388,11 @@ describe("POST /api/connections/postgis validation", () => {
         502,
       ),
     );
-    const response = await testSavedConnection(new Request("http://localhost"), {
+    const response = await testSavedConnection(testAccountRequest(new Request("http://localhost")), {
       params: Promise.resolve({ id: "c1" }),
     });
     expect(response.status).toBe(502);
-    expect(getConnection("c1")).toMatchObject({
+    expect(getConnection(testAccountScope(), "c1")).toMatchObject({
       status: "failing",
       lastCheckError: "Authentication failed. Check the username and password.",
       serverVersion: "PostgreSQL 16.4",
@@ -415,12 +415,12 @@ describe("POST /api/connections/postgis validation", () => {
       password: "stored-value",
       ssl: true,
     });
-    recordConnectionCheck("c1", {
+    recordConnectionCheck(testAccountScope(), "c1", {
       outcome: "failing",
       checkedAt: "2026-09-01T10:00:00.000Z",
       error: "Authentication failed. Check the username and password.",
     });
-    const before = getConnection("c1");
+    const before = getConnection(testAccountScope(), "c1");
     expect(before).toMatchObject({ status: "failing" });
 
     browseRemoteTables.mockResolvedValue({
@@ -430,11 +430,11 @@ describe("POST /api/connections/postgis validation", () => {
         postgisVersion: "3.4.3",
       },
     });
-    const ok = await browseSavedConnection(new Request("http://localhost"), {
+    const ok = await browseSavedConnection(testAccountRequest(new Request("http://localhost")), {
       params: Promise.resolve({ id: "c1" }),
     });
     expect(ok.status).toBe(200);
-    expect(getConnection("c1")).toEqual(before);
+    expect(getConnection(testAccountScope(), "c1")).toEqual(before);
 
     browseRemoteTables.mockRejectedValue(
       new ApiError(
@@ -443,11 +443,11 @@ describe("POST /api/connections/postgis validation", () => {
         502,
       ),
     );
-    const failed = await browseSavedConnection(new Request("http://localhost"), {
+    const failed = await browseSavedConnection(testAccountRequest(new Request("http://localhost")), {
       params: Promise.resolve({ id: "c1" }),
     });
     expect(failed.status).toBe(502);
-    expect(getConnection("c1")).toEqual(before);
+    expect(getConnection(testAccountScope(), "c1")).toEqual(before);
   });
 
   it("lists snapshots by stored connection id, independent of the saved name", async () => {
@@ -492,11 +492,11 @@ describe("POST /api/connections/postgis validation", () => {
     insertTable(testAccountScope(), table("t1", "owned", "c1", "Old name"));
     insertTable(testAccountScope(), table("t2", "same_name_other_id", "c2", "City"));
 
-    const rename = await PATCH(request({ name: "Renamed" }), {
+    const rename = await PATCH(testAccountRequest(request({ name: "Renamed" })), {
       params: Promise.resolve({ id: "c1" }),
     });
     expect(rename.status).toBe(200);
-    const response = await listSnapshots(new Request("http://localhost"), {
+    const response = await listSnapshots(testAccountRequest(new Request("http://localhost")), {
       params: Promise.resolve({ id: "c1" }),
     });
     expect(response.status).toBe(200);

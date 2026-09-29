@@ -1,3 +1,6 @@
+import { insertConnection } from "@/lib/metadata/connections";
+import { GET as connectionSnapshots } from "@/app/api/connections/postgis/[id]/snapshots/route";
+import { GET as connectionsRead } from "@/app/api/connections/postgis/route";
 import { insertTable } from "@/lib/metadata/tables";
 import { GET as datasetFeatures } from "@/app/api/tables/[name]/features/route";
 import { GET as datasetsRead } from "@/app/api/tables/route";
@@ -112,6 +115,8 @@ function actualApi() {
     try {
       const actor = requireRequestAuth(req), path = new URL(req.url).pathname;
       seen.push({ path, accountId: actor.account.id, authorization: req.headers.get("authorization") ?? "", cookie: req.headers.get("cookie") });
+      if (path === "/api/connections/postgis") return connectionsRead(req);
+      if (/^\/api\/connections\/postgis\/[^/]+\/snapshots$/.test(path)) return connectionSnapshots(req, { params: Promise.resolve({ id: path.split("/")[4] }) });
       if (path === "/api/tables") return datasetsRead(req);
       if (/^\/api\/tables\/[^/]+\/features$/.test(path)) return datasetFeatures(req, { params: Promise.resolve({ name: path.split("/")[3] }) });
       if (path === "/api/account") return accountRead(req);
@@ -429,4 +434,37 @@ it.each(["cookie", "token"])("MCP and assistant %s calls preserve dataset owners
     expect(results[0].body).toMatchObject({ error: { code: "not_found" } }); expect(results[0].body).toEqual(results[1].body);
   }
   expect(db.prepare("SELECT * FROM data_tables ORDER BY id").all()).toEqual(before);
+});
+
+it.each(["cookie", "token"])("MCP and assistant %s calls preserve connection ownership and absent-id errors", async mode => {
+  actualApi();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db);
+  const actors = [admin, member, other];
+  for (const actor of actors) insertConnection(accountScope(authenticateSession(actor.secret, db)!, db), {
+    id: actor.account.id, name: "Same connection name", host: "private.example.test", port: 5432,
+    database: "private", username: "private", password: "never returned", ssl: true,
+  }, db);
+  const before = db.prepare("SELECT * FROM pg_connections ORDER BY id").all();
+  for (let i = 0; i < actors.length; i++) {
+    const actor = actors[i], hiddenId = actors[(i + 1) % actors.length].account.id;
+    const credential = createApiToken(authenticateSession(actor.secret, db)!, "Private connections", db);
+    const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+    expect(await rpc("list_postgis_snapshots", { id: actor.account.id }, headers)).toMatchObject({ isError: false });
+    const hidden = await rpc("list_postgis_snapshots", { id: hiddenId }, headers);
+    expect(hidden).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "not_found" } } } });
+    expect(hidden).toEqual(await rpc("list_postgis_snapshots", { id: "missing" }, headers));
+    factory.provider = stubProvider([
+      { text: "", toolCalls: [
+        { id: "hidden", name: "list_postgis_snapshots", args: { id: hiddenId } },
+        { id: "missing", name: "list_postgis_snapshots", args: { id: "missing" } },
+      ] },
+      { text: "Unavailable", toolCalls: [] },
+    ]);
+    const events = await send({ runId: await ownReservation(headers), message: "Read these connection snapshots" }, headers);
+    const results = events.filter((event): event is Extract<AssistantEvent, { type: "tool_result" }> => event.type === "tool_result");
+    expect(results).toHaveLength(2); expect(results.map(result => result.ok)).toEqual([false, false]);
+    expect(results[0].body).toMatchObject({ error: { code: "not_found" } }); expect(results[0].body).toEqual(results[1].body);
+  }
+  expect(db.prepare("SELECT * FROM pg_connections ORDER BY id").all()).toEqual(before);
 });
