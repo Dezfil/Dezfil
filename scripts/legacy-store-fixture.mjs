@@ -4,9 +4,27 @@ import assert from 'node:assert/strict';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { registerHooks } from 'node:module';
 import Database from 'better-sqlite3';
 import { DuckDBInstance } from '@duckdb/node-api';
-import { MIGRATIONS } from '../src/lib/metadata/migrations.ts';
+
+// The application bundles these extensionless imports; the standalone proof
+// loads the same migrations with Node's type stripping. Scope resolution to
+// this import so the fixture does not change other modules' loader behavior.
+const migrationsUrl = new URL('../src/lib/metadata/migrations.ts', import.meta.url).href;
+const migrationModules = new Set(['./migrations-datasets-connections', './migrations-ownership']);
+const migrationLoader = registerHooks({
+  resolve(specifier, context, next) {
+    if (context.parentURL === migrationsUrl && migrationModules.has(specifier)) {
+      return { ...next(specifier + '.ts', context), format: 'module-typescript' };
+    }
+    const result = next(specifier, context);
+    return result.url === migrationsUrl ? { ...result, format: 'module-typescript' } : result;
+  },
+});
+let MIGRATIONS;
+try { ({ MIGRATIONS } = await import('../src/lib/metadata/migrations.ts')); }
+finally { migrationLoader.deregister(); }
 
 export const legacy = { version: 39, name: 'Legacy cartographer', instance: 'Survey archive',
   table: 'legacy_survey', map: 'legacy-map', layer: 'legacy-layer', project: 'legacy-project',
@@ -52,6 +70,14 @@ export async function createLegacyStore(directory) {
       .run(legacy.step, legacy.workflow, 0, 'sql_step', JSON.stringify({ sql: `SELECT name, value FROM ${legacy.table}`, name: 'legacy_result' }), now, now);
     db.prepare('INSERT INTO pg_connections (id, name, host, port, database, username, password_encrypted, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
       .run(legacy.connection, 'Legacy PostGIS', 'db.example.test', 5432, 'survey', 'reader', envelope, now);
+    db.prepare('INSERT INTO map_history (id, map_id, seq, scope, target_id, op, before, after, created_at) VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?)')
+      .run('legacy-history', legacy.map, 'layer', legacy.layer, 'update', '{"name":"Old label"}', '{"name":"Legacy layer"}', now);
+    db.prepare('INSERT INTO operation_jobs (id, subject_kind, subject_id, operation, state, accepted_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run('legacy-job', 'standalone', 'legacy-job', 'sql_step', 'failed', now);
+    db.prepare('INSERT INTO recipe_layouts VALUES (?, ?, ?)')
+      .run(legacy.workflow, '{"steps":{},"sources":{},"notes":[]}', now);
+    db.prepare('INSERT INTO lineage_edges VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run('legacy-edge', legacy.step, 'legacy-table', 'deleted-input', 'old_source', 'tables/old.parquet', now);
   } finally { db.close(); }
 }
 
@@ -60,9 +86,15 @@ export async function legacyFiles(directory) {
     [file, createHash('sha256').update(await readFile(path.join(directory, file))).digest('hex')])));
 }
 export function legacyRows(db) {
-  return Object.fromEntries(['projects', 'maps', 'layers', 'data_tables', 'project_datasets', 'recipes', 'recipe_steps', 'pg_connections']
+  return Object.fromEntries(['projects', 'maps', 'layers', 'data_tables', 'project_datasets', 'recipes', 'recipe_steps', 'pg_connections', 'map_history', 'operation_jobs', 'recipe_layouts', 'lineage_edges']
     .map(table => [table, db.prepare(`SELECT * FROM ${table} ORDER BY 1, 2`).all().map(row =>
       Object.fromEntries(Object.entries(row).filter(([key]) => key !== "owner_id")))]));
+}
+export function assertLegacyOwners(db, accountId) {
+  for (const table of ['maps', 'data_tables', 'recipes', 'pg_connections', 'projects', 'operation_jobs']) {
+    assert.deepEqual(db.prepare(`SELECT DISTINCT owner_id FROM ${table}`).all(), [{ owner_id: accountId }], table);
+  }
+  assert.deepEqual(db.pragma('foreign_key_check'), []);
 }
 export async function readLegacyPassword(directory, db) {
   const key = Buffer.from((await readFile(path.join(directory, 'secret.key'), 'utf8')).trim(), 'hex');

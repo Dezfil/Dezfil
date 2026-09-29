@@ -218,7 +218,23 @@ under `.claude/`, upgrades a copy, exercises the old data through authenticated
 HTTP, restarts the server, and restores a separate copy from the unchanged
 seed. Its evidence records file hashes and distinguishes copied credential
 usability from an unexecuted live external PostGIS connection. It never takes
-an operator data-directory argument.
+an operator data-directory argument. Owner stamps, histories, memberships,
+lineage and standalone jobs must survive adoption and restart; another admin
+must still receive the same refusal as for missing private work.
+
+`node scripts/ownership-journey.mjs seed <base-url> <scratch-state-file>`
+provisions an admin and two ordinary accounts on an empty scratch instance.
+Each imports the same SQL name and completes a map, workflow, publication and
+export loop. The journey compares hidden and missing resources through REST
+sessions, tokens and MCP, checks compound-write rollback, concurrent queries
+and anonymous publication scope. Replace the server against the same store,
+then run `verify <base-url> <scratch-state-file>` to repeat those assertions
+with the saved sessions and tokens. Use an owned loopback port of 3300 or
+higher. The state file is created exclusively with mode 0600.
+
+The ownership journey's route-handler tests also run without a listening
+socket. Their SQLite reopen and engine reset do not establish process or
+container restart behavior; run the HTTP commands for that evidence.
 
 `node scripts/mcp-journey.mjs <base-url>` runs the same journey over the MCP
 endpoint with no model involved; `--render` adds the real-render arm, which

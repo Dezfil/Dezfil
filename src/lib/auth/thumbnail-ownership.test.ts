@@ -24,7 +24,7 @@ let db: Database, dir: string, maps: Record<string, string>;
 const accounts = ["alice", "bob", "admin"];
 const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1]);
 beforeEach(async () => {
-  dir = await fs.mkdtemp(path.join(process.cwd(), ".claude/test-data/thumbnail-")); vi.stubEnv("DEZFIL_DATA_DIR", dir);
+  dir = await fs.mkdtemp(path.join(process.env.DEZFIL_DATA_DIR!, "thumbnail-")); vi.stubEnv("DEZFIL_DATA_DIR", dir);
   db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db); maps = {};
   await fs.mkdir(path.join(dir, "thumbnails"));
   for (const account of accounts) {
