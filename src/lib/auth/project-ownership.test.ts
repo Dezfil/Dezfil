@@ -146,9 +146,8 @@ it("refuses hidden export selections before staging an archive", async () => {
   }
 });
 it("discards a completed archive after owner deactivation and removes its staged file", async () => {
-  const files = await import("node:fs/promises");
   const { assembleProjectExport } = await import("@/lib/export/project-export");
-  const { stat: nativeStat } = await vi.importActual<typeof files>("node:fs/promises");
+  const { stat: nativeStat } = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
   const scope = testAccountScope(db, "alice"); let archive = "";
   filesProbe.afterStat = file => {
     if (String(file).endsWith(".zip")) { archive = String(file); db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'alice'").run(); }

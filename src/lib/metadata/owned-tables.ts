@@ -26,9 +26,20 @@ export function deleteOwnedTable(scope: AccountScope, table: Pick<DataTable, "id
 }
 export function updateOwnedTableData(scope: AccountScope, ref: { id: string; name: string; file?: string }, update: TableDataUpdate, db: Database = metadataDb()): boolean {
   return db.transaction(() => {
-    requireOwnedResource(scope, "dataset", ref.id, db);
+    const owner = requireAccountScope(scope, db);
+    // Admission already resolved the owned identity. A deleted member must
+    // reach the caller's guarded-swap failure, including group rollback.
+    if (!db.prepare("SELECT id FROM data_tables WHERE id = ? AND owner_id = ?").get(ref.id, owner)) return false;
     return updateTableData(ref, update, db);
   })();
+}
+/** Repair only the admitted owner's measured identity and artifact. A late
+ * read may finish after deletion without healing a replacement dataset. */
+export function updateOwnedTableGeometryType(scope: AccountScope, ref: Pick<DataTable, "id" | "name" | "file">,
+  geometryType: string | null, db: Database = metadataDb()): void {
+  const owner = requireAccountScope(scope, db);
+  db.prepare("UPDATE data_tables SET geometry_type = ? WHERE owner_id = ? AND id = ? AND name = ? AND file = ?")
+    .run(geometryType, owner, ref.id, ref.name, ref.file);
 }
 export function ownedTableProjectIds(scope: AccountScope, db: Database = metadataDb()): Map<string, string[]> {
   const owner = requireAccountScope(scope, db);

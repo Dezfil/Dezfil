@@ -1,6 +1,6 @@
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
-import { getOwnedTableByName, listOwnedTables, deleteOwnedTable, ownedTableProjectIds, ownedDependentLayerIds } from "@/lib/metadata/owned-tables";
+import { getOwnedTableByName, listOwnedTables, deleteOwnedTable, ownedTableProjectIds, ownedDependentLayerIds, updateOwnedTableGeometryType } from "@/lib/metadata/owned-tables";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { mkdir, rm, stat } from "node:fs/promises";
@@ -10,7 +10,6 @@ import { withConnection } from "@/lib/duckdb";
 import { ApiError } from "@/lib/api/errors";
 import { resolveInputs, type ResolvedInput } from "@/lib/operations/provenance";
 import {
-  updateTableGeometryType,
   type DataTable,
 } from "@/lib/metadata/tables";
 import { collapseGeometryTypes } from "@/lib/ingest/ingest";
@@ -94,6 +93,7 @@ export function requireTable(scope: AccountScope, name: string): DataTable {
 /** Schema plus a row preview (spec: Upload — schema, row count, preview). */
 export async function inspectTable(scope: AccountScope, name: string): Promise<TableInspection> {
   const table = requireTable(scope, name);
+  const inputs = resolveInputs(scope, table);
   const artifact = path.join(dataDir(), table.file);
 
   // A tracked artifact reader: retirement waits for this pass.
@@ -139,8 +139,7 @@ export async function inspectTable(scope: AccountScope, name: string): Promise<T
           typed.getRowObjects().map((r) => String(r.t)),
         );
         if (healed !== geometryType) {
-          requireOwnedResource(scope, "dataset", table.id);
-          updateTableGeometryType(table, healed);
+          updateOwnedTableGeometryType(scope, table, healed);
           geometryType = healed;
         }
       }
@@ -152,7 +151,7 @@ export async function inspectTable(scope: AccountScope, name: string): Promise<T
         preview,
         sizeBytes: await artifactSize(table),
         projectIds: ownedTableProjectIds(scope).get(table.id) ?? [],
-        inputs: resolveInputs(scope, table),
+        inputs,
       };
     }),
   );
