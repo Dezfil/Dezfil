@@ -1,3 +1,5 @@
+import { publishDataset, nameTaken } from "./dataset-publication";
+export { LostAuthority } from "./dataset-publication";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { randomUUID } from "node:crypto";
@@ -15,14 +17,11 @@ import {
   measureArtifact,
 } from "@/lib/ingest/ingest";
 import { deriveTableName } from "@/lib/ingest/naming";
-import { metadataDb } from "@/lib/metadata/db";
 import type { BoundTable } from "@/lib/query/binding-snapshot";
 import { retireArtifact } from "@/lib/ingest/retire";
 import {
   type DataTable,
   getTableByName,
-  insertTable,
-  updateTableData,
 } from "@/lib/metadata/tables";
 import { queryInputs } from "./inputs";
 
@@ -153,13 +152,6 @@ export interface BoundInput {
   name: string;
   /** The artifact file the run resolved for this input. */
   artifact: string;
-}
-
-/** Thrown when `authorize` refused: the run lost its claim while it worked. */
-export class LostAuthority extends Error {
-  constructor() {
-    super("This run is no longer the live attempt, so it did not publish.");
-  }
 }
 
 export interface DryRun {
@@ -350,7 +342,6 @@ export async function materialize(
     signal,
     budgetMs,
     timeoutError,
-    authorize,
     replaceTable,
   } = request;
   const name = exactName(request.name);
@@ -449,51 +440,7 @@ export async function materialize(
         // reports its last run, so it is not the one row with no age.
         importedAt: now,
       };
-      // One transaction: the run's claim to publish and the dataset row commit
-      // together, or neither does. A cancel that lands mid-run is decided here,
-      // once, by the database — not by a read taken a moment earlier.
-      const db = metadataDb();
-      // Kept so the replaced generation can be retired after the commit. Read
-      // before the swap, because after it the row names the new file.
-      const replaced = replaceTable
-        ? (getTableByName(replaceTable.name)?.file ?? null)
-        : null;
-      try {
-        db.transaction(() => {
-          requireAccountScope(scope, db);
-          if (authorize && !authorize(table, db, bound)) throw new LostAuthority();
-          if (replaceTable) {
-            // Keyed on name AND id: a re-run racing a delete, or a name
-            // reclaimed by a newer table, matches nothing and says so rather
-            // than writing into a stranger.
-            const swapped = updateTableData(
-              { name: replaceTable.name, id: replaceTable.id },
-              {
-                file: table.file,
-                geometryColumn: table.geometryColumn,
-                geometryType: table.geometryType,
-                crsAssumed: table.crsAssumed,
-                headerSuspect: false,
-                rowCount: table.rowCount,
-                importedAt: table.importedAt ?? now,
-                sourceParams: table.sourceParams ?? undefined,
-              },
-              db,
-            );
-            if (!swapped) throw outputGone(replaceTable.name);
-          } else {
-            insertTable(scope, table, db);
-            request.onPublished?.(table, db);
-          }
-        })();
-      } catch (error) {
-        if (error instanceof LostAuthority) throw error;
-        if (error instanceof ApiError) throw error;
-        if (error instanceof Error && /UNIQUE constraint/i.test(error.message)) {
-          throw nameTaken(name);
-        }
-        throw error;
-      }
+      const replaced = publishDataset(scope, table, bound, request);
       committed = true;
       // The generation this replaced is now unreferenced. Retiring it is
       // post-commit and best-effort, exactly as a refresh's is: the swap is the
@@ -520,17 +467,6 @@ export async function materialize(
       if (!committed) await rm(abs, { force: true });
     }
   }, { pinBindings: true, signal, ...(budgetMs !== undefined ? { budgetMs } : {}), ...(timeoutError ? { timeoutError } : {}) });
-}
-
-/** A replacement whose target vanished — deleted, or its name reclaimed by a
- * different table — while the run was working. */
-function outputGone(name: string): ApiError {
-  return new ApiError(
-    "not_found",
-    `The dataset "${name}" this run was replacing no longer exists, or its ` +
-      `name now belongs to a different table. Nothing was written.`,
-    404,
-  );
 }
 
 /**
@@ -560,13 +496,4 @@ function inputChanged(name: string, measured: boolean): ApiError {
           `written. Run it again against the current data.`,
         409,
       );
-}
-
-function nameTaken(name: string): ApiError {
-  return new ApiError(
-    "name_taken",
-    `A table named "${name}" already exists. An operation never replaces or ` +
-      `renames around an existing table. Choose another name.`,
-    409,
-  );
 }
