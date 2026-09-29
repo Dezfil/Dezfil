@@ -1,3 +1,5 @@
+import type { AccountScope } from "@/lib/auth/scope";
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { ApiError } from "@/lib/api/errors";
 import {
   listProjects,
@@ -104,7 +106,8 @@ export interface ProjectMembers {
 
 /** The composite members read: each kind in its
  * ordinary listing shape and order. */
-export async function projectMembers(id: string): Promise<ProjectMembers> {
+export async function projectMembers(scope: AccountScope, id: string): Promise<ProjectMembers> {
+  requireOwnedResource(scope, "project", id);
   requireProject(id);
   const recipes = await Promise.all(
     listRecipes(undefined, { origin: "workflow", project: id }).map(async (r) =>
@@ -112,7 +115,7 @@ export async function projectMembers(id: string): Promise<ProjectMembers> {
     ),
   );
   return {
-    maps: mapsOverview(id),
+    maps: mapsOverview(scope, id),
     recipes,
     tables: await listTablesWithSize(id),
   };

@@ -97,7 +97,7 @@ describe.skipIf(!port)("the check outlives a stalled tile host", () => {
     ] }));
     const table = await ingestFile(testAccountScope(), file, path.basename(file));
     mapId = createMap(testAccountScope(), "Stalled tiles").id;
-    updateMap(mapId, {
+    updateMap(testAccountScope(), mapId, {
       viewport: { lng: 13.4, lat: 52.5, zoom: 12, pitch: 0, bearing: 0 },
       customBasemap: { url: basemap.styleUrl, name: "Stalling tiles", attribution: [{ label: "Stall fixture" }] },
     });
@@ -110,7 +110,7 @@ describe.skipIf(!port)("the check outlives a stalled tile host", () => {
     const budget = limits.assistantLookTimeoutMs;
     const bound = renderRequestBoundMs(budget);
     const started = Date.now();
-    const result = await lookAtMap({ mapId, credential: delegateCredential(requireRequestAuth(authenticatedRequest())), baseUrl: `http://127.0.0.1:${port}` });
+    const result = await lookAtMap(testAccountScope(), { mapId, credential: delegateCredential(requireRequestAuth(authenticatedRequest())), baseUrl: `http://127.0.0.1:${port}` });
     const elapsed = Date.now() - started;
     console.info(JSON.stringify({
       budgetMs: budget, elapsedMs: result.elapsedMs, wallMs: elapsed,

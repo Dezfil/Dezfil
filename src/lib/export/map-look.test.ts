@@ -80,7 +80,7 @@ const creditPresent = (png: Buffer) => {
 // ---- the driver ----
 interface Consumed { map: string; updatedAt: string; layers: { id: string; filters: unknown }[]; legend: { visible: boolean; corner: string; order: string[] }; widgets: string[]; attribution: string }
 function consumedOf(mapId: string): Consumed {
-  const m = mapWithLayers(mapId);
+  const m = mapWithLayers(testAccountScope(), mapId);
   return { map: m.id, updatedAt: m.updatedAt, layers: m.layers.filter((l) => l.visible).map((l) => ({ id: l.id, filters: l.filters })), legend: { visible: true, corner: m.legendCorner ?? "bottom-left", order: m.layers.map((l) => l.id) }, widgets: m.widgets.filter((w) => w.visible).map((w) => w.id), attribution: "© OpenMapTiles © OpenStreetMap contributors" };
 }
 function driverOf(render: RenderBrowser["render"], counts = { launches: 0, renders: 0, killed: 0 }): { driver: RenderDriver; counts: typeof counts } {
@@ -108,7 +108,7 @@ describe("1f and 1g: one settled render, derived downwards at each exact boundar
     const png = pngFixture(LOOK_SOURCE.width, LOOK_SOURCE.height, 0.1, LOOK_IMAGE_MAX_BYTES);
     expect(png.length).toBe(LOOK_IMAGE_MAX_BYTES);
     const { driver, counts } = answering(png, mapId);
-    const result = await lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver });
+    const result = await lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver });
     expect(result.image).toMatchObject({ width: 1024, height: 640, bytes: LOOK_IMAGE_MAX_BYTES });
     expect(Buffer.from(result.image!.png).equals(png)).toBe(true);
     expect(result.source).toEqual({ width: 1024, height: 640 });
@@ -117,7 +117,7 @@ describe("1f and 1g: one settled render, derived downwards at each exact boundar
   it("one byte over the bound derives to 768 by 480 when that fits, the credit block surviving", async () => {
     const png = pngFixture(LOOK_SOURCE.width, LOOK_SOURCE.height, 0.1, LOOK_IMAGE_MAX_BYTES + 1);
     const { driver, counts } = answering(png, mapId);
-    const result = await lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver });
+    const result = await lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver });
     expect(decodedSize(result)).toEqual({ width: 768, height: 480 });
     expect(result.image).toMatchObject({ width: 768, height: 480 });
     expect(result.image!.bytes).toBe(result.image!.png.byteLength);
@@ -130,7 +130,7 @@ describe("1f and 1g: one settled render, derived downwards at each exact boundar
     const png = pngFixture(LOOK_SOURCE.width, LOOK_SOURCE.height, 0.45);
     expect(png.length).toBeGreaterThan(LOOK_IMAGE_MAX_BYTES);
     const { driver, counts } = answering(png, mapId);
-    const result = await lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver });
+    const result = await lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver });
     expect(decodedSize(result)).toEqual({ width: 512, height: 320 });
     expect(result.image!.bytes).toBeLessThanOrEqual(LOOK_IMAGE_MAX_BYTES);
     expect(creditPresent(Buffer.from(result.image!.png))).toBeGreaterThan(0.9);
@@ -140,13 +140,13 @@ describe("1f and 1g: one settled render, derived downwards at each exact boundar
   it("still over the bound at 512 by 320 answers no image and the documented outcome, one render taken", async () => {
     const png = pngFixture(LOOK_SOURCE.width, LOOK_SOURCE.height, 1);
     const { driver, counts } = answering(png, mapId);
-    await expect(lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver })).rejects.toMatchObject({ code: "look_image_too_large", status: 413 });
+    await expect(lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver })).rejects.toMatchObject({ code: "look_image_too_large", status: 413 });
     expect(counts.renders).toBe(1);
   });
   it("the attribution the renderer used is in the facts at every size", async () => {
     for (const noise of [0.1, 0.45]) {
       const { driver } = answering(pngFixture(LOOK_SOURCE.width, LOOK_SOURCE.height, noise, noise === 0.1 ? LOOK_IMAGE_MAX_BYTES + 1 : undefined), mapId);
-      const result = await lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver });
+      const result = await lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver });
       expect(result.attribution).toBe("© OpenMapTiles © OpenStreetMap contributors");
     }
   });
@@ -160,11 +160,11 @@ describe("the three deadlines end inside the check's own budget", () => {
     let release: () => void = () => {};
     const gate = new Promise<void>((r) => { release = r; });
     const slow = driverOf(async () => { await gate; return { png: new Uint8Array(pngFixture(64, 40, 0)), consumed: JSON.stringify(consumedOf(mapId)) }; });
-    const holding = lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver: slow.driver, budgetMs: 5_000 });
+    const holding = lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver: slow.driver, budgetMs: 5_000 });
     await new Promise((r) => setTimeout(r, 20));
     expect(renderQueueState()).toEqual({ active: 1, waiting: 0 });
     const { driver, counts } = answering(pngFixture(64, 40, 0), mapId);
-    const ms = await elapsed(() => lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver, budgetMs: 150 }));
+    const ms = await elapsed(() => lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver, budgetMs: 150 }));
     expect(ms).toBeLessThan(1_000);
     expect(counts.launches).toBe(0);
     release();
@@ -173,20 +173,20 @@ describe("the three deadlines end inside the check's own budget", () => {
   });
   it("a launch that never settles", async () => {
     const driver: RenderDriver = { launch: () => new Promise(() => {}) };
-    const ms = await elapsed(() => lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver, budgetMs: 150 }));
+    const ms = await elapsed(() => lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver, budgetMs: 150 }));
     expect(ms).toBeLessThan(1_000);
     expect(renderQueueState()).toEqual({ active: 0, waiting: 0 });
   });
   it("a render that never settles, the browser killed", async () => {
     const { driver, counts } = driverOf(() => new Promise(() => {}));
-    const ms = await elapsed(() => lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver, budgetMs: 150 }));
+    const ms = await elapsed(() => lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver, budgetMs: 150 }));
     expect(ms).toBeLessThan(1_000);
     expect(counts.killed).toBeGreaterThan(0);
     expect(renderQueueState()).toEqual({ active: 0, waiting: 0 });
   });
   it("the message names the check's budget in seconds, not the export's", async () => {
     const { driver } = driverOf(() => new Promise(() => {}));
-    await expect(lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver, budgetMs: 150 })).rejects.toMatchObject({ message: expect.stringMatching(/0\.15 ?s|check/) });
+    await expect(lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver, budgetMs: 150 })).rejects.toMatchObject({ message: expect.stringMatching(/0\.15 ?s|check/) });
   });
 });
 
@@ -194,14 +194,14 @@ describe("cancellation before and during the render", () => {
   it("before: an aborted signal launches nothing and answers the cancellation", async () => {
     const controller = new AbortController(); controller.abort();
     const { driver, counts } = answering(pngFixture(64, 40, 0), mapId);
-    await expect(lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver, signal: controller.signal })).rejects.toBeInstanceOf(EvaluationCancelled);
+    await expect(lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver, signal: controller.signal })).rejects.toBeInstanceOf(EvaluationCancelled);
     expect(counts.launches).toBe(0);
     expect(counts.renders).toBe(0);
   });
   it("during: the render is killed and the cancellation answered", async () => {
     const controller = new AbortController();
     const { driver, counts } = driverOf(() => new Promise(() => {}));
-    const pending = lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver, signal: controller.signal, budgetMs: 5_000 });
+    const pending = lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver, signal: controller.signal, budgetMs: 5_000 });
     await new Promise((r) => setTimeout(r, 30));
     controller.abort();
     await expect(pending).rejects.toBeInstanceOf(EvaluationCancelled);
@@ -215,22 +215,22 @@ describe("appearance in the facts, the map's stored state unchanged", () => {
   it("the headless default is light, dark is honored, and the definition handed to the renderer carries it", async () => {
     const seen: string[] = [];
     const { driver } = driverOf(async (input) => { seen.push(input.definition.appearance); return { png: new Uint8Array(pngFixture(64, 40, 0)), consumed: JSON.stringify(consumedOf(mapId)) }; });
-    const light = await lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver });
-    const dark = await lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver, appearance: "dark" });
+    const light = await lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver });
+    const dark = await lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver, appearance: "dark" });
     expect(light.appearance).toBe("light"); expect(light.state.appearance).toBe("light");
     expect(dark.appearance).toBe("dark"); expect(dark.state.appearance).toBe("dark");
     expect(seen).toEqual(["light", "dark"]);
   });
   it("a check writes nothing to the map", async () => {
-    const before = mapWithLayers(mapId);
+    const before = mapWithLayers(testAccountScope(), mapId);
     const { driver } = answering(pngFixture(64, 40, 0), mapId);
-    await lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver });
-    expect(mapWithLayers(mapId)).toEqual(before);
+    await lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver });
+    expect(mapWithLayers(testAccountScope(), mapId)).toEqual(before);
   });
   it("the render's identity is fresh per check and the source size is the documented one", async () => {
     const { driver } = answering(pngFixture(64, 40, 0), mapId);
-    const a = await lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver });
-    const b = await lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver });
+    const a = await lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver });
+    const b = await lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver });
     expect(a.id).toMatch(/^[0-9a-f-]{36}$/); expect(b.id).toMatch(/^[0-9a-f-]{36}$/); expect(a.id).not.toBe(b.id);
     expect(a.source).toEqual(LOOK_SOURCE);
   });
@@ -245,11 +245,11 @@ describe("the state identity is what the renderer consumed", () => {
     // configuration reaches the renderer, established by what it reports.
     const { driver } = driverOf(async () => {
       await createLayer(mapId, { name: "After", sql: "SELECT 2 AS x, ST_Point(13.5, 52.6) AS geom" });
-      updateMap(mapId, { legendCorner: "top-right" });
+      updateMap(testAccountScope(), mapId, { legendCorner: "top-right" });
       consumed = consumedOf(mapId);
       return { png: new Uint8Array(pngFixture(64, 40, 0)), consumed: JSON.stringify(consumed) };
     });
-    const result = await lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver });
+    const result = await lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver });
     expect(consumed).not.toBeNull();
     expect(consumed!.layers.map((l) => l.id)).not.toEqual(before.layers.map((l) => l.id));
     // The identity names the two layers the renderer drew and the corner it used, never the pre-
@@ -270,7 +270,7 @@ describe("the state identity is what the renderer consumed", () => {
       c.layers = c.layers.map((l) => l.id === layer.id ? { ...l, filters: [{ kind: "range", field: "x", min: 0, max: 5 }] } : l);
       return { png: new Uint8Array(pngFixture(64, 40, 0)), consumed: JSON.stringify(c) };
     });
-    const result = await lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver });
+    const result = await lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver });
     expect(result.state.camera).toMatchObject(seen[0]);
     const filtered = result.state.layers.find((l) => l.id === layer.id)!;
     const plain = result.state.layers.find((l) => l.id !== layer.id)!;
@@ -280,7 +280,7 @@ describe("the state identity is what the renderer consumed", () => {
   });
   it("a renderer that reports nothing of what it drew is a failed render, never an identity from a later read", async () => {
     const { driver } = driverOf(async () => ({ png: new Uint8Array(pngFixture(64, 40, 0)) }));
-    await expect(lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver })).rejects.toMatchObject({ code: "render_failed" });
+    await expect(lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver })).rejects.toMatchObject({ code: "render_failed" });
   });
 });
 
@@ -288,19 +288,19 @@ describe("a settled composition that shows a failure is a rendered image, report
   const reporting = (extra: Partial<Consumed> & { failures?: string[] }, abandoned?: string[]) => driverOf(async () => ({ png: new Uint8Array(pngFixture(64, 40, 0)), consumed: JSON.stringify({ ...consumedOf(mapId), ...extra }), ...(abandoned ? { abandoned } : {}) }));
   it("a failed layer is in the facts", async () => {
     const { driver } = reporting({ failures: ["Parks: could not render"] });
-    const result = await lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver });
+    const result = await lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver });
     expect(result.image.width).toBe(1024);
     expect(result.composition.failures).toEqual(["Parks: could not render"]);
     expect(result.composition.abandoned).toEqual([]);
   });
   it("a failed widget is in the facts", async () => {
     const { driver } = reporting({ failures: ["Widget values failed."] });
-    const result = await lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver });
+    const result = await lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver });
     expect(result.composition.failures).toEqual(["Widget values failed."]);
   });
   it("an abandoned external request is in the facts", async () => {
     const { driver } = reporting({}, ["tiles.example.org", "tiles.example.org"]);
-    const result = await lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver });
+    const result = await lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver });
     expect(result.composition.abandoned).toEqual(["tiles.example.org", "tiles.example.org"]);
     expect(result.composition.failures).toEqual([]);
   });
@@ -311,7 +311,7 @@ describe("the budget covers image preparation", () => {
     const png = pngFixture(LOOK_SOURCE.width, LOOK_SOURCE.height, 0.45);
     const { driver } = driverOf(async () => { await new Promise((r) => setTimeout(r, 90)); return { png: new Uint8Array(png), consumed: JSON.stringify(consumedOf(mapId)) }; });
     const started = performance.now();
-    await expect(lookAtMap({ mapId, credential: "fixture-render-credential", baseUrl: base, driver, budgetMs: 100 })).rejects.toMatchObject({ code: "render_timeout" });
+    await expect(lookAtMap(testAccountScope(), { mapId, credential: "fixture-render-credential", baseUrl: base, driver, budgetMs: 100 })).rejects.toMatchObject({ code: "render_timeout" });
     expect(performance.now() - started).toBeLessThan(2_000);
   });
 });

@@ -1,4 +1,4 @@
-import { testAccountScope } from "@/lib/test-support/accounts";
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -24,7 +24,7 @@ function seed(viewport: typeof ordinary) {
     .run(viewport.lng, viewport.lat, viewport.zoom, viewport.pitch, viewport.bearing, id);
 }
 async function patch(body: unknown) {
-  return PATCH(new Request("http://test", { method: "PATCH", body: JSON.stringify(body) }), { params: Promise.resolve({ id }) });
+  return PATCH(testAccountRequest(new Request("http://test", { method: "PATCH", body: JSON.stringify(body) })), { params: Promise.resolve({ id }) });
 }
 beforeEach(async () => {
   dir = await mkdtemp(path.join(process.cwd(), ".tmp-camera-recovery-"));
@@ -32,7 +32,7 @@ beforeEach(async () => {
   closeMetadataDb();
   resetPublishCache();
   id = createMap(testAccountScope(), "Legacy camera").id;
-  token = publishMap(id).token;
+  token = publishMap(testAccountScope(), id).token;
   vi.mocked(renderMapImage).mockReset().mockResolvedValue({ png: new Uint8Array([137, 80, 78, 71]), abandoned: [] });
 });
 afterEach(async () => {
@@ -63,7 +63,7 @@ describe("legacy camera recovery", () => {
     expect(getMapByToken(token)?.viewport).toEqual(effective);
     expect(getPublishedSnapshot(token)?.map.viewport).toEqual(effective);
     expect((await getPublishedView(token, Date.now()))?.viewport).toEqual(effective);
-    const read = await GET(new Request("http://test"), { params: Promise.resolve({ id }) });
+    const read = await GET(testAccountRequest(new Request("http://test")), { params: Promise.resolve({ id }) });
     expect(read.status).toBe(200);
     expect((await read.json()).viewport).toEqual(effective);
     expect(raw()).toEqual(before);

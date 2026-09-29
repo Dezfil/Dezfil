@@ -39,18 +39,18 @@ const params = (id: string) => ({ params: Promise.resolve({ id }) });
 
 async function put(query: string, body: Uint8Array<ArrayBuffer>, id = mapId) {
   return PUT(
-    new Request(`http://test/api/maps/${id}/thumbnail${query}`, {
+    testAccountRequest(new Request(`http://test/api/maps/${id}/thumbnail${query}`, {
       method: "PUT",
       headers: { "content-type": "image/png" },
       body,
-    }),
+    })),
     params(id),
   );
 }
 
 async function get(query: string, id = mapId) {
   const response = await GET(
-    new Request(`http://test/api/maps/${id}/thumbnail${query}`),
+    testAccountRequest(new Request(`http://test/api/maps/${id}/thumbnail${query}`)),
     params(id),
   );
   const tag =
@@ -114,7 +114,7 @@ describe("PUT and GET /api/maps/{id}/thumbnail by theme", () => {
     ).json()) as { id: string };
     expect(await get("?theme=light", copy.id)).toEqual({ status: 200, tag: "L" });
     expect(await get("?theme=dark", copy.id)).toEqual({ status: 200, tag: "D" });
-    await removeMap(mapId);
+    await removeMap(testAccountScope(), mapId);
     // The source's files are gone, theme by theme; the copy keeps its own.
     expect(await readThumbnail(mapId, "light")).toBeNull();
     expect(await readThumbnail(mapId, "dark")).toBeNull();
@@ -129,7 +129,7 @@ describe("PUT and GET /api/maps/{id}/thumbnail by theme", () => {
     ).json()) as { id: string };
     expect(await get("", copy.id)).toEqual({ status: 200, tag: "single" });
     expect(await get("?theme=dark", copy.id)).toEqual({ status: 200, tag: "single" });
-    await removeMap(copy.id);
+    await removeMap(testAccountScope(), copy.id);
     expect(await readThumbnail(copy.id)).toBeNull();
     expect(await readThumbnail(copy.id, "light")).toBeNull();
     expect(await get("", mapId)).toEqual({ status: 200, tag: "single" });

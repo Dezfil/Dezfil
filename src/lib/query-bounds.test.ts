@@ -218,7 +218,7 @@ describe("query bounds — widget lanes", () => {
   it("widget values time out with the documented error, not per-widget noise", async () => {
     const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, { name: "slow", sql: SLOW_VALUES });
-    const withWidgets = updateMap(map.id, {
+    const withWidgets = updateMap(testAccountScope(), map.id, {
       widgets: [
         {
           id: "wf",
@@ -247,7 +247,7 @@ describe("query bounds — published lanes", () => {
     const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, { name: "fast", sql: FAST });
     await updateLayer(layer.id, { sql: SLOW_EVERYWHERE });
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     timeoutNow();
     const view = await getPublishedView(token, Date.now());
     if (!view) throw new Error("view did not assemble");
@@ -277,7 +277,7 @@ describe("query bounds — published lanes", () => {
     });
     // The selection's field must be one the published surface declares
     // — as every real dashboard selection is.
-    updateMap(map.id, {
+    updateMap(testAccountScope(), map.id, {
       widgets: [
         {
           id: "wc",
@@ -294,7 +294,7 @@ describe("query bounds — published lanes", () => {
         },
       ],
     });
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     timeoutNow();
     const response = await publishedRenderRoute(
       new Request("http://localhost:3000/x", {
@@ -320,7 +320,7 @@ describe("query bounds — published lanes", () => {
   it("the published widget-values route fails with the documented code", async () => {
     const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, { name: "slow", sql: SLOW_VALUES });
-    updateMap(map.id, {
+    updateMap(testAccountScope(), map.id, {
       widgets: [
         {
           id: "wf",
@@ -337,7 +337,7 @@ describe("query bounds — published lanes", () => {
         },
       ],
     });
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     timeoutNow();
     const response = await publishedWidgetValuesRoute(
       new Request("http://localhost:3000/x", {
@@ -385,7 +385,7 @@ describe("trailing comments: valid SQL is not broken by its own comments", () =>
     });
     expect((await renderLayer(layer)).ok).toBe(true);
 
-    const withWidgets = updateMap(map.id, {
+    const withWidgets = updateMap(testAccountScope(), map.id, {
       widgets: [
         {
           id: "wf",
@@ -406,7 +406,7 @@ describe("trailing comments: valid SQL is not broken by its own comments", () =>
     expect(values.widgets[0]).toMatchObject({ id: "wf" });
     expect(values.widgets[0]).not.toHaveProperty("error");
 
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     if (!view) throw new Error("view did not assemble");
     expect(view.layers[0].render.ok).toBe(true);
@@ -420,7 +420,7 @@ describe("query bounds — outcome attribution", () => {
       name: "tricky",
       sql: "SELECT 'interrupt' AS v, geometry FROM stations",
     });
-    const withWidgets = updateMap(map.id, {
+    const withWidgets = updateMap(testAccountScope(), map.id, {
       widgets: [
         {
           id: "wf",
@@ -562,7 +562,7 @@ describe("query bounds — a caller that leaves takes its work with it", () => {
     const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(map.id, { name: "fast", sql: FAST });
     await updateLayer(layer.id, { sql: SLOW_EVERYWHERE });
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
     const reader = new AbortController();
     const started = Date.now();
     const view = getPublishedView(token, Date.now(), reader.signal);

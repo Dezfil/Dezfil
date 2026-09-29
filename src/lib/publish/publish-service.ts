@@ -1,3 +1,5 @@
+import type { AccountScope } from "@/lib/auth/scope";
+import { requireMap } from "@/lib/map-access";
 import { ApiError } from "@/lib/api/errors";
 import { publishedMessage } from "@/lib/api/error-catalogue";
 import {
@@ -78,8 +80,8 @@ export interface PublishSettings {
  * published. Normalizing here — not at each surface — is what keeps a
  * earlier publication, an unstated setting and an omitted member all
  * reading as every control on. */
-export function getPublicationState(id: string): PublicationState | null {
-  const map = requirePublishedMapOwner(id);
+export function getPublicationState(scope: AccountScope, id: string): PublicationState | null {
+  const map = requirePublishedMapOwner(scope, id);
   if (!map.publishToken || !map.publishedAt) return null;
   return {
     token: map.publishToken,
@@ -89,10 +91,8 @@ export function getPublicationState(id: string): PublicationState | null {
   };
 }
 
-function requirePublishedMapOwner(id: string) {
-  const map = getMap(id);
-  if (!map) throw new ApiError("not_found", `No map with id ${id}.`, 404);
-  return map;
+function requirePublishedMapOwner(scope: AccountScope, id: string) {
+  return requireMap(scope, id);
 }
 
 /** Publish a map, or return the existing link unchanged if already published
@@ -105,21 +105,22 @@ function requirePublishedMapOwner(id: string) {
  * for presence independently: a call stating only a theme leaves the
  * checklist exactly as the author left it. */
 export function publishMap(
+  scope: AccountScope,
   id: string,
   settings: PublishSettings = {},
 ): PublishState {
-  const map = requirePublishedMapOwner(id);
-  const { theme, viewerControls } = settings;
-  if (map.publishToken && map.publishedAt) {
-    if (theme) setPublishedTheme(id, theme);
-    if (viewerControls) {
-      setViewerControls(id, normalizeViewerControls(viewerControls));
+  return metadataDb().transaction(() => {
+    const map = requirePublishedMapOwner(scope, id);
+    const { theme, viewerControls } = settings;
+    if (map.publishToken && map.publishedAt) {
+      if (theme) setPublishedTheme(id, theme);
+      if (viewerControls) {
+        setViewerControls(id, normalizeViewerControls(viewerControls));
+      }
+      return { token: map.publishToken, publishedAt: map.publishedAt };
     }
-    return { token: map.publishToken, publishedAt: map.publishedAt };
-  }
-  const token = generateToken();
-  const publishedAt = new Date().toISOString();
-  metadataDb().transaction(() => {
+    const token = generateToken();
+    const publishedAt = new Date().toISOString();
     updateMapFields(id, { publishToken: token, publishedAt });
     setPublishedTheme(id, theme ?? "dark");
     // An unstated set is stored as null, which reads as every control on;
@@ -129,23 +130,24 @@ export function publishMap(
       id,
       viewerControls ? normalizeViewerControls(viewerControls) : null,
     );
+    return { token, publishedAt };
   })();
-  return { token, publishedAt };
 }
 
 /** Unpublish: the link stops resolving immediately; a later republish mints a
  * fresh, unrelated token (spec: rotation is the revocation story). */
-export function unpublishMap(id: string): void {
-  const map = requirePublishedMapOwner(id);
-  metadataDb().transaction(() => {
+export function unpublishMap(scope: AccountScope, id: string): void {
+  const token = metadataDb().transaction(() => {
+    const map = requirePublishedMapOwner(scope, id);
     updateMapFields(id, { publishToken: null, publishedAt: null });
     // The authored theme is publication state: it leaves with the token,
     // so the next publication captures fresh. The viewer controls are
     // publication state too and leave with it.
     setPublishedTheme(id, null);
     setViewerControls(id, null);
+    return map.publishToken;
   })();
-  if (map.publishToken) invalidatePublishedToken(map.publishToken);
+  if (token) invalidatePublishedToken(token);
 }
 
 export interface PublishedLayer {

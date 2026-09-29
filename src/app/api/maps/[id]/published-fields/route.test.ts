@@ -1,4 +1,4 @@
-import { testAccountScope } from "@/lib/test-support/accounts";
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -35,7 +35,7 @@ afterEach(async () => {
 });
 
 function statement() {
-  return GET(new Request(`http://localhost/api/maps/${mapId}/published-fields`), {
+  return GET(testAccountRequest(new Request(`http://localhost/api/maps/${mapId}/published-fields`)), {
     params: Promise.resolve({ id: mapId }),
   });
 }

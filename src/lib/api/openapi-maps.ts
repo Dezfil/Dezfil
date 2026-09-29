@@ -1,3 +1,4 @@
+import { mapAccess } from "./openapi-map-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { authenticatedOp } from "./openapi-authenticated";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE, MAP_LOOK, REMOTE_READ, REMOTE_REPLACE } from "./operation-mcp";
@@ -20,7 +21,7 @@ const THUMBNAIL_THEME_PARAM = {
 
 export const MAP_COLLECTION_PATHS = {
   "/api/maps": {
-    get: op({
+    get: op(mapAccess({
       summary: "List maps",
       tag: "Maps",
       tool: "list_maps", mcp: LOCAL_READ,
@@ -28,8 +29,8 @@ export const MAP_COLLECTION_PATHS = {
       effects: READ_ONLY,
       parameters: [PROJECT_SCOPE_PARAM],
       responses: { "200": jsonOk("#/components/schemas/MapList") },
-    }),
-    post: ownedCreationOp({
+    })),
+    post: ownedCreationOp(mapAccess({
       summary: "Create a map",
       description:
         "Optionally filed into a project at birth: an " +
@@ -58,13 +59,13 @@ export const MAP_COLLECTION_PATHS = {
         },
       },
       responses: { "201": jsonOk("#/components/schemas/Map", "Created.") },
-    }),
+    })),
   },
 };
 
 export const MAP_RESOURCE_PATHS = {
   "/api/maps/{id}": {
-    get: op({
+    get: op(mapAccess({
       summary: "Read a map with its layers",
       tag: "Maps",
       tool: "get_map", mcp: LOCAL_READ,
@@ -74,8 +75,8 @@ export const MAP_RESOURCE_PATHS = {
       responses: {
         "200": jsonOk("#/components/schemas/MapWithLayers"),
       },
-    }),
-    patch: op({
+    })),
+    patch: op(mapAccess({
       summary: "Update a map",
       description:
         "Any of name, viewport, basemap (dark | light | streets | " +
@@ -107,8 +108,8 @@ export const MAP_RESOURCE_PATHS = {
       responses: {
         "200": jsonOk("#/components/schemas/MapWithLayers"),
       },
-    }),
-    delete: op({
+    })),
+    delete: op(mapAccess({
       summary: "Delete a map",
       tag: "Maps",
       tool: "delete_map", mcp: LOCAL_DELETE,
@@ -118,10 +119,10 @@ export const MAP_RESOURCE_PATHS = {
       confirm: true,
       parameters: [pathParam("id", "Map id.")],
       responses: { "204": { description: "Deleted." } },
-    }),
+    })),
   },
   "/api/maps/{id}/thumbnail": {
-    get: op({
+    get: op(mapAccess({
       summary: "Read a map's snapshot",
       description:
         "The PNG the builder last captured for this map — the " +
@@ -144,8 +145,8 @@ export const MAP_RESOURCE_PATHS = {
         },
         "404": { description: "No snapshot yet." },
       },
-    }),
-    put: op({
+    })),
+    put: op(mapAccess({
       summary: "Store a map's snapshot",
       description:
         "A PNG body, at most 4 MB — captured by the builder after " +
@@ -187,10 +188,10 @@ export const MAP_RESOURCE_PATHS = {
             "same cycle. The map's images are unchanged.",
         },
       },
-    }),
+    })),
   },
   "/api/maps/{id}/widget-values": {
-    post: op({
+    post: op(mapAccess({
       summary: "Read the map's widget values",
       description:
         "Every visible widget computed server-side over its layer's " +
@@ -232,10 +233,10 @@ export const MAP_RESOURCE_PATHS = {
         },
       },
       responses: { "200": jsonOk("#/components/schemas/WidgetValues") },
-    }),
+    })),
   },
   "/api/maps/{id}/search": {
-    get: op({
+    get: op(mapAccess({
       summary: "Search the map",
       description:
         "One search over the map's own data and, on request, places " +
@@ -274,10 +275,10 @@ export const MAP_RESOURCE_PATHS = {
         },
       ],
       responses: { "200": jsonOk("#/components/schemas/SearchResults") },
-    }),
+    })),
   },
   "/api/maps/{id}/dependencies": {
-    get: op({
+    get: op(mapAccess({
       summary: "The datasets a map draws from",
       description:
         "The 14-A filing checklist's subject: every " +
@@ -298,10 +299,10 @@ export const MAP_RESOURCE_PATHS = {
       responses: {
         "200": jsonOk("#/components/schemas/MapDependencies"),
       },
-    }),
+    })),
   },
   "/api/maps/{id}/duplicate": {
-    post: ownedCreationOp({
+    post: ownedCreationOp(mapAccess({
       summary: "Duplicate a map",
       description:
         "Full copy — viewport, basemap, note, legend, timeline dock, and " +
@@ -315,13 +316,13 @@ export const MAP_RESOURCE_PATHS = {
       responses: {
         "201": jsonOk("#/components/schemas/MapWithLayers", "Created."),
       },
-    }),
+    })),
   },
 };
 
 export const MAP_RENDER_PATHS = {
   "/api/maps/look": {
-    post: authenticatedOp({
+    post: authenticatedOp(mapAccess({
       summary: "Look at a map: one bounded rendered image with its facts",
       description:
         "The model-facing check of a map: the map's stored " +
@@ -373,7 +374,7 @@ export const MAP_RENDER_PATHS = {
         "502": { description: "The render failed or the renderer did not report what it drew (render_failed)." },
         "503": { description: "No renderer browser on this instance (render_unavailable)." },
       },
-    }),
+    })),
   },
   "/api/maps/look/{renderId}": {
     get: authenticatedOp({
@@ -404,7 +405,7 @@ export const MAP_RENDER_PATHS = {
     }),
   },
   "/api/maps/{id}/export/image": {
-    post: authenticatedOp({
+    post: authenticatedOp(mapAccess({
       summary: "Render a map to a PNG image",
       description:
         "Server-side image export: the map rendered by " +
@@ -463,13 +464,13 @@ export const MAP_RENDER_PATHS = {
           description: "No renderer browser on this instance.",
         },
       },
-    }),
+    })),
   },
 };
 
 export const MAP_PUBLISH_PATHS = {
   "/api/maps/{id}/publish": {
-    get: op({
+    get: op(mapAccess({
       summary: "The active publication's authored settings",
       description:
         "The theme default and the viewer-controls checklist for the " +
@@ -489,8 +490,8 @@ export const MAP_PUBLISH_PATHS = {
         ),
         "204": { description: "The map is not published." },
       },
-    }),
-    post: op({
+    })),
+    post: op(mapAccess({
       summary: "Publish a map",
       description:
         "Returns a stable, unguessable token. Idempotent while " +
@@ -537,8 +538,8 @@ export const MAP_PUBLISH_PATHS = {
         },
       },
       responses: { "201": jsonOk("#/components/schemas/PublishState", "Published.") },
-    }),
-    delete: op({
+    })),
+    delete: op(mapAccess({
       summary: "Unpublish a map",
       description: "The link stops resolving immediately.",
       tag: "Publish",
@@ -549,10 +550,10 @@ export const MAP_PUBLISH_PATHS = {
       confirm: true,
       parameters: [pathParam("id", "Map id.")],
       responses: { "204": { description: "Unpublished." } },
-    }),
+    })),
   },
   "/api/maps/{id}/published-fields": {
-    get: op({
+    get: op(mapAccess({
       summary: "What each layer shares when this map is published",
       description:
         "The shared-field statement: per layer, the " +
@@ -572,7 +573,7 @@ export const MAP_PUBLISH_PATHS = {
       responses: {
         "200": jsonOk("#/components/schemas/PublishedFieldsStatement"),
       },
-    }),
+    })),
   },
 };
 

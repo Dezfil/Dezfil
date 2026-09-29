@@ -1,4 +1,4 @@
-import { testAccountScope } from "@/lib/test-support/accounts";
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -25,11 +25,11 @@ let mapId: string;
 
 const patch = (body: unknown) =>
   PATCH(
-    new Request("http://localhost/x", {
+    testAccountRequest(new Request("http://localhost/x", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    }),
+    })),
     { params: Promise.resolve({ id: mapId }) },
   );
 
@@ -118,9 +118,9 @@ describe("custom basemap PATCH", () => {
     // key behaves.
     await patch({ customBasemap: { url: "https://x.test/a.json" } });
     await patch({ customBasemap: { url: "https://x.test/b.json" } });
-    const undone = await undoChange(mapId);
+    const undone = await undoChange(testAccountScope(), mapId);
     expect(undone.customBasemap).toBeNull();
-    const redone = await redoChange(mapId);
+    const redone = await redoChange(testAccountScope(), mapId);
     expect(redone.customBasemap?.url).toBe("https://x.test/b.json");
   });
 });

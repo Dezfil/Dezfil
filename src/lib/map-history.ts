@@ -1,3 +1,4 @@
+import type { AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
 import { removeTileArtifacts } from "@/lib/tiles/build";
@@ -13,8 +14,8 @@ export interface MapWithHistory extends MapWithLayers {
   history: HistoryAvailability;
 }
 
-export function mapHistory(id: string): HistoryAvailability {
-  requireMap(id);
+export function mapHistory(scope: AccountScope, id: string): HistoryAvailability {
+  requireMap(scope, id);
   return historyAvailability(id);
 }
 
@@ -61,10 +62,11 @@ function applyStep(
 }
 
 async function applyHistory(
+  scope: AccountScope,
   id: string,
   direction: "undo" | "redo",
 ): Promise<MapWithHistory> {
-  requireMap(id);
+  requireMap(scope, id);
   const steps = direction === "undo" ? undoSteps(id) : redoSteps(id);
   if (steps.length === 0) {
     throw new ApiError(
@@ -80,15 +82,15 @@ async function applyHistory(
     setHistoryCursor(id, direction === "undo" ? last.seq - 1 : last.seq);
   })();
   await Promise.all(removedLayers.map((lid) => removeTileArtifacts(lid)));
-  return { ...mapWithLayers(id), history: historyAvailability(id) };
+  return { ...mapWithLayers(scope, id), history: historyAvailability(id) };
 }
 
 /** Revert the newest step — or the whole group an assistant turn wrote. */
-export function undoChange(id: string): Promise<MapWithHistory> {
-  return applyHistory(id, "undo");
+export function undoChange(scope: AccountScope, id: string): Promise<MapWithHistory> {
+  return applyHistory(scope, id, "undo");
 }
 
 /** Re-apply the newest undone step (or group). */
-export function redoChange(id: string): Promise<MapWithHistory> {
-  return applyHistory(id, "redo");
+export function redoChange(scope: AccountScope, id: string): Promise<MapWithHistory> {
+  return applyHistory(scope, id, "redo");
 }

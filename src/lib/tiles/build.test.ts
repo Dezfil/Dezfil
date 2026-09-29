@@ -291,7 +291,7 @@ describe("tile builds", () => {
     ensureTiles(inputFor(other.id));
     await vi.waitFor(() => expect(existsSync(gate.started)).toBe(true));
 
-    await removeMap(mapId);
+    await removeMap(testAccountScope(), mapId);
     await gate.release();
     await tileBuildsSettled();
 
@@ -379,7 +379,7 @@ describe("tile builds", () => {
     await vi.waitFor(() => expect(existsSync(gate.started)).toBe(true));
 
     await removeLayer(layerId);
-    await undoChange(mapId);
+    await undoChange(testAccountScope(), mapId);
     expect(ensureTiles(input()).state).toBe("building");
 
     await gate.release();

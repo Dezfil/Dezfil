@@ -54,12 +54,12 @@ afterEach(async () => {
 describe("maps", () => {
   it("creates, lists, reads, renames, and deletes", async () => {
     const map = createMap(testAccountScope(), "Transit");
-    expect(allMaps().map((m) => m.id)).toContain(map.id);
-    expect(mapWithLayers(map.id).name).toBe("Transit");
-    updateMap(map.id, { name: "Transit v2" });
-    expect(mapWithLayers(map.id).name).toBe("Transit v2");
-    await removeMap(map.id);
-    expect(allMaps()).toEqual([]);
+    expect(allMaps(testAccountScope()).map((m) => m.id)).toContain(map.id);
+    expect(mapWithLayers(testAccountScope(), map.id).name).toBe("Transit");
+    updateMap(testAccountScope(), map.id, { name: "Transit v2" });
+    expect(mapWithLayers(testAccountScope(), map.id).name).toBe("Transit v2");
+    await removeMap(testAccountScope(), map.id);
+    expect(allMaps(testAccountScope())).toEqual([]);
   });
 
   it("lists overviews with layer count and colors", async () => {
@@ -68,7 +68,7 @@ describe("maps", () => {
       name: "Stations",
       sql: "SELECT * FROM stations",
     });
-    const overview = mapsOverview().find((m) => m.id === map.id);
+    const overview = mapsOverview(testAccountScope()).find((m) => m.id === map.id);
     expect(overview?.layerCount).toBe(1);
     expect(overview?.layerColors).toHaveLength(1);
     expect(overview?.layerColors[0]).toMatch(/^rgba\(/);
@@ -76,7 +76,7 @@ describe("maps", () => {
 
   it("duplicates a map as an unpublished draft with copied layers", async () => {
     const map = createMap(testAccountScope(), "Original");
-    updateMap(map.id, {
+    updateMap(testAccountScope(), map.id, {
       viewport: {
         lng: 13.4,
         lat: 52.5,
@@ -89,7 +89,7 @@ describe("maps", () => {
       name: "Stations",
       sql: "SELECT * FROM stations",
     });
-    publishMap(map.id);
+    publishMap(testAccountScope(), map.id);
 
     // The custom icon markup rides the copied viz whole.
     await updateLayer(layer.id, {
@@ -118,8 +118,8 @@ describe("maps", () => {
     expect(copy.layers[0].sql).toBe("SELECT * FROM stations");
     expect(copy.layers[0].id).not.toBe(layer.id);
     // The original keeps its publish state and layers.
-    expect(mapWithLayers(map.id).publishToken).not.toBeNull();
-    expect(mapWithLayers(map.id).layers).toHaveLength(1);
+    expect(mapWithLayers(testAccountScope(), map.id).publishToken).not.toBeNull();
+    expect(mapWithLayers(testAccountScope(), map.id).layers).toHaveLength(1);
   });
 
   it("lists tables with their size on disk", async () => {
@@ -130,10 +130,10 @@ describe("maps", () => {
 
   it("persists viewport round-trips, camera included", () => {
     const map = createMap(testAccountScope(), "m");
-    updateMap(map.id, {
+    updateMap(testAccountScope(), map.id, {
       viewport: { lng: 13.4, lat: 52.5, zoom: 11, pitch: 45, bearing: -15 },
     });
-    expect(mapWithLayers(map.id).viewport).toEqual({
+    expect(mapWithLayers(testAccountScope(), map.id).viewport).toEqual({
       lng: 13.4,
       lat: 52.5,
       zoom: 11,
@@ -144,11 +144,11 @@ describe("maps", () => {
 
   it("persists the basemap choice; null means deployment default", () => {
     const map = createMap(testAccountScope(), "m");
-    expect(mapWithLayers(map.id).basemap).toBeNull();
-    updateMap(map.id, { basemap: "light" });
-    expect(mapWithLayers(map.id).basemap).toBe("light");
-    updateMap(map.id, { basemap: null });
-    expect(mapWithLayers(map.id).basemap).toBeNull();
+    expect(mapWithLayers(testAccountScope(), map.id).basemap).toBeNull();
+    updateMap(testAccountScope(), map.id, { basemap: "light" });
+    expect(mapWithLayers(testAccountScope(), map.id).basemap).toBe("light");
+    updateMap(testAccountScope(), map.id, { basemap: null });
+    expect(mapWithLayers(testAccountScope(), map.id).basemap).toBeNull();
   });
 });
 
@@ -274,7 +274,7 @@ describe("layers as source of truth", () => {
     expect(copy.publishedFields).toEqual(["riders"]);
     expect(copy.inLegend).toBe(false);
     expect(copy.ordinal).toBeGreaterThan(layer.ordinal);
-    expect(mapWithLayers(map.id).layers).toHaveLength(2);
+    expect(mapWithLayers(testAccountScope(), map.id).layers).toHaveLength(2);
   });
 
   it("rejects zero-geometry results; multiple geometries render the first", async () => {

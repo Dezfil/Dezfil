@@ -62,7 +62,7 @@ beforeEach(async () => {
   });
   layerId = layer.id;
   mapId = map.id;
-  updateMap(map.id, {
+  updateMap(testAccountScope(), map.id, {
     widgets: [
       widget({ id: "wh", layerId }),
       widget({
@@ -74,7 +74,7 @@ beforeEach(async () => {
       }),
     ],
   });
-  token = publishMap(map.id).token;
+  token = publishMap(testAccountScope(), map.id).token;
 });
 
 afterEach(async () => {
@@ -137,7 +137,7 @@ describe("published widget-values reader gate", () => {
   it("a hidden widget's retained id behaves like an unknown one", async () => {
     // Hide the histogram; its stored config is an echo, so the write
     // passes — and a reader's retained selection must filter nothing.
-    updateMap(mapId, {
+    updateMap(testAccountScope(), mapId, {
       widgets: [
         widget({ id: "wh", layerId, visible: false }),
         widget({
@@ -208,7 +208,7 @@ describe("published widget-values reader gate", () => {
 
     // The builder's own computation keeps the engine's diagnostic — the
     // authenticated-equivalent carve-out.
-    const record = mapWithLayers(mapId);
+    const record = mapWithLayers(testAccountScope(), mapId);
     const raw = await computeWidgetValues(record, record.layers, []);
     const failed = raw.widgets.filter(
       (w): w is { id: string; error: string; errorCode: never } => "error" in w,

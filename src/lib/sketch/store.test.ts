@@ -194,7 +194,7 @@ describe("cascadeDeleteSketch", () => {
     const made = await createSketch(testAccountScope(), map.id, square);
     // A manual legend arrangement includes the owner: the cascade must
     // prune its slot, not leave a dead UUID stored.
-    updateMap(map.id, { legendOrder: [made.layerId] });
+    updateMap(testAccountScope(), map.id, { legendOrder: [made.layerId] });
     // A step targeting the owner (a style edit) and an unrelated one.
     recordStep({
       mapId: map.id,

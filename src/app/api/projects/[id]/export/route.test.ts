@@ -1,4 +1,4 @@
-import { testAccountScope } from "@/lib/test-support/accounts";
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createHash } from "node:crypto";
 import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
@@ -103,19 +103,19 @@ async function seedDataset(
 
 const post = async (projectId: string, body: Record<string, unknown>) =>
   POST(
-    new Request("http://test", {
+    testAccountRequest(new Request("http://test", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ prepare: true, ...body }),
-    }),
+    })),
     { params: Promise.resolve({ id: projectId }) },
   );
 
 const redeem = async (projectId: string, ticket: string, key: string) =>
   GET(
-    new Request(
+    testAccountRequest(new Request(
       `http://test?ticket=${encodeURIComponent(ticket)}&key=${encodeURIComponent(key)}`,
-    ),
+    )),
     { params: Promise.resolve({ id: projectId }) },
   );
 
@@ -363,11 +363,11 @@ describe("the project export capability", () => {
       members: { addTables: [t.id] },
     });
     const res = await POST(
-      new Request("http://test", {
+      testAccountRequest(new Request("http://test", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ datasets: [t.id], file: "direct" }),
-      }),
+      })),
       { params: Promise.resolve({ id: project.id }) },
     );
     expect(res.status).toBe(200);

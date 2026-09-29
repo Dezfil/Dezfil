@@ -2,6 +2,8 @@ import { requireMap, mapWithLayers } from "./map-access";
 export { requireMap, mapWithLayers } from "./map-access";
 export { mapHistory, undoChange, redoChange, type MapWithHistory } from "./map-history";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
+import { listOwnedMaps, ownedMapProjectId } from "@/lib/metadata/map-queries";
 import { randomUUID } from "node:crypto";
 import { ApiError } from "@/lib/api/errors";
 import { removeTileArtifacts } from "@/lib/tiles/build";
@@ -27,7 +29,6 @@ import {
 import {
   insertMap,
   getMap,
-  listMaps,
   updateMapFields,
   deleteMap,
   listLayers,
@@ -41,8 +42,6 @@ import {
 import {
   fileMap,
   mapProjectId,
-  mapProjectIds,
-  requireProject,
   touchProjectsOf,
 } from "@/lib/metadata/projects";
 import { metadataDb } from "@/lib/metadata/db";
@@ -217,12 +216,12 @@ function normalizeWidgets(input: unknown, mapId: string): MapWidget[] {
  * validates.
  */
 export async function validateMapWriteRefs(
+  scope: AccountScope,
   mapId: string,
   fields: { timeline?: unknown; widgets?: unknown },
   signal?: AbortSignal,
 ): Promise<void> {
-  const map = getMap(mapId);
-  if (!map) return; // the write itself answers 404
+  const map = requireMap(scope, mapId);
   const layers = new Map(listLayers(mapId).map((l) => [l.id, l]));
   const perLayer = new Map<string, ColumnRef[]>();
   const collect = (layerId: string, refs: ColumnRef[]) => {
@@ -274,8 +273,9 @@ export async function validateMapWriteRefs(
   }
 }
 
-export function createMap(scope: AccountScope, name: string): MapRecord {
+export function createMap(scope: AccountScope, name: string, projectId: string | null = null): MapRecord {
   requireAccountScope(scope);
+  if (projectId) requireOwnedResource(scope, "project", projectId);
   const now = new Date().toISOString();
   const map: MapRecord = {
     id: randomUUID(),
@@ -295,12 +295,16 @@ export function createMap(scope: AccountScope, name: string): MapRecord {
     createdAt: now,
     updatedAt: now,
   };
-  insertMap(scope, map);
+  metadataDb().transaction(() => {
+    if (projectId) requireOwnedResource(scope, "project", projectId);
+    insertMap(scope, map);
+    if (projectId) fileMap(map.id, projectId);
+  })();
   return map;
 }
 
-export function allMaps(): MapRecord[] {
-  return listMaps();
+export function allMaps(scope: AccountScope): MapRecord[] {
+  return listOwnedMaps(scope);
 }
 
 /** A listed map plus what its card needs: how many layers it
@@ -318,17 +322,17 @@ function cssColor(c: { r: number; g: number; b: number; a: number }): string {
   return `rgba(${c.r}, ${c.g}, ${c.b}, ${c.a})`;
 }
 
-export function mapsOverview(project?: string | "none"): MapOverview[] {
+export function mapsOverview(scope: AccountScope, project?: string | "none"): MapOverview[] {
   // An unknown project refuses — a silently empty list would read as an
   // empty project.
-  if (project && project !== "none") requireProject(project);
-  const memberships = mapProjectIds();
-  return listMaps()
+  requireAccountScope(scope);
+  if (project && project !== "none") requireOwnedResource(scope, "project", project);
+  return listOwnedMaps(scope)
     .map((m) => {
       const layers = listLayers(m.id);
       return {
         ...m,
-        projectId: memberships.get(m.id) ?? null,
+        projectId: ownedMapProjectId(scope, m.id),
         layerCount: layers.length,
         layerColors: layers.map((l) => cssColor(representativeColor(l.style))),
       };
@@ -343,6 +347,7 @@ export function mapsOverview(project?: string | "none"): MapOverview[] {
 }
 
 export function updateMap(
+  scope: AccountScope,
   id: string,
   fields: Partial<{
     name: string;
@@ -360,7 +365,7 @@ export function updateMap(
   }>,
   opts: { groupId?: string | null } = {},
 ): MapWithLayers {
-  const prior = requireMap(id);
+  const prior = requireMap(scope, id);
   // Validate everything before writing anything — no partial writes.
   const basemapLayers =
     fields.basemapLayers === undefined
@@ -446,6 +451,7 @@ export function updateMap(
     }
   }
   metadataDb().transaction(() => {
+    requireMap(scope, id);
     if (
       fields.name !== undefined ||
       fields.viewport !== undefined ||
@@ -504,7 +510,7 @@ export function updateMap(
       });
     }
   })();
-  return mapWithLayers(id);
+  return mapWithLayers(scope, id);
 }
 
 /**
@@ -515,11 +521,12 @@ export function updateMap(
  */
 export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
   requireAccountScope(scope);
-  const source = requireMap(id);
+  const source = requireMap(scope, id);
   const layers = listLayers(id);
   const now = new Date().toISOString();
   const newId = randomUUID();
   metadataDb().transaction(() => {
+    requireMap(scope, id);
     const layerIds = new Map<string, string>();
     insertMap(scope, {
       ...source,
@@ -584,18 +591,24 @@ export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
     // transaction, so a move racing the copy cannot file it where the
     // source no longer is (found at review).
     const sourceProject = mapProjectId(id);
-    if (sourceProject) fileMap(newId, sourceProject);
+    if (sourceProject) {
+      requireOwnedResource(scope, "project", sourceProject);
+      fileMap(newId, sourceProject);
+    }
   })();
-  return mapWithLayers(newId);
+  return mapWithLayers(scope, newId);
 }
 
-export async function removeMap(id: string): Promise<void> {
-  const map = requireMap(id);
-  const layerIds = listLayers(id).map((l) => l.id);
-  // The set the map leaves must notice: the cascade removes nothing
-  // here (the reference nulls), but the project's own clock advances.
-  touchProjectsOf({ mapId: id });
-  deleteMap(id); // layers (and their tile records) cascade
+export async function removeMap(scope: AccountScope, id: string): Promise<void> {
+  const { map, layerIds } = metadataDb().transaction(() => {
+    const map = requireMap(scope, id);
+    const layerIds = listLayers(id).map((l) => l.id);
+    // The set the map leaves must notice: the cascade removes nothing
+    // here (the reference nulls), but the project's own clock advances.
+    touchProjectsOf({ mapId: id });
+    deleteMap(id); // layers (and their tile records) cascade
+    return { map, layerIds };
+  })();
   if (map.publishToken) invalidatePublishedToken(map.publishToken);
   // Archives and thumbnails are files, not rows — remove them explicitly.
   await removeThumbnail(id);

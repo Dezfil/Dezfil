@@ -1,4 +1,4 @@
-import { testAccountScope } from "@/lib/test-support/accounts";
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -70,11 +70,11 @@ afterEach(async () => {
 
 async function patch(body: unknown) {
   const response = await PATCH(
-    new Request(`http://test/api/maps/${mapId}`, {
+    testAccountRequest(new Request(`http://test/api/maps/${mapId}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
-    }),
+    })),
     { params: Promise.resolve({ id: mapId }) },
   );
   return {

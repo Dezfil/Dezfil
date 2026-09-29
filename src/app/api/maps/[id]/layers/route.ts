@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { changeGroupOf } from "@/lib/api/change-group";
@@ -11,8 +12,9 @@ type Params = { params: Promise<{ id: string }> };
 /** List a map's layers. */
 export async function GET(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id } = await params;
-    requireMap(id);
+    requireMap(scope, id);
     return NextResponse.json(listLayers(id));
   } catch (error) {
     return errorResponse(error);

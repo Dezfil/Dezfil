@@ -1,8 +1,9 @@
 import { delegateCredential } from "@/lib/auth/delegation";
+import { accountScope } from "@/lib/auth/scope";
 import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
 import { NextResponse } from "next/server";
 import { ApiError } from "@/lib/api/errors";
-import { getMap } from "@/lib/metadata/maps";
+import { requireMap } from "@/lib/map-access";
 import {
   EXPORT_IMAGE_DEFINITION_SCHEMA,
   definitionRenderProblems,
@@ -34,10 +35,7 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const actor = requireRequestAuth(request);
     const { id } = await params;
-    const map = getMap(id);
-    if (!map) {
-      throw new ApiError("not_found", `No map with id "${id}".`, 404);
-    }
+    const map = requireMap(accountScope(actor), id);
     let body: unknown;
     try {
       body = await request.json();

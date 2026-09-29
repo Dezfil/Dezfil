@@ -1,4 +1,4 @@
-import { testAccountScope } from "@/lib/test-support/accounts";
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DuckDBConnection } from "@duckdb/node-api";
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -50,7 +50,7 @@ async function seed() {
 function request(reader: Reader, mapId: string, name: string) {
   const req = new Request("http://localhost/api/test");
   return readerScope.run(true, () => reader === "summary"
-    ? summariesGET(req, { params: Promise.resolve({ id: mapId }) })
+    ? summariesGET(testAccountRequest(req), { params: Promise.resolve({ id: mapId }) })
     : featuresGET(req, { params: Promise.resolve({ name }) }));
 }
 

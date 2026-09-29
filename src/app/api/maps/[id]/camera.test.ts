@@ -1,4 +1,4 @@
-import { testAccountScope } from "@/lib/test-support/accounts";
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { beforeEach, afterEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -23,7 +23,7 @@ afterEach(async () => {
 const raw = () => metadataDb().prepare("SELECT * FROM maps WHERE id = ?").get(id);
 async function submit(viewport: Partial<typeof camera>, overflow?: string) {
   const body = JSON.stringify({ viewport }).replace('"OVERFLOW"', overflow ?? '"OVERFLOW"');
-  return PATCH(new Request(`http://test/api/maps/${id}`, { method: "PATCH", body }), { params: Promise.resolve({ id }) });
+  return PATCH(testAccountRequest(new Request(`http://test/api/maps/${id}`, { method: "PATCH", body })), { params: Promise.resolve({ id }) });
 }
 
 // Independent contract fixtures, deliberately not imported from runtime limits.
@@ -61,7 +61,7 @@ describe("PATCH camera contract", () => {
     const response = await submit(viewport);
     expect(response.status).toBe(200);
     expect((await response.json()).viewport).toEqual(viewport);
-    const read = await GET(new Request("http://test"), { params: Promise.resolve({ id }) });
+    const read = await GET(testAccountRequest(new Request("http://test")), { params: Promise.resolve({ id }) });
     expect((await read.json()).viewport).toEqual(viewport);
     expect(raw()).toMatchObject({ view_lat: viewport.lat, view_zoom: viewport.zoom, view_pitch: viewport.pitch });
   });

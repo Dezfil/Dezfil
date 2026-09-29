@@ -1,4 +1,4 @@
-import { testAccountScope } from "@/lib/test-support/accounts";
+import { accountScope } from "./scope";
 import type { Database } from "better-sqlite3";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -26,7 +26,7 @@ const definition = { viewport: { lng: 0, lat: 0, zoom: 2, pitch: 0, bearing: 0 }
 beforeEach(async () => {
   db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db); vi.stubEnv("PORT", "3216");
   signed = await createFirstAccount({ name: "Caller", email: "caller@example.test", password: "field notebooks at dawn" }, db);
-  token = createApiToken(authenticateSession(signed.secret, db)!, "Render CLI", db); mapId = createMap(testAccountScope(), "Private image").id;
+  token = createApiToken(authenticateSession(signed.secret, db)!, "Render CLI", db); mapId = createMap(accountScope(authenticateSession(signed.secret, db)!, db), "Private image").id;
   lookRetention.resetForTests();
   vi.mocked(renderMapImage).mockReset().mockImplementation(async input => ({
     png: encodePng({ width: 64, height: 40, rgba: new Uint8Array(64 * 40 * 4).fill(200) }), abandoned: [],
@@ -67,6 +67,9 @@ it.each(["cookie", "token"])("%s identity reaches both render paths without ente
   signed = await redeemSignInLink(invitation.secret, "field notebooks at dawn", db);
   token = createApiToken(authenticateSession(signed.secret, db)!, "Member render", db);
   const headers = mode === "cookie" ? cookie() : bearer();
+  for (const operation of ["image", "look"]) expect((await invoke(operation, headers)).status).toBe(404);
+  expect(renderMapImage).not.toHaveBeenCalled();
+  mapId = createMap(accountScope(authenticateSession(signed.secret, db)!, db), "Member image").id;
   for (const operation of ["image", "look"]) {
     const response = await invoke(operation, headers); expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store");

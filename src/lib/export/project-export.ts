@@ -1,3 +1,5 @@
+import type { AccountScope } from "@/lib/auth/scope";
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { createWriteStream } from "node:fs";
 import { mkdir, readdir, rm, stat } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
@@ -78,9 +80,11 @@ function canonical(
  * lifetime (the ticket store deletes it on redeem, expiry or failure).
  */
 export async function assembleProjectExport(
+  scope: AccountScope,
   projectId: string,
   selection: ProjectExportSelection,
 ): Promise<PreparedProjectExport> {
+  requireOwnedResource(scope, "project", projectId);
   const project = requireProject(projectId);
   const members = projectMemberIds(projectId);
   const maps = canonical("maps", selection.maps, members.maps);
@@ -103,7 +107,7 @@ export async function assembleProjectExport(
     .filter((t): t is DataTable => t !== undefined);
 
   const mapDocs = maps.map((id) => {
-    const wire = mapWithLayers(id) as unknown as Record<string, unknown>;
+    const wire = mapWithLayers(scope, id) as unknown as Record<string, unknown>;
     return { id, name: String(wire.name ?? id), doc: mapProjection(wire) };
   });
   const workflowDocs = await Promise.all(

@@ -1,4 +1,4 @@
-import { testAccountScope } from "@/lib/test-support/accounts";
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { assistantRuns } from "@/lib/assistant/runs";
 import { POST as reserveRunHandler } from "@/app/api/assistant/runs/route";
@@ -35,8 +35,8 @@ async function dispatch(request: Request): Promise<Response> {
   contexts.push(url.pathname);
   const p = url.pathname.split("/").map(decodeURIComponent);
   if (url.pathname === "/api/catalogue/tables") return catalogueGet(request);
-  if (p[2] === "maps" && p.length === 4) return mapGet(request, { params: Promise.resolve({ id: p[3] }) });
-  if (p[2] === "maps" && p[4] === "dependencies") return dependenciesGet(request, { params: Promise.resolve({ id: p[3] }) });
+  if (p[2] === "maps" && p.length === 4) return mapGet(testAccountRequest(request), { params: Promise.resolve({ id: p[3] }) });
+  if (p[2] === "maps" && p[4] === "dependencies") return dependenciesGet(testAccountRequest(request), { params: Promise.resolve({ id: p[3] }) });
   if (p[2] === "recipes" && p.length === 4) return recipeGet(request, { params: Promise.resolve({ id: p[3] }) });
   if (p[2] === "recipes" && p[4] === "runs") return runGet(request, { params: Promise.resolve({ id: p[3], runId: p[5] }) });
   throw new Error(`Unexpected test API call: ${request.method} ${url.pathname}`);
@@ -83,7 +83,7 @@ describe("grounding through real message and resource routes", () => {
     expect(first.map).toMatchObject({ id: map.id, name: "Original map", layers: { items: [{ id: layer.id, name: "Chosen layer", sql: "SELECT * FROM facts" }] } });
     expect(first.catalogue.items[0]).toMatchObject({ name: "facts", rowCount: 1, geometryColumn: "geometry", geometryType: "POINT" });
     expect(first.catalogue.items[0].columns.map((column: { name: string }) => column.name)).toContain("value");
-    await updateMap(map.id, { name: "Changed map" });
+    await updateMap(testAccountScope(), map.id, { name: "Changed map" });
     await updateLayer(layer.id, { name: "Changed layer", visible: false });
     const nextCsv = path.join(dir, "new.csv"); await writeFile(nextCsv, "new_column\ncurrent\n"); await ingestFile(testAccountScope(), nextCsv, "new.csv");
     const second = await send(context);
@@ -100,7 +100,7 @@ describe("grounding through real message and resource routes", () => {
     const events = (await initial.text()).trim().split("\n").map((line) => JSON.parse(line));
     const pending = events.find((event) => event.type === "confirm_required").id;
     expect(pendingActions.peek(pending)?.calls[0].args).toEqual({ id: layer.id });
-    await updateMap(map.id, { name: "Name changed while pending" });
+    await updateMap(testAccountScope(), map.id, { name: "Name changed while pending" });
     await updateLayer(layer.id, { visible: false });
     const csv = path.join(dir, "later.csv"); await writeFile(csv, "later_column\n9\n"); await ingestFile(testAccountScope(), csv, "later.csv");
     const response = await post({ resolution: { pending, approved: false } });

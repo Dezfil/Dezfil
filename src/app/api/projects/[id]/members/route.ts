@@ -1,3 +1,5 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { changeMembers } from "@/lib/metadata/projects";
@@ -9,8 +11,9 @@ type Params = { params: Promise<{ id: string }> };
  * each in its ordinary listing shape and order. */
 export async function GET(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id } = await params;
-    return NextResponse.json(await projectMembers(id));
+    return NextResponse.json(await projectMembers(scope, id));
   } catch (error) {
     return errorResponse(error);
   }
@@ -21,15 +24,21 @@ export async function GET(_request: Request, { params }: Params) {
  * the updated composite. */
 export async function PATCH(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
+    requireOwnedResource(scope, "project", id);
     let body: unknown;
     try {
       body = await request.json();
     } catch {
       throw new ApiError("invalid_request", "Expected a JSON body.", 400);
     }
-    changeMembers(id, memberChange(body));
-    return NextResponse.json(await projectMembers(id));
+    const change = memberChange(body);
+    for (const mapId of [...(change.addMaps ?? []), ...(change.removeMaps ?? [])]) {
+      requireOwnedResource(scope, "map", mapId);
+    }
+    changeMembers(id, change);
+    return NextResponse.json(await projectMembers(scope, id));
   } catch (error) {
     return errorResponse(error);
   }

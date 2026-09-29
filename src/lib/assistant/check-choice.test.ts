@@ -187,7 +187,7 @@ describe("checks under a chosen model", () => {
     await (await post({ runId, message: "Rename it.", history: [], choice: CHOICE, context: builder() })).text();
     expect(wire.sent).toHaveLength(3);
     const workAtFailure = productWork().length;
-    const maps = allMaps().length;
+    const maps = allMaps(testAccountScope()).length;
     const receipt = await read(runId);
     const check = receipt.actions.find((action) => action.tool === "look_at_map");
     expect({
@@ -201,7 +201,7 @@ describe("checks under a chosen model", () => {
       channel: imageChannel(wire.sent[2]),
       // Nothing was dispatched after the failure.
       workAfter: productWork().length - workAtFailure,
-      maps: allMaps().length - maps,
+      maps: allMaps(testAccountScope()).length - maps,
     }).toEqual({
       state: "failed", error: "assistant_provider",
       render: { status: "succeeded", name: "Renamed", image: RENDERED },

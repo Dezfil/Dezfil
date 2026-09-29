@@ -308,7 +308,7 @@ describe("read lanes stay degradation, never retro-refusal", () => {
         aggregate: { fn: "sum", attribute: "val" },
       },
     });
-    updateMap(map.id, {
+    updateMap(testAccountScope(), map.id, {
       widgets: [
         {
           id: "wh",

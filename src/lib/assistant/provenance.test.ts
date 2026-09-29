@@ -191,7 +191,7 @@ describe("the record's two model-choice facts", () => {
     );
     const runId = await reserve();
     await (await post({ runId, message: "Make a map.", history: [], choice: { model: "gpt-6-astra" }, context: builder() })).text();
-    const before = { provider: wire.sent.length, dispatched: wire.dispatched.length, maps: allMaps().length };
+    const before = { provider: wire.sent.length, dispatched: wire.dispatched.length, maps: allMaps(testAccountScope()).length };
     // The counters are shown able to see work by the run they just counted.
     expect(before.provider).toBe(2);
     expect(wire.dispatched).toContain("POST /api/maps");
@@ -201,6 +201,6 @@ describe("the record's two model-choice facts", () => {
       reported: ["gpt-6-astra"],
     });
     for (let again = 0; again < 3; again += 1) expect(await read(runId)).toEqual(first);
-    expect({ provider: wire.sent.length, dispatched: wire.dispatched.length, maps: allMaps().length }).toEqual(before);
+    expect({ provider: wire.sent.length, dispatched: wire.dispatched.length, maps: allMaps(testAccountScope()).length }).toEqual(before);
   });
 });

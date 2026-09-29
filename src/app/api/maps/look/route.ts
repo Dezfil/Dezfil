@@ -1,3 +1,4 @@
+import { accountScope } from "@/lib/auth/scope";
 import { delegateCredential } from "@/lib/auth/delegation";
 import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
 import { NextResponse } from "next/server";
@@ -22,6 +23,7 @@ interface RequestBody { mapId?: unknown; appearance?: unknown }
 export async function POST(request: Request) {
   try {
     const actor = requireRequestAuth(request);
+    const scope = accountScope(actor);
     let body: RequestBody = {};
     const text = await request.text();
     if (text.trim()) {
@@ -31,7 +33,7 @@ export async function POST(request: Request) {
     if (body.mapId === undefined || body.mapId === null) throw new ApiError("look_target_missing", ERROR_CATALOGUE.look_target_missing, 400);
     if (typeof body.mapId !== "string" || body.mapId.trim() === "") throw new ApiError("invalid_request", "mapId must be a non-empty string.", 400);
     if (body.appearance !== undefined && !isAppearance(body.appearance)) throw new ApiError("invalid_request", 'appearance must be "light" or "dark".', 400);
-    const result = await lookAtMap({
+    const result = await lookAtMap(scope, {
       mapId: body.mapId,
       appearance: body.appearance,
       baseUrl: selfBaseUrl(request),

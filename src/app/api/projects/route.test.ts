@@ -95,10 +95,10 @@ describe("project CRUD over the API", () => {
     const map = createMap(testAccountScope(), "Stations map");
     const table = getTableByName("stations")!;
     const patched = await patchMembersRoute(
-      jsonReq(`/api/projects/${p.id}/members`, "PATCH", {
+      testAccountRequest(jsonReq(`/api/projects/${p.id}/members`, "PATCH", {
         addMaps: [map.id],
         addTables: [table.id],
-      }),
+      })),
       params(p.id as string),
     );
     expect(patched.status).toBe(200);
@@ -143,7 +143,7 @@ describe("project CRUD over the API", () => {
     const map = createMap(testAccountScope(), "Stations map");
     const p = await newProject();
     await patchMembersRoute(
-      jsonReq(`/api/projects/${p.id}/members`, "PATCH", { addMaps: [map.id] }),
+      testAccountRequest(jsonReq(`/api/projects/${p.id}/members`, "PATCH", { addMaps: [map.id] })),
       params(p.id as string),
     );
     const deleted = await body(
@@ -166,13 +166,13 @@ describe("the members surface", () => {
     const b = await newProject("B");
 
     await patchMembersRoute(
-      jsonReq(`/api/projects/${a.id}/members`, "PATCH", { addMaps: [map.id], addTables: [table.id] }),
+      testAccountRequest(jsonReq(`/api/projects/${a.id}/members`, "PATCH", { addMaps: [map.id], addTables: [table.id] })),
       params(a.id as string),
     );
     // The move: B takes the map; the dataset joins B while staying in A.
     const moved = await body(
       await patchMembersRoute(
-        jsonReq(`/api/projects/${b.id}/members`, "PATCH", { addMaps: [map.id], addTables: [table.id] }),
+        testAccountRequest(jsonReq(`/api/projects/${b.id}/members`, "PATCH", { addMaps: [map.id], addTables: [table.id] })),
         params(b.id as string),
       ),
     );
@@ -185,14 +185,14 @@ describe("the members surface", () => {
     );
 
     const aMembers = await body(
-      await readMembersRoute(jsonReq(`/api/projects/${a.id}/members`, "GET"), params(a.id as string)),
+      await readMembersRoute(testAccountRequest(jsonReq(`/api/projects/${a.id}/members`, "GET")), params(a.id as string)),
     );
     expect((aMembers.maps as Json[]).length).toBe(0);
     expect((aMembers.tables as Json[]).length).toBe(1);
 
     // One unknown member changes nothing.
     const refused = await patchMembersRoute(
-      jsonReq(`/api/projects/${a.id}/members`, "PATCH", { addMaps: [map.id], addTables: ["t-none"] }),
+      testAccountRequest(jsonReq(`/api/projects/${a.id}/members`, "PATCH", { addMaps: [map.id], addTables: ["t-none"] })),
       params(a.id as string),
     );
     expect(refused.status).toBe(404);
@@ -207,9 +207,9 @@ describe("workflow-origin project membership", () => {
     const builder = createRecipeRecord(testAccountScope(), "Builder tool", undefined, "builder");
 
     const refused = await patchMembersRoute(
-      jsonReq(`/api/projects/${p.id}/members`, "PATCH", {
+      testAccountRequest(jsonReq(`/api/projects/${p.id}/members`, "PATCH", {
         addRecipes: [workflow.id, builder.id],
-      }),
+      })),
       params(p.id as string),
     );
     expect(refused.status).toBe(400);
@@ -224,9 +224,9 @@ describe("workflow-origin project membership", () => {
     expect(getRecipe(builder.id)?.projectId).toBeNull();
 
     const accepted = await patchMembersRoute(
-      jsonReq(`/api/projects/${p.id}/members`, "PATCH", {
+      testAccountRequest(jsonReq(`/api/projects/${p.id}/members`, "PATCH", {
         addRecipes: [workflow.id],
-      }),
+      })),
       params(p.id as string),
     );
     expect(accepted.status).toBe(200);
@@ -292,7 +292,7 @@ describe("workflow-origin project membership", () => {
 
     const members = await body(
       await readMembersRoute(
-        jsonReq(`/api/projects/${p.id}/members`, "GET"),
+        testAccountRequest(jsonReq(`/api/projects/${p.id}/members`, "GET")),
         params(p.id as string),
       ),
     );
@@ -318,12 +318,12 @@ describe("creation and duplication contexts", () => {
     expect(created.projectId).toBe(p.id);
     expect(mapProjectId(created.id as string)).toBe(p.id as string);
 
-    const before = ((await (await listMapsRoute(jsonReq("/api/maps", "GET"))).json()) as Json[]).length;
+    const before = ((await (await listMapsRoute(testAccountRequest(jsonReq("/api/maps", "GET")))).json()) as Json[]).length;
     const refused = await createMapRoute(
       testAccountRequest(jsonReq("/api/maps", "POST", { name: "Nowhere", projectId: "p-none" })),
     );
     expect(refused.status).toBe(404);
-    const after = ((await (await listMapsRoute(jsonReq("/api/maps", "GET"))).json()) as Json[]).length;
+    const after = ((await (await listMapsRoute(testAccountRequest(jsonReq("/api/maps", "GET")))).json()) as Json[]).length;
     expect(after).toBe(before);
   });
 
@@ -354,33 +354,33 @@ describe("scoped listings", () => {
     const table = getTableByName("stations")!;
     const p = await newProject();
     await patchMembersRoute(
-      jsonReq(`/api/projects/${p.id}/members`, "PATCH", { addMaps: [filed.id], addTables: [table.id] }),
+      testAccountRequest(jsonReq(`/api/projects/${p.id}/members`, "PATCH", { addMaps: [filed.id], addTables: [table.id] })),
       params(p.id as string),
     );
 
-    const scoped = (await (await listMapsRoute(jsonReq(`/api/maps?project=${p.id}`, "GET"))).json()) as Json[];
+    const scoped = (await (await listMapsRoute(testAccountRequest(jsonReq(`/api/maps?project=${p.id}`, "GET")))).json()) as Json[];
     expect(scoped.map((m) => m.id)).toEqual([filed.id]);
-    const unfiled = (await (await listMapsRoute(jsonReq("/api/maps?project=none", "GET"))).json()) as Json[];
+    const unfiled = (await (await listMapsRoute(testAccountRequest(jsonReq("/api/maps?project=none", "GET")))).json()) as Json[];
     expect(unfiled.map((m) => m.id)).toEqual([loose.id]);
-    const all = (await (await listMapsRoute(jsonReq("/api/maps", "GET"))).json()) as Json[];
+    const all = (await (await listMapsRoute(testAccountRequest(jsonReq("/api/maps", "GET")))).json()) as Json[];
     expect(all.length).toBe(2);
     expect(all.every((m) => "projectId" in m)).toBe(true);
 
-    const scopedTables = (await (await listTablesRoute(jsonReq(`/api/tables?project=${p.id}`, "GET"))).json()) as Json[];
+    const scopedTables = (await (await listTablesRoute(testAccountRequest(jsonReq(`/api/tables?project=${p.id}`, "GET")))).json()) as Json[];
     expect(scopedTables.map((t) => t.name)).toEqual(["stations"]);
     expect(scopedTables[0].projectIds).toEqual([p.id]);
-    const noTables = (await (await listTablesRoute(jsonReq("/api/tables?project=none", "GET"))).json()) as Json[];
+    const noTables = (await (await listTablesRoute(testAccountRequest(jsonReq("/api/tables?project=none", "GET")))).json()) as Json[];
     expect(noTables.length).toBe(0);
 
     // Recipes: project composes with origin.
     await createRecipeRoute(testAccountRequest(jsonReq("/api/recipes", "POST", { name: "W", projectId: p.id })));
     const both = (await (
-      await listRecipesRoute(jsonReq(`/api/recipes?origin=workflow&project=${p.id}`, "GET"))
+      await listRecipesRoute(testAccountRequest(jsonReq(`/api/recipes?origin=workflow&project=${p.id}`, "GET")))
     ).json()) as { recipes: Json[] };
     expect(both.recipes.length).toBe(1);
     expect(both.recipes[0].projectId).toBe(p.id);
     const otherOrigin = (await (
-      await listRecipesRoute(jsonReq(`/api/recipes?origin=builder&project=${p.id}`, "GET"))
+      await listRecipesRoute(testAccountRequest(jsonReq(`/api/recipes?origin=builder&project=${p.id}`, "GET")))
     ).json()) as { recipes: Json[] };
     expect(otherOrigin.recipes.length).toBe(0);
   });
@@ -391,7 +391,7 @@ describe("scoped listings", () => {
       [listTablesRoute, "/api/tables?project=p-none"],
       [listRecipesRoute, "/api/recipes?project=p-none"],
     ] as const) {
-      const response = await route(jsonReq(url, "GET"));
+      const response = await route(testAccountRequest(jsonReq(url, "GET")));
       expect(response.status).toBe(404);
     }
   });
@@ -405,11 +405,11 @@ describe("project ids on detail reads", () => {
       await createMapRoute(testAccountRequest(jsonReq("/api/maps", "POST", { name: "Filed", projectId: p.id }))),
     );
     await patchMembersRoute(
-      jsonReq(`/api/projects/${p.id}/members`, "PATCH", { addTables: [table.id] }),
+      testAccountRequest(jsonReq(`/api/projects/${p.id}/members`, "PATCH", { addTables: [table.id] })),
       params(p.id as string),
     );
     const detail = await body(
-      await readMapRoute(jsonReq(`/api/maps/${created.id}`, "GET"), params(created.id as string)),
+      await readMapRoute(testAccountRequest(jsonReq(`/api/maps/${created.id}`, "GET")), params(created.id as string)),
     );
     expect(detail.projectId).toBe(p.id);
     const inspected = await body(
@@ -421,12 +421,12 @@ describe("project ids on detail reads", () => {
   });
 
   it("an empty projectId refuses; it never silently creates unfiled", async () => {
-    const before = ((await (await listMapsRoute(jsonReq("/api/maps", "GET"))).json()) as Json[]).length;
+    const before = ((await (await listMapsRoute(testAccountRequest(jsonReq("/api/maps", "GET")))).json()) as Json[]).length;
     const refused = await createMapRoute(
       testAccountRequest(jsonReq("/api/maps", "POST", { name: "X", projectId: "" })),
     );
     expect(refused.status).toBe(400);
-    const after = ((await (await listMapsRoute(jsonReq("/api/maps", "GET"))).json()) as Json[]).length;
+    const after = ((await (await listMapsRoute(testAccountRequest(jsonReq("/api/maps", "GET")))).json()) as Json[]).length;
     expect(after).toBe(before);
   });
 
@@ -438,7 +438,7 @@ describe("project ids on detail reads", () => {
     );
     // Move the source, then duplicate: the copy belongs to B.
     await patchMembersRoute(
-      jsonReq(`/api/projects/${b.id}/members`, "PATCH", { addMaps: [created.id as string] }),
+      testAccountRequest(jsonReq(`/api/projects/${b.id}/members`, "PATCH", { addMaps: [created.id as string] })),
       params(b.id as string),
     );
     const copy = duplicateMap(testAccountScope(), created.id as string);
@@ -451,11 +451,11 @@ describe("size honesty", () => {
     const table = getTableByName("stations")!;
     const p = await newProject();
     await patchMembersRoute(
-      jsonReq(`/api/projects/${p.id}/members`, "PATCH", { addTables: [table.id] }),
+      testAccountRequest(jsonReq(`/api/projects/${p.id}/members`, "PATCH", { addTables: [table.id] })),
       params(p.id as string),
     );
     const listed = (await (
-      await listTablesRoute(jsonReq(`/api/tables?project=${p.id}`, "GET"))
+      await listTablesRoute(testAccountRequest(jsonReq(`/api/tables?project=${p.id}`, "GET")))
     ).json()) as Json[];
     const known = listed[0].sizeBytes as number;
     expect(known).toBeGreaterThan(0);

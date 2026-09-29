@@ -2,7 +2,7 @@ import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
 import { duplicateMap } from "@/lib/map-service";
-import { mapProjectId } from "@/lib/metadata/projects";
+import { ownedMapProjectId } from "@/lib/metadata/map-queries";
 import { copyThumbnail } from "@/lib/map-thumbnails";
 
 type Params = { params: Promise<{ id: string }> };
@@ -16,7 +16,7 @@ export async function POST(_request: Request, { params }: Params) {
     // The copy keeps the original's snapshot until its own first capture.
     await copyThumbnail(id, copy.id);
     return NextResponse.json(
-      { ...copy, projectId: mapProjectId(copy.id) },
+      { ...copy, projectId: ownedMapProjectId(scope, copy.id) },
       { status: 201 },
     );
   } catch (error) {

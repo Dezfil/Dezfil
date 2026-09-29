@@ -9,6 +9,31 @@ import type { MapTimeline } from "@/lib/timeline";
 import { normalizeWidget, type MapWidget } from "@/lib/widgets";
 import { metadataDb } from "./db";
 import type { CustomBasemap, Layer, MapNote, MapRecord } from "./maps";
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
+
+/** Private listings select the owner's rows before projection or aggregation. */
+export function listOwnedMaps(scope: AccountScope, db: Database = metadataDb()): MapRecord[] {
+  const ownerId = requireAccountScope(scope, db);
+  return (db.prepare("SELECT * FROM maps WHERE owner_id = ? ORDER BY created_at DESC")
+    .all(ownerId) as MapRow[]).map(mapFromRow);
+}
+
+export function getOwnedMap(scope: AccountScope, id: string, db: Database = metadataDb()): MapRecord {
+  const ownerId = requireAccountScope(scope, db);
+  const row = db.prepare("SELECT * FROM maps WHERE id = ? AND owner_id = ?").get(id, ownerId) as MapRow | undefined;
+  if (!row) throw resourceAbsent();
+  return mapFromRow(row);
+}
+
+/** A map cannot disclose a project belonging to another account. */
+export function ownedMapProjectId(scope: AccountScope, id: string, db: Database = metadataDb()): string | null {
+  const ownerId = requireAccountScope(scope, db);
+  requireOwnedResource(scope, "map", id, db);
+  const row = db.prepare(`SELECT p.id FROM projects p JOIN maps m ON m.project_id = p.id
+    WHERE m.id = ? AND m.owner_id = ? AND p.owner_id = ?`).get(id, ownerId, ownerId) as { id: string } | undefined;
+  return row?.id ?? null;
+}
 
 interface MapRow {
   id: string;

@@ -62,10 +62,10 @@ beforeEach(async () => {
   await updateLayer(layerId, {
     viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
   });
-  updateMap(map.id, {
+  updateMap(testAccountScope(), map.id, {
     widgets: [{ ...CATEGORY_WIDGET, layerId: layer.id }],
   });
-  token = publishMap(map.id).token;
+  token = publishMap(testAccountScope(), map.id).token;
 });
 
 afterEach(async () => {
@@ -142,7 +142,7 @@ describe("published settle route", () => {
   });
 
   it("a range on a declared numeric field still evaluates", async () => {
-    updateMap(mapId, {
+    updateMap(testAccountScope(), mapId, {
       widgets: [
         { ...CATEGORY_WIDGET, layerId },
         {

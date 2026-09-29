@@ -55,7 +55,7 @@ beforeEach(async () => {
   mapId = createMap(testAccountScope(), "Auto").id;
   layerId = (await createLayer(mapId, { name: "Points", sql: `SELECT * FROM ${table}` })).id;
   const driver: RenderDriver = { launch: async () => ({ render: async (input) => {
-    counts.renders += 1; counts.appearances.push(input.definition.appearance); counts.namesAtRender.push(mapWithLayers(mapId).name);
+    counts.renders += 1; counts.appearances.push(input.definition.appearance); counts.namesAtRender.push(mapWithLayers(testAccountScope(), mapId).name);
     return { png: FIXTURE, consumed: JSON.stringify({ map: mapId, layers: [{ id: layerId, filters: [] }], legend: { visible: true, corner: "bottom-left", order: [layerId] }, widgets: [], attribution: "", failures: [] }) };
   }, close: async () => {}, kill: () => {} }) };
   setLookDriverForTests(driver);
@@ -294,7 +294,7 @@ describe("2f and 2f.i: the map in context", () => {
     expect(checks(events)[0].ok).toBe(true);
     expect(automatic(events)).toHaveLength(0);
     expect(counts.renders).toBe(1);
-    expect(mapWithLayers(mapId).name).toBe("Auto");
+    expect(mapWithLayers(testAccountScope(), mapId).name).toBe("Auto");
   });
 });
 
@@ -308,7 +308,7 @@ describe("the observation ends the turn", () => {
       expect(counts.renders).toBe(1);
       expect(counts.dispatches - before).toBe(1);
       expect(requests(stub)).toBe(3);
-      expect(mapWithLayers(mapId).name).toBe("Changed");
+      expect(mapWithLayers(testAccountScope(), mapId).name).toBe("Changed");
       expect(events.filter((e) => e.type === "tool_call")).toHaveLength(2);
     });
   }

@@ -9,8 +9,9 @@ type Params = { params: Promise<{ id: string }> };
 /** The map's sketch datasets — provenance and per-kind counts. */
 export async function GET(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id } = await params;
-    requireMap(id);
+    requireMap(scope, id);
     return NextResponse.json(await mapSketches(id));
   } catch (error) {
     return errorResponse(error);

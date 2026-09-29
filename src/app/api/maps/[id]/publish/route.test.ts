@@ -1,4 +1,4 @@
-import { testAccountScope } from "@/lib/test-support/accounts";
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -29,10 +29,10 @@ afterEach(async () => {
 
 function post(id: string, body?: string) {
   return POST(
-    new Request(`http://localhost/api/maps/${id}/publish`, {
+    testAccountRequest(new Request(`http://localhost/api/maps/${id}/publish`, {
       method: "POST",
       ...(body === undefined ? {} : { body }),
-    }),
+    })),
     { params: Promise.resolve({ id }) },
   );
 }
@@ -98,7 +98,7 @@ describe("publish route body strictness", () => {
 describe("publish route viewer controls", () => {
   const state = async (id: string) => {
     const res = await GET(
-      new Request(`http://localhost/api/maps/${id}/publish`),
+      testAccountRequest(new Request(`http://localhost/api/maps/${id}/publish`)),
       { params: Promise.resolve({ id }) },
     );
     return res.status === 204
@@ -186,7 +186,7 @@ describe("publish route viewer controls", () => {
   it("unpublishing clears the set with the token", async () => {
     const map = createMap(testAccountScope(), "m");
     await post(map.id, JSON.stringify({ viewerControls: { fit: false } }));
-    await DELETE(new Request("http://localhost/x", { method: "DELETE" }), {
+    await DELETE(testAccountRequest(new Request("http://localhost/x", { method: "DELETE" })), {
       params: Promise.resolve({ id: map.id }),
     });
     expect(await state(map.id)).toBeNull();

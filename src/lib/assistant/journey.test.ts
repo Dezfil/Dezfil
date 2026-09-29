@@ -1,4 +1,4 @@
-import { testAccountScope } from "@/lib/test-support/accounts";
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -766,7 +766,7 @@ describe("assistant journey (exit gate)", () => {
       "hide the stations and make the basemap dark",
     );
     expect(requireLayer(layer.id).visible).toBe(false);
-    expect(requireMap(map.id).basemap).toBe("dark");
+    expect(requireMap(testAccountScope(), map.id).basemap).toBe("dark");
 
     // "undo that" — one undo call reverts the whole turn.
     const { events } = await drive(
@@ -788,7 +788,7 @@ describe("assistant journey (exit gate)", () => {
     expect(undone.ok).toBe(true);
     expect(undone.body.history.canRedo).toBe(true);
     expect(requireLayer(layer.id).visible).toBe(true);
-    expect(requireMap(map.id).basemap).toBeNull();
+    expect(requireMap(testAccountScope(), map.id).basemap).toBeNull();
   });
 
   it("animates a map by a temporal field from plain English", async () => {
@@ -840,7 +840,7 @@ describe("assistant journey (exit gate)", () => {
     expect(requireLayer(layer.id).filters).toEqual([
       { field: "seen", kind: "timerange", min: null, max: null },
     ]);
-    expect(requireMap(map.id).timeline).toEqual({
+    expect(requireMap(testAccountScope(), map.id).timeline).toEqual({
       layerId: layer.id,
       field: "seen",
       speed: 1,
@@ -973,7 +973,7 @@ describe("confirmation contract", () => {
 
     // The pre-confirmation mutation exists exactly once — the audit's
     // reproduction made a second map here.
-    const maps = (await (await mapsGet(new Request("http://dezfil.test/api/maps"))).json()) as { name: string }[];
+    const maps = (await (await mapsGet(testAccountRequest(new Request("http://dezfil.test/api/maps")))).json()) as { name: string }[];
     expect(maps.filter((m) => m.name === "Parks tour").length).toBe(1);
     expect(maps.length).toBe(1);
 
@@ -1022,7 +1022,7 @@ describe("confirmation contract", () => {
     );
     await h.resume(pendingIdOf(h.events), true);
     expect(requireLayer(layer.id).name).toBe("All stations");
-    expect(requireMap(map.id).name).toBe("Voyage, live");
+    expect(requireMap(testAccountScope(), map.id).name).toBe("Voyage, live");
 
     // "undo that" — one undo reverts the edits before and after the pause.
     await drive(
@@ -1036,7 +1036,7 @@ describe("confirmation contract", () => {
       "undo that",
     );
     expect(requireLayer(layer.id).name).toBe("Stations");
-    expect(requireMap(map.id).name).toBe("Voyage");
+    expect(requireMap(testAccountScope(), map.id).name).toBe("Voyage");
 
     // …and one redo restores the whole turn.
     await drive(
@@ -1050,7 +1050,7 @@ describe("confirmation contract", () => {
       "redo that",
     );
     expect(requireLayer(layer.id).name).toBe("All stations");
-    expect(requireMap(map.id).name).toBe("Voyage, live");
+    expect(requireMap(testAccountScope(), map.id).name).toBe("Voyage, live");
   });
 
   it("a declined action stays undone while the turn finishes gracefully", async () => {

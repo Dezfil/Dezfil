@@ -1,4 +1,4 @@
-import { testAccountScope } from "@/lib/test-support/accounts";
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -54,7 +54,7 @@ function dataset(name: string, over: Partial<DataTable> = {}): DataTable {
 }
 
 const read = async (mapId: string) =>
-  GET(new Request("http://test"), { params: Promise.resolve({ id: mapId }) });
+  GET(testAccountRequest(new Request("http://test")), { params: Promise.resolve({ id: mapId }) });
 
 let ordinal = 0;
 /** Metadata-level seeding: layer creation's own binding validates

@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { requireMap } from "@/lib/map-service";
@@ -35,8 +36,9 @@ function themeOf(request: Request): ThumbnailTheme | null {
  * theme, that theme's image, falling back to whatever the map has. */
 export async function GET(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
-    requireMap(id);
+    requireMap(scope, id);
     const png = await readThumbnail(id, themeOf(request));
     if (!png) {
       throw new ApiError("not_found", "This map has no snapshot yet.", 404);
@@ -59,8 +61,9 @@ export async function GET(request: Request, { params }: Params) {
  * arrives under the same cycle, then published together (204). */
 export async function PUT(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
-    requireMap(id);
+    requireMap(scope, id);
     const theme = themeOf(request);
     const cycle = new URL(request.url).searchParams.get("cycle");
     if (theme && !isThumbnailCycle(cycle)) {

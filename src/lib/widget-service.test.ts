@@ -142,7 +142,7 @@ async function dashboard() {
     ...w,
     layerId: w.type === "note" ? null : layer.id,
   }));
-  const withWidgets = updateMap(map.id, { widgets });
+  const withWidgets = updateMap(testAccountScope(), map.id, { widgets });
   return { map: withWidgets, layer };
 }
 
@@ -282,23 +282,23 @@ describe("widget authoring", () => {
   it("validates widgets against the map's layers", async () => {
     const { map } = await dashboard();
     expect(() =>
-      updateMap(map.id, {
+      updateMap(testAccountScope(), map.id, {
         widgets: [{ ...WIDGETS[0], layerId: "not-a-layer" }],
       }),
     ).toThrow(ApiError);
-    expect(() => updateMap(map.id, { widgets: [{ bad: true }] })).toThrow(
+    expect(() => updateMap(testAccountScope(), map.id, { widgets: [{ bad: true }] })).toThrow(
       ApiError,
     );
-    expect(() => updateMap(map.id, { widgetsPublished: "yes" })).toThrow(
+    expect(() => updateMap(testAccountScope(), map.id, { widgetsPublished: "yes" })).toThrow(
       ApiError,
     );
   });
 
   it("records history — undo removes the widget step, redo restores it", async () => {
     const { map } = await dashboard();
-    const undone = await undoChange(map.id);
+    const undone = await undoChange(testAccountScope(), map.id);
     expect(undone.widgets).toEqual([]);
-    const redone = await redoChange(map.id);
+    const redone = await redoChange(testAccountScope(), map.id);
     expect(redone.widgets.map((w) => w.id)).toEqual(["wf", "wc", "wh", "wn"]);
   });
 
@@ -319,11 +319,11 @@ describe("widget authoring", () => {
     // The bound data widgets went with the layer; the note stays.
     expect(getMap(map.id)!.widgets.map((w) => w.id)).toEqual(["wn"]);
     // One undo gesture restores layer and widgets together.
-    const undone = await undoChange(map.id);
+    const undone = await undoChange(testAccountScope(), map.id);
     expect(undone.layers.map((l) => l.id)).toContain(layer.id);
     expect(undone.widgets.map((w) => w.id)).toEqual(["wf", "wc", "wh", "wn"]);
     // Redo removes both again — never an orphan in the stored row.
-    const redone = await redoChange(map.id);
+    const redone = await redoChange(testAccountScope(), map.id);
     expect(redone.layers.map((l) => l.id)).not.toContain(layer.id);
     expect(redone.widgets.map((w) => w.id)).toEqual(["wn"]);
   });
@@ -343,11 +343,11 @@ describe("widget authoring", () => {
       before: { ...layer }, // the whole-layer image an earlier delete wrote
       after: null,
     });
-    const restored = await undoChange(map.id);
+    const restored = await undoChange(testAccountScope(), map.id);
     expect(restored.layers.map((l) => l.id)).toContain(layer.id);
     expect(restored.widgets).toHaveLength(4);
 
-    const redone = await redoChange(map.id);
+    const redone = await redoChange(testAccountScope(), map.id);
     expect(redone.layers.map((l) => l.id)).not.toContain(layer.id);
     // The widgets are KEPT, not swept: undoing again must restore the
     // author's configuration whole, so the replay never destroys it. They are inert on every read
@@ -358,10 +358,10 @@ describe("widget authoring", () => {
     // list back succeeds, while INTRODUCING a foreign reference is still
     // refused — the distinction that keeps the validator useful.
     expect(() =>
-      updateMap(map.id, { widgets: redone.widgets }),
+      updateMap(testAccountScope(), map.id, { widgets: redone.widgets }),
     ).not.toThrow();
     expect(() =>
-      updateMap(map.id, {
+      updateMap(testAccountScope(), map.id, {
         widgets: [
           ...redone.widgets,
           { ...WIDGETS[1], id: "wnew", layerId: "another-dead-layer" },
@@ -371,7 +371,7 @@ describe("widget authoring", () => {
 
     // Undoing the replay restores the layer, and every widget resolves
     // again — nothing was lost on the way through.
-    const restoredAgain = await undoChange(map.id);
+    const restoredAgain = await undoChange(testAccountScope(), map.id);
     expect(restoredAgain.layers.map((l) => l.id)).toContain(layer.id);
     expect(restoredAgain.widgets).toHaveLength(4);
   });
@@ -560,18 +560,18 @@ describe("published selection bounding", () => {
 describe("published dashboards", () => {
   it("ships visible widgets, honors the toggle, and hides drifted ones", async () => {
     const { map } = await dashboard();
-    updateMap(map.id, {
+    updateMap(testAccountScope(), map.id, {
       widgets: map.widgets.map((w) =>
         w.id === "wh" ? { ...w, visible: false } : w,
       ),
     });
-    const { token } = publishMap(map.id);
+    const { token } = publishMap(testAccountScope(), map.id);
 
     const view = await getPublishedView(token, Date.now());
     // The note ships like any visible widget.
     expect(view?.widgets.map((w) => w.id)).toEqual(["wf", "wc", "wn"]);
 
-    updateMap(map.id, { widgetsPublished: false });
+    updateMap(testAccountScope(), map.id, { widgetsPublished: false });
     const hidden = await getPublishedView(token, Date.now());
     expect(hidden?.widgets).toEqual([]);
   });

@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { mapWithLayers } from "@/lib/map-service";
@@ -20,6 +21,7 @@ type Params = { params: Promise<{ id: string }> };
  */
 export async function POST(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
     let body: Record<string, unknown> = {};
     try {
@@ -37,7 +39,7 @@ export async function POST(request: Request, { params }: Params) {
         400,
       );
     }
-    const map = mapWithLayers(id);
+    const map = mapWithLayers(scope, id);
     let draft: MapWidget | undefined;
     if (body.draft !== undefined && body.draft !== null) {
       if (!isValidWidgets([body.draft])) {

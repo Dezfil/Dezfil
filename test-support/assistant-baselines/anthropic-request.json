@@ -2170,7 +2170,7 @@
     },
     {
       "name": "list_maps",
-      "description": "List maps",
+      "description": "List maps. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. ",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -2183,7 +2183,7 @@
     },
     {
       "name": "create_map",
-      "description": "Create a map. Created resources belong to the authenticated account. Submitted owner identities cannot assign or transfer ownership. Optionally filed into a project at birth: an unknown project refuses and creates nothing.\n\nAccepted argument sets: no arguments; or `name`, `projectId`.",
+      "description": "Create a map. Created resources belong to the authenticated account. Submitted owner identities cannot assign or transfer ownership. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. Optionally filed into a project at birth: an unknown project refuses and creates nothing.\n\nAccepted argument sets: no arguments; or `name`, `projectId`.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -2486,7 +2486,7 @@
     },
     {
       "name": "get_map",
-      "description": "Read a map with its layers",
+      "description": "Read a map with its layers. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. ",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -2502,7 +2502,7 @@
     },
     {
       "name": "update_map",
-      "description": "Update a map. Any of name, viewport, basemap (dark | light | streets | satellite, or null for Auto — the builder follows the app theme; published views follow the publication's effective theme, unless a deployment override pins Auto), basemapLayers (per-group basemap visibility; null shows everything), legendCorner (null = bottom-left), legendOrder (the manual legend arrangement; null follows the layer panel), timeline (the docked playback timeline; null undocks), widgets (the ordered widget list, notes included), widgetsPublished (whether widgets ship with the published view), or layer order. The former `note` field retired into a note widget.\n\nAccepted argument sets: only `id`; or `id`, `name`, `viewport`, `basemap`, `customBasemap`, `basemapLayers`, `legendCorner`, `legendOrder`, `timeline`, `widgets`, `widgetsPublished`, `layerOrder`.",
+      "description": "Update a map. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. Any of name, viewport, basemap (dark | light | streets | satellite, or null for Auto — the builder follows the app theme; published views follow the publication's effective theme, unless a deployment override pins Auto), basemapLayers (per-group basemap visibility; null shows everything), legendCorner (null = bottom-left), legendOrder (the manual legend arrangement; null follows the layer panel), timeline (the docked playback timeline; null undocks), widgets (the ordered widget list, notes included), widgetsPublished (whether widgets ship with the published view), or layer order. The former `note` field retired into a note widget.\n\nAccepted argument sets: only `id`; or `id`, `name`, `viewport`, `basemap`, `customBasemap`, `basemapLayers`, `legendCorner`, `legendOrder`, `timeline`, `widgets`, `widgetsPublished`, `layerOrder`.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -2772,7 +2772,7 @@
     },
     {
       "name": "delete_map",
-      "description": "Delete a map",
+      "description": "Delete a map. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. ",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -2788,7 +2788,7 @@
     },
     {
       "name": "read_widget_values",
-      "description": "Read the map's widget values. Every visible widget computed server-side over its layer's effective query, under an optional ephemeral selection set — cross-filter state that lives on the request and is never stored. Classic crossfilter semantics: a widget's own selection never filters itself. Also returns per-layer constrained/total row counts. A read, despite the POST — the body carries the selections. An optional draft widget previews an unsaved editor state: validated like a stored widget, it replaces its stored self by id (or joins as a new card) for this computation only — nothing is written.\n\nAccepted argument sets: only `id`; or `id`, `selections`, `draft`.",
+      "description": "Read the map's widget values. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. Every visible widget computed server-side over its layer's effective query, under an optional ephemeral selection set — cross-filter state that lives on the request and is never stored. Classic crossfilter semantics: a widget's own selection never filters itself. Also returns per-layer constrained/total row counts. A read, despite the POST — the body carries the selections. An optional draft widget previews an unsaved editor state: validated like a stored widget, it replaces its stored self by id (or joins as a new card) for this computation only — nothing is written.\n\nAccepted argument sets: only `id`; or `id`, `selections`, `draft`.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -2943,7 +2943,7 @@
     },
     {
       "name": "search_map",
-      "description": "Search the map. One search over the map's own data and, on request, places : visible layers matched by name, attribute values matched case-insensitively in genuine text columns of each visible layer's effective (filtered) result — one row per matching feature, at most 20 across layers, on the hardened read-only path — and every plausible reading of a pasted decimal coordinate pair. With `places=1` and a configured provider endpoint, Nominatim-compatible place results join, carrying the provider's attribution; unconfigured, the places group answers `unconfigured` and everything local still works. Value and place rows carry the geometry a client needs to fly or fit without a second request. Never builder actions.",
+      "description": "Search the map. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. One search over the map's own data and, on request, places : visible layers matched by name, attribute values matched case-insensitively in genuine text columns of each visible layer's effective (filtered) result — one row per matching feature, at most 20 across layers, on the hardened read-only path — and every plausible reading of a pasted decimal coordinate pair. With `places=1` and a configured provider endpoint, Nominatim-compatible place results join, carrying the provider's attribution; unconfigured, the places group answers `unconfigured` and everything local still works. Value and place rows carry the geometry a client needs to fly or fit without a second request. Never builder actions.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -2971,7 +2971,7 @@
     },
     {
       "name": "get_map_dependencies",
-      "description": "The datasets a map draws from. The 14-A filing checklist's subject: every registered dataset used by at least one of the map's saved layers, exactly once, with its source, row count, project memberships, and the workflow-origin recipe that currently produces it (null otherwise), and its geometry column and sampled geometry type (both null for a non-spatial dataset; a column with no sampled type is still spatial). A layer whose statement cannot be analyzed fails the whole read with `dependencies_unresolved` — a partial answer never presents as a complete checklist.",
+      "description": "The datasets a map draws from. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. The 14-A filing checklist's subject: every registered dataset used by at least one of the map's saved layers, exactly once, with its source, row count, project memberships, and the workflow-origin recipe that currently produces it (null otherwise), and its geometry column and sampled geometry type (both null for a non-spatial dataset; a column with no sampled type is still spatial). A layer whose statement cannot be analyzed fails the whole read with `dependencies_unresolved` — a partial answer never presents as a complete checklist.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -2987,7 +2987,7 @@
     },
     {
       "name": "duplicate_map",
-      "description": "Duplicate a map. Created resources belong to the authenticated account. Submitted owner identities cannot assign or transfer ownership. Full copy — viewport, basemap, note, legend, timeline dock, and every layer under fresh ids — named \"<name> copy\", always an unpublished draft. Edit history does not carry over.",
+      "description": "Duplicate a map. Created resources belong to the authenticated account. Submitted owner identities cannot assign or transfer ownership. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. Full copy — viewport, basemap, note, legend, timeline dock, and every layer under fresh ids — named \"<name> copy\", always an unpublished draft. Edit history does not carry over.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -3003,7 +3003,7 @@
     },
     {
       "name": "get_history",
-      "description": "Undo/redo availability. Whether the map currently has anything to undo or redo. Every qualifying change (style, viz, filters, names, visibility, layer add/delete, basemap, note, legend, layer order, timeline dock) lands on one per-map history, whoever made it; viewport moves, publish state, and a playing timeline do not.",
+      "description": "Undo/redo availability. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. Whether the map currently has anything to undo or redo. Every qualifying change (style, viz, filters, names, visibility, layer add/delete, basemap, note, legend, layer order, timeline dock) lands on one per-map history, whoever made it; viewport moves, publish state, and a playing timeline do not.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -3019,7 +3019,7 @@
     },
     {
       "name": "undo_change",
-      "description": "Undo the newest change. Reverts the latest step on the map's history. Consecutive edits in a group form a step, and an edit from outside the group between them starts a new one, so one turn's edits can span several steps. Restores are verbatim: exactly the values stored before the change. Returns the refreshed map with fresh availability; 409 when there is nothing to undo. Redo re-applies the stored change.",
+      "description": "Undo the newest change. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. Reverts the latest step on the map's history. Consecutive edits in a group form a step, and an edit from outside the group between them starts a new one, so one turn's edits can span several steps. Restores are verbatim: exactly the values stored before the change. Returns the refreshed map with fresh availability; 409 when there is nothing to undo. Redo re-applies the stored change.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -3035,7 +3035,7 @@
     },
     {
       "name": "redo_change",
-      "description": "Redo the newest undone change. Re-applies the most recently undone change (or grouped turn), exactly as it was stored. Any fresh edit after an undo discards the redo branch. 409 when there is nothing to redo.",
+      "description": "Redo the newest undone change. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. Re-applies the most recently undone change (or grouped turn), exactly as it was stored. Any fresh edit after an undo discards the redo branch. 409 when there is nothing to redo.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -4351,7 +4351,7 @@
     },
     {
       "name": "look_at_map",
-      "description": "Look at a map: one bounded rendered image with its facts. Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. The model-facing check of a map: the map's stored state rendered through the same server-side road as the image export, at 1024 by 640 pixels, and answered as a PNG of at most 384 KiB together with the render's facts. The image is derived from that one render downwards through 768 by 480 and 512 by 320 when the byte bound is missed; still over it at 512 by 320 the answer is look_image_too_large and no image. The facts carry the render's identity, the bounded state identity of what the renderer actually drew (the map, the camera, the visible layers with a digest of their stored filters, the legend and the widgets, the appearance), the image's pixel and byte sizes, the source size, the attribution credited, the composition's truthful failures and any abandoned external requests, and the elapsed time. The appearance is an explicit input, light when absent; mapId names the map, and a call naming none answers look_target_missing. Read-only: the map's stored state stays as it is; the image is retained in process for GET /api/maps/look/{renderId} under documented bounds. Bounded by its own budget (30 s by default, DEZFIL_ASSISTANT_LOOK_TIMEOUT_S), queue wait, render and image preparation included; past it the answer is render_timeout. Without a renderer browser on the instance the answer is render_unavailable.\n\nAccepted argument sets: no arguments; or `mapId`, `appearance`.",
+      "description": "Look at a map: one bounded rendered image with its facts. Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. The model-facing check of a map: the map's stored state rendered through the same server-side road as the image export, at 1024 by 640 pixels, and answered as a PNG of at most 384 KiB together with the render's facts. The image is derived from that one render downwards through 768 by 480 and 512 by 320 when the byte bound is missed; still over it at 512 by 320 the answer is look_image_too_large and no image. The facts carry the render's identity, the bounded state identity of what the renderer actually drew (the map, the camera, the visible layers with a digest of their stored filters, the legend and the widgets, the appearance), the image's pixel and byte sizes, the source size, the attribution credited, the composition's truthful failures and any abandoned external requests, and the elapsed time. The appearance is an explicit input, light when absent; mapId names the map, and a call naming none answers look_target_missing. Read-only: the map's stored state stays as it is; the image is retained in process for GET /api/maps/look/{renderId} under documented bounds. Bounded by its own budget (30 s by default, DEZFIL_ASSISTANT_LOOK_TIMEOUT_S), queue wait, render and image preparation included; past it the answer is render_timeout. Without a renderer browser on the instance the answer is render_unavailable.\n\nAccepted argument sets: no arguments; or `mapId`, `appearance`.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -4396,7 +4396,7 @@
     },
     {
       "name": "export_map_image",
-      "description": "Render a map to a PNG image. Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Server-side image export: the map rendered by the app's own client inside the instance's headless browser and screenshotted at exactly the definition's pixels — the same composition the builder's export card downloads, pixel-faithful by construction. Takes the documented ExportImageDefinition; answers the PNG as an attachment (agents receive it as the base64 attachment envelope). Bounded by the documented render budget and concurrency cap; renders stored map state — visible layers, stored filters — never builder-transient selections. Without a browser on the instance the operation answers render_unavailable; health is unaffected. A request the page makes that outlives the per-request budget is abandoned so the render can settle: the image is still produced and the answer carries x-dezfil-export-abandoned with the count and the hosts of the abandoned requests (hosts only, never a path); the server log names the abandonment as it happens.",
+      "description": "Render a map to a PNG image. Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. Server-side image export: the map rendered by the app's own client inside the instance's headless browser and screenshotted at exactly the definition's pixels — the same composition the builder's export card downloads, pixel-faithful by construction. Takes the documented ExportImageDefinition; answers the PNG as an attachment (agents receive it as the base64 attachment envelope). Bounded by the documented render budget and concurrency cap; renders stored map state — visible layers, stored filters — never builder-transient selections. Without a browser on the instance the operation answers render_unavailable; health is unaffected. A request the page makes that outlives the per-request budget is abandoned so the render can settle: the image is still produced and the answer carries x-dezfil-export-abandoned with the count and the hosts of the abandoned requests (hosts only, never a path); the server log names the abandonment as it happens.",
       "input_schema": {
         "type": "object",
         "required": [
@@ -4800,7 +4800,7 @@
     },
     {
       "name": "get_publication_state",
-      "description": "The active publication's authored settings. The theme default and the viewer-controls checklist for the active publication. 204 when the map is not published — a state, not an error. A map record carries no publication state, so this is how an author surface reads back what it is about to change.",
+      "description": "The active publication's authored settings. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. The theme default and the viewer-controls checklist for the active publication. 204 when the map is not published — a state, not an error. A map record carries no publication state, so this is how an author surface reads back what it is about to change.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -4816,7 +4816,7 @@
     },
     {
       "name": "publish_map",
-      "description": "Publish a map. Returns a stable, unguessable token. Idempotent while published. The optional `theme` (\"light\" | \"dark\") sets the published view's authored default: omitted on a first publication it records dark (existing callers keep their behavior); stated while already published it updates the stored default in place — the token never changes for a theme; omitted while published it changes nothing. The optional `viewerControls` sets which optional reader controls the publication exposes, on the same in-place rule: omitted it changes nothing, and on a publication that never stated one every control is on. Within a stated set an omitted member reads as enabled. The two settings are independent — stating one never rewrites the other. Unpublishing clears both with the token.\n\nAccepted argument sets: only `id`; or `id`, `theme`, `viewerControls`.",
+      "description": "Publish a map. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. Returns a stable, unguessable token. Idempotent while published. The optional `theme` (\"light\" | \"dark\") sets the published view's authored default: omitted on a first publication it records dark (existing callers keep their behavior); stated while already published it updates the stored default in place — the token never changes for a theme; omitted while published it changes nothing. The optional `viewerControls` sets which optional reader controls the publication exposes, on the same in-place rule: omitted it changes nothing, and on a publication that never stated one every control is on. Within a stated set an omitted member reads as enabled. The two settings are independent — stating one never rewrites the other. Unpublishing clears both with the token.\n\nAccepted argument sets: only `id`; or `id`, `theme`, `viewerControls`.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -4866,7 +4866,7 @@
     },
     {
       "name": "unpublish_map",
-      "description": "Unpublish a map. The link stops resolving immediately.",
+      "description": "Unpublish a map. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. The link stops resolving immediately.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -4882,7 +4882,7 @@
     },
     {
       "name": "get_published_fields",
-      "description": "What each layer shares when this map is published. The shared-field statement: per layer, the effective published field set — fields marked `required` are what the published map cannot render without and publish regardless of any list — the mode (derived | list), and every field an explicit list could name. The publish surface renders exactly this; the wire carries exactly what it states. A layer whose SQL cannot resolve degrades to a per-layer error while the rest answer.",
+      "description": "What each layer shares when this map is published. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. The shared-field statement: per layer, the effective published field set — fields marked `required` are what the published map cannot render without and publish regardless of any list — the mode (derived | list), and every field an explicit list could name. The publish surface renders exactly this; the wire carries exactly what it states. A layer whose SQL cannot resolve degrades to a per-layer error while the rest answer.",
       "input_schema": {
         "type": "object",
         "properties": {

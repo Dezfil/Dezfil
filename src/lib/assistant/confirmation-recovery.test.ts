@@ -42,8 +42,9 @@ let failPlan = false;
 let failMapAfterWrite = false;
 const calls: { path: string; method: string; body: unknown }[] = [];
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
-const req = (url: string, body?: unknown, method = body === undefined ? "GET" : "POST") => new Request(origin + url, { method, ...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }) });
+const req = (url: string, body?: unknown, method = body === undefined ? "GET" : "POST") => testAccountRequest(new Request(origin + url, { method, ...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }) }));
 async function dispatch(request: Request): Promise<Response> {
+  request = testAccountRequest(request);
   const url = new URL(request.url); const p = url.pathname.split("/");
   calls.push({ path: url.pathname, method: request.method, body: request.method === "GET" ? null : await request.clone().json().catch(() => null) });
   if (url.pathname === "/api/catalogue/tables") return catalogue(request);
@@ -55,10 +56,10 @@ async function dispatch(request: Request): Promise<Response> {
       return failMapAfterWrite && request.method === "PATCH"
         ? Response.json({ error: { code: "internal" } }, { status: 500 }) : response;
     }
-    if (p[4] === "dependencies") return dependencies(request, params(p[3]));
+    if (p[4] === "dependencies") return dependencies(testAccountRequest(request), params(p[3]));
     if (p[4] === "publish") return publishRoute[request.method as "POST" | "DELETE"](request, params(p[3]));
-    if (p[4] === "undo") return undo(request, params(p[3]));
-    if (p[4] === "redo") return redo(request, params(p[3]));
+    if (p[4] === "undo") return undo(testAccountRequest(request), params(p[3]));
+    if (p[4] === "redo") return redo(testAccountRequest(request), params(p[3]));
   }
   if (p[2] === "recipes" && p.length === 4) return recipeGet(request, params(p[3]));
   if (p[2] === "recipes" && p[4] === "runs") return failPlan ? Response.json({ error: { code: "internal" } }, { status: 500 }) : runRecipe(testAccountRequest(request), params(p[3]));

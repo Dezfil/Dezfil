@@ -1,3 +1,4 @@
+import type { AccountScope } from "@/lib/auth/scope";
 import { createHash, randomUUID } from "node:crypto";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { limits } from "@/lib/limits";
@@ -171,11 +172,11 @@ function deriveImage(png: Uint8Array, signal?: AbortSignal): LookImage {
 /** One bounded check: render, derive, attribute. Throws the documented
  * outcomes (map_not_found, render_timeout, render_unavailable,
  * render_failed, look_image_too_large) or the cancellation. */
-export async function lookAtMap(input: LookInput): Promise<LookResult> {
+export async function lookAtMap(scope: AccountScope, input: LookInput): Promise<LookResult> {
   const started = performance.now();
   if (input.signal?.aborted) throw new EvaluationCancelled();
   const appearance = input.appearance ?? "light";
-  const map = mapWithLayers(input.mapId);
+  const map = mapWithLayers(scope, input.mapId);
   const definition = lookDefinition(map, appearance);
   const problems = definitionRenderProblems(definition);
   if (problems.length > 0) throw new ApiError("render_failed", `The map's stored view cannot be rendered at the check's size: ${problems[0]}.`, 502);

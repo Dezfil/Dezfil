@@ -44,7 +44,7 @@ beforeEach(async () => {
   mapId = map.id;
   const layer = await createLayer(map.id, { name: "l", sql });
   layerId = layer.id;
-  token = publishMap(map.id).token;
+  token = publishMap(testAccountScope(), map.id).token;
   const builtAt = "2026-07-14T12:00:00.123Z";
   version = String(Date.parse(builtAt));
   ensureTileDirs();
@@ -124,7 +124,7 @@ describe("published tile route", () => {
     const inFlight = GET(request(), context());
     await vi.waitFor(() => expect(readTileMock).toHaveBeenCalledOnce());
 
-    unpublishMap(mapId);
+    unpublishMap(testAccountScope(), mapId);
     release(new Uint8Array([1, 2, 3]));
 
     const response = await inFlight;

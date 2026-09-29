@@ -34,7 +34,7 @@ async function reserve() {
   expect(response.status).toBe(201);
   return (await response.json()).id as string;
 }
-async function maps() { return (await (await listMaps(new Request(origin + "/api/maps"))).json()) as { id: string; name: string }[]; }
+async function maps() { return (await (await listMaps(testAccountRequest(new Request(origin + "/api/maps")))).json()) as { id: string; name: string }[]; }
 function provider(gate = false): ModelProvider {
   return { id: "scripted", model: "recovery-real-routes", exchange() {
     factory.exchanges++;

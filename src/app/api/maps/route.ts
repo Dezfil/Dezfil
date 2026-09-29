@@ -2,8 +2,7 @@ import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { createMap, mapsOverview } from "@/lib/map-service";
-import { metadataDb } from "@/lib/metadata/db";
-import { fileMap, mapProjectId, requireProject } from "@/lib/metadata/projects";
+import { ownedMapProjectId } from "@/lib/metadata/map-queries";
 import { importProjectId, projectScope } from "@/lib/project-scope";
 
 /** List all maps, each with its layer count and colors.
@@ -11,7 +10,8 @@ import { importProjectId, projectScope } from "@/lib/project-scope";
  * unfiled; an unknown project answers not found. */
 export async function GET(request: Request) {
   try {
-    return NextResponse.json(mapsOverview(projectScope(request)));
+    const scope = requireRequestScope(request);
+    return NextResponse.json(mapsOverview(scope, projectScope(request)));
   } catch (error) {
     return errorResponse(error);
   }
@@ -38,14 +38,9 @@ export async function POST(request: Request) {
       if (error instanceof ApiError) throw error;
       // Empty body is fine — a default-named, unfiled map.
     }
-    if (projectId) requireProject(projectId);
-    const map = metadataDb().transaction(() => {
-      const created = createMap(scope, name);
-      if (projectId) fileMap(created.id, projectId);
-      return created;
-    })();
+    const map = createMap(scope, name, projectId);
     return NextResponse.json(
-      { ...map, projectId: mapProjectId(map.id) },
+      { ...map, projectId: ownedMapProjectId(scope, map.id) },
       { status: 201 },
     );
   } catch (error) {

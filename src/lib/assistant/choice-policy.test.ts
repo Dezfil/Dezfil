@@ -99,10 +99,10 @@ async function refusedOn(context: Record<string, unknown>) {
     () => responseWire([outputText("I cannot do that here.")], "gpt-6-astra"),
   );
   const runId = await reserve();
-  const before = allMaps().length;
+  const before = allMaps(testAccountScope()).length;
   const stream = events(await (await post({ runId, message: "Make a map.", history: [], choice: CHOICE, context })).text());
   const result = stream.find((event) => event.type === "tool_result");
-  return { runId, result, maps: { before, after: allMaps().length }, receipt: await read(runId) };
+  return { runId, result, maps: { before, after: allMaps(testAccountScope()).length }, receipt: await read(runId) };
 }
 
 describe("a chosen model widens no page's policy", () => {

@@ -1,5 +1,7 @@
+import type { AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
-import { getMap, listLayers } from "@/lib/metadata/maps";
+import { listLayers } from "@/lib/metadata/maps";
+import { requireMap } from "@/lib/map-access";
 import { listRecipes, listSteps } from "@/lib/metadata/recipes";
 import { queryInputsStrict } from "@/lib/operations/inputs";
 import { boundedEvaluation } from "@/lib/query/bounded";
@@ -69,11 +71,10 @@ export function dependencyOf(
 }
 
 export async function mapDependencies(
+  scope: AccountScope,
   mapId: string,
 ): Promise<MapDependency[]> {
-  if (!getMap(mapId)) {
-    throw new ApiError("not_found", `No map with id ${mapId}.`, 404);
-  }
+  requireMap(scope, mapId);
   const layers = listLayers(mapId);
 
   // One captured world: the registry with memberships, and the

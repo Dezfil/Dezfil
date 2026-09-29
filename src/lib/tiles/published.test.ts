@@ -60,7 +60,7 @@ beforeEach(async () => {
   mapId = map.id;
   const layer = await createLayer(map.id, { name: "l", sql });
   layerId = layer.id;
-  token = publishMap(map.id).token;
+  token = publishMap(testAccountScope(), map.id).token;
   ensureTileDirs();
   await writeFile(tileArchivePath(layerId), "artifact");
   upsertTileRecord({
@@ -146,7 +146,7 @@ describe("current published tile eligibility", () => {
 
   it("uses current publication ownership on every check", () => {
     expect(currentPublishedTile(token, layerId, null)).not.toBeNull();
-    unpublishMap(mapId);
+    unpublishMap(testAccountScope(), mapId);
     expect(currentPublishedTile(token, layerId, null)).toBeNull();
   });
 

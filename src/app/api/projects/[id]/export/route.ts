@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { open, rm } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
@@ -76,6 +77,7 @@ async function streamStaged(prepared: {
  * (the / road). */
 export async function POST(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
     const body = (await request.json().catch(() => {
       throw new ApiError("invalid_request", "A JSON body is required.", 400);
@@ -87,7 +89,7 @@ export async function POST(request: Request, { params }: Params) {
       file: typeof body.file === "string" ? body.file : "",
       datasetFormat: datasetFormatOf(body.datasetFormat),
     };
-    const prepared = await assembleProjectExport(id, selection);
+    const prepared = await assembleProjectExport(scope, id, selection);
     if (body.prepare !== true) return streamStaged(prepared);
     const { ticket, key } = createProjectExportTicket(prepared);
     return NextResponse.json({
