@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **117 paths, 155 operations, 147 named
+Measured from the current source: **118 paths, 156 operations, 147 named
 component schemas.**
 
 ## Base path and access
@@ -381,3 +381,18 @@ receive the same refusal as unknown ids without consuming the owner's result.
 Render and export execution rechecks activity before returning or retaining
 bytes; a deactivated caller cannot redeem a retained result. Existing eviction,
 expiry, stream cleanup and process-restart behavior remains unchanged.
+
+`DELETE /api/publications/{token}` lets a current admin revoke a known link
+only while its owner is deactivated. The authority and owner-status checks
+share the revocation transaction. An active owner's link, an unknown token,
+and an already revoked token receive the same `not_found`; success is `204`
+with no content. The operation provides no map discovery or private read
+access. Its generated tool is `revoke_inactive_publication`, with destructive
+consequence metadata and confirmation using only the submitted token.
+
+Anonymous publication queries retain the publisher's dataset scope rather
+than a signed-in visitor's. Deactivation does not revoke existing links.
+Before first-account setup, legacy links carry a publication-only
+pending-adoption scope; setup atomically replaces it with the original
+account's scope. Token revocation is rechecked after asynchronous widget,
+render and extent work, and retires cached or in-flight assembled views.

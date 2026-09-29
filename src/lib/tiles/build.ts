@@ -1,5 +1,5 @@
 import { metadataDb } from "@/lib/metadata/db";
-import { requireTileAccess, tileAccessAvailable, type TileAccess } from "./access";
+import { tileQueryScope, requireTileAccess, tileAccessAvailable, type TileAccess } from "./access";
 import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -198,6 +198,7 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
         columns: input.columns,
       },
       exportFile,
+      tileQueryScope(attempt.access),
     );
     if (!attemptCanCommit(attempt)) return;
     await runTippecanoe(exportFile, archiveFile);

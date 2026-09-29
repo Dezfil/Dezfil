@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { limits } from "@/lib/limits";
-import { getPublishedSnapshot } from "@/lib/metadata/maps";
+import { resolvePublication } from "@/lib/publish/publication-scope";
 import { getTileRecord } from "@/lib/metadata/tiles";
 import { renderFilters } from "@/lib/layer-service";
 import { publishedFieldsSignature } from "@/lib/publish/published-fields";
@@ -28,7 +28,7 @@ export function currentPublishedTile(
   layerId: string,
   requestedVersion: string | null,
 ): PublishedTileArtifact | null {
-  const snapshot = getPublishedSnapshot(token);
+  const snapshot = resolvePublication(token);
   if (!snapshot) return null;
   const layer = snapshot.layers.find((candidate) => candidate.id === layerId);
   if (!layer || !layer.visible || layer.viz.type !== "points") return null;

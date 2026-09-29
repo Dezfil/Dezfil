@@ -1,3 +1,4 @@
+import type { DatasetScope } from "@/lib/query/access";
 import { boundedEvaluation, isOutOfMemory } from "@/lib/query/bounded";
 import { filteredSql } from "@/lib/query/compile";
 import {
@@ -245,7 +246,7 @@ export async function renderLayerWithSelections(
     // names the published projection intersects.
     let resolved: { name: string; kind: string }[];
     try {
-      resolved = await baseFields(layer, signal);
+      resolved = await baseFields(layer, signal, opts.scope);
     } catch (error) {
       // The check reads the result's columns, so it evaluates under the
       // same bounds as the render — and the settle lane's contract is
@@ -335,6 +336,7 @@ export async function assertPublishedSelections(
   layers: Layer[],
   selections: WidgetSelection[],
   signal?: AbortSignal,
+  scope?: DatasetScope,
 ): Promise<void> {
   if (selections.length === 0) return;
   const widgets = new Map(map.widgets.map((w) => [w.id, w]));
@@ -355,7 +357,7 @@ export async function assertPublishedSelections(
     const layer = layerById.get(layerId)!;
     let fields: { name: string; kind: string }[];
     try {
-      fields = await baseFields(layer, signal);
+      fields = await baseFields(layer, signal, scope);
     } catch (error) {
       // Bounded outcomes are the request's outcome — a timeout or
       // memory refusal here must surface, not roll into a second full
@@ -401,6 +403,7 @@ export async function computeWidgetValues(
   selections: WidgetSelection[],
   draft?: MapWidget,
   signal?: AbortSignal,
+  scope?: DatasetScope,
 ): Promise<WidgetValues> {
   const effective = draft
     ? map.widgets.some((w) => w.id === draft.id)
@@ -475,5 +478,5 @@ export async function computeWidgetValues(
       }
     }
     return { widgets: values, layers: counts };
-  }, { signal });
+  }, { signal, scope });
 }

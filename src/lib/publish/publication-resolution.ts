@@ -1,8 +1,8 @@
-import { getPublishedSnapshot } from "@/lib/metadata/maps";
+import { resolvePublication } from "./publication-scope";
 import { limits } from "@/lib/limits";
 import type { PublishedView } from "./publish-service";
 
-type PublicationSnapshot = NonNullable<ReturnType<typeof getPublishedSnapshot>>;
+type PublicationSnapshot = NonNullable<ReturnType<typeof resolvePublication>>;
 
 // Freshness cache: published views are live within a documented bound. A cache
 // hit within the bound returns instantly; a popular link cannot melt the
@@ -34,7 +34,7 @@ export async function resolvePublishedView(
   now: number,
   assemble: (snapshot: PublicationSnapshot) => Promise<PublishedView>,
 ): Promise<PublishedView | null> {
-  let snapshot = getPublishedSnapshot(token);
+  let snapshot = resolvePublication(token);
   if (!snapshot) {
     invalidatePublishedToken(token);
     return null;
@@ -55,7 +55,7 @@ export async function resolvePublishedView(
   while (true) {
     const { map, revision } = snapshot;
     const view = await assemble(snapshot);
-    const current = getPublishedSnapshot(token);
+    const current = resolvePublication(token);
     if (!current) {
       invalidatePublishedToken(token);
       return null;

@@ -1,3 +1,4 @@
+import type { DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
 import { boundedEvaluation, EvaluationCancelled } from "@/lib/query/bounded";
 import { effectiveSql, wrappable } from "@/lib/query/compile";
@@ -44,8 +45,9 @@ export interface LayerFieldsResult {
 export async function layerFields(
   layer: Layer,
   signal?: AbortSignal,
+  scope?: DatasetScope,
 ): Promise<LayerFieldsResult> {
-  const described = await describeBase(layer, signal);
+  const described = await describeBase(layer, signal, scope);
   return withStyling(described, layer.viz);
 }
 
@@ -74,9 +76,10 @@ export async function fieldsForWrite(
   sql: string,
   viz: LayerViz,
   signal?: AbortSignal,
+  scope?: DatasetScope,
 ): Promise<LayerFieldsResult> {
   try {
-    return withStyling(await describeBase({ sql } as Layer, signal), viz);
+    return withStyling(await describeBase({ sql } as Layer, signal, scope), viz);
   } catch (error) {
     if (error instanceof EvaluationCancelled || error instanceof ApiError) {
       throw error;
@@ -93,13 +96,15 @@ export async function fieldsForWrite(
 export async function baseFields(
   layer: Layer,
   signal?: AbortSignal,
+  scope?: DatasetScope,
 ): Promise<LayerField[]> {
-  return (await describeBase(layer, signal)).fields;
+  return (await describeBase(layer, signal, scope)).fields;
 }
 
 async function describeBase(
   layer: Layer,
   signal?: AbortSignal,
+  scope?: DatasetScope,
 ): Promise<{ fields: LayerField[]; geometryColumns: string[] }> {
   return boundedEvaluation(async (conn) => {
     const sub = `(${wrappable(layer.sql)}) AS q`;
@@ -123,7 +128,7 @@ async function describeBase(
         .filter((c) => c.type.startsWith("GEOMETRY"))
         .map((c) => c.name),
     };
-  }, { signal });
+  }, { signal, scope });
 }
 
 /** Distinct values shown when seeding a value-set filter. */
@@ -234,6 +239,7 @@ export async function layerFieldStats(
   layer: Layer,
   field: string,
   signal?: AbortSignal,
+  scope?: DatasetScope,
 ): Promise<FieldStats> {
   // An aggregated layer styles value/count — computed by the aggregation,
   // absent from the base result. Their distribution comes from the
@@ -242,16 +248,16 @@ export async function layerFieldStats(
     isAggregated(layer.viz) &&
     (field === AGG_VALUE || field === AGG_COUNT)
   ) {
-    const inspection = await inspectLayerGeometry(layer.sql, signal);
+    const inspection = await inspectLayerGeometry(layer.sql, signal, scope);
     return boundedEvaluation(async (conn) => {
       const sub = `(${effectiveSql(
         { sql: layer.sql, filters: layer.filters, viz: layer.viz },
         inspection.geometryColumn,
       )}) AS q`;
       return numericFieldStats(conn, sub, field);
-    }, { signal });
+    }, { signal, scope });
   }
-  const fields = await baseFields(layer, signal);
+  const fields = await baseFields(layer, signal, scope);
   const target = fields.find((f) => f.name === field);
   if (!target) {
     throw new ApiError(
@@ -312,5 +318,5 @@ export async function layerFieldStats(
       values: values.slice(0, MAX_STAT_VALUES),
       truncated: values.length > MAX_STAT_VALUES,
     };
-  }, { signal });
+  }, { signal, scope });
 }

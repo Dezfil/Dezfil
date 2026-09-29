@@ -1,3 +1,4 @@
+import type { DatasetScope } from "@/lib/query/access";
 import { boundedEvaluation } from "@/lib/query/bounded";
 import { effectiveSql } from "@/lib/query/compile";
 import { inspectLayerGeometry } from "@/lib/layer-geometry";
@@ -68,8 +69,9 @@ export async function layerExtent(
    * or time entry REPLACES the layer's stored filter on that field. */
   extra: LayerFilter[] = [],
   signal?: AbortSignal,
+  scope?: DatasetScope,
 ): Promise<LayerExtent> {
-  const inspection = await inspectLayerGeometry(layer.sql, signal);
+  const inspection = await inspectLayerGeometry(layer.sql, signal, scope);
   // Which column holds the geometry that is actually drawn: an aggregation
   // computes its own cells, an origin→destination viz builds its line, and
   // everything else draws the base result's geometry. The same choice the
@@ -120,5 +122,5 @@ export async function layerExtent(
     const box = raw.map(Number) as ExtentBox;
     if (!box.every((n) => Number.isFinite(n))) return { kind: "empty" };
     return { kind: "extent", box };
-  }, { signal });
+  }, { signal, scope });
 }

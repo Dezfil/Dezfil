@@ -1,3 +1,5 @@
+import { DELETE as revokePublication } from "@/app/api/publications/[token]/route";
+import { publishMap, getPublishedView } from "@/lib/publish/publish-service";
 import { lookRetention } from "@/lib/export/look-retention";
 import { GET as retainedImage } from "@/app/api/maps/look/[renderId]/route";
 import { encodePng } from "@/lib/export/png-codec";
@@ -153,6 +155,7 @@ function actualApi() {
       if (path === "/api/tables") return datasetsRead(req);
       if (/^\/api\/tables\/[^/]+\/features$/.test(path)) return datasetFeatures(req, { params: Promise.resolve({ name: path.split("/")[3] }) });
       if (path === "/api/account") return accountRead(req);
+      if (path.startsWith("/api/publications/")) return revokePublication(req, { params: Promise.resolve({ token: path.split("/")[3] }) });
       if (path === "/api/users") return usersRead(req);
       if (path.startsWith("/api/users/")) return userAccess(req, { params: Promise.resolve({ id: path.split("/")[3] }) });
       if (path === "/api/catalogue/tables") return Response.json({ tables: [], total: 0, nextAfter: null });
@@ -656,4 +659,29 @@ it.each(["cookie", "token"])("MCP and assistant %s calls cannot retrieve another
     expect(results).toHaveLength(2); expect(results.map(result => result.ok)).toEqual([false, false]);
     expect(results[0].body).toEqual(results[1].body); expect(JSON.stringify(results)).not.toContain("Private image");
   }
+});
+
+it.each(["cookie", "token"])("MCP and assistant %s can revoke a deactivated owner's known token without reading content", async mode => {
+  const seen = actualApi(), map = createMap(memberScope, "Private revoked content");
+  const first = publishMap(memberScope, map.id).token;
+  const adminToken = createApiToken(authenticateSession(admin.secret, db)!, "Moderation", db);
+  const headers = mode === "cookie" ? cookie() : { authorization: `Bearer ${adminToken.secret}` };
+  const active = await rpc("revoke_inactive_publication", { token: first }, headers);
+  expect(active.isError).toBe(true); expect(active).toEqual(await rpc("revoke_inactive_publication", { token: "missing" }, headers));
+  changeAccountAccess(authenticateSession(admin.secret, db)!, member.account.id, { status: "deactivated" }, db);
+  expect(await rpc("revoke_inactive_publication", { token: first }, headers)).toMatchObject({ isError: false });
+  expect(await getPublishedView(first, Date.now())).toBeNull();
+  db.prepare("UPDATE accounts SET status = 'active' WHERE id = ?").run(member.account.id);
+  const second = publishMap(memberScope, map.id).token;
+  db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = ?").run(member.account.id);
+  factory.provider = stubProvider([{ text: "", toolCalls: [{ id: "revoke", name: "revoke_inactive_publication", args: { token: second } }] }, { text: "Done", toolCalls: [] }]);
+  const events = await send({ runId: await ownReservation(headers), message: "Revoke this known public link" }, headers);
+  const confirmation = events.find((event): event is Extract<AssistantEvent, { type: "confirm_required" }> => event.type === "confirm_required")!;
+  expect(confirmation).toBeDefined(); expect(JSON.stringify(confirmation)).toContain(second);
+  expect((await getPublishedView(second, Date.now()))?.name).toBe("Private revoked content");
+  const resumed = await send({ resolution: { pending: confirmation.id, approved: true } }, headers);
+  expect(resumed).toContainEqual(expect.objectContaining({ type: "tool_result", tool: "revoke_inactive_publication", ok: true }));
+  expect(await getPublishedView(second, Date.now())).toBeNull();
+  expect(seen.filter(item => item.path.startsWith("/api/maps/") || item.path.startsWith("/api/published/"))).toEqual([]);
+  expect(JSON.stringify([...events, ...resumed])).not.toContain("Private revoked content");
 });

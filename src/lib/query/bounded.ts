@@ -1,3 +1,4 @@
+import { requireDatasetScope, type DatasetScope } from "./access";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { connectQueryInstance } from "@/lib/duckdb";
 import { limits } from "@/lib/limits";
@@ -33,6 +34,8 @@ export { EvaluationCancelled };
 const REINTERRUPT_MS = 250;
 
 export interface EvaluationOptions {
+  /** Authority retained by this evaluation, independent of a visitor. */
+  scope?: DatasetScope;
   /** The caller's departure; aborting cancels the evaluation silently. */
   signal?: AbortSignal;
   /** Budget override for the lanes with their own documented bound (the
@@ -117,7 +120,8 @@ async function runBoundedEvaluation<T>(
   fn: (conn: DuckDBConnection, bounds: EvaluationBounds) => Promise<T>,
   options: EvaluationOptions = {},
 ): Promise<T> {
-  const { signal } = options;
+  const { signal, scope } = options;
+  if (scope) requireDatasetScope(scope);
   if (signal?.aborted) throw new EvaluationCancelled();
 
   const budgetMs = options.budgetMs ?? limits.queryTimeoutMs;
@@ -224,7 +228,9 @@ async function runBoundedEvaluation<T>(
     };
 
     try {
+      if (scope) requireDatasetScope(scope);
       const result = await fn(conn, bounds);
+      if (scope) requireDatasetScope(scope);
       // The bound is wall-clock, not statements-only: a callback whose
       // engine work finished but whose tail (tile probes, archive reads)
       // outlived the budget or its caller does not return as a success.

@@ -4897,6 +4897,22 @@
       }
     },
     {
+      "name": "revoke_inactive_publication",
+      "description": "Revoke a deactivated owner's publication. Requires a current admin through a cookie session or bearer token. Revokes only the supplied token when its owner is currently deactivated, checked in the same transaction as current admin authority. An active owner's token, an unknown token and a revoked token receive identical not_found responses with no change. This operation never reads or returns private map content or account identity, and grants no other access. Deactivation alone leaves existing links available; reactivation restores the owner's private access. Responses, including refusals, are private, no-store. Cookie mutations require the same trusted Origin.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "The known publication token to revoke. This operation does not discover private maps."
+          }
+        },
+        "required": [
+          "token"
+        ]
+      }
+    },
+    {
       "name": "read_table_catalogue",
       "description": "Read the schema-only table catalogue. Dataset names and identities resolve only in the authenticated account's space, including for administrators. Lists, schema discovery and counts include only that account's datasets. Upload and sketch suffixes ignore other accounts' names. Hidden or missing datasets, maps and project references return not_found before source or artifact access; a refused change leaves resources unchanged. Refresh and geometry changes preserve the dataset's identity and owner and recheck account activity at commit. Names, stable identities, recorded row counts and geometry facts with stored artifact column names and types. Reads metadata only, without evaluating row previews or healing geometry records. Recorded geometry identity is separate from the physical column type. Stable name order, at most 32 tables and 64 columns per table per page. after continues tables; columnOffset continues columns for a named table. total counts matching tables, columnCount counts each table’s columns. Incomplete collections carry nextAfter or nextColumnOffset. A missing artifact fails the read instead of returning a false empty schema. Responses are bounded to 96 KiB; a response that cannot fit answers 422 catalogue_too_large so the caller can request fewer tables or columns. No artifact paths, source configuration, credentials, row samples or attachment bytes are returned.",
       "input_schema": {
@@ -4936,7 +4952,7 @@
     },
     {
       "name": "view_published_map",
-      "description": "Read a published view. The read-only view for a token: map, viewport, styled layers, and render data. The only data path a published page uses. Token ownership is checked before reuse and after assembly; responses are private and not stored so revocation cannot be bypassed by a browser or intermediary cache. Feature properties carry exactly each layer's effective published field set — the derived projection (style, label, tooltip/pop-up, live-filter, timeline and published-widget fields) or the author's explicit list plus the fields the map needs to render; hidden layers contribute no feature data.",
+      "description": "Read a published view. The token retains the map owner's dataset scope independently of visitor credentials, including while the owner is deactivated. Before first-account setup, a legacy token has only its pending-adoption publication scope; setup retires that scope atomically. Revocation is checked after asynchronous work before returning results. The projection never exposes account identity, private SQL, dataset paths or connection credentials. The read-only view for a token: map, viewport, styled layers, and render data. The only data path a published page uses. Token ownership is checked before reuse and after assembly; responses are private and not stored so revocation cannot be bypassed by a browser or intermediary cache. Feature properties carry exactly each layer's effective published field set — the derived projection (style, label, tooltip/pop-up, live-filter, timeline and published-widget fields) or the author's explicit list plus the fields the map needs to render; hidden layers contribute no feature data.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -4952,7 +4968,7 @@
     },
     {
       "name": "published_layer_extent",
-      "description": "A published layer's current data extent. The published half of the extent capability: the bounding box of what the reader's current state leaves drawn. The reader never names a field — widget selections are keyed by widget id and resolve through the publication's stored widgets, and the timeline window's field comes from the map's own dock. A hidden layer or widget answers exactly as an unknown one does. Same shared reader rate limit as the other published lanes; `kind: \"empty\"` when nothing survives.\n\nAccepted argument sets: only `token`, `layerId`; or `token`, `layerId`, `selections`, `timeline`.",
+      "description": "A published layer's current data extent. The token retains the map owner's dataset scope independently of visitor credentials, including while the owner is deactivated. Before first-account setup, a legacy token has only its pending-adoption publication scope; setup retires that scope atomically. Revocation is checked after asynchronous work before returning results. The projection never exposes account identity, private SQL, dataset paths or connection credentials. The published half of the extent capability: the bounding box of what the reader's current state leaves drawn. The reader never names a field — widget selections are keyed by widget id and resolve through the publication's stored widgets, and the timeline window's field comes from the map's own dock. A hidden layer or widget answers exactly as an unknown one does. Same shared reader rate limit as the other published lanes; `kind: \"empty\"` when nothing survives.\n\nAccepted argument sets: only `token`, `layerId`; or `token`, `layerId`, `selections`, `timeline`.",
       "input_schema": {
         "type": "object",
         "properties": {

@@ -1,3 +1,4 @@
+import type { DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
 import { NOT_MAPPABLE_COPY } from "@/lib/layer-copy";
 import { assertReadOnlySelect } from "@/lib/query/guard";
@@ -27,6 +28,7 @@ interface GeometryInspection {
 export async function inspectLayerGeometry(
   sql: string,
   signal?: AbortSignal,
+  scope?: DatasetScope,
 ): Promise<GeometryInspection> {
   return boundedEvaluation(async (conn) => {
     await assertReadOnlySelect(conn, sql);
@@ -92,5 +94,5 @@ export async function inspectLayerGeometry(
     const geometryType =
       types.length === 0 ? null : supported.length === 1 ? supported[0] : "MIXED";
     return { geometryColumn, geometryType };
-  }, { signal });
+  }, { signal, scope });
 }

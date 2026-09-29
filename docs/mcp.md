@@ -87,7 +87,7 @@ process and reused.
 | | |
 |---|---|
 | Documented operations | 155 |
-| Operations that become tools | 128 |
+| Operations that become tools | 129 |
 | Deliberately excluded | 27 |
 
 Measured by building the OpenAPI document and the tool set from

@@ -1,3 +1,4 @@
+import type { DatasetScope } from "@/lib/query/access";
 import { limits } from "@/lib/limits";
 import { ApiError } from "@/lib/api/errors";
 import { assertReadOnlySelect } from "@/lib/query/guard";
@@ -40,6 +41,7 @@ export interface ExportInput {
 export async function exportGeoJsonSeq(
   input: ExportInput,
   outFile: string,
+  scope?: DatasetScope,
 ): Promise<number> {
   return boundedEvaluation(
     async (conn) => {
@@ -65,6 +67,7 @@ export async function exportGeoJsonSeq(
       }
     },
     {
+      scope,
       budgetMs: limits.tileBuildTimeoutMs,
       timeoutError: () =>
         new ApiError(

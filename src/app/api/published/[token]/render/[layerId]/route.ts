@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
-import { getPublishedSnapshot } from "@/lib/metadata/maps";
+import { resolvePublication, requirePublicationScope } from "@/lib/publish/publication-scope";
 import { sanitizePublishedRender } from "@/lib/publish/publish-service";
 import { renderLayerWithSelections } from "@/lib/widget-service";
 import { isValidFilters } from "@/lib/viz";
@@ -47,7 +47,7 @@ export async function POST(request: Request, { params }: Params) {
       );
     }
 
-    const snapshot = getPublishedSnapshot(token);
+    const snapshot = resolvePublication(token);
     if (!snapshot || !snapshot.map.widgetsPublished) {
       throw new ApiError("not_found", "This map is not available.", 404);
     }
@@ -66,6 +66,7 @@ export async function POST(request: Request, { params }: Params) {
         // The settle lane answers anonymous readers: properties carry the
         // effective published field set, exactly as the view payload
         // does.
+        scope: snapshot.scope,
         published: {
           timeline: snapshot.map.timeline,
           widgets: snapshot.map.widgets,
@@ -75,6 +76,7 @@ export async function POST(request: Request, { params }: Params) {
     );
     // The settle lane's errored envelope carries the catalogue sentence,
     // never engine text.
+    requirePublicationScope(snapshot.scope);
     return NextResponse.json(sanitizePublishedRender(render), {
       headers: { "cache-control": "private, no-store" },
     });

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
-import { getPublishedSnapshot } from "@/lib/metadata/maps";
+import { resolvePublication, requirePublicationScope } from "@/lib/publish/publication-scope";
 import { layerExtent } from "@/lib/extent-service";
 import { rateLimit } from "@/lib/publish/rate-limit";
 import { isValidSelections, selectionFilter } from "@/lib/widgets";
@@ -47,7 +47,7 @@ export async function POST(request: Request, { params }: Params) {
       throw new ApiError("invalid_request", "Expected a JSON body.", 400);
     }
 
-    const snapshot = getPublishedSnapshot(token);
+    const snapshot = resolvePublication(token);
     if (!snapshot) {
       throw new ApiError("not_found", "This map is not available.", 404);
     }
@@ -86,6 +86,7 @@ export async function POST(request: Request, { params }: Params) {
         snapshot.layers,
         active,
         request.signal,
+        snapshot.scope,
       );
       for (const selection of active) {
         const filter = selectionFilter(selection, visible.get(selection.widgetId));
@@ -109,7 +110,8 @@ export async function POST(request: Request, { params }: Params) {
       });
     }
 
-    const extent = await layerExtent(layer, extra, request.signal);
+    const extent = await layerExtent(layer, extra, request.signal, snapshot.scope);
+    requirePublicationScope(snapshot.scope);
     return NextResponse.json(extent, {
       headers: { "cache-control": "private, no-store" },
     });

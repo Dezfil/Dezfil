@@ -1,3 +1,4 @@
+import type { PublicationScope } from "./publication-scope";
 import { publishedTileAccess } from "@/lib/tiles/access";
 import { publishedMessage } from "@/lib/api/error-catalogue";
 import {
@@ -136,11 +137,12 @@ export interface PublishedView {
 
 /** Resolve the current token and assemble only a stable published snapshot. */
 export function getPublishedView(token: string, now: number, signal?: AbortSignal): Promise<PublishedView | null> {
-  return resolvePublishedView(token, now, ({ map, layers, publishedTheme, viewerControls }) =>
-    assemblePublishedView(map, layers, publishedTheme, viewerControls, token, signal));
+  return resolvePublishedView(token, now, ({ map, layers, publishedTheme, viewerControls, scope }) =>
+    assemblePublishedView(scope, map, layers, publishedTheme, viewerControls, token, signal));
 }
 
 async function assemblePublishedView(
+  scope: PublicationScope,
   map: MapRecord,
   layers: Layer[],
   publishedTheme: PublishedTheme | null,
@@ -164,7 +166,7 @@ async function assemblePublishedView(
       .filter((l) => l.visible)
       .map(async (l): Promise<PublishedLayer> => {
         const render = publishedRender(
-          await renderLayer(l, signal, { published, tileAccess: publishedTileAccess(token, l.id) }),
+          await renderLayer(l, signal, { scope, published, tileAccess: publishedTileAccess(token, l.id) }),
           token,
           l.id,
         );
@@ -252,7 +254,7 @@ async function assemblePublishedView(
     note: map.note,
     legendCorner: map.legendCorner,
     legendOrder: map.legendOrder,
-    timeline: await publishedTimeline(map.timeline, layers, signal),
+    timeline: await publishedTimeline(scope, map.timeline, layers, signal),
     layers: rendered,
     // A widget whose layer drifted away degrades to absence, never an
     // error — the published page must keep rendering (the rule). Notes
@@ -275,6 +277,7 @@ async function assemblePublishedView(
  * page must keep rendering.
  */
 async function publishedTimeline(
+  scope: PublicationScope,
   timeline: MapTimeline | null,
   layers: Layer[],
   signal?: AbortSignal,
@@ -290,7 +293,7 @@ async function publishedTimeline(
   );
   if (!filter || filter.kind !== "timerange") return null;
   try {
-    const stats = await layerFieldStats(layer, timeline.field, signal);
+    const stats = await layerFieldStats(layer, timeline.field, signal, scope);
     if (stats.kind !== "time" || stats.min == null || stats.max == null) {
       return null;
     }

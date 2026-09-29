@@ -1,3 +1,5 @@
+import { resolvePublication, publicationAbsent } from "@/lib/publish/publication-scope";
+import type { DatasetScope } from "@/lib/query/access";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
 import { metadataDb } from "@/lib/metadata/db";
@@ -36,4 +38,13 @@ export function requireTileAccess(access: TileAccess | undefined, layerId: strin
 }
 export function tileAccessAvailable(access: TileAccess): boolean {
   try { requireTileAccess(access, access.layerId); return true; } catch { return false; }
+}
+
+/** Carry the admitted private account or current token into tile SQL. */
+export function tileQueryScope(access: TileAccess): DatasetScope {
+  requireTileAccess(access, access.layerId);
+  if ("scope" in access.credential) return access.credential.scope;
+  const publication = resolvePublication(access.credential.token);
+  if (!publication || publication.scope.mapId !== access.mapId || publication.scope.ownerId !== access.ownerId) throw publicationAbsent();
+  return publication.scope;
 }

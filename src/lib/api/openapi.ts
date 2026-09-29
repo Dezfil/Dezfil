@@ -1,3 +1,4 @@
+import { PUBLICATION_ADMIN_PATHS, publicationAccess } from "./openapi-publications";
 import { resultAccess } from "./openapi-result-access";
 import { JOB_PATHS } from "./openapi-jobs";
 import { withRequestPolicy } from "./openapi-request-policy";
@@ -539,11 +540,12 @@ export function buildOpenApiDocument() {
       ...MAP_RENDER_PATHS,
       ...LAYER_QUERY_PATHS,
       ...MAP_PUBLISH_PATHS,
+      ...PUBLICATION_ADMIN_PATHS,
       ...TABLE_CATALOGUE_PATHS,
       ...ASSISTANT_PATHS,
       ...MCP_PATHS,
       "/api/published/{token}": {
-        get: op({
+        get: op(publicationAccess({
           summary: "Read a published view",
           description:
             "The read-only view for a token: map, viewport, styled layers, and " +
@@ -565,10 +567,10 @@ export function buildOpenApiDocument() {
             pathParam("token", `Publish token (${TOKEN_LENGTH} characters).`),
           ],
           responses: { "200": jsonOk("#/components/schemas/PublishedView") },
-        }),
+        })),
       },
       "/api/published/{token}/extent/{layerId}": {
-        post: op({
+        post: op(publicationAccess({
           summary: "A published layer's current data extent",
           description:
             "The published half of the extent capability: the " +
@@ -616,10 +618,10 @@ export function buildOpenApiDocument() {
           responses: {
             "200": jsonOk("#/components/schemas/LayerExtent", "The extent."),
           },
-        }),
+        })),
       },
       "/api/published/{token}/widget-values": {
-        post: op({
+        post: op(publicationAccess({
           summary: "Widget values for a published view",
           description:
             "The live half of a published dashboard: the same " +
@@ -649,10 +651,10 @@ export function buildOpenApiDocument() {
             },
           },
           responses: { "200": jsonOk("#/components/schemas/WidgetValues") },
-        }),
+        })),
       },
       "/api/published/{token}/render/{layerId}": {
-        post: op({
+        post: op(publicationAccess({
           summary: "Re-render a published computed layer under selections",
           description:
             "The published settle lane: re-render one hexbin, " +
@@ -688,10 +690,10 @@ export function buildOpenApiDocument() {
             },
           },
           responses: { "200": jsonOk("#/components/schemas/LayerRender") },
-        }),
+        })),
       },
       "/api/published/{token}/tiles/{layerId}/{z}/{x}/{y}": {
-        get: op({
+        get: op(publicationAccess({
           summary: "One vector tile of a published map's layer",
           description:
             "Read-only under the publish token, in the tile-sized anonymous " +
@@ -741,7 +743,7 @@ export function buildOpenApiDocument() {
               content: ERROR_RESPONSE.content,
             },
           },
-        }),
+        })),
       },
     },
     components: {

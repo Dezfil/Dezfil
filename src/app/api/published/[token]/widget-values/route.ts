@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { publishedMessage } from "@/lib/api/error-catalogue";
-import { getPublishedSnapshot } from "@/lib/metadata/maps";
+import { resolvePublication, requirePublicationScope } from "@/lib/publish/publication-scope";
 import {
   assertPublishedSelections,
   computeWidgetValues,
@@ -51,7 +51,7 @@ export async function POST(request: Request, { params }: Params) {
       );
     }
 
-    const snapshot = getPublishedSnapshot(token);
+    const snapshot = resolvePublication(token);
     if (!snapshot || !snapshot.map.widgetsPublished) {
       throw new ApiError("not_found", "This map is not available.", 404);
     }
@@ -70,6 +70,7 @@ export async function POST(request: Request, { params }: Params) {
       snapshot.layers,
       active,
       request.signal,
+      snapshot.scope,
     );
     const values = await computeWidgetValues(
       snapshot.map,
@@ -77,6 +78,7 @@ export async function POST(request: Request, { params }: Params) {
       active,
       undefined,
       request.signal,
+      snapshot.scope,
     );
     // A failed widget's message on the anonymous wire is the catalogue
     // sentence for its code; the raw engine text stays on the builder's
@@ -87,6 +89,7 @@ export async function POST(request: Request, { params }: Params) {
         "error" in w ? { ...w, error: publishedMessage(w.errorCode) } : w,
       ),
     };
+    requirePublicationScope(snapshot.scope);
     return NextResponse.json(wire, {
       // Values are live truth for the current token row; never store them.
       headers: { "cache-control": "private, no-store" },
