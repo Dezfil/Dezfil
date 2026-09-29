@@ -134,7 +134,7 @@ const WIDGETS: MapWidget[] = [
 
 async function dashboard() {
   const map = createMap(testAccountScope(), "dash");
-  const layer = await createLayer(map.id, {
+  const layer = await createLayer(testAccountScope(), map.id, {
     name: "Trips",
     sql: "SELECT name, cat, val, geometry FROM trips",
   });
@@ -315,7 +315,7 @@ describe("widget authoring", () => {
 
   it("deleting a layer removes its widgets in the same undoable step", async () => {
     const { map, layer } = await dashboard();
-    await removeLayer(layer.id);
+    await removeLayer(testAccountScope(), layer.id);
     // The bound data widgets went with the layer; the note stays.
     expect(getMap(map.id)!.widgets.map((w) => w.id)).toEqual(["wn"]);
     // One undo gesture restores layer and widgets together.
@@ -398,7 +398,7 @@ describe("widget authoring", () => {
 describe("the settle lane", () => {
   it("re-aggregates a hexbin layer under ephemeral selections, no writes", async () => {
     const { map, layer } = await dashboard();
-    const hexLayer = await updateLayer(layer.id, {
+    const hexLayer = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
     });
     const full = await renderLayerWithSelections(hexLayer, []);
@@ -434,7 +434,7 @@ describe("the settle lane", () => {
 describe("published selection bounding", () => {
   it("refuses a reader selection on an undeclared field, before evaluation", async () => {
     const { map, layer } = await dashboard();
-    const hexLayer = await updateLayer(layer.id, {
+    const hexLayer = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
     });
     const published = {
@@ -455,7 +455,7 @@ describe("published selection bounding", () => {
 
   it("refuses a computed layer's output names — selections fold pre-aggregation (round two)", async () => {
     const { map, layer } = await dashboard();
-    const hexLayer = await updateLayer(layer.id, {
+    const hexLayer = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
     });
     const published = {
@@ -479,7 +479,7 @@ describe("published selection bounding", () => {
 
   it("allows selections on published widget fields of computed layers", async () => {
     const { map, layer } = await dashboard();
-    const hexLayer = await updateLayer(layer.id, {
+    const hexLayer = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
     });
     const published = {
@@ -504,7 +504,7 @@ describe("published selection bounding", () => {
 
   it("declares wire fields too, and keeps the builder lane unbounded", async () => {
     const { map, layer } = await dashboard();
-    const clustered = await updateLayer(layer.id, {
+    const clustered = await updateLayer(testAccountScope(), layer.id, {
       tooltip: ["name"],
       popup: [],
       viz: { type: "cluster", radiusPx: 64, color: "fixed", showCounts: true },

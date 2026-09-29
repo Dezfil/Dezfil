@@ -33,7 +33,7 @@ async function seed(name: string) {
   await writeFile(file, JSON.stringify({ type: "FeatureCollection", features: [{ type: "Feature", properties: { n: 1 }, geometry: { type: "Point", coordinates: [13.4, 52.5] } }] }));
   const table = (await ingestFile(testAccountScope(), file, path.basename(file))).name;
   const map = createMap(testAccountScope(), name);
-  await createLayer(map.id, { name: "Parks", sql: `SELECT * FROM ${table}` });
+  await createLayer(testAccountScope(), map.id, { name: "Parks", sql: `SELECT * FROM ${table}` });
   return { map, table };
 }
 

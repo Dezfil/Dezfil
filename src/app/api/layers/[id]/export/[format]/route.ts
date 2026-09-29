@@ -6,7 +6,8 @@ import {
   errorResponse,
   EvaluationCancelled,
 } from "@/lib/api/errors";
-import { getLayer } from "@/lib/metadata/maps";
+import { requireLayer } from "@/lib/layer-access";
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import {
   exportLayerResult,
   isLayerExportFormat,
@@ -90,6 +91,7 @@ function unavailable(): ApiError {
 export async function GET(request: Request, { params }: Params) {
   const mode = uiMode(request);
   try {
+    const scope = requireRequestScope(request);
     const { id, format } = await params;
     if (!isLayerExportFormat(format)) {
       throw new ApiError(
@@ -125,10 +127,7 @@ export async function GET(request: Request, { params }: Params) {
       return await preparedDownload(request, binding, mode.ticket);
     }
 
-    const layer = getLayer(id);
-    if (!layer) {
-      throw new ApiError("not_found", `No layer with id "${id}".`, 404);
-    }
+    const layer = requireLayer(scope, id);
     if (mode.kind === "prepare") {
       return await prepareDownload(request, layer, binding);
     }
@@ -142,7 +141,7 @@ export async function GET(request: Request, { params }: Params) {
 
 async function prepareDownload(
   request: Request,
-  layer: NonNullable<ReturnType<typeof getLayer>>,
+  layer: NonNullable<ReturnType<typeof requireLayer>>,
   binding: LayerDownloadBinding,
 ): Promise<NextResponse> {
   let ticket: string | null = null;
@@ -184,7 +183,7 @@ async function prepareDownload(
 
 async function directDownload(
   request: Request,
-  layer: NonNullable<ReturnType<typeof getLayer>>,
+  layer: NonNullable<ReturnType<typeof requireLayer>>,
   format: LayerExportFormat,
 ): Promise<NextResponse> {
   // The evaluation itself is bounded (and cancels with the caller); the

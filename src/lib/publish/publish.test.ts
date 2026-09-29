@@ -55,7 +55,7 @@ afterEach(async () => {
 
 async function mapWithLayer() {
   const map = createMap(testAccountScope(), "m");
-  await createLayer(map.id, { name: "l", sql: "SELECT * FROM s" });
+  await createLayer(testAccountScope(), map.id, { name: "l", sql: "SELECT * FROM s" });
   return map;
 }
 
@@ -296,7 +296,7 @@ describe("freshness bound", () => {
     const { updateLayer } = await import("@/lib/layer-service");
     const { listLayers } = await import("@/lib/metadata/maps");
     const [layer] = listLayers(map.id);
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       popup: ["name"],
       style: {
         ...layer.style,
@@ -324,7 +324,7 @@ describe("published-field projection", () => {
     );
     await ingestFile(testAccountScope(), src, "w.csv");
     const map = createMap(testAccountScope(), "wide");
-    const layer = await createLayer(map.id, {
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "l",
       sql: "SELECT * FROM w",
     });
@@ -342,7 +342,7 @@ describe("published-field projection", () => {
 
   it("view payload carries exactly the explicit interaction fields", async () => {
     const { map, layer } = await wideMap();
-    await updateLayer(layer.id, { tooltip: ["name"], popup: [] });
+    await updateLayer(testAccountScope(), layer.id, { tooltip: ["name"], popup: [] });
     const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     // The hidden column is absent from the wire, not merely undisplayed.
@@ -359,7 +359,7 @@ describe("published-field projection", () => {
 
   it("the override is the functional core plus exactly the listed fields", async () => {
     const { map, layer } = await wideMap();
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       tooltip: ["name", "secret"],
       publishedFields: ["riders"],
     });
@@ -375,7 +375,7 @@ describe("published-field projection", () => {
 
   it("the settle lane projects for its reader audience only", async () => {
     const { layer } = await wideMap();
-    const clustered = await updateLayer(layer.id, {
+    const clustered = await updateLayer(testAccountScope(), layer.id, {
       tooltip: ["name"],
       popup: [],
       viz: { type: "cluster", radiusPx: 64, color: "fixed", showCounts: true },
@@ -396,7 +396,7 @@ describe("published-field projection", () => {
 
   it("aggregated layers are unchanged: computed columns only", async () => {
     const { map, layer } = await wideMap();
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 50, aggregate: { fn: "count" } },
     });
     const { token } = publishMap(testAccountScope(), map.id);
@@ -412,7 +412,7 @@ describe("published-field projection", () => {
 
   it("the builder render still carries every column", async () => {
     const { layer } = await wideMap();
-    const updated = await updateLayer(layer.id, {
+    const updated = await updateLayer(testAccountScope(), layer.id, {
       tooltip: ["name"],
       publishedFields: ["riders"],
     });
@@ -421,7 +421,7 @@ describe("published-field projection", () => {
 
   it("an errored render ships explicit interaction lists empty (round two)", async () => {
     const { map, layer } = await wideMap();
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       tooltip: ["name", "secret"],
       publishedFields: ["riders"],
     });
@@ -444,11 +444,11 @@ describe("published-field projection", () => {
     );
     await ingestFile(testAccountScope(), src, "flows.csv");
     const map = createMap(testAccountScope(), "flows");
-    const layer = await createLayer(map.id, {
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "l",
       sql: "SELECT * FROM flows",
     });
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       viz: {
         type: "arc",
         origin: { kind: "lonlat", lon: "origin_lon", lat: "origin_lat" },
@@ -474,7 +474,7 @@ describe("published-field projection", () => {
     // The custom icon markup, by contrast, IS the icon — it rides the
     // published viz whole, which is what lets the reader and the
     // exported image draw it with no asset resolution.
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       viz: {
         type: "icon",
         glyph: "marker",
@@ -509,7 +509,7 @@ describe("published-field projection", () => {
         },
       ],
     });
-    await updateLayer(layer.id, { visible: false });
+    await updateLayer(testAccountScope(), layer.id, { visible: false });
     const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     // No entry at all: no rows, no attributes, no extent to frame.
@@ -598,11 +598,11 @@ describe("published-field projection", () => {
     );
     await ingestFile(testAccountScope(), src, "t.csv");
     const map = createMap(testAccountScope(), "timed");
-    const layer = await createLayer(map.id, {
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "l",
       sql: "SELECT * FROM t",
     });
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       filters: [{ field: "seen", kind: "timerange", min: null, max: null }],
     });
     updateMap(testAccountScope(), map.id, {
@@ -611,7 +611,7 @@ describe("published-field projection", () => {
     const { token } = publishMap(testAccountScope(), map.id);
     expect((await getPublishedView(token, Date.now()))?.timeline).not.toBeNull();
 
-    await updateLayer(layer.id, { visible: false });
+    await updateLayer(testAccountScope(), layer.id, { visible: false });
     expect((await getPublishedView(token, Date.now()))?.timeline).toBeNull();
   });
 });
@@ -633,7 +633,7 @@ describe("rate limit", () => {
 describe("published error disclosure", () => {
   it("an errored view-payload envelope carries the catalogue sentence; the builder keeps the raw diagnostic", async () => {
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(map.id, {
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "l",
       sql: "SELECT * FROM s",
     });

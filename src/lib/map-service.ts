@@ -1,3 +1,4 @@
+import { assertMapLayerRefs } from "./map-layer-refs";
 import { requireMap, mapWithLayers } from "./map-access";
 export { requireMap, mapWithLayers } from "./map-access";
 export { mapHistory, undoChange, redoChange, type MapWithHistory } from "./map-history";
@@ -218,11 +219,12 @@ function normalizeWidgets(input: unknown, mapId: string): MapWidget[] {
 export async function validateMapWriteRefs(
   scope: AccountScope,
   mapId: string,
-  fields: { timeline?: unknown; widgets?: unknown },
+  fields: { timeline?: unknown; widgets?: unknown; layerOrder?: unknown; legendOrder?: unknown },
   signal?: AbortSignal,
 ): Promise<void> {
   const map = requireMap(scope, mapId);
   const layers = new Map(listLayers(mapId).map((l) => [l.id, l]));
+  assertMapLayerRefs(map, [...layers.values()], fields);
   const perLayer = new Map<string, ColumnRef[]>();
   const collect = (layerId: string, refs: ColumnRef[]) => {
     if (refs.length === 0 || !layers.has(layerId)) return;
@@ -366,6 +368,7 @@ export function updateMap(
   opts: { groupId?: string | null } = {},
 ): MapWithLayers {
   const prior = requireMap(scope, id);
+  assertMapLayerRefs(prior, listLayers(id), fields);
   // Validate everything before writing anything — no partial writes.
   const basemapLayers =
     fields.basemapLayers === undefined

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { dimsToFilters } from "@/lib/extent-dims";
 import { layerExtent } from "@/lib/extent-service";
-import { getLayer } from "@/lib/metadata/maps";
+import { requireLayer } from "@/lib/layer-access";
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import type { LiveDim } from "@/lib/live-filters";
 
 type Params = { params: Promise<{ id: string }> };
@@ -70,9 +71,9 @@ function parseDims(value: unknown): LiveDim[] {
  */
 export async function POST(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
-    const layer = getLayer(id);
-    if (!layer) throw new ApiError("not_found", `No layer with id ${id}.`, 404);
+    const layer = requireLayer(scope, id);
     const body = (await request.json().catch(() => ({}))) as {
       dims?: unknown;
     };

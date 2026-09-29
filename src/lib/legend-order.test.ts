@@ -47,7 +47,7 @@ async function seedThree() {
   const map = createMap(testAccountScope(), "Legend order");
   const ids: string[] = [];
   for (const name of ["Alpha", "Beta", "Gamma"]) {
-    const layer = await createLayer(map.id, {
+    const layer = await createLayer(testAccountScope(), map.id, {
       name,
       sql: "SELECT * FROM stations",
     });
@@ -121,7 +121,8 @@ describe("legendOrder — the stored arrangement", () => {
     for (const bad of rejects) {
       expect(() =>
         updateMap(testAccountScope(), map.id, { legendOrder: bad }),
-      ).toThrowError(/legendOrder/);
+      ).toThrowError(Array.isArray(bad) && bad.includes("not-a-layer")
+        ? expect.objectContaining({ code: "not_found", status: 404 }) : /legendOrder/);
       expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toEqual(stored);
     }
   });
@@ -130,7 +131,7 @@ describe("legendOrder — the stored arrangement", () => {
     const { map, ids } = await seedThree();
     updateMap(testAccountScope(), map.id, { legendOrder: [ids[1], ids[0], ids[2]] });
 
-    await removeLayer(ids[0]);
+    await removeLayer(testAccountScope(), ids[0]);
     const after = mapWithLayers(testAccountScope(), map.id);
     expect(after.layers.map((l) => l.id)).toEqual([ids[1], ids[2]]);
     expect(after.legendOrder).toEqual([ids[1], ids[2]]);
@@ -144,12 +145,12 @@ describe("legendOrder — the stored arrangement", () => {
 
   it("deleting the last arranged layer returns the map to automatic", async () => {
     const map = createMap(testAccountScope(), "Single");
-    const layer = await createLayer(map.id, {
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "Only",
       sql: "SELECT * FROM stations",
     });
     updateMap(testAccountScope(), map.id, { legendOrder: [layer.id] });
-    await removeLayer(layer.id);
+    await removeLayer(testAccountScope(), layer.id);
     expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toBeNull();
   });
 
@@ -161,14 +162,14 @@ describe("legendOrder — the stored arrangement", () => {
 
     // Created: stored at the front — the slot is durable, not derived
     // from the panel on each render.
-    const delta = await createLayer(map.id, {
+    const delta = await createLayer(testAccountScope(), map.id, {
       name: "Delta",
       sql: "SELECT * FROM stations",
     });
     expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toEqual([delta.id, ...manual]);
 
     // Duplicated: same entry rule.
-    const copy = duplicateLayer(delta.id);
+    const copy = duplicateLayer(testAccountScope(), delta.id);
     expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toEqual([
       copy.id,
       delta.id,

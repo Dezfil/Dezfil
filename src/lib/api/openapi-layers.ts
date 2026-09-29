@@ -1,3 +1,4 @@
+import { layerAccess } from "./openapi-layer-access";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE } from "./operation-mcp";
 import { changeGroupParam } from "./openapi-mcp";
 import { READ_ONLY, writes, resource, recorded } from "./operation-metadata";
@@ -5,7 +6,7 @@ import { op, jsonOk, pathParam } from "./openapi-helpers";
 
 export const LAYER_RESOURCE_PATHS = {
   "/api/maps/{id}/layers": {
-    get: op({
+    get: op(layerAccess({
       summary: "List a map's layers",
       tag: "Layers",
       tool: "list_layers", mcp: LOCAL_READ,
@@ -13,8 +14,8 @@ export const LAYER_RESOURCE_PATHS = {
       effects: READ_ONLY,
       parameters: [pathParam("id", "Map id.")],
       responses: { "200": jsonOk("#/components/schemas/LayerList") },
-    }),
-    post: op({
+    })),
+    post: op(layerAccess({
       summary: "Create a layer from a SQL result",
       description:
         "The SQL must return at least one geometry column. The first " +
@@ -39,10 +40,10 @@ export const LAYER_RESOURCE_PATHS = {
         },
       },
       responses: { "201": jsonOk("#/components/schemas/Layer", "Created.") },
-    }),
+    })),
   },
   "/api/layers/{id}": {
-    get: op({
+    get: op(layerAccess({
       summary: "Read a layer",
       tag: "Layers",
       tool: "get_layer", mcp: LOCAL_READ,
@@ -50,8 +51,8 @@ export const LAYER_RESOURCE_PATHS = {
       effects: READ_ONLY,
       parameters: [pathParam("id", "Layer id.")],
       responses: { "200": jsonOk("#/components/schemas/Layer") },
-    }),
-    patch: op({
+    })),
+    patch: op(layerAccess({
       summary: "Update a layer",
       description:
         "Any of name, sql, style, visibility, tooltip or popup fields " +
@@ -77,8 +78,8 @@ export const LAYER_RESOURCE_PATHS = {
         },
       },
       responses: { "200": jsonOk("#/components/schemas/Layer") },
-    }),
-    delete: op({
+    })),
+    delete: op(layerAccess({
       summary: "Delete a layer",
       description:
         "Recorded on the undo timeline — an undo restores the layer " +
@@ -91,10 +92,10 @@ export const LAYER_RESOURCE_PATHS = {
       confirm: true,
       parameters: [pathParam("id", "Layer id."), changeGroupParam],
       responses: { "204": { description: "Deleted." } },
-    }),
+    })),
   },
   "/api/layers/{id}/duplicate": {
-    post: op({
+    post: op(layerAccess({
       summary: "Duplicate a layer",
       description:
         "Full copy — SQL, style, viz, filters, tooltip, legend settings — " +
@@ -105,10 +106,10 @@ export const LAYER_RESOURCE_PATHS = {
       effects: recorded(writes(resource("layers", "", "id"), resource("maps"))),
       parameters: [pathParam("id", "Layer id."), changeGroupParam],
       responses: { "201": jsonOk("#/components/schemas/Layer", "Created.") },
-    }),
+    })),
   },
   "/api/layers/{id}/extent": {
-    post: op({
+    post: op(layerAccess({
       summary: "A layer's current data extent",
       description:
         "The bounding box of what the layer currently draws" +
@@ -148,13 +149,13 @@ export const LAYER_RESOURCE_PATHS = {
       responses: {
         "200": jsonOk("#/components/schemas/LayerExtent", "The extent."),
       },
-    }),
+    })),
   },
 };
 
 export const LAYER_QUERY_PATHS = {
   "/api/layers/{id}/export/{format}": {
-    get: op({
+    get: op(layerAccess({
       summary: "Download a layer's effective result",
       description:
         "The layer's effective result as a file download: " +
@@ -203,10 +204,10 @@ export const LAYER_QUERY_PATHS = {
             "errors.",
         },
       },
-    }),
+    })),
   },
   "/api/layers/{id}/render": {
-    get: op({
+    get: op(layerAccess({
       summary: "Render data for a layer",
       description:
         "The layer's effective result — its SQL refined by its filters, " +
@@ -225,8 +226,8 @@ export const LAYER_QUERY_PATHS = {
       effects: READ_ONLY,
       parameters: [pathParam("id", "Layer id.")],
       responses: { "200": jsonOk("#/components/schemas/LayerRender") },
-    }),
-    post: op({
+    })),
+    post: op(layerAccess({
       summary: "Render a computed layer under ephemeral selections",
       description:
         "The settle lane for widget cross-filtering: " +
@@ -256,10 +257,10 @@ export const LAYER_QUERY_PATHS = {
         },
       },
       responses: { "200": jsonOk("#/components/schemas/LayerRender") },
-    }),
+    })),
   },
   "/api/layers/{id}/slider-preview": {
-    get: op({
+    get: op(layerAccess({
       summary: "Read bounded slider-preview input",
       description:
         "Read-only point input for an editing interaction. Discrete " +
@@ -274,10 +275,10 @@ export const LAYER_QUERY_PATHS = {
       responses: {
         "200": jsonOk("#/components/schemas/SliderPreviewData"),
       },
-    }),
+    })),
   },
   "/api/layers/{id}/tiles/{z}/{x}/{y}": {
-    get: op({
+    get: op(layerAccess({
       summary: "One vector tile of a tiled layer",
       description:
         "Mapbox Vector Tile bytes for the archive built from the layer's " +
@@ -304,10 +305,10 @@ export const LAYER_QUERY_PATHS = {
         },
         "204": { description: "No tile at these coordinates." },
       },
-    }),
+    })),
   },
   "/api/layers/{id}/fields": {
-    get: op({
+    get: op(layerAccess({
       summary: "A layer's non-geometry columns",
       description:
         "`styling`: columns of the effective result, for fill and " +
@@ -320,10 +321,10 @@ export const LAYER_QUERY_PATHS = {
       effects: READ_ONLY,
       parameters: [pathParam("id", "Layer id.")],
       responses: { "200": jsonOk("#/components/schemas/LayerFields") },
-    }),
+    })),
   },
   "/api/layers/{id}/fields/{field}": {
-    get: op({
+    get: op(layerAccess({
       summary: "A field's extent or distinct values",
       description:
         "Seed data for a filter control: min/max and a binned " +
@@ -340,10 +341,10 @@ export const LAYER_QUERY_PATHS = {
         pathParam("field", "Field name from the layer's result."),
       ],
       responses: { "200": jsonOk("#/components/schemas/FieldStats") },
-    }),
+    })),
   },
   "/api/layers/{id}/fill": {
-    post: op({
+    post: op(layerAccess({
       summary: "Compute a data-driven paint",
       description:
         "Quantile, equal-interval, or natural (Fisher–Jenks, computed " +
@@ -404,10 +405,10 @@ export const LAYER_QUERY_PATHS = {
         },
       },
       responses: { "200": jsonOk("#/components/schemas/FillPaint") },
-    }),
+    })),
   },
   "/api/layers/{id}/scale": {
-    post: op({
+    post: op(layerAccess({
       summary: "Compute a size scale",
       description:
         "Resolve a numeric attribute's value range over the layer's " +
@@ -454,7 +455,7 @@ export const LAYER_QUERY_PATHS = {
         },
       },
       responses: { "200": jsonOk("#/components/schemas/SizeScale") },
-    }),
+    })),
   },
 };
 

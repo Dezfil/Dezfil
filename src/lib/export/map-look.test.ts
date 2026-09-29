@@ -238,13 +238,13 @@ describe("appearance in the facts, the map's stored state unchanged", () => {
 
 describe("the state identity is what the renderer consumed", () => {
   it("a render held open across a concurrent edit is attributed to the configuration the renderer drew", async () => {
-    await createLayer(mapId, { name: "Before", sql: "SELECT 1 AS x, ST_Point(13.4, 52.5) AS geom" });
+    await createLayer(testAccountScope(), mapId, { name: "Before", sql: "SELECT 1 AS x, ST_Point(13.4, 52.5) AS geom" });
     const before = consumedOf(mapId);
     let consumed: Consumed | null = null;
     // The renderer's own read happens after the edit lands: the changed
     // configuration reaches the renderer, established by what it reports.
     const { driver } = driverOf(async () => {
-      await createLayer(mapId, { name: "After", sql: "SELECT 2 AS x, ST_Point(13.5, 52.6) AS geom" });
+      await createLayer(testAccountScope(), mapId, { name: "After", sql: "SELECT 2 AS x, ST_Point(13.5, 52.6) AS geom" });
       updateMap(testAccountScope(), mapId, { legendCorner: "top-right" });
       consumed = consumedOf(mapId);
       return { png: new Uint8Array(pngFixture(64, 40, 0)), consumed: JSON.stringify(consumed) };
@@ -261,8 +261,8 @@ describe("the state identity is what the renderer consumed", () => {
     expect(result.state.digest).toMatch(/^[0-9a-f]{16}$/);
   });
   it("the camera in the identity is the definition's, which the renderer drew, and each layer's filters are digested", async () => {
-    const layer = await createLayer(mapId, { name: "Filtered", sql: "SELECT 1 AS x, ST_Point(13.4, 52.5) AS geom" });
-    await createLayer(mapId, { name: "Plain", sql: "SELECT 2 AS x, ST_Point(13.5, 52.6) AS geom" });
+    const layer = await createLayer(testAccountScope(), mapId, { name: "Filtered", sql: "SELECT 1 AS x, ST_Point(13.4, 52.5) AS geom" });
+    await createLayer(testAccountScope(), mapId, { name: "Plain", sql: "SELECT 2 AS x, ST_Point(13.5, 52.6) AS geom" });
     const seen: { lng: number; lat: number; zoom: number }[] = [];
     const { driver } = driverOf(async (input) => {
       seen.push({ lng: input.definition.viewport.lng, lat: input.definition.viewport.lat, zoom: input.definition.viewport.zoom });

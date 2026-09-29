@@ -53,13 +53,13 @@ beforeEach(async () => {
   );
   await ingestFile(testAccountScope(), source, "points.csv");
   const map = createMap(testAccountScope(), "m");
-  const layer = await createLayer(map.id, {
+  const layer = await createLayer(testAccountScope(), map.id, {
     name: "l",
     sql: "SELECT * FROM points",
   });
   layerId = layer.id;
   mapId = map.id;
-  await updateLayer(layerId, {
+  await updateLayer(testAccountScope(), layerId, {
     viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
   });
   updateMap(testAccountScope(), map.id, {
@@ -164,7 +164,7 @@ describe("published settle route", () => {
   });
 
   it("a declared field the result no longer provides refuses cleanly, not with engine text", async () => {
-    await updateLayer(layerId, { sql: "SELECT id, score, geometry FROM points" });
+    await updateLayer(testAccountScope(), layerId, { sql: "SELECT id, score, geometry FROM points" });
     const res = await settle([{ field: "kind", kind: "values", values: ["a"] }]);
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { code: string; message: string } };
@@ -229,7 +229,7 @@ describe("published settle route", () => {
   });
 
   it("answers a hidden layer exactly like an absent one", async () => {
-    await updateLayer(layerId, { visible: false });
+    await updateLayer(testAccountScope(), layerId, { visible: false });
     const hidden = await settle([]);
     expect(hidden.status).toBe(404);
     expect((await hidden.json()).error.code).toBe("not_found");

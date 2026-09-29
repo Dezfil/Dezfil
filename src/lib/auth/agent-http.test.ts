@@ -1,3 +1,5 @@
+import { GET as layerRead, PATCH as layerUpdate } from "@/app/api/layers/[id]/route";
+import { defaultStyle } from "@/lib/style/defaults";
 import { accountScope } from "./scope";
 import { GET as accountRead } from "@/app/api/account/route";
 import { GET as usersRead } from "@/app/api/users/route";
@@ -109,6 +111,10 @@ function actualApi() {
       if (path.startsWith("/api/users/")) return userAccess(req, { params: Promise.resolve({ id: path.split("/")[3] }) });
       if (path === "/api/catalogue/tables") return Response.json({ tables: [], total: 0, nextAfter: null });
       if (path === "/api/maps/look") return Response.json({ error: { code: "render_unavailable", message: "No renderer fixture." } }, { status: 503 });
+      if (path.startsWith("/api/layers/")) {
+        const params = { params: Promise.resolve({ id: path.split("/")[3] }) };
+        return req.method === "PATCH" ? layerUpdate(req, params) : layerRead(req, params);
+      }
       if (path.startsWith("/api/maps/")) {
         const params = { params: Promise.resolve({ id: path.split("/")[3] }) };
         if (path.endsWith("/dependencies")) return mapDependencies(req, params);
@@ -304,4 +310,44 @@ it.each(["cookie", "token"])("MCP and assistant %s calls preserve map ownership 
     expect(JSON.stringify(results)).not.toContain("Private");
   }
   expect(db.prepare("SELECT * FROM maps ORDER BY id").all()).toEqual(before);
+});
+
+it.each(["cookie", "token"])("MCP and assistant %s calls preserve layer ownership and hidden-versus-missing errors", async mode => {
+  actualApi();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db);
+  const actors = [admin, member, other];
+  const maps = actors.map(actor => createMap(accountScope(authenticateSession(actor.secret, db)!, db), `Private ${actor.account.name}`));
+  const layers = maps.map((map, i) => {
+    const id = `private-layer-${i}`;
+    db.prepare(`INSERT INTO layers (id, map_id, name, sql, style, ordinal, created_at, updated_at)
+      VALUES (?, ?, 'Private layer', 'SELECT 1 AS secret', ?, 0, 'time', 'time')`).run(id, map.id, JSON.stringify(defaultStyle(null)));
+    return { id };
+  });
+  const before = db.prepare("SELECT * FROM layers ORDER BY id").all();
+  for (let i = 0; i < actors.length; i++) {
+    const actor = actors[i], hiddenId = layers[(i + 1) % actors.length].id;
+    const credential = createApiToken(authenticateSession(actor.secret, db)!, "Private maps", db);
+    const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+    expect(await rpc("get_layer", { id: layers[i].id }, headers)).toMatchObject({ isError: false, structuredContent: { result: { id: layers[i].id } } });
+    const hidden = await rpc("get_layer", { id: hiddenId }, headers);
+    expect(hidden).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "not_found" } } } });
+    expect(hidden).toEqual(await rpc("get_layer", { id: "missing" }, headers));
+    expect(JSON.stringify(hidden)).not.toMatch(/Private|SELECT|example|owner/);
+    factory.provider = stubProvider([
+      { text: "", toolCalls: [
+        { id: "hidden", name: "update_layer", args: { id: hiddenId, name: "Changed" } },
+        { id: "missing", name: "update_layer", args: { id: "missing", name: "Changed" } },
+      ] },
+      { text: "Unavailable", toolCalls: [] },
+    ]);
+    const events = await send({ runId: await ownReservation(headers), message: "Rename these maps" }, headers);
+    const results = events.filter((event): event is Extract<AssistantEvent, { type: "tool_result" }> => event.type === "tool_result");
+    expect(results).toHaveLength(2);
+    expect(results.map(result => result.ok)).toEqual([false, false]);
+    expect(results[0].body).toMatchObject({ error: { code: "not_found" } });
+    expect(results[0].body).toEqual(results[1].body);
+    expect(JSON.stringify(results)).not.toContain("Private");
+  }
+  expect(db.prepare("SELECT * FROM layers ORDER BY id").all()).toEqual(before);
 });

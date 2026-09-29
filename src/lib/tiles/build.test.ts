@@ -53,7 +53,7 @@ beforeEach(async () => {
   // Tile records reference real layers (FK) — build against one.
   const map = createMap(testAccountScope(), "m");
   mapId = map.id;
-  const layer = await createLayer(map.id, { name: "Stations", sql: SQL });
+  const layer = await createLayer(testAccountScope(), map.id, { name: "Stations", sql: SQL });
   layerId = layer.id;
 });
 
@@ -270,14 +270,14 @@ describe("tile builds", () => {
     ensureTiles(input());
     await vi.waitFor(() => expect(existsSync(gate.started)).toBe(true));
 
-    await removeLayer(layerId);
+    await removeLayer(testAccountScope(), layerId);
     await gate.release();
     await tileBuildsSettled();
 
     expect(existsSync(tileArchivePath(layerId))).toBe(false);
     expect(getTileRecord(layerId)).toBeNull();
 
-    const unrelated = await createLayer(mapId, { name: "later", sql: SQL });
+    const unrelated = await createLayer(testAccountScope(), mapId, { name: "later", sql: SQL });
     ensureTiles(inputFor(unrelated.id));
     await tileBuildsSettled();
     expect(getTileRecord(unrelated.id)?.state).toBe("ready");
@@ -285,7 +285,7 @@ describe("tile builds", () => {
   });
 
   it("fences every queued and active layer when a map is deleted", async () => {
-    const other = await createLayer(mapId, { name: "other", sql: SQL });
+    const other = await createLayer(testAccountScope(), mapId, { name: "other", sql: SQL });
     const gate = await gatedTiler();
     ensureTiles(input());
     ensureTiles(inputFor(other.id));
@@ -378,7 +378,7 @@ describe("tile builds", () => {
     ensureTiles(input());
     await vi.waitFor(() => expect(existsSync(gate.started)).toBe(true));
 
-    await removeLayer(layerId);
+    await removeLayer(testAccountScope(), layerId);
     await undoChange(testAccountScope(), mapId);
     expect(ensureTiles(input()).state).toBe("building");
 

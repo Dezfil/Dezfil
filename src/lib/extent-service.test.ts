@@ -40,7 +40,7 @@ const SQL = `
 
 async function layerOf(sql = SQL) {
   const map = createMap(testAccountScope(), "extent");
-  const created = await createLayer(map.id, { name: "l", sql });
+  const created = await createLayer(testAccountScope(), map.id, { name: "l", sql });
   return getLayer(created.id)!;
 }
 

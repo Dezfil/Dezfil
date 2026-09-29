@@ -67,7 +67,7 @@ afterEach(async () => {
 
 async function pointLayer() {
   const map = createMap(testAccountScope(), "m");
-  return createLayer(map.id, {
+  return createLayer(testAccountScope(), map.id, {
     name: "Stations",
     sql: "SELECT name, category, riders, geometry FROM stations",
   });
@@ -90,11 +90,11 @@ async function settlementLayer() {
   );
   await ingestFile(testAccountScope(), src, "settlement.csv");
   const map = createMap(testAccountScope(), "settlement");
-  const layer = await createLayer(map.id, {
+  const layer = await createLayer(testAccountScope(), map.id, {
     name: "Settlement",
     sql: "SELECT label, category, seen, score, geometry FROM settlement",
   });
-  return updateLayer(layer.id, {
+  return updateLayer(testAccountScope(), layer.id, {
     viz: {
       type: "grid",
       cellKm: 1,
@@ -123,7 +123,7 @@ describe("aggregated rendering", () => {
     const layer = await pointLayer();
     // 3 km-edge cells put alexanderplatz + hackescher together with wide
     // margins; zoo and sudkreuz stay alone (verified against lib/hex-bin).
-    const updated = await updateLayer(layer.id, {
+    const updated = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 3, aggregate: { fn: "count" } },
     });
 
@@ -153,9 +153,9 @@ describe("aggregated rendering", () => {
 
   it("switching viz back to points loses nothing", async () => {
     const layer = await pointLayer();
-    const asHex = await updateLayer(layer.id, { viz: defaultViz("hexbin") });
+    const asHex = await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") });
     expect(asHex.style).toEqual(layer.style); // layer style untouched
-    const back = await updateLayer(layer.id, { viz: { type: "points" } });
+    const back = await updateLayer(testAccountScope(), layer.id, { viz: { type: "points" } });
     expect(back.style).toEqual(layer.style);
     expect(back.sql).toBe(layer.sql);
     const render = await renderLayer(back);
@@ -164,15 +164,15 @@ describe("aggregated rendering", () => {
 
   it("field stats answer for the aggregate value with a mean", async () => {
     const layer = await pointLayer();
-    await updateLayer(layer.id, { viz: defaultViz("hexbin") });
+    await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") });
     const { layerFieldStats } = await import("@/lib/layer-service");
-    const stats = await layerFieldStats(requireLayer(layer.id), "value");
+    const stats = await layerFieldStats(requireLayer(testAccountScope(), layer.id), "value");
     if (stats.kind !== "numeric") throw new Error("expected numeric stats");
     expect(stats.min).not.toBeNull();
     expect(stats.mean).not.toBeNull();
     expect(stats.max).not.toBeNull();
     // The base column keeps answering too, now with a mean.
-    const base = await layerFieldStats(requireLayer(layer.id), "riders");
+    const base = await layerFieldStats(requireLayer(testAccountScope(), layer.id), "riders");
     if (base.kind !== "numeric") throw new Error("expected numeric stats");
     expect(base.mean).not.toBeNull();
   });
@@ -185,27 +185,27 @@ describe("aggregated rendering", () => {
       color: { r: 255, g: 255, b: 255, a: 1 },
       haloWidth: 1, haloColor: { r: 12, g: 16, b: 24, a: 0.8 },
     };
-    const labeled = await updateLayer(layer.id, {
+    const labeled = await updateLayer(testAccountScope(), layer.id, {
       style: { ...layer.style, label },
     });
     expect(labeled.style.label?.attribute).toBe("name");
 
     // Points → hexbin: cells label themselves; the stale attribute drops
     // (it would otherwise leave every cell silently unlabeled).
-    const asHex = await updateLayer(layer.id, { viz: defaultViz("hexbin") });
+    const asHex = await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") });
     expect(asHex.style.label).toBeDefined();
     expect(asHex.style.label?.attribute).toBeUndefined();
 
     // Hexbin → points: an attribute-less label has nothing to say on
     // simple features — the dead config drops entirely.
-    const back = await updateLayer(layer.id, { viz: { type: "points" } });
+    const back = await updateLayer(testAccountScope(), layer.id, { viz: { type: "points" } });
     expect(back.style.label).toBeUndefined();
   });
 
   it("changing the aggregate reclassifies but keeps ramp choices", async () => {
     const layer = await pointLayer();
-    await updateLayer(layer.id, { viz: defaultViz("hexbin") });
-    const custom = await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") });
+    const custom = await updateLayer(testAccountScope(), layer.id, {
       viz: {
         type: "hexbin",
         cellKm: 1.22,
@@ -214,7 +214,7 @@ describe("aggregated rendering", () => {
       } as HexbinViz,
     });
     // explicitly choose a palette by patching viz with a classified fill
-    const withPalette = await updateLayer(layer.id, {
+    const withPalette = await updateLayer(testAccountScope(), layer.id, {
       viz: {
         ...(custom.viz as HexbinViz),
         fill: {
@@ -227,7 +227,7 @@ describe("aggregated rendering", () => {
       "ice_and_fire",
     );
     // now change the aggregation → breaks recompute, palette survives
-    const changed = await updateLayer(layer.id, {
+    const changed = await updateLayer(testAccountScope(), layer.id, {
       viz: {
         type: "hexbin",
         cellKm: 3.23,
@@ -241,7 +241,7 @@ describe("aggregated rendering", () => {
 
   it("grid renders square cells", async () => {
     const layer = await pointLayer();
-    const updated = await updateLayer(layer.id, {
+    const updated = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "grid", cellKm: 1000, aggregate: { fn: "sum", attribute: "riders" } },
     });
     const render = await renderLayer(updated);
@@ -252,15 +252,15 @@ describe("aggregated rendering", () => {
 
   it("refuses aggregation on non-point layers", async () => {
     const map = createMap(testAccountScope(), "m");
-    const lines = await createLayer(map.id, {
+    const lines = await createLayer(testAccountScope(), map.id, {
       name: "Lines",
       sql: "SELECT ST_MakeLine(ST_Point(0,0), ST_Point(1,1)) AS geometry",
     });
     await expect(
-      updateLayer(lines.id, { viz: defaultViz("hexbin") }),
+      updateLayer(testAccountScope(), lines.id, { viz: defaultViz("hexbin") }),
     ).rejects.toMatchObject({ code: "invalid_request", status: 400 });
     await expect(
-      updateLayer(lines.id, { viz: defaultViz("heatmap") }),
+      updateLayer(testAccountScope(), lines.id, { viz: defaultViz("heatmap") }),
     ).rejects.toMatchObject({ code: "invalid_request", status: 400 });
   });
 
@@ -273,7 +273,7 @@ describe("aggregated rendering", () => {
     expect(asPoints.ok).toBe(true);
     expect(asPoints.mode).toBe("tiled");
 
-    const updated = await updateLayer(layer.id, {
+    const updated = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 3, aggregate: { fn: "count" } },
     });
     const asCells = await renderLayer(updated);
@@ -283,9 +283,9 @@ describe("aggregated rendering", () => {
 
   it("the heatmap keeps its cap with an actionable message", async () => {
     const layer = await pointLayer();
-    await updateLayer(layer.id, { viz: defaultViz("heatmap") });
+    await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("heatmap") });
     process.env.DEZFIL_RENDER_CAP_FEATURES = "3";
-    const render = await renderLayer(requireLayer(layer.id));
+    const render = await renderLayer(requireLayer(testAccountScope(), layer.id));
     expect(render.ok).toBe(false);
     expect(render.error?.code).toBe("render_cap_exceeded");
     expect(render.error?.message).toMatch(/hex bins or grid/i);
@@ -295,7 +295,7 @@ describe("aggregated rendering", () => {
 describe("filters", () => {
   it("refine the result and compose before aggregation", async () => {
     const layer = await pointLayer();
-    const filtered = await updateLayer(layer.id, {
+    const filtered = await updateLayer(testAccountScope(), layer.id, {
       filters: [
         { field: "riders", kind: "range", min: 400, max: null },
         { field: "category", kind: "values", values: ["u"] },
@@ -304,7 +304,7 @@ describe("filters", () => {
     const render = await renderLayer(filtered);
     expect(render.featureCount).toBe(2); // alexanderplatz + zoo
 
-    const aggregated = await updateLayer(layer.id, { viz: defaultViz("hexbin") });
+    const aggregated = await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") });
     const cells = await renderLayer(aggregated);
     const total = features(cells).reduce(
       (s, f) => s + Number(f.properties.count),
@@ -312,7 +312,7 @@ describe("filters", () => {
     );
     expect(total).toBe(2); // aggregation sees the filtered rows only
 
-    const cleared = await updateLayer(layer.id, {
+    const cleared = await updateLayer(testAccountScope(), layer.id, {
       filters: [],
       viz: { type: "points" },
     });
@@ -327,7 +327,7 @@ describe("filters", () => {
       "equal",
       { palette: "ice_and_fire", classes: 4, reversed: true },
     );
-    const styled = await updateLayer(layer.id, {
+    const styled = await updateLayer(testAccountScope(), layer.id, {
       viz: { ...aggregatedViz(layer), fill: initialFill },
     });
     const beforeBreaks = ramp((styled.viz as AggregatedViz).fill).breaks;
@@ -350,7 +350,7 @@ describe("filters", () => {
         max: null,
       },
     ];
-    const filtered = await updateLayer(layer.id, { filters });
+    const filtered = await updateLayer(testAccountScope(), layer.id, { filters });
     const settled = ramp((filtered.viz as AggregatedViz).fill);
     const expected = await exactFill(filtered);
 
@@ -393,7 +393,7 @@ describe("filters", () => {
     ];
     let removed = filtered;
     for (const next of mutations) {
-      removed = await updateLayer(layer.id, { filters: next });
+      removed = await updateLayer(testAccountScope(), layer.id, { filters: next });
       expect((removed.viz as AggregatedViz).fill).toEqual(
         await exactFill(removed),
       );
@@ -416,11 +416,11 @@ describe("filters", () => {
       baseMethod: "natural" as const,
       breaks: named.breaks.map((n, i) => n + (i + 1) * 0.01),
     };
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       viz: { ...aggregatedViz(layer), fill: custom },
     });
 
-    const filtered = await updateLayer(layer.id, {
+    const filtered = await updateLayer(testAccountScope(), layer.id, {
       filters: [{ field: "category", kind: "values", values: ["u"] }],
     });
     const settled = ramp((filtered.viz as AggregatedViz).fill);
@@ -435,11 +435,11 @@ describe("filters", () => {
       type: "constant" as const,
       color: { r: 1, g: 2, b: 3, a: 0.7 },
     };
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       filters: [],
       viz: { ...(filtered.viz as AggregatedViz), fill: constant },
     });
-    const constantFiltered = await updateLayer(layer.id, {
+    const constantFiltered = await updateLayer(testAccountScope(), layer.id, {
       filters: [{ field: "category", kind: "values", values: ["v"] }],
     });
     expect((constantFiltered.viz as AggregatedViz).fill).toEqual(constant);
@@ -447,7 +447,7 @@ describe("filters", () => {
 
   it("field stats seed range and value controls from the unfiltered result", async () => {
     const layer = await pointLayer();
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       filters: [{ field: "riders", kind: "range", min: 800, max: null }],
     });
     const riders = await layerFieldStats(layer, "riders");
@@ -490,7 +490,7 @@ describe("filters", () => {
     );
     await ingestFile(testAccountScope(), src, "pings.csv");
     const map = createMap(testAccountScope(), "t");
-    const layer = await createLayer(map.id, {
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "Pings",
       sql: "SELECT label, seen, geometry FROM pings",
     });
@@ -509,7 +509,7 @@ describe("filters", () => {
     // A time filter is live: the render ships the full result and
     // delegates the brush to the client. The filter still means "c only"
     // everywhere else — the effective query keeps applying it.
-    const filtered = await updateLayer(layer.id, {
+    const filtered = await updateLayer(testAccountScope(), layer.id, {
       filters: [{ field: "seen", kind: "timerange", min: "2021-03-15", max: null }],
     });
     const render = await renderLayer(filtered);

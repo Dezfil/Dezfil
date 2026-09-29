@@ -22,8 +22,8 @@ it("actual running tiles cannot publish after a geometry change; unrelated tiles
   const first=await setGeometry(t.name,geometryRevision(t),{format:"wkt",columns:["payload"]});
   await setGeometry(other.name,geometryRevision(other),{format:"wkt",columns:["payload"]});
   const map=createMap(testAccountScope(), "Tiles"), sql="SELECT * FROM points", otherSql="SELECT * FROM points_extra";
-  const layer=await createLayer(map.id,{name:"changed",sql});
-  const unrelated=await createLayer(map.id,{name:"unchanged",sql:otherSql});
+  const layer=await createLayer(testAccountScope(), map.id,{name:"changed",sql});
+  const unrelated=await createLayer(testAccountScope(), map.id,{name:"unchanged",sql:otherSql});
   const input=(id:string,statement:string)=>({layerId:id,sql:statement,filters:[],geometryColumn:"geometry",columns:["payload"],projection:""});
   ensureTiles(input(unrelated.id,otherSql)); await tileBuildsSettled();
   expect(getTileRecord(unrelated.id)).toMatchObject({state:"ready",error:null});

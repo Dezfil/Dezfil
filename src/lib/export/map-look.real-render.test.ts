@@ -106,11 +106,11 @@ describe.skipIf(!port)("the real bounded check renders the map", () => {
       customBasemap: { url: basemap.styleUrl, name: "Loopback", attribution: [{ label: "Loopback fixture" }] },
       legendCorner: "bottom-left",
     });
-    kelp = (await createLayer(mapId, { name: "Kelp", sql: `SELECT * FROM ${table.name} WHERE kind = 'a'`, style: solid(KELP, 10) })).id;
-    amber = (await createLayer(mapId, { name: "Amber", sql: `SELECT * FROM ${table.name} WHERE kind = 'b'`, style: solid(AMBER, 10) })).id;
-    blue = (await createLayer(mapId, { name: "Blue", sql: `SELECT * FROM ${table.name} WHERE kind = 'c'`, style: solid(BLUE, 10) })).id;
-    await updateLayer(amber, { visible: false });
-    await updateLayer(blue, { filters: FILTER });
+    kelp = (await createLayer(testAccountScope(), mapId, { name: "Kelp", sql: `SELECT * FROM ${table.name} WHERE kind = 'a'`, style: solid(KELP, 10) })).id;
+    amber = (await createLayer(testAccountScope(), mapId, { name: "Amber", sql: `SELECT * FROM ${table.name} WHERE kind = 'b'`, style: solid(AMBER, 10) })).id;
+    blue = (await createLayer(testAccountScope(), mapId, { name: "Blue", sql: `SELECT * FROM ${table.name} WHERE kind = 'c'`, style: solid(BLUE, 10) })).id;
+    await updateLayer(testAccountScope(), amber, { visible: false });
+    await updateLayer(testAccountScope(), blue, { filters: FILTER });
     updateMap(testAccountScope(), mapId, { widgets: [{ id: "w-count", type: "formula", layerId: kelp, title: "Points", field: null, agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }] });
     if (transportOnly) {
       const flat = encodePng({ width: 1024, height: 640, rgba: new Uint8Array(1024 * 640 * 4).fill(240) });

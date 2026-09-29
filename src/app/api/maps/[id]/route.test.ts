@@ -54,7 +54,7 @@ beforeEach(async () => {
   await ingestFile(testAccountScope(), source, "trips.csv");
   const map = createMap(testAccountScope(), "m");
   mapId = map.id;
-  const layer = await createLayer(mapId, {
+  const layer = await createLayer(testAccountScope(), mapId, {
     name: "Trips",
     sql: "SELECT name, cat, val, seen, geometry FROM trips",
   });
@@ -165,7 +165,7 @@ describe("widget writes", () => {
       widgets: [widget({ id: "wh", layerId, type: "histogram", field: "val" })],
     });
     expect(seeded.status).toBe(200);
-    await updateLayer(layerId, {
+    await updateLayer(testAccountScope(), layerId, {
       sql: "SELECT name, cat, seen, geometry FROM trips",
     });
     const retitled = await patch({
@@ -203,7 +203,7 @@ describe("the echo compares what a widget reads, not how", () => {
       widgets: [widget({ id: "wf", layerId, field: "val", agg: "avg" })],
     });
     expect(seeded.status).toBe(200);
-    await updateLayer(layerId, {
+    await updateLayer(testAccountScope(), layerId, {
       sql: "SELECT name, cat, seen, geometry FROM trips",
     });
     // Same field, same numeric requirement — nothing new is read.
@@ -226,7 +226,7 @@ describe("the echo compares what a widget reads, not how", () => {
 
 describe("timeline writes", () => {
   it("a timeline field must be a time column of its layer's result", async () => {
-    await updateLayer(layerId, {
+    await updateLayer(testAccountScope(), layerId, {
       filters: [{ field: "seen", kind: "timerange", min: null, max: null }],
     });
     const ok = await patch({ timeline: { layerId, field: "seen" } });
@@ -234,22 +234,22 @@ describe("timeline writes", () => {
     // Strand the filter's column: the SQL edit and the filter echo stay
     // legal, but re-docking the timeline on the stranded field is a new
     // reference against a schema that no longer provides it.
-    await updateLayer(layerId, {
+    await updateLayer(testAccountScope(), layerId, {
       sql: "SELECT name, cat, val, geometry FROM trips",
     });
     await patch({ timeline: null });
-    expect(requireLayer(layerId).filters).toHaveLength(1);
+    expect(requireLayer(testAccountScope(), layerId).filters).toHaveLength(1);
     const redock = await patch({ timeline: { layerId, field: "seen" } });
     expect(redock.status).toBe(400);
     expect(redock.body.error?.code).toBe("column_unavailable");
   });
 
   it("an unchanged docked timeline echoes through a widgets write", async () => {
-    await updateLayer(layerId, {
+    await updateLayer(testAccountScope(), layerId, {
       filters: [{ field: "seen", kind: "timerange", min: null, max: null }],
     });
     await patch({ timeline: { layerId, field: "seen" } });
-    await updateLayer(layerId, {
+    await updateLayer(testAccountScope(), layerId, {
       sql: "SELECT name, cat, val, geometry FROM trips",
     });
     // Re-sending the identical dock alongside other fields is an echo.

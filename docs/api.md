@@ -266,3 +266,13 @@ supersede or resolve them. Confirmation reauthenticates the same account and
 checks current permissions during execution, including admin restrictions.
 Internal grounding, subject reads and tool calls carry a bearer-equivalent
 credential; the parked state retains the account binding and no credential.
+
+**Private layer reference compatibility change.** Layer routes require an
+active account and resolve each layer through its owning map. Administrators
+have the same private boundary. Hidden and missing layers both answer
+`not_found` (404), including fields, statistics, rendering, tiles and direct
+exports. New widget, timeline, legend-order and layer-order references must
+belong to the exact map being edited. A missing or mismatched reference now
+answers `not_found` (404), replacing the former `invalid_request` (400).
+Malformed input still answers `invalid_request`. An unchanged orphan widget
+already stored in history remains readable and can be echoed unchanged.

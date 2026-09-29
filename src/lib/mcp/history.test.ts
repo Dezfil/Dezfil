@@ -19,7 +19,7 @@ beforeEach(async () => {
   closeMetadataDb(); resetQueryInstance();
   const csv = path.join(dir, 'facts.csv'); await writeFile(csv, 'name,lon,lat\na,0,0\n'); await ingestFile(testAccountScope(), csv, 'facts.csv');
   mapId = createMap(testAccountScope(), 'Original').id;
-  layerId = (await createLayer(mapId, { name: 'Layer', sql: 'SELECT * FROM facts' })).id;
+  layerId = (await createLayer(testAccountScope(), mapId, { name: 'Layer', sql: 'SELECT * FROM facts' })).id;
   metadataDb().prepare('DELETE FROM map_history').run();
   seen = [];
   client = await testClient(request => { seen.push(request.clone()); return dispatchAssistantTestRoute(request); });

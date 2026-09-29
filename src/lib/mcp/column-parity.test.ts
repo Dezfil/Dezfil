@@ -1,4 +1,4 @@
-import { testAccountScope } from "@/lib/test-support/accounts";
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -53,7 +53,7 @@ beforeEach(async () => {
   await writeFile(src, "name,val,lon,lat\na,1,1,2\nb,2,3,4\n");
   await ingestFile(testAccountScope(), src, "assets.csv");
   const map = createMap(testAccountScope(), "parity");
-  const layer = await createLayer(map.id, {
+  const layer = await createLayer(testAccountScope(), map.id, {
     name: "l",
     sql: "SELECT * FROM assets",
   });
@@ -69,7 +69,7 @@ beforeEach(async () => {
       if (pathname === "/api/mcp") return handler.fetch(request);
       const layerMatch = /^\/api\/layers\/([^/]+)$/.exec(pathname);
       if (layerMatch) {
-        return layerRoute(request, {
+        return layerRoute(testAccountRequest(request), {
           params: Promise.resolve({ id: layerMatch[1] }),
         });
       }
@@ -110,11 +110,11 @@ describe("column refusal parity", () => {
     await client.close();
 
     const direct = await layerRoute(
-      new Request(`http://localhost:3000/api/layers/${layerId}`, {
+      testAccountRequest(new Request(`http://localhost:3000/api/layers/${layerId}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ style: BAD_STYLE }),
-      }),
+      })),
       { params: Promise.resolve({ id: layerId }) },
     );
     expect(direct.status).toBe(400);

@@ -1,3 +1,4 @@
+import { layerAccess } from "./openapi-layer-access";
 import { mapAccess } from "./openapi-map-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { authenticatedOp } from "./openapi-authenticated";
@@ -76,7 +77,7 @@ export const MAP_RESOURCE_PATHS = {
         "200": jsonOk("#/components/schemas/MapWithLayers"),
       },
     })),
-    patch: op(mapAccess({
+    patch: op(layerAccess(mapAccess({
       summary: "Update a map",
       description:
         "Any of name, viewport, basemap (dark | light | streets | " +
@@ -108,7 +109,7 @@ export const MAP_RESOURCE_PATHS = {
       responses: {
         "200": jsonOk("#/components/schemas/MapWithLayers"),
       },
-    })),
+    }))),
     delete: op(mapAccess({
       summary: "Delete a map",
       tag: "Maps",
@@ -191,7 +192,7 @@ export const MAP_RESOURCE_PATHS = {
     })),
   },
   "/api/maps/{id}/widget-values": {
-    post: op(mapAccess({
+    post: op(layerAccess(mapAccess({
       summary: "Read the map's widget values",
       description:
         "Every visible widget computed server-side over its layer's " +
@@ -233,7 +234,7 @@ export const MAP_RESOURCE_PATHS = {
         },
       },
       responses: { "200": jsonOk("#/components/schemas/WidgetValues") },
-    })),
+    }))),
   },
   "/api/maps/{id}/search": {
     get: op(mapAccess({

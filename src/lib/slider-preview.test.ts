@@ -53,11 +53,11 @@ afterEach(async () => {
 
 async function previewLayer() {
   const map = createMap(testAccountScope(), "preview");
-  const layer = await createLayer(map.id, {
+  const layer = await createLayer(testAccountScope(), map.id, {
     name: "Preview",
     sql: "SELECT name, category, seen, riders, geometry FROM preview",
   });
-  return updateLayer(layer.id, {
+  return updateLayer(testAccountScope(), layer.id, {
     viz: {
       type: "grid",
       cellKm: 5,
@@ -99,15 +99,15 @@ describe("responsive slider preview input", () => {
       "riders",
       "seen",
     ]);
-    expect(requireLayer(layer.id)).toEqual(layer);
+    expect(requireLayer(testAccountScope(), layer.id)).toEqual(layer);
   });
 
   it("returns the same bounded subset and reports its source size", async () => {
     const layer = await previewLayer();
-    await updateLayer(layer.id, { filters: [] });
+    await updateLayer(testAccountScope(), layer.id, { filters: [] });
     process.env.DEZFIL_SLIDER_PREVIEW_ROWS = "2";
-    const first = await sliderPreviewData(requireLayer(layer.id));
-    const second = await sliderPreviewData(requireLayer(layer.id));
+    const first = await sliderPreviewData(requireLayer(testAccountScope(), layer.id));
+    const second = await sliderPreviewData(requireLayer(testAccountScope(), layer.id));
     expect(first).toMatchObject({
       exact: false,
       sourceCount: 4,
@@ -120,7 +120,7 @@ describe("responsive slider preview input", () => {
   it("matches DuckDB cells and values for filtered grid and H3 previews", async () => {
     let layer = await previewLayer();
     for (const type of ["grid", "hexbin"] as const) {
-      layer = await updateLayer(layer.id, {
+      layer = await updateLayer(testAccountScope(), layer.id, {
         viz:
           type === "grid"
             ? {
@@ -147,7 +147,7 @@ describe("responsive slider preview input", () => {
 
   it("matches all aggregate functions and preserves SQL NULL filter rules", async () => {
     let layer = await previewLayer();
-    layer = await updateLayer(layer.id, { filters: [] });
+    layer = await updateLayer(testAccountScope(), layer.id, { filters: [] });
     const aggregates: AggregatedViz["aggregate"][] = [
       { fn: "count" },
       { fn: "sum", attribute: "riders" },
@@ -156,7 +156,7 @@ describe("responsive slider preview input", () => {
       { fn: "max", attribute: "riders" },
     ];
     for (const aggregate of aggregates) {
-      layer = await updateLayer(layer.id, {
+      layer = await updateLayer(testAccountScope(), layer.id, {
         viz: { type: "grid", cellKm: 1000, aggregate },
       });
       const local = aggregateSliderPreview(
@@ -222,7 +222,7 @@ describe("responsive slider preview input", () => {
 
   it("re-aggregates the reserved elevation value for extruded cells", async () => {
     let layer = await previewLayer();
-    layer = await updateLayer(layer.id, {
+    layer = await updateLayer(testAccountScope(), layer.id, {
       filters: [],
       viz: {
         type: "grid",
@@ -252,13 +252,13 @@ describe("responsive slider preview input", () => {
 
   it("keeps original geometry for non-aggregated filter fallbacks", async () => {
     const map = createMap(testAccountScope(), "line preview");
-    let layer = await createLayer(map.id, {
+    let layer = await createLayer(testAccountScope(), map.id, {
       name: "Lines",
       sql: `SELECT riders,
               ST_GeomFromText('LINESTRING (13.4 52.5, 13.5 52.6)') AS geometry
             FROM preview`,
     });
-    layer = await updateLayer(layer.id, {
+    layer = await updateLayer(testAccountScope(), layer.id, {
       filters: [
         { field: "riders", kind: "range", min: 600, max: null },
       ],

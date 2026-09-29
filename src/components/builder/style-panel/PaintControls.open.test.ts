@@ -41,7 +41,7 @@ afterEach(async () => {
 describe("opening a stored data-driven Fill panel", () => {
   it("leaves quantile breaks and colors byte-stable across the read path", async () => {
     const map = createMap(testAccountScope(), "Quantile inspection");
-    const layer = await createLayer(map.id, {
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "Values",
       sql: "SELECT name, value, geometry FROM values",
     });
@@ -57,10 +57,10 @@ describe("opening a stored data-driven Fill panel", () => {
         { r: 221, g: 197, b: 71, a: 1 },
       ],
     };
-    await updateLayer(layer.id, {
+    await updateLayer(testAccountScope(), layer.id, {
       style: { ...layer.style, fill },
     });
-    const stored = requireLayer(layer.id);
+    const stored = requireLayer(testAccountScope(), layer.id);
     const before = JSON.stringify(stored.style);
 
     // StylePanel's open read: resolve fields, fetch the ramp distribution,
@@ -73,6 +73,6 @@ describe("opening a stored data-driven Fill panel", () => {
     expect(opened.legend?.entries.map((entry) => entry.color)).toEqual(
       fill.colors,
     );
-    expect(JSON.stringify(requireLayer(layer.id).style)).toBe(before);
+    expect(JSON.stringify(requireLayer(testAccountScope(), layer.id).style)).toBe(before);
   });
 });

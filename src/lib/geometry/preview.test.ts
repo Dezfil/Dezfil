@@ -63,7 +63,7 @@ it("pairs swap roles and Berlin uses the actual source projection", async () => 
 it("50 corresponding rows and sampled counts and extent, with no durable side effects", async () => {
   const t = await stored(`SELECT i, CASE WHEN i IN (24, 1001) THEN 'bad' WHEN i=1002 THEN 'POINT (120 70)' ELSE 'POINT (10 20)' END payload FROM range(1003) t(i)`);
   const map=createMap(testAccountScope(), "Preview history");
-  const layer=await createLayer(map.id,{name:"Preview tiles",sql:`SELECT TRY(ST_GeomFromText(payload)) geometry FROM ${t.name}`});
+  const layer=await createLayer(testAccountScope(), map.id,{name:"Preview tiles",sql:`SELECT TRY(ST_GeomFromText(payload)) geometry FROM ${t.name}`});
   upsertTileRecord({layerId:layer.id,state:"ready",fingerprint:"preview-before",error:null,featureCount:1001,builtAt:"2026-09-01T00:00:00Z"});
   const snapshot=()=>["data_tables","maps","layers","map_history","layer_tiles"].map(table=>metadataDb().prepare(`SELECT * FROM ${table}`).all());
   const before = snapshot();

@@ -1,4 +1,4 @@
-import { testAccountScope } from "@/lib/test-support/accounts";
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   mkdtemp,
@@ -232,7 +232,7 @@ describe("layer export — the agent road", () => {
     const { executeTool } = await import("@/lib/tools/execute");
 
     const map = createMap(testAccountScope(), "m");
-    const stored = await createLayer(map.id, {
+    const stored = await createLayer(testAccountScope(), map.id, {
       name: "Stations",
       sql: "SELECT name, geometry FROM stations",
     });
@@ -242,7 +242,7 @@ describe("layer export — the agent road", () => {
     const routeFetch = (async (url: RequestInfo | URL, init?: RequestInit) => {
       const m = /\/api\/layers\/([^/]+)\/export\/([^/?]+)/.exec(String(url));
       if (!m) throw new Error(`unexpected url: ${String(url)}`);
-      return GET(new Request(String(url), init), {
+      return GET(testAccountRequest(new Request(String(url), init)), {
         params: Promise.resolve({
           id: decodeURIComponent(m[1]),
           format: decodeURIComponent(m[2]),
@@ -433,7 +433,7 @@ describe("layer export — private native-download hand-off", () => {
     const { createLayer } = await import("@/lib/layer-service");
     const { updateLayerFields } = await import("@/lib/metadata/maps");
     const map = createMap(testAccountScope(), "download-map");
-    const layer = await createLayer(map.id, {
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "Stations",
       sql: "SELECT name, geometry FROM stations",
     });
@@ -449,10 +449,10 @@ describe("layer export — private native-download hand-off", () => {
   ) {
     const { GET } = await import("@/app/api/layers/[id]/export/[format]/route");
     return GET(
-      new Request(
+      testAccountRequest(new Request(
         `http://localhost/api/layers/${id}/export/${format}${search}`,
         { signal },
-      ),
+      )),
       { params: Promise.resolve({ id, format }) },
     );
   }

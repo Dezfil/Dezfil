@@ -58,7 +58,7 @@ beforeEach(async () => {
   await ingestFile(testAccountScope(), source, "points.csv");
   const map = createMap(testAccountScope(), "m");
   mapId = map.id;
-  const layer = await createLayer(map.id, { name: "l", sql });
+  const layer = await createLayer(testAccountScope(), map.id, { name: "l", sql });
   layerId = layer.id;
   token = publishMap(testAccountScope(), map.id).token;
   ensureTileDirs();
@@ -87,7 +87,7 @@ describe("current published tile eligibility", () => {
   it("keeps a current artifact across style edits and live-filter bound moves", async () => {
     // The live filter exists when the archive is minted; its field is
     // already part of the projection the fingerprint saw.
-    await updateLayer(layerId, {
+    await updateLayer(testAccountScope(), layerId, {
       filters: [{ field: "score", kind: "range", min: 10, max: 20 }],
     });
     upsertTileRecord({
@@ -105,7 +105,7 @@ describe("current published tile eligibility", () => {
     // Paint and slider bounds never look like data changes: the
     // signature carries field names, not values.
     const layer = getLayer(layerId)!;
-    await updateLayer(layerId, {
+    await updateLayer(testAccountScope(), layerId, {
       style: { ...layer.style, opacity: 0.5 },
       filters: [{ field: "score", kind: "range", min: 12, max: 18 }],
     });
@@ -115,7 +115,7 @@ describe("current published tile eligibility", () => {
   it("a new live filter re-fingerprints — its field must reach the wire", async () => {
     const version = String(Date.parse(builtAt));
     expect(currentPublishedTile(token, layerId, version)).not.toBeNull();
-    await updateLayer(layerId, {
+    await updateLayer(testAccountScope(), layerId, {
       filters: [{ field: "score", kind: "range", min: 10, max: 20 }],
     });
     expect(currentPublishedTile(token, layerId, version)).toBeNull();
@@ -125,14 +125,14 @@ describe("current published tile eligibility", () => {
     const version = String(Date.parse(builtAt));
     expect(currentPublishedTile(token, layerId, "1")).toBeNull();
 
-    await updateLayer(layerId, {
+    await updateLayer(testAccountScope(), layerId, {
       filters: [{ field: "kind", kind: "values", values: ["a"] }],
     });
     expect(currentPublishedTile(token, layerId, version)).toBeNull();
     closeMetadataDb();
     expect(currentPublishedTile(token, layerId, version)).toBeNull();
 
-    await updateLayer(layerId, { filters: [] });
+    await updateLayer(testAccountScope(), layerId, { filters: [] });
     upsertTileRecord({
       layerId,
       state: "ready",
@@ -152,17 +152,17 @@ describe("current published tile eligibility", () => {
 
   it("denies a hidden layer's tiles; visibility restores them", async () => {
     expect(currentPublishedTile(token, layerId, null)).not.toBeNull();
-    await updateLayer(layerId, { visible: false });
+    await updateLayer(testAccountScope(), layerId, { visible: false });
     // The artifact is retained — the builder may still use it — but the
     // published surface stops serving it.
     expect(currentPublishedTile(token, layerId, null)).toBeNull();
-    await updateLayer(layerId, { visible: true });
+    await updateLayer(testAccountScope(), layerId, { visible: true });
     expect(currentPublishedTile(token, layerId, null)).not.toBeNull();
   });
 
   it("a built archive carries exactly the effective set and the gate authorizes it — the decoded-tile check", async () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "1";
-    const layer = await updateLayer(layerId, { tooltip: ["kind"], popup: [] });
+    const layer = await updateLayer(testAccountScope(), layerId, { tooltip: ["kind"], popup: [] });
 
     // A real build through the builder lane: the shared archive is minted
     // by the same path both audiences use.
@@ -194,7 +194,7 @@ describe("current published tile eligibility", () => {
 
   it("denies the old artifact while an over-cap SQL replacement prepares", async () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "1";
-    const edited = await updateLayer(layerId, {
+    const edited = await updateLayer(testAccountScope(), layerId, {
       sql: `${sql} WHERE id >= 1`,
     });
 

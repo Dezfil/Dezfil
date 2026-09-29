@@ -42,7 +42,7 @@ beforeEach(async () => {
   await ingestFile(testAccountScope(), source, "points.csv");
   const map = createMap(testAccountScope(), "m");
   mapId = map.id;
-  const layer = await createLayer(map.id, { name: "l", sql });
+  const layer = await createLayer(testAccountScope(), map.id, { name: "l", sql });
   layerId = layer.id;
   token = publishMap(testAccountScope(), map.id).token;
   const builtAt = "2026-07-14T12:00:00.123Z";

@@ -1,7 +1,12 @@
-import { baseFields, fieldsForWrite } from "./layer-fields";
+import type { AccountScope } from "@/lib/auth/scope";
+import { requireLayer } from "./layer-access";
+import { assertWritableRefs } from "./layer-write-refs";
+export { requireLayer } from "./layer-access";
+export { createLayer, duplicateLayer } from "./layer-creation";
+export { layerImage } from "./layer-history-image";
+import { baseFields } from "./layer-fields";
 export { fieldKind, layerFields, fieldsForWrite, baseFields, layerFieldStats, DISTRIBUTION_BINS,
   type FieldKind, type LayerField, type LayerFieldsResult, type FieldStats } from "./layer-fields";
-import { randomUUID } from "node:crypto";
 import { limits } from "@/lib/limits";
 import { ApiError } from "@/lib/api/errors";
 import { stripStatementQuote } from "@/lib/query/engine-message";
@@ -19,11 +24,7 @@ import {
 import { inspectLayerGeometry } from "@/lib/layer-geometry";
 import {
   getMap,
-  getLayer,
-  insertLayer,
   updateLayerFields,
-  updateMapFields,
-  nextOrdinal,
   type Layer,
 } from "@/lib/metadata/maps";
 import { metadataDb } from "@/lib/metadata/db";
@@ -31,7 +32,6 @@ import {
   recordStep,
   diffImages,
   stableJson,
-  type HistoryImage,
 } from "@/lib/metadata/history";
 import {
   styleProblem,
@@ -39,10 +39,8 @@ import {
   type FillPaint,
   type LayerStyle,
 } from "@/lib/style/style";
-import { defaultStyle } from "@/lib/style/defaults";
 import { classifyFill, computeSizeScale } from "@/lib/style/classify";
 import {
-  POINTS_VIZ,
   AGG_VALUE,
   AGG_ELEV,
   isAggregated,
@@ -56,10 +54,8 @@ import {
   type LegendChannelKey,
 } from "@/lib/viz";
 import {
-  changedRefs,
   filterRefs,
   listRefs,
-  refProblem,
   styleRefs,
   vizRefs,
   type ColumnRef,
@@ -79,163 +75,6 @@ import { renderCapRefusal, tilerUnavailable } from "./layer-render-copy";
 
 function ident(s: string): string {
   return `"${s.replace(/"/g, '""')}"`;
-}
-
-/** The full layer as one image — what an add or delete step records;
- * shared with the removal cascade. */
-export function layerImage(layer: Layer): HistoryImage {
-  return { ...layer };
-}
-
-/** A new layer enters a manual legend arrangement at the top, durably
- * left unstored, its slot would re-derive from the panel on every render
- * and move when the panel does. Recorded in the add's own gesture, so
- * one undo removes layer and slot together. */
-function enterArrangement(
-  mapId: string,
-  layerId: string,
-  arrangement: string[],
-  groupId: string | null | undefined,
-): void {
-  const next = [layerId, ...arrangement];
-  updateMapFields(mapId, { legendOrder: next });
-  recordStep({
-    mapId,
-    scope: "map",
-    targetId: mapId,
-    op: "update",
-    before: { legendOrder: arrangement },
-    after: { legendOrder: next },
-    groupId,
-  });
-}
-
-export async function createLayer(
-  mapId: string,
-  input: { name: string; sql: string; style?: LayerStyle },
-  opts: { groupId?: string | null; signal?: AbortSignal } = {},
-): Promise<Layer> {
-  if (!getMap(mapId)) {
-    throw new ApiError("not_found", `No map with id ${mapId}.`, 404);
-  }
-  const { geometryType } = await inspectLayerGeometry(input.sql, opts.signal);
-  if (input.style !== undefined) {
-    const problem = styleProblem(input.style);
-    if (problem) {
-      throw new ApiError("invalid_request", `The style is not valid: ${problem}`, 400);
-    }
-    // A created layer has no stored config to echo: every reference the
-    // style carries is introduced here and validates.
-    await assertWritableRefs(
-      styleRefs(input.style),
-      [],
-      input.sql,
-      POINTS_VIZ,
-      opts.signal,
-    );
-  }
-  const now = new Date().toISOString();
-  const ordinal = nextOrdinal(mapId);
-  const layer: Layer = {
-    id: randomUUID(),
-    mapId,
-    name: input.name,
-    sql: input.sql,
-    // Default colors cycle by creation order (kepler defaults).
-    style: input.style
-      ? normalizeStyle(input.style)
-      : defaultStyle(geometryType, ordinal),
-    visible: true,
-    tooltip: null,
-    popup: null,
-    publishedFields: null,
-    inLegend: true,
-    viz: POINTS_VIZ,
-    filters: [],
-    legendTitle: null,
-    legendLabels: null,
-    legendAttrs: null,
-    ordinal,
-    createdAt: now,
-    updatedAt: now,
-  };
-  const arrangement = getMap(mapId)?.legendOrder ?? null;
-  metadataDb().transaction(() => {
-    const groupId = arrangement
-      ? (opts.groupId ?? randomUUID())
-      : opts.groupId;
-    insertLayer(layer);
-    recordStep({
-      mapId,
-      scope: "layer",
-      targetId: layer.id,
-      op: "add",
-      before: null,
-      after: layerImage(layer),
-      groupId,
-    });
-    if (arrangement) enterArrangement(mapId, layer.id, arrangement, groupId);
-  })();
-  return layer;
-}
-
-/** Duplicate a layer in place: full copy — SQL, style, tooltip, legend flag —
- * with a suffixed name, stacked on top. */
-export function duplicateLayer(
-  id: string,
-  opts: { groupId?: string | null } = {},
-): Layer {
-  const source = requireLayer(id);
-  const now = new Date().toISOString();
-  const copy: Layer = {
-    ...source,
-    id: randomUUID(),
-    name: `${source.name} copy`,
-    ordinal: nextOrdinal(source.mapId),
-    createdAt: now,
-    updatedAt: now,
-  };
-  const arrangement = getMap(source.mapId)?.legendOrder ?? null;
-  metadataDb().transaction(() => {
-    const groupId = arrangement
-      ? (opts.groupId ?? randomUUID())
-      : opts.groupId;
-    insertLayer(copy);
-    recordStep({
-      mapId: source.mapId,
-      scope: "layer",
-      targetId: copy.id,
-      op: "add",
-      before: null,
-      after: layerImage(copy),
-      groupId,
-    });
-    if (arrangement)
-      enterArrangement(source.mapId, copy.id, arrangement, groupId);
-  })();
-  return copy;
-}
-
-export function requireLayer(id: string): Layer {
-  const layer = getLayer(id);
-  if (!layer) throw new ApiError("not_found", `No layer with id ${id}.`, 404);
-  return layer;
-}
-
-/** Refuse the references this write introduces or changes that the
- * post-request schema cannot honor; an empty diff resolves nothing and
- * costs nothing. */
-async function assertWritableRefs(
-  incoming: ColumnRef[],
-  stored: ColumnRef[],
-  sql: string,
-  viz: LayerViz,
-  signal?: AbortSignal,
-): Promise<void> {
-  const refs = changedRefs(incoming, stored);
-  if (refs.length === 0) return;
-  const problem = refProblem(refs, await fieldsForWrite(sql, viz, signal));
-  if (problem) throw new ApiError("column_unavailable", problem, 400);
 }
 
 /**
@@ -289,6 +128,7 @@ type UpdateLayerFields = Partial<{
 }>;
 
 export async function updateLayer(
+  scope: AccountScope,
   id: string,
   fields: UpdateLayerFields,
   opts: { groupId?: string | null; signal?: AbortSignal } = {},
@@ -299,7 +139,7 @@ export async function updateLayer(
   // fresh snapshot until the commit's read matches the one the derivation
   // used — no accepted write is lost.
   for (let attempt = 0; attempt < 5; attempt++) {
-    const applied = await deriveAndCommitUpdate(id, fields, opts);
+    const applied = await deriveAndCommitUpdate(scope, id, fields, opts);
     if (applied) return applied;
   }
   // Practically unreachable: it needs a concurrent write landing inside
@@ -314,11 +154,12 @@ export async function updateLayer(
 }
 
 async function deriveAndCommitUpdate(
+  scope: AccountScope,
   id: string,
   fields: UpdateLayerFields,
   opts: { groupId?: string | null; signal?: AbortSignal },
 ): Promise<Layer | null> {
-  const layer = requireLayer(id);
+  const layer = requireLayer(scope, id);
   // A repeated write of the same filter image is a true no-op: in
   // particular, it must not turn into a classification-only history step.
   // stableJson makes this insensitive to object key order at the API edge.
@@ -577,14 +418,14 @@ async function deriveAndCommitUpdate(
     // same layer may have landed since. History must diff against the state
     // this write actually replaces, or undo restores a state that never
     // existed.
-    const prior = requireLayer(id);
+    const prior = requireLayer(scope, id);
     // The derivations above were computed against the entry snapshot. If
     // the layer moved while they settled, committing them would overwrite
     // the concurrent write with stale derived containers — abort and let
     // the caller re-derive against the fresh state.
     if (stableJson(prior) !== stableJson(layer)) return;
     updateLayerFields(id, fields);
-    fresh = requireLayer(id);
+    fresh = requireLayer(scope, id);
     // Record what actually changed, as stored — post-normalization, so a
     // redo re-applies exactly what this write produced. The keys cover
     // the request plus the coupled adjustments folded into `fields`

@@ -23,7 +23,7 @@ beforeEach(async () => {
   await ingestFile(testAccountScope(), src, "w.csv");
   const map = createMap(testAccountScope(), "m");
   mapId = map.id;
-  const layer = await createLayer(map.id, { name: "l", sql: "SELECT * FROM w" });
+  const layer = await createLayer(testAccountScope(), map.id, { name: "l", sql: "SELECT * FROM w" });
   layerId = layer.id;
 });
 
@@ -42,7 +42,7 @@ function statement() {
 
 describe("published-fields statement route", () => {
   it("states the effective set per layer, matching what the wire carries", async () => {
-    await updateLayer(layerId, { tooltip: ["name"], popup: [] });
+    await updateLayer(testAccountScope(), layerId, { tooltip: ["name"], popup: [] });
     const res = await statement();
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
@@ -60,7 +60,7 @@ describe("published-fields statement route", () => {
   });
 
   it("states list mode under an override", async () => {
-    await updateLayer(layerId, { publishedFields: ["riders"] });
+    await updateLayer(testAccountScope(), layerId, { publishedFields: ["riders"] });
     const res = await statement();
     const body = await res.json();
     expect(body.layers[0].mode).toBe("list");
@@ -68,7 +68,7 @@ describe("published-fields statement route", () => {
   });
 
   it("states that a hidden layer shares nothing (round one)", async () => {
-    await updateLayer(layerId, { visible: false });
+    await updateLayer(testAccountScope(), layerId, { visible: false });
     const res = await statement();
     const body = await res.json();
     expect(body.layers[0]).toMatchObject({
@@ -80,7 +80,7 @@ describe("published-fields statement route", () => {
   });
 
   it("degrades per layer when a layer's SQL cannot resolve", async () => {
-    await createLayer(mapId, { name: "ok", sql: "SELECT * FROM w" });
+    await createLayer(testAccountScope(), mapId, { name: "ok", sql: "SELECT * FROM w" });
     // Break the first layer underneath (bypassing validation) by pointing
     // it at a name that no longer resolves.
     const { updateLayerFields } = await import("@/lib/metadata/maps");

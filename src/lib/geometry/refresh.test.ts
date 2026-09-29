@@ -73,7 +73,7 @@ it.each(["column", "publication"])("%s failure keeps old artifact, manual choice
   const t = (await importFromUrl(testAccountScope(), "https://fixture.test/failure.csv")).tables[0];
   await setGeometry(t.name, geometryRevision(t), { format: "pair", columns: ["y", "x"] });
   await retirementsSettled();
-  const map=createMap(testAccountScope(), "Retained tiles"),layer=await createLayer(map.id,{name:"Tiles",sql:`SELECT geometry FROM ${t.name}`});
+  const map=createMap(testAccountScope(), "Retained tiles"),layer=await createLayer(testAccountScope(), map.id,{name:"Tiles",sql:`SELECT geometry FROM ${t.name}`});
   upsertTileRecord({layerId:layer.id,state:"ready",fingerprint:"before-failed-refresh",error:null,featureCount:1,builtAt:"2026-09-01T00:00:00Z"});
   const tileFile=tileArchivePath(layer.id);await mkdir(path.dirname(tileFile),{recursive:true});await writeFile(tileFile,"existing archive bytes");
   const tileBefore=getTileRecord(layer.id);

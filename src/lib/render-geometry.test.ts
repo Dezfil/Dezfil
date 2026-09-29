@@ -30,7 +30,7 @@ afterEach(async () => {
 
 async function geometryTypeFor(sql: string): Promise<LayerRenderGeometryType> {
   const map = createMap(testAccountScope(), "geometry");
-  const layer = await createLayer(map.id, { name: "geometry", sql });
+  const layer = await createLayer(testAccountScope(), map.id, { name: "geometry", sql });
   const result = await renderLayer(layer);
   expect(result.ok).toBe(true);
   return result.geometryType ?? null;
@@ -56,7 +56,7 @@ describe("render geometry metadata", () => {
 
   it("reports the effective mixed, filtered, and empty result", async () => {
     const map = createMap(testAccountScope(), "effective geometry");
-    const layer = await createLayer(map.id, {
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "mixed",
       sql: `SELECT kind, ST_GeomFromText(wkt) AS geometry
         FROM (VALUES ('point', 'POINT (0 0)'),
@@ -65,12 +65,12 @@ describe("render geometry metadata", () => {
 
     expect((await renderLayer(layer)).geometryType).toBe("MIXED");
 
-    const points = await updateLayer(layer.id, {
+    const points = await updateLayer(testAccountScope(), layer.id, {
       filters: [{ field: "kind", kind: "values", values: ["point"] }],
     });
     expect((await renderLayer(points)).geometryType).toBe("POINT");
 
-    const empty = await updateLayer(layer.id, {
+    const empty = await updateLayer(testAccountScope(), layer.id, {
       filters: [{ field: "kind", kind: "values", values: [] }],
     });
     expect((await renderLayer(empty)).geometryType).toBeNull();

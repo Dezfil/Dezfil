@@ -40,7 +40,7 @@ beforeEach(async () => {
   await writeFile(src, rows.join("\n"));
   await ingestFile(testAccountScope(), src, "points.csv");
   const map = createMap(testAccountScope(), "m");
-  const layer = await createLayer(map.id, {
+  const layer = await createLayer(testAccountScope(), map.id, {
     name: "Points",
     sql: "SELECT id, kind, geometry FROM points",
   });
@@ -62,7 +62,7 @@ afterEach(async () => {
 describe("the render decision", () => {
   it("over-cap points switch to tiles: preparing, then ready with a URL", async () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "10";
-    const layer = requireLayer(layerId);
+    const layer = requireLayer(testAccountScope(), layerId);
 
     const preparing = await renderLayer(layer);
     expect(preparing.ok).toBe(true);
@@ -102,7 +102,7 @@ describe("the render decision", () => {
 
   it("a filter under the cap returns to inline with no wait — and back", async () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "10";
-    const filtered = await updateLayer(layerId, {
+    const filtered = await updateLayer(testAccountScope(), layerId, {
       filters: [{ field: "kind", kind: "values", values: ["k0"] }],
     });
     const inline = await renderLayer(filtered);
@@ -110,13 +110,13 @@ describe("the render decision", () => {
     expect(inline.featureCount).toBe(10);
     expect(inline.geometryType).toBe("POINT");
 
-    const unfiltered = await updateLayer(layerId, { filters: [] });
+    const unfiltered = await updateLayer(testAccountScope(), layerId, { filters: [] });
     const tiled = await renderLayer(unfiltered);
     expect(tiled.mode).toBe("tiled");
   });
 
   it("under-cap layers keep today's inline path untouched", async () => {
-    const layer = requireLayer(layerId);
+    const layer = requireLayer(testAccountScope(), layerId);
     const render = await renderLayer(layer);
     expect(render.mode).toBe("inline");
     expect(render.featureCount).toBe(40);
@@ -127,7 +127,7 @@ describe("the render decision", () => {
   it("a missing tiler degrades h3-style: only this layer errors", async () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "10";
     process.env.DEZFIL_TIPPECANOE = "/nonexistent/tippecanoe";
-    const render = await renderLayer(requireLayer(layerId));
+    const render = await renderLayer(requireLayer(testAccountScope(), layerId));
     expect(render.ok).toBe(false);
     expect(render.error?.code).toBe("tiler_unavailable");
     expect(render.error?.message).toMatch(/tippecanoe/);
@@ -144,11 +144,11 @@ describe("the render decision", () => {
     );
     process.env.DEZFIL_TIPPECANOE = fake;
 
-    const preparing = await renderLayer(requireLayer(layerId));
+    const preparing = await renderLayer(requireLayer(testAccountScope(), layerId));
     expect(preparing.tiles?.state).toBe("building");
     await tileBuildsSettled();
 
-    const failed = await renderLayer(requireLayer(layerId));
+    const failed = await renderLayer(requireLayer(testAccountScope(), layerId));
     expect(failed.ok).toBe(false);
     expect(failed.error?.code).toBe("tile_build_failed");
     expect(failed.error?.message).toMatch(/boom/);

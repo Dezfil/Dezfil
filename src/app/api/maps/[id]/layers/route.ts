@@ -24,7 +24,9 @@ export async function GET(_request: Request, { params }: Params) {
 /** Create a layer on a map from a SQL result. */
 export async function POST(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
+    requireMap(scope, id);
     let body: { name?: unknown; sql?: unknown; style?: unknown };
     try {
       body = (await request.json()) as typeof body;
@@ -42,7 +44,7 @@ export async function POST(request: Request, { params }: Params) {
       typeof body.name === "string" && body.name.trim()
         ? body.name
         : "Untitled layer";
-    const layer = await createLayer(
+    const layer = await createLayer(scope,
       id,
       {
         name,

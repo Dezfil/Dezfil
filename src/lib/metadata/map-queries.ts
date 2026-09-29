@@ -185,3 +185,12 @@ export function getLayer(id: string, db: Database = metadataDb()): Layer | null 
     | undefined;
   return row ? layerFromRow(row) : null;
 }
+
+/** Select the parent owner before decoding a private layer's definition. */
+export function getOwnedLayer(scope: AccountScope, id: string, db: Database = metadataDb()): Layer {
+  const ownerId = requireAccountScope(scope, db);
+  const row = db.prepare(`SELECT l.* FROM layers l JOIN maps m ON m.id = l.map_id
+    WHERE l.id = ? AND m.owner_id = ?`).get(id, ownerId) as LayerRow | undefined;
+  if (!row) throw resourceAbsent();
+  return layerFromRow(row);
+}

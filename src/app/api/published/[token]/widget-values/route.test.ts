@@ -56,7 +56,7 @@ beforeEach(async () => {
   );
   await ingestFile(testAccountScope(), source, "points.csv");
   const map = createMap(testAccountScope(), "m");
-  const layer = await createLayer(map.id, {
+  const layer = await createLayer(testAccountScope(), map.id, {
     name: "l",
     sql: "SELECT * FROM points",
   });
@@ -108,7 +108,7 @@ describe("published widget-values reader gate", () => {
   it("a range on a histogram whose column went non-numeric refuses cleanly", async () => {
     // The stored histogram widget echoes through the SQL edit; only the
     // reader's selection meets the gate.
-    await updateLayer(layerId, {
+    await updateLayer(testAccountScope(), layerId, {
       sql: "SELECT id, kind, kind AS score, geometry FROM points",
     });
     const res = await values([
@@ -122,7 +122,7 @@ describe("published widget-values reader gate", () => {
   });
 
   it("a selection on a stranded column refuses cleanly", async () => {
-    await updateLayer(layerId, {
+    await updateLayer(testAccountScope(), layerId, {
       sql: "SELECT id, score, geometry FROM points",
     });
     const res = await values([

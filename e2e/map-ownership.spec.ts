@@ -5,6 +5,7 @@ test("two ordinary accounts and an admin keep map lists and copied map URLs priv
   const origin = new URL(baseURL!).origin;
   const contexts: BrowserContext[] = [];
   const maps: { id: string; name: string }[] = [];
+  const layers: { id: string; name: string }[] = [];
   try {
     const admin = await browser.newContext({ baseURL, storageState: await request.storageState(), extraHTTPHeaders: { origin } });
     contexts.push(admin);
@@ -29,6 +30,11 @@ test("two ordinary accounts and an admin keep map lists and copied map URLs priv
       const created = await context.request.post("/api/maps", { data: { name } });
       expect(created.status()).toBe(201);
       maps.push(await created.json());
+      const layer = await context.request.post(`/api/maps/${maps.at(-1)!.id}/layers`, {
+        data: { name: `Private layer ${randomUUID()}`, sql: "SELECT 1 AS value, ST_Point(13, 52) AS geom" },
+      });
+      expect(layer.status()).toBe(201);
+      layers.push(await layer.json());
     }
     for (let i = 0; i < contexts.length; i++) {
       const page = await contexts[i].newPage();
@@ -47,6 +53,20 @@ test("two ordinary accounts and an admin keep map lists and copied map URLs priv
         await expect(page.getByText("The requested resource was not found.", { exact: true })).toBeVisible();
         await page.goto("/maps");
       }
+      for (let j = 0; j < contexts.length; j++) {
+        if (j === i) continue;
+        for (const suffix of ["", "/fields", "/render", "/export/csv", "/tiles/0/0/0"]) {
+          const hidden = await contexts[i].request.get(`/api/layers/${layers[j].id}${suffix}`);
+          const missing = await contexts[i].request.get(`/api/layers/absent-layer${suffix}`);
+          expect(hidden.status()).toBe(404);
+          expect(await hidden.json()).toEqual(await missing.json());
+        }
+        const draft = { id: "preview", type: "formula", layerId: layers[j].id, title: "Count", field: null,
+          agg: "count", aggField: null, unit: null, note: null, format: null, visible: true };
+        const preview = await contexts[i].request.post(`/api/maps/${maps[i].id}/widget-values`, { data: { draft } });
+        expect(preview.status()).toBe(404);
+      }
+      expect((await contexts[i].request.get(`/api/layers/${layers[i].id}/render`)).status()).toBe(200);
       await page.goto(`/maps/${maps[i].id}`);
       await expect(page.getByRole("textbox", { name: "Map name", exact: true })).toHaveValue(maps[i].name);
     }

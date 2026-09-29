@@ -2785,7 +2785,7 @@
     {
       "type": "function",
       "name": "update_map",
-      "description": "Update a map. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. Any of name, viewport, basemap (dark | light | streets | satellite, or null for Auto — the builder follows the app theme; published views follow the publication's effective theme, unless a deployment override pins Auto), basemapLayers (per-group basemap visibility; null shows everything), legendCorner (null = bottom-left), legendOrder (the manual legend arrangement; null follows the layer panel), timeline (the docked playback timeline; null undocks), widgets (the ordered widget list, notes included), widgetsPublished (whether widgets ship with the published view), or layer order. The former `note` field retired into a note widget.",
+      "description": "Update a map. Private layers and widgets are limited to the authenticated account's own maps, including for administrators. Hidden, missing or mismatched parent/child identities return not_found before query evaluation, artifact access or protected changes. New widget, timeline and layer-order references must belong to the exact map. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. Any of name, viewport, basemap (dark | light | streets | satellite, or null for Auto — the builder follows the app theme; published views follow the publication's effective theme, unless a deployment override pins Auto), basemapLayers (per-group basemap visibility; null shows everything), legendCorner (null = bottom-left), legendOrder (the manual legend arrangement; null follows the layer panel), timeline (the docked playback timeline; null undocks), widgets (the ordered widget list, notes included), widgetsPublished (whether widgets ship with the published view), or layer order. The former `note` field retired into a note widget.",
       "parameters": {
         "anyOf": [
           {
@@ -3347,7 +3347,7 @@
     {
       "type": "function",
       "name": "read_widget_values",
-      "description": "Read the map's widget values. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. Every visible widget computed server-side over its layer's effective query, under an optional ephemeral selection set — cross-filter state that lives on the request and is never stored. Classic crossfilter semantics: a widget's own selection never filters itself. Also returns per-layer constrained/total row counts. A read, despite the POST — the body carries the selections. An optional draft widget previews an unsaved editor state: validated like a stored widget, it replaces its stored self by id (or joins as a new card) for this computation only — nothing is written.",
+      "description": "Read the map's widget values. Private layers and widgets are limited to the authenticated account's own maps, including for administrators. Hidden, missing or mismatched parent/child identities return not_found before query evaluation, artifact access or protected changes. New widget, timeline and layer-order references must belong to the exact map. Map results and changes are limited to the authenticated account's own maps. Administrators have the same boundary. Hidden and missing map or project identities both return not_found before source access or protected changes. Every visible widget computed server-side over its layer's effective query, under an optional ephemeral selection set — cross-filter state that lives on the request and is never stored. Classic crossfilter semantics: a widget's own selection never filters itself. Also returns per-layer constrained/total row counts. A read, despite the POST — the body carries the selections. An optional draft widget previews an unsaved editor state: validated like a stored widget, it replaces its stored self by id (or joins as a new card) for this computation only — nothing is written.",
       "parameters": {
         "anyOf": [
           {
@@ -3956,7 +3956,7 @@
     {
       "type": "function",
       "name": "list_layers",
-      "description": "List a map's layers",
+      "description": "List a map's layers. Private layers and widgets are limited to the authenticated account's own maps, including for administrators. Hidden, missing or mismatched parent/child identities return not_found before query evaluation, artifact access or protected changes. New widget, timeline and layer-order references must belong to the exact map. ",
       "parameters": {
         "type": "object",
         "properties": {
@@ -3974,7 +3974,7 @@
     {
       "type": "function",
       "name": "create_layer",
-      "description": "Create a layer from a SQL result. The SQL must return at least one geometry column. The first geometry column in select order is the primary geometry used for simple rendering; additional geometry columns are allowed. A default, publication-ready style is applied when none is provided.",
+      "description": "Create a layer from a SQL result. Private layers and widgets are limited to the authenticated account's own maps, including for administrators. Hidden, missing or mismatched parent/child identities return not_found before query evaluation, artifact access or protected changes. New widget, timeline and layer-order references must belong to the exact map. The SQL must return at least one geometry column. The first geometry column in select order is the primary geometry used for simple rendering; additional geometry columns are allowed. A default, publication-ready style is applied when none is provided.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -4346,7 +4346,7 @@
     {
       "type": "function",
       "name": "get_layer",
-      "description": "Read a layer",
+      "description": "Read a layer. Private layers and widgets are limited to the authenticated account's own maps, including for administrators. Hidden, missing or mismatched parent/child identities return not_found before query evaluation, artifact access or protected changes. New widget, timeline and layer-order references must belong to the exact map. ",
       "parameters": {
         "type": "object",
         "properties": {
@@ -4364,7 +4364,7 @@
     {
       "type": "function",
       "name": "update_layer",
-      "description": "Update a layer. Any of name, sql, style, visibility, tooltip or popup fields (null = automatic), the published-field list (null = derived projection), legend inclusion, viz (points | hexbin | grid | heatmap — hexbin/grid aggregate server-side and get a fill over their aggregate value automatically), filters (applied before aggregation; [] removes them), or legend text overrides. Text labels live in the style's `label` member. When `sql` is changed, it must return at least one geometry column. The first geometry column in select order is the primary geometry used for simple rendering; additional geometry columns are allowed.",
+      "description": "Update a layer. Private layers and widgets are limited to the authenticated account's own maps, including for administrators. Hidden, missing or mismatched parent/child identities return not_found before query evaluation, artifact access or protected changes. New widget, timeline and layer-order references must belong to the exact map. Any of name, sql, style, visibility, tooltip or popup fields (null = automatic), the published-field list (null = derived projection), legend inclusion, viz (points | hexbin | grid | heatmap — hexbin/grid aggregate server-side and get a fill over their aggregate value automatically), filters (applied before aggregation; [] removes them), or legend text overrides. Text labels live in the style's `label` member. When `sql` is changed, it must return at least one geometry column. The first geometry column in select order is the primary geometry used for simple rendering; additional geometry columns are allowed.",
       "parameters": {
         "anyOf": [
           {
@@ -5732,7 +5732,7 @@
     {
       "type": "function",
       "name": "delete_layer",
-      "description": "Delete a layer. Recorded on the undo timeline — an undo restores the layer whole.",
+      "description": "Delete a layer. Private layers and widgets are limited to the authenticated account's own maps, including for administrators. Hidden, missing or mismatched parent/child identities return not_found before query evaluation, artifact access or protected changes. New widget, timeline and layer-order references must belong to the exact map. Recorded on the undo timeline — an undo restores the layer whole.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -5750,7 +5750,7 @@
     {
       "type": "function",
       "name": "duplicate_layer",
-      "description": "Duplicate a layer. Full copy — SQL, style, viz, filters, tooltip, legend settings — with a suffixed name, stacked on top of the map's layer order.",
+      "description": "Duplicate a layer. Private layers and widgets are limited to the authenticated account's own maps, including for administrators. Hidden, missing or mismatched parent/child identities return not_found before query evaluation, artifact access or protected changes. New widget, timeline and layer-order references must belong to the exact map. Full copy — SQL, style, viz, filters, tooltip, legend settings — with a suffixed name, stacked on top of the map's layer order.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -5768,7 +5768,7 @@
     {
       "type": "function",
       "name": "layer_extent",
-      "description": "A layer's current data extent. The bounding box of what the layer currently draws: its SQL, its stored filters, and any constraints stated in `dims` — the ranges, time windows and category selections a canvas enforces after the data is fetched. Answers `kind: \"extent\"` with `box` as [west, south, east, north], or `kind: \"empty\"` when the constraints leave nothing drawn. Empty is a normal outcome of filtering, not a failure. A client holding the layer's features whole can compute this itself; it exists for the case it cannot — a tiled layer, whose features never reach the client entire.",
+      "description": "A layer's current data extent. Private layers and widgets are limited to the authenticated account's own maps, including for administrators. Hidden, missing or mismatched parent/child identities return not_found before query evaluation, artifact access or protected changes. New widget, timeline and layer-order references must belong to the exact map. The bounding box of what the layer currently draws: its SQL, its stored filters, and any constraints stated in `dims` — the ranges, time windows and category selections a canvas enforces after the data is fetched. Answers `kind: \"extent\"` with `box` as [west, south, east, north], or `kind: \"empty\"` when the constraints leave nothing drawn. Empty is a normal outcome of filtering, not a failure. A client holding the layer's features whole can compute this itself; it exists for the case it cannot — a tiled layer, whose features never reach the client entire.",
       "parameters": {
         "anyOf": [
           {
@@ -6138,7 +6138,7 @@
     {
       "type": "function",
       "name": "export_layer_data",
-      "description": "Download a layer's effective result. The layer's effective result as a file download: its SQL, then its stored filters, then OD/aggregation — exactly what the builder renders, so a stored filter is never dropped on the way out. Live widget selections and other transient view state never enter. The result's first geometry column is the feature geometry; every other geometry column travels as a WKT value beside it. Runs on the hardened read-only instance under the universal query bound — timeout, memory budget, and cancellation when the caller departs. The response is an attachment named <layer>.<ext>; through the agent tool it arrives as a base64 attachment envelope.",
+      "description": "Download a layer's effective result. Private layers and widgets are limited to the authenticated account's own maps, including for administrators. Hidden, missing or mismatched parent/child identities return not_found before query evaluation, artifact access or protected changes. New widget, timeline and layer-order references must belong to the exact map. The layer's effective result as a file download: its SQL, then its stored filters, then OD/aggregation — exactly what the builder renders, so a stored filter is never dropped on the way out. Live widget selections and other transient view state never enter. The result's first geometry column is the feature geometry; every other geometry column travels as a WKT value beside it. Runs on the hardened read-only instance under the universal query bound — timeout, memory budget, and cancellation when the caller departs. The response is an attachment named <layer>.<ext>; through the agent tool it arrives as a base64 attachment envelope.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -6166,7 +6166,7 @@
     {
       "type": "function",
       "name": "render_layer",
-      "description": "Render data for a layer. The layer's effective result — its SQL refined by its filters, then aggregated by its viz (hexbin/grid cells expose value and count). Under the render cap the response is inline GeoJSON (mode: inline). A points-viz result over the cap is served as vector tiles instead (mode: tiled): tiles are prepared in the background — poll while `tiles.state` is `building`; when `ready`, `tiles.url` is a {z}/{x}/{y} template and bounds/zoom range describe the archive. Errored states (deleted table, failed build, missing tiler, an aggregation over the cap) are returned as data, not an HTTP error.",
+      "description": "Render data for a layer. Private layers and widgets are limited to the authenticated account's own maps, including for administrators. Hidden, missing or mismatched parent/child identities return not_found before query evaluation, artifact access or protected changes. New widget, timeline and layer-order references must belong to the exact map. The layer's effective result — its SQL refined by its filters, then aggregated by its viz (hexbin/grid cells expose value and count). Under the render cap the response is inline GeoJSON (mode: inline). A points-viz result over the cap is served as vector tiles instead (mode: tiled): tiles are prepared in the background — poll while `tiles.state` is `building`; when `ready`, `tiles.url` is a {z}/{x}/{y} template and bounds/zoom range describe the archive. Errored states (deleted table, failed build, missing tiler, an aggregation over the cap) are returned as data, not an HTTP error.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -6184,7 +6184,7 @@
     {
       "type": "function",
       "name": "list_layer_fields",
-      "description": "A layer's non-geometry columns. `styling`: columns of the effective result, for fill and tooltip fields (an aggregated layer exposes exactly `value` and `count`). `filterable`: columns of the layer's own SQL result — what filters apply to.",
+      "description": "A layer's non-geometry columns. Private layers and widgets are limited to the authenticated account's own maps, including for administrators. Hidden, missing or mismatched parent/child identities return not_found before query evaluation, artifact access or protected changes. New widget, timeline and layer-order references must belong to the exact map. `styling`: columns of the effective result, for fill and tooltip fields (an aggregated layer exposes exactly `value` and `count`). `filterable`: columns of the layer's own SQL result — what filters apply to.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -6202,7 +6202,7 @@
     {
       "type": "function",
       "name": "get_field_stats",
-      "description": "A field's extent or distinct values. Seed data for a filter control: min/max and a binned distribution for numeric and time fields (time extents as ISO-8601 strings), distinct values (bounded, by frequency) for text. Computed on the layer's own result — the unfiltered extent, so a brush keeps a stable background.",
+      "description": "A field's extent or distinct values. Private layers and widgets are limited to the authenticated account's own maps, including for administrators. Hidden, missing or mismatched parent/child identities return not_found before query evaluation, artifact access or protected changes. New widget, timeline and layer-order references must belong to the exact map. Seed data for a filter control: min/max and a binned distribution for numeric and time fields (time extents as ISO-8601 strings), distinct values (bounded, by frequency) for text. Computed on the layer's own result — the unfiltered extent, so a brush keeps a stable background.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -6225,7 +6225,7 @@
     {
       "type": "function",
       "name": "compute_fill",
-      "description": "Compute a data-driven paint. Quantile, equal-interval, or natural (Fisher–Jenks, computed on a bounded sample) breaks for numeric attributes, distinct colors for categorical ones, or a `continuous` unclassed ramp: the attribute's domain resolved over the effective result with the palette's stops baked in (diverging palettes come back centered on the mean; clamp, log, and center are then style-level edits on the returned paint). Optional palette (curated or saved custom — see /api/palettes), class count, and reverse. Classification runs on the layer's effective result, so filters are respected and an aggregated layer classifies its `value` or `count`. Returns a paint to merge into the style — `fill`, or `strokeBy` for a data-driven outline — or into the viz fill of an aggregated layer.",
+      "description": "Compute a data-driven paint. Private layers and widgets are limited to the authenticated account's own maps, including for administrators. Hidden, missing or mismatched parent/child identities return not_found before query evaluation, artifact access or protected changes. New widget, timeline and layer-order references must belong to the exact map. Quantile, equal-interval, or natural (Fisher–Jenks, computed on a bounded sample) breaks for numeric attributes, distinct colors for categorical ones, or a `continuous` unclassed ramp: the attribute's domain resolved over the effective result with the palette's stops baked in (diverging palettes come back centered on the mean; clamp, log, and center are then style-level edits on the returned paint). Optional palette (curated or saved custom — see /api/palettes), class count, and reverse. Classification runs on the layer's effective result, so filters are respected and an aggregated layer classifies its `value` or `count`. Returns a paint to merge into the style — `fill`, or `strokeBy` for a data-driven outline — or into the viz fill of an aggregated layer.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -6269,7 +6269,7 @@
     {
       "type": "function",
       "name": "compute_scale",
-      "description": "Compute a size scale. Resolve a numeric attribute's value range over the layer's effective result (filters respected) and map it onto an output range. Returns a scale to merge into the style — `pointRadiusBy` for point radius, `strokeWidthBy` for line width, or (with unit 'm') `heightBy` for polygon extrusion in meters. The sibling of the paint operation, for the size channels.",
+      "description": "Compute a size scale. Private layers and widgets are limited to the authenticated account's own maps, including for administrators. Hidden, missing or mismatched parent/child identities return not_found before query evaluation, artifact access or protected changes. New widget, timeline and layer-order references must belong to the exact map. Resolve a numeric attribute's value range over the layer's effective result (filters respected) and map it onto an output range. Returns a scale to merge into the style — `pointRadiusBy` for point radius, `strokeWidthBy` for line width, or (with unit 'm') `heightBy` for polygon extrusion in meters. The sibling of the paint operation, for the size channels.",
       "parameters": {
         "type": "object",
         "properties": {

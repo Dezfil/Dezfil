@@ -151,7 +151,7 @@ describe("the recorded map and change group match the stored history steps", () 
   it("two maps in one turn share the group; an excluded mutation exposes neither; a no-op update writes no step", async () => {
     const { map, builder } = await seed();
     const other = createMap(testAccountScope(), "Other map");
-    const layer = await createLayer(other.id, { name: "Facts", sql: "SELECT * FROM facts" });
+    const layer = await createLayer(testAccountScope(), other.id, { name: "Facts", sql: "SELECT * FROM facts" });
     const { stream, runId } = await turn([
       { text: "", toolCalls: [
         { id: "rename-a", name: "update_map", args: { id: map.id, name: "A renamed" } },
@@ -226,7 +226,7 @@ describe("declined and superseded decisions stay in the record too", () => {
 describe("the recorded subject and inputs", () => {
   it("a fill computation and a rename are inspectable through their retained inputs and words", async () => {
     const { map, builder } = await seed();
-    const layer = await createLayer(map.id, { name: "Facts", sql: "SELECT * FROM facts" });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "Facts", sql: "SELECT * FROM facts" });
     const { stream, runId } = await turn([
       { text: "", toolCalls: [
         { id: "fill-1", name: "compute_fill", args: { id: layer.id, attribute: "value", method: "quantile", classes: 3 } },
@@ -245,7 +245,7 @@ describe("the recorded subject and inputs", () => {
   });
   it("renaming the subject afterwards leaves the recorded subject unchanged", async () => {
     const { map, builder } = await seed();
-    const layer = await createLayer(map.id, { name: "Facts", sql: "SELECT * FROM facts" });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "Facts", sql: "SELECT * FROM facts" });
     const { runId } = await turn([
       { text: "", toolCalls: [{ id: "read-1", name: "get_layer", args: { id: layer.id } }] },
       { text: "Done", toolCalls: [] },

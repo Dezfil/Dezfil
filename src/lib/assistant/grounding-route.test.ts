@@ -71,7 +71,7 @@ async function seedMap() {
   const csv = path.join(dir, "facts.csv"); await writeFile(csv, "city,lon,lat,value\nBerlin,13.4,52.5,4\n");
   await ingestFile(testAccountScope(), csv, "facts.csv");
   const map = createMap(testAccountScope(), "Original map");
-  const layer = await createLayer(map.id, { name: "Chosen layer", sql: "SELECT * FROM facts" });
+  const layer = await createLayer(testAccountScope(), map.id, { name: "Chosen layer", sql: "SELECT * FROM facts" });
   return { map, layer, context: { page: "builder", mapId: map.id, selectedLayerId: layer.id } as const };
 }
 
@@ -84,7 +84,7 @@ describe("grounding through real message and resource routes", () => {
     expect(first.catalogue.items[0]).toMatchObject({ name: "facts", rowCount: 1, geometryColumn: "geometry", geometryType: "POINT" });
     expect(first.catalogue.items[0].columns.map((column: { name: string }) => column.name)).toContain("value");
     await updateMap(testAccountScope(), map.id, { name: "Changed map" });
-    await updateLayer(layer.id, { name: "Changed layer", visible: false });
+    await updateLayer(testAccountScope(), layer.id, { name: "Changed layer", visible: false });
     const nextCsv = path.join(dir, "new.csv"); await writeFile(nextCsv, "new_column\ncurrent\n"); await ingestFile(testAccountScope(), nextCsv, "new.csv");
     const second = await send(context);
     expect(second.map).toMatchObject({ name: "Changed map", layers: { items: [{ name: "Changed layer", visible: false }] } });
@@ -101,7 +101,7 @@ describe("grounding through real message and resource routes", () => {
     const pending = events.find((event) => event.type === "confirm_required").id;
     expect(pendingActions.peek(pending)?.calls[0].args).toEqual({ id: layer.id });
     await updateMap(testAccountScope(), map.id, { name: "Name changed while pending" });
-    await updateLayer(layer.id, { visible: false });
+    await updateLayer(testAccountScope(), layer.id, { visible: false });
     const csv = path.join(dir, "later.csv"); await writeFile(csv, "later_column\n9\n"); await ingestFile(testAccountScope(), csv, "later.csv");
     const response = await post({ resolution: { pending, approved: false } });
     expect(response.status).toBe(200); await response.text();

@@ -34,12 +34,12 @@ it("clear keeps every source and identity, repeats as a no-op and permits reappl
 it("set, change, preview and clear preserve both undo and redo plus authored layer SQL/style", async () => {
   const t = await stored("SELECT 'POINT (10 20)' payload, 30 x, 40 y");
   const map = createMap(testAccountScope(), "Geometry map");
-  const layer = await createLayer(map.id, { name: "Points", sql: `SELECT ST_GeomFromText(payload) geometry FROM ${t.name}` });
+  const layer = await createLayer(testAccountScope(), map.id, { name: "Points", sql: `SELECT ST_GeomFromText(payload) geometry FROM ${t.name}` });
   updateMap(testAccountScope(), map.id, { name: "Renamed", basemap: "dark" });
   await undoChange(testAccountScope(), map.id);
   expect(mapHistory(testAccountScope(), map.id)).toEqual({ canUndo: true, canRedo: true });
   const history = metadataDb().prepare("SELECT * FROM map_history ORDER BY seq").all();
-  const beforeLayer = requireLayer(layer.id);
+  const beforeLayer = requireLayer(testAccountScope(), layer.id);
   const beforeMap = metadataDb().prepare("SELECT * FROM maps WHERE id = ?").get(map.id);
   const first = await setGeometry(t.name, geometryRevision(t), { format: "wkt", columns: ["payload"] });
   await previewGeometry(t.name, first.revision, { format: "pair", columns: ["x", "y"] });
@@ -47,7 +47,7 @@ it("set, change, preview and clear preserve both undo and redo plus authored lay
   await clearGeometry(t.name, change.revision);
   expect(metadataDb().prepare("SELECT * FROM map_history ORDER BY seq").all()).toEqual(history);
   expect(metadataDb().prepare("SELECT * FROM maps WHERE id = ?").get(map.id)).toEqual(beforeMap);
-  expect(requireLayer(layer.id)).toEqual(beforeLayer);
+  expect(requireLayer(testAccountScope(), layer.id)).toEqual(beforeLayer);
   expect(mapHistory(testAccountScope(), map.id)).toEqual({ canUndo: true, canRedo: true });
 });
 it.each(["consumed-wkt", "assumed-parquet", "shapefile-no-prj"])("%s accepts its first projection correction, then explains second-change and clear refusal", async kind => {

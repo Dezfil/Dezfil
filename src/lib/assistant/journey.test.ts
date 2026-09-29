@@ -746,7 +746,7 @@ describe("assistant journey (exit gate)", () => {
   it("undoes a whole assistant turn as one step", async () => {
     // State built ahead of the turn: a map with a visible layer on Auto.
     const map = createMap(testAccountScope(), "Undoable");
-    const layer = await createLayer(map.id, {
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "Stations",
       sql: "SELECT name, geometry FROM stations",
     });
@@ -765,7 +765,7 @@ describe("assistant journey (exit gate)", () => {
       ],
       "hide the stations and make the basemap dark",
     );
-    expect(requireLayer(layer.id).visible).toBe(false);
+    expect(requireLayer(testAccountScope(), layer.id).visible).toBe(false);
     expect(requireMap(testAccountScope(), map.id).basemap).toBe("dark");
 
     // "undo that" — one undo call reverts the whole turn.
@@ -787,7 +787,7 @@ describe("assistant journey (exit gate)", () => {
     };
     expect(undone.ok).toBe(true);
     expect(undone.body.history.canRedo).toBe(true);
-    expect(requireLayer(layer.id).visible).toBe(true);
+    expect(requireLayer(testAccountScope(), layer.id).visible).toBe(true);
     expect(requireMap(testAccountScope(), map.id).basemap).toBeNull();
   });
 
@@ -804,7 +804,7 @@ describe("assistant journey (exit gate)", () => {
     );
     await ingestFile(testAccountScope(), pings, "pings.csv");
     const map = createMap(testAccountScope(), "Trips");
-    const layer = await createLayer(map.id, {
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "Pings",
       sql: "SELECT name, seen, geometry FROM pings",
     });
@@ -837,7 +837,7 @@ describe("assistant journey (exit gate)", () => {
       ],
       "animate this map by seen",
     );
-    expect(requireLayer(layer.id).filters).toEqual([
+    expect(requireLayer(testAccountScope(), layer.id).filters).toEqual([
       { field: "seen", kind: "timerange", min: null, max: null },
     ]);
     expect(requireMap(testAccountScope(), map.id).timeline).toEqual({
@@ -995,7 +995,7 @@ describe("confirmation contract", () => {
 
   it("an approved turn is one undo step across the pause", async () => {
     const map = createMap(testAccountScope(), "Voyage");
-    const layer = await createLayer(map.id, {
+    const layer = await createLayer(testAccountScope(), map.id, {
       name: "Stations",
       sql: "SELECT name, geometry FROM stations",
     });
@@ -1021,7 +1021,7 @@ describe("confirmation contract", () => {
       "rename the layer, publish, then retitle the map",
     );
     await h.resume(pendingIdOf(h.events), true);
-    expect(requireLayer(layer.id).name).toBe("All stations");
+    expect(requireLayer(testAccountScope(), layer.id).name).toBe("All stations");
     expect(requireMap(testAccountScope(), map.id).name).toBe("Voyage, live");
 
     // "undo that" — one undo reverts the edits before and after the pause.
@@ -1035,7 +1035,7 @@ describe("confirmation contract", () => {
       ],
       "undo that",
     );
-    expect(requireLayer(layer.id).name).toBe("Stations");
+    expect(requireLayer(testAccountScope(), layer.id).name).toBe("Stations");
     expect(requireMap(testAccountScope(), map.id).name).toBe("Voyage");
 
     // …and one redo restores the whole turn.
@@ -1049,7 +1049,7 @@ describe("confirmation contract", () => {
       ],
       "redo that",
     );
-    expect(requireLayer(layer.id).name).toBe("All stations");
+    expect(requireLayer(testAccountScope(), layer.id).name).toBe("All stations");
     expect(requireMap(testAccountScope(), map.id).name).toBe("Voyage, live");
   });
 
