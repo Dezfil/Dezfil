@@ -86,10 +86,11 @@ async function evalCount(name: string): Promise<number> {
 /** Register a map + layer whose SQL references the table, plus a tile record. */
 function seedDependentLayer(table: string, layerId: string): void {
   const db = metadataDb();
+  const scope = testAccountScope(db);
   const now = new Date().toISOString();
   db.prepare(
-    `INSERT INTO maps (id, name, created_at, updated_at) VALUES (?, 'm', ?, ?)`,
-  ).run(`map-${layerId}`, now, now);
+    `INSERT INTO maps (id, name, created_at, updated_at, owner_id) VALUES (?, 'm', ?, ?, ?)`,
+  ).run(`map-${layerId}`, now, now, scope.accountId);
   db.prepare(
     `INSERT INTO layers (id, map_id, name, sql, style, ordinal, created_at, updated_at)
      VALUES (?, ?, 'l', ?, '{}', 0, ?, ?)`,

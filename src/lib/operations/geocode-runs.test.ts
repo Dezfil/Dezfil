@@ -1,4 +1,4 @@
-import { testAccountScope } from "@/lib/test-support/accounts";
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import {
@@ -590,7 +590,7 @@ describe("a dry run touches nobody", () => {
   it("answers the admitted row count and the fixed point output, asking nothing", async () => {
     const { POST } = await import("@/app/api/operations/run/route");
     const response = await POST(
-      new Request("http://test/api/operations/run", {
+      testAccountRequest(new Request("http://test/api/operations/run", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -598,7 +598,7 @@ describe("a dry run touches nobody", () => {
           dryRun: true,
           parameters: { input: "addresses", column: "address" },
         }),
-      }),
+      })),
     );
     expect(response.status).toBe(200);
     const body = (await response.json()) as {
