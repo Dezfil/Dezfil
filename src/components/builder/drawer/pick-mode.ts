@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { onPrivateReset } from "../../auth/private-state";
 
 /**
  * Select mode: the armed state that lets the next eligible layer card — or a
@@ -72,6 +73,7 @@ export function disarmPick(): void {
     document.removeEventListener("keydown", onEscape, { capture: true });
   publish({ armed: null, refusal: null });
 }
+onPrivateReset(disarmPick);
 
 /**
  * Offer a layer to the armed pick. Returns true when the click was consumed

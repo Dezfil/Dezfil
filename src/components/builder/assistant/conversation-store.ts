@@ -1,6 +1,7 @@
 import type { PendingReceipt } from "@/lib/assistant/runs";
 import { emptyTurn, type LiveTurn, type Turn, type TurnOrigin } from "./assistant-turn-state";
 import type { PaneFailure } from "./assistant-words";
+import { onPrivateReset, privateStateOpen } from "../../auth/private-state";
 
 /**
  * The conversation, as browser state retained across same-tab
@@ -49,6 +50,7 @@ const initial = (): ConversationState => ({ turns: [], input: "", live: emptyTur
 export const LOCATOR_KEY = "dezfil.assistant.active";
 type Locator = Pick<ActiveTurn, "id" | "message" | "origin">;
 function readLocator(): Locator | null {
+  if (!privateStateOpen()) return null;
   try {
     const raw = typeof sessionStorage === "undefined" ? null : sessionStorage.getItem(LOCATOR_KEY);
     if (!raw) return null;
@@ -79,6 +81,7 @@ export class ConversationStore {
    * writes the locator before dispatch; clearing it clears the locator. */
   get active(): ActiveTurn | null { return this.current; }
   set active(value: ActiveTurn | null) {
+    if (!privateStateOpen()) return;
     this.current = value;
     writeLocator(value);
   }
@@ -106,6 +109,7 @@ export class ConversationStore {
     if (sentences.length) this.set((s) => ({ announcements: [...s.announcements, ...sentences] }));
   }
   set(patch: Partial<ConversationState> | ((state: ConversationState) => Partial<ConversationState>)) {
+    if (!privateStateOpen()) return;
     const next = typeof patch === "function" ? patch(this.state) : patch;
     this.state = { ...this.state, ...next };
     for (const listener of this.listeners) listener();
@@ -124,13 +128,15 @@ export class ConversationStore {
   clear() {
     this.set({ turns: [], live: emptyTurn(), input: "", announcements: [], error: null });
   }
-  /** A fresh tab's state, for tests and for nothing else. */
-  resetForTests() {
+  reset() {
+    this.flight?.abort();
     this.state = initial();
-    this.active = null; this.restored = false; this.pendingMessage = ""; this.pendingOrigin = undefined; this.flight = null; this.locked = false; this.stoppedPending = null; this.stopAfterFlight = null;
+    this.current = null; writeLocator(null); this.restored = false; this.pendingMessage = ""; this.pendingOrigin = undefined; this.flight = null; this.locked = false; this.stoppedPending = null; this.stopAfterFlight = null;
     for (const listener of this.listeners) listener();
   }
+  resetForTests() { this.reset(); }
 }
 
 /** The tab's one conversation. */
 export const conversation = new ConversationStore();
+onPrivateReset(() => conversation.reset());

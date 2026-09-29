@@ -10,6 +10,7 @@ import { ErrorNote } from "./ui/ErrorNote";
 import { SignOutIcon } from "./ui/icons";
 import { accountRequest, failureMessage } from "./settings/api";
 import styles from "@/app/(workspace)/layout.module.css";
+import { accountChanged } from "./auth/private-state";
 
 /** Profile changes refresh the rail without a navigation. */
 export const DISPLAY_NAME_EVENT = "dezfil:display-name";
@@ -28,8 +29,8 @@ export function UserBadge({ account }: { account: Account | null }) {
     setBusy(true); setError(null);
     try {
       await accountRequest("/api/auth/sign-out", "POST");
-      // A full navigation discards all account-specific component state.
-      window.location.assign("/sign-in");
+      accountChanged();
+      window.location.replace(new URL("/sign-in", window.location.origin).href);
     } catch (error) { setError(failureMessage(error)); setBusy(false); }
   }
   return <div className={styles.accountRow}>

@@ -3,11 +3,13 @@
 import { useReducer, type ReactNode } from "react";
 import { ChevronIcon } from "../ui/icons";
 import panel from "./panel.module.css";
+import { onPrivateReset } from "../auth/private-state";
 
 /** Collapsed sections per layer — module scope so the choice
  * survives the panel unmounting when a layer is deselected, and dies with
  * the page: a reload starts all-expanded again. */
 const collapsedByLayer = new Map<string, Set<string>>();
+onPrivateReset(() => collapsedByLayer.clear());
 
 /**
  * One foldable section of the layer panel: the shared uppercase header

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { onPrivateReset, privateStateOpen } from "../auth/private-state";
 
 /**
  * Project names for the shell's path: one cached read of the projects
@@ -16,6 +17,7 @@ export const PROJECTS_CHANGED_EVENT = "dezfil:projects-changed";
 let cache: Map<string, string> | null = null;
 let inflight: Promise<Map<string, string>> | null = null;
 let generation = 0;
+onPrivateReset(() => { cache = null; inflight = null; generation++; });
 
 // The EVENT is the invalidation contract, not the function: any
 // dispatcher — another bundle, a test — must drop the cache, and this
@@ -48,8 +50,8 @@ function resolve(): Promise<Map<string, string>> {
         // A superseded read never writes; its caller still receives the
         // names it asked for, and the invalidation event has already
         // triggered the fresh read that will correct the render.
-        if (started === generation) cache = names;
-        return names;
+        if (started === generation && privateStateOpen()) { cache = names; return names; }
+        return new Map<string, string>();
       })
       .finally(() => {
         // Only this read may clear the slot — an invalidation may have
@@ -75,11 +77,13 @@ export function useProjectName(id: string | null): string | null {
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
+    let version = 0;
     const read = () => {
+      const requested = ++version;
       void resolve().then((resolved) => {
         // A fresh Map each settle: the state change must be visible even
         // when the underlying cache object was reused.
-        if (!cancelled) setNames(new Map(resolved));
+        if (!cancelled && requested === version) setNames(new Map(resolved));
       });
     };
     read();

@@ -12,6 +12,10 @@ it("documents each authentication operation with matching security and a deliber
   }
   expect(doc.components.securitySchemes.CookieSession).toMatchObject({ in: "cookie", name: "dezfil_session" });
   expect(doc.components.securitySchemes.BearerToken).toMatchObject({ type: "http", scheme: "bearer" });
+  for (const scheme of Object.values(doc.components.securitySchemes)) {
+    expect(scheme.description).toContain("X-Dezfil-Account");
+    expect(scheme.description).toContain("never supplies identity or changes ownership");
+  }
 });
 it("documents every entry refusal and its retry fields without exposing password material in account reads", () => {
   const doc = buildOpenApiDocument();

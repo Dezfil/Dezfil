@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { onPrivateReset } from "../../auth/private-state";
 import {
   armedPickLabel,
   disarmPick,
@@ -75,6 +76,7 @@ let cancelDraft: (() => boolean) | null = null;
 let undoHandler: (() => void) | null = null;
 /** The session's close — announces and clears the session. */
 let closeHandler: (() => void) | null = null;
+onPrivateReset(() => { resetDraw(); cancelDraft = null; undoHandler = null; closeHandler = null; });
 
 export function registerDraftCancel(fn: (() => boolean) | null): void {
   cancelDraft = fn;

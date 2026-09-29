@@ -36,6 +36,14 @@ bearer token. Setup, sign-in and link redemption are public entry operations;
 cookie mutations and entry submissions require a matching request Origin.
 Run the instance behind your own network controls.
 
+Authenticated requests may carry `X-Dezfil-Account` with the expected account
+ID. A mismatch returns `401 authentication_required` before dispatch. Like the
+credential itself, this is a transport precondition, not an operation input;
+it never selects an owner or grants access. The browser uses it to fence work
+started before a cookie changes. The workspace checks `/api/auth/session`
+before mounting, clears private drafts and retained results on account changes,
+and reloads cached back-navigation pages through the existing access checks.
+
 The published surface remains anonymous. `GET /api/published/{token}`
 and its siblings are the read-only, anonymous face of a map someone chose to
 publish. The token is 22 random characters (`src/lib/publish/token.ts`), it

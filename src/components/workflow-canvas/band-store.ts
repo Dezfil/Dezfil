@@ -1,3 +1,5 @@
+import { privateStateOpen } from "../auth/private-state";
+
 /**
  * The results band's state per viewer: whether it is open, kept in the
  * browser's storage, never on the server. Absent until a viewer ever had
@@ -16,6 +18,7 @@ export interface BandState {
 }
 
 export function readBand(): BandState {
+  if (!privateStateOpen()) return { open: null, height: null };
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return { open: null, height: null };
@@ -30,6 +33,7 @@ export function readBand(): BandState {
 }
 
 export function writeBand(state: BandState): void {
+  if (!privateStateOpen()) return;
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
   } catch {

@@ -63,3 +63,17 @@ it("refuses unsealed request provenance before either entry can mint a scope", a
   await expect(requirePageScope(db)).rejects.toMatchObject({ code: "ingress_unavailable" });
   expect(page.redirect).not.toHaveBeenCalled();
 });
+
+it.each(["session", "token"])("refuses an obsolete client account precondition with a valid %s", async kind => {
+  const input = testAccountRequest(request(), db, "bob");
+  if (kind === "token") {
+    const token = createApiToken(requireRequestAuth(input, db), "Access", db);
+    input.headers.delete("cookie"); input.headers.set("authorization", `Bearer ${token.secret}`);
+  }
+  input.headers.set("x-dezfil-account", "alice");
+  expect(() => requireRequestScope(input, db)).toThrow(expect.objectContaining({ code: "authentication_required" }));
+  page.headers.mockResolvedValue(input.headers);
+  await expect(requirePageScope(db)).rejects.toThrow("redirect:/sign-in");
+  input.headers.set("x-dezfil-account", "bob");
+  expect(requireRequestScope(input, db).accountId).toBe("bob");
+});

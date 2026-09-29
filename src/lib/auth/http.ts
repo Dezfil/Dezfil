@@ -40,6 +40,10 @@ export function requireRequestAuth(request: Request, db?: Database): AuthContext
   if (!request.headers.has("authorization")) assertRequestOrigin(request);
   const context = requestAuth(request, db);
   if (!context) throw new AuthError("authentication_required", "Sign in to continue.", 401);
+  const expectedAccount = request.headers.get("x-dezfil-account");
+  if (expectedAccount !== null && expectedAccount !== context.account.id) {
+    throw new AuthError("authentication_required", "Sign in to continue.", 401);
+  }
   assertRequestOrigin(request, context);
   return context;
 }
