@@ -3,9 +3,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { GET as assistantStatusHandler } from "@/app/api/assistant/route";
-import { GET as configGet } from "@/app/api/config/route";
+import { GET as configHandler } from "@/app/api/config/route";
 
 const assistantStatus = authenticatedRoute(assistantStatusHandler);
+const configGet = authenticatedRoute(configHandler);
 
 /**
  * Credential-leak sweep: the model credential appears in no API response

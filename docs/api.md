@@ -64,6 +64,15 @@ plus the shared instance name. Only admins may change the instance name.
 Every field in a patch is validated and authorized before any write.
 `/api/palettes` manages saved color palettes.
 
+Built-in and configured basemaps, the palette catalogue, geometry projections,
+the API reference, operation catalogue and offered assistant models are shared
+instance resources. They require authentication but have no owner filter.
+Any authenticated account can create or delete a saved custom palette,
+including one created by another account. Deleting a palette keeps existing
+layer colors. A map's own styles and custom basemap remain private to its owner,
+including when another caller is an admin. Model and geocoder credentials are
+server settings; catalogue responses never return their secret values.
+
 **Settings compatibility change.** `/api/settings` now requires authentication
 and returns `401` for missing or invalid credentials. `displayName` and
 `viewPrefs` belong to the caller's account; first-account setup adopts legacy

@@ -60,7 +60,7 @@ it("all five actual handlers return the documented envelopes and tools forward b
     const choice={format:"pair",columns:["y","x"],epsg:4326};
     const forwarded:typeof fetch=async(input,init)=>{
       const request=new Request(String(input),init),url=new URL(request.url);
-      if(name==="list_geometry_projections") return projections(request);
+      if(name==="list_geometry_projections") return projections(testAccountRequest(request));
       if(name==="clear_table_geometry") { expect(url.searchParams.get("expectedRevision")).toBe(revision);return resource.DELETE(testAccountRequest(request),context(table.name)); }
       expect(await request.clone().json()).toEqual({expectedRevision:revision,choice});
       return name==="preview_table_geometry" ? preview(testAccountRequest(request),context(table.name)) : resource.PUT(testAccountRequest(request),context(table.name));
@@ -120,8 +120,8 @@ it("invalid bodies, unavailable columns, projection issues and contention have s
   beginRefresh(refreshUnit(testAccountScope(), t),t.name);
   try {const response=await resource.PUT(testAccountRequest(req("PUT",good)),context(t.name));expect(response.status).toBe(409);expect(await response.json()).toMatchObject({error:{code:"geometry_in_flight"}});} finally {endRefresh(refreshUnit(testAccountScope(), t));}
   expect(getTableByName(t.name)).toEqual(t);
-  expect((await projections(req("GET",undefined,"?epsg=999999999"))).status).toBe(422);
-  expect((await projections(req("GET",undefined,"?epsg=not-code"))).status).toBe(400);
+  expect((await projections(testAccountRequest(req("GET",undefined,"?epsg=999999999")))).status).toBe(422);
+  expect((await projections(testAccountRequest(req("GET",undefined,"?epsg=not-code")))).status).toBe(400);
 });
 it("response schemas require every preview/mutation fact and bound corresponding rows",()=>{
   const s=buildOpenApiDocument().components.schemas;

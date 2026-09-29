@@ -11,7 +11,8 @@ import { setLookDriverForTests } from "@/lib/export/map-look";
 import { encodePng } from "@/lib/export/png-codec";
 import type { RenderDriver } from "@/lib/export/render-image";
 import { validateAgainstSchema, type Definitions, type Schema } from "@/lib/export/schema-validate";
-import { GET as openApiRead } from "@/app/api/openapi.json/route";
+import { GET as openApiHandler } from "@/app/api/openapi.json/route";
+import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { buildTools } from "@/lib/tools/tools";
 import { buildOpenApiDocument } from "./openapi";
 import { builderContext } from "@/components/builder/assistant/builder-context";
@@ -42,6 +43,7 @@ import { dispatchAssistantTestRoute } from "@/lib/assistant/testing/route-dispat
  */
 
 const origin = "http://127.0.0.1:3392";
+const openApiRead = authenticatedRoute(openApiHandler);
 const FIXTURE = encodePng({ width: 1024, height: 640, rgba: new Uint8Array(1024 * 640 * 4).map((_, i) => (i % 4 === 3 ? 255 : (i >> 4) & 0xff)) });
 let dir: string;
 let mapId: string;

@@ -132,6 +132,7 @@ export function buildOpenApiDocument() {
       "/api/config": {
         get: op({
           summary: "Runtime client configuration",
+          description: "Instance-wide basemaps, built-in palettes and client limits, shared by every authenticated account. Includes deployment-configured basemap choices and provider availability, never server-side AI or geocoder credentials. Private, no-store.",
           tag: "System",
           tool: "get_config", mcp: LOCAL_READ,
           display: {"verb": "Read the instance configuration"},
@@ -167,7 +168,7 @@ export function buildOpenApiDocument() {
         get: op({
           summary: "List palettes",
           description:
-            "The full palette offer: the curated catalogue " +
+            "Shared by every authenticated account. The full palette offer: the curated catalogue " +
             "plus every saved custom palette. Either kind's name works as " +
             "`palette` in the fill operation.",
           tag: "System",
@@ -180,7 +181,7 @@ export function buildOpenApiDocument() {
         post: op({
           summary: "Save a custom palette",
           description:
-            "Save a named gradient of ordered color stops. " +
+            "Every authenticated account may save a named gradient of ordered color stops. " +
             "Instance-global: it appears in every map's picker and works " +
             "in continuous and classified fills alike. Returns the saved " +
             "palette with its assigned name.",
@@ -235,7 +236,7 @@ export function buildOpenApiDocument() {
         delete: op({
           summary: "Delete a custom palette",
           description:
-            "Remove a saved custom palette from the picker. " +
+            "Every authenticated account may remove any saved custom palette from the shared picker. " +
             "Styles that used it keep rendering — their colors were baked " +
             "in at classification time. Curated palettes cannot be deleted.",
           tag: "System",
@@ -264,6 +265,7 @@ export function buildOpenApiDocument() {
       "/api/openapi.json": {
         get: op({
           summary: "This OpenAPI description",
+          description: "The same API reference for every authenticated account. Contains operation contracts, never private resource listings or credential values. Private, no-store.",
           tag: "System",
           tool: "get_api_description", mcp: LOCAL_READ,
           display: {"verb": "Read the API description"},
@@ -284,7 +286,7 @@ export function buildOpenApiDocument() {
         get: op({
           summary: "List the operations this instance offers",
           description:
-            "The operation catalog, as data: each verb's id, group, the " +
+            "The instance-wide operation catalog, shared by every authenticated account: each verb's id, group, the " +
             "input geometry it accepts, and its parameters. Read this to " +
             "discover what may be passed to the run endpoint.",
           tag: "Operations",

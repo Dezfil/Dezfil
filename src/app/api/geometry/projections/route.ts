@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { errorResponse } from "@/lib/api/errors";
+import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
 import { listProjections } from "@/lib/geometry/projections";
 import { geometryQuery } from "@/lib/geometry/request";
 
 export async function GET(request: Request) {
   try {
+    requireRequestAuth(request);
     const epsg = geometryQuery(request, ["epsg"]).get("epsg");
-    return NextResponse.json(await listProjections(epsg ?? undefined));
-  } catch (error) { return errorResponse(error); }
+    return privateResponse(NextResponse.json(await listProjections(epsg ?? undefined)));
+  } catch (error) { return authFailure(error); }
 }
