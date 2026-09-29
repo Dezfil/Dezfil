@@ -712,3 +712,20 @@ it.each(["cookie", "token"])("MCP and assistant %s SQL use independent same-name
     }
   } finally { resetQueryInstance(); }
 });
+
+it.each(["cookie", "token"])("REST, MCP and assistant %s refuse file SQL before evaluation", async mode => {
+  actualApi();
+  const { resetQueryInstance } = await import("@/lib/duckdb"); resetQueryInstance();
+  const headers = mode === "cookie" ? cookie(member.secret) : { authorization: `Bearer ${createApiToken(authenticateSession(member.secret, db)!, "SQL refusal", db).secret}` };
+  try {
+    for (const sql of ["SELECT * FROM read_parquet('missing.parquet')", "SELECT * FROM query('SELECT * FROM read_text(''missing'')')", "SELECT sql FROM duckdb_views()", "SELECT ST_Transform(ST_Point(1, 2), '+init=missing:local +type=crs', 'EPSG:4326', true)", "SELECT ST_Transform(ST_Point(1, 2), '+init=' || 'missing:local +type=crs', 'EPSG:4326', true)"] ) {
+      const response = await sqlQuery(request("/api/query", "POST", { sql }, headers));
+      expect(response.status).toBe(400); expect(await response.json()).toMatchObject({ error: { code: "sql_rejected" } });
+      expect(await rpc("run_sql", { sql }, headers)).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "sql_rejected" } } } });
+      factory.provider = stubProvider([{ text: "", toolCalls: [{ id: "refused-sql", name: "run_sql", args: { sql } }] }, { text: "Done", toolCalls: [] }]);
+      const events = await send({ runId: await ownReservation(headers), message: "Run the supplied SQL" }, headers);
+      expect(events).toContainEqual(expect.objectContaining({ type: "tool_result", tool: "run_sql", ok: false,
+        body: expect.objectContaining({ error: expect.objectContaining({ code: "sql_rejected" }) }) }));
+    }
+  } finally { resetQueryInstance(); }
+});

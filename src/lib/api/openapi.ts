@@ -1,3 +1,4 @@
+import { SQL_POLICY, SQL_QUERY } from "./openapi-sql";
 import { PUBLICATION_ADMIN_PATHS, publicationAccess } from "./openapi-publications";
 import { resultAccess } from "./openapi-result-access";
 import { JOB_PATHS } from "./openapi-jobs";
@@ -302,7 +303,8 @@ export function buildOpenApiDocument() {
         post: op({
           summary: "Run read-only SQL",
           description:
-            "Only read-only SELECT queries are accepted. Named datasets resolve only " +
+            SQL_POLICY + " " +
+            "Named datasets resolve only " +
             "inside the authenticated account, including catalog-qualified names " +
             "and query()/query_table() expressions. Each evaluation uses fresh " +
             "connection-local views on one shared hardened engine. Returns a capped " +
@@ -323,7 +325,7 @@ export function buildOpenApiDocument() {
                 schema: {
                   type: "object",
                   properties: {
-                    sql: { type: "string" },
+                    sql: SQL_QUERY,
                     geometry: {
                       type: "string",
                       enum: ["wkt", "geojson"],
@@ -369,7 +371,7 @@ export function buildOpenApiDocument() {
                 schema: {
                   type: "object",
                   properties: {
-                    sql: { type: "string" },
+                    sql: SQL_QUERY,
                     format: {
                       type: "string",
                       enum: ["geoparquet", "geojson", "csv"],

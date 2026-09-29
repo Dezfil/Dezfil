@@ -508,8 +508,7 @@ describe("query bounds — the export lane", () => {
         "csv",
       ),
     ).rejects.toMatchObject({ code: "sql_rejected" });
-    // …and user SQL cannot read outside the fence — the main instance
-    // would serve this path; the hardened one refuses it.
+    // File SQL is refused before binding, even when the path exists.
     await expect(
       exportLayerResult(
         testAccountScope(), {
@@ -522,7 +521,7 @@ describe("query bounds — the export lane", () => {
         },
         "csv",
       ),
-    ).rejects.toMatchObject({ code: "sql_error" });
+    ).rejects.toMatchObject({ code: "sql_rejected" });
   }, 30_000);
 });
 

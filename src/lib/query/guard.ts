@@ -1,5 +1,8 @@
+import { projectionRejection } from "./projection-policy";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { ApiError } from "@/lib/api/errors";
+import { parseSql, sqlText } from "./sql-tree";
+import { enforceFilePolicy } from "./file-policy";
 import { offsetPosition } from "./engine-message";
 
 /**
@@ -27,13 +30,13 @@ export async function assertReadOnlySelect(
   conn: DuckDBConnection,
   sql: string,
 ): Promise<void> {
-  const reader = await conn.runAndReadAll(
-    "SELECT json_serialize_sql(?::VARCHAR) AS j",
-    [sql],
-  );
-  const parsed = JSON.parse(
-    String(reader.getRowObjects()[0].j),
-  ) as SerializedSql;
+  await readOnlySql(conn, sql);
+}
+
+/** The admitted SQL freezes dynamic targets without changing stored SQL. */
+export async function readOnlySql(conn: DuckDBConnection, sql: string): Promise<string> {
+  const tree = await parseSql(conn, sql);
+  const parsed = tree as unknown as SerializedSql;
 
   if (parsed.error) {
     // The parser accepted the syntax but it is not a SELECT statement.
@@ -57,5 +60,11 @@ export async function assertReadOnlySelect(
       "Send exactly one statement per query.",
       400,
     );
+  }
+  try {
+    const changed = await enforceFilePolicy(conn, tree, nested => readOnlySql(conn, nested));
+    return changed ? await sqlText(conn, tree) : sql;
+  } catch (error) {
+    throw projectionRejection(error) ?? error;
   }
 }

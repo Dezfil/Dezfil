@@ -1,3 +1,5 @@
+import { NAMED_TABLE_FUNCTIONS } from "@/lib/query/file-policy";
+import { readOnlySql } from "@/lib/query/guard";
 import { parseSqlJson } from "@/lib/query/sql-json";
 import { qualifiedNameParts } from "@/lib/query/qualified-name";
 import type { DuckDBConnection } from "@duckdb/node-api";
@@ -28,7 +30,7 @@ import type { DuckDBConnection } from "@duckdb/node-api";
  */
 
 /** Dynamic table functions whose argument names a table, or carries SQL. */
-const NAMES_A_TABLE = new Set(["query_table"]);
+const NAMES_A_TABLE = NAMED_TABLE_FUNCTIONS;
 const CARRIES_SQL = new Set(["query"]);
 
 export interface QueryInputs {
@@ -305,7 +307,8 @@ export async function queryInputs(
   if (parsed.error || !Array.isArray(parsed.statements)) {
     return { tables: [], geometryTables: [] };
   }
-  return collectInputs(conn, parsed.statements, geometryOf);
+  const admitted = await serialize(conn, await readOnlySql(conn, sql));
+  return collectInputs(conn, admitted.statements!, geometryOf);
 }
 
 /** The strict sibling: a statement that cannot be analyzed
@@ -324,7 +327,8 @@ export async function queryInputsStrict(
         : "The statement could not be analyzed.",
     );
   }
-  return collectInputs(conn, parsed.statements, geometryOf);
+  const admitted = await serialize(conn, await readOnlySql(conn, sql));
+  return collectInputs(conn, admitted.statements!, geometryOf);
 }
 
 async function collectInputs(

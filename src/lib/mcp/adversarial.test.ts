@@ -99,7 +99,7 @@ describe("read-only enforcement through MCP", () => {
     await client.close();
   });
 
-  it("fences filesystem escapes identically through MCP", async () => {
+  it("refuses filesystem access identically through MCP", async () => {
     const client = await connectedClient();
     for (const sql of [
       "SELECT * FROM read_csv('/etc/hosts')",
@@ -107,7 +107,7 @@ describe("read-only enforcement through MCP", () => {
     ]) {
       const r = await runSql(client, sql);
       expect(r.error, sql).toBe(true);
-      expect(r.body?.error?.code, sql).toBe("sql_error");
+      expect(r.body?.error?.code, sql).toBe("sql_rejected");
     }
     await client.close();
   });

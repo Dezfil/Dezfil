@@ -73,7 +73,7 @@ describe("read-only enforcement", () => {
     await assertDataIntact();
   });
 
-  it("fences SELECT-shaped filesystem escapes to the artifact directory", async () => {
+  it("refuses SELECT-shaped filesystem access before binding", async () => {
     const escapes = [
       "SELECT * FROM read_csv('/etc/hosts')",
       "SELECT * FROM read_parquet('/etc/hosts')",
@@ -82,20 +82,20 @@ describe("read-only enforcement", () => {
     ];
     for (const sql of escapes) {
       await expect(executeQuery(testAccountScope(), sql), sql).rejects.toMatchObject({
-        code: "sql_error",
+        code: "sql_rejected",
       });
     }
-    // The metadata store sits outside the fence too.
+    // The metadata store is refused by the same parsed policy.
     const metadata = path
       .join(process.env.DEZFIL_DATA_DIR!, "metadata.sqlite")
       .replace(/'/g, "''");
     await expect(
       executeQuery(testAccountScope(), `SELECT * FROM read_text('${metadata}')`),
-    ).rejects.toMatchObject({ code: "sql_error" });
+    ).rejects.toMatchObject({ code: "sql_rejected" });
     await assertDataIntact();
   });
 
-  it("keeps the artifact directory itself readable", async () => {
+  it("keeps owned datasets readable by SQL name", async () => {
     const result = await executeQuery(testAccountScope(),
       "SELECT count(*) AS n FROM assets WHERE ST_X(geometry) > 0",
     );

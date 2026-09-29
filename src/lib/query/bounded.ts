@@ -1,3 +1,4 @@
+import { projectionRejection } from "./projection-policy";
 import { leaseStagingInputs, type StagingInput } from "./staging";
 import { requireDatasetScope, type DatasetScope } from "./access";
 import type { DuckDBConnection } from "@duckdb/node-api";
@@ -251,6 +252,8 @@ async function runBoundedEvaluation<T>(
       if (cancelled) throw new EvaluationCancelled();
       if (timedOut) throw timeoutError();
       if (isOutOfMemory(error)) throw memoryError();
+      const projection = projectionRejection(error);
+      if (projection) throw projection;
       throw error;
     } finally {
       clearTimeout(timer);

@@ -1,3 +1,4 @@
+import { projectionRejection } from "@/lib/query/projection-policy";
 import { namedSql } from "@/lib/query/named-sql";
 import type { DatasetScope } from "@/lib/query/access";
 import { boundedEvaluation, isOutOfMemory } from "@/lib/query/bounded";
@@ -447,6 +448,7 @@ export async function computeWidgetValues(
         // per-widget engine noise. The boundary's own flag decides, never
         // the message text, which user data can forge.
         if (bounds.interrupted() || isOutOfMemory(error)) throw error;
+        error = projectionRejection(error) ?? error;
         values.push({
           id: widget.id,
           error:

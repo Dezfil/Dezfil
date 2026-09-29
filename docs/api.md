@@ -238,6 +238,26 @@ serialized, and only `SELECT` statements serialize
 settings, load an extension, attach a database or write a file is refused
 with `sql_rejected`. More than one statement in a request is refused too.
 
+**Breaking SQL change:** direct file reads and path discovery are also refused
+with `sql_rejected`, regardless of ownership or whether a path exists. The parsed
+policy rejects file readers, file-relation shorthand, path-bearing settings and
+engine definitions before user targets can bind or probe the filesystem. Nested
+SQL and computed table names follow the same policy; admitted dynamic arguments
+are frozen for that evaluation. Explicit safe catalogue name/schema projections
+remain available, but definition/path columns, whole rows and stars over those
+catalogues are refused. Query uploaded data by its dataset name.
+
+Projection definitions supplied to `ST_Transform`, `ST_SetCRS` or a geometry
+type cannot reference PROJ initialization files, grid files or model files. This
+also covers computed and per-row CRS values, WKT file parameters and PROJJSON
+file parameters, before the native projection library receives them. EPSG
+identifiers and inline definitions without files remain supported.
+
+Stored SQL is not rewritten. A saved file query or affected published layer
+returns its normal error treatment until its owner changes the query to use a
+named dataset. Rendering, widgets, search, exports, materialization, REST, MCP
+and assistant calls all use this policy; search omits a failing layer as before.
+
 Second, the instance itself is locked down at creation
 (`src/lib/duckdb.ts`): extensions are loaded first and then further loading
 is disabled, external access is switched off, the filesystem is fenced to

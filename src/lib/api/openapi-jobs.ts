@@ -1,3 +1,4 @@
+import { SQL_POLICY } from "./openapi-sql";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { jobAccess } from "./openapi-job-access";
 import { LOCAL_READ, LOCAL_REPLACE, REMOTE_ADD } from "./operation-mcp";
@@ -24,6 +25,7 @@ export const JOB_PATHS = {
         "Set dryRun to ask what the operation would produce without " +
         "writing anything; a dry run is synchronous and mints no " +
         "run.\n\n" +
+        SQL_POLICY + " " +
         "**sql_step** keeps the result of a read-only SELECT as a " +
         "dataset: the escape hatch inside any recipe, and the way to " +
         "save a query you already trust. A result with no geometry is " +

@@ -1,3 +1,4 @@
+import { registerCrsValidator } from "./query/projection-policy";
 import type { DatasetScope } from "@/lib/query/access";
 import {
   DuckDBInstance,
@@ -139,6 +140,7 @@ async function createHardenedInstance(): Promise<DuckDBInstance> {
       await loadSpatial(conn);
       await loadH3(conn);
       await loadJson(conn);
+      registerCrsValidator(conn);
       // allowed_directories only applies once external access is disabled:
       // together they fence the filesystem to the artifact directory plus the
       // tile scratch directory — the one writable spot, where tile builds

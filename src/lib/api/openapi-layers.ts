@@ -1,3 +1,4 @@
+import { SQL_QUERY } from "./openapi-sql";
 import { resultAccess } from "./openapi-result-access";
 import { tileAccess } from "./openapi-tile-access";
 import { layerAccess } from "./openapi-layer-access";
@@ -468,7 +469,7 @@ export const LAYER_SCHEMAS = {
       id: { type: "string" },
       mapId: { type: "string" },
       name: { type: "string" },
-      sql: { type: "string" },
+      sql: SQL_QUERY,
       style: { $ref: "#/components/schemas/Style" },
       visible: { type: "boolean" },
       tooltip: {
@@ -540,7 +541,7 @@ export const LAYER_SCHEMAS = {
     type: "object",
     properties: {
       name: { type: "string" },
-      sql: { type: "string" },
+      sql: SQL_QUERY,
       style: { $ref: "#/components/schemas/Style" },
     },
     required: ["sql"],
@@ -549,7 +550,7 @@ export const LAYER_SCHEMAS = {
     type: "object",
     properties: {
       name: { type: "string" },
-      sql: { type: "string" },
+      sql: SQL_QUERY,
       style: { $ref: "#/components/schemas/Style" },
       visible: { type: "boolean" },
       tooltip: {

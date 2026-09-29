@@ -51,7 +51,16 @@ Named SQL runs against connection-local temporary views for its owner. Existing
 `main.table`, `memory.table`, `memory.main.table` and computed dynamic named
 references remain valid without editing saved SQL. A warm artifact metadata
 cache does not retain dataset views between evaluations. Publication queries
-retain their owner's scope even when that account is deactivated. See
+retain their owner's scope even when that account is deactivated.
+
+**Breaking SQL change:** user file readers and engine path discovery are refused
+even for an owned file or an existing path. File-referencing PROJ definitions
+(including computed CRS values, initialization files, grids and models) are
+also refused. EPSG identifiers and inline definitions without files still work. Saved SQL and publication tokens
+survive unchanged; an affected query or published layer fails until its owner
+changes the SQL to refer to an uploaded dataset by name. Review saved queries
+for file readers, file-relation shorthand and metadata definition/path access
+before upgrading. See
 [the SQL boundary](api.md#the-read-only-sql-instance) for the execution rules.
 
 ## A second isolated instance
