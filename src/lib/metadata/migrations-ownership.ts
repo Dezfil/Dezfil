@@ -88,3 +88,6 @@ export const OWNERSHIP_MIGRATION = `
   CREATE TRIGGER original_account_adopt_ownership AFTER INSERT ON original_account
     BEGIN ${stampOwners} END;
 `;
+
+/** Name-addressed dataset services now select an explicit owner. */
+export const DATASET_NAMES_MIGRATION = `DROP INDEX idx_data_tables_name_transition;`;

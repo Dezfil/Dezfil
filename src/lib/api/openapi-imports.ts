@@ -1,3 +1,4 @@
+import { datasetAccess } from "./openapi-dataset-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { REMOTE_ADD, REMOTE_READ } from "./operation-mcp";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
@@ -5,7 +6,7 @@ import { op, jsonOk } from "./openapi-helpers";
 
 export const IMPORT_PATHS = {
   "/api/imports/url": {
-    post: ownedCreationOp({
+    post: ownedCreationOp(datasetAccess({
       summary: "Import a remote file as one or more tables",
       description:
         "Reads a remote Parquet, CSV, GeoJSON, Shapefile-zip, " +
@@ -54,10 +55,10 @@ export const IMPORT_PATHS = {
       responses: {
         "201": jsonOk("#/components/schemas/ImportResult", "Created."),
       },
-    }),
+    })),
   },
   "/api/imports/overture": {
-    post: ownedCreationOp({
+    post: ownedCreationOp(datasetAccess({
       summary: "Import Overture Maps data as a table",
       description:
         "Reads one Overture theme (places, buildings, transportation, " +
@@ -152,7 +153,7 @@ export const IMPORT_PATHS = {
       responses: {
         "201": jsonOk("#/components/schemas/Table", "Created."),
       },
-    }),
+    })),
   },
   "/api/imports/overture/count": {
     post: op({
@@ -538,7 +539,7 @@ export const IMPORT_PATHS = {
     }),
   },
   "/api/imports/osm": {
-    post: ownedCreationOp({
+    post: ownedCreationOp(datasetAccess({
       summary: "Import OpenStreetMap data as tables",
       description:
         "Queries the configured Overpass endpoint and lands " +
@@ -645,7 +646,7 @@ export const IMPORT_PATHS = {
           },
         },
       },
-    }),
+    })),
   },
   "/api/imports/osm/preview": {
     post: op({

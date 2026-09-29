@@ -66,9 +66,9 @@ export interface ProjectOverview extends ProjectRecord {
   sizeComplete: boolean;
 }
 
-export async function projectsOverview(): Promise<ProjectOverview[]> {
+export async function projectsOverview(scope: AccountScope): Promise<ProjectOverview[]> {
   const counts = projectMemberCounts();
-  const tables = await listTablesWithSize();
+  const tables = await listTablesWithSize(scope);
   const sizes = new Map<string, { sum: number; complete: boolean }>();
   for (const t of tables) {
     for (const p of t.projectIds) {
@@ -89,9 +89,9 @@ export async function projectsOverview(): Promise<ProjectOverview[]> {
   }));
 }
 
-export async function projectOverview(id: string): Promise<ProjectOverview> {
+export async function projectOverview(scope: AccountScope, id: string): Promise<ProjectOverview> {
   requireProject(id);
-  const overview = (await projectsOverview()).find((p) => p.id === id);
+  const overview = (await projectsOverview(scope)).find((p) => p.id === id);
   // The project exists (checked above); a race with a concurrent delete
   // answers not-found through the same door.
   if (!overview) requireProject(id);
@@ -117,6 +117,6 @@ export async function projectMembers(scope: AccountScope, id: string): Promise<P
   return {
     maps: mapsOverview(scope, id),
     recipes,
-    tables: await listTablesWithSize(id),
+    tables: await listTablesWithSize(scope, id),
   };
 }

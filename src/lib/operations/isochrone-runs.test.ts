@@ -581,7 +581,7 @@ describe("lineage is the source's, and the fence holds", () => {
       "current",
     );
 
-    await refreshTable("origins");
+    await refreshTable(testAccountScope(), "origins");
     expect(getTableByName("origins")!.file).not.toBe(before);
     const condition = (await readStep(recipe.id, step.id)).condition;
     expect(condition.primary).toBe("stale");
@@ -613,7 +613,7 @@ describe("lineage is the source's, and the fence holds", () => {
     });
     await firstRequestSeen;
     // The source's generation moves while the provider is still thinking.
-    await refreshTable("origins");
+    await refreshTable(testAccountScope(), "origins");
     handler = null;
     release!();
     await laneSettled();

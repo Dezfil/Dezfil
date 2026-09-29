@@ -1,3 +1,6 @@
+import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
+import { getOwnedMap, getOwnedLayer, ownedMapProjectId } from "@/lib/metadata/map-queries";
+import { listOwnedTables, updateOwnedTableData, deleteOwnedTable, ownedDependentLayerIds, fileOwnedTable } from "@/lib/metadata/owned-tables";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
@@ -8,17 +11,13 @@ import { ApiError } from "@/lib/api/errors";
 import { lit, measureArtifact } from "@/lib/ingest/ingest";
 import { retireArtifact } from "@/lib/ingest/retire";
 import { metadataDb } from "@/lib/metadata/db";
-import { fileTable, mapProjectId, touchProjectsOf } from "@/lib/metadata/projects";
+import { touchProjectsOf } from "@/lib/metadata/projects";
 import {
-  deleteTable,
-  listTables,
   registerTable,
-  updateTableData,
   type DataTable,
 } from "@/lib/metadata/tables";
 import {
   deleteLayer,
-  getMap,
   insertLayer,
   nextOrdinal,
   updateMapFields,
@@ -30,7 +29,6 @@ import {
 } from "@/lib/metadata/history";
 import { removeTileArtifacts } from "@/lib/tiles/build";
 import { dropTableView } from "@/lib/query/views";
-import { dependentLayerIds } from "@/lib/table-deps";
 import { layerCycleColor } from "@/lib/style/palettes";
 import { POINTS_VIZ } from "@/lib/viz";
 import type { LayerStyle } from "@/lib/style/style";
@@ -162,9 +160,7 @@ export async function createSketch(
   requireAccountScope(scope);
   const refusal = sketchFeatureError(feature);
   if (refusal) throw new ApiError("invalid_sketch_feature", refusal, 400);
-  const map = getMap(mapId);
-  if (!map)
-    throw new ApiError("map_not_found", `No map with id "${mapId}".`, 404);
+  const map = getOwnedMap(scope, mapId);
 
   const stored: StoredSketchFeature = {
     id: randomUUID(),
@@ -177,6 +173,7 @@ export async function createSketch(
     );
     const db = metadataDb();
     const created = db.transaction(() => {
+      requireOwnedResource(scope, "map", mapId, db);
       const table = registerTable(
         scope,
         {
@@ -200,8 +197,8 @@ export async function createSketch(
       // The sketch follows its map's project as it is AT THIS COMMIT —
       // read inside the transaction, not from the map object captured
       // before the artifact build.
-      const projectId = mapProjectId(mapId, db);
-      if (projectId) fileTable(table.id, projectId, db);
+      const projectId = ownedMapProjectId(scope, mapId, db);
+      if (projectId) fileOwnedTable(scope, table.id, projectId, db);
       const ordinal = nextOrdinal(mapId, db);
       const now = new Date().toISOString();
       const layer: Layer = {
@@ -248,12 +245,13 @@ interface MutationResult {
 }
 
 async function mutate(
+  scope: AccountScope,
   name: string,
   transform: (features: StoredSketchFeature[]) => StoredSketchFeature[],
 ): Promise<MutationResult> {
-  const keyed = requireSketch(name);
+  const keyed = requireSketch(scope, name);
   return serialize(keyed.id, async () => {
-    const fresh = requireSketch(name);
+    const fresh = requireSketch(scope, name);
     // The name alone is not identity: a cascaded sketch's
     // reclaimed name resolves the REPLACEMENT, and the keyed swap would
     // then happily write an old session's feature into the new dataset.
@@ -270,7 +268,8 @@ async function mutate(
       const meta = await withConnection((conn) =>
         measureArtifact(conn, abs, "geom"),
       );
-      const swapped = updateTableData(
+      const swapped = updateOwnedTableData(
+        scope,
         { name: fresh.name, id: fresh.id },
         {
           file: rel,
@@ -307,24 +306,27 @@ async function mutate(
 }
 
 export async function appendFeature(
+  scope: AccountScope,
   name: string,
   feature: unknown,
 ): Promise<MutationResult & { featureId: string }> {
+  requireAccountScope(scope);
   const refusal = sketchFeatureError(feature);
   if (refusal) throw new ApiError("invalid_sketch_feature", refusal, 400);
   const stored: StoredSketchFeature = {
     id: randomUUID(),
     ...asSketchFeature(feature),
   };
-  const result = await mutate(name, (features) => [...features, stored]);
+  const result = await mutate(scope, name, (features) => [...features, stored]);
   return { ...result, featureId: stored.id };
 }
 
 export async function deleteFeature(
+  scope: AccountScope,
   name: string,
   featureId: string,
 ): Promise<MutationResult> {
-  return mutate(name, (features) => {
+  return mutate(scope, name, (features) => {
     if (!features.some((f) => f.id === featureId))
       throw new ApiError(
         "feature_not_found",
@@ -342,12 +344,13 @@ export async function deleteFeature(
  * fresh commit.
  */
 export async function moveVertex(
+  scope: AccountScope,
   name: string,
   featureId: string,
   vertexIndex: number,
   position: unknown,
 ): Promise<MutationResult> {
-  return mutate(name, (features) => {
+  return mutate(scope, name, (features) => {
     const feature = features.find((f) => f.id === featureId);
     if (!feature)
       throw new ApiError(
@@ -394,9 +397,10 @@ export async function moveVertex(
 /** The sketch a layer owns by recorded provenance, when it owns one —
  * the layer-delete route's cascade test (enforced at the API, not
  * inferred client-side). */
-export function sketchOwnedByLayer(layerId: string): DataTable | null {
+export function sketchOwnedByLayer(scope: AccountScope, layerId: string): DataTable | null {
+  requireOwnedResource(scope, "layer", layerId);
   return (
-    listTables().find(
+    listOwnedTables(scope).find(
       (t) => t.source === "sketch" && ownerOf(t).layerId === layerId,
     ) ?? null
   );
@@ -416,10 +420,10 @@ export interface CascadeResult {
  * step that targeted the owner leaves the timeline — replay can neither
  * restore nor error on destroyed state. Unrelated steps survive.
  */
-export async function cascadeDeleteSketch(name: string): Promise<CascadeResult> {
-  const keyed = requireSketch(name);
+export async function cascadeDeleteSketch(scope: AccountScope, name: string): Promise<CascadeResult> {
+  const keyed = requireSketch(scope, name);
   return serialize(keyed.id, async () => {
-    const fresh = requireSketch(name);
+    const fresh = requireSketch(scope, name);
     if (fresh.id !== keyed.id)
       throw new ApiError(
         "sketch_gone",
@@ -431,11 +435,14 @@ export async function cascadeDeleteSketch(name: string): Promise<CascadeResult> 
     // archive would otherwise
     // keep serving deleted rows instead of the standing missing-table
     // state. Snapshot before the registry row disappears.
-    const dependents = dependentLayerIds(fresh.name);
+    const dependents = ownedDependentLayerIds(scope, fresh.name);
     const db = metadataDb();
     db.transaction(() => {
+      requireOwnedResource(scope, "dataset", fresh.id, db);
       if (mapId && layerId) {
-        const map = getMap(mapId, db);
+        const map = getOwnedMap(scope, mapId, db);
+        const layer = getOwnedLayer(scope, layerId, db);
+        if (layer.mapId !== mapId) throw resourceAbsent();
         if (map) {
           const remaining = map.widgets.filter((w) => w.layerId !== layerId);
           if (remaining.length !== map.widgets.length)
@@ -460,7 +467,7 @@ export async function cascadeDeleteSketch(name: string): Promise<CascadeResult> 
       // cascade removes the membership row but cannot advance the
       // project's clock.
       touchProjectsOf({ tableId: fresh.id }, db);
-      deleteTable(fresh.name, db);
+      deleteOwnedTable(scope, fresh, db);
     })();
     for (const dependent of new Set([...(layerId ? [layerId] : []), ...dependents]))
       await removeTileArtifacts(dependent);

@@ -7,7 +7,8 @@ import path from "node:path";
 import { ZipFile } from "yazl";
 import { ApiError } from "@/lib/api/errors";
 import { dataDir } from "@/lib/config";
-import { listTables, type DataTable } from "@/lib/metadata/tables";
+import type { DataTable } from "@/lib/metadata/tables";
+import { listOwnedTables } from "@/lib/metadata/owned-tables";
 import { projectMemberIds, requireProject } from "@/lib/metadata/projects";
 import { mapWithLayers } from "@/lib/map-service";
 import { recipePayload } from "@/lib/operations/recipe-api";
@@ -101,7 +102,7 @@ export async function assembleProjectExport(
   const base = archiveBaseName(selection.file);
   const root = `${base}.dezfil`;
   const requestedFormat = selection.datasetFormat ?? DEFAULT_DATASET_FORMAT;
-  const byId = new Map(listTables().map((t) => [t.id, t]));
+  const byId = new Map(listOwnedTables(scope).map((t) => [t.id, t]));
   const chosenTables = tables
     .map((id) => byId.get(id))
     .filter((t): t is DataTable => t !== undefined);
@@ -219,7 +220,7 @@ export async function assembleProjectExport(
       }
       let converted: Awaited<ReturnType<typeof exportTable>>;
       try {
-        converted = await exportTable(t.name, effective);
+        converted = await exportTable(scope, t.name, effective);
       } catch (e) {
         throw new ApiError(
           "export_failed",

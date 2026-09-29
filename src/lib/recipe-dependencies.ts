@@ -1,3 +1,4 @@
+import type { AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
 import {
   currentProducers,
@@ -45,6 +46,7 @@ async function strictReads(step: StepDefinition): Promise<string[]> {
 }
 
 export async function workflowDependencies(
+  scope: AccountScope,
   recipeId: string,
 ): Promise<WorkflowDependency[]> {
   if (!getRecipe(recipeId)) {
@@ -52,7 +54,7 @@ export async function workflowDependencies(
   }
   const steps = listSteps(recipeId);
 
-  const tables = await listTablesWithSize();
+  const tables = await listTablesWithSize(scope);
   const byName = new Map(tables.map((t) => [t.name.toLowerCase(), t]));
   const byId = new Map(tables.map((t) => [t.id, t]));
   const producers = currentProducers();

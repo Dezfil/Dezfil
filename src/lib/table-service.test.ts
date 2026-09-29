@@ -86,7 +86,7 @@ describe("direct reads of retained empty geometry", () => {
     it(`serves detail, features, and every export for ${rows} geometry`, async () => {
       const name = rows === "zero" ? "zero_direct" : "null_direct";
       const stored = await seedRetainedEmpty(name, rows);
-      const detail = await inspectTable(name);
+      const detail = await inspectTable(testAccountScope(), name);
       expect(detail.columns.find((column) => column.name === "geom")?.type).toContain(
         "GEOMETRY",
       );
@@ -95,14 +95,14 @@ describe("direct reads of retained empty geometry", () => {
         rows === "zero" ? [] : [null, null],
       );
 
-      const features = await tableFeatures(name);
+      const features = await tableFeatures(testAccountScope(), name);
       expect(features).toMatchObject({ ok: true, featureCount: 0 });
 
-      const parquet = await exportTable(name, "geoparquet");
+      const parquet = await exportTable(testAccountScope(), name, "geoparquet");
       expect(parquet.path).toBe(stored.abs);
       expect(await readFile(parquet.path)).toEqual(stored.bytes);
 
-      const geojson = await exportTable(name, "geojson");
+      const geojson = await exportTable(testAccountScope(), name, "geojson");
       try {
         const collection = JSON.parse(await readFile(geojson.path, "utf8")) as {
           type: string;
@@ -119,7 +119,7 @@ describe("direct reads of retained empty geometry", () => {
         await geojson.cleanup();
       }
 
-      const csv = await exportTable(name, "csv");
+      const csv = await exportTable(testAccountScope(), name, "csv");
       try {
         const text = await readFile(csv.path, "utf8");
         expect(text).toBe(rows === "zero" ? "id,geom\n" : "id,geom\n0,\n1,\n");
@@ -145,7 +145,7 @@ describe("inspectTable", () => {
     });
     expect(storedType).toBe("GEOMETRY('OGC:CRS84')");
 
-    const inspection = await inspectTable(stored.name);
+    const inspection = await inspectTable(testAccountScope(), stored.name);
     expect(
       inspection.columns.find((column) => column.name === "geometry")?.type,
     ).toBe("GEOMETRY('EPSG:4326')");
@@ -153,7 +153,7 @@ describe("inspectTable", () => {
 
   it("returns schema and a WKT geometry preview", async () => {
     await ingestSample();
-    const inspection = await inspectTable("stations");
+    const inspection = await inspectTable(testAccountScope(), "stations");
     expect(inspection.rowCount).toBe(2);
     expect(inspection.columns.map((c) => c.name)).toEqual([
       "name",
@@ -166,7 +166,7 @@ describe("inspectTable", () => {
   });
 
   it("raises not_found for an unknown table", async () => {
-    await expect(inspectTable("nope")).rejects.toMatchObject({
+    await expect(inspectTable(testAccountScope(), "nope")).rejects.toMatchObject({
       code: "not_found",
       status: 404,
     });
@@ -180,7 +180,7 @@ describe("tableFeatures", () => {
 
   it("serves features as GeoJSON with stable ids", async () => {
     await ingestSample();
-    const result = await tableFeatures("stations");
+    const result = await tableFeatures(testAccountScope(), "stations");
     expect(result.ok).toBe(true);
     expect(result.featureCount).toBe(2);
     const fc = result.geojson as {
@@ -193,13 +193,13 @@ describe("tableFeatures", () => {
   it("refuses honestly over the render cap", async () => {
     await ingestSample();
     process.env.DEZFIL_RENDER_CAP_FEATURES = "1";
-    const result = await tableFeatures("stations");
+    const result = await tableFeatures(testAccountScope(), "stations");
     expect(result.ok).toBe(false);
     expect(result.reason).toMatch(/render cap/);
   });
 
   it("raises not_found for an unknown table", async () => {
-    await expect(tableFeatures("nope")).rejects.toMatchObject({
+    await expect(tableFeatures(testAccountScope(), "nope")).rejects.toMatchObject({
       code: "not_found",
     });
   });
@@ -210,7 +210,7 @@ describe("removeTable", () => {
     const table = await ingestSample();
     const artifact = path.join(process.env.DEZFIL_DATA_DIR!, table.file);
     await access(artifact);
-    await removeTable("stations");
+    await removeTable(testAccountScope(), "stations");
     expect(listTables()).toEqual([]);
     // The artifact retires behind in-flight readers; none here, so promptly.
     await retirementsSettled();
@@ -218,7 +218,7 @@ describe("removeTable", () => {
   });
 
   it("raises not_found when deleting an unknown table", async () => {
-    await expect(removeTable("nope")).rejects.toMatchObject({
+    await expect(removeTable(testAccountScope(), "nope")).rejects.toMatchObject({
       code: "not_found",
     });
   });
@@ -250,7 +250,7 @@ describe("removeTable", () => {
     await mkdir(path.dirname(archive), { recursive: true });
     await writeFile(archive, "pmtiles");
 
-    await removeTable("stations");
+    await removeTable(testAccountScope(), "stations");
     // The dependent stops serving the deleted data: record and archive
     // both reclaimed. The unrelated layer is untouched.
     expect(getTileRecord("layer-dep")).toBeNull();

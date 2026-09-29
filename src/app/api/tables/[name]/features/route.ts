@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
 import { tableFeatures } from "@/lib/table-service";
@@ -12,11 +13,12 @@ type Params = { params: Promise<{ name: string }> };
  */
 export async function GET(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { name } = await params;
     // ?sample=1: over-cap tables draw a capped subset instead of refusing
     // — the dataset detail's map preview opts in.
     const sample = new URL(request.url).searchParams.get("sample") === "1";
-    return NextResponse.json(await tableFeatures(name, { sample }));
+    return NextResponse.json(await tableFeatures(scope, name, { sample }));
   } catch (error) {
     return errorResponse(error);
   }

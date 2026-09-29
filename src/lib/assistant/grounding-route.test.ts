@@ -34,7 +34,7 @@ async function dispatch(request: Request): Promise<Response> {
   const url = new URL(request.url);
   contexts.push(url.pathname);
   const p = url.pathname.split("/").map(decodeURIComponent);
-  if (url.pathname === "/api/catalogue/tables") return catalogueGet(request);
+  if (url.pathname === "/api/catalogue/tables") return catalogueGet(testAccountRequest(request));
   if (p[2] === "maps" && p.length === 4) return mapGet(testAccountRequest(request), { params: Promise.resolve({ id: p[3] }) });
   if (p[2] === "maps" && p[4] === "dependencies") return dependenciesGet(testAccountRequest(request), { params: Promise.resolve({ id: p[3] }) });
   if (p[2] === "recipes" && p.length === 4) return recipeGet(request, { params: Promise.resolve({ id: p[3] }) });

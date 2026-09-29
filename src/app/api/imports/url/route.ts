@@ -2,7 +2,7 @@ import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse, ApiError } from "@/lib/api/errors";
 import { importFromUrl } from "@/lib/ingest/remote";
-import { requireProject } from "@/lib/metadata/projects";
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { importProjectId } from "@/lib/project-scope";
 import { toIngestResponse } from "@/lib/ingest/gdal-formats";
 
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     // Preflight: an unknown project refuses before the remote source is
     // contacted.
     const projectId = importProjectId((body as { projectId?: unknown }).projectId);
-    if (projectId) requireProject(projectId);
+    if (projectId) requireOwnedResource(scope, "project", projectId);
     const result = await importFromUrl(scope, body.url, body.name, projectId);
     const filed = {
       ...result,

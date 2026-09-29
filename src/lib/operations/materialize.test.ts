@@ -397,7 +397,7 @@ describe("a derived table's inputs resolve by the id they were recorded under", 
     await seedTable("shifty", "SELECT 9 AS id, 'different' AS what");
 
     const { inspectTable } = await import("@/lib/table-service");
-    const seen = await inspectTable(derived.name);
+    const seen = await inspectTable(testAccountScope(), derived.name);
     expect(seen.inputs).toHaveLength(1);
     expect(seen.inputs![0].missing).toBe(true);
     expect(seen.inputs![0].nameReclaimed).toBe(true);
@@ -414,7 +414,7 @@ describe("a derived table's inputs resolve by the id they were recorded under", 
       operation: "sql_step",
     });
     const { inspectTable } = await import("@/lib/table-service");
-    const seen = await inspectTable(derived.name);
+    const seen = await inspectTable(testAccountScope(), derived.name);
     expect(seen.inputs![0]).toMatchObject({
       name: "steady",
       currentName: "steady",

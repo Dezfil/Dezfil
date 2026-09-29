@@ -188,7 +188,7 @@ describe("an output deleted under its step", () => {
     await run(s.id);
     const originalId = getTableByName("repairable")!.id;
 
-    await removeTable("repairable");
+    await removeTable(testAccountScope(), "repairable");
     expect((await readRecipe(recipeId)).steps[0].condition.conditions).toContain(
       "output_missing",
     );
@@ -208,7 +208,7 @@ describe("an output deleted under its step", () => {
   it("reports a naming conflict and writes nothing once the name is reclaimed", async () => {
     const s = step("SELECT name FROM stations", "reclaimed");
     await run(s.id);
-    await removeTable("reclaimed");
+    await removeTable(testAccountScope(), "reclaimed");
 
     // Someone else takes the name back.
     const usurper = step("SELECT 42 AS answer", "reclaimed");
@@ -236,7 +236,7 @@ describe("an input deleted under its readers", () => {
     await run(three.id);
     const oneId = getTableByName("chain_one")!.id;
 
-    await removeTable("chain_one");
+    await removeTable(testAccountScope(), "chain_one");
 
     const view = (await readRecipe(recipeId));
     const [first, second, third] = view.steps;
@@ -260,7 +260,7 @@ describe("an input deleted under its readers", () => {
     await run(producer.id);
     const stationsId = getTableByName("stations")!.id;
 
-    await removeTable("stations");
+    await removeTable(testAccountScope(), "stations");
 
     const view = await readStep(recipeId, producer.id);
     expect(view.condition.primary).toBe("broken");
@@ -278,8 +278,8 @@ describe("an input deleted under its readers", () => {
     const consumer = step("SELECT count(*) AS n FROM both_source", "both_out");
     await run(consumer.id);
 
-    await removeTable("both_source");
-    await removeTable("both_out");
+    await removeTable(testAccountScope(), "both_source");
+    await removeTable(testAccountScope(), "both_out");
 
     const view = await readStep(recipeId, consumer.id);
     expect(view.condition.conditions).toEqual(["broken", "output_missing"]);
@@ -331,7 +331,7 @@ describe("a step that has never run can still be broken", () => {
       "never_run",
     ]);
 
-    await removeTable("stations");
+    await removeTable(testAccountScope(), "stations");
 
     const view = await readStep(recipeId, s.id);
     expect(view.condition.conditions).toEqual(["broken", "never_run"]);

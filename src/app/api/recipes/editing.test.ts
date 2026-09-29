@@ -246,7 +246,7 @@ describe("removal truth", () => {
     const c = ((await body(await add(id, "SELECT name FROM stations", "rm_c"))).step as Json).id as string;
     expect((await runStep(testAccountRequest(post({})), PS(id, c))).status).toBe(202);
     await laneSettled();
-    expect((await deleteTable(post({}), { params: Promise.resolve({ name: "rm_c" }) })).status).toBeLessThan(300);
+    expect((await deleteTable(testAccountRequest(post({})), { params: Promise.resolve({ name: "rm_c" }) })).status).toBeLessThan(300);
     const deleted = await body(await remove(id, c));
     expect(deleted.output).toEqual({ name: "rm_c", state: "deleted" });
     expect(deleted.outputsRemain).toBe(false);

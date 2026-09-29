@@ -309,7 +309,7 @@ describe("tile builds", () => {
     // The table under the layer refreshes while the tiler is mid-run: the
     // record goes AND the attempt is fenced, so old-data tiles can never
     // register as ready under the unchanged fingerprint.
-    expect(invalidateTilesForTable("stations")).toBe(1);
+    expect(invalidateTilesForTable(testAccountScope(), "stations")).toBe(1);
     await gate.release();
     await tileBuildsSettled();
 

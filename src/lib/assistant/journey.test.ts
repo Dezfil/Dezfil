@@ -935,7 +935,7 @@ describe("safety through the assistant", () => {
     );
     // Confirmation was requested; the table was never deleted.
     expect(events.some((e) => e.type === "confirm_required")).toBe(true);
-    const list = await tablesGet(new Request("http://dezfil.test/api/tables"));
+    const list = await tablesGet(testAccountRequest(new Request("http://dezfil.test/api/tables")));
     const tables = (await list.json()) as { name: string }[];
     expect(tables.map((t) => t.name)).toContain("parks");
   });
@@ -1066,7 +1066,7 @@ describe("confirmation contract", () => {
     );
     const resumed = await h.resume(pendingIdOf(h.events), false);
 
-    const tables = (await (await tablesGet(new Request("http://dezfil.test/api/tables"))).json()) as { name: string }[];
+    const tables = (await (await tablesGet(testAccountRequest(new Request("http://dezfil.test/api/tables")))).json()) as { name: string }[];
     expect(tables.map((t) => t.name)).toContain("parks");
     // The model was told in the documented words and finished its turn.
     const note = h.recording.exchanges[0].outcomes[0][0];

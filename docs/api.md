@@ -284,3 +284,14 @@ reference returns `not_found` and leaves the cursor and all records unchanged.
 Restoring a deleted layer preserves its recorded identity and parent; it cannot
 replace a live layer belonging to another map. Thumbnail reads, writes and
 copies check the owning map, and staged writes recheck access before publishing.
+
+Dataset names belong to the authenticated account. Different accounts can each
+import `roads`; uploads and sketches choose suffixes using only the creator's
+names. Dataset lists, catalogue totals and schema pages, inspection, features,
+exports, sketch edits, geometry and refresh resolve that account's datasets.
+Administrator status grants no access to another account's data. Project contexts
+and sketch parents must belong to the same account and are checked before source
+or artifact work. Refresh and geometry changes keep the durable identity and
+owner, rechecking account activity before committing. Hidden and missing names
+and references return the same `404 not_found` response. This replaces the
+previous `map_not_found` response for a missing sketch parent.

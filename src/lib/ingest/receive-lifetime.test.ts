@@ -30,7 +30,7 @@ beforeAll(async () => {
       exports.toIngestResponse = (result) => result;
     `],
     ["src/lib/auth/scope-http.ts", "exports.requireRequestScope = () => ({ accountId: 'upload-fixture' });"],
-    ["src/lib/metadata/projects.ts", "exports.requireProject = () => { throw new Error('unexpected project lookup'); };"],
+    ["src/lib/auth/owned-resource.ts", "exports.requireOwnedResource = () => { throw new Error('unexpected resource lookup'); };"],
     ["src/lib/table-service.ts", "exports.listTablesWithSize = () => [];"],
   ]);
   const output = (file: string) => path.join(bundle, file.replace(/\.ts$/, ".cjs"));

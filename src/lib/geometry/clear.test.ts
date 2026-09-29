@@ -20,15 +20,15 @@ beforeEach(async () => { dir = await setupGeometryTest(); });
 afterEach(async () => { await cleanupGeometryTest(dir); });
 it("clear keeps every source and identity, repeats as a no-op and permits reapply", async () => {
   const t = await stored("SELECT 'POINT (10 20)' payload, 30 x, 40 y");
-  const original = await inspectTable(t.name);
-  const set = await setGeometry(t.name, geometryRevision(t), { format: "wkt", columns: ["payload"] });
-  const clear = await clearGeometry(t.name, set.revision);
+  const original = await inspectTable(testAccountScope(), t.name);
+  const set = await setGeometry(testAccountScope(), t.name, geometryRevision(t), { format: "wkt", columns: ["payload"] });
+  const clear = await clearGeometry(testAccountScope(), t.name, set.revision);
   expect(clear).toMatchObject({ mode: "cleared", currentChoice: null, extent: null, table: { id: t.id, name: t.name, rowCount: 1, geometryColumn: null, geometryType: null, geometryRecord: null, crsAssumed: false, importedAt: t.importedAt } });
-  expect((await inspectTable(t.name)).columns).toEqual(original.columns);
-  expect((await inspectTable(t.name)).preview).toEqual(original.preview);
-  expect(await clearGeometry(t.name, clear.revision)).toEqual(clear);
-  expect((await inspectGeometry(t.name)).candidates.length).toBeGreaterThan(0);
-  const again = await setGeometry(t.name, clear.revision, { format: "pair", columns: ["y", "x"], epsg: 4326 });
+  expect((await inspectTable(testAccountScope(), t.name)).columns).toEqual(original.columns);
+  expect((await inspectTable(testAccountScope(), t.name)).preview).toEqual(original.preview);
+  expect(await clearGeometry(testAccountScope(), t.name, clear.revision)).toEqual(clear);
+  expect((await inspectGeometry(testAccountScope(), t.name)).candidates.length).toBeGreaterThan(0);
+  const again = await setGeometry(testAccountScope(), t.name, clear.revision, { format: "pair", columns: ["y", "x"], epsg: 4326 });
   expect(again.extent).toEqual([40, 30, 40, 30]);
 });
 it("set, change, preview and clear preserve both undo and redo plus authored layer SQL/style", async () => {
@@ -41,10 +41,10 @@ it("set, change, preview and clear preserve both undo and redo plus authored lay
   const history = metadataDb().prepare("SELECT * FROM map_history ORDER BY seq").all();
   const beforeLayer = requireLayer(testAccountScope(), layer.id);
   const beforeMap = metadataDb().prepare("SELECT * FROM maps WHERE id = ?").get(map.id);
-  const first = await setGeometry(t.name, geometryRevision(t), { format: "wkt", columns: ["payload"] });
-  await previewGeometry(t.name, first.revision, { format: "pair", columns: ["x", "y"] });
-  const change = await setGeometry(t.name, first.revision, { format: "pair", columns: ["x", "y"] });
-  await clearGeometry(t.name, change.revision);
+  const first = await setGeometry(testAccountScope(), t.name, geometryRevision(t), { format: "wkt", columns: ["payload"] });
+  await previewGeometry(testAccountScope(), t.name, first.revision, { format: "pair", columns: ["x", "y"] });
+  const change = await setGeometry(testAccountScope(), t.name, first.revision, { format: "pair", columns: ["x", "y"] });
+  await clearGeometry(testAccountScope(), t.name, change.revision);
   expect(metadataDb().prepare("SELECT * FROM map_history ORDER BY seq").all()).toEqual(history);
   expect(metadataDb().prepare("SELECT * FROM maps WHERE id = ?").get(map.id)).toEqual(beforeMap);
   expect(requireLayer(testAccountScope(), layer.id)).toEqual(beforeLayer);
@@ -69,31 +69,31 @@ it.each(["consumed-wkt", "assumed-parquet", "shapefile-no-prj"])("%s accepts its
   }
   expect(t.crsAssumed).toBe(true);
   const choice = { format: kind === "consumed-wkt" ? "wkt" : "wkb", columns: [t.geometryColumn!], epsg: kind === "consumed-wkt" ? 3857 : 25833 } as const;
-  const firstPreview = await previewGeometry(t.name, geometryRevision(t), choice);
+  const firstPreview = await previewGeometry(testAccountScope(), t.name, geometryRevision(t), choice);
   expect(firstPreview.canApply).toBe(true);
-  const applied = await setGeometry(t.name, geometryRevision(t), choice);
+  const applied = await setGeometry(testAccountScope(), t.name, geometryRevision(t), choice);
   expect(applied.table.geometryColumn).toBe(t.geometryColumn);
   expect(applied.table).toMatchObject({ crsAssumed: false, geometryRecord: { signal: "manual", crs: { stance: "declared", srid: choice.epsg } } });
   const expected = kind === "consumed-wkt" ? [0.0000898315284,0.0001796630568] : [13.405,52.52];
   expect(applied.extent![0]).toBeCloseTo(expected[0], kind === "consumed-wkt" ? 10 : 5);
   expect(applied.extent![1]).toBeCloseTo(expected[1], kind === "consumed-wkt" ? 10 : 5);
-  expect((await inspectGeometry(t.name)).currentChoice).toBeNull();
-  await expect(setGeometry(t.name, applied.revision, choice)).rejects.toMatchObject({ code: "geometry_choice_invalid", extra: { issues: [{ code: "source_unavailable", message: expect.stringMatching(/source/) }] } });
-  await expect(clearGeometry(t.name, applied.revision)).rejects.toMatchObject({ code: "geometry_choice_invalid", extra: { issues: [{ code: "source_unavailable", message: expect.stringMatching(/native|consumed/) }] } });
+  expect((await inspectGeometry(testAccountScope(), t.name)).currentChoice).toBeNull();
+  await expect(setGeometry(testAccountScope(), t.name, applied.revision, choice)).rejects.toMatchObject({ code: "geometry_choice_invalid", extra: { issues: [{ code: "source_unavailable", message: expect.stringMatching(/source/) }] } });
+  await expect(clearGeometry(testAccountScope(), t.name, applied.revision)).rejects.toMatchObject({ code: "geometry_choice_invalid", extra: { issues: [{ code: "source_unavailable", message: expect.stringMatching(/native|consumed/) }] } });
 });
 it("clear also refuses an unmodified native geometry without removing it", async () => {
   const t = await stored("SELECT ST_Point(10,20) geom, 'a' AS label", { geometryColumn: "geom", geometryType: "POINT", crsAssumed: true });
-  await expect(clearGeometry(t.name, geometryRevision(t))).rejects.toMatchObject({ code: "geometry_choice_invalid", status: 422 });
-  expect((await inspectTable(t.name)).geometryColumn).toBe("geom");
+  await expect(clearGeometry(testAccountScope(), t.name, geometryRevision(t))).rejects.toMatchObject({ code: "geometry_choice_invalid", status: 422 });
+  expect((await inspectTable(testAccountScope(), t.name)).geometryColumn).toBe("geom");
 });
 it("declared native geometry explains replacement refusal without claiming source loss", async () => {
   const t = await stored("SELECT ST_Point(10,20) geom, 'POINT (30 40)' payload", { geometryColumn: "geom", geometryType: "POINT", crsAssumed: false });
-  const before = await inspectTable(t.name);
+  const before = await inspectTable(testAccountScope(), t.name);
   const choice = { format: "wkt", columns: ["payload"] } as const;
   const message = "This dataset's geometry has a declared CRS. It cannot be replaced here.";
   for (const operation of [previewGeometry, setGeometry]) {
-    await expect(operation(t.name, geometryRevision(t), choice)).rejects.toMatchObject({ code: "geometry_choice_invalid", status: 422, message, extra: { issues: [{ code: "source_unavailable", message }] } });
-    expect(await inspectTable(t.name)).toEqual(before);
+    await expect(operation(testAccountScope(), t.name, geometryRevision(t), choice)).rejects.toMatchObject({ code: "geometry_choice_invalid", status: 422, message, extra: { issues: [{ code: "source_unavailable", message }] } });
+    expect(await inspectTable(testAccountScope(), t.name)).toEqual(before);
   }
 });
 it("consumed declared EWKT explains replacement refusal with neutral CRS copy", async () => {
@@ -101,13 +101,13 @@ it("consumed declared EWKT explains replacement refusal with neutral CRS copy", 
   await writeFile(csv, 'wkt,label\n"SRID=3857;POINT (1113194.9079327357 0)",a\n');
   const t = await ingestFile(testAccountScope(), csv, "declared.csv");
   expect(t).toMatchObject({ crsAssumed: false, geometryRecord: { columns: ["wkt"], crs: { stance: "declared", srid: 3857 } } });
-  const before = await inspectTable(t.name);
+  const before = await inspectTable(testAccountScope(), t.name);
   expect(before.columns.map(column => column.name)).not.toContain("wkt");
-  expect((await inspectGeometry(t.name)).currentChoice).toBeNull();
+  expect((await inspectGeometry(testAccountScope(), t.name)).currentChoice).toBeNull();
   const choice = { format: "wkt", columns: [t.geometryColumn!], epsg: 4326 } as const;
   const message = "This dataset's geometry has a declared CRS. It cannot be replaced here.";
   for (const operation of [previewGeometry, setGeometry]) {
-    await expect(operation(t.name, geometryRevision(t), choice)).rejects.toMatchObject({ code: "geometry_choice_invalid", status: 422, message, extra: { issues: [{ code: "source_unavailable", message }] } });
-    expect(await inspectTable(t.name)).toEqual(before);
+    await expect(operation(testAccountScope(), t.name, geometryRevision(t), choice)).rejects.toMatchObject({ code: "geometry_choice_invalid", status: 422, message, extra: { issues: [{ code: "source_unavailable", message }] } });
+    expect(await inspectTable(testAccountScope(), t.name)).toEqual(before);
   }
 });

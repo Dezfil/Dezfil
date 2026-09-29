@@ -4,6 +4,7 @@ import { metadataDb } from "./db";
 import { deriveTableName } from "@/lib/ingest/naming";
 import { geometryEvidence, type GeometryEvidence } from "@/lib/geometry-evidence";
 import { serializeGeometryStorage, type GeometryStorage } from "@/lib/geometry/state";
+import { ownedTableNames } from "./owned-tables";
 import { ApiError } from "@/lib/api/errors";
 
 export type TableFormat =
@@ -30,7 +31,7 @@ export type TableSource =
 
 export interface DataTable extends GeometryEvidence {
   id: string;
-  /** SQL identifier the user queries; unique per instance. */
+  /** SQL identifier the user queries; unique within its owner. */
   name: string;
   /** The file this arrived as. Null for a derived table: an
    * operation's output never was a file, and filler here would state
@@ -64,7 +65,7 @@ export interface DataTable extends GeometryEvidence {
   importedAt: string | null;
 }
 
-interface Row {
+export interface TableRow {
   id: string;
   name: string;
   source_filename: string | null;
@@ -82,7 +83,7 @@ interface Row {
   imported_at: string | null;
 }
 
-function fromRow(r: Row): DataTable {
+export function tableFromRow(r: TableRow): DataTable {
   return {
     ...(r.geometry_recognition ? geometryEvidence(JSON.parse(r.geometry_recognition) as GeometryEvidence) : {}),
     id: r.id,
@@ -121,7 +122,7 @@ export function registerTable(
   for (let attempt = 0; ; attempt++) {
     const named: DataTable = {
       ...record,
-      name: deriveTableName(desiredName, tableNames(db)),
+      name: deriveTableName(desiredName, ownedTableNames(scope, db)),
     };
     try {
       insertTable(scope, named, db);
@@ -238,8 +239,8 @@ export function updateTableGeometryType(
 export function listTables(db: Database = metadataDb()): DataTable[] {
   const rows = db
     .prepare(`SELECT * FROM data_tables ORDER BY created_at DESC, name`)
-    .all() as Row[];
-  return rows.map(fromRow);
+    .all() as TableRow[];
+  return rows.map(tableFromRow);
 }
 
 /** PostGIS snapshots owned by one durable connection id. The stored display
@@ -261,8 +262,8 @@ export function getTableByName(
 ): DataTable | null {
   const row = db
     .prepare(`SELECT * FROM data_tables WHERE name = ?`)
-    .get(name) as Row | undefined;
-  return row ? fromRow(row) : null;
+    .get(name) as TableRow | undefined;
+  return row ? tableFromRow(row) : null;
 }
 
 export function tableNames(db: Database = metadataDb()): Set<string> {

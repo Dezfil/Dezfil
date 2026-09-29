@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import {
@@ -12,8 +13,9 @@ type Params = { params: Promise<{ id: string }> };
 /** Read one project with its member counts and size. */
 export async function GET(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { id } = await params;
-    return NextResponse.json(await projectOverview(id));
+    return NextResponse.json(await projectOverview(scope, id));
   } catch (error) {
     return errorResponse(error);
   }
@@ -22,6 +24,7 @@ export async function GET(_request: Request, { params }: Params) {
 /** Rename a project or edit its note. */
 export async function PATCH(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { id } = await params;
     let parsed: unknown;
     try {
@@ -34,7 +37,7 @@ export async function PATCH(request: Request, { params }: Params) {
     }
     const body = parsed as Record<string, unknown>;
     updateProject(id, { name: body.name, note: body.note });
-    return NextResponse.json(await projectOverview(id));
+    return NextResponse.json(await projectOverview(scope, id));
   } catch (error) {
     return errorResponse(error);
   }

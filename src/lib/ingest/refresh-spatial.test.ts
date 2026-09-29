@@ -112,8 +112,8 @@ describe("URL imports of container formats", () => {
     }
     expect(tables[0].sourceParams?.group).toBe(tables[1].sourceParams?.group);
     // The group is one refresh unit (mirroring OSM).
-    expect(refreshUnit(tables[0])).toBe(refreshUnit(tables[1]));
-    expect(refreshUnit(tables[0]).startsWith("url:")).toBe(true);
+    expect(refreshUnit(testAccountScope(), tables[0])).toBe(refreshUnit(testAccountScope(), tables[1]));
+    expect(refreshUnit(testAccountScope(), tables[0]).startsWith("url:")).toBe(true);
   });
 
   it("refreshes the whole group from one download and swaps atomically", async () => {
@@ -155,7 +155,7 @@ describe("URL imports of container formats", () => {
         ],
       },
     ];
-    const answer = await refreshTable(st.name);
+    const answer = await refreshTable(testAccountScope(), st.name);
     expect(answer.name).toBe(st.name);
     expect(answer.rowCount).toBe(4);
     expect(answer.file).not.toBe(st.file);
@@ -193,7 +193,7 @@ describe("URL imports of container formats", () => {
       ]),
       // zones is gone from the remote file.
     ];
-    await expect(refreshTable(st.name)).rejects.toMatchObject({
+    await expect(refreshTable(testAccountScope(), st.name)).rejects.toMatchObject({
       code: "malformed_file",
       message: expect.stringContaining('no longer contains layer "zones"'),
     });
@@ -219,7 +219,7 @@ describe("URL imports of container formats", () => {
     expect(before.sourceParams?.group).toBeUndefined();
 
     servedLayers = [stations([[7.1, 51.1, "solo"]])];
-    const after = await refreshTable(before.name);
+    const after = await refreshTable(testAccountScope(), before.name);
     expect(after.rowCount).toBe(1);
     expect(after.file).not.toBe(before.file);
   });
@@ -284,7 +284,7 @@ describe("URL imports of container formats", () => {
       expect(tables[0].format).toBe("shapefile");
 
       servedZip = await mint({ north: 5, south: 3 });
-      await refreshTable(byLayer.get("north/roads")!.name);
+      await refreshTable(testAccountScope(), byLayer.get("north/roads")!.name);
       expect(
         getTableByName(byLayer.get("north/roads")!.name)!.rowCount,
       ).toBe(5);
@@ -341,7 +341,7 @@ describe("URL imports of container formats", () => {
     buildGpkg(file, [stations([[7.1, 51.1, "a"]])]);
     const { ingestSource } = await import("./gdal-formats");
     const { tables } = await ingestSource(testAccountScope(), file, "harbours.gpkg");
-    await expect(refreshTable(tables[0].name)).rejects.toMatchObject({
+    await expect(refreshTable(testAccountScope(), tables[0].name)).rejects.toMatchObject({
       code: "not_refreshable",
     });
   });

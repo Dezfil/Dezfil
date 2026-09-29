@@ -30,15 +30,15 @@ afterEach(async () => { await cleanupGeometryTest(dir); });
 it("manual URL choice survives restart and overrides fresh automatic recognition before WKT is consumed", async () => {
   remote = 'payload,other,x,y\n"POINT (1 2)","POINT (3 4)",391779.25925275,5820072.159211026\n';
   const t = (await importFromUrl(testAccountScope(), "https://fixture.test/data.csv")).tables[0];
-  await setGeometry(t.name, geometryRevision(t), { format: "pair", columns: ["x", "y"], epsg: 25833 });
+  await setGeometry(testAccountScope(), t.name, geometryRevision(t), { format: "pair", columns: ["x", "y"], epsg: 25833 });
   closeMetadataDb();
   remote = 'wkt,x,y\n"POINT (80 40)",500000,0\n"POINT (90 50)",NaN,1\n';
-  const refreshed = await refreshTable(t.name);
+  const refreshed = await refreshTable(testAccountScope(), t.name);
   expect(refreshed).toMatchObject({ id: t.id, rowCount: 2, geometryType: "POINT", crsAssumed: false, sourceParams: t.sourceParams,
     geometryRecord: { signal: "manual", columns: ["x", "y"], unreadableCount: 1, crs: { srid: 25833 } } });
   expect(refreshed.importedAt).not.toBe(t.importedAt);
-  expect(await inspectGeometry(t.name)).toMatchObject({ mode: "set", currentChoice: { format: "pair", columns: ["x", "y"], epsg: 25833 } });
-  const rows = (await inspectTable(t.name)).preview;
+  expect(await inspectGeometry(testAccountScope(), t.name)).toMatchObject({ mode: "set", currentChoice: { format: "pair", columns: ["x", "y"], epsg: 25833 } });
+  const rows = (await inspectTable(testAccountScope(), t.name)).preview;
   expect(rows[0]).toMatchObject({ wkt: "POINT (80 40)", x: 500000, y: "0" });
   expect(Number(String(rows[0][refreshed.geometryColumn!]).match(/-?\d+(?:\.\d+)?/)![0])).toBeCloseTo(15, 8);
   expect(rows[1][refreshed.geometryColumn!]).toBeNull();
@@ -46,43 +46,43 @@ it("manual URL choice survives restart and overrides fresh automatic recognition
 it("a consumed named-WKT correction replays its historical source name on fresh bytes", async () => {
   remote = 'wkt,label\n"POINT (10 20)",a\n';
   const t = (await importFromUrl(testAccountScope(), "https://fixture.test/named.csv")).tables[0];
-  await setGeometry(t.name, geometryRevision(t), { format: "wkt", columns: [t.geometryColumn!], epsg: 3857 });
+  await setGeometry(testAccountScope(), t.name, geometryRevision(t), { format: "wkt", columns: [t.geometryColumn!], epsg: 3857 });
   remote = 'wkt,label\n"POINT (1113194.9079327357 0)",b\n';
-  const next = await refreshTable(t.name);
+  const next = await refreshTable(testAccountScope(), t.name);
   expect(next.geometryRecord).toMatchObject({ signal: "manual", columns: ["wkt"], crs: { srid: 3857 } });
-  const inspected = await inspectTable(t.name);
+  const inspected = await inspectTable(testAccountScope(), t.name);
   expect(inspected.preview[0]).toMatchObject({ wkt: "POINT (1113194.9079327357 0)", [next.geometryColumn!]: "POINT (10 0)" });
 });
 it("clear removes the override; refresh records fresh automatic recognition and unmodified mode", async () => {
   remote = 'payload,x,y\n"POINT (1 2)",10,20\n';
   const t = (await importFromUrl(testAccountScope(), "https://fixture.test/clear.csv")).tables[0];
-  const set = await setGeometry(t.name, geometryRevision(t), { format: "pair", columns: ["y", "x"] });
-  const clear = await clearGeometry(t.name, set.revision);
+  const set = await setGeometry(testAccountScope(), t.name, geometryRevision(t), { format: "pair", columns: ["y", "x"] });
+  const clear = await clearGeometry(testAccountScope(), t.name, set.revision);
   expect(clear).toMatchObject({ mode: "cleared", currentChoice: null, table: { geometryRecord: null } });
   remote = 'new_shape,label\n"LINESTRING (30 40, 31 41)",new\n';
-  const refreshed = await refreshTable(t.name);
+  const refreshed = await refreshTable(testAccountScope(), t.name);
   expect(refreshed).toMatchObject({ geometryType: "LINESTRING", geometryRecord: { signal: "content", columns: ["new_shape"] } });
-  expect(await inspectGeometry(t.name)).toMatchObject({ mode: "unmodified", currentChoice: { format: "wkt", columns: ["new_shape"] } });
+  expect(await inspectGeometry(testAccountScope(), t.name)).toMatchObject({ mode: "unmodified", currentChoice: { format: "wkt", columns: ["new_shape"] } });
   // This currentChoice is reconstructable automatic evidence, not a saved
   // manual override: a second refresh must recognize a different schema.
   remote = 'other,label\n"POINT (50 60)",newer\n';
-  expect(await refreshTable(t.name)).toMatchObject({ geometryRecord: { signal: "content", columns: ["other"] } });
+  expect(await refreshTable(testAccountScope(), t.name)).toMatchObject({ geometryRecord: { signal: "content", columns: ["other"] } });
 });
 it.each(["column", "publication"])("%s failure keeps old artifact, manual choice and record together", async failure => {
   remote = 'payload,x,y\n"POINT (1 2)",10,20\n';
   const t = (await importFromUrl(testAccountScope(), "https://fixture.test/failure.csv")).tables[0];
-  await setGeometry(t.name, geometryRevision(t), { format: "pair", columns: ["y", "x"] });
+  await setGeometry(testAccountScope(), t.name, geometryRevision(t), { format: "pair", columns: ["y", "x"] });
   await retirementsSettled();
   const map=createMap(testAccountScope(), "Retained tiles"),layer=await createLayer(testAccountScope(), map.id,{name:"Tiles",sql:`SELECT geometry FROM ${t.name}`});
   upsertTileRecord({layerId:layer.id,state:"ready",fingerprint:"before-failed-refresh",error:null,featureCount:1,builtAt:"2026-09-01T00:00:00Z"});
   const tileFile=tileArchivePath(layer.id);await mkdir(path.dirname(tileFile),{recursive:true});await writeFile(tileFile,"existing archive bytes");
   const tileBefore=getTileRecord(layer.id);
-  const before = getTableByName(t.name), evidence = await inspectGeometry(t.name);
+  const before = getTableByName(t.name), evidence = await inspectGeometry(testAccountScope(), t.name);
   const inventory = await readdir(path.join(process.env.DEZFIL_DATA_DIR!, "tables"));
   remote = failure === "column" ? 'payload,a,b\n"POINT (3 4)",30,40\n' : 'payload,x,y\n"POINT (3 4)",30,40\n';
   if (failure === "publication") metadataDb().exec("CREATE TRIGGER fail_refresh BEFORE UPDATE ON data_tables BEGIN SELECT RAISE(ABORT, 'seeded publication failure'); END");
-  await expect(refreshTable(t.name)).rejects.toThrow();
-  expect(getTableByName(t.name)).toEqual(before); expect(await inspectGeometry(t.name)).toEqual(evidence);
+  await expect(refreshTable(testAccountScope(), t.name)).rejects.toThrow();
+  expect(getTableByName(t.name)).toEqual(before); expect(await inspectGeometry(testAccountScope(), t.name)).toEqual(evidence);
   expect(getTileRecord(layer.id)).toEqual(tileBefore);expect(await readFile(tileFile,"utf8")).toBe("existing archive bytes");
   expect(await readdir(path.join(process.env.DEZFIL_DATA_DIR!, "tables"))).toEqual(inventory);
 });
@@ -99,23 +99,23 @@ it("container members replay separate native choices in one download and atomic 
   remote = await shapeGroup(391779.25925275,5820072.159211026);
   const tables = (await importFromUrl(testAccountScope(), "https://fixture.test/group.zip")).tables;
   expect(tables).toHaveLength(2);
-  for (let i=0;i<2;i++) await setGeometry(tables[i].name, geometryRevision(tables[i]), { format: "wkb", columns: [tables[i].geometryColumn!], epsg: i === 0 ? 25833 : 25832 });
+  for (let i=0;i<2;i++) await setGeometry(testAccountScope(), tables[i].name, geometryRevision(tables[i]), { format: "wkb", columns: [tables[i].geometryColumn!], epsg: i === 0 ? 25833 : 25832 });
   closeMetadataDb(); requests.mockClear();
   remote = await shapeGroup(500000,0);
-  const next = await refreshTable(tables[0].name);
+  const next = await refreshTable(testAccountScope(), tables[0].name);
   expect(requests).toHaveBeenCalledTimes(1);
   for (let i=0;i<2;i++) {
     const t = getTableByName(tables[i].name)!;
     expect(t.importedAt).toBe(next.importedAt);
     expect(t.geometryRecord).toMatchObject({ signal: "manual", crs: { srid: i === 0 ? 25833 : 25832 } });
-    const shape = String((await inspectTable(t.name)).preview[0][t.geometryColumn!]);
+    const shape = String((await inspectTable(testAccountScope(), t.name)).preview[0][t.geometryColumn!]);
     expect(Number(shape.match(/-?\d+(?:\.\d+)?/)![0])).toBeCloseTo(i === 0 ? 15 : 9, 8);
   }
   await retirementsSettled();
   const before = tables.map(t => getTableByName(t.name));
   const inventory = await readdir(path.join(process.env.DEZFIL_DATA_DIR!, "tables"));
   metadataDb().exec(`CREATE TRIGGER fail_second BEFORE UPDATE ON data_tables WHEN OLD.name = ${lit(tables[1].name)} BEGIN SELECT RAISE(ABORT, 'second member publication failure'); END`);
-  await expect(refreshTable(tables[0].name)).rejects.toThrow("second member publication failure");
+  await expect(refreshTable(testAccountScope(), tables[0].name)).rejects.toThrow("second member publication failure");
   expect(tables.map(t => getTableByName(t.name))).toEqual(before);
   expect(await readdir(path.join(process.env.DEZFIL_DATA_DIR!, "tables"))).toEqual(inventory);
 });
@@ -123,12 +123,12 @@ it("container members replay separate native choices in one download and atomic 
 it("a bad numeric source value remains an unreadable row when CSV inference widens its type", async () => {
   remote = 'payload,x,y\n"POINT (1 2)",10,20\n';
   const t = (await importFromUrl(testAccountScope(), "https://fixture.test/bad-pair.csv")).tables[0];
-  await setGeometry(t.name, geometryRevision(t), { format: "pair", columns: ["x", "y"] });
+  await setGeometry(testAccountScope(), t.name, geometryRevision(t), { format: "pair", columns: ["x", "y"] });
   remote = 'x,y\n30,40\nbroken,50\n,60\n';
-  const next = await refreshTable(t.name);
+  const next = await refreshTable(testAccountScope(), t.name);
   expect(next).toMatchObject({ rowCount: 3, geometryRecord: { signal: "manual", unreadableCount: 1 } });
-  expect((await inspectTable(t.name)).preview.map(r => r[next.geometryColumn!])).toEqual(["POINT (30 40)", null, null]);
-  expect((await inspectTable(t.name)).preview.map(r => r.x)).toEqual(["30", "broken", null]);
+  expect((await inspectTable(testAccountScope(), t.name)).preview.map(r => r[next.geometryColumn!])).toEqual(["POINT (30 40)", null, null]);
+  expect((await inspectTable(testAccountScope(), t.name)).preview.map(r => r.x)).toEqual(["30", "broken", null]);
 });
 
 it("native GeoParquet replay uses fresh raw bytes and refuses a newly declared conflicting CRS", async () => {
@@ -136,16 +136,16 @@ it("native GeoParquet replay uses fresh raw bytes and refuses a newly declared c
   await withConnection(conn => conn.run(`COPY (SELECT ST_AsWKB(ST_Point(391779.25925275,5820072.159211026)) geom) TO ${lit(file)} (FORMAT PARQUET)`));
   remote = await readFile(file); await rm(file);
   const t = (await importFromUrl(testAccountScope(), "https://fixture.test/native.parquet")).tables[0];
-  await setGeometry(t.name, geometryRevision(t), { format: "wkb", columns: [t.geometryColumn!], epsg: 25833 });
+  await setGeometry(testAccountScope(), t.name, geometryRevision(t), { format: "wkb", columns: [t.geometryColumn!], epsg: 25833 });
   await withConnection(conn => conn.run(`COPY (SELECT ST_AsWKB(ST_Point(500000,0)) geom) TO ${lit(file)} (FORMAT PARQUET)`));
   remote = await readFile(file); await rm(file);
-  const fresh = await refreshTable(t.name);
+  const fresh = await refreshTable(testAccountScope(), t.name);
   expect(fresh.geometryRecord).toMatchObject({ signal: "manual", crs: { srid: 25833 } });
-  expect(Number(String((await inspectTable(t.name)).preview[0][fresh.geometryColumn!]).match(/-?\d+(?:\.\d+)?/)![0])).toBeCloseTo(15, 8);
+  expect(Number(String((await inspectTable(testAccountScope(), t.name)).preview[0][fresh.geometryColumn!]).match(/-?\d+(?:\.\d+)?/)![0])).toBeCloseTo(15, 8);
   // Typed GeoParquet without an explicit CRS declares CRS84 by the format
   // contract, unlike its earlier bare WKB BLOB source.
   await withConnection(conn => conn.run(`COPY (SELECT ST_Point(10,20) geom) TO ${lit(file)} (FORMAT PARQUET)`));
   remote = await readFile(file);
-  await expect(refreshTable(t.name)).rejects.toMatchObject({ code: "geometry_choice_invalid", extra: { issues: [{ code: "conflicting_crs" }] } });
+  await expect(refreshTable(testAccountScope(), t.name)).rejects.toMatchObject({ code: "geometry_choice_invalid", extra: { issues: [{ code: "conflicting_crs" }] } });
   expect(getTableByName(t.name)).toEqual(fresh);
 });

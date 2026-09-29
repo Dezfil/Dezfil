@@ -14,9 +14,10 @@ import {
  */
 
 /** List projects, each with its member counts and size. */
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    return NextResponse.json(await projectsOverview());
+    const scope = requireRequestScope(request);
+    return NextResponse.json(await projectsOverview(scope));
   } catch (error) {
     return errorResponse(error);
   }
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
       note: body.note,
       members: body.members === undefined ? undefined : memberChange(body.members),
     });
-    return NextResponse.json(await projectOverview(created.id), {
+    return NextResponse.json(await projectOverview(scope, created.id), {
       status: 201,
       headers: { Location: `/api/projects/${created.id}` },
     });

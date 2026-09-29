@@ -95,7 +95,7 @@ describe("PostGIS refresh status", () => {
       headerSuspect: false,
       rowCount: 20,
     });
-    await expect(refreshTable("roads")).rejects.toMatchObject({
+    await expect(refreshTable(testAccountScope(), "roads")).rejects.toMatchObject({
       code: "connection_failed",
       message: "Authentication failed. Check the username and password.",
     });
@@ -116,7 +116,7 @@ describe("PostGIS refresh status", () => {
         postgisVersion: "3.4.3",
       },
     });
-    const refreshed = await refreshTable("roads");
+    const refreshed = await refreshTable(testAccountScope(), "roads");
     expect(refreshed.rowCount).toBe(20);
     expect(getConnection("c1")).toMatchObject({
       status: "connected",
@@ -147,7 +147,7 @@ describe("PostGIS refresh status", () => {
         );
       },
     );
-    await expect(refreshTable("roads")).rejects.toMatchObject({
+    await expect(refreshTable(testAccountScope(), "roads")).rejects.toMatchObject({
       code: "not_refreshable",
       message:
         'The stored recipe for "public.roads" no longer resolves on this connection. The previous snapshot data is unchanged.',

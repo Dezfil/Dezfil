@@ -141,7 +141,7 @@ test("copy residue: cold and warm samples, controls and ownership", async () => 
             let error: unknown;
             const start = performance.now();
             try {
-              if (scenario.road === "refresh") await refreshUrlSpatial(requested!, requested!.name);
+              if (scenario.road === "refresh") await refreshUrlSpatial(testAccountScope(), requested!, requested!.name);
               else if (scenario.road === "direct") await duckdb.withConnection(async c => {
                 const layers = await enumerateLayers(c, "geopackage", { datasets: [input], scratchDir: null });
                 await buildLayerArtifact(c, "geopackage", layers.spatial[0], path.join(process.env.DEZFIL_DATA_DIR!, "tables", "direct.parquet"));

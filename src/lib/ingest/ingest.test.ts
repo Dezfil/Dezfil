@@ -345,7 +345,7 @@ describe("ingestFile", () => {
         rowCount: 2,
       });
 
-      const detail = await inspectTable(table.name);
+      const detail = await inspectTable(testAccountScope(), table.name);
       expect(detail.columns.map((column) => column.name)).toEqual([
         "name",
         "lon",
@@ -356,7 +356,7 @@ describe("ingestFile", () => {
       expect(detail.preview.map((row) => row.lat)).toEqual([null, null]);
       expect(detail.preview.map((row) => row.geometry)).toEqual([null, null]);
 
-      await expect(tableFeatures(table.name)).resolves.toMatchObject({
+      await expect(tableFeatures(testAccountScope(), table.name)).resolves.toMatchObject({
         ok: true,
         geometryType: null,
         featureCount: 0,
@@ -383,7 +383,7 @@ describe("ingestFile", () => {
         crsAssumed: true,
         rowCount: 1,
       });
-      const detail = await inspectTable(table.name);
+      const detail = await inspectTable(testAccountScope(), table.name);
       expect(detail.columns.map((column) => column.name)).toEqual([
         "name",
         lon,
@@ -409,7 +409,7 @@ describe("ingestFile", () => {
       crsAssumed: true,
       rowCount: 0,
     });
-    const detail = await inspectTable(table.name);
+    const detail = await inspectTable(testAccountScope(), table.name);
     expect(detail.columns.map((column) => column.name)).toEqual([
       "name",
       "LoN",
@@ -433,13 +433,13 @@ describe("ingestFile", () => {
       crsAssumed: true,
       rowCount: 3,
     });
-    const detail = await inspectTable(table.name);
+    const detail = await inspectTable(testAccountScope(), table.name);
     expect(String(detail.preview[0].geometry)).toMatch(/^POINT \(13\.4 52\.5\)$/);
     expect(detail.preview.slice(1).map((row) => row.geometry)).toEqual([
       null,
       null,
     ]);
-    await expect(tableFeatures(table.name)).resolves.toMatchObject({
+    await expect(tableFeatures(testAccountScope(), table.name)).resolves.toMatchObject({
       ok: true,
       geometryType: "POINT",
       featureCount: 1,
@@ -462,7 +462,7 @@ describe("ingestFile", () => {
       crsAssumed: true,
       rowCount: 2,
     });
-    await expect(tableFeatures(table.name)).resolves.toMatchObject({
+    await expect(tableFeatures(testAccountScope(), table.name)).resolves.toMatchObject({
       ok: true,
       geometryType: "POINT",
       featureCount: 2,
@@ -516,7 +516,7 @@ describe("ingestFile", () => {
       crsAssumed: true,
       rowCount: 2,
     });
-    const detail = await inspectTable(table.name);
+    const detail = await inspectTable(testAccountScope(), table.name);
     expect(detail.columns.map((column) => column.name)).toEqual([
       "name",
       "lon",
@@ -524,7 +524,7 @@ describe("ingestFile", () => {
       "geometry",
     ]);
     expect(detail.preview.map((row) => row.geometry)).toEqual([null, null]);
-    await expect(tableFeatures(table.name)).resolves.toMatchObject({
+    await expect(tableFeatures(testAccountScope(), table.name)).resolves.toMatchObject({
       ok: true,
       geometryType: null,
       featureCount: 0,

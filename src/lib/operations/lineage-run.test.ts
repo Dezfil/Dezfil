@@ -146,7 +146,7 @@ async function readArtifact(table: DataTable) {
 
 async function refresh() {
   value = 2;
-  await refreshTable(source.name);
+  await refreshTable(testAccountScope(), source.name);
   const next = getTableByName(source.name)!;
   expect(next.id).toBe(source.id);
   expect(next.file).not.toBe(source.file);
@@ -213,7 +213,7 @@ describe("lineage pinned to the run", () => {
     const hold = holdAt("copied", s.id);
     await startStepRun(testAccountScope(), s.id);
     await hold.reached();
-    await removeTable(source.name);
+    await removeTable(testAccountScope(), source.name);
     value = 2;
     await importFromUrl(testAccountScope(), url, source.name);
     const stranger = getTableByName(source.name)!;

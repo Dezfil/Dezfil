@@ -102,7 +102,7 @@ describe("OSM group refresh racing a member delete", () => {
     const arrived = new Promise<void>((resolve) => {
       overpassHit = resolve;
     });
-    const refresh = refreshTable("grouprace_points");
+    const refresh = refreshTable(testAccountScope(), "grouprace_points");
     // The promise must be observed before the race resolves either way.
     const settled = refresh.then(
       () => ({ ok: true as const }),
@@ -111,7 +111,7 @@ describe("OSM group refresh racing a member delete", () => {
     await arrived;
 
     // A member is deleted mid-flight, through the real delete road.
-    await removeTable("grouprace_lines");
+    await removeTable(testAccountScope(), "grouprace_lines");
     expect(getTableByName("grouprace_lines")).toBeNull();
 
     releaseHold?.();

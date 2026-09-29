@@ -1,3 +1,4 @@
+import type { AccountScope } from "@/lib/auth/scope";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import type { DuckDBConnection } from "@duckdb/node-api";
@@ -15,8 +16,8 @@ export function geometryRevision(table: DataTable): string {
   const hash = (value: string) => createHash("sha256").update(value).digest("hex");
   return `${hash(table.id)}.${hash(table.file)}`;
 }
-export function requireGeometryTable(name: string, expectedRevision?: string): DataTable {
-  const table = requireTable(name);
+export function requireGeometryTable(scope: AccountScope, name: string, expectedRevision?: string): DataTable {
+  const table = requireTable(scope, name);
   if (table.source !== "upload" && table.source !== "url") {
     throw new ApiError("geometry_not_supported", GEOMETRY_SOURCE_REFUSAL, 409);
   }

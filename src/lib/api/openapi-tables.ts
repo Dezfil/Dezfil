@@ -1,3 +1,4 @@
+import { datasetAccess } from "./openapi-dataset-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, REMOTE_REPLACE } from "./operation-mcp";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
@@ -8,7 +9,7 @@ import { PROJECT_SCOPE_PARAM } from "./openapi-projects";
 
 export const TABLE_COLLECTION_PATHS = {
   "/api/tables": {
-    get: op({
+    get: op(datasetAccess({
       summary: "List tables",
       tag: "Tables",
       tool: "list_tables", mcp: LOCAL_READ,
@@ -19,8 +20,8 @@ export const TABLE_COLLECTION_PATHS = {
       responses: {
         "200": jsonOk("#/components/schemas/TableList"),
       },
-    }),
-    post: ownedCreationOp({
+    })),
+    post: ownedCreationOp(datasetAccess({
       summary: "Upload a file as one or more tables",
       description:
         "multipart/form-data with exactly one file part, named " +
@@ -63,13 +64,13 @@ export const TABLE_COLLECTION_PATHS = {
       responses: {
         "201": jsonOk("#/components/schemas/ImportResult", "Created."),
       },
-    }),
+    })),
   },
 };
 
 export const TABLE_RESOURCE_PATHS = {
   "/api/tables/{name}/refresh": {
-    post: op({
+    post: op(datasetAccess({
       summary: "Refresh an imported table",
       description:
         "Re-runs the table's stored import (URL, Overture, and OSM " +
@@ -111,10 +112,10 @@ export const TABLE_RESOURCE_PATHS = {
       responses: {
         "200": jsonOk("#/components/schemas/Table", "Refreshed."),
       },
-    }),
+    })),
   },
   "/api/tables/{name}/features": {
-    get: op({
+    get: op(datasetAccess({
       summary: "Read a table's features as GeoJSON",
       description:
         "The table's features as a GeoJSON FeatureCollection, for " +
@@ -180,10 +181,10 @@ export const TABLE_RESOURCE_PATHS = {
           },
         },
       },
-    }),
+    })),
   },
   "/api/tables/{name}/export": {
-    get: op({
+    get: op(datasetAccess({
       summary: "Download a table",
       description:
         "The table as a file download: geoparquet streams the " +
@@ -223,10 +224,10 @@ export const TABLE_RESOURCE_PATHS = {
             "Unknown format, or GeoJSON asked of a non-spatial table.",
         },
       },
-    }),
+    })),
   },
   "/api/tables/{name}": {
-    get: op({
+    get: op(datasetAccess({
       summary: "Inspect a table",
       description: "Schema, row count, and a row preview.",
       tag: "Tables",
@@ -238,8 +239,8 @@ export const TABLE_RESOURCE_PATHS = {
       responses: {
         "200": jsonOk("#/components/schemas/TableInspection"),
       },
-    }),
-    delete: op({
+    })),
+    delete: op(datasetAccess({
       summary: "Delete a table",
       tag: "Tables",
       tool: "delete_table", mcp: LOCAL_DELETE,
@@ -249,7 +250,7 @@ export const TABLE_RESOURCE_PATHS = {
       confirm: true,
       parameters: [pathParam("name", "Table name.")],
       responses: { "204": { description: "Deleted." } },
-    }),
+    })),
   },
 };
 

@@ -12,7 +12,7 @@ export async function GET(_request: Request, { params }: Params) {
     const scope = requireRequestScope(_request);
     const { id } = await params;
     requireMap(scope, id);
-    return NextResponse.json(await mapSketches(id));
+    return NextResponse.json(await mapSketches(scope, id));
   } catch (error) {
     return errorResponse(error);
   }

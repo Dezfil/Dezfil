@@ -79,7 +79,7 @@ export async function mapDependencies(
 
   // One captured world: the registry with memberships, and the
   // workflow-origin producers by their current output identity.
-  const tables = await listTablesWithSize();
+  const tables = await listTablesWithSize(scope);
   const byName = new Map(tables.map((t) => [t.name.toLowerCase(), t]));
   const producers = currentProducers();
 

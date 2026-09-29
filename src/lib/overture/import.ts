@@ -1,3 +1,4 @@
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -9,7 +10,7 @@ import { ApiError } from "@/lib/api/errors";
 import { withConnection } from "@/lib/duckdb";
 import { registerTable, type DataTable } from "@/lib/metadata/tables";
 import { metadataDb } from "@/lib/metadata/db";
-import { fileTable } from "@/lib/metadata/projects";
+import { fileOwnedTable } from "@/lib/metadata/owned-tables";
 import { importProjectId } from "@/lib/project-scope";
 import { measureArtifact, type ArtifactMeta } from "@/lib/ingest/ingest";
 import {
@@ -526,6 +527,8 @@ export async function importOverture(
   build: typeof buildOvertureArtifact = buildOvertureArtifact,
 ): Promise<DataTable> {
   requireAccountScope(scope);
+  const projectId = importProjectId(request.projectId);
+  if (projectId) requireOwnedResource(scope, "project", projectId);
   const { requestedName, ...params } = await resolveOvertureParams(request);
   const id = randomUUID();
   const relFile = path.join("tables", `${id}.parquet`);
@@ -558,10 +561,10 @@ export async function importOverture(
     // Derive-and-register in one synchronous step; the project
     // membership commits with it.
     const db = metadataDb();
-    const projectId = importProjectId(request.projectId);
+
     return db.transaction(() => {
       const table = registerTable(scope, record, requestedName ?? `overture_${params.theme}`, db);
-      if (projectId) fileTable(table.id, projectId, db);
+      if (projectId) fileOwnedTable(scope, table.id, projectId, db);
       return table;
     })();
   } catch (error) {

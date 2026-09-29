@@ -1,3 +1,4 @@
+import { datasetAccess } from "./openapi-dataset-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { SKETCH_ROW_COUNT_RESPONSE } from "./openapi-tool-responses";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE } from "./operation-mcp";
@@ -6,7 +7,7 @@ import { op, pathParam } from "./openapi-helpers";
 
 export const SKETCH_PATHS = {
   "/api/maps/{id}/sketches": {
-    get: op({
+    get: op(datasetAccess({
       summary: "List a map's sketch datasets",
       description:
         "The sketch datasets drawn on this map, each with its " +
@@ -44,8 +45,8 @@ export const SKETCH_PATHS = {
           },
         },
       },
-    }),
-    post: ownedCreationOp({
+    })),
+    post: ownedCreationOp(datasetAccess({
       summary: "Start a sketch with its first feature",
       description:
         "First commit of a draw session: mints the sketch " +
@@ -118,10 +119,10 @@ export const SKETCH_PATHS = {
         },
         "400": { description: "The feature failed the structural gate." },
       },
-    }),
+    })),
   },
   "/api/sketches/{name}/features": {
-    get: op({
+    get: op(datasetAccess({
       summary: "Read a sketch's drawn features",
       description:
         "Every drawn feature with its stable id, kind and geometry " +
@@ -145,8 +146,8 @@ export const SKETCH_PATHS = {
           },
         },
       },
-    }),
-    post: op({
+    })),
+    post: op(datasetAccess({
       summary: "Append one drawn feature",
       description:
         "Commits one more shape into the session's dataset, " +
@@ -191,10 +192,10 @@ export const SKETCH_PATHS = {
           description: "The sketch vanished mid-flight; nothing written.",
         },
       },
-    }),
+    })),
   },
   "/api/sketches/{name}/features/{featureId}": {
-    patch: op({
+    patch: op(datasetAccess({
       summary: "Move one vertex of a drawn polygon",
       description:
         "The one permitted edit: move exactly one vertex of a " +
@@ -237,8 +238,8 @@ export const SKETCH_PATHS = {
         "400": { description: "Bad index or out-of-range position." },
         "409": { description: "Not a polygon-kind feature." },
       },
-    }),
-    delete: op({
+    })),
+    delete: op(datasetAccess({
       summary: "Delete one drawn feature",
       description:
         "Removes exactly that row. The dataset keeps its id " +
@@ -256,10 +257,10 @@ export const SKETCH_PATHS = {
         "200": SKETCH_ROW_COUNT_RESPONSE,
         "404": { description: "No such drawn feature." },
       },
-    }),
+    })),
   },
   "/api/sketches/{name}": {
-    delete: op({
+    delete: op(datasetAccess({
       summary: "Delete a sketch and its owning layer — the cascade",
       description:
         "Deletes the provenance-named owning layer, its bound " +
@@ -277,6 +278,6 @@ export const SKETCH_PATHS = {
         "204": { description: "Layer and dataset are gone." },
         "404": { description: "Not a sketch dataset." },
       },
-    }),
+    })),
   },
 };

@@ -214,7 +214,7 @@ describe("published settle route", () => {
   });
 
   it("an errored settle envelope carries the catalogue sentence, never engine text", async () => {
-    await removeTable("points");
+    await removeTable(testAccountScope(), "points");
     const res = await settle([]);
     expect(res.status).toBe(200);
     const render = (await res.json()) as {

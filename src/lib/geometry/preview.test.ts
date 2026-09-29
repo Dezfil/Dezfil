@@ -17,7 +17,7 @@ beforeEach(async () => { dir = await setupGeometryTest(); });
 afterEach(async () => { await cleanupGeometryTest(dir); });
 async function preview(select: string, choice: GeometryChoice) {
   const t = await stored(select);
-  return previewGeometry(t.name, (await inspectGeometry(t.name)).revision, choice);
+  return previewGeometry(testAccountScope(), t.name, (await inspectGeometry(testAccountScope(), t.name)).revision, choice);
 }
 const cases = [
   ["wkt", "POINT (10 20)", [10, 20]],
@@ -69,7 +69,7 @@ it("50 corresponding rows and sampled counts and extent, with no durable side ef
   const before = snapshot();
   const file = path.join(process.env.DEZFIL_DATA_DIR!, t.file), bytes = await readFile(file);
   const inventory = await readdir(path.dirname(file));
-  const p = await previewGeometry(t.name, (await inspectGeometry(t.name)).revision, { format: "wkt", columns: ["payload"] });
+  const p = await previewGeometry(testAccountScope(), t.name, (await inspectGeometry(testAccountScope(), t.name)).revision, { format: "wkt", columns: ["payload"] });
   expect(p).toMatchObject({ canApply: true, rowCount: 50, unreadableCount: 1, extent: [10, 20, 10, 20] });
   expect(p.sample.rows).toHaveLength(50); expect(p.sample.features.features).toHaveLength(50);
   expect(p.sample.rows[24]).toMatchObject({ index: 24, status: "unreadable", values: { i: "24", payload: "bad" } });
@@ -112,7 +112,7 @@ it("all-bad, empty and transform-failing rows keep exact full outcomes", async (
 it("field round: long lines have a light preview without changing sampled bounds or saved values", async () => {
   const line = "LINESTRING (" + Array.from({ length: 10000 }, (_, i) => `${10 + i * 0.00001} ${20 + Math.sin(i * 0.001) * 0.001}`).join(", ") + ")";
   const t = await stored(`SELECT i, ${lit(line)} payload FROM range(50) t(i)`);
-  const p = await previewGeometry(t.name, (await inspectGeometry(t.name)).revision, { format: "wkt", columns: ["payload"] });
+  const p = await previewGeometry(testAccountScope(), t.name, (await inspectGeometry(testAccountScope(), t.name)).revision, { format: "wkt", columns: ["payload"] });
   expect(p).toMatchObject({ rowCount: 50, unreadableCount: 0, degreeCompatible: true });
   expect(p.sample.rows.every(r => r.status === "readable")).toBe(true);
   expect(Buffer.byteLength(JSON.stringify(p))).toBeLessThan(100000);

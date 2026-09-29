@@ -64,7 +64,7 @@ beforeEach(async () => {
       if (url.pathname === "/api/assistant/messages") response = await send(request);
       else if (url.pathname === "/api/assistant/runs") response = await reserve();
       else if (p[2] === "assistant" && p[3] === "runs") response = p[5] === "cancel" ? await cancel(request, params(p[4])) : await recover(request, params(p[4]));
-      else if (url.pathname === "/api/catalogue/tables") response = await catalogue(request);
+      else if (url.pathname === "/api/catalogue/tables") response = await catalogue(testAccountRequest(request));
       else if (url.pathname === "/api/maps" && request.method === "POST") {
         mutations++; await beforeMutation?.(); response = await mapsPost(testAccountRequest(request));
         if (loseMutation) { outgoing.destroy(); return; }

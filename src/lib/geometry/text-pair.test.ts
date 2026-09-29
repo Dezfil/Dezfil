@@ -23,12 +23,12 @@ async function fixture() {
   const file = path.join(dir, "text-pair.csv");
   await writeFile(file, csv);
   const table = await stored(`SELECT * FROM read_csv(${lit(file)})`);
-  expect((await inspectGeometry(table.name)).columns).toContainEqual({ name: "x", type: "VARCHAR" });
+  expect((await inspectGeometry(testAccountScope(), table.name)).columns).toContainEqual({ name: "x", type: "VARCHAR" });
   return table;
 }
 it("first preview accepts a text-typed pair with bad, whitespace and missing members", async () => {
   const t = await fixture();
-  const p = await previewGeometry(t.name, (await inspectGeometry(t.name)).revision, choice);
+  const p = await previewGeometry(testAccountScope(), t.name, (await inspectGeometry(testAccountScope(), t.name)).revision, choice);
   expect(p).toMatchObject({ canApply: true, rowCount: 6, unreadableCount: 2, extent: [10, 20, 11, 21] });
   expect(p.sample.rows.map(r => r.status)).toEqual(["readable", "unreadable", "unreadable", "missing", "missing", "readable"]);
   expect(p.sample.features.features.map(f => f.geometry)).toEqual([
@@ -38,26 +38,26 @@ it("first preview accepts a text-typed pair with bad, whitespace and missing mem
 });
 it.each(["first set", "change"])("%s accepts a text-typed pair and retains its source values", async mode => {
   const t = await fixture();
-  const before = await inspectTable(t.name);
-  if (mode === "change") await setGeometry(t.name, (await inspectGeometry(t.name)).revision, { format: "wkt", columns: ["payload"] });
-  const result = await setGeometry(t.name, (await inspectGeometry(t.name)).revision, choice);
+  const before = await inspectTable(testAccountScope(), t.name);
+  if (mode === "change") await setGeometry(testAccountScope(), t.name, (await inspectGeometry(testAccountScope(), t.name)).revision, { format: "wkt", columns: ["payload"] });
+  const result = await setGeometry(testAccountScope(), t.name, (await inspectGeometry(testAccountScope(), t.name)).revision, choice);
   expect(result).toMatchObject({ extent: [10, 20, 11, 21], table: { rowCount: 6, geometryRecord: { unreadableCount: 2 } } });
-  const after = await inspectTable(t.name);
+  const after = await inspectTable(testAccountScope(), t.name);
   expect(after.preview.map(r => r[result.table.geometryColumn!])).toEqual(["POINT (10 20)", null, null, null, null, "POINT (11 21)"]);
   for (let i = 0; i < before.preview.length; i++) expect(after.preview[i]).toMatchObject(before.preview[i]);
-  const swapped = await setGeometry(t.name, result.revision, { format: "pair", columns: ["y", "x"] });
+  const swapped = await setGeometry(testAccountScope(), t.name, result.revision, { format: "pair", columns: ["y", "x"] });
   expect(swapped).toMatchObject({ extent: [20, 10, 21, 11], table: { geometryRecord: { unreadableCount: 2 } } });
 });
 it("a pair selected as text on first use replays fresh text after restart", async () => {
   remote = csv;
   const t = (await importFromUrl(testAccountScope(), "https://fixture.test/text-pair.csv")).tables[0];
-  await setGeometry(t.name, (await inspectGeometry(t.name)).revision, choice);
+  await setGeometry(testAccountScope(), t.name, (await inspectGeometry(testAccountScope(), t.name)).revision, choice);
   closeMetadataDb();
   remote = 'x,y\n30,40\nbroken,50\n" ",60\n,70\n80,\n';
-  const next = await refreshTable(t.name);
+  const next = await refreshTable(testAccountScope(), t.name);
   expect(next).toMatchObject({ rowCount: 5, geometryRecord: { signal: "manual", unreadableCount: 2 } });
-  const after = await inspectTable(t.name);
+  const after = await inspectTable(testAccountScope(), t.name);
   expect(after.preview.map(r => r[next.geometryColumn!])).toEqual(["POINT (30 40)", null, null, null, null]);
   expect(after.preview.map(r => r.x)).toEqual(["30", "broken", " ", null, "80"]);
-  expect(await inspectGeometry(t.name)).toMatchObject({ mode: "set", currentChoice: choice });
+  expect(await inspectGeometry(testAccountScope(), t.name)).toMatchObject({ mode: "set", currentChoice: choice });
 });

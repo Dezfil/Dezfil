@@ -1,3 +1,6 @@
+import { insertTable } from "@/lib/metadata/tables";
+import { GET as datasetFeatures } from "@/app/api/tables/[name]/features/route";
+import { GET as datasetsRead } from "@/app/api/tables/route";
 import { GET as historyRead } from "@/app/api/maps/[id]/history/route";
 import { POST as historyUndo } from "@/app/api/maps/[id]/undo/route";
 import { POST as historyRedo } from "@/app/api/maps/[id]/redo/route";
@@ -109,6 +112,8 @@ function actualApi() {
     try {
       const actor = requireRequestAuth(req), path = new URL(req.url).pathname;
       seen.push({ path, accountId: actor.account.id, authorization: req.headers.get("authorization") ?? "", cookie: req.headers.get("cookie") });
+      if (path === "/api/tables") return datasetsRead(req);
+      if (/^\/api\/tables\/[^/]+\/features$/.test(path)) return datasetFeatures(req, { params: Promise.resolve({ name: path.split("/")[3] }) });
       if (path === "/api/account") return accountRead(req);
       if (path === "/api/users") return usersRead(req);
       if (path.startsWith("/api/users/")) return userAccess(req, { params: Promise.resolve({ id: path.split("/")[3] }) });
@@ -390,4 +395,38 @@ it.each(["cookie", "token"])("MCP and assistant %s calls preserve history owners
     expect(JSON.stringify(results)).not.toContain("Private");
   }
   expect(db.prepare("SELECT * FROM maps ORDER BY id").all()).toEqual(before);
+});
+
+it.each(["cookie", "token"])("MCP and assistant %s calls preserve dataset ownership and absent-name errors", async mode => {
+  actualApi();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
+  const other = await redeemSignInLink(invitation.secret, password, db);
+  const actors = [admin, member, other];
+  for (const actor of actors) insertTable(accountScope(authenticateSession(actor.secret, db)!, db), {
+    id: actor.account.id, name: actor.account.id, file: "tables/private.parquet", format: "csv", sourceFilename: "private.csv",
+    rowCount: 1, geometryColumn: null, geometryType: null, crsAssumed: false, headerSuspect: false,
+    source: "upload", sourceParams: null, importedAt: null, createdAt: "time",
+  }, db);
+  const before = db.prepare("SELECT * FROM data_tables ORDER BY id").all();
+  for (let i = 0; i < actors.length; i++) {
+    const actor = actors[i], hiddenName = actors[(i + 1) % actors.length].account.id;
+    const credential = createApiToken(authenticateSession(actor.secret, db)!, "Private datasets", db);
+    const headers = mode === "cookie" ? cookie(actor.secret) : { authorization: `Bearer ${credential.secret}` };
+    expect(await rpc("get_table_features", { name: actor.account.id }, headers)).toMatchObject({ isError: false });
+    const hidden = await rpc("get_table_features", { name: hiddenName }, headers);
+    expect(hidden).toMatchObject({ isError: true, structuredContent: { result: { error: { code: "not_found" } } } });
+    expect(hidden).toEqual(await rpc("get_table_features", { name: "missing" }, headers));
+    factory.provider = stubProvider([
+      { text: "", toolCalls: [
+        { id: "hidden", name: "get_table_features", args: { name: hiddenName } },
+        { id: "missing", name: "get_table_features", args: { name: "missing" } },
+      ] },
+      { text: "Unavailable", toolCalls: [] },
+    ]);
+    const events = await send({ runId: await ownReservation(headers), message: "Read these datasets" }, headers);
+    const results = events.filter((event): event is Extract<AssistantEvent, { type: "tool_result" }> => event.type === "tool_result");
+    expect(results).toHaveLength(2); expect(results.map(result => result.ok)).toEqual([false, false]);
+    expect(results[0].body).toMatchObject({ error: { code: "not_found" } }); expect(results[0].body).toEqual(results[1].body);
+  }
+  expect(db.prepare("SELECT * FROM data_tables ORDER BY id").all()).toEqual(before);
 });

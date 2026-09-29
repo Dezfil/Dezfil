@@ -1,3 +1,4 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { deleteFeature, moveVertex } from "@/lib/sketch/store";
@@ -11,6 +12,7 @@ type Params = { params: Promise<{ name: string; featureId: string }> };
  */
 export async function PATCH(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { name, featureId } = await params;
     let body: { vertexIndex?: unknown; position?: unknown };
     try {
@@ -25,6 +27,7 @@ export async function PATCH(request: Request, { params }: Params) {
         400,
       );
     const result = await moveVertex(
+      scope,
       name,
       featureId,
       body.vertexIndex,
@@ -39,8 +42,9 @@ export async function PATCH(request: Request, { params }: Params) {
 /** Delete exactly one drawn feature — its row leaves the dataset. */
 export async function DELETE(_request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(_request);
     const { name, featureId } = await params;
-    const result = await deleteFeature(name, featureId);
+    const result = await deleteFeature(scope, name, featureId);
     return NextResponse.json({ rowCount: result.rowCount });
   } catch (error) {
     return errorResponse(error);

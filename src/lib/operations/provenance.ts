@@ -1,4 +1,5 @@
-import { listTables } from "@/lib/metadata/tables";
+import type { AccountScope } from "@/lib/auth/scope";
+import { listOwnedTables } from "@/lib/metadata/owned-tables";
 import type { DataTable } from "@/lib/metadata/tables";
 
 /**
@@ -24,12 +25,12 @@ export interface ResolvedInput {
   nameReclaimed?: boolean;
 }
 
-export function resolveInputs(table: DataTable): ResolvedInput[] | null {
+export function resolveInputs(scope: AccountScope, table: DataTable): ResolvedInput[] | null {
   if (table.source !== "operation") return null;
   const raw = table.sourceParams?.inputs;
   if (!Array.isArray(raw)) return null;
 
-  const all = listTables();
+  const all = listOwnedTables(scope);
   const byId = new Map(all.map((t) => [t.id, t]));
   const byName = new Map(all.map((t) => [t.name.toLowerCase(), t]));
 

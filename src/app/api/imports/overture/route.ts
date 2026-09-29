@@ -2,7 +2,7 @@ import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse, ApiError } from "@/lib/api/errors";
 import { importOverture } from "@/lib/overture/import";
-import { requireProject } from "@/lib/metadata/projects";
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { importProjectId } from "@/lib/project-scope";
 
 /** Import an Overture Maps slice as a table. */
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     // Preflight: an unknown project refuses before any source is
     // contacted.
     const projectId = importProjectId(body.projectId);
-    if (projectId) requireProject(projectId);
+    if (projectId) requireOwnedResource(scope, "project", projectId);
     const table = await importOverture(scope, {
       theme: body.theme,
       scope: body.scope,

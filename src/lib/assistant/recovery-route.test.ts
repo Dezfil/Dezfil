@@ -60,7 +60,7 @@ beforeEach(async () => {
     const req = input instanceof Request ? input : new Request(String(input), init);
     const url = new URL(req.url);
     if (url.pathname === "/api/maps" && req.method === "POST") return createMap(testAccountRequest(req));
-    if (url.pathname === "/api/catalogue/tables") return catalogue(req);
+    if (url.pathname === "/api/catalogue/tables") return catalogue(testAccountRequest(req));
     throw new Error(`Unexpected test route: ${req.method} ${url.pathname}`);
   });
 });

@@ -104,7 +104,7 @@ describe("project CRUD over the API", () => {
     expect(patched.status).toBe(200);
 
     const read = await body(
-      await readProjectRoute(jsonReq(`/api/projects/${p.id}`, "GET"), params(p.id as string)),
+      await readProjectRoute(testAccountRequest(jsonReq(`/api/projects/${p.id}`, "GET")), params(p.id as string)),
     );
     expect(read.mapCount).toBe(1);
     expect(read.tableCount).toBe(1);
@@ -114,14 +114,14 @@ describe("project CRUD over the API", () => {
 
     const renamed = await body(
       await patchProjectRoute(
-        jsonReq(`/api/projects/${p.id}`, "PATCH", { name: "  Flood atlas  ", note: "First pass" }),
+        testAccountRequest(jsonReq(`/api/projects/${p.id}`, "PATCH", { name: "  Flood atlas  ", note: "First pass" })),
         params(p.id as string),
       ),
     );
     expect(renamed.name).toBe("Flood atlas");
     expect(renamed.note).toBe("First pass");
 
-    const listed = (await (await listProjectsRoute()).json()) as Json[];
+    const listed = (await (await listProjectsRoute(testAccountRequest(new Request("http://test/api/projects")))).json()) as Json[];
     expect(listed.map((x) => x.id)).toContain(p.id);
   });
 
@@ -134,7 +134,7 @@ describe("project CRUD over the API", () => {
       })),
     );
     expect(response.status).toBe(404);
-    const listed = (await (await listProjectsRoute()).json()) as Json[];
+    const listed = (await (await listProjectsRoute(testAccountRequest(new Request("http://test/api/projects")))).json()) as Json[];
     expect(listed.length).toBe(0);
     expect(mapProjectId(map.id)).toBeNull();
   });
@@ -147,13 +147,13 @@ describe("project CRUD over the API", () => {
       params(p.id as string),
     );
     const deleted = await body(
-      await deleteProjectRoute(jsonReq(`/api/projects/${p.id}`, "DELETE"), params(p.id as string)),
+      await deleteProjectRoute(testAccountRequest(jsonReq(`/api/projects/${p.id}`, "DELETE")), params(p.id as string)),
     );
     expect(deleted).toMatchObject({ deleted: true, contentsRemain: true });
     expect(typeof deleted.message).toBe("string");
     expect(getMap(map.id)).not.toBeNull();
     expect(mapProjectId(map.id)).toBeNull();
-    const missing = await readProjectRoute(jsonReq(`/api/projects/${p.id}`, "GET"), params(p.id as string));
+    const missing = await readProjectRoute(testAccountRequest(jsonReq(`/api/projects/${p.id}`, "GET")), params(p.id as string));
     expect(missing.status).toBe(404);
   });
 });
@@ -251,7 +251,7 @@ describe("workflow-origin project membership", () => {
     expect(refusal.error.message).toContain(
       "Only workflows can be project members.",
     );
-    expect((await (await listProjectsRoute()).json()) as Json[]).toHaveLength(0);
+    expect((await (await listProjectsRoute(testAccountRequest(new Request("http://test/api/projects")))).json()) as Json[]).toHaveLength(0);
     expect(getRecipe(workflow.id)?.projectId).toBeNull();
     expect(getRecipe(builder.id)?.projectId).toBeNull();
 
@@ -269,7 +269,7 @@ describe("workflow-origin project membership", () => {
     const p = await newProject();
     directlyFileBothRecipeOrigins(p.id as string);
 
-    const listed = (await (await listProjectsRoute()).json()) as Json[];
+    const listed = (await (await listProjectsRoute(testAccountRequest(new Request("http://test/api/projects")))).json()) as Json[];
     expect(listed.find((project) => project.id === p.id)?.recipeCount).toBe(1);
   });
 
@@ -279,7 +279,7 @@ describe("workflow-origin project membership", () => {
 
     const detail = await body(
       await readProjectRoute(
-        jsonReq(`/api/projects/${p.id}`, "GET"),
+        testAccountRequest(jsonReq(`/api/projects/${p.id}`, "GET")),
         params(p.id as string),
       ),
     );
@@ -413,7 +413,7 @@ describe("project ids on detail reads", () => {
     );
     expect(detail.projectId).toBe(p.id);
     const inspected = await body(
-      await readTableRoute(jsonReq("/api/tables/stations", "GET"), {
+      await readTableRoute(testAccountRequest(jsonReq("/api/tables/stations", "GET")), {
         params: Promise.resolve({ name: "stations" }),
       }),
     );
@@ -460,7 +460,7 @@ describe("size honesty", () => {
     const known = listed[0].sizeBytes as number;
     expect(known).toBeGreaterThan(0);
     const exact = await body(
-      await readProjectRoute(jsonReq(`/api/projects/${p.id}`, "GET"), params(p.id as string)),
+      await readProjectRoute(testAccountRequest(jsonReq(`/api/projects/${p.id}`, "GET")), params(p.id as string)),
     );
     expect(exact.sizeBytes).toBe(known);
     expect(exact.sizeComplete).toBe(true);
@@ -469,7 +469,7 @@ describe("size honesty", () => {
     // so instead of pretending.
     await rm(path.join(dir, "data", table.file), { force: true });
     const partial = await body(
-      await readProjectRoute(jsonReq(`/api/projects/${p.id}`, "GET"), params(p.id as string)),
+      await readProjectRoute(testAccountRequest(jsonReq(`/api/projects/${p.id}`, "GET")), params(p.id as string)),
     );
     expect(partial.sizeComplete).toBe(false);
     expect(partial.sizeBytes).toBe(0);

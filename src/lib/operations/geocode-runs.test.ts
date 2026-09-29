@@ -342,7 +342,7 @@ describe("what the publication records", () => {
     expect((await readStep(recipe.id, step.id)).condition.primary).toBe("current");
 
     // A new generation of the source underneath it.
-    await refreshTable("addresses");
+    await refreshTable(testAccountScope(), "addresses");
     expect(getTableByName("addresses")!.file).not.toBe(before);
     const condition = (await readStep(recipe.id, step.id)).condition;
     expect(condition.primary).toBe("stale");
@@ -370,7 +370,7 @@ describe("the fence, in its own words", () => {
       parameters: { input: "addresses", column: "address", name: "located" },
     });
     await until(() => asked.length >= 1);
-    await refreshTable("addresses");
+    await refreshTable(testAccountScope(), "addresses");
     await laneSettled();
 
     const settled = getJob(job.id)!;

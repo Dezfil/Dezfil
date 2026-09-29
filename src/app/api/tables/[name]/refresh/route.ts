@@ -1,7 +1,8 @@
+import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse, ApiError } from "@/lib/api/errors";
 import { refreshTable } from "@/lib/ingest/refresh";
-import { tableProjectIds } from "@/lib/metadata/projects";
+import { ownedTableProjectIds } from "@/lib/metadata/owned-tables";
 
 type Params = { params: Promise<{ name: string }> };
 
@@ -9,6 +10,7 @@ type Params = { params: Promise<{ name: string }> };
  * optional explicit release update for Overture tables). */
 export async function POST(request: Request, { params }: Params) {
   try {
+    const scope = requireRequestScope(request);
     const { name } = await params;
     const body = (await request.json().catch(() => null)) as {
       release?: unknown;
@@ -24,6 +26,7 @@ export async function POST(request: Request, { params }: Params) {
       );
     }
     const refreshed = await refreshTable(
+      scope,
       name,
       body?.release ? { release: body.release } : {},
     );
@@ -31,7 +34,7 @@ export async function POST(request: Request, { params }: Params) {
     // answer like every Table-shaped response.
     return NextResponse.json({
       ...refreshed,
-      projectIds: tableProjectIds().get(refreshed.id) ?? [],
+      projectIds: ownedTableProjectIds(scope).get(refreshed.id) ?? [],
     });
   } catch (error) {
     return errorResponse(error);

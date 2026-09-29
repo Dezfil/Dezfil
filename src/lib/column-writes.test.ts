@@ -191,7 +191,7 @@ describe("layer style writes", () => {
       name: "Doomed",
       sql: "SELECT name, val, geometry FROM doomed",
     });
-    await removeTable("doomed");
+    await removeTable(testAccountScope(), "doomed");
     const error = await refused(
       updateLayer(testAccountScope(), layer.id, {
         style: { ...constantStyle, fill: quantileOn("val") },

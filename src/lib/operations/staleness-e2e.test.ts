@@ -121,7 +121,7 @@ async function run(stepId: string) {
 /** Change what the source serves, then re-run its stored import. */
 async function refresh(name: string) {
   generation += 1;
-  await refreshTable(name);
+  await refreshTable(testAccountScope(), name);
 }
 
 const causes = async (stepId: string): Promise<StaleCause[]> =>

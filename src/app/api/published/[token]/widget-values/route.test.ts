@@ -163,7 +163,7 @@ describe("published widget-values reader gate", () => {
   });
 
   it("an unresolvable layer keeps degrading per-widget, reader input or not", async () => {
-    await removeTable("points");
+    await removeTable(testAccountScope(), "points");
     const res = await values([
       { widgetId: "wc", kind: "exclude", values: ["a"] },
     ]);
@@ -192,7 +192,7 @@ describe("published widget-values reader gate", () => {
   });
 
   it("failed widgets carry the catalogue sentence on the wire; the builder lane keeps the raw text", async () => {
-    await removeTable("points");
+    await removeTable(testAccountScope(), "points");
     const res = await values([]);
     expect(res.status).toBe(200);
     const body = res.body as {

@@ -392,7 +392,7 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
     expect(Number(x.x)).toBeCloseTo(13.4, 3);
     expect(Number(x.y)).toBeCloseTo(52.5, 3);
 
-    const refreshed = await refreshTable("pg_live_import");
+    const refreshed = await refreshTable(testAccountScope(), "pg_live_import");
     expect(refreshed.rowCount).toBe(2);
     expect(getTableByName("pg_live_import")?.file).not.toBe(imported.file);
 
@@ -432,7 +432,7 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
       "INSERT INTO dezfil_live_rotation.rotation_source VALUES (2, 'after rotation')",
     ]);
     const beforeCredentialFailure = getTableByName(imported.name);
-    await expect(refreshTable(imported.name)).rejects.toMatchObject({
+    await expect(refreshTable(testAccountScope(), imported.name)).rejects.toMatchObject({
       code: "connection_failed",
       message: "Authentication failed. Check the username and password.",
     });
@@ -449,7 +449,7 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
     expect(savePassword.status).toBe(200);
     expect(((await savePassword.json()) as { id: string }).id).toBe(created.id);
 
-    const refreshed = await refreshTable(imported.name);
+    const refreshed = await refreshTable(testAccountScope(), imported.name);
     expect(refreshed.id).toBe(imported.id);
     expect(refreshed.rowCount).toBe(2);
     expect(refreshed.sourceParams?.connectionId).toBe(created.id);
@@ -498,7 +498,7 @@ live(url ? "postgis live integration" : "SKIP: DEZFIL_TEST_PG_URL is missing (di
     expect(getConnection(created.id)?.host).toBe("localhost");
 
     const beforeMissingRecipe = getTableByName(imported.name);
-    await expect(refreshTable(imported.name)).rejects.toMatchObject({
+    await expect(refreshTable(testAccountScope(), imported.name)).rejects.toMatchObject({
       code: "not_refreshable",
       message:
         'The stored recipe for "dezfil_live_rotation.rotation_source" no longer resolves on this connection. The previous snapshot data is unchanged.',

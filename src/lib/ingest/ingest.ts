@@ -1,3 +1,4 @@
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
@@ -12,7 +13,7 @@ import {
   type TableSource,
 } from "@/lib/metadata/tables";
 import { metadataDb } from "@/lib/metadata/db";
-import { fileTable } from "@/lib/metadata/projects";
+import { fileOwnedTable } from "@/lib/metadata/owned-tables";
 import { geometryColumnOfSelect, planSource } from "./file-source";
 import { replayFileGeometry, type GeometryReplay } from "@/lib/geometry/replay";
 import type { GeometryStorage } from "@/lib/geometry/state";
@@ -204,6 +205,7 @@ export async function ingestFile(
   requestedName?: string,
 ): Promise<DataTable> {
   requireAccountScope(scope);
+  if (provenance?.projectId) requireOwnedResource(scope, "project", provenance.projectId);
   const format = detectFormat(originalFilename);
   const id = randomUUID();
   const relFile = path.join("tables", `${id}.parquet`);
@@ -238,7 +240,7 @@ export async function ingestFile(
         requestedName ?? originalFilename,
         db,
       );
-      if (provenance.projectId) fileTable(table.id, provenance.projectId, db);
+      if (provenance.projectId) fileOwnedTable(scope, table.id, provenance.projectId, db);
       return table;
     })();
   } catch (error) {

@@ -638,7 +638,7 @@ describe("published error disclosure", () => {
       sql: "SELECT * FROM s",
     });
     const { token } = publishMap(testAccountScope(), map.id);
-    await removeTable("s");
+    await removeTable(testAccountScope(), "s");
     resetPublishCache();
 
     const view = await getPublishedView(token, Date.now());

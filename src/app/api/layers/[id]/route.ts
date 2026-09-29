@@ -217,9 +217,9 @@ export async function DELETE(request: Request, { params }: Params) {
     const scope = requireRequestScope(request);
     const { id } = await params;
     requireLayer(scope, id);
-    const owned = sketchOwnedByLayer(id);
+    const owned = sketchOwnedByLayer(scope, id);
     if (owned) {
-      await cascadeDeleteSketch(owned.name);
+      await cascadeDeleteSketch(scope, owned.name);
       return new NextResponse(null, { status: 204 });
     }
     await removeLayer(scope, id, { groupId: changeGroupOf(request) });

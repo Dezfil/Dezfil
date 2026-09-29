@@ -123,7 +123,7 @@ describe("maps", () => {
   });
 
   it("lists tables with their size on disk", async () => {
-    const listing = await listTablesWithSize();
+    const listing = await listTablesWithSize(testAccountScope());
     const stations = listing.find((t) => t.name === "stations");
     expect(stations?.sizeBytes).toBeGreaterThan(0);
   });
@@ -383,7 +383,7 @@ describe("deleted table leaves an errored layer", () => {
       sql: "SELECT ST_Point(0, 0) AS geometry",
     });
 
-    await removeTable("stations");
+    await removeTable(testAccountScope(), "stations");
 
     // The layer still exists (spec: deleting a table does not delete layers).
     expect(getLayer(dependent.id)).not.toBeNull();
@@ -485,7 +485,7 @@ describe("stale geometry type heals on inspect", () => {
   it("re-measures a stored MIXED and persists the collapse", async () => {
     updateTableGeometryType(getTableByName("stations")!, "MIXED");
     expect(getTableByName("stations")!.geometryType).toBe("MIXED");
-    const inspected = await inspectTable("stations");
+    const inspected = await inspectTable(testAccountScope(), "stations");
     expect(inspected.geometryType).toBe("POINT");
     expect(getTableByName("stations")!.geometryType).toBe("POINT");
   });
@@ -493,7 +493,7 @@ describe("stale geometry type heals on inspect", () => {
 
 describe("dataset export", () => {
   it("geoparquet streams the stored artifact itself", async () => {
-    const file = await exportTable("stations", "geoparquet");
+    const file = await exportTable(testAccountScope(), "stations", "geoparquet");
     expect(file.filename).toBe("stations.parquet");
     const { readFile } = await import("node:fs/promises");
     const stored = getTableByName("stations")!;
@@ -504,7 +504,7 @@ describe("dataset export", () => {
   });
 
   it("geojson converts and cleans up after itself", async () => {
-    const file = await exportTable("stations", "geojson");
+    const file = await exportTable(testAccountScope(), "stations", "geojson");
     expect(file.filename).toBe("stations.geojson");
     const { readFile, stat } = await import("node:fs/promises");
     const body = JSON.parse(await readFile(file.path, "utf8")) as {
@@ -518,7 +518,7 @@ describe("dataset export", () => {
   });
 
   it("csv renders geometry as WKT", async () => {
-    const file = await exportTable("stations", "csv");
+    const file = await exportTable(testAccountScope(), "stations", "csv");
     const { readFile } = await import("node:fs/promises");
     const csv = await readFile(file.path, "utf8");
     expect(csv.split("\n")[0]).toContain("name");
@@ -531,10 +531,10 @@ describe("dataset export", () => {
     const { writeFile: write } = await import("node:fs/promises");
     await write(src, "label,value\nx,1\ny,2\n");
     await ingestFile(testAccountScope(), src, "plain.csv");
-    await expect(exportTable("plain", "geojson")).rejects.toMatchObject({
+    await expect(exportTable(testAccountScope(), "plain", "geojson")).rejects.toMatchObject({
       code: "invalid_request",
     });
-    const file = await exportTable("plain", "csv");
+    const file = await exportTable(testAccountScope(), "plain", "csv");
     const { readFile } = await import("node:fs/promises");
     expect(await readFile(file.path, "utf8")).toContain("label,value");
     await file.cleanup();

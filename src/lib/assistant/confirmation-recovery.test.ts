@@ -47,7 +47,7 @@ async function dispatch(request: Request): Promise<Response> {
   request = testAccountRequest(request);
   const url = new URL(request.url); const p = url.pathname.split("/");
   calls.push({ path: url.pathname, method: request.method, body: request.method === "GET" ? null : await request.clone().json().catch(() => null) });
-  if (url.pathname === "/api/catalogue/tables") return catalogue(request);
+  if (url.pathname === "/api/catalogue/tables") return catalogue(testAccountRequest(request));
   if (url.pathname === "/api/query") return query(request);
   if (url.pathname === "/api/maps") return mapsPost(testAccountRequest(request));
   if (p[2] === "maps") {

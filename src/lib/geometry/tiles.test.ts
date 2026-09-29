@@ -19,8 +19,8 @@ afterEach(async () => { await release?.(); await tileBuildsSettled(); resetTileB
 it("actual running tiles cannot publish after a geometry change; unrelated tiles and next SQL stay correct", async () => {
   const t=await stored("SELECT * FROM (VALUES ('POINT (10 20)',30,40), ('POINT (11 21)',31,41)) t(payload,x,y)",{name:"points"});
   const other=await stored("SELECT * FROM (VALUES ('POINT (50 60)'), ('POINT (51 61)')) t(payload)",{name:"points_extra"});
-  const first=await setGeometry(t.name,geometryRevision(t),{format:"wkt",columns:["payload"]});
-  await setGeometry(other.name,geometryRevision(other),{format:"wkt",columns:["payload"]});
+  const first=await setGeometry(testAccountScope(), t.name,geometryRevision(t),{format:"wkt",columns:["payload"]});
+  await setGeometry(testAccountScope(), other.name,geometryRevision(other),{format:"wkt",columns:["payload"]});
   const map=createMap(testAccountScope(), "Tiles"), sql="SELECT * FROM points", otherSql="SELECT * FROM points_extra";
   const layer=await createLayer(testAccountScope(), map.id,{name:"changed",sql});
   const unrelated=await createLayer(testAccountScope(), map.id,{name:"unchanged",sql:otherSql});
@@ -41,7 +41,7 @@ exec tippecanoe "$@"
   ensureTiles(input(layer.id,sql));
   await vi.waitFor(()=>expect(existsSync(started),"tiler actually engaged before mutation").toBe(true),{timeout:3000});
   expect(getTileRecord(layer.id)?.state).toBe("building");
-  const next=await setGeometry(t.name,first.revision,{format:"pair",columns:["x","y"]});
+  const next=await setGeometry(testAccountScope(), t.name,first.revision,{format:"pair",columns:["x","y"]});
   // This immediate assertion catches omitted prompt invalidation even when
   // a changed fingerprint would lazily repair the next render.
   expect(getTileRecord(layer.id)).toBeNull();
@@ -54,7 +54,7 @@ exec tippecanoe "$@"
   const rows=await boundedEvaluation(async conn=>(await conn.runAndReadAll("SELECT ST_X(geometry) x, ST_Y(geometry) y FROM points")).getRowObjectsJson());
   expect(rows).toEqual([{x:30,y:40},{x:31,y:41}]);
   ensureTiles(input(layer.id,sql)); await tileBuildsSettled(); expect(getTileRecord(layer.id)?.state).toBe("ready");
-  await clearGeometry(t.name,next.revision);
+  await clearGeometry(testAccountScope(), t.name,next.revision);
   expect(getTileRecord(layer.id)).toBeNull();
   await expect(boundedEvaluation(conn=>conn.runAndReadAll("SELECT geometry FROM points"))).rejects.toThrow(/geometry|column/i);
 });

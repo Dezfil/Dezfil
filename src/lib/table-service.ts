@@ -1,3 +1,6 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
+import { getOwnedTableByName, listOwnedTables, deleteOwnedTable, ownedTableProjectIds, ownedDependentLayerIds } from "@/lib/metadata/owned-tables";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { mkdir, rm, stat } from "node:fs/promises";
@@ -7,19 +10,13 @@ import { withConnection } from "@/lib/duckdb";
 import { ApiError } from "@/lib/api/errors";
 import { resolveInputs, type ResolvedInput } from "@/lib/operations/provenance";
 import {
-  getTableByName,
-  deleteTable,
-  listTables,
   updateTableGeometryType,
   type DataTable,
 } from "@/lib/metadata/tables";
 import { collapseGeometryTypes } from "@/lib/ingest/ingest";
 import {
-  requireProject,
-  tableProjectIds,
   touchProjectsOf,
 } from "@/lib/metadata/projects";
-import { dependentLayerIds } from "@/lib/table-deps";
 import { retireArtifact } from "@/lib/ingest/retire";
 import { trackInflight } from "@/lib/query/inflight";
 import { dropTableView } from "@/lib/query/views";
@@ -57,13 +54,15 @@ async function artifactSize(table: DataTable): Promise<number | null> {
 }
 
 export function listTablesWithSize(
+  scope: AccountScope,
   project?: string | "none",
 ): Promise<TableListing[]> {
   // An unknown project refuses, never an empty list.
-  if (project && project !== "none") requireProject(project);
-  const memberships = tableProjectIds();
+  requireAccountScope(scope);
+  if (project && project !== "none") requireOwnedResource(scope, "project", project);
+  const memberships = ownedTableProjectIds(scope);
   return Promise.all(
-    listTables()
+    listOwnedTables(scope)
       .map((t) => ({ ...t, projectIds: memberships.get(t.id) ?? [] }))
       .filter((t) =>
         project === undefined
@@ -84,17 +83,17 @@ function ident(s: string): string {
   return `"${s.replace(/"/g, '""')}"`;
 }
 
-export function requireTable(name: string): DataTable {
-  const table = getTableByName(name);
+export function requireTable(scope: AccountScope, name: string): DataTable {
+  const table = getOwnedTableByName(scope, name);
   if (!table) {
-    throw new ApiError("not_found", `No table named "${name}".`, 404);
+    throw resourceAbsent();
   }
   return table;
 }
 
 /** Schema plus a row preview (spec: Upload — schema, row count, preview). */
-export async function inspectTable(name: string): Promise<TableInspection> {
-  const table = requireTable(name);
+export async function inspectTable(scope: AccountScope, name: string): Promise<TableInspection> {
+  const table = requireTable(scope, name);
   const artifact = path.join(dataDir(), table.file);
 
   // A tracked artifact reader: retirement waits for this pass.
@@ -140,6 +139,7 @@ export async function inspectTable(name: string): Promise<TableInspection> {
           typed.getRowObjects().map((r) => String(r.t)),
         );
         if (healed !== geometryType) {
+          requireOwnedResource(scope, "dataset", table.id);
           updateTableGeometryType(table, healed);
           geometryType = healed;
         }
@@ -151,8 +151,8 @@ export async function inspectTable(name: string): Promise<TableInspection> {
         columns,
         preview,
         sizeBytes: await artifactSize(table),
-        projectIds: tableProjectIds().get(table.id) ?? [],
-        inputs: resolveInputs(table),
+        projectIds: ownedTableProjectIds(scope).get(table.id) ?? [],
+        inputs: resolveInputs(scope, table),
       };
     }),
   );
@@ -180,10 +180,11 @@ export interface TableFeaturesResult {
  * table draws its first cap-many features instead of refusing (the dataset
  * detail's map preview). */
 export async function tableFeatures(
+  scope: AccountScope,
   name: string,
   opts: { sample?: boolean } = {},
 ): Promise<TableFeaturesResult> {
-  const table = requireTable(name);
+  const table = requireTable(scope, name);
   if (!table.geometryColumn) {
     return {
       ok: false,
@@ -255,10 +256,11 @@ export interface TableExport {
  * data dir's tmp corner for the route to stream and clean up. Runs on the
  * main instance — the hardened fence guards user SQL, not our exports. */
 export async function exportTable(
+  scope: AccountScope,
   name: string,
   format: ExportFormat,
 ): Promise<TableExport> {
-  const table = requireTable(name);
+  const table = requireTable(scope, name);
   const artifact = path.join(dataDir(), table.file);
   if (format === "geoparquet") {
     return {
@@ -335,13 +337,13 @@ export async function exportTable(
  * engine file error; the artifact retires behind any in-flight readers. The
  * completeness tail is best-effort — the row removal above is the deletion
  * the caller reads. */
-export async function removeTable(name: string): Promise<void> {
-  const table = requireTable(name);
-  const dependents = dependentLayerIds(name);
+export async function removeTable(scope: AccountScope, name: string): Promise<void> {
+  const table = requireTable(scope, name);
+  const dependents = ownedDependentLayerIds(scope, name);
   // Every set it was in advances its clock before the cascade removes
   // the membership rows.
   touchProjectsOf({ tableId: table.id });
-  deleteTable(name);
+  deleteOwnedTable(scope, table);
   // Each cleanup step fails independently: a tile
   // reclamation error must not suppress the view drop, or SQL naming the
   // deleted table regains the artifact-path error this removes.

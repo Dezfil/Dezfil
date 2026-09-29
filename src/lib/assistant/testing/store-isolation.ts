@@ -17,11 +17,11 @@ export async function isolateScenario(input: { live: boolean; dir: string }): Pr
   // removed through the repositories, rows and artifacts alike; the
   // directory itself stays, the standalone keeps serving from it.
   for (const map of allMaps(testAccountScope())) await removeMap(testAccountScope(), map.id);
-  for (const table of await listTablesWithSize()) await removeTable(table.name);
+  for (const table of await listTablesWithSize(testAccountScope())) await removeTable(testAccountScope(), table.name);
 }
 
 /** What a seed would see: the maps and the tables the store holds. */
 export async function storeContents(): Promise<{ maps: string[]; tables: string[] }> {
-  return { maps: allMaps(testAccountScope()).map((m) => m.name), tables: (await listTablesWithSize()).map((t) => t.name) };
+  return { maps: allMaps(testAccountScope()).map((m) => m.name), tables: (await listTablesWithSize(testAccountScope())).map((t) => t.name) };
 }
 export { removeMap, removeTable };

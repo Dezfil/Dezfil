@@ -1,3 +1,4 @@
+import { datasetAccess } from "./openapi-dataset-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE, REMOTE_ADD, REMOTE_READ, REMOTE_REPLACE } from "./operation-mcp";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
@@ -357,7 +358,7 @@ export const CONNECTION_PATHS = {
     }),
   },
   "/api/imports/postgis": {
-    post: ownedCreationOp({
+    post: ownedCreationOp(datasetAccess({
       summary: "Import a PostGIS table as a snapshot",
       description:
         "Materializes the table as a GeoParquet snapshot — read-only " +
@@ -406,7 +407,7 @@ export const CONNECTION_PATHS = {
       responses: {
         "201": jsonOk("#/components/schemas/Table", "Created."),
       },
-    }),
+    })),
   },
 };
 

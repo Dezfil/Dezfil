@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
 import type { DataTable } from "@/lib/metadata/tables";
 
@@ -13,13 +14,14 @@ const active = new Set<string>();
 
 /** The unit a table's refresh contends on: OSM members share their group,
  * and so do the tables of a multi-layer URL import. */
-export function refreshUnit(table: DataTable): string {
+export function refreshUnit(scope: AccountScope, table: DataTable): string {
+  const owner = requireAccountScope(scope);
   const group = table.sourceParams?.group;
   if (typeof group === "string") {
-    if (table.source === "osm") return `osm:${group}`;
-    if (table.source === "url") return `url:${group}`;
+    if (table.source === "osm") return `osm:${JSON.stringify([owner, group])}`;
+    if (table.source === "url") return `url:${JSON.stringify([owner, group])}`;
   }
-  return `table:${table.name}`;
+  return `table:${JSON.stringify([owner, table.id])}`;
 }
 
 /** Claim the unit or answer the documented conflict — never a second build. */

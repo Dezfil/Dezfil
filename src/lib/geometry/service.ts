@@ -1,3 +1,4 @@
+import type { AccountScope } from "@/lib/auth/scope";
 import { INSPECT_PREVIEW_ROWS } from "@/lib/table-preview-limit";
 import { trustedH3Ready } from "@/lib/duckdb";
 import { recognizeStoredContent } from "@/lib/ingest/content-recognition";
@@ -10,8 +11,8 @@ import type { GeometryMode } from "./types";
 
 const cachedInspection = inspectionCache<Awaited<ReturnType<typeof readInspection>>>();
 
-export function inspectGeometry(name: string) {
-  const table = requireGeometryTable(name);
+export function inspectGeometry(scope: AccountScope, name: string) {
+  const table = requireGeometryTable(scope, name);
   return cachedInspection(table, () => readInspection(table));
 }
 
@@ -36,8 +37,8 @@ import { evaluateGeometry } from "./evaluate";
 import { measureGeometry, sampleGeometry } from "./preview";
 import type { GeometryPreview } from "./types";
 
-export function previewGeometry(name: string, expectedRevision: string, input: unknown): Promise<GeometryPreview> {
-  const table = requireGeometryTable(name, expectedRevision);
+export function previewGeometry(scope: AccountScope, name: string, expectedRevision: string, input: unknown): Promise<GeometryPreview> {
+  const table = requireGeometryTable(scope, name, expectedRevision);
   const choice = parseGeometryChoice(input);
   const state = getGeometryState(table);
   return readGeometry(table, async (conn, from) => {

@@ -53,7 +53,7 @@ it("actual upload response, close/reopen and table inspection preserve the selec
   const record = body.geometryRecord;
   closeMetadataDb();
   expect(getTableByName(body.name)).toMatchObject({ geometryRecord: record, geometryCandidates: body.geometryCandidates });
-  const inspected = await inspectTable(body.name);
+  const inspected = await inspectTable(testAccountScope(), body.name);
   expect(inspected).toMatchObject({ geometryRecord: record, rowCount: 1001 });
 });
 
@@ -83,12 +83,12 @@ it("local and URL imports agree; a successful refresh replaces record and candid
   expect(url.geometryRecord).toEqual(file.geometryRecord);
   expect(url.geometryCandidates).toEqual(file.geometryCandidates);
   remoteCsv = 'other,label\n"LINESTRING (30 40, 31 41)",a\n';
-  const refreshed = await refreshTable(url.name) as WithRecord;
+  const refreshed = await refreshTable(testAccountScope(), url.name) as WithRecord;
   expect(refreshed.file).not.toBe(url.file);
   expect(refreshed.geometryRecord).toMatchObject({ columns: ["other"], unreadableCount: 0 });
   expect(getTableByName(url.name)).toMatchObject({ geometryRecord: refreshed.geometryRecord, geometryCandidates: refreshed.geometryCandidates });
   remoteCsv = "name,value\na,1\n";
-  expect(await refreshTable(url.name)).toMatchObject({ geometryColumn: null, geometryRecord: null, geometryCandidates: [] });
+  expect(await refreshTable(testAccountScope(), url.name)).toMatchObject({ geometryColumn: null, geometryRecord: null, geometryCandidates: [] });
 });
 
 it("a failure after conversion keeps the old artifact and record together", async () => {
@@ -99,7 +99,7 @@ it("a failure after conversion keeps the old artifact and record together", asyn
   const filesBefore = await readdir(tablesDir);
   metadataDb().exec("CREATE TRIGGER fail_refresh BEFORE UPDATE ON data_tables BEGIN SELECT RAISE(ABORT, 'seeded publication failure'); END");
   remoteCsv = 'new_shape,label\n"POINT (30 40)",b\n';
-  await expect(refreshTable(before.name)).rejects.toThrow("seeded publication failure");
+  await expect(refreshTable(testAccountScope(), before.name)).rejects.toThrow("seeded publication failure");
   expect(getTableByName(before.name)).toEqual(before);
   expect(await readdir(tablesDir)).toEqual(filesBefore);
 });

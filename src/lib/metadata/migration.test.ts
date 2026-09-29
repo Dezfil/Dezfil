@@ -470,17 +470,18 @@ describe("v25: a derived table has no source filename", () => {
       expect(derived.source_filename).toBeNull();
       expect(derived.source).toBe("operation");
 
-      // The unique-name constraint survives the rebuild.
+      // Adoption keeps unique names within the original owner.
+      const owner = testAccountScope(db).accountId;
       expect(() =>
         db
           .prepare(
             `INSERT INTO data_tables
                (id, name, source_filename, format, file, crs_assumed,
-                row_count, created_at, source)
+                row_count, created_at, source, owner_id)
              VALUES ('t3', 'stations', NULL, 'geoparquet', 'tables/c.parquet',
-                     0, 1, ?, 'operation')`,
+                     0, 1, ?, 'operation', ?)` ,
           )
-          .run(now),
+          .run(now, owner),
       ).toThrow(/UNIQUE/i);
       db.close();
     } finally {

@@ -1,3 +1,5 @@
+import { ownedTableNames, listOwnedTables } from "@/lib/metadata/owned-tables";
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { replayGeometryRelation, type GeometryReplay } from "@/lib/geometry/replay";
 import { randomUUID } from "node:crypto";
@@ -7,11 +9,9 @@ import { dataDir } from "@/lib/config";
 import { withConnection } from "@/lib/duckdb";
 import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
-import { fileTable } from "@/lib/metadata/projects";
+import { fileOwnedTable } from "@/lib/metadata/owned-tables";
 import {
   insertTable,
-  listTables,
-  tableNames,
   type DataTable,
   type TableFormat,
 } from "@/lib/metadata/tables";
@@ -331,6 +331,7 @@ export async function ingestSpatialFile(
   requestedName?: string,
 ): Promise<IngestResult> {
   requireAccountScope(scope);
+  if (provenance?.projectId) requireOwnedResource(scope, "project", provenance.projectId);
   const format = detectFormat(originalFilename) as GdalFormat;
   const prepared = await prepareSource(format, sourcePath, originalFilename);
   try {
@@ -381,7 +382,7 @@ export async function ingestSpatialFile(
           for (const b of built) {
             const record: DataTable = {
               id: b.id,
-              name: deriveTableName(b.desired, tableNames(db)),
+              name: deriveTableName(b.desired, ownedTableNames(scope, db)),
               sourceFilename: originalFilename,
               format,
               file: b.relFile,
@@ -404,7 +405,7 @@ export async function ingestSpatialFile(
             // Every table of a container files together — one
             // membership failure rolls the whole group's registration
             // back, the road's own atomicity.
-            if (provenance.projectId) fileTable(record.id, provenance.projectId, db);
+            if (provenance.projectId) fileOwnedTable(scope, record.id, provenance.projectId, db);
             out.push(record);
           }
           return out;
@@ -447,6 +448,7 @@ export async function ingestSource(
   requestedName?: string,
 ): Promise<IngestResult> {
   requireAccountScope(scope);
+  if (provenance?.projectId) requireOwnedResource(scope, "project", provenance.projectId);
   const format = detectFormat(originalFilename);
   if (isGdalFormat(format)) {
     return ingestSpatialFile(
@@ -483,8 +485,8 @@ export function toIngestResponse(
 
 /** Every member of a url-import group, by any member's group id. Mirrors
  * the OSM group helper; the refresh road treats the group as one unit. */
-export function urlGroupMembers(group: string): DataTable[] {
-  return listTables().filter(
+export function urlGroupMembers(scope: AccountScope, group: string): DataTable[] {
+  return listOwnedTables(scope).filter(
     (t) => t.source === "url" && t.sourceParams?.group === group,
   );
 }

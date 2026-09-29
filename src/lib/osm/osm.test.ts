@@ -583,7 +583,7 @@ describe("refreshTable for OSM groups", () => {
     expect(await evalCount("grp_lines")).toBe(1);
 
     const hitsBefore = hits;
-    await refreshTable("grp_points");
+    await refreshTable(testAccountScope(), "grp_points");
     expect(hits).toBe(hitsBefore + 1); // one fetch, cache bypassed
 
     expect(getTableByName("grp_points")?.rowCount).toBe(0); // vanished → empty
@@ -606,14 +606,14 @@ describe("refreshTable for OSM groups", () => {
     });
     // A refresh entered through one member holds the group; a second entered
     // through a *different* member conflicts — the unit is the group.
-    const first = refreshTable("unit_points");
-    await expect(refreshTable("unit_lines")).rejects.toMatchObject({
+    const first = refreshTable(testAccountScope(), "unit_points");
+    await expect(refreshTable(testAccountScope(), "unit_lines")).rejects.toMatchObject({
       code: "refresh_in_flight",
       status: 409,
     });
     await first;
     // Settled: any member may refresh again.
-    await expect(refreshTable("unit_lines")).resolves.toBeTruthy();
+    await expect(refreshTable(testAccountScope(), "unit_lines")).resolves.toBeTruthy();
   });
 
   it("cleans every candidate when a member build dies mid-group", async () => {
@@ -629,7 +629,7 @@ describe("refreshTable for OSM groups", () => {
     // unlike the endpoint-down case.
     await chmod(tablesDir, 0o555);
     try {
-      await expect(refreshTable("hardy_points")).rejects.toThrow();
+      await expect(refreshTable(testAccountScope(), "hardy_points")).rejects.toThrow();
     } finally {
       await chmod(tablesDir, 0o755);
     }
@@ -651,7 +651,7 @@ describe("refreshTable for OSM groups", () => {
     });
     const before = getTableByName("safe_points")!;
     failNext = true;
-    await expect(refreshTable("safe_points")).rejects.toMatchObject({
+    await expect(refreshTable(testAccountScope(), "safe_points")).rejects.toMatchObject({
       code: "remote_fetch_failed",
     });
     const after = getTableByName("safe_points")!;
@@ -682,7 +682,7 @@ describe("the project context", () => {
 
     // A refresh rewrites the data under the same identity, so the
     // membership survives untouched.
-    await refreshTable(tables[0].name);
+    await refreshTable(testAccountScope(), tables[0].name);
     expect(tableProjectIds().get(tables[0].id)).toEqual([p.id]);
   });
 
