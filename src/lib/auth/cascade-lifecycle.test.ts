@@ -3,9 +3,10 @@ import { mkdtemp, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { metadataDb, closeMetadataDb } from "@/lib/metadata/db";
 import { testAccountScope } from "@/lib/test-support/accounts";
+import { readHold } from "@/lib/test-support/read-hold";
 import type { AccountScope } from "./scope";
 import { submitRun } from "@/lib/operations/run";
-import { laneSettled, resetLane } from "@/lib/operations/lane";
+import { laneDepth, laneSettled, resetLane } from "@/lib/operations/lane";
 import { getJob, listJobs } from "@/lib/metadata/jobs";
 import { getOwnedTableByName, listOwnedTables } from "@/lib/metadata/owned-tables";
 import { resetQueryInstance } from "@/lib/duckdb";
@@ -109,15 +110,37 @@ it("keeps result identity private after both its step and output are deleted", a
 });
 it("drains a single admitted job when its workflow disappears before the member is recorded", async () => {
   const { recipe, step } = workflow("alice"), gate = deferred();
+  const admission = readHold("single-run admission"), cancellation = readHold("orphaned job cancellation");
   const runApi = await import("@/lib/operations/run"), execution = await import("@/lib/operations/step-execution");
   const { deleteRecipe } = await import("@/lib/metadata/owned-recipes");
-  const submit = runApi.submitRun, start = execution.startStepRun; let jobId = "";
+  const submit = runApi.submitRun, start = execution.startStepRun, wait = runApi.waitForRunCancellation;
+  let jobId = "", cascadeId = "";
   vi.spyOn(runApi, "submitRun").mockImplementation((scope, options) => {
     const job = submit(scope, { ...options, prepare: async () => { await gate.promise; return { sql: "SELECT 1 AS value", disclosure: {}, cleanup: async () => {} }; } }); jobId = job.id; return job;
   });
-  vi.spyOn(execution, "startStepRun").mockImplementation(async (...args) => { const job = await start(...args); deleteRecipe(scopes.alice, recipe.id); return job; });
+  vi.spyOn(execution, "startStepRun").mockImplementation(async (...args) => {
+    const job = await start(...args); cascadeId = args[2]!.cascadeId!;
+    await admission.engage(); return job;
+  });
+  vi.spyOn(runApi, "waitForRunCancellation").mockImplementation(async (...args) => {
+    await cancellation.engage(); return wait(...args);
+  });
   const started = startSingleRun(scopes.alice, recipe.id, step.id); const refused = expect(started).rejects.toMatchObject({ status: 404 });
-  try { await vi.waitFor(() => expect(getJob(jobId)?.state).toBe("cancelled"), { timeout: 200 }); }
-  finally { gate.release(); await refused; await laneSettled(); }
+  try {
+    await admission.beforeMutation();
+    expect(getJob(jobId)?.state).toBe("running");
+    expect(getCascade(cascadeId)?.members[0]).toMatchObject({ state: "pending", jobId: null });
+    deleteRecipe(scopes.alice, recipe.id); admission.release();
+    await cancellation.beforeMutation();
+    // The cancellation is durable while preparation still holds the lane.
+    expect(getJob(jobId)?.state).toBe("cancelled");
+    expect(laneDepth()).toEqual({ executing: 1, waiting: 0 });
+  } finally {
+    admission.release(); cancellation.release(); gate.release();
+    await refused; await laneSettled();
+  }
+  expect(getJob(jobId)?.state).toBe("cancelled");
+  expect(laneDepth()).toEqual({ executing: 0, waiting: 0 });
   expect(listOwnedTables(scopes.alice)).toEqual([]);
+  expect(await files()).toEqual([]);
 });
