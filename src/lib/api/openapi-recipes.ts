@@ -176,6 +176,7 @@ export const RECIPE_PATHS = {
     get: op(workflowAccess({
       summary: "The datasets a workflow reads and writes",
       description:
+        "Dependency identities, memberships and producers resolve only within the authenticated account. Another owner's same-name dataset never changes this result. " +
         "The filing checklist's subject for a workflow: " +
         "every registered dataset the workflow's current node " +
         "definitions read (a pending edit over the active one) and " +

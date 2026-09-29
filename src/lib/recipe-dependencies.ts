@@ -55,7 +55,7 @@ export async function workflowDependencies(
   const tables = await listTablesWithSize(scope);
   const byName = new Map(tables.map((t) => [t.name.toLowerCase(), t]));
   const byId = new Map(tables.map((t) => [t.id, t]));
-  const producers = currentProducers();
+  const producers = currentProducers(scope);
 
   const found = new Map<string, WorkflowDependency>();
   for (const step of steps) {

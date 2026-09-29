@@ -139,16 +139,16 @@ describe("tile builds", () => {
   });
 
   it("fingerprint covers SQL, filters, referenced data identity, and the projection — nothing else", () => {
-    const base = tileFingerprint(SQL, [], "");
-    expect(tileFingerprint(SQL, [], "")).toBe(base); // stable
+    const base = tileFingerprint(SQL, [], "", layerId);
+    expect(tileFingerprint(SQL, [], "", layerId)).toBe(base); // stable
     // a projection-signature change is a data change for the archive.
-    expect(tileFingerprint(SQL, [], '{"override":["name"]}')).not.toBe(base);
+    expect(tileFingerprint(SQL, [], '{"override":["name"]}', layerId)).not.toBe(base);
     expect(
       tileFingerprint(SQL, [
         { field: "riders", kind: "range", min: 400, max: null },
-      ], ""),
+      ], "", layerId),
     ).not.toBe(base);
-    expect(tileFingerprint(`${SQL} LIMIT 3`, [], "")).not.toBe(base);
+    expect(tileFingerprint(`${SQL} LIMIT 3`, [], "", layerId)).not.toBe(base);
     // A refreshed table mints a new artifact file, and
     // the fingerprint must see it — data changes always look like changes.
     const table = getTableByName("stations")!;
@@ -164,10 +164,10 @@ describe("tile builds", () => {
         importedAt: new Date().toISOString(),
       },
     );
-    expect(tileFingerprint(SQL, [], "")).not.toBe(base);
+    expect(tileFingerprint(SQL, [], "", layerId)).not.toBe(base);
     // A layer on an unrelated table is untouched by that identity change.
-    expect(tileFingerprint("SELECT * FROM other_things", [], "")).toBe(
-      tileFingerprint("SELECT * FROM other_things", [], ""),
+    expect(tileFingerprint("SELECT * FROM other_things", [], "", layerId)).toBe(
+      tileFingerprint("SELECT * FROM other_things", [], "", layerId),
     );
   });
 
@@ -224,7 +224,7 @@ describe("tile builds", () => {
     upsertTileRecord({
       layerId,
       state: "building",
-      fingerprint: tileFingerprint(SQL, [], ""),
+      fingerprint: tileFingerprint(SQL, [], "", layerId),
       error: null,
       featureCount: null,
       builtAt: null,

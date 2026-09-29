@@ -574,7 +574,7 @@ describe("lineage is the source's, and the fence holds", () => {
     expect(job.state, job.errorMessage ?? "").toBe("succeeded");
 
     const before = getTableByName("origins")!.file;
-    const edges = edgesForStep(step.id);
+    const edges = edgesForStep(testAccountScope(), step.id);
     expect(edges).toHaveLength(1);
     expect(edges[0].boundArtifact).toBe(before);
     expect((await readStep(testAccountScope(), recipe.id, step.id)).condition.primary).toBe(

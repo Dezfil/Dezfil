@@ -325,3 +325,10 @@ returning the completed file. A hidden or missing selected export member now
 returns `404 not_found` rather than `400 invalid_request`; this is a breaking
 error-contract change. An owned resource outside the project still returns
 `400 invalid_request`.
+
+Dependency checklists resolve dataset identities, project memberships and
+workflow producers within the authenticated account. Workflow lineage retains
+the original input identity and bound artifact after deletion; a new dataset
+with the same name does not replace that history. Tile fingerprints include
+owner-selected dataset identities and artifacts, so another account's imports,
+refreshes or deletions do not change their freshness.

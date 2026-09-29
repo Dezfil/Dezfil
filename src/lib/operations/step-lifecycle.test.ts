@@ -101,7 +101,7 @@ describe("removing a completed step (G3)", () => {
 
     // The consumer keeps its edge — it still reads that table — and is
     // *current*, not broken: nothing it depends on went away.
-    expect(edgesForStep(consumer.id).map((e) => e.inputTableName)).toEqual([
+    expect(edgesForStep(testAccountScope(), consumer.id).map((e) => e.inputTableName)).toEqual([
       "upstream_out",
     ]);
     const view = (await readRecipe(testAccountScope(), recipeId));

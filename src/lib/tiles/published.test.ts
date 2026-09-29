@@ -35,7 +35,7 @@ function builtFingerprint(id: string): string {
       timeline: map.timeline,
       widgets: map.widgets,
       widgetsPublished: map.widgetsPublished,
-    }),
+    }), id,
   );
 }
 

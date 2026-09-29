@@ -1,7 +1,7 @@
 import type { Database } from "better-sqlite3";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource } from "@/lib/auth/owned-resource";
-import { sqlReferencesTable } from "@/lib/table-deps";
+import { dependentLayerIds } from "@/lib/table-deps";
 import { metadataDb } from "./db";
 import { fileTable } from "./owned-projects";
 import { tableFromRow, updateTableData, type TableRow, type DataTable, type TableDataUpdate } from "./tables";
@@ -46,7 +46,5 @@ export function fileOwnedTable(scope: AccountScope, tableId: string, projectId: 
 }
 /** Dataset mutations invalidate only maps in the same account's SQL space. */
 export function ownedDependentLayerIds(scope: AccountScope, name: string, db: Database = metadataDb()): string[] {
-  const owner = requireAccountScope(scope, db);
-  const rows = db.prepare(`SELECT l.id, l.sql FROM layers l JOIN maps m ON m.id = l.map_id WHERE m.owner_id = ?`).all(owner) as { id: string; sql: string }[];
-  return rows.filter(row => sqlReferencesTable(row.sql, name)).map(row => row.id);
+  return dependentLayerIds(scope, name, db);
 }

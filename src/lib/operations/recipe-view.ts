@@ -134,7 +134,7 @@ export async function readRecipe(scope: AccountScope, recipeId: string): Promise
   const recipe = requireRecipe(scope, recipeId);
   const steps = listSteps(scope, recipeId);
   const reads = await presentReads(steps);
-  const edgesByStep = new Map(steps.map((s) => [s.id, edgesForStep(s.id)]));
+  const edgesByStep = new Map(steps.map((s) => [s.id, edgesForStep(scope, s.id)]));
   for (const edge of prospectiveEdges(scope, steps, reads, edgesByStep)) {
     edgesByStep.get(edge.stepId)?.push(edge);
   }

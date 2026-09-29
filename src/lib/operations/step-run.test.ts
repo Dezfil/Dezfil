@@ -146,7 +146,7 @@ describe("the authority callback", () => {
     const step = newStep();
     const plan = planPublication(step.id);
 
-    const ok = stepAuthorizer(plan, alwaysFinishes)(
+    const ok = stepAuthorizer(testAccountScope(), plan, alwaysFinishes)(
       { id: "new-1", name: "out" },
       metadataDb(),
       inputs,
@@ -154,7 +154,7 @@ describe("the authority callback", () => {
 
     expect(ok).toBe(true);
     expect(getStep(step.id)!.outputTableId).toBe("new-1");
-    const edges = edgesForStep(step.id);
+    const edges = edgesForStep(testAccountScope(), step.id);
     expect(edges).toHaveLength(1);
     expect(edges[0].boundArtifact).toBe("tables/src@1.parquet");
   });
@@ -166,7 +166,7 @@ describe("the authority callback", () => {
     editStep(step.id, { sql: "SELECT 2 AS n", name: "out" });
     const plan = planPublication(step.id);
 
-    stepAuthorizer(plan, alwaysFinishes)({ id: "t1", name: "out" }, metadataDb(), inputs);
+    stepAuthorizer(testAccountScope(), plan, alwaysFinishes)({ id: "t1", name: "out" }, metadataDb(), inputs);
 
     const after = getStep(step.id)!;
     expect(after.parameters).toEqual({ sql: "SELECT 2 AS n", name: "out" });
@@ -179,7 +179,7 @@ describe("the authority callback", () => {
     removeStep(step.id);
 
     expect(
-      stepAuthorizer(plan, alwaysFinishes)({ id: "x", name: "out" }, metadataDb(), inputs),
+      stepAuthorizer(testAccountScope(), plan, alwaysFinishes)({ id: "x", name: "out" }, metadataDb(), inputs),
     ).toBe(false);
   });
 
@@ -193,7 +193,7 @@ describe("the authority callback", () => {
     editStep(step.id, { sql: "SELECT 99 AS n", name: "out" });
 
     expect(
-      stepAuthorizer(plan, alwaysFinishes)({ id: "t1", name: "out" }, metadataDb(), inputs),
+      stepAuthorizer(testAccountScope(), plan, alwaysFinishes)({ id: "t1", name: "out" }, metadataDb(), inputs),
     ).toBe(false);
   });
 
@@ -208,7 +208,7 @@ describe("the authority callback", () => {
     recordOutput(step.id, { id: "t2", name: "other" }, new Date().toISOString());
 
     expect(
-      stepAuthorizer(plan, alwaysFinishes)({ id: "t1", name: "out" }, metadataDb(), inputs),
+      stepAuthorizer(testAccountScope(), plan, alwaysFinishes)({ id: "t1", name: "out" }, metadataDb(), inputs),
     ).toBe(false);
   });
 
@@ -217,7 +217,7 @@ describe("the authority callback", () => {
     const plan = planPublication(step.id);
 
     // The job was cancelled: its terminal write refuses, and so must this.
-    const ok = stepAuthorizer(plan, () => false)(
+    const ok = stepAuthorizer(testAccountScope(), plan, () => false)(
       { id: "x", name: "out" },
       metadataDb(),
       inputs,
@@ -226,13 +226,13 @@ describe("the authority callback", () => {
     expect(ok).toBe(false);
     // And nothing was recorded on the step.
     expect(getStep(step.id)!.outputTableId).toBeNull();
-    expect(edgesForStep(step.id)).toEqual([]);
+    expect(edgesForStep(testAccountScope(), step.id)).toEqual([]);
   });
 
   it("replaces a step's edges rather than adding to them", () => {
     const step = newStep();
     const plan = planPublication(step.id);
-    const authorize = stepAuthorizer(plan, alwaysFinishes);
+    const authorize = stepAuthorizer(testAccountScope(), plan, alwaysFinishes);
 
     authorize({ id: "out-1", name: "out" }, metadataDb(), [
       { id: "a", name: "alpha", artifact: "tables/a@1.parquet" },
@@ -241,7 +241,7 @@ describe("the authority callback", () => {
       { id: "b", name: "beta", artifact: "tables/b@1.parquet" },
     ]);
 
-    const edges = edgesForStep(step.id);
+    const edges = edgesForStep(testAccountScope(), step.id);
     expect(edges.map((e) => e.inputTableId)).toEqual(["b"]);
   });
 });
@@ -265,7 +265,7 @@ describe("ownership is not forgeable", () => {
     // And forcing one in is refused by the stored-ownership check.
     const forged = { ...plan, replaceTable: { id: "t-theirs", name: "theirs" } };
     expect(
-      stepAuthorizer(forged, alwaysFinishes)(
+      stepAuthorizer(testAccountScope(), forged, alwaysFinishes)(
         { id: "t-theirs", name: "theirs" },
         metadataDb(),
         [],

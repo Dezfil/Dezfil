@@ -1,3 +1,4 @@
+import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import type { AccountScope } from "@/lib/auth/scope";
 import { listOwnedTables } from "@/lib/metadata/owned-tables";
 import type { DataTable } from "@/lib/metadata/tables";
@@ -26,6 +27,7 @@ export interface ResolvedInput {
 }
 
 export function resolveInputs(scope: AccountScope, table: DataTable): ResolvedInput[] | null {
+  requireOwnedResource(scope, "dataset", table.id);
   if (table.source !== "operation") return null;
   const raw = table.sourceParams?.inputs;
   if (!Array.isArray(raw)) return null;

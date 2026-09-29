@@ -45,6 +45,7 @@ export function currentPublishedTile(
       widgets: snapshot.map.widgets,
       widgetsPublished: snapshot.map.widgetsPublished,
     }),
+    layerId,
   );
   const record = getTileRecord(layerId);
   if (

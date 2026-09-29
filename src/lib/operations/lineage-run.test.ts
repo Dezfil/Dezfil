@@ -163,10 +163,10 @@ async function assertPublished(stepId: string, input: DataTable, expectedValue: 
   const output = getTableByName(name)!;
   expect(output).not.toBeNull();
   expect.soft(await readArtifact(output)).toEqual([{ value: expectedValue }]);
-  expect.soft(edgesForStep(stepId)).toMatchObject([{
+  expect.soft(edgesForStep(testAccountScope(), stepId)).toMatchObject([{
     inputTableId: input.id, inputTableName: input.name, boundArtifact: input.file,
   }]);
-  expect.soft(edgesForStep(stepId)).toHaveLength(1);
+  expect.soft(edgesForStep(testAccountScope(), stepId)).toHaveLength(1);
   // First public service reads, independent of the persisted edge assertion.
   const single = await readStep(testAccountScope(), recipeId, stepId);
   const whole = await readRecipe(testAccountScope(), recipeId);
@@ -280,10 +280,10 @@ describe("lineage pinned to the run", () => {
     const producer = await assertPublished(one.id, source, 1, "stale");
     const dependent = getTableByName("lineage_dependent")!;
     expect(await readArtifact(dependent)).toEqual([{ value: 1 }]);
-    expect(edgesForStep(two.id)).toMatchObject([{
+    expect(edgesForStep(testAccountScope(), two.id)).toMatchObject([{
       inputTableId: producer.id, inputTableName: producer.name, boundArtifact: producer.file,
     }]);
-    expect(edgesForStep(two.id)).toHaveLength(1);
+    expect(edgesForStep(testAccountScope(), two.id)).toHaveLength(1);
     for (const view of [await readStep(testAccountScope(), recipeId, two.id), (await readRecipe(testAccountScope(), recipeId)).steps[1]]) {
       expect(view.latestAttempt?.state).toBe("succeeded");
       expect.soft(view.condition.primary).toBe("stale");

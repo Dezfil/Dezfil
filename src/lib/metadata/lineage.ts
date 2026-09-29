@@ -1,4 +1,6 @@
 import type { Database } from "better-sqlite3";
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
 import { randomUUID } from "node:crypto";
 import { metadataDb } from "./db";
 
@@ -77,11 +79,22 @@ export interface NewEdge {
  * reader ever sees a step with half its lineage.
  */
 export function replaceEdges(
+  scope: AccountScope,
   stepId: string,
   outputTableId: string,
   edges: NewEdge[],
   db: Database = metadataDb(),
 ): void {
+  const owner = requireAccountScope(scope, db);
+  requireOwnedResource(scope, "step", stepId, db);
+  // A bound input may have been deleted while its pinned artifact was read.
+  // A new output is recorded before insertion in the publication transaction.
+  // Existing identities must belong to this owner; absent ones remain recorded
+  // by their original identity and never resolve through a reclaimed name.
+  for (const id of [outputTableId, ...edges.map(edge => edge.inputTableId)]) {
+    const row = db.prepare("SELECT owner_id FROM data_tables WHERE id = ?").get(id) as { owner_id: string | null } | undefined;
+    if (row && row.owner_id !== owner) throw resourceAbsent();
+  }
   const now = new Date().toISOString();
   db.prepare(`DELETE FROM lineage_edges WHERE step_id = ?`).run(stepId);
   const insert = db.prepare(
@@ -105,28 +118,34 @@ export function replaceEdges(
 
 /** What this step read. */
 export function edgesForStep(
+  scope: AccountScope,
   stepId: string,
   db: Database = metadataDb(),
 ): LineageEdge[] {
-  const rows = db
-    .prepare(`SELECT * FROM lineage_edges WHERE step_id = ? ORDER BY input_table_name`)
-    .all(stepId) as Row[];
+  requireOwnedResource(scope, "step", stepId, db);
+  const owner = requireAccountScope(scope, db);
+  const rows = db.prepare(`SELECT e.* FROM lineage_edges e LEFT JOIN data_tables t ON t.id = e.input_table_id
+    WHERE e.step_id = ? AND (t.id IS NULL OR t.owner_id = ?) ORDER BY e.input_table_name`).all(stepId, owner) as Row[];
   return rows.map(hydrate);
 }
 
 /** Which steps read this table — the direction staleness travels. */
 export function edgesForInput(
+  scope: AccountScope,
   inputTableId: string,
   db: Database = metadataDb(),
 ): LineageEdge[] {
-  const rows = db
-    .prepare(`SELECT * FROM lineage_edges WHERE input_table_id = ?`)
-    .all(inputTableId) as Row[];
+  const owner = requireAccountScope(scope, db);
+  const rows = db.prepare(`SELECT e.* FROM lineage_edges e JOIN recipe_steps s ON s.id = e.step_id
+    JOIN recipes r ON r.id = s.recipe_id LEFT JOIN data_tables t ON t.id = e.input_table_id
+    WHERE e.input_table_id = ? AND r.owner_id = ? AND (t.id IS NULL OR t.owner_id = ?)`)
+    .all(inputTableId, owner, owner) as Row[];
   return rows.map(hydrate);
 }
 
 /** Drop a step's edges without touching the step — used when a step is
  * detached, so nothing keeps propagating through a producer that is gone. */
-export function clearEdges(stepId: string, db: Database = metadataDb()): number {
+export function clearEdges(scope: AccountScope, stepId: string, db: Database = metadataDb()): number {
+  requireOwnedResource(scope, "step", stepId, db);
   return db.prepare(`DELETE FROM lineage_edges WHERE step_id = ?`).run(stepId).changes;
 }

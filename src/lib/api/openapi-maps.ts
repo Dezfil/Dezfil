@@ -283,6 +283,7 @@ export const MAP_RESOURCE_PATHS = {
     get: op(mapAccess({
       summary: "The datasets a map draws from",
       description:
+        "Dependency identities, memberships and producers resolve only within the authenticated account. Another owner's same-name dataset never changes this result. " +
         "The 14-A filing checklist's subject: every " +
         "registered dataset used by at least one of the map's saved " +
         "layers, exactly once, with its source, row count, project " +

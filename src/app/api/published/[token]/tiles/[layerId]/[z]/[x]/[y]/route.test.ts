@@ -62,7 +62,7 @@ beforeEach(async () => {
         timeline: map.timeline,
         widgets: map.widgets,
         widgetsPublished: map.widgetsPublished,
-      }),
+      }), layerId,
     ),
     error: null,
     featureCount: 2,

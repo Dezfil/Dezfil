@@ -1,3 +1,5 @@
+import { getStep as getOwnedStep } from "@/lib/metadata/owned-recipes";
+import type { AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { ApiError } from "@/lib/api/errors";
 import { setMember } from "@/lib/metadata/cascades";
@@ -92,6 +94,7 @@ export function planPublication(stepId: string): StepPublication {
  * its claim leaves no output behind.
  */
 export function stepAuthorizer(
+  scope: AccountScope,
   plan: StepPublication,
   jobFinished: (db: Database, output: { id: string; name: string }) => boolean,
   /** When this run is a cascade member, its success is recorded there too —
@@ -106,7 +109,7 @@ export function stepAuthorizer(
     // Still the live attempt? A step deleted, or its recipe deleted, while the
     // run worked has no row here — and E10's fence says a lost attempt may
     // finish computing but may not publish.
-    const current = getStep(plan.step.id, db);
+    const current = getOwnedStep(scope, plan.step.id, db);
     if (!current) return false;
 
     // Superseded: the definition this run was executing is no longer the one
@@ -142,6 +145,7 @@ export function stepAuthorizer(
     // Replace, never append: a re-run may read different tables, and an edge
     // left behind would keep propagating staleness from one it no longer reads.
     replaceEdges(
+      scope,
       plan.step.id,
       table.id,
       inputs.map((i) => ({

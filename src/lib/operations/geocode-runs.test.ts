@@ -334,7 +334,7 @@ describe("what the publication records", () => {
     expect(job.state, job.errorMessage ?? "").toBe("succeeded");
 
     const before = getTableByName("addresses")!.file;
-    const edges = edgesForStep(step.id);
+    const edges = edgesForStep(testAccountScope(), step.id);
     expect(edges).toHaveLength(1);
     // The artifact, not merely the identity: staleness is a generation
     // mismatch, and an edge that recorded only the name could not see one.

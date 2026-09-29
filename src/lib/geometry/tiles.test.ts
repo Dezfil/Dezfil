@@ -28,7 +28,7 @@ it("actual running tiles cannot publish after a geometry change; unrelated tiles
   ensureTiles(input(unrelated.id,otherSql)); await tileBuildsSettled();
   expect(getTileRecord(unrelated.id)).toMatchObject({state:"ready",error:null});
   const unrelatedRecord=getTileRecord(unrelated.id), unrelatedBytes=await readFile(tileArchivePath(unrelated.id));
-  const beforeFingerprint=tileFingerprint(sql,[],""), otherFingerprint=tileFingerprint(otherSql,[],"");
+  const beforeFingerprint=tileFingerprint(sql,[],"", layer.id), otherFingerprint=tileFingerprint(otherSql,[],"", unrelated.id);
   const started=path.join(dir,"started"),released=path.join(dir,"released"),executable=path.join(dir,"gated-tiler");
   await writeFile(executable,`#!/bin/sh
 if [ "$1" = "--version" ]; then exec tippecanoe --version; fi
@@ -45,8 +45,8 @@ exec tippecanoe "$@"
   // This immediate assertion catches omitted prompt invalidation even when
   // a changed fingerprint would lazily repair the next render.
   expect(getTileRecord(layer.id)).toBeNull();
-  expect(tileFingerprint(sql,[],"")).not.toBe(beforeFingerprint);
-  expect(tileFingerprint(otherSql,[],"")).toBe(otherFingerprint);
+  expect(tileFingerprint(sql,[],"", layer.id)).not.toBe(beforeFingerprint);
+  expect(tileFingerprint(otherSql,[],"", unrelated.id)).toBe(otherFingerprint);
   await release(); await tileBuildsSettled();
   expect(getTileRecord(layer.id)).toBeNull(); expect(existsSync(tileArchivePath(layer.id))).toBe(false);
   expect(getTileRecord(unrelated.id)).toEqual(unrelatedRecord);

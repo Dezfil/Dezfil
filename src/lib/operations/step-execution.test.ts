@@ -104,7 +104,7 @@ describe("a SQL step's run", () => {
     expect(after.outputTableId).toBe(job.outputId);
     expect(after.outputTableName).toBe("big_zones");
     // And its lineage, from the parse of the SQL that actually ran.
-    expect(edgesForStep(step.id).map((e) => e.inputTableName)).toEqual(["zones"]);
+    expect(edgesForStep(testAccountScope(), step.id).map((e) => e.inputTableName)).toEqual(["zones"]);
     expect(
       Number((await executeQuery("SELECT count(*) AS n FROM big_zones")).preview[0].n),
     ).toBe(4);
@@ -140,7 +140,7 @@ describe("a spatial join's run", () => {
     // The right input's table is named only inside a correlated subquery, so
     // an implementation reading dependencies from the outer FROM alone finds
     // one edge here and would leave a refresh of `points` unnoticed.
-    expect(edgesForStep(step.id).map((e) => e.inputTableName).sort()).toEqual([
+    expect(edgesForStep(testAccountScope(), step.id).map((e) => e.inputTableName).sort()).toEqual([
       "points",
       "zones",
     ]);

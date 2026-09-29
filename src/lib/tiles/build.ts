@@ -72,11 +72,12 @@ export function tileFingerprint(
   sql: string,
   filters: LayerFilter[],
   projection: string,
+  layerId: string,
 ): string {
   return createHash("sha256")
     .update(filteredSql(sql, filters))
     .update("\u0000")
-    .update(referencedTableArtifacts(sql).join(","))
+    .update(JSON.stringify(referencedTableArtifacts(sql, layerId)))
     .update("\u0000")
     .update(projection)
     .digest("hex")
@@ -253,7 +254,7 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
 }
 
 function start(input: TileBuildInput): void {
-  const fingerprint = tileFingerprint(input.sql, input.filters, input.projection);
+  const fingerprint = tileFingerprint(input.sql, input.filters, input.projection, input.layerId);
   const attempt: BuildAttempt = {
     id: randomUUID(),
     input,
@@ -282,7 +283,7 @@ function start(input: TileBuildInput): void {
  * polling); it re-runs when the query changes or the process restarts.
  */
 export function ensureTiles(input: TileBuildInput): TileStatus {
-  const fingerprint = tileFingerprint(input.sql, input.filters, input.projection);
+  const fingerprint = tileFingerprint(input.sql, input.filters, input.projection, input.layerId);
   const record = getTileRecord(input.layerId);
 
   const running = active.get(input.layerId);
