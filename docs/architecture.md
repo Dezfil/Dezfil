@@ -169,7 +169,10 @@ restyling never looks like a data change and a data change never fails to
 look like one. The build records those identities beside the archive
 (`src/lib/tiles/evidence.ts`), from the export's own evaluation
 (`src/lib/query/evaluation-inputs.ts`); a refresh or deletion of a dataset
-finds the layers whose tiles drew it by that record. The application serves tiles
+finds the layers whose tiles drew it by that record. Builds queue per layer
+and per requesting reach: the layer's record names only the archive being
+served, a failure stays with the attempt that failed, and only a committed
+build replaces the archive. The application serves tiles
 itself by reading byte ranges out of the archive
 (`src/lib/tiles/serve.ts`); there is no tile server.
 

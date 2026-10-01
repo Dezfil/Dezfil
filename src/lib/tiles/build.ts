@@ -1,5 +1,5 @@
 import { metadataDb } from "@/lib/metadata/db";
-import { archiveServable, tileQueryScope, requireTileAccess, tileAccessAvailable, type TileAccess } from "./access";
+import { archiveServable, tileQueryScope, tileReachKey, requireTileAccess, tileAccessAvailable, type TileAccess } from "./access";
 import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -39,12 +39,16 @@ import {
  * the scratch directory, runs tippecanoe over it, and atomically renames the
  * finished archive into place — the previous archive keeps serving until
  * that instant (decision 5). Builds are background work: one at a time
- * process-wide so a big build cannot starve queries, one per layer with
- * latest-wins replacement so a burst of edits converges on the newest
- * effective query. The fingerprint covers the effective query plus the
- * identities the evaluation recorded with their artifacts — styling can
- * never look like a data change, and a data change can never fail to look
- * like one. Each archive keeps the evidence of what its export drew.
+ * process-wide so a big build cannot starve queries, one per layer and
+ * requesting reach with latest-wins replacement so a burst of edits
+ * converges on the newest effective query. The layer's record is its served
+ * archive and that archive's status: only a build that commits replaces
+ * it, so a caller whose build is refused or fails, its failure kept against
+ * its own attempt, never displaces an archive someone else is served. The
+ * fingerprint covers the effective query plus the identities the evaluation
+ * recorded with their artifacts — styling can never look like a data
+ * change, and a data change can never fail to look like one. Each archive
+ * keeps the evidence of what its export drew.
  */
 
 export interface TileBuildInput {
@@ -114,16 +118,26 @@ function requestInputs(input: TileBuildInput, record: ReturnType<typeof getTileR
 
 interface BuildAttempt {
   id: string;
+  /** The layer and the reach that asked: attempts are kept apart by both. */
+  key: string;
   input: TileBuildInput;
   access: TileAccess;
   fingerprint: string;
   generation: number;
 }
 
-/** The layer's scheduled or running build. */
+/** A layer's attempt for one requesting reach. */
+const attemptKey = (layerId: string, access: TileAccess) => `${layerId}\u0000${tileReachKey(access)}`;
+const keyOfLayer = (key: string, layerId: string) => key.startsWith(`${layerId}\u0000`);
+
+/** Each layer's scheduled or running build, per requesting reach. */
 const active = new Map<string, BuildAttempt>();
-/** A newer input that arrived while a build for the layer was running. */
+/** A newer input that arrived while that reach's build was running. */
 const pending = new Map<string, { access: TileAccess; input: TileBuildInput }>();
+/** The last failure of each reach's attempt: its query and why. It sticks
+ * for that query, for that reach alone, until the data under it changes,
+ * the layer goes, or the process restarts. */
+const failures = new Map<string, { fingerprint: string; generation: number; error: string }>();
 /** Deletion advances the generation, fencing every older attempt. */
 const generations = new Map<string, number>();
 /** Builds run one at a time process-wide. */
@@ -133,9 +147,17 @@ let chain: Promise<unknown> = Promise.resolve();
 export function resetTileBuilds(): void {
   active.clear();
   pending.clear();
+  failures.clear();
   generations.clear();
   resetBuildInputs();
   chain = Promise.resolve();
+}
+
+/** Forget every reach's queued input and failure for a layer. */
+function forgetLayer(layerId: string): void {
+  for (const map of [pending, failures]) {
+    for (const key of [...map.keys()]) if (keyOfLayer(key, layerId)) map.delete(key);
+  }
 }
 
 /** Resolve once no build is running or queued (tests, journeys). */
@@ -193,7 +215,7 @@ function generation(layerId: string): number {
 function attemptCanCommit(attempt: BuildAttempt): boolean {
   try {
     return (
-      active.get(attempt.input.layerId) === attempt &&
+      active.get(attempt.key) === attempt &&
       generation(attempt.input.layerId) === attempt.generation &&
       tileAccessAvailable(attempt.access)
     );
@@ -266,19 +288,17 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
         () => undefined,
       );
     }
+    // The failure is this attempt's alone: it never replaces the layer's
+    // record, which still names whatever archive others are served.
     if (attemptCanCommit(attempt)) {
+      failures.set(attempt.key, {
+        fingerprint,
+        generation: attempt.generation,
+        error: error instanceof Error ? error.message : "The build failed.",
+      });
       try {
-        metadataDb().transaction(() => {
-          requireTileAccess(attempt.access, input.layerId);
-          upsertTileRecord({
-            layerId: input.layerId,
-            state: "failed",
-            fingerprint,
-            error: error instanceof Error ? error.message : "The build failed.",
-            featureCount: null,
-            builtAt: null,
-          });
-        })();
+        const record = getTileRecord(input.layerId);
+        if (record?.state === "building" && record.fingerprint === fingerprint) deleteTileRecord(input.layerId);
       } catch {
         // A terminal metadata failure is contained here. A later render can
         // retry; the process-wide queue must remain usable.
@@ -290,7 +310,7 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
       rm(exportFile, { force: true }),
       rm(archiveFile, { force: true }),
     ]);
-    if (active.get(input.layerId) === attempt) {
+    if (active.get(attempt.key) === attempt) {
       // A withdrawn capability leaves no stuck build status. Retrying after
       // reactivation or through a current publication starts a fresh attempt.
       try {
@@ -300,12 +320,16 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
         }
       } catch (error) {
         console.warn(`[tiles] abandoned build ${attempt.id} could not clear its status:`, error);
-      } finally { active.delete(input.layerId); }
+      } finally { active.delete(attempt.key); }
     }
-    const next = pending.get(input.layerId);
+    const next = pending.get(attempt.key);
     if (next) {
-      pending.delete(input.layerId);
-      if (tileAccessAvailable(next.access)) start(next.access, next.input);
+      pending.delete(attempt.key);
+      try {
+        if (tileAccessAvailable(next.access)) start(next.access, next.input);
+      } catch (error) {
+        console.warn(`[tiles] queued build for ${input.layerId} could not start:`, error);
+      }
     }
   }
 }
@@ -316,12 +340,17 @@ function start(access: TileAccess, input: TileBuildInput): void {
   const attempt: BuildAttempt = {
     access,
     id: randomUUID(),
+    key: attemptKey(input.layerId, access),
     input,
     fingerprint,
     generation: generation(input.layerId),
   };
+  failures.delete(attempt.key);
+  // The record shows a build only while it names no archive: a ready one
+  // keeps serving whoever may be served it until a build replaces it.
   metadataDb().transaction(() => {
     requireTileAccess(access, input.layerId);
+    if (getTileRecord(input.layerId)?.state === "ready") return;
     upsertTileRecord({
       layerId: input.layerId,
       state: "building",
@@ -331,7 +360,7 @@ function start(access: TileAccess, input: TileBuildInput): void {
       builtAt: null,
     });
   })();
-  active.set(input.layerId, attempt);
+  active.set(attempt.key, attempt);
   trackBuildInputs(attempt.id, input.layerId, input.inputs ?? null);
   const work = () => runBuild(attempt);
   // Contain every terminal failure so one bad target cannot poison the
@@ -340,46 +369,58 @@ function start(access: TileAccess, input: TileBuildInput): void {
 }
 
 /**
- * Report the layer's tile status for its current effective query, starting
- * or queueing a build when the archive is missing or stale. A failed build
- * stays failed for that same effective query (no retry storm on render
- * polling); it re-runs when the query changes or the process restarts.
+ * Report the layer's tile status for its current effective query, as this
+ * caller may be served it, starting or queueing a build in the caller's
+ * reach when the archive is missing, stale or beyond that reach. A failed
+ * build stays failed for that same effective query and reach (no retry
+ * storm on render polling); it re-runs when the query or the data under it
+ * changes, or the process restarts.
  */
 export function ensureTiles(access: TileAccess, input: TileBuildInput): TileStatus {
   requireTileAccess(access, input.layerId);
   const record = getTileRecord(input.layerId);
   const fingerprint = tileFingerprint(input.sql, input.filters, input.projection, requestInputs(input, record));
+  const key = attemptKey(input.layerId, access);
 
-  const running = active.get(input.layerId);
+  // The served archive, when it is this query's and the caller may be
+  // served what it drew, whatever anyone else's build is doing.
+  if (
+    record?.state === "ready" &&
+    record.fingerprint === fingerprint &&
+    existsSync(tileArchivePath(input.layerId)) &&
+    archiveServable(access, tileArchiveAttribution(input.layerId, record))
+  ) {
+    return {
+      state: "ready",
+      featureCount: record.featureCount ?? undefined,
+      builtAt: record.builtAt ?? undefined,
+    };
+  }
+
+  const running = active.get(key);
   if (running !== undefined) {
     if (running.generation !== generation(input.layerId)) {
       // The id was deleted and may have been restored by undo. Its fresh
       // lifecycle waits behind the fenced attempt, even when SQL is identical.
-      pending.set(input.layerId, { access, input });
+      pending.set(key, { access, input });
     } else if (running.fingerprint !== fingerprint || !tileAccessAvailable(running.access)) {
-      pending.set(input.layerId, { access, input }); // latest wins
+      pending.set(key, { access, input }); // latest wins
     }
     return { state: "building" };
   }
 
-  if (record && record.fingerprint === fingerprint) {
-    // A ready archive is served only to a caller who may be served what it
-    // drew; anyone else prepares tiles in their own reach.
-    if (
-      record.state === "ready" &&
-      existsSync(tileArchivePath(input.layerId)) &&
-      archiveServable(access, tileArchiveAttribution(input.layerId, record))
-    ) {
-      return {
-        state: "ready",
-        featureCount: record.featureCount ?? undefined,
-        builtAt: record.builtAt ?? undefined,
-      };
+  const failure = failures.get(key);
+  if (failure && failure.fingerprint === fingerprint && failure.generation === generation(input.layerId)) {
+    return { state: "failed", error: failure.error };
+  }
+
+  // Another reach's live build of this very query draws the same identities
+  // with the same artifacts: its archive will be this caller's too.
+  for (const attempt of active.values()) {
+    if (attempt.input.layerId === input.layerId && attempt.fingerprint === fingerprint &&
+      attempt.generation === generation(input.layerId) && tileAccessAvailable(attempt.access)) {
+      return { state: "building" };
     }
-    if (record.state === "failed") {
-      return { state: "failed", error: record.error ?? "The build failed." };
-    }
-    // "building" with nothing active: interrupted by a restart — rebuild.
   }
 
   start(access, input);
@@ -394,6 +435,7 @@ export function ensureTiles(access: TileAccess, input: TileBuildInput): TileStat
  * over it. Returns whether a record was dropped. */
 export function invalidateTileBuild(layerId: string): boolean {
   generations.set(layerId, generation(layerId) + 1);
+  for (const key of [...failures.keys()]) if (keyOfLayer(key, layerId)) failures.delete(key);
   const existed = getTileRecord(layerId) !== null;
   deleteTileRecord(layerId);
   return existed;
@@ -405,7 +447,7 @@ export async function removeTileArtifacts(layerId: string): Promise<void> {
   // Fence first: work crossing this point may finish computing, but cannot
   // rename output or write tile state for the deleted lifecycle.
   generations.set(layerId, generation(layerId) + 1);
-  pending.delete(layerId);
+  forgetLayer(layerId);
   deleteTileRecord(layerId);
   removeTileEvidence(layerId);
   await rm(tileArchivePath(layerId), { force: true });

@@ -126,11 +126,13 @@ it("keeps publication authority separate from private activity and rechecks toke
   const mapId = (metadataDb().prepare("SELECT map_id FROM layers WHERE id = ?").get(layers.alice) as { map_id: string }).map_id;
   const { token } = publishMap(scopes.alice, mapId); const access = publishedTileAccess(token, layers.alice); deactivate("alice");
   ensureTiles(access, input("alice")); await tileBuildsSettled(); expect(getTileRecord(layers.alice)?.state).toBe("ready");
+  const built = getTileRecord(layers.alice);
   expect(() => privateTileAccess(scopes.alice, layers.alice)).toThrow(expect.objectContaining({ status: 401 }));
   metadataDb().prepare("UPDATE accounts SET status = 'active' WHERE id = 'alice'").run();
   effects.afterExport = () => unpublishMap(scopes.alice, mapId);
   ensureTiles(access, { ...input("alice"), projection: "changed" }); await tileBuildsSettled();
-  expect(getTileRecord(layers.alice)).toBeNull(); expect(() => ensureTiles(access, input("alice"))).toThrow(expect.objectContaining({ status: 404 }));
+  // The refused build authorized no new archive and left the previous one's record as it was.
+  expect(getTileRecord(layers.alice)).toEqual(built); expect(() => ensureTiles(access, input("alice"))).toThrow(expect.objectContaining({ status: 404 }));
 });
 it("replaces an inactive private queue entry with a valid published request for the same query", async () => {
   const { publishMap } = await import("@/lib/publish/publish-service"), { publishedTileAccess } = await import("@/lib/tiles/access");

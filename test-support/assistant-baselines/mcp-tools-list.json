@@ -1,6 +1,6 @@
 {
   "count": 129,
-  "overall": "6f7c275bd3d598f4445e7eb4e591b644b6d1047e1071036d9bc3d7e2269590bf",
+  "overall": "4d942937c02df88f847647d5331bed53376140970a8b1d6703968b917a706bd0",
   "tools": {
     "get_account": "1d39e185a29991c180c5357ee693fb43d368491d0c799a0e52600ca88d32baa8",
     "update_account": "aa48f014a0723aae5821105fa13433bb3967b4ee09657841617ca21e573d8122",
@@ -118,7 +118,7 @@
     "read_map_look_image": "d2ef20e765f159c39f8593188aec00a5cde4c4f78ae7178cdd6976e048648a3b",
     "export_map_image": "702dd7c4e5d758af7fe7cd4e1ce708aa285bd8d11cad2a15fe4c92a4c6d31554",
     "export_layer_data": "30623a0fcaab03502163c989ac3f5c557f46d018262484917e38ad79d0f7415e",
-    "render_layer": "716503479f4e73b4e9585a74555755609e4b47be7ef27cd105036c329fa4e0db",
+    "render_layer": "a78fe2b5559a0fb0dab522800a4c48b1082dcedcc1b2bc045a9f341af4cd9b3a",
     "list_layer_fields": "a0ce17ea55240f9e1e7703cba4a75bcf9adad9495320d5a912b1f33bd0ebfd94",
     "get_field_stats": "dfca6b6049cbbaa5b2b8431a006738f7f37f316ea08778df89162869cda31456",
     "compute_fill": "ee0cfc6bf26c8828f2b98edd805f26ccf1b667078f1d9d93ea5d8be3b86dd1e8",

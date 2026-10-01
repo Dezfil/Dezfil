@@ -589,7 +589,11 @@ reconciliation marks unfinished runs interrupted, including inactive owners' run
 and never re-executes them or attaches another owner's job attempt.
 
 Private layer renders, tile status and tile bytes follow the map's reach and
-the archives' recorded inputs, administrators included. Builds retain their initiating account authority across the
+the archives' recorded inputs, administrators included. Builds are kept apart
+by the reach that asked for them: a refused or failed build is that reach's
+alone, reported as failed to it for the same query until the query or the data
+under it changes, and never replaces the archive or the status anyone else is
+served; only a build that commits replaces the layer's archive. Builds retain their initiating account authority across the
 queue, export and atomic archive swap. Deactivation before publication prevents a
 new authoritative archive, and an in-flight private read rechecks activity before
 returning bytes. Deleting an owned layer fences its outstanding build; reactivation

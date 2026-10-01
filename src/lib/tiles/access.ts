@@ -2,7 +2,8 @@ import { resolvePublication, publicationAbsent } from "@/lib/publish/publication
 import type { DatasetScope } from "@/lib/query/access";
 import type { AccountScope } from "@/lib/auth/scope";
 import { resourceAbsent } from "@/lib/auth/owned-resource";
-import { requireReachable } from "@/lib/auth/reach";
+import { reachableDatasetIds, requireReachable } from "@/lib/auth/reach";
+import { createHash } from "node:crypto";
 import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
 import { mapEvaluation } from "@/lib/query/context";
@@ -45,6 +46,15 @@ export function requireTileAccess(access: TileAccess | undefined, layerId: strin
   if (!row || row.map_id !== access.mapId || row.owner_id !== access.ownerId) throw resourceAbsent();
   if ("token" in access.credential && (row.publish_token !== access.credential.token || row.visible !== 1)) throw resourceAbsent();
 }
+/** Which reach an access asks for tiles in: a build's attempts and their
+ * failures are kept apart by it, so one reach's refused or failed build
+ * never stands for another's. Accounts with the same reach share one. */
+export function tileReachKey(access: TileAccess): string {
+  if ("token" in access.credential) return `publication:${access.mapId}`;
+  const ids = [...reachableDatasetIds(access.credential.scope)].sort();
+  return `reach:${createHash("sha256").update(JSON.stringify(ids)).digest("hex").slice(0, 16)}`;
+}
+
 /** The failure of a tile request for an archive the caller may not be served. */
 export function tilesUnavailable(): ApiError {
   return new ApiError("not_found", "These tiles are not available to you.", 404);
