@@ -30,6 +30,7 @@ import { RECIPE_PATHS } from "./openapi-recipes";
 import { MAP_COLLECTION_PATHS, MAP_RESOURCE_PATHS, MAP_RENDER_PATHS, MAP_PUBLISH_PATHS, MAP_DEPENDENCY_SCHEMAS, MAP_SCHEMAS, MAP_DETAIL_SCHEMAS } from "./openapi-maps";
 import { PROJECT_PATHS, PROJECT_DEPENDENCY_SCHEMAS, PROJECT_SCHEMAS } from "./openapi-projects";
 import { SHARING_PATHS, SHARING_SCHEMAS } from "./openapi-sharing";
+import { WRITTEN_IN_REF, WRITTEN_IN_SCHEMAS } from "./openapi-written-in";
 import { SKETCH_PATHS } from "./openapi-sketches";
 import { LAYER_RESOURCE_PATHS, LAYER_QUERY_PATHS, LAYER_SCHEMAS } from "./openapi-layers";
 import { RECIPE_DEPENDENCY_SCHEMAS, RECIPE_SCHEMAS } from "./openapi-recipe-schemas";
@@ -342,6 +343,18 @@ export function buildOpenApiDocument() {
                       description:
                         "How geometry columns travel in the preview. " +
                         "Default wkt.",
+                    },
+                    writtenIn: {
+                      ...WRITTEN_IN_REF,
+                      description:
+                        "Evaluate the SQL where it was written: in a map's " +
+                        "SQL home, as its layers are, or in a workflow's " +
+                        "context with its declared outputs as the caller " +
+                        "runs them, always within the caller's reach. A " +
+                        "name that binds nothing there, when the home is " +
+                        "someone else's, is refused naming it, as a layer's " +
+                        "would be. Omitted or console, the caller's own " +
+                        "console.",
                     },
                   },
                   required: ["sql"],
@@ -766,6 +779,7 @@ export function buildOpenApiDocument() {
       securitySchemes: AUTH_SECURITY_SCHEMES,
       schemas: {
         ...AUTH_SCHEMAS,
+        ...WRITTEN_IN_SCHEMAS,
         ...ACCOUNT_SCHEMAS,
         ...USERS_SCHEMAS,
         // Documented as a schema only: the operation that consumes it is

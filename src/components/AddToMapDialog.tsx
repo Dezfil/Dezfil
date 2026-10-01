@@ -25,14 +25,24 @@ export interface LayerSubject {
   label: string;
 }
 
-/** The table cards' subject. */
-export function tableSubject(tableName: string | null): LayerSubject | null {
-  if (tableName === null) return null;
+/** The table cards' subject: the dataset as its reader types it (its
+ * `qualifiedName`), so another person's same-named dataset is never the
+ * one that lands. The layer and the label take the dataset's own name. */
+export function tableSubject(reference: string | null): LayerSubject | null {
+  if (reference === null) return null;
+  const name = reference.slice(reference.lastIndexOf(".") + 1);
   return {
-    sql: `SELECT * FROM ${tableName}`,
-    name: tableName,
-    label: tableName,
+    sql: `SELECT * FROM ${reference}`,
+    name,
+    label: name,
   };
+}
+
+/** The layer a landing creates: both subjects are written as the console
+ * reads them (the caller's own datasets plain, another person's
+ * qualified), and the server carries them into the picked map's home. */
+export function landingRequest(subject: LayerSubject, layerName: string) {
+  return { name: layerName.trim() || subject.name, sql: subject.sql, writtenIn: { kind: "console" as const } };
 }
 
 interface Props {
@@ -121,10 +131,7 @@ export function AddToMapDialog({ subject, onClose }: Props) {
           const layer = await fetch(`/api/maps/${id}/layers`, {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              name: layerName.trim() || subject.name,
-              sql: subject.sql,
-            }),
+            body: JSON.stringify(landingRequest(subject, layerName)),
           });
           if (!layer.ok) throw new Error(await readApiError(layer));
           landed = (await layer.json()) as { id: string };

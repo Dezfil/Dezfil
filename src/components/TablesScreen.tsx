@@ -449,7 +449,7 @@ export function TablesScreen({
     deleting: deleting === t.name,
     onOpen: () => router.push(`/tables/${t.name}`),
     onQuery: () => router.push(`/sql?table=${encodeURIComponent(t.name)}`),
-    onAddToMap: () => setAddToMap(t.name),
+    onAddToMap: () => setAddToMap(t.qualifiedName),
     onFile: () => setFiling(t),
     onDeletePress: () => {
       if (confirmName === t.name) void remove(t.name);

@@ -92,8 +92,10 @@ interface Props {
    * (decision 11 allows dismissal mid-flight) surfaces here instead of
    * vanishing with the unmount — the builder's notice channel. */
   onDismissedOutcome?: (message: string) => void;
-  /** Coordinator-backed create; durable work survives the dialog. */
-  createLayer: (name: string, sql: string) => Promise<CreateLayerOutcome>;
+  /** Coordinator-backed create; durable work survives the dialog. SQL
+   * written in the console (a picked dataset) says so and is carried into
+   * the map's home. */
+  createLayer: (name: string, sql: string, writtenIn?: { kind: "console" }) => Promise<CreateLayerOutcome>;
   /** Edit mode: persist SQL through the existing reconciling save lane.
    * Resolves true when the save was accepted. */
   updateLayer?: (sql: string) => Promise<boolean>;
@@ -121,6 +123,8 @@ interface Props {
   /** The map's project: the filter's default scope and the
    * import context — imports from a filed map's catalog join it. */
   projectId?: string | null;
+  /** The map being added to: the SQL view previews in its home. */
+  mapId?: string;
 }
 
 /**
@@ -145,6 +149,7 @@ export function AddLayerCatalog({
   listingStamp = 0,
   initialViewport = null,
   projectId = null,
+  mapId,
 }: Props) {
   const editing = request.kind === "edit";
   // The non-spatial note's door (04): the catalog closes, its
@@ -313,9 +318,12 @@ export function AddLayerCatalog({
     if (busy || picked === null || picked.geometryColumn === null) return;
     setBusy(true);
     setCreateError(null);
+    // The pick names the dataset as the console does, and that is where
+    // the server carries it from: another person's map gets its identity.
     const outcome = await createLayer(
       name.trim() || picked.name,
-      impliedQuery(picked.name),
+      impliedQuery(picked.qualifiedName),
+      { kind: "console" },
     );
     setBusy(false);
     settleCreate(outcome);
@@ -369,6 +377,7 @@ export function AddLayerCatalog({
           <div className={styles.sqlView}>
             <CatalogWorkbench
               listing={listing}
+              mapId={mapId}
               draft={editDraft}
               onDraft={setEditDraft}
               mode="edit"
@@ -458,6 +467,7 @@ export function AddLayerCatalog({
           <div className={styles.sqlView}>
             <CatalogWorkbench
               listing={listing}
+              mapId={mapId}
               draft={sqlDraft}
               onDraft={setSqlDraft}
               mode="add"

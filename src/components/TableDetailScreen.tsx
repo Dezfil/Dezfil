@@ -317,7 +317,7 @@ function TableDetail({
             <button
               type="button"
               className={gallery.primary}
-              onClick={() => setAddToMap(table.name)}
+              onClick={() => setAddToMap(table.qualifiedName)}
               data-add-to-map="primary"
             >
               <IconAddToMap />

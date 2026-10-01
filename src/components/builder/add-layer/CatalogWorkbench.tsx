@@ -13,6 +13,7 @@ import {
   beginPreview,
   impliedQuery,
   previewCurrency,
+  previewRequest,
   settlePreview,
   type PreviewState,
 } from "./catalog-state";
@@ -32,6 +33,9 @@ interface Props {
    * and the scope narrows only what the browser offers, never what the
    * draft may name. */
   listing: CatalogListing;
+  /** The map the layer belongs to: the preview runs in its SQL home, the
+   * context the saved layer is read in, so what is saved is what ran. */
+  mapId?: string;
   draft: string;
   onDraft: (sql: string) => void;
   mode: "add" | "edit";
@@ -63,6 +67,7 @@ interface Props {
  */
 export function CatalogWorkbench({
   listing,
+  mapId,
   draft,
   onDraft,
   mode,
@@ -98,7 +103,7 @@ export function CatalogWorkbench({
           const response = await fetch("/api/query", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ sql: sqlText }),
+            body: JSON.stringify(previewRequest(sqlText, mapId)),
           });
           const outcome = response.ok
             ? {
@@ -129,7 +134,7 @@ export function CatalogWorkbench({
         }
       })();
     },
-    [],
+    [mapId],
   );
 
   const dirty =

@@ -209,9 +209,12 @@ export function useAuthorStep({
               await fetch(`/api/maps/${encodeURIComponent(mapId)}/layers`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                // The output is the runner's own dataset, named as their
+                // console names it; the server carries it into the map's home.
                 body: JSON.stringify({
                   name: step.displayName,
                   sql: `SELECT * FROM ${settled.output.name}`,
+                  writtenIn: { kind: "console" },
                 }),
               }),
             );

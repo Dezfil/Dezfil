@@ -1,4 +1,5 @@
 import { SQL_QUERY } from "./openapi-sql";
+import { CARRY_RULE, WRITTEN_IN_REF } from "./openapi-written-in";
 import { resultAccess } from "./openapi-result-access";
 import { tileAccess } from "./openapi-tile-access";
 import { layerAccess } from "./openapi-layer-access";
@@ -545,6 +546,15 @@ export const LAYER_SCHEMAS = {
       name: { type: "string" },
       sql: SQL_QUERY,
       style: { $ref: "#/components/schemas/Style" },
+      writtenIn: {
+        ...WRITTEN_IN_REF,
+        description:
+          "Where sql was written, when not in this map: the caller's " +
+          "console (a dataset's \"Add to a map\" too), another map or a " +
+          "workflow. The SQL is carried into this map's SQL home and the " +
+          "layer stores the carried text. " + CARRY_RULE + " Omitted, the " +
+          "SQL is this map's own, read in its home as every saved layer is.",
+      },
     },
     required: ["sql"],
   },

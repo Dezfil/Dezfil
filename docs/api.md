@@ -215,7 +215,10 @@ the API (below). Geometry recognition lives here too: `GET`, `PUT` and
 
 **Query.** `POST /api/query` runs one read-only SQL statement and returns
 columns, an exact row count, a capped preview, and the runtime in
-milliseconds. `POST /api/query/export` turns a result into a downloadable
+milliseconds. With `writtenIn` it runs where the SQL was written: a map's SQL
+home, as that map's layers are read (the builder's SQL preview does this), or
+a workflow's context; without it, in the caller's own console.
+`POST /api/query/export` turns a result into a downloadable
 file through a ticket that `GET /api/query/export` then redeems.
 
 **Maps.** A map groups ordered, styled layers. Every map read and listing
@@ -239,6 +242,10 @@ never enter the render URL, page initialization, image facts or retained state.
 
 **Layers.** A layer is SQL plus a name plus style. Create it on a map
 (`POST /api/maps/{id}/layers`), read and patch it, duplicate it, delete it.
+A layer's SQL is read in the map's SQL home. SQL written somewhere else (the
+caller's console, a dataset's "Add to a map", another map, a workflow) says so
+with `writtenIn`, and is carried into the map's home before it is stored (see
+"Carrying SQL between contexts" below).
 `GET /api/layers/{id}/render` is what the canvas draws, for everyone who
 reaches the map; `GET /api/layers/{id}/tiles/{z}/{x}/{y}` serves a tiled
 layer's archive to a reader who can reach every dataset it recorded drawing,
@@ -511,6 +518,38 @@ map's SQL home and the publication owner's reach restricted to the datasets
 the map's layers name, including inactive owners and
 pending adoption. Refresh, deletion and name reuse affect later evaluations; an admitted
 materialization keeps its captured identities and artifacts until it completes.
+
+### Carrying SQL between contexts
+
+The same text can mean different datasets in two contexts: `roads` in Bob's
+console is Bob's dataset, in a map of Ada's it is Ada's. So text that moves
+from where it was written into another context is carried rather than
+copied. Every operation that stores text written elsewhere takes
+`writtenIn`, one of `{"kind": "console"}`, `{"kind": "map", "id": …}` or
+`{"kind": "workflow", "id": …}` (a map or workflow the caller does not reach
+answers as a missing one), and each dataset reference is resolved where the
+text was written and written again for where it goes:
+
+- a plain name of a dataset the destination's home owns stays plain, unless
+  an output of the destination workflow takes that name; any other dataset
+  becomes `<SQL name>.<dataset>`;
+- an already qualified name, and the engine's own catalogues and schemas,
+  stay as written;
+- a plain name of one of the source workflow's own outputs becomes the
+  dataset the caller's latest successful run of that output made.
+
+Only those references change; the rest of the text, comments and layout
+included, is stored as written, and nothing where the text came from is
+touched. A reference that cannot be carried refuses the request with
+`sql_error` naming it, and nothing is written: a dataset outside the caller's
+reach (`The dataset "<reference>" is not available to you.`), a workflow
+output the caller has not produced, or a computed table name that would have
+to change. Text whose context does not change is stored byte for byte.
+Layer creation (`POST /api/maps/{id}/layers`) carries this way; the console's
+"Add to a map", a dataset's "Add to a map" (which names the dataset by its
+`qualifiedName`) and the builder's table picks and imports all say they were
+written in the console. `POST /api/query` takes the same `writtenIn` to
+evaluate where the text was written instead of carrying it.
 
 Geocode and isochrone preparation pass opaque, account-bound staging inputs
 only to the evaluation that publishes that job. Their SQL names temporary

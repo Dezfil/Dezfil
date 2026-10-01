@@ -32,6 +32,13 @@ export function impliedQuery(table: string): string {
   return `SELECT * FROM ${table}`;
 }
 
+/** The preview's request: the SQL as typed, evaluated in the map's SQL
+ * home (the context the saved layer is read in), so the layer saved is the
+ * query that was previewed, whoever's map it is. */
+export function previewRequest(sql: string, mapId?: string): { sql: string; writtenIn?: { kind: "map"; id: string } } {
+  return mapId ? { sql, writtenIn: { kind: "map", id: mapId } } : { sql };
+}
+
 /** The table-to-SQL carry (spec decision 4) follows the same ownership
  * rule as the name: seed only while the draft is blank or still a
  * previous automatic seed — never over the user's own SQL. */

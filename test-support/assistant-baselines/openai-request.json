@@ -2370,6 +2370,53 @@
               "geojson"
             ],
             "description": "How geometry columns travel in the preview. Default wkt."
+          },
+          "writtenIn": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "console",
+                  "map",
+                  "workflow"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "description": "The map or workflow; absent for console."
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "allOf": [
+              {
+                "type": "object",
+                "description": "Where SQL or a dataset name was written: the context whose names it uses. console is the caller's own SQL console, where a plain name is the caller's own dataset; map is a map's SQL home, as its layers are read; workflow is a workflow's home with its declared outputs as the caller runs them. A map or workflow the caller does not reach answers as a missing one.",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "console",
+                      "map",
+                      "workflow"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "description": "The map or workflow; absent for console."
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "description": "Evaluate the SQL where it was written: in a map's SQL home, as its layers are, or in a workflow's context with its declared outputs as the caller runs them, always within the caller's reach. A name that binds nothing there, when the home is someone else's, is refused naming it, as a layer's would be. Omitted or console, the caller's own console."
+              }
+            ]
           }
         },
         "required": [
@@ -4509,6 +4556,53 @@
                 ]
               }
             }
+          },
+          "writtenIn": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "console",
+                  "map",
+                  "workflow"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "description": "The map or workflow; absent for console."
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "allOf": [
+              {
+                "type": "object",
+                "description": "Where SQL or a dataset name was written: the context whose names it uses. console is the caller's own SQL console, where a plain name is the caller's own dataset; map is a map's SQL home, as its layers are read; workflow is a workflow's home with its declared outputs as the caller runs them. A map or workflow the caller does not reach answers as a missing one.",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "console",
+                      "map",
+                      "workflow"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "description": "The map or workflow; absent for console."
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "description": "Where sql was written, when not in this map: the caller's console (a dataset's \"Add to a map\" too), another map or a workflow. The SQL is carried into this map's SQL home and the layer stores the carried text. Each dataset reference keeps the dataset it meant where it was written: a plain name of a dataset the destination's SQL home does not own, or whose name an output there takes, becomes <sql name>.<dataset>; an already qualified name stays as written; a workflow's own output becomes the dataset the caller's latest successful run of it made. Only those references change; the rest of the text is kept as written, and nothing where it came from is touched. A reference that cannot be carried (a dataset outside the caller's reach, an output the caller has not produced, a computed table name that would have to change) refuses the request with sql_error naming it, and nothing is written. Omitted, the SQL is this map's own, read in its home as every saved layer is."
+              }
+            ]
           }
         },
         "required": [

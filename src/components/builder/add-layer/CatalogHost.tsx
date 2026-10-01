@@ -44,6 +44,7 @@ export function CatalogHost({
       listingStamp={sources.catalogListingStamp}
       initialViewport={viewport}
       projectId={projectId}
+      mapId={sources.mapId}
     />
   );
 }
