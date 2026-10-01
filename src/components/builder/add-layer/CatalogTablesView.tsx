@@ -52,7 +52,7 @@ export function CatalogTablesView({
     <div className={styles.tablesView}>
       <CatalogTableBrowser
         listing={listing}
-        selected={picked?.name ?? null}
+        selected={picked?.qualifiedName ?? null}
         onPick={onPick}
       />
 

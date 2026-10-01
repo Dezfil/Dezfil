@@ -49,6 +49,7 @@ import { executedSnapshot, failedSnapshot, sqlAssistantContext, sqlFacts, type S
 import { insertProposal } from "./insert-rule";
 import styles from "./SqlConsole.module.css";
 import { useHeaderReach } from "../shell/use-header-reach";
+import { doorTable } from "../dataset-doors";
 
 /* The shared editor, lazily loaded as every host loads it. */
 const SqlEditor = dynamic(() => import("../SqlEditor"), {
@@ -359,11 +360,13 @@ export function SqlConsole() {
   const openAsSql = useCallback(
     (t: TableListing, opts?: { door?: boolean }) => {
       setSelected(t.name);
-      const stmt = starterSql(t.name);
+      // The SQL names the dataset as its reader types it, so someone else's
+      // `roads` opens as theirs.
+      const stmt = starterSql(t.qualifiedName);
       replaceDraft(stmt, stmt);
       // The door's sentence rides the run's completion, so the run's own
       // settling cannot overwrite it.
-      const doneMsg = opts?.door ? `Opened from Data: ${t.name}.` : "";
+      const doneMsg = opts?.door ? `Opened from Data: ${t.qualifiedName}.` : "";
       void execute(stmt, { doneMsg, from: 0 });
     },
     [replaceDraft, execute],
@@ -404,8 +407,7 @@ export function SqlConsole() {
   }, [openAsSql]);
   useEffect(() => {
     if (!hydrated || !tables || doorDone.current) return;
-    const name = new URLSearchParams(window.location.search).get("table");
-    const t = name ? tables.find((x) => x.name === name) : null;
+    const t = doorTable(tables, new URLSearchParams(window.location.search).get("table"));
     doorDone.current = true;
     if (!t) return;
     // Deferred a tick: the door is an action, not a render adjustment, and

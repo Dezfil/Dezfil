@@ -36,6 +36,7 @@ import { Dialog } from "../../ui/Dialog";
 import { TabPanel, Tabs, type TabSpec } from "../../ui/Tabs";
 import { IconButton } from "../../ui/IconButton";
 import { XIcon } from "../../ui/icons";
+import { datasetGeometryHref } from "../../dataset-doors";
 import styles from "./AddLayerCatalog.module.css";
 
 /** The two ways a file becomes a table. */
@@ -159,7 +160,7 @@ export function AddLayerCatalog({
   const setGeometry = useCallback(
     (table: TableListing) => {
       onClose();
-      router.push(`/tables/${encodeURIComponent(table.name)}?geometry=set`);
+      router.push(datasetGeometryHref(table));
     },
     [onClose, router],
   );
@@ -205,10 +206,12 @@ export function AddLayerCatalog({
   // only real while the offered list still has it — and a scope change
   // that resolves without it CLEARS the stored pick,
   // so it can never silently resurrect under a later scope.
+  // A pick is held by the name its reader types, which tells two
+  // same-named datasets apart.
   const [pickedName, setPickedName] = useState<string | null>(null);
   const settleOffered = useCallback((offered: TableListing[]) => {
     setPickedName((current) =>
-      current !== null && !offered.some((t) => t.name === current)
+      current !== null && !offered.some((t) => t.qualifiedName === current)
         ? null
         : current,
     );
@@ -233,7 +236,7 @@ export function AddLayerCatalog({
   const offered = reads.offered;
   const picked =
     pickedName !== null && offered !== null
-      ? (offered.find((t) => t.name === pickedName) ?? null)
+      ? (offered.find((t) => t.qualifiedName === pickedName) ?? null)
       : null;
 
   // The import wing's stated trade: imports made from a filed map's
@@ -266,7 +269,7 @@ export function AddLayerCatalog({
     const previousAuto = prevAutoRef.current;
     setName((n) => followName(n, previousAuto, t.name));
     prevAutoRef.current = t.name;
-    setPickedName(t.name);
+    setPickedName(t.qualifiedName);
   }, []);
 
   // Inline commit outcome: rejection and

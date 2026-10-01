@@ -13,6 +13,7 @@ import { KindIcon } from "./ProjectPicture";
 import { OwnerPill } from "../sharing/PeopleMarks";
 import { ownedByOther, type PersonLabel } from "../sharing/people";
 import { useSignedInSqlName } from "../sharing/signed-in";
+import { datasetPageHref } from "../dataset-doors";
 import { lastRunCell, lastRunLabel, otherMembershipNames } from "./home-model";
 import gallery from "../gallery.module.css";
 import styles from "./HomeSections.module.css";
@@ -228,7 +229,7 @@ function DatasetCard({
 }) {
   return (
     <article className={`${gallery.card} ${styles.secCard}`} data-sec-card="dataset">
-      <CardLink label={`Open ${t.name}`} href={`/tables/${t.name}`}>
+      <CardLink label={`Open ${t.name}`} href={datasetPageHref(t)}>
         <div className={gallery.strip} style={{ height: 112 }}>
           <DataMotif kinds={geometryFamilies(t.geometryType, t.geometryColumn)} />
           <span className={gallery.overlayData}>
@@ -453,7 +454,7 @@ export function HomeSections({
                   <button
                     key={t.id}
                     className={gallery.listRow}
-                    onClick={() => router.push(`/tables/${t.name}`)}
+                    onClick={() => router.push(datasetPageHref(t))}
                     aria-label={`Open ${t.name}`}
                   >
                     <span className={gallery.colThumb}>

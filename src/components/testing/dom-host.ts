@@ -10,7 +10,7 @@
  * phases. It computes no layout and no style, parses no HTML, and offers
  * only the members react-dom's client touches while rendering plus the
  * few a test reads back (`querySelectorAll` over a tag, a class or an
- * attribute, `textContent`, `disabled`, `click`). Anything else is
+ * attribute, `textContent`, `disabled`, `click`, `closest`). Anything else is
  * absent on purpose; a test that needs it needs a browser.
  */
 
@@ -223,6 +223,11 @@ export class HostElement extends HostNode {
       }
     }
     return true;
+  }
+  /** The element or its nearest ancestor matching one compound selector. */
+  closest(selector: string): HostElement | null {
+    if (this.matches(selector)) return this;
+    return this.parentElement?.closest(selector) ?? null;
   }
   querySelectorAll(selector: string): HostElement[] { return this.descendants().filter((e) => e.matches(selector)); }
   querySelector(selector: string): HostElement | null { return this.querySelectorAll(selector)[0] ?? null; }

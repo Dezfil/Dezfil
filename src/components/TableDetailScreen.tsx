@@ -15,6 +15,7 @@ import {
 } from "./api";
 import { AddToMapDialog, tableSubject } from "./AddToMapDialog";
 import { ExportMenu } from "./ExportMenu";
+import { datasetQueryHref } from "./dataset-doors";
 import { TablePreviewMap } from "./TablePreviewMap";
 import { Spinner } from "./Spinner";
 import { TablePreviewGrid } from "./TablePreviewGrid";
@@ -347,14 +348,13 @@ function TableDetail({
             className={styles.aux}
             title="Query in SQL"
             aria-label={`Query ${table.name} in SQL`}
-            onClick={() =>
-              router.push(`/sql?table=${encodeURIComponent(table.name)}`)
-            }
+            onClick={() => router.push(datasetQueryHref(table))}
           >
             <IconSql />
           </button>
           <ExportMenu
             name={table.name}
+            dataset={table}
             spatial={!!table.geometryColumn}
             triggerClassName={styles.aux}
           />
@@ -499,7 +499,7 @@ function TableDetail({
                 />
               ) : (
                 <TablePreviewMap
-                  name={table.name}
+                  name={table.qualifiedName}
                   crsAssumed={table.crsAssumed}
                   onSetGeometry={
                     doors && table.geometryColumn === null
@@ -525,7 +525,7 @@ function TableDetail({
                 {grid.columns.length} columns · {formatBytes(table.sizeBytes)} on
                 disk ·{" "}
                 <Link
-                  href={`/sql?table=${encodeURIComponent(table.name)}`}
+                  href={datasetQueryHref(table)}
                   className={styles.sqlLink}
                 >
                   Open in SQL workspace <CaretIcon />

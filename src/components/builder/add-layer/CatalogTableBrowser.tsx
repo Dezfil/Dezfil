@@ -144,8 +144,8 @@ export function CatalogTableBrowser({ listing, selected, onPick }: Props) {
                   key={t.id}
                   className={styles.tableRow}
                   aria-label={t.name}
-                  aria-pressed={t.name === selected}
-                  data-selected={t.name === selected || undefined}
+                  aria-pressed={t.qualifiedName === selected}
+                  data-selected={t.qualifiedName === selected || undefined}
                   data-nonspatial={t.geometryColumn === null || undefined}
                   onClick={() => onPick(t)}
                 >

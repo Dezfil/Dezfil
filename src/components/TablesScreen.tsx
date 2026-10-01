@@ -62,6 +62,7 @@ import styles from "./TablesScreen.module.css";
 import { serverUnreachable } from "./failure-copy";
 import { ownedByOther } from "./sharing/people";
 import { useSignedInSqlName } from "./sharing/signed-in";
+import { datasetPageHref, datasetQueryHref } from "./dataset-doors";
 
 export type { DataSort } from "./data-folders";
 const DATA_SORTS = ["updated", "name", "rows", "size"] as const;
@@ -331,21 +332,24 @@ export function TablesScreen({
   }, [settleQueueForClose]);
 
   const remove = useCallback(
-    async (name: string) => {
+    async (table: TableListing) => {
+      const name = table.name;
       setDeleting(name);
       try {
         const response = await fetch(
-          `/api/tables/${encodeURIComponent(name)}`,
+          `/api/tables/${encodeURIComponent(table.qualifiedName)}`,
           { method: "DELETE" },
         );
         if (!response.ok) {
           setActionError(await readApiError(response));
           return;
         }
+        // The deleted dataset goes, by identity: someone else's dataset of
+        // the same name stays listed.
         mutate((w) => ({
           ...w,
-          all: w.all.filter((t) => t.name !== name),
-          scoped: w.scoped.filter((t) => t.name !== name),
+          all: w.all.filter((t) => t.id !== table.id),
+          scoped: w.scoped.filter((t) => t.id !== table.id),
         }));
         setActionError(null);
         // A folder the deletion empties out of what is shown (its last
@@ -353,7 +357,7 @@ export function TablesScreen({
         // closed, not merely hidden: it must not reappear open when the
         // search clears (found at review).
         if (openFolder && tables) {
-          const remaining = tables.filter((t) => t.name !== name);
+          const remaining = tables.filter((t) => t.id !== table.id);
           const stillShown = shownItems(foldTables(remaining, workflows), {
             query,
             filter,
@@ -453,12 +457,14 @@ export function TablesScreen({
     table: t,
     confirming: confirmName === t.name,
     deleting: deleting === t.name,
-    onOpen: () => router.push(`/tables/${t.name}`),
-    onQuery: () => router.push(`/sql?table=${encodeURIComponent(t.name)}`),
+    // Every door addresses the dataset by the name its reader types, so
+    // someone else's same-named dataset never opens one's own.
+    onOpen: () => router.push(datasetPageHref(t)),
+    onQuery: () => router.push(datasetQueryHref(t)),
     onAddToMap: () => setAddToMap(t.qualifiedName),
     onFile: () => setFiling(t),
     onDeletePress: () => {
-      if (confirmName === t.name) void remove(t.name);
+      if (confirmName === t.name) void remove(t);
       else setConfirmName(t.name);
     },
     onDeleteBlur: () => setConfirmName(null),

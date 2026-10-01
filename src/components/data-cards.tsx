@@ -105,7 +105,7 @@ export function TableActions({
           <IconAddToMap />
         </button>
       )}
-      <ExportMenu name={t.name} spatial={!!t.geometryColumn} />
+      <ExportMenu name={t.name} dataset={t} spatial={!!t.geometryColumn} />
       {mine && (
         <button
           className={gallery.deleteAct}

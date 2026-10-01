@@ -31,9 +31,19 @@ export function identifierFor(name: string): string {
     : quoteIdentifier(name);
 }
 
+/** A dataset as its reader types it: its plain name, or someone else's
+ * `<sql name>.<name>`, each part bare when it can be. A dataset's name never
+ * holds a dot, so the one dot a typed name carries is the qualifier's. */
+export function tableReference(typed: string): string {
+  const dot = typed.indexOf(".");
+  return dot < 0
+    ? identifierFor(typed)
+    : `${identifierFor(typed.slice(0, dot))}.${identifierFor(typed.slice(dot + 1))}`;
+}
+
 /** A query returning a table's first 100 rows — the automatic seed. */
 export function starterSql(table: string): string {
-  return `SELECT *\nFROM ${identifierFor(table)}\nLIMIT 100;`;
+  return `SELECT *\nFROM ${tableReference(table)}\nLIMIT 100;`;
 }
 
 export interface AutomaticWrite {
