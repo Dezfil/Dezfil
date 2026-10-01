@@ -1,5 +1,5 @@
 import type { LayoutNote } from "@/lib/metadata/recipe-layouts";
-import { normalName } from "../workflow-producers";
+import { readKey } from "../workflow-producers";
 import { arrangeByDependency, placeBeside, type Positions } from "./arrange";
 import type { CanvasGraph } from "./graph";
 
@@ -22,11 +22,11 @@ export interface LayoutRead {
 
 export function initialPositions(graph: CanvasGraph, layout: LayoutRead): Positions {
   if (layout.updatedAt === null) return arrangeByDependency(graph.members, graph.edges);
-  const sourceAt = new Map(Object.entries(layout.sources).map(([name, p]) => [normalName(name), p]));
+  const sourceAt = new Map(Object.entries(layout.sources).map(([name, p]) => [readKey(name), p]));
   const placed: Positions = {};
   const unplaced: string[] = [];
   for (const m of graph.members) {
-    const at = m.kind === "node" ? layout.steps[m.id] : sourceAt.get(normalName(m.name));
+    const at = m.kind === "node" ? layout.steps[m.id] : sourceAt.get(readKey(m.name));
     if (at) placed[m.id] = { x: at.x, y: at.y };
     else unplaced.push(m.id);
   }

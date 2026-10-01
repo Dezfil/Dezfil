@@ -467,6 +467,7 @@ export function WorkflowScreen({
             tables: page.tables,
             operations: page.operations,
             run: runOverlay,
+            home: page.recipe.home ?? null,
           })
         : null,
     [page, runOverlay],

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { arrangeByDependency, placeBeside, NODE_W, NODE_H } from "./arrange";
 import type { CanvasEdge, CanvasMember } from "./graph";
 
-const src = (name: string): CanvasMember => ({ kind: "source", id: `src:${name}`, name, table: null, missing: false, loose: false, lineageOnly: false });
+const src = (name: string): CanvasMember => ({ kind: "source", id: `src:${name}`, name, table: null, tableId: null, typedName: null, space: null, missing: false, loose: false, lineageOnly: false });
 const node = (id: string): CanvasMember =>
   ({ kind: "node", id, label: id, group: null, symbol: "code", outputName: id, ports: [], sql: true, state: { word: "never run", tone: "muted", badge: null }, disclosure: "" }) as unknown as CanvasMember;
 const edge = (from: string, to: string, time: CanvasEdge["time"] = "present"): CanvasEdge =>
