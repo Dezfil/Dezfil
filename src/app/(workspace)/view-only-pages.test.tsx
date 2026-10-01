@@ -43,6 +43,14 @@ beforeEach(() => {
       ('M', 'Station catchments', '${at}', '${at}', 'pat', 'P'), ('V', 'Viv map', '${at}', '${at}', 'viv', 'P');
     INSERT INTO recipes (id, name, origin, created_at, updated_at, owner_id, project_id)
       VALUES ('W', 'Permit geocoding', 'workflow', '${at}', '${at}', 'pat', 'P');`);
+  // Fay's map F and workflow G are filed in P too; Fay is a member, then
+  // deactivated, so what she owns is frozen.
+  testAccountScope(db, "fay");
+  db.exec(`INSERT INTO project_people VALUES ('P', 'fay', 'editor', '${at}');
+    INSERT INTO maps (id, name, created_at, updated_at, owner_id, project_id) VALUES ('F', 'Fay map', '${at}', '${at}', 'fay', 'P');
+    INSERT INTO recipes (id, name, origin, created_at, updated_at, owner_id, project_id)
+      VALUES ('G', 'Fay workflow', 'workflow', '${at}', '${at}', 'fay', 'P');
+    UPDATE accounts SET status = 'deactivated' WHERE id = 'fay';`);
 });
 afterEach(() => { vi.restoreAllMocks(); db.close(); });
 
@@ -50,9 +58,9 @@ async function mapPage(account: string, id = "M") {
   who.account = account;
   return (await MapPage({ params: Promise.resolve({ id }), searchParams: Promise.resolve({}) })) as ReactElement<Record<string, unknown>>;
 }
-async function workflowPage(account: string) {
+async function workflowPage(account: string, id = "W") {
   who.account = account;
-  const page = (await WorkflowPage({ params: Promise.resolve({ id: "W" }) })) as ReactElement<{ children: ReactElement<Record<string, unknown>> }>;
+  const page = (await WorkflowPage({ params: Promise.resolve({ id }) })) as ReactElement<{ children: ReactElement<Record<string, unknown>> }>;
   return page.props.children;
 }
 
@@ -78,6 +86,14 @@ describe("a map's page", () => {
     const page = await mapPage("zed");
     expect(page.type).toBe(LayerDownloadControlProvider);
   });
+
+  // A map whose owner is deactivated is read-only for everyone: an Editor
+  // and the project's owner read it rather than get a builder whose every
+  // save is refused.
+  it.each(["edd", "pat", "viv"])("gives %s the reader on a frozen map", async (account) => {
+    const page = await mapPage(account, "F");
+    expect(page.type).toBe(MapReader);
+  });
 });
 
 describe("a workflow's page", () => {
@@ -92,4 +108,20 @@ describe("a workflow's page", () => {
     expect(screen.type).toBe(WorkflowScreen);
     expect(screen.props.viewOnly).toBe(false);
   });
+
+  it("keeps runs off a Viewer's canvas and on an Editor's", async () => {
+    expect((await workflowPage("viv")).props.runs).toBe(false);
+    expect((await workflowPage("edd")).props.runs).toBe(true);
+  });
+
+  // A frozen workflow's contents are read-only for everyone, but it still
+  // runs for whoever may run it.
+  it.each([["edd", true], ["pat", true], ["viv", false]] as const)(
+    "gives %s the view-only canvas on a frozen workflow, runs %s",
+    async (account, runs) => {
+      const screen = await workflowPage(account, "G");
+      expect(screen.props.viewOnly).toBe(true);
+      expect(screen.props.runs).toBe(runs);
+    },
+  );
 });

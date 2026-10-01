@@ -162,11 +162,15 @@ export function CrumbName({
 export function WorkflowScreen({
   id,
   viewOnly = false,
+  runs = !viewOnly,
 }: {
   id: string;
-  /** A Viewer's page, decided by the page from their standing: the
-   * canvas is view-only and nothing on the page edits or runs. */
+  /** The page of whoever may not change the workflow, decided by the page
+   * from their standing: the canvas is view-only and nothing on it edits. */
   viewOnly?: boolean;
+  /** Whether its runs are offered: whoever may run it, which a frozen
+   * workflow still allows to its Editors. */
+  runs?: boolean;
 }) {
   const load = useCallback(async (): Promise<PageRead> => {
     const [recipe, layout, tables, operations] = await Promise.all([
@@ -469,7 +473,7 @@ export function WorkflowScreen({
   );
 
   return (
-    <ViewOnly value={viewOnly}>
+    <ViewOnly value={viewOnly} runs={runs}>
     <div className={styles.screen} data-workflow-frame data-view-only={viewOnly || undefined}>
       {crumbSlot &&
         page &&

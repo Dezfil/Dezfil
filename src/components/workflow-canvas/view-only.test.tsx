@@ -29,9 +29,9 @@ const runner = {
 } as unknown as WorkflowRunner;
 const door = { open: false, toggle: () => {}, band: "none" } as unknown as WorkflowAssistant;
 
-function asViewer(node: React.ReactNode, viewOnly = true) {
+function asViewer(node: React.ReactNode, viewOnly = true, runs?: boolean) {
   return renderToStaticMarkup(
-    <ViewOnly value={viewOnly}>
+    <ViewOnly value={viewOnly} runs={runs}>
       <ReactFlowProvider>{node}</ReactFlowProvider>
     </ViewOnly>,
   );
@@ -98,6 +98,11 @@ describe("the view-only canvas", () => {
       <RunDock runner={runner} refusal={null} onRunAll={() => {}} onDismissRefusal={() => {}} />, viewOnly);
     expect(dock(true)).not.toContain("data-run-action");
     expect(dock(false)).toContain("data-run-action");
+  });
+
+  it("keeps Run all on a frozen workflow's view-only canvas for whoever may still run it", () => {
+    const dock = asViewer(<RunDock runner={runner} refusal={null} onRunAll={() => {}} onDismissRefusal={() => {}} />, true, true);
+    expect(dock).toContain("data-run-action");
   });
 
   it("drops Undo and Redo from the header and keeps the assistant's door", () => {

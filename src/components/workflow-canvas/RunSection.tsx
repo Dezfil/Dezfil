@@ -5,7 +5,7 @@ import { PlayIcon } from "../ui/icons";
 import type { CanvasGraph, NodeMember } from "./graph";
 import { downstreamOf } from "./node-panel-model";
 import { useRunActions, useRunner } from "./run-context";
-import { useViewOnly } from "./view-only";
+import { useRunsOffered } from "./view-only";
 import styles from "./WorkflowCanvas.module.css";
 
 /**
@@ -18,7 +18,7 @@ import styles from "./WorkflowCanvas.module.css";
  */
 export function RunSection({ member, graph }: { member: NodeMember; graph: CanvasGraph }) {
   // A Viewer runs nothing: the section is not drawn.
-  return useViewOnly() ? null : <RunControls member={member} graph={graph} />;
+  return useRunsOffered() ? <RunControls member={member} graph={graph} /> : null;
 }
 
 function RunControls({ member, graph }: { member: NodeMember; graph: CanvasGraph }) {

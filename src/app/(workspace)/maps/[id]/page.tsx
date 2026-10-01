@@ -21,7 +21,8 @@ export default async function MapBuilderPage({
 }) {
   const scope = await requirePageScope();
   const { id } = await params;
-  // A Viewer reads the map; everyone else who reaches it builds.
+  // Whoever may not change the map reads it (a Viewer, or anyone while its
+  // owner is deactivated); everyone else who reaches it builds.
   if (viewsOnly(scope, "map", id)) {
     return (
       <MapReader
