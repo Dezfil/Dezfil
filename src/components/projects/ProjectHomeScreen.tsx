@@ -32,6 +32,9 @@ import { KindIcon } from "./ProjectPicture";
 import { ProjectCrumbTail } from "../shell/ProjectCrumbTail";
 import { PlainCrumbTail } from "../shell/PlainCrumbTail";
 import { RoleLine } from "../sharing/PeopleMarks";
+import { MembersLine } from "../sharing/MembersLine";
+import { ShareDialog } from "../sharing/ShareDialog";
+import { PeopleIcon } from "../ui/icons";
 import { attentionRows, factsLine, homeStats } from "./home-model";
 import {
   useCatalogue,
@@ -97,6 +100,9 @@ function ProjectHomeVisit({ id, home }: {
 
   const [actionError, setActionError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  // The share dialog, the owner's: opened from the head's Share action or
+  // its members line.
+  const [sharing, setSharing] = useState(false);
   const [exportNote, setExportNote] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState<string | null>(null);
@@ -370,6 +376,7 @@ function ProjectHomeVisit({ id, home }: {
           {!owns && record.owner && (
             <RoleLine owner={record.owner} role={role} />
           )}
+          {owns && <MembersLine projectId={id} onOpen={() => setSharing(true)} />}
           {owns ? (
           <div className={styles.noteLine}>
             {noteDraft !== null ? (
@@ -436,6 +443,11 @@ function ProjectHomeVisit({ id, home }: {
             </Button>
           )}
           {owns && (
+            <Button size="chrome" onClick={() => setSharing(true)} data-share-action>
+              <PeopleIcon /> Share
+            </Button>
+          )}
+          {owns && (
             <Menu
               label="Project actions"
               triggerLabel="More"
@@ -485,6 +497,26 @@ function ProjectHomeVisit({ id, home }: {
             if (!ownsAction(renderedAction)) return;
             setExporting(false);
             setExportNote(message);
+          }}
+        />
+      )}
+
+      {sharing && (
+        <ShareDialog
+          projectId={id}
+          projectName={record.name}
+          counts={{ maps: maps.length, workflows: workflows.length, datasets: tables.length }}
+          tables={tables}
+          onClose={() => setSharing(false)}
+          onTransferred={(sentence) => {
+            // Handed over: the home re-reads as its new Editor's.
+            setSharing(false);
+            invalidateProjects();
+            if (!ownsAction(renderedAction)) return;
+            setExportNote(sentence);
+            void refresh().then((ok) => {
+              if (!ok && ownsAction(renderedAction)) setStale(true);
+            });
           }}
         />
       )}

@@ -10,9 +10,9 @@
  * phases. It computes no layout and no style, parses no HTML, and offers
  * only the members react-dom's client touches while rendering plus the
  * few a test reads back (`querySelectorAll` over a tag, a class or an
- * attribute, `getElementById`, `textContent`, `disabled`, `click`,
- * `closest`). Anything else is absent on purpose; a test that needs it
- * needs a browser.
+ * attribute, `getElementById`, `dataset`, `remove`, `textContent`,
+ * `disabled`, `click`, `closest`). Anything else is absent on purpose; a
+ * test that needs it needs a browser.
  */
 
 const HTML_NS = "http://www.w3.org/1999/xhtml";
@@ -96,6 +96,8 @@ export class HostNode {
     child.parentNode = null;
     return child;
   }
+  /** Leave the tree, as the dialog's host does when it closes. */
+  remove(): void { this.parentNode?.removeChild(this); }
   contains(node: HostNode | null): boolean {
     for (let n = node; n; n = n.parentNode) if (n === this) return true;
     return false;
@@ -175,6 +177,14 @@ export class HostElement extends HostNode {
   hasAttribute(name: string) { return this.attributes.has(name); }
   removeAttribute(name: string) { this.attributes.delete(name); }
   get id() { return this.getAttribute("id") ?? ""; }
+  /** `data-*` attributes by their camel-cased names, as the dialog host's marker is written. */
+  get dataset(): Record<string, string | undefined> {
+    const attribute = (key: string | symbol) => `data-${String(key).replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
+    return new Proxy({}, {
+      get: (_, key) => this.getAttribute(attribute(key)) ?? undefined,
+      set: (_, key, value) => { this.setAttribute(attribute(key), value); return true; },
+    });
+  }
   get className() { return this.getAttribute("class") ?? ""; }
   set className(value: string) { this.setAttribute("class", value); }
   get disabled() { return this.hasAttribute("disabled"); }

@@ -1,0 +1,68 @@
+/* The members line under the project's name on its owner's home: a quiet
+   pill-shaped door to the share dialog, the faces of up to three of its
+   people beside the sentence. */
+
+.members {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 7px 0 2px -4px;
+  padding: 3px 8px 3px 4px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+  transition:
+    background var(--dur-micro) ease,
+    color var(--dur-micro) ease;
+}
+
+.members:hover {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.faces {
+  display: inline-flex;
+}
+
+.face {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+.face + .face {
+  margin-left: -6px;
+}
+
+.face[data-off] {
+  color: var(--fg-faint);
+  background: var(--bg-hover);
+}
+
+.members[data-none] svg {
+  width: 14px;
+  height: 14px;
+  color: var(--fg-faint);
+}
+
+.members[data-none] em {
+  font-style: normal;
+  color: var(--fg-faint);
+}
+
+.members[data-none] b {
+  font-weight: 600;
+  color: var(--accent-bright);
+}
+
+.members[data-none]:hover b {
+  color: var(--accent);
+}

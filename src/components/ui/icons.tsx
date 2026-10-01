@@ -930,3 +930,13 @@ export function PeopleIcon() {
     </Svg>
   );
 }
+
+/** A database connection: the rail's Connections glyph at the action
+ * tier, where a line names something a connection feeds. */
+export function PlugIcon() {
+  return (
+    <Svg>
+      <path d="M9 3v4M15 3v4M7 7h10v3.5a5 5 0 0 1-10 0V7ZM12 15.5V21" />
+    </Svg>
+  );
+}

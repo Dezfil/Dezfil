@@ -13,7 +13,11 @@ import { SignedIn } from "../sharing/signed-in";
  * project menu. The owner's home is unchanged.
  */
 
-const home = vi.hoisted(() => ({ record: null as unknown, crumb: "" }));
+const home = vi.hoisted(() => ({ record: null as unknown, crumb: "", people: null as unknown }));
+vi.mock("../sharing/use-project-people", async (original) => ({
+  ...await original<typeof import("../sharing/use-project-people")>(),
+  useProjectPeople: () => new Map(home.people ? [["berlin", home.people]] : []),
+}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("../builder/drawer/use-operations", () => ({ useOperations: () => ({ operations: [] }) }));
 vi.mock("../AddDataDialog", () => ({ AddDataDialog: () => null }));
@@ -85,6 +89,40 @@ describe("a shared project's home", () => {
     expect(html).not.toContain('aria-label="More"');
     expect(html).not.toContain(">edit<");
     expect(home.crumb).toBe("plain:Berlin housing study");
+  });
+
+  it("gives the owner the Share action beside Add to project and Export project", () => {
+    const html = render("owner");
+    expect(html).toContain("data-share-action");
+    expect(html.indexOf("Export project")).toBeLessThan(html.indexOf("data-share-action"));
+  });
+
+  it("gives the owner the members line under the name: who it is shared with", () => {
+    home.people = [
+      { name: "Ada Okafor", sqlName: "ada", role: "owner", deactivated: false },
+      { name: "Bo Lindqvist", sqlName: "bo", role: "editor", deactivated: false },
+      { name: "Cy Marsh", sqlName: "cy", role: "viewer", deactivated: true },
+    ];
+    const html = render("owner");
+    expect(html).toContain('data-members-line="shared"');
+    expect(html).toContain("Shared with Bo and Cy");
+    home.people = null;
+  });
+
+  it("says Only you · Share on a project shared with nobody", () => {
+    home.people = [{ name: "Ada Okafor", sqlName: "ada", role: "owner", deactivated: false }];
+    const html = render("owner");
+    expect(html).toContain('data-members-line="none"');
+    expect(html).toMatch(/Only you.*·.*Share/);
+    home.people = null;
+  });
+
+  it.each(["editor", "viewer"] as const)("gives a%s neither Share nor the members line", (role) => {
+    home.people = [{ name: "Ada Okafor", sqlName: "ada", role: "owner", deactivated: false }];
+    const html = render(role);
+    expect(html).not.toContain("data-share-action");
+    expect(html).not.toContain("data-members-line");
+    home.people = null;
   });
 
   it("leaves the owner's home as it was", () => {
