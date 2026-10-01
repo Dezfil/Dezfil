@@ -208,7 +208,17 @@ downloads the layer's rows.
 revokes it. The anonymous side is `GET /api/published/{token}` plus tiles,
 render, extent and widget-value calls scoped to that token, which only ever
 expose the fields the publication declared
-(`GET /api/maps/{id}/published-fields`). The token, the published field
+(`GET /api/maps/{id}/published-fields`). A published map evaluates in its
+SQL home with its current owner's reach, restricted to the datasets its own
+layers name: nothing else of the owner's space is mounted for the link, so
+catalogue inspection through it can disclose no other name, and a dataset
+the owner can no longer reach fails on the link rather than drawing anything
+else. **Upgrade exception:** a published layer or widget whose SQL reads the
+instance's catalogue (the engine's views, tables and columns functions, the
+information schema, `sqlite_master`) fails on the link with
+`catalogue_not_published` while its owner holds datasets the map does not
+name, rather than disclosing them; the same layer still draws in the owner's
+builder, and a map that names everything its owner holds keeps rendering it. The token, the published field
 selection, the widget publication toggle, the theme and the reader controls
 change only by the map's owner: through these operations, through map and
 layer writes that carry them, and through undo and redo. For anyone else a
@@ -279,7 +289,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **90** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **91** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -400,7 +410,8 @@ alias or a common table expression in scope keeps its SQL meaning. The single
 quoted name a mounted dataset carries in the catalogue (`"ada.roads"`) is
 accepted as the binding it is; any other identifier containing a dot is still
 refused. The compiler preserves stored SQL. Publication evaluations use the
-map's SQL home and the publication owner's reach, including inactive owners and
+map's SQL home and the publication owner's reach restricted to the datasets
+the map's layers name, including inactive owners and
 pending adoption. Refresh, deletion and name reuse affect later evaluations; an admitted
 materialization keeps its captured identities and artifacts until it completes.
 
@@ -554,8 +565,8 @@ with no content. The operation provides no map discovery or private read
 access. Its generated tool is `revoke_inactive_publication`, with destructive
 consequence metadata and confirmation using only the submitted token.
 
-Anonymous publication queries retain the publisher's dataset scope rather
-than a signed-in visitor's. Deactivation does not revoke existing links.
+Anonymous publication queries retain the publisher's dataset scope, restricted
+to the datasets the map names, rather than a signed-in visitor's. Deactivation does not revoke existing links.
 Before first-account setup, legacy links carry a publication-only
 pending-adoption scope; setup atomically replaces it with the original
 account's scope. Token revocation is rechecked after asynchronous widget,

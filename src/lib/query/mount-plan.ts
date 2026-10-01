@@ -43,6 +43,9 @@ export interface MountPlan {
   qualified: Map<string, QualifiedBinding>;
   /** The relation each synthetic binding reads, filled at registration. */
   synthetic: Map<string, string>;
+  /** A publication's mount, when its owner's reach holds datasets the map
+   * does not name: the catalogue it could discover is not the one it had. */
+  withheld?: boolean;
 }
 
 export function planMounts(namespace: Namespace, purpose: EvaluationPurpose, callerIsHome: boolean): MountPlan {

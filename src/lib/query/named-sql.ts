@@ -11,6 +11,8 @@ import { classifyReference, writtenReference } from "./reference-forms";
 import { unavailableDataset } from "./bindings";
 import { isCteReference } from "./references";
 import { mountPlanOf, type MountPlan, type QualifiedBinding } from "./mount-plan";
+import { CATALOGUE_READERS } from "./catalogue-policy";
+import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 
 /**
  * Compile admitted SQL against this connection's temporary views.
@@ -89,6 +91,23 @@ async function refuseUnbound(conn: DuckDBConnection, plan: MountPlan | undefined
   if (!await bindsAsRelation(conn, parts)) throw unbound(plan, parts);
 }
 
+/** A publication whose owner holds datasets its map does not name reads
+ * nothing of the catalogue: what the link could discover is not what the
+ * owner's space holds, and it never discloses the rest. */
+function catalogueWithheld(): ApiError {
+  return new ApiError("catalogue_not_published", ERROR_CATALOGUE.catalogue_not_published, 400);
+}
+
+/** Refuse, on a withholding publication's mount, a table reference that
+ * reads one of the engine's own relations rather than a mounted dataset. */
+async function refuseWithheldRelation(conn: DuckDBConnection, plan: MountPlan | undefined, parts: readonly string[]): Promise<void> {
+  if (!plan?.withheld) return;
+  const classified = classifyReference(parts);
+  if (classified.form === "engine") throw catalogueWithheld();
+  if (classified.form !== "plain" || plan.plain.has(classified.name)) return;
+  if (await bindsAsRelation(conn, parts)) throw catalogueWithheld();
+}
+
 /** How a qualified name is reached here, when it names a SQL name's dataset. */
 function qualifiedBinding(plan: MountPlan | undefined, parts: readonly string[]): { key: string; binding: QualifiedBinding | undefined } | null {
   if (!plan) return null;
@@ -151,6 +170,7 @@ async function compileNamedSql(conn: DuckDBConnection, sql: string, synthetics: 
       const parts = [catalog, schema, String(value.table_name)].filter(Boolean);
       const cte = isCteReference(inner.ctes, catalog, schema, String(value.table_name));
       if (!cte) await refuseUnbound(conn, plan, parts);
+      if (!cte) await refuseWithheldRelation(conn, plan, parts);
       if ((lowerCatalog === "memory" && (!lowerSchema || lowerSchema === "main")) || (!lowerCatalog && lowerSchema === "memory")) {
         value.catalog_name = "temp"; value.schema_name = "main"; changed = true;
       } else if (!cte) {
@@ -189,6 +209,7 @@ async function compileNamedSql(conn: DuckDBConnection, sql: string, synthetics: 
     }
     if (value.type === "TABLE_FUNCTION" && record(value.function)) {
       const fn = value.function, kind = String(fn.function_name).toLowerCase();
+      if (plan?.withheld && CATALOGUE_READERS.has(kind)) throw catalogueWithheld();
       if ((NAMED_TABLE_FUNCTIONS.has(kind) || kind === "query") && Array.isArray(fn.children) && fn.children.length) {
         const resolved = await argument(conn, fn.children[0]);
         if (kind === "query" && typeof resolved === "string") {
@@ -202,6 +223,7 @@ async function compileNamedSql(conn: DuckDBConnection, sql: string, synthetics: 
             if (bare) inner.tables.add(bare.toLowerCase());
             if (parts && !(parts.length === 1 && inner.ctes.has(parts[0].toLowerCase()))) {
               await refuseUnbound(conn, plan, parts);
+              await refuseWithheldRelation(conn, plan, parts);
               const found = qualifiedBinding(plan, parts);
               if (found?.binding) {
                 if ("view" in found.binding) { mapped.push(quoted(found.binding.view)); continue; }

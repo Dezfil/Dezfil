@@ -20,7 +20,14 @@ it("documents owner and pending-adoption query scopes without widening the anony
     for (const [method, operation] of Object.entries(methods)) {
       expect(operation.description).toContain("pending-adoption publication scope");
       expect(operation.description).toContain("including while the owner is deactivated");
+      expect(operation.description).toContain("restricted to the datasets the map's own layers name: nothing else of the owner's space is mounted for the link");
+      expect(operation.description).toContain("fails with catalogue_not_published while the owner holds datasets the map does not name");
       expect(isAnonymousOperation(path, method.toUpperCase())).toBe(true);
     }
   }
+});
+it("catalogues the published link's catalogue refusal with its reason", () => {
+  const document = buildOpenApiDocument() as unknown as { "x-error-codes": Record<string, string>; components: { schemas: { Error: { properties: { error: { properties: { code: { enum: string[] } } } } } } } };
+  expect(document["x-error-codes"].catalogue_not_published).toContain("a published map reaches only the datasets its own layers name");
+  expect(document.components.schemas.Error.properties.error.properties.code.enum).toContain("catalogue_not_published");
 });

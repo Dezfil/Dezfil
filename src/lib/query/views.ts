@@ -8,7 +8,8 @@ import { artifactRelation, type ArtifactRelation } from "./artifact-relation";
 import { requireDatasetScope, type DatasetScope } from "./access";
 import { registryTable, type ReachableDataset } from "./bindings";
 import { contextOf } from "./context";
-import { namespaceFor } from "./namespace";
+import { namespaceFor, publicationNamespace } from "./namespace";
+import { isPublicationScope } from "@/lib/publish/publication-scope";
 import { planMounts, setMountPlan, type Mount } from "./mount-plan";
 
 function ident(s: string): string {
@@ -45,7 +46,11 @@ export async function registerTableViews(
 ): Promise<void> {
   const caller = requireDatasetScope(scope);
   const context = contextOf(scope);
-  const plan = planMounts(namespaceFor(scope), context.purpose, caller === context.home);
+  // A publication mounts only the datasets its map's SQL names.
+  const publication = isPublicationScope(context.authority) ? await publicationNamespace(conn, context.authority) : null;
+  if (publication && abandoned?.()) return;
+  const plan = planMounts(publication?.namespace ?? namespaceFor(scope), context.purpose, caller === context.home);
+  if (publication) plan.withheld = publication.withheld;
   const relations = artifactRelations(catalogGenerationOf(conn));
   const previous = mounted.get(conn) ?? new Set<string>();
   mounted.set(conn, previous);

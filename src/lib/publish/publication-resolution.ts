@@ -1,5 +1,7 @@
 import { resolvePublication } from "./publication-scope";
 import { limits } from "@/lib/limits";
+import { publicationRevision } from "@/lib/query/namespace";
+import { forgetPublications } from "@/lib/query/publication-namespace";
 import type { PublishedView } from "./publish-service";
 
 type PublicationSnapshot = NonNullable<ReturnType<typeof resolvePublication>>;
@@ -22,6 +24,13 @@ export function invalidatePublishedToken(token: string): void {
 /** Tests reset shared state. */
 export function resetPublishCache(): void {
   cache.clear();
+  forgetPublications();
+}
+
+/** A snapshot's revision with what its mounts are resolved from: a change of
+ * the owner's reach, or of the map's SQL, retires an assembled view. */
+function revisionOf(snapshot: PublicationSnapshot): string {
+  return JSON.stringify([snapshot.revision, publicationRevision(snapshot.scope)]);
 }
 
 /**
@@ -43,7 +52,7 @@ export async function resolvePublishedView(
   if (
     cached &&
     cached.mapId === snapshot.map.id &&
-    cached.revision === snapshot.revision &&
+    cached.revision === revisionOf(snapshot) &&
     now < cached.expiresAt
   ) {
     return cached.view;
@@ -53,14 +62,15 @@ export async function resolvePublishedView(
   // one pass, discard the mixed result and assemble again from the new
   // snapshot. Revocation returns null and can never repopulate the cache.
   while (true) {
-    const { map, revision } = snapshot;
+    const { map } = snapshot;
+    const revision = revisionOf(snapshot);
     const view = await assemble(snapshot);
     const current = resolvePublication(token);
     if (!current) {
       invalidatePublishedToken(token);
       return null;
     }
-    if (current.map.id !== map.id || current.revision !== revision) {
+    if (current.map.id !== map.id || revisionOf(current) !== revision) {
       snapshot = current;
       continue;
     }
