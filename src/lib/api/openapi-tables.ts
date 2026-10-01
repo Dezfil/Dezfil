@@ -277,7 +277,9 @@ export const TABLE_SCHEMAS = {
         type: ["string", "null"],
         description:
           "The file this table arrived as. Null for a derived " +
-          "table, whose output never was a file.",
+          "table, whose output never was a file, and, to anyone but " +
+          "its owner, for a PostGIS snapshot, whose remote schema and " +
+          "table belong to its owner's connection.",
       },
       format: {
         type: "string",

@@ -39,8 +39,20 @@ export function datasetOrigin(scope: AccountScope, reached: ReachedTable): DataT
   return table.sourceParams;
 }
 
+/** The file or remote table a dataset came from, as its reader may see it:
+ * a PostGIS snapshot's remote schema and table live in its owner's
+ * connection, so only the owner sees them. */
+export function datasetSourceName(scope: AccountScope, reached: ReachedTable): DataTable["sourceFilename"] {
+  return reached.ownerId !== scope.accountId && reached.table.source === "postgis" ? null : reached.table.sourceFilename;
+}
+
 /** A reached dataset as its reader sees it: the record with its origin
  * bounded, its owner and the name the reader would type. */
 export function presentDataset(scope: AccountScope, reached: ReachedTable): DataTable & DatasetPresence {
-  return { ...reached.table, sourceParams: datasetOrigin(scope, reached), ...datasetPresence(scope, reached) };
+  return {
+    ...reached.table,
+    sourceFilename: datasetSourceName(scope, reached),
+    sourceParams: datasetOrigin(scope, reached),
+    ...datasetPresence(scope, reached),
+  };
 }

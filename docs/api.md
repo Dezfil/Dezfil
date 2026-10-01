@@ -196,7 +196,8 @@ Users operations above.
 caller reaches and name each one's `owner` and its `qualifiedName`, the name
 the caller would type: the plain name for their own, `<sql name>.<name>` for
 another owner's, so two owners' `roads` are told apart. Another owner's
-PostGIS snapshot shows its source kind and nothing about the connection, and
+PostGIS snapshot shows its source kind and nothing about the connection
+(neither the connection nor its remote schema and table), and
 a derived dataset's recorded inputs resolve only within the reader's reach.
 A bare name in a path or an operation parameter is the caller's own dataset;
 another owner's dataset is addressed by its qualified name (`ada.roads`) on
@@ -392,7 +393,13 @@ no transfer.
 
 **Connections.** PostGIS connections: create, test, list the remote tables,
 preview a relation, snapshot it into a local dataset. Passwords are
-encrypted at rest.
+encrypted at rest. Connections are never shared: a project grant reaches the
+datasets filed in the project, never the connection behind one. Such a
+connection is listed, browsed, tested and used by nobody but its owner, and
+answers anyone else `not_found` exactly as a connection that does not exist;
+refreshing the dataset through it is its owner's act, refused to the
+project's editors with `forbidden`; no route or tool transfers a connection;
+and a project archive carries no connection facts.
 
 **Agents.** The assistant and the MCP endpoint. `POST /api/assistant/runs`
 reserves a run, `POST /api/assistant/messages` sends a message under that
