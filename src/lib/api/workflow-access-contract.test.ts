@@ -15,7 +15,7 @@ it("publishes workflow reach, the reader's view in its home, parent references a
     expect(operation.description).not.toContain("private to the authenticated account");
     expect(operation.description).not.toContain("Every recipe in the workspace");
     expect(operation.description).toContain("A step's declared output name is taken when a dataset of that name is in the workflow's SQL home or in the declaring person's own space");
-    expect(operation.description).toContain("duplicate-name allocation considers the duplicator's own datasets and workflows");
+    expect(operation.description).toContain("duplicate-name allocation considers the duplicator's own datasets and workflows and the datasets of the SQL home the copy keeps");
     expect(operation.description).not.toContain("consider only the caller's own datasets");
     expect(operation.responses).toHaveProperty("404"); count++;
   }

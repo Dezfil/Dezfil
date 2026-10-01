@@ -870,7 +870,8 @@ person other than the home's account whose name only the home holds is told
 "That name is not available in this workflow." without the dataset being
 named, since the home's datasets need not be theirs to see.
 Duplication names the copy's outputs against the duplicator's own datasets and
-workflows. Same-workflow conflicts and the frozen name of an existing output
+workflows and the datasets of the SQL home the copy keeps, so every name it
+allocates passes the same declaration rule. Same-workflow conflicts and the frozen name of an existing output
 retain their previous rules. Deleting a workflow leaves its datasets.
 
 **Filing.** A compound filing change is checked part by part by the filing

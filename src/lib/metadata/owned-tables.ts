@@ -18,6 +18,11 @@ export function getOwnedTableByName(scope: AccountScope, name: string, db: Datab
   const row = db.prepare("SELECT * FROM data_tables WHERE owner_id = ? AND name = ?").get(owner, name) as TableRow | undefined;
   return row ? tableFromRow(row) : null;
 }
+/** Every dataset name one account holds, for allocating names that must be
+ * free in that account's space. */
+export function tableNamesOf(accountId: string, db: Database = metadataDb()): string[] {
+  return (db.prepare("SELECT name FROM data_tables WHERE owner_id = ?").all(accountId) as { name: string }[]).map((r) => r.name);
+}
 /** Whether any of the accounts holds a dataset of this name, case aside: a
  * declared output's name is taken where the output would shadow or land. */
 export function tableNameHeld(accountIds: readonly string[], name: string, db: Database = metadataDb()): boolean {

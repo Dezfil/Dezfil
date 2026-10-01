@@ -5,9 +5,9 @@ import { deriveTableName } from "@/lib/ingest/naming";
 import { metadataDb } from "@/lib/metadata/db";
 import { getLayout, putLayout } from "@/lib/metadata/recipe-layouts";
 import { recipeHome } from "@/lib/metadata/recipes";
-import { fileRecipe } from "@/lib/metadata/owned-recipes";
+import { fileRecipe, recipeStanding } from "@/lib/metadata/owned-recipes";
 // The source is read as the duplicator reaches it; the names a copy may not
-// take are the duplicator's own.
+// take are the duplicator's own and the datasets of the home the copy keeps.
 import {
   copyStep,
   createRecipe,
@@ -19,7 +19,7 @@ import {
   type Recipe,
   type RecipeStep,
 } from "@/lib/metadata/owned-recipes";
-import { listOwnedTables } from "@/lib/metadata/owned-tables";
+import { listOwnedTables, tableNamesOf } from "@/lib/metadata/owned-tables";
 import type { Database } from "better-sqlite3";
 import { findOperation } from "./catalog";
 import { rewriteTableReferences } from "./sql-references";
@@ -57,9 +57,13 @@ function declaredName(params: Record<string, unknown> | null): string | null {
 }
 
 /** Every name a new output may not take: registered tables, and what every
- * owned recipe's nodes declare or hold, active or pending. */
-function takenNames(scope: AccountScope, db: Database): Set<string> {
+ * owned recipe's nodes declare or hold, active or pending; and the datasets
+ * of the SQL home the copy keeps, where a declared output would shadow one
+ * for every step that reads it by its plain name. The declaration rule
+ * refuses both, so a copy allocated against less could not be edited. */
+function takenNames(scope: AccountScope, db: Database, home: string | null): Set<string> {
   const taken = new Set<string>(listOwnedTables(scope, db).map((t) => t.name.toLowerCase()));
+  if (home !== null) for (const name of tableNamesOf(home, db)) taken.add(name.toLowerCase());
   for (const recipe of listOwnRecipes(scope, db)) {
     for (const step of listOwnSteps(scope, recipe.id, db)) {
       for (const n of [declaredName(step.parameters), declaredName(step.proposedParameters), step.outputTableName?.toLowerCase() ?? null]) {
@@ -99,7 +103,10 @@ export async function duplicateRecipe(scope: AccountScope, sourceId: string): Pr
   const before = stamp(steps);
 
   // 1. Plan: fresh names, redirected reads — from the active definitions.
-  const taken = takenNames(scope, db);
+  // An unstamped home is its owner's, as the declaration rule reads it.
+  const standing = recipeStanding(sourceId, db);
+  const home = standing?.homeId ?? standing?.ownerId ?? null;
+  const taken = takenNames(scope, db, home);
   const renamed = new Map<string, string>();
   const planned: PlannedStep[] = steps.map((step) => {
     const parameters: Record<string, unknown> = { ...step.parameters };
@@ -170,7 +177,7 @@ export async function duplicateRecipe(scope: AccountScope, sourceId: string): Pr
         409,
       );
     }
-    const now = takenNames(scope, db);
+    const now = takenNames(scope, db, home);
     for (const fresh of renamed.values()) {
       if (now.has(fresh)) {
         throw new ApiError(
