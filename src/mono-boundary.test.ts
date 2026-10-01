@@ -72,8 +72,14 @@ const ALLOWED = new Set([
   "src/components/GeometryProvenance.module.css :: .record b",
   // The sign-in hand-over is a literal URL, including its credential.
   "src/components/users/UsersScreen.module.css :: .field input",
-  // A SQL name is an identifier other people's SQL qualifies datasets by.
+  // A SQL name is an identifier other people's SQL qualifies datasets by:
+  // on Users, beside a person in the share dialog, beside a person's group
+  // in the console's source list, and in the catalogue's line naming a
+  // dataset as a map's SQL types it.
   "src/components/users/UsersScreen.module.css :: .sqlName",
+  "src/components/sharing/ShareDialog.module.css :: .sqlName",
+  "src/components/sql/SqlConsole.module.css :: .eyebrowSql",
+  "src/components/builder/add-layer/AddLayerCatalog.module.css :: .homeLine code",
   "src/components/SettingsScreen.module.css :: .sqlName code",
   "src/components/McpSection.module.css :: .endpoint",
   // per-client commands and configuration are literal code.
