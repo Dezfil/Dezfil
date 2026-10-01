@@ -57,7 +57,12 @@ only by its owner. A workflow is reached like a map, its steps, layout and
 runs with it, and read in its SQL home within the reader's reach; its editors
 change its steps, while starting a run stays its owner's until a run's
 outputs are its runner's own, and a run is cancelled by its initiator or the
-workflow's owner. Contained layers, widgets, histories and runs
+workflow's owner. SQL that anyone but a map's or workflow's owner saves into
+it (a layer's SQL, a step's SQL or dataset parameters, or SQL that undo and
+redo would put back) must name only datasets within that person's own reach
+in the resource's SQL home, a workflow's declared outputs aside: otherwise
+the save is refused with `sql_error` naming the reference as written, and
+nothing changes. Contained layers, widgets, histories and runs
 follow their parent; standalone jobs and retained export/render results remain
 private even after failure or output deletion. Admin status grants no
 private-content access. Dataset and connection names are unique within one

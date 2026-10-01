@@ -14,6 +14,7 @@ import { outputNameRefusal, registeredOutputName } from "@/lib/operations/output
 import { assertBackwardOnly } from "@/lib/operations/recipe-order";
 import { readStep } from "@/lib/operations/recipe-view";
 import { stepReads } from "@/lib/operations/step-reads";
+import { admitStepDefinition, recheckSaved } from "@/lib/save-admission";
 import {
   captureLayerSource,
   jsonBody,
@@ -58,6 +59,10 @@ export async function POST(request: Request, { params }: Params) {
       origin = captured.origin;
     }
 
+    // Someone other than the workflow's owner saves only what they can
+    // evaluate themselves: every dataset it names within their reach in the
+    // workflow's home, its declared outputs exempt.
+    const saved = await admitStepDefinition(scope, id, operation.id, parameters, request.signal);
     const db = metadataDb();
     // The name rule: refused in its own words, or stored in its
     // registered form.
@@ -96,6 +101,7 @@ export async function POST(request: Request, { params }: Params) {
       }
       const again = outputNameRefusal({ scope, db, recipeId: id, stepId: null, produced: null, typed: parameters.name });
       if (again) throw again;
+      recheckSaved(scope, saved);
       const added = addStep(scope, id, { operation: operation.id, parameters, origin }, db);
       // Accepted, so the recipe is edited.
       touchRecipe(scope, id, db);

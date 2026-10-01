@@ -9,6 +9,7 @@ it("documents the map reach boundary on map operations and generated tools", () 
     for (const operation of Object.values(document.paths[path])) {
       expect(operation.description, path).toContain("A map is reached by its owner and, while it is filed in a project, by that project's owner and people.");
       expect(operation.description, path).toContain("name each map's owner and SQL home");
+      expect(operation.description, path).toContain("SQL anyone but the owner saves, directly or by undo and redo, must name only datasets within their own reach in the map's home");
       expect(operation.description, path).not.toContain("authenticated account's own maps");
       expect(operation.responses, path).toHaveProperty("404");
     }

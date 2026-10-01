@@ -8,6 +8,7 @@ it("publishes the layer boundary its map's reach decides and the parent-referenc
     for (const operation of Object.values(methods)) {
       expect(operation.description, path).toContain("Unreached, missing or mismatched parent/child identities return not_found");
       expect(operation.description, path).toContain("Layers and widgets follow their map: everyone who reaches the map reads and evaluates them");
+      expect(operation.description, path).toContain("Layer SQL saved by anyone but the map's owner must name only datasets within their own reach in the map's home");
       expect(operation.responses, path).toHaveProperty("404");
     }
   }

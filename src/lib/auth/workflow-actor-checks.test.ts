@@ -24,10 +24,13 @@ import { PERMISSION_REFUSAL, requireCancellable } from "./reach";
  * shape, before anything is planned. A run is cancelled by its initiator or
  * the workflow's owner.
  */
-const effects = vi.hoisted(() => ({ reads: vi.fn(async () => [] as string[]), engine: vi.fn() }));
+const effects = vi.hoisted(() => ({ reads: vi.fn(async () => [] as string[]), engine: vi.fn(), admit: vi.fn(async () => ({ bound: [] })) }));
 vi.mock("@/lib/operations/step-reads", async original => ({ ...await original<typeof import("@/lib/operations/step-reads")>(), stepReads: effects.reads,
   readsByStep: async (_scope: unknown, steps: { id: string }[]) => new Map(await Promise.all(steps.map(async step => [step.id, await effects.reads()] as const))) }));
 vi.mock("@/lib/duckdb", () => ({ withConnection: effects.engine, trustedH3Ready: vi.fn() }));
+// What a non-owner's step may name is its own suite (editor-admission); here
+// it is admitted, and never asked before a refusal.
+vi.mock("@/lib/save-admission", async original => ({ ...await original<object>(), admitStepDefinition: effects.admit }));
 
 let db: Database;
 const now = "2026-01-01T00:00:00.000Z";
@@ -132,6 +135,7 @@ async function refusal(c: Case, account: string, p: Params, absent: Params) {
   expect(snapshot()).toEqual(before);
   expect(effects.reads).not.toHaveBeenCalled();
   expect(effects.engine).not.toHaveBeenCalled();
+  expect(effects.admit).not.toHaveBeenCalled();
   return parsed;
 }
 const forbidden = { status: 403, body: { error: { code: "forbidden", message: PERMISSION_REFUSAL } } };

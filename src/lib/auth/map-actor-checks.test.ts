@@ -27,6 +27,7 @@ const effects = vi.hoisted(() => ({
   query: vi.fn(async () => { throw new Error("Unexpected query"); }),
   inspect: vi.fn(async () => ({ url: "https://styles.example.test/style.json", name: null, attribution: [] })),
   thumbnail: vi.fn(async () => {}), tiles: vi.fn(async () => {}),
+  admit: vi.fn(async () => ({ bound: [] })),
 }));
 vi.mock("@/lib/layer-geometry", () => ({ inspectLayerGeometry: effects.geometry }));
 vi.mock("@/lib/query/bounded", async original => ({ ...await original<object>(), boundedEvaluation: effects.query }));
@@ -34,6 +35,9 @@ vi.mock("@/lib/basemap-custom", () => ({ resolveCustomBasemapWrite: effects.insp
 vi.mock("@/lib/map-thumbnails", async original => ({ ...await original<object>(), prepareThumbnailRemoval: () => effects.thumbnail,
   saveThumbnail: effects.thumbnail, saveThemedThumbnail: effects.thumbnail, removeThumbnail: effects.thumbnail, copyThumbnail: effects.thumbnail }));
 vi.mock("@/lib/tiles/build", () => ({ removeTileArtifacts: effects.tiles }));
+// What a non-owner's SQL may name is its own suite (editor-admission); here it
+// is admitted, and never asked before a refusal.
+vi.mock("@/lib/save-admission", async original => ({ ...await original<object>(), admitMapSql: effects.admit }));
 
 let db: Database;
 const now = "2026-01-01T00:00:00.000Z";
@@ -170,6 +174,7 @@ async function refusal(c: Case, account: string, id: string, missing: string) {
   expect(effects.thumbnail).not.toHaveBeenCalled();
   expect(effects.tiles).not.toHaveBeenCalled();
   expect(effects.query).not.toHaveBeenCalled();
+  expect(effects.admit).not.toHaveBeenCalled();
   return parsed;
 }
 

@@ -27,6 +27,7 @@ import { requireMapFor } from "./map-access";
 import { assertWritableRefs } from "./layer-write-refs";
 import { layerWriteChangesPublication } from "./publication-settings";
 import { mapEvaluation } from "@/lib/query/context";
+import { admitMapSql, recheckSaved, type SavedAdmission } from "./save-admission";
 
 /**
  * The layer write admission: what a layer create or update must pass
@@ -39,8 +40,14 @@ import { mapEvaluation } from "@/lib/query/context";
  * content change is the owner's, the project owner's or an editor's, and a
  * change to the published fields is the owner's alone. Then it validates
  * what the request introduces: SQL that draws geometry, a valid style, and
- * column references the resulting schema can honor.
+ * column references the resulting schema can honor. SQL someone other than
+ * the map's owner saves must also name only datasets within their own reach
+ * in the map's home (save-admission.ts), checked again at commit.
  */
+
+/** What a layer update's admission bound, by the layer as admission read it,
+ * for the commit's recheck. */
+const updateAdmissions = new WeakMap<Layer, SavedAdmission>();
 
 /** The layer when the acting account may make this write to it: an edit,
  * and the publish permission too when the published fields change. */
@@ -83,8 +90,9 @@ export async function admitLayerCreate(
   mapId: string,
   input: { sql: string; style?: LayerStyle },
   signal?: AbortSignal,
-): Promise<{ geometryType: string | null }> {
+): Promise<{ geometryType: string | null; saved: SavedAdmission }> {
   requireMapFor(scope, mapId, "edit");
+  const saved = await admitMapSql(scope, mapId, input.sql, signal);
   const evaluation = mapEvaluation(scope, mapId);
   const { geometryType } = await inspectLayerGeometry(evaluation, input.sql, signal);
   if (input.style !== undefined) {
@@ -99,7 +107,7 @@ export async function admitLayerCreate(
       signal,
     );
   }
-  return { geometryType };
+  return { geometryType, saved };
 }
 
 /** Admit an update to a layer: the layer, and with it its map, under the
@@ -116,6 +124,7 @@ export async function admitLayerUpdate(
 ): Promise<{ layer: Layer; fields: UpdateLayerFields }> {
   const layer = permittedLayer(scope, id, fields);
   if (fields.sql !== undefined && fields.sql !== layer.sql) {
+    updateAdmissions.set(layer, await admitMapSql(scope, layer.mapId, fields.sql, signal));
     // Editing SQL revalidates geometry, but the layer is not recreated.
     await inspectLayerGeometry(mapEvaluation(scope, layer.mapId), fields.sql, signal);
   }
@@ -190,5 +199,6 @@ export function admitLayerCommit(
   fields: UpdateLayerFields,
 ): Layer | null {
   const prior = permittedLayer(scope, id, fields);
+  recheckSaved(scope, updateAdmissions.get(entry));
   return stableJson(prior) === stableJson(entry) ? prior : null;
 }

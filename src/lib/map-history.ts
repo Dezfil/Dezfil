@@ -10,6 +10,7 @@ import { undoSteps, redoSteps, setHistoryCursor, historyAvailability,
 import { requireMap, requireMapFor, mapWithLayersFor } from "./map-access";
 import { historyChangesPublication } from "./publication-settings";
 import { listLayers } from "@/lib/metadata/maps";
+import { admitMapSql, recheckSaved, savesAsOwner, type SavedAdmission } from "./save-admission";
 
 /** The map + fresh history availability — what undo/redo return, and what
  * the builder seeds its buttons from. */
@@ -64,12 +65,45 @@ function applyStep(
   }
 }
 
+/** The layer SQL a replay would put back: a layer update's recorded SQL, or a
+ * whole layer re-inserted. */
+function restoredSql(steps: HistoryStep[], direction: "undo" | "redo"): string[] {
+  const sql = new Set<string>();
+  for (const step of steps) {
+    const image = direction === "undo" ? step.before : step.after;
+    if (step.scope === "layer" && image && typeof image.sql === "string") sql.add(image.sql);
+  }
+  return [...sql];
+}
+
+const stepKey = (steps: HistoryStep[]) => steps.map((step) => step.id).join("|");
+
+/**
+ * A replay by someone other than the map's owner restores SQL only on the
+ * terms of a direct save: every dataset it names within their own reach in
+ * the map's home. Admitted before the replay's transaction, which applies
+ * only the steps admitted and refuses whole if the timeline moved meanwhile.
+ */
+async function admitReplay(scope: AccountScope, id: string, direction: "undo" | "redo"):
+  Promise<{ key: string; saved: SavedAdmission[] } | null> {
+  const map = requireMapFor(scope, id, "edit");
+  if (savesAsOwner(scope, "map", id)) return null;
+  const steps = direction === "undo" ? undoSteps(id) : redoSteps(id);
+  // A replay that would change a publication setting is refused before any
+  // SQL it restores is evaluated.
+  if (historyChangesPublication(map, listLayers(id), steps, direction)) requireMapFor(scope, id, "publish");
+  const saved: SavedAdmission[] = [];
+  for (const sql of restoredSql(steps, direction)) saved.push(await admitMapSql(scope, id, sql));
+  return { key: stepKey(steps), saved };
+}
+
 async function applyHistory(
   scope: AccountScope,
   id: string,
   direction: "undo" | "redo",
 ): Promise<MapWithHistory> {
   const removedLayers: string[] = [];
+  const admitted = await admitReplay(scope, id, direction);
   metadataDb().transaction(() => {
     // Undo and redo are content changes; one that would put back or take
     // away a publication setting is the owner's alone, refused whole.
@@ -83,6 +117,12 @@ async function applyHistory(
       );
     }
     if (historyChangesPublication(map, listLayers(id), steps, direction)) requireMapFor(scope, id, "publish");
+    // The steps applied are the steps admitted, by the standing admitted.
+    const owner = savesAsOwner(scope, "map", id);
+    if (admitted ? owner || admitted.key !== stepKey(steps) : !owner) {
+      throw new ApiError("invalid_request", "The map changed while the change was being checked. Try again.", 409);
+    }
+    if (admitted) recheckSaved(scope, ...admitted.saved);
     assertHistoryRefs(scope, id, steps, direction);
     for (const step of steps) applyStep(step, direction, removedLayers);
     const last = steps[steps.length - 1];

@@ -3,6 +3,7 @@ import type { AccountScope } from "@/lib/auth/scope";
 import { requireMapFor } from "./map-access";
 import { requireLayerFor } from "./layer-access";
 import { admitLayerCreate } from "./layer-admission";
+import { recheckSaved } from "./save-admission";
 import { layerImage } from "./layer-history-image";
 import { metadataDb } from "@/lib/metadata/db";
 import { insertLayer, updateMapFields, nextOrdinal, type Layer } from "@/lib/metadata/maps";
@@ -43,7 +44,7 @@ export async function createLayer(
   // Admission (layer-admission.ts): the map under the acting scope, SQL
   // that draws geometry, and a given style valid with references the
   // result can honor.
-  const { geometryType } = await admitLayerCreate(scope, mapId, input, opts.signal);
+  const { geometryType, saved } = await admitLayerCreate(scope, mapId, input, opts.signal);
   const now = new Date().toISOString();
   const ordinal = nextOrdinal(mapId);
   const layer: Layer = {
@@ -71,6 +72,7 @@ export async function createLayer(
   };
   metadataDb().transaction(() => {
     const arrangement = requireMapFor(scope, mapId, "edit").legendOrder;
+    recheckSaved(scope, saved);
     layer.ordinal = nextOrdinal(mapId);
     const groupId = arrangement
       ? (opts.groupId ?? randomUUID())

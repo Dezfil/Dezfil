@@ -19,6 +19,8 @@ import {
   orderAfterProducers, tolerantReadsByStep } from "@/lib/operations/recipe-order";
 import { readStep } from "@/lib/operations/recipe-view";
 import { stepReads } from "@/lib/operations/step-reads";
+import { admitStepDefinition, recheckSaved } from "@/lib/save-admission";
+import { stableJson } from "@/lib/metadata/history";
 import { recipeStanding } from "@/lib/metadata/owned-recipes";
 import { reachableDatasetIds } from "@/lib/auth/reach";
 import { linkFilter } from "@/lib/operations/output-links";
@@ -75,6 +77,11 @@ export async function PATCH(request: Request, { params }: Params) {
       origin = captured.origin;
     }
 
+    // Someone other than the workflow's owner saves only what they can
+    // evaluate themselves, whether it lands or waits as a proposal; the
+    // definition the step already holds lodges nothing new.
+    const held = [step.parameters, step.proposedParameters].some((p) => p !== null && stableJson(p) === stableJson(parameters));
+    const saved = held ? undefined : await admitStepDefinition(scope, id, step.operation, parameters, request.signal);
     const db = metadataDb();
     // The name rule: a produced output keeps its name; otherwise refused
     // in its own words, or stored registered.
@@ -118,6 +125,7 @@ export async function PATCH(request: Request, { params }: Params) {
       }
       const again = outputNameRefusal({ scope, db, recipeId: id, stepId: step.id, produced: step.outputTableName, typed: parameters.name });
       if (again) throw again;
+      recheckSaved(scope, saved);
       const applied = editStep(scope, stepId, parameters, db, origin);
       if (order) reorderSteps(scope, id, order, db);
       return applied;

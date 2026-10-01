@@ -58,7 +58,7 @@ function unbound(plan: MountPlan, parts: readonly string[]): ApiError {
 /** Whether a name binds to a relation this connection has: the engine's own
  * catalogues and an evaluation's private staging inputs, never a dataset
  * (every dataset in reach is in the plan). */
-async function bindsAsRelation(conn: DuckDBConnection, parts: readonly string[]): Promise<boolean> {
+export async function bindsAsRelation(conn: DuckDBConnection, parts: readonly string[]): Promise<boolean> {
   try {
     await conn.runAndReadAll(`DESCRIBE SELECT * FROM ${parts.map(quoted).join(".")}`);
     return true;
