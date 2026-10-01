@@ -22,6 +22,7 @@ const importOne = async (url: string, name?: string) =>
 import { refreshTable, invalidateTilesForTable } from "./refresh";
 import { resetRefreshFences } from "./fence";
 import { retirementsSettled } from "./retire";
+import { seedTileEvidence } from "@/lib/test-support/tile-evidence";
 
 let dir: string;
 let server: Server;
@@ -91,7 +92,10 @@ async function evaluationFailure(evaluation: Promise<unknown>) {
   return { code: failure.code, status: failure.status, message: failure.message, extra: failure.extra };
 }
 
-/** Register a map + layer whose SQL references the table, plus a tile record. */
+/** Register a map + layer whose SQL references the table, plus a tile record
+ * and the evidence a build of it records: the identity of the account's
+ * dataset the reference binds, when there is one. Dependence follows that
+ * identity, never the text. */
 function seedDependentLayer(table: string, layerId: string): void {
   const db = metadataDb();
   const scope = testAccountScope(db);
@@ -110,6 +114,18 @@ function seedDependentLayer(table: string, layerId: string): void {
     error: null,
     featureCount: 10,
     builtAt: now,
+  });
+  const bound = db.prepare("SELECT id, file FROM data_tables WHERE owner_id = ? AND lower(name) = lower(?)")
+    .get(scope.accountId, table.replace(/"/g, "")) as { id: string; file: string } | undefined;
+  seedTileEvidence(layerId, "f1", now, { catalogue: false, datasets: bound ? [bound] : [] });
+}
+
+/** A registered dataset with no artifact behind it: an identity to depend on. */
+function seedDataset(name: string): void {
+  insertTable(testAccountScope(), {
+    id: `table-${name}`, name, sourceFilename: `${name}.csv`, file: `tables/${name}.parquet`, format: "csv",
+    geometryColumn: null, geometryType: null, crsAssumed: false, headerSuspect: false, rowCount: 0,
+    source: "upload", sourceParams: null, createdAt: new Date().toISOString(), importedAt: new Date().toISOString(),
   });
 }
 
@@ -226,13 +242,15 @@ describe("refreshTable", () => {
     expect(getTileRecord("layer-other")).not.toBeNull();
   });
 
-  it("invalidateTilesForTable matches conservatively by name", () => {
+  it("invalidateTilesForTable reaches the layers whose tiles recorded the dataset", () => {
+    seedDataset("stations");
     seedDependentLayer("stations", "layer-a");
     expect(invalidateTilesForTable(testAccountScope(), "stations")).toBe(1);
     expect(invalidateTilesForTable(testAccountScope(), "stations")).toBe(0);
   });
 
   it("does not treat identifier neighbors as references", () => {
+    for (const name of ["roads", "main_roads", "roads_2", "a_b", "axb"]) seedDataset(name);
     // Substring neighbors on both sides of the name...
     seedDependentLayer("main_roads", "layer-sub");
     seedDependentLayer("roads_2", "layer-suffix");
@@ -246,6 +264,7 @@ describe("refreshTable", () => {
   });
 
   it("still invalidates genuine references in any written form", () => {
+    seedDataset("stations");
     // The engine binds identifiers case-insensitively; quoting is bounding.
     seedDependentLayer("Stations", "layer-cased");
     seedDependentLayer('"stations"', "layer-quoted");

@@ -107,6 +107,7 @@ creates it and proves it writable (`src/lib/data-dir.ts`).
 | `tiles/` | One PMTiles archive per tiled layer. |
 | `tiles/scratch/` | The one place the hardened engine may write. Tile builds export here and the finished archive is renamed one level up. |
 | `thumbnails/` | Map card images, with a small manifest per map when a map carries one image per theme. |
+| `artifact-inputs/tiles/`, `artifact-inputs/thumbnails/` | What each tile archive and card image drew: the dataset identities and artifacts, one small file per archive or image. Lost evidence leaves its artifact unattributed, served to the map's owner alone. |
 | `exports/` | Staging for project exports. Old siblings are swept as new ones are assembled. |
 | `cache/overpass/`, `cache/geocode/`, `cache/isochrone/` | Provider answer caches, each with its own size and freshness budget. |
 | `tmp/` | Scratch for uploads, downloads and exports in flight. Swept whole at boot. |
@@ -162,9 +163,13 @@ into a PMTiles archive of vector tiles, and the finished archive is renamed
 into place so the previous one keeps serving until the instant it is
 replaced.
 
-Freshness is a fingerprint over the effective query plus the identities of
-the artifacts it reads, so restyling never looks like a data change and a
-data change never fails to look like one. The application serves tiles
+Freshness is a fingerprint over the effective query plus the dataset
+identities its evaluation bound, each with its current artifact, so
+restyling never looks like a data change and a data change never fails to
+look like one. The build records those identities beside the archive
+(`src/lib/tiles/evidence.ts`), from the export's own evaluation
+(`src/lib/query/evaluation-inputs.ts`); a refresh or deletion of a dataset
+finds the layers whose tiles drew it by that record. The application serves tiles
 itself by reading byte ranges out of the archive
 (`src/lib/tiles/serve.ts`); there is no tile server.
 

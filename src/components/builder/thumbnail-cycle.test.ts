@@ -317,3 +317,24 @@ describe("cancellation exists before the first await, and the theme is the paint
   });
 });
 
+
+describe("the revision a capture is sent with", () => {
+  beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
+  afterEach(() => vi.useRealTimers());
+
+  it("a single image carries the plan's revision", async () => {
+    const h = harness();
+    await h.runner.run({ ...single, revision: "0123456789abcdef" });
+    expect(h.uploads).toEqual([{ query: "revision=0123456789abcdef", body: "live" }]);
+  });
+
+  it("both images of a themed pair carry the revision the cycle started with", async () => {
+    const h = harness();
+    const done = h.runner.run({ ...themed, revision: "fedcba9876543210" });
+    await flush();
+    expect(h.uploads).toEqual([{ query: "theme=light&cycle=cycle-1&revision=fedcba9876543210", body: "live" }]);
+    h.grounds[0].resolve({ tag: "ground" } as unknown as HTMLCanvasElement);
+    await done;
+    expect(h.uploads[1]).toEqual({ query: "theme=dark&cycle=cycle-1&revision=fedcba9876543210", body: "composed:ground" });
+  });
+});

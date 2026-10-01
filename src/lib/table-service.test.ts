@@ -1,3 +1,4 @@
+import { seedTileEvidence } from "@/lib/test-support/tile-evidence";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
@@ -246,6 +247,11 @@ describe("removeTable", () => {
     };
     seedLayer("layer-dep", "SELECT * FROM stations");
     seedLayer("layer-other", "SELECT * FROM other_things");
+    // What a build of each would have recorded: the dependent drew the
+    // dataset's identity, the unrelated layer nothing of it.
+    const stations = db.prepare("SELECT id, file FROM data_tables WHERE name = 'stations'").get() as { id: string; file: string };
+    seedTileEvidence("layer-dep", "f1", now, { catalogue: false, datasets: [stations] });
+    seedTileEvidence("layer-other", "f1", now, { catalogue: false, datasets: [] });
     const archive = tileArchivePath("layer-dep");
     await mkdir(path.dirname(archive), { recursive: true });
     await writeFile(archive, "pmtiles");

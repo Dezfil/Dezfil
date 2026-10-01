@@ -22,6 +22,8 @@ import {
   tileFingerprint,
 } from "./build";
 import { tileArchivePath } from "./paths";
+import { datasetInputs } from "@/lib/test-support/tile-evidence";
+import { NO_INPUTS } from "@/lib/query/evaluation-inputs";
 
 /**
  * Build orchestration: fingerprint freshness, background builds with an
@@ -140,16 +142,19 @@ describe("tile builds", () => {
   });
 
   it("fingerprint covers SQL, filters, referenced data identity, and the projection — nothing else", () => {
-    const base = tileFingerprint(SQL, [], "", layerId);
-    expect(tileFingerprint(SQL, [], "", layerId)).toBe(base); // stable
+    // The identities come from the evaluation that bound the SQL: here the
+    // one dataset it reads, with the artifact it holds when asked.
+    const stations = () => datasetInputs([getTableByName("stations")!.id]);
+    const base = tileFingerprint(SQL, [], "", stations());
+    expect(tileFingerprint(SQL, [], "", stations())).toBe(base); // stable
     // a projection-signature change is a data change for the archive.
-    expect(tileFingerprint(SQL, [], '{"override":["name"]}', layerId)).not.toBe(base);
+    expect(tileFingerprint(SQL, [], '{"override":["name"]}', stations())).not.toBe(base);
     expect(
       tileFingerprint(SQL, [
         { field: "riders", kind: "range", min: 400, max: null },
-      ], "", layerId),
+      ], "", stations()),
     ).not.toBe(base);
-    expect(tileFingerprint(`${SQL} LIMIT 3`, [], "", layerId)).not.toBe(base);
+    expect(tileFingerprint(`${SQL} LIMIT 3`, [], "", stations())).not.toBe(base);
     // A refreshed table mints a new artifact file, and
     // the fingerprint must see it — data changes always look like changes.
     const table = getTableByName("stations")!;
@@ -165,10 +170,10 @@ describe("tile builds", () => {
         importedAt: new Date().toISOString(),
       },
     );
-    expect(tileFingerprint(SQL, [], "", layerId)).not.toBe(base);
+    expect(tileFingerprint(SQL, [], "", stations())).not.toBe(base);
     // A layer on an unrelated table is untouched by that identity change.
-    expect(tileFingerprint("SELECT * FROM other_things", [], "", layerId)).toBe(
-      tileFingerprint("SELECT * FROM other_things", [], "", layerId),
+    expect(tileFingerprint("SELECT * FROM other_things", [], "", NO_INPUTS)).toBe(
+      tileFingerprint("SELECT * FROM other_things", [], "", NO_INPUTS),
     );
   });
 
@@ -225,7 +230,7 @@ describe("tile builds", () => {
     upsertTileRecord({
       layerId,
       state: "building",
-      fingerprint: tileFingerprint(SQL, [], "", layerId),
+      fingerprint: tileFingerprint(SQL, [], "", NO_INPUTS),
       error: null,
       featureCount: null,
       builtAt: null,

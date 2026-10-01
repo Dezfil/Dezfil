@@ -15,8 +15,8 @@ function coordinate(raw: string): number | null {
  * One vector tile of a tiled layer. A spot the archive does not cover is an
  * empty tile (204), not an error. The render response's URL template
  * carries a version parameter, so tiles cache aggressively and a rebuild
- * busts the cache by changing the URL. An archive does not yet record what
- * it drew, so its tiles are served to the map's owner alone.
+ * busts the cache by changing the URL. Its tiles are served to the map's
+ * owner alone.
  */
 export async function GET(_request: Request, { params }: Params) {
   try {

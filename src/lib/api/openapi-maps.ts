@@ -160,7 +160,12 @@ export const MAP_RESOURCE_PATHS = {
         "held until the other theme arrives under the same cycle, and " +
         "the pair then replaces everything the map had, together. A " +
         "cycle that never completes leaves the map's images as they " +
-        "were; a later cycle's completion discards it.",
+        "were; a later cycle's completion discards it. Each image is " +
+        "stamped with the datasets its map's SQL draws, bound in the " +
+        "map's home within the uploader's reach at the revision the " +
+        "capture saw; an image sent without a revision, or whose map's " +
+        "layers moved from that revision before it arrived, is kept " +
+        "unattributed.",
       tag: "Maps",
       tool: false,
       effects: writes(resource("maps", "id")),
@@ -176,6 +181,16 @@ export const MAP_RESOURCE_PATHS = {
             "The capture cycle a themed snapshot belongs to; required " +
             "with a theme, refused without one. Two writes carrying " +
             "the same cycle and different themes form one pair.",
+        },
+        {
+          name: "revision",
+          in: "query",
+          required: false,
+          schema: { type: "string", pattern: "^[0-9a-f]{16}$" },
+          description:
+            "The map's SQL revision when the capture started: a digest " +
+            "of its layers' identities and SQL in layer order, as the " +
+            "builder computes it. Absent, the image is unattributed.",
         },
       ],
       requestBody: {

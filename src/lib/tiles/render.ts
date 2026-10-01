@@ -7,6 +7,7 @@ import { ensureTiles } from "./build";
 import { tilerAvailable } from "./tiler";
 import { tileArchiveInfo } from "./serve";
 import { requireTileAccess, type TileAccess } from "./access";
+import type { ArtifactInputs } from "@/lib/query/evaluation-inputs";
 
 /**
  * The tiled render response for an over-cap simple-features layer: report
@@ -21,7 +22,7 @@ export async function tiledRender(
   nonGeometryColumns: string[],
   featureCount: number,
   geometryType: LayerRenderGeometryType,
-  opts: { liveFiltered?: boolean; published?: boolean; tileAccess?: TileAccess } = {},
+  opts: { liveFiltered?: boolean; published?: boolean; tileAccess?: TileAccess; inputs?: ArtifactInputs } = {},
 ): Promise<LayerRenderData> {
   // A tile archive is prepared and served for its map's owner and the map's
   // publication alone; anyone else the map is shared with draws no tiles.
@@ -59,6 +60,8 @@ export async function tiledRender(
     geometryColumn: geometryColumn.name,
     columns: archiveColumns,
     projection: publishedFieldsSignature(layer, context),
+    // The identities the render's own evaluation bound decide freshness.
+    inputs: opts.inputs,
   });
   if (status.state === "failed") {
     return errored(

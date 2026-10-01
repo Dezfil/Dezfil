@@ -1,4 +1,5 @@
 import { namedSql } from "@/lib/query/named-sql";
+import { recordedInputs } from "@/lib/query/evaluation-inputs";
 import { tiledRender, errored } from "./tiles/render";
 import type { TileAccess } from "./tiles/access";
 import type { DatasetScope } from "./query/access";
@@ -209,7 +210,7 @@ export async function renderLayer(
             nonGeometry.map((c) => c.name),
             featureCount,
             geometryType,
-            { liveFiltered, published: opts.published !== undefined, tileAccess: opts.tileAccess },
+            { liveFiltered, published: opts.published !== undefined, tileAccess: opts.tileAccess, inputs: recordedInputs(conn) },
           );
         }
         // A heatmap whose undelegated result cannot ship falls back to

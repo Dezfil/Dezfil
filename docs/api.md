@@ -524,9 +524,26 @@ error-contract change. An owned resource outside the project still returns
 Dependency checklists resolve dataset identities, project memberships and
 workflow producers within the authenticated account. Workflow lineage retains
 the original input identity and bound artifact after deletion; a new dataset
-with the same name does not replace that history. Tile fingerprints include
-owner-selected dataset identities and artifacts, so another account's imports,
-refreshes or deletions do not change their freshness.
+with the same name does not replace that history.
+
+**Retained artifacts record what they drew.** A tile archive records the
+dataset identities its build's evaluation bound, each with the artifact it was
+read from; a published view held for its freshness bound records every
+evaluation its assembly ran; a card image records the identities its map's SQL
+binds in the map's home within the uploader's reach. The builder sends a card
+image with the map's SQL revision as it stood when the capture started
+(`revision` on `PUT /api/maps/{id}/thumbnail`); an image sent without one, or
+whose map's layers moved from that revision before it arrived, is kept
+unattributed, each image of a themed pair on its own. An evaluation that reads
+the engine's catalogue (its catalogue functions, the information schema, a
+listing of relations) records the whole reach it evaluated in. Tile
+fingerprints fold in the recorded identities with their current artifacts, so
+a refresh, deletion or replacement of a dataset a layer drew makes its tiles
+stale and a same-named dataset of another account never does; a dataset's
+refresh or deletion invalidates or reclaims the tiles of every layer that drew
+it, whoever's map it is on. Tiles and card images made before artifacts
+recorded their inputs carry no evidence and are unattributed: served to the
+map's owner only until rebuilt or recaptured.
 
 Operation jobs keep their initiating owner independently of any output. Their
 parameters, errors, results, subject histories and cancellation are private,

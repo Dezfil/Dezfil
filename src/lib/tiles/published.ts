@@ -6,6 +6,8 @@ import { renderFilters } from "@/lib/layer-service";
 import { publishedFieldsSignature } from "@/lib/publish/published-fields";
 import { tileFingerprint } from "./build";
 import { tileArchivePath } from "./paths";
+import { tileArchiveInputs } from "./evidence";
+import { currentInputs } from "@/lib/table-deps";
 
 /** Durable identity of the tile artifact a published request may use. */
 export interface PublishedTileArtifact {
@@ -34,9 +36,14 @@ export function currentPublishedTile(
   if (!layer || !layer.visible || layer.viz.type !== "points") return null;
 
   // The parity pair: this recomputes the projection signature the build
-  // path folded in, from the same durable inputs. A drift between the two
-  // sides refuses every published tile — the failure is loud, never a
-  // wider archive served quietly.
+  // path folded in, from the same durable inputs, and the data identity
+  // from the identities the archive's build recorded, as they stand now. A
+  // drift between the two sides refuses every published tile — the failure
+  // is loud, never a wider archive served quietly. An archive with no
+  // evidence of what it drew is not served here.
+  const record = getTileRecord(layerId);
+  const recorded = tileArchiveInputs(layerId, record);
+  if (!recorded) return null;
   const fingerprint = tileFingerprint(
     layer.sql,
     renderFilters(layer, snapshot.map.timeline),
@@ -45,9 +52,8 @@ export function currentPublishedTile(
       widgets: snapshot.map.widgets,
       widgetsPublished: snapshot.map.widgetsPublished,
     }),
-    layerId,
+    currentInputs(recorded),
   );
-  const record = getTileRecord(layerId);
   if (
     !record ||
     record.state !== "ready" ||

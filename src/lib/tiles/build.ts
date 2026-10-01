@@ -13,7 +13,17 @@ import {
   upsertTileRecord,
   deleteTileRecord,
 } from "@/lib/metadata/tiles";
-import { referencedTableArtifacts } from "@/lib/table-deps";
+import { currentInputs } from "@/lib/table-deps";
+import { collectInputs, inputsKey, NO_INPUTS, type ArtifactInputs } from "@/lib/query/evaluation-inputs";
+import {
+  removeTileEvidence,
+  evidencedLayerIds,
+  resetBuildInputs,
+  tileArchiveInputs,
+  trackBuildInputs,
+  untrackBuildInputs,
+  writeTileEvidence,
+} from "./evidence";
 import { exportGeoJsonSeq } from "./export";
 import { tippecanoePath } from "./tiler";
 import {
@@ -31,8 +41,9 @@ import {
  * process-wide so a big build cannot starve queries, one per layer with
  * latest-wins replacement so a burst of edits converges on the newest
  * effective query. The fingerprint covers the effective query plus the
- * referenced artifacts' identities — styling can never look like a data
- * change, and a data change can never fail to look like one.
+ * identities the evaluation recorded with their artifacts — styling can
+ * never look like a data change, and a data change can never fail to look
+ * like one. Each archive keeps the evidence of what its export drew.
  */
 
 export interface TileBuildInput {
@@ -48,6 +59,10 @@ export interface TileBuildInput {
    * fingerprint so a config edit that changes the effective set rebuilds,
    * and one a published reader recomputes to authorize serving. */
   projection: string;
+  /** What the evaluation asking for tiles bound: the identities this query
+   * reads for this caller. Absent, the current archive's recorded inputs
+   * stand in, so freshness is still decided by identity. */
+  inputs?: ArtifactInputs;
 }
 
 /** What a render response reports about a layer's tiles. */
@@ -60,8 +75,8 @@ export interface TileStatus {
   error?: string;
 }
 
-/** The fingerprint covers the effective query AND the identities of the
- * artifacts behind the tables it references: a refresh mints a new
+/** The fingerprint covers the effective query AND the dataset identities
+ * an evaluation of it bound, each with its artifact: a refresh mints a new
  * artifact file, so pre-refresh tiles can never read as fresh — even
  * when the prompt invalidation was lost to a transient failure, the next
  * render re-decides freshness from the data itself. It also covers the
@@ -73,16 +88,25 @@ export function tileFingerprint(
   sql: string,
   filters: LayerFilter[],
   projection: string,
-  layerId: string,
+  inputs: ArtifactInputs,
 ): string {
   return createHash("sha256")
     .update(filteredSql(sql, filters))
     .update("\u0000")
-    .update(JSON.stringify(referencedTableArtifacts(sql, layerId)))
+    .update(inputsKey(inputs))
     .update("\u0000")
     .update(projection)
     .digest("hex")
     .slice(0, 16);
+}
+
+/** The identities a request's freshness is decided by: what its own
+ * evaluation bound, else what the current archive recorded, as each dataset
+ * stands now. */
+function requestInputs(input: TileBuildInput, record: ReturnType<typeof getTileRecord>): ArtifactInputs {
+  if (input.inputs) return input.inputs;
+  const recorded = tileArchiveInputs(input.layerId, record);
+  return recorded ? currentInputs(recorded) : NO_INPUTS;
 }
 
 // ---- the queue ----
@@ -109,6 +133,7 @@ export function resetTileBuilds(): void {
   active.clear();
   pending.clear();
   generations.clear();
+  resetBuildInputs();
   chain = Promise.resolve();
 }
 
@@ -190,7 +215,9 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
     // A queued attempt may have been deleted before its turn reached the
     // process-wide worker. It has nothing to do and must write no state.
     if (!attemptCanCommit(attempt)) return;
-    const featureCount = await exportGeoJsonSeq(tileQueryScope(attempt.access),
+    // The export's own evaluation is the archive's evidence: the identities
+    // it bound, with the artifacts it read, whatever the render saw before.
+    const { value: featureCount, inputs } = await collectInputs(() => exportGeoJsonSeq(tileQueryScope(attempt.access),
       {
         sql: input.sql,
         filters: input.filters,
@@ -198,10 +225,17 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
         columns: input.columns,
       },
       exportFile,
-    );
+    ));
+    trackBuildInputs(attempt.id, input.layerId, inputs);
     if (!attemptCanCommit(attempt)) return;
     await runTippecanoe(exportFile, archiveFile);
     if (!attemptCanCommit(attempt)) return;
+    // The record names the data the archive actually holds.
+    const built = tileFingerprint(input.sql, input.filters, input.projection, inputs);
+    const builtAt = new Date().toISOString();
+    // Evidence first: until the record below names this build, the evidence
+    // and the archive belong to no record and the archive is unattributed.
+    writeTileEvidence(input.layerId, { fingerprint: built, builtAt, inputs });
     // Same filesystem: the swap is atomic, the old archive serves until now.
     await rename(archiveFile, tileArchivePath(input.layerId));
     finalArchiveNeedsRemoval = true;
@@ -209,6 +243,7 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
     // before making the archive authoritative in metadata.
     if (!attemptCanCommit(attempt)) {
       await rm(tileArchivePath(input.layerId), { force: true });
+      removeTileEvidence(input.layerId);
       finalArchiveNeedsRemoval = false;
       return;
     }
@@ -217,10 +252,10 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
       upsertTileRecord({
         layerId: input.layerId,
         state: "ready",
-        fingerprint,
+        fingerprint: built,
         error: null,
         featureCount,
-        builtAt: new Date().toISOString(),
+        builtAt,
       });
     })();
     finalArchiveNeedsRemoval = false;
@@ -249,6 +284,7 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
       }
     }
   } finally {
+    untrackBuildInputs(attempt.id);
     await Promise.allSettled([
       rm(exportFile, { force: true }),
       rm(archiveFile, { force: true }),
@@ -275,7 +311,7 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
 
 function start(access: TileAccess, input: TileBuildInput): void {
   requireTileAccess(access, input.layerId);
-  const fingerprint = tileFingerprint(input.sql, input.filters, input.projection, input.layerId);
+  const fingerprint = tileFingerprint(input.sql, input.filters, input.projection, requestInputs(input, getTileRecord(input.layerId)));
   const attempt: BuildAttempt = {
     access,
     id: randomUUID(),
@@ -295,6 +331,7 @@ function start(access: TileAccess, input: TileBuildInput): void {
     });
   })();
   active.set(input.layerId, attempt);
+  trackBuildInputs(attempt.id, input.layerId, input.inputs ?? null);
   const work = () => runBuild(attempt);
   // Contain every terminal failure so one bad target cannot poison the
   // global queue or become an unhandled rejection.
@@ -309,8 +346,8 @@ function start(access: TileAccess, input: TileBuildInput): void {
  */
 export function ensureTiles(access: TileAccess, input: TileBuildInput): TileStatus {
   requireTileAccess(access, input.layerId);
-  const fingerprint = tileFingerprint(input.sql, input.filters, input.projection, input.layerId);
   const record = getTileRecord(input.layerId);
+  const fingerprint = tileFingerprint(input.sql, input.filters, input.projection, requestInputs(input, record));
 
   const running = active.get(input.layerId);
   if (running !== undefined) {
@@ -366,6 +403,7 @@ export async function removeTileArtifacts(layerId: string): Promise<void> {
   generations.set(layerId, generation(layerId) + 1);
   pending.delete(layerId);
   deleteTileRecord(layerId);
+  removeTileEvidence(layerId);
   await rm(tileArchivePath(layerId), { force: true });
 }
 
@@ -400,6 +438,10 @@ export async function sweepTileArchives(): Promise<number> {
     await rm(path.join(tilesDir(), entry), { force: true });
     removed += 1;
     console.warn(`boot sweep: removed recordless tile archive ${entry}`);
+  }
+  // Evidence without a record describes no archive anyone may be served.
+  for (const layerId of evidencedLayerIds()) {
+    if (getTileRecord(layerId) === null) removeTileEvidence(layerId);
   }
   return removed;
 }

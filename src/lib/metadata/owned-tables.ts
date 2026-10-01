@@ -90,9 +90,12 @@ export function fileOwnedTable(scope: AccountScope, tableId: string, projectId: 
   requireOwnedResource(scope, "dataset", tableId, db);
   fileTable(scope, tableId, projectId, db);
 }
-/** Dataset mutations invalidate only maps in the same account's SQL space. */
+/** The layers whose tiles drew the acting account's dataset of this name, by
+ * its identity: whoever's map they sit on, and never a layer that read a
+ * same-named dataset of someone else. */
 export function ownedDependentLayerIds(scope: AccountScope, name: string, db: Database = metadataDb()): string[] {
-  return dependentLayerIds(scope, name, db);
+  const table = getOwnedTableByName(scope, name, db);
+  return table ? dependentLayerIds(table.id, db) : [];
 }
 
 /** A replacement names one owned durable identity, never just a SQL name. */

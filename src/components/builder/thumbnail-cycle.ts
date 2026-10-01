@@ -36,6 +36,10 @@ export interface ThemedSide {
 }
 
 export interface ThumbnailCyclePlan {
+  /** The map's SQL revision as the builder held it when the cycle was
+   * planned: every image of the cycle is sent with it, so the server can
+   * tell whether the layers it drew are still the map's. */
+  revision?: string;
   /** Null for a map whose basemap does not follow the theme. */
   themed: {
     /** The theme the builder is in when the cycle fires. */
@@ -125,15 +129,16 @@ export function createThumbnailRunner(
     try {
       const capture = await deps.capture();
       if (!capture || signal.aborted) return;
+      const revision = plan.revision ? `revision=${plan.revision}` : "";
       if (!plan.themed) {
-        await deps.upload("", capture.blob);
+        await deps.upload(revision, capture.blob);
         return;
       }
       const { basemapLayers, basemapKind } = plan.themed;
       const { first, second } = paintedSides(plan.themed, capture.paintedStyleUrl);
       const cycle = deps.mintCycle();
       const stored = await deps.upload(
-        `theme=${first.theme}&cycle=${cycle}`,
+        `theme=${first.theme}&cycle=${cycle}${revision ? `&${revision}` : ""}`,
         capture.blob,
       );
       if (!stored || signal.aborted || deps.hidden()) return;
@@ -153,7 +158,7 @@ export function createThumbnailRunner(
       if (signal.aborted) return;
       const blob = await deps.compose(ground, capture, second.fallbackColor);
       if (!blob || signal.aborted) return;
-      await deps.upload(`theme=${second.theme}&cycle=${cycle}`, blob);
+      await deps.upload(`theme=${second.theme}&cycle=${cycle}${revision ? `&${revision}` : ""}`, blob);
     } catch {
       // Silent by design — a card image is a nicety, and the storage
       // keeps the map's previous images until a cycle completes.

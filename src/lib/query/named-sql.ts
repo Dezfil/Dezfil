@@ -12,6 +12,7 @@ import { unavailableDataset } from "./bindings";
 import { isCteReference } from "./references";
 import { mountPlanOf, type MountPlan, type QualifiedBinding } from "./mount-plan";
 import { CATALOGUE_READERS } from "./catalogue-policy";
+import { noteCatalogue, noteReference } from "./evaluation-inputs";
 import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 
 /**
@@ -169,6 +170,7 @@ async function compileNamedSql(conn: DuckDBConnection, sql: string, synthetics: 
       const lowerCatalog = catalog.toLowerCase(), lowerSchema = schema.toLowerCase();
       const parts = [catalog, schema, String(value.table_name)].filter(Boolean);
       const cte = isCteReference(inner.ctes, catalog, schema, String(value.table_name));
+      if (!cte) noteReference(conn, plan, parts);
       if (!cte) await refuseUnbound(conn, plan, parts);
       if (!cte) await refuseWithheldRelation(conn, plan, parts);
       if ((lowerCatalog === "memory" && (!lowerSchema || lowerSchema === "main")) || (!lowerCatalog && lowerSchema === "memory")) {
@@ -207,8 +209,12 @@ async function compileNamedSql(conn: DuckDBConnection, sql: string, synthetics: 
         if (alias !== undefined) { excluded.schema = ""; excluded.table = alias; changed = true; }
       }
     }
+    // A listing of relations reads the catalogue: SHOW TABLES and its kin
+    // carry no query of their own.
+    if (value.type === "SHOW_REF" && !record(value.query)) noteCatalogue(conn);
     if (value.type === "TABLE_FUNCTION" && record(value.function)) {
       const fn = value.function, kind = String(fn.function_name).toLowerCase();
+      if (CATALOGUE_READERS.has(kind)) noteCatalogue(conn);
       if (plan?.withheld && CATALOGUE_READERS.has(kind)) throw catalogueWithheld();
       if ((NAMED_TABLE_FUNCTIONS.has(kind) || kind === "query") && Array.isArray(fn.children) && fn.children.length) {
         const resolved = await argument(conn, fn.children[0]);
@@ -222,6 +228,7 @@ async function compileNamedSql(conn: DuckDBConnection, sql: string, synthetics: 
             const bare = parts?.at(-1);
             if (bare) inner.tables.add(bare.toLowerCase());
             if (parts && !(parts.length === 1 && inner.ctes.has(parts[0].toLowerCase()))) {
+              noteReference(conn, plan, parts);
               await refuseUnbound(conn, plan, parts);
               await refuseWithheldRelation(conn, plan, parts);
               const found = qualifiedBinding(plan, parts);
