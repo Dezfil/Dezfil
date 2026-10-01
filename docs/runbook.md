@@ -51,6 +51,17 @@ Restore the matching old application and the complete pre-upgrade backup to
 roll back. An older build cannot safely write the upgraded metadata schema.
 Account for work written after the backup before restoring it.
 
+The project-sharing storage upgrade takes the same backup. It gives every
+account a SQL name, derived from the display name (else the email's local
+part, else `user`, with a number added on a collision or on a name the query
+engine reserves) and fixed from then on. It marks each map and workflow with
+its owner's space as its SQL home, and records which account started each
+workflow run and produced each step output. Nothing is shared by it: every
+project keeps its owner and has no members. An installation still awaiting
+first-account setup receives the homes and run records in the setup
+transaction. The upgrade is one transaction: a failure leaves the store as it
+was, and the next start tries again.
+
 Named SQL runs against connection-local temporary views for its owner. Existing
 `main.table`, `memory.table`, `memory.main.table` and computed dynamic named
 references remain valid without editing saved SQL. A warm artifact metadata

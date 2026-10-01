@@ -78,9 +78,9 @@ afterEach(() => {
 const now = "2026-01-01T00:00:00.000Z";
 function account(id = "first", email = "first@example.test") {
   db.prepare(`INSERT INTO accounts
-    (id, name, email, password_hash, is_admin, status, created_at, updated_at)
-    VALUES (?, 'Ada', ?, 'salted-password-hash', 1, 'active', ?, ?)`)
-    .run(id, email, now, now);
+    (id, name, email, password_hash, is_admin, status, created_at, updated_at, sql_name)
+    VALUES (?, 'Ada', ?, 'salted-password-hash', 1, 'active', ?, ?, ?)`)
+    .run(id, email, now, now, id);
 }
 
 describe("account storage upgrade", () => {
@@ -105,9 +105,11 @@ describe("account storage upgrade", () => {
         VALUES ('connection', 'Survey DB', 'db.example.test', 5432, 'survey', 'reader', 'opaque-encrypted-envelope', '${now}');`);
     const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
       .all() as { name: string }[]).map(({ name }) => name);
+    // Owners, SQL homes and run stamps are derived at adoption, not carried.
+    const stamps = new Set(["owner_id", "home_account_id", "initiator_id", "runner_id"]);
     const snapshot = () => Object.fromEntries(tables.map(name =>
       [name, db.prepare(`SELECT * FROM "${name}"`).all().map(row =>
-        Object.fromEntries(Object.entries(row as object).filter(([key]) => key !== "owner_id")))]));
+        Object.fromEntries(Object.entries(row as object).filter(([key]) => !stamps.has(key))))]));
     const before = snapshot();
     db.close();
     db = open(file);

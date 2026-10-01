@@ -96,12 +96,14 @@ export function replaceEdges(
     if (row && row.owner_id !== owner) throw resourceAbsent();
   }
   const now = new Date().toISOString();
-  db.prepare(`DELETE FROM lineage_edges WHERE step_id = ?`).run(stepId);
+  // Edges are the runner's: a run replaces what the same account's earlier
+  // run of this step bound, and records itself as the runner.
+  db.prepare(`DELETE FROM lineage_edges WHERE step_id = ? AND (runner_id = ? OR runner_id IS NULL)`).run(stepId, owner);
   const insert = db.prepare(
     `INSERT INTO lineage_edges
        (id, step_id, output_table_id, input_table_id, input_table_name,
-        bound_artifact, recorded_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        bound_artifact, recorded_at, runner_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const e of edges) {
     insert.run(
@@ -112,6 +114,7 @@ export function replaceEdges(
       e.inputTableName,
       e.boundArtifact,
       now,
+      owner,
     );
   }
 }

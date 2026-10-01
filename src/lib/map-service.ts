@@ -30,6 +30,7 @@ import {
 } from "@/lib/basemap-layers";
 import {
   insertMap,
+  mapHome,
   getMap,
   updateMapFields,
   deleteMap,
@@ -531,6 +532,8 @@ export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
   metadataDb().transaction(() => {
     requireMap(scope, id);
     const layerIds = new Map<string, string>();
+    // The copy keeps its source's SQL home, whoever makes it.
+    const home = mapHome(id) ?? undefined;
     insertMap(scope, {
       ...source,
       id: newId,
@@ -544,7 +547,7 @@ export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
       publishedAt: null,
       createdAt: now,
       updatedAt: now,
-    });
+    }, metadataDb(), home);
     for (const layer of layers) {
       const layerId = randomUUID();
       layerIds.set(layer.id, layerId);

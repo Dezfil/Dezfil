@@ -156,11 +156,14 @@ export function touchRecipe(id: string, db: Database = metadataDb()): string | n
 
 // ---- recipes ----
 
+/** Create a recipe owned by the acting account. Its SQL home is the creator's
+ * space unless `home` names another: a copy keeps its source's home. */
 export function createRecipe(
   scope: AccountScope,
   name: string,
   db: Database = metadataDb(),
   origin: RecipeOrigin = "workflow",
+  home?: string,
 ): Recipe {
   const ownerId = requireAccountScope(scope, db);
   // Creation is always unfiled; filing is fileRecipe's one job, so the
@@ -175,9 +178,10 @@ export function createRecipe(
     updatedAt: now,
   };
   db.prepare(
-    `INSERT INTO recipes (owner_id, id, name, origin, project_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO recipes (owner_id, home_account_id, id, name, origin, project_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     ownerId,
+    home ?? ownerId,
     recipe.id,
     recipe.name,
     recipe.origin,
@@ -186,6 +190,13 @@ export function createRecipe(
     recipe.updatedAt,
   );
   return recipe;
+}
+
+/** The account whose space a workflow's SQL is evaluated in; null only for a
+ * workflow that does not exist or awaits first-account adoption. */
+export function recipeHome(id: string, db: Database = metadataDb()): string | null {
+  const row = db.prepare("SELECT home_account_id FROM recipes WHERE id = ?").get(id) as { home_account_id: string | null } | undefined;
+  return row?.home_account_id ?? null;
 }
 
 export function getRecipe(id: string, db: Database = metadataDb()): Recipe | null {

@@ -29,7 +29,7 @@ beforeEach(() => {
 afterEach(() => db.close());
 const work = () => ["projects", "maps", "data_tables", "project_datasets", "recipes", "pg_connections"]
   .map(table => db.prepare(`SELECT * FROM ${table}`).all().map(row =>
-    Object.fromEntries(Object.entries(row as object).filter(([key]) => key !== "owner_id"))));
+    Object.fromEntries(Object.entries(row as object).filter(([key]) => key !== "owner_id" && key !== "home_account_id"))));
 
 it("adopts legacy preferences once and retires only personal settings inside first-account creation", async () => {
   const before = work();

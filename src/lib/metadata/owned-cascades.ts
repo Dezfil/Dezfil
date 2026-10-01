@@ -23,7 +23,7 @@ export function createCascade(scope: AccountScope, recipeId: string, kind: casca
   return db.transaction(() => {
     requireOwnedResource(scope, "workflow", recipeId, db);
     for (const member of members) requireWorkflowStep(scope, recipeId, member.stepId, db);
-    return cascades.createCascade(recipeId, kind, members, db);
+    return cascades.createCascade(recipeId, kind, members, db, requireAccountScope(scope, db));
   })();
 }
 export function listCascades(scope: AccountScope, recipeId?: string, db: Database = metadataDb()) {

@@ -201,19 +201,23 @@ function hydrate(row: RunRow, members: MemberRow[], db: Database): CascadeRun {
   };
 }
 
+/** Record a run. `initiatorId` is the account that started it; a record
+ * made without one takes the workflow's owner, the only account that could
+ * start a run before runs had initiators. */
 export function createCascade(
   recipeId: string,
   kind: CascadeKind,
   members: MemberIdentity[],
   db: Database = metadataDb(),
+  initiatorId: string | null = null,
 ): CascadeRun {
   const id = randomUUID();
   const startedAt = new Date().toISOString();
   db.transaction(() => {
     db.prepare(
-      `INSERT INTO cascade_runs (id, recipe_id, kind, outcome, cancelled, started_at, finished_at)
-       VALUES (?, ?, ?, NULL, 0, ?, NULL)`,
-    ).run(id, recipeId, kind, startedAt);
+      `INSERT INTO cascade_runs (id, recipe_id, kind, outcome, cancelled, started_at, finished_at, initiator_id)
+       VALUES (?, ?, ?, NULL, 0, ?, NULL, ?)`,
+    ).run(id, recipeId, kind, startedAt, initiatorId);
     const stmt = db.prepare(
       `INSERT INTO cascade_members (cascade_id, step_id, ordinal, state, job_id, stopped_by, operation, node_name)
        VALUES (?, ?, ?, 'pending', NULL, NULL, ?, ?)`,

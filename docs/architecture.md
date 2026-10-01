@@ -122,8 +122,10 @@ metadata.
 Map and layer metadata lives in an embedded SQLite database, opened through
 one module (`src/lib/metadata/db.ts`) with write-ahead logging and foreign
 keys on. Schema changes are an ordered list of migration statements applied
-by version number, each inside its own transaction. There is no migration
-library and no external tool.
+by version number, each inside its own transaction. A statement that needs a
+value derived by the application's own rules, such as an account's SQL name,
+calls it as a SQL function the migration runner registers on the connection.
+There is no migration library and no external tool.
 
 Keeping metadata embedded is what preserves the one-container promise. The
 repository modules beside `db.ts` deliberately keep their SQL portable, so

@@ -1,5 +1,6 @@
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "./db";
+import { allocateSqlName } from "./sql-names";
 
 export type AccountStatus = "invited" | "active" | "deactivated";
 
@@ -65,16 +66,21 @@ export function accountPasswordHash(id: string, db: Database = metadataDb()): st
   return row?.password_hash ?? null;
 }
 
-/** Storage primitive; authorization and lifecycle transactions belong to auth services. */
+/** Storage primitive; authorization and lifecycle transactions belong to auth services.
+ * Every creation path passes through here, so every account receives its SQL
+ * name, derived from the identity it was created with and fixed thereafter. */
 export function insertAccount(input: {
   id: string; name: string; email: string; passwordHash: string | null;
   isAdmin: boolean; status: AccountStatus; now: string;
 }, db: Database = metadataDb()): Account {
+  const email = normalizeEmail(input.email);
+  const taken = db.prepare("SELECT 1 FROM accounts WHERE sql_name = ?");
+  const sqlName = allocateSqlName({ name: input.name, email }, name => taken.get(name) !== undefined);
   db.prepare(`INSERT INTO accounts
-    (id, name, email, password_hash, is_admin, status, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(input.id, input.name,
-    normalizeEmail(input.email), input.passwordHash, Number(input.isAdmin),
-    input.status, input.now, input.now);
+    (id, name, email, password_hash, is_admin, status, created_at, updated_at, sql_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(input.id, input.name,
+    email, input.passwordHash, Number(input.isAdmin),
+    input.status, input.now, input.now, sqlName);
   return getAccount(input.id, db)!;
 }
 

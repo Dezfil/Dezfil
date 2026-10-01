@@ -92,8 +92,8 @@ export async function startStepRun(
     ...(admitted.prepare ? { prepare: admitted.prepare } : {}),
     ...(replaceTable ? { replaceTable } : {}),
     ...(options.cascadeId ? { onSettled: (jobId: string) => archiveCascadeAttempt(options.cascadeId!, stepId, jobId) } : {}),
-    publisher: (jobFinished) =>
-      stepAuthorizer(scope, plan, jobFinished, options.cascadeId),
+    publisher: (jobFinished, jobId) =>
+      stepAuthorizer(scope, plan, jobFinished, options.cascadeId, jobId),
     onPublished: stepOutputFiler(scope, plan.step.id),
   });
 }

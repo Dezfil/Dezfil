@@ -59,6 +59,8 @@ function operationTimeout(): ApiError {
  */
 export type Publisher = (
   jobFinished: (db: Database, output: { id: string; name: string }) => boolean,
+  /** The job whose success this publication commits. */
+  jobId: string,
 ) => (
   table: { id: string; name: string },
   db: Database,
@@ -158,7 +160,7 @@ function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions)
         ...(options.bindings ? { requireBindings: options.bindings } : {}),
         // The authority check, inside the publication transaction.
         authorize: options.publisher
-          ? options.publisher(jobFinished)
+          ? options.publisher(jobFinished, job.id)
           : (table, db) => jobFinished(db, { id: table.id, name: table.name }),
         ...(options.onPublished ? { onPublished: options.onPublished } : {}),
       });

@@ -1,19 +1,46 @@
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "./db";
 
+/** Who produced an output, and through which job and run. */
+export interface OutputRunner {
+  accountId: string;
+  jobId: string | null;
+  runId: string | null;
+}
+
 /** Record the dataset a successful run produced, and when it succeeded. This
- * is the stored ownership the re-run exception rests on. */
+ * is the stored ownership the re-run exception rests on.
+ *
+ * The same success is also recorded per runner: one row for the step and the
+ * account that ran it, holding the output and the job and run that produced
+ * it. Both are written here, together, so no path records one without the
+ * other. A write that names no runner records the workflow's owner, the only
+ * account that has been able to run a step. */
 export function recordOutput(
   id: string,
   output: { id: string; name: string },
   succeededAt: string,
   db: Database = metadataDb(),
+  runner?: OutputRunner,
 ): void {
-  db.prepare(
-    `UPDATE recipe_steps
-     SET output_table_id = ?, output_table_name = ?, last_success_at = ?, updated_at = ?
-     WHERE id = ?`,
-  ).run(output.id, output.name, succeededAt, succeededAt, id);
+  db.transaction(() => {
+    db.prepare(
+      `UPDATE recipe_steps
+       SET output_table_id = ?, output_table_name = ?, last_success_at = ?, updated_at = ?
+       WHERE id = ?`,
+    ).run(output.id, output.name, succeededAt, succeededAt, id);
+    db.prepare(
+      `INSERT INTO step_runner_outputs
+         (step_id, runner_id, output_table_id, output_table_name, job_id, run_id, succeeded_at)
+       SELECT s.id, COALESCE(?, r.owner_id), ?, ?, ?, ?, ?
+       FROM recipe_steps s JOIN recipes r ON r.id = s.recipe_id
+       WHERE s.id = ? AND COALESCE(?, r.owner_id) IS NOT NULL
+       ON CONFLICT (step_id, runner_id) DO UPDATE SET
+         output_table_id = excluded.output_table_id, output_table_name = excluded.output_table_name,
+         job_id = excluded.job_id, run_id = excluded.run_id, succeeded_at = excluded.succeeded_at`,
+    ).run(runner?.accountId ?? null, output.id, output.name, runner?.jobId ?? null, runner?.runId ?? null,
+      succeededAt, id, runner?.accountId ?? null);
+  })();
 }
 
 /**

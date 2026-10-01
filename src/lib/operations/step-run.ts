@@ -100,6 +100,8 @@ export function stepAuthorizer(
   /** When this run is a cascade member, its success is recorded there too —
    * in this transaction, so no later correlation can lose it to pruning. */
   cascadeId?: string,
+  /** The job this publication settles, recorded with the runner's output. */
+  jobId?: string,
 ) {
   return (
     table: { id: string; name: string },
@@ -137,11 +139,13 @@ export function stepAuthorizer(
     // succeeded run can never disagree.
     if (!jobFinished(db, { id: table.id, name: table.name })) return false;
 
+    // The step's association and the runner's own row, written together.
     recordOutput(
       plan.step.id,
       { id: table.id, name: table.name },
       new Date().toISOString(),
       db,
+      { accountId: scope.accountId, jobId: jobId ?? null, runId: cascadeId ?? null },
     );
     // Replace, never append: a re-run may read different tables, and an edge
     // left behind would keep propagating staleness from one it no longer reads.
