@@ -244,8 +244,29 @@ then run `verify <base-url> <scratch-state-file>` to repeat those assertions
 with the saved sessions and tokens. Use an owned loopback port of 3300 or
 higher. The state file is created exclusively with mode 0600.
 
-The ownership journey's route-handler tests also run without a listening
-socket. Their SQLite reopen and engine reset do not establish process or
+`node scripts/sharing-journey.mjs seed <base-url> <scratch-state-file>`
+provisions an admin and four ordinary accounts on an empty scratch instance:
+an owner who shares a project once as Viewer and once as Editor, and a
+non-member. The seed walks the sharing rules end to end: the Viewer's writes
+refused alike with nothing changed, the Editor's edit, run, filing and
+qualified layer, the Editor's refused SQL and publication changes, a dataset
+removed from the project, the published link with a catalogue probe, both
+transfers and both deactivations. `verify <base-url> <scratch-state-file>`
+repeats the read-side assertions with the saved credentials after the server
+is replaced: listings and the project export telling two people's `roads`
+apart, the right rows through the console and MCP, hidden equal to missing
+for the non-member, and same-named SQL evaluated concurrently. Both print
+every refusal body they compared. With `--assistant-wire=<port>` they also
+read through the assistant's tool path over a scripted model wire the script
+serves on that loopback port; start the instance for that with
+`DEZFIL_AI_PROVIDER=openai`, any `OPENAI_API_KEY` and
+`OPENAI_BASE_URL=http://127.0.0.1:<port>/v1`, and run the script where the
+instance can reach the port (in a container, in its network namespace). Use
+an owned loopback port of 3300 or higher.
+
+The ownership and sharing journeys' route-handler tests also run without a
+listening socket (the sharing one serves its scripted model wire on an
+ephemeral loopback port). Their SQLite reopen and engine reset do not establish process or
 container restart behavior; run the HTTP commands for that evidence.
 
 `node scripts/mcp-journey.mjs <base-url>` runs the same journey over the MCP
