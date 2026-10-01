@@ -228,19 +228,25 @@ describe("the project export capability", () => {
     // order the canonical order rides.
     expect(manifest.contents.datasets).toEqual([
       // The effective format rides beside the file (additive).
+      // Each names whose it is and the name its exporter types (additive).
       {
         id: tOut.id,
         name: "catch_out",
+        qualifiedName: "catch_out",
+        owner: { name: "test-account", sqlName: "test_account" },
         file: "datasets/catch_out.parquet",
         format: "geoparquet",
       },
       {
         id: tA.id,
         name: "stations",
+        qualifiedName: "stations",
+        owner: { name: "test-account", sqlName: "test_account" },
         file: "datasets/stations.parquet",
         format: "geoparquet",
       },
     ]);
+    expect(manifest.exportedBy).toEqual({ sqlName: "test_account" });
 
     // The map projection: the published map's document carries neither
     // the credential nor the fact nor the membership; the seeded token

@@ -213,7 +213,14 @@ export const PROJECT_PATHS = {
         "projections (publication state, membership and runtime " +
         "stripped; the workflow carries its canvas layout), and a " +
         "versioned project.json manifest naming every included " +
-        "member. The archive is assembled and finalized before any " +
+        "member. Every dataset has its own entry under the name the " +
+        "exporter types for it, its qualifiedName: the plain name for " +
+        "the exporter's own, <sql name>.<name> for another owner's, so " +
+        "two people's same-named datasets never collide; the manifest " +
+        "names each one's qualifiedName and owner and the exporter's " +
+        "SQL name (exportedBy). Map and workflow documents carry their " +
+        "SQL home, the account whose datasets their plain names mean. " +
+        "No connection facts travel. The archive is assembled and finalized before any " +
         "success is claimed — a failed assembly is a coded refusal, " +
         "never a truncated file. Refuses an unknown project, an " +
         "empty selection, and any id that is not a current member. " +

@@ -11,6 +11,8 @@ it("publishes project reach, owner and role, atomic member checks and delete-unf
     expect(operation.description).toContain("A project is reached by its owner and by its people, its viewers and editors.");
     expect(operation.description).toContain("name each project's owner and the caller's role");
     expect(operation.description).not.toContain("belong only to the authenticated account");
+    expect(operation.description).toContain("Anyone who reaches a project may export it, viewers included");
+    expect(operation.description).not.toContain("Exporting stays the project owner's");
     expect(operation.responses).toHaveProperty("404"); count++;
   }
   expect(count).toBe(8);
@@ -19,6 +21,14 @@ it("publishes project reach, owner and role, atomic member checks and delete-unf
     expect(tool.description).toContain("Compound changes are atomic");
     expect(tool.inputSchema.properties).not.toHaveProperty("ownerId");
   }
+});
+
+it("documents the archive's per-owner dataset entries and the homes its documents carry", () => {
+  const document = buildOpenApiDocument() as unknown as { paths: Record<string, Record<string, { description: string }>> };
+  const exporting = document.paths["/api/projects/{id}/export"].post.description;
+  expect(exporting).toContain("<sql name>.<name> for another owner's, so two people's same-named datasets never collide");
+  expect(exporting).toContain("Map and workflow documents carry their SQL home");
+  expect(exporting).toContain("No connection facts travel");
 });
 
 it("documents the owner and the caller's role on every project shape, and a shared project as a filter value", () => {

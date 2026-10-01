@@ -335,8 +335,17 @@ projects and the ones shared with them; each carries `owner` and the
 caller's `role` (`owner`, `editor` or `viewer`), and its counts and size
 cover everything filed in it. Any reached project is a valid `?project=`
 value on the maps, datasets and workflows listings, and `none` means the
-caller's own items filed in no project they reach. Renaming, the note,
-dissolution and export stay the project owner's. Filing follows its own
+caller's own items filed in no project they reach. Renaming, the note and
+dissolution stay the project owner's. Export (`POST /api/projects/{id}/export`)
+is open to everyone who reaches the project, viewers included: a selection
+names members filed in it that the caller reaches, whoever owns them. In the
+archive every dataset has its own entry under the name its exporter types,
+its `qualifiedName` (`datasets/roads.parquet` for the exporter's own,
+`datasets/ada.roads.parquet` for Ada's), so two people's `roads` never
+collide; the `project.json` manifest names each dataset's `qualifiedName` and
+`owner` and the exporter's SQL name (`exportedBy`), and every map and
+workflow document carries its SQL `home`, so the datasets its plain names
+meant stay identifiable. No connection facts travel in an archive. Filing follows its own
 rules, on the members call and wherever a project is named at creation (a
 new map or workflow, an upload or an import): adding needs the
 destination's permission, so the project's owner and its editors file their
