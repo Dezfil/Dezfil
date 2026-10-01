@@ -12,7 +12,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   email_taken: "An account already uses this normalized email address.",
   self_change_refused: "Another admin must change your admin flag or deactivate your account.",
   last_admin: "Keep at least one active admin.",
-  forbidden: "This request is not permitted for the current account or origin.",
+  forbidden: "This request is not permitted for the current account or origin: an admin-only request, a cookie request from another origin, or a change to something the account can view but cannot make. A refused change has no effect.",
   invalid_link: "This sign-in link is unavailable, expired, replaced or already used.",
   current_password_required: "Enter your current password to make this change.",
   ingress_unavailable: "Trusted socket provenance is unavailable. Authentication entry cannot proceed.",
