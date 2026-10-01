@@ -208,7 +208,12 @@ downloads the layer's rows.
 revokes it. The anonymous side is `GET /api/published/{token}` plus tiles,
 render, extent and widget-value calls scoped to that token, which only ever
 expose the fields the publication declared
-(`GET /api/maps/{id}/published-fields`).
+(`GET /api/maps/{id}/published-fields`). The token, the published field
+selection, the widget publication toggle, the theme and the reader controls
+change only by the map's owner: through these operations, through map and
+layer writes that carry them, and through undo and redo. For anyone else a
+write or a replay that would change one is refused whole with `forbidden`,
+and nothing changes.
 
 **Sketches.** Drawing on the map as data. A draw session becomes one
 ordinary dataset plus one layer; features carry a stable id and a drawn

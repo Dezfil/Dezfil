@@ -580,7 +580,10 @@ export const LAYER_SCHEMAS = {
           "an existing result column); null restores " +
           "the derived minimal projection. The functional core — " +
           "fields the published map needs to render, label, filter " +
-          "and cross-filter — publishes regardless of this list.",
+          "and cross-filter — publishes regardless of this list. A " +
+          "publication setting: only the map's owner changes it, and " +
+          "anyone else's write that would change it is refused whole " +
+          "with forbidden.",
       },
       inLegend: { type: "boolean" },
       viz: { $ref: "#/components/schemas/Viz" },

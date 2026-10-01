@@ -498,6 +498,8 @@ export const MAP_PUBLISH_PATHS = {
     post: op(mapAccess({
       summary: "Publish a map",
       description:
+        "Minting a publication and changing its theme or reader " +
+        "controls are the map owner's alone. " +
         "Returns a stable, unguessable token. Idempotent while " +
         "published. The optional `theme` (\"light\" | \"dark\") " +
         "sets the published view's authored default: omitted on " +
@@ -545,7 +547,7 @@ export const MAP_PUBLISH_PATHS = {
     })),
     delete: op(mapAccess({
       summary: "Unpublish a map",
-      description: "The link stops resolving immediately.",
+      description: "The link stops resolving immediately. Revoking a publication is the map owner's alone.",
       tag: "Publish",
       tool: "unpublish_map", mcp: LOCAL_REPLACE,
       display: {"verb": "Unpublished the map {subject}", "subject": {"resource": "maps", "argument": "id"}},
@@ -792,7 +794,9 @@ export const MAP_DETAIL_SCHEMAS = {
       widgetsPublished: {
         type: "boolean",
         description:
-          "Whether widgets ship with the published view.",
+          "Whether widgets ship with the published view. A publication " +
+          "setting: only the map's owner changes it, and anyone else's " +
+          "write that would change it is refused whole with forbidden.",
       },
       layerOrder: {
         type: "array",

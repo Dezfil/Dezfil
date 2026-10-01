@@ -49,8 +49,12 @@ export const HISTORY_PATHS = {
             "group between them starts a new one, so one turn's edits can " +
             "span several steps. Restores are verbatim: exactly the values " +
             "stored before the change. Returns the refreshed map with fresh " +
-            "availability; 409 when there is nothing to undo. Redo " +
-            "re-applies the stored change.",
+            "availability; 409 when there is nothing to undo, or when the " +
+            "history moved while the replay was being checked. Redo " +
+            "re-applies the stored change. A replay that would change a " +
+            "publication setting (the widget publication toggle or a " +
+            "layer's published fields) is the map owner's alone: anyone " +
+            "else is refused whole with forbidden, and nothing is restored.",
           tag: "Maps",
           tool: "undo_change", mcp: HISTORY_MOVE,
           display: {"verb": "Undid a change on the map {subject}", "subject": {"resource": "maps", "argument": "id", "name": ["name"]}},
@@ -65,7 +69,12 @@ export const HISTORY_PATHS = {
           description:
             "Re-applies the most recently undone change (or grouped turn), " +
             "exactly as it was stored. Any fresh edit after an undo " +
-            "discards the redo branch. 409 when there is nothing to redo.",
+            "discards the redo branch. 409 when there is nothing to redo, " +
+            "or when the history moved while the replay was being checked. " +
+            "A replay that would change a publication setting (the widget " +
+            "publication toggle or a layer's published fields) is the map " +
+            "owner's alone: anyone else is refused whole with forbidden, " +
+            "and nothing is restored.",
           tag: "Maps",
           tool: "redo_change", mcp: HISTORY_MOVE,
           display: {"verb": "Redid a change on the map {subject}", "subject": {"resource": "maps", "argument": "id", "name": ["name"]}},

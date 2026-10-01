@@ -37,3 +37,24 @@ it("documents the owner, SQL home and reachable project on every map read shape"
     expect(JSON.stringify(buildTools().find(tool => tool.name === name)!.outputSchema), name).toContain("sqlName");
   }
 });
+
+it("names the publication settings the owner's alone wherever a write or replay could change one", () => {
+  type Operation = { description: string; requestBody?: { content: { "application/json": { schema: { properties?: Record<string, { description?: string }>; $ref?: string } } } } };
+  const document = buildOpenApiDocument() as unknown as { paths: Record<string, Record<string, Operation>>; components: { schemas: Record<string, { properties?: Record<string, { description?: string }> }> } };
+  expect(document.paths["/api/maps/{id}/publish"].post.description).toContain("Minting a publication and changing its theme or reader controls are the map owner's alone.");
+  expect(document.paths["/api/maps/{id}/publish"].delete.description).toContain("Revoking a publication is the map owner's alone.");
+  for (const path of ["/api/maps/{id}/undo", "/api/maps/{id}/redo"]) {
+    expect(document.paths[path].post.description, path).toContain("A replay that would change a publication setting (the widget publication toggle or a layer's published fields) is the map owner's alone");
+  }
+  const owned = "A publication setting: only the map's owner changes it, and anyone else's write that would change it is refused whole with forbidden.";
+  const mapBody = JSON.stringify(document.paths["/api/maps/{id}"].patch.requestBody);
+  const layerBody = JSON.stringify(document.paths["/api/layers/{id}"].patch.requestBody) + JSON.stringify(document.components.schemas);
+  expect(mapBody + JSON.stringify(document.components.schemas)).toContain(`Whether widgets ship with the published view. ${owned}`);
+  expect(layerBody).toContain("publishes regardless of this list. " + owned);
+  for (const name of ["publish_map", "unpublish_map", "undo_change", "redo_change"]) {
+    expect(buildTools().find(tool => tool.name === name)!.description, name).toContain("the map owner's alone");
+  }
+  for (const name of ["update_map", "update_layer"]) {
+    expect(JSON.stringify(buildTools().find(tool => tool.name === name)!.inputSchema), name).toContain(owned);
+  }
+});
