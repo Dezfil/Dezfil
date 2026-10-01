@@ -1,22 +1,48 @@
 import type { ProjectScope } from "../scope/model";
+import type { PersonLabel } from "../sharing/people";
 
 /**
- * The 14-A dialog's pure model: selection counting with producers
- * deduplicated by workflow identity, the live footer's status and
- * action label, the picker's search with the picked row kept, and the
- * ruled Enter resolution. The dialog only presents.
+ * The 14-A dialog's pure model: the selection of datasets and the
+ * workflows that make them, each by identity and each on its own, the live
+ * footer's status and action label, the picker's search with the picked
+ * row kept, and the ruled Enter resolution. Only one's own datasets and
+ * workflows can be filed: another person's dependency is listed as not
+ * one's to add and is never sent. The dialog only presents.
  */
 
 export interface DependencyWire {
   id: string;
   name: string;
+  /** The name its reader would type: `<sql name>.<name>` for someone
+   * else's dataset. */
+  qualifiedName?: string;
+  owner?: PersonLabel;
+  /** Whether the reader owns it, and so may file it. */
+  owned?: boolean;
   source: string;
   rowCount: number;
   projectIds: string[];
   /** The dataset's spatial identity, for the tile. */
   geometryColumn: string | null;
   geometryType: string | null;
-  producer: { id: string; name: string } | null;
+  producer: { id: string; name: string; owned?: boolean } | null;
+}
+
+/** Whether the reader may file this dependency: their own. */
+export const addable = (d: { owned?: boolean }): boolean => d.owned !== false;
+
+/** What is picked to come along: datasets and the workflows that make
+ * them, each by identity. */
+export interface FilingSelection {
+  datasets: ReadonlySet<string>;
+  workflows: ReadonlySet<string>;
+}
+
+/** A workflow that makes one of the subject's datasets. */
+export interface ProducerRow {
+  id: string;
+  name: string;
+  owned: boolean;
 }
 
 export type Destination =
@@ -97,25 +123,57 @@ export function dialogTitle(subject: FilingSubject): string {
   return `${p.before}${p.name}${p.after}`;
 }
 
-/** The membership change per kind (rules kept for the map):
- * a map moves with its checked datasets and their producers; a
- * workflow moves with only its checked datasets — never their
- * producers; a dataset is added alone. */
+/** The workflows that make the subject's datasets, once each and in the
+ * datasets' order, the subject itself aside (a workflow's own results). */
+export function producersOf(subject: FilingSubject, deps: DependencyWire[]): ProducerRow[] {
+  const seen = new Map<string, ProducerRow>();
+  for (const d of deps) {
+    const p = d.producer;
+    if (!p || p.id === subject.id || seen.has(p.id)) continue;
+    seen.set(p.id, { id: p.id, name: p.name, owned: p.owned !== false });
+  }
+  return [...seen.values()];
+}
+
+/** What starts selected: every dataset of one's own, and for a map the
+ * workflows of one's own that make them (they came along before they
+ * could be picked apart); a workflow's producers start unpicked, as they
+ * never came along. */
+export function initialSelection(subject: FilingSubject, deps: DependencyWire[]): FilingSelection {
+  return {
+    datasets: new Set(deps.filter(addable).map((d) => d.id)),
+    workflows: new Set(
+      subject.kind === "map" ? producersOf(subject, deps).filter((p) => p.owned).map((p) => p.id) : [],
+    ),
+  };
+}
+
+/** What is picked that may be filed: one's own datasets and workflows,
+ * whatever else a selection holds. */
+function picked(subject: FilingSubject, deps: DependencyWire[], selection: FilingSelection) {
+  return {
+    datasets: deps.filter((d) => addable(d) && selection.datasets.has(d.id)).map((d) => d.id),
+    workflows: producersOf(subject, deps)
+      .filter((p) => p.owned && selection.workflows.has(p.id))
+      .map((p) => p.id),
+  };
+}
+
+/** The membership change per kind: a map or a workflow moves with the
+ * datasets and the producing workflows picked, each on its own; a
+ * dataset is added alone. Nothing unpicked is filed, and nothing that is
+ * not one's own. */
 export function membersFor(
   subject: FilingSubject,
   deps: DependencyWire[],
-  checked: ReadonlySet<string>,
+  selection: FilingSelection,
 ): { addMaps?: string[]; addRecipes?: string[]; addTables?: string[] } {
-  const datasetIds = deps.filter((d) => checked.has(d.id)).map((d) => d.id);
+  const chosen = picked(subject, deps, selection);
   if (subject.kind === "map") {
-    return {
-      addMaps: [subject.id],
-      addTables: datasetIds,
-      addRecipes: distinctProducers(deps, checked).map((p) => p.id),
-    };
+    return { addMaps: [subject.id], addTables: chosen.datasets, addRecipes: chosen.workflows };
   }
   if (subject.kind === "workflow") {
-    return { addRecipes: [subject.id], addTables: datasetIds };
+    return { addRecipes: [subject.id, ...chosen.workflows], addTables: chosen.datasets };
   }
   return { addTables: [subject.id] };
 }
@@ -125,8 +183,8 @@ export function membersFor(
 export function distinctProducers(
   deps: DependencyWire[],
   checked: ReadonlySet<string>,
-): { id: string; name: string }[] {
-  const seen = new Map<string, { id: string; name: string }>();
+): NonNullable<DependencyWire["producer"]>[] {
+  const seen = new Map<string, NonNullable<DependencyWire["producer"]>>();
   for (const d of deps) {
     if (checked.has(d.id) && d.producer) seen.set(d.producer.id, d.producer);
   }
@@ -137,16 +195,18 @@ const word = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 
 export function footer(
   deps: DependencyWire[],
-  checked: ReadonlySet<string>,
+  selection: FilingSelection,
   destination: Destination,
   destinationName: (id: string) => string | null,
   kind: SubjectKind = "map",
 ): { status: string; label: string; enabled: boolean } {
-  const datasets = deps.filter((d) => checked.has(d.id)).length;
-  // Producers ride along with a MAP's checked outputs; a workflow moves
-  // with its datasets only, a dataset alone.
-  const workflows =
-    kind === "map" ? distinctProducers(deps, checked).length : 0;
+  // Counted as filed: what is picked and one's own. A dataset is alone.
+  const chosen =
+    kind === "dataset"
+      ? { datasets: [], workflows: [] }
+      : picked({ kind, id: "", name: "", projectId: null }, deps, selection);
+  const datasets = chosen.datasets.length;
+  const workflows = chosen.workflows.length;
   const total = 1 + datasets + workflows;
   const noun = subjectCopy(kind).noun;
   const status =

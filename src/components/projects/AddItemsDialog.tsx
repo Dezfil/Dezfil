@@ -12,6 +12,7 @@ import { KindIcon } from "./ProjectPicture";
 import type { DependencyWire } from "./add-model";
 import { readJson, type CatalogueState } from "./home-read";
 import {
+  bringAlong,
   composeChange,
   emptySelection,
   pickerItems,
@@ -25,6 +26,7 @@ import {
   type Selection,
 } from "./picker-model";
 import { whereLine } from "./recent-model";
+import { useSignedInSqlName } from "../sharing/signed-in";
 import styles from "./AddItemsDialog.module.css";
 
 /**
@@ -77,12 +79,14 @@ export function AddItemsDialog({
   const [refusal, setRefusal] = useState<string | null>(null);
   const inFlight = useRef(false);
 
+  // A picker of one's own work: someone else's is not theirs to file.
+  const me = useSignedInSqlName();
   const lists = useMemo(
     () =>
       catalogue.status === "ready"
-        ? pickerItems({ ...catalogue.value, projectId, names })
+        ? pickerItems({ ...catalogue.value, projectId, names, me })
         : { maps: [], workflows: [], datasets: [] },
-    [catalogue, projectId, names],
+    [catalogue, projectId, names, me],
   );
   const shown = useMemo(() => searchItems(lists[tab], query), [lists, tab, query]);
 
@@ -222,7 +226,13 @@ export function AddItemsDialog({
       const r = reads.get(readKey(item.kind, item.id));
       if (!r || r.status === "pending") bits.push("reading its datasets…");
       else if (r.status === "failed") bits.push(`its datasets couldn't be read: ${r.error}`);
-      else if (r.deps.length) bits.push(`brings ${r.deps.map((d) => d.name).join(", ")}`);
+      else {
+        const along = bringAlong(r.deps);
+        if (along.brings.length) bits.push(`brings ${along.brings.join(", ")}`);
+        if (along.notYours.length) {
+          bits.push(`${along.notYours.join(", ")} ${along.notYours.length === 1 ? "is" : "are"} not yours to add`);
+        }
+      }
     }
     if (item.kind === "dataset" && item.where.length > 0) {
       bits.push(`stays in ${item.where.join(", ")} too`);

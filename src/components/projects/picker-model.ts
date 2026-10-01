@@ -1,7 +1,7 @@
 import type { MapOverview, TableListing } from "../api";
 import { geometryChipLabel } from "../table-chips";
 import { nodeWord, type WorkflowListing } from "../workflow-model";
-import { distinctProducers, type DependencyWire } from "./add-model";
+import { addable, distinctProducers, type DependencyWire } from "./add-model";
 import { whereNames } from "./recent-model";
 
 /**
@@ -11,7 +11,10 @@ import { whereNames } from "./recent-model";
  * follows the shipped filing rules (add-model): a map brings its
  * datasets and their distinct workflow-origin producers, a workflow
  * brings the datasets it reads and writes, a dataset brings nothing.
- * Shared dependencies count and change once. The dialog only presents.
+ * Shared dependencies count and change once. It is a picker of one's own
+ * work: it offers one's own maps, workflows and datasets, and brings only
+ * one's own; another person's dependency is named as not one's to add and
+ * never sent. The dialog only presents.
  */
 
 export type PickKind = "map" | "workflow" | "dataset";
@@ -35,10 +38,16 @@ export function pickerItems(input: {
   tables: TableListing[];
   projectId: string;
   names: Map<string, string>;
+  /** The signed-in person's SQL name: someone else's work is not theirs
+   * to file, so it is not offered. */
+  me?: string | null;
 }): PickerLists {
-  const { names, projectId } = input;
+  const { names, projectId, me = null } = input;
+  const own = (item: { owner?: { sqlName: string } }) =>
+    me === null || !item.owner || item.owner.sqlName === me;
   return {
     maps: input.maps
+      .filter(own)
       .filter((m) => m.projectId !== projectId)
       .map((m) => ({
         kind: "map",
@@ -49,6 +58,7 @@ export function pickerItems(input: {
         map: m,
       })),
     workflows: input.workflows
+      .filter(own)
       .filter((w) => w.origin === "workflow" && w.projectId !== projectId)
       .map((w) => ({
         kind: "workflow",
@@ -59,6 +69,7 @@ export function pickerItems(input: {
         workflow: w,
       })),
     datasets: input.tables
+      .filter(own)
       .filter((t) => !t.projectIds.includes(projectId))
       .map((t) => ({
         kind: "dataset",
@@ -137,10 +148,10 @@ export function composeChange(
       blocked.push(id);
       continue;
     }
-    const all = new Set(read.deps.map((d) => d.id));
-    for (const d of read.deps) addTable(d.id);
-    for (const p of distinctProducers(read.deps, all)) {
-      if (!held.workflows.has(p.id)) recipes.add(p.id);
+    const mine = read.deps.filter(addable);
+    for (const d of mine) addTable(d.id);
+    for (const p of distinctProducers(mine, new Set(mine.map((d) => d.id)))) {
+      if (p.owned !== false && !held.workflows.has(p.id)) recipes.add(p.id);
     }
   }
   for (const id of sel.workflows) {
@@ -149,7 +160,7 @@ export function composeChange(
       blocked.push(id);
       continue;
     }
-    for (const d of read.deps) addTable(d.id);
+    for (const d of read.deps.filter(addable)) addTable(d.id);
   }
   const brought =
     [...recipes].filter((id) => !sel.workflows.has(id)).length +
@@ -188,4 +199,13 @@ export function pickerLabel(summary: Composed["summary"]): string {
   const total =
     summary.maps + summary.workflows + summary.datasets + summary.brought;
   return `Add ${word(total, "item")}`;
+}
+
+/** What a picked map or workflow brings, by name, and what it depends on
+ * that is someone else's, by the name its reader types: named, never sent. */
+export function bringAlong(deps: DependencyWire[]): { brings: string[]; notYours: string[] } {
+  return {
+    brings: deps.filter(addable).map((d) => d.name),
+    notYours: deps.filter((d) => !addable(d)).map((d) => d.qualifiedName ?? d.name),
+  };
 }
