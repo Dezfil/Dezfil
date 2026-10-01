@@ -67,6 +67,25 @@ describe("the SQL-name derivation", () => {
     } finally { connection.closeSync(); instance.closeSync(); }
   });
 
+  it("reserves the qualifier the engine gives a keyed recursive CTE's previous iteration", async () => {
+    const instance = await DuckDBInstance.create(":memory:");
+    const connection = await instance.connect();
+    try {
+      // Inside a keyed recursive CTE the engine reads `recurring.<cte>` as the
+      // CTE itself, so a person named "recurring" could not be addressed there.
+      const rows = (await connection.runAndReadAll(`WITH RECURSIVE t(k, v) USING KEY (k) AS (
+          SELECT 1, 1 UNION SELECT k, v + 1 FROM recurring.t WHERE v < 3) SELECT v FROM t`)).getRowObjectsJson();
+      expect(rows).toEqual([{ v: 3 }]);
+    } finally { connection.closeSync(); instance.closeSync(); }
+    expect(isReservedSqlName("recurring")).toBe(true);
+    expect(isValidSqlName("recurring")).toBe(false);
+    expect(baseSqlName({ name: "Recurring", email: "r@example.test" })).toBe("recurring");
+    expect(allocateSqlName({ name: "Recurring", email: "r@example.test" }, free)).toBe("recurring2");
+    expect(allocateSqlNames([{ id: "r", name: "RECURRING", email: "r@example.test", createdAt: "2026-01-01" }])).toEqual({ r: "recurring2" });
+    // Only the exact name is reserved: a longer name that starts with it is an ordinary name.
+    expect(allocateSqlName({ name: "Recurring Costs", email: "r@example.test" }, free)).toBe("recurring_costs");
+  });
+
   it("allocates a set oldest first and independently of row order", () => {
     const accounts = [
       { id: "b", name: "Ada", email: "b@example.test", createdAt: "2026-01-02" },

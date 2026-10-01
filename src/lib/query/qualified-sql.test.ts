@@ -71,6 +71,9 @@ describe("qualified names in written SQL", () => {
     expect(await rows(scopes.bob, "WITH roads AS (SELECT 'cte' AS sentinel) SELECT r.sentinel, a.sentinel AS other FROM roads r, ada.roads a")).toEqual([{ sentinel: "cte", other: "ada roads" }]);
     expect(await rows(scopes.bob, "WITH ada AS (SELECT {'sentinel': 'struct'} AS roads) SELECT ada.roads.sentinel AS sentinel FROM ada")).toEqual([{ sentinel: "struct" }]);
     expect(await rows(scopes.bob, "SELECT sentinel FROM memory.main.roads")).toEqual([{ sentinel: "bob roads" }]);
+    // A keyed recursive CTE reads its previous iteration as `recurring.<cte>`.
+    expect(await rows(scopes.bob, `WITH RECURSIVE t(k, v) USING KEY (k) AS (
+      SELECT 1, 1 UNION SELECT k, v + 1 FROM recurring.t WHERE v < 3) SELECT v FROM t`)).toEqual([{ v: 3 }]);
   });
 
   it("binds a dataset named like a reserved word or a file extension, statically and dynamically", async () => {

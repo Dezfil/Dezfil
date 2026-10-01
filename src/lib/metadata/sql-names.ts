@@ -15,9 +15,10 @@
 /** Every catalogue or schema name the query engine itself uses or could
  * resolve as the first part of a two-part name. The engine's in-memory
  * catalogues are `memory`, `system` and `temp`; its schemas are `main`,
- * `information_schema` and `pg_catalog`. A SQL name equal to one of them
- * would make `<sql name>.<dataset>` ambiguous with the engine's own
- * qualified names. */
+ * `information_schema` and `pg_catalog`; inside a keyed recursive common
+ * table expression, `recurring.<cte>` names that expression's previous
+ * iteration. A SQL name equal to one of them would make
+ * `<sql name>.<dataset>` ambiguous with the engine's own qualified names. */
 export const RESERVED_SQL_NAMES: readonly string[] = [
   "main",
   "memory",
@@ -25,6 +26,7 @@ export const RESERVED_SQL_NAMES: readonly string[] = [
   "system",
   "information_schema",
   "pg_catalog",
+  "recurring",
 ];
 
 /** Prefixes the engine reserves for its own catalogue functions and views
