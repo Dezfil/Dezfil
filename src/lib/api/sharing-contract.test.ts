@@ -75,3 +75,35 @@ it("reads people freely and puts every change of them behind the confirmation ga
     expect(write.confirmation?.consequence, name).toMatch(/next request/);
   }
 });
+
+it("documents transfer for a project, a map and a workflow, each the owner's alone and behind the confirmation gate", () => {
+  const paths = document().paths;
+  const operations: [string, string, string, string][] = [
+    ["/api/projects/{id}/transfer", "transfer_project", "A project is reached by its owner and by its people", "projects"],
+    ["/api/maps/{id}/transfer", "transfer_map", "A map is reached by its owner and, while it is filed in a project", "maps"],
+    ["/api/recipes/{id}/transfer", "transfer_workflow", "A workflow is reached by its owner and, while it is filed in a project", "recipes"],
+  ];
+  for (const [path, name, reach, written] of operations) {
+    const operation = paths[path]?.post;
+    expect(operation, path).toBeDefined();
+    expect(operation["x-tool"]).toBe(name);
+    expect(operation.security).toEqual(AUTH_SECURITY);
+    expect(operation.description).toContain(reach);
+    expect(operation.description).toContain("Transfer is the only change of ownership");
+    for (const status of ["400", "403", "404"]) expect(operation.responses, `${path} ${status}`).toHaveProperty(status);
+    const transfer = tool(name);
+    expect(Object.keys(transfer.inputSchema.properties as object).sort()).toEqual(["id", "to"]);
+    expect(transfer.confirm).toBe(true);
+    expect(transfer.effects).toEqual({ readOnly: false, writes: [{ resource: written, argument: "id", collection: true }] });
+    expect(transfer.mcp).toEqual({ destructiveHint: true, idempotentHint: false, openWorldHint: false });
+    expect(transfer.confirmation?.target).toContain("{target}");
+    expect(transfer.confirmation?.consequence).toContain("Only they can give it back.");
+  }
+  expect(paths["/api/projects/{id}/transfer"].post.description).toContain("the previous owner becomes an editor");
+  for (const path of ["/api/maps/{id}/transfer", "/api/recipes/{id}/transfer"]) {
+    expect(paths[path].post.description).toContain("keeps its SQL home");
+    expect(paths[path].post.description).toContain("in a project first");
+  }
+  expect(paths["/api/maps/{id}/transfer"].post.description).toContain("its publication, which becomes the new owner's");
+  expect(document().components.schemas.Transfer.required).toEqual(["id", "owner"]);
+});

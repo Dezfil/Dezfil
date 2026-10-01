@@ -82,7 +82,9 @@ links are disclosed once, expire after seven days and are shared by the admin.
 A project's people generate `list_project_people`, `set_project_person` and
 `remove_project_person`. Anyone who reaches the project reads them; the two
 changes are the project owner's and declare confirmation, since each changes
-who reaches the project.
+who reaches the project. Transfer generates `transfer_project`,
+`transfer_map` and `transfer_workflow`, each the owner's and each behind
+confirmation, since only the new owner can give it back.
 
 Derivation is pure over a static document, so the tool set is built once per
 process and reused.
@@ -91,8 +93,8 @@ process and reused.
 
 | | |
 |---|---|
-| Documented operations | 159 |
-| Operations that become tools | 132 |
+| Documented operations | 162 |
+| Operations that become tools | 135 |
 | Deliberately excluded | 27 |
 
 Measured by building the OpenAPI document and the tool set from

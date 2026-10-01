@@ -36,7 +36,7 @@ it("documents one-time token disclosure, ownership and atomic current-password r
   expect(ACCOUNT_PATHS["/api/account/tokens/{id}"].delete.responses).toHaveProperty("404");
   expect(ACCOUNT_PATHS["/api/account/password"].post.description).toContain("ends your other sessions");
   const doc = buildOpenApiDocument();
-  expect(Object.keys(doc.paths)).toHaveLength(120);
-  expect(Object.values(doc.paths).flatMap(Object.keys)).toHaveLength(159);
-  expect(Object.keys(doc.components.schemas)).toHaveLength(152);
+  expect(Object.keys(doc.paths)).toHaveLength(123);
+  expect(Object.values(doc.paths).flatMap(Object.keys)).toHaveLength(162);
+  expect(Object.keys(doc.components.schemas)).toHaveLength(153);
 });

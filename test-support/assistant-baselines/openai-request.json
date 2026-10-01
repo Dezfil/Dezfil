@@ -2806,6 +2806,78 @@
     },
     {
       "type": "function",
+      "name": "transfer_project",
+      "description": "Transfer a project to one of its members. A project is reached by its owner and by its people, its viewers and editors. Lists, counts and member lists cover exactly the reached projects and everything filed in them, whoever owns it, and name each project's owner and the caller's role (owner, editor or viewer). Renaming, the note and dissolution are the owner's; administrators reach nothing more. Filing follows its own rules: adding a map, workflow or dataset needs the destination's permission (the project's owner, or an editor filing their own resource) and a project whose owner is active; the owner of a resource may always withdraw it from any project, member or not; the project's owner may remove anything filed in their project, which never deletes it or changes its owner. Unreached or missing references return the same not_found before changes or archive assembly; a reached project whose change the caller may not make returns forbidden and changes nothing. Compound changes are atomic. Deleting a project unfiles its contents without deleting artifacts or changing their owners. Exporting stays the project owner's, and export selections include only owned members. Transfer is the only change of ownership any operation makes, and it is always the current owner's own act. The new owner is named by their SQL name and must be an active account. The owner's authority, the recipient, the ownership change and everything that moves with it commit together, or nothing changes. Datasets and connections have no transfer. Makes one of the project's active members its owner: the recipient leaves the member list and the previous owner becomes an editor. The project keeps its name, note, other people and contents, and everything filed in it keeps its own owner. The project owner's alone: a member's attempt returns forbidden. A recipient who is not an active member (a deactivated member, someone outside the project, an unknown SQL name, the owner) is refused with invalid_request, and nothing changes. While the owner's account is deactivated nobody can transfer it. Answers the project's identity and its new owner.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Project id."
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The new owner's SQL name."
+          }
+        },
+        "required": [
+          "id",
+          "to"
+        ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "transfer_map",
+      "description": "Transfer a map to someone who reaches it. A map is reached by its owner and, while it is filed in a project, by that project's owner and people. Results cover exactly the reached maps and name each map's owner and SQL home; the map's SQL is evaluated in its home within the caller's own reach. Content changes are open to the owner, the project's owner and its editors; SQL anyone but the owner saves, directly or by undo and redo, must name only datasets within their own reach in the map's home, else it is refused with sql_error naming the reference as written and nothing changes. Sketches drawn on the map are content, each sketch dataset its drawer's own; deletion, publication settings and snapshot captures stay the owner's; a snapshot is served to everyone who reaches the map and every dataset it drew. Anyone who reaches a map may duplicate it into their own space: the copy keeps the map's SQL home and its layers' SQL as stored, is filed in the map's project only when the duplicator may file there (its owner or an editor), and carries the snapshot only when the duplicator may be served it. Administrators reach nothing more. Unreached and missing map or project identities both return not_found before source access or protected changes; a reached map whose change the caller may not make returns forbidden and changes nothing. Transfer is the only change of ownership any operation makes, and it is always the current owner's own act. The new owner is named by their SQL name and must be an active account. The owner's authority, the recipient, the ownership change and everything that moves with it commit together, or nothing changes. Datasets and connections have no transfer. Makes another active person who already reaches the map its owner: the owner of the project it is filed in, or one of that project's people. An unfiled map is refused with invalid_request: file the map in a project first. The map keeps its SQL home, so its SQL means what it meant, and it keeps its layers, history, card images and its publication, which becomes the new owner's and renders with the new owner's reach: a dataset the new owner cannot reach fails on the link rather than drawing anything else. Anyone else who reaches it is refused with forbidden. A recipient who is deactivated, not yet redeemed, unknown, the owner, or does not reach it is refused with invalid_request, and nothing changes. Answers the map's identity and its new owner.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Map id."
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The new owner's SQL name."
+          }
+        },
+        "required": [
+          "id",
+          "to"
+        ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "transfer_workflow",
+      "description": "Transfer a workflow to someone who reaches it. A workflow is reached by its owner and, while it is filed in a project, by that project's owner and people; its steps, layout and runs follow it. Results name the workflow's owner and SQL home and are read in that home within the caller's own reach: a reference the caller cannot reach is missing to them, named as written, and recorded lineage, output links and captured layer identities out of their reach are left out. Content changes are open to the owner, the project's owner and its editors; the SQL and dataset parameters anyone but the owner saves into a step must name only datasets within their own reach in the workflow's home, the workflow's declared outputs aside, else the save is refused with sql_error naming the reference as written and nothing changes. Deletion stays the owner's. Anyone who reaches a workflow may duplicate it into their own space: the copy keeps the workflow's SQL home and is filed in its project only when the duplicator may file there (its owner or an editor). Administrators reach nothing more. Unreached or missing workflows, steps, captured layers and project references return not_found before reading private contents or changing resources; a reached workflow whose change the caller may not make returns forbidden and changes nothing. Output-name conflicts and duplicate-name allocation consider only the caller's own datasets and the workflow's declarations, preserving the existing same-workflow conflict rules. Accepted changes recheck account activity and referenced-resource access at commit. Transfer is the only change of ownership any operation makes, and it is always the current owner's own act. The new owner is named by their SQL name and must be an active account. The owner's authority, the recipient, the ownership change and everything that moves with it commit together, or nothing changes. Datasets and connections have no transfer. Makes another active person who already reaches the workflow its owner: the owner of the project it is filed in, or one of that project's people. An unfiled workflow is refused with invalid_request: file the workflow in a project first. The workflow keeps its SQL home, so its SQL means what it meant, and it keeps its steps, layout and run history, while every run's outputs stay with the person who ran it. Anyone else who reaches it is refused with forbidden. A recipient who is deactivated, not yet redeemed, unknown, the owner, or does not reach it is refused with invalid_request, and nothing changes. Answers the workflow's identity and its new owner.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Workflow id."
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The new owner's SQL name."
+          }
+        },
+        "required": [
+          "id",
+          "to"
+        ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
       "name": "sanitize_icon_svg",
       "description": "Sanitize custom icon SVG. Advisory pass of the custom-icon sanitizer: returns the accepted markup, whether anything changed, and a bounded report of dropped content (category and name). The layer write re-sanitizes — this exists so a picker or agent can preview the outcome. Not-SVG, oversize, and nothing-drawable inputs answer invalid_request.",
       "parameters": {

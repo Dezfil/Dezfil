@@ -74,8 +74,8 @@ follow their parent; standalone jobs and retained export/render results remain
 private even after failure or output deletion. Admin status grants no
 private-content access. Dataset and connection names are unique within one
 account. Unreached and missing resources receive the same refusal, and SQL
-mounts only the caller's datasets. There is no owner selector or
-ownership-transfer operation.
+mounts only the caller's datasets. There is no owner selector; ownership
+changes only by the transfer operations under Projects below.
 
 The published surface remains anonymous. `GET /api/published/{token}`
 and its siblings are the read-only, anonymous face of a map someone chose to
@@ -293,6 +293,25 @@ not yet redeemed and an unknown name are refused alike with
 `invalid_request`. Removing someone who holds no role changes nothing, and
 nothing a removed person owns is deleted, unfiled or reassigned. A change
 governs the person's reach on their next request, with no sign-out.
+
+Transfer is the only change of ownership, always the current owner's own
+act, with the new owner named by their SQL name as `{"to": "<sql name>"}`.
+`POST /api/projects/{id}/transfer` makes one of the project's active
+members its owner: the recipient leaves the member list, the previous owner
+becomes an editor, and the name, note, other people and contents stay as
+they were, everything filed there keeping its own owner. `POST
+/api/maps/{id}/transfer` and `POST /api/recipes/{id}/transfer` hand a map
+or workflow to another active person who already reaches it through the
+project it is filed in (that project's owner or one of its people); an
+unfiled one is refused until it is filed. The resource keeps its SQL home,
+so its SQL means what it meant, and everything that hangs off it: a map's
+layers, history, card images and publication, which becomes the new owner's
+and renders with the new owner's reach; a workflow's steps, layout and run
+history, each run's outputs staying with whoever ran it. A recipient who is
+deactivated, not yet redeemed, unknown or out of reach is refused with
+`invalid_request`; anyone else who reaches the resource with `forbidden`;
+and a refusal or a failure changes nothing. Datasets and connections have
+no transfer.
 
 **Connections.** PostGIS connections: create, test, list the remote tables,
 preview a relation, snapshot it into a local dataset. Passwords are

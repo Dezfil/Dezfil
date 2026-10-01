@@ -1,4 +1,6 @@
 import { projectAccess } from "./openapi-project-access";
+import { mapAccess } from "./openapi-map-access";
+import { workflowAccess } from "./openapi-workflow-access";
 import { ERROR_RESPONSE, jsonOk, op, pathParam } from "./openapi-helpers";
 import { LOCAL_DELETE, LOCAL_READ, type McpConsequences } from "./operation-mcp";
 import { READ_ONLY, resource, writes } from "./operation-metadata";
@@ -11,6 +13,8 @@ import { READ_ONLY, resource, writes } from "./operation-metadata";
 
 /** Setting a role twice leaves the same people as setting it once. */
 const LOCAL_SET: McpConsequences = { destructiveHint: true, openWorldHint: false, idempotentHint: true };
+/** A repeated transfer is refused: the caller is no longer the owner. */
+const TRANSFER: McpConsequences = { destructiveHint: true, openWorldHint: false, idempotentHint: false };
 
 const PEOPLE_RULES =
   "A project's people are its owner and its members, each member a viewer or an editor. Everyone who reaches " +
@@ -20,7 +24,35 @@ const PEOPLE_RULES =
 const sqlNameParam = pathParam("sqlName", "The person's SQL name.");
 const projectSubject = { path: "/api/projects/{id}", argument: "id", name: "name" };
 
-export const SHARING_PATHS = {
+const TRANSFER_RULES =
+  "Transfer is the only change of ownership any operation makes, and it is always the current owner's own " +
+  "act. The new owner is named by their SQL name and must be an active account. The owner's authority, the " +
+  "recipient, the ownership change and everything that moves with it commit together, or nothing changes. " +
+  "Datasets and connections have no transfer. ";
+/** A filed resource's transfer: to its project's owner or one of its people. */
+const filedTransfer = (noun: string, keeps: string) => TRANSFER_RULES +
+  `Makes another active person who already reaches the ${noun} its owner: the owner of the project it is ` +
+  `filed in, or one of that project's people. An unfiled ${noun} is refused with invalid_request: file the ` +
+  `${noun} in a project first. The ${noun} keeps its SQL home, so its SQL means what it meant, and ${keeps}. ` +
+  "Anyone else who reaches it is refused with forbidden. A recipient who is deactivated, not yet redeemed, " +
+  "unknown, the owner, or does not reach it is refused with invalid_request, and nothing changes. Answers the " +
+  `${noun}'s identity and its new owner.`;
+const transferBody = {
+  required: true,
+  content: {
+    "application/json": {
+      schema: {
+        type: "object",
+        properties: { to: { type: "string", minLength: 1, description: "The new owner's SQL name." } },
+        required: ["to"],
+      },
+      example: { to: "ada" },
+    },
+  },
+};
+const TRANSFERRED = { "200": jsonOk("#/components/schemas/Transfer"), "400": ERROR_RESPONSE };
+
+const PEOPLE_PATHS = {
   "/api/projects/{id}/people": {
     get: op(projectAccess({
       summary: "List a project's people",
@@ -93,6 +125,74 @@ export const SHARING_PATHS = {
   },
 };
 
+const TRANSFER_PATHS = {
+  "/api/projects/{id}/transfer": {
+    post: op(projectAccess({
+      summary: "Transfer a project to one of its members",
+      description: TRANSFER_RULES +
+        "Makes one of the project's active members its owner: the recipient leaves the member list and the " +
+        "previous owner becomes an editor. The project keeps its name, note, other people and contents, and " +
+        "everything filed in it keeps its own owner. The project owner's alone: a member's attempt returns " +
+        "forbidden. A recipient who is not an active member (a deactivated member, someone outside the " +
+        "project, an unknown SQL name, the owner) is refused with invalid_request, and nothing changes. While " +
+        "the owner's account is deactivated nobody can transfer it. Answers the project's identity and its " +
+        "new owner.",
+      tag: "Projects",
+      tool: "transfer_project", mcp: TRANSFER,
+      display: { verb: "Transferred the project {subject} to {arg.to}", subject: { resource: "projects", argument: "id" } },
+      effects: writes(resource("projects", "id")),
+      confirm: true,
+      confirmation: { target: "Make someone else the owner of {target}?",
+        consequence: "They take over its people, sharing and deletion, and you stay on as an editor. Only they can give it back.",
+        subject: projectSubject },
+      parameters: [pathParam("id", "Project id.")],
+      requestBody: transferBody,
+      responses: TRANSFERRED,
+    })),
+  },
+  "/api/maps/{id}/transfer": {
+    post: op(mapAccess({
+      summary: "Transfer a map to someone who reaches it",
+      description: filedTransfer("map", "it keeps its layers, history, card images and its publication, " +
+        "which becomes the new owner's and renders with the new owner's reach: a dataset the new owner cannot " +
+        "reach fails on the link rather than drawing anything else"),
+      tag: "Maps",
+      tool: "transfer_map", mcp: TRANSFER,
+      relevance: [],
+      display: { verb: "Transferred the map {subject} to {arg.to}", subject: { resource: "maps", argument: "id" } },
+      effects: writes(resource("maps", "id")),
+      confirm: true,
+      confirmation: { target: "Make someone else the owner of {target}?",
+        consequence: "Its publication, deletion and transfer become theirs, and its SQL home stays as it is. Only they can give it back.",
+        subject: { path: "/api/maps/{id}", argument: "id", name: "name" } },
+      parameters: [pathParam("id", "Map id.")],
+      requestBody: transferBody,
+      responses: TRANSFERRED,
+    })),
+  },
+  "/api/recipes/{id}/transfer": {
+    post: op(workflowAccess({
+      summary: "Transfer a workflow to someone who reaches it",
+      description: filedTransfer("workflow", "it keeps its steps, layout and run history, while every run's " +
+        "outputs stay with the person who ran it"),
+      tag: "Recipes",
+      tool: "transfer_workflow", mcp: TRANSFER,
+      relevance: [],
+      display: { verb: "Transferred the workflow {subject} to {arg.to}", subject: { resource: "recipes", argument: "id" } },
+      effects: writes(resource("recipes", "id")),
+      confirm: true,
+      confirmation: { target: "Make someone else the owner of {target}?",
+        consequence: "Its deletion and transfer become theirs, and its SQL home and run history stay as they are. Only they can give it back.",
+        subject: { path: "/api/recipes/{id}", argument: "id", name: "recipe.name" } },
+      parameters: [pathParam("id", "Workflow id.")],
+      requestBody: transferBody,
+      responses: TRANSFERRED,
+    })),
+  },
+};
+
+export const SHARING_PATHS = { ...PEOPLE_PATHS, ...TRANSFER_PATHS };
+
 export const SHARING_SCHEMAS = {
   ProjectPerson: {
     type: "object",
@@ -107,6 +207,15 @@ export const SHARING_SCHEMAS = {
       },
     },
     required: ["name", "sqlName", "role", "deactivated"],
+  },
+  Transfer: {
+    type: "object",
+    description: "A completed transfer: the resource's identity and its new owner.",
+    properties: {
+      id: { type: "string" },
+      owner: { $ref: "#/components/schemas/ResourceOwner", description: "The new owner." },
+    },
+    required: ["id", "owner"],
   },
   ProjectPeople: {
     type: "object",

@@ -53,6 +53,7 @@ export const OWNER_QUERY_MODULES: Record<string, readonly Boundary[]> = {
   "src/lib/metadata/recipes.ts": ["projectReachable"],
   "src/lib/metadata/table-catalogue.ts": ["projectReachable"],
   "src/lib/metadata/tables.ts": ["projectReachable", "ownerOnly"],
+  "src/lib/metadata/transfers.ts": ["projectReachable"],
 };
 /** Modules that name owners only to define the schema, never to read rows. */
 export const SCHEMA_MODULES: readonly string[] = [

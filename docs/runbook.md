@@ -38,8 +38,9 @@ adopts them in the same transaction as the account, preferences and session.
 Failed adoption rolls back and can be retried. Existing identities, SQL,
 public links, credentials, memberships and artifact paths are preserved.
 Other accounts start with their own empty space. An admin flag does not grant
-access to the original account's content, and there is no ownership transfer
-operation. Deactivation freezes private work; reactivation restores access to
+access to the original account's content or a way to reassign it: only an
+owner can transfer their project, map or workflow, to someone it is already
+shared with. Deactivation freezes private work; reactivation restores access to
 the same records. Existing published links keep their read-only projection.
 New resources take their owner from the authenticated creator; request fields
 cannot assign a different owner. Dataset and connection names are unique within
