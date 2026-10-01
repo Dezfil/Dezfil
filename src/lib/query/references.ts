@@ -80,7 +80,7 @@ async function deserialize(conn: DuckDBConnection, expr: unknown): Promise<strin
 
 /** A constant expression's string value. A plain constant short-circuits;
  * anything else is round-tripped through the engine and evaluated. */
-async function constantValue(conn: DuckDBConnection, expr: unknown): Promise<string | null> {
+export async function constantValue(conn: DuckDBConnection, expr: unknown): Promise<string | null> {
   if (!isRecord(expr)) return null;
   if (expr.class === "CONSTANT") {
     const value = isRecord(expr.value) ? expr.value.value : null;
@@ -110,7 +110,7 @@ async function constantList(conn: DuckDBConnection, expr: unknown): Promise<stri
 }
 
 /** The argument's value(s): one name, or every name in a list. */
-async function constantValues(conn: DuckDBConnection, expr: unknown): Promise<string[]> {
+export async function constantValues(conn: DuckDBConnection, expr: unknown): Promise<string[]> {
   const single = await constantValue(conn, expr);
   return single !== null ? [single] : constantList(conn, expr);
 }
