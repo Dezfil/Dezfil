@@ -2,6 +2,7 @@ import type { Database } from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource, resourceAbsent, type OwnedResourceKind } from "@/lib/auth/owned-resource";
+import { requirePermitted } from "@/lib/auth/reach";
 import { metadataDb } from "./db";
 import * as projects from "./projects";
 export type { MemberChange, ProjectRecord } from "./projects";
@@ -51,11 +52,17 @@ export function createProject(scope: AccountScope, input: { name: unknown; note?
     return requireProject(scope, project.id, db);
   })();
 }
+/** Rename and note are the project owner's. */
 export function updateProject(scope: AccountScope, id: string, fields: { name?: unknown; note?: unknown }, db: Database = metadataDb()) {
-  return db.transaction(() => { requireProject(scope, id, db); return projects.updateProject(id, fields, db); })();
+  return db.transaction(() => {
+    if (fields.name !== undefined || fields.note === undefined) requirePermitted(scope, "project", id, "rename", db);
+    if (fields.note !== undefined) requirePermitted(scope, "project", id, "note", db);
+    return projects.updateProject(id, fields, db);
+  })();
 }
+/** Dissolution is the project owner's: the contents stay, unfiled. */
 export function deleteProject(scope: AccountScope, id: string, db: Database = metadataDb()) {
-  return db.transaction(() => { requireProject(scope, id, db); return projects.deleteProject(id, db); })();
+  return db.transaction(() => { requirePermitted(scope, "project", id, "dissolve", db); return projects.deleteProject(id, db); })();
 }
 export function changeMembers(scope: AccountScope, id: string, change: projects.MemberChange, db: Database = metadataDb()) {
   return db.transaction(() => {

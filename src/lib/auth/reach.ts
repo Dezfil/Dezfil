@@ -200,8 +200,9 @@ const OWNER: readonly Relation[] = ["owner"];
  * sketches drawn on the map, deletion and transfer are the owner's. Workflows: content changes and runs
  * likewise, deletion and transfer the owner's; a run reads a frozen space and
  * stays permitted. Datasets change, refresh and go only by their owner.
- * Projects: rename, note, dissolution, membership and transfer are the
- * owner's.
+ * Projects: rename, note, dissolution, membership (adding, changing and
+ * removing a project's people) and transfer are the owner's. Filing has its
+ * own rules, below.
  */
 export const ACTION_RULES = {
   map: {
@@ -256,4 +257,47 @@ export function requirePermitted<K extends ReachKind>(scope: AccountScope, kind:
   if (!rule.by.includes(reached.relation)) throw permissionRefused();
   if (reached.frozen && rule.frozen === "refuse") throw permissionRefused();
   return reached;
+}
+
+/** What a project can hold: maps and workflows at most once, datasets in any
+ * number of projects. */
+export type FilingKind = "map" | "workflow" | "dataset";
+const FILED: Record<FilingKind, string> = {
+  map: "SELECT owner_id AS owner FROM maps WHERE id = ? AND project_id = ?",
+  workflow: "SELECT owner_id AS owner FROM recipes WHERE id = ? AND project_id = ?",
+  dataset: `SELECT t.owner_id AS owner FROM data_tables t JOIN project_datasets pd ON pd.table_id = t.id
+    WHERE t.id = ? AND pd.project_id = ?`,
+};
+
+/**
+ * Filing a resource into a project. Adding needs the destination's
+ * permission: the resource must be the acting account's own, and the account
+ * must own the project or be its editor. A frozen project, one whose owner is
+ * deactivated, accepts nothing new. Filing is not content, so a resource's own
+ * freeze does not stop it.
+ */
+export function requireFilingAddition(scope: AccountScope, kind: FilingKind, id: string, projectId: string,
+  db: Database = metadataDb()): void {
+  const resource = requireReachable(scope, kind, id, db);
+  const project = requireReachable(scope, "project", projectId, db);
+  if (resource.relation !== "owner") throw permissionRefused();
+  if (project.relation !== "owner" && project.relation !== "editor") throw permissionRefused();
+  if (project.frozen) throw permissionRefused();
+}
+
+/**
+ * Taking a resource out of a project. Its owner may always withdraw it, from
+ * any project it is filed in, a frozen one included and whatever their
+ * standing there; the project's owner may remove anything from their project,
+ * a frozen resource included. Removal never deletes or reassigns anything.
+ */
+export function requireFilingRemoval(scope: AccountScope, kind: FilingKind, id: string, projectId: string,
+  db: Database = metadataDb()): void {
+  const me = requireAccountScope(scope, db);
+  const filed = db.prepare(FILED[kind]).get(id, projectId) as { owner: string } | undefined;
+  if (!filed) throw resourceAbsent();
+  if (filed.owner === me) return;
+  const project = standing(scope, "project", projectId, db);
+  if (!project) throw resourceAbsent();
+  if (project.relation !== "owner") throw permissionRefused();
 }
