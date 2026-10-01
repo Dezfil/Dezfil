@@ -193,7 +193,7 @@ describe("cancelling a run", () => {
   const cancel: Case = { label: "cancel", kind: "owner", method: "POST", path: p => `/api/recipes/${p.id}/runs/${p.runId}/cancel`, load: route.cancel, params: W };
   const run = (runId: string): Params => ({ id: "W", stepId: "S", runId });
 
-  it("is its initiator's or its workflow owner's, a viewer-turned initiator included", () => {
+  it("is its initiator's or its workflow owner's, a viewer-turned initiator and one who left included", () => {
     const allowed = (account: string, runId: string) => {
       try { requireCancellable(testAccountScope(db, account), runId, db); return "allowed"; }
       catch (error) { return (error as { code: string }).code; }
@@ -204,8 +204,10 @@ describe("cancelling a run", () => {
       .toEqual(["allowed", "forbidden", "allowed", "forbidden", "not_found"]);
     db.prepare("UPDATE project_people SET role = 'viewer' WHERE account_id = 'ed'").run();
     expect(allowed("ed", "RE")).toBe("allowed");
+    // An initiator who no longer reaches the workflow keeps their own run's.
     db.prepare("DELETE FROM project_people WHERE account_id = 'ed'").run();
-    expect(allowed("ed", "RE")).toBe("not_found");
+    expect(allowed("ed", "RE")).toBe("allowed");
+    expect(allowed("ed", "R")).toBe("not_found");
   });
 
   it("refuses everyone but the initiator and the owner on the route", async () => {

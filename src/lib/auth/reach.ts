@@ -261,13 +261,23 @@ export const ACTION_RULES = {
 /** The actions a kind's family names. */
 export type ActionOf<K extends ReachKind> = keyof (typeof ACTION_RULES)[(typeof FAMILY)[K]];
 
-/** A run's cancellation: its initiator's, whatever their role is now (a
- * viewer included), or its workflow owner's, for anyone who still reaches the
- * run. The initiator is read from the run's own record. */
-export function requireCancellable(scope: AccountScope, runId: string, db: Database = metadataDb()): Reached {
-  const reached = requireReachable(scope, "cascade", runId, db);
-  const run = db.prepare("SELECT initiator_id FROM cascade_runs WHERE id = ?").get(runId) as { initiator_id: string | null };
-  if (reached.relation !== "owner" && run.initiator_id !== scope.accountId) throw permissionRefused();
+/**
+ * A run's cancellation: its initiator's, whatever their role is now (a viewer
+ * included) and even once they no longer reach its workflow, since the run is
+ * their work; or its workflow owner's. The initiator is read from the run's
+ * own record. Anyone else who reaches the run is refused by the permission
+ * shape, anyone else by the absent one. Returns how the caller reaches the
+ * run, or null for an initiator who no longer does: cancelling grants them no
+ * view of it.
+ */
+export function requireCancellable(scope: AccountScope, runId: string, db: Database = metadataDb()): Reached | null {
+  const me = requireAccountScope(scope, db);
+  const run = db.prepare(`SELECT COALESCE(c.initiator_id, r.owner_id) AS initiator FROM cascade_runs c
+    JOIN recipes r ON r.id = c.recipe_id WHERE c.id = ?`).get(runId) as { initiator: string | null } | undefined;
+  const reached = standing(scope, "cascade", runId, db);
+  if (run && run.initiator === me) return reached;
+  if (!reached) throw resourceAbsent();
+  if (reached.relation !== "owner") throw permissionRefused();
   return reached;
 }
 
@@ -280,6 +290,20 @@ export function requirePermitted<K extends ReachKind>(scope: AccountScope, kind:
   if (!rule.by.includes(reached.relation)) throw permissionRefused();
   if (reached.frozen && rule.frozen === "refuse") throw permissionRefused();
   return reached;
+}
+
+/** Whether the acting account's standing permits the action now: the
+ * permission rule as an answer rather than a refusal. An inactive account is
+ * still refused, as everywhere. */
+export function isPermitted<K extends ReachKind>(scope: AccountScope, kind: K, id: string,
+  action: ActionOf<K>, db: Database = metadataDb()): boolean {
+  try {
+    requirePermitted(scope, kind, id, action, db);
+    return true;
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 403 || error.status === 404)) return false;
+    throw error;
+  }
 }
 
 /** What a project can hold: maps and workflows at most once, datasets in any

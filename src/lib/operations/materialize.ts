@@ -106,6 +106,11 @@ export interface MaterializeRequest {
    * landed. The artifact is the one the engine's catalog actually bound, not
    * the one a later registry or shared catalog read names. Execution and
    * evidence are pinned together on the evaluation’s own connection.
+   *
+   * Before it is called, every input that was someone else's when the run
+   * bound it must still be within the runner's reach: one withdrawn since
+   * (unfiled, deleted, or out of reach once the runner left the project)
+   * refuses the output, though the run already read it.
    */
   authorize?: (
     table: DataTable,
@@ -160,6 +165,11 @@ export interface BoundInput {
   name: string;
   /** The artifact file the run resolved for this input. */
   artifact: string;
+  /** Whose dataset it was when the run bound it; unknown is treated as
+   * someone else's. */
+  ownerId?: string | null;
+  /** The reference as the statement wrote it, for a refusal that names it. */
+  written?: string;
 }
 
 export interface DryRun {
@@ -380,8 +390,16 @@ export async function materialize(
     const resolved = reads.datasets
       .map((dataset) => snapshot.byId.get(dataset.id))
       .filter((t): t is BoundTable => t !== undefined);
+    const ownerOf = new Map(reads.datasets.map((dataset) => [dataset.id, dataset.ownerId]));
+    const writtenOf = new Map<string, string>();
+    for (const read of reads.reads) {
+      if (read.resolution.status === "bound" && !writtenOf.has(read.resolution.dataset.id)) {
+        writtenOf.set(read.resolution.dataset.id, read.written);
+      }
+    }
     const bound: BoundInput[] = resolved.map((t) => ({
       id: t.id, name: t.name, artifact: t.file,
+      ownerId: ownerOf.get(t.id) ?? null, written: writtenOf.get(t.id) ?? t.name,
     }));
     // An input whose geometry this query reads passes its uncertainty on; one
     // contributing only attributes does not.

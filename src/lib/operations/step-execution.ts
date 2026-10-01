@@ -9,7 +9,7 @@ import { planPublication, stepAuthorizer } from "./step-run";
 import { recipeStanding } from "@/lib/metadata/owned-recipes";
 import { getStep as getStepRow } from "@/lib/metadata/recipes";
 import { fileTable } from "@/lib/metadata/owned-projects";
-import { mayFileInto, requirePermitted } from "@/lib/auth/reach";
+import { isPermitted, mayFileInto, requirePermitted } from "@/lib/auth/reach";
 import { workflowEvaluation } from "@/lib/query/context";
 
 /**
@@ -117,14 +117,16 @@ export async function startStepRun(
 
 /** The output follows the workflow's project as it is AT THE PUBLISHING
  * COMMIT — read inside the publication transaction, never captured at
- * run start — and is filed there only when the runner may file into that
- * project then (its owner, or an editor, while its owner is active).
- * Otherwise the output completes unfiled. Exported so the race test
- * exercises the exact function production runs. */
+ * run start — and is filed there only when the runner may still run the
+ * workflow and may file into that project then (its owner, or an editor,
+ * while its owner is active). Otherwise the output completes unfiled: a
+ * private completion files nothing. Exported so the race test exercises
+ * the exact function production runs. */
 export function stepOutputFiler(scope: AccountScope, stepId: string) {
   return (table: { id: string }, db: Database): void => {
     const current = getStepRow(stepId, db);
-    const projectId = current ? recipeStanding(current.recipeId, db)?.projectId : null;
+    if (!current || !isPermitted(scope, "step", stepId, "run", db)) return;
+    const projectId = recipeStanding(current.recipeId, db)?.projectId;
     if (projectId && mayFileInto(scope, projectId, db)) fileTable(scope, table.id, projectId, db);
   };
 }

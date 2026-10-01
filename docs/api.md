@@ -67,8 +67,16 @@ is its runner's: it reads in the workflow's SQL home within the runner's
 reach, its outputs are created as the runner's own datasets, never replacing
 anyone else's, and are filed into the workflow's project as it stands when
 each output commits, when the runner may file there; a rerun replaces only
-the same runner's earlier output of that step. A run is cancelled by its
-initiator or the workflow's owner. SQL that anyone but a map's or workflow's owner saves into
+the same runner's earlier output of that step. At each output's commit the
+runner's permission and reach to every input are asked again: an input
+another person owns that the runner no longer reaches refuses the output
+with `sql_error` naming it as written, even though the step already read it;
+a runner who may no longer run the workflow completes the steps already
+admitted privately, into their own datasets, unfiled, without changing the
+workflow's recorded outputs, proposals or definitions, and no further step
+is admitted. A run is cancelled by its initiator or the workflow's owner;
+the initiator keeps that right after they stop reaching the workflow,
+answered `204` without the run. SQL that anyone but a map's or workflow's owner saves into
 it (a layer's SQL, a step's SQL or dataset parameters, or SQL that undo and
 redo would put back) must name only datasets within that person's own reach
 in the resource's SQL home, a workflow's declared outputs aside: otherwise

@@ -1,5 +1,6 @@
 import type { AccountScope } from "@/lib/auth/scope";
 import { resourceAbsent } from "@/lib/auth/owned-resource";
+import { metadataDb } from "@/lib/metadata/db";
 import { requireCancellable, requirePermitted, requireReachable, type Reached } from "@/lib/auth/reach";
 
 /**
@@ -30,9 +31,11 @@ export function requireWorkflowRunStart(scope: AccountScope, recipeId: string, s
     : requirePermitted(scope, "step", stepId, "run");
 }
 
-/** Cancelling a run named under its workflow: its initiator or the
- * workflow's owner. */
-export function requireRunCancellation(scope: AccountScope, recipeId: string, runId: string): Reached {
-  if (requireReachable(scope, "cascade", runId).parentId !== recipeId) throw resourceAbsent();
+/** Cancelling a run named under its workflow: its initiator, reaching the
+ * workflow or not, or the workflow's owner. Null for an initiator who no
+ * longer reaches it. */
+export function requireRunCancellation(scope: AccountScope, recipeId: string, runId: string): Reached | null {
+  const parent = metadataDb().prepare("SELECT recipe_id FROM cascade_runs WHERE id = ?").get(runId) as { recipe_id: string } | undefined;
+  if (parent?.recipe_id !== recipeId) throw resourceAbsent();
   return requireCancellable(scope, runId);
 }

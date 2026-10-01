@@ -4,7 +4,7 @@ import type { Database } from "better-sqlite3";
 import { ApiError } from "@/lib/api/errors";
 import { setMember, requireCascadeMember } from "@/lib/metadata/owned-cascades";
 import { resourceAbsent } from "@/lib/auth/owned-resource";
-import { requirePermitted } from "@/lib/auth/reach";
+import { isPermitted } from "@/lib/auth/reach";
 import { replaceEdges } from "@/lib/metadata/lineage";
 import {
   getStep as getStepRow,
@@ -43,6 +43,15 @@ import type { BoundInput } from "./materialize";
  * the runner's own row for the step, so one runner never replaces another's
  * output. A rerun replaces only the same runner's recorded output of the same
  * step.
+ *
+ * **Authority is asked again at commit.** A runner who may no longer run the
+ * workflow when the output commits (no longer its editor, or no longer
+ * reaching it) still completes what was admitted, privately: the dataset is
+ * written into the runner's own space and the job and the run record what
+ * happened, but the workflow's record is not touched. No output row, no
+ * lineage, no promotion of a proposal, and no filing (the filer asks the same
+ * question). The runner must still be active, and every input still within
+ * their reach, which the publication checks before this.
  */
 
 /** What a step run needs to know before it starts. */
@@ -127,10 +136,6 @@ export function stepAuthorizer(
     const current = getStepRow(plan.step.id, db);
     if (!current) return false;
     if (cascadeId) requireCascadeMember(scope, cascadeId, plan.step.id, db);
-    // The runner may still run it: the permission is checked as the output
-    // commits, not only when the run was admitted.
-    try { requirePermitted(scope, "step", plan.step.id, "run", db); }
-    catch (error) { if (error instanceof ApiError) return false; throw error; }
 
     // Superseded: the definition this run was executing is no longer the one
     // the step would run now.
@@ -156,29 +161,33 @@ export function stepAuthorizer(
     // succeeded run can never disagree.
     if (!jobFinished(db, { id: table.id, name: table.name })) return false;
 
-    // The runner's own row and the step's latest association, written together.
-    recordOutput(
-      plan.step.id,
-      { id: table.id, name: table.name },
-      new Date().toISOString(),
-      db,
-      { accountId: scope.accountId, jobId: jobId ?? null, runId: cascadeId ?? null },
-    );
-    // Replace, never append: a re-run may read different tables, and an edge
-    // left behind would keep propagating staleness from one it no longer reads.
-    replaceEdges(
-      scope,
-      plan.step.id,
-      table.id,
-      inputs.map((i) => ({
-        inputTableId: i.id,
-        inputTableName: i.name,
-        boundArtifact: i.artifact,
-      })),
-      db,
-    );
-    // A proposal becomes the step's meaning only now that a run of it worked.
-    if (plan.isProposal) promoteProposal(plan.step.id, db);
+    // Whether the output joins the workflow's record is decided by the
+    // runner's standing now, not when the run was admitted.
+    if (isPermitted(scope, "step", plan.step.id, "run", db)) {
+      // The runner's own row and the step's latest association, written together.
+      recordOutput(
+        plan.step.id,
+        { id: table.id, name: table.name },
+        new Date().toISOString(),
+        db,
+        { accountId: scope.accountId, jobId: jobId ?? null, runId: cascadeId ?? null },
+      );
+      // Replace, never append: a re-run may read different tables, and an edge
+      // left behind would keep propagating staleness from one it no longer reads.
+      replaceEdges(
+        scope,
+        plan.step.id,
+        table.id,
+        inputs.map((i) => ({
+          inputTableId: i.id,
+          inputTableName: i.name,
+          boundArtifact: i.artifact,
+        })),
+        db,
+      );
+      // A proposal becomes the step's meaning only now that a run of it worked.
+      if (plan.isProposal) promoteProposal(plan.step.id, db);
+    }
 
     if (cascadeId) {
       setMember(

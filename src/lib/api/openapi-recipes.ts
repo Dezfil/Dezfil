@@ -656,7 +656,14 @@ export const RECIPE_PATHS = {
         pathParam("id", "Recipe id."),
         pathParam("runId", "Recipe run id."),
       ],
-      responses: { "200": jsonOk("#/components/schemas/RecipeRunEnvelope") },
+      responses: {
+        "200": jsonOk("#/components/schemas/RecipeRunEnvelope"),
+        "204": {
+          description:
+            "Cancelled for its initiator, who no longer reaches the " +
+            "workflow: the run is not shown.",
+        },
+      },
     }))),
   },
 };

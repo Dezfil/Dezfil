@@ -1,10 +1,8 @@
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { requireRunCancellation } from "@/lib/workflow-access";
-import { resourceAbsent } from "@/lib/auth/owned-resource";
-import { requireReachable } from "@/lib/auth/reach";
+import { canReach } from "@/lib/auth/reach";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
-import { readReachedCascade } from "@/lib/metadata/owned-cascades";
 import { cancelCascade, readCascade } from "@/lib/operations/cascade";
 import { cascadePayload } from "@/lib/operations/recipe-api";
 
@@ -23,19 +21,19 @@ type Params = { params: Promise<{ id: string; runId: string }> };
  *
  * Cancelling one that has already finished is not an error — "make sure this is
  * not running" is already true of it.
+ *
+ * The run's initiator keeps this right after they stop reaching its workflow,
+ * by the run's identifier: the run is their work. They are answered 204 with
+ * no body, since cancelling grants no view of a workflow they cannot reach.
  */
 export async function POST(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id, runId } = await params;
-    // The run's initiator or its workflow's owner.
+    // The run's initiator, reaching it or not, or its workflow's owner.
     requireRunCancellation(scope, id, runId);
-    const existing = readReachedCascade(scope, runId);
-    if (!existing || existing.recipeId !== id) {
-      throw resourceAbsent();
-    }
     await cancelCascade(scope, runId);
-    requireReachable(scope, "cascade", runId);
+    if (!canReach(scope, "cascade", runId)) return new NextResponse(null, { status: 204 });
     return NextResponse.json({ run: cascadePayload(readCascade(scope, runId)) });
   } catch (error) {
     return errorResponse(error);
