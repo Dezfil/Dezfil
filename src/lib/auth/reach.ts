@@ -237,6 +237,16 @@ export const ACTION_RULES = {
 /** The actions a kind's family names. */
 export type ActionOf<K extends ReachKind> = keyof (typeof ACTION_RULES)[(typeof FAMILY)[K]];
 
+/** A run's cancellation: its initiator's, whatever their role is now (a
+ * viewer included), or its workflow owner's, for anyone who still reaches the
+ * run. The initiator is read from the run's own record. */
+export function requireCancellable(scope: AccountScope, runId: string, db: Database = metadataDb()): Reached {
+  const reached = requireReachable(scope, "cascade", runId, db);
+  const run = db.prepare("SELECT initiator_id FROM cascade_runs WHERE id = ?").get(runId) as { initiator_id: string | null };
+  if (reached.relation !== "owner" && run.initiator_id !== scope.accountId) throw permissionRefused();
+  return reached;
+}
+
 /** The reachable resource when its standing permits the action: else the
  * absent refusal for an unreachable one, the permission refusal otherwise. */
 export function requirePermitted<K extends ReachKind>(scope: AccountScope, kind: K, id: string,

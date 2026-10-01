@@ -1,4 +1,5 @@
 import { requireRequestScope } from "@/lib/auth/scope-http";
+import { requireWorkflowViewWrite } from "@/lib/workflow-access";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { listCascades } from "@/lib/metadata/owned-cascades";
@@ -40,6 +41,7 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id } = await params;
+    requireWorkflowViewWrite(scope, id, "run");
     // **Absent is not the same as malformed here, and conflating them is not a
     // tidiness question.** On this endpoint an absent body means *run the whole
     // recipe*, so treating a truncated payload or a mistyped field as absent

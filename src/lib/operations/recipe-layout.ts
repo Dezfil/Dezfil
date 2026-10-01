@@ -2,6 +2,8 @@ import type { AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
 import { requireRecipe, listSteps, touchRecipe } from "@/lib/metadata/owned-recipes";
+import { requirePermitted } from "@/lib/auth/reach";
+import { listSteps as listRecipeSteps } from "@/lib/metadata/recipes";
 import {
   canonicalLayout,
   getLayout,
@@ -43,8 +45,10 @@ export function writeLayout(
   db: Database = metadataDb(),
 ): StoredLayout {
   return db.transaction(() => {
-    requireRecipe(scope, recipeId, db);
-    const stepIds = stepIdsOf(scope, recipeId, db);
+    // An edit, answered with the raw document: the owner's, the project
+    // owner's or an editor's.
+    requirePermitted(scope, "workflow", recipeId, "edit", db);
+    const stepIds = new Set(listRecipeSteps(recipeId, db).map((s) => s.id));
     const document = normalizeLayout(body, stepIds);
     const current = getLayout(recipeId, db);
     const seen = pruneLayout(current.document, stepIds);

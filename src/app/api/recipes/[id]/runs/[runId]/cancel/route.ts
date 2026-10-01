@@ -1,4 +1,5 @@
 import { requireRequestScope } from "@/lib/auth/scope-http";
+import { requireViewableCancellation } from "@/lib/workflow-access";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
@@ -26,8 +27,9 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id, runId } = await params;
-    requireOwnedResource(scope, "workflow", id);
-    requireOwnedResource(scope, "cascade", runId);
+    // The run's initiator or its workflow's owner; the owner alone while the
+    // answer is the run view.
+    requireViewableCancellation(scope, id, runId);
     const existing = getCascade(scope, runId);
     if (!existing || existing.recipeId !== id) {
       throw resourceAbsent();

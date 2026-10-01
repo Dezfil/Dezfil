@@ -1,11 +1,10 @@
-import { resourceAbsent } from "@/lib/auth/owned-resource";
 import { requireRequestScope } from "@/lib/auth/scope-http";
+import { requireWorkflowViewWrite } from "@/lib/workflow-access";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
 import {
   addStep,
-  getRecipe,
   listSteps,
   touchRecipe,
   type RecipeStep,
@@ -42,9 +41,7 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id } = await params;
-    if (!getRecipe(scope, id)) {
-      throw resourceAbsent();
-    }
+    requireWorkflowViewWrite(scope, id, "edit");
     const body = await jsonBody(request);
     const operation = findOperation(requireString(body, "operation"));
     const parameters =

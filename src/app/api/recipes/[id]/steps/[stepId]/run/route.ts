@@ -1,4 +1,5 @@
 import { requireRequestScope } from "@/lib/auth/scope-http";
+import { requireWorkflowViewWrite } from "@/lib/workflow-access";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
 import { readCascade, startSingleRun } from "@/lib/operations/cascade";
@@ -29,6 +30,7 @@ export async function POST(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id, stepId } = await params;
+    requireWorkflowViewWrite(scope, id, "run", stepId);
     // A node's own run is one of the recipe's runs: one member, the same
     // lock, the same driver. Ordinary refusal removes it before the request
     // answers; accepted cancellation retains the listable exception.

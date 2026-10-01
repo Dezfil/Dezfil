@@ -1,5 +1,6 @@
 import { requireStep } from "@/lib/metadata/owned-recipes";
 import { requireRequestScope } from "@/lib/auth/scope-http";
+import { requireWorkflowViewWrite } from "@/lib/workflow-access";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
@@ -51,6 +52,7 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id, stepId } = await params;
+    requireWorkflowViewWrite(scope, id, "edit", stepId);
     const step = requireStep(scope, id, stepId);
     const body = await jsonBody(request);
 
@@ -142,6 +144,9 @@ export async function DELETE(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id, stepId } = await params;
+    // The answer derives the output's existence and its readers in the
+    // caller's own space, so this stays the owner's for now.
+    requireWorkflowViewWrite(scope, id, "edit", stepId);
     const step = requireStep(scope, id, stepId);
     const steps = listSteps(scope, id);
     const exists =
