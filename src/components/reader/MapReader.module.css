@@ -1,0 +1,21 @@
+/* A Viewer's map. There is no inspector, so the stage's left edge moves to
+   where the inspector itself would stand (the builder's rail sits at
+   82px); every stage site reads `--stage-left`, which follows. */
+:global(body[data-map-reader]) {
+  --stage-left-base: 82px;
+}
+
+/* A layer the reader cannot draw: the shipped failure note, top centre
+   over the map, clear of the stack on the left and the widgets on the
+   right. */
+.failures {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  width: min(420px, calc(100% - 140px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

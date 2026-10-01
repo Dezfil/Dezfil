@@ -919,3 +919,14 @@ export function InsertIcon() {
     </Svg>
   );
 }
+
+/** People: the mark of a project shared between people. Never the
+ * three-node share glyph, which already says "also in another project". */
+export function PeopleIcon() {
+  return (
+    <Svg>
+      <circle cx="9.2" cy="8.4" r="3.2" />
+      <path d="M3.2 19.6c.7-3.1 3.1-5 6-5s5.3 1.9 6 5M15.4 5.6a3.2 3.2 0 0 1 0 5.6M17.6 14.9c1.7.6 3 2.2 3.5 4.7" />
+    </Svg>
+  );
+}

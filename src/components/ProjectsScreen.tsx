@@ -39,6 +39,9 @@ import {
   type ProjectsSort,
 } from "./projects/model";
 import { useProjectsWorld, type ProjectsWorld } from "./projects/read";
+import { PeopleChip } from "./sharing/PeopleMarks";
+import { peopleMark } from "./sharing/people";
+import { useProjectPeople } from "./sharing/use-project-people";
 import { useViewPrefs } from "./use-view-prefs";
 import gallery from "./gallery.module.css";
 import styles from "./ProjectsScreen.module.css";
@@ -114,6 +117,19 @@ export function ProjectsScreen() {
           })
         : new Map<string, PictureItem[]>(),
     [world],
+  );
+  // A project's people are its owner's to see counted: the projects one
+  // owns are asked; one shared with one already says whose it is.
+  const ownedIds = useMemo(
+    () =>
+      (world?.projects ?? [])
+        .filter((p) => !p.role || p.role === "owner")
+        .map((p) => p.id),
+    [world],
+  );
+  const people = useProjectPeople(ownedIds);
+  const markOf = (p: ProjectOverview) => (
+    <PeopleChip mark={peopleMark(p, people.get(p.id))} />
   );
   const wfCounts = useMemo(
     () => (world ? workflowCounts(world.workflows) : new Map<string, number>()),
@@ -286,18 +302,23 @@ export function ProjectsScreen() {
 
   const acts = (p: ProjectOverview, rowStyle: string) => {
     const armed = confirmId === p.id;
+    // Someone else's project: exporting what one can read is all that
+    // is one's own to do here.
+    const owned = !p.role || p.role === "owner";
     return (
       <span className={rowStyle}>
-        <button
-          data-hint="Rename project"
-          aria-label={`Rename ${p.name}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            setEditing({ id: p.id, value: p.name });
-          }}
-        >
-          <IconRename />
-        </button>
+        {owned && (
+          <button
+            data-hint="Rename project"
+            aria-label={`Rename ${p.name}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditing({ id: p.id, value: p.name });
+            }}
+          >
+            <IconRename />
+          </button>
+        )}
         <button
           data-hint="Export bundle"
           aria-label={`Export ${p.name}`}
@@ -308,25 +329,27 @@ export function ProjectsScreen() {
         >
           <IconDownload />
         </button>
-        <button
-          className={gallery.deleteAct}
-          data-confirm={armed || undefined}
-          data-hint={armed ? undefined : "Delete project"}
-          aria-label={
-            armed
-              ? `Really delete ${p.name}? Its members stay, unfiled`
-              : `Delete ${p.name}`
-          }
-          disabled={deletingId === p.id}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (armed) void deleteProject(p.id);
-            else setConfirmId(p.id);
-          }}
-          onBlur={() => setConfirmId(null)}
-        >
-          {armed ? "Delete? Members stay" : <IconTrash />}
-        </button>
+        {owned && (
+          <button
+            className={gallery.deleteAct}
+            data-confirm={armed || undefined}
+            data-hint={armed ? undefined : "Delete project"}
+            aria-label={
+              armed
+                ? `Really delete ${p.name}? Its members stay, unfiled`
+                : `Delete ${p.name}`
+            }
+            disabled={deletingId === p.id}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (armed) void deleteProject(p.id);
+              else setConfirmId(p.id);
+            }}
+            onBlur={() => setConfirmId(null)}
+          >
+            {armed ? "Delete? Members stay" : <IconTrash />}
+          </button>
+        )}
       </span>
     );
   };
@@ -449,6 +472,7 @@ export function ProjectsScreen() {
                     <ProjectCard
                       key={p.id}
                       project={p}
+                      mark={markOf(p)}
                       picture={pictures.get(p.id) ?? []}
                       workflowCount={wfCounts.get(p.id) ?? 0}
                       groupOf={groupOf}
@@ -478,6 +502,7 @@ export function ProjectsScreen() {
                     <ProjectRow
                       key={p.id}
                       project={p}
+                      mark={markOf(p)}
                       picture={pictures.get(p.id) ?? []}
                       workflowCount={wfCounts.get(p.id) ?? 0}
                       groupOf={groupOf}

@@ -87,6 +87,9 @@ export interface WorkflowListing {
   origin: RecipeOrigin;
   /** The project this workflow is in; null = not in one. */
   projectId: string | null;
+  /** Its owner, and the SQL name of its SQL home. */
+  owner?: { name: string; sqlName: string };
+  home?: string;
   createdAt: string;
   updatedAt: string;
   summary: RecipeSummary;

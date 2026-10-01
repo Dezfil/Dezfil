@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import { IconCaret, IconFolder } from "../gallery-icons";
 import { Menu, MenuItem } from "../ui/Menu";
 import { CheckIcon } from "../ui/icons";
@@ -69,37 +70,64 @@ export function ScopeFilter({
         </span>
       }
     >
+      <ScopeMenuRows rows={rows} scope={scope} onPick={onPick} />
+    </Menu>
+  );
+}
+
+/** The popover's rows: All projects, the reader's own projects, then the
+ * projects shared with them under a rule and its heading, each with its
+ * owner's first name, and Not in a project last. */
+export function ScopeMenuRows({
+  rows,
+  scope,
+  onPick,
+}: {
+  rows: ScopeRow[];
+  scope: ProjectScope;
+  onPick: (id: string) => void;
+}) {
+  const active = activeRow(rows, scope);
+  const scoped = scope.kind === "none" || scope.kind === "project";
+  const firstShared = rows.find((row) => row.shared)?.id ?? null;
+  return (
+    <>
       {rows.map((row) => {
         const count = printedCount(row);
+        const isActive = row.id === active.id && (scoped || row.id === "all");
         return (
-          <MenuItem
-            key={row.id}
-            className={
-              [
-                row.id === "none" ? styles.unfiledRow : null,
-                row.id === active.id && (scoped || row.id === "all")
-                  ? styles.activeRow
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(" ") || undefined
-            }
-            onSelect={() => onPick(row.id)}
-          >
-            <span className={styles.rowName}>{row.name}</span>
-            {count !== null && (
-              <span className={styles.rowCount} data-scope-count>
-                {count}
-              </span>
+          <Fragment key={row.id}>
+            {row.id === firstShared && (
+              <>
+                <span className={styles.rule} role="separator" />
+                <span className={styles.groupHead}>Shared with you</span>
+              </>
             )}
-            <span className={styles.rowCheck}>
-              {row.id === active.id && (scoped || row.id === "all") ? (
-                <CheckIcon />
-              ) : null}
-            </span>
-          </MenuItem>
+            <MenuItem
+              className={
+                [
+                  row.id === "none" ? styles.unfiledRow : null,
+                  isActive ? styles.activeRow : null,
+                ]
+                  .filter(Boolean)
+                  .join(" ") || undefined
+              }
+              onSelect={() => onPick(row.id)}
+            >
+              <span className={styles.rowName}>{row.name}</span>
+              {row.owner && <span className={styles.rowOwner}>{row.owner}</span>}
+              {count !== null && (
+                <span className={styles.rowCount} data-scope-count>
+                  {count}
+                </span>
+              )}
+              <span className={styles.rowCheck}>
+                {isActive ? <CheckIcon /> : null}
+              </span>
+            </MenuItem>
+          </Fragment>
         );
       })}
-    </Menu>
+    </>
   );
 }

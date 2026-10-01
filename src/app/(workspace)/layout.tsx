@@ -11,6 +11,8 @@ import { ThemeProvider, ThemeToggle } from "@/components/theme";
 import styles from "./layout.module.css";
 import { requirePageScope } from "@/lib/auth/scope-page";
 import { PrivateWorkspace } from "@/components/auth/PrivateWorkspace";
+import { SignedIn } from "@/components/sharing/signed-in";
+import { accountLabels } from "@/lib/metadata/accounts";
 
 // The Wheelhouse workspace shell: a floating header card (wordmark +
 // breadcrumb) with the action row beside it, and a left icon rail for
@@ -23,8 +25,12 @@ export default async function WorkspaceLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const scope = await requirePageScope();
+  // Who is signed in, by display name and SQL name: the lists mark what
+  // someone else owns against it.
+  const signedIn = accountLabels([scope.accountId]).get(scope.accountId) ?? null;
   return (
     <PrivateWorkspace key={scope.accountId} accountId={scope.accountId}>
+    <SignedIn account={signedIn}>
     <ThemeProvider>
       <ShellTitle />
       <header className={styles.topbar}>
@@ -51,6 +57,7 @@ export default async function WorkspaceLayout({
       <main className={styles.main}>{children}</main>
       <HintLayer />
     </ThemeProvider>
+    </SignedIn>
     </PrivateWorkspace>
   );
 }

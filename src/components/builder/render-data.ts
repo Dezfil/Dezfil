@@ -118,9 +118,10 @@ export function vizTile(
  * layer state, not a page error (spec: errored layers). */
 export async function fetchLayerRender(
   layerId: string,
+  fetcher: typeof fetch = fetch,
 ): Promise<LayerRenderData> {
   try {
-    const response = await fetch(`/api/layers/${layerId}/render`);
+    const response = await fetcher(`/api/layers/${layerId}/render`);
     const body = (await response.json()) as LayerRenderData;
     return body;
   } catch {

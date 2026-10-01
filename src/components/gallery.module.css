@@ -710,6 +710,12 @@
   min-width: 0;
 }
 
+/* Someone else's item: the owner's pill follows the name. */
+.colName:has([data-owner-pill]) {
+  display: flex;
+  align-items: center;
+}
+
 .rowName {
   display: block;
   font-size: var(--text-heading);

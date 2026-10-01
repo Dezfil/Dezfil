@@ -29,6 +29,9 @@ import { AddToProjectDialog } from "./projects/AddToProjectDialog";
 import { actionLabel } from "./projects/add-model";
 import { PlusIcon } from "./ui/icons";
 import { WorkflowThumb } from "./WorkflowThumb";
+import { OwnerPill } from "./sharing/PeopleMarks";
+import { ownedByOther } from "./sharing/people";
+import { useSignedInSqlName } from "./sharing/signed-in";
 import {
   datasetWord,
   matchesQuery,
@@ -71,6 +74,11 @@ async function fetchWorkflowsScoped(param: string): Promise<WorkflowListing[]> {
 
 export function WorkflowsScreen() {
   const router = useRouter();
+  // Someone else's workflow is marked with its owner; filing and deleting
+  // stay theirs.
+  const me = useSignedInSqlName();
+  const othersOwner = (w: WorkflowListing) =>
+    ownedByOther(w.owner, me) ? w.owner : null;
   const { scope, setScope } = useProjectScope();
   const {
     state: listState,
@@ -203,18 +211,21 @@ export function WorkflowsScreen() {
   ) => {
     const live = w.summary.liveOutputs;
     const armed = confirmId === w.id;
+    const mine = othersOwner(w) === null;
     return (
       <span className={rowStyle}>
-        <button
-          data-hint={actionLabel("workflow", !!w.projectId)}
-          aria-label={`${actionLabel("workflow", !!w.projectId)}: ${w.name}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            setFiling(w);
-          }}
-        >
-          <IconFolderPlus />
-        </button>
+        {mine && (
+          <button
+            data-hint={actionLabel("workflow", !!w.projectId)}
+            aria-label={`${actionLabel("workflow", !!w.projectId)}: ${w.name}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setFiling(w);
+            }}
+          >
+            <IconFolderPlus />
+          </button>
+        )}
         {withOpen && (
           <button
             data-hint="Open"
@@ -238,27 +249,29 @@ export function WorkflowsScreen() {
         >
           <IconDuplicate />
         </button>
-        <button
-          className={gallery.deleteAct}
-          data-confirm={armed || undefined}
-          disabled={busyId === w.id}
-          data-hint={
-            armed
-              ? live > 0
-                ? `Click again to delete. Its ${live} ${datasetWord(live)} stay in Data.`
-                : "Click again to delete. It has no datasets that would stay."
-              : "Delete workflow"
-          }
-          aria-label={armed ? `Confirm deleting ${w.name}` : `Delete ${w.name}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (armed) void deleteWorkflow(w.id);
-            else setConfirmId(w.id);
-          }}
-          onBlur={() => setConfirmId(null)}
-        >
-          {armed ? `Delete? ${live} stay` : <IconTrash />}
-        </button>
+        {mine && (
+          <button
+            className={gallery.deleteAct}
+            data-confirm={armed || undefined}
+            disabled={busyId === w.id}
+            data-hint={
+              armed
+                ? live > 0
+                  ? `Click again to delete. Its ${live} ${datasetWord(live)} stay in Data.`
+                  : "Click again to delete. It has no datasets that would stay."
+                : "Delete workflow"
+            }
+            aria-label={armed ? `Confirm deleting ${w.name}` : `Delete ${w.name}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (armed) void deleteWorkflow(w.id);
+              else setConfirmId(w.id);
+            }}
+            onBlur={() => setConfirmId(null)}
+          >
+            {armed ? `Delete? ${live} stay` : <IconTrash />}
+          </button>
+        )}
       </span>
     );
   };
@@ -519,6 +532,9 @@ export function WorkflowsScreen() {
                           </div>
                         </div>
                       </div>
+                      {othersOwner(w) && (
+                        <OwnerPill owner={othersOwner(w)!} placement="corner" />
+                      )}
                       {quickActions(w, gallery.acts, true)}
                     </article>
                   ))}
@@ -553,6 +569,9 @@ export function WorkflowsScreen() {
                         </span>
                         <span className={gallery.colName}>
                           <span className={gallery.rowName}>{w.name}</span>
+                          {othersOwner(w) && (
+                            <OwnerPill owner={othersOwner(w)!} placement="inline" />
+                          )}
                         </span>
                         <span className={gallery.colMeta}>
                           <span className={gallery.num}>{w.summary.nodes}</span>{" "}

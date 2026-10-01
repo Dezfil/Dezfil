@@ -14,8 +14,16 @@ import { onPrivateReset, privateStateOpen } from "../auth/private-state";
 
 export const PROJECTS_CHANGED_EVENT = "dezfil:projects-changed";
 
-let cache: Map<string, string> | null = null;
-let inflight: Promise<Map<string, string>> | null = null;
+/** What the path knows of a project: its name, and how the reader stands
+ * to it (its owner, their role) for the segment's people mark. */
+export interface ProjectFact {
+  name: string;
+  role?: "owner" | "editor" | "viewer";
+  owner?: { name: string; sqlName: string };
+}
+
+let cache: Map<string, ProjectFact> | null = null;
+let inflight: Promise<Map<string, ProjectFact>> | null = null;
 let generation = 0;
 onPrivateReset(() => { cache = null; inflight = null; generation++; });
 
@@ -34,24 +42,26 @@ if (typeof window !== "undefined") {
   });
 }
 
-async function readProjects(): Promise<Map<string, string>> {
+async function readProjects(): Promise<Map<string, ProjectFact>> {
   const response = await fetch("/api/projects");
   if (!response.ok) throw new Error(String(response.status));
-  const listed = (await response.json()) as { id: string; name: string }[];
-  return new Map(listed.map((p) => [p.id, p.name]));
+  const listed = (await response.json()) as (ProjectFact & { id: string })[];
+  return new Map(
+    listed.map((p) => [p.id, { name: p.name, role: p.role, owner: p.owner }]),
+  );
 }
 
-function resolve(): Promise<Map<string, string>> {
+function resolve(): Promise<Map<string, ProjectFact>> {
   if (cache) return Promise.resolve(cache);
   if (!inflight) {
     const started = generation;
-    const read: Promise<Map<string, string>> = readProjects()
+    const read: Promise<Map<string, ProjectFact>> = readProjects()
       .then((names) => {
         // A superseded read never writes; its caller still receives the
         // names it asked for, and the invalidation event has already
         // triggered the fresh read that will correct the render.
         if (started === generation && privateStateOpen()) { cache = names; return names; }
-        return new Map<string, string>();
+        return new Map<string, ProjectFact>();
       })
       .finally(() => {
         // Only this read may clear the slot — an invalidation may have
@@ -62,7 +72,7 @@ function resolve(): Promise<Map<string, string>> {
   }
   // A failed read stays uncached, so the next reader retries; the
   // caller meanwhile renders no segment.
-  return inflight.catch(() => new Map<string, string>());
+  return inflight.catch(() => new Map<string, ProjectFact>());
 }
 
 /** Mutating surfaces call this after a project rename or delete; every
@@ -72,8 +82,8 @@ export function invalidateProjects(): void {
   window.dispatchEvent(new Event(PROJECTS_CHANGED_EVENT));
 }
 
-export function useProjectName(id: string | null): string | null {
-  const [names, setNames] = useState<Map<string, string> | null>(cache);
+export function useProjectFact(id: string | null): ProjectFact | null {
+  const [facts, setFacts] = useState<Map<string, ProjectFact> | null>(cache);
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
@@ -83,7 +93,7 @@ export function useProjectName(id: string | null): string | null {
       void resolve().then((resolved) => {
         // A fresh Map each settle: the state change must be visible even
         // when the underlying cache object was reused.
-        if (!cancelled && requested === version) setNames(new Map(resolved));
+        if (!cancelled && requested === version) setFacts(new Map(resolved));
       });
     };
     read();
@@ -93,5 +103,9 @@ export function useProjectName(id: string | null): string | null {
       window.removeEventListener(PROJECTS_CHANGED_EVENT, read);
     };
   }, [id]);
-  return id && names ? (names.get(id) ?? null) : null;
+  return id && facts ? (facts.get(id) ?? null) : null;
+}
+
+export function useProjectName(id: string | null): string | null {
+  return useProjectFact(id)?.name ?? null;
 }

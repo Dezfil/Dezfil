@@ -60,6 +60,8 @@ import { useAsyncCollection } from "./use-async-collection";
 import gallery from "./gallery.module.css";
 import styles from "./TablesScreen.module.css";
 import { serverUnreachable } from "./failure-copy";
+import { ownedByOther } from "./sharing/people";
+import { useSignedInSqlName } from "./sharing/signed-in";
 
 export type { DataSort } from "./data-folders";
 const DATA_SORTS = ["updated", "name", "rows", "size"] as const;
@@ -114,6 +116,10 @@ export function TablesScreen({
   initialPostgisConnectionId?: string | null;
 }) {
   const router = useRouter();
+  // Someone else's dataset is marked with its owner in the lists.
+  const me = useSignedInSqlName();
+  const othersOwner = (t: TableListing) =>
+    ownedByOther(t.owner, me) ? t.owner : null;
   // The catalog load runs through the shared async contract; the edits
   // overlay keeps deletes and refreshes updating in place, without
   // flashing the resolved catalog back to a pending state.
@@ -755,6 +761,7 @@ export function TablesScreen({
                             table={item.table}
                             index={i}
                             actions={actionsFor(item.table)}
+                            owner={othersOwner(item.table)}
                           />
                         ) : (
                           <FolderCard
@@ -780,6 +787,7 @@ export function TablesScreen({
                                 table={t}
                                 index={j}
                                 actions={actionsFor(t)}
+                                owner={othersOwner(t)}
                               />
                             ))}
                           </FolderPane>,
@@ -814,6 +822,7 @@ export function TablesScreen({
                               key={item.table.id}
                               table={item.table}
                               actions={actionsFor(item.table)}
+                              owner={othersOwner(item.table)}
                               projectFact={datasetProjectFact(
                                 item.table.projectIds,
                                 scope,
@@ -835,6 +844,7 @@ export function TablesScreen({
                                     key={t.id}
                                     table={t}
                                     actions={actionsFor(t)}
+                                    owner={othersOwner(t)}
                                     nested
                                     className={folderStyles.nested}
                                     leading={<NestedIndent />}

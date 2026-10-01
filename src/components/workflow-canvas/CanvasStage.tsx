@@ -4,6 +4,7 @@ import { useReactFlow } from "@xyflow/react";
 import { StageButton } from "../map/StageStack";
 import { ArrangeIcon, CompressIcon, ExpandIcon, FitIcon, LockIcon, MinimapIcon, MinusIcon, NoteIcon, PlusIcon, UnlockIcon } from "../ui/icons";
 import { fitOptions } from "./view";
+import { useViewOnly } from "./view-only";
 import styles from "./WorkflowCanvas.module.css";
 
 /**
@@ -65,6 +66,9 @@ export function CanvasStage({
   /** Why the pair is inert beyond an empty side (the lock), or null. */
 }) {
   const flow = useReactFlow();
+  // A Viewer's stage keeps what looks (zoom, fit, the view, the minimap)
+  // and draws none of what edits: Arrange, the note tool, the lock.
+  const viewOnly = useViewOnly();
   return (
     <div className={styles.stage} role="group" aria-label="Canvas controls" data-canvas-stage>
       {/* The steps are instant: a step that animates is interrupted by the
@@ -78,7 +82,7 @@ export function CanvasStage({
         aria-pressed={view === "framed"}
         onClick={() => onView(view === "full" ? "framed" : "full")}
       />
-      {onArrange ? (
+      {onArrange && !viewOnly ? (
         <StageButton
           action={arrangeReason ? `Arrange by dependency: ${arrangeReason}` : "Arrange by dependency"}
           icon={<ArrangeIcon />}
@@ -87,7 +91,7 @@ export function CanvasStage({
           data-arrange
         />
       ) : null}
-      {onNoteTool ? (
+      {onNoteTool && !viewOnly ? (
         <StageButton
           action={noteToolReason ? `Add a note: ${noteToolReason}` : "Add a note"}
           shortcut="N"
@@ -109,7 +113,7 @@ export function CanvasStage({
           data-minimap-toggle
         />
       ) : null}
-      {onLock ? (
+      {onLock && !viewOnly ? (
         <StageButton
           action={locked ? "Unlock canvas" : "Lock canvas"}
           icon={locked ? <LockIcon /> : <UnlockIcon />}

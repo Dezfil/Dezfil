@@ -28,6 +28,9 @@ import { useScopeWorld } from "./scope/use-scope-world";
 import { AsyncState } from "./ui/AsyncState";
 import { ErrorNote } from "./ui/ErrorNote";
 import { CheckIcon, PlusIcon } from "./ui/icons";
+import { OwnerPill } from "./sharing/PeopleMarks";
+import { ownedByOther } from "./sharing/people";
+import { useSignedInSqlName } from "./sharing/signed-in";
 import gallery from "./gallery.module.css";
 import styles from "./MapsScreen.module.css";
 import { serverUnreachable } from "./failure-copy";
@@ -101,6 +104,11 @@ export function ProjectTag({
 export function MapsScreen() {
   const router = useRouter();
   const { theme } = useTheme();
+  // Someone else's map is marked with its owner and keeps only what reads
+  // it among its quick actions.
+  const me = useSignedInSqlName();
+  const othersOwner = (m: MapOverview) =>
+    ownedByOther(m.owner, me) ? m.owner : null;
   // The listing load runs through the shared async contract; the
   // scaffolding's edits overlay keeps mutations updating the list in
   // place, and a retry's fresh answer discards them.
@@ -290,18 +298,22 @@ export function MapsScreen() {
   }, [maps]);
 
 
-  const quickActions = (m: MapOverview, rowStyle: string) => (
+  const quickActions = (m: MapOverview, rowStyle: string) => {
+    const mine = othersOwner(m) === null;
+    return (
     <span className={rowStyle}>
-      <button
-        data-hint={actionLabel("map", !!m.projectId)}
-        aria-label={`${actionLabel("map", !!m.projectId)}: ${m.name}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          setFiling(m);
-        }}
-      >
-        <IconFolderPlus />
-      </button>
+      {mine && (
+        <button
+          data-hint={actionLabel("map", !!m.projectId)}
+          aria-label={`${actionLabel("map", !!m.projectId)}: ${m.name}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            setFiling(m);
+          }}
+        >
+          <IconFolderPlus />
+        </button>
+      )}
       <button
         data-hint="Open in builder"
         aria-label={`Open ${m.name} in the builder`}
@@ -334,7 +346,7 @@ export function MapsScreen() {
         >
           {copiedId === m.id ? <CheckIcon /> : <IconLink />}
         </button>
-      ) : (
+      ) : mine ? (
         <button
           data-hint="Publish map"
           aria-label={`Publish ${m.name}`}
@@ -346,30 +358,33 @@ export function MapsScreen() {
         >
           <IconPublish />
         </button>
+      ) : null}
+      {mine && (
+        <button
+          className={gallery.deleteAct}
+          data-confirm={confirmId === m.id || undefined}
+          disabled={deletingId === m.id}
+          data-hint={
+            confirmId === m.id ? "Click again to delete permanently" : "Delete map"
+          }
+          aria-label={
+            confirmId === m.id
+              ? `Confirm deleting ${m.name}`
+              : `Delete ${m.name}`
+          }
+          onClick={(e) => {
+            e.stopPropagation();
+            if (confirmId === m.id) void deleteMap(m.id);
+            else setConfirmId(m.id);
+          }}
+          onBlur={() => setConfirmId(null)}
+        >
+          {confirmId === m.id ? "Delete?" : <IconTrash />}
+        </button>
       )}
-      <button
-        className={gallery.deleteAct}
-        data-confirm={confirmId === m.id || undefined}
-        disabled={deletingId === m.id}
-        data-hint={
-          confirmId === m.id ? "Click again to delete permanently" : "Delete map"
-        }
-        aria-label={
-          confirmId === m.id
-            ? `Confirm deleting ${m.name}`
-            : `Delete ${m.name}`
-        }
-        onClick={(e) => {
-          e.stopPropagation();
-          if (confirmId === m.id) void deleteMap(m.id);
-          else setConfirmId(m.id);
-        }}
-        onBlur={() => setConfirmId(null)}
-      >
-        {confirmId === m.id ? "Delete?" : <IconTrash />}
-      </button>
     </span>
-  );
+    );
+  };
 
   return (
     <div className={styles.screen}>
@@ -594,6 +609,9 @@ export function MapsScreen() {
                   </div>
                 </div>
               </div>
+              {othersOwner(m) && (
+                <OwnerPill owner={othersOwner(m)!} placement="corner" />
+              )}
               {quickActions(m, gallery.acts)}
             </article>
           ))}
@@ -622,6 +640,9 @@ export function MapsScreen() {
                 </span>
                 <span className={gallery.colName}>
                   <span className={gallery.rowName}>{m.name}</span>
+                  {othersOwner(m) && (
+                    <OwnerPill owner={othersOwner(m)!} placement="inline" />
+                  )}
                 </span>
                 <span className={gallery.colMeta}>
                   <LayerDots colors={m.layerColors} />

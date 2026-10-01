@@ -122,6 +122,9 @@ function ContentsCell({
 
 interface Shared {
   project: ProjectOverview;
+  /** The people chip beside the published chip, when the project is
+   * shared one way or the other. */
+  mark?: ReactNode;
   picture: PictureItem[];
   workflowCount: number;
   groupOf: (operation: string) => string | null;
@@ -134,6 +137,7 @@ interface Shared {
 
 export function ProjectCard({
   project: p,
+  mark,
   picture,
   workflowCount,
   groupOf,
@@ -176,9 +180,10 @@ export function ProjectCard({
               {p.note}
             </div>
           )}
-          {p.publishedMapCount > 0 && (
+          {(p.publishedMapCount > 0 || mark) && (
             <div className={gallery.cardChips}>
               <PublishedChip n={p.publishedMapCount} />
+              {mark}
             </div>
           )}
         </div>
@@ -204,6 +209,7 @@ export function ProjectsListHead() {
 
 export function ProjectRow({
   project: p,
+  mark,
   picture,
   workflowCount,
   groupOf,
@@ -233,6 +239,7 @@ export function ProjectRow({
         </span>
         <span className={styles.colPub}>
           <PublishedChip n={p.publishedMapCount} />
+          {mark}
         </span>
         <span
           className={gallery.colMeta}

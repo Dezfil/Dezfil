@@ -1,3 +1,4 @@
+import { useViewOnly } from "./view-only";
 import styles from "./WorkflowCanvas.module.css";
 
 export interface CanvasNotice {
@@ -19,12 +20,15 @@ export function CanvasNotices({
   locked: boolean;
   onUnlock: () => void;
 }) {
+  // A Viewer's lock is not theirs to lift: the corner chip says View only,
+  // and the pill with its unlock is not drawn.
+  const viewOnly = useViewOnly();
   const transient = notice ? (
     <p className={styles.notice} role="status" data-tone={notice.tone} data-canvas-notice>
       {notice.text}
     </p>
   ) : null;
-  const lockPill = locked ? (
+  const lockPill = locked && !viewOnly ? (
     <p className={styles.notice} role="status" data-canvas-notice={notice ? undefined : true} data-lock-pill>
       {/* One inline run inside the flex pill: a whitespace-only text
           node between flex items is not rendered, and the sentence once

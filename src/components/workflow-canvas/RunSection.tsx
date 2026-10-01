@@ -5,6 +5,7 @@ import { PlayIcon } from "../ui/icons";
 import type { CanvasGraph, NodeMember } from "./graph";
 import { downstreamOf } from "./node-panel-model";
 import { useRunActions, useRunner } from "./run-context";
+import { useViewOnly } from "./view-only";
 import styles from "./WorkflowCanvas.module.css";
 
 /**
@@ -16,6 +17,11 @@ import styles from "./WorkflowCanvas.module.css";
  * retry can succeed. Inert while a run is in flight.
  */
 export function RunSection({ member, graph }: { member: NodeMember; graph: CanvasGraph }) {
+  // A Viewer runs nothing: the section is not drawn.
+  return useViewOnly() ? null : <RunControls member={member} graph={graph} />;
+}
+
+function RunControls({ member, graph }: { member: NodeMember; graph: CanvasGraph }) {
   const runner = useRunner();
   const { runFrom, refusalFor, runNode, dismissRefusal } = useRunActions();
   const after = downstreamOf(graph, member.id);

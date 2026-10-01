@@ -4,7 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import styles from "@/app/(workspace)/layout.module.css";
 import { usePathObject } from "@/components/shell/path-model";
-import { useProjectName } from "@/components/shell/use-project-name";
+import { useProjectFact } from "@/components/shell/use-project-name";
+import { PeopleChip } from "@/components/sharing/PeopleMarks";
+import { peopleMark } from "@/components/sharing/people";
+import { useProjectPeople } from "@/components/sharing/use-project-people";
 
 /* The workspace's sections, shared by the icon rail and the
    breadcrumb. Icon strokes follow the Wheelhouse reference mockup. */
@@ -161,16 +164,36 @@ export function HeaderCrumbs() {
   const pathname = usePathname();
   const section = sectionFor(pathname);
   const object = usePathObject(pathname);
-  const projectName = useProjectName(object?.projectId ?? null);
+  const project = useProjectFact(object?.projectId ?? null);
+  // A filed map or workflow whose project is shared carries the project's
+  // people mark on its segment: the sharing is the project's. Its people
+  // are read only when the reader owns it; a project shared with them
+  // already says whose it is.
+  const owned = !!project && (!project.role || project.role === "owner");
+  const people = useProjectPeople(
+    owned && object?.projectId ? [object.projectId] : NO_IDS,
+  );
+  const mark =
+    project && object?.projectId
+      ? peopleMark(project, people.get(object.projectId))
+      : null;
   return (
     <nav className={styles.crumbs} aria-label="Breadcrumb">
-      {projectName !== null && object?.projectId && (
+      {project !== null && object?.projectId && (
         <>
           <Link
             href={`/projects/${object.projectId}`}
             className={styles.crumbLink}
+            data-shared={mark ? "" : undefined}
           >
-            {projectName}
+            {mark ? (
+              <>
+                <span className={styles.crumbText}>{project.name}</span>
+                <PeopleChip mark={mark} />
+              </>
+            ) : (
+              project.name
+            )}
           </Link>
           <span className={styles.crumbSep}>/</span>
         </>
@@ -182,3 +205,5 @@ export function HeaderCrumbs() {
     </nav>
   );
 }
+
+const NO_IDS: readonly string[] = [];
