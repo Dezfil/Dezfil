@@ -279,6 +279,10 @@ function TableDetail({
   // While the panel is open the grid shows the answer's own rows with its
   // chosen columns tagged and its unreadable rows marked (live-preview.ts).
   const grid = livePreview(panel.state, table);
+  // A dataset is changed by its owner alone, whatever the reader's role on
+  // a project that files it. One's own is typed by its plain name, someone
+  // else's by `<sql name>.<name>`.
+  const own = table.qualifiedName === table.name;
 
   return (
     <div className={styles.screen}>
@@ -358,7 +362,7 @@ function TableDetail({
             spatial={!!table.geometryColumn}
             triggerClassName={styles.aux}
           />
-          {isRefreshableImport(table) && (
+          {own && isRefreshableImport(table) && (
             <button
               className={styles.aux}
               title="Re-run the stored import"
@@ -370,7 +374,7 @@ function TableDetail({
               <IconRefresh />
             </button>
           )}
-          {confirming ? (
+          {!own ? null : confirming ? (
             <span className={styles.confirm}>
               Delete this table and its data?
               <button className={styles.dangerBtn} onClick={remove}>
@@ -428,7 +432,7 @@ function TableDetail({
           table={table}
           onSettled={onRunSettled}
         />
-        {table.source === "overture" && (
+        {own && table.source === "overture" && (
           <button
             className={styles.provenanceAct}
             onClick={() => void refresh("latest")}
