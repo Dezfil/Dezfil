@@ -12,7 +12,8 @@ import styles from "./MapBuilder.module.css";
 
 /** The builder's standalone legend corners and drag quadrants. Extracted
  * from MapBuilder at the docking fix's touch boundary; the rail host stays
- * with the dashboard it configures. */
+ * with the dashboard it configures. Without the author's drag and edit
+ * handlers the legend sits in its corner and only reads. */
 export function BuilderLegendCorners({
   legendCorner,
   legendDocked,
@@ -32,10 +33,10 @@ export function BuilderLegendCorners({
   legendDocked: boolean;
   legendLayers: NamedStyle[];
   dragPreview: Corner | null;
-  onPreview: Dispatch<SetStateAction<Corner | null>>;
-  onDrop: (corner: Corner) => void;
-  onTextClick: (target: LegendTextTarget) => void;
-  onLabelEdit: (layerId: string, slot: number, value: string | null) => void;
+  onPreview?: Dispatch<SetStateAction<Corner | null>>;
+  onDrop?: (corner: Corner) => void;
+  onTextClick?: (target: LegendTextTarget) => void;
+  onLabelEdit?: (layerId: string, slot: number, value: string | null) => void;
   bottomLeftRef: (node: HTMLElement | null) => void;
   bottomRightRef: (node: HTMLElement | null) => void;
   cornerLift: boolean;
@@ -55,6 +56,13 @@ export function BuilderLegendCorners({
           legendCorner === corner && (!legendDocked || placementProbe);
         if (!hasLegend) return null;
         const bottom = corner === "bottom-left" || corner === "bottom-right";
+        const panel = (
+          <LegendPanel
+            layers={legendLayers}
+            onTextClick={onTextClick}
+            onLabelEdit={onLabelEdit}
+          />
+        );
         return (
           <div
             key={corner}
@@ -83,17 +91,17 @@ export function BuilderLegendCorners({
                 : undefined
             }
           >
-            <CornerDrag
-              corner={corner}
-              onPreview={onPreview}
-              onDrop={onDrop}
-            >
-              <LegendPanel
-                layers={legendLayers}
-                onTextClick={onTextClick}
-                onLabelEdit={onLabelEdit}
-              />
-            </CornerDrag>
+            {onPreview && onDrop ? (
+              <CornerDrag
+                corner={corner}
+                onPreview={onPreview}
+                onDrop={onDrop}
+              >
+                {panel}
+              </CornerDrag>
+            ) : (
+              panel
+            )}
           </div>
         );
       })}

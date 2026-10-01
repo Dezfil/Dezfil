@@ -17,8 +17,9 @@ const CEILINGS = {
   // card, the Basemap tab, the failure rail, the shell's own state,
   // undo/redo coordination, the draw integration, the legend corners, the
   // Add layer catalog mount, the stage controls, the assistant wiring, the
-  // helper composition and the effective-basemap derivation.
-  "src/components/builder/MapBuilder.tsx": 1792,
+  // helper composition, the effective-basemap derivation and the shared
+  // map, legend and widget presentation.
+  "src/components/builder/MapBuilder.tsx": 1486,
   // The map canvas. Extractions so far: capture, the text sublayer, the
   // basemap content-group lifecycle, tiled-layer construction, pointer
   // interaction, camera constraints, the shared paint readout and overlay lifetime.

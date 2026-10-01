@@ -2,8 +2,6 @@
 
 import type { Dispatch, SetStateAction } from "react";
 import { useLingering } from "../ui/use-lingering";
-import type { AttributionLine } from "@/lib/basemap";
-import { BasemapCredit } from "../map/BasemapCredit";
 import { StageButton, StageStack } from "../map/StageStack";
 import { DrawDock } from "./draw/DrawDock";
 import { DrawPill } from "./draw/DrawPill";
@@ -21,9 +19,10 @@ import styles from "./MapBuilder.module.css";
 
 /**
  * The builder's stage furniture: the control stack (shared with the
- * published view), the draw surface and the basemap credit — everything
- * the builder positions over its own map viewport, and the corner the
- * transient status now stands in.
+ * published view) and the draw surface — everything the builder
+ * positions over its own map viewport, and the corner the transient
+ * status now stands in. The basemap credit belongs to the map it
+ * credits and is drawn by `MapPresentation`, right after this.
  *
  * Extracted from MapBuilder at this piece's touch boundary, whole and
  * unchanged: the composition and the placement classes move, the camera
@@ -42,9 +41,6 @@ export function BuilderStageControls({
   onMapFull,
   draw,
   drawCamera,
-  creditRef,
-  creditLift,
-  attribution,
   saving,
   notice,
 }: {
@@ -56,9 +52,6 @@ export function BuilderStageControls({
   onMapFull: Dispatch<SetStateAction<boolean>>;
   draw: ReturnType<typeof useDrawIntegration>;
   drawCamera: CameraHandle | null;
-  creditRef: (el: HTMLElement | null) => void;
-  creditLift: boolean;
-  attribution: AttributionLine[];
   /** A tracked write is in flight: the count's own
    * indication, which stands until every write settles, failures
    * included, and has no Saved and no retry. */
@@ -157,16 +150,6 @@ export function BuilderStageControls({
         layerName={draw.session.session?.layerName ?? null}
         onDeleteSelected={(sel) => void draw.session.deleteFeature(sel)}
       />
-      {/* The basemap credit, tucked in the map's lower right — out of
-          the status pill, which has no room to spare. */}
-      <div
-        className={styles.mapCredit}
-        ref={creditRef}
-        data-map-credit
-        data-lift={creditLift ? "" : undefined}
-      >
-        <BasemapCredit lines={attribution} />
-      </div>
     </>
   );
 }

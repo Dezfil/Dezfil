@@ -8,7 +8,6 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import dynamic from "next/dynamic";
 import type {
   MapWithLayers,
   Layer,
@@ -17,7 +16,6 @@ import type {
 import type { HistoryAvailability } from "@/lib/metadata/history";
 import type { FillPaint, LayerStyle } from "@/lib/style/style";
 import {
-  effectiveStyle,
   isAggregated,
   vizAppearanceOnly,
   type AggregatedViz,
@@ -33,18 +31,10 @@ import { builderBasemap } from "./builder-basemap";
 import type { BasemapLayerGroup } from "@/lib/basemap-layers";
 import type { Corner } from "@/lib/corners";
 import { useTheme } from "@/components/theme";
-import { readApiError, readApiFailure } from "../api";
-import {
-  NETWORK_FAILURE,
-  type EndpointResult,
-} from "../widgets/dashboard-state";
+import { readApiError } from "../api";
 import type { Bounds } from "@/lib/geo-bounds";
-import type {
-  HeatmapPreviewSetter,
-  RenderedLayer,
-} from "../map/MapCanvas";
+import type { HeatmapPreviewSetter } from "../map/MapCanvas";
 import type { CameraHandle } from "../map/camera-handle";
-import { createStatusChannel } from "@/lib/map-status";
 import {
   mergeHeatmapControl,
   type HeatmapControlField,
@@ -53,12 +43,9 @@ import { BuilderStageControls } from "./BuilderStageControls";
 import { drawState, setDrawSelection } from "./draw/draw-mode";
 import { useDrawIntegration } from "./draw/use-draw-integration";
 import { usePublishedThemeSync } from "./use-published-theme-sync";
-import { useCameraState } from "./use-camera-state";
 import { SearchControl } from "./search/SearchControl";
 import { BuilderLoadFailure, BuilderLoading } from "./BuilderFallback";
 import { TabPanel, Tabs } from "../ui/Tabs";
-import { StatusBar } from "./StatusBar";
-import { useLegendLayers } from "./use-legend-layers";
 import { useLegendTab } from "./use-legend-tab";
 import { offerLayer } from "./drawer/pick-mode";
 import {
@@ -81,7 +68,6 @@ import { ExportImageCard } from "./export/ExportImageCard";
 import { buildExportStage } from "./export/export-stage";
 import { useExportCard } from "./export/use-export-card";
 import { useThumbnailCapture } from "./use-thumbnail-capture";
-import { useBuilderWidgets } from "./use-builder-widgets";
 import { useWidgetListActions } from "./use-widget-list-actions";
 import { LayerList } from "./LayerList";
 import { StylePanel } from "./StylePanel";
@@ -92,41 +78,21 @@ import {
   type LegendFocus,
   type LegendLiveText,
 } from "./LegendTab";
-import { CornerDrag } from "./CornerDrag";
-import { LegendPanel, type LegendTextTarget } from "../map/LegendPanel";
-import { BuilderLegendCorners } from "./BuilderLegendCorners";
-import { TimelineBar } from "../map/TimelineBar";
-import { useLiftClearance } from "../map/use-lift-clearance";
-import { useLegendPlacement } from "../map/use-legend-placement";
+import type { LegendTextTarget } from "../map/LegendPanel";
 import { useTimeline } from "./use-timeline";
-import { useLiveFilters } from "./use-live-filters";
 import { WidgetsTab, type WidgetFocus } from "./WidgetsTab";
-import { WidgetRail } from "../widgets/WidgetRail";
-import { SettleStatus } from "../widgets/SettleStatus";
-import widgetStyles from "../widgets/Widgets.module.css";
+import type { MapWidget } from "@/lib/widgets";
+import { MapPresentation } from "./MapPresentation";
 import {
-  useWidgetDashboard,
-  type DashboardLayer,
-} from "../widgets/use-widget-dashboard";
-import type { MapWidget, WidgetSelection } from "@/lib/widgets";
-import type { WidgetValues } from "@/lib/widget-service";
-import {
-  liveFilters as liveFilterRule,
-  LIVE_FILTER_SLOTS,
-  type LiveDim,
-} from "@/lib/live-filters";
+  mapWidgetEndpoints,
+  useMapPresentation,
+} from "./use-map-presentation";
 import { useQuerySliderPreview } from "./use-query-slider-preview";
 import { useMutationLane } from "./use-mutation-lane";
 import { useMapHistory } from "./use-map-history";
 import { useLayerDataDownloads } from "./use-layer-data-downloads";
 import { BuilderFailureNotes } from "./BuilderFailureNotes";
 import styles from "./MapBuilder.module.css";
-
-const MapCanvas = dynamic(
-  () => import("../map/MapCanvas").then((m) => m.MapCanvas),
-  { ssr: false, loading: () => <div className={styles.canvasLoading} /> },
-);
-
 
 export function MapBuilder({
   mapId,
@@ -182,12 +148,6 @@ export function MapBuilder({
   // mirror of the ref, because the overlay must re-render when the
   // handle arrives.
   const [drawCamera, setDrawCamera] = useState<CameraHandle | null>(null);
-  // Compass needle (integer degrees); right-drag rotation moves it, the
-  // button eases the view back flat and north-up.
-  const [mapBearing, setMapBearing] = useState(0);
-  // Camera tilt (integer degrees) — drives the tilt toggle's state and the
-  // fine pitch slider.
-  const [mapPitch, setMapPitch] = useState(0);
   const statusPillHidden = useSyncExternalStore(
     statusPillStore.subscribe,
     statusPillStore.read,
@@ -204,29 +164,6 @@ export function MapBuilder({
       body.removeAttribute("data-status-pill-hidden");
     };
   }, [mapFull, statusPillHidden]);
-  // The bottom corner lifts above the docked timeline only when their
-  // horizontal extents would actually collide, as a field round found.
-  const [timelineDockEl, setTimelineDockEl] = useState<HTMLElement | null>(
-    null,
-  );
-  const [bottomCornerEl, setBottomCornerEl] = useState<HTMLElement | null>(
-    null,
-  );
-  const [legendCandidateEl, setLegendCandidateEl] =
-    useState<HTMLElement | null>(null);
-  const [widgetStackEl, setWidgetStackEl] = useState<HTMLElement | null>(null);
-  const [creditEl, setCreditEl] = useState<HTMLElement | null>(null);
-  const setBottomRightCornerEl = useCallback((node: HTMLElement | null) => {
-    setBottomCornerEl(node);
-    setLegendCandidateEl(node);
-  }, []);
-  // A docked bottom-right candidate is the hidden corner itself. Its lift
-  // only repositions that probe for placement measurement; the visible
-  // credit has its own element, measurement, and `creditLift` consumer.
-  const cornerLift = useLiftClearance(timelineDockEl, bottomCornerEl);
-  // The credit shares the bottom band the dock reclaims when the status
-  // pill hides; CSS applies its lift only in that state.
-  const creditLift = useLiftClearance(timelineDockEl, creditEl);
   // Undo/redo availability: seeded by the history read, then derived —
   // any successful edit enables undo and clears redo; undo/redo responses
   // carry the authoritative values.
@@ -388,8 +325,6 @@ export function MapBuilder({
   const appearanceDraftRef = useRef<Record<string, AppearanceDraft>>({});
   const appearancePreviewVersionRef = useRef<Record<string, number>>({});
   const appearanceCommitQueueRef = useRef<Record<string, Promise<void>>>({});
-  // Live canvas → status bar stream; only the bar re-renders.
-  const [statusChannel] = useState(createStatusChannel);
   const { labelCounts, onLabelCounts } = useLabelCounts();
   // Which groups the loaded style yields — the panel marks the rest
   // "not in this style" while a custom style is active.
@@ -520,49 +455,6 @@ export function MapBuilder({
     }, 2500);
     return () => clearTimeout(timer);
   }, [renders, refreshLayer]);
-
-  const renderedLayers: RenderedLayer[] = useMemo(() => {
-    if (!map) return [];
-    return map.layers.map((l) => {
-      const r = renders[l.id];
-      const preview = querySliderDrafts[l.id];
-      const appearance = appearanceDrafts[l.id];
-      const viz = appearance?.viz ?? preview?.viz ?? l.viz;
-      const layerStyle = appearance?.style ?? l.style;
-      const tiles =
-        !preview &&
-        r?.ok && r.mode === "tiled" && r.tiles?.state === "ready" && r.tiles.url
-          ? {
-              url: r.tiles.url,
-              minZoom: r.tiles.minZoom,
-              maxZoom: r.tiles.maxZoom,
-            }
-          : null;
-      return {
-        id: l.id,
-        // Aggregated layers draw their cells with the viz fill. Bounded
-        // previews omit labels so estimates never read as exact.
-        style: preview?.approximate
-          ? { ...effectiveStyle(layerStyle, viz), label: undefined }
-          : effectiveStyle(layerStyle, viz),
-        visible: l.visible,
-        tooltip: preview?.approximate ? [] : l.tooltip,
-        popup: preview?.approximate ? [] : l.popup,
-        viz,
-        geojson: preview?.geojson ?? (r?.ok ? r.geojson : null),
-        tiles,
-      };
-    });
-  }, [map, renders, querySliderDrafts, appearanceDrafts]);
-
-  // The legend inputs live in their own module (the at-touch
-  // decomposition slice), carrying rendered geometry for the swatch rule.
-  const legendLayers = useLegendLayers({
-    map,
-    renders,
-    legendLive,
-    appearanceDrafts,
-  });
 
   // The Legend tab's write wiring lives in use-legend-tab since 0119.
   const legendTab = useLegendTab({
@@ -983,18 +875,47 @@ export function MapBuilder({
     [clearAppearanceDraft, patchLayer],
   );
 
-  // Live filters and the docked timeline: orchestration lives beside
-  // MapBuilder, not in it — see use-live-filters.ts and
-  // use-timeline.ts.
-  const live = useLiveFilters({ map, renders });
-  const registerLiveHeatmapPreview = live.onHeatmapPreviewSetter;
-  const registerHeatmapPreview = useCallback(
-    (set: HeatmapPreviewSetter) => {
-      heatmapPreviewSetterRef.current = set;
-      registerLiveHeatmapPreview(set);
-    },
-    [registerLiveHeatmapPreview],
+  // The widget editor's unsaved widget: the presentation overlays it on
+  // the stored list so the rail previews every edit live, titles at once
+  // and numbers through the same batched read, which carries the draft
+  // for server-side computation. Nothing writes.
+  const [widgetPreview, setWidgetPreview] = useState<MapWidget | null>(null);
+  const widgetEndpoints = useMemo(
+    () => mapWidgetEndpoints(mapId, widgetPreview),
+    [mapId, widgetPreview],
   );
+  // The style panel's heatmap previews drive the canvas's channel; the
+  // presentation hands it to the live filters too.
+  const onHeatmapPreviewSetter = useCallback((set: HeatmapPreviewSetter) => {
+    heatmapPreviewSetterRef.current = set;
+  }, []);
+  // What a reader sees of the map (the layers as drawn, the legend, the
+  // widgets with their values and selections, the live filters, the
+  // camera and its fitting) lives in use-map-presentation.ts and draws
+  // through MapPresentation; authoring's drafts arrive as its inputs.
+  const presentation = useMapPresentation({
+    map,
+    renders,
+    rendersRef,
+    mapRef: serverMapRef,
+    endpoints: widgetEndpoints,
+    cameraRef: zoomHandleRef,
+    setFitBounds,
+    fail,
+    clearFailure,
+    statusPillHidden,
+    fullscreen: mapFull,
+    sliderDrafts: querySliderDrafts,
+    appearanceDrafts,
+    legendLive,
+    widgetDraft: widgetPreview,
+    widenDashboard: !!exportCard.seed,
+    onHeatmapPreviewSetter,
+  });
+  const { live, fitLayer, onSearchAction, visibleWidgets } = presentation;
+  // The docked timeline: orchestration lives beside MapBuilder, not in
+  // it (use-timeline.ts). Its settle and speed persist, so it stays with
+  // the author; the presentation draws the bar it is handed.
   const timeline = useTimeline({
     map,
     patchMap,
@@ -1011,69 +932,6 @@ export function MapBuilder({
     document.body.setAttribute("data-timeline-docked", "");
     return () => document.body.removeAttribute("data-timeline-docked");
   }, [timelineDocked]);
-
-  // Widgets & cross-filtering: the dashboard hook owns selection state
-  // and fans enforcement out — GPU dimensions for layers that draw
-  // features, settle re-renders for computed results. Value reads are
-  // batched and never tracked as saves (they are reads). The open widget
-  // editor's unsaved state: it overlays the stored list so the rail
-  // previews every edit live — titles instantly, numbers through the
-  // same batched read, which carries the draft for server-side
-  // computation. Nothing writes.
-  const [widgetPreview, setWidgetPreview] = useState<MapWidget | null>(null);
-  const widgetEndpoints = useMemo(
-    () => ({
-      values: async (
-        selections: WidgetSelection[],
-      ): Promise<EndpointResult<WidgetValues>> => {
-        try {
-          const r = await fetch(`/api/maps/${mapId}/widget-values`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              selections,
-              ...(widgetPreview ? { draft: widgetPreview } : null),
-            }),
-          });
-          if (!r.ok) return { ok: false, error: await readApiFailure(r) };
-          return { ok: true, data: (await r.json()) as WidgetValues };
-        } catch {
-          return { ok: false, error: NETWORK_FAILURE };
-        }
-      },
-      settle: async (
-        layerId: string,
-        filters: LayerFilter[],
-      ): Promise<EndpointResult<LayerRenderData>> => {
-        try {
-          const r = await fetch(`/api/layers/${layerId}/render`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ selections: filters }),
-          });
-          if (!r.ok) return { ok: false, error: await readApiFailure(r) };
-          return { ok: true, data: (await r.json()) as LayerRenderData };
-        } catch {
-          return { ok: false, error: NETWORK_FAILURE };
-        }
-      },
-    }),
-    [mapId, widgetPreview],
-  );
-  const { resolvableWidgets, visibleWidgets } = useBuilderWidgets(
-    map,
-    widgetPreview,
-  );
-  const railVisible = visibleWidgets.length > 0;
-  const legendCornerEff = map?.legendCorner ?? "bottom-left";
-  const legendPlacement = useLegendPlacement(
-    legendCornerEff,
-    railVisible,
-    widgetStackEl,
-    legendCandidateEl,
-    `${cornerLift}:${creditLift && statusPillHidden}:${mapFull}`,
-  );
-  const legendDocked = legendPlacement.docked;
   const widgetList = useWidgetListActions({
     map,
     visibleWidgets,
@@ -1084,75 +942,6 @@ export function MapBuilder({
     setTab,
     setWidgetFocus,
   });
-  const dashboardLayers: DashboardLayer[] = useMemo(
-    () =>
-      (map?.layers ?? []).map((l) => {
-        const r = renders[l.id];
-        return {
-          id: l.id,
-          vizType: l.viz.type,
-          liveFiltered: !!(r?.ok && r.liveFiltered),
-          storedDims: liveFilterRule(
-            l.viz,
-            l.filters,
-            map?.timeline?.layerId === l.id ? map.timeline.field : null,
-          ).length,
-        };
-      }),
-    [map, renders],
-  );
-  const layersRevision = useMemo(
-    () => (map?.layers ?? []).map((l) => `${l.id}:${l.updatedAt}`).join("|"),
-    [map],
-  );
-  const dash = useWidgetDashboard({
-    // While the export card is open the batch widens to every resolvable
-    // widget, so a hidden widget toggled on for the export previews (and
-    // exports) real values, not an empty card. The builder rail keeps
-    // rendering only the visible set.
-    widgets: exportCard.seed ? resolvableWidgets : visibleWidgets,
-    layers: dashboardLayers,
-    endpoints: widgetEndpoints,
-    revision: layersRevision,
-  });
-  // Stored live filters and widget selections share the fixed GPU slots.
-  const canvasDims = useMemo(() => {
-    const out: Record<string, LiveDim[]> = { ...live.canvas };
-    for (const [id, dims] of Object.entries(dash.selectionDims)) {
-      out[id] = [...(out[id] ?? []), ...dims].slice(0, LIVE_FILTER_SLOTS);
-    }
-    return out;
-  }, [live.canvas, dash.selectionDims]);
-  // Computed layers draw their settle re-render while selections constrain
-  // them; the canonical render returns when selections clear.
-  const stagedLayers = useMemo(
-    () =>
-      renderedLayers.map((rl) => {
-        const settle = dash.settleRenders[rl.id];
-        return settle?.ok && settle.geojson
-          ? { ...rl, geojson: settle.geojson, tiles: null }
-          : rl;
-      }),
-    [renderedLayers, dash.settleRenders],
-  );
-  // Fitting — beside MapBuilder, per the decomposition rule. It measures
-  // what is drawn, defers a constrained tiled layer to the server, and
-  // ignores an answer its constraints have outrun; it sits here because
-  // it reads what the canvas is drawing, settled above.
-  const { fitAll, fitLayer, flyTo, searchMarker, dismissSearchMarker,
-    onSearchAction } = useCameraState({
-    rendersRef, serverMapRef, dims: canvasDims, staged: dash.settleRenders,
-    cameraRef: zoomHandleRef, setFitBounds, fail, clearFailure,
-  });
-
-  const widgetRecords = useMemo(() => {
-    const rows = dash.values?.layers ?? [];
-    if (rows.length === 0) return null;
-    return {
-      count: rows.reduce((s, r) => s + r.count, 0),
-      total: rows.reduce((s, r) => s + r.total, 0),
-    };
-  }, [dash.values]);
 
   // Adding a time filter docks the timeline by itself (the widget is the
   // default experience, not an easter egg). Sequenced after the filter
@@ -1493,7 +1282,7 @@ export function MapBuilder({
                       layer={layer}
                       render={renders[layer.id]}
                       labelCount={labelCounts[layer.id] ?? null}
-                      pitch={mapPitch}
+                      pitch={presentation.pitch}
                       onPitch={(deg) =>
                         zoomHandleRef.current?.setPitch(deg, false)
                       }
@@ -1609,171 +1398,76 @@ export function MapBuilder({
           </TabPanel>
         </aside>
 
-        {/* The map itself: rendered full-viewport at all times and
-            clipped to the card's window, so fullscreen and the dock
-            animate the clip — never the canvas size — and no tile
-            re-layout can shake the view. The card insets ride along as
-            persistent view padding; fullscreen keeps them on purpose, so
-            entering it moves not a single map pixel. */}
-        <div className={styles.mapLayer} data-map-layer data-stage-edge={`${stageEdges.left}:${stageEdges.right}`}>
-          <MapCanvas
-            basemapUrl={effectiveBasemapUrl}
-            basemapLayers={map.basemapLayers}
-            basemapKind={effectiveBasemapKind}
-            layers={stagedLayers}
-            onFeaturePick={draw.onCanvasFeaturePick}
-            initialViewport={map.viewport}
-            onViewportChange={persistViewport}
-            fitBounds={fitBounds}
-            flyTo={flyTo}
-            searchMarker={searchMarker}
-            onSearchMarkerDismiss={dismissSearchMarker}
-            onStatus={statusChannel.emit}
-            onLabelCounts={onLabelCounts}
-            onBasemapGroups={setLoadedBasemapGroups}
-            customBasemap={effBasemap.custom}
-            fallbackColor={BASEMAP_FALLBACKS[theme]}
-            liveFilters={canvasDims}
-            onLiveRangeSetter={live.onLiveRangeSetter}
-            onHeatmapPreviewSetter={registerHeatmapPreview}
-            timelineOpen={timeline.bar !== null}
-            onZoomHandle={(handle) => {
-              zoomHandleRef.current = handle;
-              setDrawCamera(handle);
-            }}
-            onBearingChange={setMapBearing}
-            onPitchChange={setMapPitch}
-            onSnapshotHandle={onSnapshotHandle}
-            padding={{
-              top: 62,
-              // Both edges read from the properties that define them, never
-              // repeated here: a thirteenth copy of the number is how the
-              // camera ends up framing a layout that no longer exists. They
-              // arrive as one commit.
-              right: stageEdges.right,
-              bottom: 14,
-              left: stageEdges.left,
-            }}
-          />
-        </div>
-
-        <div className={styles.canvasCol}>
-        {/* The export card's "current view" measures THIS box — the map
-            window the author actually sees (the map layer behind it is
-            full-viewport and merely clip-pathed). */}
-        <div className={styles.canvas} data-drag-canvas ref={mapLayerRef}>
-          {querySliderApproximate && (
+      {/* The map as a reader would see it, drawn by MapPresentation;
+          the author's furniture enters through its slots: the preview
+          badge first over the map, the stage controls before the credit. */}
+      <MapPresentation
+        stage={presentation}
+        map={map}
+        basemap={effBasemap}
+        theme={theme}
+        stageEdges={stageEdges}
+        fitBounds={fitBounds}
+        timeline={timeline.bar}
+        audience="author"
+        windowRef={mapLayerRef}
+        overlay={
+          querySliderApproximate && (
             <div className={styles.previewBadge}>Approximate preview</div>
-          )}
-          {/* The docked timeline: bottom-center, over the map, between
-              the corner overlays. */}
-          {timeline.bar && (
-            <div className={styles.timelineDock} ref={setTimelineDockEl}>
-              <TimelineBar {...timeline.bar} />
-            </div>
-          )}
-          <BuilderLegendCorners
-            legendCorner={legendCornerEff}
-            legendDocked={legendDocked}
-            legendLayers={legendLayers}
-            dragPreview={dragPreview}
-            onPreview={setDragPreview}
-            onDrop={(legendCorner) => void patchMap({ legendCorner })}
-            onTextClick={onLegendTextClick}
-            onLabelEdit={onLegendLabelEdit}
-            bottomLeftRef={setBottomCornerEl}
-            bottomRightRef={setBottomRightCornerEl}
-            cornerLift={cornerLift}
-            creditLift={creditLift}
-            statusPillHidden={statusPillHidden}
-          />
-          {/* The widget rail: the dashboard column on the stage's right
-              edge. Cards drag to reorder; each carries a ⋮ menu; a
-              right-corner legend docks in and drags back out. */}
-          {railVisible && (
-            <WidgetRail
-              widgets={visibleWidgets}
-              widgetsOnlyRef={setWidgetStackEl}
-              values={dash.values}
-              valuesState={dash.valuesState}
-              onRetryValues={dash.retryValues}
-              selections={dash.selections}
-              onToggleCategory={dash.toggleCategory}
-              onBrush={dash.brushRange}
-              onClear={dash.clearSelection}
-              onOptions={widgetList.openOptions}
-              onDelete={widgetList.remove}
-              onReorder={widgetList.reorderVisible}
-            >
-              {legendDocked && (
-                <div data-no-dnd>
-                  <CornerDrag
-                    corner={legendCornerEff}
-                    onPreview={setDragPreview}
-                    onDrop={(legendCorner) => void patchMap({ legendCorner })}
-                  >
-                    <LegendPanel
-                      layers={legendLayers}
-                      docked={legendPlacement.width === "rail"}
-                      onTextClick={onLegendTextClick}
-                      onLabelEdit={onLegendLabelEdit}
-                    />
-                  </CornerDrag>
-                </div>
-              )}
-            </WidgetRail>
-          )}
-          {dash.hint && <div className={widgetStyles.hint}>{dash.hint}</div>}
-          <SettleStatus
-            states={dash.settleStates}
-            layerNames={Object.fromEntries(
-              (map?.layers ?? []).map((l) => [l.id, l.name]),
-            )}
-            audience="author"
-            onRetry={dash.retrySettle}
-          />
+          )
+        }
+        legend={{
+          dragPreview,
+          onPreview: setDragPreview,
+          onDrop: (legendCorner) => void patchMap({ legendCorner }),
+          onTextClick: onLegendTextClick,
+          onLabelEdit: onLegendLabelEdit,
+        }}
+        widgetActions={{
+          onOptions: widgetList.openOptions,
+          onDelete: widgetList.remove,
+          onReorder: widgetList.reorderVisible,
+        }}
+        canvas={{
+          onFeaturePick: draw.onCanvasFeaturePick,
+          onViewportChange: persistViewport,
+          onLabelCounts,
+          onBasemapGroups: setLoadedBasemapGroups,
+          onSnapshotHandle,
+          onCameraHandle: setDrawCamera,
+        }}
+        controls={
           <BuilderStageControls
             cameraRef={zoomHandleRef}
-            bearing={mapBearing}
-            pitch={mapPitch}
-            onFitAll={fitAll}
+            bearing={presentation.bearing}
+            pitch={presentation.pitch}
+            onFitAll={presentation.fitAll}
             mapFull={mapFull}
             onMapFull={setMapFull}
             draw={draw}
             drawCamera={drawCamera}
-            creditRef={setCreditEl}
-            creditLift={creditLift}
-            attribution={basemapCredit}
             saving={pendingSaves > 0}
             notice={importNotice}
           />
-        </div>
-        {/* Status pill: floats bottom-center inside the map card. */}
-        {!statusPillHidden && (
-          <StatusBar
-            channel={statusChannel}
-            records={widgetRecords}
-            recordsState={dash.valuesState}
-          />
-        )}
-      </div>
+        }
+      />
 
       {exportCard.seed && (
         <ExportImageCard
           stage={buildExportStage({
             map,
             appearance: theme,
-            layers: stagedLayers,
+            layers: presentation.stagedLayers,
             basemapUrl: effectiveBasemapUrl,
             basemapKind: effectiveBasemapKind,
             fallbackColor: BASEMAP_FALLBACKS[theme],
-            liveFilters: canvasDims,
+            liveFilters: presentation.canvasDims,
             seed: exportCard.seed,
-            legendLayers,
-            widgets: resolvableWidgets,
-            values: dash.values,
-            valuesState: dash.valuesState,
-            selections: dash.selections,
+            legendLayers: presentation.legendLayers,
+            widgets: presentation.resolvableWidgets,
+            values: presentation.dash.values,
+            valuesState: presentation.dash.valuesState,
+            selections: presentation.dash.selections,
             attribution: basemapCredit,
           })}
           onClose={exportCard.close}
