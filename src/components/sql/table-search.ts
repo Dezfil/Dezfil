@@ -21,11 +21,11 @@ export function matchTables(
   if (!q) return tables.map((table) => ({ table, column: null }));
   const out: TableMatch[] = [];
   for (const table of tables) {
-    if (table.name.toLowerCase().includes(q)) {
+    if (table.qualifiedName.toLowerCase().includes(q)) {
       out.push({ table, column: null });
       continue;
     }
-    const col = (columnsOf(table.name) ?? []).find((c) =>
+    const col = (columnsOf(table.qualifiedName) ?? []).find((c) =>
       c.toLowerCase().includes(q),
     );
     if (col) out.push({ table, column: col });

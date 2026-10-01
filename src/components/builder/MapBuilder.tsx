@@ -1477,7 +1477,7 @@ export function MapBuilder({
       <CatalogHost
         sources={layerSources}
         failures={failures}
-        viewport={map.viewport}
+        map={map}
         projectId={mapProjectId}
       />
 

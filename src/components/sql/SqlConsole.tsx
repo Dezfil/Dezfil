@@ -30,7 +30,7 @@ import { downloadResult } from "./sql-download";
 import {
   applyAutomatic,
   isEdited,
-  quoteIdentifier,
+  quotedReference,
   starterSql,
 } from "./sql-draft";
 import {
@@ -359,7 +359,7 @@ export function SqlConsole() {
      ran, and nothing else. */
   const openAsSql = useCallback(
     (t: TableListing, opts?: { door?: boolean }) => {
-      setSelected(t.name);
+      setSelected(t.qualifiedName);
       // The SQL names the dataset as its reader types it, so someone else's
       // `roads` opens as theirs.
       const stmt = starterSql(t.qualifiedName);
@@ -394,7 +394,7 @@ export function SqlConsole() {
   /* Activation selects and previews: no unfold, and a
      second activation changes nothing. */
   const activate = useCallback((t: TableListing) => {
-    setSelected(t.name);
+    setSelected(t.qualifiedName);
     setView({ kind: "preview" });
     setErrorAt(null);
   }, []);
@@ -452,12 +452,12 @@ export function SqlConsole() {
 
   /* ---- what the results area shows ---- */
   const selectedTable = useMemo(
-    () => (tables && selected ? tables.find((t) => t.name === selected) ?? null : null),
+    () => (tables && selected ? tables.find((t) => t.qualifiedName === selected) ?? null : null),
     [tables, selected],
   );
   const shown: Shown = useMemo(() => {
     if (view.kind === "preview" && selectedTable) {
-      return { kind: "preview", table: selectedTable, schema: inventory.get(selectedTable.name), hasResult: lastRun !== null };
+      return { kind: "preview", table: selectedTable, schema: inventory.get(selectedTable.qualifiedName), hasResult: lastRun !== null };
     }
     if (view.kind === "result" && lastRun) return { kind: "result", run: lastRun };
     if (view.kind === "error") return { kind: "error", code: view.code, message: view.message };
@@ -467,7 +467,7 @@ export function SqlConsole() {
   const edited = isEdited(draft, lastSeed);
   const geometryOf = useCallback(
     (name: string) => {
-      const table = tables?.find((candidate) => candidate.name === name);
+      const table = tables?.find((candidate) => candidate.qualifiedName === name);
       return table
         ? {
             geometryType: table.geometryType,
@@ -479,7 +479,7 @@ export function SqlConsole() {
   );
   const selectedGeometry = selectedTable
     ? (() => {
-        const e = inventory.get(selectedTable.name);
+        const e = inventory.get(selectedTable.qualifiedName);
         return e?.status === "ready" ? e.schema.geometryColumn : selectedTable.geometryColumn;
       })()
     : null;
@@ -561,7 +561,7 @@ export function SqlConsole() {
                   selected={selected}
                   onActivate={activate}
                   onOpenAsSql={openAsSql}
-                  onInsertTable={(t) => insertAtCursor(quoteIdentifier(t.name))}
+                  onInsertTable={(t) => insertAtCursor(quotedReference(t.qualifiedName))}
                   progress={inventory.progress}
                   searchRef={searchRef}
                 />

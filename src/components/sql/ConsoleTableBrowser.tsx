@@ -1,32 +1,40 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { TableListing } from "../api";
 import { formatCount } from "../api";
 import { GeometryIcon, geometryKind } from "../gallery-icons";
 import { IconButton } from "../ui/IconButton";
 import { PlayIcon } from "../ui/icons";
-import { groupTables } from "../builder/drawer/derived-tables";
 import { useRecipes } from "../builder/drawer/use-recipes";
+import { readProjectsDirectory } from "../scope/use-scope-world";
+import { initials } from "../sharing/people";
+import { useSignedInSqlName } from "../sharing/signed-in";
+import { sourceGroups, type SourceGrouping } from "./source-groups";
 import { matchTables } from "./table-search";
+import { useSourceGrouping } from "./use-source-grouping";
 import styles from "./SqlConsole.module.css";
 
 /**
  * The console's table browser (revised): search by table and column
- * name, the builder's grouping (recipe outputs above workspace tables,
- * via the same pure helper), rows with geometry kind, name and row
- * count. Activation selects and previews the table — the columns are
- * read in the preview, never unfolded here — and Open as
+ * name, rows with geometry kind, name and row count, grouped by person
+ * (one's own as "Yours", then each other person's under their name and
+ * SQL name) or, at the switch the account remembers, by project. Each
+ * row's name is what one types in SQL: someone else's dataset carries
+ * their SQL name. Activation selects and previews the table — the
+ * columns are read in the preview, never unfolded here — and Open as
  * SQL and insert are the row actions, each the kit's icon button so its
  * name is its hint (the name without the table — the row it sits in is
  * the table's name).
  */
 export interface BrowserProps {
   tables: readonly TableListing[];
+  /** The columns read for a dataset, by the name its reader types. */
   columnsOf: (name: string) => readonly string[] | null;
   /** How far the schema inventory has read: a column search that finds
    * nothing says whether columns are still arriving or some failed. */
   progress: { ready: number; failed: number; total: number };
+  /** The selected dataset, by the name its reader types. */
   selected: string | null;
   onActivate: (table: TableListing) => void;
   onOpenAsSql: (table: TableListing) => void;
@@ -64,22 +72,25 @@ export function ConsoleTableBrowser({
 }: BrowserProps) {
   const [query, setQuery] = useState("");
   const { recipes } = useRecipes();
+  const me = useSignedInSqlName();
+  const [grouping, setGrouping] = useSourceGrouping();
+  const projects = useProjectNames();
   const matches = useMemo(
     () => matchTables(tables, query, columnsOf),
     [tables, query, columnsOf],
   );
   const columnHit = useMemo(() => {
     const m = new Map<string, string>();
-    for (const x of matches) if (x.column) m.set(x.table.name, x.column);
+    for (const x of matches) if (x.column) m.set(x.table.qualifiedName, x.column);
     return m;
   }, [matches]);
   const groups = useMemo(
     () =>
-      groupTables(
+      sourceGroups(
         matches.map((m) => m.table),
-        recipes ?? [],
+        { grouping, me, projects, recipes: recipes ?? [] },
       ),
-    [matches, recipes],
+    [matches, grouping, me, projects, recipes],
   );
 
   return (
@@ -100,6 +111,7 @@ export function ConsoleTableBrowser({
           placeholder={`Search ${tables.length} table${tables.length === 1 ? "" : "s"} and their columns…`}
           aria-label="Search tables"
         />
+        <GroupingSwitch grouping={grouping} onGrouping={setGrouping} />
       </div>
       <div className={styles.browserList} role="group" aria-label="Sources">
         {matches.length === 0 && (
@@ -123,18 +135,22 @@ export function ConsoleTableBrowser({
         )}
         {groups.map((group) => (
           <div key={group.key} data-table-group={group.key}>
-            <p className={styles.groupEyebrow}>{group.label}</p>
-            {group.tables.map(({ table: t }) => {
-              const isSelected = t.name === selected;
-              const hit = columnHit.get(t.name);
+            <p className={styles.groupEyebrow}>
+              {group.label}
+              {group.sqlName && <code className={styles.eyebrowSql}>· {group.sqlName}</code>}
+            </p>
+            {group.rows.map(({ table: t, qualifier, owner, via }) => {
+              const isSelected = t.qualifiedName === selected;
+              const hit = columnHit.get(t.qualifiedName);
               return (
                 <div
                   key={t.id}
                   role="button"
                   tabIndex={0}
                   className={styles.row}
-                  data-name={t.name}
-                  aria-label={t.name}
+                  data-name={t.qualifiedName}
+                  data-hint={grouping === "person" && via ? via : undefined}
+                  aria-label={t.qualifiedName}
                   data-selected={isSelected || undefined}
                   data-nonspatial={t.geometryColumn === null || undefined}
                   aria-pressed={isSelected}
@@ -152,13 +168,23 @@ export function ConsoleTableBrowser({
                     <GeometryIcon kind={geometryKind(t.geometryType, t.geometryColumn)} />
                   </span>
                   <span className={styles.rowName}>
+                    {qualifier && <i className={styles.rowQualifier}>{qualifier}.</i>}
                     {t.name}
                     {hit && <span className={styles.colHit}>· {hit}</span>}
                   </span>
                   {/* The meta and the actions share one cell, so revealing
-                      the actions moves nothing. */}
+                      the actions moves nothing. By project the meta is
+                      whose dataset it is. */}
                   <span className={styles.rowEnd}>
-                    <span className={styles.rowMeta}>{formatCount(t.rowCount)}</span>
+                    {grouping === "project" && owner ? (
+                      <span className={styles.rowWho} data-hint={owner.name} data-row-owner={owner.sqlName}>
+                        <span className={styles.rowIni} data-me={owner.sqlName === me || undefined} aria-hidden>
+                          {initials(owner.name)}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className={styles.rowMeta}>{formatCount(t.rowCount)}</span>
+                    )}
                     <span className={styles.rowActs}>
                       <IconButton
                         className={styles.rowAct}
@@ -188,4 +214,49 @@ export function ConsoleTableBrowser({
       </div>
     </>
   );
+}
+
+/** The switch on the list: grouped by person or by project, remembered
+ * for the account. */
+function GroupingSwitch({
+  grouping,
+  onGrouping,
+}: {
+  grouping: SourceGrouping;
+  onGrouping: (next: SourceGrouping) => void;
+}) {
+  return (
+    <div className={`${styles.tabs} ${styles.grouping}`} role="group" aria-label="Group sources">
+      {(["person", "project"] as const).map((g) => (
+        <button
+          key={g}
+          type="button"
+          aria-pressed={grouping === g}
+          data-on={grouping === g || undefined}
+          onClick={() => onGrouping(g)}
+        >
+          {g === "person" ? "By person" : "By project"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** The projects the reader reaches, by name, for the project grouping and
+ * the person grouping's hover. A failed read groups nothing by project. */
+function useProjectNames(): { id: string; name: string }[] {
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    readProjectsDirectory().then(
+      (listed) => {
+        if (!cancelled) setProjects([...listed].sort((a, b) => a.name.localeCompare(b.name)));
+      },
+      () => {},
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return projects;
 }

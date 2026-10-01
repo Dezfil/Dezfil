@@ -8,6 +8,7 @@ import { CatalogTableBrowser } from "./CatalogTableBrowser";
 const retainedUnknown: TableListing = {
   id: "empty-spatial",
   name: "empty_surface_catalog_proof",
+  qualifiedName: "empty_surface_catalog_proof",
   sourceFilename: "empty_surface_catalog_proof.geojson",
   format: "geoparquet",
   file: "tables/empty_surface_catalog_proof.parquet",

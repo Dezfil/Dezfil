@@ -41,6 +41,15 @@ export function tableReference(typed: string): string {
     : `${identifierFor(typed.slice(0, dot))}.${identifierFor(typed.slice(dot + 1))}`;
 }
 
+/** A typed name with every part quoted, the insert action's contract:
+ * `"roads"`, or someone else's `"ada"."roads"`. */
+export function quotedReference(typed: string): string {
+  const dot = typed.indexOf(".");
+  return dot < 0
+    ? quoteIdentifier(typed)
+    : `${quoteIdentifier(typed.slice(0, dot))}.${quoteIdentifier(typed.slice(dot + 1))}`;
+}
+
 /** A query returning a table's first 100 rows — the automatic seed. */
 export function starterSql(table: string): string {
   return `SELECT *\nFROM ${tableReference(table)}\nLIMIT 100;`;

@@ -273,8 +273,15 @@
 .browserTop {
   padding: 10px 10px 8px;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+/* The source list's grouping switch, the results' two-part tabs, on its
+   own line under the search. */
+.grouping {
+  align-self: flex-start;
 }
 
 .search {
@@ -425,8 +432,53 @@
 }
 .row:hover .rowMeta,
 .row[data-selected] .rowMeta,
-.row:focus-within .rowMeta {
+.row:focus-within .rowMeta,
+.row:hover .rowWho,
+.row[data-selected] .rowWho,
+.row:focus-within .rowWho {
   visibility: hidden;
+}
+
+/* Someone else's dataset reads as it is typed: their SQL name, quieter,
+   before the name. */
+.rowQualifier {
+  font-style: normal;
+  color: var(--fg-muted);
+}
+
+/* A person's group carries their SQL name beside their name. */
+.eyebrowSql {
+  margin-left: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--fg-muted);
+}
+
+/* By project, whose dataset a row is: the owner's initials. */
+.rowWho {
+  display: inline-flex;
+  align-items: center;
+  padding-right: 4px;
+}
+.rowIni {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+.rowIni[data-me] {
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  border: 1px solid var(--border);
 }
 /* The kit's icon button at the row's size: the hit floor is the kit's. */
 .rowAct {

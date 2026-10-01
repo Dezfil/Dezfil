@@ -319,9 +319,34 @@
    membership tag left with a row is capsule, name, count. */
 .scopeRow {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
   flex: none;
+}
+
+/* The one line under the scope on someone else's map: one's own datasets
+   carry one's SQL name there. */
+.homeLine {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.homeLine code {
+  font-family: var(--font-mono);
+  color: var(--fg);
+}
+
+/* A typed name's qualifier, quieter than the name. */
+.tableQualifier {
+  font-style: normal;
+  color: var(--fg-muted);
+}
+
+.tableRow[data-selected] .tableQualifier {
+  color: inherit;
 }
 
 /* The import wing's stated trade: where an import will file. */

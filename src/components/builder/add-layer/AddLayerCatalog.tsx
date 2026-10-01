@@ -25,7 +25,9 @@ import type {
 import { ErrorNote } from "../../ui/ErrorNote";
 import { CatalogTablesView } from "./CatalogTablesView";
 import { CatalogWorkbench } from "./CatalogWorkbench";
-import { followName, followSeed, impliedQuery } from "./catalog-state";
+import { followName, followSeed, homeLine, impliedQuery, typedInHome } from "./catalog-state";
+import { useSignedInSqlName } from "../../sharing/signed-in";
+import type { PersonLabel } from "../../sharing/people";
 import { parseScope, type ProjectScope } from "../../scope/model";
 import { useProjectName } from "../../shell/use-project-name";
 import {
@@ -126,6 +128,11 @@ interface Props {
   projectId?: string | null;
   /** The map being added to: the SQL view previews in its home. */
   mapId?: string;
+  /** The SQL name of the map's SQL home: the catalogue names datasets as
+   * the map's SQL types them. */
+  mapHome?: string | null;
+  /** The map's owner, named in the line under the scope. */
+  mapOwner?: PersonLabel | null;
 }
 
 /**
@@ -151,6 +158,8 @@ export function AddLayerCatalog({
   initialViewport = null,
   projectId = null,
   mapId,
+  mapHome = null,
+  mapOwner = null,
 }: Props) {
   const editing = request.kind === "edit";
   // The non-spatial note's door (04): the catalog closes, its
@@ -228,10 +237,16 @@ export function AddLayerCatalog({
   const pickScope = useCallback((id: string) => {
     setScope(parseScope(id === "all" ? null : id));
   }, []);
+  // Names as the map's SQL types them: on someone else's map one's own
+  // datasets carry one's SQL name, and one line under the scope says so.
+  const me = useSignedInSqlName();
+  const typed = useCallback((t: TableListing) => typedInHome(t, mapHome), [mapHome]);
   const listing: CatalogListing = {
     ...reads,
     scope,
     onScope: pickScope,
+    typed,
+    homeLine: homeLine(mapHome, mapOwner, me, reads.offered ?? []),
   };
   const offered = reads.offered;
   const picked =
@@ -285,13 +300,13 @@ export function AddLayerCatalog({
   const prevSeedRef = useRef<string | null>(null);
   const switchToSql = useCallback(() => {
     setSqlDraft((d) => {
-      const next = followSeed(d, prevSeedRef.current, picked?.name ?? null);
+      const next = followSeed(d, prevSeedRef.current, picked ? typed(picked) : null);
       if (next !== d) prevSeedRef.current = next;
       return next;
     });
     setCreateError(null);
     setSource("sql");
-  }, [picked]);
+  }, [picked, typed]);
   const switchToTables = useCallback(() => {
     setCreateError(null);
     setSource("tables");

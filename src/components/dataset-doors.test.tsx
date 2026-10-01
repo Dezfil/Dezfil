@@ -202,9 +202,8 @@ describe("the catalogue's set-geometry door", () => {
     );
     const tablesSource = container.querySelectorAll("button").find((b) => b.textContent.startsWith("Tables"))!;
     await act(async () => tablesSource.click());
-    const rows = container.querySelectorAll('button[aria-label="roads"]');
-    expect(rows).toHaveLength(2);
-    await act(async () => rows[1].click());
+    expect(container.querySelectorAll('button[aria-label="roads"]')).toHaveLength(1);
+    await act(async () => container.querySelector('button[aria-label="ada.roads"]')!.click());
     await act(async () => container.querySelector('[data-set-geometry-door="catalog"]')!.click());
     expect(doors.push).toHaveBeenCalledWith("/tables/ada.roads?geometry=set");
   });

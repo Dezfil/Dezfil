@@ -109,7 +109,7 @@ describe("snippets", () => {
 });
 
 describe("table search", () => {
-  const t = (name: string): TableListing => ({ name } as unknown as TableListing);
+  const t = (name: string): TableListing => ({ name, qualifiedName: name } as unknown as TableListing);
   const tables = [t("berlin_cafes"), t("districts"), t("routes")];
   const cols = (n: string) => (n === "berlin_cafes" ? ["id", "name", "rating"] : n === "districts" ? ["id", "name"] : null);
   it("matches by name, then by column, naming the column", () => {

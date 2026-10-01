@@ -125,7 +125,9 @@ export function useSchemaInventory(tables: readonly TableListing[] | null) {
   // external system — and the entries arrive through its callbacks.
   useEffect(() => {
     if (!tables) return;
-    const names = new Set(tables.map((t) => t.name));
+    // Each dataset by the name its reader types: someone else's same-named
+    // dataset is its own entry, read at its own address.
+    const names = new Set(tables.map((t) => t.qualifiedName));
     for (const name of names) {
       if (!entries.has(name)) engine.enqueue(name);
     }
@@ -137,7 +139,7 @@ export function useSchemaInventory(tables: readonly TableListing[] | null) {
   }, [tables, engine]);
 
   const listed = useMemo(
-    () => new Set((tables ?? []).map((t) => t.name)),
+    () => new Set((tables ?? []).map((t) => t.qualifiedName)),
     [tables],
   );
 
@@ -161,8 +163,8 @@ export function useSchemaInventory(tables: readonly TableListing[] | null) {
   const completion = useMemo<SqlCompletion>(() => {
     const out: Record<string, string[]> = {};
     for (const t of tables ?? []) {
-      const e = entries.get(t.name);
-      out[t.name] =
+      const e = entries.get(t.qualifiedName);
+      out[t.qualifiedName] =
         e?.status === "ready" ? e.schema.columns.map((c) => c.name) : [];
     }
     return { tables: out, functions: SPATIAL_FUNCTIONS };

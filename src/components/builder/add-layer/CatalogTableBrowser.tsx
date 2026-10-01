@@ -87,11 +87,18 @@ export function CatalogTableBrowser({ listing, selected, onPick }: Props) {
   // face standing in for it.
   const missingActive =
     scope.kind === "project" && !rows.some((r) => r.id === scope.id);
+  const line = listing.homeLine ?? null;
   const filterRow = missingActive ? null : (
     <div className={styles.scopeRow}>
       <ScopeFilter rows={rows} scope={scope} onPick={onScope} size="compact" />
+      {line && (
+        <p className={styles.homeLine} data-home-line>
+          {line.lead} <code>{line.example}</code>.
+        </p>
+      )}
     </div>
   );
+  const typedOf = listing.typed ?? ((t: TableListing) => t.qualifiedName);
 
   if (offeredError !== null) {
     return (
@@ -139,18 +146,24 @@ export function CatalogTableBrowser({ listing, selected, onPick }: Props) {
           <div key={group.key} data-table-group={group.key}>
             <p className={styles.groupEyebrow}>{group.label}</p>
             {group.tables.map(({ table: t }) => {
+              // The name as the map's SQL types it, the qualifier quieter.
+              const typed = typedOf(t);
+              const dot = typed.indexOf(".");
               return (
                 <button
                   key={t.id}
                   className={styles.tableRow}
-                  aria-label={t.name}
+                  aria-label={typed}
                   aria-pressed={t.qualifiedName === selected}
                   data-selected={t.qualifiedName === selected || undefined}
                   data-nonspatial={t.geometryColumn === null || undefined}
                   onClick={() => onPick(t)}
                 >
                   <GeometryBadge table={t} />
-                  <span className={styles.tableName}>{t.name}</span>
+                  <span className={styles.tableName}>
+                    {dot >= 0 && <i className={styles.tableQualifier}>{typed.slice(0, dot + 1)}</i>}
+                    {dot >= 0 ? typed.slice(dot + 1) : typed}
+                  </span>
                   <span className={styles.tableMeta}>
                     {formatCount(t.rowCount)} rows
                   </span>

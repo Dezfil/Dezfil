@@ -157,7 +157,8 @@ export function CatalogWorkbench({
               // handle round-trips onChange; before the lazy editor
               // mounts, the draft carries the text and the focus debt
               // settles on mount.
-              const statement = impliedQuery(t.name);
+              // As the map's SQL types it: the workbench previews there.
+              const statement = impliedQuery(listing.typed ? listing.typed(t) : t.qualifiedName);
               if (editorHandle.current !== null) {
                 editorHandle.current.replaceAll(statement);
               } else {

@@ -25,6 +25,39 @@ export function followName(
   return current === "" || current === previousAuto ? pickedTable : current;
 }
 
+/**
+ * A dataset as the map's SQL types it: a dataset of the map's SQL home by
+ * its plain name, anyone else's with their SQL name, `<sql name>.<name>`,
+ * one's own included when the map is someone else's. Without a known home
+ * (no map), as the reader's own console types it.
+ */
+export function typedInHome(
+  t: { name: string; qualifiedName: string; owner?: { sqlName: string } },
+  home: string | null,
+): string {
+  if (home === null) return t.qualifiedName;
+  return t.owner && t.owner.sqlName !== home ? `${t.owner.sqlName}.${t.name}` : t.name;
+}
+
+/**
+ * The one line under the catalogue's scope on a map whose SQL home is
+ * someone else's: one's own datasets carry one's SQL name there, which is
+ * the surprise it names, with one of them as it is typed. Nothing on one's
+ * own map.
+ */
+export function homeLine(
+  home: string | null,
+  owner: { name: string; sqlName: string } | null,
+  me: string | null,
+  offered: readonly { name: string; owner?: { sqlName: string } }[],
+): { lead: string; example: string } | null {
+  if (home === null || me === null || home === me) return null;
+  const mine = offered.find((t) => t.owner?.sqlName === me);
+  const example = mine ? `${me}.${mine.name}` : me;
+  const whose = owner && owner.sqlName === home ? `This map is ${owner.name.trim().split(/\s+/)[0]}’s` : `This map reads ${home}’s datasets`;
+  return { lead: `${whose}, so your own datasets carry your SQL name:`, example };
+}
+
 /** The SQL a table pick compiles to — one definition, shared by the
  * create call, the footer disclosure, and the table-to-SQL carry, so
  * the stated query and the stored query cannot drift. */
