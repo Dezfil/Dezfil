@@ -95,6 +95,14 @@ identity. `POST /api/account/password` takes `currentPassword` and `password`,
 preserves the calling browser session, ends other sessions and leaves tokens
 valid. A bearer caller has no browser session to preserve.
 
+Every account read (`/api/account`, `/api/auth/session` and an admin's
+`/api/users`) carries `sqlName`, the account's SQL name: three to thirty-two
+characters, a lower-case letter first, then lower-case letters, digits and
+underscores, unique on the instance. It is derived from the display name (else
+the email's local part, else `user`, with a number added on a collision or on a
+name the query engine reserves) when the account is created or upgraded, and is
+fixed thereafter: a name or email change leaves it as it was.
+
 `GET`/`POST /api/account/tokens` list or create the caller's named API/MCP
 tokens. Creation returns the secret once; list responses never contain secrets
 or hashes. `DELETE /api/account/tokens/{id}` revokes an own token; another

@@ -55,6 +55,19 @@
   outline-offset: 0;
 }
 
+.sqlName {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: -4px;
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+}
+
+.sqlName code {
+  font-family: var(--font-mono);
+}
+
 .note {
   font-size: 12.5px;
   color: var(--fg-faint);

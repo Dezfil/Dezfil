@@ -33,6 +33,7 @@ export function AccountCard({ account }: { account: Account }) {
     <form className={styles.cardForm} onSubmit={submit}>
       <label className={styles.field}><span>Display name</span><TextInput value={name} maxLength={80} required autoComplete="name" disabled={busy}
         onChange={event => { setName(event.target.value); setSaved(false); }} /></label>
+      <p className={styles.sqlName}><span>SQL name</span><code>{savedAccount.sqlName}</code></p>
       <label className={styles.field}><span>Email</span><TextInput type="email" value={email} required autoComplete="email" disabled={busy}
         onChange={event => { setEmail(event.target.value); setSaved(false); }} /></label>
       {changingEmail && <PasswordField label="Current password to change email" value={current} onChange={setCurrent} disabled={busy} />}

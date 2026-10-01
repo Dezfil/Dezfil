@@ -9,6 +9,8 @@ export interface Account {
   id: string;
   name: string;
   email: string;
+  /** The account's SQL name: derived at creation (or upgrade), fixed after. */
+  sqlName: string;
   isAdmin: boolean;
   status: AccountStatus;
   isOriginal: boolean;
@@ -17,20 +19,20 @@ export interface Account {
   lastSignInAt: string | null;
 }
 
-const projection = `SELECT a.id, a.name, a.email, a.is_admin, a.status,
+const projection = `SELECT a.id, a.name, a.email, a.sql_name, a.is_admin, a.status,
   a.created_at, a.updated_at, a.last_sign_in_at,
   EXISTS (SELECT 1 FROM original_account o WHERE o.account_id = a.id) AS is_original
   FROM accounts a`;
 
 interface Row {
-  id: string; name: string; email: string; is_admin: number;
+  id: string; name: string; email: string; sql_name: string; is_admin: number;
   status: AccountStatus; is_original: number; created_at: string;
   updated_at: string; last_sign_in_at: string | null;
 }
 
 function fromRow(row: Row): Account {
   return {
-    id: row.id, name: row.name, email: row.email, isAdmin: row.is_admin === 1,
+    id: row.id, name: row.name, email: row.email, sqlName: row.sql_name, isAdmin: row.is_admin === 1,
     status: row.status, isOriginal: row.is_original === 1,
     createdAt: row.created_at, updatedAt: row.updated_at,
     lastSignInAt: row.last_sign_in_at,

@@ -33,10 +33,12 @@ export const AUTH_PATHS = {
 };
 export const AUTH_SCHEMAS = {
   Account: { type: "object", additionalProperties: false,
-    properties: { id: { type: "string" }, name: { type: "string" }, email: { type: "string" }, isAdmin: { type: "boolean" },
+    properties: { id: { type: "string" }, name: { type: "string" }, email: { type: "string" },
+      sqlName: { type: "string", pattern: "^[a-z][a-z0-9_]{2,31}$", description: "The account's SQL name, unique on the instance. Derived from the display name (else the email's local part, else the word user, with a number added on a collision or a name the query engine reserves) when the account is created or upgraded, and fixed thereafter: changing the name or email never changes it." },
+      isAdmin: { type: "boolean" },
       status: { type: "string", enum: ["invited", "active", "deactivated"] }, isOriginal: { type: "boolean" },
       createdAt: { type: "string" }, updatedAt: { type: "string" }, lastSignInAt: { type: ["string", "null"] } },
-    required: ["id", "name", "email", "isAdmin", "status", "isOriginal", "createdAt", "updatedAt", "lastSignInAt"] },
+    required: ["id", "name", "email", "sqlName", "isAdmin", "status", "isOriginal", "createdAt", "updatedAt", "lastSignInAt"] },
   AccountSession: { type: "object", properties: { account: { $ref: "#/components/schemas/Account" } }, required: ["account"], additionalProperties: false },
   AuthEntry: { type: "object", properties: { instanceName: { type: ["string", "null"] }, setupRequired: { type: "boolean" }, prefillName: { type: "string" } }, required: ["instanceName", "setupRequired"], additionalProperties: false },
   SignedOut: { type: "object", properties: { signedOut: { type: "boolean", const: true } }, required: ["signedOut"], additionalProperties: false },
