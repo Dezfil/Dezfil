@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { dataDir } from "@/lib/config";
@@ -62,14 +62,33 @@ function readEvidence(file: string): TileEvidence | null {
 
 /**
  * The inputs of the archive a ready record makes authoritative, or null when
- * the archive is unattributed: no ready record, no evidence, or evidence of
+ * there are none to go by: no ready record, no evidence, or evidence of
  * another build.
  */
 export function tileArchiveInputs(layerId: string, record: TileRecord | null): ArtifactInputs | null {
-  if (!record || record.state !== "ready" || !record.builtAt) return null;
-  const evidence = readEvidence(tileEvidencePath(layerId));
-  if (!evidence || evidence.fingerprint !== record.fingerprint || evidence.builtAt !== record.builtAt) return null;
-  return evidence.inputs;
+  const attribution = tileArchiveAttribution(layerId, record);
+  return typeof attribution === "object" ? attribution.inputs : null;
+}
+
+/**
+ * Whom the layer's archive can be attributed to, for serving it:
+ *  - the inputs its build recorded, when the evidence names the ready record;
+ *  - "unattributed", when there is no evidence at all: an archive built
+ *    before archives recorded their inputs, its map owner's alone;
+ *  - "unbound", when the evidence names another build: the archive on disk
+ *    may be one being swapped in, so it is nobody's until a record names it.
+ * Every build writes its evidence before its archive, so evidence that names
+ * no current record never describes an archive older than itself.
+ */
+export type ArchiveAttribution = { inputs: ArtifactInputs } | "unattributed" | "unbound";
+
+export function tileArchiveAttribution(layerId: string, record: TileRecord | null): ArchiveAttribution {
+  const file = tileEvidencePath(layerId);
+  if (!existsSync(file)) return "unattributed";
+  const evidence = readEvidence(file);
+  if (!evidence || !record || record.state !== "ready" || evidence.fingerprint !== record.fingerprint
+    || evidence.builtAt !== record.builtAt) return "unbound";
+  return { inputs: evidence.inputs };
 }
 
 /** Every layer whose recorded evidence names this dataset. */

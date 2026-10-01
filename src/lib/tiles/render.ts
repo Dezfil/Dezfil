@@ -2,7 +2,7 @@ import type { LayerRenderData, LayerRenderGeometryType } from "@/lib/layer-servi
 import { getMap, type Layer } from "@/lib/metadata/maps";
 import type { LayerFilter } from "@/lib/viz";
 import { publishedFieldsFor, publishedFieldsSignature, type PublishedMapContext } from "@/lib/publish/published-fields";
-import { tilerUnavailable, tilesForOwnerOnly } from "@/lib/layer-render-copy";
+import { tilerUnavailable } from "@/lib/layer-render-copy";
 import { ensureTiles } from "./build";
 import { tilerAvailable } from "./tiler";
 import { tileArchiveInfo } from "./serve";
@@ -24,11 +24,6 @@ export async function tiledRender(
   geometryType: LayerRenderGeometryType,
   opts: { liveFiltered?: boolean; published?: boolean; tileAccess?: TileAccess; inputs?: ArtifactInputs } = {},
 ): Promise<LayerRenderData> {
-  // A tile archive is prepared and served for its map's owner and the map's
-  // publication alone; anyone else the map is shared with draws no tiles.
-  if (!opts.tileAccess && !opts.published) {
-    return errored(layer.id, "render_cap_exceeded", tilesForOwnerOnly(featureCount));
-  }
   requireTileAccess(opts.tileAccess, layer.id);
   if (!(await tilerAvailable())) {
     return errored(

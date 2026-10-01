@@ -179,16 +179,13 @@ describe("reading a reached map", () => {
     expect(effects.query).not.toHaveBeenCalled();
   });
 
-  it("serves the snapshot to the owner alone: anyone else who reaches the map sees no snapshot, without a file read", async () => {
-    const owner = await call(route.thumbnail, "GET", input("ada", "/api/maps/M/thumbnail"), { id: "M" });
-    expect(owner.status).toBe(200);
-    expect(effects.thumbnail).toHaveBeenCalledTimes(1);
-    for (const account of ["pat", "edd", "viv"]) {
-      const shared = await call(route.thumbnail, "GET", input(account, "/api/maps/M/thumbnail"), { id: "M" });
-      expect(shared.status, account).toBe(404);
-      expect(shared.body, account).toEqual({ error: { code: "not_found", message: "This map has no snapshot yet." } });
+  it("asks for the snapshot as each reader may be served it: the image's own record decides", async () => {
+    for (const account of ["ada", "pat", "edd", "viv"]) {
+      const read = await call(route.thumbnail, "GET", input(account, "/api/maps/M/thumbnail"), { id: "M" });
+      expect(read.status, account).toBe(200);
+      expect(effects.thumbnail).toHaveBeenLastCalledWith(expect.objectContaining({ accountId: account }), "M", null);
     }
-    expect(effects.thumbnail).toHaveBeenCalledTimes(1);
+    expect(effects.thumbnail).toHaveBeenCalledTimes(4);
   });
 });
 

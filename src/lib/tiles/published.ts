@@ -7,6 +7,7 @@ import { publishedFieldsSignature } from "@/lib/publish/published-fields";
 import { tileFingerprint } from "./build";
 import { tileArchivePath } from "./paths";
 import { tileArchiveInputs } from "./evidence";
+import { servableToPublication } from "@/lib/artifact-access";
 import { currentInputs } from "@/lib/table-deps";
 
 /** Durable identity of the tile artifact a published request may use. */
@@ -65,6 +66,9 @@ export function currentPublishedTile(
   ) {
     return null;
   }
+  // The link is served what the archive drew only while the map names it
+  // within the owner's current reach.
+  if (!servableToPublication(snapshot.scope, recorded)) return null;
 
   const version = String(Date.parse(record.builtAt));
   if (requestedVersion !== null && requestedVersion !== version) return null;

@@ -41,12 +41,13 @@ function input(account: string) { return { layerId: layers[account], sql: `SELEC
 function build(account: string) { return ensureTiles(privateTileAccess(scopes[account], layers[account]), input(account)); }
 function deactivate(account: string) { metadataDb().prepare("UPDATE accounts SET status = 'deactivated' WHERE id = ?").run(account); }
 function gate() { let release!: () => void; const promise = new Promise<void>(resolve => { release = resolve; }); return { promise, release }; }
-it("refuses a layer deleted after its private tile ownership check", async () => {
-  const resources = await import("./owned-resource"), requireOwned = resources.requireOwnedResource;
-  vi.spyOn(resources, "requireOwnedResource").mockImplementationOnce((...args) => {
-    const id = requireOwned(...args);
-    metadataDb().prepare("DELETE FROM layers WHERE id = ?").run(id);
-    return id;
+it("refuses a layer deleted after its private tile reach check", async () => {
+  const resources = await import("./owned-resource");
+  const kernel = await import("./reach"), requireReached = kernel.requireReachable;
+  vi.spyOn(kernel, "requireReachable").mockImplementationOnce((...args) => {
+    const reached = requireReached(...args);
+    metadataDb().prepare("DELETE FROM layers WHERE id = ?").run(reached.id);
+    return reached;
   });
   expect(() => privateTileAccess(scopes.alice, layers.alice)).toThrow(expect.objectContaining({
     code: "not_found", status: 404, message: resources.resourceAbsent().message,

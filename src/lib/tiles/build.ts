@@ -1,5 +1,5 @@
 import { metadataDb } from "@/lib/metadata/db";
-import { tileQueryScope, requireTileAccess, tileAccessAvailable, type TileAccess } from "./access";
+import { archiveServable, tileQueryScope, requireTileAccess, tileAccessAvailable, type TileAccess } from "./access";
 import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -19,6 +19,7 @@ import {
   removeTileEvidence,
   evidencedLayerIds,
   resetBuildInputs,
+  tileArchiveAttribution,
   tileArchiveInputs,
   trackBuildInputs,
   untrackBuildInputs,
@@ -362,9 +363,12 @@ export function ensureTiles(access: TileAccess, input: TileBuildInput): TileStat
   }
 
   if (record && record.fingerprint === fingerprint) {
+    // A ready archive is served only to a caller who may be served what it
+    // drew; anyone else prepares tiles in their own reach.
     if (
       record.state === "ready" &&
-      existsSync(tileArchivePath(input.layerId))
+      existsSync(tileArchivePath(input.layerId)) &&
+      archiveServable(access, tileArchiveAttribution(input.layerId, record))
     ) {
       return {
         state: "ready",

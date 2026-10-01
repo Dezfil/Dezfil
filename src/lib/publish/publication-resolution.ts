@@ -3,6 +3,7 @@ import { limits } from "@/lib/limits";
 import { publicationRevision } from "@/lib/query/namespace";
 import { forgetPublications } from "@/lib/query/publication-namespace";
 import { collectInputs, type ArtifactInputs } from "@/lib/query/evaluation-inputs";
+import { servableToPublication } from "@/lib/artifact-access";
 import type { PublishedView } from "./publish-service";
 
 type PublicationSnapshot = NonNullable<ReturnType<typeof resolvePublication>>;
@@ -56,12 +57,15 @@ export async function resolvePublishedView(
     invalidatePublishedToken(token);
     return null;
   }
+  // A hit is served like any retained artifact: only while the link may
+  // still be served everything the held view drew.
   const cached = cache.get(token);
   if (
     cached &&
     cached.mapId === snapshot.map.id &&
     cached.revision === revisionOf(snapshot) &&
-    now < cached.expiresAt
+    now < cached.expiresAt &&
+    servableToPublication(snapshot.scope, cached.inputs)
   ) {
     return cached.view;
   }

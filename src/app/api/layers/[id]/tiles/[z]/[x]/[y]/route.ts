@@ -1,7 +1,7 @@
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
-import { requireOwnLayer } from "@/lib/layer-access";
+import { requireLayer } from "@/lib/layer-access";
 import { readPrivateTile } from "@/lib/tiles/private-service";
 
 type Params = { params: Promise<{ id: string; z: string; x: string; y: string }> };
@@ -15,14 +15,16 @@ function coordinate(raw: string): number | null {
  * One vector tile of a tiled layer. A spot the archive does not cover is an
  * empty tile (204), not an error. The render response's URL template
  * carries a version parameter, so tiles cache aggressively and a rebuild
- * busts the cache by changing the URL. Its tiles are served to the map's
- * owner alone.
+ * busts the cache by changing the URL. Everyone who reaches the map may be
+ * served the archive when they can reach every dataset it recorded drawing;
+ * anyone else, and anyone at all for an archive whose evidence names another
+ * build, gets the tiles' named failure (404).
  */
 export async function GET(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id, z, x, y } = await params;
-    requireOwnLayer(scope, id);
+    requireLayer(scope, id);
     const [tz, tx, ty] = [coordinate(z), coordinate(x), coordinate(y)];
     if (tz === null || tx === null || ty === null) {
       return new NextResponse(null, { status: 204 });

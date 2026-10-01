@@ -135,8 +135,11 @@ export const MAP_RESOURCE_PATHS = {
         "name the theme to read that one. The fallback order: " +
         "the named theme's image, then the map's single image, then " +
         "the other theme's; a request naming no theme answers the " +
-        "light image, then dark, then the single image. Only a map with no " +
-        "image at all is refused.",
+        "light image, then dark, then the single image. An image the " +
+        "reader may not be served (one that drew a dataset beyond their " +
+        "reach, or an unattributed one read by anyone but the owner) is " +
+        "passed over like a missing one; when none is left the answer is " +
+        "the same 404 as for a map with no image at all.",
       tag: "Maps",
       // UI sugar, not a map capability — outside the agent tool set.
       tool: false,

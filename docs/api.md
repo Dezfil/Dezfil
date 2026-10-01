@@ -50,8 +50,9 @@ it, whoever owns it, naming the project's `owner` and the caller's `role`. A
 map is reached by its owner and, while it is filed in a project, by that
 project's owner and people: they list and read it, its layers, widgets and history,
 with its SQL evaluated in the map's SQL home within their own reach, and
-every map read names the map's owner and home. Its thumbnails and tile
-archives stay the owner's. A dataset is reached by its owner and by the owner
+every map read names the map's owner and home. Its card images and tile
+archives are served to whoever reaches it and every dataset they recorded
+drawing (see Retained artifacts below). A dataset is reached by its owner and by the owner
 and people of every project it is filed in; it changes, refreshes and goes
 only by its owner. A workflow is reached like a map, its steps, layout and
 runs with it, and read in its SQL home within the reader's reach; its editors
@@ -196,8 +197,9 @@ never enter the render URL, page initialization, image facts or retained state.
 (`POST /api/maps/{id}/layers`), read and patch it, duplicate it, delete it.
 `GET /api/layers/{id}/render` is what the canvas draws, for everyone who
 reaches the map; `GET /api/layers/{id}/tiles/{z}/{x}/{y}` serves a tiled
-layer's archive to the map's owner, and an over-cap layer read by anyone else
-answers `render_cap_exceeded`.
+layer's archive to a reader who can reach every dataset it recorded drawing,
+and answers `not_found` (404) otherwise. A reader beyond the current archive's
+reach whose own render succeeds has tiles prepared in their own reach.
 `GET /api/layers/{id}/fields` and `.../fields/{field}` describe columns and
 their statistics, and `POST /api/layers/{id}/fill` and `.../scale` compute a
 classification or a size ramp. `GET /api/layers/{id}/export/{format}`
@@ -474,8 +476,9 @@ whole recorded gesture, including layer targets and saved map references,
 before changing records or deleting artifacts. A foreign or mismatched replay
 reference returns `not_found` and leaves the cursor and all records unchanged.
 Restoring a deleted layer preserves its recorded identity and parent; it cannot
-replace a live layer belonging to another map. Thumbnail reads, writes and
-copies check the owning map, and staged writes recheck access before publishing.
+replace a live layer belonging to another map. Thumbnail writes are the
+owning map's owner's and staged writes recheck access before publishing;
+reads and copies follow the rule for retained artifacts below.
 
 Dataset names belong to the authenticated account. Different accounts can each
 import `roads`; uploads and sketches choose suffixes using only the creator's
@@ -545,6 +548,22 @@ it, whoever's map it is on. Tiles and card images made before artifacts
 recorded their inputs carry no evidence and are unattributed: served to the
 map's owner only until rebuilt or recaptured.
 
+Serving or copying a retained artifact authorizes what it recorded against the
+caller's reach at that moment, never when it was made. A tile archive is
+served to a reader who can reach every dataset it drew; a tile request
+otherwise answers `not_found`, as does one for an archive whose evidence names
+another build (one being swapped in). A card image is served to a reader who
+reaches the map and every dataset it drew; any other image is passed over like
+a missing one, so the reader gets the card's placeholder `404`. An image is
+copied into a duplicate only when the duplicator may be served it, a themed
+pair only whole. A published link is served an archive, and a held view of
+itself, only while the map's owner can still reach what it drew, and an
+archive or view that read the catalogue only within what the map names.
+Unattributed artifacts are the map's current owner's alone, so a transfer
+hands them to the new owner, and the new owner's reach governs everything
+else. Removing a dataset from a project, replacing a layer's SQL or
+transferring the map changes what is served at the next request.
+
 Operation jobs keep their initiating owner independently of any output. Their
 parameters, errors, results, subject histories and cancellation are private,
 including after output deletion. Identical subject names and history limits are
@@ -569,8 +588,8 @@ attempts even when job history prunes them or a step or output is deleted. Start
 reconciliation marks unfinished runs interrupted, including inactive owners' runs,
 and never re-executes them or attaches another owner's job attempt.
 
-Private layer renders, tile status and tile bytes follow the map owner, including
-for administrators. Builds retain their initiating account authority across the
+Private layer renders, tile status and tile bytes follow the map's reach and
+the archives' recorded inputs, administrators included. Builds retain their initiating account authority across the
 queue, export and atomic archive swap. Deactivation before publication prevents a
 new authoritative archive, and an in-flight private read rechecks activity before
 returning bytes. Deleting an owned layer fences its outstanding build; reactivation

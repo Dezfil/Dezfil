@@ -1,5 +1,6 @@
 import type { AccountScope } from "@/lib/auth/scope";
-import { requireOwnMap } from "./map-access";
+import { requireMap, requireOwnMap } from "./map-access";
+import { servableTo } from "./artifact-access";
 import { metadataDb } from "@/lib/metadata/db";
 import { renameSync } from "node:fs";
 import path from "node:path";
@@ -40,8 +41,10 @@ import { evidencedImages, imageInputs, removeImageEvidence, writeImageEvidence }
  * a temporary file and a rename (the ` ` class).
  *
  * Each image carries the evidence of what it drew (thumbnail-evidence.ts),
- * written before the image and removed with it. The images are still the
- * map owner's alone.
+ * written before the image and removed with it. Captures are the map
+ * owner's; an image is served, and copied into a duplicate, only for
+ * someone who reaches the map and can now reach every dataset it drew, an
+ * unattributed image for the map's owner alone.
  */
 
 export type ThumbnailTheme = "light" | "dark";
@@ -284,7 +287,8 @@ export function saveThemedThumbnail(
  * theme's file in the published set, then the single image, then the
  * other theme's; a read naming no theme prefers the set's light, then
  * its dark, then the single image (so a legacy or single map answers
- * as it always did). Null when the map has no image at all — the route
+ * as it always did). An image the reader may not be served is passed
+ * over like a missing one. Null when nothing is left — the route
  * refuses, the card draws its placeholder.
  */
 export async function readThumbnail(
@@ -292,7 +296,7 @@ export async function readThumbnail(
   mapId: string,
   theme?: ThumbnailTheme | null,
 ): Promise<Buffer | null> {
-  requireOwnMap(scope, mapId);
+  requireMap(scope, mapId);
   const set = await readSet(mapId);
   const single = thumbnailPath(mapId);
   const order = theme
@@ -300,13 +304,13 @@ export async function readThumbnail(
     : [set ? inDir(set.light) : null, set ? inDir(set.dark) : null, single];
   for (const file of order) {
     if (!file) continue;
-    requireOwnMap(scope, mapId);
+    requireMap(scope, mapId);
     let bytes: Buffer | undefined;
     try { bytes = await readFile(file); } catch { /* Try the next name. */ }
-    requireOwnMap(scope, mapId);
-    if (bytes) return bytes;
+    requireMap(scope, mapId);
+    if (bytes && servableTo(scope, mapId, await imageInputs(path.basename(file), bytes))) return bytes;
   }
-  requireOwnMap(scope, mapId);
+  requireMap(scope, mapId);
   return null;
 }
 
@@ -338,10 +342,12 @@ export function removeThumbnail(scope: AccountScope, mapId: string): Promise<voi
 
 /** A duplicated map keeps its look until its first capture, each image with
  * the evidence of what it drew: the copy keeps the original's SQL and home.
- * Lock both parents in stable order, so a queued destination write cannot
- * interleave the copy. */
+ * An image is copied only when the duplicator may be served it now, a
+ * themed pair only whole; otherwise the copy starts without it. Lock both
+ * parents in stable order, so a queued destination write cannot interleave
+ * the copy. */
 export function copyThumbnail(scope: AccountScope, from: string, to: string): Promise<void> {
-  const authorize = () => { requireOwnMap(scope, from); requireOwnMap(scope, to); };
+  const authorize = () => { requireMap(scope, from); requireOwnMap(scope, to); };
   authorize();
   if (from === to) return Promise.resolve();
   const [first, second] = [from, to].sort();
@@ -350,9 +356,9 @@ export function copyThumbnail(scope: AccountScope, from: string, to: string): Pr
     let single: Buffer | undefined;
     try { single = await readFile(thumbnailPath(from)); } catch { /* No single image. */ }
     authorize();
-    if (single) {
-      const evidence = await imageInputs(path.basename(thumbnailPath(from)), single);
-      await writeImageEvidence(path.basename(thumbnailPath(to)), single, evidence);
+    const singleInputs = single ? await imageInputs(path.basename(thumbnailPath(from)), single) : null;
+    if (single && servableTo(scope, from, singleInputs)) {
+      await writeImageEvidence(path.basename(thumbnailPath(to)), single, singleInputs);
       await writeAtomically(thumbnailPath(to), single, authorize);
     }
     const set = await readSet(from);
@@ -365,8 +371,11 @@ export function copyThumbnail(scope: AccountScope, from: string, to: string): Pr
     const light = await readFile(inDir(set.light));
     authorize();
     const dark = await readFile(inDir(set.dark));
-    await writeImageEvidence(copied.light, light, await imageInputs(set.light, light));
-    await writeImageEvidence(copied.dark, dark, await imageInputs(set.dark, dark));
+    const lightInputs = await imageInputs(set.light, light);
+    const darkInputs = await imageInputs(set.dark, dark);
+    if (!servableTo(scope, from, lightInputs) || !servableTo(scope, from, darkInputs)) return;
+    await writeImageEvidence(copied.light, light, lightInputs);
+    await writeImageEvidence(copied.dark, dark, darkInputs);
     await writeAtomically(inDir(copied.light), light, authorize);
     await writeAtomically(inDir(copied.dark), dark, authorize);
     await writeAtomically(thumbnailManifestPath(to), JSON.stringify(copied), authorize);
