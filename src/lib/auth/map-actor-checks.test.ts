@@ -17,9 +17,9 @@ import { PERMISSION_REFUSAL } from "./reach";
  * an admin who belongs to nothing. The people rows are written directly: no
  * route adds them yet, and every read is still the owner's alone.
  *
- * Content changes are for the owner, the project's owner and an editor;
- * deletion, publication settings, browser captures and sketches stay the
- * owner's. A viewer is refused by the permission shape and a non-member by the
+ * Content changes, sketches drawn on the map included, are for the owner, the
+ * project's owner and an editor; deletion, publication settings and browser
+ * captures stay the owner's. A viewer is refused by the permission shape and a non-member by the
  * absent shape, alike across session and token, with nothing changed.
  */
 const effects = vi.hoisted(() => ({
@@ -157,7 +157,7 @@ const cases: Case[] = [
   { label: "delete the map", action: "delete", method: "DELETE", target: "map", suffix: id => `/api/maps/${id}`, load: route.map, status: 204,
     effect: () => value("SELECT count(*) FROM maps WHERE id = 'M'"), expected: 0 },
 ];
-const permitted = (action: Case["action"]) => action === "edit" ? ["ada", "pat", "ed"] : ["ada"];
+const permitted = (action: Case["action"]) => action === "edit" || action === "sketch" ? ["ada", "pat", "ed"] : ["ada"];
 const target = (c: Case, map: string) => (c.target === "map" ? map : map === "M" ? "L" : map === "U" ? "UL" : "missing");
 async function call(c: Case, account: string, id: string, kind = "session") {
   const handler = (await c.load())[c.method] as Handler;

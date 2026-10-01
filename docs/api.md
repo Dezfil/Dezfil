@@ -227,7 +227,15 @@ and nothing changes.
 
 **Sketches.** Drawing on the map as data. A draw session becomes one
 ordinary dataset plus one layer; features carry a stable id and a drawn
-kind, and deleting the owning layer removes both.
+kind, and deleting the owning layer removes both. Anyone who may change a
+map's content draws on it: the dataset is the drawer's own, filed into the
+map's project where the drawer may file, and the layer names it in the
+map's SQL home, under the drawer's SQL name when that home is someone
+else's. Only the drawer changes its features. Removing a layer that draws
+someone else's sketch leaves their dataset. Deleting a dataset never
+changes another person's map or workflow: deleting one's sketch from
+someone else's map leaves its layer there, and a layer or step that named a
+deleted dataset fails by name for whoever opens it.
 
 **Operations.** Spatial and data verbs. `GET /api/operations` is the
 catalogue of what this instance offers, `POST /api/operations/run` starts

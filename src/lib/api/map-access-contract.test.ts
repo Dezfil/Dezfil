@@ -58,3 +58,15 @@ it("names the publication settings the owner's alone wherever a write or replay 
     expect(JSON.stringify(buildTools().find(tool => tool.name === name)!.inputSchema), name).toContain(owned);
   }
 });
+
+it("documents sketches as content with the drawer's own dataset, and deletion that never changes another person's map", () => {
+  const tool = (name: string) => buildTools().find(entry => entry.name === name)!.description;
+  expect(tool("get_map")).toContain("Sketches drawn on the map are content, each sketch dataset its drawer's own");
+  expect(tool("create_sketch")).toContain("Anyone the map's content changes are open to draws on it: the dataset is the drawer's own");
+  expect(tool("create_sketch")).toContain("qualified with the drawer's SQL name when that home is someone else's");
+  expect(tool("append_sketch_feature")).toContain("A sketch's features change only by its drawer, whatever the map's role grants");
+  expect(tool("move_sketch_vertex")).toContain("Only the sketch's drawer moves a vertex.");
+  expect(tool("delete_sketch_feature")).toContain("Only the sketch's drawer deletes a feature.");
+  expect(tool("delete_sketch")).toContain("on someone else's map the dataset goes and the layer stays, failing by name");
+  expect(tool("delete_layer")).toContain("removing a layer that draws someone else's sketch leaves their dataset");
+});

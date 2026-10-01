@@ -56,7 +56,12 @@ export const SKETCH_PATHS = {
         "passes the same structural gate as every later commit: kind " +
         "one of point, line, polygon, rectangle, circle, freehand; " +
         "geometry the kind's GeoJSON family (polygon kinds are one " +
-        "closed ring, no holes); at most 10,000 vertices.",
+        "closed ring, no holes); at most 10,000 vertices. Anyone the " +
+        "map's content changes are open to draws on it: the dataset is " +
+        "the drawer's own, filed into the map's project where the drawer " +
+        "may file, and the layer names it in the map's SQL home, " +
+        "qualified with the drawer's SQL name when that home is someone " +
+        "else's.",
       tag: "Sketches",
       tool: "create_sketch", mcp: LOCAL_ADD,
       display: {"verb": "Started a sketch on the map {subject}", "subject": {"resource": "maps", "argument": "id"}},
@@ -153,7 +158,10 @@ export const SKETCH_PATHS = {
         "Commits one more shape into the session's dataset, " +
         "under the same structural gate and vertex ceiling as the " +
         "first. The dataset's id and name never change; the artifact " +
-        "is rewritten and every dependent layer's render refreshes.",
+        "is rewritten and every dependent layer's render refreshes. " +
+        "A sketch's features change only by its drawer, whatever the " +
+        "map's role grants; anyone else who reaches it is refused with " +
+        "forbidden.",
       tag: "Sketches",
       tool: "append_sketch_feature", mcp: LOCAL_ADD,
       display: {"verb": "Added a feature to the sketch {subject}", "subject": {"resource": "tables", "argument": "name"}},
@@ -201,7 +209,8 @@ export const SKETCH_PATHS = {
         "The one permitted edit: move exactly one vertex of a " +
         "polygon or freehand feature. Kind and vertex count are " +
         "preserved; points, lines, rectangles and circles refuse; the " +
-        "moved ring passes the same structural gate as a fresh commit.",
+        "moved ring passes the same structural gate as a fresh commit. " +
+        "Only the sketch's drawer moves a vertex.",
       tag: "Sketches",
       tool: "move_sketch_vertex", mcp: LOCAL_REPLACE,
       display: {"verb": "Moved a vertex of the sketch {subject}", "subject": {"resource": "tables", "argument": "name"}},
@@ -244,7 +253,8 @@ export const SKETCH_PATHS = {
       description:
         "Removes exactly that row. The dataset keeps its id " +
         "and name; deleting the last row leaves the empty dataset " +
-        "and its layer in place.",
+        "and its layer in place. Only the sketch's drawer deletes a " +
+        "feature.",
       tag: "Sketches",
       tool: "delete_sketch_feature", mcp: LOCAL_DELETE,
       display: {"verb": "Deleted a feature of the sketch {subject}", "subject": {"resource": "tables", "argument": "name"}},
@@ -263,9 +273,12 @@ export const SKETCH_PATHS = {
     delete: op(datasetAccess({
       summary: "Delete a sketch and its owning layer — the cascade",
       description:
-        "Deletes the provenance-named owning layer, its bound " +
+        "Only the sketch's drawer deletes it. On the drawer's own map " +
+        "it deletes the provenance-named owning layer, its bound " +
         "widgets, the dataset, the artifact and the tile artifacts " +
-        "together. Deliberately not undoable: no history step " +
+        "together; on someone else's map the dataset goes and the " +
+        "layer stays, failing by name, since deleting a dataset never " +
+        "changes another person's map. Deliberately not undoable: no history step " +
         "is written and steps targeting the owner leave the timeline. " +
         "Copies and other layers over the same table keep ordinary " +
         "deletion behavior and enter the standing missing-table state.",

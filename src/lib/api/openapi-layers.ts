@@ -86,12 +86,14 @@ export const LAYER_RESOURCE_PATHS = {
       summary: "Delete a layer",
       description:
         "Recorded on the undo timeline — an undo restores the layer " +
-        "whole.",
+        "whole. Removing one's own sketch layer also deletes its sketch " +
+        "dataset, wherever the map is; removing a layer that draws " +
+        "someone else's sketch leaves their dataset.",
       tag: "Layers",
       tool: "delete_layer", mcp: LOCAL_DELETE,
       display: {"verb": "Deleted the layer {subject}", "subject": {"resource": "layers", "argument": "id"}},
       effects: recorded(writes(resource("layers", "id"), resource("maps"), resource("tables"))),
-      confirmation: {"target": "Delete {target}?", "consequence": "This removes the layer and its bound widgets. An owning sketch layer also deletes its sketch dataset.", "subject": {"path": "/api/layers/{id}", "argument": "id", "name": "name"}},
+      confirmation: {"target": "Delete {target}?", "consequence": "This removes the layer and its bound widgets. Your own sketch layer also deletes its sketch dataset.", "subject": {"path": "/api/layers/{id}", "argument": "id", "name": "name"}},
       confirm: true,
       parameters: [pathParam("id", "Layer id."), changeGroupParam],
       responses: { "204": { description: "Deleted." } },

@@ -7,7 +7,8 @@ import { withConnection } from "@/lib/duckdb";
 import { ApiError } from "@/lib/api/errors";
 import { lit } from "@/lib/ingest/ingest";
 import { type DataTable } from "@/lib/metadata/tables";
-import { requireTable } from "@/lib/table-service";
+import { addressDataset, requireOwnDataset } from "@/lib/dataset-address";
+import { getOwnedTableByName } from "@/lib/metadata/owned-tables";
 import { trackInflight } from "@/lib/query/inflight";
 import type { SketchFeature, SketchGeometry, SketchKind } from "./geometry";
 
@@ -24,8 +25,25 @@ export interface SketchSummary {
   counts: Partial<Record<SketchKind, number>>;
 }
 
+/** A sketch its drawer changes: the caller's own, by any of its addresses (a
+ * bare name is the caller's own); another person's sketch the caller reaches
+ * is refused by the permission shape, whatever the map's role grants. */
 export function requireSketch(scope: AccountScope, name: string): DataTable {
-  const table = requireTable(scope, name);
+  return sketchOnly(ownByName(scope, name) ?? requireOwnDataset(scope, name).table, name);
+}
+
+/** A sketch read: any sketch dataset the caller reaches. */
+function readableSketch(scope: AccountScope, name: string): DataTable {
+  return sketchOnly(ownByName(scope, name) ?? addressDataset(scope, name).table, name);
+}
+
+/** The caller's own dataset by its bare name, read once, as it always was;
+ * any other address resolves as a dataset address does. */
+function ownByName(scope: AccountScope, name: string): DataTable | null {
+  return getOwnedTableByName(scope, name);
+}
+
+function sketchOnly(table: DataTable, name: string): DataTable {
   if (table.source !== "sketch")
     throw new ApiError(
       "not_a_sketch",
@@ -76,7 +94,7 @@ export function listFeatures(
 ): Promise<StoredSketchFeature[]> {
   // Register before capture; protection spans both count and geometry opens.
   return trackInflight(Promise.resolve().then(() => {
-    const table = requireSketch(scope, name);
+    const table = readableSketch(scope, name);
     return readFeatures(absOf(table.file));
   }));
 }
