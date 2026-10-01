@@ -13,6 +13,7 @@ it("publishes dataset reach, the reader's name for a dataset and the absent-reso
     expect(operation.description, path).toContain("A dataset is reached by its owner and by the owner and people of every project it is filed in.");
     expect(operation.description, path).toContain("<sql name>.<name> for another owner's");
     expect(operation.description, path).toContain("Datasets change, refresh and go only by their owner");
+    expect(operation.description, path).toContain("another owner's dataset the caller reaches is addressed by its qualified name, and in a /api/tables path also by its identifier");
     expect(operation.description, path).not.toContain("resolve only in the authenticated account's space");
     expect(operation.responses, path).toHaveProperty("404"); count++;
   }
@@ -38,4 +39,10 @@ it("documents the owner and the reader's name on every dataset listing, read and
   const parameters = (buildOpenApiDocument() as unknown as { paths: Record<string, { get: { parameters: { name: string; description: string }[] } }> })
     .paths["/api/catalogue/tables"].get.parameters;
   expect(parameters.find(p => p.name === "after")!.description).toContain("qualifiedName cursor");
+});
+
+it("documents the qualified form on every operation parameter that names a dataset", () => {
+  const document = buildOpenApiDocument() as unknown as { paths: Record<string, { post: { description: string } }> };
+  expect(document.paths["/api/operations/run"].post.description).toContain("another person's dataset the caller reaches by its qualified name, <sql name>.<name>");
+  expect(buildTools().find(tool => tool.name === "run_operation")!.description).toContain("a dataset out of reach is refused exactly as one that does not exist");
 });

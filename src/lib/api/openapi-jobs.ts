@@ -25,6 +25,11 @@ export const JOB_PATHS = {
         "Set dryRun to ask what the operation would produce without " +
         "writing anything; a dry run is synchronous and mints no " +
         "run.\n\n" +
+        "A parameter that names a dataset takes the caller's own " +
+        "dataset by its bare name, and another person's dataset the " +
+        "caller reaches by its qualified name, <sql name>.<name>; a " +
+        "dataset out of reach is refused exactly as one that does not " +
+        "exist.\n\n" +
         SQL_POLICY + " " +
         "**sql_step** keeps the result of a read-only SELECT as a " +
         "dataset: the escape hatch inside any recipe, and the way to " +

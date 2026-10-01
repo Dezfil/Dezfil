@@ -148,7 +148,10 @@ the caller would type: the plain name for their own, `<sql name>.<name>` for
 another owner's, so two owners' `roads` are told apart. Another owner's
 PostGIS snapshot shows its source kind and nothing about the connection, and
 a derived dataset's recorded inputs resolve only within the reader's reach.
-A bare name in a path is the caller's own dataset. `POST /api/tables` takes a
+A bare name in a path or an operation parameter is the caller's own dataset;
+another owner's dataset is addressed by its qualified name (`ada.roads`) on
+reads, features, downloads and operation parameters, or by its identifier in
+a path. A change to another owner's dataset, by any address, answers `403`. `POST /api/tables` takes a
 `multipart/form-data` upload; `POST /api/imports/url`,
 `/api/imports/osm`, `/api/imports/overture`, and `/api/imports/postgis`
 bring data in from elsewhere, several of them with a matching `preview` or

@@ -1,9 +1,10 @@
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { resourceAbsent } from "@/lib/auth/owned-resource";
 import { requireReachable } from "@/lib/auth/reach";
-import { getOwnedTableByName, listReachableTables, requireReachedTable, deleteOwnedTable, reachedTableProjectIds,
+import { getOwnedTableByName, listReachableTables, deleteOwnedTable, reachedTableProjectIds,
   ownedDependentLayerIds, updateOwnedTableGeometryType, type ReachedTable } from "@/lib/metadata/owned-tables";
 import { presentDataset, type DatasetPresence } from "@/lib/dataset-presence";
+import { addressDataset, requireOwnDataset } from "@/lib/dataset-address";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { mkdir, rm, stat } from "node:fs/promises";
@@ -109,9 +110,11 @@ export function requireTable(scope: AccountScope, name: string): DataTable {
   return table;
 }
 
-/** Schema plus a row preview (spec: Upload — schema, row count, preview). */
+/** Schema plus a row preview (spec: Upload — schema, row count, preview),
+ * for the caller's own dataset by its bare name, or any dataset they reach by
+ * its qualified name or identifier. */
 export async function inspectTable(scope: AccountScope, name: string): Promise<TableInspection> {
-  return inspectDataset(scope, requireReachedTable(scope, requireTable(scope, name).id));
+  return inspectDataset(scope, addressDataset(scope, name));
 }
 
 /** A reached dataset's inspection, as its reader may see it: its origin
@@ -209,7 +212,7 @@ export async function tableFeatures(
   name: string,
   opts: { sample?: boolean } = {},
 ): Promise<TableFeaturesResult> {
-  const table = requireTable(scope, name);
+  const table = addressDataset(scope, name).table;
   if (!table.geometryColumn) {
     return {
       ok: false,
@@ -285,7 +288,7 @@ export async function exportTable(
   name: string,
   format: ExportFormat,
 ): Promise<TableExport> {
-  const table = requireTable(scope, name);
+  const table = addressDataset(scope, name).table;
   const artifact = path.join(dataDir(), table.file);
   if (format === "geoparquet") {
     return {
@@ -362,8 +365,11 @@ export async function exportTable(
  * engine file error; the artifact retires behind any in-flight readers. The
  * completeness tail is best-effort — the row removal above is the deletion
  * the caller reads. */
-export async function removeTable(scope: AccountScope, name: string): Promise<void> {
-  const table = requireTable(scope, name);
+export async function removeTable(scope: AccountScope, address: string): Promise<void> {
+  // Deletion is the owner's: another person's dataset is refused by the
+  // permission shape, whichever address names it.
+  const table = requireOwnDataset(scope, address).table;
+  const name = table.name;
   const dependents = ownedDependentLayerIds(scope, name);
   // Every set it was in advances its clock before the cascade removes
   // the membership rows.
