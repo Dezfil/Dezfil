@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **118 paths, 156 operations, 150 named
+Measured from the current source: **124 paths, 163 operations, 156 named
 component schemas.**
 
 ## Base path and access
@@ -44,66 +44,244 @@ started before a cookie changes. The workspace checks `/api/auth/session`
 before mounting, clears private drafts and retained results on account changes,
 and reloads cached back-navigation pages through the existing access checks.
 
-Connections are private to their creator. A project is reached by its owner
-and its people, and lists, counts and member reads cover everything filed in
-it, whoever owns it, naming the project's `owner` and the caller's `role`. A
-map is reached by its owner and, while it is filed in a project, by that
-project's owner and people: they list and read it, its layers, widgets and history,
-with its SQL evaluated in the map's SQL home within their own reach, and
-every map read names the map's owner and home. Its card images and tile
-archives are served to whoever reaches it and every dataset they recorded
-drawing (see the serving of retained artifacts below). Anyone who reaches a
-map or workflow may duplicate it into their own space: the copy keeps the
-original's SQL home and its SQL as stored, so a plain name still means the
-home's dataset; it is filed in the original's project only when the
-duplicator may file there (the project's owner or an editor), so a viewer's
-copy is unfiled; a map's card image comes along only when the duplicator may
-be served it. A dataset is reached by its owner and by the owner and people
-of every project it is filed in; it changes, refreshes and goes only by its
-owner. A workflow is reached like a map, its steps, layout and
-runs with it, and read in its SQL home within the reader's reach; its editors
-change its steps and run it, as do its owner and the project's owner. A run
-is its runner's: it reads in the workflow's SQL home within the runner's
-reach, its outputs are created as the runner's own datasets, never replacing
-anyone else's, and are filed into the workflow's project as it stands when
-each output commits, when the runner may file there; a rerun replaces only
-the same runner's earlier output of that step. At each output's commit the
-runner's permission and reach to every input are asked again: an input
-another person owns that the runner no longer reaches refuses the output
-with `sql_error` naming it as written, even though the step already read it;
-a runner who may no longer run the workflow completes the steps already
-admitted privately, into their own datasets, unfiled, without changing the
-workflow's recorded outputs, proposals or definitions, and no further step
-is admitted. A run is cancelled by its initiator or the workflow's owner;
-the initiator keeps that right after they stop reaching the workflow,
-answered `204` without the run. SQL that anyone but a map's or workflow's owner saves into
-it (a layer's SQL, a step's SQL or dataset parameters, or SQL that undo and
-redo would put back) must name only datasets within that person's own reach
-in the resource's SQL home, a workflow's declared outputs aside: otherwise
-the save is refused with `sql_error` naming the reference as written, and
-nothing changes. Contained layers, widgets, histories and runs
-follow their parent; standalone jobs and retained export/render results remain
-private even after failure or output deletion. Work that outlives its request
-asks for reach again where it commits: a prepared layer download is refused
-on its claim once its layer (on a map the claimant does not own) or a
-dataset it drew that someone else owns has left the claimant's reach; a
-server render and a look check ask at every phase whether the caller still
-reaches the map; a project export checks every selected member as the
-archive completes and fails with `export_failed` naming the first one
-withdrawn rather than delivering less; a pending assistant confirmation runs
-its action through the same checks when it resumes. Results already issued
-(a query download, a retained look image, a project archive, an assistant
-answer) stay their initiator's for their retention lifetime after reach is
-withdrawn. Admin status grants no
-private-content access. Dataset and connection names are unique within one
-account. Unreached and missing resources receive the same refusal, and SQL
-mounts only the caller's datasets. There is no owner selector; ownership
-changes only by the transfer operations under Projects below.
+Who can reach and change what (owners, project roles, SQL names and homes,
+addressing another person's dataset, transfer, and what stays private) is
+described under [Ownership and sharing](#ownership-and-sharing) below; the
+boundary rules of each family are under
+[Access rules in detail](#access-rules-in-detail).
 
 The published surface remains anonymous. `GET /api/published/{token}`
 and its siblings are the read-only, anonymous face of a map someone chose to
 publish. The token is 22 random characters (`src/lib/publish/token.ts`), it
 is the entire credential, and revoking a publication invalidates it.
+
+## Ownership and sharing
+
+The rules for who sees and changes what are the same on every client: the
+pages, REST with a session or a token, MCP and the assistant.
+
+### One owner, private until a project shares it
+
+Every map, dataset, workflow, connection and project has exactly one owner,
+the account that created it. Creation takes the owner from the credential,
+never from a field, and there is no owner selector. Everything starts private
+to its owner, administrators included: admin status manages accounts and the
+instance name and grants no access to anyone's content.
+
+Sharing happens at one boundary, the project. A project's owner gives a
+person the role `viewer` or `editor`, and that one grant covers every map,
+workflow and dataset filed in the project, whoever owns it. Nothing else is
+shared: not unfiled work, not a single map or dataset on its own, and never a
+connection. A person **reaches** a resource when they own it or when it is
+filed in a project they own or belong to; anything else answers exactly as
+if it did not exist.
+
+Reach decides every read. Lists, counts, the `?project=` filter, the table
+catalogue and schema discovery, dependencies, lineage, previews, renders,
+tiles, widget values, exports and downloads cover exactly what the caller
+reaches. Every map, workflow and dataset read and listing names its `owner`
+(display name and SQL name); every project names its `owner` and the
+caller's `role` (`owner`, `editor` or `viewer`), and the project filter
+offers the caller's own projects and the ones shared with them. Facts about
+what the caller does not reach are left out rather than named: a dependency,
+an input in a dataset's lineage, a membership in another project, a
+connection. A reachable document is shown as stored, its SQL text and
+history included.
+
+Changes to who holds a role, removals and a project's dissolution govern the
+person's very next request, with no sign-out. The people and transfer
+operations are described under Projects in the families below.
+
+### What each role can do
+
+**A viewer** reads everything filed in the project in full: maps with their
+layers, widgets and history, workflows with their steps, layout and run
+history, datasets and their previews, renders, tiles, widget values, layer
+and dataset downloads, SQL over the project's datasets, and the project
+export. A viewer changes nothing: every write to something they do not own,
+running a workflow, filing, publishing, undo and card images included,
+answers `403 forbidden` and changes nothing. A viewer may duplicate a reached
+map or workflow into their own space: the copy is theirs, unfiled, and keeps
+the original's SQL home.
+
+**An editor** has everything a viewer has and changes the content of the
+maps and workflows filed in the project, whoever owns them: layers, styles,
+widgets, camera, legend, history and undo, workflow steps and parameters,
+names and notes. SQL or a dataset parameter that an editor saves into
+someone else's map or workflow, directly or through undo and redo, must name
+only datasets within the editor's own reach in its SQL home, a workflow's
+declared outputs aside; otherwise the save is refused with `sql_error`
+naming the reference, and nothing changes. An editor can never lodge a
+reference they could not evaluate themselves. An editor runs the project's
+workflows: each run is the runner's own, its outputs are created as the
+runner's datasets, never replacing anyone else's, and are filed into the
+workflow's project as each one commits, and a rerun replaces only that
+runner's earlier output. An editor draws sketches on a shared map, each
+sketch dataset the drawer's own. An editor files their own maps, workflows
+and datasets into the project and removes them again, and an editor's
+duplicate of a reached map or workflow is filed into the project.
+
+**The owner of a map, workflow or dataset** keeps the acts that change what
+it is or who holds it: deleting it, transferring it, a map's card images and
+its publication settings (the token, the published fields, the widget
+publication toggle, the theme and the reader controls). Datasets change,
+refresh and go only by their owner, whatever the role, because a dataset's
+name is bound into other people's SQL. The owner of a resource may always
+withdraw it from any project, member or not.
+
+**The project's owner** alone renames the project, edits its note,
+dissolves it, gives and removes roles and transfers it; an administrator has
+no such power over someone else's project. The project's owner may also act
+as an editor on any map or workflow filed in the project, and may remove
+anything filed there. Removing never deletes or reassigns anything, and
+dissolving a project unfiles its contents and ends every member's reach
+through it.
+
+Deleting a dataset never changes another person's map or workflow: a layer
+or step that named it fails by name for whoever opens it. Removing a layer
+that draws someone else's sketch leaves their dataset; removing one's own
+sketch layer also deletes its dataset.
+
+A request naming something the caller does not reach answers `404
+not_found`, the same as for something that does not exist; a change the
+caller may not make to something they reach answers `403 forbidden` with one
+fixed sentence. Neither changes anything.
+
+### SQL names and SQL homes
+
+Every account has a **SQL name**, `sqlName` on account reads, on every
+`owner` and in the directory search (see Account below). It is how SQL names
+another person's dataset and how the sharing operations name a person.
+
+Every map and workflow has a **SQL home**, `home` on every read: the SQL
+name of the account that created it. Transfer, duplication and the person
+looking leave it unchanged. The home decides what a plain table name means:
+
+- In the SQL console, and wherever SQL is run directly (`POST /api/query`
+  without `writtenIn`, an operation's parameters), the home is the caller:
+  `roads` is the caller's own dataset.
+- In a map's layers and widgets and a workflow's steps, the home is the
+  map's or the workflow's: `roads` is the home account's dataset, or, in a
+  workflow, its own output named `roads` when it declares one. That holds
+  for whoever evaluates it and for every purpose: rendering, fields,
+  statistics, classification, extent, sliders, widgets, search, exports,
+  image renders, tiles and workflow runs. `writtenIn` on `POST /api/query`
+  evaluates in a map's or workflow's home instead of the console.
+- `<sql name>.<dataset>` names that person's dataset wherever a table can be
+  named, external even when a workflow output shares the name; the caller's
+  own SQL name qualifies their own.
+
+A name resolves only when the caller reaches the dataset. In the console an
+unreachable name fails as an unknown table; in a map's or workflow's
+evaluation it fails with `The dataset "<reference>" is not available to
+you.`, the same whether the dataset is hidden or missing, and a same-named
+dataset of someone else is never drawn in its place. So when Bob opens
+Ada's map, its plain `roads` is Ada's `roads`, drawn while Bob reaches it,
+and Bob's own `roads` appears in that map's SQL as `bob.roads`. How the
+engine does this is under
+[The read-only SQL instance](#the-read-only-sql-instance).
+
+### Addressing another person's dataset
+
+Two reachable datasets may share a name. Every listing gives each dataset
+its `qualifiedName`, the name the caller would type: the plain name for
+their own, `<sql name>.<name>` for anyone else's. A bare name in a path or
+an operation parameter keeps its meaning, the caller's own dataset. Another
+person's dataset is addressed by its qualified name (`ada.roads`) on dataset
+reads, features, downloads, the catalogue's `names` filter and operation
+parameters, or by its identifier in a `/api/tables/{name}` path. A dataset
+parameter stored in a workflow step follows the workflow's home, not the
+caller. A change to another person's dataset, by any address, answers `403`.
+A project export gives each dataset its own archive entry under its
+`qualifiedName`, and its map and workflow documents carry their `home`, so
+two people's `roads` never collide.
+
+### SQL that moves between homes
+
+The same text means different datasets in different homes, so SQL that
+moves from where it was written into another context (console SQL added to
+a map, a builder preview saved as a layer, a layer captured into a workflow
+step, a node pasted between workflows, a previewed result saved as a
+dataset) is carried, not copied. The operations that store it take
+`writtenIn`, and each reference is rewritten only as far as it must be to
+keep the dataset it meant in its new home. Where that cannot be done the
+request is refused with the reason; nothing silently rebinds. The rules are
+under [Carrying SQL between contexts](#carrying-sql-between-contexts).
+
+### Transfer
+
+Transfer is the only change of ownership, always the current owner's own
+act, with the recipient named by SQL name as `{"to": "<sql name>"}`:
+
+- A project goes to one of its active members
+  (`POST /api/projects/{id}/transfer`): the recipient leaves the member
+  list, the previous owner becomes an editor, and the name, note, other
+  people and contents stay as they were, each filed item keeping its own
+  owner.
+- A map or workflow goes to an active person who already reaches it through
+  the project it is filed in (`POST /api/maps/{id}/transfer`,
+  `POST /api/recipes/{id}/transfer`); an unfiled one must be filed first. It
+  keeps its SQL home, so its SQL means what it meant, and everything that
+  hangs off it: a map's layers, history, card images and publication, which
+  becomes the new owner's and renders with the new owner's reach; a
+  workflow's steps, layout and run history, each run's outputs staying with
+  whoever ran it.
+- Datasets and connections have no transfer.
+
+A recipient who is deactivated, not yet redeemed, unknown or out of reach is
+refused with `invalid_request`, anyone else who reaches the resource with
+`forbidden`, and a refusal or a failure changes nothing.
+
+### What stays private
+
+- **Unfiled work**, and anything filed only in projects a person neither
+  owns nor belongs to.
+- **Connections.** A project grant reaches the datasets filed in it, never
+  the PostGIS connection behind one: the connection answers anyone but its
+  owner `not_found`, refreshing the dataset is its owner's act, a reached
+  snapshot shows its origin kind and nothing about the connection, and a
+  project archive carries no connection facts.
+- **Work that outlives the request.** Standalone operation runs, prepared
+  downloads, retained look images and server renders, and assistant runs and
+  confirmations belong to the account that started them. Reach is asked
+  again where such work commits: a prepared download on its claim, a render
+  at every phase, a project export as the archive completes, a pending
+  confirmation when it resumes. A result already issued stays its
+  initiator's for its retention lifetime after reach is withdrawn, as a copy
+  they hold, and grants no new access to its source. Runs contained in a
+  workflow follow the workflow instead: everyone who reaches it reads them,
+  and the run's initiator or the workflow's owner cancels one, the initiator
+  even after they stop reaching the workflow (answered `204` without the
+  run).
+- **The account itself**: its profile, password, API tokens and personal
+  settings. The directory search (`GET /api/accounts/search`) is the one
+  deliberate exception to account reads being an admin's, and it offers
+  active people's display names and SQL names and nothing else.
+
+### Published links
+
+A published link stays anonymous and read-only, and its settings are the
+map owner's alone, editors included out. It renders live in the map's SQL
+home with the map owner's current reach, restricted to the datasets the
+map's own layers name: an editor's permitted content edits reach the link at
+once, a transfer never rebinds it, and nothing else of the owner's space can
+be reached through it. Details are under Publish in the families below.
+
+### Deactivated accounts
+
+Deactivation freezes by owner. Every map, workflow, dataset and project a
+deactivated account owns stays reachable to whoever reached it, with its
+content and ownership read-only for everyone, editors and the project's owner
+included, until reactivation. Filing is not content: an active owner may
+still withdraw their own resource from a frozen project, and an active
+project owner may remove a frozen resource from theirs, while a frozen
+project accepts nothing new. A deactivated member keeps their place, marked,
+with the role inert until reactivation, and the owner can remove them. A
+project whose owner is deactivated stays shared as it was, with its people
+and its transfer unavailable, administrators included. A workflow whose
+owner is deactivated can still be run by its editors and the project's
+owner. Existing publications stay readable. Reactivation restores everything
+to the same person.
 
 ## Resource families
 
@@ -125,12 +303,12 @@ Every field in a patch is validated and authorized before any write.
 
 Built-in and configured basemaps, the palette catalogue, geometry projections,
 the API reference, operation catalogue and offered assistant models are shared
-instance resources. They require authentication but have no owner filter.
-Any authenticated account can create or delete a saved custom palette,
-including one created by another account. Deleting a palette keeps existing
-layer colors. A map's own styles and custom basemap remain private to its owner,
-including when another caller is an admin. Model and geocoder credentials are
-server settings; catalogue responses never return their secret values.
+instance resources. They require authentication but have no owner filter. Any
+authenticated account can create or delete a saved custom palette, including
+one created by another account. Deleting a palette keeps existing layer colors.
+A map's own styles and custom basemap belong to the map and follow its reach;
+admin status adds nothing. Model and geocoder credentials are server settings;
+catalogue responses never return their secret values.
 
 **Settings compatibility change.** `/api/settings` now requires authentication
 and returns `401` for missing or invalid credentials. `displayName` and
@@ -432,7 +610,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **91** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **103** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -626,71 +804,87 @@ checks current permissions during execution, including admin restrictions.
 Internal grounding, subject reads and tool calls carry a bearer-equivalent
 credential; the parked state retains the account binding and no credential.
 
-**Private layer reference compatibility change.** Layer routes require an
-active account and resolve each layer through its owning map. Administrators
-have the same private boundary. Hidden and missing layers both answer
-`not_found` (404), including fields, statistics, rendering, tiles and direct
-exports. New widget, timeline, legend-order and layer-order references must
-belong to the exact map being edited. A missing or mismatched reference now
-answers `not_found` (404), replacing the former `invalid_request` (400).
-Malformed input still answers `invalid_request`. An unchanged orphan widget
-already stored in history remains readable and can be echoed unchanged.
+## Access rules in detail
 
-History and thumbnails inherit the map's ownership. Undo and redo validate the
-whole recorded gesture, including layer targets and saved map references,
-before changing records or deleting artifacts. A foreign or mismatched replay
-reference returns `not_found` and leaves the cursor and all records unchanged.
-Restoring a deleted layer preserves its recorded identity and parent; it cannot
-replace a live layer belonging to another map. Thumbnail writes are the
-owning map's owner's and staged writes recheck access before publishing;
-reads and copies follow the rule for retained artifacts below.
+The boundary each family holds, beneath the model described under
+[Ownership and sharing](#ownership-and-sharing), with the error-contract
+changes that came with accounts.
 
-Dataset names belong to the authenticated account. Different accounts can each
+**Layers.** Layer routes require an active account and resolve each layer
+through its map, so a layer follows its map's reach; administrators gain
+nothing. Hidden and missing layers both answer `not_found` (404), including
+fields, statistics, rendering, tiles and direct exports. New widget, timeline,
+legend-order and layer-order references must belong to the exact map being
+edited. A missing or mismatched reference now answers `not_found` (404),
+replacing the former `invalid_request` (400), a breaking change. Malformed
+input still answers `invalid_request`. An unchanged orphan widget already
+stored in history remains readable and can be echoed unchanged.
+
+**History and card images.** History follows the map: everyone who reaches it
+reads its availability, and undo and redo are content changes, open to whoever
+may change the map's content. Undo and redo validate the whole recorded
+gesture, including layer targets and saved map references, before changing
+records or deleting artifacts. A foreign or mismatched replay reference returns
+`not_found` and leaves the cursor and all records unchanged. Restoring a
+deleted layer preserves its recorded identity and parent; it cannot replace a
+live layer belonging to another map. Card image writes are the map owner's, and
+staged writes recheck access before publishing; reads and copies follow the
+rule for retained artifacts below.
+
+**Datasets.** Dataset names belong to their owner. Different accounts can each
 import `roads`; uploads and sketches choose suffixes using only the creator's
-names. Dataset lists, catalogue totals and schema pages, inspection, features,
-exports, sketch edits, geometry and refresh resolve that account's datasets.
-Administrator status grants no access to another account's data. A project
-context must be one the account owns or edits, whose owner is active, and is
-checked before source or artifact work. Refresh and geometry changes keep the durable identity and
-owner, rechecking account activity before committing. Hidden and missing names
-and references return the same `404 not_found` response. This replaces the
-previous `map_not_found` response for a missing sketch parent.
+names. Dataset lists, catalogue totals and schema pages, inspection, features
+and exports cover the datasets the caller reaches; sketch edits, geometry
+changes and refresh are the owner's. Administrator status grants no access to
+another account's data. A project named at creation (an upload, an import, a
+new map or workflow) must be one the account owns or edits, whose owner is
+active, and is checked before source or artifact work. Refresh and geometry
+changes keep the durable identity and owner, rechecking account activity before
+committing. Hidden and missing names and references return the same `404
+not_found` response. This replaces the previous `map_not_found` response for a
+missing sketch parent.
 
-Saved PostGIS connections are private to their creator. The list, edits, tests,
-source catalogue, previews and snapshot lists use that account, including for
-admins. Names are unique within the account. Hidden and missing connection IDs
-both return `404 not_found` with the same generic message before credentials,
-source access or health writes. Stored import and refresh references obey the
-same rule; an imported dataset does not grant access to its source connection.
-Private source work rechecks access before committing or recording health.
-This is a breaking error-contract change for a snapshot whose saved connection
-is missing: refresh now returns `404 not_found` instead of `409 not_refreshable`.
-Connection absence messages no longer echo the submitted ID.
+**Connections.** Saved PostGIS connections are private to their creator,
+administrators included, and a project grant never reaches one. The list,
+edits, tests, source catalogue, previews and snapshot lists use the caller's
+own connections. Names are unique within the account. Hidden and missing
+connection IDs both return `404 not_found` with the same generic message before
+credentials, source access or health writes. Stored import and refresh
+references obey the same rule; an imported dataset, shared or not, grants no
+access to its source connection. Private source work rechecks access before
+committing or recording health. This is a breaking error-contract change for a
+snapshot whose saved connection is missing: refresh now returns `404 not_found`
+instead of `409 not_refreshable`. Connection absence messages no longer echo
+the submitted ID.
 
-Workflow definitions, steps, layouts and layer captures resolve within the
-caller's account. Hidden or missing workflow, step, captured-layer and project
-references use the same generic `404 not_found`, including mixed parent/child
-requests. Refused compound changes leave definitions and filing unchanged.
-Output-name conflicts and duplication consider only that account's datasets
-and declarations; same-workflow conflicts and the frozen name of an existing
-output retain their previous rules. Deleting a workflow leaves its datasets.
+**Workflows.** Workflow definitions, steps and layouts follow the workflow's
+reach and are read in its SQL home within the reader's reach; a step can
+capture any layer the caller reaches. Hidden or missing workflow, step,
+captured-layer and project references use the same generic `404 not_found`,
+including mixed parent/child requests. Refused compound changes leave
+definitions and filing unchanged. Output-name conflicts and duplication
+consider only the caller's own datasets and the workflow's declarations;
+same-workflow conflicts and the frozen name of an existing output retain their
+previous rules. Deleting a workflow leaves its datasets.
 
-A compound filing change is checked part by part by the filing rules, and
-any refused part rolls the whole change back: a hidden or missing member
-returns the generic `404 not_found`, a reached one the caller may not file or
-remove returns `forbidden`. Initial filing follows the same rules. A removal of
-what is not filed in the project changes nothing. An owner who no longer
-reaches a project may still withdraw their own resources from it, and is
-answered with an empty composite. Deleting a project unfiles
-its contents without deleting or transferring them. Export selections are
-checked before archive assembly and account activity is checked again before
-returning the completed file. A hidden or missing selected export member now
-returns `404 not_found` rather than `400 invalid_request`; this is a breaking
-error-contract change. An owned resource outside the project still returns
-`400 invalid_request`.
+**Filing.** A compound filing change is checked part by part by the filing
+rules, and any refused part rolls the whole change back: a hidden or missing
+member returns the generic `404 not_found`, a reached one the caller may not
+file or remove returns `forbidden`. Initial filing follows the same rules. A
+removal of what is not filed in the project changes nothing. An owner who no
+longer reaches a project may still withdraw their own resources from it, and is
+answered with an empty composite. Deleting a project unfiles its contents
+without deleting or transferring them. Export selections are checked before
+archive assembly and account activity is checked again before returning the
+completed file. A hidden or missing selected export member now returns `404
+not_found` rather than `400 invalid_request`; this is a breaking error-contract
+change. An owned resource outside the project still returns `400
+invalid_request`.
 
-Dependency checklists resolve dataset identities, project memberships and
-workflow producers within the authenticated account. Workflow lineage retains
+**Dependencies and lineage.** The dependency reads resolve dataset identities
+in the map's or workflow's SQL home within the caller's reach; memberships name
+only projects the caller reaches, and producers only workflows the caller
+reaches, each marked with whether the caller owns it. Workflow lineage retains
 the original input identity and bound artifact after deletion; a new dataset
 with the same name does not replace that history.
 
@@ -729,22 +923,35 @@ hands them to the new owner, and the new owner's reach governs everything
 else. Removing a dataset from a project, replacing a layer's SQL or
 transferring the map changes what is served at the next request.
 
-Operation jobs keep their initiating owner independently of any output. Their
-parameters, errors, results, subject histories and cancellation are private,
-including after output deletion. Identical subject names and history limits are
-separate per account; output-name conflicts are checked in that account's space.
-Workers check current account activity before preparation and at publication.
-An unfinished job whose owner becomes inactive fails with
-`authentication_required` and keeps no new dataset or staging artifact. Restart
-reconciliation settles interrupted jobs without re-executing them, and prunes
-each recorded owner's history independently. Workflow cancellation carries the
-same account scope to each contained job.
+**Operation jobs.** Standalone operation jobs keep their initiating owner
+independently of any output. Their parameters, errors, results, subject
+histories and cancellation are private to that account, including after output
+deletion. Identical subject names and history limits are separate per account;
+output-name conflicts are checked in that account's space. Workers check
+current account activity before preparation and at publication. An unfinished
+job whose owner becomes inactive fails with `authentication_required` and keeps
+no new dataset or staging artifact. Restart reconciliation settles interrupted
+jobs without re-executing them, and prunes each recorded owner's history
+independently. The jobs a workflow run contains follow the workflow instead:
+cancelling the run, by its initiator or by the workflow's owner, stops each of
+them.
 
-Workflow plans, run histories, member attempts and retained outputs follow the
-workflow owner's private scope. Every supplied step or run must belong to the
-addressed workflow. Hidden, missing and mixed-parent references return the same
-`404 not_found`, before planning or admission. A changed confirmation containing
-only current owned members still returns `409 plan_changed`.
+**Workflow runs.** Workflow plans, run histories, member attempts and retained
+outputs follow the workflow: everyone who reaches it reads them, with output
+links out of the reader's reach left out. Every supplied step or run must
+belong to the addressed workflow. Hidden, missing and mixed-parent references
+return the same `404 not_found`, before planning or admission. A changed
+confirmation containing only the workflow's current members still returns `409
+plan_changed`. At each output's commit the runner's permission and reach to
+every input are asked again: an input another person owns that the runner no
+longer reaches refuses that output with `sql_error` naming it as written, even
+though the step already read it; a runner who may no longer run the workflow
+(no longer its editor, or no longer reaching it after it was unfiled, moved,
+dissolved out of its project or transferred) completes the steps already
+admitted privately, into their own datasets, unfiled, without changing the
+workflow's recorded outputs, proposals or definitions, and no further step is
+admitted. A workflow moved or transferred while running files each output into
+its project as it stands at commit.
 
 Workflow execution rechecks activity after planning, at worker entry and before
 publication. Deactivation drains admitted work, prevents further admission and
@@ -753,46 +960,50 @@ attempts even when job history prunes them or a step or output is deleted. Start
 reconciliation marks unfinished runs interrupted, including inactive owners' runs,
 and never re-executes them or attaches another owner's job attempt.
 
-Private layer renders, tile status and tile bytes follow the map's reach and
-the archives' recorded inputs, administrators included. Builds are kept apart
-by the reach that asked for them: a refused or failed build is that reach's
-alone, reported as failed to it for the same query until the query or the data
-under it changes, and never replaces the archive or the status anyone else is
-served; only a build that commits replaces the layer's archive. Builds retain their initiating account authority across the
-queue, export and atomic archive swap. Deactivation before publication prevents a
-new authoritative archive, and an in-flight private read rechecks activity before
-returning bytes. Deleting an owned layer fences its outstanding build; reactivation
-permits a fresh build. Visible published layers use their current publication token
-independently of owner activity. Revocation prevents that token's outstanding build
-from publishing an archive.
+**Renders and tiles.** Private layer renders, tile status and tile bytes follow
+the map's reach and the archives' recorded inputs, administrators included.
+Builds are kept apart by the reach that asked for them: a refused or failed
+build is that reach's alone, reported as failed to it for the same query until
+the query or the data under it changes, and never replaces the archive or the
+status anyone else is served; only a build that commits replaces the layer's
+archive. Builds retain their initiating account authority across the queue,
+export and atomic archive swap. Deactivation before publication prevents a new
+authoritative archive, and an in-flight private read rechecks activity before
+returning bytes. Deleting an owned layer fences its outstanding build;
+reactivation permits a fresh build. Visible published layers use their current
+publication token independently of owner activity. Revocation prevents that
+token's outstanding build from publishing an archive.
 
-Assistant receipts and parked confirmations are private to their initiating
-account, including for administrators. Ownership survives failure and deletion
-of an output. Deactivation interrupts unfinished execution, discards late
-provider content and prevents further tool admission; committed work remains.
-Reactivation restores access to the same receipts. A hidden confirmation cannot
-be resolved or consumed. Superseding an unknown or hidden confirmation is a
-harmless no-op for that confirmation.
+**Assistant runs.** Assistant receipts and parked confirmations are private to
+their initiating account, including for administrators. Ownership survives
+failure and deletion of an output. Deactivation interrupts unfinished
+execution, discards late provider content and prevents further tool admission;
+committed work remains. Reactivation restores access to the same receipts. A
+hidden confirmation cannot be resolved or consumed. Superseding an unknown or
+hidden confirmation is a harmless no-op for that confirmation.
 
-Retained map checks and prepared layer, query and project downloads also bind
-to the initiating account independently of their source. Only that account can
-retrieve, observe or release them, including after source deletion. Copied ids
-receive the same refusal as unknown ids without consuming the owner's result.
-Render and export execution rechecks activity before returning or retaining
-bytes; a deactivated caller cannot redeem a retained result. Existing eviction,
-expiry, stream cleanup and process-restart behavior remains unchanged.
+**Retained results.** Retained map checks and prepared layer, query and project
+downloads also bind to the initiating account independently of their source.
+Only that account can retrieve, observe or release them, including after source
+deletion. Copied ids receive the same refusal as unknown ids without consuming
+the owner's result. Render and export execution rechecks activity before
+returning or retaining bytes; a deactivated caller cannot redeem a retained
+result. Existing eviction, expiry, stream cleanup and process-restart behavior
+remains unchanged.
 
-`DELETE /api/publications/{token}` lets a current admin revoke a known link
-only while its owner is deactivated. The authority and owner-status checks
-share the revocation transaction. An active owner's link, an unknown token,
-and an already revoked token receive the same `not_found`; success is `204`
-with no content. The operation provides no map discovery or private read
-access. Its generated tool is `revoke_inactive_publication`, with destructive
-consequence metadata and confirmation using only the submitted token.
+**Publications.** `DELETE /api/publications/{token}` lets a current admin
+revoke a known link only while its owner is deactivated. The authority and
+owner-status checks share the revocation transaction. An active owner's link,
+an unknown token, and an already revoked token receive the same `not_found`;
+success is `204` with no content. The operation provides no map discovery or
+private read access. Its generated tool is `revoke_inactive_publication`, with
+destructive consequence metadata and confirmation using only the submitted
+token.
 
-Anonymous publication queries retain the publisher's dataset scope, restricted
-to the datasets the map names, rather than a signed-in visitor's. Deactivation does not revoke existing links.
-Before first-account setup, legacy links carry a publication-only
-pending-adoption scope; setup atomically replaces it with the original
-account's scope. Token revocation is rechecked after asynchronous widget,
-render and extent work, and retires cached or in-flight assembled views.
+Anonymous publication queries evaluate with the map owner's current reach,
+restricted to the datasets the map names, never a signed-in visitor's.
+Deactivation does not revoke existing links. Before first-account setup, legacy
+links carry a publication-only pending-adoption scope; setup atomically
+replaces it with the original account's scope. Token revocation is rechecked
+after asynchronous widget, render and extent work, and retires cached or
+in-flight assembled views.

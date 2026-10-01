@@ -57,9 +57,12 @@ export function buildOpenApiDocument() {
         "publish read-only shareable views. Every capability the UI offers is " +
         "one of these documented calls; the whole journey can be driven headlessly. " +
         "Protected operations require a current cookie session or account bearer token. " +
-        "Maps, datasets, workflows, connections, projects and retained work are private to the authenticated account. " +
-        "Administrators have no additional content access. Dataset and connection names are owner-local; " +
-        "hidden and missing private resources share the same refusal. Instance catalogues and saved palettes remain shared. " +
+        "Every map, dataset, workflow, connection and project has one owner and is private to its owner unless a project shares it: " +
+        "a project's owner gives people the viewer or editor role, and they reach the project and everything filed in it, whoever owns it. " +
+        "A viewer reads; an editor also changes the content of its maps and workflows and runs its workflows; deletion, publication, sharing and transfer stay the owner's, " +
+        "and datasets change only by their owner. Connections are never shared, and standalone jobs, renders and downloads stay with the account that started them. " +
+        "Administrators have no additional content access. Dataset and connection names are owner-local: in SQL another person's reachable dataset is <sql name>.<dataset>, " +
+        "and a map's or workflow's SQL reads in its SQL home. Unreached and missing resources share the same refusal. Instance catalogues and saved palettes remain shared. " +
         "User SQL reads named datasets only; direct or indirect file reads and path discovery are refused. " +
         "Cookie mutations require the same trusted Origin. Identity-bearing responses, " +
         "including authentication refusals, are private, no-store. Only entry, readiness " +
@@ -104,10 +107,12 @@ export function buildOpenApiDocument() {
           ". A map or workflow is in at most one project; a dataset " +
           "can be in several. Project workflows are workflow-origin " +
           "recipes; builder-origin recipes cannot be project members. " +
-          "Projects organize the workspace: they never " +
-          "change what SQL sees, how dataset names collide, or what a " +
-          "published view serves. Deleting one dissolves the set and " +
-          "deletes nothing.",
+          "A project is also the one boundary of sharing: its owner " +
+          "gives people the viewer or editor role, and they reach " +
+          "everything filed in it, whoever owns it. Filing never changes " +
+          "who owns a resource or what a plain table name means in a " +
+          "map's or workflow's SQL. Deleting one dissolves the set, ends " +
+          "every person's reach through it and deletes nothing.",
       },
       {
         name: "Agents",

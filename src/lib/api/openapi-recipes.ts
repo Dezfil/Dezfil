@@ -20,7 +20,7 @@ export const RECIPE_PATHS = {
     get: op(workflowAccess({
       summary: "List recipes",
       description:
-        "Every recipe in the workspace, each with its steps and their " +
+        "Every recipe the caller reaches (their own, and every one filed in a project they own or belong to), each with its steps and their " +
         "current conditions, what each step reads now, and a summary " +
         "of the whole (its status and counts). A recipe is a workspace " +
         "object like a dataset — not owned by a map, and outliving the " +
@@ -180,11 +180,11 @@ export const RECIPE_PATHS = {
     get: op(workflowAccess({
       summary: "The datasets a workflow reads and writes",
       description:
-        "Dependency identities, memberships and producers resolve only within the authenticated account. Another owner's same-name dataset never changes this result. " +
+        "Each step's references resolve to dataset identities in the workflow's SQL home within the caller's reach, the workflow's own outputs as the caller would run them, and each one is listed with its owner and the name the caller would type: a dataset the caller cannot reach is left out rather than named, and a same-named dataset of the caller's own never stands in for the home's. Memberships name only projects the caller reaches; producers only workflows the caller reaches, each marked with whether the caller owns it. " +
         "The filing checklist's subject for a workflow: " +
         "every registered dataset the workflow's current node " +
         "definitions read (a pending edit over the active one) and " +
-        "every current registered output of the workflow, exactly " +
+        "every runner's recorded output of the workflow that the caller reaches, exactly " +
         "once — a dataset both read and written appears once — with " +
         "the same facts as a map's dependencies: source, row count, " +
         "project memberships, the producing workflow, geometry column " +

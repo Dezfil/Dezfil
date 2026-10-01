@@ -303,7 +303,7 @@ export const MAP_RESOURCE_PATHS = {
     get: op(mapAccess({
       summary: "The datasets a map draws from",
       description:
-        "Each layer's references resolve to dataset identities in the map's SQL home within the caller's reach, and each one is listed with its owner and the name the caller would type: a dataset the caller cannot reach is left out rather than named, and a same-named dataset of the caller's own never stands in for the map's. Memberships name only projects the caller reaches; producers only the caller's own workflows. " +
+        "Each layer's references resolve to dataset identities in the map's SQL home within the caller's reach, and each one is listed with its owner and the name the caller would type: a dataset the caller cannot reach is left out rather than named, and a same-named dataset of the caller's own never stands in for the map's. Memberships name only projects the caller reaches; producers only workflows the caller reaches, each marked with whether the caller owns it. " +
         "The 14-A filing checklist's subject: every " +
         "registered dataset used by at least one of the map's saved " +
         "layers, exactly once, with its source, row count, project " +
