@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { MapWithLayers } from "@/lib/metadata/maps";
 import type { Bounds } from "@/lib/geo-bounds";
@@ -22,7 +22,6 @@ import { fetchLayerRender, renderBounds, type LayerRenderData } from "../builder
 import { useStageEdges } from "../builder/use-stage-edge";
 import { mapWidgetEndpoints, useMapPresentation } from "../builder/use-map-presentation";
 import { useTimeline } from "../builder/use-timeline";
-import builderStyles from "../builder/MapBuilder.module.css";
 import type { PersonLabel } from "../sharing/people";
 import styles from "./MapReader.module.css";
 
@@ -201,9 +200,10 @@ export function ReaderStage({
     : null;
 
   // No inspector: the stage starts where the builder's inspector would.
-  // The attribute is set before the edges are read (this effect runs
-  // first, and the read waits a frame).
-  useEffect(() => {
+  // Set before the first paint, so the stage never shows at the builder's
+  // edges first and slides across, and before the edges are read (the read
+  // waits a frame).
+  useLayoutEffect(() => {
     document.body.setAttribute("data-map-reader", "");
     return () => document.body.removeAttribute("data-map-reader");
   }, []);
@@ -262,7 +262,7 @@ export function ReaderStage({
           ) : null
         }
         controls={
-          <div className={builderStyles.stageAnchor}>
+          <div className={styles.stack} data-reader-stack="top-right">
             <StageStack cameraRef={cameraRef} bearing={stage.bearing} pitch={stage.pitch}>
               <StageButton action="Fit to data" icon={<FitIcon />} onClick={stage.fitAll} />
             </StageStack>

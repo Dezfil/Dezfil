@@ -81,6 +81,28 @@ describe.each(["grid", "list"] as const)("the Maps list (%s)", (layout) => {
   });
 });
 
+describe.each(["grid", "list"] as const)("the Maps list's open door (%s)", (layout) => {
+  const render = (role: "viewer" | "editor") => {
+    lists.view = layout;
+    lists.world = {
+      projects: [{ id: "berlin", name: "Berlin housing study", role, owner: ada }],
+      all: [], scoped: [map("m-ada", "Station catchments", ada), map("m-bo", "Berth occupancy", bo)],
+    };
+    return asBo(<MapsScreen />);
+  };
+
+  it("says Open, not Open in builder, on a map Bo may only view", () => {
+    const html = render("viewer");
+    expect(html).toContain('aria-label="Open Station catchments"');
+    expect(html).not.toContain('aria-label="Open Station catchments in the builder"');
+    expect(html).toContain('aria-label="Open Berth occupancy in the builder"');
+  });
+
+  it("keeps Open in builder on a map Bo edits", () => {
+    expect(render("editor")).toContain('aria-label="Open Station catchments in the builder"');
+  });
+});
+
 describe.each(["grid", "list"] as const)("the Workflows list (%s)", (layout) => {
   const render = () => {
     lists.view = layout;

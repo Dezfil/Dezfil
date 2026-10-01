@@ -298,8 +298,15 @@ export function MapsScreen() {
   }, [maps]);
 
 
+  // A map one may only view opens in the reader, not the builder: someone
+  // else's map in a project where one is a Viewer.
+  const viewOnly = (m: MapOverview) =>
+    othersOwner(m) !== null &&
+    world?.projects.find((p) => p.id === m.projectId)?.role === "viewer";
+
   const quickActions = (m: MapOverview, rowStyle: string) => {
     const mine = othersOwner(m) === null;
+    const opens = viewOnly(m) ? "Open" : "Open in builder";
     return (
     <span className={rowStyle}>
       {mine && (
@@ -315,8 +322,8 @@ export function MapsScreen() {
         </button>
       )}
       <button
-        data-hint="Open in builder"
-        aria-label={`Open ${m.name} in the builder`}
+        data-hint={opens}
+        aria-label={viewOnly(m) ? `Open ${m.name}` : `Open ${m.name} in the builder`}
         onClick={(e) => {
           e.stopPropagation();
           router.push(`/maps/${m.id}`);

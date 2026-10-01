@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { Layer, MapWithLayers } from "@/lib/metadata/maps";
@@ -103,4 +104,45 @@ describe("the Viewer's reader", () => {
     expect(html).toContain("The dataset &quot;roads&quot; is not available to you.");
     expect(html).not.toContain("Technical detail");
   });
+
+  it("stands the control stack top right, as the published viewer's corners in its reference draw it", () => {
+    const html = renderToStaticMarkup(
+      <ReaderStage mapId="map-1" map={map} projectId={null} renders={renders}
+        basemapUrl="https://tiles.test/style.json" basemapOverrideUrl={null} basemapOverrideAttribution={[]} basemaps={BASEMAPS} />,
+    );
+    expect(html).toMatch(/data-reader-stack="top-right"[^>]*>[\s\S]*Zoom in/);
+  });
 });
+
+/** The reader's own placement rules, read from its stylesheet: the stage
+ * starts where the inspector would, the stack holds the right edge with the
+ * widgets and a right legend clear of it, and the left corner no longer
+ * clears a stack that is not there. */
+describe("the reader's layout", () => {
+  const css = readFileSync(new URL("./MapReader.module.css", import.meta.url), "utf8");
+  const rule = (selector: string) => {
+    const at = css.indexOf(selector);
+    expect(at, selector).toBeGreaterThanOrEqual(0);
+    return css.slice(at, css.indexOf("}", at));
+  };
+
+  it("anchors the stack on the right edge", () => {
+    const stack = rule(".stack {");
+    expect(stack).toMatch(/right:\s*16px/);
+    expect(stack).not.toMatch(/\bleft:/);
+  });
+
+  it("moves the right-edge furniture clear of the stack and the left corner back to the edge", () => {
+    const body = rule(":global(body[data-map-reader])");
+    expect(body).toMatch(/--stage-stack-right:\s*48px/);
+    expect(body).toMatch(/--stage-stack-left:\s*0px/);
+  });
+
+  it("reads the failure note on the stage's top-left line, where the builder's status line is", () => {
+    const failures = rule(".failures {");
+    expect(failures).toMatch(/top:\s*16px/);
+    expect(failures).toMatch(/left:\s*16px/);
+    expect(failures).not.toMatch(/translateX/);
+  });
+});
+
