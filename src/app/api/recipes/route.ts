@@ -34,10 +34,10 @@ export async function GET(request: Request) {
         400,
       );
     }
-    // `?project=` composes with origin; an unknown project answers not
-    // found, never an empty list.
+    // `?project=` composes with origin: any project the caller reaches, whoever
+    // owns its workflows; an unknown or unreached project answers not found,
+    // never an empty list.
     const project = projectScope(request);
-    if (project && project !== "none") requireOwnedResource(scope, "project", project);
     const recipes = await Promise.all(
       listRecipes(scope, undefined, {
         ...(origin ? { origin } : {}),

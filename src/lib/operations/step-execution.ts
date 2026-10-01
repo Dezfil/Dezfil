@@ -6,7 +6,7 @@ import type { Database } from "better-sqlite3";
 import type { OperationJob } from "@/lib/metadata/jobs";
 import { admitOwned, submitRun } from "./run";
 import { planPublication, stepAuthorizer } from "./step-run";
-import { getRecipe, getStep } from "@/lib/metadata/owned-recipes";
+import { getOwnRecipe as getRecipe, getOwnStep as getStep } from "@/lib/metadata/owned-recipes";
 import { fileTable } from "@/lib/metadata/owned-projects";
 import { workflowEvaluation } from "@/lib/query/context";
 

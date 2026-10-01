@@ -7,7 +7,7 @@ import type { CascadeRun } from "@/lib/metadata/cascades";
 import { jobView } from "./job-view";
 import type { CascadeView } from "./cascade";
 import { captureFromLayer } from "./step-origin";
-import type { RecipeView, StepView } from "./recipe-view";
+import type { ReaderContext, RecipeView, StepView } from "./recipe-view";
 import { summaryFor } from "./summary";
 
 /**
@@ -36,8 +36,28 @@ import { summaryFor } from "./summary";
  * invisibly.
  */
 
-export function stepPayload(view: StepView) {
+/** A captured layer's origin as its reader may see it: the identity of a map
+ * and layer the reader does not reach is left out, the rest stays. */
+function originFor(origin: Record<string, unknown> | null, context: ReaderContext): Record<string, unknown> | null {
+  if (!origin || typeof origin.mapId !== "string" || context.reachesMap(origin.mapId)) return origin;
+  const bounded = { ...origin };
+  delete bounded.mapId;
+  delete bounded.layerId;
+  delete bounded.layerName;
+  return bounded;
+}
+
+/** Everything is the reader's to see when no reader context is given. */
+const AS_STORED: ReaderContext = { link: (link) => link, reachesMap: () => true };
+
+export function stepPayload(view: StepView & { context?: ReaderContext }, context: ReaderContext = view.context ?? AS_STORED) {
   const { step, condition, latestAttempt, edges, reads } = view;
+  const attempt = latestAttempt ? jobView(latestAttempt) : null;
+  if (attempt) {
+    const output = context.link(attempt.output ?? null);
+    if (output) attempt.output = output;
+    else { delete attempt.output; delete attempt.disclosure; }
+  }
   return {
     id: step.id,
     recipeId: step.recipeId,
@@ -48,19 +68,19 @@ export function stepPayload(view: StepView) {
     // labelled as pending, not folded into the sentence for what ran.
     summary: summaryFor(step.operation, step.parameters),
     proposedParameters: step.proposedParameters,
-    output: step.outputTableId
-      ? { id: step.outputTableId, name: step.outputTableName }
-      : null,
+    output: context.link(step.outputTableId
+      ? { id: step.outputTableId, name: step.outputTableName ?? "" }
+      : null),
     condition: condition.primary,
     conditions: condition.conditions,
     causes: condition.causes,
     missingInputs: condition.missingInputs,
-    origin: step.origin,
+    origin: originFor(step.origin, context),
     inputs: edges.map((e) => ({ id: e.inputTableId, name: e.inputTableName })),
     // What it would read next — the pending definition's when one is held.
     // Present tense beside `inputs`' past tense.
     reads,
-    latestAttempt: latestAttempt ? jobView(latestAttempt) : null,
+    latestAttempt: attempt,
     lastSuccessAt: step.lastSuccessAt,
   };
 }
@@ -70,11 +90,14 @@ export function recipePayload(view: RecipeView) {
     id: view.recipe.id,
     name: view.recipe.name,
     origin: view.recipe.origin,
-    projectId: view.recipe.projectId,
+    // The project only when the reader reaches it.
+    projectId: view.presence.projectId,
+    owner: view.presence.owner,
+    home: view.presence.home,
     createdAt: view.recipe.createdAt,
     updatedAt: view.recipe.updatedAt,
     summary: view.summary,
-    steps: view.steps.map(stepPayload),
+    steps: view.steps.map((step) => stepPayload(step, view.context)),
   };
 }
 

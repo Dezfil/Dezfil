@@ -44,14 +44,18 @@ started before a cookie changes. The workspace checks `/api/auth/session`
 before mounting, clears private drafts and retained results on account changes,
 and reloads cached back-navigation pages through the existing access checks.
 
-Workflows, connections and projects are private to their creator. A map is
-reached by its owner and, while it is filed in a project, by that project's
-owner and people: they list and read it, its layers, widgets and history,
+Connections and projects are private to their creator. A map is reached by
+its owner and, while it is filed in a project, by that project's owner and
+people: they list and read it, its layers, widgets and history,
 with its SQL evaluated in the map's SQL home within their own reach, and
 every map read names the map's owner and home. Its thumbnails and tile
 archives stay the owner's. A dataset is reached by its owner and by the owner
 and people of every project it is filed in; it changes, refreshes and goes
-only by its owner. Contained layers, widgets, histories and runs
+only by its owner. A workflow is reached like a map, its steps, layout and
+runs with it, and read in its SQL home within the reader's reach; its editors
+change its steps, while starting a run stays its owner's until a run's
+outputs are its runner's own, and a run is cancelled by its initiator or the
+workflow's owner. Contained layers, widgets, histories and runs
 follow their parent; standalone jobs and retained export/render results remain
 private even after failure or output deletion. Admin status grants no
 private-content access. Dataset and connection names are unique within one
@@ -206,7 +210,12 @@ one, and the run is followed through `GET /api/operations/runs` and
 `GET /api/operations/runs/{id}`, with a cancel call. Each run produces a
 durable dataset with recorded provenance.
 
-**Recipes.** Workflows: a named, ordered list of steps whose dependencies
+**Recipes.** Every workflow read and listing carries `owner`, `home` and
+`projectId` as maps do. A workflow read by someone whose own space is not its
+home resolves every name in that home within the reader's reach: a name out
+of reach is a missing input named as written, with the sentence a resource
+evaluation gives, and lineage, output links and captured layers out of reach
+are left out. Workflows: a named, ordered list of steps whose dependencies
 point only backwards, so the system can answer what is now out of date. The
 family covers the workflow, its steps, their order, the canvas layout, and
 the runs of both a single step and the whole workflow.

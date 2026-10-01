@@ -1,5 +1,5 @@
 import { requireRequestScope } from "@/lib/auth/scope-http";
-import { requireWorkflowViewWrite } from "@/lib/workflow-access";
+import { requireWorkflowEdit } from "@/lib/workflow-access";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
@@ -41,7 +41,7 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id } = await params;
-    requireWorkflowViewWrite(scope, id, "edit");
+    requireWorkflowEdit(scope, id);
     const body = await jsonBody(request);
     const operation = findOperation(requireString(body, "operation"));
     const parameters =

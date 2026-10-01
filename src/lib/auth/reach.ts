@@ -45,7 +45,7 @@ export const OWNER_QUERY_MODULES: Record<string, readonly Boundary[]> = {
   "src/lib/metadata/map-queries.ts": ["projectReachable"],
   "src/lib/metadata/maps.ts": ["projectReachable"],
   "src/lib/metadata/owned-cascades.ts": ["projectReachable", "initiatorPrivate"],
-  "src/lib/metadata/owned-jobs.ts": ["initiatorPrivate"],
+  "src/lib/metadata/owned-jobs.ts": ["initiatorPrivate", "projectReachable"],
   "src/lib/metadata/owned-projects.ts": ["projectReachable"],
   "src/lib/metadata/owned-recipes.ts": ["projectReachable"],
   "src/lib/metadata/owned-tables.ts": ["projectReachable", "ownerOnly"],

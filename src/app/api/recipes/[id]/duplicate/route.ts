@@ -4,6 +4,7 @@ import { errorResponse } from "@/lib/api/errors";
 import { duplicateRecipe } from "@/lib/operations/recipe-duplicate";
 import { readRecipe } from "@/lib/operations/recipe-view";
 import { recipePayload } from "@/lib/operations/recipe-api";
+import { permissionRefused, requirePermitted } from "@/lib/auth/reach";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -16,6 +17,9 @@ export async function POST(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id } = await params;
+    // Duplication stays the owner's until a copy can be made under reach:
+    // anyone else who reaches the workflow is refused by the permission shape.
+    if (requirePermitted(scope, "workflow", id, "duplicate").relation !== "owner") throw permissionRefused();
     const copy = await duplicateRecipe(scope, id);
     return NextResponse.json(
       { recipe: recipePayload(await readRecipe(scope, copy.id)) },

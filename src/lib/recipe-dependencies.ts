@@ -14,7 +14,11 @@ import {
   type StepDefinition,
 } from "@/lib/operations/step-reads";
 import { boundedEvaluation } from "@/lib/query/bounded";
-import { listOwnTablesWithSize } from "@/lib/table-service";
+import { listTablesWithSize } from "@/lib/table-service";
+import { resolveReference } from "@/lib/query/bindings";
+import { workflowEvaluation } from "@/lib/query/context";
+import { namespaceFor } from "@/lib/query/namespace";
+import { qualifiedNameParts } from "@/lib/query/qualified-name";
 
 /**
  * The datasets a workflow reads and writes: the subject of the filing
@@ -35,15 +39,17 @@ import { listOwnTablesWithSize } from "@/lib/table-service";
 
 export type WorkflowDependency = MapDependency;
 
-async function strictReads(scope: DatasetScope, step: StepDefinition): Promise<string[]> {
+/** Every dataset reference a step's current definition makes, as parts:
+ * its declared dataset parameters, or its SQL's plain and qualified table
+ * references. */
+async function strictReads(scope: DatasetScope, step: StepDefinition): Promise<string[][]> {
   const declared = declaredReads(step);
-  if (declared !== null) return declared;
+  if (declared !== null) return declared.map((value) => qualifiedNameParts(value) ?? [value]);
   const params = currentDefinition(step);
   const sql = typeof params.sql === "string" ? params.sql : "";
   if (!sql) return [];
-  return boundedEvaluation(async (conn) =>
-    (await queryInputsStrict(conn, sql, () => null)).tables, { scope },
-  );
+  const inputs = await boundedEvaluation(async (conn) => queryInputsStrict(conn, sql, () => null), { scope });
+  return [...inputs.tables.map((name) => [name]), ...(inputs.external ?? []).map((written) => qualifiedNameParts(written) ?? [written])];
 }
 
 export async function workflowDependencies(
@@ -53,18 +59,20 @@ export async function workflowDependencies(
   requireRecipe(scope, recipeId);
   const steps = listSteps(scope, recipeId);
 
-  // A workflow's names still bind in its owner's own space here: the
-  // caller's own datasets, never a same-named one someone else shares.
-  const tables = await listOwnTablesWithSize(scope);
-  const byName = new Map(tables.map((t) => [t.name.toLowerCase(), t]));
+  // Every name binds in the workflow's home within the reader's reach, the
+  // workflow's own outputs as the reader would run them: never a same-named
+  // dataset of the reader's own, and nothing out of reach is named.
+  const evaluation = workflowEvaluation(scope, recipeId);
+  const namespace = namespaceFor(evaluation);
+  const tables = await listTablesWithSize(scope);
   const byId = new Map(tables.map((t) => [t.id, t]));
   const producers = currentProducers(scope);
 
   const found = new Map<string, WorkflowDependency>();
   for (const step of steps) {
-    let names: string[];
+    let references: string[][];
     try {
-      names = await strictReads(scope, step);
+      references = await strictReads(evaluation, step);
     } catch (cause) {
       throw new ApiError(
         "dependencies_unresolved",
@@ -75,8 +83,9 @@ export async function workflowDependencies(
         422,
       );
     }
-    for (const name of names) {
-      const table = byName.get(name.toLowerCase());
+    for (const parts of references) {
+      const resolution = resolveReference(namespace, parts);
+      const table = resolution.status === "bound" ? byId.get(resolution.dataset.id) : undefined;
       if (table && !found.has(table.id)) {
         found.set(table.id, dependencyOf(table, producers));
       }
@@ -87,5 +96,5 @@ export async function workflowDependencies(
     }
   }
   requireRecipe(scope, recipeId);
-  return [...found.values()].sort((a, b) => a.name.localeCompare(b.name));
+  return [...found.values()].sort((a, b) => a.qualifiedName.localeCompare(b.qualifiedName));
 }

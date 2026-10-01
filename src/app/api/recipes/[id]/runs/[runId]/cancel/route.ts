@@ -1,9 +1,10 @@
 import { requireRequestScope } from "@/lib/auth/scope-http";
-import { requireViewableCancellation } from "@/lib/workflow-access";
-import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
+import { requireRunCancellation } from "@/lib/workflow-access";
+import { resourceAbsent } from "@/lib/auth/owned-resource";
+import { requireReachable } from "@/lib/auth/reach";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
-import { getCascade } from "@/lib/metadata/owned-cascades";
+import { readReachedCascade } from "@/lib/metadata/owned-cascades";
 import { cancelCascade, readCascade } from "@/lib/operations/cascade";
 import { cascadePayload } from "@/lib/operations/recipe-api";
 
@@ -27,15 +28,14 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id, runId } = await params;
-    // The run's initiator or its workflow's owner; the owner alone while the
-    // answer is the run view.
-    requireViewableCancellation(scope, id, runId);
-    const existing = getCascade(scope, runId);
+    // The run's initiator or its workflow's owner.
+    requireRunCancellation(scope, id, runId);
+    const existing = readReachedCascade(scope, runId);
     if (!existing || existing.recipeId !== id) {
       throw resourceAbsent();
     }
     await cancelCascade(scope, runId);
-    requireOwnedResource(scope, "cascade", runId);
+    requireReachable(scope, "cascade", runId);
     return NextResponse.json({ run: cascadePayload(readCascade(scope, runId)) });
   } catch (error) {
     return errorResponse(error);

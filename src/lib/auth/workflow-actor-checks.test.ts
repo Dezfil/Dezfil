@@ -16,14 +16,17 @@ import { PERMISSION_REFUSAL, requireCancellable } from "./reach";
  *
  * Every write asks the reach kernel first: a viewer gets the permission
  * refusal and a non-member the absent refusal, alike across session and token,
- * with nothing changed. Deletion is the owner's. The layout answers with the
- * raw document, so an editor's layout write lands. The routes that answer with
- * the recipe, step or run view stay the owner's for now, since that view is
- * still read in the caller's own space: an editor's write there is refused by
- * the permission shape, before anything is written.
+ * with nothing changed. Deletion is the owner's. Content changes, the layout
+ * and the ones answering with the recipe or step view alike, land for the
+ * owner, the project's owner and an editor, each answered with the view as
+ * they read it. Starting a run stays the owner's until a run's outputs are
+ * its runner's own: anyone else who may run it is refused by the permission
+ * shape, before anything is planned. A run is cancelled by its initiator or
+ * the workflow's owner.
  */
 const effects = vi.hoisted(() => ({ reads: vi.fn(async () => [] as string[]), engine: vi.fn() }));
-vi.mock("@/lib/operations/step-reads", async original => ({ ...await original<typeof import("@/lib/operations/step-reads")>(), stepReads: effects.reads }));
+vi.mock("@/lib/operations/step-reads", async original => ({ ...await original<typeof import("@/lib/operations/step-reads")>(), stepReads: effects.reads,
+  readsByStep: async (_scope: unknown, steps: { id: string }[]) => new Map(await Promise.all(steps.map(async step => [step.id, await effects.reads()] as const))) }));
 vi.mock("@/lib/duckdb", () => ({ withConnection: effects.engine, trustedH3Ready: vi.fn() }));
 
 let db: Database;
@@ -76,9 +79,10 @@ const route = {
 };
 interface Case {
   label: string;
-  /** "view": answers with the recipe, step or run view (the owner's for now);
-   * "content": an editor's change that answers raw; "owner": the owner's act. */
-  kind: "view" | "content" | "owner";
+  /** "content": a content change, the editors' as well as the owner's;
+   * "run": starting a run, the owner's until a run's outputs are its runner's
+   * own; "owner": the owner's act. */
+  kind: "content" | "run" | "owner";
   method: string;
   path: (p: Params) => string;
   body?: unknown;
@@ -92,20 +96,23 @@ const value = (sql: string) => Object.values(db.prepare(sql).get() as object)[0]
 const W = { id: "W", stepId: "S", runId: "R" }, W2 = { id: "W", stepId: "S2", runId: "R" };
 const layout = { steps: { S: { x: 10, y: 20 } }, sources: {}, notes: [] };
 const cases: Case[] = [
-  { label: "rename the workflow", kind: "view", method: "PATCH", path: p => `/api/recipes/${p.id}`, body: { name: "Renamed" }, load: route.recipe,
+  { label: "rename the workflow", kind: "content", method: "PATCH", path: p => `/api/recipes/${p.id}`, body: { name: "Renamed" }, load: route.recipe,
     params: W, status: 200, effect: () => value("SELECT name FROM recipes WHERE id = 'W'"), expected: "Renamed" },
-  { label: "add a step", kind: "view", method: "POST", path: p => `/api/recipes/${p.id}/steps`,
-    body: { operation: "sql_step", parameters: { sql: "SELECT 4 AS n", name: "added_out" } }, load: route.steps, params: W },
-  { label: "edit a step", kind: "view", method: "PATCH", path: p => `/api/recipes/${p.id}/steps/${p.stepId}`,
-    body: { parameters: { sql: "SELECT 5 AS n", name: "second_out" } }, load: route.step, params: W2 },
-  { label: "remove a step", kind: "view", method: "DELETE", path: p => `/api/recipes/${p.id}/steps/${p.stepId}`, load: route.step, params: W2 },
-  { label: "move a step", kind: "view", method: "POST", path: p => `/api/recipes/${p.id}/steps/${p.stepId}/move`, body: { ordinal: 0 },
-    load: route.move, params: W2 },
-  { label: "discard a proposal", kind: "view", method: "DELETE", path: p => `/api/recipes/${p.id}/steps/${p.stepId}/proposal`,
+  { label: "add a step", kind: "content", method: "POST", path: p => `/api/recipes/${p.id}/steps`,
+    body: { operation: "sql_step", parameters: { sql: "SELECT 4 AS n", name: "added_out" } }, load: route.steps, params: W,
+    status: 201, effect: () => value("SELECT count(*) FROM recipe_steps WHERE recipe_id = 'W'"), expected: 3 },
+  { label: "edit a step", kind: "content", method: "PATCH", path: p => `/api/recipes/${p.id}/steps/${p.stepId}`,
+    body: { parameters: { sql: "SELECT 5 AS n", name: "second_out" } }, load: route.step, params: W2,
+    status: 200, effect: () => value("SELECT json_extract(parameters, '$.sql') FROM recipe_steps WHERE id = 'S2'"), expected: "SELECT 5 AS n" },
+  { label: "remove a step", kind: "content", method: "DELETE", path: p => `/api/recipes/${p.id}/steps/${p.stepId}`, load: route.step, params: W2,
+    status: 200, effect: () => value("SELECT count(*) FROM recipe_steps WHERE recipe_id = 'W'"), expected: 1 },
+  { label: "move a step", kind: "content", method: "POST", path: p => `/api/recipes/${p.id}/steps/${p.stepId}/move`, body: { ordinal: 0 },
+    load: route.move, params: W2, status: 200, effect: () => value("SELECT ordinal FROM recipe_steps WHERE id = 'S2'"), expected: 0 },
+  { label: "discard a proposal", kind: "content", method: "DELETE", path: p => `/api/recipes/${p.id}/steps/${p.stepId}/proposal`,
     load: route.proposal, params: W, status: 200, effect: () => value("SELECT proposed_parameters FROM recipe_steps WHERE id = 'S'"), expected: null },
-  { label: "run a step", kind: "view", method: "POST", path: p => `/api/recipes/${p.id}/steps/${p.stepId}/run`, load: route.stepRun, params: W },
-  { label: "run the workflow", kind: "view", method: "POST", path: p => `/api/recipes/${p.id}/runs`, body: {}, load: route.runs, params: W },
-  { label: "plan a run", kind: "view", method: "POST", path: p => `/api/recipes/${p.id}/runs`, body: { plan: true }, load: route.runs, params: W },
+  { label: "run a step", kind: "run", method: "POST", path: p => `/api/recipes/${p.id}/steps/${p.stepId}/run`, load: route.stepRun, params: W },
+  { label: "run the workflow", kind: "run", method: "POST", path: p => `/api/recipes/${p.id}/runs`, body: {}, load: route.runs, params: W },
+  { label: "plan a run", kind: "run", method: "POST", path: p => `/api/recipes/${p.id}/runs`, body: { plan: true }, load: route.runs, params: W },
   { label: "arrange the canvas", kind: "content", method: "PUT", path: p => `/api/recipes/${p.id}/layout`, body: layout, load: route.layout,
     params: W, status: 200, effect: () => value("SELECT json_extract(document, '$.steps.S.x') FROM recipe_layouts WHERE recipe_id = 'W'"), expected: 10 },
   { label: "delete the workflow", kind: "owner", method: "DELETE", path: p => `/api/recipes/${p.id}`, load: route.recipe, params: W, status: 200,
@@ -153,17 +160,32 @@ describe.each(cases)("$label", c => {
   if (c.status !== undefined) {
     const permitted = c.kind === "content" ? ["ada", "pat", "ed"] : ["ada"];
     for (const account of permitted) {
-      it(`lets ${account} make it`, async () => {
+      it(`lets ${account} make it, answered with the view as they read it`, async () => {
         const response = await call(c, account, c.params);
-        expect(response.status, JSON.stringify(await response.clone().json().catch(() => null))).toBe(c.status);
+        const body = await response.clone().json().catch(() => null) as { recipe?: { owner: unknown; home: string; projectId: string | null }; step?: { recipeId: string } } | null;
+        expect(response.status, JSON.stringify(body)).toBe(c.status);
         expect(c.effect?.()).toEqual(c.expected);
+        if (body?.recipe) expect(body.recipe).toMatchObject({ owner: { name: "ada", sqlName: "ada" }, home: "ada", projectId: "P" });
+        if (body?.step) expect(body.step.recipeId).toBe("W");
       });
     }
   }
 });
 
+describe("starting a run stays the owner's until a run's outputs are its runner's own", () => {
+  it("refuses the project's owner and an editor, who may run it, by the permission shape before anything is planned", async () => {
+    for (const c of cases.filter(entry => entry.kind === "run")) {
+      for (const account of ["pat", "ed"]) {
+        const { session, token } = await refusal(c, account, c.params, missing(c.params));
+        expect(session, `${c.label} ${account}`).toEqual(forbidden);
+        expect(token).toEqual(session);
+      }
+    }
+  });
+});
+
 describe("cancelling a run", () => {
-  const cancel: Case = { label: "cancel", kind: "view", method: "POST", path: p => `/api/recipes/${p.id}/runs/${p.runId}/cancel`, load: route.cancel, params: W };
+  const cancel: Case = { label: "cancel", kind: "owner", method: "POST", path: p => `/api/recipes/${p.id}/runs/${p.runId}/cancel`, load: route.cancel, params: W };
   const run = (runId: string): Params => ({ id: "W", stepId: "S", runId });
 
   it("is its initiator's or its workflow owner's, a viewer-turned initiator included", () => {
@@ -181,8 +203,8 @@ describe("cancelling a run", () => {
     expect(allowed("ed", "RE")).toBe("not_found");
   });
 
-  it("refuses everyone but the owner on the route while it answers with the run view, the initiator included", async () => {
-    for (const [account, runId] of [["pat", "R"], ["ed", "R"], ["vi", "R"], ["ed", "RE"], ["vi", "RE"]]) {
+  it("refuses everyone but the initiator and the owner on the route", async () => {
+    for (const [account, runId] of [["pat", "R"], ["ed", "R"], ["vi", "R"], ["pat", "RE"], ["vi", "RE"]]) {
       const { session, token } = await refusal(cancel, account, run(runId), missing(run(runId)));
       expect(session, `${account} ${runId}`).toEqual(forbidden);
       expect(token).toEqual(session);
@@ -198,6 +220,18 @@ describe("cancelling a run", () => {
     const response = await call(cancel, "ada", run("RE"));
     expect(response.status).toBe(200);
     expect(value("SELECT cancelled FROM cascade_runs WHERE id = 'RE'")).toBe(1);
+  });
+
+  it("lets the initiator who does not own the workflow read and cancel their own run, answered with the run view", async () => {
+    const { GET } = await import("@/app/api/recipes/[id]/runs/[runId]/route");
+    const read = await GET(input("ed", "/api/recipes/W/runs/RE", "GET"), { params: Promise.resolve(run("RE")) });
+    expect(read.status).toBe(200);
+    expect(await read.json()).toMatchObject({ run: { id: "RE", recipeId: "W", cancelled: false } });
+    const response = await call(cancel, "ed", run("RE"));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ run: { id: "RE", recipeId: "W", cancelled: true } });
+    expect(value("SELECT cancelled FROM cascade_runs WHERE id = 'RE'")).toBe(1);
+    expect(value("SELECT cancelled FROM cascade_runs WHERE id = 'R'")).toBe(0);
   });
 });
 

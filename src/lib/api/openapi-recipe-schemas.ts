@@ -6,7 +6,7 @@ export const RECIPE_DEPENDENCY_SCHEMAS = {
         type: "array",
         description:
           "The distinct registered datasets the workflow reads and " +
-          "writes, alphabetical by name.",
+          "writes, alphabetical by the name the caller would type.",
         items: { $ref: "#/components/schemas/DependencyDataset" },
       },
     },
@@ -66,7 +66,11 @@ export const RECIPE_SCHEMAS = {
       },
       output: {
         type: ["object", "null"],
-        description: "The dataset this step owns, once it has produced one.",
+        description:
+          "The dataset this step owns, once it has produced one and the " +
+          "caller reaches it; to the workflow's owner, also one since " +
+          "deleted. Null when it never produced one or the caller does " +
+          "not reach it.",
         properties: {
           id: { type: "string" },
           name: { type: ["string", "null"] },
@@ -99,13 +103,19 @@ export const RECIPE_SCHEMAS = {
           "recorded, which is how the row explains itself after a " +
           "deletion. `throughStepId` is set when the break arrived " +
           "from a producer upstream rather than from this step's own " +
-          "input.",
+          "input. Conditions are read within the caller's reach: an " +
+          "input the caller cannot reach is missing to them, named as " +
+          "written, and for a caller whose own space is not the " +
+          "workflow's SQL home it carries `message`, the sentence a " +
+          "resource evaluation gives, the same for a hidden and a " +
+          "nonexistent dataset.",
         items: {
           type: "object",
           properties: {
             tableId: { type: "string" },
             tableName: { type: "string" },
             throughStepId: { type: "string" },
+            message: { type: "string" },
           },
         },
       },
@@ -114,13 +124,16 @@ export const RECIPE_SCHEMAS = {
         description:
           "Where a layer-authored step's SQL came from, including " +
           "`substitutionNote` when the layer aggregated and the step " +
-          "took the rows behind the cells instead.",
+          "took the rows behind the cells instead. The map and layer " +
+          "it names are left out when the caller does not reach that map.",
       },
       inputs: {
         type: "array",
         description:
           "The tables this step read when it last published — from " +
-          "the parse of the SQL that ran, never a scan of its text.",
+          "the parse of the SQL that ran, never a scan of its text. " +
+          "Only the ones the caller reaches, and, to the workflow's " +
+          "owner, ones since deleted.",
         items: {
           type: "object",
           properties: {
@@ -166,8 +179,18 @@ export const RECIPE_SCHEMAS = {
       projectId: {
         type: ["string", "null"],
         description:
-          "The project this workflow is in; null = not " +
-          "in a project.",
+          "The project this workflow is in, when the caller reaches " +
+          "that project; null = in none the caller reaches.",
+      },
+      owner: {
+        $ref: "#/components/schemas/ResourceOwner",
+        description: "The workflow's owner.",
+      },
+      home: {
+        type: "string",
+        description:
+          "The SQL name of the workflow's SQL home: the account whose " +
+          "datasets its plain table names mean, whoever reads or runs it.",
       },
       createdAt: { type: "string" },
       updatedAt: {
@@ -183,6 +206,7 @@ export const RECIPE_SCHEMAS = {
         items: { $ref: "#/components/schemas/RecipeStep" },
       },
     },
+    required: ["owner", "home"],
   },
   RecipeSummary: {
     type: "object",
@@ -423,6 +447,7 @@ export const RECIPE_SCHEMAS = {
       finishedAt: { type: ["string", "null"] },
       output: {
         type: ["object", "null"],
+        description: "Null when the caller does not reach the dataset.",
         properties: { id: { type: "string" }, name: { type: "string" } },
       },
     },

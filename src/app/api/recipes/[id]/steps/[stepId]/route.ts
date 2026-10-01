@@ -1,6 +1,6 @@
 import { requireStep } from "@/lib/metadata/owned-recipes";
 import { requireRequestScope } from "@/lib/auth/scope-http";
-import { requireWorkflowViewWrite } from "@/lib/workflow-access";
+import { requireWorkflowEdit } from "@/lib/workflow-access";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
@@ -19,7 +19,9 @@ import {
   orderAfterProducers, tolerantReadsByStep } from "@/lib/operations/recipe-order";
 import { readStep } from "@/lib/operations/recipe-view";
 import { stepReads } from "@/lib/operations/step-reads";
-import { listOwnedTables } from "@/lib/metadata/owned-tables";
+import { recipeStanding } from "@/lib/metadata/owned-recipes";
+import { reachableDatasetIds } from "@/lib/auth/reach";
+import { linkFilter } from "@/lib/operations/output-links";
 import { findOperation } from "@/lib/operations/catalog";
 import {
   captureLayerSource,
@@ -52,7 +54,7 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id, stepId } = await params;
-    requireWorkflowViewWrite(scope, id, "edit", stepId);
+    requireWorkflowEdit(scope, id, stepId);
     const step = requireStep(scope, id, stepId);
     const body = await jsonBody(request);
 
@@ -144,15 +146,18 @@ export async function DELETE(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id, stepId } = await params;
-    // The answer derives the output's existence and its readers in the
-    // caller's own space, so this stays the owner's for now.
-    requireWorkflowViewWrite(scope, id, "edit", stepId);
+    requireWorkflowEdit(scope, id, stepId);
     const step = requireStep(scope, id, stepId);
     const steps = listSteps(scope, id);
-    const exists =
-      step.outputTableId !== null && listOwnedTables(scope).some((t) => t.id === step.outputTableId);
+    // The output as its remover may see it: one they reach exists; one gone
+    // is told as gone only to the workflow's owner, whose record it is; one
+    // out of their reach is not named at all.
+    const recorded = step.outputTableId !== null
+      ? { id: step.outputTableId, name: step.outputTableName ?? "" } : null;
+    const visible = recorded ? linkFilter(scope, [recipeStanding(id)?.ownerId ?? null])(recorded) : null;
+    const exists = visible !== null && reachableDatasetIds(scope).has(visible.id);
     const state: "exists" | "deleted" | "never" =
-      step.outputTableId === null ? "never" : exists ? "exists" : "deleted";
+      step.outputTableId === null || (recorded !== null && visible === null) ? "never" : exists ? "exists" : "deleted";
     const declared =
       step.outputTableName?.toLowerCase() ??
       (typeof step.parameters.name === "string" && step.parameters.name !== ""
@@ -163,9 +168,10 @@ export async function DELETE(_request: Request, { params }: Params) {
       .filter((s) => s.id !== stepId && declared !== null && (reads.get(s.id) ?? []).includes(declared))
       .map((s) => ({ id: s.id, operation: s.operation, label: findOperation(s.operation).label }));
     removeStep(scope, stepId);
-    const name = step.outputTableName ?? (declared ? declared : null);
-    const message =
-      state === "exists"
+    const name = recorded !== null && visible === null ? null : step.outputTableName ?? (declared ? declared : null);
+    const message = recorded !== null && visible === null
+      ? "The step was removed."
+      : state === "exists"
         ? `The step was removed. The dataset "${name}" it produced remains, and its run history is still readable.` +
           (readers.length ? ` ${readers.length === 1 ? "One node reads" : `${readers.length} nodes read`} it as a workspace table now.` : "")
         : state === "deleted"

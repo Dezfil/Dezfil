@@ -1,6 +1,6 @@
 import { resourceAbsent } from "@/lib/auth/owned-resource";
 import { requireRequestScope } from "@/lib/auth/scope-http";
-import { requireWorkflowViewWrite } from "@/lib/workflow-access";
+import { requireWorkflowEdit } from "@/lib/workflow-access";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
 import { deleteRecipe, renameRecipe } from "@/lib/metadata/owned-recipes";
@@ -24,7 +24,7 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id } = await params;
-    requireWorkflowViewWrite(scope, id, "edit");
+    requireWorkflowEdit(scope, id);
     const body = await jsonBody(request);
     if (!renameRecipe(scope, id, recipeName(body))) {
       throw resourceAbsent();

@@ -1,4 +1,5 @@
-import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
+import { resourceAbsent } from "@/lib/auth/owned-resource";
+import { requireReachable } from "@/lib/auth/reach";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
@@ -19,7 +20,7 @@ export async function GET(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id, runId } = await params;
-    requireOwnedResource(scope, "workflow", id);
+    requireReachable(scope, "workflow", id);
     const cascade = readCascade(scope, runId);
     if (cascade.recipeId !== id) {
       throw resourceAbsent();

@@ -17,12 +17,18 @@ import {
   deleteCascade,
   snapshotAttempt,
   type MemberIdentity,
+  readReachedCascade,
 } from "@/lib/metadata/owned-cascades";
+import * as cascades from "@/lib/metadata/cascades";
+import { requireCancellable } from "@/lib/auth/reach";
+import { outputLinks } from "./output-links";
 import { metadataDb } from "@/lib/metadata/db";
 import { publishedMessage } from "@/lib/api/error-catalogue";
 import { getJob } from "@/lib/metadata/owned-jobs";
 import { isTerminal } from "@/lib/metadata/jobs";
-import { getRecipe, listSteps, type RecipeStep } from "@/lib/metadata/owned-recipes";
+// Planning and starting a run stay the workflow owner's until a run's
+// outputs are its runner's own.
+import { getOwnRecipe as getRecipe, listOwnSteps as listSteps, type RecipeStep } from "@/lib/metadata/owned-recipes";
 import { dependenciesWithin } from "./recipe-order";
 import {
   markAndSignalRunCancellation,
@@ -364,10 +370,21 @@ export interface CascadeView extends CascadeRun {
  * durable result.
  */
 export function readCascade(scope: AccountScope, id: string): CascadeView {
-  const cascade = getCascade(scope, id);
-  if (!cascade) {
+  const stored = readReachedCascade(scope, id);
+  if (!stored) {
     throw resourceAbsent();
   }
+  // A run follows its workflow: everyone who reaches the workflow reads it,
+  // with every output link the reader cannot follow left out.
+  const linked = outputLinks(scope, stored);
+  const cascade = {
+    ...stored,
+    members: stored.members.map((m) => ({
+      ...m,
+      output: linked(m.output),
+      attempt: m.attempt ? { ...m.attempt, output: linked(m.attempt.output) } : null,
+    })),
+  };
   // From the member rows, not from the jobs. A job is pruned once its
   // subject's history is deep enough, and a durable result that forgot what it
   // produced would be a worse record than none.
@@ -388,8 +405,9 @@ export function readCascade(scope: AccountScope, id: string): CascadeView {
  * then writes the outcome, so what this returns is the whole record.
  */
 export async function cancelCascade(scope: AccountScope, id: string): Promise<CascadeRun> {
-  requireOwnedResource(scope, "cascade", id);
-  const beforeFence = getCascade(scope, id);
+  // The run's initiator or its workflow's owner.
+  requireCancellable(scope, id);
+  const beforeFence = cascades.getCascade(id);
   if (!beforeFence) {
     throw resourceAbsent();
   }
@@ -400,7 +418,7 @@ export async function cancelCascade(scope: AccountScope, id: string): Promise<Ca
   raiseCancelFence(scope, id);
   // The actionable snapshot is after the fence: every member it names was
   // admitted before cancellation won, and no later admission can join it.
-  const cascade = getCascade(scope, id) ?? beforeFence;
+  const cascade = cascades.getCascade(id) ?? beforeFence;
   const cancellations: { stepId: string; cancellation: RunCancellation }[] = [];
   for (const member of cascade.members) {
     if (member.state !== "running" || !member.jobId) continue;
@@ -427,5 +445,5 @@ export async function cancelCascade(scope: AccountScope, id: string): Promise<Ca
     cancellations.map(({ cancellation }) => waitForRunCancellation(cancellation)),
   );
   await cascadeSettled(id);
-  return getCascade(scope, id) ?? cascade;
+  return cascades.getCascade(id) ?? cascade;
 }

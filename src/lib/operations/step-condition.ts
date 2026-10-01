@@ -46,6 +46,10 @@ export interface BrokenInput {
   tableName: string;
   /** Set when this step is broken because a producer upstream is. */
   throughStepId?: string;
+  /** For a reader whose own space is not the workflow's home: the sentence a
+   * resource evaluation gives for a name out of reach, the same whether the
+   * dataset is hidden or does not exist. */
+  message?: string;
 }
 
 export interface StepCondition {

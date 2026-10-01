@@ -1,5 +1,5 @@
 import { requireRequestScope } from "@/lib/auth/scope-http";
-import { requireWorkflowViewWrite } from "@/lib/workflow-access";
+import { requireWorkflowRunStart } from "@/lib/workflow-access";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
 import { readCascade, startSingleRun } from "@/lib/operations/cascade";
@@ -30,7 +30,10 @@ export async function POST(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id, stepId } = await params;
-    requireWorkflowViewWrite(scope, id, "run", stepId);
+    // Starting a run stays the workflow owner's until a run's outputs are its
+    // runner's own; anyone else who may run it is refused by the permission
+    // shape.
+    requireWorkflowRunStart(scope, id, stepId);
     // A node's own run is one of the recipe's runs: one member, the same
     // lock, the same driver. Ordinary refusal removes it before the request
     // answers; accepted cancellation retains the listable exception.

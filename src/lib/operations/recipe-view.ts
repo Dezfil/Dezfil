@@ -1,16 +1,20 @@
 import type { DatasetScope } from "@/lib/query/access";
 import type { AccountScope } from "@/lib/auth/scope";
-import { requireOwnedResource } from "@/lib/auth/owned-resource";
-import { listJobs, type OperationJob } from "@/lib/metadata/owned-jobs";
-import { edgesForStep, type LineageEdge } from "@/lib/metadata/lineage";
+import { canReach } from "@/lib/auth/reach";
+import { latestStepAttempt, type OperationJob } from "@/lib/metadata/owned-jobs";
+import { reachedEdgesForStep, type LineageEdge } from "@/lib/metadata/lineage";
 import {
   requireRecipe,
   requireStep,
   listSteps,
+  recipeStanding,
   type Recipe,
   type RecipeStep,
 } from "@/lib/metadata/owned-recipes";
-import { listOwnedTables } from "@/lib/metadata/owned-tables";
+import { resolveReference, unavailableDataset, type Namespace } from "@/lib/query/bindings";
+import { workflowEvaluation } from "@/lib/query/context";
+import { namespaceFor } from "@/lib/query/namespace";
+import { presencesOf, type Presence } from "@/lib/reach-presence";
 import {
   deriveConditions,
   type ConditionEdge,
@@ -19,6 +23,7 @@ import {
 import { stepReads } from "./step-reads";
 import { dependenciesWithin } from "./recipe-order";
 import { summarizeRecipe, type RecipeSummary } from "./recipe-summary";
+import { linkFilter, type OutputLink } from "./output-links";
 
 /**
  * Reading a recipe.
@@ -35,6 +40,17 @@ import { summarizeRecipe, type RecipeSummary } from "./recipe-summary";
  * the tables once and deriving everything from that one map is not an
  * optimisation: two reads could straddle a refresh and produce a report in
  * which a step is stale because of a table another step saw as current.
+ *
+ * **Everything is read in the workflow's home within the reader's reach.**
+ * A workflow is read by everyone who reaches it, and its view is resolved
+ * where its names belong: a plain name means the home account's dataset or
+ * the workflow's own declared output, as the reader would run it, and the
+ * world the conditions are derived from is the set of datasets the reader
+ * reaches. The reader's own space never stands in for the home. A reference
+ * the reader cannot reach reads as missing, named as written, with the same
+ * sentence a resource evaluation gives; recorded lineage, output links and a
+ * captured layer's identity that the reader cannot reach are left out, never
+ * named.
  */
 
 export interface StepView {
@@ -56,13 +72,18 @@ export interface RecipeView {
   steps: StepView[];
   /** The workflow's one-line state and counts. */
   summary: RecipeSummary;
+  /** The project it is filed in as its reader reaches it, its owner and its
+   * SQL home. */
+  presence: Presence;
+  context: ReaderContext;
 }
 
-/** The artifact each registered table currently holds. A table absent from
- * this map has been deleted, which is what makes a step *broken* rather than
- * merely out of date. */
-export function currentArtifacts(scope: AccountScope): Map<string, string> {
-  return new Map(listOwnedTables(scope).map((t) => [t.id, t.file]));
+/** What a payload asks of its reader's reach. */
+export interface ReaderContext {
+  /** Which output links the reader may follow. */
+  link: (link: OutputLink | null) => OutputLink | null;
+  /** Whether the reader reaches the map a step was captured from. */
+  reachesMap: (mapId: string) => boolean;
 }
 
 /**
@@ -75,12 +96,11 @@ export function currentArtifacts(scope: AccountScope): Map<string, string> {
  * broken and can never make one stale: nothing was ever bound to be behind.
  */
 function prospectiveEdges(
-  scope: AccountScope,
+  namespace: Namespace,
   steps: RecipeStep[],
   readsByStepId: Map<string, string[]>,
   recordedByStepId: Map<string, { inputTableName: string }[]>,
 ): ConditionEdge[] {
-  const byName = new Map(listOwnedTables(scope).map((t) => [t.name.toLowerCase(), t]));
   const reads = steps.map((step) => {
     const names = readsByStepId.get(step.id) ?? [];
     const earlier = steps.filter((candidate) => candidate.ordinal < step.ordinal);
@@ -90,9 +110,10 @@ function prospectiveEdges(
       ),
     );
     return names
-      // A name no table carries is what makes the step broken; a name that
-      // *does* resolve is an ordinary input and needs no prospective edge.
-      .filter((name) => !byName.has(name.toLowerCase()))
+      // A name that binds no dataset in the reader's reach is what makes the
+      // step broken; a name that *does* bind is an ordinary input and needs no
+      // prospective edge.
+      .filter((name) => resolveReference(namespace, [name]).status !== "bound")
       // A loss the recorded lineage already names must not be named twice:
       // the recorded edge survives deletion by design and alone carries
       // the broken evidence.
@@ -134,28 +155,50 @@ async function presentReads(scope: DatasetScope, steps: RecipeStep[]): Promise<M
 export async function readRecipe(scope: AccountScope, recipeId: string): Promise<RecipeView> {
   const recipe = requireRecipe(scope, recipeId);
   const steps = listSteps(scope, recipeId);
-  const reads = await presentReads(scope, steps);
-  const edgesByStep = new Map(steps.map((s) => [s.id, edgesForStep(scope, s.id)]));
-  for (const edge of prospectiveEdges(scope, steps, reads, edgesByStep)) {
+  const evaluation = workflowEvaluation(scope, recipeId);
+  const namespace = namespaceFor(evaluation);
+  // A reader whose own space is the workflow's home reads its names as their
+  // own; anyone else reads every name in someone else's space.
+  const home = namespace.home.id === scope.accountId;
+  const reachable = new Set(namespace.datasets.map((dataset) => dataset.id));
+  const reads = await presentReads(evaluation, steps);
+  const edgesByStep = new Map<string, ConditionEdge[]>(steps.map((s) => [s.id, reachedEdgesForStep(scope, s.id, reachable)]));
+  for (const edge of prospectiveEdges(namespace, steps, reads, edgesByStep)) {
     edgesByStep.get(edge.stepId)?.push(edge);
   }
-  const artifacts = currentArtifacts(scope);
+  const artifacts = new Map(namespace.datasets.map((dataset) => [dataset.id, dataset.file]));
   const conditions = deriveConditions({
     steps,
     edges: [...edgesByStep.values()].flat(),
     currentArtifact: artifacts,
   });
+  if (!home) {
+    for (const condition of conditions.values()) {
+      condition.missingInputs = condition.missingInputs.map((missing) => missing.throughStepId
+        ? missing
+        : { ...missing, message: unavailableDataset(missing.tableName).message });
+    }
+  }
 
   const views: StepView[] = steps.map((step) => ({
     step,
     condition: conditions.get(step.id)!,
-    latestAttempt:
-      listJobs(scope, { subjectId: step.id, subjectKind: "step", limit: 1 })[0] ?? null,
+    latestAttempt: latestStepAttempt(scope, step.id),
     edges: edgesByStep.get(step.id) ?? [],
     reads: reads.get(step.id) ?? [],
   }));
-  requireOwnedResource(scope, "workflow", recipeId);
-  return { recipe, steps: views, summary: summarizeRecipe(views, artifacts) };
+  requireRecipe(scope, recipeId);
+  const standing = recipeStanding(recipeId)!;
+  return {
+    recipe,
+    steps: views,
+    summary: summarizeRecipe(views, artifacts),
+    presence: presencesOf(scope, [standing])[0],
+    context: {
+      link: linkFilter(scope, [standing.ownerId]),
+      reachesMap: (mapId) => canReach(scope, "map", mapId),
+    },
+  };
 }
 
 /** One step's view, for the surfaces that address a step directly. */
@@ -163,10 +206,8 @@ export async function readStep(
   scope: AccountScope,
   recipeId: string,
   stepId: string,
-): Promise<StepView> {
+): Promise<StepView & { context: ReaderContext }> {
   requireStep(scope, recipeId, stepId);
-  const found = (await readRecipe(scope, recipeId)).steps.find(
-    (s) => s.step.id === stepId,
-  );
-  return found!;
+  const recipe = await readRecipe(scope, recipeId);
+  return { ...recipe.steps.find((s) => s.step.id === stepId)!, context: recipe.context };
 }

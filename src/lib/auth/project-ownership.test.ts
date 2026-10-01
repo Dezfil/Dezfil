@@ -175,8 +175,8 @@ it("filters counts and member identities by both owners before decoding content"
   // whoever owns it; Bob, who does not reach her project, sees none of it.
   expect(new Set(members.maps.map(m => m.id))).toEqual(new Set([maps.alice, maps.bob]));
   await expect(projectMembers(testAccountScope(db, "bob"), projects.alice)).rejects.toMatchObject({ code: "not_found" });
-  expect(members.recipes.map(r => r.id)).toEqual([recipes.alice]);
-  // So is a dataset filed there, whoever owns it.
+  // So is a workflow filed there, and a dataset, whoever owns them.
+  expect(new Set(members.recipes.map(r => r.id))).toEqual(new Set([recipes.alice, recipes.bob]));
   expect(new Set(members.tables.map(t => t.id))).toEqual(new Set(["alice", "bob"]));
 });
 it("each account can create, rename, refile and dissolve its own project", async () => {

@@ -1,6 +1,7 @@
 import type { Database } from "better-sqlite3";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
+import { requireReachable } from "@/lib/auth/reach";
 import { randomUUID } from "node:crypto";
 import { metadataDb } from "./db";
 
@@ -130,6 +131,25 @@ export function edgesForStep(
   const rows = db.prepare(`SELECT e.* FROM lineage_edges e LEFT JOIN data_tables t ON t.id = e.input_table_id
     WHERE e.step_id = ? AND (t.id IS NULL OR t.owner_id = ?) ORDER BY e.input_table_name`).all(stepId, owner) as Row[];
   return rows.map(hydrate);
+}
+
+/**
+ * What a step read, as one reader of its workflow may see it: every recorded
+ * edge whose input the reader reaches, and, for the workflow's owner, every
+ * edge whose input no longer exists, the record of an input since deleted.
+ * An input someone else still holds out of the reader's reach is left out,
+ * never named.
+ */
+export function reachedEdgesForStep(
+  scope: AccountScope,
+  stepId: string,
+  reachable: ReadonlySet<string>,
+  db: Database = metadataDb(),
+): LineageEdge[] {
+  const owner = requireReachable(scope, "step", stepId, db).relation === "owner";
+  const rows = db.prepare(`SELECT e.*, t.id AS live FROM lineage_edges e LEFT JOIN data_tables t ON t.id = e.input_table_id
+    WHERE e.step_id = ? ORDER BY e.input_table_name`).all(stepId) as (Row & { live: string | null })[];
+  return rows.filter((row) => reachable.has(row.input_table_id) || (owner && row.live === null)).map(hydrate);
 }
 
 /** Which steps read this table — the direction staleness travels. */

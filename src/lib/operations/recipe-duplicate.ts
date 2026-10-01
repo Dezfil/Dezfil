@@ -5,13 +5,15 @@ import { metadataDb } from "@/lib/metadata/db";
 import { getLayout, putLayout } from "@/lib/metadata/recipe-layouts";
 import { recipeHome } from "@/lib/metadata/recipes";
 import { fileRecipe } from "@/lib/metadata/owned-recipes";
+// Duplication stays the owner's until a copy can be made under reach: its
+// names and its source are read in the owner's own space.
 import {
   copyStep,
   createRecipe,
-  getRecipe,
-  requireRecipe,
-  listRecipes,
-  listSteps,
+  getOwnRecipe as getRecipe,
+  requireOwnRecipe as requireRecipe,
+  listOwnRecipes,
+  listOwnSteps as listSteps,
   type Recipe,
   type RecipeStep,
 } from "@/lib/metadata/owned-recipes";
@@ -56,7 +58,7 @@ function declaredName(params: Record<string, unknown> | null): string | null {
  * owned recipe's nodes declare or hold, active or pending. */
 function takenNames(scope: AccountScope, db: Database): Set<string> {
   const taken = new Set<string>(listOwnedTables(scope, db).map((t) => t.name.toLowerCase()));
-  for (const recipe of listRecipes(scope, db)) {
+  for (const recipe of listOwnRecipes(scope, db)) {
     for (const step of listSteps(scope, recipe.id, db)) {
       for (const n of [declaredName(step.parameters), declaredName(step.proposedParameters), step.outputTableName?.toLowerCase() ?? null]) {
         if (n) taken.add(n);
