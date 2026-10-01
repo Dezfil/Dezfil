@@ -70,7 +70,8 @@ describe("exporting a shared project", () => {
     ]);
     const manifest = await json(zip!, "project.json");
     expect(manifest.exportedBy).toEqual({ sqlName: "vic" });
-    expect(manifest.contents.datasets.map((d: Record<string, unknown>) => [d.id, d.qualifiedName, d.owner, d.file]).sort()).toEqual([
+    const byName = (a: unknown[], b: unknown[]) => String(a[1]).localeCompare(String(b[1]));
+    expect(manifest.contents.datasets.map((d: Record<string, unknown>) => [d.id, d.qualifiedName, d.owner, d.file]).sort(byName)).toEqual([
       [tables.ada.id, "ada.roads", { name: "ada", sqlName: "ada" }, "datasets/ada.roads.parquet"],
       [tables.bob.id, "bob.roads", { name: "bob", sqlName: "bob" }, "datasets/bob.roads.parquet"],
     ]);
