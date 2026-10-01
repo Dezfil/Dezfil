@@ -107,3 +107,29 @@ it("documents transfer for a project, a map and a workflow, each the owner's alo
   expect(paths["/api/maps/{id}/transfer"].post.description).toContain("its publication, which becomes the new owner's");
   expect(document().components.schemas.Transfer.required).toEqual(["id", "owner"]);
 });
+
+it("documents the directory search as the one minimal exception to admin-only account reads", () => {
+  const { paths, components } = document();
+  const operation = paths["/api/accounts/search"]?.get;
+  expect(operation, "/api/accounts/search").toBeDefined();
+  expect(operation["x-tool"]).toBe("find_accounts");
+  expect(operation.security).toEqual(AUTH_SECURITY);
+  expect(operation.description).toContain("the one deliberate exception to account reads being admin-only");
+  expect(operation.description).toContain("display name and SQL name and nothing else");
+  expect(operation.description).toContain("Deactivated accounts and invitations not yet redeemed are never offered");
+  expect(operation.description).toContain("Managing accounts stays admin-only");
+  expect(operation.parameters).toEqual([expect.objectContaining({ name: "q", in: "query" })]);
+  const find = tool("find_accounts");
+  expect(find).toMatchObject({ confirm: false, effects: { readOnly: true, writes: [] },
+    mcp: { destructiveHint: false, idempotentHint: true, openWorldHint: false } });
+  expect(find.inputSchema.required).toEqual(["q"]);
+  const entry = (components.schemas.AccountDirectory.properties!.accounts as unknown as { items: { $ref: string }; maxItems: number });
+  expect(entry.maxItems).toBe(20);
+  const person = components.schemas.DirectoryPerson as unknown as { properties: object; required: string[]; additionalProperties: boolean };
+  expect(Object.keys(person.properties).sort()).toEqual(["name", "sqlName"]);
+  expect(person.additionalProperties).toBe(false);
+  expect(JSON.stringify(find.outputSchema)).not.toMatch(/"(email|isAdmin|id|status)":/);
+  for (const [path, methods] of Object.entries(paths).filter(([path]) => path.startsWith("/api/users"))) {
+    for (const users of Object.values(methods)) expect(users.description, path).toContain("Requires a current admin account");
+  }
+});

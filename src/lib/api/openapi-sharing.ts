@@ -1,6 +1,8 @@
 import { projectAccess } from "./openapi-project-access";
 import { mapAccess } from "./openapi-map-access";
 import { workflowAccess } from "./openapi-workflow-access";
+import { authenticatedOp } from "./openapi-authenticated";
+import { DIRECTORY_LIMIT, DIRECTORY_QUERY_MAX } from "@/lib/auth/directory-bounds";
 import { ERROR_RESPONSE, jsonOk, op, pathParam } from "./openapi-helpers";
 import { LOCAL_DELETE, LOCAL_READ, type McpConsequences } from "./operation-mcp";
 import { READ_ONLY, resource, writes } from "./operation-metadata";
@@ -191,7 +193,35 @@ const TRANSFER_PATHS = {
   },
 };
 
-export const SHARING_PATHS = { ...PEOPLE_PATHS, ...TRANSFER_PATHS };
+const DIRECTORY_PATHS = {
+  "/api/accounts/search": {
+    get: authenticatedOp({
+      summary: "Find people to share with",
+      description:
+        "The directory of active people, for sharing a project: any signed-in account can find other active " +
+        "accounts by any part of their display name (case-insensitive, the query trimmed) or by their exact " +
+        "email (trimmed, case-insensitive), never by part of one. This is the one deliberate exception to " +
+        "account reads being admin-only, and it is minimal: each result carries the person's display name and " +
+        "SQL name and nothing else, never an email, an admin flag or an account identity. Deactivated accounts " +
+        "and invitations not yet redeemed are never offered, nor the caller's own account, and nobody answers " +
+        `twice. An empty query answers nobody; at most ${DIRECTORY_LIMIT} people answer, an exact email ` +
+        "match first, then by display name. The SQL name is how the sharing operations name the person. " +
+        "Managing accounts stays admin-only.",
+      tag: "Accounts",
+      tool: "find_accounts", mcp: LOCAL_READ,
+      display: { verb: "Looked for people matching {arg.q}" },
+      effects: READ_ONLY,
+      parameters: [{
+        name: "q", in: "query", required: true,
+        schema: { type: "string", maxLength: DIRECTORY_QUERY_MAX },
+        description: "Part of a display name, or an exact email.",
+      }],
+      responses: { "200": jsonOk("#/components/schemas/AccountDirectory"), "400": ERROR_RESPONSE },
+    }),
+  },
+};
+
+export const SHARING_PATHS = { ...PEOPLE_PATHS, ...TRANSFER_PATHS, ...DIRECTORY_PATHS };
 
 export const SHARING_SCHEMAS = {
   ProjectPerson: {
@@ -207,6 +237,28 @@ export const SHARING_SCHEMAS = {
       },
     },
     required: ["name", "sqlName", "role", "deactivated"],
+  },
+  DirectoryPerson: {
+    type: "object",
+    additionalProperties: false,
+    description: "A person the directory offers: their display name and SQL name, nothing else.",
+    properties: {
+      name: { type: "string", description: "The person's display name." },
+      sqlName: { type: "string", description: "The person's SQL name, which names them on every sharing operation." },
+    },
+    required: ["name", "sqlName"],
+  },
+  AccountDirectory: {
+    type: "object",
+    properties: {
+      accounts: {
+        type: "array",
+        maxItems: DIRECTORY_LIMIT,
+        description: "An exact email match first, then by display name.",
+        items: { $ref: "#/components/schemas/DirectoryPerson" },
+      },
+    },
+    required: ["accounts"],
   },
   Transfer: {
     type: "object",

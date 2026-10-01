@@ -18,8 +18,9 @@ import { POLICY_REFUSAL_CODE } from "./policy";
  * Authenticated settings adds its read and update operations. Own-account
  * profile, password and token controls add six operations; user administration
  * adds four more. Token-addressed publication revocation adds one. A
- * project's people add their read and two changes, and transfer three. */
-const GENERATED_TOOLS = 135;
+ * project's people add their read and two changes, transfer three, and the
+ * directory search one. */
+const GENERATED_TOOLS = 136;
 
 describe("the page action policy is documented", () => {
   const document = buildOpenApiDocument();

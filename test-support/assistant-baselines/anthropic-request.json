@@ -2589,6 +2589,23 @@
       }
     },
     {
+      "name": "find_accounts",
+      "description": "Find people to share with. Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. The directory of active people, for sharing a project: any signed-in account can find other active accounts by any part of their display name (case-insensitive, the query trimmed) or by their exact email (trimmed, case-insensitive), never by part of one. This is the one deliberate exception to account reads being admin-only, and it is minimal: each result carries the person's display name and SQL name and nothing else, never an email, an admin flag or an account identity. Deactivated accounts and invitations not yet redeemed are never offered, nor the caller's own account, and nobody answers twice. An empty query answers nobody; at most 20 people answer, an exact email match first, then by display name. The SQL name is how the sharing operations name the person. Managing accounts stays admin-only.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "maxLength": 320,
+            "description": "Part of a display name, or an exact email."
+          }
+        },
+        "required": [
+          "q"
+        ]
+      }
+    },
+    {
       "name": "sanitize_icon_svg",
       "description": "Sanitize custom icon SVG. Advisory pass of the custom-icon sanitizer: returns the accepted markup, whether anything changed, and a bounded report of dropped content (category and name). The layer write re-sanitizes — this exists so a picker or agent can preview the outcome. Not-SVG, oversize, and nothing-drawable inputs answer invalid_request.",
       "input_schema": {

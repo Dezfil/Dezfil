@@ -84,7 +84,9 @@ A project's people generate `list_project_people`, `set_project_person` and
 changes are the project owner's and declare confirmation, since each changes
 who reaches the project. Transfer generates `transfer_project`,
 `transfer_map` and `transfer_workflow`, each the owner's and each behind
-confirmation, since only the new owner can give it back.
+confirmation, since only the new owner can give it back. `find_accounts`
+is the directory search any signed-in account may call to find someone to
+share with; it answers display names and SQL names only.
 
 Derivation is pure over a static document, so the tool set is built once per
 process and reused.
@@ -93,8 +95,8 @@ process and reused.
 
 | | |
 |---|---|
-| Documented operations | 162 |
-| Operations that become tools | 135 |
+| Documented operations | 163 |
+| Operations that become tools | 136 |
 | Deliberately excluded | 27 |
 
 Measured by building the OpenAPI document and the tool set from

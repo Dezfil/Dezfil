@@ -154,6 +154,18 @@ password and browser sessions while leaving tokens valid. Deactivation refuses
 sessions and tokens; reactivation preserves the account without reviving ended
 sessions. No user deletion operation exists.
 
+**Directory.** `GET /api/accounts/search?q=` is how a signed-in person finds
+someone to share a project with, and the one deliberate exception to
+account reads being an admin's. Any signed-in account may call it. It finds
+other active accounts by any part of their display name (case-insensitive,
+the query trimmed) or by their exact email (trimmed, case-insensitive), and
+answers each as `name` and `sqlName` and nothing else: never an email, an
+admin flag or an account identity. Deactivated accounts, invitations not
+yet redeemed and the caller are never offered, and nobody answers twice. An
+empty query answers nobody; at most 20 people answer, an exact email match
+first, then by display name. Managing accounts stays with the admin-only
+Users operations above.
+
 **Tables.** The catalogue of datasets. Listings cover every dataset the
 caller reaches and name each one's `owner` and its `qualifiedName`, the name
 the caller would type: the plain name for their own, `<sql name>.<name>` for
