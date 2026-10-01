@@ -36,6 +36,18 @@
   color: var(--accent);
 }
 
+/* A Viewer's page: the same bold name, no rename and no hover invitation. */
+.plainName {
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fg);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .nameInput {
   font-family: var(--font-ui);
   font-size: 13px;

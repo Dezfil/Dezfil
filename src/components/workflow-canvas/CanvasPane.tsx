@@ -13,6 +13,7 @@ import { normalName, sourceId } from "../workflow-producers";
 import { NODE_H, NODE_W } from "./arrange";
 import type { CanvasGraph } from "./graph";
 import type { FlowNode } from "./to-flow";
+import { useViewOnly } from "./view-only";
 import styles from "./WorkflowCanvas.module.css";
 import { useHeaderReach } from "../shell/use-header-reach";
 
@@ -55,6 +56,9 @@ export function CanvasPane({
   lockReason?: string | null;
 }) {
   const [tab, setTab] = useState<"sources" | "tools">("sources");
+  // A Viewer's pane lists and finds; it adds nothing, so neither the lock's
+  // banner nor Add data is drawn.
+  const viewOnly = useViewOnly();
   // The header card reaches this pane's right edge, as the builder's
   // card reaches the layer pane's.
   const paneRef = useRef<HTMLElement>(null);
@@ -203,7 +207,7 @@ export function CanvasPane({
           ]}
         />
       </div>
-      {lockReason ? (
+      {lockReason && !viewOnly ? (
         <p className={styles.paneLock} role="status" data-pane-locked>
           {lockReason}
         </p>
@@ -308,7 +312,7 @@ export function CanvasPane({
           ))
         )}
       </TabPanel>
-      {tab === "sources" ? (
+      {tab === "sources" && !viewOnly ? (
         <div className={styles.paneFoot}>
           <button type="button" className={styles.dashedBtn} onClick={onAddData} disabled={lockReason !== null} aria-label={lockReason ? `Add data: ${lockReason}` : undefined}>
             <PlusIcon /> Add data

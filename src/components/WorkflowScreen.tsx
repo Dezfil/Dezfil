@@ -14,8 +14,6 @@ import { readApiError, readOperations, readTables } from "./api";
 import { serverUnreachable } from "./failure-copy";
 import { AddDataDialog } from "./AddDataDialog";
 import { AsyncState, useAsync } from "./ui/AsyncState";
-import { IconButton } from "./ui/IconButton";
-import { RedoIcon, UndoIcon } from "./ui/icons";
 import type { HistoryChrome } from "./workflow-canvas/WorkflowCanvas";
 import { useUploadQueue } from "./use-upload-queue";
 import { canvasGraph } from "./workflow-canvas/graph";
@@ -30,7 +28,9 @@ import {
 import { RunDock } from "./workflow-canvas/RunDock";
 import { RunConfirmDialog, rowsFromGraph } from "./workflow-canvas/RunConfirmDialog";
 import { useRunConfirm } from "./workflow-canvas/use-run-confirm";
-import { WorkflowAssistantDoor, useWorkflowAssistant } from "./workflow-canvas/WorkflowAssistantHost";
+import { useWorkflowAssistant } from "./workflow-canvas/WorkflowAssistantHost";
+import { HeaderHistory } from "./workflow-canvas/HeaderHistory";
+import { ViewOnly } from "./workflow-canvas/view-only";
 import type { WorkflowListing } from "./workflow-model";
 import { usePathname } from "next/navigation";
 import { contributePath, releasePath } from "@/components/shell/path-model";
@@ -88,18 +88,29 @@ interface PageRead {
  * save, a stopped import — is drawn on the canvas's own stage, and the
  * card no longer keeps its margin. */
 
-function CrumbName({
+export function CrumbName({
   name,
   onRename,
+  readOnly = false,
 }: {
   name: string;
   onRename: (next: string) => void;
+  /** A Viewer's page: the name, no rename. */
+  readOnly?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(name);
   // Escape abandons a rename in progress; the blur that follows must not
   // commit the draft (the builder's rule, found during verification).
   const cancelled = useRef(false);
+  if (readOnly) {
+    return (
+      <span className={styles.crumbTail}>
+        <span className={styles.crumbSep}>/</span>
+        <span className={styles.plainName}>{name}</span>
+      </span>
+    );
+  }
   return (
     <span className={styles.crumbTail}>
       <span className={styles.crumbSep}>/</span>
@@ -141,7 +152,15 @@ function CrumbName({
   );
 }
 
-export function WorkflowScreen({ id }: { id: string }) {
+export function WorkflowScreen({
+  id,
+  viewOnly = false,
+}: {
+  id: string;
+  /** A Viewer's page, decided by the page from their standing: the
+   * canvas is view-only and nothing on the page edits or runs. */
+  viewOnly?: boolean;
+}) {
   const load = useCallback(async (): Promise<PageRead> => {
     const [recipe, layout, tables, operations] = await Promise.all([
       fetchWorkflow(id),
@@ -443,11 +462,12 @@ export function WorkflowScreen({ id }: { id: string }) {
   );
 
   return (
-    <div className={styles.screen} data-workflow-frame>
+    <ViewOnly value={viewOnly}>
+    <div className={styles.screen} data-workflow-frame data-view-only={viewOnly || undefined}>
       {crumbSlot &&
         page &&
         createPortal(
-          <CrumbName name={name} onRename={(n) => void rename(n)} />,
+          <CrumbName name={name} onRename={(n) => void rename(n)} readOnly={viewOnly} />,
           crumbSlot,
         )}
       {historySlot &&
@@ -455,33 +475,7 @@ export function WorkflowScreen({ id }: { id: string }) {
         graph &&
         history &&
         createPortal(
-          <span className={styles.history} data-history-chrome>
-            <IconButton
-              className={styles.histBtn}
-              tone="chrome"
-              hint
-              action={history.reason ? `Undo: ${history.reason}` : "Undo"}
-              shortcut="⌘Z / Ctrl+Z"
-              icon={<UndoIcon />}
-              onPointerDown={() => history.seal()}
-              onClick={() => history.press("undo")}
-              disabled={!history.canUndo || history.reason !== null}
-              data-undo
-            />
-            <IconButton
-              className={styles.histBtn}
-              tone="chrome"
-              hint
-              action={history.reason ? `Redo: ${history.reason}` : "Redo"}
-              shortcut="⇧⌘Z / Ctrl+Y"
-              icon={<RedoIcon />}
-              onPointerDown={() => history.seal()}
-              onClick={() => history.press("redo")}
-              disabled={!history.canRedo || history.reason !== null}
-              data-redo
-            />
-            <WorkflowAssistantDoor assistant={assistant} />
-          </span>,
+          <HeaderHistory history={history} assistant={assistant} />,
           historySlot,
         )}
       {actionSlot &&
@@ -551,5 +545,6 @@ export function WorkflowScreen({ id }: { id: string }) {
         uploadQueue={uploadQueue}
       />
     </div>
+    </ViewOnly>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { ErrorNote } from "../../ui/ErrorNote";
-import { failureProse } from "../../widgets/dashboard-state";
+import { layerFailureCopy } from "../layer-failure";
 
 /**
  * The style panel's failure presentation, extracted from the panel per
@@ -13,7 +13,9 @@ import { failureProse } from "../../widgets/dashboard-state";
  * sentence is the catalogue's, the diagnostic is one click deeper. The
  * note carries no retry or dismiss because it states a standing
  * condition, not an event: it clears when the layer's SQL renders again,
- * and the remedy lives in the layer's source editor.
+ * and the remedy lives in the layer's source editor. A dataset the
+ * author cannot reach is the exception: its sentence is the product's
+ * own, naming the dataset as written, so it leads the note on its own.
  *
  * A channel failure (a classify or scale write the server rejected)
  * describes a completed attempt, so it dismisses.
@@ -27,12 +29,13 @@ export function PanelFailureNotes({
   channelError: string | null;
   onDismissChannelError: () => void;
 }) {
+  const copy = renderError ? layerFailureCopy(renderError, "author") : null;
   return (
     <>
-      {renderError && (
+      {copy && (
         <ErrorNote
-          message={failureProse(renderError, "reader")}
-          detail={renderError.message}
+          message={copy.message}
+          detail={copy.detail}
           data-render-error
         />
       )}

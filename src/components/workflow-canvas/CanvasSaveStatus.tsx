@@ -2,6 +2,7 @@
 
 import { SaveStatusChip, SaveStatusCorner } from "../ui/SaveStatusChip";
 import type { Whisper } from "./save-whisper";
+import { useViewOnly } from "./view-only";
 import styles from "./CanvasSaveStatus.module.css";
 
 /**
@@ -17,10 +18,12 @@ import styles from "./CanvasSaveStatus.module.css";
  * touched.
  */
 export function CanvasSaveStatus({ whisper }: { whisper: Whisper | null }) {
+  // A Viewer's page saves nothing; the chip says so where saving would show.
+  const viewOnly = useViewOnly();
   return (
     <SaveStatusCorner className={styles.canvasCorner} data-save-status-corner>
       <SaveStatusChip
-        channels={[
+        channels={viewOnly ? [{ key: "view-only", message: { text: "View only" } }] : [
           {
             key: "whisper",
             announce: true,
