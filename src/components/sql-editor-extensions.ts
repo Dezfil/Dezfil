@@ -41,11 +41,14 @@ export interface SqlPosition {
 /* Completion                                                        */
 /* ---------------------------------------------------------------- */
 
-const REF_RE = /\b(?:from|join)\s+("?)([A-Za-z_][\w]*)\1/gi;
+const REF_RE = /\b(?:from|join)\s+("?)([A-Za-z_][\w]*)\1(?:\.("?)([A-Za-z_][\w]*)\3)?/gi;
 
 /** Table names the document references after FROM and JOIN — recognized
  * against the known tables, so an alias or a subquery keyword never
- * counts. Pure, so the contract is testable apart from the view. */
+ * counts. A known name is the one its reader types: one's own dataset by
+ * its plain name, another person's as `<sql name>.<dataset>`, which is how
+ * two same-named datasets stay apart. Pure, so the contract is testable
+ * apart from the view. */
 export function referencedTables(
   doc: string,
   known: readonly string[],
@@ -55,7 +58,8 @@ export function referencedTables(
   let m: RegExpExecArray | null;
   REF_RE.lastIndex = 0;
   while ((m = REF_RE.exec(doc)) !== null) {
-    if (set.has(m[2]) && !out.includes(m[2])) out.push(m[2]);
+    const name = m[4] === undefined ? m[2] : `${m[2]}.${m[4]}`;
+    if (set.has(name) && !out.includes(name)) out.push(name);
   }
   return out;
 }
