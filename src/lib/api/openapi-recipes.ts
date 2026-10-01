@@ -1,3 +1,4 @@
+import { CARRY_RULE, WRITTEN_IN_REF } from "./openapi-written-in";
 import { FILING_DESTINATION } from "./openapi-project-access";
 import { cascadeAccess } from "./openapi-cascade-access";
 import { jobAccess } from "./openapi-job-access";
@@ -271,7 +272,15 @@ export const RECIPE_PATHS = {
         "later change. Where the layer is drawn as hex bins, grid cells " +
         "or origin–destination lines, the step consumes the **rows " +
         "behind** those cells rather than the cells themselves, and the " +
-        "answer says so in `origin.substitutionNote`.\n\n" +
+        "answer says so in `origin.substitutionNote`. Any layer the " +
+        "caller reaches can be captured, its SQL carried from its map's " +
+        "home into this workflow's context; one the caller does not " +
+        "reach answers as a missing one.\n\n" +
+        "Give `writtenIn` when the parameters were written elsewhere " +
+        "(a node copied from another workflow, the caller's console, a " +
+        "map): their dataset inputs and SQL are carried into this " +
+        "workflow's context, where this step's own output already takes " +
+        "its name. " + CARRY_RULE + "\n\n" +
         "A step that would read its own output, or a later step's, is " +
         "refused here rather than at run time.",
       tag: "Recipes",
@@ -301,7 +310,14 @@ export const RECIPE_PATHS = {
                   type: "string",
                   description:
                     "Author from this layer: its filtered SQL is " +
-                    "captured into the step's `sql` parameter.",
+                    "captured into the step's `sql` parameter, carried " +
+                    "from the layer's map into this workflow.",
+                },
+                writtenIn: {
+                  ...WRITTEN_IN_REF,
+                  description:
+                    "Where `parameters` were written, when not in this " +
+                    "workflow; they are carried into it.",
                 },
               },
               required: ["operation"],
@@ -378,7 +394,19 @@ export const RECIPE_PATHS = {
               type: "object",
               properties: {
                 parameters: { type: "object" },
-                fromLayerId: { type: "string" },
+                fromLayerId: {
+                  type: "string",
+                  description:
+                    "Re-author from this layer, any the caller reaches: " +
+                    "its filtered SQL is captured and carried from its " +
+                    "map into this workflow.",
+                },
+                writtenIn: {
+                  ...WRITTEN_IN_REF,
+                  description:
+                    "Where `parameters` were written, when not in this " +
+                    "workflow; they are carried into it as an add's are.",
+                },
               },
             },
           },

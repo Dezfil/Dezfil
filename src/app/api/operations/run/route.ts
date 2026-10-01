@@ -6,6 +6,7 @@ import { compileOperation } from "@/lib/operations/compile";
 import { dryRun } from "@/lib/operations/materialize";
 import { startRun } from "@/lib/operations/run";
 import { jobView } from "@/lib/operations/job-view";
+import { standaloneParameters } from "@/lib/operations/step-handoff";
 
 /**
  * Run an operation, or ask what it would produce.
@@ -35,6 +36,7 @@ export async function POST(request: Request) {
       parameters?: unknown;
       subject?: unknown;
       dryRun?: unknown;
+      writtenIn?: unknown;
     };
     try {
       const parsed: unknown = await request.json();
@@ -49,10 +51,16 @@ export async function POST(request: Request) {
         400,
       );
     }
-    const params =
+    const given =
       typeof body.parameters === "object" && body.parameters !== null
         ? (body.parameters as Record<string, unknown>)
         : {};
+    // Written somewhere else (a map's home, a workflow, where a preview ran):
+    // carried into the caller's own console, where a standalone run reads
+    // its names, so it runs on the datasets it named there.
+    const params = body.writtenIn === undefined
+      ? given
+      : await standaloneParameters(scope, typeof body.operation === "string" ? body.operation : "", given, body.writtenIn, request.signal);
 
     if (body.dryRun === true) {
       const operation = findOperation(

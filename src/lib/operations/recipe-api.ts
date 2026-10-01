@@ -1,7 +1,9 @@
 import type { AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
 import { WORKFLOW_JSON_BODY_MAX_BYTES } from "@/lib/api/request-bounds";
-import { getOwnedLayer } from "@/lib/metadata/map-queries";
+import { getLayer } from "@/lib/metadata/map-queries";
+import { requireReachable } from "@/lib/auth/reach";
+import { resourceAbsent } from "@/lib/auth/owned-resource";
 import type { RecipeOrigin } from "@/lib/metadata/recipes";
 import type { CascadeRun } from "@/lib/metadata/cascades";
 import { jobView } from "./job-view";
@@ -127,7 +129,10 @@ export function captureLayerSource(scope: AccountScope, layerId: string): {
   sql: string;
   origin: Record<string, unknown>;
 } {
-  const layer = getOwnedLayer(scope, layerId);
+  // Any layer the caller reaches; the SQL as written in its map's home.
+  requireReachable(scope, "layer", layerId);
+  const layer = getLayer(layerId);
+  if (!layer) throw resourceAbsent();
   const captured = captureFromLayer({
     id: layer.id,
     mapId: layer.mapId,

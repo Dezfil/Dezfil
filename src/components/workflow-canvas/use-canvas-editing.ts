@@ -10,7 +10,7 @@ import { arrangeByDependency, GRID, NODE_H, NODE_W, type Positions } from "./arr
 import { freeRectOf } from "./CanvasFurniture";
 import type { DropPoint } from "./CanvasPane";
 import type { LayoutName } from "./canvas-history";
-import { writeClipboardItem, type ClipboardItem } from "./clipboard-items";
+import { pasteSource, writeClipboardItem, type ClipboardItem } from "./clipboard-items";
 import { effectiveParameters, type CanvasGraph, type NodeMember, type SourceMember } from "./graph";
 import { acceptsClass, expectedClass, outputNameOf } from "./link-rules";
 import type { LayoutNote, LayoutRead } from "./placement";
@@ -636,10 +636,10 @@ export function useCanvasEditing({
     const draft = runner.panelDraft();
     if (draft?.invalid) return { refuse: draft.invalid };
     void runner.flushPanel();
-    const item: ClipboardItem = { kind: "node", operation: m.step.operation, parameters: draft ? { ...draft.values } : effectiveParameters(m.step) };
+    const item: ClipboardItem = { kind: "node", operation: m.step.operation, parameters: draft ? { ...draft.values } : effectiveParameters(m.step), source: id };
     copyChain.current = { from: m.id, pasted: new Set(), last: null, key: writeClipboardItem(item) };
     return { item, said: `Copied ${m.label}.` };
-  }, [graph, nodesRef, runner]);
+  }, [graph, id, nodesRef, runner]);
   const pasteItem = useCallback(
     async (item: ClipboardItem) => {
       // The item's own chain sets the diagonal; another item's paste starts
@@ -653,7 +653,7 @@ export function useCanvasEditing({
       const op = operations.find((o) => o.id === item.operation);
       if (!op) {
         // Unknown here: the add operation refuses it in its own words.
-        const refusal = await edits.add({ operation: item.operation, parameters: item.parameters });
+        const refusal = await edits.add({ operation: item.operation, parameters: item.parameters, ...pasteSource(item, id) });
         say(refusal.kind === "refused" ? refusal.message : `“${item.operation}” is not a tool this instance knows.`, "bad");
         return;
       }
@@ -693,22 +693,23 @@ export function useCanvasEditing({
       const position = anchor ? nudgeDiagonal({ x: anchor.position.x + 24, y: anchor.position.y + 24 }, taken) : placeAt(null, NODE_W, NODE_H, held.spots);
       const spotKey = `paste:${name}`;
       held.spots[spotKey] = position;
-      const outcome = await edits.add({ operation: op.id, parameters: { ...item.parameters, name } }, { pasted: true });
+      // Values copied in another workflow are carried from there.
+      const outcome = await edits.add({ operation: op.id, parameters: { ...item.parameters, name }, ...pasteSource(item, id) }, { pasted: true });
       delete held.spots[spotKey];
       if (outcome.kind !== "accepted" || !outcome.step) {
         held.names.delete(name);
         if (outcome.kind === "refused") say(outcome.message, "bad");
         return;
       }
-      const id = outcome.step.id;
-      held.spots[id] = position;
-      chain.pasted.add(id);
-      chain.last = id;
-      setPendingSelect(id);
-      placeAdded(id, position);
+      const added = outcome.step.id;
+      held.spots[added] = position;
+      chain.pasted.add(added);
+      chain.last = added;
+      setPendingSelect(added);
+      placeAdded(added, position);
       say(`Pasted ${op.label} as ${name}.`);
     },
-    [edits, graph, nodesRef, notesCtl, operations, placeAdded, placeAt, say, screenNow, setPendingSelect, tables],
+    [edits, graph, id, nodesRef, notesCtl, operations, placeAdded, placeAt, say, screenNow, setPendingSelect, tables],
   );
   useCanvasClipboard({ host: hostRef, copy: copyItem, paste: (item) => void pasteItem(item), say, lockReason: gate.reason });
   const confirmRemoval = useCallback(async () => {

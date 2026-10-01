@@ -74,10 +74,11 @@ export function listOwnSteps(scope: AccountScope, recipeId: string, db: Database
   requireOwnedResource(scope, "workflow", recipeId, db);
   return recipes.listSteps(recipeId, db);
 }
+/** A captured layer's origin names a map and layer the capturer reaches. */
 function checkOrigin(scope: AccountScope, origin: Record<string, unknown> | null | undefined, db: Database) {
-  if (typeof origin?.mapId === "string") requireOwnedResource(scope, "map", origin.mapId, db);
+  if (typeof origin?.mapId === "string") requireReachable(scope, "map", origin.mapId, db);
   if (typeof origin?.layerId === "string") {
-    requireOwnedResource(scope, "layer", origin.layerId, db);
+    requireReachable(scope, "layer", origin.layerId, db);
     if (typeof origin.mapId === "string" && !db.prepare("SELECT id FROM layers WHERE id = ? AND map_id = ?").get(origin.layerId, origin.mapId)) throw resourceAbsent();
   }
 }

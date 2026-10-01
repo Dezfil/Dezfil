@@ -1673,7 +1673,7 @@
     {
       "type": "function",
       "name": "run_operation",
-      "description": "Run an operation. Created resources belong to the authenticated account. Submitted owner identities cannot assign or transfer ownership. Standalone run records and subject histories are private to their initiating account, including for administrators. Standalone jobs retain their initiating owner before any output exists, after failure and after output deletion; contained jobs follow their workflow, read by everyone who reaches it and cancelled by their initiator or the workflow's owner. Unreached and missing run identities return not_found before cancellation or private content reads. Subject grouping, history pruning and output-name conflicts are account-local. Workers recheck account activity before preparation and at publication; an inactive owner's unfinished job fails with authentication_required and keeps no new output, and an input another account owns that is no longer within the runner's reach when the output commits refuses it with sql_error naming the input as written. Accepts one operation and answers **202** with a run, before the work is done; poll the run's own resource for its outcome. An accepted run outlives the request that started it. Closing the connection does not stop it.\n\nWhat is refused here, and what is reported on the run, is a fixed line. Refused immediately, minting no run: a malformed body, an unknown operation, SQL that is not an accepted read-only SELECT, an output name already taken, and a full queue. Reported on the run instead: SQL that parses but fails to bind or execute, a name taken between acceptance and commit, the engine memory budget, the execution budget, and a server stopped mid-run.\n\nSet dryRun to ask what the operation would produce without writing anything; a dry run is synchronous and mints no run.\n\nA parameter that names a dataset takes the caller's own dataset by its bare name, and another person's dataset the caller reaches by its qualified name, <sql name>.<name>; a dataset out of reach is refused exactly as one that does not exist.\n\nOnly one read-only SELECT over named datasets is accepted. File readers, file-relation shorthand and engine path or definition discovery are refused before binding with sql_rejected, including nested SQL and computed targets. File-referencing PROJ coordinate definitions are also refused before native projection use, including computed or per-row values; EPSG identifiers and inline definitions without files remain supported. Unknown tables receive the same sql_error whether hidden or nonexistent, without catalogue suggestions. Engine errors do not expose filesystem paths or internal statements; input positions are retained when available. Existing saved SQL is retained unchanged; affected saved and published queries fail. **sql_step** keeps the result of a read-only SELECT as a dataset: the escape hatch inside any recipe, and the way to save a query you already trust. A result with no geometry is an ordinary dataset, not a failure.\n\n**Measurements are ground metres.** A buffer's radius and a measured length are metres on the earth, at the latitude the data occupies, never degrees or metres on a map projection. They are measured in a projection resolved from the data's own extent, and the output's provenance records which. Data spanning more than one local projection is **refused** for a distance with `measurement_crs_unavailable`, naming the extent it saw; an **area** over the same data succeeds, because every area is measured in a global equal-area projection. An input whose coordinate system was assumed rather than declared is measured anyway and the answer says so, on the dry run, on the accepted run, and on the output.",
+      "description": "Run an operation. Created resources belong to the authenticated account. Submitted owner identities cannot assign or transfer ownership. Standalone run records and subject histories are private to their initiating account, including for administrators. Standalone jobs retain their initiating owner before any output exists, after failure and after output deletion; contained jobs follow their workflow, read by everyone who reaches it and cancelled by their initiator or the workflow's owner. Unreached and missing run identities return not_found before cancellation or private content reads. Subject grouping, history pruning and output-name conflicts are account-local. Workers recheck account activity before preparation and at publication; an inactive owner's unfinished job fails with authentication_required and keeps no new output, and an input another account owns that is no longer within the runner's reach when the output commits refuses it with sql_error naming the input as written. Accepts one operation and answers **202** with a run, before the work is done; poll the run's own resource for its outcome. An accepted run outlives the request that started it. Closing the connection does not stop it.\n\nWhat is refused here, and what is reported on the run, is a fixed line. Refused immediately, minting no run: a malformed body, an unknown operation, SQL that is not an accepted read-only SELECT, an output name already taken, and a full queue. Reported on the run instead: SQL that parses but fails to bind or execute, a name taken between acceptance and commit, the engine memory budget, the execution budget, and a server stopped mid-run.\n\nSet dryRun to ask what the operation would produce without writing anything; a dry run is synchronous and mints no run.\n\nA parameter that names a dataset takes the caller's own dataset by its bare name, and another person's dataset the caller reaches by its qualified name, <sql name>.<name>; a dataset out of reach is refused exactly as one that does not exist.\n\nGive `writtenIn` when the parameters were written in a map's home or a workflow (a result previewed there and saved as a dataset, a tool previewing a layer's SQL): they are carried into the caller's own console, where a run reads its names, and the output is the caller's own dataset either way. Each dataset reference keeps the dataset it meant where it was written: a plain name of a dataset the destination's SQL home does not own, or whose name an output there takes, becomes <sql name>.<dataset>; an already qualified name stays as written; a workflow's own output becomes the dataset the caller's latest successful run of it made. Only those references change; the rest of the text is kept as written, and nothing where it came from is touched. A reference that cannot be carried (a dataset outside the caller's reach, an output the caller has not produced, a computed table name that would have to change) refuses the request with sql_error naming it, and nothing is written.\n\nOnly one read-only SELECT over named datasets is accepted. File readers, file-relation shorthand and engine path or definition discovery are refused before binding with sql_rejected, including nested SQL and computed targets. File-referencing PROJ coordinate definitions are also refused before native projection use, including computed or per-row values; EPSG identifiers and inline definitions without files remain supported. Unknown tables receive the same sql_error whether hidden or nonexistent, without catalogue suggestions. Engine errors do not expose filesystem paths or internal statements; input positions are retained when available. Existing saved SQL is retained unchanged; affected saved and published queries fail. **sql_step** keeps the result of a read-only SELECT as a dataset: the escape hatch inside any recipe, and the way to save a query you already trust. A result with no geometry is an ordinary dataset, not a failure.\n\n**Measurements are ground metres.** A buffer's radius and a measured length are metres on the earth, at the latitude the data occupies, never degrees or metres on a map projection. They are measured in a projection resolved from the data's own extent, and the output's provenance records which. Data spanning more than one local projection is **refused** for a distance with `measurement_crs_unavailable`, naming the extent it saw; an **area** over the same data succeeds, because every area is measured in a global equal-area projection. An input whose coordinate system was assumed rather than declared is measured anyway and the answer says so, on the dry run, on the accepted run, and on the output.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1692,6 +1692,53 @@
           "dryRun": {
             "type": "boolean",
             "description": "Report what the run would produce and write nothing."
+          },
+          "writtenIn": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "console",
+                  "map",
+                  "workflow"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "description": "The map or workflow; absent for console."
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "allOf": [
+              {
+                "type": "object",
+                "description": "Where SQL or a dataset name was written: the context whose names it uses. console is the caller's own SQL console, where a plain name is the caller's own dataset; map is a map's SQL home, as its layers are read; workflow is a workflow's home with its declared outputs as the caller runs them. A map or workflow the caller does not reach answers as a missing one.",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "console",
+                      "map",
+                      "workflow"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "description": "The map or workflow; absent for console."
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "description": "Where `parameters` were written, when not the caller's own console; they are carried into it."
+              }
+            ]
           }
         },
         "required": [
@@ -2045,7 +2092,7 @@
     {
       "type": "function",
       "name": "add_recipe_step",
-      "description": "Add a step. A workflow is reached by its owner and, while it is filed in a project, by that project's owner and people; its steps, layout and runs follow it. Results name the workflow's owner and SQL home and are read in that home within the caller's own reach: a reference the caller cannot reach is missing to them, named as written, and recorded lineage, output links and captured layer identities out of their reach are left out. Content changes are open to the owner, the project's owner and its editors; the SQL and dataset parameters anyone but the owner saves into a step must name only datasets within their own reach in the workflow's home, the workflow's declared outputs aside, else the save is refused with sql_error naming the reference as written and nothing changes. Deletion stays the owner's. Anyone who reaches a workflow may duplicate it into their own space: the copy keeps the workflow's SQL home and is filed in its project only when the duplicator may file there (its owner or an editor). Administrators reach nothing more. Unreached or missing workflows, steps, captured layers and project references return not_found before reading private contents or changing resources; a reached workflow whose change the caller may not make returns forbidden and changes nothing. Output-name conflicts and duplicate-name allocation consider only the caller's own datasets and the workflow's declarations, preserving the existing same-workflow conflict rules. Accepted changes recheck account activity and referenced-resource access at commit. **Request body bound.** At most 16,777,216 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Ordinary maximum-shape layout documents fit; escape-inflated keys and unbounded note ids can exceed the outer byte bound and are refused by design.\n\nAppends a step naming an operation from the catalog, its parameters, and the dataset it will produce.\n\n**The output's name**: stored in the registry's form; a blank or letterless name is refused in its own words; a name a registered table carries, or another step of this recipe declares or holds, is refused (`name_taken`) naming the holder. Another recipe's unrun declaration is no reservation. A step may be added unnamed; the run refuses a nameless one. **SQL the parser cannot read is accepted** with no present reads; the dry run and the run refuse it and say why.\n\nGive `fromLayerId` to author it from a layer: the step takes that layer's SQL **refined by its filters**, captured now and never re-read, so the step stays reproducible when the filters later change. Where the layer is drawn as hex bins, grid cells or origin–destination lines, the step consumes the **rows behind** those cells rather than the cells themselves, and the answer says so in `origin.substitutionNote`.\n\nA step that would read its own output, or a later step's, is refused here rather than at run time.",
+      "description": "Add a step. A workflow is reached by its owner and, while it is filed in a project, by that project's owner and people; its steps, layout and runs follow it. Results name the workflow's owner and SQL home and are read in that home within the caller's own reach: a reference the caller cannot reach is missing to them, named as written, and recorded lineage, output links and captured layer identities out of their reach are left out. Content changes are open to the owner, the project's owner and its editors; the SQL and dataset parameters anyone but the owner saves into a step must name only datasets within their own reach in the workflow's home, the workflow's declared outputs aside, else the save is refused with sql_error naming the reference as written and nothing changes. Deletion stays the owner's. Anyone who reaches a workflow may duplicate it into their own space: the copy keeps the workflow's SQL home and is filed in its project only when the duplicator may file there (its owner or an editor). Administrators reach nothing more. Unreached or missing workflows, steps, captured layers and project references return not_found before reading private contents or changing resources; a reached workflow whose change the caller may not make returns forbidden and changes nothing. Output-name conflicts and duplicate-name allocation consider only the caller's own datasets and the workflow's declarations, preserving the existing same-workflow conflict rules. Accepted changes recheck account activity and referenced-resource access at commit. **Request body bound.** At most 16,777,216 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Ordinary maximum-shape layout documents fit; escape-inflated keys and unbounded note ids can exceed the outer byte bound and are refused by design.\n\nAppends a step naming an operation from the catalog, its parameters, and the dataset it will produce.\n\n**The output's name**: stored in the registry's form; a blank or letterless name is refused in its own words; a name a registered table carries, or another step of this recipe declares or holds, is refused (`name_taken`) naming the holder. Another recipe's unrun declaration is no reservation. A step may be added unnamed; the run refuses a nameless one. **SQL the parser cannot read is accepted** with no present reads; the dry run and the run refuse it and say why.\n\nGive `fromLayerId` to author it from a layer: the step takes that layer's SQL **refined by its filters**, captured now and never re-read, so the step stays reproducible when the filters later change. Where the layer is drawn as hex bins, grid cells or origin–destination lines, the step consumes the **rows behind** those cells rather than the cells themselves, and the answer says so in `origin.substitutionNote`. Any layer the caller reaches can be captured, its SQL carried from its map's home into this workflow's context; one the caller does not reach answers as a missing one.\n\nGive `writtenIn` when the parameters were written elsewhere (a node copied from another workflow, the caller's console, a map): their dataset inputs and SQL are carried into this workflow's context, where this step's own output already takes its name. Each dataset reference keeps the dataset it meant where it was written: a plain name of a dataset the destination's SQL home does not own, or whose name an output there takes, becomes <sql name>.<dataset>; an already qualified name stays as written; a workflow's own output becomes the dataset the caller's latest successful run of it made. Only those references change; the rest of the text is kept as written, and nothing where it came from is touched. A reference that cannot be carried (a dataset outside the caller's reach, an output the caller has not produced, a computed table name that would have to change) refuses the request with sql_error naming it, and nothing is written.\n\nA step that would read its own output, or a later step's, is refused here rather than at run time.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -2063,7 +2110,54 @@
           },
           "fromLayerId": {
             "type": "string",
-            "description": "Author from this layer: its filtered SQL is captured into the step's `sql` parameter."
+            "description": "Author from this layer: its filtered SQL is captured into the step's `sql` parameter, carried from the layer's map into this workflow."
+          },
+          "writtenIn": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "console",
+                  "map",
+                  "workflow"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "description": "The map or workflow; absent for console."
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "allOf": [
+              {
+                "type": "object",
+                "description": "Where SQL or a dataset name was written: the context whose names it uses. console is the caller's own SQL console, where a plain name is the caller's own dataset; map is a map's SQL home, as its layers are read; workflow is a workflow's home with its declared outputs as the caller runs them. A map or workflow the caller does not reach answers as a missing one.",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "console",
+                      "map",
+                      "workflow"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "description": "The map or workflow; absent for console."
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "description": "Where `parameters` were written, when not in this workflow; they are carried into it."
+              }
+            ]
           }
         },
         "required": [
@@ -2115,7 +2209,55 @@
             "type": "object"
           },
           "fromLayerId": {
-            "type": "string"
+            "type": "string",
+            "description": "Re-author from this layer, any the caller reaches: its filtered SQL is captured and carried from its map into this workflow."
+          },
+          "writtenIn": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "console",
+                  "map",
+                  "workflow"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "description": "The map or workflow; absent for console."
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "allOf": [
+              {
+                "type": "object",
+                "description": "Where SQL or a dataset name was written: the context whose names it uses. console is the caller's own SQL console, where a plain name is the caller's own dataset; map is a map's SQL home, as its layers are read; workflow is a workflow's home with its declared outputs as the caller runs them. A map or workflow the caller does not reach answers as a missing one.",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "console",
+                      "map",
+                      "workflow"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "description": "The map or workflow; absent for console."
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "description": "Where `parameters` were written, when not in this workflow; they are carried into it as an add's are."
+              }
+            ]
           }
         },
         "required": [

@@ -38,6 +38,20 @@ export type DryRunGate =
 export interface DryRunRequest {
   operation: string;
   parameters: Record<string, unknown>;
+  /** Where the parameters were written, when not the caller's console: a
+   * layer's SQL is its map's, and is carried from there as the run's
+   * capture is. */
+  writtenIn?: { kind: "map"; id: string };
+}
+
+/** The dry run's request body. */
+export function dryRunBody(request: DryRunRequest): string {
+  return JSON.stringify({
+    operation: request.operation,
+    parameters: request.parameters,
+    dryRun: true,
+    ...(request.writtenIn ? { writtenIn: request.writtenIn } : {}),
+  });
 }
 
 /** Long enough to swallow per-keystroke churn, short enough that the gate
@@ -50,10 +64,7 @@ export function useDryRun(request: DryRunRequest | null): DryRunGate {
   // keystroke elsewhere in the form. The fingerprint IS the request,
   // serialized — the effect reconstructs it rather than holding the object,
   // so there is no ref to fall out of step with the render that asked.
-  const fingerprint =
-    request === null
-      ? null
-      : JSON.stringify([request.operation, request.parameters]);
+  const fingerprint = request === null ? null : dryRunBody(request);
 
   const [answer, setAnswer] = useState<{
     for: string;
@@ -62,16 +73,12 @@ export function useDryRun(request: DryRunRequest | null): DryRunGate {
 
   useEffect(() => {
     if (fingerprint === null) return;
-    const [operation, parameters] = JSON.parse(fingerprint) as [
-      string,
-      Record<string, unknown>,
-    ];
     const controller = new AbortController();
     const timer = setTimeout(() => {
       void fetch("/api/operations/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ operation, parameters, dryRun: true }),
+        body: fingerprint,
         signal: controller.signal,
       })
         .then(async (response) => {

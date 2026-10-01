@@ -26,10 +26,10 @@ import { reachableDatasetIds } from "@/lib/auth/reach";
 import { linkFilter } from "@/lib/operations/output-links";
 import { findOperation } from "@/lib/operations/catalog";
 import {
-  captureLayerSource,
   jsonBody,
   stepPayload,
 } from "@/lib/operations/recipe-api";
+import { arrivingDefinition } from "@/lib/operations/step-handoff";
 
 type Params = { params: Promise<{ id: string; stepId: string }> };
 
@@ -70,12 +70,11 @@ export async function PATCH(request: Request, { params }: Params) {
     // promoted with the definition rather than at once: until the proposal
     // succeeds the step still means what its output was produced from, and its
     // origin must go on describing *that*.
-    let origin: Record<string, unknown> | undefined;
-    if (typeof body.fromLayerId === "string" && body.fromLayerId !== "") {
-      const captured = captureLayerSource(scope, body.fromLayerId);
-      parameters.sql = captured.sql;
-      origin = captured.origin;
-    }
+    // Parameters written elsewhere and a captured layer's SQL are carried
+    // into this workflow's context first.
+    const arriving = await arrivingDefinition(scope, id, step.operation, parameters, body, request.signal);
+    Object.assign(parameters, arriving.parameters);
+    const origin: Record<string, unknown> | undefined = arriving.origin;
 
     // Someone other than the workflow's owner saves only what they can
     // evaluate themselves, whether it lands or waits as a proposal; the

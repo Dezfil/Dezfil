@@ -1,7 +1,7 @@
 import type { WorkflowStep } from "../workflow-model";
 import type { Position } from "./arrange";
 import { record as recorded, words, type Definition, type History, type RecipeStep } from "./canvas-history";
-import type { EditNote, EditOutcome, RecipeCoordinator, RecipeEdits, RemovalOutcome, RetryPorts } from "./use-recipe-edits";
+import type { AddInput, EditNote, EditOutcome, RecipeCoordinator, RecipeEdits, RemovalOutcome, RetryPorts } from "./use-recipe-edits";
 
 /**
  * The recording layer over the edit coordinator: the same shape the pane,
@@ -176,7 +176,7 @@ export function makeRecording(): Recording {
     }
   }
 
-  const add = async (input: { operation: string; parameters: Record<string, unknown> }, note?: EditNote): Promise<EditOutcome> => {
+  const add = async (input: AddInput, note?: EditNote): Promise<EditOutcome> => {
     const outcome = await p()
       .edits.owned(retry(() => void add(input, note)))
       .add(input, note);

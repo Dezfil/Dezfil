@@ -548,8 +548,17 @@ to change. Text whose context does not change is stored byte for byte.
 Layer creation (`POST /api/maps/{id}/layers`) carries this way; the console's
 "Add to a map", a dataset's "Add to a map" (which names the dataset by its
 `qualifiedName`) and the builder's table picks and imports all say they were
-written in the console. `POST /api/query` takes the same `writtenIn` to
-evaluate where the text was written instead of carrying it.
+written in the console. So do adding and editing a workflow step
+(`POST /api/recipes/{id}/steps`, `PATCH .../steps/{stepId}`): a node pasted
+from another workflow says which one, and the step's own output name already
+counts as taken in the destination. Capturing a layer into a step
+(`fromLayerId`) works from any layer the caller reaches and carries its
+filtered SQL from the map's home. A standalone operation
+(`POST /api/operations/run`, a dry run included) carries parameters written
+in a map or workflow into the caller's own console, so a result previewed in a
+map's home and saved as a dataset is the rows the preview showed, owned by the
+caller. `POST /api/query` takes the same `writtenIn` to evaluate where the
+text was written instead of carrying it.
 
 Geocode and isochrone preparation pass opaque, account-bound staging inputs
 only to the evaluation that publishes that job. Their SQL names temporary
