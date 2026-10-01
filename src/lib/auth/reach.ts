@@ -170,6 +170,19 @@ export function projectRole(scope: AccountScope, projectId: string, db: Database
   return reached ? (reached.relation as Exclude<Relation, "project-owner">) : "none";
 }
 
+/** The projects an account reaches, as a subquery over the `@me` parameter:
+ * the ones it owns and the ones it belongs to. Listings select their rows
+ * through it, so a list covers exactly what the kernel would admit one by
+ * one. */
+export const REACHED_PROJECTS = `SELECT id FROM projects WHERE owner_id = @me
+  UNION SELECT project_id FROM project_people WHERE account_id = @me`;
+
+/** Every project identity the acting account reaches. */
+export function reachableProjectIds(scope: AccountScope, db: Database = metadataDb()): Set<string> {
+  const me = requireAccountScope(scope, db);
+  return new Set((db.prepare(REACHED_PROJECTS).all({ me }) as { id: string }[]).map(row => row.id));
+}
+
 /** Every dataset identity the acting account reaches. */
 export function reachableDatasetIds(scope: AccountScope, db: Database = metadataDb()): Set<string> {
   return datasetReachOf(requireAccountScope(scope, db), db);

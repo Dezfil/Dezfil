@@ -167,7 +167,10 @@ it("filters counts and member identities by both owners before decoding content"
   expect(projectMemberIds(scope, projects.alice)).toEqual({ maps: [maps.alice], recipes: [recipes.alice], tables: ["alice"] });
   expect((await projectsOverview(scope)).map(p => p.id)).toEqual([projects.alice]);
   const members = await projectMembers(scope, projects.alice);
-  expect(members.maps.map(m => m.id)).toEqual([maps.alice]);
+  // A map filed in Alice's project is hers to reach as the project's owner,
+  // whoever owns it; Bob, who does not reach her project, sees none of it.
+  expect(new Set(members.maps.map(m => m.id))).toEqual(new Set([maps.alice, maps.bob]));
+  await expect(projectMembers(testAccountScope(db, "bob"), projects.alice)).rejects.toMatchObject({ code: "not_found" });
   expect(members.recipes.map(r => r.id)).toEqual([recipes.alice]); expect(members.tables.map(t => t.id)).toEqual(["alice"]);
 });
 it("each account can create, rename, refile and dissolve its own project", async () => {

@@ -221,10 +221,13 @@ describe("the resource-owner freeze", () => {
 });
 
 describe("the write response for someone else's map", () => {
-  it("names the project the editor reaches it through, and the GET read stays the owner's", async () => {
+  it("names the project the editor reaches it through, and answers as the editor's own read of the map does", async () => {
     const response = await call(cases[0], "ed", "M");
-    expect(await response.json()).toMatchObject({ id: "M", name: "Renamed", projectId: "P" });
+    const written = await response.json() as Record<string, unknown>;
+    expect(written).toMatchObject({ id: "M", name: "Renamed", projectId: "P", home: "ada" });
     const { GET } = await route.map();
-    expect((await GET(input("ed", "/api/maps/M", "GET"), { params: Promise.resolve({ id: "M" }) })).status).toBe(404);
+    const read = await GET(input("ed", "/api/maps/M", "GET"), { params: Promise.resolve({ id: "M" }) });
+    expect(read.status).toBe(200);
+    expect(await read.json()).toEqual(written);
   });
 });

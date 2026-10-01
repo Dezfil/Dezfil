@@ -1,5 +1,5 @@
 import type { AccountScope } from "@/lib/auth/scope";
-import { requireMap } from "./map-access";
+import { requireOwnMap } from "./map-access";
 import { metadataDb } from "@/lib/metadata/db";
 import { renameSync } from "node:fs";
 import path from "node:path";
@@ -36,6 +36,9 @@ import { dataDir } from "@/lib/config";
  *
  * Every mutation of one map's images runs under that map's own turn, so two cycles cannot interleave. Writes land through
  * a temporary file and a rename (the ` ` class).
+ *
+ * The images are the map owner's alone: an image does not record what it
+ * drew, so it cannot yet be served to someone a map is shared with.
  */
 
 export type ThumbnailTheme = "light" | "dark";
@@ -206,7 +209,7 @@ export function saveThumbnail(
   mapId: string,
   bytes: Uint8Array,
 ): Promise<void> {
-  const authorize = () => { requireMap(scope, mapId); };
+  const authorize = () => { requireOwnMap(scope, mapId); };
   authorize();
   return inTurn(mapId, async () => {
     authorize();
@@ -228,7 +231,7 @@ export function saveThemedThumbnail(
   cycle: string,
   bytes: Uint8Array,
 ): Promise<"held" | "published"> {
-  const authorize = () => { requireMap(scope, mapId); };
+  const authorize = () => { requireOwnMap(scope, mapId); };
   authorize();
   return inTurn(mapId, async () => {
     authorize();
@@ -266,7 +269,7 @@ export async function readThumbnail(
   mapId: string,
   theme?: ThumbnailTheme | null,
 ): Promise<Buffer | null> {
-  requireMap(scope, mapId);
+  requireOwnMap(scope, mapId);
   const set = await readSet(mapId);
   const single = thumbnailPath(mapId);
   const order = theme
@@ -274,13 +277,13 @@ export async function readThumbnail(
     : [set ? inDir(set.light) : null, set ? inDir(set.dark) : null, single];
   for (const file of order) {
     if (!file) continue;
-    requireMap(scope, mapId);
+    requireOwnMap(scope, mapId);
     let bytes: Buffer | undefined;
     try { bytes = await readFile(file); } catch { /* Try the next name. */ }
-    requireMap(scope, mapId);
+    requireOwnMap(scope, mapId);
     if (bytes) return bytes;
   }
-  requireMap(scope, mapId);
+  requireOwnMap(scope, mapId);
   return null;
 }
 
@@ -297,23 +300,23 @@ function removeThumbnailFiles(mapId: string, authorize: () => void): Promise<voi
 /** Mint cleanup while the parent still exists. The owning delete transaction
  * returns this closure only after committing; it cannot read or publish files. */
 export function prepareThumbnailRemoval(scope: AccountScope, mapId: string): () => Promise<void> {
-  requireMap(scope, mapId);
+  requireOwnMap(scope, mapId);
   return () => removeThumbnailFiles(mapId, () => {
     // An already committed deletion may finish its cleanup. A live or
     // replaced parent still requires current authority when the turn starts.
-    if (metadataDb().prepare("SELECT id FROM maps WHERE id = ?").get(mapId)) requireMap(scope, mapId);
+    if (metadataDb().prepare("SELECT id FROM maps WHERE id = ?").get(mapId)) requireOwnMap(scope, mapId);
   });
 }
 
 export function removeThumbnail(scope: AccountScope, mapId: string): Promise<void> {
-  requireMap(scope, mapId);
-  return removeThumbnailFiles(mapId, () => { requireMap(scope, mapId); });
+  requireOwnMap(scope, mapId);
+  return removeThumbnailFiles(mapId, () => { requireOwnMap(scope, mapId); });
 }
 
 /** A duplicated map keeps its look until its first capture. Lock both parents
  * in stable order, so a queued destination write cannot interleave the copy. */
 export function copyThumbnail(scope: AccountScope, from: string, to: string): Promise<void> {
-  const authorize = () => { requireMap(scope, from); requireMap(scope, to); };
+  const authorize = () => { requireOwnMap(scope, from); requireOwnMap(scope, to); };
   authorize();
   if (from === to) return Promise.resolve();
   const [first, second] = [from, to].sort();

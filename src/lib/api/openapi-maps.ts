@@ -61,7 +61,7 @@ export const MAP_COLLECTION_PATHS = {
           },
         },
       },
-      responses: { "201": jsonOk("#/components/schemas/Map", "Created.") },
+      responses: { "201": jsonOk("#/components/schemas/MapCreated", "Created.") },
     })),
   },
 };
@@ -284,7 +284,7 @@ export const MAP_RESOURCE_PATHS = {
     get: op(mapAccess({
       summary: "The datasets a map draws from",
       description:
-        "Dependency identities, memberships and producers resolve only within the authenticated account. Another owner's same-name dataset never changes this result. " +
+        "Each layer's references resolve to dataset identities in the map's SQL home within the caller's reach, and the caller's own datasets among them are listed: a dataset the caller cannot reach is left out rather than named, and a same-named dataset of the caller's own never stands in for the map's. Memberships and producers name only the caller's own projects and workflows. " +
         "The 14-A filing checklist's subject: every " +
         "registered dataset used by at least one of the map's saved " +
         "layers, exactly once, with its source, row count, project " +
@@ -598,6 +598,53 @@ export const MAP_DEPENDENCY_SCHEMAS = {
 };
 
 export const MAP_SCHEMAS = {
+  ResourceOwner: {
+    type: "object",
+    description:
+      "A person a resource names: its owner, or the account whose SQL " +
+      "home it is. The display name and the SQL name, never an email.",
+    properties: {
+      name: { type: "string" },
+      sqlName: {
+        type: "string",
+        description: "The person's SQL name, the qualifier other people's SQL uses for their datasets.",
+      },
+    },
+    required: ["name", "sqlName"],
+  },
+  MapPresence: {
+    type: "object",
+    description:
+      "What every map read and listing carries beyond the stored map, " +
+      "the same for the caller's own maps as for maps shared with them. " +
+      "Never part of the published view.",
+    properties: {
+      projectId: {
+        type: ["string", "null"],
+        description:
+          "The project this map is in, when the caller reaches that " +
+          "project; null when it is in none the caller reaches.",
+      },
+      owner: {
+        $ref: "#/components/schemas/ResourceOwner",
+        description: "The map's owner.",
+      },
+      home: {
+        type: "string",
+        description:
+          "The SQL name of the map's SQL home: the account whose " +
+          "datasets its plain table names mean, whoever reads it. Fixed " +
+          "at creation; duplication and transfer keep it.",
+      },
+    },
+    required: ["projectId", "owner", "home"],
+  },
+  MapCreated: {
+    allOf: [
+      { $ref: "#/components/schemas/Map" },
+      { $ref: "#/components/schemas/MapPresence" },
+    ],
+  },
   Map: {
     type: "object",
     properties: {
@@ -651,8 +698,9 @@ export const MAP_SCHEMAS = {
           projectId: {
             type: ["string", "null"],
             description:
-              "The project this map is in; null = not in " +
-              "a project. Never part of the published view.",
+              "The project this map is in, when the caller reaches that " +
+              "project; null = in none the caller reaches. Never part of " +
+              "the published view.",
           },
           layerCount: { type: "integer" },
           layerColors: {
@@ -664,6 +712,7 @@ export const MAP_SCHEMAS = {
           },
         },
       },
+      { $ref: "#/components/schemas/MapPresence" },
     ],
   },
   MapList: {
@@ -682,12 +731,13 @@ export const MAP_DETAIL_SCHEMAS = {
           projectId: {
             type: ["string", "null"],
             description:
-              "The project this map is in; null = not " +
-              "in a project. Detail reads carry it; the published " +
-              "surfaces never do.",
+              "The project this map is in, when the caller reaches that " +
+              "project; null = in none the caller reaches. Detail reads " +
+              "carry it; the published surfaces never do.",
           },
         },
       },
+      { $ref: "#/components/schemas/MapPresence" },
       {
         type: "object",
         properties: {

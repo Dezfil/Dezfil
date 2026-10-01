@@ -1,4 +1,4 @@
-import { requireOwnedResource } from "@/lib/auth/owned-resource";
+import { requireReachable } from "@/lib/auth/reach";
 import { listOwnedTables } from "@/lib/metadata/owned-tables";
 import type { AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
@@ -81,8 +81,10 @@ export function listFeatures(
   }));
 }
 
+/** The caller's own sketch datasets drawn on a map they reach: never another
+ * person's, whoever the map belongs to. */
 export function mapSketches(scope: AccountScope, mapId: string): Promise<SketchSummary[]> {
-  requireOwnedResource(scope, "map", mapId);
+  requireReachable(scope, "map", mapId);
   // One registry snapshot and one tracked lifetime for the whole traversal.
   return trackInflight(Promise.resolve().then(async () => {
     const tables = listOwnedTables(scope).filter(

@@ -27,3 +27,9 @@ export function renderCapRefusal(
 export function tilerUnavailable(featureCount: number): string {
   return `This layer has ${featureCount.toLocaleString()} features, over the render cap, and rendering it needs the tile builder (tippecanoe), which this instance could not find. Install it, or filter/aggregate the layer.`;
 }
+
+/** An over-cap layer read by someone its map is shared with: its tiles are
+ * prepared and served for the map's owner alone. */
+export function tilesForOwnerOnly(featureCount: number): string {
+  return `This layer has ${featureCount.toLocaleString()} features, over the render cap, and its tiles are drawn for the map's owner only.`;
+}

@@ -11,7 +11,7 @@ import { dataDir } from "@/lib/config";
 import type { DataTable } from "@/lib/metadata/tables";
 import { listOwnedTables } from "@/lib/metadata/owned-tables";
 import { projectMemberIds, requireProject } from "@/lib/metadata/owned-projects";
-import { mapWithLayers } from "@/lib/map-service";
+import { ownMapWithLayers } from "@/lib/map-service";
 import { recipePayload } from "@/lib/operations/recipe-api";
 import { readRecipe } from "@/lib/operations/recipe-view";
 import { layoutPayload, readLayout } from "@/lib/operations/recipe-layout";
@@ -112,7 +112,7 @@ export async function assembleProjectExport(
     .filter((t): t is DataTable => t !== undefined);
 
   const mapDocs = maps.map((id) => {
-    const wire = mapWithLayers(scope, id) as unknown as Record<string, unknown>;
+    const wire = ownMapWithLayers(scope, id) as unknown as Record<string, unknown>;
     return { id, name: String(wire.name ?? id), doc: mapProjection(wire) };
   });
   const workflowDocs = await Promise.all(

@@ -1,7 +1,7 @@
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
-import { requireMap, requireMapFor } from "@/lib/map-service";
+import { ownsMap, requireMapFor } from "@/lib/map-service";
 import {
   isThumbnailCycle,
   isThumbnailTheme,
@@ -33,13 +33,16 @@ function themeOf(request: Request): ThumbnailTheme | null {
 }
 
 /** The map's latest snapshot; 404 while none exists. With a
- * theme, that theme's image, falling back to whatever the map has. */
+ * theme, that theme's image, falling back to whatever the map has.
+ * Someone the map is shared with sees no snapshot: an image does not yet
+ * record what it drew, so it is served to the owner alone and everyone
+ * else gets the card's placeholder. */
 export async function GET(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id } = await params;
-    requireMap(scope, id);
-    const png = await readThumbnail(scope, id, themeOf(request));
+    const theme = themeOf(request);
+    const png = ownsMap(scope, id) ? await readThumbnail(scope, id, theme) : null;
     if (!png) {
       throw new ApiError("not_found", "This map has no snapshot yet.", 404);
     }

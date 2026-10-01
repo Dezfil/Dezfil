@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **118 paths, 156 operations, 147 named
+Measured from the current source: **118 paths, 156 operations, 150 named
 component schemas.**
 
 ## Base path and access
@@ -44,13 +44,18 @@ started before a cookie changes. The workspace checks `/api/auth/session`
 before mounting, clears private drafts and retained results on account changes,
 and reloads cached back-navigation pages through the existing access checks.
 
-Maps, datasets, workflows, connections and projects are private to their
-creator. Contained layers, widgets, histories and runs follow their parent;
-standalone jobs and retained export/render results remain private even after
-failure or output deletion. Admin status grants no private-content access.
-Dataset and connection names are unique within one account. Hidden and missing
-resources receive the same refusal, and SQL mounts only the caller's datasets.
-There is no owner selector or ownership-transfer operation.
+Datasets, workflows, connections and projects are private to their creator.
+A map is reached by its owner and, while it is filed in a project, by that
+project's owner and people: they list and read it, its layers, widgets and
+history, with its SQL evaluated in the map's SQL home within their own reach,
+and every map read names the map's owner and home. Its thumbnails and tile
+archives stay the owner's. Contained layers, widgets, histories and runs
+follow their parent; standalone jobs and retained export/render results remain
+private even after failure or output deletion. Admin status grants no
+private-content access. Dataset and connection names are unique within one
+account. Unreached and missing resources receive the same refusal, and SQL
+mounts only the caller's datasets. There is no owner selector or
+ownership-transfer operation.
 
 The published surface remains anonymous. `GET /api/published/{token}`
 and its siblings are the read-only, anonymous face of a map someone chose to
@@ -146,7 +151,12 @@ columns, an exact row count, a capped preview, and the runtime in
 milliseconds. `POST /api/query/export` turns a result into a downloadable
 file through a ticket that `GET /api/query/export` then redeems.
 
-**Maps.** A map groups ordered, styled layers. Create, read, update, delete,
+**Maps.** A map groups ordered, styled layers. Every map read and listing
+carries `owner` (display name and SQL name) and `home` (the SQL name of the
+account whose datasets the map's plain table names mean), and `projectId`
+only when the caller reaches that project; `GET /api/maps` lists the caller's
+own maps and every map filed in a project they own or belong to, and
+`?project=` accepts any project they reach. Create, read, update, delete,
 duplicate; plus the editing history (`GET /api/maps/{id}/history`,
 `POST .../undo`, `POST .../redo`), the dependency read, card thumbnails,
 search within a map, widget values, and server-side image export
@@ -162,8 +172,10 @@ never enter the render URL, page initialization, image facts or retained state.
 
 **Layers.** A layer is SQL plus a name plus style. Create it on a map
 (`POST /api/maps/{id}/layers`), read and patch it, duplicate it, delete it.
-`GET /api/layers/{id}/render` is what the canvas draws;
-`GET /api/layers/{id}/tiles/{z}/{x}/{y}` serves a tiled layer.
+`GET /api/layers/{id}/render` is what the canvas draws, for everyone who
+reaches the map; `GET /api/layers/{id}/tiles/{z}/{x}/{y}` serves a tiled
+layer's archive to the map's owner, and an over-cap layer read by anyone else
+answers `render_cap_exceeded`.
 `GET /api/layers/{id}/fields` and `.../fields/{field}` describe columns and
 their statistics, and `POST /api/layers/{id}/fill` and `.../scale` compute a
 classification or a size ramp. `GET /api/layers/{id}/export/{format}`

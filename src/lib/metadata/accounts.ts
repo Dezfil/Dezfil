@@ -39,6 +39,23 @@ function fromRow(row: Row): Account {
   };
 }
 
+/** How a resource names the person who owns it, or whose SQL home it is:
+ * the display name and the SQL name, never the email. */
+export interface AccountLabel {
+  name: string;
+  sqlName: string;
+}
+
+/** The labels of a set of accounts, by identity; unknown identities are
+ * left out. */
+export function accountLabels(ids: Iterable<string | null>, db: Database = metadataDb()): Map<string, AccountLabel> {
+  const wanted = [...new Set([...ids].filter((id): id is string => id !== null))];
+  if (wanted.length === 0) return new Map();
+  const rows = db.prepare("SELECT id, name, sql_name FROM accounts WHERE id IN (SELECT value FROM json_each(?))")
+    .all(JSON.stringify(wanted)) as { id: string; name: string; sql_name: string }[];
+  return new Map(rows.map(row => [row.id, { name: row.name, sqlName: row.sql_name }]));
+}
+
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }

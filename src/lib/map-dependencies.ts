@@ -5,6 +5,10 @@ import { listLayers } from "@/lib/metadata/maps";
 import { requireMap } from "@/lib/map-access";
 import { queryInputsStrict } from "@/lib/operations/inputs";
 import { boundedEvaluation } from "@/lib/query/bounded";
+import { namespaceFor } from "@/lib/query/namespace";
+import { resolveReference, type Namespace } from "@/lib/query/bindings";
+import { qualifiedNameParts } from "@/lib/query/qualified-name";
+import { mapEvaluation } from "@/lib/query/context";
 import { listTablesWithSize, type TableListing } from "@/lib/table-service";
 
 /**
@@ -12,11 +16,13 @@ import { listTablesWithSize, type TableListing } from "@/lib/table-service";
  * one documented read. One captured metadata world (the registry,
  * memberships, and workflow-origin output ownership); every saved
  * layer's statement analyzed strictly through the hardened boundary;
- * analyzed names resolve only to registered datasets and deduplicate by
- * dataset identity. A layer that cannot be analyzed fails the WHOLE
- * read — a partial answer must never present as a complete checklist.
- * Sketch provenance is identity evidence only; the current saved
- * statement decides use.
+ * each reference resolved to a dataset identity in the map's SQL home
+ * within the reader's reach, and deduplicated by identity. A reference
+ * the reader cannot reach is left out, never named and never guessed at
+ * through a same-named dataset of the reader's own. A layer that cannot
+ * be analyzed fails the WHOLE read — a partial answer must never present
+ * as a complete checklist. Sketch provenance is identity evidence only;
+ * the current saved statement decides use.
  */
 
 export interface MapDependency {
@@ -67,6 +73,17 @@ export function dependencyOf(
   };
 }
 
+/** The dataset identities a statement's analyzed references bind in a
+ * namespace: plain names in the home, qualified names as that person's. A
+ * reference that binds nothing in reach is left out. */
+function boundIdentities(namespace: Namespace, inputs: { tables: string[]; external?: string[] }): string[] {
+  const references = [...inputs.tables.map((name) => [name]), ...(inputs.external ?? []).map((written) => qualifiedNameParts(written) ?? [written])];
+  return references.flatMap((parts) => {
+    const resolution = resolveReference(namespace, parts);
+    return resolution.status === "bound" ? [resolution.dataset.id] : [];
+  });
+}
+
 export async function mapDependencies(
   scope: AccountScope,
   mapId: string,
@@ -77,16 +94,18 @@ export async function mapDependencies(
   // One captured world: the registry with memberships, and the
   // workflow-origin producers by their current output identity.
   const tables = await listTablesWithSize(scope);
-  const byName = new Map(tables.map((t) => [t.name.toLowerCase(), t]));
+  const byId = new Map(tables.map((t) => [t.id, t]));
   const producers = currentProducers(scope);
+  const evaluation = mapEvaluation(scope, mapId);
+  const namespace = namespaceFor(evaluation);
 
   const found = new Map<string, MapDependency>();
   for (const layer of layers) {
-    let names: string[];
+    let ids: string[];
     try {
-      names = await boundedEvaluation(async (conn) =>
-        (await queryInputsStrict(conn, layer.sql, () => null)).tables, { scope },
-      );
+      ids = boundIdentities(namespace, await boundedEvaluation(async (conn) =>
+        queryInputsStrict(conn, layer.sql, () => null), { scope: evaluation },
+      ));
     } catch (cause) {
       throw new ApiError(
         "dependencies_unresolved",
@@ -96,8 +115,8 @@ export async function mapDependencies(
         422,
       );
     }
-    for (const name of names) {
-      const table = byName.get(name.toLowerCase());
+    for (const id of ids) {
+      const table = byId.get(id);
       if (!table || found.has(table.id)) continue;
       found.set(table.id, dependencyOf(table, producers));
     }

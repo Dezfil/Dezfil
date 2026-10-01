@@ -1,12 +1,14 @@
 import { fileMap } from "@/lib/metadata/owned-projects";
 import { assertMapLayerRefs } from "./map-layer-refs";
-import { requireMap, mapWithLayers, requireMapFor, mapWithLayersFor } from "./map-access";
+import { requireMapFor, mapWithLayersFor, requireOwnMap, ownMapWithLayers } from "./map-access";
 import { mapWriteChangesPublication } from "./publication-settings";
-export { requireMap, mapWithLayers, requireMapFor, mapWithLayersFor, mapProjectIdFor } from "./map-access";
+export { requireMap, mapWithLayers, readMap, requireMapFor, mapWithLayersFor, requireOwnMap, ownMapWithLayers, ownsMap } from "./map-access";
 export { mapHistory, undoChange, redoChange, type MapWithHistory } from "./map-history";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource } from "@/lib/auth/owned-resource";
-import { listOwnedMaps, ownedMapProjectId } from "@/lib/metadata/map-queries";
+import { permissionRefused, requirePermitted, requireReachable } from "@/lib/auth/reach";
+import { listReachableMaps } from "@/lib/metadata/map-queries";
+import { presencesOf, type Presence } from "@/lib/reach-presence";
 import { randomUUID } from "node:crypto";
 import { ApiError } from "@/lib/api/errors";
 import { removeTileArtifacts } from "@/lib/tiles/build";
@@ -308,17 +310,17 @@ export function createMap(scope: AccountScope, name: string, projectId: string |
   return map;
 }
 
+/** Every map the acting account reaches. */
 export function allMaps(scope: AccountScope): MapRecord[] {
-  return listOwnedMaps(scope);
+  return listReachableMaps(scope).map((entry) => entry.map);
 }
 
 /** A listed map plus what its card needs: how many layers it
  * has and one representative color per layer, in draw order — and, the
- * project it is in (null = not in one). The reference is deliberately
- * not on MapRecord, so the published snapshot's revision never observes
- * a membership change. */
-export interface MapOverview extends MapRecord {
-  projectId: string | null;
+ * project it is in (null = not in one), its owner and its SQL home. The
+ * reference is deliberately not on MapRecord, so the published snapshot's
+ * revision never observes a membership change. */
+export interface MapOverview extends MapRecord, Presence {
   layerCount: number;
   layerColors: string[];
 }
@@ -327,26 +329,34 @@ function cssColor(c: { r: number; g: number; b: number; a: number }): string {
   return `rgba(${c.r}, ${c.g}, ${c.b}, ${c.a})`;
 }
 
+/**
+ * The maps the acting account reaches: its own and every map filed in a
+ * project it owns or belongs to. `project` narrows to one reachable
+ * project's maps, whoever owns them; `none` to the account's own maps that
+ * are filed nowhere it can see.
+ */
 export function mapsOverview(scope: AccountScope, project?: string | "none"): MapOverview[] {
-  // An unknown project refuses — a silently empty list would read as an
-  // empty project.
+  // An unknown or unreachable project refuses — a silently empty list
+  // would read as an empty project.
   requireAccountScope(scope);
-  if (project && project !== "none") requireOwnedResource(scope, "project", project);
-  return listOwnedMaps(scope)
-    .map((m) => {
-      const layers = listLayers(m.id);
+  if (project && project !== "none") requireReachable(scope, "project", project);
+  const entries = listReachableMaps(scope);
+  const presences = presencesOf(scope, entries);
+  return entries
+    .map((entry, i) => {
+      const layers = listLayers(entry.map.id);
       return {
-        ...m,
-        projectId: ownedMapProjectId(scope, m.id),
+        ...entry.map,
+        ...presences[i],
         layerCount: layers.length,
         layerColors: layers.map((l) => cssColor(representativeColor(l.style))),
       };
     })
-    .filter((m) =>
+    .filter((m, i) =>
       project === undefined
         ? true
         : project === "none"
-          ? m.projectId === null
+          ? m.projectId === null && entries[i].ownerId === scope.accountId
           : m.projectId === project,
     );
 }
@@ -529,14 +539,21 @@ export function updateMap(
  * stays behind; a docked timeline follows its copied layer. Tiles rebuild
  * lazily for the new layer ids, like any new layer.
  */
+/** Duplication stays the owner's until a copy can be made under reach:
+ * anyone else who reaches the map is refused by the permission shape. */
+function requireDuplicable(scope: AccountScope, id: string): MapRecord {
+  if (requirePermitted(scope, "map", id, "duplicate").relation !== "owner") throw permissionRefused();
+  return requireOwnMap(scope, id);
+}
+
 export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
   requireAccountScope(scope);
-  const source = requireMap(scope, id);
+  const source = requireDuplicable(scope, id);
   const layers = listLayers(id);
   const now = new Date().toISOString();
   const newId = randomUUID();
   metadataDb().transaction(() => {
-    requireMap(scope, id);
+    requireDuplicable(scope, id);
     const layerIds = new Map<string, string>();
     // The copy keeps its source's SQL home, whoever makes it.
     const home = mapHome(id) ?? undefined;
@@ -608,7 +625,7 @@ export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
       fileMap(scope, newId, sourceProject);
     }
   })();
-  return mapWithLayers(scope, newId);
+  return ownMapWithLayers(scope, newId);
 }
 
 export async function removeMap(scope: AccountScope, id: string): Promise<void> {

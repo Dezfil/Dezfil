@@ -1,17 +1,46 @@
 import type { AccountScope } from "@/lib/auth/scope";
-import { canReach, requirePermitted, type ActionOf } from "@/lib/auth/reach";
+import { requirePermitted, requireReachable, type ActionOf } from "@/lib/auth/reach";
 import { getMap, listLayers, type MapRecord, type MapWithLayers } from "@/lib/metadata/maps";
 import { getOwnedMap } from "@/lib/metadata/map-queries";
-import { metadataDb } from "@/lib/metadata/db";
+import { mapPresence, type Presence } from "@/lib/reach-presence";
 
-/** A map read: the owner's alone. */
+/** A map read: the map when the acting account reaches it (its own, or one
+ * filed in a project it owns or belongs to), else the absent refusal. */
 export function requireMap(scope: AccountScope, id: string): MapRecord {
-  return getOwnedMap(scope, id);
+  requireReachable(scope, "map", id);
+  return getMap(id)!;
 }
 
 export function mapWithLayers(scope: AccountScope, id: string): MapWithLayers {
   const map = requireMap(scope, id);
   return { ...map, layers: listLayers(id) };
+}
+
+/** A reached map as its reader sees it: its layers, the project it is filed
+ * in when the reader reaches that project, its owner and its SQL home. */
+export function readMap(scope: AccountScope, id: string): MapWithLayers & Presence {
+  const map = mapWithLayers(scope, id);
+  return { ...map, ...mapPresence(scope, id) };
+}
+
+/**
+ * The owner's own read, for what stays the owner's until it is shared
+ * through a rule of its own: thumbnail files, sketch summaries,
+ * duplication, server-side renders and project archives. Anyone else gets
+ * the absent refusal.
+ */
+export function requireOwnMap(scope: AccountScope, id: string): MapRecord {
+  return getOwnedMap(scope, id);
+}
+
+export function ownMapWithLayers(scope: AccountScope, id: string): MapWithLayers {
+  const map = requireOwnMap(scope, id);
+  return { ...map, layers: listLayers(id) };
+}
+
+/** Whether the acting account owns this map it reaches. */
+export function ownsMap(scope: AccountScope, id: string): boolean {
+  return requireReachable(scope, "map", id).relation === "owner";
 }
 
 /** A map write: the map when the acting account may take this action on it,
@@ -25,12 +54,4 @@ export function requireMapFor(scope: AccountScope, id: string, action: ActionOf<
 export function mapWithLayersFor(scope: AccountScope, id: string, action: ActionOf<"map">): MapWithLayers {
   const map = requireMapFor(scope, id, action);
   return { ...map, layers: listLayers(id) };
-}
-
-/** The project a map is filed in, when the acting account reaches that
- * project; null otherwise. A write's response names no project its caller
- * cannot reach. */
-export function mapProjectIdFor(scope: AccountScope, id: string): string | null {
-  const row = metadataDb().prepare("SELECT project_id FROM maps WHERE id = ?").get(id) as { project_id: string | null } | undefined;
-  return row?.project_id && canReach(scope, "project", row.project_id) ? row.project_id : null;
 }
