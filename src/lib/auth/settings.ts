@@ -1,7 +1,8 @@
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
 import { instanceName, setInstanceName, type ScreenPrefs, type ViewPrefs } from "@/lib/metadata/settings";
-import { accountViewPrefs, mergeAccountViewPrefs } from "@/lib/metadata/account-preferences";
+import { accountSourceGrouping, accountViewPrefs, mergeAccountViewPrefs, setAccountSourceGrouping, SOURCE_GROUPINGS,
+  type SourceGrouping } from "@/lib/metadata/account-preferences";
 import { requireCurrentActor, type AuthContext } from "./credentials";
 import { AuthError } from "./errors";
 
@@ -64,7 +65,7 @@ function normalizeViewPrefs(input: unknown): ViewPrefs {
   return out;
 }
 
-interface SettingsPatch { displayName?: string; instanceName?: string | null; viewPrefs?: ViewPrefs; }
+interface SettingsPatch { displayName?: string; instanceName?: string | null; viewPrefs?: ViewPrefs; sourceGrouping?: SourceGrouping; }
 
 function normalizePatch(input: unknown): SettingsPatch {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
@@ -86,13 +87,20 @@ function normalizePatch(input: unknown): SettingsPatch {
     patch.instanceName = trimmed || null;
   }
   if (body.viewPrefs !== undefined) patch.viewPrefs = normalizeViewPrefs(body.viewPrefs);
+  if (body.sourceGrouping !== undefined) {
+    if (!SOURCE_GROUPINGS.includes(body.sourceGrouping as SourceGrouping)) {
+      throw new AuthError("invalid_request", '"sourceGrouping" must be "person" or "project".', 400);
+    }
+    patch.sourceGrouping = body.sourceGrouping as SourceGrouping;
+  }
   return patch;
 }
 
 export function readOwnSettings(context: AuthContext, db: Database = metadataDb(), now = Date.now()) {
   return db.transaction(() => {
     const account = requireCurrentActor(context, db, now);
-    return { displayName: account.name, instanceName: instanceName(db), viewPrefs: accountViewPrefs(account.id, db) };
+    return { displayName: account.name, instanceName: instanceName(db), viewPrefs: accountViewPrefs(account.id, db),
+      sourceGrouping: accountSourceGrouping(account.id, db) };
   }).immediate();
 }
 
@@ -110,6 +118,7 @@ export function patchOwnSettings(context: AuthContext, input: unknown, db: Datab
     }
     if (patch.instanceName !== undefined) setInstanceName(patch.instanceName, db);
     if (patch.viewPrefs !== undefined) mergeAccountViewPrefs(account.id, patch.viewPrefs, db);
+    if (patch.sourceGrouping !== undefined) setAccountSourceGrouping(account.id, patch.sourceGrouping, db);
     return readOwnSettings(context, db, now);
   }).immediate();
 }

@@ -97,8 +97,8 @@ answer) stay their initiator's for their retention lifetime after reach is
 withdrawn. Admin status grants no
 private-content access. Dataset and connection names are unique within one
 account. Unreached and missing resources receive the same refusal, and SQL
-mounts only the caller's datasets. There is no owner selector or
-ownership-transfer operation.
+mounts only the caller's datasets. There is no owner selector; ownership
+changes only by the transfer operations under Projects below.
 
 The published surface remains anonymous. `GET /api/published/{token}`
 and its siblings are the read-only, anonymous face of a map someone chose to
@@ -117,6 +117,9 @@ configured, but never a configured URL that might carry a key).
 `GET /api/openapi.json` serves the description. `GET`/`PATCH /api/settings`
 return the caller's account display name and per-screen view preferences,
 plus the shared instance name. Only admins may change the instance name.
+`sourceGrouping` is how the SQL console's source list groups datasets for
+the caller, `person` (their own, then each other person's) until they choose
+`project`; the read always carries it, and it is one account's alone.
 Every field in a patch is validated and authorized before any write.
 `/api/palettes` manages saved color palettes.
 
@@ -176,6 +179,18 @@ changes cannot leave the instance without an active admin. Reset invalidates the
 password and browser sessions while leaving tokens valid. Deactivation refuses
 sessions and tokens; reactivation preserves the account without reviving ended
 sessions. No user deletion operation exists.
+
+**Directory.** `GET /api/accounts/search?q=` is how a signed-in person finds
+someone to share a project with, and the one deliberate exception to
+account reads being an admin's. Any signed-in account may call it. It finds
+other active accounts by any part of their display name (case-insensitive,
+the query trimmed) or by their exact email (trimmed, case-insensitive), and
+answers each as `name` and `sqlName` and nothing else: never an email, an
+admin flag or an account identity. Deactivated accounts, invitations not
+yet redeemed and the caller are never offered, and nobody answers twice. An
+empty query answers nobody; at most 20 people answer, an exact email match
+first, then by display name. Managing accounts stays with the admin-only
+Users operations above.
 
 **Tables.** The catalogue of datasets. Listings cover every dataset the
 caller reaches and name each one's `owner` and its `qualifiedName`, the name
@@ -301,6 +316,40 @@ project, member or not; the project's owner may remove anything filed in
 their project, which never deletes it or changes its owner. A viewer's
 attempt to add, or anyone's attempt to remove what someone else owns from a
 project they do not own, is refused with `forbidden` and changes nothing.
+
+A project's people are its owner and its members, each member a `viewer` or
+an `editor`. `GET /api/projects/{id}/people` answers them to everyone who
+reaches the project: the owner first, then the members by name, each with
+display name, SQL name and role, and `deactivated` while their account is (a
+deactivated member's grant is inert until reactivation). `PUT
+/api/projects/{id}/people/{sqlName}` with a `role` adds a person or changes
+their role, and `DELETE` on the same path removes one; both are the project
+owner's alone, a member's attempt answers `forbidden`, and an administrator
+gains nothing. A person is named by their SQL name. Only an active account
+other than the owner can hold a role: a deactivated account, an invitation
+not yet redeemed and an unknown name are refused alike with
+`invalid_request`. Removing someone who holds no role changes nothing, and
+nothing a removed person owns is deleted, unfiled or reassigned. A change
+governs the person's reach on their next request, with no sign-out.
+
+Transfer is the only change of ownership, always the current owner's own
+act, with the new owner named by their SQL name as `{"to": "<sql name>"}`.
+`POST /api/projects/{id}/transfer` makes one of the project's active
+members its owner: the recipient leaves the member list, the previous owner
+becomes an editor, and the name, note, other people and contents stay as
+they were, everything filed there keeping its own owner. `POST
+/api/maps/{id}/transfer` and `POST /api/recipes/{id}/transfer` hand a map
+or workflow to another active person who already reaches it through the
+project it is filed in (that project's owner or one of its people); an
+unfiled one is refused until it is filed. The resource keeps its SQL home,
+so its SQL means what it meant, and everything that hangs off it: a map's
+layers, history, card images and publication, which becomes the new owner's
+and renders with the new owner's reach; a workflow's steps, layout and run
+history, each run's outputs staying with whoever ran it. A recipient who is
+deactivated, not yet redeemed, unknown or out of reach is refused with
+`invalid_request`; anyone else who reaches the resource with `forbidden`;
+and a refusal or a failure changes nothing. Datasets and connections have
+no transfer.
 
 **Connections.** PostGIS connections: create, test, list the remote tables,
 preview a relation, snapshot it into a local dataset. Passwords are

@@ -62,7 +62,8 @@ it("projects the caller and ignores submitted identity when writing only their n
   const response = await patch({ accountId: admin.account.id, displayName: "My new name", viewPrefs: { maps: { sort: "name" }, data: { sort: "size" } } }, member.secret,
     { "x-account-id": admin.account.id, "x-account-admin": "true" });
   expect(response.status).toBe(200);
-  expect(await response.json()).toEqual({ displayName: "My new name", instanceName: "Field atlas", viewPrefs: { maps: { view: "grid", sort: "name" }, data: { sort: "size" } } });
+  expect(await response.json()).toEqual({ displayName: "My new name", instanceName: "Field atlas", viewPrefs: { maps: { view: "grid", sort: "name" }, data: { sort: "size" } },
+    sourceGrouping: "person" });
   expect(getAccount(admin.account.id, db)?.name).toBe("Admin");
   expect(accountViewPrefs(admin.account.id, db)).toEqual({ maps: { view: "list", sort: "name" } });
   expect(instanceName(db)).toBe("Field atlas");

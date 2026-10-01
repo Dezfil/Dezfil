@@ -88,3 +88,17 @@ it("requires cookie or bearer authentication and generates both settings tools w
   expect(patch.description).toContain("Only admins");
   expect(patch.description).toContain("before any write");
 });
+
+it("documents the source-list grouping on the read, always present, and on the update body", () => {
+  const doc = buildOpenApiDocument() as Json;
+  const settings = ((doc.components as Json).schemas as Json).WorkspaceSettings as Json;
+  const field = (settings.properties as Json).sourceGrouping as Json;
+  expect(field.enum).toEqual(["person", "project"]);
+  expect(field.default).toBe("person");
+  expect(field.description as string).toContain("source list");
+  expect(settings.required).toContain("sourceGrouping");
+  const { get, patch } = settingsOps();
+  const body = (((patch.requestBody as Json).content as Json)["application/json"] as Json).schema as Json;
+  expect(((body.properties as Json).sourceGrouping as Json).enum).toEqual(["person", "project"]);
+  expect(get.description as string).toContain("how the SQL console's source list groups datasets");
+});

@@ -264,9 +264,16 @@ describe("tool parity", () => {
       "invite_user",
       "issue_user_sign_in_link",
       "publish_map",
+      // Who reaches a project is an exposure change in both directions.
+      "remove_project_person",
       "remove_recipe_step",
       "revoke_api_token",
       "revoke_inactive_publication",
+      "set_project_person",
+      // Ownership is the one change only the new owner can undo.
+      "transfer_map",
+      "transfer_project",
+      "transfer_workflow",
       "unpublish_map",
       "update_user_access",
     ]);
