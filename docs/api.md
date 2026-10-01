@@ -44,9 +44,11 @@ started before a cookie changes. The workspace checks `/api/auth/session`
 before mounting, clears private drafts and retained results on account changes,
 and reloads cached back-navigation pages through the existing access checks.
 
-Connections and projects are private to their creator. A map is reached by
-its owner and, while it is filed in a project, by that project's owner and
-people: they list and read it, its layers, widgets and history,
+Connections are private to their creator. A project is reached by its owner
+and its people, and lists, counts and member reads cover everything filed in
+it, whoever owns it, naming the project's `owner` and the caller's `role`. A
+map is reached by its owner and, while it is filed in a project, by that
+project's owner and people: they list and read it, its layers, widgets and history,
 with its SQL evaluated in the map's SQL home within their own reach, and
 every map read names the map's owner and home. Its thumbnails and tile
 archives stay the owner's. A dataset is reached by its owner and by the owner
@@ -221,7 +223,13 @@ family covers the workflow, its steps, their order, the canvas layout, and
 the runs of both a single step and the whole workflow.
 
 **Projects.** An optional named set over maps, workflows and datasets, with
-a members call and an export.
+a members call and an export. `GET /api/projects` lists the caller's own
+projects and the ones shared with them; each carries `owner` and the
+caller's `role` (`owner`, `editor` or `viewer`), and its counts and size
+cover everything filed in it. Any reached project is a valid `?project=`
+value on the maps, datasets and workflows listings, and `none` means the
+caller's own items filed in no project they reach. Renaming, the note,
+dissolution and export stay the project owner's.
 
 **Connections.** PostGIS connections: create, test, list the remote tables,
 preview a relation, snapshot it into a local dataset. Passwords are

@@ -14,9 +14,12 @@ export const PROJECT_SCOPE_PARAM = {
   required: false,
   schema: { type: "string" },
   description:
-    "Narrow to one project's members by project id, or to the unfiled " +
-    'with "none". Omitted, everything answers. An unknown project is ' +
-    "not found, never an empty list.",
+    "Narrow to one project's members by project id: any project the " +
+    "caller reaches, its own or one shared with it, whoever owns what " +
+    'is filed there; "none" narrows to the caller\'s own items filed ' +
+    "in no project it reaches. Omitted, everything the caller reaches " +
+    "answers. An unknown or unreached project is not found, never an " +
+    "empty list.",
 };
 
 export const PROJECT_PATHS = {
@@ -431,11 +434,25 @@ export const PROJECT_SCHEMAS = {
           "False when a member dataset's size is unknown — the sum " +
           "is partial and says so.",
       },
+      owner: {
+        $ref: "#/components/schemas/ResourceOwner",
+        description: "The project's owner.",
+      },
+      role: {
+        type: "string",
+        enum: ["owner", "editor", "viewer"],
+        description:
+          "How the caller stands to the project: its owner, or one of " +
+          "its people. A project with any role but owner is one shared " +
+          "with the caller.",
+      },
     },
     required: [
       "id",
       "name",
       "note",
+      "owner",
+      "role",
       "createdAt",
       "updatedAt",
       "mapCount",

@@ -73,13 +73,6 @@ export function listTablesWithSize(
   return withSizes(scope, listReachableTables(scope), project);
 }
 
-/** The acting account's own datasets alone, listed the same way: for the
- * reads that still bind names in the caller's own space. */
-export function listOwnTablesWithSize(scope: AccountScope): Promise<TableListing[]> {
-  requireAccountScope(scope);
-  return withSizes(scope, listReachableTables(scope).filter((t) => t.ownerId === scope.accountId));
-}
-
 function withSizes(scope: AccountScope, reached: ReachedTable[], project?: string | "none"): Promise<TableListing[]> {
   const memberships = reachedTableProjectIds(scope);
   return Promise.all(

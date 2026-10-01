@@ -155,7 +155,7 @@ it("discards a completed archive after owner deactivation and removes its staged
   await expect(assembleProjectExport(scope, projects.alice, { maps: [maps.alice], recipes: [], tables: [], file: "private" })).rejects.toMatchObject({ status: 401 });
   expect(archive).not.toBe(""); await expect(nativeStat(archive)).rejects.toMatchObject({ code: "ENOENT" });
 });
-it("filters counts and member identities by both owners before decoding content", async () => {
+it("counts and lists what a project holds for the people who reach it, and decodes nothing out of their reach", async () => {
   const { projectMemberCounts, projectMemberIds } = await import("@/lib/metadata/owned-projects");
   const { projectMembers, projectsOverview } = await import("@/lib/project-service");
   db.prepare("UPDATE maps SET project_id = ?, publish_token = 'private-public-token' WHERE id = ?").run(projects.alice, maps.bob);
@@ -167,15 +167,19 @@ it("filters counts and member identities by both owners before decoding content"
     source: "upload", sourceParams: null, importedAt: null, createdAt: "time" }, db);
   db.prepare("UPDATE data_tables SET source_params = 'private invalid JSON' WHERE id = 'bob-private'").run();
   const scope = testAccountScope(db, "alice");
-  expect(projectMemberCounts(scope).get(projects.alice)).toEqual({ maps: 1, publishedMaps: 0, recipes: 1, tables: 1 });
-  expect(projectMemberIds(scope, projects.alice)).toEqual({ maps: [maps.alice], recipes: [recipes.alice], tables: ["alice"] });
+  // Everything filed in Alice's project is hers to reach as its owner,
+  // whoever owns it; Bob, who does not reach her project, is told nothing.
+  expect(projectMemberCounts(scope).get(projects.alice)).toEqual({ maps: 2, publishedMaps: 1, recipes: 2, tables: 2 });
+  const ids = projectMemberIds(scope, projects.alice);
+  expect(new Set(ids.maps)).toEqual(new Set([maps.alice, maps.bob]));
+  expect(new Set(ids.recipes)).toEqual(new Set([recipes.alice, recipes.bob]));
+  expect(new Set(ids.tables)).toEqual(new Set(["alice", "bob"]));
+  expect(projectMemberCounts(testAccountScope(db, "bob")).has(projects.alice)).toBe(false);
+  expect(() => projectMemberIds(testAccountScope(db, "bob"), projects.alice)).toThrow(expect.objectContaining({ code: "not_found" }));
   expect((await projectsOverview(scope)).map(p => p.id)).toEqual([projects.alice]);
   const members = await projectMembers(scope, projects.alice);
-  // A map filed in Alice's project is hers to reach as the project's owner,
-  // whoever owns it; Bob, who does not reach her project, sees none of it.
   expect(new Set(members.maps.map(m => m.id))).toEqual(new Set([maps.alice, maps.bob]));
   await expect(projectMembers(testAccountScope(db, "bob"), projects.alice)).rejects.toMatchObject({ code: "not_found" });
-  // So is a workflow filed there, and a dataset, whoever owns them.
   expect(new Set(members.recipes.map(r => r.id))).toEqual(new Set([recipes.alice, recipes.bob]));
   expect(new Set(members.tables.map(t => t.id))).toEqual(new Set(["alice", "bob"]));
 });

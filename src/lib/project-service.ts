@@ -1,5 +1,4 @@
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
-import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { ApiError } from "@/lib/api/errors";
 import {
   listProjects,
@@ -10,7 +9,7 @@ import {
 } from "@/lib/metadata/owned-projects";
 import { listRecipes } from "@/lib/metadata/owned-recipes";
 import { mapsOverview, type MapOverview } from "@/lib/map-service";
-import { listOwnTablesWithSize, listTablesWithSize, type TableListing } from "@/lib/table-service";
+import { listTablesWithSize, type TableListing } from "@/lib/table-service";
 import { readRecipe } from "@/lib/operations/recipe-view";
 import { recipePayload } from "@/lib/operations/recipe-api";
 
@@ -55,6 +54,10 @@ export function memberChange(raw: unknown): MemberChange {
 }
 
 export interface ProjectOverview extends ProjectRecord {
+  /** The project's owner. */
+  owner: { name: string; sqlName: string };
+  /** How the caller stands to it: its owner, or one of its people. */
+  role: "owner" | "editor" | "viewer";
   mapCount: number;
   publishedMapCount: number;
   recipeCount: number;
@@ -66,10 +69,13 @@ export interface ProjectOverview extends ProjectRecord {
   sizeComplete: boolean;
 }
 
+/** The projects the caller reaches, their own and the ones shared with them,
+ * each with its owner, the caller's role and what it holds, whoever owns
+ * that: everything filed in a reached project is within reach, and nothing
+ * the caller cannot reach is counted. */
 export async function projectsOverview(scope: AccountScope): Promise<ProjectOverview[]> {
   const counts = projectMemberCounts(scope);
-  // Sizes count what the member counts count: the owner's own datasets.
-  const tables = await listOwnTablesWithSize(scope);
+  const tables = await listTablesWithSize(scope);
   const sizes = new Map<string, { sum: number; complete: boolean }>();
   for (const t of tables) {
     for (const p of t.projectIds) {
@@ -109,7 +115,6 @@ export interface ProjectMembers {
 /** The composite members read: each kind in its
  * ordinary listing shape and order. */
 export async function projectMembers(scope: AccountScope, id: string): Promise<ProjectMembers> {
-  requireOwnedResource(scope, "project", id);
   requireProject(scope, id);
   const recipes = await Promise.all(
     listRecipes(scope, undefined, { origin: "workflow", project: id }).map(async (r) =>
