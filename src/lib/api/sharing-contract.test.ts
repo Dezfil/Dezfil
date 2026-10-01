@@ -133,3 +133,57 @@ it("documents the directory search as the one minimal exception to admin-only ac
     for (const users of Object.values(methods)) expect(users.description, path).toContain("Requires a current admin account");
   }
 });
+
+it("refuses every change of a deactivated owner's people, removal included", () => {
+  const paths = document().paths;
+  for (const method of ["put", "delete"]) {
+    expect(paths["/api/projects/{id}/people/{sqlName}"][method].description, method)
+      .toContain("While the owner's account is deactivated nobody can change the people.");
+  }
+});
+
+/** Every sentence the published contract and its tools carry: the
+ * introduction, the tags, each operation, each schema, each tool. */
+function publishedTexts(): string[] {
+  const texts: string[] = [];
+  const walk = (value: unknown) => {
+    if (Array.isArray(value)) value.forEach(walk);
+    else if (value && typeof value === "object") {
+      for (const [key, entry] of Object.entries(value)) {
+        if (typeof entry === "string" && ["description", "summary", "target", "consequence"].includes(key)) texts.push(entry);
+        else walk(entry);
+      }
+    }
+  };
+  walk(buildOpenApiDocument());
+  for (const entry of buildTools()) texts.push(entry.description, JSON.stringify(entry.inputSchema), JSON.stringify(entry.outputSchema));
+  return texts;
+}
+
+it("promises owner-only access nowhere a project grant reaches", () => {
+  const texts = publishedTexts();
+  expect(texts.length).toBeGreaterThan(1000);
+  const retired = [
+    "Maps, datasets, workflows, connections, projects and retained work are private",
+    "resolve only within the authenticated account",
+    "producers only the caller's own workflows",
+    "never change what SQL sees",
+    "Every recipe in the workspace",
+    "those its content changes are open to",
+    "belong only to the authenticated account",
+    "authenticated account's own maps",
+    "Exporting stays the project owner's",
+  ];
+  for (const phrase of retired) {
+    expect(texts.filter(text => text.includes(phrase)), phrase).toEqual([]);
+  }
+  // Private to one account is said of connections alone, which a grant never
+  // reaches; any other resource saying so contradicts the reach rule.
+  const privateTo = /[^.]*private to the authenticated account/g;
+  const claims = new Set(texts.flatMap(text => text.match(privateTo) ?? []).map(sentence => sentence.trim()));
+  expect([...claims]).toEqual(["Connections are private to the authenticated account"]);
+  // The scan can fail: a resource other than connections claiming it is caught.
+  const seeded = [...texts, "Workflows are private to the authenticated account, including for administrators."];
+  const seededClaims = new Set(seeded.flatMap(text => text.match(privateTo) ?? []).map(sentence => sentence.trim()));
+  expect([...seededClaims]).not.toEqual(["Connections are private to the authenticated account"]);
+});

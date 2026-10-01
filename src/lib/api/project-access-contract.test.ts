@@ -13,6 +13,7 @@ it("publishes project reach, owner and role, atomic member checks and delete-unf
     expect(operation.description).not.toContain("belong only to the authenticated account");
     expect(operation.description).toContain("Anyone who reaches a project may export it, viewers included");
     expect(operation.description).not.toContain("Exporting stays the project owner's");
+    expect(operation.description).toContain("Renaming, the note, dissolution, its people and its transfer are the owner's");
     expect(operation.responses).toHaveProperty("404"); count++;
   }
   expect(count).toBe(8);
@@ -59,4 +60,13 @@ it("states the filing rules on the project operations and wherever a project is 
   for (const path of ["/api/maps", "/api/recipes", "/api/imports/url", "/api/imports/osm", "/api/imports/overture", "/api/imports/postgis", "/api/tables"]) {
     expect(JSON.stringify(document.paths[path].post), path).toContain(destination);
   }
+});
+
+it("names the project as the one boundary of sharing, and lists what the caller reaches", () => {
+  const document = buildOpenApiDocument() as unknown as { tags: { name: string; description: string }[]; paths: Record<string, Record<string, { description: string }>> };
+  const tag = document.tags.find(entry => entry.name === "Projects")!.description;
+  expect(tag).toContain("A project is also the one boundary of sharing: its owner gives people the viewer or editor role, and they reach everything filed in it, whoever owns it.");
+  expect(tag).toContain("Filing never changes who owns a resource or what a plain table name means in a map's or workflow's SQL.");
+  expect(tag).not.toContain("never change what SQL sees");
+  expect(document.paths["/api/projects"].get.description).toContain("Every project the caller reaches, its own and those shared with it, with its member counts");
 });

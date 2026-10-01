@@ -27,7 +27,7 @@ export const PROJECT_PATHS = {
     get: op(projectAccess({
       summary: "List projects",
       description:
-        "Every project with its member counts (maps, workflows as " +
+        "Every project the caller reaches, its own and those shared with it, with its member counts (maps, workflows as " +
         "workflow-origin recipes, " +
         "datasets, published maps), its size total — `sizeComplete` " +
         "is false when a member dataset's size is unknown, so the sum " +

@@ -111,7 +111,7 @@ const PEOPLE_PATHS = {
       description: PEOPLE_RULES +
         "Takes the person off the project, a deactivated member included; removing someone who holds no " +
         "role there changes nothing. Nothing the person owns is deleted, unfiled or reassigned. Answers the " +
-        "project's people as they now stand.",
+        "project's people as they now stand. While the owner's account is deactivated nobody can change the people.",
       tag: "Projects",
       tool: "remove_project_person", mcp: LOCAL_DELETE,
       display: { verb: "Removed {arg.sqlName} from the project {subject}",

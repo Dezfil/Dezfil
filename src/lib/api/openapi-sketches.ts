@@ -56,8 +56,8 @@ export const SKETCH_PATHS = {
         "passes the same structural gate as every later commit: kind " +
         "one of point, line, polygon, rectangle, circle, freehand; " +
         "geometry the kind's GeoJSON family (polygon kinds are one " +
-        "closed ring, no holes); at most 10,000 vertices. Anyone the " +
-        "map's content changes are open to draws on it: the dataset is " +
+        "closed ring, no holes); at most 10,000 vertices. Anyone who " +
+        "may change the map's content draws on it: the dataset is " +
         "the drawer's own, filed into the map's project where the drawer " +
         "may file, and the layer names it in the map's SQL home, " +
         "qualified with the drawer's SQL name when that home is someone " +
