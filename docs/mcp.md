@@ -65,8 +65,9 @@ sense to a browser.
 
 The settings read and update are generated as `get_settings` and
 `update_settings`. They address the authenticated account's display name
-and view preferences. Updating the instance name requires current admin
-authority; a forbidden or invalid field refuses the entire patch.
+and view preferences, the source list's grouping among them. Updating the
+instance name requires current admin authority; a forbidden or invalid field
+refuses the entire patch.
 
 Own-account operations generate `get_account`, `update_account`,
 `change_password`, `list_api_tokens`, `create_api_token` and `revoke_api_token`.

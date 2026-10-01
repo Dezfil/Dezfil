@@ -94,6 +94,9 @@ configured, but never a configured URL that might carry a key).
 `GET /api/openapi.json` serves the description. `GET`/`PATCH /api/settings`
 return the caller's account display name and per-screen view preferences,
 plus the shared instance name. Only admins may change the instance name.
+`sourceGrouping` is how the SQL console's source list groups datasets for
+the caller, `person` (their own, then each other person's) until they choose
+`project`; the read always carries it, and it is one account's alone.
 Every field in a patch is validated and authorized before any write.
 `/api/palettes` manages saved color palettes.
 

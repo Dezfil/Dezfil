@@ -129,7 +129,8 @@ it.each(["session", "token"])("keeps profiles and preferences personal and insta
     const own = await (await profile(request(actor, "/api/account", "GET", undefined, kind))).json();
     expect(own.account).toMatchObject({ id: actor, name: `${actor} personal` });
     const prefs = await (await settings(request(actor, "/api/settings", "GET", undefined, kind))).json();
-    expect(prefs).toEqual({ displayName: `${actor} personal`, instanceName: "Shared instance", viewPrefs: { maps: { view: actor === "bob" ? "list" : "grid", sort: actor === "admin" ? "name" : "edited" } } });
+    expect(prefs).toEqual({ displayName: `${actor} personal`, instanceName: "Shared instance", viewPrefs: { maps: { view: actor === "bob" ? "list" : "grid", sort: actor === "admin" ? "name" : "edited" } },
+      sourceGrouping: "person" });
     expect(JSON.stringify([own, prefs])).not.toContain(secret);
   }
 });

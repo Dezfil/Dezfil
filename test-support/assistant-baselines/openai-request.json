@@ -572,7 +572,7 @@
     {
       "type": "function",
       "name": "get_settings",
-      "description": "Workspace settings. The signed-in account's display name and per-screen view/sort preferences, plus the instance name shown beside the wordmark and in browser titles (null when unnamed). Cookie or bearer authentication is required. Responses, including refusals, are private, no-store.",
+      "description": "Workspace settings. The signed-in account's display name, per-screen view/sort preferences and how the SQL console's source list groups datasets, plus the instance name shown beside the wordmark and in browser titles (null when unnamed). Cookie or bearer authentication is required. Responses, including refusals, are private, no-store.",
       "parameters": {
         "type": "object",
         "properties": {}
@@ -689,6 +689,15 @@
                 }
               }
             }
+          },
+          "sourceGrouping": {
+            "type": "string",
+            "enum": [
+              "person",
+              "project"
+            ],
+            "default": "person",
+            "description": "How the SQL console's source list groups datasets: by person (your own, then each other person's under their name and SQL name) or by project. Your own choice, never another account's; person until you choose otherwise."
           }
         }
       },

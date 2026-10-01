@@ -30,6 +30,17 @@ function viewPrefsSchema() {
   };
 }
 
+/** How the SQL console's source list groups datasets, one account's choice. */
+const SOURCE_GROUPING = {
+  type: "string",
+  enum: ["person", "project"],
+  default: "person",
+  description:
+    "How the SQL console's source list groups datasets: by person (your own, then each other person's " +
+    "under their name and SQL name) or by project. Your own choice, never another account's; person " +
+    "until you choose otherwise.",
+};
+
 export function settingsContract() {
   return {
     paths: {
@@ -37,7 +48,8 @@ export function settingsContract() {
         get: { ...op({
           summary: "Workspace settings",
           description:
-            "The signed-in account's display name and per-screen view/sort preferences, " +
+            "The signed-in account's display name, per-screen view/sort preferences and " +
+            "how the SQL console's source list groups datasets, " +
             "plus the instance name shown beside the wordmark and in browser titles " +
             "(null when unnamed). Cookie or bearer authentication is required. " +
             "Responses, including refusals, are private, no-store.",
@@ -83,6 +95,7 @@ export function settingsContract() {
                         "null clears it; the instance is then unnamed.",
                     },
                     viewPrefs: viewPrefsSchema(),
+                    sourceGrouping: SOURCE_GROUPING,
                   },
                 },
                 example: { displayName: "Ada Lovelace" },
@@ -113,8 +126,9 @@ export function settingsContract() {
               "the instance is unnamed.",
           },
           viewPrefs: viewPrefsSchema(),
+          sourceGrouping: SOURCE_GROUPING,
         },
-        required: ["displayName", "instanceName", "viewPrefs"],
+        required: ["displayName", "instanceName", "viewPrefs", "sourceGrouping"],
       },
     },
   };
