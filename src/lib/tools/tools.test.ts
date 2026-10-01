@@ -170,8 +170,9 @@ describe("tool parity", () => {
 
   it("body keys carry the documented request fields", () => {
     const byName = new Map(buildTools().map((t) => [t.name, t]));
-    // run_sql carries the geometry encoding beside the statement.
-    expect(byName.get("run_sql")?.bodyKeys).toEqual(["sql", "geometry"]);
+    // run_sql carries the geometry encoding beside the statement, and
+    // where the statement was written.
+    expect(byName.get("run_sql")?.bodyKeys).toEqual(["sql", "geometry", "writtenIn"]);
     expect(byName.get("export_sql_result")?.bodyKeys).toEqual([
       "sql",
       "format",
@@ -180,6 +181,7 @@ describe("tool parity", () => {
     ]);
     expect(byName.get("run_sql")?.inputSchema.required).toContain("sql");
     expect(byName.get("create_layer")?.bodyKeys).toContain("sql");
+    expect(byName.get("create_layer")?.bodyKeys).toContain("writtenIn");
     expect(byName.get("update_map")?.bodyKeys).toContain("viewport");
     expect(byName.get("create_postgis_connection")?.bodyKeys).toEqual([
       "name",
