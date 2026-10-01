@@ -29,6 +29,7 @@ import { CONNECTION_PATHS, CONNECTION_SCHEMAS } from "./openapi-connections";
 import { RECIPE_PATHS } from "./openapi-recipes";
 import { MAP_COLLECTION_PATHS, MAP_RESOURCE_PATHS, MAP_RENDER_PATHS, MAP_PUBLISH_PATHS, MAP_DEPENDENCY_SCHEMAS, MAP_SCHEMAS, MAP_DETAIL_SCHEMAS } from "./openapi-maps";
 import { PROJECT_PATHS, PROJECT_DEPENDENCY_SCHEMAS, PROJECT_SCHEMAS } from "./openapi-projects";
+import { SHARING_PATHS, SHARING_SCHEMAS } from "./openapi-sharing";
 import { SKETCH_PATHS } from "./openapi-sketches";
 import { LAYER_RESOURCE_PATHS, LAYER_QUERY_PATHS, LAYER_SCHEMAS } from "./openapi-layers";
 import { RECIPE_DEPENDENCY_SCHEMAS, RECIPE_SCHEMAS } from "./openapi-recipe-schemas";
@@ -482,6 +483,7 @@ export function buildOpenApiDocument() {
       },
       ...MAP_COLLECTION_PATHS,
       ...PROJECT_PATHS,
+      ...SHARING_PATHS,
       "/api/icons/sanitize": {
         post: op({
           summary: "Sanitize custom icon SVG",
@@ -1831,6 +1833,7 @@ export function buildOpenApiDocument() {
         },
         ...MAP_SCHEMAS,
         ...PROJECT_SCHEMAS,
+        ...SHARING_SCHEMAS,
         ...MAP_DETAIL_SCHEMAS,
         ...HISTORY_SCHEMAS,
         FillPaint: {

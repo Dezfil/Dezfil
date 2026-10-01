@@ -2734,6 +2734,78 @@
     },
     {
       "type": "function",
+      "name": "list_project_people",
+      "description": "List a project's people. A project is reached by its owner and by its people, its viewers and editors. Lists, counts and member lists cover exactly the reached projects and everything filed in them, whoever owns it, and name each project's owner and the caller's role (owner, editor or viewer). Renaming, the note and dissolution are the owner's; administrators reach nothing more. Filing follows its own rules: adding a map, workflow or dataset needs the destination's permission (the project's owner, or an editor filing their own resource) and a project whose owner is active; the owner of a resource may always withdraw it from any project, member or not; the project's owner may remove anything filed in their project, which never deletes it or changes its owner. Unreached or missing references return the same not_found before changes or archive assembly; a reached project whose change the caller may not make returns forbidden and changes nothing. Compound changes are atomic. Deleting a project unfiles its contents without deleting artifacts or changing their owners. Exporting stays the project owner's, and export selections include only owned members. A project's people are its owner and its members, each member a viewer or an editor. Everyone who reaches the project reads them. Adding a person, changing a role and removing a person are the project owner's alone: a member's attempt returns forbidden and an administrator gains nothing. A person is named by their SQL name. A change governs the person's reach on their next request, with no sign-out. Answers the owner first, then the members by name, each with their display name, SQL name and role, and marked deactivated while their account is: a deactivated member keeps their place with their grant inert until reactivation. Never an email or an account identity.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Project id."
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "set_project_person",
+      "description": "Give a person a role on a project. A project is reached by its owner and by its people, its viewers and editors. Lists, counts and member lists cover exactly the reached projects and everything filed in them, whoever owns it, and name each project's owner and the caller's role (owner, editor or viewer). Renaming, the note and dissolution are the owner's; administrators reach nothing more. Filing follows its own rules: adding a map, workflow or dataset needs the destination's permission (the project's owner, or an editor filing their own resource) and a project whose owner is active; the owner of a resource may always withdraw it from any project, member or not; the project's owner may remove anything filed in their project, which never deletes it or changes its owner. Unreached or missing references return the same not_found before changes or archive assembly; a reached project whose change the caller may not make returns forbidden and changes nothing. Compound changes are atomic. Deleting a project unfiles its contents without deleting artifacts or changing their owners. Exporting stays the project owner's, and export selections include only owned members. A project's people are its owner and its members, each member a viewer or an editor. Everyone who reaches the project reads them. Adding a person, changing a role and removing a person are the project owner's alone: a member's attempt returns forbidden and an administrator gains nothing. A person is named by their SQL name. A change governs the person's reach on their next request, with no sign-out. Adds the person with the role, or changes the role they hold. Only an active account other than the project's owner can hold a role: the owner is never its own member (invalid_request), and a deactivated account, an invitation not yet redeemed and an unknown SQL name are refused alike with invalid_request and the sentence \"No active person has that SQL name.\" A viewer opens everything filed in the project; an editor can also change its maps and workflows and file their own work there. Answers the project's people as they now stand. While the owner's account is deactivated nobody can change the people.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Project id."
+          },
+          "sqlName": {
+            "type": "string",
+            "description": "The person's SQL name."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "viewer",
+              "editor"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "sqlName",
+          "role"
+        ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "remove_project_person",
+      "description": "Remove a person from a project. A project is reached by its owner and by its people, its viewers and editors. Lists, counts and member lists cover exactly the reached projects and everything filed in them, whoever owns it, and name each project's owner and the caller's role (owner, editor or viewer). Renaming, the note and dissolution are the owner's; administrators reach nothing more. Filing follows its own rules: adding a map, workflow or dataset needs the destination's permission (the project's owner, or an editor filing their own resource) and a project whose owner is active; the owner of a resource may always withdraw it from any project, member or not; the project's owner may remove anything filed in their project, which never deletes it or changes its owner. Unreached or missing references return the same not_found before changes or archive assembly; a reached project whose change the caller may not make returns forbidden and changes nothing. Compound changes are atomic. Deleting a project unfiles its contents without deleting artifacts or changing their owners. Exporting stays the project owner's, and export selections include only owned members. A project's people are its owner and its members, each member a viewer or an editor. Everyone who reaches the project reads them. Adding a person, changing a role and removing a person are the project owner's alone: a member's attempt returns forbidden and an administrator gains nothing. A person is named by their SQL name. A change governs the person's reach on their next request, with no sign-out. Takes the person off the project, a deactivated member included; removing someone who holds no role there changes nothing. Nothing the person owns is deleted, unfiled or reassigned. Answers the project's people as they now stand.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Project id."
+          },
+          "sqlName": {
+            "type": "string",
+            "description": "The person's SQL name."
+          }
+        },
+        "required": [
+          "id",
+          "sqlName"
+        ]
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
       "name": "sanitize_icon_svg",
       "description": "Sanitize custom icon SVG. Advisory pass of the custom-icon sanitizer: returns the accepted markup, whether anything changed, and a bounded report of dropped content (category and name). The layer write re-sanitizes — this exists so a picker or agent can preview the outcome. Not-SVG, oversize, and nothing-drawable inputs answer invalid_request.",
       "parameters": {

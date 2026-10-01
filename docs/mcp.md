@@ -79,6 +79,11 @@ Administration generates `list_users`, `invite_user`, `update_user_access` and
 mutations declare confirmation and their consequences. Invitation and reset
 links are disclosed once, expire after seven days and are shared by the admin.
 
+A project's people generate `list_project_people`, `set_project_person` and
+`remove_project_person`. Anyone who reaches the project reads them; the two
+changes are the project owner's and declare confirmation, since each changes
+who reaches the project.
+
 Derivation is pure over a static document, so the tool set is built once per
 process and reused.
 
@@ -86,8 +91,8 @@ process and reused.
 
 | | |
 |---|---|
-| Documented operations | 155 |
-| Operations that become tools | 129 |
+| Documented operations | 159 |
+| Operations that become tools | 132 |
 | Deliberately excluded | 27 |
 
 Measured by building the OpenAPI document and the tool set from

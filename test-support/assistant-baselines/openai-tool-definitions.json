@@ -1,6 +1,6 @@
 {
-  "count": 129,
-  "overall": "985ed6175e7a874cce79bc6dbd98d1025e0483e2f13157ecc03fe95f5a6b4208",
+  "count": 132,
+  "overall": "e80ab312e5020620d74e78819bd84f1e44951fcbfaa8e4e6dd19d90e7abf9260",
   "tools": {
     "get_account": "bd37f5c2eb19d2ede33cb10152a53d49e4029a871d9950f51d3671001efdfb66",
     "update_account": "3ad8444a58cdad3534c58b9a7d915598449c9b075a87aa32d07a446af36e4bbb",
@@ -88,6 +88,9 @@
     "get_project_members": "cf6d4a3a16dc4e4757f8550572f5c878a21cd6dda305aa0a5c3fb53193f678fa",
     "update_project_members": "256f5455a07c05861b368148f95a2752b8cad73063bc27f72a89748c33b8fdde",
     "export_project": "8b058da5282ffd30cab4dcf0153c62232400d6e629da820676933ccc5729a4bf",
+    "list_project_people": "e3dad8ae6b9748dea695dced593cdb20b3bd684390ceec9cce7d2dc0814f15e6",
+    "set_project_person": "cfdf04ce7e43fac706400fbcbd11c1e8cda1b17ced96570176a417f3d255fc02",
+    "remove_project_person": "8ec9cd0fee40d21bf19172821a9519644345a9fae9dad5658f71f7bb25f96ff1",
     "sanitize_icon_svg": "65313613b20dbf1556d1843a6a61a95701169259bb2780c648d1c9c5778fe2a2",
     "inspect_basemap_style": "ff18760d8040c9d29a7b43431e0bbd678c71608062685e88ed34db6d83e06e1b",
     "get_map": "91606b124f5ea8a4cbb1e50895bb58378ccc30f5a3256f215b11d4e4198ddc36",

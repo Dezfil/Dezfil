@@ -279,6 +279,21 @@ their project, which never deletes it or changes its owner. A viewer's
 attempt to add, or anyone's attempt to remove what someone else owns from a
 project they do not own, is refused with `forbidden` and changes nothing.
 
+A project's people are its owner and its members, each member a `viewer` or
+an `editor`. `GET /api/projects/{id}/people` answers them to everyone who
+reaches the project: the owner first, then the members by name, each with
+display name, SQL name and role, and `deactivated` while their account is (a
+deactivated member's grant is inert until reactivation). `PUT
+/api/projects/{id}/people/{sqlName}` with a `role` adds a person or changes
+their role, and `DELETE` on the same path removes one; both are the project
+owner's alone, a member's attempt answers `forbidden`, and an administrator
+gains nothing. A person is named by their SQL name. Only an active account
+other than the owner can hold a role: a deactivated account, an invitation
+not yet redeemed and an unknown name are refused alike with
+`invalid_request`. Removing someone who holds no role changes nothing, and
+nothing a removed person owns is deleted, unfiled or reassigned. A change
+governs the person's reach on their next request, with no sign-out.
+
 **Connections.** PostGIS connections: create, test, list the remote tables,
 preview a relation, snapshot it into a local dataset. Passwords are
 encrypted at rest.
