@@ -62,29 +62,13 @@ export function recipeStanding(id: string, db: Database = metadataDb()): { owner
 }
 
 /**
- * The owner's own reads, for what stays the owner's until it is opened under
- * a rule of its own: run planning and admission, the filing of a run's
- * outputs, and the names a duplicate may not take.
+ * The owner's own reads, for what stays the owner's: the names a duplicate
+ * may not take.
  */
-export function getOwnRecipe(scope: AccountScope, id: string, db: Database = metadataDb()) {
-  const owner = requireAccountScope(scope, db);
-  if (!db.prepare("SELECT id FROM recipes WHERE id = ? AND owner_id = ?").get(id, owner)) return null;
-  return recipes.getRecipe(id, db);
-}
-export function requireOwnRecipe(scope: AccountScope, id: string, db: Database = metadataDb()) {
-  const recipe = getOwnRecipe(scope, id, db);
-  if (!recipe) throw resourceAbsent();
-  return recipe;
-}
 export function listOwnRecipes(scope: AccountScope, db: Database = metadataDb()) {
   const owner = requireAccountScope(scope, db);
   const rows = db.prepare("SELECT id FROM recipes WHERE owner_id = ? ORDER BY created_at DESC, id DESC").all(owner) as { id: string }[];
   return rows.map(row => recipes.getRecipe(row.id, db)!);
-}
-export function getOwnStep(scope: AccountScope, id: string, db: Database = metadataDb()) {
-  const owner = requireAccountScope(scope, db);
-  if (!db.prepare("SELECT s.id FROM recipe_steps s JOIN recipes r ON r.id = s.recipe_id WHERE s.id = ? AND r.owner_id = ?").get(id, owner)) return null;
-  return recipes.getStep(id, db);
 }
 export function listOwnSteps(scope: AccountScope, recipeId: string, db: Database = metadataDb()) {
   requireOwnedResource(scope, "workflow", recipeId, db);

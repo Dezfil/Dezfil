@@ -62,9 +62,13 @@ be served it. A dataset is reached by its owner and by the owner and people
 of every project it is filed in; it changes, refreshes and goes only by its
 owner. A workflow is reached like a map, its steps, layout and
 runs with it, and read in its SQL home within the reader's reach; its editors
-change its steps, while starting a run stays its owner's until a run's
-outputs are its runner's own, and a run is cancelled by its initiator or the
-workflow's owner. SQL that anyone but a map's or workflow's owner saves into
+change its steps and run it, as do its owner and the project's owner. A run
+is its runner's: it reads in the workflow's SQL home within the runner's
+reach, its outputs are created as the runner's own datasets, never replacing
+anyone else's, and are filed into the workflow's project as it stands when
+each output commits, when the runner may file there; a rerun replaces only
+the same runner's earlier output of that step. A run is cancelled by its
+initiator or the workflow's owner. SQL that anyone but a map's or workflow's owner saves into
 it (a layer's SQL, a step's SQL or dataset parameters, or SQL that undo and
 redo would put back) must name only datasets within that person's own reach
 in the resource's SQL home, a workflow's declared outputs aside: otherwise

@@ -479,9 +479,10 @@ export const RECIPE_PATHS = {
         "`/api/recipes/{id}/runs/{runId}` for its outcome. **This runs " +
         "the step and nothing else** — carrying its dependents is the " +
         "recipe-run endpoint's job.\n\n" +
-        "A re-run replaces the step's output **in place**, keeping the " +
-        "dataset's id and name, so every layer built on it keeps " +
-        "pointing at fresh data with no re-wiring. A failed re-run " +
+        "A re-run replaces the same runner's earlier output of the step " +
+        "**in place**, keeping the dataset's id and name, so every layer " +
+        "built on it keeps pointing at fresh data with no re-wiring; " +
+        "another runner's output is never touched. A failed re-run " +
         "leaves the previous output intact and queryable.\n\n" +
         "**What a caller may rely on.** The recipe's one-run-at-a-time " +
         "rule applies: while a run is in flight this answers **409 " +

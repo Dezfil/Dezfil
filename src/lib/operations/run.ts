@@ -4,7 +4,7 @@ import { failInactiveJob } from "@/lib/metadata/jobs";
 import { admit, type RunRequest } from "./run-admission";
 import { pruneAfterJob } from "./run-history";
 export { admitOwned, type RunRequest } from "./run-admission";
-export { prune, cancelRun, markAndSignalRunCancellation, pruneRunCancellation, waitForRunCancellation, type RunCancellation } from "./run-history";
+export { prune, cancelRun, markAndSignalRunCancellation, markAndSignalMemberCancellation, pruneRunCancellation, waitForRunCancellation, type RunCancellation } from "./run-history";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { randomUUID } from "node:crypto";

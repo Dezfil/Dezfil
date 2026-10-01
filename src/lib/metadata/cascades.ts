@@ -380,18 +380,21 @@ export function nonTerminalCascades(db: Database = metadataDb()): CascadeRun[] {
   return rows.map((r) => getCascade(r.id, db)!);
 }
 
-/** Internal reconciliation reads only jobs belonging to the durable parent,
- * including inactive owners and pending legacy adoption. It grants no API access. */
+/** Internal reconciliation reads only jobs belonging to the durable parent:
+ * the jobs of the run's initiator (the workflow's owner for a run recorded
+ * before runs had initiators), including inactive initiators and pending
+ * legacy adoption. It grants no API access. */
 export function getCascadeJob(cascadeId: string, jobId: string, db: Database = metadataDb()) {
   const own = db.prepare(`SELECT j.id FROM operation_jobs j
     JOIN cascade_runs c ON c.id = ? JOIN recipes r ON r.id = c.recipe_id
-    WHERE j.id = ? AND (j.owner_id = r.owner_id OR (j.owner_id IS NULL AND r.owner_id IS NULL))`)
+    WHERE j.id = ? AND (j.owner_id = COALESCE(c.initiator_id, r.owner_id)
+      OR (j.owner_id IS NULL AND COALESCE(c.initiator_id, r.owner_id) IS NULL))`)
     .get(cascadeId, jobId);
   return own ? getJob(jobId, db) : null;
 }
 
 /** A finished worker keeps its own attempt before independent job pruning.
- * The durable job and workflow must have the same owner and step identity. */
+ * The durable job must be the run initiator's, for the member's step. */
 export function archiveCascadeAttempt(cascadeId: string, stepId: string, jobId: string, db: Database = metadataDb()) {
   const job = getCascadeJob(cascadeId, jobId, db);
   if (!job || job.subjectKind !== "step" || job.subjectId !== stepId) return;

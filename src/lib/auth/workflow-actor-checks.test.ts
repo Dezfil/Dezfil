@@ -19,10 +19,10 @@ import { PERMISSION_REFUSAL, requireCancellable } from "./reach";
  * with nothing changed. Deletion is the owner's. Content changes, the layout
  * and the ones answering with the recipe or step view alike, land for the
  * owner, the project's owner and an editor, each answered with the view as
- * they read it. Starting a run stays the owner's until a run's outputs are
- * its runner's own: anyone else who may run it is refused by the permission
- * shape, before anything is planned. A run is cancelled by its initiator or
- * the workflow's owner.
+ * they read it. Planning and starting a run are theirs too, since a run's
+ * outputs are its runner's own; a viewer is refused by the permission shape,
+ * before anything is planned. A run is cancelled by its initiator or the
+ * workflow's owner.
  */
 const effects = vi.hoisted(() => ({ reads: vi.fn(async () => [] as string[]), engine: vi.fn(), admit: vi.fn(async () => ({ bound: [] })) }));
 vi.mock("@/lib/operations/step-reads", async original => ({ ...await original<typeof import("@/lib/operations/step-reads")>(), stepReads: effects.reads,
@@ -83,8 +83,7 @@ const route = {
 interface Case {
   label: string;
   /** "content": a content change, the editors' as well as the owner's;
-   * "run": starting a run, the owner's until a run's outputs are its runner's
-   * own; "owner": the owner's act. */
+   * "run": planning or starting a run, likewise; "owner": the owner's act. */
   kind: "content" | "run" | "owner";
   method: string;
   path: (p: Params) => string;
@@ -139,7 +138,7 @@ async function refusal(c: Case, account: string, p: Params, absent: Params) {
   return parsed;
 }
 const forbidden = { status: 403, body: { error: { code: "forbidden", message: PERMISSION_REFUSAL } } };
-const refusedByPermission = (c: Case) => c.kind === "content" ? ["vi"] : ["pat", "ed", "vi"];
+const refusedByPermission = (c: Case) => c.kind === "owner" ? ["pat", "ed", "vi"] : ["vi"];
 
 describe.each(cases)("$label", c => {
   for (const account of refusedByPermission(c)) {
@@ -176,15 +175,17 @@ describe.each(cases)("$label", c => {
   }
 });
 
-describe("starting a run stays the owner's until a run's outputs are its runner's own", () => {
-  it("refuses the project's owner and an editor, who may run it, by the permission shape before anything is planned", async () => {
-    for (const c of cases.filter(entry => entry.kind === "run")) {
-      for (const account of ["pat", "ed"]) {
-        const { session, token } = await refusal(c, account, c.params, missing(c.params));
-        expect(session, `${c.label} ${account}`).toEqual(forbidden);
-        expect(token).toEqual(session);
+describe("starting a run is open to whoever may change the workflow's content", () => {
+  it("lets the owner, the project's owner and an editor plan a run, alike across session and token", async () => {
+    const plan = cases.find(entry => entry.label === "plan a run")!;
+    for (const account of ["ada", "pat", "ed"]) {
+      for (const kind of ["session", "token"]) {
+        const response = await call(plan, account, plan.params, kind);
+        expect(response.status, `${account} ${kind}`).toBe(200);
+        expect((await response.json()).plan.members).toEqual(["S", "S2"]);
       }
     }
+    expect(effects.reads).toHaveBeenCalled();
   });
 });
 

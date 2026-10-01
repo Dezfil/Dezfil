@@ -41,9 +41,9 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id } = await params;
-    // Planning and starting a run stay the workflow owner's until a run's
-    // outputs are its runner's own; anyone else who may run it is refused by
-    // the permission shape.
+    // Planning and starting a run are for whoever may run the workflow; the
+    // run is theirs and its outputs their own datasets. A viewer is refused
+    // by the permission shape.
     requireWorkflowRunStart(scope, id);
     // **Absent is not the same as malformed here, and conflating them is not a
     // tidiness question.** On this endpoint an absent body means *run the whole

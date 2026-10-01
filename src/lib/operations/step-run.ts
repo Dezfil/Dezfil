@@ -1,16 +1,18 @@
-import { getStep as getOwnedStep } from "@/lib/metadata/owned-recipes";
-import type { AccountScope } from "@/lib/auth/scope";
+import { getStep as getReachedStep } from "@/lib/metadata/owned-recipes";
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { ApiError } from "@/lib/api/errors";
 import { setMember, requireCascadeMember } from "@/lib/metadata/owned-cascades";
 import { resourceAbsent } from "@/lib/auth/owned-resource";
+import { requirePermitted } from "@/lib/auth/reach";
 import { replaceEdges } from "@/lib/metadata/lineage";
 import {
+  getStep as getStepRow,
   promoteProposal,
   recordOutput,
-  stepOwnsOutput,
   type RecipeStep,
 } from "@/lib/metadata/recipes";
+import { runnerOutput, runnerOwnsOutput } from "@/lib/metadata/recipe-outputs";
 import { getOwnedTableByName } from "@/lib/metadata/owned-tables";
 import type { BoundInput } from "./materialize";
 
@@ -33,7 +35,14 @@ import type { BoundInput } from "./materialize";
  * **Ownership is read, never received.** subject is a grouping identity any
  * caller may send; using it to authorize a replacement would let a client
  * overwrite any table by naming it. The only question asked here is whether the
- * *stored* step row already owns exactly this id and name.
+ * *stored* record of this runner's output of the step already names exactly
+ * this id and name.
+ *
+ * **A run is its runner's.** Whoever may run the workflow runs it as
+ * themselves: the output is the runner's own dataset, and the record kept is
+ * the runner's own row for the step, so one runner never replaces another's
+ * output. A rerun replaces only the same runner's recorded output of the same
+ * step.
  */
 
 /** What a step run needs to know before it starts. */
@@ -43,21 +52,24 @@ export interface StepPublication {
   running: Record<string, unknown>;
   /** True when those parameters are a proposal awaiting promotion (G3). */
   isProposal: boolean;
-  /** The table this run replaces, when the step already owns one. */
+  /** The table this run replaces, when this runner's earlier run of the step
+   * recorded one. */
   replaceTable?: { id: string; name: string };
 }
 
 /**
  * Decide how a step's run will publish, before any work starts.
  *
- * Returns the replacement target only when the step's *stored* row owns a table
- * that still exists under the same id and name. A step whose output was deleted
- * owns nothing runnable: it registers afresh under the recorded name, and the
- * new dataset carries a **new id**, because a deleted table's id is gone and
- * pretending otherwise would be inventing identity.
+ * Returns the replacement target only when this runner's recorded output of
+ * the step still exists under the same id and name, in the runner's own
+ * space. An output that was deleted leaves nothing runnable to replace: the
+ * run registers afresh under the recorded name, and the new dataset carries a
+ * **new id**, because a deleted table's id is gone and pretending otherwise
+ * would be inventing identity. Another runner's output is never a target.
  */
 export function planPublication(scope: AccountScope, stepId: string): StepPublication {
-  const step = getOwnedStep(scope, stepId);
+  const runner = requireAccountScope(scope);
+  const step = getReachedStep(scope, stepId);
   if (!step) {
     throw resourceAbsent();
   }
@@ -65,9 +77,10 @@ export function planPublication(scope: AccountScope, stepId: string): StepPublic
   const running = step.proposedParameters ?? step.parameters;
   const isProposal = step.proposedParameters !== null;
 
-  if (step.outputTableId && step.outputTableName) {
-    const live = getOwnedTableByName(scope, step.outputTableName);
-    if (live && live.id === step.outputTableId) {
+  const recorded = runnerOutput(step.id, runner);
+  if (recorded) {
+    const live = getOwnedTableByName(scope, recorded.name);
+    if (live && live.id === recorded.id) {
       return { step, running, isProposal, replaceTable: { id: live.id, name: live.name } };
     }
     // The name is taken by a *different* table: the step cannot restore its
@@ -76,7 +89,7 @@ export function planPublication(scope: AccountScope, stepId: string): StepPublic
     if (live) {
       throw new ApiError(
         "name_taken",
-        `This step's output was "${step.outputTableName}", and a different ` +
+        `This step's output was "${recorded.name}", and a different ` +
           `table now has that name. Re-running would overwrite it, so nothing ` +
           `was written.`,
         409,
@@ -111,9 +124,13 @@ export function stepAuthorizer(
     // Still the live attempt? A step deleted, or its recipe deleted, while the
     // run worked has no row here — and E10's fence says a lost attempt may
     // finish computing but may not publish.
-    const current = getOwnedStep(scope, plan.step.id, db);
+    const current = getStepRow(plan.step.id, db);
     if (!current) return false;
     if (cascadeId) requireCascadeMember(scope, cascadeId, plan.step.id, db);
+    // The runner may still run it: the permission is checked as the output
+    // commits, not only when the run was admitted.
+    try { requirePermitted(scope, "step", plan.step.id, "run", db); }
+    catch (error) { if (error instanceof ApiError) return false; throw error; }
 
     // Superseded: the definition this run was executing is no longer the one
     // the step would run now.
@@ -127,10 +144,10 @@ export function stepAuthorizer(
     const runningNow = current.proposedParameters ?? current.parameters;
     if (JSON.stringify(runningNow) !== JSON.stringify(plan.running)) return false;
 
-    // A replacement must still own exactly what it set out to replace.
+    // A replacement must still be exactly this runner's recorded output.
     if (
       plan.replaceTable &&
-      !stepOwnsOutput(plan.step.id, plan.replaceTable, db)
+      !runnerOwnsOutput(plan.step.id, scope.accountId, plan.replaceTable, db)
     ) {
       return false;
     }
@@ -139,7 +156,7 @@ export function stepAuthorizer(
     // succeeded run can never disagree.
     if (!jobFinished(db, { id: table.id, name: table.name })) return false;
 
-    // The step's association and the runner's own row, written together.
+    // The runner's own row and the step's latest association, written together.
     recordOutput(
       plan.step.id,
       { id: table.id, name: table.name },

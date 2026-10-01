@@ -43,6 +43,40 @@ export function recordOutput(
   })();
 }
 
+/** One runner's latest recorded output of a step. */
+export interface RunnerOutput {
+  id: string;
+  name: string;
+  jobId: string | null;
+  runId: string | null;
+  succeededAt: string;
+}
+
+/**
+ * The same runner's latest successful output of a step: a lookup by step and
+ * runner, and nothing else. Another runner's output never answers it, and it
+ * does not depend on the job or run that produced it still being kept.
+ */
+export function runnerOutput(stepId: string, runnerId: string, db: Database = metadataDb()): RunnerOutput | null {
+  const row = db.prepare(`SELECT output_table_id AS id, output_table_name AS name, job_id AS jobId, run_id AS runId,
+      succeeded_at AS succeededAt FROM step_runner_outputs WHERE step_id = ? AND runner_id = ?`)
+    .get(stepId, runnerId) as RunnerOutput | undefined;
+  return row ?? null;
+}
+
+/** Whether this runner's recorded output of the step is exactly this table:
+ * the one question a rerun's replacement may ask, from stored state. */
+export function runnerOwnsOutput(
+  stepId: string,
+  runnerId: string,
+  table: { id: string; name: string },
+  db: Database = metadataDb(),
+): boolean {
+  return db.prepare(`SELECT 1 FROM step_runner_outputs
+    WHERE step_id = ? AND runner_id = ? AND output_table_id = ? AND output_table_name = ?`)
+    .get(stepId, runnerId, table.id, table.name) !== undefined;
+}
+
 /**
  * Whether this step owns exactly this table.
  *

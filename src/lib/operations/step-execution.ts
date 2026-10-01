@@ -6,8 +6,10 @@ import type { Database } from "better-sqlite3";
 import type { OperationJob } from "@/lib/metadata/jobs";
 import { admitOwned, submitRun } from "./run";
 import { planPublication, stepAuthorizer } from "./step-run";
-import { getOwnRecipe as getRecipe, getOwnStep as getStep } from "@/lib/metadata/owned-recipes";
+import { recipeStanding } from "@/lib/metadata/owned-recipes";
+import { getStep as getStepRow } from "@/lib/metadata/recipes";
 import { fileTable } from "@/lib/metadata/owned-projects";
+import { mayFileInto, requirePermitted } from "@/lib/auth/reach";
 import { workflowEvaluation } from "@/lib/query/context";
 
 /**
@@ -30,6 +32,13 @@ import { workflowEvaluation } from "@/lib/query/context";
  * rules — including being refused if that name is taken — and the old table
  * stays exactly where it was. Treating a rename as a replacement would silently
  * move a table other layers point at.
+ *
+ * **The run is its runner's.** Anyone who may run the workflow (its owner,
+ * the project's owner acting as an editor, an editor) runs a step as
+ * themselves: it reads in the workflow's home within the runner's reach, the
+ * job is the runner's, the output is created in the runner's own space and
+ * never replaces or alters anyone else's dataset, and an unrelated dataset of
+ * the runner's already holding the name is refused by the ordinary name rule.
  */
 export interface StepRunOptions {
   /**
@@ -51,6 +60,8 @@ export async function startStepRun(
   options: StepRunOptions = {},
 ): Promise<OperationJob> {
   requireAccountScope(scope);
+  // Admitted only for an account that may run the workflow now.
+  requirePermitted(scope, "step", stepId, "run");
   const plan = planPublication(scope, stepId);
   if (options.cascadeId) requireCascadeMember(scope, options.cascadeId, stepId);
   // The step reads in its workflow's home, with this runner's reach and the
@@ -106,12 +117,14 @@ export async function startStepRun(
 
 /** The output follows the workflow's project as it is AT THE PUBLISHING
  * COMMIT — read inside the publication transaction, never captured at
- * run start. Exported so the race test exercises the exact function
- * production runs. */
+ * run start — and is filed there only when the runner may file into that
+ * project then (its owner, or an editor, while its owner is active).
+ * Otherwise the output completes unfiled. Exported so the race test
+ * exercises the exact function production runs. */
 export function stepOutputFiler(scope: AccountScope, stepId: string) {
   return (table: { id: string }, db: Database): void => {
-    const current = getStep(scope, stepId, db);
-    const recipe = current ? getRecipe(scope, current.recipeId, db) : null;
-    if (recipe?.projectId) fileTable(scope, table.id, recipe.projectId, db);
+    const current = getStepRow(stepId, db);
+    const projectId = current ? recipeStanding(current.recipeId, db)?.projectId : null;
+    if (projectId && mayFileInto(scope, projectId, db)) fileTable(scope, table.id, projectId, db);
   };
 }
