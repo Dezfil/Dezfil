@@ -1,6 +1,9 @@
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
-import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
-import { getOwnedTableByName, listOwnedTables, deleteOwnedTable, ownedTableProjectIds, ownedDependentLayerIds, updateOwnedTableGeometryType } from "@/lib/metadata/owned-tables";
+import { resourceAbsent } from "@/lib/auth/owned-resource";
+import { requireReachable } from "@/lib/auth/reach";
+import { getOwnedTableByName, listReachableTables, requireReachedTable, deleteOwnedTable, reachedTableProjectIds,
+  ownedDependentLayerIds, updateOwnedTableGeometryType, type ReachedTable } from "@/lib/metadata/owned-tables";
+import { presentDataset, type DatasetPresence } from "@/lib/dataset-presence";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { mkdir, rm, stat } from "node:fs/promises";
@@ -24,7 +27,7 @@ import { removeTileArtifacts } from "@/lib/tiles/build";
 
 import { INSPECT_PREVIEW_ROWS } from "./table-preview-limit";
 
-export interface TableInspection extends DataTable {
+export interface TableInspection extends DataTable, DatasetPresence {
   columns: { name: string; type: string }[];
   preview: Record<string, unknown>[];
   sizeBytes: number | null;
@@ -37,9 +40,10 @@ export interface TableInspection extends DataTable {
   inputs: ResolvedInput[] | null;
 }
 
-/** A listed table plus its artifact's size on disk and the
- * projects it belongs to (empty = not in a project). */
-export type TableListing = DataTable & {
+/** A listed table plus its artifact's size on disk, the reached
+ * projects it belongs to (empty = in none the reader reaches), its owner
+ * and the name its reader would type. */
+export type TableListing = DataTable & DatasetPresence & {
   sizeBytes: number | null;
   projectIds: string[];
 };
@@ -52,25 +56,47 @@ async function artifactSize(table: DataTable): Promise<number | null> {
   }
 }
 
+/**
+ * The datasets the acting account reaches: its own and every dataset filed
+ * in a project it owns or belongs to, each with its owner and the name its
+ * reader would type, so two same-named datasets both appear, once each.
+ * `project` narrows to one reached project's datasets, whoever owns them;
+ * `none` to the account's own datasets filed in no project it reaches.
+ */
 export function listTablesWithSize(
   scope: AccountScope,
   project?: string | "none",
 ): Promise<TableListing[]> {
-  // An unknown project refuses, never an empty list.
+  // An unknown or unreached project refuses, never an empty list.
   requireAccountScope(scope);
-  if (project && project !== "none") requireOwnedResource(scope, "project", project);
-  const memberships = ownedTableProjectIds(scope);
+  if (project && project !== "none") requireReachable(scope, "project", project);
+  return withSizes(scope, listReachableTables(scope), project);
+}
+
+/** The acting account's own datasets alone, listed the same way: for the
+ * reads that still bind names in the caller's own space. */
+export function listOwnTablesWithSize(scope: AccountScope): Promise<TableListing[]> {
+  requireAccountScope(scope);
+  return withSizes(scope, listReachableTables(scope).filter((t) => t.ownerId === scope.accountId));
+}
+
+function withSizes(scope: AccountScope, reached: ReachedTable[], project?: string | "none"): Promise<TableListing[]> {
+  const memberships = reachedTableProjectIds(scope);
   return Promise.all(
-    listOwnedTables(scope)
-      .map((t) => ({ ...t, projectIds: memberships.get(t.id) ?? [] }))
+    reached
+      .map((t) => ({ reached: t, projectIds: memberships.get(t.table.id) ?? [] }))
       .filter((t) =>
         project === undefined
           ? true
           : project === "none"
-            ? t.projectIds.length === 0
+            ? t.projectIds.length === 0 && t.reached.ownerId === scope.accountId
             : t.projectIds.includes(project),
       )
-      .map(async (t) => ({ ...t, sizeBytes: await artifactSize(t) })),
+      .map(async (t) => ({
+        ...presentDataset(scope, t.reached),
+        projectIds: t.projectIds,
+        sizeBytes: await artifactSize(t.reached.table),
+      })),
   );
 }
 
@@ -92,7 +118,14 @@ export function requireTable(scope: AccountScope, name: string): DataTable {
 
 /** Schema plus a row preview (spec: Upload — schema, row count, preview). */
 export async function inspectTable(scope: AccountScope, name: string): Promise<TableInspection> {
-  const table = requireTable(scope, name);
+  return inspectDataset(scope, requireReachedTable(scope, requireTable(scope, name).id));
+}
+
+/** A reached dataset's inspection, as its reader may see it: its origin
+ * bounded, its recorded inputs resolved within the reader's reach, its
+ * memberships in the projects the reader reaches. */
+export async function inspectDataset(scope: AccountScope, reached: ReachedTable): Promise<TableInspection> {
+  const table = reached.table;
   const inputs = resolveInputs(scope, table);
   const artifact = path.join(dataDir(), table.file);
 
@@ -145,12 +178,12 @@ export async function inspectTable(scope: AccountScope, name: string): Promise<T
       }
 
       return {
-        ...table,
+        ...presentDataset(scope, reached),
         geometryType,
         columns,
         preview,
         sizeBytes: await artifactSize(table),
-        projectIds: ownedTableProjectIds(scope).get(table.id) ?? [],
+        projectIds: reachedTableProjectIds(scope).get(table.id) ?? [],
         inputs,
       };
     }),

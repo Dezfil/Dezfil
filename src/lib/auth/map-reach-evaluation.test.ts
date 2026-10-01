@@ -116,15 +116,18 @@ describe("a shared map's evaluations, through the routes", () => {
     }
   });
 
-  it("lists a map's datasets by identity in its home, leaving out whatever the reader cannot list", async () => {
-    const names = async (account: string) => {
+  it("lists a map's datasets by identity in its home, leaving out whatever the reader cannot reach", async () => {
+    const listed = async (account: string) => {
       const read = await call(account, route.dependencies, `/api/maps/${map.id}/dependencies`, { id: map.id });
       expect(read.status, account).toBe(200);
-      return (read.body as { datasets: { id: string }[] }).datasets.map((dataset) => dataset.id);
+      return (read.body as { datasets: { id: string; qualifiedName: string; owner: { sqlName: string } }[] }).datasets;
     };
-    expect(await names("ada")).toEqual([tables["ada.parks"].id, tables["ada.roads"].id]);
+    expect((await listed("ada")).map((d) => d.id)).toEqual([tables["ada.parks"].id, tables["ada.roads"].id]);
     // Bob's own `roads` is never taken for the map's: the reference binds in
-    // Ada's home. Her datasets are not his to list.
-    expect(await names("bob")).toEqual([]);
+    // Ada's home, and `parks`, out of his reach, is not named at all.
+    const bob = await listed("bob");
+    expect(bob.map((d) => d.id)).toEqual([tables["ada.roads"].id]);
+    expect(bob[0]).toMatchObject({ qualifiedName: "ada.roads", owner: { sqlName: "ada" } });
+    expect(JSON.stringify(bob)).not.toContain("parks");
   });
 });

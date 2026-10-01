@@ -6,6 +6,7 @@ import { CatalogTablesView } from "./CatalogTablesView";
 const table = (source: TableListing["source"]): TableListing => ({
   id: source, name: `t_${source}`, sourceFilename: null, format: "csv", file: "tables/t.parquet", geometryColumn: null, geometryType: null,
   crsAssumed: false, headerSuspect: false, rowCount: 10, createdAt: "2026-09-13T00:00:00Z", source, sourceParams: null, importedAt: null, sizeBytes: 0, projectIds: [],
+  owner: { name: "Ada", sqlName: "ada" }, qualifiedName: `t_${source}`,
 });
 const listing = { world: { projects: [], all: [] }, worldError: null, offered: [], offeredError: null, scope: { kind: "all" as const }, onScope() {}, onRetry() {} };
 const view = (picked: TableListing | null, onSetGeometry?: (t: TableListing) => void) =>

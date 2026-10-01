@@ -28,6 +28,10 @@ import { listTablesWithSize, type TableListing } from "@/lib/table-service";
 export interface MapDependency {
   id: string;
   name: string;
+  /** The name its reader would type: the plain name for the reader's own,
+   * `<sql name>.<name>` for someone else's. */
+  qualifiedName: string;
+  owner: TableListing["owner"];
   source: TableListing["source"];
   rowCount: number;
   projectIds: string[];
@@ -64,6 +68,8 @@ export function dependencyOf(
   return {
     id: table.id,
     name: table.name,
+    qualifiedName: table.qualifiedName,
+    owner: table.owner,
     source: table.source,
     rowCount: table.rowCount,
     projectIds: table.projectIds,
@@ -122,5 +128,5 @@ export async function mapDependencies(
     }
   }
   requireMap(scope, mapId);
-  return [...found.values()].sort((a, b) => a.name.localeCompare(b.name));
+  return [...found.values()].sort((a, b) => a.qualifiedName.localeCompare(b.qualifiedName));
 }

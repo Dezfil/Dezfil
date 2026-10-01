@@ -82,7 +82,7 @@ const answer: GeometryPreview = {
   sample: { rows: [{ index: 0, values: { id: 1, x: 8.5, y: 50.1 }, status: "readable" }], features: { type: "FeatureCollection", features: [] } },
 };
 const setResult = (name: string): GeometrySetResult => ({
-  table: { ...landed(name, { geometryColumn: "geometry", geometryType: "POINT", crsAssumed: true }), sizeBytes: 1, projectIds: [] },
+  table: { ...landed(name, { geometryColumn: "geometry", geometryType: "POINT", crsAssumed: true }), sizeBytes: 1, projectIds: [], owner: { name: "Ada", sqlName: "ada" }, qualifiedName: name },
   revision: "r2", currentChoice: pair, mode: "set", extent: [8, 50, 9, 51],
 });
 const flush = () => new Promise((r) => setTimeout(r, 0));

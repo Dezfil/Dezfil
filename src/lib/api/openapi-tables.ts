@@ -260,6 +260,18 @@ export const TABLE_SCHEMAS = {
     properties: {
       id: { type: "string" },
       name: { type: "string" },
+      qualifiedName: {
+        type: "string",
+        description:
+          "The name the caller would type for this dataset: its plain " +
+          "name when it is the caller's own, <sql name>.<name> when it " +
+          "is another owner's, which tells two same-named datasets " +
+          "apart. Present on every listing and read.",
+      },
+      owner: {
+        $ref: "#/components/schemas/ResourceOwner",
+        description: "The dataset's owner. Present on every listing and read.",
+      },
       sourceFilename: {
         type: ["string", "null"],
         description:
@@ -322,6 +334,10 @@ export const TABLE_SCHEMAS = {
       sourceParams: {
         type: ["object", "null"],
         description:
+          "As stored for the caller's own dataset. For another owner's, " +
+          "null when it would name a connection (a PostGIS snapshot shows " +
+          "its source kind and nothing more) or a map the caller does not " +
+          "reach. " +
           "Parameters that re-run the import (e.g. { url }); null " +
           "for single-file uploads. Container-format tables " +
           "also record { layer, group? } — the source layer and, " +
@@ -359,7 +375,10 @@ export const TABLE_SCHEMAS = {
           "For a derived table: the inputs its run recorded, " +
           "resolved by the id each was recorded under. An input whose " +
           "id no longer exists reads as missing — never as whatever " +
-          "now carries its name.",
+          "now carries its name. Resolved within the caller's reach: " +
+          "the dataset's owner reads an input they no longer reach as " +
+          "missing, exactly as a deleted one; anyone else reads only " +
+          "the inputs they reach.",
         items: {
           type: "object",
           properties: {
@@ -392,9 +411,9 @@ export const TABLE_SCHEMAS = {
         type: "array",
         items: { type: "string" },
         description:
-          "The projects this dataset is in; empty = not " +
-          "in a project. A dataset can be in several; the order " +
-          "carries no meaning.",
+          "The projects this dataset is in that the caller reaches; " +
+          "empty = in none the caller reaches. A dataset can be in " +
+          "several; the order carries no meaning.",
       },
     },
   },

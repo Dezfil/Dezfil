@@ -284,7 +284,7 @@ export const MAP_RESOURCE_PATHS = {
     get: op(mapAccess({
       summary: "The datasets a map draws from",
       description:
-        "Each layer's references resolve to dataset identities in the map's SQL home within the caller's reach, and the caller's own datasets among them are listed: a dataset the caller cannot reach is left out rather than named, and a same-named dataset of the caller's own never stands in for the map's. Memberships and producers name only the caller's own projects and workflows. " +
+        "Each layer's references resolve to dataset identities in the map's SQL home within the caller's reach, and each one is listed with its owner and the name the caller would type: a dataset the caller cannot reach is left out rather than named, and a same-named dataset of the caller's own never stands in for the map's. Memberships name only projects the caller reaches; producers only the caller's own workflows. " +
         "The 14-A filing checklist's subject: every " +
         "registered dataset used by at least one of the map's saved " +
         "layers, exactly once, with its source, row count, project " +
@@ -589,7 +589,7 @@ export const MAP_DEPENDENCY_SCHEMAS = {
         type: "array",
         description:
           "The distinct registered datasets the map's layers read, " +
-          "alphabetical by name.",
+          "alphabetical by the name the caller would type.",
         items: { $ref: "#/components/schemas/DependencyDataset" },
       },
     },

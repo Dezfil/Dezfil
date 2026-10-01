@@ -339,6 +339,13 @@ export const PROJECT_DEPENDENCY_SCHEMAS = {
     properties: {
       id: { type: "string" },
       name: { type: "string" },
+      qualifiedName: {
+        type: "string",
+        description:
+          "The name the caller would type: the plain name for the " +
+          "caller's own dataset, <sql name>.<name> for another owner's.",
+      },
+      owner: { $ref: "#/components/schemas/ResourceOwner" },
       source: { type: "string" },
       rowCount: { type: "integer" },
       projectIds: {
@@ -374,6 +381,8 @@ export const PROJECT_DEPENDENCY_SCHEMAS = {
     required: [
       "id",
       "name",
+      "qualifiedName",
+      "owner",
       "source",
       "rowCount",
       "projectIds",

@@ -65,7 +65,7 @@ export async function loadGrounding(context: AssistantContext | undefined, baseU
     add(ground.map.layers, layers.sort(order("id", context.selectedLayerId)).map((layer) => pick(layer, ["id", "mapId", "name", "sql", "style", "visible", "filters", "viz"])), 32, "id", (layer) => `/api/layers/${encodeURIComponent(String(layer.id))}`);
     const dependencies = await read(mapPath + "/dependencies");
     if (!Array.isArray(dependencies.datasets)) unavailable();
-    priorityNames = dependencies.datasets.map((value) => String(record(value).name)).sort().slice(0, 32);
+    priorityNames = dependencies.datasets.map((value) => String(record(value).qualifiedName)).sort().slice(0, 32);
     project = typeof map.projectId === "string" ? map.projectId : undefined;
   }
   if (context?.page === "workflow") {
@@ -91,9 +91,11 @@ export async function loadGrounding(context: AssistantContext | undefined, baseU
   ground.catalogue = collection(initial.total, "/api/catalogue/tables");
   if (project && priorityNames.length < 32) {
     const owned = await catalogue(`?columns=0&project=${encodeURIComponent(project)}`);
-    priorityNames.push(...owned.tables.map((table) => table.name));
+    priorityNames.push(...owned.tables.map((table) => table.qualifiedName));
   }
-  const names = [...new Set([...priorityNames, ...initial.tables.map((table) => table.name)])].slice(0, 32);
+  // Datasets are addressed by the name the caller would type, which tells
+  // two same-named datasets of different owners apart.
+  const names = [...new Set([...priorityNames, ...initial.tables.map((table) => table.qualifiedName)])].slice(0, 32);
   for (const name of names) {
     let oversized = false;
     let page: TableCatalogue;
@@ -104,10 +106,10 @@ export async function loadGrounding(context: AssistantContext | undefined, baseU
       page = await catalogue(`?names=${encodeURIComponent(name)}&columns=0`);
     }
     const table = page.tables?.[0];
-    if (!table || table.name !== name) unavailable();
-    const value = { ...pick(table, ["id", "name", "rowCount", "geometryColumn", "geometryType", "crsAssumed", "columnCount", "nextColumnOffset"]), columns: table.columns.map((column) => pick(column, ["name", "type"])), incomplete: table.nextColumnOffset !== null };
+    if (!table || table.qualifiedName !== name) unavailable();
+    const value = { ...pick(table, ["id", "name", "qualifiedName", "owner", "rowCount", "geometryColumn", "geometryType", "crsAssumed", "columnCount", "nextColumnOffset"]), columns: table.columns.map((column) => pick(column, ["name", "type"])), incomplete: table.nextColumnOffset !== null };
     const path = `/api/catalogue/tables?names=${encodeURIComponent(name)}`;
-    const minimal = { id: table.id, name, columnCount: table.columnCount, omittedColumns: table.columnCount, incomplete: true, read: path };
+    const minimal = { id: table.id, name: table.name, qualifiedName: name, columnCount: table.columnCount, omittedColumns: table.columnCount, incomplete: true, read: path };
     ground.catalogue.items.push(minimal);
     candidates.push({ collection: ground.catalogue, minimal, full: oversized ? minimal : { ...value, read: path } });
   }

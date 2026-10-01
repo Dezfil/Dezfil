@@ -161,7 +161,11 @@ it("filters counts and member identities by both owners before decoding content"
   db.prepare("UPDATE maps SET project_id = ?, publish_token = 'private-public-token' WHERE id = ?").run(projects.alice, maps.bob);
   db.prepare("UPDATE recipes SET project_id = ? WHERE id = ?").run(projects.alice, recipes.bob);
   db.prepare("INSERT INTO project_datasets (project_id, table_id, added_at) VALUES (?, 'bob', 'time')").run(projects.alice);
-  db.prepare("UPDATE data_tables SET source_params = 'private invalid JSON' WHERE id = 'bob'").run();
+  // A dataset Alice does not reach is never decoded for her.
+  insertTable(testAccountScope(db, "bob"), { id: "bob-private", name: "bob_private", file: "tables/bob-private.parquet", format: "csv", sourceFilename: null,
+    geometryColumn: null, geometryType: null, crsAssumed: false, headerSuspect: false, rowCount: 1,
+    source: "upload", sourceParams: null, importedAt: null, createdAt: "time" }, db);
+  db.prepare("UPDATE data_tables SET source_params = 'private invalid JSON' WHERE id = 'bob-private'").run();
   const scope = testAccountScope(db, "alice");
   expect(projectMemberCounts(scope).get(projects.alice)).toEqual({ maps: 1, publishedMaps: 0, recipes: 1, tables: 1 });
   expect(projectMemberIds(scope, projects.alice)).toEqual({ maps: [maps.alice], recipes: [recipes.alice], tables: ["alice"] });
@@ -171,7 +175,9 @@ it("filters counts and member identities by both owners before decoding content"
   // whoever owns it; Bob, who does not reach her project, sees none of it.
   expect(new Set(members.maps.map(m => m.id))).toEqual(new Set([maps.alice, maps.bob]));
   await expect(projectMembers(testAccountScope(db, "bob"), projects.alice)).rejects.toMatchObject({ code: "not_found" });
-  expect(members.recipes.map(r => r.id)).toEqual([recipes.alice]); expect(members.tables.map(t => t.id)).toEqual(["alice"]);
+  expect(members.recipes.map(r => r.id)).toEqual([recipes.alice]);
+  // So is a dataset filed there, whoever owns it.
+  expect(new Set(members.tables.map(t => t.id))).toEqual(new Set(["alice", "bob"]));
 });
 it("each account can create, rename, refile and dissolve its own project", async () => {
   const { POST } = await import("@/app/api/projects/route");

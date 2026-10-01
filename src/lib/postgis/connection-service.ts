@@ -5,7 +5,7 @@ import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
 import { getConnection, insertConnection, renameConnection, updateConnection, deleteConnection } from "@/lib/metadata/connections";
 import { listPostgisSnapshots } from "@/lib/metadata/tables";
-import { ownedTableProjectIds } from "@/lib/metadata/owned-tables";
+import { reachedTableProjectIds } from "@/lib/metadata/owned-tables";
 import { testConnection, browseRemoteTables } from "./access";
 import { ConnectionInputError, resolveCreateConnectionInput, resolveUpdateConnectionInput } from "./connection-input";
 import { requireTarget } from "./import";
@@ -70,6 +70,6 @@ export async function browseConnection(scope: AccountScope, id: string) {
 }
 export function connectionSnapshots(scope: AccountScope, id: string) {
   requireOwnedResource(scope, "connection", id);
-  const memberships = ownedTableProjectIds(scope);
+  const memberships = reachedTableProjectIds(scope);
   return { snapshots: listPostgisSnapshots(scope, id).map(t => ({ ...t, projectIds: memberships.get(t.id) ?? [] })) };
 }

@@ -2,7 +2,7 @@ import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse, ApiError } from "@/lib/api/errors";
 import { refreshTable } from "@/lib/ingest/refresh";
-import { ownedTableProjectIds } from "@/lib/metadata/owned-tables";
+import { reachedTableProjectIds } from "@/lib/metadata/owned-tables";
 
 type Params = { params: Promise<{ name: string }> };
 
@@ -34,7 +34,7 @@ export async function POST(request: Request, { params }: Params) {
     // answer like every Table-shaped response.
     return NextResponse.json({
       ...refreshed,
-      projectIds: ownedTableProjectIds(scope).get(refreshed.id) ?? [],
+      projectIds: reachedTableProjectIds(scope).get(refreshed.id) ?? [],
     });
   } catch (error) {
     return errorResponse(error);

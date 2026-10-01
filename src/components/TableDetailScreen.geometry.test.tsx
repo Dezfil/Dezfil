@@ -20,6 +20,7 @@ const table: TableInspection = {
   headerSuspect: false, rowCount: 1000, source: "upload", sourceParams: null,
   createdAt: "2026-09-13T10:00:00Z", importedAt: "2026-09-13T10:00:00Z",
   columns: [], preview: [], sizeBytes: 1024, projectIds: [], inputs: null,
+  owner: { name: "Ada", sqlName: "ada" }, qualifiedName: "trajectories",
 };
 function markup(record?: GeometryRecord | null, source: TableInspection["source"] = "upload"): string {
   vi.mocked(useAsync).mockReturnValue({ state: { status: "ready", value: { ...table, source, crsAssumed: record?.crs.stance === "assumed", geometryRecord: record } }, retry: vi.fn() });

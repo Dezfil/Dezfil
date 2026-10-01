@@ -19,6 +19,7 @@ vi.mock("./ui/AsyncState", async original => ({ ...await original<typeof import(
     id: "t", name: "trips", sourceFilename: "trips.csv", file: "tables/t.parquet", format: "csv", source: "upload",
     geometryColumn: null, geometryType: null, crsAssumed: false, rowCount: 325156, projectIds: [], columns: [], preview: [], sizeBytes: 1,
     createdAt: "2026-09-14T00:00:00Z", importedAt: "2026-09-14T00:00:00Z", inputs: null, headerSuspect: false, sourceParams: null,
+    owner: { name: "Ada", sqlName: "ada" }, qualifiedName: "trips",
   } as TableInspection }, retry: vi.fn() }),
 }));
 vi.mock("./builder/drawer/use-recipes", () => ({ useRecipes: () => ({ recipes: [], error: null, reload: vi.fn() }) }));

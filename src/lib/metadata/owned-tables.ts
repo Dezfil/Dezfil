@@ -1,6 +1,8 @@
 import type { Database } from "better-sqlite3";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
+import { REACHED_PROJECTS, requireReachable } from "@/lib/auth/reach";
+import type { AccountLabel } from "./accounts";
 import { dependentLayerIds } from "@/lib/table-deps";
 import { metadataDb } from "./db";
 import { fileTable } from "./owned-projects";
@@ -41,14 +43,46 @@ export function updateOwnedTableGeometryType(scope: AccountScope, ref: Pick<Data
   db.prepare("UPDATE data_tables SET geometry_type = ? WHERE owner_id = ? AND id = ? AND name = ? AND file = ?")
     .run(geometryType, owner, ref.id, ref.name, ref.file);
 }
-export function ownedTableProjectIds(scope: AccountScope, db: Database = metadataDb()): Map<string, string[]> {
-  const owner = requireAccountScope(scope, db);
+/**
+ * Every dataset's memberships in the projects the acting account reaches.
+ * A dataset filed in a project the account does not reach never names it:
+ * memberships elsewhere are facts about projects it cannot see.
+ */
+export function reachedTableProjectIds(scope: AccountScope, db: Database = metadataDb()): Map<string, string[]> {
+  const me = requireAccountScope(scope, db);
   const rows = db.prepare(`SELECT pd.table_id, pd.project_id FROM project_datasets pd
-    JOIN projects p ON p.id = pd.project_id JOIN data_tables t ON t.id = pd.table_id
-    WHERE p.owner_id = ? AND t.owner_id = ? ORDER BY pd.project_id`).all(owner, owner) as { table_id: string; project_id: string }[];
+    WHERE pd.project_id IN (${REACHED_PROJECTS}) ORDER BY pd.project_id`).all({ me }) as { table_id: string; project_id: string }[];
   const memberships = new Map<string, string[]>();
   for (const row of rows) memberships.set(row.table_id, [...(memberships.get(row.table_id) ?? []), row.project_id]);
   return memberships;
+}
+
+/** A dataset the acting account reaches, with its owner. */
+export interface ReachedTable {
+  table: DataTable;
+  ownerId: string;
+  owner: AccountLabel;
+}
+type ReachedRow = TableRow & { owner_id: string; owner_name: string; owner_sql_name: string };
+const reachedOf = (row: ReachedRow): ReachedTable =>
+  ({ table: tableFromRow(row), ownerId: row.owner_id, owner: { name: row.owner_name, sqlName: row.owner_sql_name } });
+const REACHED_SELECT = `SELECT t.*, a.name AS owner_name, a.sql_name AS owner_sql_name
+  FROM data_tables t JOIN accounts a ON a.id = t.owner_id`;
+
+/** The datasets an account reaches, most recent first: its own, and every
+ * dataset filed in a project it owns or belongs to. The rows are selected
+ * through the reach rule before anything is decoded. */
+export function listReachableTables(scope: AccountScope, db: Database = metadataDb()): ReachedTable[] {
+  const me = requireAccountScope(scope, db);
+  return (db.prepare(`${REACHED_SELECT}
+    WHERE t.owner_id = @me OR t.id IN (SELECT table_id FROM project_datasets WHERE project_id IN (${REACHED_PROJECTS}))
+    ORDER BY t.created_at DESC, t.name`).all({ me }) as ReachedRow[]).map(reachedOf);
+}
+
+/** One dataset the acting account reaches, else the absent refusal. */
+export function requireReachedTable(scope: AccountScope, id: string, db: Database = metadataDb()): ReachedTable {
+  requireReachable(scope, "dataset", id, db);
+  return reachedOf(db.prepare(`${REACHED_SELECT} WHERE t.id = ?`).get(id) as ReachedRow);
 }
 export function fileOwnedTable(scope: AccountScope, tableId: string, projectId: string, db: Database = metadataDb()): void {
   requireOwnedResource(scope, "dataset", tableId, db);

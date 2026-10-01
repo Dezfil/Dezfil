@@ -14,7 +14,7 @@ import {
   type StepDefinition,
 } from "@/lib/operations/step-reads";
 import { boundedEvaluation } from "@/lib/query/bounded";
-import { listTablesWithSize } from "@/lib/table-service";
+import { listOwnTablesWithSize } from "@/lib/table-service";
 
 /**
  * The datasets a workflow reads and writes: the subject of the filing
@@ -53,7 +53,9 @@ export async function workflowDependencies(
   requireRecipe(scope, recipeId);
   const steps = listSteps(scope, recipeId);
 
-  const tables = await listTablesWithSize(scope);
+  // A workflow's names still bind in its owner's own space here: the
+  // caller's own datasets, never a same-named one someone else shares.
+  const tables = await listOwnTablesWithSize(scope);
   const byName = new Map(tables.map((t) => [t.name.toLowerCase(), t]));
   const byId = new Map(tables.map((t) => [t.id, t]));
   const producers = currentProducers(scope);

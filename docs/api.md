@@ -44,12 +44,14 @@ started before a cookie changes. The workspace checks `/api/auth/session`
 before mounting, clears private drafts and retained results on account changes,
 and reloads cached back-navigation pages through the existing access checks.
 
-Datasets, workflows, connections and projects are private to their creator.
-A map is reached by its owner and, while it is filed in a project, by that
-project's owner and people: they list and read it, its layers, widgets and
-history, with its SQL evaluated in the map's SQL home within their own reach,
-and every map read names the map's owner and home. Its thumbnails and tile
-archives stay the owner's. Contained layers, widgets, histories and runs
+Workflows, connections and projects are private to their creator. A map is
+reached by its owner and, while it is filed in a project, by that project's
+owner and people: they list and read it, its layers, widgets and history,
+with its SQL evaluated in the map's SQL home within their own reach, and
+every map read names the map's owner and home. Its thumbnails and tile
+archives stay the owner's. A dataset is reached by its owner and by the owner
+and people of every project it is filed in; it changes, refreshes and goes
+only by its owner. Contained layers, widgets, histories and runs
 follow their parent; standalone jobs and retained export/render results remain
 private even after failure or output deletion. Admin status grants no
 private-content access. Dataset and connection names are unique within one
@@ -134,7 +136,13 @@ password and browser sessions while leaving tokens valid. Deactivation refuses
 sessions and tokens; reactivation preserves the account without reviving ended
 sessions. No user deletion operation exists.
 
-**Tables.** The catalogue of datasets. `POST /api/tables` takes a
+**Tables.** The catalogue of datasets. Listings cover every dataset the
+caller reaches and name each one's `owner` and its `qualifiedName`, the name
+the caller would type: the plain name for their own, `<sql name>.<name>` for
+another owner's, so two owners' `roads` are told apart. Another owner's
+PostGIS snapshot shows its source kind and nothing about the connection, and
+a derived dataset's recorded inputs resolve only within the reader's reach.
+A bare name in a path is the caller's own dataset. `POST /api/tables` takes a
 `multipart/form-data` upload; `POST /api/imports/url`,
 `/api/imports/osm`, `/api/imports/overture`, and `/api/imports/postgis`
 bring data in from elsewhere, several of them with a matching `preview` or
@@ -254,7 +262,8 @@ sized for a single instance, and the bounds that matter are on the work
 rather than on the page:
 
 - `GET /api/catalogue/tables` is the exception. It pages with `limit`
-  (1 to 32, default 32) and an exclusive `after` cursor over table names,
+  (1 to 32, default 32) and an exclusive `after` cursor over qualified
+  names, unique within one caller's reach,
   and pages columns separately with `columns` (0 to 64, default 64) and
   `columnOffset`. It exists so an agent can walk a large catalogue without
   pulling everything.

@@ -5,7 +5,8 @@ import { rm } from "node:fs/promises";
 import { dataDir } from "@/lib/config";
 import { ApiError } from "@/lib/api/errors";
 import type { DataTable, TableDataUpdate } from "@/lib/metadata/tables";
-import { getOwnedTableByName, updateOwnedTableData, ownedTableProjectIds } from "@/lib/metadata/owned-tables";
+import { getOwnedTableByName, updateOwnedTableData, reachedTableProjectIds, requireReachedTable } from "@/lib/metadata/owned-tables";
+import { datasetPresence } from "@/lib/dataset-presence";
 import { metadataDb } from "@/lib/metadata/db";
 import { geometryEvidence } from "@/lib/geometry-evidence";
 import { beginRefresh, endRefresh, refreshUnit } from "@/lib/ingest/fence";
@@ -22,7 +23,8 @@ export function assertGeometryGeneration(scope: AccountScope, table: DataTable) 
   if (live.file !== table.file) throw new ApiError("input_changed", "The dataset changed while geometry was being prepared. Inspect it again.", 409);
 }
 export function geometryMutationResult(scope: AccountScope, table: DataTable, state: GeometryState | null, extent: GeometryExtent) {
-  return { table: { ...table, projectIds: ownedTableProjectIds(scope).get(table.id) ?? [] }, revision: geometryRevision(table),
+  return { table: { ...table, projectIds: reachedTableProjectIds(scope).get(table.id) ?? [], ...datasetPresence(scope, requireReachedTable(scope, table.id)) },
+    revision: geometryRevision(table),
     currentChoice: state?.sourceRetained ? state.choice : null, mode: state?.mode ?? "unmodified", extent };
 }
 export function publishGeometry(scope: AccountScope, table: DataTable, update: TableDataUpdate, extent: GeometryExtent) {
