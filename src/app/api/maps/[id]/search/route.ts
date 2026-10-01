@@ -9,6 +9,7 @@ import { parseCoordinates } from "@/lib/search/coordinates";
 import { searchValues } from "@/lib/search/value-search";
 import { searchPlaces } from "@/lib/search/provider";
 import type { SearchResponse } from "@/lib/search/contract";
+import { mapEvaluation } from "@/lib/query/context";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -42,7 +43,7 @@ export async function GET(request: Request, { params }: Params) {
     const places =
       url.searchParams.get("places") === "1" ? searchPlaces(q) : null;
 
-    const values = await searchValues(scope,
+    const values = await searchValues(mapEvaluation(scope, id),
       visible
         .filter((l) => !isAggregated(l.viz))
         .map((l) => ({

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { requireLayer, layerEffectiveSql } from "@/lib/layer-service";
 import { classifyFill, type ClassifyMethod } from "@/lib/style/classify";
+import { layerEvaluation } from "@/lib/query/context";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -57,7 +58,7 @@ export async function POST(request: Request, { params }: Params) {
     }
     // Classify what is actually drawn: the effective query, so filters are
     // respected and aggregated layers classify their aggregate value.
-    const fill = await classifyFill(scope,
+    const fill = await classifyFill(layerEvaluation(scope, layer),
       await layerEffectiveSql(scope, layer, request.signal),
       body.attribute,
       body.method as ClassifyMethod,

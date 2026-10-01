@@ -132,6 +132,9 @@ export interface MeasurementRecord {
 export interface CompileOptions {
   /** A dry run writes nothing, so it needs no output name. Defaults to true. */
   requireName?: boolean;
+  /** Where the inputs are read: a workflow step's evaluation context. A
+   * standalone run reads in the caller's own space. */
+  evaluation?: DatasetScope;
 }
 
 /** A positive number of ground metres, or the refusal the catalog promises. */
@@ -143,6 +146,7 @@ export async function compileOperation(
 ): Promise<CompiledRun> {
   const operation = findOperation(operationId);
   const params = parameters ?? {};
+  const reads = options.evaluation ?? scope;
   // A dry run produces no dataset, so demanding a name for it would refuse the
   // question "what would this give me?" for want of an answer it never uses.
   const requireName = options.requireName !== false;
@@ -156,11 +160,11 @@ export async function compileOperation(
       return { sql, name };
     }
     case "spatial_join":
-      return compileSpatialJoin(scope, params, operation.label, requireName);
+      return compileSpatialJoin(reads, params, operation.label, requireName);
     case "buffer":
-      return compileBuffer(scope, params, operation.label, requireName);
+      return compileBuffer(reads, params, operation.label, requireName);
     case "measure_columns":
-      return compileMeasureColumns(scope, params, operation.label, requireName);
+      return compileMeasureColumns(reads, params, operation.label, requireName);
     case "centroid":
     case "convex_hull":
     case "simplify":
@@ -173,15 +177,15 @@ export async function compileOperation(
     case "union":
     case "nearest_join":
     case "filter_by_location":
-      return compileCatalogVerb(scope, operation, params, requireName);
+      return compileCatalogVerb(reads, operation, params, requireName);
     case "h3_cell":
     case "hotspot":
     case "cluster_by_distance":
-      return compileStatisticsVerb(scope, operation, params, requireName);
+      return compileStatisticsVerb(reads, operation, params, requireName);
     case "geocode_addresses":
-      return compileGeocode(scope, operation, params, requireName);
+      return compileGeocode(scope, operation, params, requireName, reads);
     case "isochrone":
-      return compileIsochrone(scope, operation, params, requireName);
+      return compileIsochrone(scope, operation, params, requireName, reads);
     default:
       throw new ApiError(
         "invalid_request",

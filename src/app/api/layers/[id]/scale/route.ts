@@ -4,6 +4,7 @@ import { ApiError, errorResponse } from "@/lib/api/errors";
 import { requireLayer, layerEffectiveSql } from "@/lib/layer-service";
 import { computeSizeScale } from "@/lib/style/classify";
 import { SIZE_RANGE_MAX_PX, EXTRUSION_MAX_M } from "@/lib/style/style";
+import { layerEvaluation } from "@/lib/query/context";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -56,7 +57,7 @@ export async function POST(request: Request, { params }: Params) {
       );
     }
     const range = r as [number, number];
-    const scale = await computeSizeScale(scope,
+    const scale = await computeSizeScale(layerEvaluation(scope, layer),
       await layerEffectiveSql(scope, layer, request.signal),
       body.attribute,
       range,

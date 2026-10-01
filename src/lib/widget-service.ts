@@ -13,6 +13,7 @@ import { publishedFieldsFor } from "@/lib/publish/published-fields";
 import { ApiError, EvaluationCancelled, type ErrorCode } from "@/lib/api/errors";
 import type { Layer, MapRecord } from "@/lib/metadata/maps";
 import { isAggregated, type LayerFilter } from "@/lib/viz";
+import { mapEvaluation } from "@/lib/query/context";
 import {
   selectionFilter,
   selectionFilters,
@@ -408,6 +409,7 @@ export async function computeWidgetValues(
   draft?: MapWidget,
   signal?: AbortSignal,
 ): Promise<WidgetValues> {
+  scope = mapEvaluation(scope, map.id);
   const effective = draft
     ? map.widgets.some((w) => w.id === draft.id)
       ? map.widgets.map((w) => (w.id === draft.id ? draft : w))

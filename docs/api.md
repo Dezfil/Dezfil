@@ -307,7 +307,17 @@ is disabled, external access is switched off, the filesystem is fenced to
 the dataset directory and the tile scratch directory, spilling to disk is
 disabled, the memory budget is applied, and the configuration is locked so
 none of that can be changed afterwards. Every evaluation gets a fresh connection
-and temporary views for its account's datasets only (`src/lib/query/views.ts`).
+and temporary views for exactly the datasets its caller can reach
+(`src/lib/query/views.ts`), each dataset once. An evaluation has a SQL home:
+the caller for SQL run directly, the stored home of a map or workflow (the
+account that created it) for that map's layers, widgets, search, exports and
+tiles and for that workflow's steps. The home's datasets that the caller can
+reach are mounted under their plain names; every other owner's reachable
+dataset is mounted under one name, `<SQL name>.<dataset>`. A workflow step
+also binds the workflow's declared outputs under their plain names, ahead of
+the home's datasets: each binds the dataset the same runner's latest
+successful run of that step produced, and an output that runner has not
+produced has no view at all, so its name never falls back to a home dataset.
 One hardened engine serves all accounts under the same shared memory budget.
 The views disappear when the connection closes. Artifact projection metadata
 may be cached by owner, dataset identity, artifact and geometry metadata; the
@@ -316,8 +326,8 @@ views and binding evidence are recreated on each connection.
 Unqualified names, `main.table`, `memory.table`, `memory.main.table`, and
 computed `query_table()` / nested `query()` references resolve inside that local
 catalogue. The compiler preserves stored SQL. Publication evaluations use the
-publication owner's dataset scope, including inactive owners and pending
-adoption. Refresh, deletion and name reuse affect later evaluations; an admitted
+map's SQL home and the publication owner's reach, including inactive owners and
+pending adoption. Refresh, deletion and name reuse affect later evaluations; an admitted
 materialization keeps its captured identities and artifacts until it completes.
 
 Geocode and isochrone preparation pass opaque, account-bound staging inputs

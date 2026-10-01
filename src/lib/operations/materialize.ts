@@ -149,6 +149,9 @@ export interface MaterializeRequest {
    * answering. A visible failure beats an invisible wrong number.
    */
   requireBindings?: Record<string, string>;
+  /** Where the statement reads: a workflow step's evaluation context. The
+   * output is always the calling account's own dataset. */
+  evaluation?: DatasetScope;
 }
 
 /** An input as this run bound it: which table, and which generation of it. */
@@ -354,7 +357,7 @@ export async function materialize(
   } = request;
   if (replaceTable) requireOwnedTableReference(scope, replaceTable);
   const name = exactName(request.name);
-  const evaluation: DatasetScope = scope;
+  const evaluation: DatasetScope = request.evaluation ?? scope;
 
   return boundedEvaluation(async (conn, bounds) => {
     const compiledSql = await namedSql(conn, sql);

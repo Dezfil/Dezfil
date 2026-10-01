@@ -4,58 +4,95 @@ import { dataDir } from "@/lib/config";
 import { catalogGenerationOf } from "@/lib/duckdb";
 import type { DataTable } from "@/lib/metadata/tables";
 import { artifactRelations, invalidateArtifactRelations } from "./catalog-state";
-import { artifactRelation } from "./artifact-relation";
-import { scopedDatasets, requireDatasetScope, type DatasetScope } from "./access";
+import { artifactRelation, type ArtifactRelation } from "./artifact-relation";
+import { requireDatasetScope, type DatasetScope } from "./access";
+import { registryTable, type ReachableDataset } from "./bindings";
+import { contextOf } from "./context";
+import { namespaceFor } from "./namespace";
+import { planMounts, setMountPlan, type Mount } from "./mount-plan";
 
 function ident(s: string): string {
   return `"${s.replace(/"/g, '""')}"`;
 }
 
+/** A dataset as this evaluation's registration bound it, under its view. */
+export interface RegisteredMount extends DataTable {
+  /** The view it answers under; absent for a synthetic binding. */
+  view: string | null;
+}
+
+/** The artifact relation's cache identity: the dataset's owner and name,
+ * its identity, its artifact and its geometry column. */
+function relationKey(dataset: ReachableDataset): string {
+  return JSON.stringify([dataset.ownerId, dataset.name, dataset.id, dataset.file, dataset.geometryColumn]);
+}
+
 /** Names and views belong to this connection alone. The weak map only supports
  * reconciliation when an internal caller explicitly reuses its connection. */
 const mounted = new WeakMap<DuckDBConnection, Set<string>>();
+
+/**
+ * Mount one evaluation's namespace on its own connection: a view per dataset
+ * the evaluation can see, under the name its context gives it (see
+ * `mount-plan.ts`), reconciled against whatever an earlier registration on
+ * the same connection left, and the plan the compiler and the guard read.
+ */
 export async function registerTableViews(
   scope: DatasetScope,
   conn: DuckDBConnection,
   abandoned?: () => boolean,
-  afterRegistration?: (registered: readonly DataTable[]) => Promise<void>,
+  afterRegistration?: (registered: readonly RegisteredMount[]) => Promise<void>,
 ): Promise<void> {
-  const owner = requireDatasetScope(scope);
-  const tables = scopedDatasets(scope);
+  const caller = requireDatasetScope(scope);
+  const context = contextOf(scope);
+  const plan = planMounts(namespaceFor(scope), context.purpose, caller === context.home);
   const relations = artifactRelations(catalogGenerationOf(conn));
   const previous = mounted.get(conn) ?? new Set<string>();
   mounted.set(conn, previous);
-  const current = new Set(tables.map(t => t.name));
   for (const name of previous) {
     if (abandoned?.()) return;
-    if (!current.has(name)) {
+    if (!plan.views.has(name.toLowerCase()) || plan.views.get(name.toLowerCase())!.view !== name) {
       await conn.run(`DROP VIEW IF EXISTS temp.main.${ident(name)}`);
       previous.delete(name);
     }
   }
-  const keys = new Set(tables.map(table => JSON.stringify([owner, table.name, table.id, table.file, table.geometryColumn])));
-  for (const key of relations.keys()) {
-    if (JSON.parse(key)[0] === owner && !keys.has(key)) relations.delete(key);
-  }
-  const registered: DataTable[] = [];
-  for (const table of tables) {
+  const relationOf = async (dataset: ReachableDataset): Promise<ArtifactRelation> => {
+    const key = relationKey(dataset);
+    for (const other of relations.keys()) {
+      const [owner, name] = JSON.parse(other);
+      if (owner === dataset.ownerId && name === dataset.name && other !== key) relations.delete(other);
+    }
+    return relations.get(key) ?? await artifactRelation(conn, path.join(dataDir(), dataset.file), dataset.geometryColumn);
+  };
+  const registered: RegisteredMount[] = [];
+  for (const { view, dataset } of plan.views.values() as Iterable<Mount>) {
     if (abandoned?.()) return;
-    const key = JSON.stringify([owner, table.name, table.id, table.file, table.geometryColumn]);
-    const relation = relations.get(key) ?? await artifactRelation(conn, path.join(dataDir(), table.file), table.geometryColumn);
+    const key = relationKey(dataset);
+    const relation = await relationOf(dataset);
     if (abandoned?.()) return;
     try {
-      await conn.run(`CREATE OR REPLACE TEMP VIEW ${ident(table.name)} AS SELECT * FROM ${relation.from}`);
-      previous.add(table.name);
-      registered.push(table);
+      await conn.run(`CREATE OR REPLACE TEMP VIEW ${ident(view)} AS SELECT * FROM ${relation.from}`);
+      previous.add(view);
+      registered.push({ ...registryTable(dataset), view });
       if (relation.probed) relations.set(key, relation);
     } catch (error) {
       if (abandoned?.()) return;
-      await conn.run(`DROP VIEW IF EXISTS temp.main.${ident(table.name)}`).catch(() => {});
-      previous.delete(table.name);
+      await conn.run(`DROP VIEW IF EXISTS temp.main.${ident(view)}`).catch(() => {});
+      previous.delete(view);
       relations.delete(key);
-      console.warn(`table view "${table.name}" not registered: ${error instanceof Error ? error.message : String(error)}`);
+      console.warn(`table view "${view}" not registered: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
+  for (const binding of plan.qualified.values()) {
+    if (!("synthetic" in binding) || plan.synthetic.has(binding.synthetic.id)) continue;
+    if (abandoned?.()) return;
+    const relation = await relationOf(binding.synthetic);
+    if (abandoned?.()) return;
+    plan.synthetic.set(binding.synthetic.id, relation.from);
+    registered.push({ ...registryTable(binding.synthetic), view: null });
+    if (relation.probed) relations.set(relationKey(binding.synthetic), relation);
+  }
+  setMountPlan(conn, plan);
   requireDatasetScope(scope);
   if (!abandoned?.()) await afterRegistration?.(registered);
 }

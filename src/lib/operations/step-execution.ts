@@ -8,6 +8,7 @@ import { admitOwned, submitRun } from "./run";
 import { planPublication, stepAuthorizer } from "./step-run";
 import { getRecipe, getStep } from "@/lib/metadata/owned-recipes";
 import { fileTable } from "@/lib/metadata/owned-projects";
+import { workflowEvaluation } from "@/lib/query/context";
 
 /**
  * Running one recipe step.
@@ -52,6 +53,9 @@ export async function startStepRun(
   requireAccountScope(scope);
   const plan = planPublication(scope, stepId);
   if (options.cascadeId) requireCascadeMember(scope, options.cascadeId, stepId);
+  // The step reads in its workflow's home, with this runner's reach and the
+  // workflow's declared outputs as this runner has produced them.
+  const evaluation = workflowEvaluation(scope, plan.step.recipeId);
 
   const admitted = await admitOwned(
     scope,
@@ -62,6 +66,7 @@ export async function startStepRun(
       subject: plan.step.id,
     },
     plan.replaceTable,
+    evaluation,
   );
 
   if (options.cascadeId) requireCascadeMember(scope, options.cascadeId, stepId);
@@ -86,6 +91,7 @@ export async function startStepRun(
     ...(admitted.measurement ? { measurement: admitted.measurement } : {}),
     ...(admitted.warnings ? { warnings: admitted.warnings } : {}),
     ...(admitted.bindings ? { bindings: admitted.bindings } : {}),
+    evaluation,
     // A step runs a prepared verb exactly as a one-off run does: the
     // preparation is part of what was admitted, and dropping it here would
     // publish a statement that does not exist.

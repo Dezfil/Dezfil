@@ -3,6 +3,7 @@ import type { DatasetScope } from "@/lib/query/access";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
 import { metadataDb } from "@/lib/metadata/db";
+import { mapEvaluation } from "@/lib/query/context";
 
 const tileAccessBrand: unique symbol = Symbol("tile access");
 export interface TileAccess {
@@ -44,7 +45,7 @@ export function tileAccessAvailable(access: TileAccess): boolean {
 /** Carry the admitted private account or current token into tile SQL. */
 export function tileQueryScope(access: TileAccess): DatasetScope {
   requireTileAccess(access, access.layerId);
-  if ("scope" in access.credential) return access.credential.scope;
+  if ("scope" in access.credential) return mapEvaluation(access.credential.scope, access.mapId);
   const publication = resolvePublication(access.credential.token);
   if (!publication || publication.scope.mapId !== access.mapId || publication.scope.ownerId !== access.ownerId) throw publicationAbsent();
   return publication.scope;

@@ -6,6 +6,7 @@ import { inspectLayerGeometry } from "@/lib/layer-geometry";
 import { isAggregated, isOdViz, type LayerFilter } from "@/lib/viz";
 import { isLiveKind } from "@/lib/live-filters";
 import type { Layer } from "@/lib/metadata/maps";
+import { layerEvaluation } from "@/lib/query/context";
 
 
 /**
@@ -72,6 +73,7 @@ export async function layerExtent(
   extra: LayerFilter[] = [],
   signal?: AbortSignal,
 ): Promise<LayerExtent> {
+  scope = layerEvaluation(scope, layer);
   const inspection = await inspectLayerGeometry(scope, layer.sql, signal);
   // Which column holds the geometry that is actually drawn: an aggregation
   // computes its own cells, an origin→destination viz builds its line, and

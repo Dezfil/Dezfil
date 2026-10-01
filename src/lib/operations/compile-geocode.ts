@@ -167,6 +167,7 @@ export async function compileGeocode(
   operation: OperationDef,
   params: Record<string, unknown>,
   requireName: boolean,
+  reads: DatasetScope = scope,
 ): Promise<CompiledRun> {
   const label = operation.label;
   // First, because it is the one refusal that is about the instance rather than
@@ -177,11 +178,11 @@ export async function compileGeocode(
   if (requireName && !name) required(label, "name");
   const named = str(params, "input");
   if (!named) required(label, "input");
-  const table = inputTable(scope, named, "input");
+  const table = inputTable(reads, named, "input");
 
   refuseGeometry(table, label);
-  const column = await addressColumn(scope, table, params, label);
-  await refuseCollisions(scope, table, label);
+  const column = await addressColumn(reads, table, params, label);
+  await refuseCollisions(reads, table, label);
   refuseSize(table, label);
 
   return {
@@ -204,6 +205,7 @@ export async function compileGeocode(
     },
     prepare: async (context) => {
       const staged = await stageBatch(scope, {
+        reads,
         table,
         column,
         ...(context.signal ? { signal: context.signal } : {}),

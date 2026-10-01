@@ -1,4 +1,4 @@
-import type { DatasetScope } from "@/lib/query/access";
+import { mapEvaluation, type DatasetScope } from "@/lib/query/access";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireLayerFor } from "./layer-access";
 import {
@@ -118,7 +118,7 @@ async function deriveAndCommitUpdate(
   // the references this request introduces resolving against the schema
   // as it leaves it, all before the derivations below.
   const admitted = await admitLayerUpdate(scope, id, fields, opts.signal);
-  const layer = admitted.layer;
+  const layer = admitted.layer, evaluation = mapEvaluation(scope, layer.mapId);
   fields = admitted.fields;
   // A repeated write of the same filter image is a true no-op: in
   // particular, it must not turn into a classification-only history step.
@@ -134,7 +134,7 @@ async function deriveAndCommitUpdate(
     // Hexbin, grid, and heatmap draw point results; line and polygon layers
     // keep simple rendering. Arc/line ignore the primary geometry entirely
     // — their endpoints are mapped.
-    const inspection = await inspectLayerGeometry(scope,
+    const inspection = await inspectLayerGeometry(evaluation,
       fields.sql ?? layer.sql,
       opts.signal,
     );
@@ -152,7 +152,7 @@ async function deriveAndCommitUpdate(
         // aggregation edit. Settle the authoritative stored fill over the
         // complete next filter set; previews deliberately keep the old fill
         // only until this mutation is accepted.
-        viz.fill = await filterSettledAggregatedFill(scope,
+        viz.fill = await filterSettledAggregatedFill(evaluation,
           {
             sql: fields.sql ?? layer.sql,
             filters: fields.filters ?? layer.filters,
@@ -167,7 +167,7 @@ async function deriveAndCommitUpdate(
         // The aggregation changed, so its value distribution did too: assign
         // a fill over the aggregate value, keeping any prior ramp choices
         // (classification applies to the aggregate value).
-        viz.fill = await aggregatedFill(scope,
+        viz.fill = await aggregatedFill(evaluation,
           {
             sql: fields.sql ?? layer.sql,
             filters: fields.filters ?? layer.filters,
@@ -197,7 +197,7 @@ async function deriveAndCommitUpdate(
             JSON.stringify(viz.elevation.aggregate);
         viz.elevation = unchangedQuery
           ? { ...viz.elevation, domain: prior!.domain }
-          : await settledElevation(scope,
+          : await settledElevation(evaluation,
               {
                 sql: fields.sql ?? layer.sql,
                 filters: fields.filters ?? layer.filters,
@@ -221,12 +221,12 @@ async function deriveAndCommitUpdate(
     fields.viz === undefined &&
     isAggregated(layer.viz)
   ) {
-    const inspection = await inspectLayerGeometry(scope,
+    const inspection = await inspectLayerGeometry(evaluation,
       fields.sql ?? layer.sql,
       opts.signal,
     );
     const viz = { ...layer.viz };
-    viz.fill = await filterSettledAggregatedFill(scope,
+    viz.fill = await filterSettledAggregatedFill(evaluation,
       {
         sql: fields.sql ?? layer.sql,
         filters: fields.filters ?? layer.filters,
@@ -238,7 +238,7 @@ async function deriveAndCommitUpdate(
       opts.signal,
     );
     if (viz.elevation) {
-      viz.elevation = await settledElevation(scope,
+      viz.elevation = await settledElevation(evaluation,
         {
           sql: fields.sql ?? layer.sql,
           filters: fields.filters ?? layer.filters,

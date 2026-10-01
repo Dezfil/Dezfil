@@ -8,6 +8,7 @@ import { isAggregated } from "./viz";
 import { limits } from "./limits";
 import type { Layer } from "./metadata/maps";
 import type { SliderPreviewData } from "./slider-preview";
+import { layerEvaluation } from "./query/context";
 
 function ident(s: string): string {
   return `"${s.replace(/"/g, '""')}"`;
@@ -20,6 +21,7 @@ export async function layerEffectiveSql(
   layer: Layer,
   signal?: AbortSignal,
 ): Promise<string> {
+  scope = layerEvaluation(scope, layer);
   if (!isAggregated(layer.viz)) {
     return effectiveSql(
       { sql: layer.sql, filters: layer.filters, viz: layer.viz },
@@ -74,6 +76,7 @@ export async function sliderPreviewData(
   layer: Layer,
   signal?: AbortSignal,
 ): Promise<SliderPreviewData> {
+  scope = layerEvaluation(scope, layer);
   const inspection = await inspectLayerGeometry(scope, layer.sql, signal);
   const base = await baseFields(scope, layer, signal);
   const wanted = sliderPreviewFieldNames(layer);

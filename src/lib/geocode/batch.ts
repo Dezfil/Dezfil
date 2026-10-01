@@ -10,6 +10,7 @@ import { boundedEvaluation } from "@/lib/query/bounded";
 import { configuredEndpoint, endpointIdentity } from "./endpoint";
 import { NORMALIZATION_VERSION } from "./normalize";
 import { geocodeAddress, unconfiguredError, type RowOutcome } from "./provider";
+import type { DatasetScope } from "@/lib/query/access";
 
 /**
  * The batch: every distinct address in a column, answered and staged.
@@ -75,6 +76,8 @@ export interface BatchOptions {
   /** The lane's own coded timeout, so a batch that runs long fails as a run
    * that ran long rather than as a query that did. */
   timeoutError: () => ApiError;
+  /** Where the input is read: the run's evaluation, its account otherwise. */
+  reads?: DatasetScope;
 }
 
 function remaining(deadlineAt: number, timeoutError: () => ApiError): number {
@@ -205,7 +208,7 @@ export async function stageBatch(scope: AccountScope, options: BatchOptions): Pr
 
   const addresses = await boundedEvaluation(
     async (conn) => distinctAddresses(conn, table, column),
-    { scope,
+    { scope: options.reads ?? scope,
       ...(signal ? { signal } : {}),
       budgetMs: remaining(deadlineAt, timeoutError),
       timeoutError,

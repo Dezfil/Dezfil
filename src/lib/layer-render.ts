@@ -12,6 +12,7 @@ import { AGG_ELEV, isAggregated, isOdViz, type LayerFilter } from "./viz";
 import { publishedFieldsFor, type PublishedMapContext } from "./publish/published-fields";
 import { renderCapRefusal } from "./layer-render-copy";
 import { renderFilters } from "./layer-render-filters";
+import { layerEvaluation } from "./query/context";
 
 function ident(s: string): string { return `"${s.replace(/"/g, '""')}"`; }
 
@@ -101,6 +102,7 @@ export async function renderLayer(
   signal?: AbortSignal,
   opts: RenderLayerOpts = {},
 ): Promise<LayerRenderData> {
+  scope = layerEvaluation(scope, layer);
   try {
     return await boundedEvaluation(async (conn) => {
       const compiledSql = await namedSql(conn, layer.sql);

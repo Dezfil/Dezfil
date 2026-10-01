@@ -48,6 +48,7 @@ import {
   touchProjectsOf,
 } from "@/lib/metadata/projects";
 import { metadataDb } from "@/lib/metadata/db";
+import { mapEvaluation } from "@/lib/query/context";
 import {
   recordStep,
   diffImages,
@@ -271,7 +272,7 @@ export async function validateMapWriteRefs(
     const layer = layers.get(layerId)!;
     const problem = refProblem(
       refs,
-      await fieldsForWrite(scope, layer.sql, layer.viz, signal),
+      await fieldsForWrite(mapEvaluation(scope, mapId), layer.sql, layer.viz, signal),
     );
     if (problem) throw new ApiError("column_unavailable", problem, 400);
   }

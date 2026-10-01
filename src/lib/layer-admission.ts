@@ -26,6 +26,7 @@ import { requireLayerFor } from "./layer-access";
 import { requireMapFor } from "./map-access";
 import { assertWritableRefs } from "./layer-write-refs";
 import { layerWriteChangesPublication } from "./publication-settings";
+import { mapEvaluation } from "@/lib/query/context";
 
 /**
  * The layer write admission: what a layer create or update must pass
@@ -84,12 +85,13 @@ export async function admitLayerCreate(
   signal?: AbortSignal,
 ): Promise<{ geometryType: string | null }> {
   requireMapFor(scope, mapId, "edit");
-  const { geometryType } = await inspectLayerGeometry(scope, input.sql, signal);
+  const evaluation = mapEvaluation(scope, mapId);
+  const { geometryType } = await inspectLayerGeometry(evaluation, input.sql, signal);
   if (input.style !== undefined) {
     assertValidStyle(input.style);
     // A created layer has no stored config to echo: every reference the
     // style carries is introduced here and validates.
-    await assertWritableRefs(scope,
+    await assertWritableRefs(evaluation,
       styleRefs(input.style),
       [],
       input.sql,
@@ -115,7 +117,7 @@ export async function admitLayerUpdate(
   const layer = permittedLayer(scope, id, fields);
   if (fields.sql !== undefined && fields.sql !== layer.sql) {
     // Editing SQL revalidates geometry, but the layer is not recreated.
-    await inspectLayerGeometry(scope, fields.sql, signal);
+    await inspectLayerGeometry(mapEvaluation(scope, layer.mapId), fields.sql, signal);
   }
   if (fields.style !== undefined) {
     assertValidStyle(fields.style);
@@ -166,7 +168,7 @@ export async function admitLayerUpdate(
   const validating = isAggregated(nextViz)
     ? incoming.filter((ref) => ref.channel !== "label")
     : incoming;
-  await assertWritableRefs(scope,
+  await assertWritableRefs(mapEvaluation(scope, layer.mapId),
     validating,
     stored,
     fields.sql ?? layer.sql,

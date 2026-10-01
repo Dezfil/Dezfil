@@ -24,6 +24,7 @@ import type {
 } from "./compile";
 import { LostAuthority, materialize, type BoundInput } from "./materialize";
 import * as lane from "./lane";
+import type { DatasetScope } from "@/lib/query/access";
 
 /**
  * Running an operation.
@@ -80,6 +81,9 @@ export interface SubmitOptions {
   warnings?: string[];
   /** The input generations the SQL was built for; re-checked before work. */
   bindings?: Record<string, string>;
+  /** Where the run reads: a workflow step's evaluation context. A standalone
+   * run reads in the caller's own space. */
+  evaluation?: DatasetScope;
   /**
    * Work that must happen before this run has a statement at all.
    *
@@ -158,6 +162,7 @@ function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions)
         timeoutError: operationTimeout,
         ...(options.replaceTable ? { replaceTable: options.replaceTable } : {}),
         ...(options.bindings ? { requireBindings: options.bindings } : {}),
+        ...(options.evaluation ? { evaluation: options.evaluation } : {}),
         // The authority check, inside the publication transaction.
         authorize: options.publisher
           ? options.publisher(jobFinished, job.id)

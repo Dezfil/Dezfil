@@ -16,6 +16,7 @@ import {
 import { isAggregated, isOdViz } from "@/lib/viz";
 import type { Layer } from "@/lib/metadata/maps";
 import { ensureTileDirs, tileScratchDir } from "@/lib/tiles/paths";
+import { layerEvaluation } from "@/lib/query/context";
 
 /**
  * Layer data export: the layer's effective result — SQL, then stored
@@ -58,7 +59,7 @@ export interface LayerExportFile {
 }
 
 /** The slice of a layer the export consumes — stored state only. */
-export type ExportableLayer = Pick<Layer, "name" | "sql" | "filters" | "viz">;
+export type ExportableLayer = Pick<Layer, "name" | "sql" | "filters" | "viz"> & { mapId?: string };
 
 function ident(s: string): string {
   return `"${s.replace(/"/g, '""')}"`;
@@ -182,7 +183,7 @@ export async function exportLayerResult(
           throw sqlError(error);
         }
       },
-      { scope, signal },
+      { scope: layerEvaluation(scope, layer), signal },
     );
     requireAccountScope(scope);
   } catch (error) {

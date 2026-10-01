@@ -7,6 +7,7 @@ import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { ident } from "@/lib/ingest/ingest";
 import type { DataTable } from "@/lib/metadata/tables";
 import { boundedEvaluation } from "@/lib/query/bounded";
+import type { DatasetScope } from "@/lib/query/access";
 import {
   COSTING_BY_MODE,
   configuredIsochroneEndpoint,
@@ -66,6 +67,8 @@ export interface IsochroneBatchOptions {
   signal?: AbortSignal;
   deadlineAt: number;
   timeoutError: () => ApiError;
+  /** Where the input is read: the run's evaluation, its account otherwise. */
+  reads?: DatasetScope;
 }
 
 interface StagedBand {
@@ -213,7 +216,7 @@ export async function stageIsochroneBatch(
 
   const origins = await boundedEvaluation(
     async (conn) => distinctOrigins(conn, table),
-    { scope,
+    { scope: options.reads ?? scope,
       ...(signal ? { signal } : {}),
       budgetMs: remaining(deadlineAt, timeoutError),
       timeoutError,

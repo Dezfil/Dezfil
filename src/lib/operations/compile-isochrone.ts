@@ -220,6 +220,7 @@ export async function compileIsochrone(
   operation: OperationDef,
   params: Record<string, unknown>,
   requireName: boolean,
+  reads: DatasetScope = scope,
 ): Promise<CompiledRun> {
   const label = operation.label;
   // First, because it is about the instance rather than the request.
@@ -229,13 +230,13 @@ export async function compileIsochrone(
   if (requireName && !name) required(label, "name");
   const named = str(params, "input");
   if (!named) required(label, "input");
-  const table = inputTable(scope, named, "input");
+  const table = inputTable(reads, named, "input");
   const assumed = assumedCrsOf([table]);
 
-  await refuseWrongGeometry(scope, table, label);
+  await refuseWrongGeometry(reads, table, label);
   const mode = modeOf(operation, params, label);
   const bands = bandsOf(params, label);
-  await refuseCollisions(scope, table, label);
+  await refuseCollisions(reads, table, label);
   refuseSize(table, label);
 
   return {
@@ -257,6 +258,7 @@ export async function compileIsochrone(
     assumedCrs: assumed,
     prepare: async (context) => {
       const staged = await stageIsochroneBatch(scope, {
+        reads,
         table,
         mode,
         bands,
