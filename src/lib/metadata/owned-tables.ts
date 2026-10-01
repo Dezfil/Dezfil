@@ -18,6 +18,13 @@ export function getOwnedTableByName(scope: AccountScope, name: string, db: Datab
   const row = db.prepare("SELECT * FROM data_tables WHERE owner_id = ? AND name = ?").get(owner, name) as TableRow | undefined;
   return row ? tableFromRow(row) : null;
 }
+/** Whether any of the accounts holds a dataset of this name, case aside: a
+ * declared output's name is taken where the output would shadow or land. */
+export function tableNameHeld(accountIds: readonly string[], name: string, db: Database = metadataDb()): boolean {
+  if (accountIds.length === 0) return false;
+  return !!db.prepare(`SELECT 1 FROM data_tables WHERE lower(name) = lower(?)
+    AND owner_id IN (${accountIds.map(() => "?").join(", ")}) LIMIT 1`).get(name, ...accountIds);
+}
 export function ownedTableNames(scope: AccountScope, db: Database = metadataDb()): Set<string> {
   const owner = requireAccountScope(scope, db);
   return new Set((db.prepare("SELECT name FROM data_tables WHERE owner_id = ?").all(owner) as { name: string }[]).map(r => r.name));

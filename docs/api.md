@@ -76,7 +76,11 @@ admitted privately, into their own datasets, unfiled, without changing the
 workflow's recorded outputs, proposals or definitions, and no further step
 is admitted. A run is cancelled by its initiator or the workflow's owner;
 the initiator keeps that right after they stop reaching the workflow,
-answered `204` without the run. SQL that anyone but a map's or workflow's owner saves into
+answered `204` without the run.
+A step's declared output name is taken (`name_taken`) when a dataset of that
+name is in the workflow's SQL home, where its steps read plain names, or in
+the declaring person's own space, where their run lands the output.
+SQL that anyone but a map's or workflow's owner saves into
 it (a layer's SQL, a step's SQL or dataset parameters, or SQL that undo and
 redo would put back) must name only datasets within that person's own reach
 in the resource's SQL home, a workflow's declared outputs aside: otherwise

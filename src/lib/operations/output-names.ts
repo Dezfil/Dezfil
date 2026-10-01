@@ -2,8 +2,9 @@ import type { AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { ApiError } from "@/lib/api/errors";
 import { deriveTableName } from "@/lib/ingest/naming";
-import { requireRecipe, listSteps, type RecipeStep } from "@/lib/metadata/owned-recipes";
-import { listOwnedTables } from "@/lib/metadata/owned-tables";
+import { requireAccountScope } from "@/lib/auth/scope";
+import { requireRecipe, listSteps, recipeStanding, type RecipeStep } from "@/lib/metadata/owned-recipes";
+import { tableNameHeld } from "@/lib/metadata/owned-tables";
 import { findOperation } from "./catalog";
 
 /**
@@ -14,9 +15,15 @@ import { findOperation } from "./catalog";
  * stored and promised; a blank or letterless name is refused in its own
  * words; a name a registered table carries, or another node of the **same
  * recipe** declares or holds, is refused naming the holder; a produced
- * output's name is frozen (the phase's ruling). Another workflow's unrun
- * declaration is not a reservation anywhere else, so it is not one here;
- * the registry's refusal at run time stays the backstop.
+ * output's name is frozen. Another workflow's unrun declaration is not a
+ * reservation anywhere else, so it is not one here; the registry's refusal
+ * at run time stays the backstop.
+ *
+ * "A registered table" means one in either space the name meets: the
+ * workflow's SQL home, where the steps read plain names and a declared
+ * output would shadow a home dataset other steps read, and the declaring
+ * person's own space, where their run lands the output. For a workflow's
+ * owner in their own home the two are one.
  */
 
 /** The name the registry will use for what was typed. */
@@ -95,8 +102,10 @@ export function outputNameRefusal(args: {
     }
     return null;
   }
-  const table = listOwnedTables(scope, db).find((t) => t.name.toLowerCase() === registered);
-  if (table) {
+  const me = requireAccountScope(scope, db);
+  const standing = recipeStanding(recipeId, db);
+  const home = standing?.homeId ?? standing?.ownerId ?? me;
+  if (tableNameHeld([home, me], registered, db)) {
     return new ApiError(
       "name_taken",
       `A table named "${registered}" already exists. An operation never replaces or ` +
