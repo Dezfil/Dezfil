@@ -120,6 +120,20 @@
   color: var(--fg);
 }
 
+/* A shared project's segment: its name, then the project's people mark. */
+.crumbLink[data-shared] {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.crumbText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .crumbSep {
   color: var(--fg-faint);
   font-size: 12px;

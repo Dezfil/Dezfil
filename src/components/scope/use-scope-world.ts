@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { readApiError } from "../api";
 import { serverUnreachable } from "../failure-copy";
 import { useAsync, type Async } from "../ui/AsyncState";
-import { scopeParam, type ProjectScope } from "./model";
+import { scopeParam, type ProjectScope, type ScopeProject } from "./model";
 
 /**
  * One scope world per screen: the project directory, the unscoped
@@ -20,16 +20,15 @@ import { scopeParam, type ProjectScope } from "./model";
  */
 
 export interface ScopeWorld<T> {
-  projects: { id: string; name: string }[];
+  /** Every project the reader reaches, with its owner and their role. */
+  projects: ScopeProject[];
   /** The unscoped collection: counts and, under All, the results. */
   all: T[];
   /** The active scope's results (=== all under All projects). */
   scoped: T[];
 }
 
-export async function readProjectsDirectory(): Promise<
-  { id: string; name: string }[]
-> {
+export async function readProjectsDirectory(): Promise<ScopeProject[]> {
   let response: Response;
   try {
     response = await fetch("/api/projects", { cache: "no-store" });
@@ -37,11 +36,9 @@ export async function readProjectsDirectory(): Promise<
     throw new Error(serverUnreachable("load the projects"));
   }
   if (!response.ok) throw new Error(await readApiError(response));
-  const listed = (await response.json()) as {
-    id: string;
-    name: string;
+  const listed = (await response.json()) as (ScopeProject & {
     updatedAt: string;
-  }[];
+  })[];
   // The popover follows the Projects screen's default order: most
   // recently updated first (the listing itself arrives by creation).
   return [...listed].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));

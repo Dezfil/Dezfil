@@ -20,6 +20,9 @@ export interface ProjectRecordWire {
   note: string | null;
   createdAt: string;
   updatedAt: string;
+  /** The project's owner and how the reader stands to it. */
+  owner?: { name: string; sqlName: string };
+  role?: "owner" | "editor" | "viewer";
 }
 
 export interface HomeWorld {

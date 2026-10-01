@@ -119,9 +119,14 @@
   height: 12px;
 }
 
+/* Wide enough for the published chip and the people chip side by side. */
 .colPub {
-  width: 110px;
+  width: 230px;
   flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 /* Rows are buttons; actions float beside them (buttons can't nest). */

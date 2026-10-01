@@ -26,6 +26,8 @@ import {
 } from "./table-chips";
 import { updatedAt } from "./data-folders";
 import { escapeBelongsToMenu } from "./menu-escape";
+import { OwnerPill } from "./sharing/PeopleMarks";
+import type { PersonLabel } from "./sharing/people";
 import gallery from "./gallery.module.css";
 import styles from "./TablesScreen.module.css";
 
@@ -61,19 +63,26 @@ export function TableActions({
   onDeletePress,
   onDeleteBlur,
   rowStyle,
-}: TableActionsProps & { rowStyle: string }) {
+  mine = true,
+}: TableActionsProps & {
+  rowStyle: string;
+  /** False on someone else's dataset: filing and deleting stay theirs. */
+  mine?: boolean;
+}) {
   return (
     <span className={rowStyle}>
-      <button
-        data-hint="Add to a project"
-        aria-label={`Add to a project: ${t.name}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          onFile();
-        }}
-      >
-        <IconFolderPlus />
-      </button>
+      {mine && (
+        <button
+          data-hint="Add to a project"
+          aria-label={`Add to a project: ${t.name}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onFile();
+          }}
+        >
+          <IconFolderPlus />
+        </button>
+      )}
       <button
         data-hint="Query in SQL"
         aria-label={`Query ${t.name} in SQL`}
@@ -97,26 +106,28 @@ export function TableActions({
         </button>
       )}
       <ExportMenu name={t.name} spatial={!!t.geometryColumn} />
-      <button
-        className={gallery.deleteAct}
-        data-confirm={confirming || undefined}
-        disabled={deleting}
-        data-hint={
-          confirming
-            ? "Click again to delete permanently"
-            : "Delete this table and its data"
-        }
-        aria-label={
-          confirming ? `Confirm deleting ${t.name}` : `Delete ${t.name}`
-        }
-        onClick={(e) => {
-          e.stopPropagation();
-          onDeletePress();
-        }}
-        onBlur={onDeleteBlur}
-      >
-        {confirming ? "Delete?" : <IconTrash />}
-      </button>
+      {mine && (
+        <button
+          className={gallery.deleteAct}
+          data-confirm={confirming || undefined}
+          disabled={deleting}
+          data-hint={
+            confirming
+              ? "Click again to delete permanently"
+              : "Delete this table and its data"
+          }
+          aria-label={
+            confirming ? `Confirm deleting ${t.name}` : `Delete ${t.name}`
+          }
+          onClick={(e) => {
+            e.stopPropagation();
+            onDeletePress();
+          }}
+          onBlur={onDeleteBlur}
+        >
+          {confirming ? "Delete?" : <IconTrash />}
+        </button>
+      )}
     </span>
   );
 }
@@ -127,11 +138,14 @@ export function TableCard({
   table: t,
   index,
   actions,
+  owner = null,
 }: {
   table: TableListing;
   /** Position in its grid, for the entrance stagger. */
   index: number;
   actions: TableActionsProps;
+  /** Someone else's dataset: its owner, marked in the corner. */
+  owner?: PersonLabel | null;
 }) {
   return (
     <article
@@ -178,7 +192,8 @@ export function TableCard({
           </div>
         </div>
       </div>
-      <TableActions {...actions} rowStyle={gallery.acts} />
+      {owner && <OwnerPill owner={owner} placement="corner" />}
+      <TableActions {...actions} rowStyle={gallery.acts} mine={!owner} />
     </article>
   );
 }
@@ -192,6 +207,7 @@ export function TableRow({
   className,
   onEscape,
   projectFact,
+  owner = null,
 }: {
   table: TableListing;
   actions: TableActionsProps;
@@ -204,6 +220,8 @@ export function TableRow({
   onEscape?: () => void;
   /** The Project column's fact: text, never a control. */
   projectFact?: { text: string; none: boolean };
+  /** Someone else's dataset: its owner, marked after the name. */
+  owner?: PersonLabel | null;
 }) {
   const geometry =
     t.geometryColumn === null ? "—" : t.geometryType || "Geometry";
@@ -229,6 +247,7 @@ export function TableRow({
       <td className={styles.nameCell}>
         {leading}
         {t.name}
+        {owner && <OwnerPill owner={owner} placement="inline" />}
       </td>
       <td>
         <SourceChip table={t} />
@@ -263,7 +282,7 @@ export function TableRow({
       )}
       <td className={gallery.numCell}>{formatRelativeTime(updatedAt(t))}</td>
       <td>
-        <TableActions {...actions} rowStyle={gallery.rowActs} />
+        <TableActions {...actions} rowStyle={gallery.rowActs} mine={!owner} />
       </td>
     </tr>
   );

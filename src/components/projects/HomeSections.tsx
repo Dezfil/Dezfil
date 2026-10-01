@@ -10,6 +10,9 @@ import { nodeWord, sourceWord, type WorkflowListing } from "../workflow-model";
 import { WorkflowStatusChip } from "../WorkflowStatusChip";
 import { WorkflowThumb } from "../WorkflowThumb";
 import { KindIcon } from "./ProjectPicture";
+import { OwnerPill } from "../sharing/PeopleMarks";
+import { ownedByOther, type PersonLabel } from "../sharing/people";
+import { useSignedInSqlName } from "../sharing/signed-in";
 import { lastRunCell, lastRunLabel, otherMembershipNames } from "./home-model";
 import gallery from "../gallery.module.css";
 import styles from "./HomeSections.module.css";
@@ -98,7 +101,7 @@ function CardLink({
   );
 }
 
-function MapCard({ map: m }: { map: MapOverview }) {
+function MapCard({ map: m, owner }: { map: MapOverview; owner: PersonLabel | null }) {
   return (
     <article className={`${gallery.card} ${styles.secCard}`} data-sec-card="map">
       <CardLink label={`Open ${m.name}`} href={`/maps/${m.id}`}>
@@ -131,6 +134,7 @@ function MapCard({ map: m }: { map: MapOverview }) {
           </div>
         </div>
       </CardLink>
+      {owner && <OwnerPill owner={owner} placement="corner" />}
       {m.publishToken && (
         <div className={gallery.acts}>
           <PublishedLink map={m} />
@@ -160,7 +164,9 @@ function WorkflowCard({
   workflow: w,
   lastRun,
   groupOf,
+  owner,
 }: {
+  owner: PersonLabel | null;
   workflow: WorkflowListing;
   lastRun: string | null | "unreadable";
   groupOf: (operation: string) => string | null;
@@ -205,6 +211,7 @@ function WorkflowCard({
           </div>
         </div>
       </CardLink>
+      {owner && <OwnerPill owner={owner} placement="corner" />}
     </article>
   );
 }
@@ -213,9 +220,11 @@ function WorkflowCard({
 function DatasetCard({
   table: t,
   others,
+  owner,
 }: {
   table: TableListing;
   others: string[];
+  owner: PersonLabel | null;
 }) {
   return (
     <article className={`${gallery.card} ${styles.secCard}`} data-sec-card="dataset">
@@ -251,6 +260,7 @@ function DatasetCard({
           )}
         </div>
       </CardLink>
+      {owner && <OwnerPill owner={owner} placement="corner" />}
     </article>
   );
 }
@@ -276,6 +286,10 @@ export function HomeSections({
   groupOf: (operation: string) => string | null;
 }) {
   const router = useRouter();
+  // Someone else's item in the project is marked with its owner.
+  const me = useSignedInSqlName();
+  const ownerOf = (item: { owner?: PersonLabel }) =>
+    ownedByOther(item.owner, me) ? item.owner : null;
   const anyShared = tables.some(
     (t) => otherMembershipNames(t, projectId, names).length > 0,
   );
@@ -287,7 +301,7 @@ export function HomeSections({
           {view === "cards" ? (
             <div className={styles.grid}>
               {maps.map((m) => (
-                <MapCard key={m.id} map={m} />
+                <MapCard key={m.id} map={m} owner={ownerOf(m)} />
               ))}
             </div>
           ) : (
@@ -314,6 +328,7 @@ export function HomeSections({
                     </span>
                     <span className={gallery.colName}>
                       <span className={gallery.rowName}>{m.name}</span>
+                      {ownerOf(m) && <OwnerPill owner={ownerOf(m)!} placement="inline" />}
                     </span>
                     <span className={gallery.colMeta}>
                       {m.layerCount} layer{m.layerCount === 1 ? "" : "s"}
@@ -355,6 +370,7 @@ export function HomeSections({
                   workflow={w}
                   lastRun={lastRuns.get(w.id) ?? null}
                   groupOf={groupOf}
+                  owner={ownerOf(w)}
                 />
               ))}
             </div>
@@ -384,6 +400,7 @@ export function HomeSections({
                     </span>
                     <span className={gallery.colName}>
                       <span className={gallery.rowName}>{w.name}</span>
+                      {ownerOf(w) && <OwnerPill owner={ownerOf(w)!} placement="inline" />}
                     </span>
                     <span className={gallery.colMeta}>
                       {w.summary.nodes} {nodeWord(w.summary.nodes)}
@@ -413,6 +430,7 @@ export function HomeSections({
                   key={t.id}
                   table={t}
                   others={otherMembershipNames(t, projectId, names)}
+                  owner={ownerOf(t)}
                 />
               ))}
             </div>
@@ -447,6 +465,7 @@ export function HomeSections({
                     </span>
                     <span className={gallery.colName}>
                       <span className={styles.monoName}>{t.name}</span>
+                      {ownerOf(t) && <OwnerPill owner={ownerOf(t)!} placement="inline" />}
                     </span>
                     <span className={styles.colSrc}>
                       <SourceChip table={t} />

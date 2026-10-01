@@ -7,6 +7,8 @@
  * membership treated many-to-many with no preference.
  */
 
+import { firstName } from "../sharing/people";
+
 export type ProjectScope =
   | { kind: "all" }
   | { kind: "none" }
@@ -31,6 +33,19 @@ export interface ScopeRow {
   id: string; // "all" | "none" | a project id
   name: string;
   count: number;
+  /** A project someone else owns and shares with the reader. */
+  shared?: true;
+  /** That project's owner, by first name. */
+  owner?: string;
+}
+
+/** A project as the directory names it: the reader's role and the owner
+ * arrive with every project the reader reaches. */
+export interface ScopeProject {
+  id: string;
+  name: string;
+  role?: "owner" | "editor" | "viewer";
+  owner?: { name: string; sqlName: string };
 }
 
 /** The unset scope's row id. */
@@ -51,13 +66,14 @@ export function printedCount(row: {
   return row.id === ALL_SCOPE ? null : row.count;
 }
 
-/** The popover's rows: All, every project (zero counts included), and
- * Not in a project. `membershipOf` returns every project an item is
- * in; empty means unfiled. A dataset therefore counts in each of its
- * projects and as unfiled only with none. */
+/** The popover's rows: All, the reader's own projects, the projects
+ * shared with them (each with its owner's first name), and Not in a
+ * project; zero counts included. `membershipOf` returns every project an
+ * item is in; empty means unfiled. A dataset therefore counts in each of
+ * its projects and as unfiled only with none. */
 export function scopeRows<T>(
   items: T[],
-  projects: { id: string; name: string }[],
+  projects: ScopeProject[],
   membershipOf: (item: T) => string[],
 ): ScopeRow[] {
   const perProject = new Map<string, number>();
@@ -69,13 +85,17 @@ export function scopeRows<T>(
       perProject.set(id, (perProject.get(id) ?? 0) + 1);
     }
   }
+  const sharedWithReader = (p: ScopeProject) => !!p.role && p.role !== "owner";
+  const row = (p: ScopeProject): ScopeRow => {
+    const base = { id: p.id, name: p.name, count: perProject.get(p.id) ?? 0 };
+    if (!sharedWithReader(p)) return base;
+    const owner = p.owner ? firstName(p.owner.name) : null;
+    return owner ? { ...base, shared: true, owner } : { ...base, shared: true };
+  };
   return [
     { id: ALL_SCOPE, name: "All projects", count: items.length },
-    ...projects.map((p) => ({
-      id: p.id,
-      name: p.name,
-      count: perProject.get(p.id) ?? 0,
-    })),
+    ...projects.filter((p) => !sharedWithReader(p)).map(row),
+    ...projects.filter(sharedWithReader).map(row),
     { id: "none", name: "Not in a project", count: unfiled },
   ];
 }

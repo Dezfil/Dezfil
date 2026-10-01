@@ -30,6 +30,8 @@ import { ExportProjectDialog } from "./ExportProjectDialog";
 import { HomeSections, type HomeView } from "./HomeSections";
 import { KindIcon } from "./ProjectPicture";
 import { ProjectCrumbTail } from "../shell/ProjectCrumbTail";
+import { PlainCrumbTail } from "../shell/PlainCrumbTail";
+import { RoleLine } from "../sharing/PeopleMarks";
 import { attentionRows, factsLine, homeStats } from "./home-model";
 import {
   useCatalogue,
@@ -329,14 +331,23 @@ function ProjectHomeVisit({ id, home }: {
 
   const { record, maps, workflows, tables, names, lastRuns } = state.value;
   const hasContent = maps.length + workflows.length + tables.length > 0;
+  // How the reader stands to the project, as its read says: its owner
+  // keeps the whole head; its people get the role line, an Editor keeps
+  // Add to project, and renaming, the note and the menu stay the owner's.
+  const role = record.role ?? "owner";
+  const owns = role === "owner";
 
   return (
     <div className={styles.screen}>
-      <ProjectCrumbTail
-        projectId={id}
-        name={record.name}
-        onRename={(next) => void rename(next)}
-      />
+      {owns ? (
+        <ProjectCrumbTail
+          projectId={id}
+          name={record.name}
+          onRename={(next) => void rename(next)}
+        />
+      ) : (
+        <PlainCrumbTail name={record.name} />
+      )}
       <div className={styles.heading}>
         <div className={styles.headLeft}>
           {nameDraft !== null ? (
@@ -356,6 +367,10 @@ function ProjectHomeVisit({ id, home }: {
           ) : (
             <h1>{record.name}</h1>
           )}
+          {!owns && record.owner && (
+            <RoleLine owner={record.owner} role={role} />
+          )}
+          {owns ? (
           <div className={styles.noteLine}>
             {noteDraft !== null ? (
               <input
@@ -382,6 +397,13 @@ function ProjectHomeVisit({ id, home }: {
               </>
             )}
           </div>
+          ) : (
+            record.note && (
+              <div className={styles.noteLine}>
+                <span>{record.note}</span>
+              </div>
+            )
+          )}
           {stats && (
             <div className={styles.stats} data-facts>
               {factsLine(stats, record, formatRelativeTime).map((f, i) => (
@@ -403,29 +425,33 @@ function ProjectHomeVisit({ id, home }: {
           )}
         </div>
         <div className={styles.headActs} data-head-acts>
-          <Button size="chrome" onClick={() => setPicking(true)}>
-            <IconFolderPlus /> Add to project
-          </Button>
+          {role !== "viewer" && (
+            <Button size="chrome" onClick={() => setPicking(true)}>
+              <IconFolderPlus /> Add to project
+            </Button>
+          )}
           {hasContent && (
             <Button size="chrome" onClick={() => setExporting(true)}>
               <IconDownload /> Export project
             </Button>
           )}
-          <Menu
-            label="Project actions"
-            triggerLabel="More"
-            trigger="⋯"
-            className={styles.menuWrap}
-            triggerClassName={styles.menuTrigger}
-            menuClassName={styles.menu}
-          >
-            <MenuItem onSelect={() => setNameDraft(record.name)}>
-              Rename
-            </MenuItem>
-            <MenuItem danger onSelect={() => setConfirmingDelete(true)}>
-              Delete project
-            </MenuItem>
-          </Menu>
+          {owns && (
+            <Menu
+              label="Project actions"
+              triggerLabel="More"
+              trigger="⋯"
+              className={styles.menuWrap}
+              triggerClassName={styles.menuTrigger}
+              menuClassName={styles.menu}
+            >
+              <MenuItem onSelect={() => setNameDraft(record.name)}>
+                Rename
+              </MenuItem>
+              <MenuItem danger onSelect={() => setConfirmingDelete(true)}>
+                Delete project
+              </MenuItem>
+            </Menu>
+          )}
         </div>
       </div>
 
@@ -492,12 +518,15 @@ function ProjectHomeVisit({ id, home }: {
       )}
 
       <div className={styles.scroller} data-home-content>
-        <AttentionArea
-          rows={attention}
-          workflows={workflows}
-          opLabel={opLabel}
-          onChanged={confirmMembership}
-        />
+        {/* Its call to run again is for those who may run: not a Viewer. */}
+        {role !== "viewer" && (
+          <AttentionArea
+            rows={attention}
+            workflows={workflows}
+            opLabel={opLabel}
+            onChanged={confirmMembership}
+          />
+        )}
         {hasContent ? (
           <HomeSections
             projectId={id}
@@ -509,6 +538,8 @@ function ProjectHomeVisit({ id, home }: {
             view={view}
             groupOf={groupOf}
           />
+        ) : role === "viewer" ? (
+          <p className={gallery.empty}>This project is empty.</p>
         ) : (
           <EmptyHome
             projectId={id}
