@@ -5,9 +5,10 @@ import { localName, qualifiedNameParts } from "./qualified-name";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { ApiError } from "@/lib/api/errors";
 import { isOutOfMemory } from "./bounded";
-import { sqlError } from "./engine-message";
+import { sqlError, UNKNOWN_TABLE_MESSAGE } from "./engine-message";
 import { readOnlySql } from "./guard";
-import { classifyReference } from "./reference-forms";
+import { classifyReference, writtenReference } from "./reference-forms";
+import { unavailableDataset } from "./bindings";
 import { isCteReference } from "./references";
 import { mountPlanOf, type MountPlan, type QualifiedBinding } from "./mount-plan";
 
@@ -43,6 +44,49 @@ function syntheticName(synthetics: Synthetics, plan: MountPlan, binding: { synth
   const name = `__dezfil_home_${randomUUID().replaceAll("-", "")}`;
   synthetics.set(binding.synthetic.id, { name, from: plan.synthetic.get(binding.synthetic.id)! });
   return name;
+}
+
+/** The failure of a reference that binds nothing. A resource evaluation (a
+ * layer, tile, render, widget, export, search or workflow step) names the
+ * reference as written and says it is not available to the caller; the
+ * console keeps the engine's generic unknown-table refusal. Neither says
+ * whether the dataset exists or whose it would be. */
+function unbound(plan: MountPlan, parts: readonly string[]): ApiError {
+  return plan.purpose === "resource" ? unavailableDataset(writtenReference(parts)) : new ApiError("sql_error", UNKNOWN_TABLE_MESSAGE, 400);
+}
+
+/** Whether a name binds to a relation this connection has: the engine's own
+ * catalogues and an evaluation's private staging inputs, never a dataset
+ * (every dataset in reach is in the plan). */
+async function bindsAsRelation(conn: DuckDBConnection, parts: readonly string[]): Promise<boolean> {
+  try {
+    await conn.runAndReadAll(`DESCRIBE SELECT * FROM ${parts.map(quoted).join(".")}`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Refuse, in a resource evaluation, a reference the namespace cannot bind:
+ * a qualified name outside reach, a declared output this runner has not
+ * produced, and, when the caller is not the SQL home, a plain name the home's
+ * reachable datasets do not hold. For the home itself an unknown plain name
+ * keeps the engine's own refusal, as it always has. The console is left to
+ * the engine: the same generic refusal for a hidden and a missing name.
+ */
+async function refuseUnbound(conn: DuckDBConnection, plan: MountPlan | undefined, parts: readonly string[]): Promise<void> {
+  if (!plan || plan.purpose !== "resource") return;
+  const classified = classifyReference(parts);
+  if (classified.form === "engine") return;
+  if (classified.form === "qualified") {
+    if (!plan.qualified.has(`${classified.qualifier}.${classified.name}`)) throw unbound(plan, parts);
+    return;
+  }
+  const view = plan.plain.get(classified.name);
+  if (view === null) throw unbound(plan, parts);
+  if (view !== undefined || plan.callerIsHome) return;
+  if (!await bindsAsRelation(conn, parts)) throw unbound(plan, parts);
 }
 
 /** How a qualified name is reached here, when it names a SQL name's dataset. */
@@ -104,10 +148,13 @@ async function compileNamedSql(conn: DuckDBConnection, sql: string, synthetics: 
       if (!value.alias) inner.aliases.add(String(value.table_name).toLowerCase());
       const catalog = String(value.catalog_name ?? ""), schema = String(value.schema_name ?? "");
       const lowerCatalog = catalog.toLowerCase(), lowerSchema = schema.toLowerCase();
+      const parts = [catalog, schema, String(value.table_name)].filter(Boolean);
+      const cte = isCteReference(inner.ctes, catalog, schema, String(value.table_name));
+      if (!cte) await refuseUnbound(conn, plan, parts);
       if ((lowerCatalog === "memory" && (!lowerSchema || lowerSchema === "main")) || (!lowerCatalog && lowerSchema === "memory")) {
         value.catalog_name = "temp"; value.schema_name = "main"; changed = true;
-      } else if (!isCteReference(inner.ctes, catalog, schema, String(value.table_name))) {
-        const found = qualifiedBinding(plan, [catalog, schema, String(value.table_name)].filter(Boolean));
+      } else if (!cte) {
+        const found = qualifiedBinding(plan, parts);
         if (found?.binding) {
           const written = String(value.table_name);
           const target = "view" in found.binding ? found.binding.view : syntheticName(synthetics, plan!, found.binding);
@@ -148,23 +195,26 @@ async function compileNamedSql(conn: DuckDBConnection, sql: string, synthetics: 
           fn.children[0] = await expression(conn, await compileNested(conn, resolved, synthetics)); changed = true;
         } else if (NAMED_TABLE_FUNCTIONS.has(kind) && (typeof resolved === "string" || (Array.isArray(resolved) && resolved.every(v => typeof v === "string")))) {
           const targets = typeof resolved === "string" ? [resolved] : resolved;
-          const mapped = targets.map((target) => {
+          const mapped: string[] = [];
+          for (const target of targets) {
             const parts = qualifiedNameParts(target);
             const bare = parts?.at(-1);
             if (bare) inner.tables.add(bare.toLowerCase());
             if (parts && !(parts.length === 1 && inner.ctes.has(parts[0].toLowerCase()))) {
+              await refuseUnbound(conn, plan, parts);
               const found = qualifiedBinding(plan, parts);
               if (found?.binding) {
-                if ("view" in found.binding) return quoted(found.binding.view);
+                if ("view" in found.binding) { mapped.push(quoted(found.binding.view)); continue; }
                 // A statement-local relation stands behind the reading
                 // functions; an inspection function needs a catalogue entry,
                 // and a shadowed home dataset never has one.
-                if (!LOCAL_RELATION_FUNCTIONS.has(kind)) throw new ApiError("sql_error", "The query refers to an unknown table.", 400);
-                return quoted(syntheticName(synthetics, plan!, found.binding));
+                if (!LOCAL_RELATION_FUNCTIONS.has(kind)) throw unbound(plan!, parts);
+                mapped.push(quoted(syntheticName(synthetics, plan!, found.binding)));
+                continue;
               }
             }
-            return localName(target);
-          });
+            mapped.push(localName(target));
+          }
           fn.children[0] = await expression(conn, typeof resolved === "string" ? mapped[0] : mapped); changed = true;
         }
       }

@@ -4,6 +4,7 @@ import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
 import { tableFromRow, type DataTable, type TableRow } from "@/lib/metadata/tables";
 import { qualifiedNameParts } from "./qualified-name";
+import { DatasetUnavailable } from "./engine-message";
 import { readOnlySql } from "./guard";
 import { collectReferences, serializeSql, type TableReference } from "./references";
 import { classifyReference, writtenReference, type Classified } from "./reference-forms";
@@ -101,7 +102,7 @@ export function resolveParameter(namespace: Namespace, value: string): { parts: 
  * It repeats the reference as written and confirms nothing about whether the
  * dataset exists or whose it is. */
 export function unavailableDataset(written: string): ApiError {
-  return new ApiError("sql_error", `The dataset "${written}" is not available to you.`, 400);
+  return new DatasetUnavailable(written);
 }
 
 export interface ResolvedRead {

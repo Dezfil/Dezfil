@@ -73,3 +73,27 @@ it("uses the same safe refusal in query consumers and their degraded envelopes",
  expect(await computeWidgetValues(scope(), { ...map, widgets }, [saved], [])).toMatchObject({ widgets: [{ id: "count", errorCode: "sql_error", error: "The query refers to an unknown table." }] });
  expect(scopedDatasets(scope()).map(table => table.name)).toEqual(["roads"]);
 });
+it("gives a member and a non-member the same generic refusal for a hidden and a nonexistent name under reach", async () => {
+ const { shareProject } = await import("@/lib/test-support/sharing");
+ const ada = testAccountScope(undefined, "ada"), eve = testAccountScope(undefined, "eve"), cyd = testAccountScope(undefined, "cyd");
+ const source = path.join(directory, "trails.csv"); await writeFile(source, "name,lon,lat\nshared,1,2\n");
+ const trails = await ingestFile(ada, source, "trails.csv");
+ await ingestFile(ada, source, "parks.csv");
+ shareProject("ada", "P", [["eve", "viewer"]], [trails.id]);
+ expect((await executeQuery(eve, "SELECT name FROM ada.trails")).preview).toEqual([{ name: "shared" }]);
+ const pairs: [typeof eve, string, string][] = [
+  [cyd, "SELECT * FROM ada.trails", "SELECT * FROM ada.xrails"],
+  [cyd, "SELECT * FROM query_table('ada.trails')", "SELECT * FROM query_table('ada.xrails')"],
+  [cyd, "SELECT * FROM query('SELECT * FROM ada.trails')", "SELECT * FROM query('SELECT * FROM ada.xrails')"],
+  [eve, "SELECT * FROM ada.parks", "SELECT * FROM ada.xarks"],
+  [eve, "SELECT * FROM bob.hidden_roads", "SELECT * FROM zzz.hidden_roads"],
+  [eve, "SELECT * FROM parks", "SELECT * FROM xarks"],
+ ];
+ for (const [caller, hiddenSql, missingSql] of pairs) {
+  const hidden = await failure(() => executeQuery(caller, hiddenSql));
+  const missing = await failure(() => executeQuery(caller, missingSql));
+  expect(hidden, hiddenSql).toEqual(missing);
+  expect(hidden, hiddenSql).toMatchObject({ code: "sql_error", status: 400, message: "The query refers to an unknown table." });
+  expect(JSON.stringify(hidden), hiddenSql).not.toMatch(/trails|parks|hidden_roads|ada|bob|Candidate|Did you mean|schema|read_parquet|tables\//);
+ }
+});

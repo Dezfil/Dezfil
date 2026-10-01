@@ -291,10 +291,23 @@ also covers computed and per-row CRS values, WKT file parameters and PROJJSON
 file parameters, before the native projection library receives them. EPSG
 identifiers and inline definitions without files remain supported.
 
-SQL referring to a table outside the caller's space returns the same
+SQL referring to a table outside the caller's reach returns the same
 `sql_error` for a hidden or nonexistent table. It includes no name suggestions.
-Engine failures omit internal statements, artifact paths and native-library
-internals. Input diagnostics and a source position remain when available.
+In the console (`/api/query`, its export, and every agent tool that runs SQL)
+that is the generic `The query refers to an unknown table.` A resource's own
+evaluation (a layer's render, fields, statistics, extent, classification,
+widget values, export, tile build, and a workflow step) names the reference
+instead, exactly as written, when it binds nothing the caller can reach: `The
+dataset "<reference>" is not available to you.` It says nothing about whether
+the dataset exists or whose it is, and it is the same message whether the
+dataset is hidden or missing. It applies to a qualified name outside reach, to
+a workflow's declared output the runner has not produced, and to any plain
+name when the caller is not the SQL home; the home's own unknown plain name
+keeps the generic message, as before. A run that saves a result as a dataset
+names a qualified reference outside reach the same way. A published link shows
+the documented sentence for `sql_error` either way. Engine failures omit internal statements,
+artifact paths and native-library internals. Input diagnostics and a source
+position remain when available.
 
 Stored SQL is not rewritten. A saved file query or affected published layer
 returns its normal error treatment until its owner changes the query to use a

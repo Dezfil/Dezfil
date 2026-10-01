@@ -70,6 +70,16 @@ export function enginePosition(
 }
 
 export const UNKNOWN_TABLE_MESSAGE = "The query refers to an unknown table.";
+
+/** A resource evaluation's refusal of a reference that binds nothing the
+ * caller can reach. Its message is ours, built from the reference as written,
+ * and is already safe: no engine diagnostic is behind it, so no sanitizer
+ * rewrites it, even when the name reads like a file word. */
+export class DatasetUnavailable extends ApiError {
+  constructor(written: string) {
+    super("sql_error", `The dataset "${written}" is not available to you.`, 400);
+  }
+}
 export const DATASET_READ_MESSAGE = "The query's dataset could not be read.";
 const FAILED_QUERY_MESSAGE = "The query could not be completed.";
 const ENGINE_PREFIX = /^(?:Catalog|Binder|Parser|Conversion|Invalid(?: Input| Type)?|IO|Permission|Not implemented|Internal|Transaction|Constraint|Serialization|Connection|Syntax|Type) Error:/i;
@@ -92,6 +102,7 @@ export function safeEngineMessage(message: string): string {
 /** Refusals that must survive per-consumer fallbacks such as numeric-column
  * hints. Other conversion failures keep those consumers' existing treatment. */
 export function engineRefusal(error: unknown): ApiError | null {
+  if (error instanceof DatasetUnavailable) return error;
   const projection = projectionRejection(error);
   if (projection) return projection;
   if (!(error instanceof Error)) return null;
@@ -103,6 +114,7 @@ export function engineRefusal(error: unknown): ApiError | null {
 /** One coded failure at the evaluation boundary, including consumers that do
  * not have their own catch. Existing input positions survive only as numbers. */
 export function normalizeEngineError(error: unknown): unknown {
+  if (error instanceof DatasetUnavailable) return error;
   const projection = projectionRejection(error);
   if (projection) return projection;
   if (!(error instanceof Error)) return error;
