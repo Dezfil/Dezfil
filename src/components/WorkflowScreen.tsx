@@ -35,6 +35,8 @@ import type { WorkflowListing } from "./workflow-model";
 import { usePathname } from "next/navigation";
 import { contributePath, releasePath } from "@/components/shell/path-model";
 import styles from "./WorkflowScreen.module.css";
+import { PathOwnerMark } from "./sharing/PeopleMarks";
+import type { PersonLabel } from "./sharing/people";
 
 /**
  * A workflow's page: the shell crumb carries its name, renamed inline as a
@@ -90,10 +92,13 @@ interface PageRead {
 
 export function CrumbName({
   name,
+  owner,
   onRename,
   readOnly = false,
 }: {
   name: string;
+  /** The workflow's owner: named beside it when it is someone else's. */
+  owner?: PersonLabel | null;
   onRename: (next: string) => void;
   /** A Viewer's page: the name, no rename. */
   readOnly?: boolean;
@@ -108,6 +113,7 @@ export function CrumbName({
       <span className={styles.crumbTail}>
         <span className={styles.crumbSep}>/</span>
         <span className={styles.plainName}>{name}</span>
+        <PathOwnerMark owner={owner} />
       </span>
     );
   }
@@ -148,6 +154,7 @@ export function CrumbName({
           {name}
         </button>
       )}
+      <PathOwnerMark owner={owner} />
     </span>
   );
 }
@@ -467,7 +474,7 @@ export function WorkflowScreen({
       {crumbSlot &&
         page &&
         createPortal(
-          <CrumbName name={name} onRename={(n) => void rename(n)} readOnly={viewOnly} />,
+          <CrumbName name={name} owner={page.recipe.owner} onRename={(n) => void rename(n)} readOnly={viewOnly} />,
           crumbSlot,
         )}
       {historySlot &&

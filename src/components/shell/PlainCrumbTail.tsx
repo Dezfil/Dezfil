@@ -3,6 +3,8 @@
 import { useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import styles from "@/components/builder/MapBuilder.module.css";
+import { PathOwnerMark } from "@/components/sharing/PeopleMarks";
+import type { PersonLabel } from "@/components/sharing/people";
 
 const subscribeNever = () => () => {};
 
@@ -12,7 +14,14 @@ const subscribeNever = () => () => {};
  * tail but no button, no rename, no hover invitation. The route's path
  * contribution stays the page's own concern.
  */
-export function PlainCrumbTail({ name }: { name: string }) {
+export function PlainCrumbTail({
+  name,
+  owner,
+}: {
+  name: string;
+  /** The item's owner: named beside it when it is someone else's. */
+  owner?: PersonLabel | null;
+}) {
   const mounted = useSyncExternalStore(
     subscribeNever,
     () => true,
@@ -25,6 +34,7 @@ export function PlainCrumbTail({ name }: { name: string }) {
     <span className={styles.crumbTail}>
       <span className={styles.crumbSep}>/</span>
       <span className={styles.plainName}>{name}</span>
+      <PathOwnerMark owner={owner} />
     </span>,
     slot,
   );

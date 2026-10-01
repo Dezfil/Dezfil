@@ -1,7 +1,8 @@
 "use client";
 
 import { PeopleIcon } from "../ui/icons";
-import { initials, roleWord, type PeopleMark, type PersonLabel, type ProjectRole } from "./people";
+import { initials, ownedByOther, roleWord, type PeopleMark, type PersonLabel, type ProjectRole } from "./people";
+import { useSignedInSqlName } from "./signed-in";
 import gallery from "../gallery.module.css";
 import styles from "./PeopleMarks.module.css";
 
@@ -42,13 +43,14 @@ export function PeopleChip({ mark }: { mark: PeopleMark }) {
 
 /** The corner pill on someone else's map, workflow or dataset: the people
  * glyph and the owner's initials, the owner's name on hover. In a list row
- * it stands in the name cell instead of over the picture. */
+ * it stands in the name cell instead of over the picture, and on an opened
+ * item beside its name in the header path. */
 export function OwnerPill({
   owner,
   placement,
 }: {
   owner: PersonLabel;
-  placement: "corner" | "inline";
+  placement: "corner" | "inline" | "path";
 }) {
   return (
     <span
@@ -86,4 +88,13 @@ export function RoleLine({
       </span>
     </div>
   );
+}
+
+/** An opened item's owner, beside its name in the header path's last
+ * segment: the lists' pill when the item is someone else's, nothing on
+ * one's own or while the signed-in person is unknown. A mark, never a
+ * control. */
+export function PathOwnerMark({ owner }: { owner?: PersonLabel | null }) {
+  const me = useSignedInSqlName();
+  return ownedByOther(owner, me) ? <OwnerPill owner={owner} placement="path" /> : null;
 }

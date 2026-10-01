@@ -282,7 +282,7 @@ function TableDetail({
 
   return (
     <div className={styles.screen}>
-      <PlainCrumbTail name={table.name} />
+      <PlainCrumbTail name={table.name} owner={table.owner} />
       <div className={styles.head}>
         <Link
           href="/data"

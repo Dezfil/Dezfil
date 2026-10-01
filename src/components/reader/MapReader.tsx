@@ -23,6 +23,7 @@ import { useStageEdges } from "../builder/use-stage-edge";
 import { mapWidgetEndpoints, useMapPresentation } from "../builder/use-map-presentation";
 import { useTimeline } from "../builder/use-timeline";
 import builderStyles from "../builder/MapBuilder.module.css";
+import type { PersonLabel } from "../sharing/people";
 import styles from "./MapReader.module.css";
 
 /**
@@ -230,7 +231,7 @@ export function ReaderStage({
 
   return (
     <>
-      <PlainCrumbTail name={map.name} />
+      <PlainCrumbTail name={map.name} owner={(map as { owner?: PersonLabel }).owner} />
       <MapPresentation
         stage={stage}
         map={map}

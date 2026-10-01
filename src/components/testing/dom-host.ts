@@ -10,8 +10,9 @@
  * phases. It computes no layout and no style, parses no HTML, and offers
  * only the members react-dom's client touches while rendering plus the
  * few a test reads back (`querySelectorAll` over a tag, a class or an
- * attribute, `textContent`, `disabled`, `click`, `closest`). Anything else is
- * absent on purpose; a test that needs it needs a browser.
+ * attribute, `getElementById`, `textContent`, `disabled`, `click`,
+ * `closest`). Anything else is absent on purpose; a test that needs it
+ * needs a browser.
  */
 
 const HTML_NS = "http://www.w3.org/1999/xhtml";
@@ -252,6 +253,7 @@ export class HostDocument extends HostNode {
   createComment(text: string) { return new HostText(this, text, COMMENT_NODE); }
   querySelectorAll(selector: string) { return this.documentElement.querySelectorAll(selector); }
   querySelector(selector: string) { return this.documentElement.querySelector(selector); }
+  getElementById(id: string) { return this.documentElement.querySelector(`[id="${id}"]`); }
 }
 
 /** The window react-dom reads while rendering: its document, the event

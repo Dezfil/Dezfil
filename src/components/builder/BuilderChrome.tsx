@@ -14,6 +14,8 @@ import { PublishControl } from "./publish/PublishControl";
 import type { LayerRenderData } from "@/lib/layer-service";
 import { ExportControl } from "./export/ExportControl";
 import type { LayerDataDownloadPort } from "./use-layer-data-downloads";
+import { PathOwnerMark } from "../sharing/PeopleMarks";
+import type { PersonLabel } from "../sharing/people";
 import styles from "./MapBuilder.module.css";
 
 /** The builder's fixed chrome, out of MapBuilder (the
@@ -143,6 +145,7 @@ export function HeaderChrome({
           {map.name}
         </button>
       )}
+      <PathOwnerMark owner={(map as { owner?: PersonLabel }).owner} />
     </span>
   );
 

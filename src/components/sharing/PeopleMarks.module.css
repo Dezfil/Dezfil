@@ -46,6 +46,14 @@
   font-family: var(--font-ui);
 }
 
+/* Beside an opened item's name in the header path. */
+.ownerPill[data-placement="path"] {
+  height: 22px;
+  margin-left: 4px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+}
+
 .initials {
   width: 18px;
   height: 18px;
