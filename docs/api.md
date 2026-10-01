@@ -865,7 +865,10 @@ including mixed parent/child requests. Refused compound changes leave
 definitions and filing unchanged.
 A step's declared output name is taken (`name_taken`) when a dataset of that
 name is in the workflow's SQL home, where its steps read plain names, or in
-the declaring person's own space, where their run lands the output.
+the declaring person's own space, where their run lands the output. A
+person other than the home's account whose name only the home holds is told
+"That name is not available in this workflow." without the dataset being
+named, since the home's datasets need not be theirs to see.
 Duplication names the copy's outputs against the duplicator's own datasets and
 workflows. Same-workflow conflicts and the frozen name of an existing output
 retain their previous rules. Deleting a workflow leaves its datasets.

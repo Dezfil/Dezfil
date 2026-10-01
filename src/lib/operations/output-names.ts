@@ -23,7 +23,9 @@ import { findOperation } from "./catalog";
  * workflow's SQL home, where the steps read plain names and a declared
  * output would shadow a home dataset other steps read, and the declaring
  * person's own space, where their run lands the output. For a workflow's
- * owner in their own home the two are one.
+ * owner in their own home the two are one. Someone declaring a name only the
+ * home holds is told the name is not available in this workflow, never which
+ * table holds it: the home's datasets need not be theirs to see.
  */
 
 /** The name the registry will use for what was typed. */
@@ -105,13 +107,18 @@ export function outputNameRefusal(args: {
   const me = requireAccountScope(scope, db);
   const standing = recipeStanding(recipeId, db);
   const home = standing?.homeId ?? standing?.ownerId ?? me;
-  if (tableNameHeld([home, me], registered, db)) {
+  if (tableNameHeld([me], registered, db)) {
     return new ApiError(
       "name_taken",
       `A table named "${registered}" already exists. An operation never replaces or ` +
         `renames around an existing table. Choose another name.`,
       400,
     );
+  }
+  // Held in the home only, by someone else: the home's datasets may be
+  // private, so the refusal names no table and says nothing exists.
+  if (home !== me && tableNameHeld([home], registered, db)) {
+    return new ApiError("name_taken", "That name is not available in this workflow. Choose another name.", 400);
   }
   const sibling = siblingNames(scope, recipeId, stepId, db).get(registered);
   if (sibling) {

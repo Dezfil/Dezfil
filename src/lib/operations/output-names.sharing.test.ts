@@ -34,6 +34,9 @@ beforeEach(() => {
 });
 afterEach(() => { vi.restoreAllMocks(); db.close(); });
 
+const NOT_AVAILABLE = "That name is not available in this workflow. Choose another name.";
+const OWN_WORDING = (name: string) =>
+  `A table named "${name}" already exists. An operation never replaces or renames around an existing table. Choose another name.`;
 const refusal = (account: string, recipeId: string, typed: string) =>
   outputNameRefusal({ scope: testAccountScope(db, account), db, recipeId, stepId: null, produced: null, typed });
 
@@ -41,25 +44,38 @@ describe("a declared output's name on a shared workflow", () => {
   it("is taken for an Editor when the workflow's home holds a dataset of that name", () => {
     const answer = refusal("bo", "W", "parcels");
     expect(answer?.code).toBe("name_taken");
-    expect(answer?.message).toContain('"parcels"');
+    expect(answer?.status).toBe(400);
   });
 
-  it("is taken for an Editor when their own space, where the run lands it, holds one", () => {
-    expect(refusal("bo", "W", "stations")?.code).toBe("name_taken");
+  it("refuses an Editor in a sentence that confirms nothing about the home's private datasets", () => {
+    const answer = refusal("bo", "W", "parcels");
+    expect(answer?.message).toBe(NOT_AVAILABLE);
+    expect(answer?.message).not.toContain("parcels");
+    expect(answer?.message).not.toContain("already exists");
+    expect(answer?.message).not.toContain("\u2014");
+  });
+
+  it("is taken for an Editor when their own space, where the run lands it, holds one, named as theirs", () => {
+    const answer = refusal("bo", "W", "stations");
+    expect(answer?.code).toBe("name_taken");
+    expect(answer?.message).toBe(OWN_WORDING("stations"));
   });
 
   it("is free for an Editor when neither holds one", () => {
     expect(refusal("bo", "W", "fresh_output")).toBeNull();
   });
 
-  it("stays as it was for the owner in their own home: their datasets, not an Editor's", () => {
+  it("stays as it was for the owner in their own home: their datasets, not an Editor's, in the owner's own wording", () => {
     expect(refusal("ada", "W", "parcels")?.code).toBe("name_taken");
+    expect(refusal("ada", "W", "parcels")?.message).toBe(OWN_WORDING("parcels"));
     expect(refusal("ada", "W", "stations")).toBeNull();
   });
 
   it("follows the home, not the owner, on a workflow handed to someone else", () => {
     expect(refusal("bo", "T", "parcels")?.code).toBe("name_taken");
-    expect(refusal("bo", "T", "stations")?.code).toBe("name_taken");
+    expect(refusal("bo", "T", "parcels")?.message).toBe(NOT_AVAILABLE);
+    expect(refusal("bo", "T", "stations")?.message).toBe(OWN_WORDING("stations"));
     expect(refusal("ada", "T", "stations")).toBeNull();
+    expect(refusal("ada", "T", "parcels")?.message).toBe(OWN_WORDING("parcels"));
   });
 });
