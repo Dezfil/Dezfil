@@ -1,3 +1,4 @@
+import { tableRef } from "./input-ref";
 import { ApiError } from "@/lib/api/errors";
 import { ident } from "@/lib/ingest/ingest";
 import type { DataTable } from "@/lib/metadata/tables";
@@ -58,11 +59,11 @@ export function nearestJoinSql(
       : `\n    WHERE ST_Distance(${leftMeasured}, ${rightMeasured}) <= ${maxDistanceM}`;
   return `SELECT l.*,
        ${select}near.nearest_distance_m
-FROM ${ident(left.name)} AS l
+FROM ${tableRef(left)} AS l
 LEFT JOIN LATERAL (
   SELECT ${carry.map((c) => `r.${ident(c)}`).join(", ")}${carry.length > 0 ? "," : ""}
          ST_Distance(${leftMeasured}, ${rightMeasured}) AS nearest_distance_m
-  FROM ${ident(right.name)} AS r${bound}
+  FROM ${tableRef(right)} AS r${bound}
   ORDER BY ST_Distance(${leftMeasured}, ${rightMeasured})
   LIMIT 1
 ) AS near ON TRUE`;
@@ -115,9 +116,9 @@ export function filterByLocationSql(
     }
   })();
   const exists = negate ? "NOT EXISTS" : "EXISTS";
-  return `SELECT t.* FROM ${ident(input.name)} AS t
+  return `SELECT t.* FROM ${tableRef(input)} AS t
 WHERE ${exists} (
-  SELECT 1 FROM ${ident(mask.name)} AS m
+  SELECT 1 FROM ${tableRef(mask)} AS m
   WHERE ${predicate}
 )`;
 }

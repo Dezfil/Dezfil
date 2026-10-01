@@ -1,3 +1,5 @@
+import { bindingKey, tableRef } from "./input-ref";
+import { namedSql } from "@/lib/query/named-sql";
 import type { DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
 import { ident } from "@/lib/ingest/ingest";
@@ -173,15 +175,15 @@ async function refuseFlatUniverse(
   // round trip can report a flat universe that is not flat — and `count(DISTINCT)`
   // answers the question exactly, at the same cost.
   const row = await boundedEvaluation(async (conn) => {
-    const reader = await conn.runAndReadAll(
+    const reader = await conn.runAndReadAll(await namedSql(conn,
       `SELECT count(*) AS cells, count(DISTINCT v) AS distinct_values FROM (
          SELECT h3_latlng_to_cell_string(ST_Y(ST_Centroid(${geom})), ST_X(ST_Centroid(${geom})), ${resolution}) AS cell,
                 ${aggregate} AS v
-         FROM ${ident(table.name)}
+         FROM ${tableRef(table)}
          WHERE ${geom} IS NOT NULL AND NOT ST_IsEmpty(${geom})${contributes}
          GROUP BY 1
          HAVING cell IS NOT NULL AND ${aggregate} IS NOT NULL)`,
-    );
+    ));
     return reader.getRowObjects()[0] as Record<string, unknown> | undefined;
   }, { scope });
   const cells = Number(row?.cells ?? 0);
@@ -247,7 +249,7 @@ export async function compileStatisticsVerb(
       400,
     );
   }
-  const bindings = { [table.name.toLowerCase()]: table.file };
+  const bindings = { [bindingKey(table)]: table.file };
 
   switch (operation.id) {
     case "h3_cell": {

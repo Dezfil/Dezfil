@@ -1,3 +1,4 @@
+import { tableRef } from "./input-ref";
 import { ApiError } from "@/lib/api/errors";
 import { ident } from "@/lib/ingest/ingest";
 import type { DataTable } from "@/lib/metadata/tables";
@@ -73,7 +74,7 @@ export function bufferSql(
   const measured = intoMeasurement(`t.${column}`, crs.crs);
   return `SELECT * EXCLUDE (${column}),
        ${backToStored(`ST_Buffer(${measured}, ${distanceM})`, crs.crs)} AS ${column}
-FROM ${ident(table.name)} AS t`;
+FROM ${tableRef(table)} AS t`;
 }
 
 /**
@@ -137,7 +138,7 @@ export function measureColumnsSql(
     .join(",\n       ");
   return `SELECT t.*,
        ${added}
-FROM ${ident(table.name)} AS t`;
+FROM ${tableRef(table)} AS t`;
 }
 
 export function parseMeasures(value: unknown): Measure[] {

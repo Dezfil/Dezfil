@@ -1,3 +1,4 @@
+import { bindingKey } from "./input-ref";
 import type { PreparationContext, PreparedPublication } from "./preparation";
 export type { PreparationContext, PreparedPublication } from "./preparation";
 import type { AccountScope } from "@/lib/auth/scope";
@@ -245,7 +246,7 @@ async function compileCatalogVerb(
   };
 
   const bindings = (...tables: DataTable[]): Record<string, string> =>
-    Object.fromEntries(tables.map((t) => [t.name.toLowerCase(), t.file]));
+    Object.fromEntries(tables.map((t) => [bindingKey(t), t.file]));
 
   switch (operation.id) {
     case "centroid": {

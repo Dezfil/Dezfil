@@ -7,6 +7,9 @@ export type BoundTable = Readonly<Pick<DataTable,
 >>;
 
 export interface BindingSnapshot {
+  /** The evidence by dataset identity: what materialization records. */
+  byId: ReadonlyMap<string, BoundTable>;
+  /** The same evidence by the plain name each was mounted under. */
   byName: ReadonlyMap<string, BoundTable>;
   geometryOf(name: string): string | null;
 }
@@ -31,15 +34,14 @@ export async function pinBindings(
 ): Promise<BindingSnapshot> {
   await conn.run("BEGIN TRANSACTION");
   await conn.runAndReadAll("SELECT count(*) FROM duckdb_views()");
-  const byName = new Map(registered.map((table) => [
-    table.name.toLowerCase(),
-    Object.freeze({
-      id: table.id,
-      name: table.name,
-      file: table.file,
-      geometryColumn: table.geometryColumn,
-      crsAssumed: table.crsAssumed,
-    }),
-  ]));
-  return { byName, geometryOf: (name) => byName.get(name.toLowerCase())?.geometryColumn ?? null };
+  const bound = registered.map((table) => Object.freeze({
+    id: table.id,
+    name: table.name,
+    file: table.file,
+    geometryColumn: table.geometryColumn,
+    crsAssumed: table.crsAssumed,
+  }));
+  const byId = new Map(bound.map((table) => [table.id, table]));
+  const byName = new Map(bound.map((table) => [table.name.toLowerCase(), table]));
+  return { byId, byName, geometryOf: (name) => byName.get(name.toLowerCase())?.geometryColumn ?? null };
 }

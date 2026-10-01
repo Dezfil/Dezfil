@@ -1,3 +1,5 @@
+import { tableRef } from "@/lib/operations/input-ref";
+import { namedSql } from "@/lib/query/named-sql";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { prepareStagingInput, removeStagingInput, type StagingInput } from "@/lib/query/staging";
 import type { DuckDBConnection } from "@duckdb/node-api";
@@ -94,10 +96,10 @@ async function distinctAddresses(
   table: DataTable,
   column: string,
 ): Promise<(string | null)[]> {
-  const reader = await conn.runAndReadAll(
-    `SELECT DISTINCT ${ident(column)} AS address FROM ${ident(table.name)}
+  const reader = await conn.runAndReadAll(await namedSql(conn,
+    `SELECT DISTINCT ${ident(column)} AS address FROM ${tableRef(table)}
      ORDER BY 1`,
-  );
+  ));
   return reader
     .getRowObjects()
     .map((row) => (typeof row.address === "string" ? row.address : null));
@@ -169,7 +171,7 @@ export function publicationSql(
   column: string,
   stage: StagingInput,
 ): string {
-  const source = ident(table.name);
+  const source = tableRef(table);
   return `SELECT s.*,
        CASE WHEN g.status = 'matched' THEN ST_Point(g.lon, g.lat) END AS geom,
        COALESCE(g.status, 'empty_address') AS geocode_status,

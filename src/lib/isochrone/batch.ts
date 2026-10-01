@@ -1,3 +1,5 @@
+import { tableRef } from "@/lib/operations/input-ref";
+import { namedSql } from "@/lib/query/named-sql";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { prepareStagingInput, removeStagingInput, type StagingInput } from "@/lib/query/staging";
 import type { DuckDBConnection } from "@duckdb/node-api";
@@ -91,12 +93,12 @@ async function distinctOrigins(
   table: DataTable,
 ): Promise<{ lon: number; lat: number }[]> {
   const geom = ident(table.geometryColumn!);
-  const reader = await conn.runAndReadAll(
+  const reader = await conn.runAndReadAll(await namedSql(conn,
     `SELECT DISTINCT ST_X(${geom}) AS lon, ST_Y(${geom}) AS lat
-     FROM ${ident(table.name)}
+     FROM ${tableRef(table)}
      WHERE ${geom} IS NOT NULL AND NOT ST_IsEmpty(${geom})
      ORDER BY 1, 2`,
-  );
+  ));
   return reader
     .getRowObjects()
     .filter(
@@ -171,7 +173,7 @@ export function isochronePublicationSql(
   bands: number[],
   stage: StagingInput,
 ): string {
-  const source = ident(table.name);
+  const source = tableRef(table);
   const geom = ident(table.geometryColumn!);
   const bandRows = bands.map((minutes) => `(${minutes})`).join(", ");
   return `SELECT s.* EXCLUDE (${geom}),

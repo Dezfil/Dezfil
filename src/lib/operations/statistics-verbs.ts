@@ -1,3 +1,4 @@
+import { tableRef } from "./input-ref";
 import { ident } from "@/lib/ingest/ingest";
 import type { DataTable } from "@/lib/metadata/tables";
 import type { MeasurementCrs } from "./measurement";
@@ -173,7 +174,7 @@ export function h3CellSql(
   resolution: number,
   boundary: boolean,
 ): string {
-  const source = ident(table.name);
+  const source = tableRef(table);
   const geom = table.geometryColumn ? ident(table.geometryColumn) : null;
   if (!geom) {
     // Admission refuses this, but a generator that would silently produce a
@@ -226,7 +227,7 @@ export function hotspotSql(
   value: "count" | "sum",
   field: string | null,
 ): string {
-  const source = ident(table.name);
+  const source = tableRef(table);
   const geom = ident(table.geometryColumn!);
   const cell = cellOf(geom, resolution);
   // A count counts the rows that landed; a sum adds what they carried. Rows
@@ -312,7 +313,7 @@ export function clusterByDistanceSql(
   distance: number,
   crs: MeasurementCrs,
 ): string {
-  const source = ident(table.name);
+  const source = tableRef(table);
   const geom = ident(table.geometryColumn!);
   // Through the shared strategy, never a transform of its own: the axis
   // override and the direction live in one place, and the sweep in

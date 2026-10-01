@@ -1,4 +1,11 @@
-import { scopedDatasets, type DatasetScope } from "@/lib/query/access";
+import type { DatasetScope } from "@/lib/query/access";
+import { tableRef, type InputTable } from "./input-ref";
+export { tableRef, bindingKey, type InputTable } from "./input-ref";
+import type { DuckDBConnection } from "@duckdb/node-api";
+import { classifyReference, registryTable, resolveParameter } from "@/lib/query/bindings";
+import { namespaceFor } from "@/lib/query/namespace";
+import { namedSql } from "@/lib/query/named-sql";
+import { qualifiedNameParts } from "@/lib/query/qualified-name";
 import { ApiError } from "@/lib/api/errors";
 import { boundedEvaluation } from "@/lib/query/bounded";
 import { GROUND_METRES_MAX } from "./catalog";
@@ -42,9 +49,9 @@ export function str(params: Record<string, unknown>, key: string): string {
 }
 
 /** Read a table the caller named, or say which one it could not find. */
-export function inputTable(scope: DatasetScope, name: string, role: string): DataTable {
-  const table = scopedDatasets(scope).find(table => table.name.toLowerCase() === name.toLowerCase());
-  if (!table) {
+export function inputTable(scope: DatasetScope, name: string, role: string): InputTable {
+  const { resolution } = resolveParameter(namespaceFor(scope), name);
+  if (resolution.status !== "bound") {
     // Most roles read as adjectives ("left", "clip", "buffer's") — but the
     // generic single-input key is literally "input", and doubling it shipped
     // "The input input" (fixed at the 2026-08-17 sitting).
@@ -55,14 +62,23 @@ export function inputTable(scope: DatasetScope, name: string, role: string): Dat
       404,
     );
   }
-  return table;
+  const { dataset } = resolution;
+  const qualified = classifyReference(qualifiedNameParts(name) ?? [name]).form === "qualified";
+  const ref = qualified ? `${ident(dataset.ownerSqlName!)}.${ident(dataset.name)}` : ident(dataset.name);
+  const key = qualified ? `${dataset.ownerSqlName}.${dataset.name}`.toLowerCase() : dataset.name.toLowerCase();
+  return { ...registryTable(dataset), ref, key };
+}
+
+/** A probe of one input, compiled in the evaluation's namespace. */
+async function probe(conn: DuckDBConnection, sql: string): Promise<string> {
+  return namedSql(conn, sql);
 }
 
 /** The columns and types the engine reports for a registered table. */
 export async function columnsOf(scope: DatasetScope, table: DataTable): Promise<ColumnType[]> {
   return boundedEvaluation(async (conn) => {
     const described = await conn.runAndReadAll(
-      `DESCRIBE SELECT * FROM ${ident(table.name)}`,
+      `DESCRIBE ${await probe(conn, `SELECT * FROM ${tableRef(table)}`)}`,
     );
     return (
       described.getRowObjects() as unknown as {
@@ -117,12 +133,12 @@ export async function extentOf(scope: DatasetScope, table: DataTable, verb: stri
   }
   const geom = ident(table.geometryColumn);
   const bounds = await boundedEvaluation(async (conn) => {
-    const reader = await conn.runAndReadAll(
+    const reader = await conn.runAndReadAll(await probe(conn,
       `SELECT ST_XMin(e) AS min_lon, ST_YMin(e) AS min_lat,
               ST_XMax(e) AS max_lon, ST_YMax(e) AS max_lat
-       FROM (SELECT ST_Extent_Agg(${geom}) AS e FROM ${ident(table.name)}
+       FROM (SELECT ST_Extent_Agg(${geom}) AS e FROM ${tableRef(table)}
              WHERE ${geom} IS NOT NULL)`,
-    );
+    ));
     return reader.getRowObjects()[0] as Record<string, unknown> | undefined;
   }, { scope });
   const raw = [

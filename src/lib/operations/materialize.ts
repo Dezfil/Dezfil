@@ -25,7 +25,8 @@ import { retireArtifact } from "@/lib/ingest/retire";
 import {
   type DataTable,
 } from "@/lib/metadata/tables";
-import { queryInputs } from "./inputs";
+import { firstExternalUnbound, resolveSql, unavailableDataset } from "@/lib/query/bindings";
+import { bindingNamespace } from "@/lib/query/namespace";
 
 /**
  * Materialization: a query result becomes a durable registered dataset. The
@@ -353,6 +354,7 @@ export async function materialize(
   } = request;
   if (replaceTable) requireOwnedTableReference(scope, replaceTable);
   const name = exactName(request.name);
+  const evaluation: DatasetScope = scope;
 
   return boundedEvaluation(async (conn, bounds) => {
     const compiledSql = await namedSql(conn, sql);
@@ -363,27 +365,34 @@ export async function materialize(
     // table there, and the caller has already proven it owns it.
     if (!replaceTable && getOwnedTableByName(scope, name)) throw nameTaken(name);
 
+    // Every dataset the statement reads, by identity: what the run records
+    // and what its lineage says it read. Resolved from the statement as
+    // written, in the namespace this evaluation mounted, so a qualified
+    // reference stays the dataset it names; the evidence of what each bound
+    // comes from this evaluation's own pinned registration.
     const snapshot = bounds.bindings!;
-    const inputs = await queryInputs(conn, compiledSql, snapshot.geometryOf);
-    const resolved = inputs.tables
-      .map((t) => snapshot.byName.get(t))
+    const reads = await resolveSql(conn, sql, bindingNamespace(conn, evaluation));
+    const external = firstExternalUnbound(reads);
+    if (external) throw unavailableDataset(external);
+    const resolved = reads.datasets
+      .map((dataset) => snapshot.byId.get(dataset.id))
       .filter((t): t is BoundTable => t !== undefined);
     const bound: BoundInput[] = resolved.map((t) => ({
       id: t.id, name: t.name, artifact: t.file,
     }));
     // An input whose geometry this query reads passes its uncertainty on; one
     // contributing only attributes does not.
-    const crsAssumed = resolved.some(
-      (t) => t.crsAssumed && inputs.geometryTables.includes(t.name.toLowerCase()),
-    );
+    const crsAssumed = resolved.some((t) => t.crsAssumed && reads.geometry.has(t.id));
 
-    // Before any work: is this still the data the SQL was built for?
+    // Before any work: is this still the data the SQL was built for? The
+    // expectation is keyed by the reference the run was compiled with.
     if (request.requireBindings) {
-      for (const input of resolved) {
-        const expected = request.requireBindings[input.name.toLowerCase()];
+      for (const read of reads.reads) {
+        if (read.resolution.status !== "bound") continue;
+        const expected = request.requireBindings[read.written.toLowerCase()];
         if (expected === undefined) continue;
-        const actual = input.file;
-        if (actual !== expected) throw inputChanged(input.name, !!measurement);
+        const actual = snapshot.byId.get(read.resolution.dataset.id)?.file;
+        if (actual !== expected) throw inputChanged(read.written, !!measurement);
       }
     }
 
@@ -474,7 +483,7 @@ export async function materialize(
       // points at it, and removing it here would strand a registered table.
       if (!committed) await rm(abs, { force: true });
     }
-  }, { scope, inputs: request.inputs, pinBindings: true, signal, ...(budgetMs !== undefined ? { budgetMs } : {}), ...(timeoutError ? { timeoutError } : {}) });
+  }, { scope: evaluation, inputs: request.inputs, pinBindings: true, signal, ...(budgetMs !== undefined ? { budgetMs } : {}), ...(timeoutError ? { timeoutError } : {}) });
 }
 
 /**

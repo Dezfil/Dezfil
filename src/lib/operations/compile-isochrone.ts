@@ -1,3 +1,4 @@
+import { bindingKey } from "./input-ref";
 import type { AccountScope } from "@/lib/auth/scope";
 import type { DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
@@ -240,7 +241,7 @@ export async function compileIsochrone(
   return {
     sql: "",
     name,
-    bindings: { [table.name.toLowerCase()]: table.file },
+    bindings: { [bindingKey(table)]: table.file },
     // Origins × bands: every origin and every band gets a
     // row, answered or not, which is what makes the count knowable before
     // a request is made. The class is the catalog's declaration (E7).

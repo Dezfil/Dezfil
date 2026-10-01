@@ -1,3 +1,4 @@
+import { bindingKey } from "./input-ref";
 import type { AccountScope } from "@/lib/auth/scope";
 import type { DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
@@ -190,7 +191,7 @@ export async function compileGeocode(
     name,
     // The generation the answers will be joined to, captured here — before a
     // single request is spent — and re-checked inside the publication (J10).
-    bindings: { [table.name.toLowerCase()]: table.file },
+    bindings: { [bindingKey(table)]: table.file },
     // **Answerable without asking anybody**, which is what makes a dry run of a
     // provider verb possible at all: one row goes out for every row in, so the
     // count is the input's own, and the class is the catalog's declaration

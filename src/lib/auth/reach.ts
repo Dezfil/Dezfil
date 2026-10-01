@@ -172,7 +172,16 @@ export function projectRole(scope: AccountScope, projectId: string, db: Database
 
 /** Every dataset identity the acting account reaches. */
 export function reachableDatasetIds(scope: AccountScope, db: Database = metadataDb()): Set<string> {
-  const me = requireAccountScope(scope, db);
+  return datasetReachOf(requireAccountScope(scope, db), db);
+}
+
+/**
+ * The dataset identities an account reaches, whatever its status. Only for an
+ * authority that is not the account's own sign-in: a live publication renders
+ * in its owner's reach after that owner is deactivated. Everything an account
+ * does itself goes through `reachableDatasetIds`, which checks it is active.
+ */
+export function datasetReachOf(me: string, db: Database = metadataDb()): Set<string> {
   const rows = db.prepare(`SELECT id FROM data_tables WHERE owner_id = @me
     UNION SELECT pd.table_id FROM project_datasets pd JOIN projects p ON p.id = pd.project_id WHERE p.owner_id = @me
     UNION SELECT pd.table_id FROM project_datasets pd JOIN project_people pp ON pp.project_id = pd.project_id
