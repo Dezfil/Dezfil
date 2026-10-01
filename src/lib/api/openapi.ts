@@ -311,8 +311,11 @@ export function buildOpenApiDocument() {
           description:
             SQL_POLICY + " " +
             "Named datasets resolve only " +
-            "inside the authenticated account, including catalog-qualified names " +
-            "and query()/query_table() expressions. Each evaluation uses fresh " +
+            "within the caller's reach: a plain name, and its catalog-qualified " +
+            "forms, is the caller's own dataset; another person's dataset the " +
+            "caller reaches through a project is <sql name>.<dataset>, and the " +
+            "caller's own SQL name qualifies their own. Both hold in " +
+            "query()/query_table() expressions and nested SQL. Each evaluation uses fresh " +
             "connection-local views on one shared hardened engine. Returns a capped " +
             "preview plus the exact total row count. Geometry cells in the " +
             "preview are WKT text by default; pass geometry: \"geojson\" " +

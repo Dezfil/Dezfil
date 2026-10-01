@@ -3,10 +3,11 @@ import type { DuckDBConnection } from "@duckdb/node-api";
 import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
 import { tableFromRow, type DataTable, type TableRow } from "@/lib/metadata/tables";
-import { RESERVED_SQL_NAMES } from "@/lib/metadata/sql-names";
 import { qualifiedNameParts } from "./qualified-name";
 import { readOnlySql } from "./guard";
 import { collectReferences, serializeSql, type TableReference } from "./references";
+import { classifyReference, writtenReference, type Classified } from "./reference-forms";
+export { classifyReference, writtenReference, type Classified } from "./reference-forms";
 
 /**
  * The binding resolver: which dataset each table reference means.
@@ -56,12 +57,6 @@ export function registryTable(dataset: ReachableDataset): DataTable {
   return table as DataTable;
 }
 
-/** The forms a written name can take. */
-export type Classified =
-  | { form: "plain"; name: string }
-  | { form: "qualified"; qualifier: string; name: string }
-  | { form: "engine" };
-
 /** What a reference means in a namespace. */
 export type Resolution =
   | { status: "bound"; dataset: ReachableDataset; output: boolean }
@@ -72,37 +67,6 @@ export type Resolution =
   | { status: "unbound"; external: boolean }
   /** The engine's catalogues and schemas. */
   | { status: "engine" };
-
-const LOCAL = new Set(["main", "temp", "memory"]);
-const ENGINE = new Set(RESERVED_SQL_NAMES.filter((name) => !LOCAL.has(name)));
-const MOUNT_NAME = /^([a-z][a-z0-9_]{2,31})\.([a-z0-9_]+)$/;
-
-/**
- * The form of a name, case-insensitively, as the engine would bind it. A
- * single identifier spelled like a qualified mount (`"ada.roads"`) is that
- * qualified name: no dataset name contains a dot.
- */
-export function classifyReference(parts: readonly string[]): Classified {
-  const lower = parts.map((part) => part.toLowerCase());
-  if (lower.length === 1) {
-    const mount = MOUNT_NAME.exec(lower[0]);
-    return mount ? { form: "qualified", qualifier: mount[1], name: mount[2] } : { form: "plain", name: lower[0] };
-  }
-  if (lower.length === 2) {
-    if (LOCAL.has(lower[0])) return { form: "plain", name: lower[1] };
-    if (ENGINE.has(lower[0])) return { form: "engine" };
-    return { form: "qualified", qualifier: lower[0], name: lower[1] };
-  }
-  if (lower.length === 3 && (lower[0] === "memory" || lower[0] === "temp") && lower[1] === "main") {
-    return { form: "plain", name: lower[2] };
-  }
-  return { form: "engine" };
-}
-
-/** A reference as a person would write it again, for a message. */
-export function writtenReference(parts: readonly string[]): string {
-  return parts.map((part) => (/^[A-Za-z_][A-Za-z0-9_]*$/.test(part) ? part : `"${part.replace(/"/g, '""')}"`)).join(".");
-}
 
 function findDataset(namespace: Namespace, owner: (dataset: ReachableDataset) => boolean, name: string) {
   return namespace.datasets.find((dataset) => owner(dataset) && dataset.name.toLowerCase() === name);

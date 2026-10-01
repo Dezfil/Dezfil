@@ -325,7 +325,17 @@ views and binding evidence are recreated on each connection.
 
 Unqualified names, `main.table`, `memory.table`, `memory.main.table`, and
 computed `query_table()` / nested `query()` references resolve inside that local
-catalogue. The compiler preserves stored SQL. Publication evaluations use the
+catalogue. So does `<SQL name>.<dataset>`, wherever a table can be named: in a
+table reference (where the table goes by its dataset name, as a
+schema-qualified one would), a qualified column (`ada.roads.x`), a qualified
+star exclusion, a computed or listed `query_table()` argument, a table macro
+such as `histogram_values()`, and nested or serialized SQL. It names that
+person's dataset, external even when a workflow's declared output shares the
+name; the caller's own SQL name names the caller's own. A first part that is an
+alias or a common table expression in scope keeps its SQL meaning. The single
+quoted name a mounted dataset carries in the catalogue (`"ada.roads"`) is
+accepted as the binding it is; any other identifier containing a dot is still
+refused. The compiler preserves stored SQL. Publication evaluations use the
 map's SQL home and the publication owner's reach, including inactive owners and
 pending adoption. Refresh, deletion and name reuse affect later evaluations; an admitted
 materialization keeps its captured identities and artifacts until it completes.

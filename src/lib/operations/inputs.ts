@@ -1,6 +1,6 @@
 import { readOnlySql } from "@/lib/query/guard";
 import { collectReferences, serializeSql, type TableReference } from "@/lib/query/references";
-import { classifyReference, writtenReference } from "@/lib/query/bindings";
+import { classifyReference, writtenReference } from "@/lib/query/reference-forms";
 import type { DuckDBConnection } from "@duckdb/node-api";
 
 /**
