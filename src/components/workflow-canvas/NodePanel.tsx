@@ -41,6 +41,7 @@ import styles from "./WorkflowCanvas.module.css";
  */
 
 export function NodePanel({
+  recipeId,
   member,
   graph,
   operations,
@@ -49,6 +50,8 @@ export function NodePanel({
   onRemove,
   lockReason = null,
 }: {
+  /** The workflow the node is in: its dry run binds where the run will. */
+  recipeId: string;
   member: NodeMember;
   graph: CanvasGraph;
   operations: OperationDef[];
@@ -138,7 +141,13 @@ export function NodePanel({
     ...(operation?.inputs ?? []).map((i) => (typeof values[i.name] === "string" ? (values[i.name] as string) : null)),
     ...sqlReads,
   ].find((n) => unproducedOutput(n, graph, tables));
-  const gate = useDryRun(complete && operation && !waitingOn ? { operation: operation.id, parameters: withoutName(sent) } : null);
+  // The dry run reads the node's parameters in the workflow's context, its
+  // SQL home and declared outputs, so the preview binds like the run will.
+  const gate = useDryRun(
+    complete && operation && !waitingOn
+      ? { operation: operation.id, parameters: withoutName(sent), writtenIn: { kind: "workflow", id: recipeId } }
+      : null,
+  );
   const expected = expectedClass(member, graph, operations, tables);
 
   const marks = callouts(member, operation);

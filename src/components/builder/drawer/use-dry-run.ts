@@ -40,8 +40,9 @@ export interface DryRunRequest {
   parameters: Record<string, unknown>;
   /** Where the parameters were written, when not the caller's console: a
    * layer's SQL is its map's, and is carried from there as the run's
-   * capture is. */
-  writtenIn?: { kind: "map"; id: string };
+   * capture is; a workflow node's are its workflow's, read in its SQL home
+   * with its declared outputs as the run reads them. */
+  writtenIn?: { kind: "map" | "workflow"; id: string };
 }
 
 /** The dry run's request body. */
