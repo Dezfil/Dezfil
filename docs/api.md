@@ -209,7 +209,12 @@ bring data in from elsewhere, several of them with a matching `preview` or
 `GET /api/tables`, `GET /api/tables/{name}` and
 `GET /api/tables/{name}/features`. `GET /api/catalogue/tables` is the
 schema-only listing built for agents, and is the one paginated endpoint in
-the API (below). Geometry recognition lives here too: `GET`, `PUT` and
+the API (below); each of its rows names the owner, the `qualifiedName` and
+`projectIds`, the projects through which the caller reaches that dataset
+(never one they do not reach), as `GET /api/tables` does. The assistant's
+grounding reads it by `qualifiedName`, one identity per name, and on a map or
+workflow page adds the page's `home` and each table's `homeName`, the name
+that page's own SQL uses for it. Geometry recognition lives here too: `GET`, `PUT` and
 `DELETE /api/tables/{name}/geometry` with a preview call beside them, and
 `GET /api/geometry/projections` for the projection choice.
 

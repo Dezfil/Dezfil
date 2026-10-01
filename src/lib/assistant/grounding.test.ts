@@ -40,6 +40,36 @@ describe("bounded grounding projections", () => {
     ]);
   });
 
+  it("names each table as the page's own SQL does when the page's home is someone else's", async () => {
+    const tables = [
+      table("roads", { id: "mine", owner: { name: "Bob", sqlName: "bob" }, projectIds: [] }),
+      table("roads", { id: "hers", qualifiedName: "ada.roads", projectIds: ["p"] }),
+      table("z_dependency"),
+    ];
+    const homed = (fetchImpl: typeof fetch, home: string, steps?: unknown[]): typeof fetch => async (input) => {
+      const response = await fetchImpl(input);
+      const url = new URL(String(input));
+      if (url.pathname === "/api/maps/m") return Response.json({ ...await response.json(), home });
+      if (url.pathname === "/api/recipes/r") {
+        const body = await response.json() as { recipe: Record<string, unknown> };
+        return Response.json({ recipe: { ...body.recipe, home, ...(steps ? { steps } : {}) } });
+      }
+      return response;
+    };
+    const names = (value: { catalogue: { items: { id: string; homeName?: string; projectIds?: string[] }[] } }) =>
+      value.catalogue.items.filter((item) => item.id !== "id-z_dependency").map((item) => [item.id, item.homeName, item.projectIds]);
+    const onAdasMap = await ground({ ...builder, selectedLayerId: null }, homed(api({ tables, layers: [] }), "ada"));
+    expect(onAdasMap.map.home).toBe("ada");
+    expect(names(onAdasMap)).toEqual([["mine", "bob.roads", []], ["hers", "roads", ["p"]]]);
+    // Her workflow's own output takes the plain name: her roads is qualified.
+    const inHerWorkflow = await ground({ ...workflow, selectedStepId: null, lastRunId: null },
+      homed(api({ tables }), "ada", [step("roads", { parameters: { sql: "SELECT 1", name: "roads" }, proposedParameters: null })]));
+    expect(inHerWorkflow.recipe.home).toBe("ada");
+    expect(names(inHerWorkflow)).toEqual([["mine", "bob.roads", []], ["hers", "ada.roads", ["p"]]]);
+    // With no page, nothing is named for a page.
+    expect(names(await ground(undefined, api({ tables })))).toEqual([["mine", undefined, []], ["hers", undefined, ["p"]]]);
+  });
+
   it("orders dependency/project/other table tiers and selected layers first", async () => {
     const value = await ground(builder, api({ project: true, layers: [layer("a"), layer("l")] }));
     expect(value.catalogue.items.map((item: { name: string }) => item.name)).toEqual(["z_dependency", "y_project", "a"]);

@@ -54,6 +54,11 @@ export async function loadGrounding(context: AssistantContext | undefined, baseU
   }
   let priorityNames: string[] = [];
   let project: string | undefined;
+  // The page's SQL home and the names its own outputs take: how that page's
+  // SQL names each dataset differs from the caller's console when the home
+  // is someone else's.
+  let home: string | undefined;
+  const declared = new Set<string>();
   if (context?.page === "builder") {
     const mapPath = `/api/maps/${encodeURIComponent(context.mapId)}`;
     const map = await read(mapPath, true);
@@ -61,7 +66,8 @@ export async function loadGrounding(context: AssistantContext | undefined, baseU
     const layers = map.layers.map(record);
     if (context.selectedLayerId !== null && !layers.some((layer) => layer.id === context.selectedLayerId && layer.mapId === map.id)) invalid();
     if (layers.some((layer) => layer.mapId !== map.id)) invalid();
-    ground.map = { ...pick(map, ["id", "name"]), layers: collection(layers.length, mapPath) };
+    ground.map = { ...pick(map, ["id", "name", "home"]), layers: collection(layers.length, mapPath) };
+    home = typeof map.home === "string" ? map.home : undefined;
     add(ground.map.layers, layers.sort(order("id", context.selectedLayerId)).map((layer) => pick(layer, ["id", "mapId", "name", "sql", "style", "visible", "filters", "viz"])), 32, "id", (layer) => `/api/layers/${encodeURIComponent(String(layer.id))}`);
     const dependencies = await read(mapPath + "/dependencies");
     if (!Array.isArray(dependencies.datasets)) unavailable();
@@ -75,7 +81,13 @@ export async function loadGrounding(context: AssistantContext | undefined, baseU
     const steps = recipe.steps.map(record);
     if (context.selectedStepId !== null && !steps.some((step) => step.id === context.selectedStepId && step.recipeId === context.recipeId)) invalid();
     if (steps.some((step) => step.recipeId !== context.recipeId)) invalid();
-    ground.recipe = { ...pick(recipe, ["id", "name"]), steps: collection(steps.length, recipePath) };
+    ground.recipe = { ...pick(recipe, ["id", "name", "home"]), steps: collection(steps.length, recipePath) };
+    home = typeof recipe.home === "string" ? recipe.home : undefined;
+    for (const step of steps) {
+      for (const value of [record(step.parameters).name, record(step.proposedParameters).name, record(step.output).name]) {
+        if (typeof value === "string" && value !== "") declared.add(value.toLowerCase());
+      }
+    }
     add(ground.recipe.steps, steps.sort(order("id", context.selectedStepId)).map(projectStep), 64, "id", (step) => recipePath + `/steps/${encodeURIComponent(String(step.id))}`);
     if (context.lastRunId !== null) {
       const runPath = recipePath + `/runs/${encodeURIComponent(context.lastRunId)}`;
@@ -107,9 +119,14 @@ export async function loadGrounding(context: AssistantContext | undefined, baseU
     }
     const table = page.tables?.[0];
     if (!table || table.qualifiedName !== name) unavailable();
-    const value = { ...pick(table, ["id", "name", "qualifiedName", "owner", "rowCount", "geometryColumn", "geometryType", "crsAssumed", "columnCount", "nextColumnOffset"]), columns: table.columns.map((column) => pick(column, ["name", "type"])), incomplete: table.nextColumnOffset !== null };
+    // How the page's own SQL names it: plain when it is the home's dataset
+    // and no output of the workflow takes the name, owner-qualified else.
+    const inHome = home === undefined ? {} : {
+      homeName: table.owner.sqlName === home && !declared.has(table.name.toLowerCase()) ? table.name : `${table.owner.sqlName}.${table.name}`,
+    };
+    const value = { ...pick(table, ["id", "name", "qualifiedName", "owner", "projectIds", "rowCount", "geometryColumn", "geometryType", "crsAssumed", "columnCount", "nextColumnOffset"]), ...inHome, columns: table.columns.map((column) => pick(column, ["name", "type"])), incomplete: table.nextColumnOffset !== null };
     const path = `/api/catalogue/tables?names=${encodeURIComponent(name)}`;
-    const minimal = { id: table.id, name: table.name, qualifiedName: name, columnCount: table.columnCount, omittedColumns: table.columnCount, incomplete: true, read: path };
+    const minimal = { id: table.id, name: table.name, qualifiedName: name, ...inHome, columnCount: table.columnCount, omittedColumns: table.columnCount, incomplete: true, read: path };
     ground.catalogue.items.push(minimal);
     candidates.push({ collection: ground.catalogue, minimal, full: oversized ? minimal : { ...value, read: path } });
   }

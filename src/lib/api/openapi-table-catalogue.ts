@@ -8,7 +8,7 @@ export const TABLE_CATALOGUE_PATHS = {
   "/api/catalogue/tables": {
     get: op(datasetAccess({
       summary: "Read the schema-only table catalogue",
-      description: "Names, stable identities, owners, recorded row counts and geometry facts with stored artifact column names and types. Reads metadata only, without evaluating row previews or healing geometry records. Recorded geometry identity is separate from the physical column type. Ordered by qualifiedName, the name the caller would type, which is unique within the caller's reach: two same-named datasets of different owners each appear exactly once. At most 32 tables and 64 columns per table per page. after continues tables; columnOffset continues columns for a named table. total counts matching tables, columnCount counts each table’s columns. Incomplete collections carry nextAfter or nextColumnOffset. A missing artifact fails the read instead of returning a false empty schema. Responses are bounded to 96 KiB; a response that cannot fit answers 422 catalogue_too_large so the caller can request fewer tables or columns. No artifact paths, source configuration, credentials, row samples or attachment bytes are returned.",
+      description: "Names, stable identities, owners, the reached projects each dataset is filed in, recorded row counts and geometry facts with stored artifact column names and types. Reads metadata only, without evaluating row previews or healing geometry records. Recorded geometry identity is separate from the physical column type. Ordered by qualifiedName, the name the caller would type, which is unique within the caller's reach: two same-named datasets of different owners each appear exactly once. At most 32 tables and 64 columns per table per page. after continues tables; columnOffset continues columns for a named table. total counts matching tables, columnCount counts each table’s columns. Incomplete collections carry nextAfter or nextColumnOffset. A missing artifact fails the read instead of returning a false empty schema. Responses are bounded to 96 KiB; a response that cannot fit answers 422 catalogue_too_large so the caller can request fewer tables or columns. No artifact paths, source configuration, credentials, row samples or attachment bytes are returned.",
       tag: "Tables", tool: "read_table_catalogue", mcp: LOCAL_READ, display: {"verb": "Read the table catalogue"}, relevance: ["builder", "sql", "workflow"], effects: READ_ONLY,
       parameters: [
         query("after", "Exclusive qualifiedName cursor from nextAfter."),
@@ -31,11 +31,12 @@ export const TABLE_CATALOGUE_SCHEMAS = {
         type: "array", maxItems: 32,
         items: {
           type: "object",
-          required: ["id", "name", "qualifiedName", "owner", "rowCount", "geometryColumn", "geometryType", "crsAssumed", "columns", "columnCount", "nextColumnOffset"],
+          required: ["id", "name", "qualifiedName", "owner", "projectIds", "rowCount", "geometryColumn", "geometryType", "crsAssumed", "columns", "columnCount", "nextColumnOffset"],
           properties: {
             id: { type: "string" }, name: { type: "string" },
             qualifiedName: { type: "string", description: "The name the caller would type: the plain name for the caller's own dataset, <sql name>.<name> for another owner's." },
             owner: { $ref: "#/components/schemas/ResourceOwner" },
+            projectIds: { type: "array", items: { type: "string" }, description: "The projects through which the caller reaches this dataset: those it is filed in that the caller owns or belongs to, never another. Identities only; the projects listing names them." },
             rowCount: { type: "integer" },
             geometryColumn: { type: ["string", "null"] }, geometryType: { type: ["string", "null"] }, crsAssumed: { type: "boolean" },
             columnCount: { type: "integer" }, nextColumnOffset: { type: ["integer", "null"] },
