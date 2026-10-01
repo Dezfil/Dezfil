@@ -83,7 +83,18 @@ in the resource's SQL home, a workflow's declared outputs aside: otherwise
 the save is refused with `sql_error` naming the reference as written, and
 nothing changes. Contained layers, widgets, histories and runs
 follow their parent; standalone jobs and retained export/render results remain
-private even after failure or output deletion. Admin status grants no
+private even after failure or output deletion. Work that outlives its request
+asks for reach again where it commits: a prepared layer download is refused
+on its claim once its layer (on a map the claimant does not own) or a
+dataset it drew that someone else owns has left the claimant's reach; a
+server render and a look check ask at every phase whether the caller still
+reaches the map; a project export checks every selected member as the
+archive completes and fails with `export_failed` naming the first one
+withdrawn rather than delivering less; a pending assistant confirmation runs
+its action through the same checks when it resumes. Results already issued
+(a query download, a retained look image, a project archive, an assistant
+answer) stay their initiator's for their retention lifetime after reach is
+withdrawn. Admin status grants no
 private-content access. Dataset and connection names are unique within one
 account. Unreached and missing resources receive the same refusal, and SQL
 mounts only the caller's datasets. There is no owner selector or

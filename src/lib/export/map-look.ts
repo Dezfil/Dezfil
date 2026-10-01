@@ -1,4 +1,4 @@
-import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import type { AccountScope } from "@/lib/auth/scope";
 import { createHash, randomUUID } from "node:crypto";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { limits } from "@/lib/limits";
@@ -9,6 +9,7 @@ import { APPEARANCES, definitionRenderProblems, type Appearance, type ExportImag
 import { thumbnailOf, type Thumbnail } from "./look-thumbnail";
 import { decodePng, encodePng, PngShapeError, scaleImage } from "./png-codec";
 import { renderMapImage, type RenderDriver } from "./render-image";
+import { requireRenderStanding } from "./render-standing";
 
 /**
  * The model-facing check of a map: one bounded render through the export
@@ -188,9 +189,9 @@ export async function lookAtMap(scope: AccountScope, input: LookInput): Promise<
   const deadline = Date.now() + budgetMs;
   const rendered = await renderMapImage(scope, {
     mapId: map.id, definition, baseUrl: input.baseUrl, signal: input.signal, driver: input.driver ?? testDriver ?? undefined,
-    budgetMs, credential: input.credential,
+    budgetMs, credential: input.credential, standing: () => requireRenderStanding(scope, map.id),
   });
-  requireAccountScope(scope);
+  requireRenderStanding(scope, map.id);
   const consumed = parseConsumed(rendered.consumed);
   const image = deriveImage(rendered.png, input.signal);
   if (input.signal?.aborted) throw new EvaluationCancelled();
@@ -205,7 +206,7 @@ export async function lookAtMap(scope: AccountScope, input: LookInput): Promise<
     widgets: consumed.widgets.map(String),
     appearance,
   };
-  requireAccountScope(scope);
+  requireRenderStanding(scope, map.id);
   return {
     id: randomUUID(),
     mapId: map.id,

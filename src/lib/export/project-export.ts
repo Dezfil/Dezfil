@@ -1,6 +1,7 @@
 import { AuthError } from "@/lib/auth/errors";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource } from "@/lib/auth/owned-resource";
+import { canReach } from "@/lib/auth/reach";
 import { createWriteStream } from "node:fs";
 import { mkdir, readdir, rm, stat } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
@@ -71,6 +72,29 @@ function canonical(
     }
   }
   return members.filter((id) => wanted.has(id));
+}
+
+/**
+ * Every selected member, asked again as the archive completes: still within
+ * the initiator's reach and still in the project. One withdrawn while the
+ * archive was assembled (unfiled, deleted, or out of reach) fails the whole
+ * export by name, as a vanished artifact does: never a thinner archive.
+ */
+function requireSelectionInReach(
+  scope: AccountScope,
+  projectId: string,
+  chosen: { kind: "map" | "workflow" | "dataset"; id: string; name: string }[],
+): void {
+  const members = projectMemberIds(scope, projectId);
+  const filed = { map: members.maps, workflow: members.recipes, dataset: members.tables };
+  for (const member of chosen) {
+    if (canReach(scope, member.kind, member.id) && filed[member.kind].includes(member.id)) continue;
+    throw new ApiError(
+      "export_failed",
+      `The ${member.kind} "${member.name}" is not available to you, so the archive was not delivered.`,
+      409,
+    );
+  }
 }
 
 /**
@@ -254,6 +278,11 @@ export async function assembleProjectExport(
     await cleanConversions();
     const { size } = await stat(staged);
     requireProject(scope, projectId);
+    requireSelectionInReach(scope, projectId, [
+      ...mapDocs.map((m) => ({ kind: "map" as const, id: m.id, name: m.name })),
+      ...workflowDocs.map((w) => ({ kind: "workflow" as const, id: w.id, name: w.name })),
+      ...chosenTables.map((t) => ({ kind: "dataset" as const, id: t.id, name: t.name })),
+    ]);
     return { path: staged, filename: `${base}.zip`, size };
   } catch (e) {
     await rm(staged, { force: true });

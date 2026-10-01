@@ -179,6 +179,9 @@ export interface RenderImageInput {
   /** A per-call budget in milliseconds: the assistant's
    * check bounds its own wait; absent, the export's documented budget. */
   budgetMs?: number;
+  /** What must still hold at every phase besides the account's activity:
+   * the product's callers pass the map's reach (render-standing.ts). */
+  standing?: () => void;
 }
 
 export interface RenderImageResult {
@@ -195,7 +198,10 @@ export async function renderMapImage(
   scope: AccountScope,
   input: RenderImageInput,
 ): Promise<RenderImageResult> {
-  requireAccountScope(scope);
+  // Asked again at every phase: before the queue, after the slot, after the
+  // launch and after the render.
+  const stand = () => { requireAccountScope(scope); input.standing?.(); };
+  stand();
   const budgetMs = input.budgetMs;
   const deadline = Date.now() + (budgetMs ?? limits.exportRenderTimeoutMs);
   await acquireSlot(deadline, input.signal, budgetMs);
@@ -212,7 +218,7 @@ export async function renderMapImage(
     Math.max(deadline - Date.now(), 1),
   );
   try {
-    requireAccountScope(scope);
+    stand();
     const driver = input.driver ?? (await puppeteerDriver());
     try {
       // Launch is inside the budget too: a stalled
@@ -251,7 +257,7 @@ export async function renderMapImage(
       );
     }
     if (input.signal?.aborted) throw new EvaluationCancelled();
-    requireAccountScope(scope);
+    stand();
     const outcome = await awaitActiveRender(
       browser,
       {
@@ -267,7 +273,7 @@ export async function renderMapImage(
       input.signal,
       budgetMs,
     );
-    requireAccountScope(scope);
+    stand();
     settled = true;
     if (input.signal?.aborted) throw new EvaluationCancelled();
     if ("failed" in outcome) {

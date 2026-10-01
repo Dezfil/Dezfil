@@ -1,5 +1,5 @@
 import { delegateCredential } from "@/lib/auth/delegation";
-import { accountScope, requireAccountScope } from "@/lib/auth/scope";
+import { accountScope } from "@/lib/auth/scope";
 import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
 import { NextResponse } from "next/server";
 import { ApiError } from "@/lib/api/errors";
@@ -11,6 +11,7 @@ import {
 } from "@/lib/export/image-definition";
 import { validateAgainstSchema } from "@/lib/export/schema-validate";
 import { renderMapImage } from "@/lib/export/render-image";
+import { requireRenderStanding } from "@/lib/export/render-standing";
 import { selfBaseUrl } from "@/lib/self-url";
 
 type Params = { params: Promise<{ id: string }> };
@@ -65,8 +66,9 @@ export async function POST(request: Request, { params }: Params) {
       baseUrl: selfBaseUrl(request),
       credential: delegateCredential(actor),
       signal: request.signal,
+      standing: () => requireRenderStanding(scope, id),
     });
-    requireAccountScope(scope);
+    requireRenderStanding(scope, id);
     const headers: Record<string, string> = {
       "content-type": "image/png",
       "content-length": String(png.byteLength),
