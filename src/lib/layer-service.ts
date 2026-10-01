@@ -1,7 +1,11 @@
 import type { DatasetScope } from "@/lib/query/access";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireLayer } from "./layer-access";
-import { assertWritableRefs } from "./layer-write-refs";
+import {
+  admitLayerCommit,
+  admitLayerUpdate,
+  type UpdateLayerFields,
+} from "./layer-admission";
 export { requireLayer } from "./layer-access";
 export { createLayer, duplicateLayer } from "./layer-creation";
 export { layerImage } from "./layer-history-image";
@@ -25,12 +29,7 @@ import {
   diffImages,
   stableJson,
 } from "@/lib/metadata/history";
-import {
-  styleProblem,
-  normalizeStyle,
-  type FillPaint,
-  type LayerStyle,
-} from "@/lib/style/style";
+import type { FillPaint, LayerStyle } from "@/lib/style/style";
 import { classifyFill, computeSizeScale } from "@/lib/style/classify";
 import {
   AGG_VALUE,
@@ -39,19 +38,11 @@ import {
   isOdViz,
   effectiveStyle,
   type LayerFilter,
-  type LayerViz,
   type AggregatedViz,
   type CellElevation,
   type LegendAttrs,
   type LegendChannelKey,
 } from "@/lib/viz";
-import {
-  filterRefs,
-  listRefs,
-  styleRefs,
-  vizRefs,
-  type ColumnRef,
-} from "@/lib/column-validation";
 import { legendFor, legendSlotCount } from "@/lib/style/legend";
 export { renderLayer, type LayerRenderData, type LayerTiles, type LayerRenderGeometryType, type RenderLayerOpts } from "./layer-render";
 export { liveRenderFilters, renderFilters } from "./layer-render-filters";
@@ -90,22 +81,6 @@ function staleLegendAttrs(
   return Object.keys(kept).length ? kept : null;
 }
 
-type UpdateLayerFields = Partial<{
-  name: string;
-  sql: string;
-  style: LayerStyle;
-  visible: boolean;
-  tooltip: string[] | null;
-  popup: string[] | null;
-  publishedFields: string[] | null;
-  inLegend: boolean;
-  viz: LayerViz;
-  filters: LayerFilter[];
-  legendTitle: string | null;
-  legendLabels: (string | null)[] | null;
-  legendAttrs: LegendAttrs | null;
-}>;
-
 export async function updateLayer(
   scope: AccountScope,
   id: string,
@@ -138,78 +113,19 @@ async function deriveAndCommitUpdate(
   fields: UpdateLayerFields,
   opts: { groupId?: string | null; signal?: AbortSignal },
 ): Promise<Layer | null> {
-  const layer = requireLayer(scope, id);
+  // Admission (layer-admission.ts): the layer under the acting scope,
+  // changed SQL that still draws geometry, a valid style normalized, and
+  // the references this request introduces resolving against the schema
+  // as it leaves it, all before the derivations below.
+  const admitted = await admitLayerUpdate(scope, id, fields, opts.signal);
+  const layer = admitted.layer;
+  fields = admitted.fields;
   // A repeated write of the same filter image is a true no-op: in
   // particular, it must not turn into a classification-only history step.
   // stableJson makes this insensitive to object key order at the API edge.
   const filtersChanged =
     fields.filters !== undefined &&
     stableJson(fields.filters) !== stableJson(layer.filters);
-  if (fields.sql !== undefined && fields.sql !== layer.sql) {
-    // Editing SQL revalidates geometry, but the layer is not recreated.
-    await inspectLayerGeometry(scope, fields.sql, opts.signal);
-  }
-  if (fields.style !== undefined) {
-    const problem = styleProblem(fields.style);
-    if (problem) {
-      throw new ApiError("invalid_request", `The style is not valid: ${problem}`, 400);
-    }
-    fields = { ...fields, style: normalizeStyle(fields.style) };
-  }
-
-  // Semantic validation: references this request introduces or changes
-  // must resolve against the schema as the request leaves it. Stored
-  // references echoed unchanged pass, and a SQL edit is never refused
-  // for the references it strands — read-time degradation keeps covering
-  // those. Runs before the derivations below so a bogus reference
-  // refuses with the documented code instead of surfacing as an engine
-  // error from derivation work.
-  {
-    const nextViz = fields.viz ?? layer.viz;
-    const incoming: ColumnRef[] = [];
-    const stored: ColumnRef[] = [];
-    if (fields.style !== undefined) {
-      incoming.push(...styleRefs(fields.style));
-      stored.push(...styleRefs(layer.style));
-    }
-    if (fields.viz !== undefined) {
-      incoming.push(...vizRefs(fields.viz));
-      stored.push(...vizRefs(layer.viz));
-    }
-    if (fields.filters !== undefined) {
-      incoming.push(...filterRefs(fields.filters));
-      stored.push(...filterRefs(layer.filters));
-    }
-    if (fields.tooltip !== undefined) {
-      incoming.push(...listRefs(fields.tooltip, "styling", "tooltip"));
-      stored.push(...listRefs(layer.tooltip, "styling", "tooltip"));
-    }
-    if (fields.popup !== undefined) {
-      incoming.push(...listRefs(fields.popup, "styling", "pop-up"));
-      stored.push(...listRefs(layer.popup, "styling", "pop-up"));
-    }
-    if (fields.publishedFields !== undefined) {
-      incoming.push(
-        ...listRefs(fields.publishedFields, "filterable", "published fields"),
-      );
-      stored.push(
-        ...listRefs(layer.publishedFields, "filterable", "published fields"),
-      );
-    }
-    // On an aggregated layer the label's attribute is dropped by the
-    // normalization below, not stored — a reference that will not
-    // survive the write is not validated.
-    const validating = isAggregated(nextViz)
-      ? incoming.filter((ref) => ref.channel !== "label")
-      : incoming;
-    await assertWritableRefs(scope,
-      validating,
-      stored,
-      fields.sql ?? layer.sql,
-      nextViz,
-      opts.signal,
-    );
-  }
   if (
     fields.viz !== undefined &&
     fields.viz.type !== "points" &&
@@ -396,13 +312,12 @@ async function deriveAndCommitUpdate(
     // snapshot: the engine work above yields, and a concurrent write to the
     // same layer may have landed since. History must diff against the state
     // this write actually replaces, or undo restores a state that never
-    // existed.
-    const prior = requireLayer(scope, id);
-    // The derivations above were computed against the entry snapshot. If
-    // the layer moved while they settled, committing them would overwrite
-    // the concurrent write with stale derived containers — abort and let
-    // the caller re-derive against the fresh state.
-    if (stableJson(prior) !== stableJson(layer)) return;
+    // existed. The derivations above were computed against the entry
+    // snapshot. If the layer moved while they settled, committing them
+    // would overwrite the concurrent write with stale derived containers —
+    // abort and let the caller re-derive against the fresh state.
+    const prior = admitLayerCommit(scope, id, layer);
+    if (!prior) return;
     updateLayerFields(id, fields);
     fresh = requireLayer(scope, id);
     // Record what actually changed, as stored — post-normalization, so a

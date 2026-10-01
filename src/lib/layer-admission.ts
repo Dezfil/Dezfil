@@ -1,0 +1,182 @@
+import type { AccountScope } from "@/lib/auth/scope";
+import { ApiError } from "@/lib/api/errors";
+import { inspectLayerGeometry } from "@/lib/layer-geometry";
+import type { Layer } from "@/lib/metadata/maps";
+import { stableJson } from "@/lib/metadata/history";
+import {
+  normalizeStyle,
+  styleProblem,
+  type LayerStyle,
+} from "@/lib/style/style";
+import {
+  isAggregated,
+  POINTS_VIZ,
+  type LayerFilter,
+  type LayerViz,
+  type LegendAttrs,
+} from "@/lib/viz";
+import {
+  filterRefs,
+  listRefs,
+  styleRefs,
+  vizRefs,
+  type ColumnRef,
+} from "@/lib/column-validation";
+import { requireLayer } from "./layer-access";
+import { requireMap } from "./map-access";
+import { assertWritableRefs } from "./layer-write-refs";
+
+/**
+ * The layer write admission: what a layer create or update must pass
+ * before anything is derived from it, and the check its commit makes.
+ * Out of `layer-service.ts` (and the create path beside it) under the
+ * decomposition rule, with the same refusals, messages and order.
+ *
+ * Each entry first resolves the layer's map under the acting scope (the
+ * map named for a create, the layer's own map for an update), then
+ * validates what the request introduces: SQL that draws geometry, a valid
+ * style, and column references the resulting schema can honor. A check
+ * on who is acting, and on what the SQL a write introduces may name,
+ * belongs here, where the scope and the map are both in hand.
+ */
+
+export type UpdateLayerFields = Partial<{
+  name: string;
+  sql: string;
+  style: LayerStyle;
+  visible: boolean;
+  tooltip: string[] | null;
+  popup: string[] | null;
+  publishedFields: string[] | null;
+  inLegend: boolean;
+  viz: LayerViz;
+  filters: LayerFilter[];
+  legendTitle: string | null;
+  legendLabels: (string | null)[] | null;
+  legendAttrs: LegendAttrs | null;
+}>;
+
+/** A style is refused, with its problem named, before anything reads it. */
+function assertValidStyle(style: LayerStyle): void {
+  const problem = styleProblem(style);
+  if (problem) {
+    throw new ApiError("invalid_request", `The style is not valid: ${problem}`, 400);
+  }
+}
+
+/** Admit a new layer on a map: the map under the acting scope, SQL that
+ * yields a geometry, and a style (when one is given) that is valid and
+ * whose references the result can honor. Returns the geometry the SQL
+ * draws, which the default style follows. */
+export async function admitLayerCreate(
+  scope: AccountScope,
+  mapId: string,
+  input: { sql: string; style?: LayerStyle },
+  signal?: AbortSignal,
+): Promise<{ geometryType: string | null }> {
+  requireMap(scope, mapId);
+  const { geometryType } = await inspectLayerGeometry(scope, input.sql, signal);
+  if (input.style !== undefined) {
+    assertValidStyle(input.style);
+    // A created layer has no stored config to echo: every reference the
+    // style carries is introduced here and validates.
+    await assertWritableRefs(scope,
+      styleRefs(input.style),
+      [],
+      input.sql,
+      POINTS_VIZ,
+      signal,
+    );
+  }
+  return { geometryType };
+}
+
+/** Admit an update to a layer: the layer, and with it its map, under the
+ * acting scope; changed SQL that still yields a geometry; a valid style,
+ * normalized; and every reference the request introduces or changes
+ * resolving against the schema as the request leaves it. Returns the
+ * layer as read at entry (the snapshot the commit compares against) and
+ * the fields with the style normalized. */
+export async function admitLayerUpdate(
+  scope: AccountScope,
+  id: string,
+  fields: UpdateLayerFields,
+  signal?: AbortSignal,
+): Promise<{ layer: Layer; fields: UpdateLayerFields }> {
+  const layer = requireLayer(scope, id);
+  if (fields.sql !== undefined && fields.sql !== layer.sql) {
+    // Editing SQL revalidates geometry, but the layer is not recreated.
+    await inspectLayerGeometry(scope, fields.sql, signal);
+  }
+  if (fields.style !== undefined) {
+    assertValidStyle(fields.style);
+    fields = { ...fields, style: normalizeStyle(fields.style) };
+  }
+
+  // Semantic validation: references this request introduces or changes
+  // must resolve against the schema as the request leaves it. Stored
+  // references echoed unchanged pass, and a SQL edit is never refused
+  // for the references it strands — read-time degradation keeps covering
+  // those. Runs before the derivations that follow admission so a bogus
+  // reference refuses with the documented code instead of surfacing as an
+  // engine error from derivation work.
+  const nextViz = fields.viz ?? layer.viz;
+  const incoming: ColumnRef[] = [];
+  const stored: ColumnRef[] = [];
+  if (fields.style !== undefined) {
+    incoming.push(...styleRefs(fields.style));
+    stored.push(...styleRefs(layer.style));
+  }
+  if (fields.viz !== undefined) {
+    incoming.push(...vizRefs(fields.viz));
+    stored.push(...vizRefs(layer.viz));
+  }
+  if (fields.filters !== undefined) {
+    incoming.push(...filterRefs(fields.filters));
+    stored.push(...filterRefs(layer.filters));
+  }
+  if (fields.tooltip !== undefined) {
+    incoming.push(...listRefs(fields.tooltip, "styling", "tooltip"));
+    stored.push(...listRefs(layer.tooltip, "styling", "tooltip"));
+  }
+  if (fields.popup !== undefined) {
+    incoming.push(...listRefs(fields.popup, "styling", "pop-up"));
+    stored.push(...listRefs(layer.popup, "styling", "pop-up"));
+  }
+  if (fields.publishedFields !== undefined) {
+    incoming.push(
+      ...listRefs(fields.publishedFields, "filterable", "published fields"),
+    );
+    stored.push(
+      ...listRefs(layer.publishedFields, "filterable", "published fields"),
+    );
+  }
+  // On an aggregated layer the label's attribute is dropped by the
+  // normalization that follows admission, not stored — a reference that
+  // will not survive the write is not validated.
+  const validating = isAggregated(nextViz)
+    ? incoming.filter((ref) => ref.channel !== "label")
+    : incoming;
+  await assertWritableRefs(scope,
+    validating,
+    stored,
+    fields.sql ?? layer.sql,
+    nextViz,
+    signal,
+  );
+  return { layer, fields };
+}
+
+/** The update's check at commit, inside its transaction: the layer is
+ * read again under the acting scope, and the write proceeds only while it
+ * still stands exactly as admission read it. Returns that before-image,
+ * or null when a concurrent write landed since, so the caller derives
+ * again against the fresh state instead of overwriting it. */
+export function admitLayerCommit(
+  scope: AccountScope,
+  id: string,
+  entry: Layer,
+): Layer | null {
+  const prior = requireLayer(scope, id);
+  return stableJson(prior) === stableJson(entry) ? prior : null;
+}
