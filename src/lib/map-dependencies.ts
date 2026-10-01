@@ -1,4 +1,5 @@
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { REACHED_PROJECTS } from "@/lib/auth/reach";
 import { metadataDb } from "@/lib/metadata/db";
 import { ApiError } from "@/lib/api/errors";
 import { listLayers } from "@/lib/metadata/maps";
@@ -41,22 +42,40 @@ export interface MapDependency {
    * column with no sampled type is still spatial. */
   geometryColumn: string | null;
   geometryType: string | null;
-  /** The workflow that currently produces this dataset; null when it
-   * is not a workflow-origin recipe's current output. */
-  producer: { id: string; name: string } | null;
+  /** True when the reader owns the dataset: a filing checklist offers
+   * only these; another person's is listed as not theirs to add. */
+  owned: boolean;
+  /** The workflow that produces this dataset (some run of one of its
+   * nodes recorded it as its output), when the reader reaches that
+   * workflow; null otherwise. */
+  producer: Producer | null;
 }
 
-export type Producer = { id: string; name: string };
+/** A producing workflow, and whether the reader owns it (and so may file it). */
+export type Producer = { id: string; name: string; owned: boolean };
 
-/** The workflow-origin producers by their current output identity: one
- * capture, shared by the map's and the workflow's reads. */
+/** The workflow-origin producers by output identity, among the workflows the
+ * reader reaches: every runner's recorded output counts, each dataset being
+ * one runner's output of one node. One capture, shared by the map's and the
+ * workflow's reads. */
 export function currentProducers(scope: AccountScope): Map<string, Producer> {
-  const owner = requireAccountScope(scope);
-  const rows = metadataDb().prepare(`SELECT r.id, r.name, s.output_table_id FROM recipes r
-    JOIN recipe_steps s ON s.recipe_id = r.id JOIN data_tables t ON t.id = s.output_table_id
-    WHERE r.owner_id = ? AND t.owner_id = ? AND r.origin = 'workflow'
-    ORDER BY r.created_at DESC, r.id DESC, s.ordinal`).all(owner, owner) as { id: string; name: string; output_table_id: string }[];
-  return new Map(rows.map(row => [row.output_table_id, { id: row.id, name: row.name }]));
+  const me = requireAccountScope(scope);
+  const rows = metadataDb().prepare(`SELECT r.id, r.name, r.owner_id, o.output_table_id FROM step_runner_outputs o
+    JOIN recipe_steps s ON s.id = o.step_id JOIN recipes r ON r.id = s.recipe_id
+    WHERE r.origin = 'workflow' AND (r.owner_id = @me OR r.project_id IN (${REACHED_PROJECTS}))
+    ORDER BY r.created_at DESC, r.id DESC, s.ordinal`).all({ me }) as { id: string; name: string; owner_id: string; output_table_id: string }[];
+  const producers = new Map<string, Producer>();
+  for (const row of rows) {
+    if (!producers.has(row.output_table_id)) producers.set(row.output_table_id, { id: row.id, name: row.name, owned: row.owner_id === me });
+  }
+  return producers;
+}
+
+/** The reader's own SQL name, which marks the datasets they own. */
+export function readerSqlName(scope: AccountScope): string | null {
+  const me = requireAccountScope(scope);
+  const row = metadataDb().prepare("SELECT sql_name FROM accounts WHERE id = ?").get(me) as { sql_name: string | null } | undefined;
+  return row?.sql_name ?? null;
 }
 
 /** One dependency entry from a captured listing — the facts both
@@ -64,12 +83,14 @@ export function currentProducers(scope: AccountScope): Map<string, Producer> {
 export function dependencyOf(
   table: TableListing,
   producers: Map<string, Producer>,
+  reader: string | null,
 ): MapDependency {
   return {
     id: table.id,
     name: table.name,
     qualifiedName: table.qualifiedName,
     owner: table.owner,
+    owned: table.owner.sqlName === reader,
     source: table.source,
     rowCount: table.rowCount,
     projectIds: table.projectIds,
@@ -102,6 +123,7 @@ export async function mapDependencies(
   const tables = await listTablesWithSize(scope);
   const byId = new Map(tables.map((t) => [t.id, t]));
   const producers = currentProducers(scope);
+  const reader = readerSqlName(scope);
   const evaluation = mapEvaluation(scope, mapId);
   const namespace = namespaceFor(evaluation);
 
@@ -124,7 +146,7 @@ export async function mapDependencies(
     for (const id of ids) {
       const table = byId.get(id);
       if (!table || found.has(table.id)) continue;
-      found.set(table.id, dependencyOf(table, producers));
+      found.set(table.id, dependencyOf(table, producers, reader));
     }
   }
   requireMap(scope, mapId);

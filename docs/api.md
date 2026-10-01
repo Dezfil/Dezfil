@@ -309,7 +309,25 @@ evaluation gives, and lineage, output links and captured layers out of reach
 are left out. Workflows: a named, ordered list of steps whose dependencies
 point only backwards, so the system can answer what is now out of date. The
 family covers the workflow, its steps, their order, the canvas layout, and
-the runs of both a single step and the whole workflow.
+the runs of both a single step and the whole workflow. Each person's run
+makes their own outputs, so a step's view describes one run: the reader's own
+latest output of it when they have one, else the workflow owner's, and its
+`output` names that run's `runner` and `runId`, with the step's conditions,
+inputs and last success describing the same run. Each run record names its
+`runner`. A qualified reference (`ada.staged`) stays external everywhere it is
+read: ordering, staleness and a workflow's duplication, which renames the
+copy's own outputs where its SQL reads them and leaves a qualified dataset of
+the same name as written.
+
+The dependency reads (`GET /api/maps/{id}/dependencies`,
+`GET /api/recipes/{id}/dependencies`) resolve every reference, qualified ones
+included, to the datasets the caller reaches, and leave out what they do not
+reach. A workflow's lists every runner's recorded output the caller reaches.
+Each entry says whether the caller `owned` it and, for a dataset some
+workflow's run produced, names that `producer` when the caller reaches the
+workflow, with whether they own it: the datasets and workflows a filing
+checklist offers are the caller's own, and the rest are listed as not theirs
+to add.
 
 **Projects.** An optional named set over maps, workflows and datasets, with
 a members call and an export. `GET /api/projects` lists the caller's own

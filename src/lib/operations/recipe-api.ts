@@ -70,9 +70,10 @@ export function stepPayload(view: StepView & { context?: ReaderContext }, contex
     // labelled as pending, not folded into the sentence for what ran.
     summary: summaryFor(step.operation, step.parameters),
     proposedParameters: step.proposedParameters,
-    output: context.link(step.outputTableId
-      ? { id: step.outputTableId, name: step.outputTableName ?? "" }
-      : null),
+    // The output of the run this view describes, naming its runner and run.
+    output: view.output !== undefined
+      ? view.output
+      : context.link(step.outputTableId ? { id: step.outputTableId, name: step.outputTableName ?? "" } : null),
     condition: condition.primary,
     conditions: condition.conditions,
     causes: condition.causes,
@@ -114,6 +115,7 @@ export function cascadePayload(cascade: CascadeView | CascadeRun) {
     finishedAt: cascade.finishedAt,
     members: cascade.members,
     ...("outputs" in cascade ? { outputs: cascade.outputs } : {}),
+    ...("runner" in cascade ? { runner: cascade.runner } : {}),
   };
 }
 

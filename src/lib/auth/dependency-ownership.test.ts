@@ -64,10 +64,16 @@ it("selects producers within each owner before decoding private workflow content
   expect([...currentProducers(scopes.alice).keys()]).toEqual([table("alice").id]);
 });
 it("does not expose a foreign workflow claiming an owned dataset as its output", async () => {
+  // Bob's workflow, out of Alice's reach, claims her dataset as its output,
+  // in the legacy column and as his run's recorded output.
   db.prepare("UPDATE recipe_steps SET output_table_id = ? WHERE id = ?").run(table("alice").id, steps.bob);
+  db.prepare("UPDATE step_runner_outputs SET output_table_id = ? WHERE step_id = ?").run(table("alice").id, steps.bob);
   db.prepare("UPDATE recipe_steps SET output_table_id = NULL WHERE id = ?").run(steps.alice);
+  const own = { id: recipes.alice, name: "alice", owned: true };
+  expect((await mapDependencies(scopes.alice, maps.alice))[0].producer).toEqual(own);
+  expect((await workflowDependencies(scopes.alice, recipes.alice))[0].producer).toEqual(own);
+  db.prepare("DELETE FROM step_runner_outputs WHERE step_id = ?").run(steps.alice);
   expect((await mapDependencies(scopes.alice, maps.alice))[0].producer).toBeNull();
-  expect((await workflowDependencies(scopes.alice, recipes.alice))[0].producer).toBeNull();
 });
 it.each(accounts)("keeps %s's fingerprint stable through another owner's refresh, delete and name reuse", account => {
   const before = fingerprint(account), other = accounts.find(a => a !== account)!;

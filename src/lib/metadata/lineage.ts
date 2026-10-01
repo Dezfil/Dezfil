@@ -148,10 +148,14 @@ export function reachedEdgesForStep(
   stepId: string,
   reachable: ReadonlySet<string>,
   db: Database = metadataDb(),
+  /** Only this runner's edges: the run a view describes. */
+  runner?: string | null,
 ): LineageEdge[] {
   const owner = requireReachable(scope, "step", stepId, db).relation === "owner";
+  if (runner === null) return [];
   const rows = db.prepare(`SELECT e.*, t.id AS live FROM lineage_edges e LEFT JOIN data_tables t ON t.id = e.input_table_id
-    WHERE e.step_id = ? ORDER BY e.input_table_name`).all(stepId) as (Row & { live: string | null })[];
+    WHERE e.step_id = ? ${runner === undefined ? "" : "AND e.runner_id = ?"} ORDER BY e.input_table_name`)
+    .all(...(runner === undefined ? [stepId] : [stepId, runner])) as (Row & { live: string | null })[];
   return rows.filter((row) => reachable.has(row.input_table_id) || (owner && row.live === null)).map(hydrate);
 }
 

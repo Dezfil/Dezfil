@@ -4,8 +4,10 @@ import { ApiError } from "@/lib/api/errors";
 import {
   currentProducers,
   dependencyOf,
+  readerSqlName,
   type MapDependency,
 } from "@/lib/map-dependencies";
+import { metadataDb } from "@/lib/metadata/db";
 import { requireRecipe, listSteps } from "@/lib/metadata/owned-recipes";
 import { queryInputsStrict } from "@/lib/operations/inputs";
 import {
@@ -25,8 +27,9 @@ import { qualifiedNameParts } from "@/lib/query/qualified-name";
  * checklist for a workflow, as one documented read. Once each: every
  * registered dataset the workflow's CURRENT node definitions read (a
  * pending edit over the active one — the same selection the ordinary
- * workflow view makes) and every current registered output of the
- * workflow; a dataset both read and written appears once. One captured
+ * workflow view makes) and every runner's recorded output of the
+ * workflow the reader reaches; a dataset both read and written appears
+ * once. One captured
  * metadata world, like the map's read.
  *
  * Strict where the ordinary view is tolerant: that view turns an
@@ -67,6 +70,9 @@ export async function workflowDependencies(
   const tables = await listTablesWithSize(scope);
   const byId = new Map(tables.map((t) => [t.id, t]));
   const producers = currentProducers(scope);
+  const reader = readerSqlName(scope);
+  // Every runner's recorded output of each node, as the reader reaches it.
+  const outputsOf = metadataDb().prepare("SELECT output_table_id AS id FROM step_runner_outputs WHERE step_id = ? ORDER BY succeeded_at DESC");
 
   const found = new Map<string, WorkflowDependency>();
   for (const step of steps) {
@@ -87,12 +93,12 @@ export async function workflowDependencies(
       const resolution = resolveReference(namespace, parts);
       const table = resolution.status === "bound" ? byId.get(resolution.dataset.id) : undefined;
       if (table && !found.has(table.id)) {
-        found.set(table.id, dependencyOf(table, producers));
+        found.set(table.id, dependencyOf(table, producers, reader));
       }
     }
-    const output = step.outputTableId ? byId.get(step.outputTableId) : null;
-    if (output && !found.has(output.id)) {
-      found.set(output.id, dependencyOf(output, producers));
+    for (const { id } of outputsOf.all(step.id) as { id: string }[]) {
+      const output = byId.get(id);
+      if (output && !found.has(output.id)) found.set(output.id, dependencyOf(output, producers, reader));
     }
   }
   requireRecipe(scope, recipeId);

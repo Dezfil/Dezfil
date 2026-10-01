@@ -6,7 +6,8 @@ export const RECIPE_DEPENDENCY_SCHEMAS = {
         type: "array",
         description:
           "The distinct registered datasets the workflow reads and " +
-          "writes, alphabetical by the name the caller would type.",
+          "writes, every runner's recorded output the caller reaches " +
+          "included, alphabetical by the name the caller would type.",
         items: { $ref: "#/components/schemas/DependencyDataset" },
       },
     },
@@ -67,13 +68,23 @@ export const RECIPE_SCHEMAS = {
       output: {
         type: ["object", "null"],
         description:
-          "The dataset this step owns, once it has produced one and the " +
-          "caller reaches it; to the workflow's owner, also one since " +
-          "deleted. Null when it never produced one or the caller does " +
-          "not reach it.",
+          "The output of the run this view describes: the caller's own " +
+          "latest output of the step when they have one, else the " +
+          "workflow owner's, each runner's output being their own " +
+          "dataset. The step's conditions, inputs and last success " +
+          "describe the same run. Shown when the caller reaches the " +
+          "dataset; one since deleted only to its runner and the " +
+          "workflow's owner. Null when neither has produced one or the " +
+          "caller does not reach it.",
         properties: {
           id: { type: "string" },
           name: { type: ["string", "null"] },
+          runner: {
+            $ref: "#/components/schemas/ResourceOwner",
+            description: "The person whose run produced it.",
+          },
+          runId: { type: ["string", "null"], description: "The workflow run that produced it, when recorded." },
+          jobId: { type: ["string", "null"], description: "The step's attempt that produced it, when recorded." },
         },
       },
       condition: {
@@ -542,7 +553,7 @@ export const RECIPE_SCHEMAS = {
       },
       outputs: {
         type: "array",
-        description: "Every dataset this run produced.",
+        description: "Every dataset this run produced: its runner's own.",
         items: {
           type: "object",
           properties: {
@@ -550,6 +561,13 @@ export const RECIPE_SCHEMAS = {
             name: { type: "string" },
           },
         },
+      },
+      runner: {
+        oneOf: [{ $ref: "#/components/schemas/ResourceOwner" }, { type: "null" }],
+        description:
+          "Whose run it is: the person who started it, whose datasets " +
+          "its outputs are. Null for a run recorded before runs were " +
+          "attributed.",
       },
     },
   },

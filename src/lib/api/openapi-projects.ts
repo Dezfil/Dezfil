@@ -356,14 +356,21 @@ export const PROJECT_DEPENDENCY_SCHEMAS = {
           "caller's own dataset, <sql name>.<name> for another owner's.",
       },
       owner: { $ref: "#/components/schemas/ResourceOwner" },
+      owned: {
+        type: "boolean",
+        description:
+          "True when the caller owns the dataset: a filing checklist " +
+          "offers only these. Another person's dependency is listed as " +
+          "not the caller's to add.",
+      },
       source: { type: "string" },
       rowCount: { type: "integer" },
       projectIds: {
         type: "array",
         items: { type: "string" },
         description:
-          "Every project the dataset is in; order carries no " +
-          "meaning.",
+          "Every project the dataset is in that the caller reaches; " +
+          "order carries no meaning.",
       },
       geometryColumn: {
         type: ["string", "null"],
@@ -380,11 +387,16 @@ export const PROJECT_DEPENDENCY_SCHEMAS = {
       producer: {
         type: ["object", "null"],
         description:
-          "The workflow-origin recipe whose current output this " +
-          "dataset is; null otherwise.",
+          "The workflow-origin recipe a run of which recorded this " +
+          "dataset as its output, when the caller reaches that " +
+          "workflow; null otherwise.",
         properties: {
           id: { type: "string" },
           name: { type: "string" },
+          owned: {
+            type: "boolean",
+            description: "True when the caller owns the workflow and so may file it.",
+          },
         },
       },
     },
@@ -393,6 +405,7 @@ export const PROJECT_DEPENDENCY_SCHEMAS = {
       "name",
       "qualifiedName",
       "owner",
+      "owned",
       "source",
       "rowCount",
       "projectIds",

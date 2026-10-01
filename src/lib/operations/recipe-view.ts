@@ -15,6 +15,8 @@ import { resolveReference, unavailableDataset, type Namespace } from "@/lib/quer
 import { workflowEvaluation } from "@/lib/query/context";
 import { namespaceFor } from "@/lib/query/namespace";
 import { presencesOf, type Presence } from "@/lib/reach-presence";
+import { metadataDb } from "@/lib/metadata/db";
+import { runnerOutput } from "@/lib/metadata/recipe-outputs";
 import {
   deriveConditions,
   type ConditionEdge,
@@ -53,8 +55,22 @@ import { linkFilter, type OutputLink } from "./output-links";
  * named.
  */
 
+/** Whose run a step's output, lineage and conditions describe, and which
+ * run: the reader's own latest output of the step when they have one, else
+ * the workflow owner's; null when neither has produced one. */
+export interface DescribedRun {
+  runner: { name: string; sqlName: string };
+  runId: string | null;
+  jobId: string | null;
+}
+
 export interface StepView {
+  /** The step, its output and last success those of the described run. */
   step: RecipeStep;
+  described?: DescribedRun | null;
+  /** The described run's output as the reader may follow it, naming its
+   * runner and run; null when there is none to show. */
+  output?: (OutputLink & DescribedRun) | null;
   condition: StepCondition;
   /** The step's most recent run, whatever became of it; null if it never ran. */
   latestAttempt: OperationJob | null;
@@ -152,9 +168,42 @@ async function presentReads(scope: DatasetScope, steps: RecipeStep[]): Promise<M
   return new Map(entries);
 }
 
+/**
+ * Each step as one runner's: the reader's own recorded output when they have
+ * one, else the workflow owner's. A workflow's output has one identity per
+ * runner, so a view that mixed one person's output with another's lineage
+ * would describe no run at all.
+ */
+function describedSteps(scope: AccountScope, steps: RecipeStep[], ownerId: string): { steps: RecipeStep[]; runs: Map<string, { accountId: string; run: DescribedRun } | null> } {
+  const runs = new Map<string, { accountId: string; run: DescribedRun } | null>();
+  const label = metadataDb().prepare("SELECT name, sql_name AS sqlName FROM accounts WHERE id = ?");
+  const described = steps.map((step) => {
+    const own = runnerOutput(step.id, scope.accountId);
+    const output = own ?? runnerOutput(step.id, ownerId);
+    const accountId = own ? scope.accountId : ownerId;
+    const person = output ? label.get(accountId) as { name: string; sqlName: string } | undefined : undefined;
+    runs.set(step.id, output && person ? { accountId, run: { runner: person, runId: output.runId, jobId: output.jobId } } : null);
+    return {
+      ...step,
+      outputTableId: output?.id ?? null,
+      outputTableName: output?.name ?? null,
+      lastSuccessAt: output?.succeededAt ?? null,
+    };
+  });
+  return { steps: described, runs };
+}
+
+function describedOutput(scope: AccountScope, step: RecipeStep, described: { accountId: string; run: DescribedRun } | null,
+  ownerId: string): (OutputLink & DescribedRun) | null {
+  if (!step.outputTableId || !described) return null;
+  const link = linkFilter(scope, [ownerId, described.accountId])({ id: step.outputTableId, name: step.outputTableName ?? "" });
+  return link ? { ...link, ...described.run } : null;
+}
+
 export async function readRecipe(scope: AccountScope, recipeId: string): Promise<RecipeView> {
   const recipe = requireRecipe(scope, recipeId);
-  const steps = listSteps(scope, recipeId);
+  const standing = recipeStanding(recipeId)!;
+  const { steps, runs } = describedSteps(scope, listSteps(scope, recipeId), standing.ownerId);
   const evaluation = workflowEvaluation(scope, recipeId);
   const namespace = namespaceFor(evaluation);
   // A reader whose own space is the workflow's home reads its names as their
@@ -162,7 +211,8 @@ export async function readRecipe(scope: AccountScope, recipeId: string): Promise
   const home = namespace.home.id === scope.accountId;
   const reachable = new Set(namespace.datasets.map((dataset) => dataset.id));
   const reads = await presentReads(evaluation, steps);
-  const edgesByStep = new Map<string, ConditionEdge[]>(steps.map((s) => [s.id, reachedEdgesForStep(scope, s.id, reachable)]));
+  const edgesByStep = new Map<string, ConditionEdge[]>(steps.map((s) =>
+    [s.id, reachedEdgesForStep(scope, s.id, reachable, undefined, runs.get(s.id)?.accountId ?? null)]));
   for (const edge of prospectiveEdges(namespace, steps, reads, edgesByStep)) {
     edgesByStep.get(edge.stepId)?.push(edge);
   }
@@ -182,13 +232,16 @@ export async function readRecipe(scope: AccountScope, recipeId: string): Promise
 
   const views: StepView[] = steps.map((step) => ({
     step,
+    described: runs.get(step.id)?.run ?? null,
+    // The described run's output, followed by whoever reaches it; a gone one
+    // is told to whoever recorded it, the workflow's owner or its runner.
+    output: describedOutput(scope, step, runs.get(step.id) ?? null, standing.ownerId),
     condition: conditions.get(step.id)!,
     latestAttempt: latestStepAttempt(scope, step.id),
     edges: edgesByStep.get(step.id) ?? [],
     reads: reads.get(step.id) ?? [],
   }));
   requireRecipe(scope, recipeId);
-  const standing = recipeStanding(recipeId)!;
   return {
     recipe,
     steps: views,

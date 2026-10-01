@@ -117,7 +117,7 @@ describe("a reached workflow's view", () => {
     expect(runs[0].outputs.map((o) => o.id).sort()).toEqual([outputId("final"), outputId("staged")].sort());
     expect(runs[0].members.find((m) => m.stepId === steps.copy)!.output).toBeNull();
     // Its owner still follows every link.
-    expect((await read("ada")).step("copy").output).toEqual({ id: outputId("park_copy"), name: "park_copy" });
+    expect((await read("ada")).step("copy").output).toMatchObject({ id: outputId("park_copy"), name: "park_copy", runner: { sqlName: "ada" } });
   });
 
   it("lists it, its runs, layout and datasets to everyone who reaches it and to nobody else", async () => {

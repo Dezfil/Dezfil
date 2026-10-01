@@ -360,6 +360,9 @@ export async function startSingleRun(scope: AccountScope, recipeId: string, step
 export interface CascadeView extends CascadeRun {
   /** Every dataset this cascade produced, from its members' own jobs. */
   outputs: { id: string; name: string }[];
+  /** Whose run it is: its outputs and lineage are that person's. Null for a
+   * run recorded before runs were attributed. */
+  runner: { name: string; sqlName: string } | null;
 }
 
 /**
@@ -393,7 +396,9 @@ export function readCascade(scope: AccountScope, id: string): CascadeView {
   const outputs = cascade.members
     .filter((m) => m.state === "succeeded" && m.output !== null)
     .map((m) => m.output!);
-  return { ...cascade, outputs };
+  const runner = metadataDb().prepare(`SELECT a.name, a.sql_name AS sqlName FROM cascade_runs c
+    JOIN accounts a ON a.id = c.initiator_id WHERE c.id = ?`).get(id) as { name: string; sqlName: string } | undefined;
+  return { ...cascade, outputs, runner: runner ?? null };
 }
 
 /**
