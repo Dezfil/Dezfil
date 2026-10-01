@@ -1,8 +1,9 @@
 import type { Database } from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
-import { requireOwnedResource, resourceAbsent, type OwnedResourceKind } from "@/lib/auth/owned-resource";
-import { canReach, REACHED_PROJECTS, requirePermitted } from "@/lib/auth/reach";
+import { resourceAbsent } from "@/lib/auth/owned-resource";
+import { canReach, REACHED_PROJECTS, requireFilingAddition, requireFilingRemoval, requirePermitted, requireReachable,
+  type FilingKind } from "@/lib/auth/reach";
 import type { AccountLabel } from "./accounts";
 import { metadataDb } from "./db";
 import * as projects from "./projects";
@@ -44,43 +45,82 @@ export function listProjects(scope: AccountScope, db: Database = metadataDb()): 
     ORDER BY p.created_at DESC, p.id DESC`).all({ me }) as ReachedProjectRow[]).map(reachedProjectOf);
 }
 
-/** The owner's own read, for what stays the owner's: filing into a project
- * and changing what it holds, until filing follows its own rules, and its
- * archive. Anyone else gets the absent refusal. */
+/** The owner's own read, for what stays the owner's: the project's archive.
+ * Anyone else gets the absent refusal. */
 export function requireOwnProject(scope: AccountScope, id: string, db: Database = metadataDb()) {
   const owner = requireAccountScope(scope, db);
   const row = db.prepare("SELECT * FROM projects WHERE id = ? AND owner_id = ?").get(id, owner) as ProjectRow | undefined;
   if (!row) throw resourceAbsent();
   return projects.projectFromRow(row);
 }
-function checkFilingSource(scope: AccountScope, kind: "map" | "workflow", id: string, db: Database) {
-  requireOwnedResource(scope, kind, id, db);
-  const relation = kind === "map" ? "maps" : "recipes";
-  const row = db.prepare(`SELECT project_id FROM ${relation} WHERE id = ?`).get(id) as { project_id: string | null };
-  if (row.project_id) requireOwnedResource(scope, "project", row.project_id, db);
+
+type FilingGroup = [FilingKind, string[], string[]];
+const FILED_IN: Record<FilingKind, string> = {
+  map: "SELECT project_id AS project FROM maps WHERE id = ?",
+  workflow: "SELECT project_id AS project FROM recipes WHERE id = ?",
+  dataset: "SELECT project_id AS project FROM project_datasets WHERE table_id = ?",
+};
+const filedIn = (kind: FilingKind, id: string, db: Database) =>
+  (db.prepare(FILED_IN[kind]).all(id) as { project: string | null }[]).map(row => row.project).filter((p): p is string => p !== null);
+const OWNED: Record<FilingKind, string> = {
+  map: "SELECT 1 FROM maps WHERE id = ? AND owner_id = ?",
+  workflow: "SELECT 1 FROM recipes WHERE id = ? AND owner_id = ?",
+  dataset: "SELECT 1 FROM data_tables WHERE id = ? AND owner_id = ?",
+};
+
+/** A map or workflow filed at most once: filing it into a project takes it
+ * out of the one it was in, which its owner may always do. */
+function requireMove(scope: AccountScope, kind: "map" | "workflow", id: string, projectId: string | null, db: Database) {
+  for (const current of filedIn(kind, id, db)) if (current !== projectId) requireFilingRemoval(scope, kind, id, current, db);
 }
-function checkMembers(scope: AccountScope, change: projects.MemberChange, db: Database) {
-  requireAccountScope(scope, db);
-  const groups: [OwnedResourceKind, string[]][] = [
-    ["map", [...(change.addMaps ?? []), ...(change.removeMaps ?? [])]],
-    ["workflow", [...(change.addRecipes ?? []), ...(change.removeRecipes ?? [])]],
-    ["dataset", [...(change.addTables ?? []), ...(change.removeTables ?? [])]],
+
+/**
+ * The checks of one compound filing change, by the kernel's named rules:
+ * adding needs the destination's permission (its owner, or an editor filing
+ * their own resource, into a project whose owner is active); removing is the
+ * resource owner's from any project, member or not, and the project owner's
+ * for anything filed in their project. Removing what is not filed in the
+ * project changes nothing, for anyone who reaches it. A caller who does not
+ * reach the project may only withdraw their own resources filed in it; to
+ * anyone else the project is absent.
+ */
+function checkMembers(scope: AccountScope, projectId: string, change: projects.MemberChange, db: Database) {
+  const me = requireAccountScope(scope, db);
+  const groups: FilingGroup[] = [
+    ["map", change.addMaps ?? [], change.removeMaps ?? []],
+    ["workflow", change.addRecipes ?? [], change.removeRecipes ?? []],
+    ["dataset", change.addTables ?? [], change.removeTables ?? []],
   ];
-  for (const [kind, ids] of groups) for (const id of ids) {
-    requireOwnedResource(scope, kind, id, db);
-    if (kind === "map" || kind === "workflow") checkFilingSource(scope, kind, id, db);
+  if (!canReach(scope, "project", projectId, db)) {
+    const ownFiledHere = (kind: FilingKind, id: string) =>
+      filedIn(kind, id, db).includes(projectId) && db.prepare(OWNED[kind]).get(id, me) !== undefined;
+    const withdrawsOwn = groups.some(([, , removed]) => removed.length > 0) &&
+      groups.every(([kind, added, removed]) => added.length === 0 && removed.every(id => ownFiledHere(kind, id)));
+    if (!withdrawsOwn) throw resourceAbsent();
+  }
+  for (const [kind, added, removed] of groups) {
+    for (const id of added) {
+      requireFilingAddition(scope, kind, id, projectId, db);
+      if (kind !== "dataset") requireMove(scope, kind, id, projectId, db);
+    }
+    for (const id of removed) {
+      if (filedIn(kind, id, db).includes(projectId)) requireFilingRemoval(scope, kind, id, projectId, db);
+      else requireReachable(scope, kind, id, db);
+    }
   }
 }
 export function createProject(scope: AccountScope, input: { name: unknown; note?: unknown; members?: projects.MemberChange }, db: Database = metadataDb()): projects.ProjectRecord {
   return db.transaction(() => {
     const owner = requireAccountScope(scope, db);
-    if (input.members) checkMembers(scope, input.members, db);
     const now = new Date().toISOString();
     const project = { id: randomUUID(), name: projects.projectName(input.name),
       note: input.note === undefined ? null : projects.projectNote(input.note), createdAt: now, updatedAt: now };
     db.prepare("INSERT INTO projects (owner_id, id, name, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)")
       .run(owner, project.id, project.name, project.note, now, now);
-    if (input.members) projects.changeMembers(project.id, input.members, db);
+    if (input.members) {
+      checkMembers(scope, project.id, input.members, db);
+      projects.changeMembers(project.id, input.members, db);
+    }
     return requireOwnProject(scope, project.id, db);
   })();
 }
@@ -96,29 +136,32 @@ export function updateProject(scope: AccountScope, id: string, fields: { name?: 
 export function deleteProject(scope: AccountScope, id: string, db: Database = metadataDb()) {
   return db.transaction(() => { requirePermitted(scope, "project", id, "dissolve", db); return projects.deleteProject(id, db); })();
 }
+/** One compound filing change, all of it or none. */
 export function changeMembers(scope: AccountScope, id: string, change: projects.MemberChange, db: Database = metadataDb()) {
   return db.transaction(() => {
-    requireOwnProject(scope, id, db); checkMembers(scope, change, db);
+    checkMembers(scope, id, change, db);
     projects.changeMembers(id, change, db);
   })();
 }
+/** File a map into a project, or out of the one it is in (null). */
 export function fileMap(scope: AccountScope, id: string, projectId: string | null, db: Database = metadataDb()) {
   return db.transaction(() => {
-    checkFilingSource(scope, "map", id, db);
-    if (projectId !== null) requireOwnProject(scope, projectId, db);
+    if (projectId !== null) requireFilingAddition(scope, "map", id, projectId, db);
+    requireMove(scope, "map", id, projectId, db);
     projects.fileMap(id, projectId, db);
   })();
 }
+/** File a workflow into a project, or out of the one it is in (null). */
 export function fileRecipe(scope: AccountScope, id: string, projectId: string | null, db: Database = metadataDb()) {
   return db.transaction(() => {
-    checkFilingSource(scope, "workflow", id, db);
-    if (projectId !== null) requireOwnProject(scope, projectId, db);
+    if (projectId !== null) requireFilingAddition(scope, "workflow", id, projectId, db);
+    requireMove(scope, "workflow", id, projectId, db);
     projects.fileRecipe(id, projectId, db);
   })();
 }
 export function fileTable(scope: AccountScope, id: string, projectId: string, db: Database = metadataDb()) {
   return db.transaction(() => {
-    requireOwnedResource(scope, "dataset", id, db); requireOwnProject(scope, projectId, db);
+    requireFilingAddition(scope, "dataset", id, projectId, db);
     projects.fileTable(id, projectId, db);
   })();
 }

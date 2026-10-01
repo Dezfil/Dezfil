@@ -34,3 +34,19 @@ it("documents the owner and the caller's role on every project shape, and a shar
     expect(project.description, path).toContain("any project the caller reaches, its own or one shared with it");
   }
 });
+
+it("states the filing rules on the project operations and wherever a project is named at creation", () => {
+  type Operation = { description: string; parameters?: { name: string; description?: string }[]; requestBody?: unknown };
+  const document = buildOpenApiDocument() as unknown as { paths: Record<string, Record<string, Operation>> };
+  for (const name of ["list_projects", "get_project", "update_project_members", "delete_project"]) {
+    const tool = buildTools().find(entry => entry.name === name)!;
+    expect(tool.description, name).toContain("adding a map, workflow or dataset needs the destination's permission (the project's owner, or an editor filing their own resource)");
+    expect(tool.description, name).toContain("the owner of a resource may always withdraw it from any project, member or not");
+    expect(tool.description, name).not.toContain("Filing or unfiling requires ownership of the project");
+  }
+  expect(document.paths["/api/projects/{id}/members"].patch.description).toContain("An owner who no longer reaches the project may still withdraw their own resources from it");
+  const destination = "It must be a project the caller owns or edits, whose owner is active: one the caller only views refuses with forbidden";
+  for (const path of ["/api/maps", "/api/recipes", "/api/imports/url", "/api/imports/osm", "/api/imports/overture", "/api/imports/postgis", "/api/tables"]) {
+    expect(JSON.stringify(document.paths[path].post), path).toContain(destination);
+  }
+});

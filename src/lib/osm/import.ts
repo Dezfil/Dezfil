@@ -1,5 +1,5 @@
 import { listOwnedTables } from "@/lib/metadata/owned-tables";
-import { requireOwnedResource } from "@/lib/auth/owned-resource";
+import { requireFilingDestination } from "@/lib/auth/reach";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -345,7 +345,7 @@ export async function importOsm(
 ): Promise<DataTable[]> {
   requireAccountScope(scope);
   const projectId = importProjectId(request.projectId);
-  if (projectId) requireOwnedResource(scope, "project", projectId);
+  if (projectId) requireFilingDestination(scope, projectId);
   const resolved = resolveOsmRequest(request);
   const { response } = await fetchOverpass(resolved.finalQl);
   let split = assembleAndSplit(response, resolved.promoted);

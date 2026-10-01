@@ -6,7 +6,7 @@ export { requireMap, mapWithLayers, readMap, requireMapFor, mapWithLayersFor, re
 export { mapHistory, undoChange, redoChange, type MapWithHistory } from "./map-history";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource } from "@/lib/auth/owned-resource";
-import { permissionRefused, requirePermitted, requireReachable } from "@/lib/auth/reach";
+import { permissionRefused, requireFilingDestination, requirePermitted, requireReachable } from "@/lib/auth/reach";
 import { listReachableMaps } from "@/lib/metadata/map-queries";
 import { presencesOf, type Presence } from "@/lib/reach-presence";
 import { randomUUID } from "node:crypto";
@@ -282,7 +282,7 @@ export async function validateMapWriteRefs(
 
 export function createMap(scope: AccountScope, name: string, projectId: string | null = null): MapRecord {
   requireAccountScope(scope);
-  if (projectId) requireOwnedResource(scope, "project", projectId);
+  if (projectId) requireFilingDestination(scope, projectId);
   const now = new Date().toISOString();
   const map: MapRecord = {
     id: randomUUID(),
@@ -303,7 +303,7 @@ export function createMap(scope: AccountScope, name: string, projectId: string |
     updatedAt: now,
   };
   metadataDb().transaction(() => {
-    if (projectId) requireOwnedResource(scope, "project", projectId);
+    if (projectId) requireFilingDestination(scope, projectId);
     insertMap(scope, map);
     if (projectId) fileMap(scope, map.id, projectId);
   })();

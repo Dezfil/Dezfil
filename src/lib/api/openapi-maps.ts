@@ -1,3 +1,4 @@
+import { FILING_DESTINATION } from "./openapi-project-access";
 import { resultAccess } from "./openapi-result-access";
 import { mapChildren } from "./openapi-map-children";
 import { layerAccess } from "./openapi-layer-access";
@@ -53,7 +54,7 @@ export const MAP_COLLECTION_PATHS = {
                   type: ["string", "null"],
                   description:
                     "The project the new map joins; omitted or null, " +
-                    "it starts unfiled.",
+                    "it starts unfiled." + FILING_DESTINATION,
                 },
               },
             },

@@ -1,3 +1,4 @@
+import { FILING_DESTINATION } from "./openapi-project-access";
 import { datasetAccess } from "./openapi-dataset-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, REMOTE_REPLACE } from "./operation-mcp";
@@ -46,7 +47,7 @@ export const TABLE_COLLECTION_PATHS = {
           description:
             "The project every created table joins — a " +
             "query parameter because the body is the file itself. An " +
-            "unknown project refuses before the upload is received.",
+            "unknown project refuses before the upload is received." + FILING_DESTINATION,
         },
       ],
       requestBody: {

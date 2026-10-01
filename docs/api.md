@@ -260,7 +260,16 @@ caller's `role` (`owner`, `editor` or `viewer`), and its counts and size
 cover everything filed in it. Any reached project is a valid `?project=`
 value on the maps, datasets and workflows listings, and `none` means the
 caller's own items filed in no project they reach. Renaming, the note,
-dissolution and export stay the project owner's.
+dissolution and export stay the project owner's. Filing follows its own
+rules, on the members call and wherever a project is named at creation (a
+new map or workflow, an upload or an import): adding needs the
+destination's permission, so the project's owner and its editors file their
+own maps, workflows and datasets, and a project whose owner is deactivated
+accepts nothing new; the owner of a resource may always withdraw it from any
+project, member or not; the project's owner may remove anything filed in
+their project, which never deletes it or changes its owner. A viewer's
+attempt to add, or anyone's attempt to remove what someone else owns from a
+project they do not own, is refused with `forbidden` and changes nothing.
 
 **Connections.** PostGIS connections: create, test, list the remote tables,
 preview a relation, snapshot it into a local dataset. Passwords are
@@ -472,9 +481,9 @@ Dataset names belong to the authenticated account. Different accounts can each
 import `roads`; uploads and sketches choose suffixes using only the creator's
 names. Dataset lists, catalogue totals and schema pages, inspection, features,
 exports, sketch edits, geometry and refresh resolve that account's datasets.
-Administrator status grants no access to another account's data. Project contexts
-and sketch parents must belong to the same account and are checked before source
-or artifact work. Refresh and geometry changes keep the durable identity and
+Administrator status grants no access to another account's data. A project
+context must be one the account owns or edits, whose owner is active, and is
+checked before source or artifact work. Refresh and geometry changes keep the durable identity and
 owner, rechecking account activity before committing. Hidden and missing names
 and references return the same `404 not_found` response. This replaces the
 previous `map_not_found` response for a missing sketch parent.
@@ -498,10 +507,13 @@ Output-name conflicts and duplication consider only that account's datasets
 and declarations; same-workflow conflicts and the frozen name of an existing
 output retain their previous rules. Deleting a workflow leaves its datasets.
 
-Projects, member counts and membership operations are account-scoped. Every
-member in a compound change must have the same owner as the project; a hidden
-or missing member returns the generic `404 not_found` and the whole change
-rolls back. Initial filing follows the same rule. Deleting a project unfiles
+A compound filing change is checked part by part by the filing rules, and
+any refused part rolls the whole change back: a hidden or missing member
+returns the generic `404 not_found`, a reached one the caller may not file or
+remove returns `forbidden`. Initial filing follows the same rules. A removal of
+what is not filed in the project changes nothing. An owner who no longer
+reaches a project may still withdraw their own resources from it, and is
+answered with an empty composite. Deleting a project unfiles
 its contents without deleting or transferring them. Export selections are
 checked before archive assembly and account activity is checked again before
 returning the completed file. A hidden or missing selected export member now

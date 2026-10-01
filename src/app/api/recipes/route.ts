@@ -1,10 +1,10 @@
 import { requireRequestScope } from "@/lib/auth/scope-http";
+import { requireFilingDestination } from "@/lib/auth/reach";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { createRecipe, listRecipes } from "@/lib/metadata/owned-recipes";
 import { metadataDb } from "@/lib/metadata/db";
 import { fileRecipe } from "@/lib/metadata/owned-recipes";
-import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { importProjectId, projectScope } from "@/lib/project-scope";
 import { readRecipe } from "@/lib/operations/recipe-view";
 import {
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     // Optionally filed at birth: an unknown project refuses and creates
     // nothing.
     const projectId = importProjectId(body.projectId);
-    if (projectId) requireOwnedResource(scope, "project", projectId);
+    if (projectId) requireFilingDestination(scope, projectId);
     const recipe = metadataDb().transaction(() => {
       const created = createRecipe(scope, recipeName(body), undefined, recipeOrigin(body));
       if (projectId) fileRecipe(scope, created.id, projectId);

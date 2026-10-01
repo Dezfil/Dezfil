@@ -84,9 +84,10 @@ export function requireReachedTable(scope: AccountScope, id: string, db: Databas
   requireReachable(scope, "dataset", id, db);
   return reachedOf(db.prepare(`${REACHED_SELECT} WHERE t.id = ?`).get(id) as ReachedRow);
 }
+/** File the caller's own new dataset into a project by the filing rule: one
+ * the caller owns or edits, whose owner is active. */
 export function fileOwnedTable(scope: AccountScope, tableId: string, projectId: string, db: Database = metadataDb()): void {
   requireOwnedResource(scope, "dataset", tableId, db);
-  requireOwnedResource(scope, "project", projectId, db);
   fileTable(scope, tableId, projectId, db);
 }
 /** Dataset mutations invalidate only maps in the same account's SQL space. */

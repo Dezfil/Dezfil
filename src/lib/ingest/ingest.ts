@@ -1,4 +1,4 @@
-import { requireOwnedResource } from "@/lib/auth/owned-resource";
+import { requireFilingDestination } from "@/lib/auth/reach";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
@@ -205,7 +205,7 @@ export async function ingestFile(
   requestedName?: string,
 ): Promise<DataTable> {
   requireAccountScope(scope);
-  if (provenance?.projectId) requireOwnedResource(scope, "project", provenance.projectId);
+  if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
   const format = detectFormat(originalFilename);
   const id = randomUUID();
   const relFile = path.join("tables", `${id}.parquet`);

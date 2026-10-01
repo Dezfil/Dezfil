@@ -171,7 +171,14 @@ export const PROJECT_PATHS = {
         "nothing does. Only workflows can be project " +
         "members. Adding a map or eligible recipe moves it from any " +
         "previous project; adding a dataset adds another membership; " +
-        "repeated adds are idempotent. Answers the updated composite.",
+        "repeated adds are idempotent. Each part follows the filing " +
+        "rules, so a caller may add only their own resources, and a " +
+        "removal of what is not filed there changes nothing. An owner " +
+        "who no longer reaches the project may still withdraw their " +
+        "own resources from it; anyone else is answered as for an " +
+        "unknown project. Answers the updated composite as the caller " +
+        "reads it, empty for an owner who withdrew from a project they " +
+        "do not reach.",
       tag: "Projects",
       tool: "update_project_members", mcp: LOCAL_REPLACE,
       display: {"verb": "Changed the members of the project {subject}", "subject": {"resource": "projects", "argument": "id", "name": ["name"]}},

@@ -302,8 +302,17 @@ const FILED: Record<FilingKind, string> = {
 export function requireFilingAddition(scope: AccountScope, kind: FilingKind, id: string, projectId: string,
   db: Database = metadataDb()): void {
   const resource = requireReachable(scope, kind, id, db);
-  const project = requireReachable(scope, "project", projectId, db);
+  requireFilingDestination(scope, projectId, db);
   if (resource.relation !== "owner") throw permissionRefused();
+}
+
+/**
+ * A project the acting account may file its own resources into: one it owns
+ * or edits, whose owner is active. Checked before anything is created for a
+ * project named at creation, and again by the filing itself.
+ */
+export function requireFilingDestination(scope: AccountScope, projectId: string, db: Database = metadataDb()): void {
+  const project = requireReachable(scope, "project", projectId, db);
   if (project.relation !== "owner" && project.relation !== "editor") throw permissionRefused();
   if (project.frozen) throw permissionRefused();
 }

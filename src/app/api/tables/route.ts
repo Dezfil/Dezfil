@@ -1,8 +1,8 @@
 import { requireRequestScope } from "@/lib/auth/scope-http";
+import { requireFilingDestination } from "@/lib/auth/reach";
 import { NextResponse } from "next/server";
 import { rm } from "node:fs/promises";
 import { ApiError, errorResponse } from "@/lib/api/errors";
-import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { receiveUpload } from "@/lib/ingest/receive";
 import { ingestSource, toIngestResponse } from "@/lib/ingest/gdal-formats";
 import { listTablesWithSize } from "@/lib/table-service";
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
         400,
       );
     }
-    if (projectId) requireOwnedResource(scope, "project", projectId);
+    if (projectId) requireFilingDestination(scope, projectId);
     const { tmpPath, filename } = await receiveUpload(request);
     try {
       const result = await ingestSource(scope, tmpPath, filename, {

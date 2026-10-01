@@ -1,4 +1,4 @@
-import { requireOwnedResource } from "@/lib/auth/owned-resource";
+import { requireFilingDestination } from "@/lib/auth/reach";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -528,7 +528,7 @@ export async function importOverture(
 ): Promise<DataTable> {
   requireAccountScope(scope);
   const projectId = importProjectId(request.projectId);
-  if (projectId) requireOwnedResource(scope, "project", projectId);
+  if (projectId) requireFilingDestination(scope, projectId);
   const { requestedName, ...params } = await resolveOvertureParams(request);
   const id = randomUUID();
   const relFile = path.join("tables", `${id}.parquet`);

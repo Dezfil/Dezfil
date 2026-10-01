@@ -1,3 +1,4 @@
+import { FILING_DESTINATION } from "./openapi-project-access";
 import { cascadeAccess } from "./openapi-cascade-access";
 import { jobAccess } from "./openapi-job-access";
 import { workflowAccess } from "./openapi-workflow-access";
@@ -73,7 +74,7 @@ export const RECIPE_PATHS = {
                     "The project the new workflow joins; " +
                     "omitted or null, it starts unfiled. An unknown " +
                     "project refuses and creates nothing. Builder-origin " +
-                    "recipes are refused project membership.",
+                    "recipes are refused project membership." + FILING_DESTINATION,
                 },
               },
               required: ["name"],

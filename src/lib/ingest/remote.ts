@@ -1,4 +1,4 @@
-import { requireOwnedResource } from "@/lib/auth/owned-resource";
+import { requireFilingDestination } from "@/lib/auth/reach";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { createWriteStream } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
@@ -383,7 +383,7 @@ export async function importFromUrl(
   projectId?: string | null,
 ): Promise<IngestResult> {
   requireAccountScope(scope);
-  if (projectId) requireOwnedResource(scope, "project", projectId);
+  if (projectId) requireFilingDestination(scope, projectId);
   const source = await resolveRemoteSource(url);
   try {
     return await ingestSource(
