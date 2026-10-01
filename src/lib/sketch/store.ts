@@ -2,6 +2,7 @@ import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource"
 import { getOwnedMap, getOwnedLayer, ownedMapProjectId } from "@/lib/metadata/map-queries";
 import { listOwnedTables, updateOwnedTableData, deleteOwnedTable, ownedDependentLayerIds, fileOwnedTable } from "@/lib/metadata/owned-tables";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { requirePermitted } from "@/lib/auth/reach";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { mkdir, rm } from "node:fs/promises";
@@ -160,6 +161,9 @@ export async function createSketch(
   requireAccountScope(scope);
   const refusal = sketchFeatureError(feature);
   if (refusal) throw new ApiError("invalid_sketch_feature", refusal, 400);
+  // Drawing on a map is its owner's until a sketch drawn by someone else
+  // has a binding of its own in the map's space.
+  requirePermitted(scope, "map", mapId, "sketch");
   const map = getOwnedMap(scope, mapId);
 
   const stored: StoredSketchFeature = {
@@ -398,7 +402,9 @@ export async function moveVertex(
  * the layer-delete route's cascade test (enforced at the API, not
  * inferred client-side). */
 export function sketchOwnedByLayer(scope: AccountScope, layerId: string): DataTable | null {
-  requireOwnedResource(scope, "layer", layerId);
+  // Only the acting account's own sketch cascades: a layer drawing someone
+  // else's sketch is removed alone, and their dataset stays.
+  requirePermitted(scope, "layer", layerId, "edit");
   return (
     listOwnedTables(scope).find(
       (t) => t.source === "sketch" && ownerOf(t).layerId === layerId,

@@ -1,7 +1,7 @@
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
-import { requireMap } from "@/lib/map-service";
+import { requireMap, requireMapFor } from "@/lib/map-service";
 import {
   isThumbnailCycle,
   isThumbnailTheme,
@@ -63,7 +63,7 @@ export async function PUT(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id } = await params;
-    requireMap(scope, id);
+    requireMapFor(scope, id, "capture");
     const theme = themeOf(request);
     const cycle = new URL(request.url).searchParams.get("cycle");
     if (theme && !isThumbnailCycle(cycle)) {

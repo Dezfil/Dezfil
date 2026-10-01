@@ -7,7 +7,9 @@ import { insertLayer, updateMapFields, updateLayerFields, deleteLayer, reorderLa
   type Layer, type MapWithLayers } from "@/lib/metadata/maps";
 import { undoSteps, redoSteps, setHistoryCursor, historyAvailability,
   type HistoryAvailability, type HistoryImage, type HistoryStep } from "@/lib/metadata/history";
-import { requireMap, mapWithLayers } from "./map-access";
+import { requireMap, requireMapFor, mapWithLayersFor } from "./map-access";
+import { historyChangesPublication } from "./publication-settings";
+import { listLayers } from "@/lib/metadata/maps";
 
 /** The map + fresh history availability — what undo/redo return, and what
  * the builder seeds its buttons from. */
@@ -69,7 +71,9 @@ async function applyHistory(
 ): Promise<MapWithHistory> {
   const removedLayers: string[] = [];
   metadataDb().transaction(() => {
-    requireMap(scope, id);
+    // Undo and redo are content changes; one that would put back or take
+    // away a publication setting is the owner's alone, refused whole.
+    const map = requireMapFor(scope, id, "edit");
     const steps = direction === "undo" ? undoSteps(id) : redoSteps(id);
     if (steps.length === 0) {
       throw new ApiError(
@@ -78,13 +82,14 @@ async function applyHistory(
         409,
       );
     }
+    if (historyChangesPublication(map, listLayers(id), steps, direction)) requireMapFor(scope, id, "publish");
     assertHistoryRefs(scope, id, steps, direction);
     for (const step of steps) applyStep(step, direction, removedLayers);
     const last = steps[steps.length - 1];
     setHistoryCursor(id, direction === "undo" ? last.seq - 1 : last.seq);
   })();
   await Promise.all(removedLayers.map((lid) => removeTileArtifacts(lid)));
-  return { ...mapWithLayers(scope, id), history: historyAvailability(id) };
+  return { ...mapWithLayersFor(scope, id, "edit"), history: historyAvailability(id) };
 }
 
 /** Revert the newest step — or the whole group an assistant turn wrote. */

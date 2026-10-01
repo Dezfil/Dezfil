@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { AccountScope } from "@/lib/auth/scope";
-import { requireMap } from "./map-access";
-import { requireLayer } from "./layer-access";
+import { requireMapFor } from "./map-access";
+import { requireLayerFor } from "./layer-access";
 import { admitLayerCreate } from "./layer-admission";
 import { layerImage } from "./layer-history-image";
 import { metadataDb } from "@/lib/metadata/db";
@@ -70,7 +70,7 @@ export async function createLayer(
     updatedAt: now,
   };
   metadataDb().transaction(() => {
-    const arrangement = requireMap(scope, mapId).legendOrder;
+    const arrangement = requireMapFor(scope, mapId, "edit").legendOrder;
     layer.ordinal = nextOrdinal(mapId);
     const groupId = arrangement
       ? (opts.groupId ?? randomUUID())
@@ -98,7 +98,7 @@ export function duplicateLayer(
   opts: { groupId?: string | null } = {},
 ): Layer {
   return metadataDb().transaction(() => {
-    const source = requireLayer(scope, id);
+    const source = requireLayerFor(scope, id, "edit");
     const now = new Date().toISOString();
     const copy: Layer = {
       ...source,
@@ -108,7 +108,7 @@ export function duplicateLayer(
       createdAt: now,
       updatedAt: now,
     };
-    const arrangement = requireMap(scope, source.mapId).legendOrder;
+    const arrangement = requireMapFor(scope, source.mapId, "edit").legendOrder;
     const groupId = arrangement
       ? (opts.groupId ?? randomUUID())
       : opts.groupId;

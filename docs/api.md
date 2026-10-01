@@ -213,6 +213,11 @@ Every failure answers the same envelope:
 { "error": { "code": "query_timeout", "message": "..." } }
 ```
 
+A request naming something the account cannot reach answers `not_found`,
+exactly as if it did not exist. A change to something the account can reach
+but may not make answers `403` with the code `forbidden` and one fixed
+sentence, and changes nothing.
+
 The code is stable and machine-readable; the message is for a person. Some
 codes carry documented extra fields beside the two, for example a SQL
 error's position, and those fields are declared in the `Error` schema. An

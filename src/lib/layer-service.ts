@@ -1,6 +1,6 @@
 import type { DatasetScope } from "@/lib/query/access";
 import type { AccountScope } from "@/lib/auth/scope";
-import { requireLayer } from "./layer-access";
+import { requireLayerFor } from "./layer-access";
 import {
   admitLayerCommit,
   admitLayerUpdate,
@@ -316,10 +316,10 @@ async function deriveAndCommitUpdate(
     // snapshot. If the layer moved while they settled, committing them
     // would overwrite the concurrent write with stale derived containers —
     // abort and let the caller re-derive against the fresh state.
-    const prior = admitLayerCommit(scope, id, layer);
+    const prior = admitLayerCommit(scope, id, layer, fields);
     if (!prior) return;
     updateLayerFields(id, fields);
-    fresh = requireLayer(scope, id);
+    fresh = requireLayerFor(scope, id, "edit");
     // Record what actually changed, as stored — post-normalization, so a
     // redo re-applies exactly what this write produced. The keys cover
     // the request plus the coupled adjustments folded into `fields`

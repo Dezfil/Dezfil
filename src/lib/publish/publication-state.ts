@@ -1,5 +1,5 @@
 import type { AccountScope } from "@/lib/auth/scope";
-import { requireMap } from "@/lib/map-access";
+import { requireMap, requireMapFor } from "@/lib/map-access";
 import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
 import { getMap, getMapByToken, getPublishedTheme, getViewerControls,
@@ -36,7 +36,7 @@ export interface PublishSettings {
  * earlier publication, an unstated setting and an omitted member all
  * reading as every control on. */
 export function getPublicationState(scope: AccountScope, id: string): PublicationState | null {
-  const map = requirePublishedMapOwner(scope, id);
+  const map = requireMap(scope, id);
   if (!map.publishToken || !map.publishedAt) return null;
   return {
     token: map.publishToken,
@@ -46,8 +46,9 @@ export function getPublicationState(scope: AccountScope, id: string): Publicatio
   };
 }
 
+/** Minting, changing and revoking a publication are the map owner's acts. */
 function requirePublishedMapOwner(scope: AccountScope, id: string) {
-  return requireMap(scope, id);
+  return requireMapFor(scope, id, "publish");
 }
 
 /** Publish a map, or return the existing link unchanged if already published

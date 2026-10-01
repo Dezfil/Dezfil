@@ -1,7 +1,8 @@
 import { fileMap } from "@/lib/metadata/owned-projects";
 import { assertMapLayerRefs } from "./map-layer-refs";
-import { requireMap, mapWithLayers } from "./map-access";
-export { requireMap, mapWithLayers } from "./map-access";
+import { requireMap, mapWithLayers, requireMapFor, mapWithLayersFor } from "./map-access";
+import { mapWriteChangesPublication } from "./publication-settings";
+export { requireMap, mapWithLayers, requireMapFor, mapWithLayersFor, mapProjectIdFor } from "./map-access";
 export { mapHistory, undoChange, redoChange, type MapWithHistory } from "./map-history";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource } from "@/lib/auth/owned-resource";
@@ -223,7 +224,7 @@ export async function validateMapWriteRefs(
   fields: { timeline?: unknown; widgets?: unknown; layerOrder?: unknown; legendOrder?: unknown },
   signal?: AbortSignal,
 ): Promise<void> {
-  const map = requireMap(scope, mapId);
+  const map = requireMapFor(scope, mapId, "edit");
   const layers = new Map(listLayers(mapId).map((l) => [l.id, l]));
   assertMapLayerRefs(map, [...layers.values()], fields);
   const perLayer = new Map<string, ColumnRef[]>();
@@ -368,7 +369,10 @@ export function updateMap(
   }>,
   opts: { groupId?: string | null } = {},
 ): MapWithLayers {
-  const prior = requireMap(scope, id);
+  // Content is the editors' to change; the widget publication toggle is a
+  // publication setting, the owner's alone.
+  const prior = requireMapFor(scope, id, "edit");
+  if (mapWriteChangesPublication(prior, fields)) requireMapFor(scope, id, "publish");
   assertMapLayerRefs(prior, listLayers(id), fields);
   // Validate everything before writing anything — no partial writes.
   const basemapLayers =
@@ -455,7 +459,8 @@ export function updateMap(
     }
   }
   metadataDb().transaction(() => {
-    requireMap(scope, id);
+    const current = requireMapFor(scope, id, "edit");
+    if (mapWriteChangesPublication(current, fields)) requireMapFor(scope, id, "publish");
     if (
       fields.name !== undefined ||
       fields.viewport !== undefined ||
@@ -514,7 +519,7 @@ export function updateMap(
       });
     }
   })();
-  return mapWithLayers(scope, id);
+  return mapWithLayersFor(scope, id, "edit");
 }
 
 /**
@@ -607,7 +612,7 @@ export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
 
 export async function removeMap(scope: AccountScope, id: string): Promise<void> {
   const { map, layerIds, removeImages } = metadataDb().transaction(() => {
-    const map = requireMap(scope, id);
+    const map = requireMapFor(scope, id, "delete");
     const layerIds = listLayers(id).map((l) => l.id);
     // The set the map leaves must notice: the cascade removes nothing
     // here (the reference nulls), but the project's own clock advances.

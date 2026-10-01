@@ -8,6 +8,8 @@ import {
 } from "@/lib/sketch/store";
 import { sanitizeSvgIcon } from "@/lib/icon-sanitize";
 import { requireLayer, updateLayer } from "@/lib/layer-service";
+import { requireLayerFor } from "@/lib/layer-access";
+import { layerWriteChangesPublication } from "@/lib/publication-settings";
 import { removeLayer } from "@/lib/layer-removal";
 import { MAX_FIELD_LIST } from "@/lib/column-validation";
 import type { LayerStyle } from "@/lib/style/style";
@@ -40,7 +42,7 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id } = await params;
-    requireLayer(scope, id);
+    const current = requireLayerFor(scope, id, "edit");
     let body: Record<string, unknown>;
     try {
       body = (await request.json()) as Record<string, unknown>;
@@ -196,6 +198,8 @@ export async function PATCH(request: Request, { params }: Params) {
         );
       fields.legendAttrs = body.legendAttrs;
     }
+    // A publication setting is refused before anything is inspected.
+    if (layerWriteChangesPublication(current, fields)) requireLayerFor(scope, id, "publish");
     return NextResponse.json(
       await updateLayer(scope, id, fields, {
         groupId: changeGroupOf(request),
@@ -216,7 +220,7 @@ export async function DELETE(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id } = await params;
-    requireLayer(scope, id);
+    requireLayerFor(scope, id, "edit");
     const owned = sketchOwnedByLayer(scope, id);
     if (owned) {
       await cascadeDeleteSketch(scope, owned.name);

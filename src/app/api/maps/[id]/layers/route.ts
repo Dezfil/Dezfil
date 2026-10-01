@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { changeGroupOf } from "@/lib/api/change-group";
 import { listLayers } from "@/lib/metadata/maps";
-import { requireMap } from "@/lib/map-service";
+import { requireMap, requireMapFor } from "@/lib/map-service";
 import { createLayer } from "@/lib/layer-service";
 import type { LayerStyle } from "@/lib/style/style";
 
@@ -26,7 +26,7 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id } = await params;
-    requireMap(scope, id);
+    requireMapFor(scope, id, "edit");
     let body: { name?: unknown; sql?: unknown; style?: unknown };
     try {
       body = (await request.json()) as typeof body;

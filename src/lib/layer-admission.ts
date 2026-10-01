@@ -22,9 +22,10 @@ import {
   vizRefs,
   type ColumnRef,
 } from "@/lib/column-validation";
-import { requireLayer } from "./layer-access";
-import { requireMap } from "./map-access";
+import { requireLayerFor } from "./layer-access";
+import { requireMapFor } from "./map-access";
 import { assertWritableRefs } from "./layer-write-refs";
+import { layerWriteChangesPublication } from "./publication-settings";
 
 /**
  * The layer write admission: what a layer create or update must pass
@@ -32,13 +33,21 @@ import { assertWritableRefs } from "./layer-write-refs";
  * Out of `layer-service.ts` (and the create path beside it) under the
  * decomposition rule, with the same refusals, messages and order.
  *
- * Each entry first resolves the layer's map under the acting scope (the
- * map named for a create, the layer's own map for an update), then
- * validates what the request introduces: SQL that draws geometry, a valid
- * style, and column references the resulting schema can honor. A check
- * on who is acting, and on what the SQL a write introduces may name,
- * belongs here, where the scope and the map are both in hand.
+ * Each entry first asks whether the acting account may change the layer's
+ * map (the map named for a create, the layer's own map for an update): a
+ * content change is the owner's, the project owner's or an editor's, and a
+ * change to the published fields is the owner's alone. Then it validates
+ * what the request introduces: SQL that draws geometry, a valid style, and
+ * column references the resulting schema can honor.
  */
+
+/** The layer when the acting account may make this write to it: an edit,
+ * and the publish permission too when the published fields change. */
+function permittedLayer(scope: AccountScope, id: string, fields: UpdateLayerFields): Layer {
+  const layer = requireLayerFor(scope, id, "edit");
+  if (layerWriteChangesPublication(layer, fields)) requireLayerFor(scope, id, "publish");
+  return layer;
+}
 
 export type UpdateLayerFields = Partial<{
   name: string;
@@ -74,7 +83,7 @@ export async function admitLayerCreate(
   input: { sql: string; style?: LayerStyle },
   signal?: AbortSignal,
 ): Promise<{ geometryType: string | null }> {
-  requireMap(scope, mapId);
+  requireMapFor(scope, mapId, "edit");
   const { geometryType } = await inspectLayerGeometry(scope, input.sql, signal);
   if (input.style !== undefined) {
     assertValidStyle(input.style);
@@ -103,7 +112,7 @@ export async function admitLayerUpdate(
   fields: UpdateLayerFields,
   signal?: AbortSignal,
 ): Promise<{ layer: Layer; fields: UpdateLayerFields }> {
-  const layer = requireLayer(scope, id);
+  const layer = permittedLayer(scope, id, fields);
   if (fields.sql !== undefined && fields.sql !== layer.sql) {
     // Editing SQL revalidates geometry, but the layer is not recreated.
     await inspectLayerGeometry(scope, fields.sql, signal);
@@ -167,8 +176,8 @@ export async function admitLayerUpdate(
   return { layer, fields };
 }
 
-/** The update's check at commit, inside its transaction: the layer is
- * read again under the acting scope, and the write proceeds only while it
+/** The update's check at commit, inside its transaction: the permission is
+ * asked again and the layer read again, and the write proceeds only while it
  * still stands exactly as admission read it. Returns that before-image,
  * or null when a concurrent write landed since, so the caller derives
  * again against the fresh state instead of overwriting it. */
@@ -176,7 +185,8 @@ export function admitLayerCommit(
   scope: AccountScope,
   id: string,
   entry: Layer,
+  fields: UpdateLayerFields,
 ): Layer | null {
-  const prior = requireLayer(scope, id);
+  const prior = permittedLayer(scope, id, fields);
   return stableJson(prior) === stableJson(entry) ? prior : null;
 }

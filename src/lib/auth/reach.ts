@@ -197,7 +197,7 @@ const OWNER: readonly Relation[] = ["owner"];
  * undo, name) are the owner's, the project owner's acting as an editor, and an
  * editor's; publication settings (the token, published fields, the widget
  * publication toggle, the theme, the reader controls), browser captures,
- * deletion and transfer are the owner's. Workflows: content changes and runs
+ * sketches drawn on the map, deletion and transfer are the owner's. Workflows: content changes and runs
  * likewise, deletion and transfer the owner's; a run reads a frozen space and
  * stays permitted. Datasets change, refresh and go only by their owner.
  * Projects: rename, note, dissolution, membership and transfer are the
@@ -208,6 +208,7 @@ export const ACTION_RULES = {
     edit: { by: CONTENT, frozen: "refuse" },
     publish: { by: OWNER, frozen: "refuse" },
     capture: { by: OWNER, frozen: "refuse" },
+    sketch: { by: OWNER, frozen: "refuse" },
     delete: { by: OWNER, frozen: "refuse" },
     transfer: { by: OWNER, frozen: "refuse" },
     duplicate: { by: ANYONE, frozen: "allow" },
