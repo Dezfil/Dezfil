@@ -1,12 +1,11 @@
 import { fileMap } from "@/lib/metadata/owned-projects";
 import { assertMapLayerRefs } from "./map-layer-refs";
-import { requireMapFor, mapWithLayersFor, requireOwnMap, ownMapWithLayers } from "./map-access";
+import { requireMapFor, mapWithLayersFor, ownMapWithLayers } from "./map-access";
 import { mapWriteChangesPublication } from "./publication-settings";
 export { requireMap, mapWithLayers, readMap, requireMapFor, mapWithLayersFor, requireOwnMap, ownMapWithLayers, ownsMap } from "./map-access";
 export { mapHistory, undoChange, redoChange, type MapWithHistory } from "./map-history";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
-import { requireOwnedResource } from "@/lib/auth/owned-resource";
-import { permissionRefused, requireFilingDestination, requirePermitted, requireReachable } from "@/lib/auth/reach";
+import { mayFileInto, requireFilingDestination, requirePermitted, requireReachable } from "@/lib/auth/reach";
 import { listReachableMaps } from "@/lib/metadata/map-queries";
 import { presencesOf, type Presence } from "@/lib/reach-presence";
 import { randomUUID } from "node:crypto";
@@ -538,12 +537,16 @@ export function updateMap(
  * under fresh ids — an unpublished draft named "<name> copy". History
  * stays behind; a docked timeline follows its copied layer. Tiles rebuild
  * lazily for the new layer ids, like any new layer.
+ *
+ * Anyone who reaches the map may duplicate it, a frozen one included: the
+ * copy is the duplicator's own, keeps the original's SQL home and its
+ * layers' SQL as stored (so plain names still mean the home's datasets),
+ * and lands in the original's project only when the duplicator may file
+ * there (its owner or an editor); a viewer's copy is unfiled.
  */
-/** Duplication stays the owner's until a copy can be made under reach:
- * anyone else who reaches the map is refused by the permission shape. */
 function requireDuplicable(scope: AccountScope, id: string): MapRecord {
-  if (requirePermitted(scope, "map", id, "duplicate").relation !== "owner") throw permissionRefused();
-  return requireOwnMap(scope, id);
+  requirePermitted(scope, "map", id, "duplicate");
+  return getMap(id)!;
 }
 
 export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
@@ -620,10 +623,7 @@ export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
     // transaction, so a move racing the copy cannot file it where the
     // source no longer is (found at review).
     const sourceProject = mapProjectId(id);
-    if (sourceProject) {
-      requireOwnedResource(scope, "project", sourceProject);
-      fileMap(scope, newId, sourceProject);
-    }
+    if (sourceProject && mayFileInto(scope, sourceProject)) fileMap(scope, newId, sourceProject);
   })();
   return ownMapWithLayers(scope, newId);
 }

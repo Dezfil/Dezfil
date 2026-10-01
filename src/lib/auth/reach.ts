@@ -317,6 +317,19 @@ export function requireFilingDestination(scope: AccountScope, projectId: string,
   if (project.frozen) throw permissionRefused();
 }
 
+/** Whether the acting account may file its own resources into a project now:
+ * the filing destination's rule as an answer rather than a refusal. A
+ * duplicate lands in its source's project only when this holds. */
+export function mayFileInto(scope: AccountScope, projectId: string, db: Database = metadataDb()): boolean {
+  try {
+    requireFilingDestination(scope, projectId, db);
+    return true;
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 403 || error.status === 404)) return false;
+    throw error;
+  }
+}
+
 /**
  * Taking a resource out of a project. Its owner may always withdraw it, from
  * any project it is filed in, a frozen one included and whatever their

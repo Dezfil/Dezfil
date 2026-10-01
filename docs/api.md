@@ -52,9 +52,15 @@ project's owner and people: they list and read it, its layers, widgets and histo
 with its SQL evaluated in the map's SQL home within their own reach, and
 every map read names the map's owner and home. Its card images and tile
 archives are served to whoever reaches it and every dataset they recorded
-drawing (see Retained artifacts below). A dataset is reached by its owner and by the owner
-and people of every project it is filed in; it changes, refreshes and goes
-only by its owner. A workflow is reached like a map, its steps, layout and
+drawing (see the serving of retained artifacts below). Anyone who reaches a
+map or workflow may duplicate it into their own space: the copy keeps the
+original's SQL home and its SQL as stored, so a plain name still means the
+home's dataset; it is filed in the original's project only when the
+duplicator may file there (the project's owner or an editor), so a viewer's
+copy is unfiled; a map's card image comes along only when the duplicator may
+be served it. A dataset is reached by its owner and by the owner and people
+of every project it is filed in; it changes, refreshes and goes only by its
+owner. A workflow is reached like a map, its steps, layout and
 runs with it, and read in its SQL home within the reader's reach; its editors
 change its steps, while starting a run stays its owner's until a run's
 outputs are its runner's own, and a run is cancelled by its initiator or the

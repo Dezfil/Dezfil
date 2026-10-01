@@ -64,7 +64,7 @@ export function recipeStanding(id: string, db: Database = metadataDb()): { owner
 /**
  * The owner's own reads, for what stays the owner's until it is opened under
  * a rule of its own: run planning and admission, the filing of a run's
- * outputs, duplication and copying a step between workflows.
+ * outputs, and the names a duplicate may not take.
  */
 export function getOwnRecipe(scope: AccountScope, id: string, db: Database = metadataDb()) {
   const owner = requireAccountScope(scope, db);
@@ -139,7 +139,8 @@ export function moveStep(scope: AccountScope, id: string, ordinal: number, db: D
 export function copyStep(scope: AccountScope, sourceId: string, targetRecipeId: string, parameters: Record<string, unknown>, db: Database = metadataDb()) {
   return db.transaction(() => {
     requirePermitted(scope, "workflow", targetRecipeId, "edit", db);
-    const source = getOwnStep(scope, sourceId, db);
+    // A step is copied from any workflow its copier reaches.
+    const source = getStep(scope, sourceId, db);
     if (!source) throw resourceAbsent();
     return recipes.addStep(targetRecipeId, { operation: source.operation, parameters, origin: source.origin }, db);
   })();

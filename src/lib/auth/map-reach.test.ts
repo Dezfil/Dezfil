@@ -5,7 +5,6 @@ import { testAccountRequest, testAccountScope } from "@/lib/test-support/account
 import { defaultStyle } from "@/lib/style/defaults";
 import { requireRequestAuth } from "./http";
 import { createApiToken } from "./credentials";
-import { PERMISSION_REFUSAL } from "./reach";
 
 /**
  * Who reads a map, its layers, widgets, history and snapshot.
@@ -208,13 +207,16 @@ describe("writes answer with the map as its writer sees it", () => {
     expect(copy.body).toMatchObject({ name: "Unfiled map copy", owner: ADA, home: "ada", projectId: null });
   });
 
-  it("keeps duplication the owner's: the project's people are refused by the permission shape, everyone else as absent", async () => {
-    const before = snapshot();
-    for (const account of ["pat", "edd", "viv"]) {
-      const refused = await call(route.duplicate, "POST", input(account, "/api/maps/M/duplicate", "POST"), { id: "M" });
-      expect(refused.status, account).toBe(403);
-      expect(refused.body, account).toEqual({ error: { code: "forbidden", message: PERMISSION_REFUSAL } });
+  it("lets everyone who reaches a map duplicate it into their own space, and refuses everyone else as absent", async () => {
+    for (const [account, projectId] of [["pat", "P"], ["edd", "P"], ["viv", null]] as const) {
+      const copy = await call(route.duplicate, "POST", input(account, "/api/maps/M/duplicate", "POST"), { id: "M" });
+      expect(copy.status, account).toBe(201);
+      expect(copy.body, account).toMatchObject({ name: "Shared map copy", owner: { name: account, sqlName: account }, home: "ada", projectId });
     }
+    // Ada reaches Z as its owner but cannot file into Q: her copy is unfiled.
+    expect((await call(route.duplicate, "POST", input("ada", "/api/maps/Z/duplicate", "POST"), { id: "Z" })).body)
+      .toMatchObject({ owner: ADA, home: "ada", projectId: null });
+    const before = snapshot();
     const hidden = await call(route.duplicate, "POST", input("zed", "/api/maps/M/duplicate", "POST"), { id: "M" });
     const missing = await call(route.duplicate, "POST", input("zed", "/api/maps/never-existed/duplicate", "POST"), { id: "never-existed" });
     expect(hidden.status).toBe(404);

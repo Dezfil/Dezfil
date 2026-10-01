@@ -1,19 +1,21 @@
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { mayFileInto, requirePermitted } from "@/lib/auth/reach";
 import { ApiError } from "@/lib/api/errors";
 import { deriveTableName } from "@/lib/ingest/naming";
 import { metadataDb } from "@/lib/metadata/db";
 import { getLayout, putLayout } from "@/lib/metadata/recipe-layouts";
 import { recipeHome } from "@/lib/metadata/recipes";
 import { fileRecipe } from "@/lib/metadata/owned-recipes";
-// Duplication stays the owner's until a copy can be made under reach: its
-// names and its source are read in the owner's own space.
+// The source is read as the duplicator reaches it; the names a copy may not
+// take are the duplicator's own.
 import {
   copyStep,
   createRecipe,
-  getOwnRecipe as getRecipe,
-  requireOwnRecipe as requireRecipe,
+  getRecipe,
+  requireRecipe,
   listOwnRecipes,
-  listOwnSteps as listSteps,
+  listOwnSteps,
+  listSteps,
   type Recipe,
   type RecipeStep,
 } from "@/lib/metadata/owned-recipes";
@@ -59,7 +61,7 @@ function declaredName(params: Record<string, unknown> | null): string | null {
 function takenNames(scope: AccountScope, db: Database): Set<string> {
   const taken = new Set<string>(listOwnedTables(scope, db).map((t) => t.name.toLowerCase()));
   for (const recipe of listOwnRecipes(scope, db)) {
-    for (const step of listSteps(scope, recipe.id, db)) {
+    for (const step of listOwnSteps(scope, recipe.id, db)) {
       for (const n of [declaredName(step.parameters), declaredName(step.proposedParameters), step.outputTableName?.toLowerCase() ?? null]) {
         if (n) taken.add(n);
       }
@@ -83,9 +85,15 @@ interface PlannedStep {
   origin: Record<string, unknown> | null;
 }
 
+/**
+ * Anyone who reaches a workflow may duplicate it, a frozen one included: the
+ * copy is the duplicator's own, keeps the original's SQL home, and lands in
+ * the original's project only when the duplicator may file there.
+ */
 export async function duplicateRecipe(scope: AccountScope, sourceId: string): Promise<Recipe> {
   requireAccountScope(scope);
   const db = metadataDb();
+  requirePermitted(scope, "workflow", sourceId, "duplicate", db);
   const source = requireRecipe(scope, sourceId, db);
   const steps = listSteps(scope, sourceId, db);
   const before = stamp(steps);
@@ -179,7 +187,7 @@ export async function duplicateRecipe(scope: AccountScope, sourceId: string): Pr
     // preparation files the copy where the source is NOW, and a
     // dissolved project reads null (found at review).
     const live = getRecipe(scope, sourceId, db);
-    if (live?.projectId) fileRecipe(scope, copy.id, live.projectId, db);
+    if (live?.projectId && mayFileInto(scope, live.projectId, db)) fileRecipe(scope, copy.id, live.projectId, db);
     const copiedIds = new Map<string, string>();
     planned.forEach((p, i) => {
       copiedIds.set(steps[i].id, copyStep(scope, steps[i].id, copy.id, p.parameters, db).id);
