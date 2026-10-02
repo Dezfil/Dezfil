@@ -33,6 +33,11 @@ it.each([false, true])("allows only one competing process to change a document (
     import { existsSync } from 'node:fs';
     import { pathToFileURL, fileURLToPath } from 'node:url';
     registerHooks({ resolve(specifier, context, next) {
+      // Scratch workers may live outside the checkout. Resolve packages
+      // from the application, independent of the data directory's parents.
+      if (!specifier.startsWith('.') && !specifier.startsWith('/') && !specifier.includes(':') && !specifier.startsWith('@/')) {
+        context = { ...context, parentURL: pathToFileURL(${JSON.stringify(root)} + '/package.json').href };
+      }
       if (specifier === 'next/server') return next('next/server.js', context);
       if (specifier.startsWith('@/')) return next(pathToFileURL(${JSON.stringify(root)} + '/src/' + specifier.slice(2) + '.ts').href, context);
       if (specifier.startsWith('.') && context.parentURL?.startsWith('file:')) {
