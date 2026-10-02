@@ -98,7 +98,7 @@ it("declares security and authentication refusal on every operation using the sa
   const doc = buildOpenApiDocument();
   for (const [pathname, methods] of Object.entries(doc.paths)) for (const [method, value] of Object.entries(methods)) {
     const operation = value as { security?: unknown; responses: Record<string, unknown> };
-    const anonymous = publicOperations.has(`${method.toUpperCase()} ${pathname}`);
+    const anonymous = publicOperations.has(`${method === "head" ? "GET" : method.toUpperCase()} ${pathname}`);
     expect.soft(operation.security, `${method} ${pathname}`).toEqual(anonymous ? [] : AUTH_SECURITY);
     if (!anonymous) expect.soft(operation.responses, pathname).toHaveProperty("401");
   }

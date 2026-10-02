@@ -1,6 +1,7 @@
 // Native HTTP refusal/public matrix. Run only against an isolated scratch store.
 // No browser or image export is launched by this probe.
 import assert from 'node:assert/strict';
+import { probeGateMethods } from './gate-methods-probe.mjs';
 import { captureBasis } from './revision-fixtures.mjs';
 import { provisionJourney, journeyAccount } from './journey-auth.mjs';
 import { journeyApi } from './journey-http.mjs';
@@ -29,13 +30,15 @@ export async function gateJourney(base) {
     'GET /api/published/{token}', 'POST /api/published/{token}/extent/{layerId}', 'POST /api/published/{token}/widget-values',
     'POST /api/published/{token}/render/{layerId}', 'GET /api/published/{token}/tiles/{layerId}/{z}/{x}/{y}']);
   const routes = Object.entries(document.json.paths).flatMap(([path, methods]) => Object.keys(methods).map(method => ({ path, method: method.toUpperCase() })))
-    .filter(route => !publicKeys.has(`${route.method} ${route.path}`));
+    .filter(route => !publicKeys.has(`${route.method === "HEAD" ? "GET" : route.method} ${route.path}`));
   assert.ok(routes.length > 100);
   const resourceState = async () => Promise.all(['/api/maps', '/api/tables', '/api/projects', '/api/recipes', '/api/users', '/api/settings'].map(path => api('GET', path)));
   const before = JSON.stringify(await resourceState());
+  checks += await probeGateMethods(base, credentials.token, document.json);
+  check(JSON.stringify(await resourceState()) === before, 'wrong methods do no resource work');
   for (const [kind, headers] of Object.entries({ anonymous: {}, invalid: { authorization: 'Bearer invalid' }, revokedToken: { authorization: `Bearer ${revoked.json.secret}` }, revokedCookie: { cookie: signedOut.cookie } })) {
     for (const { method, path } of routes) {
-      const response = await fetch(base + path.replaceAll(/\{[^}]+\}/g, 'fixture'), { method, redirect: 'manual', headers: { ...headers, origin: base, 'content-type': 'application/json' }, ...(method === 'GET' ? {} : { body: '{}' }) });
+      const response = await fetch(base + path.replaceAll(/\{[^}]+\}/g, 'fixture'), { method, redirect: 'manual', headers: { ...headers, origin: base, 'content-type': 'application/json' }, ...(['GET', 'HEAD'].includes(method) ? {} : { body: '{}' }) });
       check(response.status === 401 && response.headers.get('cache-control') === 'private, no-store', `${kind} ${method} ${path}: ${response.status}`);
       await response.body?.cancel();
     }

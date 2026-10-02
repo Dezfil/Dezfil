@@ -26,7 +26,7 @@ describe("API parity", () => {
   });
 
   it("every documented operation is implemented", () => {
-    const implemented = new Set(implementedRoutes().map(key));
+    const implemented = new Set(implementedRoutes(true).map(key));
     const missing = documentedRoutes()
       .map(key)
       .filter((k) => !implemented.has(k));

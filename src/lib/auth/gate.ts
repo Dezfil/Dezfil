@@ -1,3 +1,4 @@
+import { apiMethodResponse } from "./api-methods";
 import { isAnonymousAsset } from "./public-assets";
 import { NextResponse, type NextRequest } from "next/server";
 import { accountCount } from "@/lib/metadata/accounts";
@@ -30,7 +31,7 @@ export function gateRequest(request: NextRequest): Response {
     }
     const context = requireRequestAuth(request);
     if (isAdminRequest(pathname)) requireAdmin(context, metadataDb(), Date.now());
-    const response = privateResponse(NextResponse.next());
+    const response = privateResponse(apiMethodResponse(pathname, request.method) ?? NextResponse.next());
     if (!request.headers.has("authorization") && context.credential.kind === "session" && pathname !== "/api/auth/sign-out") {
       sessionCookie(response, sessionSecret(request)!, ingress);
     }

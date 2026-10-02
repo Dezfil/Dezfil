@@ -54,7 +54,10 @@ describe("tool parity", () => {
     // endpoint. The settle-lane renders and published widget values are viewer
     // mechanics: agents read widget values through read_widget_values on the
     // map.
-    const excluded = documentedOperations()
+    const automatic = documentedOperations().filter(o => ["head", "options"].includes(o.method));
+    expect(automatic.length).toBeGreaterThan(0);
+    for (const operation of automatic) expect(operation.tool).toBe(false);
+    const excluded = documentedOperations().filter(o => !["head", "options"].includes(o.method))
       .filter((o) => o.tool === false)
       .map((o) => `${o.method.toUpperCase()} ${o.path}`)
       .sort();

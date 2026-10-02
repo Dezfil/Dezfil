@@ -1,3 +1,4 @@
+import { withAutomaticMethods } from "./openapi-methods";
 import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA, EDIT_REVISION_SCHEMA } from "./openapi-document-facts";
 import { SQL_POLICY, SQL_QUERY } from "./openapi-sql";
 import { PUBLICATION_ADMIN_PATHS, publicationAccess } from "./openapi-publications";
@@ -48,7 +49,7 @@ import { RECIPE_DEPENDENCY_SCHEMAS, RECIPE_SCHEMAS } from "./openapi-recipe-sche
 
 export function buildOpenApiDocument() {
   const settings = settingsContract();
-  return withRequestPolicy({
+  return withRequestPolicy(withAutomaticMethods({
     openapi: "3.1.0",
     info: {
       title: "Dezfil API",
@@ -2755,5 +2756,5 @@ export function buildOpenApiDocument() {
       },
     },
     "x-error-codes": ERROR_CATALOGUE,
-  });
+  }));
 }

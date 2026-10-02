@@ -1215,3 +1215,12 @@ silently replan against a newer revision. An accepted start returns its
 `editRevision` with `run` and does not itself advance the document revision.
 This is a breaking request-contract change. The existing confirmed-membership
 check and single-run lock still apply.
+
+## Unsupported methods
+
+After authentication, an unsupported method on a documented API path returns
+`405 method_not_allowed` with the standard error envelope. `Allow` lists exactly
+the methods documented for that path, including automatic HEAD and OPTIONS.
+HEAD is bodyless; OPTIONS returns 204 with the same Allow header. Unknown API
+paths retain 404 after authentication. Anonymous entry boundaries are unchanged.
+The catalogue message is “This method is not allowed for this path.”
