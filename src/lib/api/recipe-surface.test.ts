@@ -260,7 +260,7 @@ describe("the run contract says what a caller may rely on", () => {
   // Stated by hand, beside the parity check: a promise absent from both
   // OpenAPI and the tools cannot pass by parity alone.
   const doc = buildOpenApiDocument();
-  const run = doc.paths["/api/recipes/{id}/runs"]?.post as { description?: string } | undefined;
+  const run = doc.paths["/api/recipes/{id}/runs"]?.post as { description?: string; parameters?: unknown[] } | undefined;
   const readRun = doc.paths["/api/recipes/{id}/runs/{runId}"]?.get as { description?: string } | undefined;
   const stepRun = doc.paths["/api/recipes/{id}/steps/{stepId}/run"]?.post as { description?: string } | undefined;
   const cancelRun = doc.paths["/api/recipes/{id}/runs/{runId}/cancel"]?.post as { description?: string } | undefined;
@@ -289,9 +289,12 @@ describe("the run contract says what a caller may rely on", () => {
     expect(run?.description).toMatch(/run_in_flight/);
     expect(run?.description).toMatch(/two starts that race yield one run/);
   });
-  it("a confirmed membership binds the set and the order, never a definition", () => {
+  it("a confirmed membership and the current revision both constrain a start", () => {
     expect(run?.description).toMatch(/plan_changed/);
-    expect(run?.description).toMatch(/membership and order only/);
+    expect(run?.description).toMatch(/membership check accompanies the start revision check/);
+    expect(run?.description).toMatch(/stale_revision before any run or output exists/);
+    expect(run?.parameters).toContainEqual(expect.objectContaining({ name: "X-Edit-Revision", in: "header", required: false }));
+    expect(doc.components.schemas.RecipeRunPlan.required).toContain("editRevision");
   });
   it("each attempted member carries its attempt, kept past pruning; a member never attempted has none; identity survives removal", () => {
     expect(run?.description).toMatch(/carries its attempt/);
