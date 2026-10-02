@@ -3,12 +3,12 @@ import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { contractSource } from './contract-source.mjs';
 
-const methods = new Set(['get', 'put', 'post', 'delete', 'patch', 'head', 'options', 'trace']);
+import { HTTP_METHODS } from '../src/lib/api/http-methods.ts';
 const normalize = value => value.replace(/\s+/g, ' ').trim();
 const equal = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 export function measureContract(document, tools) {
   const operations = Object.entries(document.paths).flatMap(([path, item]) => Object.entries(item)
-    .filter(([method]) => methods.has(method)).map(([method, operation]) => ({ path, method, operation })));
+    .filter(([method]) => HTTP_METHODS.has(method)).map(([method, operation]) => ({ path, method, operation })));
   return {
     paths: Object.keys(document.paths).length, operations: operations.length,
     schemas: Object.keys(document.components.schemas).length, errors: Object.keys(document['x-error-codes']).length,

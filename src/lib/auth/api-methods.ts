@@ -1,3 +1,4 @@
+import { HTTP_METHODS } from "@/lib/api/http-methods";
 import { NextResponse } from "next/server";
 import { buildOpenApiDocument } from "@/lib/api/openapi";
 import { ApiError, errorResponse } from "@/lib/api/errors";
@@ -9,7 +10,7 @@ export function deriveApiMethods(paths: Record<string, object>) {
     template,
     matcher: new RegExp("^" + template.split("/").map(segment => /^\{[^}]+\}$/.test(segment)
       ? "[^/]+" : segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("/") + "$"),
-    methods: Object.keys(operations).map(method => method.toUpperCase()).sort(),
+    methods: Object.keys(operations).filter(method => HTTP_METHODS.has(method)).map(method => method.toUpperCase()).sort(),
   })).sort((a, b) => (a.template.match(/\{/g)?.length ?? 0) - (b.template.match(/\{/g)?.length ?? 0));
 }
 export const apiMethodTable = deriveApiMethods(buildOpenApiDocument().paths);
