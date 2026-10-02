@@ -2,6 +2,7 @@
 import { fetchWorkflow, fetchLayout, readWorkflowPage, type PageRead } from "./workflow-canvas/workflow-read";
 import { CanvasRecoveryContext, withWorkflowRecovery, type WorkflowRecoveryProps } from "./workflow-canvas/WorkflowRecovery";
 import { STALE_MESSAGE } from "./document-sequence";
+import { useRecipeRefresh } from "./workflow-canvas/use-recipe-refresh";
 import { WorkflowDocument } from "./workflow-canvas/workflow-document";
 import { DocumentEditorContext } from "./document-editor-context";
 
@@ -178,31 +179,7 @@ function WorkflowEditor({
     if (state.status === "ready") setLive(state.value);
     else if (state.status === "failed") setLive(null);
   }
-  // Every accepted change re-reads the recipe; only the newest read lands,
-  // so two edits' refreshes cannot put an older snapshot on screen last.
-  const refreshSeq = useRef(0);
-  const latestRecipeRead = useRef<Promise<boolean> | null>(null);
-  const refreshRecipe = useCallback(async (): Promise<boolean> => {
-    const mine = ++refreshSeq.current;
-    const accepted = acceptedDocumentFacts(editorDocument.recipe);
-    setLive((l) => l ? { ...l, recipe: { ...l.recipe, ...accepted } } : l);
-    const read = (async () => {
-      try {
-        const recipe = await fetchWorkflow(id);
-        if (mine !== refreshSeq.current || !editorDocument.refresh(recipe)) return false;
-        setLive((l) => (l ? { ...l, recipe } : l));
-        return true;
-      } catch {
-        // The next accepted change re-reads again; the canvas keeps what it has.
-        return false;
-      }
-    })();
-    latestRecipeRead.current = read;
-    const landed = await read;
-    // Superseded by a newer read: its landing is the answer.
-    if (!landed && mine !== refreshSeq.current && latestRecipeRead.current) return latestRecipeRead.current;
-    return landed;
-  }, [id, editorDocument]);
+  const refreshRecipe = useRecipeRefresh(id, editorDocument, setLive);
   const onLayoutWritten = useCallback((layout: LayoutRead) => {
     setLive((l) => (l ? { ...l, layout, recipe: { ...l.recipe, ...acceptedDocumentFacts(editorDocument.recipe) } } : l));
   }, [editorDocument]);
