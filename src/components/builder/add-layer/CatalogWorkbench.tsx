@@ -143,6 +143,9 @@ export function CatalogWorkbench({
       : draft.trim() !== "";
   const currency = previewCurrency(preview, draft);
   const settled = preview.settled;
+  // A preview refusal that Add or Update met too is said once, beside the
+  // draft, where the action's outcome stands.
+  const previewError = settled?.error != null && settled.error !== error ? settled.error : null;
 
   return (
     <div className={styles.workbench}>
@@ -219,12 +222,14 @@ export function CatalogWorkbench({
             <Spinner /> Running preview…
           </p>
         ) : settled === null ? null : settled.error !== null ? (
-          <ErrorNote
-            message={settled.error}
-            onDismiss={() =>
-              setPreview((s) => ({ ...s, settled: null }))
-            }
-          />
+          previewError === null ? null : (
+            <ErrorNote
+              message={previewError}
+              onDismiss={() =>
+                setPreview((s) => ({ ...s, settled: null }))
+              }
+            />
+          )
         ) : (
           <>
             {currency === "stale" && (
