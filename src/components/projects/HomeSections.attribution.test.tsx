@@ -22,6 +22,6 @@ it.each(["cards", "list"] as const)("places known, own and unknown changers in t
   expect(html).not.toContain("just now");
   expect(html).toContain("Ada Okafor (ada)");
   expect(html).toContain("Shared by Owner");
-  expect(html.match(/Ada · 3 min ago/g)).toHaveLength(2);
+  expect(html.match(/>Ada · 3 min ago<\/span>/g)).toHaveLength(2);
   expect(html).toContain("1 h ago");
 });
