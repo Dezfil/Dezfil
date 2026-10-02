@@ -282,6 +282,13 @@ export async function seedSharing(base) {
     'the owner\'s map still draws the owner\'s output, never the Editor\'s');
   assert.deepEqual(await drawn(ada, layers.output), ['ada_roads']);
   expectStatus(await eli('PATCH', `/api/projects/${project.id}/members`, { body: { addTables: [tables['eli.roads'].id] } }), 200, 'editor files own dataset');
+  // The Editor opens the map after filing, publication and the rename.
+  const editorMap = expectStatus(await eli('GET', `/api/maps/${map.id}`), 200);
+  const ownerMap = expectStatus(await ada('GET', `/api/maps/${map.id}`), 200);
+  assert.equal(editorMap.editRevision, ownerMap.editRevision, 'owner and Editor read the same document revision');
+  assert.equal(expectStatus(await eli('GET', '/api/maps'), 200).find(item => item.id === map.id).editRevision,
+    editorMap.editRevision, 'the listing and document carry the same revision');
+  layerBasis = captureBasis(editorMap);
   layers.editor = (await layer(eli, 'Eli roads', 'SELECT * FROM eli.roads')).id;
   for (const api of [eli, ada, vic]) assert.deepEqual(await drawn(api, layers.editor), ['eli_roads']);
   const layersBefore = expectStatus(await ada('GET', `/api/maps/${map.id}`), 200).layers.map(l => l.id);
