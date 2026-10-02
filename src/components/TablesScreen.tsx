@@ -61,7 +61,7 @@ import { useAsyncCollection } from "./use-async-collection";
 import gallery from "./gallery.module.css";
 import styles from "./TablesScreen.module.css";
 import { serverUnreachable } from "./failure-copy";
-import { ownedByOther } from "./sharing/people";
+import { ownedByOther, type PersonLabel } from "./sharing/people";
 import { useSignedInSqlName } from "./sharing/signed-in";
 import { datasetPageHref, datasetQueryHref } from "./dataset-doors";
 
@@ -118,10 +118,10 @@ export function TablesScreen({
   initialPostgisConnectionId?: string | null;
 }) {
   const router = useRouter();
-  // Someone else's dataset is marked with its owner in the lists.
+  // Someone else's dataset or workflow is marked with its owner in the lists.
   const me = useSignedInSqlName();
-  const othersOwner = (t: TableListing) =>
-    ownedByOther(t.owner, me) ? t.owner : null;
+  const othersOwner = (item: { owner?: PersonLabel }) =>
+    ownedByOther(item.owner, me) ? item.owner : null;
   // The catalog load runs through the shared async contract; the edits
   // overlay keeps deletes and refreshes updating in place, without
   // flashing the resolved catalog back to a pending state.
@@ -791,6 +791,7 @@ export function TablesScreen({
                             index={i}
                             open={item.id === shownOpen}
                             handlers={folderHandlers(item)}
+                            owner={othersOwner(item.workflow)}
                           />
                         ),
                       );
@@ -858,6 +859,7 @@ export function TablesScreen({
                                 handlers={folderHandlers(item)}
                                 nameCellClass={styles.nameCell}
                                 withProjectCell
+                                owner={othersOwner(item.workflow)}
                               />
                               {item.id === shownOpen &&
                                 item.matching.map((t) => (
