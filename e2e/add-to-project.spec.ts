@@ -294,7 +294,14 @@ test("the add-to-project dialog end to end", async ({
     await expect(dialog).toContainText(OUT1);
     await expect(dialog).toContainText(T_PLAIN);
     await expect(dialog).not.toContainText(OUT2);
-    await expect(dialog).toContainText(`made by ${WF}, which comes along`);
+    // The output names its producer; the producer is picked apart, in its
+    // own section with its own box, ticked on open for a map.
+    await expect(dialog).toContainText(`made by ${WF}`);
+    await expect(dialog).not.toContainText("which comes along");
+    const producers = dialog.locator("[data-producers]");
+    await expect(producers.locator("label")).toHaveCount(1);
+    await expect(producers).toContainText(WF);
+    await expect(producers.getByRole("checkbox")).toBeChecked();
     await expect(dialog).toContainText(`also in ${PC}, stays shared`);
     // All selected on open: the footer counts the map, 3 datasets, 1
     // workflow.
