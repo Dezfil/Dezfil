@@ -3,6 +3,7 @@
 import type { SizeScale } from "@/lib/style/style";
 import type { LayerField } from "@/lib/layer-service";
 import { SliderRow } from "./rows";
+import { UnsavedField } from "../UnsavedFields";
 import styles from "../StylePanel.module.css";
 
 /**
@@ -72,7 +73,7 @@ export function SizeControl({
     <>
       {scale ? (
         <div className={styles.row}>
-          <span className={styles.rowLabel}>{label}</span>
+          <span className={styles.rowLabel}>{label}{typeof label === "string" && <UnsavedField label={label} />}</span>
           <input
             type="number"
             className={styles.num}

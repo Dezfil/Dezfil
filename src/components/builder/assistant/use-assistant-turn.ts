@@ -95,6 +95,7 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
       });
       if (!response.ok) {
         const failure = await readApiFailure(response);
+        if (failure.code === "stale_revision") editor?.sequence.halt();
         reported = true;
         throw new RequestError(failure.code, failure.message, response.status);
       }
@@ -121,6 +122,8 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
           const line = buffer.slice(0, boundary).trim(); buffer = buffer.slice(boundary + 1);
           if (!line) continue;
           const event = JSON.parse(line) as AssistantEvent;
+          if ((event.type === "error" && event.code === "stale_revision") ||
+              (event.type === "tool_result" && (event.body as { error?: { code?: string } } | null)?.error?.code === "stale_revision")) editor?.sequence.halt();
           const next = receiveEvent(store.get().live, event, current.id);
           replace(next);
           // The region hears each event as it is applied, whatever the render cadence.
@@ -137,7 +140,7 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
     // server-owned receipt, including a stream lost before its first event.
     try { await readOutcome(current.id, reported); }
     catch (e) { store.set({ error: failed(e, "Check the request outcome to recover this turn.") }); }
-  }, [applyReceipt, readOutcome, replace, store]);
+  }, [applyReceipt, readOutcome, replace, store, editor]);
 
   const stream = useCallback((payload: Record<string, unknown>, fresh: boolean) => {
     const work = () => streamUnordered(payload, fresh);
@@ -231,7 +234,7 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
     const id = store.active?.id;
     if (id) void json(`${runPath(id)}/cancel`, { method: "POST" }).catch(() => {});
     store.flight?.abort();
-  }, [applyReceipt, readOutcome, replace, store]);
+  }, [applyReceipt, readOutcome, replace, store, editor]);
   /** A flight ended: a Stop kept while it was in flight now runs. */
   const stopRef = useRef(stop);
   stopRef.current = stop;

@@ -2,6 +2,8 @@
 
 import {
   useCallback,
+  useMemo,
+  useSyncExternalStore,
   useState,
   type Dispatch,
   type RefObject,
@@ -11,6 +13,7 @@ import type { Layer, MapWithLayers } from "@/lib/metadata/maps";
 import { CHANGE_GROUP_HEADER } from "@/lib/api/change-group";
 import { readApiError } from "../api";
 import type { LayerRenderData } from "./render-data";
+import { BuilderDrafts } from "./builder-drafts";
 import { DocumentSequence, patchIntent } from "../document-sequence";
 
 /** Who raised a failure — and therefore who owns clearing it. */
@@ -96,8 +99,10 @@ export function useMutationLane({
   edited: () => void;
   /** Discards a layer's in-progress Legend-tab text — a recovered read
    * is authoritative for it too. */
-  clearLegendLive: (layerId: string) => void;
+  clearLegendLive: (layerId: string, accepted?: Layer) => void;
 }) {
+  const drafts = useMemo(() => new BuilderDrafts(), []);
+  const stale = useSyncExternalStore(sequence.subscribe, sequence.snapshot, sequence.snapshot);
   // Failures are keyed by the lane that raised them. One shared string
   // meant nine writers and a single clearer, so "the layer save could
   // not be confirmed" outlived its condition until the user happened to
@@ -199,11 +204,12 @@ export function useMutationLane({
             next = { ...next, legendOrder: current.legendOrder };
           }
         }
-        return next;
+        return drafts.apply(next);
       });
       if (changed) edited();
     },
     [
+      drafts,
       authoritativeLayersRef,
       sequence,
       edited,
@@ -232,7 +238,10 @@ export function useMutationLane({
       } = {},
     ): Promise<boolean> => {
       const compose = typeof request === "function" ? request : patchIntent(map, request);
+      const ticket = drafts.map(compose);
+      setMap(current => current ? { ...current, ...compose(current) } : current);
       const result = sequence.enqueue(async () => {
+        if (sequence.stale) return false;
         // A queued whole-object body (basemap group toggles) built at call
         // time would be stale by its turn — the earlier queued edit already
         // landed. A thunk builds the body from server truth as the turn
@@ -253,7 +262,7 @@ export function useMutationLane({
         let response: Response;
         try {
           response = await track(
-            fetch(`/api/maps/${mapId}`, {
+            sequence.writeFetch(`/api/maps/${mapId}`, {
               method: "PATCH",
               headers: sequence.headers({
                 "content-type": "application/json",
@@ -289,12 +298,15 @@ export function useMutationLane({
           // of applying (two writers converge).
           return false;
         }
+        drafts.accepted(ticket);
         applyMapResponse(updated, true, sentAt);
         return true;
       });
       return result;
     },
     [
+      drafts,
+      setMap,
       mapId,
       map,
       sequence,
@@ -327,20 +339,21 @@ export function useMutationLane({
       }
       // A recovered read is authoritative too: discard any live text that was
       // waiting for the lost response rather than leaving it over stale state.
-      clearLegendLive(layer.id);
+      clearLegendLive(layer.id, layer);
       setMap((current) =>
         current
           ? {
               ...current,
-              layers: current.layers.map((candidate) =>
+              layers: drafts.apply({ ...(serverMapRef.current ?? current), layers: (serverMapRef.current ?? current).layers.map((candidate) =>
                 candidate.id === layer.id ? layer : candidate,
-              ),
+              ) }).layers,
             }
           : current,
       );
       if (changed) edited();
     },
     [
+      drafts,
       authoritativeLayersRef,
       clearLegendLive,
       sequence,
@@ -360,7 +373,10 @@ export function useMutationLane({
     ): Promise<Layer | null> => {
       const shown = map?.layers.find((layer) => layer.id === layerId);
       const compose = typeof request === "function" ? request : patchIntent(shown, request);
+      const ticket = drafts.layer(layerId, current => compose(current));
+      setMap(current => current ? { ...current, layers: current.layers.map(layer => layer.id === layerId ? { ...layer, ...compose(layer) } : layer) } : current);
       const result = sequence.enqueue(async () => {
+        if (sequence.stale) return null;
         const current = authoritativeLayersRef.current[layerId];
         if (!current) return null;
         const body = compose(current);
@@ -399,7 +415,7 @@ export function useMutationLane({
         let response: Response;
         try {
           response = await track(
-            fetch(`/api/layers/${layerId}`, {
+            sequence.writeFetch(`/api/layers/${layerId}`, {
               method: "PATCH",
               headers: sequence.headers(headers),
               body: JSON.stringify(body),
@@ -426,6 +442,7 @@ export function useMutationLane({
           // A response from an older editor lifetime cannot establish a basis.
           return null;
         }
+        drafts.accepted(ticket);
         syncAuthoritativeLayer(updated, true);
         // Anything that changes the effective query needs fresh render data —
         // except a settled timeline window, whose caller skips the refetch:
@@ -440,6 +457,8 @@ export function useMutationLane({
     [
       map,
       sequence,
+      setMap,
+      drafts,
       authoritativeLayersRef,
       refreshLayer,
       syncAuthoritativeLayer,
@@ -452,6 +471,7 @@ export function useMutationLane({
   );
 
   return {
+    stale, drafts,
     /** Standing failure banners by lane; the reader can dismiss any. */
     failures,
     fail,

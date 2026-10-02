@@ -90,15 +90,20 @@ import { useBuilderCamera } from "./use-builder-camera";
 import { useLayerDataDownloads } from "./use-layer-data-downloads";
 import { BuilderFailureNotes } from "./BuilderFailureNotes";
 import styles from "./MapBuilder.module.css";
+import { withBuilderRecovery } from "./BuilderRecovery";
+import { BuilderStaleNotice } from "./BuilderStaleNotice";
+import { BuilderSavedState, LegendUnsavedDot } from "./UnsavedFields";
+import { useStyleAppearanceCommit } from "./use-style-appearance-commit";
 
-export function MapBuilder({
+function BuilderEditor({
+  recoverySeed, onRecovered,
   mapId,
   initialLayerId = null,
   basemapUrl,
   basemapOverrideUrl = null,
   basemapOverrideAttribution = [],
   basemaps = BASEMAPS,
-}: {
+}: import("./BuilderRecovery").BuilderRecoveryProps & {
   mapId: string;
   /** Layer to open selected — the promotion flows arrive
    * with the landed layer's id via the page's search params. */
@@ -275,7 +280,7 @@ export function MapBuilder({
   );
 
   useBuilderReload({
-    mapId, mutations, importFocusRef, setMap, setMapProjectId, rendersRef, setRenders, setFitBounds,
+    mapId, mutations, recoverySeed, importFocusRef, setMap, setMapProjectId, rendersRef, setRenders, setFitBounds,
   });
 
   // Tiles prepare in the background: poll a preparing layer's render
@@ -363,6 +368,7 @@ export function MapBuilder({
                 skipRefresh: true,
                 separateHistoryStep: true,
               });
+        if (mutations.sequence.stale) return false;
         const authoritative = updated ?? authoritativeLayersRef.current[layerId];
         if (heatmapPreviewVersionRef.current[layerId] === version) {
           delete heatmapDraftVizRef.current[layerId];
@@ -393,7 +399,7 @@ export function MapBuilder({
       })();
       return result;
     },
-    [authoritativeLayersRef, patchLayer],
+    [authoritativeLayersRef, patchLayer, mutations.sequence],
   );
 
   const previewAggregationViz = useCallback(
@@ -437,6 +443,7 @@ export function MapBuilder({
               { viz: next },
               { separateHistoryStep: true },
             );
+        if (mutations.sequence.stale) return false;
         if (aggregationPreviewVersionRef.current[layerId] === version) {
           if (updated && !unchanged) settleQuerySliderPreview(layerId);
           else endQuerySliderPreview(layerId);
@@ -445,7 +452,7 @@ export function MapBuilder({
       })();
       return result;
     },
-    [authoritativeLayersRef, endQuerySliderPreview, patchLayer, settleQuerySliderPreview],
+    [authoritativeLayersRef, endQuerySliderPreview, patchLayer, settleQuerySliderPreview, mutations.sequence],
   );
 
   const setAppearanceDraft = useCallback(
@@ -496,35 +503,9 @@ export function MapBuilder({
     [authoritativeLayersRef, setAppearanceDraft],
   );
 
-  const commitStyleAppearance = useCallback(
-    (layerId: string, partial: Partial<LayerStyle>): Promise<boolean> => {
-      const version = appearancePreviewVersionRef.current[layerId] ?? 0;
-      const result = (async () => {
-        const current = authoritativeLayersRef.current[layerId];
-        if (!current) {
-          if (appearancePreviewVersionRef.current[layerId] === version) {
-            clearAppearanceDraft(layerId);
-          }
-          return false;
-        }
-        const next = { ...current.style, ...partial };
-        const unchanged = JSON.stringify(next) === JSON.stringify(current.style);
-        const updated = unchanged
-          ? current
-          : await patchLayer(
-              layerId,
-              (accepted) => ({ style: { ...accepted.style, ...partial } }),
-              { separateHistoryStep: true },
-            );
-        if (appearancePreviewVersionRef.current[layerId] === version) {
-          clearAppearanceDraft(layerId);
-        }
-        return updated !== null;
-      })();
-      return result;
-    },
-    [authoritativeLayersRef, clearAppearanceDraft, patchLayer],
-  );
+  const commitStyleAppearance = useStyleAppearanceCommit({
+    sequence: mutations.sequence, authoritativeLayersRef, appearancePreviewVersionRef, clearAppearanceDraft, patchLayer,
+  });
 
   // Cell height slides like any appearance channel (field fix): the
   // cells and their elevation values don't move when only the height does,
@@ -564,6 +545,7 @@ export function MapBuilder({
               skipRefresh: true,
               separateHistoryStep: true,
             });
+        if (mutations.sequence.stale) return false;
         if (appearancePreviewVersionRef.current[layerId] === version) {
           clearAppearanceDraft(layerId);
         }
@@ -571,7 +553,7 @@ export function MapBuilder({
       })();
       return result;
     },
-    [authoritativeLayersRef, clearAppearanceDraft, patchLayer],
+    [authoritativeLayersRef, clearAppearanceDraft, patchLayer, mutations.sequence],
   );
 
   const commitAggregatedFill = useCallback(
@@ -594,6 +576,7 @@ export function MapBuilder({
               skipRefresh: true,
               separateHistoryStep: true,
             });
+        if (mutations.sequence.stale) return false;
         if (appearancePreviewVersionRef.current[layerId] === version) {
           clearAppearanceDraft(layerId);
         }
@@ -601,7 +584,7 @@ export function MapBuilder({
       })();
       return result;
     },
-    [authoritativeLayersRef, clearAppearanceDraft, patchLayer],
+    [authoritativeLayersRef, clearAppearanceDraft, patchLayer, mutations.sequence],
   );
 
   // Arc/line/cluster appearance previews: height, target color, and cluster
@@ -638,6 +621,7 @@ export function MapBuilder({
               skipRefresh: true,
               separateHistoryStep: true,
             });
+        if (mutations.sequence.stale) return false;
         if (appearancePreviewVersionRef.current[layerId] === version) {
           clearAppearanceDraft(layerId);
         }
@@ -645,7 +629,7 @@ export function MapBuilder({
       })();
       return result;
     },
-    [authoritativeLayersRef, clearAppearanceDraft, patchLayer],
+    [authoritativeLayersRef, clearAppearanceDraft, patchLayer, mutations.sequence],
   );
 
   // The widget editor's unsaved widget: the presentation overlays it on
@@ -811,6 +795,7 @@ export function MapBuilder({
 
   return (
     <DocumentEditorContext.Provider value={mutations}>
+    <BuilderSavedState value={{ stale: mutations.stale, saved: mutations.savedMap }}>
     <div className={styles.builder}>
       <HeaderChrome
         map={map}
@@ -846,12 +831,13 @@ export function MapBuilder({
             fill
             value={tab}
             onChange={setTab}
-            tabs={RAIL_TABS}
+            tabs={RAIL_TABS.map(item => item.value === "legend" ? { ...item, name: "Legend", label: <>Legend<LegendUnsavedDot map={map} live={legendLive} /></> } : item)}
           />
 
           <TabPanel group="builder" value={tab} className={styles.railContent}>
+            <BuilderStaleNotice mutations={mutations} onRecovered={onRecovered} />
             <BuilderFailureNotes
-              failures={failures}
+              failures={mutations.stale ? {} : failures}
               clearFailure={clearFailure}
               activeDownloads={layerDownloads.activeDownloads}
               downloadFailures={layerDownloads.failures}
@@ -1046,7 +1032,7 @@ export function MapBuilder({
             onMapFull={setMapFull}
             draw={draw}
             drawCamera={drawCamera}
-            saving={pendingSaves > 0}
+            saving={!mutations.stale && pendingSaves > 0}
             notice={importNotice}
           />
         }
@@ -1082,6 +1068,9 @@ export function MapBuilder({
       />
 
     </div>
+    </BuilderSavedState>
     </DocumentEditorContext.Provider>
   );
 }
+
+export const MapBuilder = withBuilderRecovery(BuilderEditor);

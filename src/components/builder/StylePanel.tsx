@@ -28,7 +28,6 @@ import type { MapTimeline } from "@/lib/timeline";
 import type { HeatmapControlField } from "@/lib/heatmap-quality";
 import {
   vizTile,
-  type GeometryKind,
   type LayerRenderData,
 } from "./render-data";
 import { CollapsibleSection } from "./CollapsibleSection";
@@ -37,8 +36,6 @@ import { HoverFieldsSections } from "./style-panel/HoverFieldsSections";
 import { FilterSection } from "./FilterSection";
 import {
   VizPointsIcon,
-  VizPathIcon,
-  VizPolygonIcon,
   VizArcIcon,
   VizLineIcon,
   VizClusterIcon,
@@ -55,6 +52,8 @@ import { PaintControls } from "./style-panel/PaintControls";
 import { SizeControl } from "./style-panel/SizeControl";
 import { CellSizeRow } from "./style-panel/size-rows";
 import { ColorRow, SelectRow, SliderRow } from "./style-panel/rows";
+import { geometryTile } from "./style-panel/geometry-tile";
+import { LayerDraftFields } from "./UnsavedFields";
 import styles from "./StylePanel.module.css";
 
 export interface StylePanelProps {
@@ -110,19 +109,6 @@ export interface StylePanelProps {
   onLivePreviewEnd?: (accepted: boolean) => void;
 }
 
-
-/** The geometry tile draws the features as they are; its face follows the
- * layer's geometry family (Point/Path/Polygon, one tile). */
-function geometryTile(kind: GeometryKind): {
-  label: string;
-  icon: React.ReactNode;
-} {
-  if (kind === "line") return { label: "Path", icon: <VizPathIcon /> };
-  if (kind === "polygon")
-    return { label: "Polygons", icon: <VizPolygonIcon /> };
-  if (kind === "mixed") return { label: "Features", icon: <VizPointsIcon /> };
-  return { label: "Points", icon: <VizPointsIcon /> };
-}
 
 const VIZ_TYPES: {
   key: LayerViz["type"];
@@ -208,7 +194,7 @@ export function StylePanel({
     (kind === "line" || kind === "polygon" || kind === "mixed" || od);
 
   return (
-    <div className={styles.panel}>
+    <LayerDraftFields layer={layer}><div className={styles.panel}>
       <PanelFailureNotes
         renderError={render && !render.ok ? (render.error ?? null) : null}
         channelError={channelError}
@@ -952,6 +938,6 @@ export function StylePanel({
         />
       )}
 
-    </div>
+    </div></LayerDraftFields>
   );
 }

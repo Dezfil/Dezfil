@@ -39,6 +39,7 @@ import {
   reorderAnnouncements,
   type ReorderHandle,
 } from "../reorder-a11y";
+import { UnsavedLayer } from "./UnsavedFields";
 import type { Layer } from "@/lib/metadata/maps";
 import { layerSwatch } from "@/lib/layer-summary";
 import { isAggregated } from "@/lib/viz";
@@ -166,6 +167,7 @@ function LayerMeta({
   // is exception-only — the strip on the card's bottom edge.
   return (
     <span className={styles.meta}>
+      <UnsavedLayer layer={layer} />
       {render && !render.ok ? (
         <span className={styles.errBadge}>error</span>
       ) : render?.ok && render.tiles?.state === "building" ? (

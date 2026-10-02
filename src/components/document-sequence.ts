@@ -1,5 +1,8 @@
 import { editHeaders } from "@/lib/edit-basis";
 
+export const STALE_MESSAGE = "This item has changed. Reload it before trying again.";
+export const DISCARD_MESSAGE = "Reload discards your unsaved values. Copy what you want to keep first.";
+
 /** One editor lifetime and one accepted revision. Camera persistence never
  * enters this sequence. Work builds its payload only when its turn starts. */
 export class DocumentSequence {
@@ -8,10 +11,29 @@ export class DocumentSequence {
   get pending() { return this.waiting > 0; }
   idle = async () => { while (this.tail) await this.tail; };
   private closed = false;
+  get disposed() { return this.closed; }
+  stale = false;
+  private listeners = new Set<() => void>();
+  subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
+  snapshot = () => this.stale;
+  halt() { this.stale = true; this.listeners.forEach((listener) => listener()); }
+  /** Refused work keeps its old basis until an explicit discard installs a new editor. */
+  async observe(response: Response) {
+    if (response.status === 409) {
+      const body = await response.clone().json().catch(() => null);
+      if (body?.error?.code === "stale_revision") this.halt();
+    }
+    return response;
+  }
+  refusal() { return Response.json({ error: { code: "stale_revision", message: STALE_MESSAGE } }, { status: 409 }); }
+  writeFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    if (this.stale || this.closed) return this.refusal();
+    return this.observe(await fetch(input, { ...init, headers: this.headers(init?.headers) }));
+  };
   constructor(readonly documentId?: string) {}
   revision: string | null = null;
   accept(value: unknown) {
-    if (this.closed || !value || typeof value !== "object") return;
+    if (this.closed || this.stale || !value || typeof value !== "object") return;
     const revision = (value as { editRevision?: unknown }).editRevision;
     if (typeof revision === "string") this.revision = revision;
   }

@@ -1,0 +1,32 @@
+import { afterEach, expect, it, vi } from "vitest";
+import { hookReact, HookHarness } from "../workflow-canvas/hook-harness";
+import { wire } from "../workflow-canvas/fetch-wire";
+import type { Layer, MapWithLayers } from "@/lib/metadata/maps";
+vi.mock("react", () => hookReact);
+import { useBuilderMutations } from "./use-builder-mutations";
+
+afterEach(() => vi.unstubAllGlobals());
+it("keeps refused SQL and queued legend and style edits while halting every covered writer", async () => {
+  const w = wire(); vi.stubGlobal("fetch", w.fetch);
+  vi.stubGlobal("window", { addEventListener() {}, removeEventListener() {} });
+  const first = { id: "a", sql: "old", legendTitle: "old", style: { opacity: 1 } } as unknown as Layer;
+  let map = { id: "map", layers: [first], editRevision: "seen" } as unknown as MapWithLayers;
+  const h = new HookHarness(() => useBuilderMutations({ mapId: "map", map, setMap: next => { map = typeof next === "function" ? next(map)! : next!; }, rendersRef: { current: {} }, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} }));
+  const e = h.value; e.serverMapRef.current = map; e.authoritativeLayersRef.current = { a: first }; e.sequence.accept(map);
+  const sql = e.patchLayer("a", { sql: "refused SQL" });
+  const legend = e.patchLayer("a", { legendTitle: "kept title" });
+  const style = e.patchLayer("a", { style: { opacity: 0.4 } });
+  w.calls[0].refuse(409, "stale_revision", "This item has changed. Reload it before trying again.");
+  await sql; await w.settle();
+  expect(w.calls).toHaveLength(1);
+  await Promise.all([legend, style]);
+  expect(map.layers[0]).toMatchObject({ sql: "refused SQL", legendTitle: "kept title", style: { opacity: 0.4 } });
+  await e.patchMap({ name: "later name" });
+  await e.applyHistory("undo");
+  const response = await e.request("/api/maps/map/publish", { method: "POST" });
+  expect(response.status).toBe(409);
+  expect(w.calls).toHaveLength(1);
+  expect(e.sequence.revision).toBe("seen");
+  expect(map.name).toBe("later name");
+  h.unmount();
+});

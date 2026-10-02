@@ -62,6 +62,7 @@ export function useMapHistory(opts: {
       // of order. The repaint carries a generation, so a superseded
       // batch never overwrites a newer one's result.
       const result = sequence.enqueue(async () => {
+        if (sequence.stale) return;
         const generation = (historyGenerationRef.current += 1);
         // Literal paths (not an interpolated verb) so the parity suite can
         // match each call to its documented operation.
@@ -71,7 +72,7 @@ export function useMapHistory(opts: {
             : `/api/maps/${mapId}/redo`;
         let response: Response;
         try {
-          response = await track(fetch(url, { method: "POST", headers: sequence.headers() }));
+          response = await track(sequence.writeFetch(url, { method: "POST", headers: sequence.headers() }));
         } catch (cause) {
           fail(
             "history",
@@ -82,6 +83,7 @@ export function useMapHistory(opts: {
           reload();
           return;
         }
+        if (sequence.stale) { fail("history", await readApiError(response)); return; }
         if (!response.ok) {
           // 409 = nothing to apply — the optimistic flag overshot (a no-op
           // edit); resync the buttons instead of surfacing an error.

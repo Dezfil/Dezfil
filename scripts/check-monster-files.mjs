@@ -19,7 +19,7 @@ const CEILINGS = {
   // Add layer catalog mount, the stage controls, the assistant wiring, the
   // helper composition, the effective-basemap derivation and the shared
   // map, legend and widget presentation.
-  "src/components/builder/MapBuilder.tsx": 1087,
+  "src/components/builder/MapBuilder.tsx": 1076,
   // The map canvas. Extractions so far: capture, the text sublayer, the
   // basemap content-group lifecycle, tiled-layer construction, pointer
   // interaction, camera constraints, the shared paint readout and overlay lifetime.
@@ -30,7 +30,7 @@ const CEILINGS = {
   "src/lib/layer-service.ts": 10,
   // The style panel. Extractions so far: the icon picker, the Label
   // section and the hover-field sections.
-  "src/components/builder/StylePanel.tsx": 957,
+  "src/components/builder/StylePanel.tsx": 943,
   // The parameter form, after the catalog-driven parameter controls left
   // for parameter-controls so the workflow canvas composes the same rows.
   "src/components/builder/drawer/ParameterForm.tsx": 449,

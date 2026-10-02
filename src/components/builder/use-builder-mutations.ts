@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type Dispatch, type SetStateAction } from "react";
 import type { Layer, MapWithLayers } from "@/lib/metadata/maps";
 import type { HistoryAvailability } from "@/lib/metadata/history";
 import type { Bounds } from "@/lib/geo-bounds";
@@ -73,6 +73,7 @@ export function useBuilderMutations({
   // already holds newer truth, and a stale echo would revert it (two
   // writers converge).
   const reloadEpochRef = useRef(0);
+  const savedMap = useSyncExternalStore(sequence.subscribe, () => sequence.stale ? serverMapRef.current : null, () => null);
 
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
 
@@ -88,9 +89,10 @@ export function useBuilderMutations({
   // A recovered read is authoritative for live text too: the lane
   // discards an entry that was waiting for a lost response rather than
   // leaving it over stale state.
-  const clearLegendLive = useCallback((layerId: string) => {
+  const clearLegendLive = useCallback((layerId: string, accepted?: Layer) => {
     setLegendLive((prev) => {
       if (!(layerId in prev)) return prev;
+      if (accepted && Object.entries(prev[layerId]).some(([key, value]) => JSON.stringify(value) !== JSON.stringify(accepted[key as keyof Layer]))) return prev;
       const next = { ...prev };
       delete next[layerId];
       return next;
@@ -102,6 +104,7 @@ export function useBuilderMutations({
   // lane-owned failure banners, and pending-saves accounting — extracted
   // beside MapBuilder (use-mutation-lane.ts), sharing the truth refs above.
   const {
+    stale, drafts,
     failures,
     fail,
     clearFailure,
@@ -130,7 +133,7 @@ export function useBuilderMutations({
   });
 
   const request = useCallback<typeof fetch>((input, init) => sequence.enqueue(async () => {
-    const response = await fetch(input, { ...init, headers: sequence.headers(init?.headers) });
+    const response = await sequence.writeFetch(input, init);
     if (response.ok) {
       const body: unknown = await response.clone().json().catch(() => null);
       sequence.accept(body);
@@ -141,7 +144,9 @@ export function useBuilderMutations({
   }), [sequence]);
 
   const turn = useCallback((work: () => Promise<void>) => sequence.enqueue(async () => {
+    if (sequence.stale) throw new Error("This item has changed. Reload it before trying again.");
     await work();
+    if (sequence.stale) return;
     // The turn has settled while later editor intent still waits. Install the
     // accepted document before releasing that intent; never stamp old payloads.
     const response = await fetch(`/api/maps/${mapId}`, { cache: "no-store" });
@@ -168,7 +173,7 @@ export function useBuilderMutations({
   });
 
   return {
-    turn, request, sequence, history, setHistory, edited, reloadKey, reload,
+    stale, drafts, savedMap, turn, request, sequence, history, setHistory, edited, reloadKey, reload,
     authoritativeLayersRef, truthSeqRef, layerConfirmedAtRef, layerRemovedAtRef,
     mapFieldEditedAtRef, mapAppliedAtRef, serverMapRef, reloadEpochRef,
     legendLive, onLegendLive, failures, fail, clearFailure, pendingSaves,
@@ -178,10 +183,11 @@ export function useBuilderMutations({
 
 /** Loading after assistant mutations uses the same response fences as edits. */
 export function useBuilderReload({
-  mapId, mutations, importFocusRef, setMap, setMapProjectId, rendersRef, setRenders, setFitBounds,
+  mapId, mutations, recoverySeed, importFocusRef, setMap, setMapProjectId, rendersRef, setRenders, setFitBounds,
 }: {
   mapId: string;
   mutations: ReturnType<typeof useBuilderMutations>;
+  recoverySeed?: import("./BuilderRecovery").BuilderSeed;
   importFocusRef: React.RefObject<{ active: boolean }>;
   setMap: StateSetter<MapWithLayers | null>;
   setMapProjectId: StateSetter<string | null>;
@@ -194,20 +200,24 @@ export function useBuilderReload({
     layerRemovedAtRef, mapFieldEditedAtRef, reloadEpochRef, mapAppliedAtRef,
     serverMapRef, clearFailure, setHistory, fail,
   } = mutations;
+  const initialSeed = useRef(recoverySeed);
   // Load the map and every layer's render data.
   useEffect(() => {
     let cancelled = false;
     void sequence.enqueue(async () => {
       try {
+        if (sequence.stale) return;
         // Authority demands fresh truth: if a write confirms while the
         // read is on the wire, the body may predate it — re-read rather
         // than install a snapshot that would regress the accepted edit.
         // Contention is transient; the cap only guards a pathological
         // edit storm.
+        const recoverySeed = initialSeed.current;
+        initialSeed.current = undefined;
         let body!: MapWithLayers;
         for (let attempt = 0; attempt < 3; attempt++) {
           const seqAtStart = truthSeqRef.current;
-          const response = await fetch(`/api/maps/${mapId}`);
+          const response = recoverySeed ? Response.json(recoverySeed.map) : await fetch(`/api/maps/${mapId}`);
           if (!response.ok) throw new Error(await readApiError(response));
           body = (await response.json()) as MapWithLayers & {
             projectId?: string | null;
@@ -244,7 +254,7 @@ export function useBuilderReload({
         });
         const entries = await Promise.all(
           body.layers.map(
-            async (l) => [l.id, await fetchLayerRender(l.id)] as const,
+            async (l) => [l.id, recoverySeed?.renders[l.id] ?? await fetchLayerRender(l.id)] as const,
           ),
         );
         if (cancelled) return;
@@ -267,6 +277,6 @@ export function useBuilderReload({
     return () => {
       cancelled = true;
     };
-  }, [sequence, mapId, reloadKey, clearFailure, fail, importFocusRef, truthSeqRef, authoritativeLayersRef, layerConfirmedAtRef, layerRemovedAtRef, mapFieldEditedAtRef, reloadEpochRef, mapAppliedAtRef, serverMapRef, setMap, setMapProjectId, setHistory, rendersRef, setRenders, setFitBounds]);
+  }, [sequence, mapId, reloadKey, recoverySeed, clearFailure, fail, importFocusRef, truthSeqRef, authoritativeLayersRef, layerConfirmedAtRef, layerRemovedAtRef, mapFieldEditedAtRef, reloadEpochRef, mapAppliedAtRef, serverMapRef, setMap, setMapProjectId, setHistory, rendersRef, setRenders, setFitBounds]);
 
 }
