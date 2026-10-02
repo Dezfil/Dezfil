@@ -121,3 +121,21 @@ it("a resumed confirmation uses intervening saves even without an earlier write 
   for await (const event of resumeAssistant(parked, true, deps)) void event;
   expect(sent).toEqual(["intervening-save"]);
 });
+
+
+it("tracks duplicated maps and workflows by the returned identity, including child layers", () => {
+  const ledger = new AssistantRevisions();
+  ledger.observe("/api/maps/source", { id: "source", editRevision: "source-map", layers: [{ id: "original" }] });
+  ledger.observe("/api/recipes/source", { recipe: { id: "source", editRevision: "source-workflow" }, editRevision: "source-workflow" });
+  ledger.observe("/api/maps/source/duplicate", { id: "copy", editRevision: "copy-map", layers: [{ id: "copied" }] });
+  ledger.observe("/api/recipes/source/duplicate", { recipe: { id: "copy", editRevision: "copy-workflow" }, editRevision: "copy-workflow" });
+  expect(ledger.revision("map:source")).toBe("source-map");
+  expect(ledger.revision("workflow:source")).toBe("source-workflow");
+  expect(ledger.revision("map:copy")).toBe("copy-map");
+  expect(ledger.revision("workflow:copy")).toBe("copy-workflow");
+  const layer = buildTools().find(tool => tool.name === "update_layer")!;
+  expect(ledger.headers(layer, { [layer.pathParams[0]]: "copied" })).toEqual({ "X-Edit-Revision": "copy-map" });
+  expect(ledger.headers(layer, { [layer.pathParams[0]]: "original" })).toEqual({ "X-Edit-Revision": "source-map" });
+  const workflow = buildTools().find(tool => tool.name === "update_recipe")!;
+  expect(ledger.headers(workflow, { [workflow.pathParams[0]]: "copy" })).toEqual({ "X-Edit-Revision": "copy-workflow" });
+});

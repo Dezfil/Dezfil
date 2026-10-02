@@ -62,6 +62,12 @@ export class AssistantRevisions {
     if (Array.isArray(value)) { for (const item of value) this.observe(path, item); return; }
     const body = record(value);
     if (!body) return;
+    const duplication = /^\/api\/(maps|recipes)\/[^/]+\/duplicate$/.exec(path);
+    if (duplication) {
+      const copy = record(body.recipe) ?? body;
+      if (typeof copy.id !== "string") return;
+      path = `/api/${duplication[1]}/${encodeURIComponent(copy.id)}`;
+    }
     if (body.recipe) this.observe(path, body.recipe);
     const key = typeof body.mapId === "string" ? `map:${body.mapId}`
       : typeof body.recipeId === "string" ? `workflow:${body.recipeId}`
