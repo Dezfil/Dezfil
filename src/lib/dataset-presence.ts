@@ -1,5 +1,5 @@
 import type { AccountScope } from "@/lib/auth/scope";
-import { canReach } from "@/lib/auth/reach";
+import { canReach, reachableDatasetIds } from "@/lib/auth/reach";
 import type { AccountLabel } from "@/lib/metadata/accounts";
 import type { DataTable } from "@/lib/metadata/tables";
 import type { ReachedTable } from "@/lib/metadata/owned-tables";
@@ -28,14 +28,27 @@ export function datasetPresence(scope: AccountScope, reached: ReachedTable): Dat
  * A dataset's origin as its reader may see it. Its owner sees the record as
  * stored. Anyone else sees nothing the record says about what they cannot
  * reach: a PostGIS snapshot shows its origin kind and nothing about the
- * connection, and a sketch whose map they do not reach names no map.
+ * connection, a sketch whose map they do not reach names no map, and a
+ * derived dataset's recorded inputs list only those the reader reaches, by
+ * the identity each was recorded under, as the inspection's resolved inputs
+ * do. The SQL and parameters that ran are the document itself and stay.
+ * `reach` is the reader's reachable dataset identities, when a listing has
+ * already read them.
  */
-export function datasetOrigin(scope: AccountScope, reached: ReachedTable): DataTable["sourceParams"] {
+export function datasetOrigin(scope: AccountScope, reached: ReachedTable, reach?: ReadonlySet<string>): DataTable["sourceParams"] {
   const { table } = reached;
   if (reached.ownerId === scope.accountId) return table.sourceParams;
   if (table.source === "postgis") return null;
   const mapId = table.sourceParams?.mapId;
   if (table.source === "sketch" && (typeof mapId !== "string" || !canReach(scope, "map", mapId))) return null;
+  const inputs = table.sourceParams?.inputs;
+  if (table.source === "operation" && Array.isArray(inputs)) {
+    const reachable = reach ?? reachableDatasetIds(scope);
+    return { ...table.sourceParams, inputs: inputs.filter((entry: unknown) => {
+      const id = typeof entry === "object" && entry !== null ? (entry as { id?: unknown }).id : undefined;
+      return typeof id === "string" && reachable.has(id);
+    }) };
+  }
   return table.sourceParams;
 }
 
@@ -48,11 +61,11 @@ export function datasetSourceName(scope: AccountScope, reached: ReachedTable): D
 
 /** A reached dataset as its reader sees it: the record with its origin
  * bounded, its owner and the name the reader would type. */
-export function presentDataset(scope: AccountScope, reached: ReachedTable): DataTable & DatasetPresence {
+export function presentDataset(scope: AccountScope, reached: ReachedTable, reach?: ReadonlySet<string>): DataTable & DatasetPresence {
   return {
     ...reached.table,
     sourceFilename: datasetSourceName(scope, reached),
-    sourceParams: datasetOrigin(scope, reached),
+    sourceParams: datasetOrigin(scope, reached, reach),
     ...datasetPresence(scope, reached),
   };
 }

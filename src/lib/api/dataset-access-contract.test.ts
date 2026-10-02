@@ -41,6 +41,15 @@ it("documents the owner and the reader's name on every dataset listing, read and
   expect(parameters.find(p => p.name === "after")!.description).toContain("qualifiedName cursor");
 });
 
+it("documents that another owner's derived dataset carries only the inputs its reader reaches, on every listing and read", () => {
+  const schemas = buildOpenApiDocument().components.schemas as unknown as Record<string, { properties: Record<string, { description: string }> }>;
+  const sentence = "For another owner's derived dataset, `inputs` lists only the inputs the caller reaches; its `sql` and `parameters` are as stored.";
+  expect(schemas.Table.properties.sourceParams.description).toContain(sentence);
+  for (const name of ["list_tables", "inspect_table"]) {
+    expect(JSON.stringify(buildTools().find(tool => tool.name === name)!.outputSchema), name).toContain(JSON.stringify(sentence).slice(1, -1));
+  }
+});
+
 it("documents the qualified form on every operation parameter that names a dataset", () => {
   const document = buildOpenApiDocument() as unknown as { paths: Record<string, { post: { description: string } }> };
   expect(document.paths["/api/operations/run"].post.description).toContain("another person's dataset the caller reaches by its qualified name, <sql name>.<name>");

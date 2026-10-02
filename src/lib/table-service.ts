@@ -1,6 +1,6 @@
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { resourceAbsent } from "@/lib/auth/owned-resource";
-import { requireReachable } from "@/lib/auth/reach";
+import { reachableDatasetIds, requireReachable } from "@/lib/auth/reach";
 import { getOwnedTableByName, listReachableTables, deleteOwnedTable, reachedTableProjectIds,
   ownedDependentLayerIds, updateOwnedTableGeometryType, type ReachedTable } from "@/lib/metadata/owned-tables";
 import { presentDataset, type DatasetPresence } from "@/lib/dataset-presence";
@@ -76,6 +76,7 @@ export function listTablesWithSize(
 
 function withSizes(scope: AccountScope, reached: ReachedTable[], project?: string | "none"): Promise<TableListing[]> {
   const memberships = reachedTableProjectIds(scope);
+  const reach = reachableDatasetIds(scope);
   return Promise.all(
     reached
       .map((t) => ({ reached: t, projectIds: memberships.get(t.table.id) ?? [] }))
@@ -87,7 +88,7 @@ function withSizes(scope: AccountScope, reached: ReachedTable[], project?: strin
             : t.projectIds.includes(project),
       )
       .map(async (t) => ({
-        ...presentDataset(scope, t.reached),
+        ...presentDataset(scope, t.reached, reach),
         projectIds: t.projectIds,
         sizeBytes: await artifactSize(t.reached.table),
       })),

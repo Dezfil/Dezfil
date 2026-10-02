@@ -341,6 +341,8 @@ export const TABLE_SCHEMAS = {
           "null when it would name a connection (a PostGIS snapshot shows " +
           "its source kind and nothing more) or a map the caller does not " +
           "reach. " +
+          "For another owner's derived dataset, `inputs` lists only the " +
+          "inputs the caller reaches; its `sql` and `parameters` are as stored. " +
           "Parameters that re-run the import (e.g. { url }); null " +
           "for single-file uploads. Container-format tables " +
           "also record { layer, group? } — the source layer and, " +

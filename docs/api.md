@@ -376,7 +376,10 @@ the caller would type: the plain name for their own, `<sql name>.<name>` for
 another owner's, so two owners' `roads` are told apart. Another owner's
 PostGIS snapshot shows its source kind and nothing about the connection
 (neither the connection nor its remote schema and table), and
-a derived dataset's recorded inputs resolve only within the reader's reach.
+a derived dataset's recorded inputs resolve only within the reader's reach:
+another owner's derived dataset lists, in its `sourceParams` as in the
+inspection, only the inputs the reader reaches, while its SQL and parameters
+read as stored.
 A bare name in a path or an operation parameter is the caller's own dataset;
 another owner's dataset is addressed by its qualified name (`ada.roads`) on
 reads, features, downloads and operation parameters, or by its identifier in

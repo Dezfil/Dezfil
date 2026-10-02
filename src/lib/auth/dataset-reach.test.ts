@@ -38,7 +38,7 @@ beforeEach(async () => {
   const like = (id: string, name: string, extra: Partial<DataTable>): DataTable => ({ ...tables["ada.roads"], id, name, createdAt: "2026-01-01T00:00:00.000Z", ...extra });
   const unfiled = createMap(scopes.ada, "Private sketches");
   tables["ada.pg"] = like("pg", "pg", { source: "postgis", sourceParams: { connectionId: "conn-1", connectionName: "Warehouse", schema: "secret_schema", table: "secret_table" } });
-  tables["ada.derived"] = like("derived", "derived", { source: "operation", sourceParams: { operation: "sql_step", sql: "SELECT * FROM roads, parks",
+  tables["ada.derived"] = like("derived", "derived", { source: "operation", sourceParams: { operation: "sql_step", sql: "SELECT * FROM roads, parks", parameters: { kept: true },
     inputs: [{ id: tables["ada.roads"].id, name: "roads" }, { id: tables["ada.parks"].id, name: "parks" }, { id: "gone", name: "gone" }] } });
   tables["ada.sketch"] = like("sketch", "sketch", { source: "sketch", sourceParams: { mapId: unfiled.id, mapName: "Private sketches", layerId: "layer" } });
   for (const key of ["ada.pg", "ada.derived", "ada.sketch"]) insertTable(scopes.ada, tables[key]);
@@ -89,6 +89,25 @@ describe("listing datasets over reach", () => {
     const ada = byId(await listing("ada"));
     expect(ada.get("pg")!.sourceParams).toMatchObject({ connectionName: "Warehouse", schema: "secret_schema" });
     expect(ada.get("sketch")!.sourceParams).toMatchObject({ mapName: "Private sketches" });
+  });
+
+  it("lists and reads another owner's derived dataset with only the inputs its reader reaches, its SQL and parameters as stored", async () => {
+    const parks = tables["ada.parks"].id;
+    const document = Object.fromEntries(Object.entries(tables["ada.derived"].sourceParams!).filter(([key]) => key !== "inputs"));
+    for (const account of ["bob", "edd", "pat"]) {
+      const listed = byId(await listing(account)).get("derived")!;
+      const read = await call(account, route.table, "/api/tables/ada.derived", "GET", { name: "ada.derived" });
+      expect(read.status, account).toBe(200);
+      for (const row of [listed, read.body as Listed]) {
+        expect(row.sourceParams, account).toEqual({ ...document, inputs: [{ id: tables["ada.roads"].id, name: "roads" }] });
+        expect(JSON.stringify(row), account).not.toContain(parks);
+        expect(JSON.stringify(row.sourceParams!.inputs), account).not.toMatch(/parks|gone/);
+      }
+    }
+    // Its owner reads the record as stored, the unreachable and the deleted input included.
+    expect(byId(await listing("ada")).get("derived")!.sourceParams).toEqual(tables["ada.derived"].sourceParams);
+    expect(((await call("ada", route.table, "/api/tables/derived", "GET", { name: "derived" })).body as Listed).sourceParams)
+      .toEqual(tables["ada.derived"].sourceParams);
   });
 
   it("narrows to any reached project and keeps none as the caller's own unfiled datasets; an unreached project is absent", async () => {
