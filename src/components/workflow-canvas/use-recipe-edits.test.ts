@@ -289,6 +289,33 @@ describe("ordinary recipe Retry meets the canvas lock", () => {
 
 describe("retrying a retained parameter intent", () => {
   afterEach(() => vi.unstubAllGlobals());
+  it.each([false, true])("carries failed SQL through a later name edit (recorded: %s)", async (recorded) => {
+    const c = canvas();
+    const parameters = { sql: "SELECT 1", name: "n1" };
+    c.editor.document.install({ id: W, editRevision: "before", steps: [stepOf("n1", parameters)] } as unknown as WorkflowListing,
+      { steps: {}, sources: {}, notes: [], updatedAt: null, editRevision: "before" });
+    const edits = recorded ? c.recording.edits : c.editor;
+    const failed = edits.edit("n1", { ...parameters, sql: "SELECT 2" });
+    await c.w.settle();
+    c.w.pending("PATCH", `/api/recipes/${W}/steps/n1`)[0].cut();
+    expect((await failed).kind).toBe("failed");
+    expect(c.editor.drafts.get("n1")?.parameters.sql).toBe("SELECT 2");
+    expect(c.whispers.at(-1)?.kind).toBe("failed");
+
+    const next = { sql: "SELECT 2", name: "renamed" };
+    const renamed = edits.edit("n1", next);
+    await c.w.settle();
+    const save = c.w.pending("PATCH", `/api/recipes/${W}/steps/n1`)[0];
+    expect(save.body).toEqual({ parameters: next });
+    expect(save.headers.get("X-Edit-Revision")).toBe("before");
+    save.ok({ step: stepOf("n1", next), applied: "active", editRevision: "after" });
+    expect((await renamed).kind).toBe("accepted");
+    expect(c.editor.document.step("n1")?.parameters).toEqual(next);
+    expect(c.editor.document.revision).toBe("after");
+    expect(c.editor.drafts.get("n1")).toBeNull();
+    expect(c.whispers.at(-1)?.kind).toBe("saved");
+  });
+
   it.each([false, true])("resends the failed SQL with an accepted predecessor (recorded: %s)", async (recorded) => {
     const c = canvas();
     const parameters = { sql: "SELECT 1", name: "n1" };

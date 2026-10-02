@@ -110,6 +110,7 @@ const UNBOUND_RETRY_PORTS: RetryPorts = {
 };
 
 type Pending = { revision: number; parameters: Record<string, unknown>; owner: (() => void) | null };
+type ParameterIntent = (accepted: Record<string, unknown> | undefined) => Record<string, unknown> | undefined;
 
 /** The coordinator as a plain object: its methods call one another for
  * Retry, which a hook's memoized callbacks cannot do without a ref.
@@ -118,7 +119,7 @@ type Pending = { revision: number; parameters: Record<string, unknown>; owner: (
 export class RecipeEditor implements RecipeCoordinator {
   private uncertain: UncertainEdits;
   readonly drafts = new EditDrafts();
-  private latest = new Map<string, { parameters: Record<string, unknown>; compose: (accepted: Record<string, unknown> | undefined) => Record<string, unknown> | undefined }>();
+  private latest = new Map<string, { parameters: Record<string, unknown>; intents: Map<number, ParameterIntent> }>();
   /** Every mutation on the wire, with what it answered. */
   private inflight = new Set<Promise<EditOutcome | RemovalOutcome>>();
   private windows = new Set<{ rejected: EditRejection | null }>();
@@ -219,6 +220,8 @@ export class RecipeEditor implements RecipeCoordinator {
     const result = await this.uncertain.send(stepId, parameters);
     if (result.ok) {
       const body = result.body as { step: WorkflowStep; applied: "active" | "proposed" };
+      const intents = this.latest.get(stepId)?.intents;
+      if (intents) for (const ticket of intents.keys()) if (ticket <= revision) intents.delete(ticket);
       this.drafts.accept(stepId, revision);
       this.publish({ kind: "saved" });
       this.ports().onAccepted();
@@ -233,17 +236,19 @@ export class RecipeEditor implements RecipeCoordinator {
   private editWith(stepId: string, parameters: Record<string, unknown>, owner: (() => void) | null, note?: EditNote): Promise<EditOutcome> {
     if (this.document.disposed) return Promise.resolve({ kind: "superseded" });
     const previous = this.latest.get(stepId);
-    const retrying = this.drafts.get(stepId) && previous && JSON.stringify(previous.parameters) === JSON.stringify(parameters);
     const step = this.document.step(stepId);
     const before = previous?.parameters ?? step?.proposedParameters ?? step?.parameters;
-    // Both the raw and recording-owned Retry retain the original field intent.
-    const compose = retrying ? previous.compose : fieldIntent(before, parameters);
     const revision = this.drafts.offer(stepId, parameters, note?.field);
-    this.latest.set(stepId, { parameters, compose });
+    const intents = previous?.intents ?? new Map<number, ParameterIntent>();
+    intents.set(revision, fieldIntent(before, parameters));
+    this.latest.set(stepId, { parameters, intents });
     return this.track(this.document.enqueue(() => {
       const accepted = this.document.step(stepId);
-      const next = compose(accepted?.proposedParameters ?? accepted?.parameters) ?? parameters;
-      return this.sendEdit(stepId, { parameters: next, owner, revision });
+      let next = accepted?.proposedParameters ?? accepted?.parameters;
+      // Earlier failures remain part of this edit. Successful predecessors
+      // retire their intent before this turn, so their returned values win.
+      for (const [ticket, compose] of intents) if (ticket <= revision) next = compose(next);
+      return this.sendEdit(stepId, { parameters: next ?? parameters, owner, revision });
     }));
   }
 
@@ -269,6 +274,7 @@ export class RecipeEditor implements RecipeCoordinator {
     const result = await call(`/api/recipes/${this.id}/steps/${stepId}/proposal`, { method: "DELETE" }, "discard the edit", (path, init) => this.document.send(String(path), init ?? {}));
     if (result.ok) {
       this.drafts.accept(stepId);
+      this.latest.delete(stepId);
       this.publish({ kind: "saved" });
       this.ports().onAccepted();
       return { kind: "accepted", step: (result.body as { step: WorkflowStep }).step };
