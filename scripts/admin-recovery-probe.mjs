@@ -3,6 +3,7 @@
 // server belongs to this probe. Container mode tests the final image unchanged.
 //   node scripts/admin-recovery-probe.mjs checkout
 //   node scripts/admin-recovery-probe.mjs container dezfil:admin-recovery
+//   node scripts/admin-recovery-probe.mjs browser
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -13,8 +14,8 @@ import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 
 const mode = process.argv[2], image = process.argv[3];
-if (!["checkout", "container"].includes(mode) || (mode === "container" && !image)) {
-  throw new Error("Usage: node scripts/admin-recovery-probe.mjs checkout | container IMAGE");
+if (!["checkout", "container", "browser"].includes(mode) || (mode === "container" && !image)) {
+  throw new Error("Usage: node scripts/admin-recovery-probe.mjs checkout | container IMAGE | browser");
 }
 const scratch = mkdtempSync(path.join(tmpdir(), "dezfil-admin-recovery-probe-"));
 const name = `dezfil-admin-recovery-${randomUUID()}`, volume = `${name}-data`;
@@ -82,6 +83,17 @@ function recover(oneOff = false) {
 const password = "field notebooks before sunrise", replacement = "paper cranes after midnight";
 try {
   await start(); stage = "setup";
+  if (mode === "browser") {
+    stage = "browser redemption";
+    const browser = spawn("npx", ["playwright", "test", "e2e/admin-recovery.spec.ts"], {
+      env: { ...process.env, DEZFIL_DATA_DIR: scratch, DEZFIL_BASE_URL: base, DEZFIL_E2E_FIRST_RUN: "1" },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    // Keep failure output private: browser errors may contain the fragment URL.
+    browser.stdout.resume(); browser.stderr.resume();
+    check((await once(browser, "exit"))[0] === 0, "browser recovery journey");
+    check(!output.includes("dz_link_"), "no recovery secret in server logs");
+  } else {
   check((await api("GET", "/api/auth/entry")).json.setupRequired, "fresh probe store");
   const admin = await api("POST", "/api/auth/setup", { name: "Recovery probe", email: "recovery@example.test", password });
   check(admin.status === 200 && admin.cookie, "setup");
@@ -121,6 +133,7 @@ try {
     check(logs.status === 0, "read server logs"); output += logs.stdout + logs.stderr;
   }
   for (const secret of secrets) check(!output.includes(secret), "no recovery secret in server logs");
+  }
   console.log(`PASS: ${mode} admin recovery, ${checks} checks.`);
 } catch {
   // Never dump child output, HTTP bodies or assertion values containing credentials.
