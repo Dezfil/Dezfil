@@ -176,6 +176,7 @@ export function useCanvasEditing({
    * pasted step's id, held until the graph shows it): rapid pastes never collide. */
   const reserved = useRef<{ names: Set<string>; spots: Positions }>({ names: new Set(), spots: {} });
   const { save, placeSource, dropSource, dropStep, restore, pending: writesPending } = useLayoutSaves({
+    document: rawEdits.document,
     id,
     layout,
     graph,

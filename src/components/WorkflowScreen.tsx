@@ -1,4 +1,6 @@
 "use client";
+import { WorkflowDocument } from "./workflow-canvas/workflow-document";
+import { DocumentEditorContext } from "./document-editor-context";
 
 import dynamic from "next/dynamic";
 import {
@@ -174,6 +176,7 @@ export function WorkflowScreen({
    * workflow still allows to its Editors. */
   runs?: boolean;
 }) {
+  const editorDocument = useMemo(() => new WorkflowDocument(id), [id]);
   const load = useCallback(async (): Promise<PageRead> => {
     const [recipe, layout, tables, operations] = await Promise.all([
       fetchWorkflow(id),
@@ -181,8 +184,9 @@ export function WorkflowScreen({
       readTables(),
       readOperations(),
     ]);
+    editorDocument.install(recipe, layout);
     return { recipe, layout, tables, operations };
-  }, [id]);
+  }, [id, editorDocument]);
   const { state, retry } = useAsync<PageRead>(load, `workflow:${id}`);
   // The live state: the first read seeds it; every accepted change
   // re-reads the recipe, an import re-reads the tables, a layout write
@@ -209,7 +213,7 @@ export function WorkflowScreen({
     const read = (async () => {
       try {
         const recipe = await fetchWorkflow(id);
-        if (mine !== refreshSeq.current) return false;
+        if (mine !== refreshSeq.current || !editorDocument.refresh(recipe)) return false;
         setLive((l) => (l ? { ...l, recipe } : l));
         return true;
       } catch {
@@ -222,7 +226,7 @@ export function WorkflowScreen({
     // Superseded by a newer read: its landing is the answer.
     if (!landed && mine !== refreshSeq.current && latestRecipeRead.current) return latestRecipeRead.current;
     return landed;
-  }, [id]);
+  }, [id, editorDocument]);
   const onLayoutWritten = useCallback((layout: LayoutRead) => {
     setLive((l) => (l ? { ...l, layout } : l));
   }, []);
@@ -350,7 +354,7 @@ export function WorkflowScreen({
     async (next: string) => {
       setWhisper({ owner: "rename", text: "Saving…" });
       try {
-        const response = await fetch(`/api/recipes/${id}`, {
+        const response = await editorDocument.request(`/api/recipes/${id}`, {
           method: "PATCH",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ name: next }),
@@ -368,7 +372,7 @@ export function WorkflowScreen({
         clearLater("rename", 4000);
       }
     },
-    [clearLater, id],
+    [clearLater, id, editorDocument],
   );
 
   const recipeFailure = useRef<() => SaveState | null>(() => null);
@@ -399,6 +403,7 @@ export function WorkflowScreen({
   const onSaveState = useMemo(() => whisperFor("layout"), [whisperFor]);
   const onEditState = useMemo(() => whisperFor("recipe"), [whisperFor]);
   const edits = useRecipeEdits({
+    document: editorDocument,
     id,
     onState: onEditState,
     onAccepted: refreshRecipe,
@@ -415,7 +420,19 @@ export function WorkflowScreen({
     }),
     [edits, refreshRecipe, refreshTables],
   );
-  const runner = useWorkflowRun(id, runPorts);
+  const runner = useWorkflowRun(id, runPorts, editorDocument);
+  const editorPort = useMemo(() => ({
+    sequence: editorDocument,
+    request: editorDocument.request,
+    turn: (work: () => Promise<void>) => editorDocument.enqueue(async () => {
+      await work();
+      const [recipe, layout] = await Promise.all([fetchWorkflow(id), fetchLayout(id)]);
+      editorDocument.install(recipe, layout);
+      void runner.observe();
+      void refreshTables();
+      setLive((current) => current ? { ...current, recipe, layout } : current);
+    }),
+  }), [editorDocument, id, runner, refreshTables]);
   // The assistant's door and open state: the door follows Undo and Redo in the header's left
   // group; the pane is the canvas's to mount, closed on every page open. A run resolved from
   // the pane that declared writes re-reads the recipe, the tables and the runs: a builder
@@ -489,6 +506,7 @@ export function WorkflowScreen({
   );
 
   return (
+    <DocumentEditorContext.Provider value={editorPort}>
     <ViewOnly value={viewOnly} runs={runs}>
     <div className={styles.screen} data-workflow-frame data-view-only={viewOnly || undefined}>
       {crumbSlot &&
@@ -573,5 +591,6 @@ export function WorkflowScreen({
       />
     </div>
     </ViewOnly>
+    </DocumentEditorContext.Provider>
   );
 }

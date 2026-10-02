@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { WorkflowDocument } from "./workflow-document";
+import { editHeaders } from "@/lib/edit-basis";
 import { readApiFailure } from "../api";
 import { serverUnreachable } from "../failure-copy";
 import type { EditOutcome } from "./use-recipe-edits";
@@ -20,6 +22,7 @@ import { mergeRun, type WorkflowRun } from "./run-overlay";
 export type RunPhase = "idle" | "starting" | "running" | "cancelling" | "settling";
 
 export interface RunPlan {
+  editRevision?: string;
   kind: "run_all" | "from_step";
   wide: boolean;
   members: string[];
@@ -49,7 +52,7 @@ export interface WorkflowRunState {
 export interface WorkflowRunner {
   state: WorkflowRunState;
   plan: (fromStepId?: string) => Promise<RunPlan | { refused: string }>;
-  start: (request: { fromStepId?: string; members?: string[] }) => Promise<StartOutcome>;
+  start: (request: { fromStepId?: string; members?: string[]; editRevision?: string }) => Promise<StartOutcome>;
   runNode: (stepId: string) => Promise<StartOutcome>;
   cancel: () => Promise<void>;
   /** Whether a member of the run in flight has not settled. */
@@ -88,10 +91,10 @@ const terminal = (run: WorkflowRun) => run.outcome !== null;
 
 type Answer = { ok: true; body: unknown } | { ok: false; refused: { code: string; message: string } } | { ok: false; failed: string; unreadable?: boolean };
 
-async function call(path: string, init: RequestInit, action: string): Promise<Answer> {
+async function call(path: string, init: RequestInit, action: string, request: typeof fetch = fetch): Promise<Answer> {
   let response: Response;
   try {
-    response = await fetch(path, { ...init, headers: { "content-type": "application/json" }, cache: "no-store" });
+    response = await request(path, { ...init, headers: { "content-type": "application/json", ...Object.fromEntries(new Headers(init.headers)) }, cache: "no-store" });
   } catch {
     return { ok: false, failed: serverUnreachable(action) };
   }
@@ -145,6 +148,7 @@ class Runner implements WorkflowRunner {
   constructor(
     private readonly id: string,
     private ports: Ports,
+    private document = new WorkflowDocument(id),
   ) {}
 
   setPorts(ports: Ports) {
@@ -265,13 +269,15 @@ class Runner implements WorkflowRunner {
   }
 
   plan = async (fromStepId?: string): Promise<RunPlan | { refused: string }> => {
-    const result = await call(
-      `/api/recipes/${this.id}/runs`,
-      { method: "POST", body: JSON.stringify({ plan: true, ...(fromStepId ? { fromStepId } : {}) }) },
-      "plan the run",
-    );
-    if (!result.ok) return { refused: "failed" in result ? result.failed : result.refused.message };
-    return (result.body as { plan: RunPlan }).plan;
+    const blocked = await this.barrier();
+    if (blocked && "message" in blocked) return { refused: blocked.kind === "save_failed" ? `Couldn't save the change, so nothing started. ${blocked.message}` : blocked.message };
+    return this.document.enqueue(async () => {
+      const result = await call(`/api/recipes/${this.id}/runs`,
+        { method: "POST", body: JSON.stringify({ plan: true, ...(fromStepId ? { fromStepId } : {}) }) }, "plan the run");
+      if (!result.ok) return { refused: "failed" in result ? result.failed : result.refused.message };
+      const body = result.body as { plan: RunPlan; editRevision?: string };
+      return { ...body.plan, ...(body.editRevision ? { editRevision: body.editRevision } : {}) };
+    });
   };
 
   /** The pre-run barrier: what is typed lands, everything in flight is
@@ -325,14 +331,15 @@ class Runner implements WorkflowRunner {
     return { kind: "started", run };
   }
 
-  start = async (request: { fromStepId?: string; members?: string[] }): Promise<StartOutcome> => {
+  start = async (request: { fromStepId?: string; members?: string[]; editRevision?: string }): Promise<StartOutcome> => {
     const lifetime = this.lifetime;
     const blocked = await this.barrier();
     const closed = this.closedStart(lifetime);
     if (closed) return closed;
     if (blocked) return blocked;
     this.set({ phase: "starting" });
-    const result = await call(`/api/recipes/${this.id}/runs`, { method: "POST", body: JSON.stringify(request) }, "start the run");
+    const { editRevision, ...input } = request;
+    const result = await this.document.enqueue(() => call(`/api/recipes/${this.id}/runs`, { method: "POST", headers: editRevision ? editHeaders({ editRevision }) : this.document.headers(), body: JSON.stringify(input) }, "start the run"));
     return this.finishStart(result, lifetime);
   };
 
@@ -343,7 +350,7 @@ class Runner implements WorkflowRunner {
     if (closed) return closed;
     if (blocked) return blocked;
     this.set({ phase: "starting" });
-    const result = await call(`/api/recipes/${this.id}/steps/${stepId}/run`, { method: "POST" }, "run the node");
+    const result = await this.document.enqueue(() => call(`/api/recipes/${this.id}/steps/${stepId}/run`, { method: "POST", headers: this.document.headers() }, "run the node"));
     return this.finishStart(result, lifetime);
   };
 
@@ -362,8 +369,8 @@ class Runner implements WorkflowRunner {
   };
 }
 
-export function useWorkflowRun(id: string, ports: Ports): WorkflowRunner {
-  const runner = useMemo(() => new Runner(id, ports), [id]); // eslint-disable-line react-hooks/exhaustive-deps
+export function useWorkflowRun(id: string, ports: Ports, document?: WorkflowDocument): WorkflowRunner {
+  const runner = useMemo(() => new Runner(id, ports, document), [id, document]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     runner.setPorts(ports);
   }, [runner, ports]);

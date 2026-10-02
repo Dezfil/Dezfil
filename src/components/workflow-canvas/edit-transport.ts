@@ -10,10 +10,10 @@ export type EditAnswer =
 
 /** Every completed transport outcome is a value, including a successful
  * header whose body could not be read. Structural callers share this road. */
-export async function editCall(path: string, init: RequestInit, action: string): Promise<EditAnswer> {
+export async function editCall(path: string, init: RequestInit, action: string, request: typeof fetch = fetch): Promise<EditAnswer> {
   let response: Response;
   try {
-    response = await fetch(path, { ...init, headers: { "content-type": "application/json" }, cache: "no-store" });
+    response = await request(path, { ...init, headers: { "content-type": "application/json", ...Object.fromEntries(new Headers(init.headers)) }, cache: "no-store" });
   } catch {
     return { ok: false, failed: serverUnreachable(action) };
   }
@@ -41,7 +41,7 @@ function equal(a: unknown, b: unknown): boolean {
  * continuation as before; this boundary reads first before allowing a send. */
 export class UncertainEdits {
   private pending = new Set<string>();
-  constructor(private base: string) {}
+  constructor(private base: string, private request: typeof fetch = fetch) {}
   private async read(stepId: string, parameters: Record<string, unknown>): Promise<{ readable: boolean; accepted: EditAnswer | null }> {
     const result = await editCall(`${this.base}/${stepId}`, { method: "GET" }, "read the node");
     if (!result.ok) return { readable: false, accepted: null };
@@ -58,7 +58,7 @@ export class UncertainEdits {
       if (!read.readable) return failed;
       if (read.accepted) return read.accepted;
     }
-    const result = await editCall(`${this.base}/${stepId}`, { method: "PATCH", body: JSON.stringify({ parameters }) }, "save the change");
+    const result = await editCall(`${this.base}/${stepId}`, { method: "PATCH", body: JSON.stringify({ parameters }) }, "save the change", this.request);
     if (!result.ok && "uncertain" in result && result.uncertain) {
       this.pending.add(stepId);
       const read = await this.read(stepId, parameters);

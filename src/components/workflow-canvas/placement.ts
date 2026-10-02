@@ -13,6 +13,7 @@ export type { LayoutNote };
  */
 
 export interface LayoutRead {
+  editRevision?: string;
   steps: Record<string, { x: number; y: number }>;
   sources: Record<string, { x: number; y: number }>;
   /** The notes as stored, in the document's order. */

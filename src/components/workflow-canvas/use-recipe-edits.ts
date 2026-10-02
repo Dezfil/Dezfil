@@ -4,7 +4,8 @@ import { useEffect, useMemo } from "react";
 import type { WorkflowStep } from "../workflow-model";
 import { editCall as call, UncertainEdits, type EditAnswer as Answer } from "./edit-transport";
 import { EditDrafts, type EditRejection } from "./edit-drafts";
-import { EditLanes } from "./recipe-edits";
+import { WorkflowDocument } from "./workflow-document";
+import { fieldIntent } from "../document-sequence";
 import type { SaveState } from "./use-layout-saves";
 
 /**
@@ -51,6 +52,7 @@ export type AddInput = { operation: string; parameters: Record<string, unknown>;
 export interface RecipeEdits {
   /** Shared unresolved drafts; wrappers pass this read/subscription seat through. */
   readonly drafts?: EditDrafts;
+  readonly document?: WorkflowDocument;
   /** Add a step; resolves with the step the API made, or the refusal. A
    * pasted node from another workflow says where it was written. */
   add: (input: AddInput, note?: EditNote) => Promise<EditOutcome>;
@@ -107,7 +109,7 @@ const UNBOUND_RETRY_PORTS: RetryPorts = {
   },
 };
 
-type Pending = { revision: number; parameters: Record<string, unknown>; resolve: (o: EditOutcome) => void; owner: (() => void) | null };
+type Pending = { revision: number; parameters: Record<string, unknown>; owner: (() => void) | null };
 
 /** The coordinator as a plain object: its methods call one another for
  * Retry, which a hook's memoized callbacks cannot do without a ref.
@@ -115,7 +117,6 @@ type Pending = { revision: number; parameters: Record<string, unknown>; resolve:
  * the screen makes it through `useRecipeEdits`. */
 export class RecipeEditor implements RecipeCoordinator {
   private uncertain: UncertainEdits;
-  private lanes = new EditLanes<Pending>();
   readonly drafts = new EditDrafts();
   private latest = new Map<string, Record<string, unknown>>();
   /** Every mutation on the wire, with what it answered. */
@@ -138,9 +139,10 @@ export class RecipeEditor implements RecipeCoordinator {
     private readonly id: string,
     ports: Ports,
     retryPorts: RetryPorts,
+    readonly document = new WorkflowDocument(id),
   ) {
     this.current = ports;
-    this.uncertain = new UncertainEdits(`/api/recipes/${id}/steps`);
+    this.uncertain = new UncertainEdits(`/api/recipes/${id}/steps`, (path, init) => this.document.send(String(path), init ?? {}));
     this.retryCurrent = retryPorts;
   }
 
@@ -210,58 +212,43 @@ export class RecipeEditor implements RecipeCoordinator {
     return outcome;
   }
 
-  private async sendEdits(stepId: string, first: Pending): Promise<void> {
-    let current: Pending | null = first;
-    while (current) {
-      const { parameters, resolve, owner, revision } = current;
-      this.publish({ kind: "saving" });
-      const result = await this.uncertain.send(stepId, parameters);
-      const next: Pending | null = this.lanes.landed(stepId);
-      if (result.ok) {
-        const body = result.body as { step: WorkflowStep; applied: "active" | "proposed" };
-        this.drafts.accept(stepId, revision);
-        if (!next) this.publish({ kind: "saved" });
-        this.ports().onAccepted();
-        resolve({ kind: "accepted", step: body.step, applied: body.applied });
-      } else {
-        resolve(
-          this.settle(
-            result,
-            owner ??
-              this.retry(() => {
-                const again = this.latest.get(stepId);
-                if (again) void this.edit(stepId, again);
-              }),
-            stepId, revision,
-          ),
-        );
-      }
-      current = next;
+  private async sendEdit(stepId: string, pending: Pending): Promise<EditOutcome> {
+    const { parameters, owner, revision } = pending;
+    this.publish({ kind: "saving" });
+    const result = await this.uncertain.send(stepId, parameters);
+    if (result.ok) {
+      const body = result.body as { step: WorkflowStep; applied: "active" | "proposed" };
+      this.drafts.accept(stepId, revision);
+      this.publish({ kind: "saved" });
+      this.ports().onAccepted();
+      return { kind: "accepted", step: body.step, applied: body.applied };
     }
+    return this.settle(result, owner ?? this.retry(() => {
+      const again = this.latest.get(stepId);
+      if (again) void this.edit(stepId, again);
+    }), stepId, revision);
   }
 
-  /** Each call carries its owner, the continuation its failure offers:
-   * null for the coordinator's own re-issue of the raw call. A queued
-   * edit keeps the owner it was made with through its wait in the lane. */
   private editWith(stepId: string, parameters: Record<string, unknown>, owner: (() => void) | null, note?: EditNote): Promise<EditOutcome> {
     const revision = this.drafts.offer(stepId, parameters, note?.field);
-    return this.track(
-      new Promise<EditOutcome>((resolve) => {
-        this.latest.set(stepId, parameters);
-        const { send, superseded } = this.lanes.offer(stepId, { parameters, resolve, owner, revision });
-        if (superseded) superseded.resolve({ kind: "superseded" });
-        if (send) void this.sendEdits(stepId, send);
-      }),
-    );
+    const step = this.document.step(stepId);
+    const before = this.latest.get(stepId) ?? step?.proposedParameters ?? step?.parameters;
+    const compose = fieldIntent(before, parameters);
+    this.latest.set(stepId, parameters);
+    return this.track(this.document.enqueue(() => {
+      const accepted = this.document.step(stepId);
+      const next = compose(accepted?.proposedParameters ?? accepted?.parameters) ?? parameters;
+      return this.sendEdit(stepId, { parameters: next, owner, revision });
+    }));
   }
 
   edit = (stepId: string, parameters: Record<string, unknown>, note?: EditNote): Promise<EditOutcome> => this.editWith(stepId, parameters, null, note);
 
-  add = (input: AddInput): Promise<EditOutcome> => this.track(this.addNow(input, null));
+  add = (input: AddInput): Promise<EditOutcome> => this.track(this.document.enqueue(() => this.addNow(input, null)));
 
   private addNow = async (input: AddInput, owner: (() => void) | null): Promise<EditOutcome> => {
     this.publish({ kind: "saving" });
-    const result = await call(`/api/recipes/${this.id}/steps`, { method: "POST", body: JSON.stringify(input) }, "add the node");
+    const result = await call(`/api/recipes/${this.id}/steps`, { method: "POST", body: JSON.stringify(input) }, "add the node", (path, init) => this.document.send(String(path), init ?? {}));
     if (result.ok) {
       this.publish({ kind: "saved" });
       this.ports().onAccepted();
@@ -270,12 +257,11 @@ export class RecipeEditor implements RecipeCoordinator {
     return this.settle(result, owner ?? this.retry(() => void this.add(input)));
   };
 
-  discard = (stepId: string): Promise<EditOutcome> => this.track(this.discardNow(stepId, null));
+  discard = (stepId: string): Promise<EditOutcome> => this.track(this.document.enqueue(() => this.discardNow(stepId, null)));
 
   private discardNow = async (stepId: string, owner: (() => void) | null): Promise<EditOutcome> => {
-    await this.lanes.whenIdle(stepId);
     this.publish({ kind: "saving" });
-    const result = await call(`/api/recipes/${this.id}/steps/${stepId}/proposal`, { method: "DELETE" }, "discard the edit");
+    const result = await call(`/api/recipes/${this.id}/steps/${stepId}/proposal`, { method: "DELETE" }, "discard the edit", (path, init) => this.document.send(String(path), init ?? {}));
     if (result.ok) {
       this.drafts.accept(stepId);
       this.publish({ kind: "saved" });
@@ -285,13 +271,12 @@ export class RecipeEditor implements RecipeCoordinator {
     return this.settle(result, owner ?? this.retry(() => void this.discard(stepId)));
   };
 
-  reorder = (stepId: string, ordinal: number): Promise<EditOutcome> => this.track(this.reorderNow(stepId, ordinal, null));
+  reorder = (stepId: string, ordinal: number): Promise<EditOutcome> => this.track(this.document.enqueue(() => this.reorderNow(stepId, ordinal, null)));
 
   private reorderNow = async (stepId: string, ordinal: number, owner: (() => void) | null): Promise<EditOutcome> => {
     // A structural change waits for the node's edits to land.
-    await this.lanes.whenIdle(stepId);
     this.publish({ kind: "saving" });
-    const result = await call(`/api/recipes/${this.id}/steps/${stepId}/move`, { method: "POST", body: JSON.stringify({ ordinal }) }, "move the node");
+    const result = await call(`/api/recipes/${this.id}/steps/${stepId}/move`, { method: "POST", body: JSON.stringify({ ordinal }) }, "move the node", (path, init) => this.document.send(String(path), init ?? {}));
     if (result.ok) {
       this.publish({ kind: "saved" });
       this.ports().onAccepted();
@@ -303,18 +288,19 @@ export class RecipeEditor implements RecipeCoordinator {
   /** The calls, each carrying this continuation: the view a caller that
    * owns its Retry makes its calls on. Nothing is held between calls. */
   owned = (retry: () => void): RecipeEdits => ({
+    document: this.document,
     drafts: this.drafts,
-    add: (input) => this.track(this.addNow(input, retry)),
+    add: (input) => this.track(this.document.enqueue(() => this.addNow(input, retry))),
     edit: (stepId, parameters, note) => this.editWith(stepId, parameters, retry, note),
-    discard: (stepId) => this.track(this.discardNow(stepId, retry)),
-    remove: (stepId) => this.track(this.removeNow(stepId, retry)),
-    reorder: (stepId, ordinal) => this.track(this.reorderNow(stepId, ordinal, retry)),
+    discard: (stepId) => this.track(this.document.enqueue(() => this.discardNow(stepId, retry))),
+    remove: (stepId) => this.track(this.document.enqueue(() => this.removeNow(stepId, retry))),
+    reorder: (stepId, ordinal) => this.track(this.document.enqueue(() => this.reorderNow(stepId, ordinal, retry))),
     idle: this.idle,
     settled: this.settled,
   });
 
   idle = async (): Promise<void> => {
-    for (const id of this.lanes.ids()) await this.lanes.whenIdle(id);
+    await this.document.idle();
   };
 
   settled = async (): Promise<EditOutcome | null> => {
@@ -330,16 +316,14 @@ export class RecipeEditor implements RecipeCoordinator {
     }
   };
 
-  remove = (stepId: string): Promise<RemovalOutcome> => this.track(this.removeNow(stepId, null));
+  remove = (stepId: string): Promise<RemovalOutcome> => this.track(this.document.enqueue(() => this.removeNow(stepId, null)));
 
   private removeNow = async (stepId: string, owner: (() => void) | null): Promise<RemovalOutcome> => {
     // A structural change waits for the node's edits to land.
-    await this.lanes.whenIdle(stepId);
     this.publish({ kind: "saving" });
-    const result = await call(`/api/recipes/${this.id}/steps/${stepId}`, { method: "DELETE" }, "remove the node");
+    const result = await call(`/api/recipes/${this.id}/steps/${stepId}`, { method: "DELETE" }, "remove the node", (path, init) => this.document.send(String(path), init ?? {}));
     if (result.ok) {
       this.drafts.accept(stepId);
-      this.lanes.forget(stepId);
       this.latest.delete(stepId);
       this.publish({ kind: "saved" });
       this.ports().onAccepted();
@@ -349,11 +333,11 @@ export class RecipeEditor implements RecipeCoordinator {
   };
 }
 
-export function useRecipeEdits({ id, onState, onAccepted }: { id: string } & Ports): RecipeCoordinator {
+export function useRecipeEdits({ id, onState, onAccepted, document }: { id: string; document?: WorkflowDocument } & Ports): RecipeCoordinator {
   // Made once per workflow; the screen's callbacks follow through an effect.
   // The canvas binds the live seat in its first effect. Until then the
   // editor fails closed instead of giving a Retry an open road.
-  const editor = useMemo(() => new RecipeEditor(id, { onState, onAccepted }, UNBOUND_RETRY_PORTS), [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const editor = useMemo(() => new RecipeEditor(id, { onState, onAccepted }, UNBOUND_RETRY_PORTS, document), [id, document]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     editor.setPorts({ onState, onAccepted });
   }, [editor, onAccepted, onState]);

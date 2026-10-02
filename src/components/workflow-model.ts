@@ -83,6 +83,7 @@ export function nodeState(step: WorkflowStep): { label: string; tone: ChipTone }
 }
 
 export interface WorkflowListing {
+  editRevision?: string;
   id: string;
   name: string;
   origin: RecipeOrigin;

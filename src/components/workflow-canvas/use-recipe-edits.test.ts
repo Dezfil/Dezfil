@@ -126,15 +126,15 @@ describe("a change's Retry travels with the call (behaviours 5 and 7)", () => {
     const added = c.recording.edits.add({ operation: "buffer", parameters: { input: "points", distance: 50, name: "fresh" } });
     await c.w.settle();
     expect(c.w.pending("POST", `/api/recipes/${W}/steps`)).toHaveLength(1);
-    // The read answers: the inverse's PATCH goes out with the add still on the wire.
+    // The inverse waits for the accepted add on the same document.
     c.w.pending("GET", `/api/recipes/${W}`)[0].ok({ recipe: { steps: [reading("n1", { input: "points", distance: 200, name: "n1" })] } });
     await c.w.settle();
+    expect(c.w.pending("PATCH", `/api/recipes/${W}/steps/n1`)).toHaveLength(0);
+    c.w.pending("POST", `/api/recipes/${W}/steps`)[0].ok({ step: stepOf("fresh", { input: "points", distance: 50, name: "fresh" }, 1) });
+    await added; await c.w.settle();
     const inversePatch = c.w.pending("PATCH", `/api/recipes/${W}/steps/n1`);
     expect(inversePatch).toHaveLength(1);
     expect(inversePatch[0].body).toEqual({ parameters: { input: "points", distance: 100, name: "n1" } });
-    // The add lands, and is a step.
-    c.w.pending("POST", `/api/recipes/${W}/steps`)[0].ok({ step: stepOf("fresh", { input: "points", distance: 50, name: "fresh" }, 1) });
-    await added;
     expect(c.history().past.map((s) => s.label)).toEqual(["n1 edited", "buffer added"]);
     // The inverse's PATCH fails: the whisper offers Retry.
     inversePatch[0].cut();

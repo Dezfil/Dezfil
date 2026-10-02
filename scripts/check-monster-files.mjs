@@ -37,7 +37,7 @@ const CEILINGS = {
   // The workflow canvas, after its right-side furniture left for
   // CanvasFurniture and its interaction and edit wiring for
   // use-canvas-editing beside the lock.
-  "src/components/workflow-canvas/WorkflowCanvas.tsx": 588,
+  "src/components/workflow-canvas/WorkflowCanvas.tsx": 531,
 };
 
 let failed = false;

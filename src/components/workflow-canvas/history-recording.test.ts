@@ -74,8 +74,10 @@ function coordinator() {
   };
   /** Everything on the wire fails: the browser never hears an answer. */
   const cutAll = async () => {
-    for (const call of w.calls.filter((c) => !c.answered)) call.cut();
-    await w.settle();
+    while (w.calls.some((c) => !c.answered)) {
+      for (const call of w.calls.filter((c) => !c.answered)) call.cut();
+      await w.settle();
+    }
   };
   /** Everything on the wire is served. */
   const serveAll = async () => {

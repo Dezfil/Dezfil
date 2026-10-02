@@ -28,7 +28,7 @@ import {
 } from "./canvas-history";
 import type { CanvasGraph } from "./graph";
 import { controlOwnsKey } from "./key-ownership";
-import { readRecipe, runInverse } from "./history-operation";
+import { runInverse } from "./history-operation";
 import { runPress } from "./history-press";
 import { definitionOf, effectiveOf, makeRecording, type RecordingEdits } from "./history-recording";
 import type { LayoutNote } from "./placement";
@@ -179,7 +179,6 @@ export interface CanvasHistory {
 }
 
 export function useCanvasHistory({
-  id,
   edits,
   graph,
   operations,
@@ -411,7 +410,10 @@ export function useCanvasHistory({
 
   /** The recipe as it stands, read by the operation before its first
    * attempt and before every Retry. */
-  const readSteps = useCallback(() => readRecipe(id), [id]);
+  const readSteps = useCallback(async () => {
+    await edits.idle();
+    return edits.document?.recipe?.steps ?? graph.members.flatMap((member) => member.kind === "node" ? [member.step] : []);
+  }, [edits, graph]);
 
   /** A recipe step put back, through the operation that
    * reverses it: the history operation reads first, applies through the

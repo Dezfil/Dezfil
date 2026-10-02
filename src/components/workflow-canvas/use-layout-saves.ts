@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import type { WorkflowDocument } from "./workflow-document";
 import type { CanvasGraph } from "./graph";
 import { LayoutSaveCoordinator, type LayoutSaves, type SaveState } from "./layout-save-coordinator";
 import type { LayoutRead } from "./placement";
@@ -9,14 +10,15 @@ export type { LayoutSnapshot, LayoutSaves, SaveState } from "./layout-save-coord
 
 /** React ownership and live-port adapter for the plain layout coordinator. */
 export function useLayoutSaves({
-  id,
-  layout,
+  document,
+  id,  layout,
   graph,
   onState,
   onWritten,
   lockReason,
   say,
 }: {
+  document?: WorkflowDocument;
   id: string;
   /** The last successfully read (or written) document. */
   layout: LayoutRead;
@@ -29,8 +31,8 @@ export function useLayoutSaves({
   say: (text: string, tone?: "bad") => void;
 }): LayoutSaves {
   const coordinator = useMemo(
-    () => new LayoutSaveCoordinator(id, layout, { graph, onState, onWritten, lockReason, say }),
-    [id], // eslint-disable-line react-hooks/exhaustive-deps
+    () => new LayoutSaveCoordinator(id, layout, { graph, onState, onWritten, lockReason, say }, document),
+    [id, document], // eslint-disable-line react-hooks/exhaustive-deps
   );
   useEffect(() => {
     coordinator.setLayout(layout);

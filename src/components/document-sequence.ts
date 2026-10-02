@@ -3,7 +3,10 @@ import { editHeaders } from "@/lib/edit-basis";
 /** One editor lifetime and one accepted revision. Camera persistence never
  * enters this sequence. Work builds its payload only when its turn starts. */
 export class DocumentSequence {
-  private tail: Promise<unknown> = Promise.resolve();
+  private tail: Promise<unknown> | null = null;
+  private waiting = 0;
+  get pending() { return this.waiting > 0; }
+  idle = async () => { while (this.tail) await this.tail; };
   private closed = false;
   constructor(readonly documentId?: string) {}
   revision: string | null = null;
@@ -16,12 +19,16 @@ export class DocumentSequence {
     return this.revision ? editHeaders({ editRevision: this.revision }, initial) : new Headers(initial);
   }
   enqueue<T>(work: () => Promise<T>): Promise<T> {
-    const result = this.tail.then(() => {
-      if (this.closed) throw new Error("This editor is closed.");
-      return work();
-    });
-    this.tail = result.catch(() => undefined);
-    return result;
+    const execute = () => {
+      if (this.closed) return Promise.reject<T>(new Error("This editor is closed."));
+      try { return work(); } catch (error) { return Promise.reject<T>(error); }
+    };
+    this.waiting++;
+    const result = this.tail ? this.tail.then(execute) : execute();
+    const settled = result.finally(() => { this.waiting--; if (this.tail === tail) this.tail = null; });
+    const tail = settled.catch(() => undefined);
+    this.tail = tail;
+    return settled;
   }
   dispose() { this.closed = true; }
 }

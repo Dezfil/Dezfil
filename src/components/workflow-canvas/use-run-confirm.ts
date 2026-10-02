@@ -64,6 +64,7 @@ export function useRunConfirm(opts: {
       const outcome = await runner.start({
         fromStepId: from?.id,
         members: plan.members,
+        ...(plan.editRevision ? { editRevision: plan.editRevision } : {}),
       });
       if (outcome.kind === "refused")
         // The refusal and its Retry are this owner's: Retry asks again here.
@@ -87,6 +88,7 @@ export function useRunConfirm(opts: {
     const outcome = await runner.start({
       fromStepId: confirm.from?.id,
       members: confirm.plan.members,
+      ...(confirm.plan.editRevision ? { editRevision: confirm.plan.editRevision } : {}),
     });
     setConfirming(false);
     if (outcome.kind === "started") {

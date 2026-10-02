@@ -31,11 +31,11 @@ it("orders real layer, map and history hooks with accepted field intent and inde
   const history = editor.applyHistory("undo");
   editor.camera({ lng: 1, lat: 2, zoom: 3 });
   await w.settle();
-  expect(w.calls.map((c) => c.path)).toEqual(["/api/maps/map", "/api/layers/a"]);
-  expect(w.calls[0].headers.has("X-Edit-Revision")).toBe(false);
-  expect(w.calls[1].headers.get("X-Edit-Revision")).toBe("initial");
-  w.calls[0].ok({ editRevision: "camera-must-not-win" });
-  w.calls[1].ok({ ...first, sql: "slow", editRevision: "sql" });
+  expect(w.calls.map((c) => c.path)).toEqual(["/api/layers/a", "/api/maps/map"]);
+  expect(w.calls[1].headers.has("X-Edit-Revision")).toBe(false);
+  expect(w.calls[0].headers.get("X-Edit-Revision")).toBe("initial");
+  w.calls[1].ok({ editRevision: "camera-must-not-win" });
+  w.calls[0].ok({ ...first, sql: "slow", editRevision: "sql" });
   await sql; await w.settle();
   expect(w.calls[2].headers.get("X-Edit-Revision")).toBe("sql");
   expect(w.calls[2].body).toEqual({ style: { opacity: 1, fill: "blue" } });
