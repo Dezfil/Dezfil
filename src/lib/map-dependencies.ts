@@ -1,3 +1,4 @@
+import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { REACHED_PROJECTS } from "@/lib/auth/reach";
 import { metadataDb } from "@/lib/metadata/db";
@@ -52,13 +53,14 @@ export interface MapDependency {
 }
 
 /** A producing workflow, and whether the reader owns it (and so may file it). */
-export type Producer = { id: string; name: string; owned: boolean };
+export type Producer = { id: string; name: string; owned: boolean } & DocumentFacts;
 
 /** The workflow-origin producers by output identity, among the workflows the
  * reader reaches: every runner's recorded output counts, each dataset being
  * one runner's output of one node. One capture, shared by the map's and the
  * workflow's reads. */
 export function currentProducers(scope: AccountScope): Map<string, Producer> {
+  return metadataDb().transaction(() => {
   const me = requireAccountScope(scope);
   const rows = metadataDb().prepare(`SELECT r.id, r.name, r.owner_id, o.output_table_id FROM step_runner_outputs o
     JOIN recipe_steps s ON s.id = o.step_id JOIN recipes r ON r.id = s.recipe_id
@@ -66,9 +68,10 @@ export function currentProducers(scope: AccountScope): Map<string, Producer> {
     ORDER BY r.created_at DESC, r.id DESC, s.ordinal`).all({ me }) as { id: string; name: string; owner_id: string; output_table_id: string }[];
   const producers = new Map<string, Producer>();
   for (const row of rows) {
-    if (!producers.has(row.output_table_id)) producers.set(row.output_table_id, { id: row.id, name: row.name, owned: row.owner_id === me });
+    if (!producers.has(row.output_table_id)) producers.set(row.output_table_id, { id: row.id, name: row.name, owned: row.owner_id === me, ...documentFacts({ kind: "workflow", id: row.id }) });
   }
   return producers;
+  })();
 }
 
 /** The reader's own SQL name, which marks the datasets they own. */
@@ -111,12 +114,14 @@ function boundIdentities(namespace: Namespace, inputs: { tables: string[]; exter
   });
 }
 
-export async function mapDependencies(
+export async function readMapDependencies(
   scope: AccountScope,
   mapId: string,
-): Promise<MapDependency[]> {
-  requireMap(scope, mapId);
-  const layers = listLayers(mapId);
+): Promise<DocumentFacts & { datasets: MapDependency[] }> {
+  const { layers, facts } = metadataDb().transaction(() => {
+    requireMap(scope, mapId);
+    return { layers: listLayers(mapId), facts: documentFacts({ kind: "map", id: mapId }) };
+  })();
 
   // One captured world: the registry with memberships, and the
   // workflow-origin producers by their current output identity.
@@ -150,5 +155,9 @@ export async function mapDependencies(
     }
   }
   requireMap(scope, mapId);
-  return [...found.values()].sort((a, b) => a.qualifiedName.localeCompare(b.qualifiedName));
+  return { ...facts, datasets: [...found.values()].sort((a, b) => a.qualifiedName.localeCompare(b.qualifiedName)) };
+}
+
+export async function mapDependencies(scope: AccountScope, mapId: string): Promise<MapDependency[]> {
+  return (await readMapDependencies(scope, mapId)).datasets;
 }

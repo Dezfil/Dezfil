@@ -1,3 +1,4 @@
+import { DOCUMENT_FACT_PROPERTIES } from "./openapi-document-facts";
 import { resultAccess } from "./openapi-result-access";
 import { projectAccess } from "./openapi-project-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
@@ -400,6 +401,7 @@ export const PROJECT_DEPENDENCY_SCHEMAS = {
           "dataset as its output, when the caller reaches that " +
           "workflow; null otherwise.",
         properties: {
+          ...DOCUMENT_FACT_PROPERTIES,
           id: { type: "string" },
           name: { type: "string" },
           owned: {

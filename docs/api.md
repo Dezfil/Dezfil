@@ -855,6 +855,18 @@ replacing the former `invalid_request` (400), a breaking change. Malformed
 input still answers `invalid_request`. An unchanged orphan widget already
 stored in history remains readable and can be echoed unchanged.
 
+**Document revisions and attribution.** Reached map and workflow reads,
+their child definitions, list/project entries, history, layout, publication
+settings and filing dependency reads carry `editRevision`, `lastChangedAt`
+and `lastChangedBy`. Producer workflows in dependency lists carry their own
+facts. `lastChangedBy` is `{ name, sqlName }` or explicit null for unknown
+authorship, including legacy records. Departure and deactivation do not
+erase a recorded actor. Anonymous published views carry none of these facts.
+Workflow steps and their revision are captured together before presentation;
+separately read definition and layout belong together only when revisions match.
+Camera, thumbnails, dataset contents and run bookkeeping do not advance these
+facts. Write preconditions are not yet required by these preparatory changes.
+
 **Shared history attribution.** `GET /api/maps/{id}/history` returns
 `canUndo`, `canRedo`, `undoTarget` and `redoTarget`. Each target is null or
 contains `steps`, `eligible` and `reason`. Steps name their original author

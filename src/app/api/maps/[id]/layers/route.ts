@@ -2,8 +2,7 @@ import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { changeGroupOf } from "@/lib/api/change-group";
-import { listLayers } from "@/lib/metadata/maps";
-import { requireMap, requireMapFor } from "@/lib/map-service";
+import { mapWithLayers, requireMapFor } from "@/lib/map-service";
 import { createLayer } from "@/lib/layer-service";
 import type { LayerStyle } from "@/lib/style/style";
 import { isEvaluationContext, mapEvaluation } from "@/lib/query/context";
@@ -16,8 +15,7 @@ export async function GET(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id } = await params;
-    requireMap(scope, id);
-    return NextResponse.json(listLayers(id));
+    return NextResponse.json(mapWithLayers(scope, id).layers);
   } catch (error) {
     return errorResponse(error);
   }

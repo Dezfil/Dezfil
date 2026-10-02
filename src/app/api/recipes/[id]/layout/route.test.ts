@@ -125,7 +125,7 @@ const positionMapAtBoundary = (
 describe("the layout document", () => {
   it("reads the empty document for a recipe never arranged, and not-found for one that does not exist", async () => {
     const id = await newRecipe();
-    expect(await layout(id)).toEqual(EMPTY);
+    expect(await layout(id)).toEqual({ ...EMPTY, ...FACTS });
     expect((await readLayout(testAccountRequest(req("GET")), P("nope"))).status).toBe(404);
     expect((await write("nope", {})).status).toBe(404);
   });
@@ -144,11 +144,13 @@ describe("the layout document", () => {
     expect(written.status).toBe(200);
     const answer = (await body(written)).layout as Json;
     expect(typeof answer.updatedAt).toBe("string");
-    expect(answer).toEqual({ ...doc, updatedAt: answer.updatedAt });
+    expect(answer).toEqual({ ...doc, updatedAt: answer.updatedAt, ...FACTS });
     expect(await layout(id)).toEqual(answer);
     // The recipe itself: same steps, same everything, but the edit time.
     const after = await recipe(id);
-    expect({ ...after, updatedAt: null }).toEqual({ ...before, updatedAt: null });
+    expect(after.editRevision).not.toBe(before.editRevision);
+    const definition = (value: Json) => JSON.parse(JSON.stringify(value, (key, item) => ["editRevision", "lastChangedAt", "lastChangedBy", "updatedAt"].includes(key) ? undefined : item));
+    expect(definition(after)).toEqual(definition(before));
     expect(after).not.toHaveProperty("layout");
   });
 
@@ -256,7 +258,7 @@ describe("the layout document", () => {
       const response = await write(id, document);
       expect(response.status).toBe(200);
       const answer = (await body(response)).layout as Json;
-      expect(answer).toEqual({ ...document, updatedAt: answer.updatedAt });
+      expect(answer).toEqual({ ...document, updatedAt: answer.updatedAt, ...FACTS });
       expect(await layout(id)).toEqual(answer);
       expect((answer.steps as Json)[stepId]).toEqual({ x: 11, y: 12 });
       expect(Object.keys(answer.sources as Json)).toHaveLength(bounds.sourcesMax);
@@ -302,7 +304,7 @@ describe("the layout document", () => {
     expect(((await body(echoed)).layout as Json).updatedAt).toBeNull();
     expect((await write(id, {})).status).toBe(200);
     expect(await at()).toBe(t0);
-    expect(await layout(id)).toEqual(EMPTY);
+    expect(await layout(id)).toEqual({ ...EMPTY, ...FACTS });
     // Arranged, then a node removed: the row still carries the lost node,
     // a read prunes it, and writing the read back is not a change.
     expect((await write(id, { steps: { [s1]: { x: 1, y: 1 }, [s2]: { x: 2, y: 2 } }, notes: [note("a")] })).status).toBe(200);
@@ -366,6 +368,8 @@ describe("the layout document", () => {
     const bare = await newRecipe("Bare");
     await newStep(bare, "SELECT 1 AS n", "bare_one");
     const bareCopy = (await body(await duplicateRecipeRoute(testAccountRequest(req("POST")), P(bare)))).recipe as Json;
-    expect(await layout(bareCopy.id as string)).toEqual(EMPTY);
+    expect(await layout(bareCopy.id as string)).toEqual({ ...EMPTY, ...FACTS });
   });
 });
+
+const FACTS = { editRevision: expect.stringMatching(/^[a-f0-9]{32}$/), lastChangedAt: expect.any(String), lastChangedBy: { name: "test-account", sqlName: "test_account" } };

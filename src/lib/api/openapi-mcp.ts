@@ -1,3 +1,4 @@
+import { DOCUMENT_FACT_PROPERTIES } from "./openapi-document-facts";
 import { mapChildren } from "./openapi-map-children";
 import { mapAccess } from "./openapi-map-access";
 import { authenticatedOp } from "./openapi-authenticated";
@@ -140,6 +141,7 @@ export const HISTORY_SCHEMAS = {
           description:
             "Undo/redo availability on the map's timeline.",
           properties: {
+      ...DOCUMENT_FACT_PROPERTIES,
             canUndo: { type: "boolean" },
             canRedo: { type: "boolean" },
             undoTarget: { $ref: "#/components/schemas/HistoryTarget" },

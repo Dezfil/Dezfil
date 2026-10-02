@@ -1,3 +1,4 @@
+import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
 import { recordDocumentChanges } from "./metadata/revisions";
 import { historyTarget, type HistoryTarget } from "./history-targets";
 import { assertHistoryRefs } from "./map-history-refs";
@@ -20,7 +21,7 @@ export interface MapWithHistory extends MapWithLayers {
   history: MapHistoryAvailability;
 }
 
-export interface MapHistoryAvailability extends HistoryAvailability {
+export interface MapHistoryAvailability extends HistoryAvailability, DocumentFacts {
   undoTarget: HistoryTarget | null;
   redoTarget: HistoryTarget | null;
 }
@@ -28,6 +29,7 @@ export interface MapHistoryAvailability extends HistoryAvailability {
 export async function mapHistory(scope: AccountScope, id: string): Promise<MapHistoryAvailability> {
   const snapshot = metadataDb().transaction(() => ({
     map: requireMap(scope, id), layers: listLayers(id),
+    facts: documentFacts({ kind: "map", id }),
     undo: undoSteps(id), redo: redoSteps(id), availability: historyAvailability(id),
   }))();
   const [undoTarget, redoTarget] = await Promise.all([
@@ -35,7 +37,7 @@ export async function mapHistory(scope: AccountScope, id: string): Promise<MapHi
     historyTarget(scope, snapshot.map, snapshot.layers, snapshot.redo, "redo"),
   ]);
   requireMap(scope, id);
-  return { ...snapshot.availability, undoTarget, redoTarget };
+  return { ...snapshot.availability, ...snapshot.facts, undoTarget, redoTarget };
 }
 
 /**

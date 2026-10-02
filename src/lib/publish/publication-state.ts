@@ -1,3 +1,4 @@
+import { documentFacts, type DocumentFacts } from "@/lib/metadata/document-facts";
 import { stableJson } from "@/lib/metadata/history";
 import { recordDocumentChanges } from "@/lib/metadata/revisions";
 import type { AccountScope } from "@/lib/auth/scope";
@@ -39,15 +40,18 @@ export interface PublishSettings {
  * published. Normalizing here — not at each surface — is what keeps a
  * earlier publication, an unstated setting and an omitted member all
  * reading as every control on. */
-export function getPublicationState(scope: AccountScope, id: string): PublicationState | null {
+export function getPublicationState(scope: AccountScope, id: string): (PublicationState & DocumentFacts) | null {
+  return metadataDb().transaction(() => {
   const map = requireMap(scope, id);
   if (!map.publishToken || !map.publishedAt) return null;
   return {
     ...(ownsMap(scope, id) ? { token: map.publishToken } : {}),
+    ...documentFacts({ kind: "map", id }),
     publishedAt: map.publishedAt,
     theme: getPublishedTheme(id) ?? "dark",
     viewerControls: normalizeViewerControls(getViewerControls(id)),
   };
+  })();
 }
 
 /** Minting, changing and revoking a publication are the map owner's acts. */

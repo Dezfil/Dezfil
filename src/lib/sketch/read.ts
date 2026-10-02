@@ -1,3 +1,5 @@
+import { metadataDb } from "../metadata/db";
+import { documentFacts, type DocumentFacts } from "../metadata/document-facts";
 import { requireReachable } from "@/lib/auth/reach";
 import { listOwnedTables } from "@/lib/metadata/owned-tables";
 import type { AccountScope } from "@/lib/auth/scope";
@@ -16,7 +18,7 @@ export interface StoredSketchFeature extends SketchFeature {
   id: string;
 }
 
-export interface SketchSummary {
+export interface SketchSummary extends DocumentFacts {
   table: string;
   tableId: string;
   mapId: string;
@@ -105,9 +107,10 @@ export function mapSketches(scope: AccountScope, mapId: string): Promise<SketchS
   requireReachable(scope, "map", mapId);
   // One registry snapshot and one tracked lifetime for the whole traversal.
   return trackInflight(Promise.resolve().then(async () => {
-    const tables = listOwnedTables(scope).filter(
-      (t) => t.source === "sketch" && ownerOf(t).mapId === mapId,
-    );
+    const { tables, facts } = metadataDb().transaction(() => ({
+      facts: documentFacts({ kind: "map", id: mapId }),
+      tables: listOwnedTables(scope).filter(t => t.source === "sketch" && ownerOf(t).mapId === mapId),
+    }))();
     const summaries: SketchSummary[] = [];
     for (const table of tables) {
       const counts: Partial<Record<SketchKind, number>> = {};
@@ -122,6 +125,7 @@ export function mapSketches(scope: AccountScope, mapId: string): Promise<SketchS
         });
       }
       summaries.push({
+        ...facts,
         table: table.name,
         tableId: table.id,
         mapId,
@@ -130,6 +134,7 @@ export function mapSketches(scope: AccountScope, mapId: string): Promise<SketchS
         counts,
       });
     }
+    requireReachable(scope, "map", mapId);
     return summaries;
   }));
 }

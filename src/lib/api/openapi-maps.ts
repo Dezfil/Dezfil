@@ -1,3 +1,4 @@
+import { DOCUMENT_FACT_PROPERTIES } from "./openapi-document-facts";
 import { FILING_DESTINATION } from "./openapi-project-access";
 import { resultAccess } from "./openapi-result-access";
 import { mapChildren } from "./openapi-map-children";
@@ -608,6 +609,7 @@ export const MAP_DEPENDENCY_SCHEMAS = {
   MapDependencies: {
     type: "object",
     properties: {
+      ...DOCUMENT_FACT_PROPERTIES,
       datasets: {
         type: "array",
         description:
@@ -674,6 +676,7 @@ export const MAP_SCHEMAS = {
   Map: {
     type: "object",
     properties: {
+      ...DOCUMENT_FACT_PROPERTIES,
       id: { type: "string" },
       name: { type: "string" },
       viewport: { $ref: "#/components/schemas/Viewport" },

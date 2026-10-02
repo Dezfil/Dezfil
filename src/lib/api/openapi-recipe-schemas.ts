@@ -1,7 +1,9 @@
+import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA } from "./openapi-document-facts";
 export const RECIPE_DEPENDENCY_SCHEMAS = {
   WorkflowDependencies: {
     type: "object",
     properties: {
+      ...DOCUMENT_FACT_PROPERTIES,
       datasets: {
         type: "array",
         description:
@@ -40,6 +42,7 @@ export const RECIPE_SCHEMAS = {
   RecipeStep: {
     type: "object",
     properties: {
+      ...DOCUMENT_FACT_PROPERTIES,
       id: { type: "string" },
       recipeId: { type: "string" },
       ordinal: { type: "integer" },
@@ -182,6 +185,7 @@ export const RECIPE_SCHEMAS = {
   Recipe: {
     type: "object",
     properties: {
+      ...DOCUMENT_FACT_PROPERTIES,
       id: { type: "string" },
       name: { type: "string" },
       origin: {
@@ -412,6 +416,7 @@ export const RECIPE_SCHEMAS = {
   },
   RecipeLayout: {
     allOf: [
+      DOCUMENT_FACT_SCHEMA,
       { $ref: "#/components/schemas/RecipeLayoutInput" },
       {
         type: "object",

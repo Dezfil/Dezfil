@@ -1,3 +1,4 @@
+import { DOCUMENT_FACT_PROPERTIES } from "./openapi-document-facts";
 import { SQL_POLICY, SQL_QUERY } from "./openapi-sql";
 import { PUBLICATION_ADMIN_PATHS, publicationAccess } from "./openapi-publications";
 import { resultAccess } from "./openapi-result-access";
@@ -2353,6 +2354,7 @@ export function buildOpenApiDocument() {
             "Per-layer statement of the effective published field set" +
             ".",
           properties: {
+            ...DOCUMENT_FACT_PROPERTIES,
             layers: {
               type: "array",
               items: {
@@ -2620,6 +2622,7 @@ export function buildOpenApiDocument() {
           description:
             "An active publication's authored settings.",
           properties: {
+            ...DOCUMENT_FACT_PROPERTIES,
             token: {
               type: "string",
               description:

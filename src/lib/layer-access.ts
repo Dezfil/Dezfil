@@ -1,3 +1,5 @@
+import { metadataDb } from "./metadata/db";
+import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requirePermitted, requireReachable, type ActionOf } from "@/lib/auth/reach";
 import { getLayer, type Layer } from "@/lib/metadata/maps";
@@ -14,4 +16,11 @@ export function requireLayer(scope: AccountScope, id: string): Layer {
 export function requireLayerFor(scope: AccountScope, id: string, action: ActionOf<"layer">): Layer {
   requirePermitted(scope, "layer", id, action);
   return getLayer(id)!;
+}
+
+export function readLayer(scope: AccountScope, id: string): Layer & DocumentFacts {
+  return metadataDb().transaction(() => {
+    const layer = requireLayer(scope, id);
+    return { ...layer, ...documentFacts({ kind: "map", id: layer.mapId }) };
+  })();
 }

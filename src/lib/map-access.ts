@@ -1,3 +1,5 @@
+import { metadataDb } from "./metadata/db";
+import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requirePermitted, requireReachable, type ActionOf } from "@/lib/auth/reach";
 import { getMap, listLayers, type MapRecord, type MapWithLayers } from "@/lib/metadata/maps";
@@ -11,17 +13,22 @@ export function requireMap(scope: AccountScope, id: string): MapRecord {
   return getMap(id)!;
 }
 
-export function mapWithLayers(scope: AccountScope, id: string): MapWithLayers {
+export function mapWithLayers(scope: AccountScope, id: string): MapWithLayers & DocumentFacts {
+  return metadataDb().transaction(() => {
   const map = requireMap(scope, id);
-  return { ...map, layers: listLayers(id) };
+  const facts = documentFacts({ kind: "map", id });
+  return { ...map, ...facts, layers: listLayers(id).map(layer => ({ ...layer, ...facts })) };
+  })();
 }
 
 /** A reached map as its reader sees it: its layers, the project it is filed
  * in as its reader may know it, its owner, its SQL home, and its
  * publication's token only when the reader owns the map. */
-export function readMap(scope: AccountScope, id: string): MapWithLayers & Presence {
-  const map = mapWithLayers(scope, id);
-  return { ...map, ...mapPresence(scope, id) };
+export function readMap(scope: AccountScope, id: string): MapWithLayers & Presence & DocumentFacts {
+  return metadataDb().transaction(() => {
+    const map = mapWithLayers(scope, id);
+    return { ...map, ...mapPresence(scope, id) };
+  })();
 }
 
 /**
@@ -34,9 +41,12 @@ export function requireOwnMap(scope: AccountScope, id: string): MapRecord {
   return getOwnedMap(scope, id);
 }
 
-export function ownMapWithLayers(scope: AccountScope, id: string): MapWithLayers {
+export function ownMapWithLayers(scope: AccountScope, id: string): MapWithLayers & DocumentFacts {
+  return metadataDb().transaction(() => {
   const map = requireOwnMap(scope, id);
-  return { ...map, layers: listLayers(id) };
+  const facts = documentFacts({ kind: "map", id });
+  return { ...map, ...facts, layers: listLayers(id).map(layer => ({ ...layer, ...facts })) };
+  })();
 }
 
 /** Whether the acting account owns this map it reaches. */
@@ -52,7 +62,10 @@ export function requireMapFor(scope: AccountScope, id: string, action: ActionOf<
 }
 
 /** The map as a permitted write leaves it, for that write's response. */
-export function mapWithLayersFor(scope: AccountScope, id: string, action: ActionOf<"map">): MapWithLayers {
+export function mapWithLayersFor(scope: AccountScope, id: string, action: ActionOf<"map">): MapWithLayers & DocumentFacts {
+  return metadataDb().transaction(() => {
   const map = requireMapFor(scope, id, action);
-  return { ...map, layers: listLayers(id) };
+  const facts = documentFacts({ kind: "map", id });
+  return { ...map, ...facts, layers: listLayers(id).map(layer => ({ ...layer, ...facts })) };
+  })();
 }

@@ -1,3 +1,4 @@
+import { factsOf } from "@/lib/metadata/document-facts";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
@@ -64,7 +65,7 @@ export async function GET(request: Request, { params }: Params) {
         }
       }),
     );
-    return NextResponse.json({ layers });
+    return NextResponse.json({ ...factsOf(map), layers });
   } catch (error) {
     return errorResponse(error);
   }

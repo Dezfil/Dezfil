@@ -1,3 +1,4 @@
+import { documentFacts, type DocumentFacts } from "@/lib/metadata/document-facts";
 import type { DatasetScope } from "@/lib/query/access";
 import type { AccountScope } from "@/lib/auth/scope";
 import { canReach } from "@/lib/auth/reach";
@@ -84,6 +85,7 @@ export interface StepView {
 }
 
 export interface RecipeView {
+  facts: DocumentFacts;
   recipe: Recipe;
   steps: StepView[];
   /** The workflow's one-line state and counts. */
@@ -209,9 +211,11 @@ function describedOutput(scope: AccountScope, step: RecipeStep, described: { acc
 }
 
 export async function readRecipe(scope: AccountScope, recipeId: string): Promise<RecipeView> {
-  const recipe = requireRecipe(scope, recipeId);
-  const standing = recipeStanding(recipeId)!;
-  const { steps, runs } = describedSteps(scope, listSteps(scope, recipeId), standing.ownerId);
+  const { recipe, standing, steps, runs, facts } = metadataDb().transaction(() => {
+    const recipe = requireRecipe(scope, recipeId), standing = recipeStanding(recipeId)!;
+    return { recipe, standing, ...describedSteps(scope, listSteps(scope, recipeId), standing.ownerId),
+      facts: documentFacts({ kind: "workflow", id: recipeId }) };
+  })();
   const evaluation = workflowEvaluation(scope, recipeId);
   const namespace = namespaceFor(evaluation);
   // A reader whose own space is the workflow's home reads its names as their
@@ -253,6 +257,7 @@ export async function readRecipe(scope: AccountScope, recipeId: string): Promise
   requireRecipe(scope, recipeId);
   return {
     recipe,
+    facts,
     steps: views,
     summary: summarizeRecipe(views, artifacts),
     presence: presencesOf(scope, [standing])[0],
@@ -268,8 +273,8 @@ export async function readStep(
   scope: AccountScope,
   recipeId: string,
   stepId: string,
-): Promise<StepView & { context: ReaderContext }> {
+): Promise<StepView & { context: ReaderContext; facts: DocumentFacts }> {
   requireStep(scope, recipeId, stepId);
   const recipe = await readRecipe(scope, recipeId);
-  return { ...recipe.steps.find((s) => s.step.id === stepId)!, context: recipe.context };
+  return { ...recipe.steps.find((s) => s.step.id === stepId)!, context: recipe.context, facts: recipe.facts };
 }

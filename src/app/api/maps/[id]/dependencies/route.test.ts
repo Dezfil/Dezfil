@@ -192,7 +192,7 @@ describe("the datasets a map draws from", () => {
     expect(
       (byName.get("station_buffers") as unknown as { source: string }).source,
     ).toBe("operation");
-    expect(byName.get("station_buffers")!.producer).toEqual({
+    expect(byName.get("station_buffers")!.producer).toEqual({ editRevision: expect.stringMatching(/^[a-f0-9]{32}$/), lastChangedAt: expect.any(String), lastChangedBy: { name: "test-account", sqlName: "test_account" },
       id: wf.id,
       name: "Station catchments",
       owned: true,

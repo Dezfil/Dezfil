@@ -1,3 +1,4 @@
+import { readLayer } from "@/lib/layer-access";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
@@ -7,7 +8,7 @@ import {
   sketchOwnedByLayer,
 } from "@/lib/sketch/store";
 import { sanitizeSvgIcon } from "@/lib/icon-sanitize";
-import { requireLayer, updateLayer } from "@/lib/layer-service";
+import { updateLayer } from "@/lib/layer-service";
 import { requireLayerFor } from "@/lib/layer-access";
 import { layerWriteChangesPublication } from "@/lib/publication-settings";
 import { removeLayer } from "@/lib/layer-removal";
@@ -31,7 +32,7 @@ export async function GET(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id } = await params;
-    return NextResponse.json(requireLayer(scope, id));
+    return NextResponse.json(readLayer(scope, id));
   } catch (error) {
     return errorResponse(error);
   }

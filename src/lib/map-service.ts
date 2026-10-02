@@ -1,3 +1,4 @@
+import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
 import { recordDocumentChanges, recordDocumentBatch } from "@/lib/metadata/revisions";
 import { fileMap } from "@/lib/metadata/owned-projects";
 import { assertMapLayerRefs } from "./map-layer-refs";
@@ -321,7 +322,7 @@ export function allMaps(scope: AccountScope): MapRecord[] {
  * project it is in (null = not in one), its owner and its SQL home. The
  * reference is deliberately not on MapRecord, so the published snapshot's
  * revision never observes a membership change. */
-export interface MapOverview extends MapRecord, Presence {
+export interface MapOverview extends MapRecord, Presence, DocumentFacts {
   layerCount: number;
   layerColors: string[];
 }
@@ -340,6 +341,7 @@ function cssColor(c: { r: number; g: number; b: number; a: number }): string {
 export function mapsOverview(scope: AccountScope, project?: string | "none"): MapOverview[] {
   // An unknown or unreachable project refuses — a silently empty list
   // would read as an empty project.
+  return metadataDb().transaction(() => {
   requireAccountScope(scope);
   if (project && project !== "none") requireReachable(scope, "project", project);
   const entries = listReachableMaps(scope);
@@ -349,6 +351,7 @@ export function mapsOverview(scope: AccountScope, project?: string | "none"): Ma
       const layers = listLayers(entry.map.id);
       return {
         ...entry.map,
+        ...documentFacts({ kind: "map", id: entry.map.id }),
         ...presences[i],
         layerCount: layers.length,
         layerColors: layers.map((l) => cssColor(representativeColor(l.style))),
@@ -361,6 +364,7 @@ export function mapsOverview(scope: AccountScope, project?: string | "none"): Ma
           ? m.projectId === null && entries[i].ownerId === scope.accountId
           : m.projectId === project,
     );
+  })();
 }
 
 export function updateMap(

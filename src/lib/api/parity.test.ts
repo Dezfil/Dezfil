@@ -338,6 +338,9 @@ describe("API parity", () => {
     expect(Object.keys(history.properties ?? {}).sort()).toEqual([
       "canRedo",
       "canUndo",
+      "editRevision",
+      "lastChangedAt",
+      "lastChangedBy",
       "redoTarget",
       "undoTarget",
     ]);

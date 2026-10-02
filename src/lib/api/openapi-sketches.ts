@@ -1,3 +1,4 @@
+import { DOCUMENT_FACT_PROPERTIES } from "./openapi-document-facts";
 import { datasetAccess } from "./openapi-dataset-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { SKETCH_ROW_COUNT_RESPONSE } from "./openapi-tool-responses";
@@ -28,6 +29,7 @@ export const SKETCH_PATHS = {
                 items: {
                   type: "object",
                   properties: {
+                    ...DOCUMENT_FACT_PROPERTIES,
                     table: { type: "string" },
                     tableId: { type: "string" },
                     mapId: { type: "string" },

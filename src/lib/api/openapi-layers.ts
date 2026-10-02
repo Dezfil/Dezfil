@@ -1,3 +1,4 @@
+import { DOCUMENT_FACT_PROPERTIES } from "./openapi-document-facts";
 import { SQL_QUERY } from "./openapi-sql";
 import { CARRY_RULE, WRITTEN_IN_REF } from "./openapi-written-in";
 import { resultAccess } from "./openapi-result-access";
@@ -469,6 +470,7 @@ export const LAYER_SCHEMAS = {
   Layer: {
     type: "object",
     properties: {
+      ...DOCUMENT_FACT_PROPERTIES,
       id: { type: "string" },
       mapId: { type: "string" },
       name: { type: "string" },

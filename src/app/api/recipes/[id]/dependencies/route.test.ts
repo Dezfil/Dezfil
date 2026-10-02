@@ -111,7 +111,7 @@ describe("the datasets a workflow reads and writes", () => {
     expect(byName.get("stations")!.projectIds).toEqual([]);
     expect(byName.get("districts")!.projectIds).toEqual([berlin.id]);
     expect(byName.get("districts")!.geometryType).toBe("POLYGON");
-    expect(byName.get("station_buffers")!.producer).toEqual({ id: wf.id, name: "Station catchments", owned: true });
+    expect(byName.get("station_buffers")!.producer).toEqual({ editRevision: expect.stringMatching(/^[a-f0-9]{32}$/), lastChangedAt: expect.any(String), lastChangedBy: { name: "test-account", sqlName: "test_account" }, id: wf.id, name: "Station catchments", owned: true });
     expect(byName.get("stations")!.producer).toBeNull();
   });
 
@@ -138,12 +138,12 @@ describe("the datasets a workflow reads and writes", () => {
 
   it("returns none for a workflow with no registered dependencies; unregistered names are not entries", async () => {
     const wf = createRecipe(testAccountScope(), "Empty");
-    expect((await (await read(wf.id)).json()) as unknown).toEqual({ datasets: [] });
+    expect((await (await read(wf.id)).json()) as unknown).toMatchObject({ datasets: [], editRevision: expect.stringMatching(/^[a-f0-9]{32}$/) });
     addStep(wf.id, {
       operation: "sql_step",
       parameters: { sql: "SELECT * FROM not_registered_anywhere", name: "x" },
     });
-    expect((await (await read(wf.id)).json()) as unknown).toEqual({ datasets: [] });
+    expect((await (await read(wf.id)).json()) as unknown).toMatchObject({ datasets: [], editRevision: expect.stringMatching(/^[a-f0-9]{32}$/) });
   });
 
   it("fails the whole read when one current definition cannot be analyzed — never an empty or partial answer", async () => {
