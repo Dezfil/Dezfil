@@ -68,6 +68,13 @@ describe("the inputs an evaluation records", () => {
     expect(ids(await drawn(scopes.ada, "WITH r AS (SELECT * FROM parks) SELECT * FROM r"))).toEqual(of("ada.parks"));
   });
 
+  it("records another person's quoted mount name by identity in every local spelling, never as the whole reach", async () => {
+    const bobRoads = { catalogue: false, datasets: [{ id: tables["bob.roads"].id, file: tables["bob.roads"].file }] };
+    for (const sql of ['SELECT * FROM "bob.roads"', 'SELECT * FROM main."bob.roads"', 'SELECT * FROM memory.main."bob.roads"']) {
+      expect(await drawn(scopes.ada, sql), sql).toEqual(bobRoads);
+    }
+  });
+
   it("binds a map's plain names in its home for whoever evaluates it", async () => {
     const map = createMap(scopes.bob, "Bob's map", "P");
     // Ada reads Bob's map: its plain `roads` is Bob's, never her own.

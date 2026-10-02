@@ -746,8 +746,10 @@ person's dataset, external even when a workflow's declared output shares the
 name; the caller's own SQL name names the caller's own. A first part that is an
 alias or a common table expression in scope keeps its SQL meaning. The single
 quoted name a mounted dataset carries in the catalogue (`"ada.roads"`) is
-accepted as the binding it is; any other identifier containing a dot is still
-refused. The compiler preserves stored SQL. Publication evaluations use the
+accepted as the binding it is, and means `ada.roads` in every local spelling
+(`main."ada.roads"`, `memory.main."ada.roads"`): it binds that person's dataset
+by identity, for an editor's save as for an evaluation's record of what it
+drew; any other identifier containing a dot is still refused. The compiler preserves stored SQL. Publication evaluations use the
 map's SQL home and the publication owner's reach restricted to the datasets
 the map's layers name, including inactive owners and
 pending adoption. Refresh, deletion and name reuse affect later evaluations; an admitted

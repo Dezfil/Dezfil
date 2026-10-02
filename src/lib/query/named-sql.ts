@@ -173,21 +173,21 @@ async function compileNamedSql(conn: DuckDBConnection, sql: string, synthetics: 
       if (!cte) noteReference(conn, plan, parts);
       if (!cte) await refuseUnbound(conn, plan, parts);
       if (!cte) await refuseWithheldRelation(conn, plan, parts);
-      if ((lowerCatalog === "memory" && (!lowerSchema || lowerSchema === "main")) || (!lowerCatalog && lowerSchema === "memory")) {
+      // A qualified name binds first, however it is spelled: a mount name
+      // under `memory.main.` is the same qualified name as under `main.`.
+      const found = cte ? null : qualifiedBinding(plan, parts);
+      if (found?.binding) {
+        const written = String(value.table_name);
+        const target = "view" in found.binding ? found.binding.view : syntheticName(synthetics, plan!, found.binding);
+        value.catalog_name = ""; value.schema_name = ""; value.table_name = target;
+        // A schema-qualified table goes by its own name; so does its view.
+        if (!value.alias && target.toLowerCase() !== written.toLowerCase()) value.alias = written;
+        const alias = String(value.alias || target).toLowerCase();
+        inner.aliases.add(alias);
+        inner.qualified.set(found.key, alias);
+        changed = true;
+      } else if ((lowerCatalog === "memory" && (!lowerSchema || lowerSchema === "main")) || (!lowerCatalog && lowerSchema === "memory")) {
         value.catalog_name = "temp"; value.schema_name = "main"; changed = true;
-      } else if (!cte) {
-        const found = qualifiedBinding(plan, parts);
-        if (found?.binding) {
-          const written = String(value.table_name);
-          const target = "view" in found.binding ? found.binding.view : syntheticName(synthetics, plan!, found.binding);
-          value.catalog_name = ""; value.schema_name = ""; value.table_name = target;
-          // A schema-qualified table goes by its own name; so does its view.
-          if (!value.alias && target.toLowerCase() !== written.toLowerCase()) value.alias = written;
-          const alias = String(value.alias || target).toLowerCase();
-          inner.aliases.add(alias);
-          inner.qualified.set(found.key, alias);
-          changed = true;
-        }
       }
     }
     if (value.class === "COLUMN_REF" && Array.isArray(value.column_names)) {

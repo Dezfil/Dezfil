@@ -124,6 +124,17 @@ describe("a layer saved by someone other than the map's owner", () => {
     expect((await addLayer("bob", "SELECT * FROM bob.roads")).status).toBe(201);
   });
 
+  it("binds another person's quoted mount name in a local spelling like its qualified name", async () => {
+    for (const sql of ['SELECT * FROM main."ada.roads"', 'SELECT * FROM memory.main."ada.roads"']) {
+      const saved = await addLayer("bob", sql);
+      expect(saved.status, sql).toBe(201);
+      expect(await drawn("ada", (saved.body as { id: string }).id), sql).toEqual(["ada roads"]);
+    }
+    const before = snapshot();
+    expect((await addLayer("bob", 'SELECT * FROM main."ada.secret"')).status).toBe(400);
+    expect(snapshot()).toEqual(before);
+  });
+
   it("admits the engine's own relations, which name no dataset", async () => {
     expect((await addLayer("bob", "SELECT ST_Point(0, 0) AS geom FROM range(1)")).status).toBe(201);
   });
