@@ -941,7 +941,9 @@ stale and a same-named dataset of another account never does; a dataset's
 refresh or deletion invalidates or reclaims the tiles of every layer that drew
 it, whoever's map it is on. Tiles and card images made before artifacts
 recorded their inputs carry no evidence and are unattributed: served to the
-map's owner only until rebuilt or recaptured.
+map's owner only until rebuilt or recaptured. Such a tile archive is
+invalidated or reclaimed by the refresh or deletion of its map owner's dataset
+whose name its layer's SQL contains as a whole word, as tiles were before.
 
 Serving or copying a retained artifact authorizes what it recorded against the
 caller's reach at that moment, never when it was made. A tile archive is

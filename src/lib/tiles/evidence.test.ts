@@ -1,4 +1,5 @@
 import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { closeMetadataDb } from "@/lib/metadata/db";
@@ -13,8 +14,10 @@ import type { Layer } from "@/lib/metadata/maps";
 import type { AccountScope } from "@/lib/auth/scope";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { shareProject } from "@/lib/test-support/sharing";
+import { removeTable } from "@/lib/table-service";
 import { privateTileAccess } from "./access";
 import { resetTileBuilds, tileBuildsSettled } from "./build";
+import { tileArchivePath } from "./paths";
 
 /**
  * A tile archive records what its build drew, by identity. Ada and Bob each
@@ -60,8 +63,8 @@ afterEach(async () => {
   await rm(directory, { recursive: true, force: true });
 });
 
-async function render(layer: Layer) {
-  return renderLayer(scopes.ada, layer, undefined, { tileAccess: privateTileAccess(scopes.ada, layer.id) });
+async function render(layer: Layer, scope: AccountScope = scopes.ada) {
+  return renderLayer(scope, layer, undefined, { tileAccess: privateTileAccess(scope, layer.id) });
 }
 async function buildAll() {
   for (const layer of Object.values(layers)) { const r = await render(layer); expect(r.mode, JSON.stringify(r).slice(0, 400)).toBe("tiled"); }
@@ -119,5 +122,25 @@ describe("tile archives record what they drew", () => {
     expect((await render(layers.mine)).tiles?.state).toBe("ready");
     await tileBuildsSettled();
     expect((await evidence(layers.theirs)).inputs.datasets).toEqual([{ id: tables.bob.id, file: moved }]);
+  });
+});
+
+describe("archives built before archives recorded their inputs", () => {
+  it("are reclaimed when a dataset their owner's SQL names is deleted, on that owner's maps alone", async () => {
+    // Bob's own map draws his `roads` by plain name.
+    const bobs = await createLayer(scopes.bob, createMap(scopes.bob, "Depot").id, { name: "His", sql: "SELECT * FROM roads" });
+    await buildAll();
+    expect((await render(bobs, scopes.bob)).mode).toBe("tiled");
+    await tileBuildsSettled();
+    expect((await render(bobs, scopes.bob)).tiles?.state).toBe("ready");
+    // As an archive of before: a ready record and its archive, no evidence.
+    for (const layer of [layers.mine, bobs]) await rm(path.join(directory, "artifact-inputs", "tiles", `${layer.id}.json`));
+    await removeTable(scopes.ada, "roads");
+    expect(getTileRecord(layers.mine.id)).toBeNull();
+    expect(existsSync(tileArchivePath(layers.mine.id))).toBe(false);
+    // Bob's same-named dataset and the archives that drew it stay.
+    expect(getTileRecord(bobs.id)?.state).toBe("ready");
+    expect(existsSync(tileArchivePath(bobs.id))).toBe(true);
+    expect(getTileRecord(layers.theirs.id)?.state).toBe("ready");
   });
 });

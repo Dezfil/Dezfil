@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { dataDir } from "@/lib/config";
 import type { TileRecord } from "@/lib/metadata/tiles";
+import { tileArchivePath } from "./paths";
 import { parseInputs, type ArtifactInputs } from "@/lib/query/evaluation-inputs";
 
 /**
@@ -89,6 +90,13 @@ export function tileArchiveAttribution(layerId: string, record: TileRecord | nul
   if (!evidence || !record || record.state !== "ready" || evidence.fingerprint !== record.fingerprint
     || evidence.builtAt !== record.builtAt) return "unbound";
   return { inputs: evidence.inputs };
+}
+
+/** Whether the layer's archive on disk was built before archives recorded
+ * their inputs: an archive with no evidence beside it. Every build since
+ * writes its evidence before its archive. */
+export function archiveWithoutEvidence(layerId: string): boolean {
+  return existsSync(tileArchivePath(layerId)) && !existsSync(tileEvidencePath(layerId));
 }
 
 /** Every layer whose recorded evidence names this dataset. */
