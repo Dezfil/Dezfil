@@ -390,7 +390,9 @@ export function useMutationLane({
         // that predecessor has settled and this gesture owns the turn.
         if (opts.skipUnchanged && Object.entries(body).every(([key, value]) => JSON.stringify(value) === JSON.stringify(current[key as keyof Layer]))) {
           drafts.accepted(ticket, serverMapRef.current);
-          syncAuthoritativeLayer(current, false);
+          // Retire the gesture locally. A cached layer's document facts
+          // cannot establish a revision or attribution without a response.
+          setMap(shown => shown ? { ...shown, layers: drafts.apply(serverMapRef.current ?? shown).layers } : shown);
           clearFailure(lane);
           return current;
         }
