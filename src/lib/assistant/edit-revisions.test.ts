@@ -95,3 +95,29 @@ it("the loop starts a leaf from its planning result and does not replace it with
   for await (const event of runAssistant(provider, { message: "Run", history: [] }, { scope: testAccountScope(undefined, "start-basis"), tools: [tool], fetchImpl, baseUrl: "http://instance.test", autoCheck: false })) void event;
   expect(sent).toEqual(["planned"]); expect(reads).toEqual(["http://instance.test/api/recipes/w/runs", "http://instance.test/api/recipes/w/runs"]);
 });
+
+it("a resumed confirmation uses intervening saves even without an earlier write in its turn", async () => {
+  const { testAccountScope } = await import("@/lib/test-support/accounts");
+  const { runAssistant, resumeAssistant } = await import("./loop");
+  const { stubProvider } = await import("./providers/stub");
+  const { PendingActionStore } = await import("./pending");
+  const ledger = new AssistantRevisions();
+  ledger.observe("/api/maps/m", { id: "m", editRevision: "before-wait", layers: [{ id: "l", mapId: "m" }] });
+  const tool = { ...buildTools().find(t => t.name === "update_layer")!, confirm: true,
+    confirmation: { target: "Change {target}?", consequence: "Changes the layer.", subject: { path: null, argument: "id", name: "name" } } };
+  const sent: (string | null)[] = [];
+  const fetchImpl: typeof fetch = async (_input, init) => {
+    if ((init?.method ?? "GET") === "GET") return Response.json({ id: "l", mapId: "m", editRevision: "intervening-save" });
+    sent.push(new Headers(init?.headers).get("X-Edit-Revision"));
+    return Response.json({ id: "l", mapId: "m", editRevision: "accepted" });
+  };
+  const scope = testAccountScope(undefined, "resume-basis"), pending = new PendingActionStore();
+  const deps = { scope, pending, tools: [tool], fetchImpl, baseUrl: "http://fixture.test", autoCheck: false };
+  const provider = stubProvider([{ text: "", toolCalls: [{ id: "c", name: tool.name, args: { [tool.pathParams[0]]: "l", name: "New" } }] }, { text: "Done", toolCalls: [] }]);
+  let id = "";
+  for await (const event of runAssistant(provider, { message: "Change", history: [] }, { ...deps, revisions: ledger })) if (event.type === "confirm_required") id = event.id;
+  expect(sent).toEqual([]);
+  const parked = pending.claim(scope, id, "approved")!;
+  for await (const event of resumeAssistant(parked, true, deps)) void event;
+  expect(sent).toEqual(["intervening-save"]);
+});

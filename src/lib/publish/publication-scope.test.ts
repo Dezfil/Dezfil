@@ -53,3 +53,15 @@ it("rejects missing, forged, copied and revoked scope identities without widenin
   unpublishMap(account, map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }); expect(() => scopedDatasets(scope)).toThrow(expect.objectContaining({ code: "not_found" }));
   expect(resolvePublication(token)).toBeNull(); expect(resolvePublication("missing")).toBeNull();
 });
+
+it("anonymous projections contain neither document revisions nor recorded people", async () => {
+  const account = testAccountScope(db, "author"), map = createMap(account, "Public");
+  const { token } = publishMap(account, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+  const privateRevision = readEditRevision({ kind: "map", id: map.id })!.editRevision;
+  const view = await getPublishedView(token, Date.now());
+  expect(view?.name).toBe("Public");
+  const json = JSON.stringify(view);
+  expect(json).not.toMatch(/editRevision|lastChangedAt|lastChangedBy|sqlName|accountId|ownerId/);
+  expect(json).not.toContain(privateRevision);
+  expect(json).not.toContain("author");
+});
