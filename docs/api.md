@@ -55,6 +55,12 @@ and its siblings are the read-only, anonymous face of a map someone chose to
 publish. The token is 22 random characters (`src/lib/publish/token.ts`), it
 is the entire credential, and revoking a publication invalidates it.
 
+The error catalogue includes `409 stale_revision` for a refused document
+basis: “This item has changed. Reload it before trying again.” This refusal
+changes nothing. A new attempt starts with a deliberate read and a new edit;
+clients must not silently retry an old payload with a newer token. Revision
+preconditions are declared on the operations that require them.
+
 ## Ownership and sharing
 
 The rules for who sees and changes what are the same on every client: the

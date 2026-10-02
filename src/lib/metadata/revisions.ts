@@ -1,0 +1,151 @@
+import { randomBytes } from "node:crypto";
+import type { Database } from "better-sqlite3";
+import { ApiError } from "@/lib/api/errors";
+import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
+import { canReach, requirePermitted } from "@/lib/auth/reach";
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { metadataDb } from "./db";
+
+export type DocumentKey = { kind: "map" | "workflow"; id: string };
+export type DocumentExpectation = (
+  | { kind: "map"; action?: "edit" | "publish" | "sketch" | "delete" | "transfer" }
+  | { kind: "workflow"; action?: "edit" | "run" | "delete" | "transfer" }
+) & { id: string; expectedRevision: unknown };
+export type CoveredChange = DocumentKey & { executable?: boolean };
+export interface DocumentRevision extends DocumentKey {
+  /** Nullable at the storage boundary; document creation and upgrade fill it. */
+  editRevision: string | null;
+  lastChangedAt: string | null;
+  lastChangedBy: string | null;
+  executableRevision: string | null;
+}
+
+const tableFor = (document: DocumentKey) => document.kind === "map" ? "maps" : "recipes";
+const keyFor = (document: DocumentKey) => `${document.kind}:${document.id}`;
+const newRevision = () => randomBytes(16).toString("hex");
+const revisionPattern = /^[0-9a-f]{32}$/;
+const recordings = new WeakMap<Database, {
+  actor: string;
+  declared: Set<string>;
+  changes: CoveredChange[];
+}>();
+
+/** Validate only after the caller's authorization checks. No normalization:
+ * a supplied basis must be exactly the token paired with its read. */
+export function validateEditRevision(value: unknown): string {
+  if (typeof value !== "string" || !revisionPattern.test(value)) {
+    throw new ApiError("invalid_request",
+      "Read this item first, then send its editRevision in X-Edit-Revision.", 400);
+  }
+  return value;
+}
+
+/** Internal metadata read. Reached projections decide what a caller sees. */
+export function readDocumentRevision(document: DocumentKey, db: Database = metadataDb()): DocumentRevision | null {
+  const executable = document.kind === "workflow" ? "executable_revision" : "NULL";
+  const row = db.prepare(`SELECT edit_revision, last_changed_at, last_changed_by,
+    ${executable} AS executable_revision FROM ${tableFor(document)} WHERE id = ?`).get(document.id) as
+    { edit_revision: string | null; last_changed_at: string | null; last_changed_by: string | null;
+      executable_revision: string | null } | undefined;
+  return row ? {
+    kind: document.kind, id: document.id, editRevision: row.edit_revision,
+    lastChangedAt: row.last_changed_at, lastChangedBy: row.last_changed_by,
+    executableRevision: row.executable_revision,
+  } : null;
+}
+
+function requireTransaction(db: Database) {
+  if (!db.inTransaction) throw new Error("Document recording requires the content transaction.");
+}
+
+/** Creation is recorded in the insertion's transaction, by its acting scope.
+ * Insert defaults protect older writers; this records the known creator. */
+export function recordDocumentCreation(scope: AccountScope, document: DocumentKey, db: Database = metadataDb()): DocumentRevision {
+  requireTransaction(db);
+  requirePermitted(scope, document.kind, document.id, "edit", db);
+  recordDocumentChanges(scope, [{ ...document, executable: document.kind === "workflow" }], db);
+  return readDocumentRevision(document, db)!;
+}
+
+/** Record accepted covered changes inside their content/history transaction.
+ * Callers establish permission at their own commit boundary, including the
+ * narrow lifecycle exceptions. This is not an unversioned request handler.
+ * Duplicate child changes advance their parent only once in this operation. */
+export function recordDocumentChanges(scope: AccountScope, changes: readonly CoveredChange[], db: Database = metadataDb()): void {
+  requireTransaction(db);
+  const actor = requireAccountScope(scope, db);
+  const unique = new Map<string, CoveredChange>();
+  for (const change of changes) {
+    if (change.executable && change.kind !== "workflow") throw new Error("Only a workflow has an executable revision.");
+    const key = keyFor(change);
+    unique.set(key, { ...change, executable: change.executable || unique.get(key)?.executable });
+  }
+  const pending = recordings.get(db);
+  if (pending) {
+    if (pending.actor !== actor) throw new Error("A document commit has one acting account.");
+    for (const change of unique.values()) {
+      if (!pending.declared.has(keyFor(change))) throw new Error("A covered change must have a declared revision basis.");
+      pending.changes.push(change);
+    }
+    return;
+  }
+  const changedAt = new Date(Date.now()).toISOString();
+  for (const change of unique.values()) {
+    // Deleted documents have no resulting revision. Restoring an identity
+    // through a later operation always mints a fresh token here.
+    const executable = change.executable ? ", executable_revision = @executable" : "";
+    db.prepare(`UPDATE ${tableFor(change)} SET edit_revision = @revision,
+      last_changed_at = @time, last_changed_by = @actor${executable} WHERE id = @id`).run({
+      revision: newRevision(), time: changedAt, actor, id: change.id,
+      ...(change.executable ? { executable: newRevision() } : {}),
+    });
+  }
+}
+
+/** Compare the read basis and commit synchronous content, history and facts
+ * under one write transaction. Async validation/staging happens before entry;
+ * authorize rechecks its admission here before any revision is disclosed.
+ * An empty changes list is a genuine no-op and still checks every basis.
+ * No refusal rereads or replays the caller's payload. */
+export function commitDocumentChanges<T>(scope: AccountScope, operation: {
+  expected: readonly DocumentExpectation[];
+  authorize: (db: Database) => void;
+  apply: (db: Database) => { value: T; changes: readonly CoveredChange[] };
+}, db: Database = metadataDb()): { value: T; revisions: DocumentRevision[] } {
+  if (recordings.has(db)) throw new Error("Use one document commit boundary for a compound operation.");
+  return db.transaction(() => {
+    const actor = requireAccountScope(scope, db);
+    for (const document of operation.expected) {
+      if (document.kind === "map") requirePermitted(scope, "map", document.id, document.action ?? "edit", db);
+      else requirePermitted(scope, "workflow", document.id, document.action ?? "edit", db);
+    }
+    operation.authorize(db);
+    const declared = new Map<string, DocumentKey>();
+    for (const document of operation.expected) {
+      const expected = validateEditRevision(document.expectedRevision);
+      const current = readDocumentRevision(document, db);
+      if (current?.editRevision !== expected) {
+        throw new ApiError("stale_revision", ERROR_CATALOGUE.stale_revision, 409);
+      }
+      declared.set(keyFor(document), document);
+    }
+    const pending = { actor, declared: new Set(declared.keys()), changes: [] as CoveredChange[] };
+    recordings.set(db, pending);
+    let value: T;
+    try {
+      const applied = operation.apply(db);
+      value = applied.value;
+      recordDocumentChanges(scope, applied.changes, db);
+    } finally {
+      recordings.delete(db);
+    }
+    recordDocumentChanges(scope, pending.changes, db);
+    const revisions: DocumentRevision[] = [];
+    for (const document of declared.values()) {
+      if (!canReach(scope, document.kind, document.id, db)) continue;
+      const current = readDocumentRevision(document, db);
+      if (current) revisions.push(current);
+    }
+    return { value, revisions };
+  }).immediate();
+}
