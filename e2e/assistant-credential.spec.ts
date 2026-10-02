@@ -1,3 +1,4 @@
+import type { EditBasis } from "../src/lib/edit-basis";
 // Without a model credential: on all three pages the door is present and
 // the pane shows the status API's documented reason and nothing else, the
 // words byte-identical across the pages and equal to the API's; with the
@@ -14,13 +15,13 @@ const PANE = "[data-assistant-pane]";
 const door = (page: Page) => page.locator("header").getByRole("button", { name: /^(Open|Close) assistant$/ });
 const pane = (page: Page) => page.locator(PANE);
 type Json = Record<string, unknown>;
-async function api(page: Page, method: string, path: string, body?: unknown): Promise<Json> {
-  return page.evaluate(async ({ method, path, body }) => {
-    const r = await fetch(path, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+async function api(page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<Json> {
+  return page.evaluate(async ({ method, path, body, basis }) => {
+    const r = await fetch(path, { method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
     const text = await r.text();
     if (!r.ok) throw new Error(`${method} ${path} -> ${r.status}: ${text}`);
     return text ? JSON.parse(text) : {};
-  }, { method, path, body });
+  }, { method, path, body, basis });
 }
 async function seedPages(page: Page) {
   await page.setViewportSize({ width: 1440, height: 900 });

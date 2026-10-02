@@ -1,3 +1,4 @@
+import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Page, type Request } from "@playwright/test";
 import { isAllowedConsoleError } from "./console-allowlist";
 import { seedCsv, trackConsole } from "./support";
@@ -24,18 +25,18 @@ type Run = { id: string; outcome: string | null; members: { stepId: string; stat
 const ENDLESS = "SELECT count(*) AS n FROM range(200000) a, range(200000) b WHERE (a.range * b.range) % 7 = 3";
 const NEW_TEXT = "---\nlabel: note\n---\n";
 
-async function api(page: Page, method: string, path: string, body?: unknown): Promise<{ status: number; json: Json }> {
+async function api(page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<{ status: number; json: Json }> {
   return page.evaluate(
-    async ({ method, path, body }) => {
-      const r = await fetch(path, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+    async ({ method, path, body, basis }) => {
+      const r = await fetch(path, { method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
       const text = await r.text();
       return { status: r.status, json: text ? (JSON.parse(text) as Record<string, unknown>) : {} };
     },
-    { method, path, body },
+    { method, path, body, basis },
   );
 }
-const ok = async (page: Page, method: string, path: string, body?: unknown): Promise<Json> => {
-  const r = await api(page, method, path, body);
+const ok = async (page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<Json> => {
+  const r = await api(page, method, path, body, basis);
   if (r.status >= 400) throw new Error(`${method} ${path} → ${r.status}: ${JSON.stringify(r.json)}`);
   return r.json;
 };

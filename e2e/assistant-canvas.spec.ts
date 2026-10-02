@@ -1,3 +1,4 @@
+import type { EditBasis } from "../src/lib/edit-basis";
 // The assistant on the workflow canvas (of with overrides B): the door
 // after Redo, the pane replacing or joining the node and source panels by
 // view and band, the host's edge, the shifted panel, the band's edge
@@ -28,13 +29,13 @@ test.afterAll(async () => { await provider.stop(); });
 test.beforeEach(async ({ context }) => { provider.reset(); await routeHouse(context, { basemapStyleStub: true }); });
 
 type Json = Record<string, unknown>;
-async function api(page: Page, method: string, path: string, body?: unknown): Promise<Json> {
-  return page.evaluate(async ({ method, path, body }) => {
-    const r = await fetch(path, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+async function api(page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<Json> {
+  return page.evaluate(async ({ method, path, body, basis }) => {
+    const r = await fetch(path, { method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
     const text = await r.text();
     if (!r.ok) throw new Error(`${method} ${path} -> ${r.status}: ${text}`);
     return text ? JSON.parse(text) : {};
-  }, { method, path, body });
+  }, { method, path, body, basis });
 }
 const door = (page: Page) => page.locator("header").getByRole("button", { name: /^(Open|Close) assistant$/ });
 const pane = (page: Page) => page.locator(PANE);

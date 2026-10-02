@@ -1,3 +1,4 @@
+import type { EditBasis } from "../src/lib/edit-basis";
 // Resting baselines for the two-tone operation set (plan's pixel round):
 // the four surfaces that draw an operation's pictogram, captured at rest
 // in both themes — the builder drawer's catalog, the canvas pane's Tools
@@ -23,14 +24,14 @@ test.skip(process.platform !== "darwin", "pixel baselines are darwin-generated; 
 const runId = Date.now().toString(36);
 const tableName = `oip_${runId}`;
 
-async function api(page: Page, method: string, pathName: string, body?: unknown): Promise<Record<string, unknown>> {
+async function api(page: Page, method: string, pathName: string, body?: unknown, basis?: EditBasis): Promise<Record<string, unknown>> {
   return page.evaluate(
-    async ({ method, pathName, body }) => {
-      const r = await fetch(pathName, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+    async ({ method, pathName, body, basis }) => {
+      const r = await fetch(pathName, { method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
       if (!r.ok) throw new Error(`${method} ${pathName} → ${r.status}`);
       return (await r.json()) as Record<string, unknown>;
     },
-    { method, pathName, body },
+    { method, pathName, body, basis },
   );
 }
 

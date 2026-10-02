@@ -1,3 +1,4 @@
+import type { EditBasis } from "../src/lib/edit-basis";
 // The add-layer catalog's row: under the Tables source and the SQL
 // query source alike, the row reads capsule, name, count from left to
 // right and nothing else — no membership tag — the name set from the
@@ -20,19 +21,19 @@ const ONE = `rows_one_${runId}`;
 const LONG = `rows_long_${runId}_${"x".repeat(56)}`;
 const ROWS = 1234;
 
-const api = (page: Page, method: string, pathName: string, body?: unknown) =>
+const api = (page: Page, method: string, pathName: string, body?: unknown, basis?: EditBasis) =>
   page.evaluate(
-    async ({ method, pathName, body }) => {
+    async ({ method, pathName, body, basis }) => {
       const r = await fetch(pathName, {
         method,
-        headers: body ? { "content-type": "application/json" } : undefined,
+        headers: { ...(body ? { "content-type": "application/json" } : undefined), ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) },
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!r.ok && r.status !== 204) throw new Error(await r.text());
       const text = r.status === 204 ? "" : await r.text();
       return text ? (JSON.parse(text) as unknown) : null;
     },
-    { method, pathName, body },
+    { method, pathName, body, basis },
   );
 
 /** What a row renders, measured in the page: faces, edges, order. */

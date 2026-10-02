@@ -1,3 +1,4 @@
+import { capturedExpectation } from "../test-support/edit-basis";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { open } from "./db";
@@ -34,13 +35,13 @@ beforeEach(() => {
 });
 afterEach(() => { vi.restoreAllMocks(); db.close(); });
 function basis(doc = map): DocumentExpectation {
-  return { ...doc, expectedRevision: readDocumentRevision(doc, db)!.editRevision };
+  return capturedExpectation(doc, readDocumentRevision(doc, db));
 }
 function snapshot() {
   return ["maps", "recipes", "layers", "map_history", "data_tables", "cascade_runs"]
     .map(t => db.prepare(`SELECT * FROM ${t} ORDER BY 1`).all());
 }
-function edit(scope: AccountScope, expected = basis(), name = "After") {
+function edit(scope: AccountScope, expected: DocumentExpectation, name = "After") {
   return commitDocumentChanges(scope, {
     expected: [expected], authorize: () => {},
     apply: () => {

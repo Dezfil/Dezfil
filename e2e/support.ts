@@ -1,3 +1,4 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
 // Shared ground for the verification-depth suites: the house route policy
 // (third-party hosts blocked, deterministic basemap-style stub on
 // request), console tracking against the allowlist, API seeding for
@@ -170,68 +171,31 @@ export async function createMap(page: Page, name: string): Promise<string> {
   }, name);
 }
 
-export async function addLayer(
-  page: Page,
-  mapId: string,
-  name: string,
-  sql: string,
-): Promise<string> {
-  return page.evaluate(
-    async ({ mapId, name, sql }) => {
-      const r = await fetch(`/api/maps/${mapId}/layers`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name, sql }),
-      });
-      if (!r.ok) throw new Error(await r.text());
-      return ((await r.json()) as { id: string }).id;
-    },
-    { mapId, name, sql },
-  );
+/** Named read-then-write setup. Staleness probes use edit-basis.ts directly. */
+export async function addLayer(page: Page, mapId: string, name: string, sql: string): Promise<string> {
+  const result = await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({
+    method: "POST", path: `/api/maps/${mapId}/layers`, body: { name, sql },
+  }));
+  if (result.status !== 201) throw new Error(JSON.stringify(result.json));
+  return result.json.id as string;
 }
 
-export async function patchLayer(
-  page: Page,
-  id: string,
-  body: Record<string, unknown>,
-): Promise<void> {
-  await page.evaluate(
-    async ({ id, body }) => {
-      const r = await fetch(`/api/layers/${id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!r.ok) throw new Error(await r.text());
-    },
-    { id, body },
-  );
+/** New setup intent only; use a separately captured basis for stale probes. */
+export async function patchLayer(page: Page, id: string, body: Record<string, unknown>): Promise<void> {
+  const result = await readThenWriteBrowserSetup(page, `/api/layers/${id}`, () => ({ method: "PATCH", path: `/api/layers/${id}`, body }));
+  if (result.status !== 200) throw new Error(JSON.stringify(result.json));
 }
 
-export async function patchMap(
-  page: Page,
-  id: string,
-  body: Record<string, unknown>,
-): Promise<void> {
-  await page.evaluate(
-    async ({ id, body }) => {
-      const r = await fetch(`/api/maps/${id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!r.ok) throw new Error(await r.text());
-    },
-    { id, body },
-  );
+/** New setup intent only; use a separately captured basis for stale probes. */
+export async function patchMap(page: Page, id: string, body: Record<string, unknown>): Promise<void> {
+  const result = await readThenWriteBrowserSetup(page, `/api/maps/${id}`, () => ({ method: "PATCH", path: `/api/maps/${id}`, body }));
+  if (result.status !== 200) throw new Error(JSON.stringify(result.json));
 }
 
 export async function publishMap(page: Page, mapId: string): Promise<string> {
-  return page.evaluate(async (mapId) => {
-    const r = await fetch(`/api/maps/${mapId}/publish`, { method: "POST" });
-    if (!r.ok) throw new Error(await r.text());
-    return ((await r.json()) as { token: string }).token;
-  }, mapId);
+  const result = await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/publish` }));
+  if (result.status !== 201) throw new Error(JSON.stringify(result.json));
+  return result.json.token as string;
 }
 
 export async function readLayer<T = Record<string, unknown>>(

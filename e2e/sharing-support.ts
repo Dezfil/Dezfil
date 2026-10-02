@@ -1,3 +1,4 @@
+import { captureBasis, fixtureHeaders } from "../scripts/revision-fixtures.mjs";
 // People and shared projects for the sharing specs, arranged through the API.
 // Each spec makes its own people, invited by the browser fixture's admin with
 // a tag no other spec uses, so specs share one scratch store without meeting.
@@ -52,12 +53,16 @@ export async function uploadSentinel(person: Person, name: string, sentinel: str
 export async function createMapWithLayer(person: Person, mapName: string, layers: { name: string; sql: string }[]): Promise<{ id: string; layers: string[] }> {
   const map = await person.api.post("/api/maps", { data: { name: mapName } });
   expect(map.status()).toBe(201);
-  const id = (await map.json()).id as string;
+  const createdMap = await map.json();
+  const id = createdMap.id as string;
+  let basis = captureBasis(createdMap);
   const ids: string[] = [];
   for (const layer of layers) {
-    const created = await person.api.post(`/api/maps/${id}/layers`, { data: layer });
+    const created = await person.api.post(`/api/maps/${id}/layers`, { data: layer, headers: fixtureHeaders(basis) });
     expect(created.status(), await created.text()).toBe(201);
-    ids.push((await created.json()).id);
+    const accepted = await created.json();
+    basis = captureBasis(accepted);
+    ids.push(accepted.id);
   }
   return { id, layers: ids };
 }

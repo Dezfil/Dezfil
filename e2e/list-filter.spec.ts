@@ -1,3 +1,4 @@
+import type { EditBasis } from "../src/lib/edit-basis";
 // The project filter on the three lists (which takes the count off the
 // All projects row and its face and leaves every other row's number
 // where it was): the popover's truth (zero-count projects included; the
@@ -30,19 +31,19 @@ const T_UP = `lf_up_${runId}`;
 const T_LOOSE = `lf_loose_${runId}`;
 const OUT = `lf_out_${runId}`;
 
-const api = (page: Page, method: string, pathName: string, body?: unknown) =>
+const api = (page: Page, method: string, pathName: string, body?: unknown, basis?: EditBasis) =>
   page.evaluate(
-    async ({ method, pathName, body }) => {
+    async ({ method, pathName, body, basis }) => {
       const r = await fetch(pathName, {
         method,
-        headers: body ? { "content-type": "application/json" } : undefined,
+        headers: { ...(body ? { "content-type": "application/json" } : undefined), ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) },
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!r.ok && r.status !== 204) throw new Error(await r.text());
       const text = r.status === 204 ? "" : await r.text();
       return text ? (JSON.parse(text) as unknown) : null;
     },
-    { method, pathName, body },
+    { method, pathName, body, basis },
   );
 
 const apiResult = (
@@ -50,12 +51,13 @@ const apiResult = (
   method: string,
   pathName: string,
   body?: unknown,
+  basis?: EditBasis,
 ) =>
   page.evaluate(
-    async ({ method, pathName, body }) => {
+    async ({ method, pathName, body, basis }) => {
       const response = await fetch(pathName, {
         method,
-        headers: body ? { "content-type": "application/json" } : undefined,
+        headers: { ...(body ? { "content-type": "application/json" } : undefined), ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) },
         body: body ? JSON.stringify(body) : undefined,
       });
       const text = response.status === 204 ? "" : await response.text();
@@ -64,7 +66,7 @@ const apiResult = (
         body: text ? (JSON.parse(text) as unknown) : null,
       };
     },
-    { method, pathName, body },
+    { method, pathName, body, basis },
   );
 
 const filterButton = (page: Page) =>

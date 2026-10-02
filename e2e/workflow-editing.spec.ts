@@ -1,3 +1,4 @@
+import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Page, type Locator, type Request } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
@@ -23,15 +24,15 @@ const districts = `ed_districts_${runId}`; // polygons
 type Json = Record<string, unknown>;
 type Step = { id: string; ordinal: number; operation: string; parameters: Json; proposedParameters: Json | null; output: Json | null; latestAttempt: Json | null; reads: string[] };
 
-async function api(page: Page, method: string, path: string, body?: unknown): Promise<Json> {
+async function api(page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<Json> {
   return page.evaluate(
-    async ({ method, path, body }) => {
-      const r = await fetch(path, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+    async ({ method, path, body, basis }) => {
+      const r = await fetch(path, { method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
       const text = await r.text();
       if (!r.ok) throw new Error(`${method} ${path} → ${r.status}: ${text}`);
       return text ? (JSON.parse(text) as Record<string, unknown>) : {};
     },
-    { method, path, body },
+    { method, path, body, basis },
   );
 }
 const newRecipe = async (page: Page, name: string) => ((await api(page, "POST", "/api/recipes", { name })).recipe as { id: string }).id;

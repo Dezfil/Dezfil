@@ -1,3 +1,4 @@
+import type { EditBasis } from "../src/lib/edit-basis";
 // The 14-A dialog: the Maps action in both presentations and filing
 // states, the picker's ruled semantics, the checklist's truth from the
 // documented dependencies read, both confirm roads with the after-state
@@ -24,19 +25,19 @@ const T_PLAIN = `atp_plain_${runId}`;
 const OUT1 = `atp_out1_${runId}`;
 const OUT2 = `atp_out2_${runId}`;
 
-const api = (page: Page, method: string, pathName: string, body?: unknown) =>
+const api = (page: Page, method: string, pathName: string, body?: unknown, basis?: EditBasis) =>
   page.evaluate(
-    async ({ method, pathName, body }) => {
+    async ({ method, pathName, body, basis }) => {
       const r = await fetch(pathName, {
         method,
-        headers: body ? { "content-type": "application/json" } : undefined,
+        headers: { ...(body ? { "content-type": "application/json" } : undefined), ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) },
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!r.ok && r.status !== 204) throw new Error(await r.text());
       const text = r.status === 204 ? "" : await r.text();
       return text ? (JSON.parse(text) as unknown) : null;
     },
-    { method, pathName, body },
+    { method, pathName, body, basis },
   );
 
 /** The head: the dialog is reachable by its accessible

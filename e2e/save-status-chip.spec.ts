@@ -1,3 +1,4 @@
+import type { EditBasis } from "../src/lib/edit-basis";
 // The save status leaves the path card for the stage.
 //
 // Two things are proven here that page-wide text assertions cannot: that
@@ -46,18 +47,18 @@ const RESERVATION_VIEWPORTS = [
  * overshoot. */
 const LONG_PATH = `Regional accessibility of primary care practices by public transport, weekday morning peak ${runId}`;
 
-const api = (page: Page, method: string, path: string, body?: unknown) =>
+const api = (page: Page, method: string, path: string, body?: unknown, basis?: EditBasis) =>
   page.evaluate(
-    async ({ method, path, body }) => {
+    async ({ method, path, body, basis }) => {
       const r = await fetch(path, {
         method,
-        headers: body ? { "content-type": "application/json" } : undefined,
+        headers: { ...(body ? { "content-type": "application/json" } : undefined), ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) },
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!r.ok && r.status !== 204) throw new Error(await r.text());
       return r.status === 204 ? null : ((await r.json()) as unknown);
     },
-    { method, path, body },
+    { method, path, body, basis },
   );
 
 const card = (page: Page) => page.locator("header > div").first();

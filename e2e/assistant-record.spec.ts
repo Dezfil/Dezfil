@@ -1,3 +1,4 @@
+import type { EditBasis } from "../src/lib/edit-basis";
 // The retained record, its recovery and the confirmation card (3): the
 // record's lines and their inspection after a turn settles, entries
 // surviving navigation among the three pages and a reload during a live
@@ -34,13 +35,13 @@ const paneOpen = (page: Page) => expect(pane(page)).toHaveAttribute("data-open",
 const entries = (page: Page) => pane(page).locator("[data-record-entry]");
 const entryFor = (page: Page, tool: string) => pane(page).locator(`[data-record-entry][data-tool="${tool}"]`);
 type Json = Record<string, unknown>;
-async function api(page: Page, method: string, path: string, body?: unknown): Promise<Json> {
-  return page.evaluate(async ({ method, path, body }) => {
-    const r = await fetch(path, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+async function api(page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<Json> {
+  return page.evaluate(async ({ method, path, body, basis }) => {
+    const r = await fetch(path, { method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
     const text = await r.text();
     if (!r.ok) throw new Error(`${method} ${path} -> ${r.status}: ${text}`);
     return text ? JSON.parse(text) : {};
-  }, { method, path, body });
+  }, { method, path, body, basis });
 }
 async function seed(page: Page) {
   await page.setViewportSize({ width: 1440, height: H });
