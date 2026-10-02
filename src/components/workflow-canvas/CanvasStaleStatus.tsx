@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { SaveStatusChip } from "../ui/SaveStatusChip";
-import { STALE_MESSAGE } from "../document-sequence";
+import { DISCARD_MESSAGE, STALE_MESSAGE } from "../document-sequence";
 import { useUnsavedNavigation } from "../use-unsaved-navigation";
 import { useCanvasRecovery } from "./WorkflowRecovery";
 
@@ -22,7 +22,7 @@ export function CanvasStaleStatus() {
   return <SaveStatusChip data-stale-recovery channels={[
     { key: "stale", announce: true, message: { text: STALE_MESSAGE, tone: "bad",
       ...(!confirm ? { action: { label: "Reload", run: () => setConfirm(true) } } : {}) } },
-    { key: "discard", message: confirm ? { text: "Reload discards your unsaved changes. Copy what you want to keep first.", actions: [
+    { key: "discard", message: confirm ? { text: DISCARD_MESSAGE, actions: [
       ...(notes.length ? [{ label: "Copy note text", run: () => void navigator.clipboard.writeText(notes.map(note => note.text).join("\n\n")) }] : []),
       { label: "Reload", run: () => void reload(), disabled: busy },
       { label: "Not now", run: () => setConfirm(false), disabled: busy },

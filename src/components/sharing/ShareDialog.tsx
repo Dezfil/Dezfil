@@ -379,7 +379,7 @@ export function ShareDialog({
                         the owner
                       </div>
                       <p>
-                        {recipient.name.split(/\s+/)[0]} becomes the owner of {projectName}. You stay as Editor.
+                        {recipient.name.split(/\s+/)[0]} becomes the owner of {projectName}. You stay as Editor. Items keep their owners.
                       </p>
                       <div className={styles.handOverActs}>
                         <Button variant="quiet" onClick={() => setHandOver(null)} disabled={busy}>
@@ -521,7 +521,6 @@ function MemberRow({
             type="button"
             className={styles.remove}
             aria-label={`Remove ${person.name}`}
-            data-hint="Remove"
             disabled={busy}
             onClick={onRemove}
           >

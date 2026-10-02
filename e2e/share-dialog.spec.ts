@@ -121,7 +121,7 @@ test("a project's owner shares it in one sheet and hands it over", async ({ brow
       await page.getByRole("menu", { name: `${ada.name}'s role` }).getByRole("menuitem", { name: "Transfer ownership…" }).click();
       const reveal = dialog(page).locator("[data-hand-over]");
       await reveal.getByRole("combobox", { name: "New owner" }).selectOption({ label: eli.name });
-      await expect(reveal.getByText(`Eli becomes the owner of ${project}. You stay as Editor.`, { exact: true })).toBeVisible();
+      await expect(reveal.getByText(`Eli becomes the owner of ${project}. You stay as Editor. Items keep their owners.`, { exact: true })).toBeVisible();
       await reveal.getByRole("button", { name: "Transfer ownership", exact: true }).click();
       await expect(dialog(page)).toHaveCount(0);
       await expect(page.getByRole("status").filter({ hasText: `${eli.name} owns ${project} now.` })).toBeVisible();

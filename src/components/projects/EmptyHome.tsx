@@ -106,7 +106,7 @@ export function EmptyHome({
         {catalogue.status === "pending" && (
           <div className={styles.stateRow}>
             <Spinner />
-            <span>Reading the workspace…</span>
+            <span>Loading recent items…</span>
           </div>
         )}
         {catalogue.status === "failed" && (

@@ -16,7 +16,7 @@ export function SignInHandOver({ value, onDone }: { value: HandOver; onDone: () 
   return <div className={styles.handOver}>
     <label className={styles.field}><span>Sign-in link</span><TextInput readOnly value={value.signInUrl} autoComplete="off"
       onFocus={event => event.target.select()} /></label>
-    <p className={styles.note}>They choose a password when they open it. Shown once. This instance sends no email, so share it yourself.</p>
+    <p className={styles.note}>Shown once. No email is sent; share this link privately.</p>
     <p className={styles.note}>Expires {new Date(value.expiresAt).toLocaleString()}.</p>
     {error && <ErrorNote message={error} onDismiss={() => setError(null)} />}
     <div className={styles.actions}><Button onClick={() => void copy()}>{copied ? "Copied" : "Copy link"}</Button><Button variant="primary" onClick={onDone}>Done</Button></div>

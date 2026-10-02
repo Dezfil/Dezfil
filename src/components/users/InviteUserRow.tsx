@@ -42,6 +42,7 @@ export function InviteUserRow({ onCreated, onCancel, onReactivate }: {
       <div className={styles.newActions}><Button variant="quiet" disabled={busy} onClick={onCancel}>Cancel</Button>
         <Button variant="primary" type="submit" busy={busy} disabled={!name.trim() || !email.trim()}>Create account</Button></div>
     </form>
+    {admin && <p className={styles.note}>Admin access does not open other people’s private work.</p>}
     {error && <div className={styles.invitationError}><ErrorNote message={error} onDismiss={() => { setError(null); setReactivateId(null); }} />
       {reactivateId && <Button busy={busy} onClick={() => void reactivate()}>Reactivate existing account</Button>}
     </div>}

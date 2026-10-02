@@ -362,12 +362,6 @@
   {
     "file": "src/components/SettingsScreen.module.css",
     "rule": "font-size",
-    "value": "10.5px",
-    "count": 1
-  },
-  {
-    "file": "src/components/SettingsScreen.module.css",
-    "rule": "font-size",
     "value": "12.5px",
     "count": 2
   },
@@ -375,7 +369,7 @@
     "file": "src/components/SettingsScreen.module.css",
     "rule": "font-size",
     "value": "13.5px",
-    "count": 2
+    "count": 1
   },
   {
     "file": "src/components/SourceNav.module.css",
