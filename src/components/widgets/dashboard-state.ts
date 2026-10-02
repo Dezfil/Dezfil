@@ -71,6 +71,7 @@ export function failureProse(
   if (audience === "author") return failure.message || fallback;
   if (failure.code === NETWORK_FAILURE.code) return NETWORK_FAILURE.message;
   if (failure.code === "rate_limited") return "Too many requests. Retry after the indicated delay.";
+  if (failure.code === "catalogue_not_published") return "It reads data this link does not publish.";
   return (
     (ERROR_CATALOGUE as Record<string, string>)[failure.code] ?? fallback
   );
