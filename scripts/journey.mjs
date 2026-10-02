@@ -453,6 +453,48 @@ async function main() {
       ok("a workflow was duplicated into a copy that ran on its own outputs and left the original alone");
     }
 
+    // Promotions advance the editor revision and the admitted run together.
+    // A layout captured before promotion must still be refused afterward.
+    {
+      const before = await api("GET", `/api/recipes/${recipeId}`);
+      const proposedOne = await api("PATCH", `/api/recipes/${recipeId}/steps/${stepOne.id}`, {
+        basis: captureBasis(before.json), body: { parameters: { sql: `SELECT name, riders FROM ${tableName} WHERE 1 = 1`, name: one } },
+      });
+      if (proposedOne.status !== 200) fail("upstream proposal was refused", JSON.stringify(proposedOne.json));
+      const proposedTwo = await api("PATCH", `/api/recipes/${recipeId}/steps/${stepTwo.id}`, {
+        basis: captureBasis(proposedOne.json), body: { parameters: { sql: `SELECT count(*) AS n FROM ${one} WHERE 1 = 1`, name: two } },
+      });
+      if (proposedTwo.status !== 200) fail("downstream proposal was refused", JSON.stringify(proposedTwo.json));
+      const captured = await api("GET", `/api/recipes/${recipeId}/layout`);
+      const staleBasis = captureBasis(captured.json);
+      const promotedRun = await api("POST", `/api/recipes/${recipeId}/runs`, { basis: staleBasis, body: {} });
+      if (promotedRun.status !== 202) fail("proposal run was refused", JSON.stringify(promotedRun.json));
+      const promoted = await settleRecipeRun(recipeId, promotedRun.json.run.id, "own promotions");
+      if (promoted.outcome !== "completed" || promoted.members.some(m => m.state !== "succeeded"))
+        fail("own promotion stopped the remaining members", JSON.stringify(promoted));
+      const accepted = await api("GET", `/api/recipes/${recipeId}`);
+      if (accepted.json.editRevision === captured.json.editRevision || accepted.json.recipe.steps.some(s => s.proposedParameters !== null))
+        fail("successful proposals did not advance the editing revision and become active", JSON.stringify(accepted.json));
+      const staleDrag = { ...layoutDoc, steps: { ...layoutDoc.steps, [stepOne.id]: { x: 980, y: 260 } } };
+      const assertStaleLayout = async (basis, expectedRevision, label) => {
+        const refused = await api("PUT", `/api/recipes/${recipeId}/layout`, { basis, body: staleDrag });
+        if (refused.status !== 409 || refused.json?.error?.code !== "stale_revision" || refused.json?.error?.message !== "This item has changed. Reload it before trying again.")
+          fail(`${label}: stale layout was not refused`, JSON.stringify(refused.json));
+        const stored = await api("GET", `/api/recipes/${recipeId}/layout`);
+        if (!sameLayout(stored.json.layout, layoutDoc) || stored.json.editRevision !== expectedRevision)
+          fail(`${label}: refusal changed the accepted layout or revision`, JSON.stringify(stored.json));
+      };
+      await assertStaleLayout(staleBasis, accepted.json.editRevision, "after promotion");
+      const changed = await api("PATCH", `/api/recipes/${recipeId}/steps/${stepTwo.id}`, {
+        basis: captureBasis(accepted.json), body: { parameters: { sql: `SELECT count(*) AS n FROM ${one} WHERE 2 = 2`, name: two } },
+      });
+      if (changed.status !== 200) fail("concurrent parameter edit was refused", JSON.stringify(changed.json));
+      await assertStaleLayout(captureBasis(accepted.json), changed.json.editRevision, "after parameter edit");
+      const discarded = await api("DELETE", `/api/recipes/${recipeId}/steps/${stepTwo.id}/proposal`, { basis: captureBasis(changed.json) });
+      if (discarded.status !== 200) fail("proposal cleanup was refused", JSON.stringify(discarded.json));
+      ok("own promotions continued the run, and layouts captured before promotion or a parameter edit were refused atomically");
+    }
+
     // The editing contract: names, the order inside an edit,
     // SQL that does not parse, proposals and their discard, removal truth.
     {

@@ -147,6 +147,7 @@ try {
   // ever settle it — an unreconciled one reads watchably active forever.
   let cascadeId = null;
   let recipeId = null;
+  let recipeRevisionBeforeKill = null;
   {
     const recipe = await api("POST", "/api/recipes", { name: "Recovery recipe" });
     if (recipe.status !== 201) {
@@ -204,6 +205,8 @@ try {
     process.exit(1);
   }
   ok("run observed executing");
+
+  if (recipeId) recipeRevisionBeforeKill = (await api("GET", `/api/recipes/${recipeId}`)).json?.editRevision;
 
   // SIGKILL the whole group: no shutdown hook, no chance to tidy up.
   if (!(await killServer(server))) {
@@ -270,6 +273,55 @@ try {
       if (leftovers.length === 0) ok("and it published nothing");
       else bad("the interrupted recipe run left a dataset behind", leftovers.map((t) => t.name).join(","));
     }
+  }
+
+  if (cascadeId && recipeId) {
+    const recovered = await api("GET", `/api/recipes/${recipeId}`);
+    if (!recipeRevisionBeforeKill || recovered.json?.editRevision !== recipeRevisionBeforeKill)
+      bad("recovery changed the workflow's edit revision", JSON.stringify(recovered.json));
+    else ok("recovery bookkeeping left the workflow's edit revision unchanged");
+    const steps = recovered.json?.recipe?.steps ?? [];
+    if (steps.length !== 2) throw new Error("The recovered workflow lost its steps.");
+    const firstId = steps[0].id, secondId = steps[1].id;
+    const fast = await api("PATCH", `/api/recipes/${recipeId}/steps/${firstId}`, {
+      parameters: { sql: "SELECT 1 AS n", name: "interrupted_cascade_output" },
+    }, captureBasis(recovered.json));
+    if (fast.status !== 200) throw new Error(`Could not replace the interrupted definition: ${JSON.stringify(fast.json)}`);
+    const settle = async started => {
+      if (started.status !== 202) throw new Error(`Run refused: ${JSON.stringify(started.json)}`);
+      const deadline = Date.now() + 60_000;
+      for (;;) {
+        const polled = await api("GET", `/api/recipes/${recipeId}/runs/${started.json.run.id}`);
+        if (polled.status !== 200) throw new Error(`Run read refused: ${JSON.stringify(polled.json)}`);
+        if (polled.json.run.outcome !== null) return polled.json.run;
+        if (Date.now() > deadline) throw new Error("The recovered workflow's new run never settled.");
+        await sleep(100);
+      }
+    };
+    const fresh = await settle(await api("POST", `/api/recipes/${recipeId}/runs`, {}, captureBasis(fast.json)));
+    if (fresh.outcome !== "completed") throw new Error(`The fresh run did not complete: ${JSON.stringify(fresh)}`);
+    const read = await api("GET", `/api/recipes/${recipeId}`);
+    const proposal = await api("PATCH", `/api/recipes/${recipeId}/steps/${firstId}`, {
+      parameters: { sql: "SELECT 2 AS n", name: "interrupted_cascade_output" },
+    }, captureBasis(read.json));
+    if (proposal.status !== 200) throw new Error(`First proposal refused: ${JSON.stringify(proposal.json)}`);
+    const secondProposal = await api("PATCH", `/api/recipes/${recipeId}/steps/${secondId}`, {
+      parameters: { sql: "SELECT sum(n) AS n FROM interrupted_cascade_output", name: "interrupted_cascade_downstream" },
+    }, captureBasis(proposal.json));
+    if (secondProposal.status !== 200) throw new Error(`Second proposal refused: ${JSON.stringify(secondProposal.json)}`);
+    const promoted = await settle(await api("POST", `/api/recipes/${recipeId}/runs`, {}, captureBasis(secondProposal.json)));
+    const afterPromotion = await api("GET", `/api/recipes/${recipeId}`);
+    if (promoted.outcome !== "completed" || promoted.members.some(m => m.state !== "succeeded") ||
+        afterPromotion.json.recipe.steps.some(s => s.proposedParameters !== null) ||
+        afterPromotion.json.editRevision === secondProposal.json.editRevision)
+      bad("own promotion did not continue the new run after recovery", JSON.stringify(promoted));
+    else ok("after restart, own promotions advanced the editing revision and the remaining member completed");
+    const answer = await api("POST", "/api/query", { sql: "SELECT n FROM interrupted_cascade_downstream" });
+    if (Number(answer.json?.preview?.[0]?.n) !== 2) bad("the downstream member did not read the promoted output", JSON.stringify(answer.json));
+    else ok("the downstream member read the promoted upstream generation");
+    const old = await api("GET", `/api/recipes/${recipeId}/runs/${cascadeId}`);
+    if (old.json?.run?.outcome !== "interrupted") bad("a new run changed the interrupted record", JSON.stringify(old.json));
+    else ok("the interrupted run's terminal record survived the later successful runs");
   }
 } finally {
   await killServer(server);
