@@ -23,7 +23,8 @@ afterEach(async () => {
 });
 
 it("seeds shared edits through reached reads and the real handlers without a listening transport", async () => {
-  directory = await mkdtemp(`${process.cwd()}/.claude/test-data/sharing-seed-`);
+  if (!process.env.DEZFIL_DATA_DIR) throw new Error("DEZFIL_DATA_DIR must name a scratch directory");
+  directory = await mkdtemp(`${process.env.DEZFIL_DATA_DIR}/sharing-seed-`);
   vi.stubEnv("DEZFIL_DATA_DIR", directory); vi.stubEnv("PORT", "3388");
   closeMetadataDb(); resetQueryInstance();
   vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {

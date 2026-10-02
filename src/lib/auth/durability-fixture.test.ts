@@ -8,7 +8,8 @@ vi.mock("../../../scripts/journey-auth.mjs", async importOriginal => ({
 afterEach(() => vi.unstubAllGlobals());
 
 it("chains the durability seed's layer and publication through accepted revisions", async () => {
-  const dir = await mkdtemp(`${process.cwd()}/.claude/test-data/durability-`);
+  if (!process.env.DEZFIL_DATA_DIR) throw new Error("DEZFIL_DATA_DIR must name a scratch directory");
+  const dir = await mkdtemp(`${process.env.DEZFIL_DATA_DIR}/durability-`);
   const argv = process.argv;
   const covered: string[] = [];
   vi.stubGlobal("fetch", async (input: string | Request, init?: RequestInit) => {
