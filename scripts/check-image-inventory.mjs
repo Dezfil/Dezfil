@@ -34,6 +34,13 @@ export function ingressPresence(lines) {
   const present = new Set(lines.map(line => line.trim()));
   return INGRESS_REPO_PATHS.filter(file => !present.has(`f /app/${file}`)).map(file => `MISSING: /app/${file}`);
 }
+export const RECOVERY_REPO_PATHS = [
+  "scripts/admin-recover.mjs", "src/lib/auth/link-issuance.mjs", "src/lib/auth/recovery-store.mjs", "src/lib/auth/recovery.mjs",
+];
+export function recoveryPresence(lines) {
+  const present = new Set(lines.map(line => line.trim()));
+  return RECOVERY_REPO_PATHS.filter(file => !present.has(`f /app/${file}`)).map(file => `MISSING: /app/${file}`);
+}
 export const MVT_WORKER_IMAGE_PATH = `/app/${MVT_WORKER_REPO_PATH}`;
 export const BROWSER_WORKER_REPO_PATHS = [
   MVT_WORKER_REPO_PATH,
@@ -245,7 +252,7 @@ if (isMain) {
     args[0] === "--listing"
       ? readFileSync(args[1], "utf8").split("\n")
       : listingFromImage(args[0] ?? "dezfil:ci");
-  const violations = [...judge(listing, trackedManifest()), ...cataloguePresence(listing), ...ingressPresence(listing)];
+  const violations = [...judge(listing, trackedManifest()), ...cataloguePresence(listing), ...ingressPresence(listing), ...recoveryPresence(listing)];
   // Positive presence proofs: the browser and trust store required by image
   // export, plus the application-owned parser worker required by
   // every tiled map host. An allowlist only says a path MAY ship;
