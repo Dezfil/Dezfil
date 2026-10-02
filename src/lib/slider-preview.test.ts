@@ -1,3 +1,4 @@
+import { readLayer } from "@/lib/layer-access";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -100,7 +101,7 @@ describe("responsive slider preview input", () => {
       "riders",
       "seen",
     ]);
-    expect(requireLayer(testAccountScope(), layer.id)).toEqual(layer);
+    expect(readLayer(testAccountScope(), layer.id)).toEqual(layer);
   });
 
   it("returns the same bounded subset and reports its source size", async () => {

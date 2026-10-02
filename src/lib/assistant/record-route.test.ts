@@ -1,3 +1,4 @@
+import { documentFacts } from "@/lib/metadata/document-facts";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -179,8 +180,10 @@ describe("the recorded map and change group match the stored history steps", () 
     ]);
     const receipt = await receiptOf(runId);
     expect((receipt.actions as { history?: unknown }[]).map((x) => x.history)).toEqual([a.history, b.history, undefined, again.history]);
-    // The history read still answers availability only; the association above is the record's.
-    expect(await (await api(`/api/maps/${map.id}/history`)).json()).toEqual({ canUndo: true, canRedo: false });
+    // The history read carries its current basis and the original actor.
+    expect(await (await api(`/api/maps/${map.id}/history`)).json()).toMatchObject({ canUndo: true, canRedo: false,
+      ...documentFacts({ kind: "map", id: map.id }), redoTarget: null,
+      undoTarget: { eligible: true, reason: null, steps: [{ targetId: map.id, author: { name: "test-account", sqlName: "test_account" } }] } });
   });
 });
 

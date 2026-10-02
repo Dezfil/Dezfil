@@ -1,3 +1,4 @@
+import { documentFacts } from "@/lib/metadata/document-facts";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -81,7 +82,7 @@ describe("a transferred map's publication", () => {
     expect(await mounted(resolvePublication(token)!.scope)).toEqual(["parks", "roads"]);
 
     const transferred = await call("ada", "transfer", "POST", { to: getAccount("ed")!.sqlName });
-    expect(transferred).toEqual({ status: 200, body: { id: mapId, owner: { name: "ed", sqlName: getAccount("ed")!.sqlName } } });
+    expect(transferred).toEqual({ status: 200, body: { id: mapId, editRevision: documentFacts({ kind: "map", id: mapId }).editRevision, owner: { name: "ed", sqlName: getAccount("ed")!.sqlName } } });
     const map = metadataDb().prepare("SELECT owner_id, home_account_id, publish_token FROM maps WHERE id = ?").get(mapId);
     expect(map).toEqual({ owner_id: "ed", home_account_id: "ada", publish_token: token });
 
@@ -100,7 +101,7 @@ describe("a transferred map's publication", () => {
     expect(await call("ada", "publish", "DELETE")).toMatchObject({ status: 403, body: { error: { code: "forbidden" } } });
     expect(await call("ada", "publish", "POST", { theme: "light" })).toMatchObject({ status: 403 });
     expect(await getPublishedView(token, Date.now())).not.toBeNull();
-    expect(await call("ed", "publish", "DELETE")).toEqual({ status: 204, body: null });
+    expect(await call("ed", "publish", "DELETE")).toEqual({ status: 200, body: documentFacts({ kind: "map", id: mapId }) });
     expect(await getPublishedView(token, Date.now() + 1)).toBeNull();
   }, 60_000);
 });

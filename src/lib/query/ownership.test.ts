@@ -194,6 +194,7 @@ it("keeps pending-adoption publications on their named dataset through first-acc
   for (const [table, saved] of rows) for (const row of saved) {
     if ("owner_id" in row) row.owner_id = null;
     if ("home_account_id" in row) row.home_account_id = null;
+    if ("last_changed_by" in row) row.last_changed_by = null;
     db.prepare(`INSERT INTO ${table} (${Object.keys(row).join(",")}) VALUES (${Object.keys(row).map(() => "?").join(",")})`).run(...Object.values(row));
   }
   resetPublishCache();

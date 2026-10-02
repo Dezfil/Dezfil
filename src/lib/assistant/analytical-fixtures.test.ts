@@ -1,3 +1,4 @@
+import { factsOf, type DocumentFacts } from "@/lib/metadata/document-facts";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { appendFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -228,12 +229,13 @@ const f4Script = (target: string, mapId: string, seed: "none" | "fourth" | "wron
   { text: "This layer now shows parks over one hectare.", toolCalls: [] },
 ];
 async function assertF4(f4: Awaited<ReturnType<typeof seedF4>>) {
-  const map = await json<{ layers: { id: string }[] }>(`/api/maps/${f4.map.id}`);
+  const map = await json<{ layers: { id: string }[] } & DocumentFacts>(`/api/maps/${f4.map.id}`);
   expect(map.layers, "the map still holds exactly three layers").toHaveLength(3);
   expect(map.layers.map((l) => l.id)).toContain(f4.l1);
   expect(await parkIds(f4.l1), "the selected layer's effective ids").toEqual(F4_EXPECTED);
   const after = await f4.snapshot();
-  expect(after, "the two untouched layers").toEqual(f4.before);
+  expect(after, "the two untouched layers").toEqual({ ...f4.before,
+    l2: { ...f4.before.l2, ...factsOf(map) }, l3: { ...f4.before.l3, ...factsOf(map) } });
 }
 
 describe("F1: classification", () => {

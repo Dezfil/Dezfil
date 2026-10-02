@@ -88,12 +88,18 @@ export async function coreJourney(journey, { packageChecks = false } = {}) {
     const data = await call('export_layer_data', { id: layer.id, format: 'geoparquet' });
     const parquet = Buffer.from(data.attachment.content_base64, 'base64');
     assert.equal(parquet.subarray(0, 4).toString('latin1'), 'PAR1'); assert.equal(parquet.length, data.attachment.size_bytes);
-    assert.deepEqual(await call('get_history', { id: map.id }), { canUndo: true, canRedo: false });
+    const history = await call('get_history', { id: map.id });
+    assert.deepEqual({ canUndo: history.canUndo, canRedo: history.canRedo }, { canUndo: true, canRedo: false });
+    assert.match(history.editRevision, /^[0-9a-f]{32}$/);
+    assert.equal(history.undoTarget.eligible, true); assert.equal(history.redoTarget, null);
     if (packageChecks) {
       assert.equal(stored.inLegend, true); assert.equal(stored.legendTitle, 'Park area'); assert.deepEqual(stored.legendAttrs, { fill: 'Area (ha)' });
       await call('undo_change', { id: map.id });
       assert.deepEqual(layerState(await call('get_layer', { id: layer.id })), original, 'grouped undo restores SQL, style and legend together');
-      assert.deepEqual(await call('get_history', { id: map.id }), { canUndo: true, canRedo: true });
+      const undone = await call('get_history', { id: map.id });
+      assert.deepEqual({ canUndo: undone.canUndo, canRedo: undone.canRedo }, { canUndo: true, canRedo: true });
+      assert.notEqual(undone.editRevision, history.editRevision);
+      assert.equal(undone.redoTarget.eligible, true);
       await call('redo_change', { id: map.id });
       assert.deepEqual(layerState(await call('get_layer', { id: layer.id })), layerState(stored), 'grouped redo restores the same layer state');
       assert.deepEqual(names(await call('run_sql', { sql: stored.sql })), refinedParkNames);

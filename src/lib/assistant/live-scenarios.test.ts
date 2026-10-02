@@ -161,7 +161,10 @@ for (const provider of ["openai", "anthropic"] as const) describe.skipIf(Boolean
     const result = await api(`/api/layers/${context.selectedLayerId}/export/geojson`);
     const otherResult = await api(`/api/layers/${otherLayer}/export/geojson`);
     evidence.outcomes = { selected, other, result, otherResult, receipt: await api(`/api/assistant/runs/${id}`) };
-    expect(other).toEqual(otherBefore); expect(otherResult.features).toEqual(otherResultBefore.features);
+    expect(other).toEqual({ ...otherBefore, editRevision: selected.editRevision,
+      lastChangedAt: selected.lastChangedAt, lastChangedBy: selected.lastChangedBy });
+    expect(other.editRevision).not.toBe(otherBefore.editRevision);
+    expect(otherResult.features).toEqual(otherResultBefore.features);
     expect(result.features).toHaveLength(1);
     expect(Number(result.features[0].properties.population)).toBe(200);
     const expected = before.features.find((feature: { properties: { population: number } }) => Number(feature.properties.population) === 200);
