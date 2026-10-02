@@ -2,12 +2,13 @@ import { randomUUID } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
 import { getAccount, insertAccount, listAccounts } from "@/lib/metadata/accounts";
-import { insertLink, revokeLinks, revokeSessions } from "@/lib/metadata/auth-credentials";
+import { revokeSessions } from "@/lib/metadata/auth-credentials";
 import { identityFields, requireAvailableEmail } from "./accounts";
-import { newSecret, requireCurrentActor, secretHash, type AuthContext } from "./credentials";
+import { requireCurrentActor, type AuthContext } from "./credentials";
 import { AuthError } from "./errors";
+import { issueLink, revokeSignInCredentials } from "./link-issuance.mjs";
 
-export const LINK_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
+export { LINK_LIFETIME_MS } from "./link-issuance.mjs";
 
 export function requireAdmin(context: AuthContext, db: Database, now: number) {
   const account = requireCurrentActor(context, db, now);
@@ -16,11 +17,7 @@ export function requireAdmin(context: AuthContext, db: Database, now: number) {
 }
 
 function makeLink(accountId: string, kind: "invite" | "reset", db: Database, now: number) {
-  const secret = newSecret("link");
-  revokeLinks(accountId, now, db);
-  insertLink({ id: randomUUID(), account_id: accountId, kind, secret_hash: secretHash(secret),
-    created_at: now, expires_at: now + LINK_LIFETIME_MS, consumed_at: null, revoked_at: null }, db);
-  return { account: getAccount(accountId, db)!, secret, expiresAt: now + LINK_LIFETIME_MS };
+  return { account: getAccount(accountId, db)!, ...issueLink(accountId, kind, db, now) };
 }
 
 export function adminAccounts(context: AuthContext, db: Database = metadataDb(), now = Date.now()) {
@@ -44,9 +41,7 @@ export function issueSignInLink(context: AuthContext, accountId: string, db: Dat
     requireAdmin(context, db, now);
     const account = getAccount(accountId, db);
     if (!account) throw new AuthError("not_found", "Account not found.", 404);
-    db.prepare("UPDATE accounts SET password_hash = NULL, updated_at = ? WHERE id = ?")
-      .run(new Date(now).toISOString(), accountId);
-    revokeSessions(accountId, now, null, db);
+    revokeSignInCredentials(accountId, db, now);
     return makeLink(accountId, account.status === "invited" ? "invite" : "reset", db, now);
   }).immediate();
 }

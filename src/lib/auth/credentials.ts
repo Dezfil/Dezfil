@@ -1,10 +1,12 @@
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
 import { getAccount, type Account } from "@/lib/metadata/accounts";
 import { insertSession, insertToken, listAccountTokens, revokeAccountToken, sessionByHash,
   sessionById, tokenByHash, tokenById } from "@/lib/metadata/auth-credentials";
 import { AuthError } from "./errors";
+import { newSecret, secretHash } from "./link-issuance.mjs";
+export { newSecret, secretHash } from "./link-issuance.mjs";
 
 export const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 export interface AuthContext {
@@ -12,13 +14,6 @@ export interface AuthContext {
   /** Expiry of a server-issued bearer bound to this session or token. */
   delegationExpiresAt?: number;
   credential: { kind: "session" | "token"; id: string };
-}
-
-export function secretHash(secret: string): string {
-  return createHash("sha256").update(secret).digest("hex");
-}
-export function newSecret(kind: "session" | "token" | "link"): string {
-  return `dz_${kind}_${randomBytes(32).toString("base64url")}`;
 }
 
 /** Called inside the account transaction after credential verification. */
