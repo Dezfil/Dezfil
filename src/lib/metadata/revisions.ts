@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import { ApiError } from "@/lib/api/errors";
 import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
-import { canReach, requirePermitted } from "@/lib/auth/reach";
+import { requirePermitted } from "@/lib/auth/reach";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { metadataDb } from "./db";
 
@@ -26,7 +26,6 @@ const newRevision = () => randomBytes(16).toString("hex");
 const revisionPattern = /^[0-9a-f]{32}$/;
 const recordings = new WeakMap<Database, {
   actor: string;
-  declared: Set<string> | null;
   changes: CoveredChange[];
 }>();
 
@@ -101,7 +100,6 @@ export function recordDocumentChanges(scope: AccountScope, changes: readonly Cov
   if (pending) {
     if (pending.actor !== actor) throw new Error("A document commit has one acting account.");
     for (const change of unique.values()) {
-      if (pending.declared && !pending.declared.has(keyFor(change))) throw new Error("A covered change must have a declared revision basis.");
       pending.changes.push(change);
     }
     return;
@@ -119,57 +117,10 @@ export function recordDocumentChanges(scope: AccountScope, changes: readonly Cov
   }
 }
 
-/** Compare the read basis and commit synchronous content, history and facts
- * under one write transaction. Async validation/staging happens before entry;
- * authorize rechecks its admission here before any revision is disclosed.
- * An empty changes list is a genuine no-op and still checks every basis.
- * No refusal rereads or replays the caller's payload. */
-export function commitDocumentChanges<T>(scope: AccountScope, operation: {
-  expected: readonly DocumentExpectation[];
-  authorize: (db: Database) => void;
-  apply: (db: Database) => { value: T; changes: readonly CoveredChange[] };
-}, db: Database = metadataDb()): { value: T; revisions: DocumentRevision[] } {
-  if (recordings.has(db)) throw new Error("Use one document commit boundary for a compound operation.");
-  return db.transaction(() => {
-    const actor = requireAccountScope(scope, db);
-    for (const document of operation.expected) {
-      if (document.kind === "map") requirePermitted(scope, "map", document.id, document.action ?? "edit", db);
-      else requirePermitted(scope, "workflow", document.id, document.action ?? "edit", db);
-    }
-    operation.authorize(db);
-    const declared = new Map<string, DocumentKey>();
-    for (const document of operation.expected) {
-      const expected = validateEditRevision(document.expectedRevision);
-      const current = readDocumentRevision(document, db);
-      if (current?.editRevision !== expected) {
-        throw new ApiError("stale_revision", ERROR_CATALOGUE.stale_revision, 409);
-      }
-      declared.set(keyFor(document), document);
-    }
-    const pending = { actor, declared: new Set(declared.keys()), changes: [] as CoveredChange[] };
-    recordings.set(db, pending);
-    let value: T;
-    try {
-      const applied = operation.apply(db);
-      value = applied.value;
-      recordDocumentChanges(scope, applied.changes, db);
-    } finally {
-      recordings.delete(db);
-    }
-    recordDocumentChanges(scope, pending.changes, db);
-    const revisions: DocumentRevision[] = [];
-    for (const document of declared.values()) {
-      if (!canReach(scope, document.kind, document.id, db)) continue;
-      const current = readDocumentRevision(document, db);
-      if (current) revisions.push(current);
-    }
-    return { value, revisions };
-  }).immediate();
-}
-
 /** Internal composition for creation and lifecycle operations. Nested child
  * recorders contribute to one content transaction and each document advances
- * once. Request preconditions, when present, belong to commitDocumentChanges. */
+ * once. Routes check their preconditions again inside these synchronous
+ * transactions; the application has one metadata writer process. */
 export function recordDocumentBatch<T>(scope: AccountScope, apply: () => T, db: Database = metadataDb()): T {
   return db.transaction(() => {
     const actor = requireAccountScope(scope, db);
@@ -180,7 +131,7 @@ export function recordDocumentBatch<T>(scope: AccountScope, apply: () => T, db: 
       try { return apply(); }
       catch (error) { outer.changes.length = length; throw error; }
     }
-    const pending = { actor, declared: null, changes: [] as CoveredChange[] };
+    const pending = { actor, changes: [] as CoveredChange[] };
     recordings.set(db, pending);
     let value: T;
     try { value = apply(); }
