@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import type { FillPaint, LayerStyle } from "@/lib/style/style";
-import type { FieldStats, LayerFieldsResult } from "@/lib/layer-service";
+import type { FieldStats } from "@/lib/layer-service";
 import {
   defaultViz, isAggregated, isOdViz, ELEVATION_HEIGHT,
   type Aggregate, type AggregatedViz, type CellElevation, type LayerViz, type OdViz,
@@ -12,6 +12,7 @@ import { renderGeometryKind } from "../render-data";
 import type { StylePanelProps } from "../StylePanel";
 import { useStyleChannels } from "./use-style-channels";
 import { useLabelSetters } from "./use-label-setters";
+import { useLayerFields } from "./use-layer-fields";
 
 /** Stable select value for an endpoint, independent of object key order. */
 export function endpointKey(endpoint: OdEndpoint | null): string {
@@ -39,27 +40,13 @@ export function endpointLabel(endpoint: OdEndpoint): string {
 export function useStyleEditing({
   layer, render, onStyle, onStylePreview, onStyleCommit, onViz, onAggregatedFillPreview, onAggregatedFillCommit, onAggregationPreview, onAggregationCommit,
 }: Pick<StylePanelProps, "layer" | "render" | "onStyle" | "onStylePreview" | "onStyleCommit" | "onViz" | "onAggregatedFillPreview" | "onAggregatedFillCommit" | "onAggregationPreview" | "onAggregationCommit">) {
-  const [fields, setFields] = useState<LayerFieldsResult | null>(null);
+  const fields = useLayerFields(layer);
   const { busy, channelError, dismissChannelError, classify, resolveScale } =
     useStyleChannels(layer.id);
   const style = layer.style;
   const viz = layer.viz;
   const aggregated = isAggregated(viz);
   const kind = renderGeometryKind(render);
-
-  // The styling columns depend on the SQL (editable via the API/assistant)
-  // and the viz (aggregated layers expose value/count).
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const response = await fetch(`/api/layers/${layer.id}/fields`);
-      if (response.ok && !cancelled)
-        setFields((await response.json()) as LayerFieldsResult);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [layer.id, layer.sql, viz.type]);
 
   const patch = (partial: Partial<LayerStyle>) =>
     onStyle({ ...style, ...partial });

@@ -5,7 +5,7 @@
 // Environment: the documented gate (isolated server, fresh data dir).
 // Run with DEZFIL_BASE_URL at the server.
 import { test, expect } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import type { Page, Route } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { isAllowedConsoleError } from "./console-allowlist";
@@ -136,10 +136,28 @@ test("switches for states, checkboxes for lists — roles and persistence per su
     page.getByRole("switch", { name: "Extrude cells (3D)" }),
   ).toBeVisible({ timeout: 15_000 });
 
-  await page.getByRole("button", { name: "Points", exact: true }).click();
   const autoTooltip = page
     .getByRole("switch", { name: "Automatic (first fields)" })
     .first();
+  // Keep the visualization save pending so the field list cannot read
+  // the old hexbin schema and offer value/count for the point layer.
+  let releasePoints!: () => void;
+  const pointsGate = new Promise<void>(resolve => { releasePoints = resolve; });
+  const holdPoints = async (route: Route) => {
+    const request = route.request();
+    if (request.method() === "PATCH" && request.postDataJSON()?.viz?.type === "points") await pointsGate;
+    await route.continue();
+  };
+  await page.route("**/api/layers/*", holdPoints);
+  try {
+    await page.getByRole("button", { name: "Points", exact: true }).click();
+    await expect(autoTooltip).toBeDisabled();
+    releasePoints();
+    await expect(autoTooltip).toBeEnabled();
+  } finally {
+    releasePoints();
+    await page.unroute("**/api/layers/*", holdPoints);
+  }
   await expect(autoTooltip).toBeVisible();
   await expect(autoTooltip).toBeChecked();
   await autoTooltip.click();
