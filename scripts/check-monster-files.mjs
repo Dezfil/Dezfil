@@ -23,7 +23,7 @@ const CEILINGS = {
   // The map canvas. Extractions so far: capture, the text sublayer, the
   // basemap content-group lifecycle, tiled-layer construction, pointer
   // interaction, camera constraints, the shared paint readout and overlay lifetime.
-  "src/components/map/MapCanvas.tsx": 1366,
+  "src/components/map/MapCanvas.tsx": 1260,
   // Layer service. Extractions so far: layer geometry inspection, the
   // deletion cascade, field/schema/statistics queries, creation, access, rendering and slider previews,
   // and the write admission.
