@@ -93,3 +93,7 @@ export function documentedRoutes(): Implemented[] {
 
 export const key = (r: Implemented) => `${r.method.toUpperCase()} ${r.path}`;
 
+/** Resource semantics exclude automatic transport methods, which have their own gate inventory. */
+export function resourceOperations<T>(operations: Record<string, T>): T[] {
+  return Object.entries(operations).filter(([method]) => method !== "head" && method !== "options").map(([, operation]) => operation);
+}

@@ -1,3 +1,4 @@
+import { resourceOperations } from "../../../test-support/api-route-inventory";
 import { expect, it } from "vitest";
 import { buildOpenApiDocument } from "./openapi";
 import { buildTools } from "@/lib/tools/tools";
@@ -5,7 +6,7 @@ it("publishes the layer boundary its map's reach decides and the parent-referenc
   const document = buildOpenApiDocument() as unknown as { paths: Record<string, Record<string, { description: string; responses: Record<string, unknown> }>> };
   for (const [path, methods] of Object.entries(document.paths)) {
     if (!path.startsWith("/api/layers/") && path !== "/api/maps/{id}/layers") continue;
-    for (const operation of Object.values(methods)) {
+    for (const operation of resourceOperations(methods)) {
       expect(operation.description, path).toContain("Unreached, missing or mismatched parent/child identities return not_found");
       expect(operation.description, path).toContain("Layers and widgets follow their map: everyone who reaches the map reads and evaluates them, and its owner, the project's owner and its editors change them.");
       expect(operation.description, path).not.toContain("those its content changes are open to");

@@ -1,0 +1,61 @@
+import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+import path from 'node:path';
+import { contractSource } from './contract-source.mjs';
+
+const methods = new Set(['get', 'put', 'post', 'delete', 'patch', 'head', 'options', 'trace']);
+const normalize = value => value.replace(/\s+/g, ' ').trim();
+const equal = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+export function measureContract(document, tools) {
+  const operations = Object.entries(document.paths).flatMap(([path, item]) => Object.entries(item)
+    .filter(([method]) => methods.has(method)).map(([method, operation]) => ({ path, method, operation })));
+  return {
+    paths: Object.keys(document.paths).length, operations: operations.length,
+    schemas: Object.keys(document.components.schemas).length, errors: Object.keys(document['x-error-codes']).length,
+    tools: tools.length, exclusions: operations.filter(({ operation }) => operation['x-tool'] === false).length,
+    operationsWithTools: operations.filter(({ operation }) => operation['x-tool'] !== false),
+  };
+}
+/** Compare the committed reader text, never two newly generated summaries. */
+export function checkContractDocs(document, tools, docs) {
+  const measured = measureContract(document, tools), problems = [];
+  const count = (label, seen, expected) => {
+    if (seen === undefined || Number(seen) !== expected) problems.push(`${label}: reader says ${seen ?? 'nothing'}, contract requires ${expected}`);
+  };
+  const api = docs.api.match(/\*\*(\d+) paths, (\d+) operations, (\d+) named\s+component schemas\.\*\*/);
+  count('API paths', api?.[1], measured.paths);
+  count('API operations', api?.[2], measured.operations);
+  count('API schemas', api?.[3], measured.schemas);
+  count('API errors', docs.api.match(/There are \*\*(\d+)\*\* codes/)?.[1], measured.errors);
+  for (const [label, expected] of [['Documented operations', measured.operations], ['Operations that become tools', measured.tools], ['Deliberately excluded', measured.exclusions]]) {
+    count(`MCP ${label}`, docs.mcp.match(new RegExp(`\\| ${label} \\| (\\d+) \\|`))?.[1], expected);
+  }
+  const catalogue = document['x-error-codes'];
+  const enumCodes = document.components.schemas.Error.properties.error.properties.code.enum;
+  if (!equal([...enumCodes].sort(), Object.keys(catalogue).sort())) problems.push('Error schema and source catalogue disagree');
+  const block = docs.api.match(/<!-- error-catalogue:start -->([\s\S]*?)<!-- error-catalogue:end -->/)?.[1] ?? '';
+  const rows = [...block.matchAll(/^\| `([^`]+)` \| (.*) \|$/gm)].map(([, code, meaning]) => [code, normalize(meaning.replaceAll('\\|', '|'))]);
+  const documented = new Map(rows);
+  if (rows.length !== documented.size) problems.push('Duplicate reader error catalogue entry');
+  if (!equal([...documented.keys()].sort(), Object.keys(catalogue).sort())) problems.push('Reader error catalogue has missing or extra codes');
+  for (const [code, meaning] of Object.entries(catalogue)) {
+    if (documented.get(code) !== normalize(meaning)) problems.push(`Reader error meaning differs: ${code}`);
+  }
+  const contractTools = measured.operationsWithTools.map(({ path, method, operation }) => `${method} ${path} ${operation['x-tool']}`).sort();
+  const derivedTools = tools.map(tool => `${tool.method} ${tool.path} ${tool.name}`).sort();
+  if (!equal(contractTools, derivedTools)) problems.push('Derived tools differ from contract operations');
+  return problems;
+}
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const { document, tools } = await contractSource();
+  const directory = process.argv.includes('--docs-dir') ? process.argv[process.argv.indexOf('--docs-dir') + 1] : 'docs';
+  const docs = { api: readFileSync(path.join(directory, 'api.md'), 'utf8'), mcp: readFileSync(path.join(directory, 'mcp.md'), 'utf8') };
+  const problems = checkContractDocs(document, tools, docs);
+  for (const problem of problems) console.error(problem);
+  if (problems.length) process.exitCode = 1;
+  else {
+    const counts = measureContract(document, tools);
+    delete counts.operationsWithTools;
+    console.log('PASS: reader counts and error catalogue match the contract ' + JSON.stringify(counts));
+  }
+}

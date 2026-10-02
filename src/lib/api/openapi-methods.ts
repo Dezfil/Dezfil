@@ -4,6 +4,7 @@ import { ERROR_RESPONSE, op } from "./openapi-helpers";
 type Operation = { tags?: string[]; parameters?: unknown[]; responses: Record<string, unknown> };
 /** Describe automatic methods explicitly, without adding route handlers or tools. */
 export function withAutomaticMethods<T extends { paths: Record<string, Record<string, Operation>> }>(document: T): T {
+  document = structuredClone(document);
   for (const methods of Object.values(document.paths)) {
     if (methods.get && !methods.head) {
       methods.head = op({ summary: "Read response headers", tag: methods.get.tags?.[0] ?? "System", tool: false,
@@ -16,7 +17,7 @@ export function withAutomaticMethods<T extends { paths: Record<string, Record<st
         })),
       });
     }
-    const allow = [...Object.keys(methods).map(method => method.toUpperCase()), "OPTIONS"].sort().join(", ");
+    const allow = [...new Set([...Object.keys(methods).map(method => method.toUpperCase()), "OPTIONS"])].sort().join(", ");
     const headers = { Allow: { description: "Exactly the documented methods for this path.", schema: { type: "string", const: allow } } };
     methods.options = op({ summary: "Read allowed methods", tag: "System", tool: false,
       description: "Automatic OPTIONS returns no body and the Allow header. Authentication is required.", effects: READ_ONLY,

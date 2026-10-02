@@ -108,7 +108,9 @@ and the entries `buildTools()` returns.
 
 ## The parity check
 
-The counts agree because a test makes them agree. `src/lib/tools/tools.test.ts`
+`npm run lint:contract-docs` compares this page’s numbers with the contract and
+derived tools, and the API guide’s catalogue with the source error catalogue.
+It fails on drift in the reader-facing text. `src/lib/tools/tools.test.ts`
 compares the derived tool set against the documented operations and fails on
 any difference in either direction. It extends the chain that
 `src/lib/api/parity.test.ts` already enforces: route files match the OpenAPI
@@ -275,9 +277,8 @@ reach. Run starts require the plan's revision; cancellation needs none. See
 [the API guide](api.md#editing-with-revisions) for attribution, shared undo,
 continuing-run behavior and the bounded exceptions.
 
-The tool set has 136 tools. The 219 exclusions include 192 automatic HEAD/OPTIONS
-operations and 27 entry, transport, renderer and browser operations. The measured
-counts above include all 355 documented HTTP operations.
+The exclusions include automatic HEAD/OPTIONS, entry, transport, renderer and
+browser operations. The measured counts above include all documented HTTP methods.
 
 ### Executable read and successive tool writes
 

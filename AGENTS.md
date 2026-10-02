@@ -79,8 +79,10 @@ source), `lint:readme` (the configuration table covers the real environment
 surface, both directions), `lint:size` (the oversized modules below),
 `lint:stage-edge` (the builder stage's left edge stays one custom
 property), `lint:wheelhouse`, `lint:tokens` and `lint:icons` (the design
-language), `lint:specimen` (the specimen still matches its sources)
-and `lint:plugin` (the generated plugin guidance is current). Run the ones a
+language), `lint:specimen` (the specimen still matches its sources),
+`lint:plugin` (the generated plugin guidance is current), `lint:contract-docs`
+(reader counts and error catalogue match the contract) and `lint:reader-docs`
+(no superseded guidance or missing revision examples). Run the ones a
 change can plausibly break, and all of them before calling it done.
 
 [The pipeline](.github/workflows/ci.yml) is the definition of green: it runs

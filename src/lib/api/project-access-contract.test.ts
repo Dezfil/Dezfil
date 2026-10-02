@@ -7,7 +7,7 @@ it("publishes project reach, owner and role, atomic member checks and delete-unf
   const document = buildOpenApiDocument() as unknown as { paths: Record<string, Record<string, { description: string; responses: Record<string, unknown> }>> };
   let count = 0;
   for (const path of paths) for (const [method, operation] of Object.entries(document.paths[path])) {
-    if (path.endsWith("/export") && method === "get") continue;
+    if (method === "head" || method === "options" || (path.endsWith("/export") && method === "get")) continue;
     expect(operation.description).toContain("A project is reached by its owner and by its people, its viewers and editors.");
     expect(operation.description).toContain("name each project's owner and the caller's role");
     expect(operation.description).not.toContain("belong only to the authenticated account");

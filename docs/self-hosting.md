@@ -17,8 +17,8 @@ Admins invite people from Users. Dezfil sends no outbound mail: the admin copies
 and privately delivers a single-use invitation or reset link, valid for seven days.
 The recipient chooses a password of at least eight characters; very common
 passwords are refused. Issuing a replacement link invalidates the previous links,
-password and browser sessions. Ordinary resets leave API tokens valid; revoke
-those separately in Settings when needed. Deactivated accounts cannot redeem a link.
+password and browser sessions. Ordinary resets leave API tokens valid; their owner
+can revoke those separately in Settings. Deactivated accounts cannot redeem a link.
 
 Each account owns its maps, datasets, workflows, projects and connections.
 Projects are the sharing boundary. A project owner gives another account a

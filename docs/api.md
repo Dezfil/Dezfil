@@ -26,6 +26,8 @@ description cannot drift from the server.
 
 Measured from the current source: **124 paths, 355 operations, 162 named
 component schemas.** Operations include supported automatic HEAD and OPTIONS.
+`npm run lint:contract-docs` measures these numbers and checks the catalogue below
+against the contract; changing only the reader-facing text fails the gate.
 
 ## Base path and access
 
@@ -1281,8 +1283,8 @@ Reached map/workflow responses carry `lastChangedBy` (display `name` and fixed
 `sqlName`, or null for Unknown) and `lastChangedAt`, separately from ownership
 and general update time. Actors come from credentials, including token and
 assistant work. Legacy ownership adoption does not invent an author. No-ops,
-refusals, camera saves and derived writes do not change attribution. Historical
-names remain visible to those who still reach the record after an actor leaves.
+refusals, camera saves and derived writes do not change attribution. Actor identities remain visible to those who still reach the record after an
+actor leaves or is deactivated.
 
 Map undo uses one shared timeline: it reverts the latest applied contiguous group
 by one actor, whoever that actor was. Read `undoTarget`/`redoTarget`, their authors,

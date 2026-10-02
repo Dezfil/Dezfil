@@ -263,6 +263,12 @@ directory stops each instance fetching its own extensions.
 `npm run lint` runs ESLint over the repository. Each named gate holds one
 rule:
 
+- `npm run lint:contract-docs` compares the API and MCP guides’ reader-facing
+  counts and complete error catalogue with the served contract and derived tools.
+- `npm run lint:reader-docs` rejects superseded account/configuration copy and
+  revision examples missing their preconditions or accepted-result chain. The
+  unit suite also executes those examples and seeds missing/stale revisions.
+
 - `npm run lint:hygiene` rejects a NUL byte in any tracked text file, which
   makes git and grep treat a source file as binary.
 - `npm run lint:readme` compares the settings the server reads from the

@@ -1,3 +1,4 @@
+import { resourceOperations } from "../../../test-support/api-route-inventory";
 import { expect, it } from "vitest";
 import { buildOpenApiDocument } from "./openapi";
 import { AUTH_SECURITY } from "./openapi-auth";
@@ -130,7 +131,7 @@ it("documents the directory search as the one minimal exception to admin-only ac
   expect(person.additionalProperties).toBe(false);
   expect(JSON.stringify(find.outputSchema)).not.toMatch(/"(email|isAdmin|id|status)":/);
   for (const [path, methods] of Object.entries(paths).filter(([path]) => path.startsWith("/api/users"))) {
-    for (const users of Object.values(methods)) expect(users.description, path).toContain("Requires a current admin account");
+    for (const users of resourceOperations(methods)) expect(users.description, path).toContain("Requires a current admin account");
   }
 });
 
