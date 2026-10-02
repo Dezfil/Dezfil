@@ -68,7 +68,16 @@ export function buildOpenApiDocument() {
         "User SQL reads named datasets only; direct or indirect file reads and path discovery are refused. " +
         "Cookie mutations require the same trusted Origin. Identity-bearing responses, " +
         "including authentication refusals, are private, no-store. Only entry, readiness " +
-        "and the token-scoped read-only published projection permit anonymous access.",
+        "and the token-scoped read-only published projection permit anonymous access. " +
+        "Maps and workflows have one durable editRevision, paired with state on document, child and list reads. " +
+        "Covered writes require X-Edit-Revision (MCP expected_revision); order writes and chain the accepted JSON result. " +
+        "Missing or malformed revisions return 400 invalid_request. Stale revisions return 409 stale_revision: This item has changed. Reload it before trying again. " +
+        "Refusal changes nothing. Reload explicitly and compose a new edit, never replay an old payload under a fresh token. " +
+        "This breaks unversioned writers and clients expecting bodyless covered successes. Whole-document deletion has no surviving revision. " +
+        "Viewport-only saves, informational thumbnail revisions and run cancellation keep their documented exceptions. " +
+        "Attribution names the last accepted actor, not the owner; legacy authors can be unknown. Shared map undo retains original authors. " +
+        "Run starts use the plan revision; admitted runs track executable definitions, preserving concurrent layout and lifecycle changes. " +
+        "Unsupported methods on documented paths return 405 method_not_allowed with an exact Allow header after authentication. HEAD is bodyless and OPTIONS reports Allow.",
     },
     tags: [
       { name: "Accounts", description: "Local accounts and authentication." },

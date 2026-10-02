@@ -80,6 +80,18 @@ export const GUIDANCE_SECTIONS: readonly { id: string; audience: 'shared' | 'ass
       "an admin can revoke a deactivated owner's known publication token without gaining access to the map.",
   },
   {
+    id: "edit-revisions",
+    audience: "package",
+    text:
+      "Read a map or workflow and keep its editRevision with the state it describes. Covered tools require expected_revision; child writes use their parent's revision. " +
+      "Send covered writes to one document in order, waiting for each accepted result and using its returned editRevision for the next edit. " +
+      "Compound filing carries each selected document's revision in the documented members or resource input. Whole creation and copying to a new identity need no destination revision. " +
+      "Missing revisions return invalid_request; stale_revision changes nothing. After refusal, read again explicitly, inspect current state and compose a new edit. " +
+      "Never silently replay the refused payload with a fresh token. A token does not grant permission. Complete deletion has no resulting revision; a transfer may end your reach. " +
+      "Viewport-only saves, thumbnail capture and run cancellation are exceptions. Read shared undo targets and eligibility before replay; start runs with the revision returned by planning. " +
+      "Last-change actors and run initiators are separate from ownership; unknown historical authors stay unknown.",
+  },
+  {
     id: "grounding",
     audience: "assistant",
     text:

@@ -61,7 +61,8 @@ An operation that declares `x-tool: false` is deliberately excluded, and the
 exclusion is visible in the document rather than hidden in the derivation.
 The excluded ones are the assistant's own endpoints, the MCP endpoint
 itself, raw tile and thumbnail reads, and a handful of calls that only make
-sense to a browser.
+sense to a browser. Automatic HEAD and OPTIONS are also excluded: they describe
+HTTP transport behavior and create no extra tools.
 
 The settings read and update are generated as `get_settings` and
 `update_settings`. They address the authenticated account's display name
@@ -96,9 +97,9 @@ process and reused.
 
 | | |
 |---|---|
-| Documented operations | 163 |
+| Documented operations | 355 |
 | Operations that become tools | 136 |
-| Deliberately excluded | 27 |
+| Deliberately excluded | 219 |
 
 Measured by building the OpenAPI document and the tool set from
 `src/lib/api/openapi.ts` and `src/lib/tools/tools.ts` and counting the
@@ -247,3 +248,70 @@ same journey runs inside the unit suite against an in-process client, so the
 path from a stock MCP client through the endpoint to a real route is covered
 without a browser. Point the script at an instance on its own data
 directory, so its writes stay out of working data.
+
+## Editing with revisions
+
+A token acts as its account, with the same owner, Viewer and Editor permissions as
+REST. Admin status does not bypass private ownership. Sharing is through projects;
+connections stay private. SQL in a map or workflow uses that document's SQL home.
+Use the `qualifiedName` from dataset listings for another person's reachable data,
+and retain captured SQL origins when moving SQL between contexts.
+
+Read the map, layer, workflow or relevant listing and retain its `editRevision`.
+Covered tools require `expected_revision`; map updates require it whenever the
+body changes content, including unchanged values, but not for viewport-only saves.
+Each accepted result preserves the API JSON and its resulting revision in
+`structuredContent.result`, also represented in the text result. Chain successive
+writes in order using that returned revision. A child edit advances its parent's
+token. For compound filing, supply each selected map/workflow revision in the
+schema's `members` or resource body rather than one header argument.
+
+Missing revisions are rejected with `invalid_request`; stale ones return
+`stale_revision` and change nothing. Read again explicitly, inspect the new state
+and compose a new edit before trying again. Never silently replay a refused payload
+with a fresh token. The server enforces this precondition for tools as it does for
+REST. Complete deletion has no resulting revision, and a transfer may end your
+reach. Run starts require the plan's revision; cancellation needs none. See
+[the API guide](api.md#editing-with-revisions) for attribution, shared undo,
+continuing-run behavior and the bounded exceptions.
+
+The tool set has 136 tools. The 219 exclusions include 192 automatic HEAD/OPTIONS
+operations and 27 entry, transport, renderer and browser operations. The measured
+counts above include all 355 documented HTTP operations.
+
+### Executable read and successive tool writes
+
+In Node.js 24 or later, set `base` to the instance origin and `token` to your account
+API token. This raw Streamable HTTP example leaves one private map. A connected
+MCP client can make the same `tools/call` requests using its normal transport.
+
+<!-- revision-example -->
+```js
+let requestId = 0;
+async function call(name, args) {
+  const response = await fetch(base + "/api/mcp", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json, text/event-stream",
+      "MCP-Protocol-Version": "2025-03-26",
+    },
+    body: JSON.stringify({ jsonrpc: "2.0", id: ++requestId, method: "tools/call",
+      params: { name, arguments: { ...args,
+        ...(name === "update_map" ? { expected_revision: current.editRevision } : {}),
+      } },
+    }),
+  });
+  const text = await response.text();
+  const payload = JSON.parse(text.startsWith("{") ? text : text.split("\n").find(line => line.startsWith("data: ")).slice(6));
+  if (!response.ok || payload.error) throw new Error(JSON.stringify(payload.error));
+  const result = payload.result.structuredContent.result;
+  if (payload.result.isError) throw new Error(`${result.error.code}: ${result.error.message}`);
+  return result;
+}
+const created = await call("create_map", { name: "Field notes" });
+let current = await call("get_map", { id: created.id });
+current = await call("update_map", { id: created.id, name: "Survey map" });
+current = await call("update_map", { id: created.id, basemap: "light" });
+```
