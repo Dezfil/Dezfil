@@ -52,7 +52,7 @@ beforeEach(async () => {
   mapId = map.id;
   await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   await createLayer(scopes.ada, map.id, { name: "Parks", sql: "SELECT * FROM parks" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-  token = publishMap(scopes.ada, map.id).token;
+  token = publishMap(scopes.ada, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }).token;
 });
 afterEach(async () => {
   closeMetadataDb(); resetQueryInstance(); resetPublishCache(); vi.unstubAllEnvs();
@@ -64,10 +64,10 @@ const layerOf = (view: Awaited<ReturnType<typeof getPublishedView>>, name: strin
   view!.layers.find((layer) => layer.name === name)!.render as Rendered;
 const sentinels = (rendered: Rendered) => rendered.geojson!.features.map((feature) => feature.properties.sentinel);
 type Handler = (request: Request, context: { params: Promise<{ id: string }> }) => Promise<Response>;
-async function call(account: string, route: "transfer" | "publish", method: string, body?: unknown) {
+async function call(account: string, route: "transfer" | "publish", method: string, body?: unknown, revision?: string | null) {
   const load = route === "transfer" ? () => import("@/app/api/maps/[id]/transfer/route") : () => import("@/app/api/maps/[id]/publish/route");
   const request = testAccountRequest(new Request(`http://instance.test/api/maps/${mapId}/${route}`, { method,
-    headers: { "content-type": "application/json" }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }), undefined, account);
+    headers: { "content-type": "application/json", ...(revision ? { "X-Edit-Revision": revision } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }), undefined, account);
   const response = await ((await load()) as unknown as Record<string, Handler>)[method](request, { params: Promise.resolve({ id: mapId }) });
   return { status: response.status, body: response.status === 204 ? null : await response.json() as unknown };
 }
@@ -102,7 +102,7 @@ describe("a transferred map's publication", () => {
     expect(await call("ada", "publish", "DELETE")).toMatchObject({ status: 403, body: { error: { code: "forbidden" } } });
     expect(await call("ada", "publish", "POST", { theme: "light" })).toMatchObject({ status: 403 });
     expect(await getPublishedView(token, Date.now())).not.toBeNull();
-    expect(await call("ed", "publish", "DELETE")).toEqual({ status: 200, body: documentFacts({ kind: "map", id: mapId }) });
+    expect(await call("ed", "publish", "DELETE", undefined, readEditRevision({ kind: "map", id: mapId })?.editRevision)).toEqual({ status: 200, body: documentFacts({ kind: "map", id: mapId }) });
     expect(await getPublishedView(token, Date.now() + 1)).toBeNull();
   }, 60_000);
 });

@@ -319,7 +319,7 @@ test("dashboard answers are current, updating, or visibly failed — never silen
 
   await test.step("the map publishes", async () => {
     token = await page.evaluate(async (mapId) => {
-      const r = await fetch(`/api/maps/${mapId}/publish`, { method: "POST" });
+      const r = await (async function readThenWritePublicationSetup() { const basis = await (await fetch(`/api/maps/${mapId}`)).json(); return fetch(`/api/maps/${mapId}/publish`, { headers: { "X-Edit-Revision": basis.editRevision }, method: "POST" }); })();
       if (!r.ok) throw new Error(await r.text());
       return ((await r.json()) as { token: string }).token;
     }, mapIdOf(page));

@@ -36,7 +36,7 @@ export async function singleUserPublication(directory: string): Promise<string> 
   ];
   updateMap(scope, map.id, { widgets: [{ id: "count", type: "formula", layerId: layers[0].id, title: "Count", field: null,
     agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-  const { token } = publishMap(scope, map.id);
+  const { token } = publishMap(scope, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   const call = async (load: () => Promise<Record<string, unknown>>, method: string, url: string, params: Record<string, string>) => {
     const response = await ((await load())[method] as Handler)(new Request(`http://instance.test${url}`, { method,
       headers: { "content-type": "application/json" }, ...(method === "POST" ? { body: "{}" } : {}) }), { params: Promise.resolve(params) });

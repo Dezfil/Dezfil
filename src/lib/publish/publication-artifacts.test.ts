@@ -37,7 +37,7 @@ beforeEach(async () => {
   roads = await ingestFile(ada, file, "roads.csv");
   const map = createMap(ada, "Survey");
   await createLayer(ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-  token = publishMap(ada, map.id).token;
+  token = publishMap(ada, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }).token;
 });
 afterEach(async () => {
   closeMetadataDb(); resetQueryInstance(); resetPublishCache(); vi.unstubAllEnvs();

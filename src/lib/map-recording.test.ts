@@ -85,18 +85,18 @@ it("attributes an Editor's layer changes and records reorder and removal", async
 it("records publication changes once and leaves repeated settings alone", () => {
   const scope = testAccountScope(), map = createMap(scope, "First");
   let previous = revision(map.id);
-  publishMap(scope, map.id);
+  publishMap(scope, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   expect(revision(map.id).editRevision).not.toBe(previous.editRevision);
   previous = revision(map.id);
-  publishMap(scope, map.id, { theme: "dark" });
+  publishMap(scope, map.id, { theme: "dark" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   expect(revision(map.id)).toEqual(previous);
-  publishMap(scope, map.id, { theme: "light", viewerControls: { tilt: false } });
+  publishMap(scope, map.id, { theme: "light", viewerControls: { tilt: false } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   expect(revision(map.id).editRevision).not.toBe(previous.editRevision);
   previous = revision(map.id);
-  unpublishMap(scope, map.id);
+  unpublishMap(scope, map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   expect(revision(map.id).editRevision).not.toBe(previous.editRevision);
   previous = revision(map.id);
-  unpublishMap(scope, map.id);
+  unpublishMap(scope, map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   expect(revision(map.id)).toEqual(previous);
 });
 it("excludes thumbnail landing from revision, actor and history", async () => {

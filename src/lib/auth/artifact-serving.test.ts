@@ -187,7 +187,7 @@ describe("retained artifacts are served by what they drew", () => {
     expect((await tile("bob", read)).status).toBe(200);
     expect((await image("bob", listing)).status).toBe(200);
     // The link withholds the catalogue: Ada's archive drew more than the map names.
-    const { token } = publishMap(scopes.ada, listing.id);
+    const { token } = publishMap(scopes.ada, listing.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: listing.id })?.editRevision });
     await getPublishedView(token, Date.now());
     expect(currentPublishedTile(token, read.id, null)).toBeNull();
   });

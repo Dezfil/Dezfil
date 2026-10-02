@@ -1165,3 +1165,16 @@ the whole group, without changing content, history, attribution or artifacts.
 Accepted replay returns a fresh revision and attributes the action to the
 replayer while keeping the original step authors. Restoring identical values
 or a deleted layer never revives an old token. A new edit discards redo.
+
+
+Publication writes require the read map's `X-Edit-Revision` (MCP
+`expected_revision`): creating the link, changing its theme or controls, and
+revoking it all compare the same document token. Missing or malformed values
+answer `400 invalid_request`; stale values answer `409 stale_revision` with
+“This item has changed. Reload it before trying again.” Refusal changes no
+publication, history or attribution. Chain the resulting JSON `editRevision`
+into the next write. A current no-op retains the revision. This is a breaking
+change for unversioned publication clients. The separate admin operation
+`DELETE /api/publications/{token}` still needs no revision: it can revoke only
+a deactivated owner's known token, advances the map revision and returns no
+private document facts.

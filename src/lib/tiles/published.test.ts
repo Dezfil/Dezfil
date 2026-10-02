@@ -70,7 +70,7 @@ beforeEach(async () => {
   mapId = map.id;
   const layer = await createLayer(testAccountScope(), map.id, { name: "l", sql }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   layerId = layer.id;
-  token = publishMap(testAccountScope(), map.id).token;
+  token = publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }).token;
   ensureTileDirs();
   await writeFile(tileArchivePath(layerId), "artifact");
   seedRecord(40);
@@ -135,7 +135,7 @@ describe("current published tile eligibility", () => {
 
   it("uses current publication ownership on every check", () => {
     expect(currentPublishedTile(token, layerId, null)).not.toBeNull();
-    unpublishMap(testAccountScope(), mapId);
+    unpublishMap(testAccountScope(), mapId, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     expect(currentPublishedTile(token, layerId, null)).toBeNull();
   });
 

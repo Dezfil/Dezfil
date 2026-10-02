@@ -1079,7 +1079,7 @@ test("the published view gains no chip and keeps its stack and legend", async ({
     sql: "SELECT 1 AS n, ST_Point(13.4, 52.5) AS geom",
   } }));
   const token = (
-    (await api(page, "POST", `/api/maps/${mapId}/publish`)) as { token: string }
+    (await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/publish` })).then(result => result.json)) as { token: string }
   ).token;
   await page.goto(`/v/${token}`);
   await expect(page.getByRole("button", { name: "Zoom in" })).toBeVisible({ timeout: 30_000 });

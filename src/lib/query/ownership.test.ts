@@ -53,7 +53,7 @@ it("keeps simultaneous same-name reads independent and leaves no shared dataset 
 it("uses the publisher's data after deactivation rather than another account's same-named table", async () => {
   for (const owner of owners) {
     const map = createMap(scopes[owner], "Public projection"), layer = await createLayer(scopes[owner], map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-    const { token } = publishMap(scopes[owner], map.id);
+    const { token } = publishMap(scopes[owner], map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     metadataDb().prepare("UPDATE accounts SET status = 'deactivated' WHERE id = ?").run(owner);
     const view = await getPublishedView(token, Date.now()); expect(view?.layers[0].id).toBe(layer.id);
     expect(view?.layers[0].render.geojson).toMatchObject({ features: [{ properties: { sentinel: owner } }] });
@@ -180,7 +180,7 @@ it("preserves exact large numeric literals while translating qualified names", a
 it("keeps pending-adoption publications on their named dataset through first-account setup", async () => {
   const map = createMap(scopes.alice, "Pending publication");
   await createLayer(scopes.alice, map.id, { name: "Roads", sql: "SELECT * FROM query_table('memory.main.roads')" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-  const { token } = publishMap(scopes.alice, map.id);
+  const { token } = publishMap(scopes.alice, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   // Recreate a pre-account installation through inserts. Ownership immutability
   // deliberately refuses turning existing owned rows back into legacy rows.
   let db = metadataDb();

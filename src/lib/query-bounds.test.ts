@@ -250,7 +250,7 @@ describe("query bounds — published lanes", () => {
     const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
-    const { token } = publishMap(testAccountScope(), map.id);
+    const { token } = publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     timeoutNow();
     const view = await getPublishedView(token, Date.now());
     if (!view) throw new Error("view did not assemble");
@@ -297,7 +297,7 @@ describe("query bounds — published lanes", () => {
         },
       ],
     }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-    const { token } = publishMap(testAccountScope(), map.id);
+    const { token } = publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     timeoutNow();
     const response = await publishedRenderRoute(
       new Request("http://localhost:3000/x", {
@@ -340,7 +340,7 @@ describe("query bounds — published lanes", () => {
         },
       ],
     }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-    const { token } = publishMap(testAccountScope(), map.id);
+    const { token } = publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     timeoutNow();
     const response = await publishedWidgetValuesRoute(
       new Request("http://localhost:3000/x", {
@@ -409,7 +409,7 @@ describe("trailing comments: valid SQL is not broken by its own comments", () =>
     expect(values.widgets[0]).toMatchObject({ id: "wf" });
     expect(values.widgets[0]).not.toHaveProperty("error");
 
-    const { token } = publishMap(testAccountScope(), map.id);
+    const { token } = publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const view = await getPublishedView(token, Date.now());
     if (!view) throw new Error("view did not assemble");
     expect(view.layers[0].render.ok).toBe(true);
@@ -564,7 +564,7 @@ describe("query bounds — a caller that leaves takes its work with it", () => {
     const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
-    const { token } = publishMap(testAccountScope(), map.id);
+    const { token } = publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const reader = new AbortController();
     const started = Date.now();
     const view = getPublishedView(token, Date.now(), reader.signal);

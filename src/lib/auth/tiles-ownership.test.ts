@@ -126,12 +126,12 @@ it("rebuilds after reactivation without inheriting an abandoned building or fail
 it("keeps publication authority separate from private activity and rechecks token revocation", async () => {
   const { publishMap, unpublishMap } = await import("@/lib/publish/publish-service"), { publishedTileAccess } = await import("@/lib/tiles/access");
   const mapId = (metadataDb().prepare("SELECT map_id FROM layers WHERE id = ?").get(layers.alice) as { map_id: string }).map_id;
-  const { token } = publishMap(scopes.alice, mapId); const access = publishedTileAccess(token, layers.alice); deactivate("alice");
+  const { token } = publishMap(scopes.alice, mapId, {}, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision }); const access = publishedTileAccess(token, layers.alice); deactivate("alice");
   ensureTiles(access, input("alice")); await tileBuildsSettled(); expect(getTileRecord(layers.alice)?.state).toBe("ready");
   const built = getTileRecord(layers.alice);
   expect(() => privateTileAccess(scopes.alice, layers.alice)).toThrow(expect.objectContaining({ status: 401 }));
   metadataDb().prepare("UPDATE accounts SET status = 'active' WHERE id = 'alice'").run();
-  effects.afterExport = () => unpublishMap(scopes.alice, mapId);
+  effects.afterExport = () => unpublishMap(scopes.alice, mapId, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
   ensureTiles(access, { ...input("alice"), projection: "changed" }); await tileBuildsSettled();
   // The refused build authorized no new archive and left the previous one's record as it was.
   expect(getTileRecord(layers.alice)).toEqual(built); expect(() => ensureTiles(access, input("alice"))).toThrow(expect.objectContaining({ status: 404 }));
@@ -139,7 +139,7 @@ it("keeps publication authority separate from private activity and rechecks toke
 it("replaces an inactive private queue entry with a valid published request for the same query", async () => {
   const { publishMap } = await import("@/lib/publish/publish-service"), { publishedTileAccess } = await import("@/lib/tiles/access");
   const mapId = (metadataDb().prepare("SELECT map_id FROM layers WHERE id = ?").get(layers.alice) as { map_id: string }).map_id;
-  const { token } = publishMap(scopes.alice, mapId), held = gate(); effects.beforeExport = () => held.promise;
+  const { token } = publishMap(scopes.alice, mapId, {}, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision }), held = gate(); effects.beforeExport = () => held.promise;
   build("bob"); await vi.waitFor(() => expect(effects.export).toHaveBeenCalledOnce()); build("alice"); deactivate("alice");
   ensureTiles(publishedTileAccess(token, layers.alice), input("alice")); held.release(); await tileBuildsSettled();
   expect(getTileRecord(layers.alice)?.state).toBe("ready"); expect(effects.export).toHaveBeenCalledTimes(2);

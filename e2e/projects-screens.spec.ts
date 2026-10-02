@@ -338,7 +338,7 @@ test("the Projects list and the project home", async ({
       name: T1,
       sql: `SELECT * FROM ${T1}`,
     } }));
-    await api(page, "POST", `/api/maps/${mapId}/publish`);
+    await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/publish` })).then(result => result.json);
     wfId = (
       (await api(page, "POST", "/api/recipes", {
         name: `Lane density ${runId}`,
@@ -862,7 +862,7 @@ test("the Projects page: the picture by count and the counts that drop zeros", a
       // Maps only: three maps, one published, no note.
       for (const n of ["Alpha", "Beta", "Gamma"]) {
         const m = (await api(page, "POST", "/api/maps", { name: P(`Map ${n}`), projectId: mapsOnly })) as { id: string };
-        if (n === "Alpha") await api(page, "POST", `/api/maps/${m.id}/publish`);
+        if (n === "Alpha") await readThenWriteBrowserSetup(page, `/api/maps/${m.id}`, () => ({ method: "POST", path: `/api/maps/${m.id}/publish` })).then(result => result.json);
       }
       // Five things last, so it and the maps-only project are the two
       // newest and share the first grid row with the New-project tile.
@@ -1039,7 +1039,7 @@ test("the project home: facts that drop zeros, only the sections with something,
       await expect(page.locator("[data-picture]")).toHaveCount(0);
       // Publish a map: the published fact appears, after datasets.
       const maps = (await api(page, "GET", `/api/maps?project=${two}`)) as { id: string }[];
-      await api(page, "POST", `/api/maps/${maps[0].id}/publish`);
+      await readThenWriteBrowserSetup(page, `/api/maps/${maps[0].id}`, () => ({ method: "POST", path: `/api/maps/${maps[0].id}/publish` })).then(result => result.json);
       await page.reload();
       await expect.poll(async () =>
         page.locator("[data-facts] [data-fact]").evaluateAll((els) => els.map((e) => e.getAttribute("data-fact"))),

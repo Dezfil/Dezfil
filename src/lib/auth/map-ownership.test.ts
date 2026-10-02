@@ -134,8 +134,8 @@ it.each(["session", "token"])("preserves each %s owner's read, edit, duplicate, 
     expect(copied.layers).toHaveLength(1);
     expect(copied.layers[0].id).not.toBe(`layer-${account}`);
     expect(db.prepare("SELECT owner_id FROM maps WHERE id = ?").get(copied.id)).toEqual({ owner_id: account });
-    expect((await publication.DELETE(input(account, `/api/maps/${id}/publish`, "DELETE", undefined, kind), context)).status).toBe(200);
-    const published = await publication.POST(input(account, `/api/maps/${id}/publish`, "POST", { theme: "light" }, kind), context);
+    expect((await publication.DELETE(withFixtureRevision(input(account, `/api/maps/${id}/publish`, "DELETE", undefined, kind), readEditRevision({ kind: "map", id })?.editRevision), context)).status).toBe(200);
+    const published = await publication.POST(withFixtureRevision(input(account, `/api/maps/${id}/publish`, "POST", { theme: "light" }, kind), readEditRevision({ kind: "map", id })?.editRevision), context);
     expect(published.status).toBe(201);
     expect((await published.json()).token).not.toBe(`token-${account}`);
     expect((await publication.GET(input(account, `/api/maps/${id}/publish`, "GET", undefined, kind), context)).status).toBe(200);

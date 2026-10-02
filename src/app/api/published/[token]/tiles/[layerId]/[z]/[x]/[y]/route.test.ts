@@ -45,7 +45,7 @@ beforeEach(async () => {
   mapId = map.id;
   const layer = await createLayer(testAccountScope(), map.id, { name: "l", sql }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   layerId = layer.id;
-  token = publishMap(testAccountScope(), map.id).token;
+  token = publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }).token;
   const builtAt = "2026-07-14T12:00:00.123Z";
   version = String(Date.parse(builtAt));
   ensureTileDirs();
@@ -123,7 +123,7 @@ describe("published tile route", () => {
     const inFlight = GET(request(), context());
     await vi.waitFor(() => expect(readTileMock).toHaveBeenCalledOnce());
 
-    unpublishMap(testAccountScope(), mapId);
+    unpublishMap(testAccountScope(), mapId, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     release(new Uint8Array([1, 2, 3]));
 
     const response = await inFlight;

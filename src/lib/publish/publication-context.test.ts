@@ -70,7 +70,7 @@ describe("a single-user store's publications", () => {
     // In the owner's own builder the catalogue is the owner's, as before.
     const own = await renderLayer(scope, layers[0]) as Rendered;
     expect(own.geojson!.features.map((feature) => feature.properties.view_name).sort()).toEqual(["parks", "roads"]);
-    const { token } = publishMap(scope, map.id);
+    const { token } = publishMap(scope, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const view = await getPublishedView(token, Date.now());
     expect(layerOf(view, "Roads").ok).toBe(true);
     for (const name of Object.keys(forms)) {
@@ -87,7 +87,7 @@ describe("a single-user store's publications", () => {
     const map = createMap(scope, "Survey");
     await createLayer(scope, map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await createLayer(scope, map.id, { name: "Views", sql: "SELECT view_name, ST_Point(0, 0) AS geom FROM duckdb_views() WHERE NOT internal" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-    const { token } = publishMap(scope, map.id);
+    const { token } = publishMap(scope, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const views = layerOf(await getPublishedView(token, Date.now()), "Views");
     expect(views.ok).toBe(true);
     expect(views.geojson!.features.map((feature) => feature.properties.view_name)).toEqual(["roads"]);
@@ -116,7 +116,7 @@ describe("a publication on a shared store", () => {
     mapId = map.id;
     await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await createLayer(scopes.ada, map.id, { name: "Stations", sql: "SELECT * FROM bob.stations" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-    token = publishMap(scopes.ada, map.id).token;
+    token = publishMap(scopes.ada, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }).token;
   });
 
   it("mounts only the datasets the map's SQL names", async () => {

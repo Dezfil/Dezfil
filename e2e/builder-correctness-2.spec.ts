@@ -280,7 +280,7 @@ test("builder correctness II — the browser regressions", async ({
         }),
       });
       if (!r.ok) throw new Error(await r.text());
-      const pub = await fetch(`/api/maps/${mapId}/publish`, { method: "POST" });
+      const pub = await (async function readThenWritePublicationSetup() { const basis = await (await fetch(`/api/maps/${mapId}`)).json(); return fetch(`/api/maps/${mapId}/publish`, { headers: { "X-Edit-Revision": basis.editRevision }, method: "POST" }); })();
       if (!pub.ok) throw new Error(await pub.text());
       const { token } = (await pub.json()) as { token: string };
       return { id, token };

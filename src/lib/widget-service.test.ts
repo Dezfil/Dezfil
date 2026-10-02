@@ -567,7 +567,7 @@ describe("published dashboards", () => {
         w.id === "wh" ? { ...w, visible: false } : w,
       ),
     }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-    const { token } = publishMap(testAccountScope(), map.id);
+    const { token } = publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     const view = await getPublishedView(token, Date.now());
     // The note ships like any visible widget.

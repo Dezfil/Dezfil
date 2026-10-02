@@ -1,6 +1,6 @@
 import { documentFacts, type DocumentFacts } from "@/lib/metadata/document-facts";
 import { stableJson } from "@/lib/metadata/history";
-import { recordDocumentChanges } from "@/lib/metadata/revisions";
+import { recordDocumentChanges, requireDocumentRevision } from "@/lib/metadata/revisions";
 import type { AccountScope } from "@/lib/auth/scope";
 import { ownsMap, requireMap, requireMapFor } from "@/lib/map-access";
 import { ApiError } from "@/lib/api/errors";
@@ -72,15 +72,17 @@ export function publishMap(
   scope: AccountScope,
   id: string,
   settings: PublishSettings = {},
+  options: { expectedRevision?: unknown } = {},
 ): PublishState & DocumentFacts {
   return metadataDb().transaction(() => {
     const map = requirePublishedMapOwner(scope, id);
+    requireDocumentRevision(scope, { kind: "map", id, action: "publish", expectedRevision: options.expectedRevision });
     const { theme, viewerControls } = settings;
     if (map.publishToken && map.publishedAt) {
       const changed = (theme !== undefined && theme !== (getPublishedTheme(id) ?? "dark")) ||
         (viewerControls !== undefined && stableJson(normalizeViewerControls(viewerControls)) !== stableJson(normalizeViewerControls(getViewerControls(id))));
-      if (theme) setPublishedTheme(id, theme);
-      if (viewerControls) {
+      if (changed && theme) setPublishedTheme(id, theme);
+      if (changed && viewerControls) {
         setViewerControls(id, normalizeViewerControls(viewerControls));
       }
       if (changed) recordDocumentChanges(scope, [{ kind: "map", id }]);
@@ -99,14 +101,16 @@ export function publishMap(
     );
     recordDocumentChanges(scope, [{ kind: "map", id }]);
     return { token, publishedAt, ...documentFacts({ kind: "map", id }) };
-  })();
+  }).immediate();
 }
 
 /** Unpublish: the link stops resolving immediately; a later republish mints a
  * fresh, unrelated token (spec: rotation is the revocation story). */
-export function unpublishMap(scope: AccountScope, id: string): DocumentFacts {
+export function unpublishMap(scope: AccountScope, id: string, options: { expectedRevision?: unknown } = {}): DocumentFacts {
   const { token, facts } = metadataDb().transaction(() => {
     const map = requirePublishedMapOwner(scope, id);
+    requireDocumentRevision(scope, { kind: "map", id, action: "publish", expectedRevision: options.expectedRevision });
+    if (!map.publishToken) return { token: null, facts: documentFacts({ kind: "map", id }) };
     updateMapFields(id, { publishToken: null, publishedAt: null });
     // The authored theme is publication state: it leaves with the token,
     // so the next publication captures fresh. The viewer controls are
@@ -115,7 +119,7 @@ export function unpublishMap(scope: AccountScope, id: string): DocumentFacts {
     setViewerControls(id, null);
     if (map.publishToken) recordDocumentChanges(scope, [{ kind: "map", id }]);
     return { token: map.publishToken, facts: documentFacts({ kind: "map", id }) };
-  })();
+  }).immediate();
   if (token) invalidatePublishedToken(token);
   return facts;
 }

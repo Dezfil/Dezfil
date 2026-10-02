@@ -45,7 +45,7 @@ describe("a held published view records what it drew", () => {
     const map = createMap(scopes.ada, "Survey");
     await createLayer(scopes.ada, map.id, { name: "Mine", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await createLayer(scopes.ada, map.id, { name: "Theirs", sql: "SELECT * FROM bob.roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-    const { token } = publishMap(scopes.ada, map.id);
+    const { token } = publishMap(scopes.ada, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(cachedPublicationInputs(token)).toBeNull();
     expect(await getPublishedView(token, Date.now())).not.toBeNull();
     const inputs = cachedPublicationInputs(token)!;

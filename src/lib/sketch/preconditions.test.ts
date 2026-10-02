@@ -45,7 +45,7 @@ async function fixture() {
   const attached = await createSketch(scope, map.id, feature, { expectedRevision: map.editRevision });
   await mkdir(path.join(directory, "tiles"), { recursive: true });
   await writeFile(path.join(directory, "tiles", `${attached.layerId}.pmtiles`), "existing tile bytes");
-  publishMap(scope, map.id);
+  publishMap(scope, map.id, {}, { expectedRevision: attached.editRevision });
   return { scope, map: readMap(scope, map.id), attached };
 }
 for (const basis of [undefined, "bad", "stale"] as const) it(`refuses ${basis ?? "missing"} sketch attachment and removal without changing rows or artifacts`, async () => {

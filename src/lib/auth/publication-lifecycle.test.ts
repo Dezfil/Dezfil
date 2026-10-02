@@ -30,7 +30,7 @@ beforeEach(async () => {
   layerId = (await createLayer(scope, mapId, { name: "Private SQL", sql: "SELECT 10 score, ST_Point(1, 2) geometry" }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision })).id;
   updateMap(scope, mapId, { widgets: [{ id: "w", type: "histogram", layerId, title: "Score", field: "score", agg: "count", aggField: null,
     unit: null, note: null, format: null, visible: true }] }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
-  token = publishMap(scope, mapId).token;
+  token = publishMap(scope, mapId, {}, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision }).token;
 });
 afterEach(async () => { vi.restoreAllMocks(); closeMetadataDb(); resetQueryInstance(); resetPublishCache(); process.env.DEZFIL_DATA_DIR = initialDir; await rm(directory, { recursive: true, force: true }); });
 it.each(["widgets", "render", "extent"].flatMap(lane => ["owner", "admin"].map(authority => ({ lane, authority }))))("does not return a $lane result after $authority revocation during assembly", async ({ lane, authority }) => {
@@ -45,7 +45,7 @@ it.each(["widgets", "render", "extent"].flatMap(lane => ["owner", "admin"].map(a
   const pending = call(token);
   try {
     await hold.beforeMutation();
-    if (authority === "owner") unpublishMap(scope, mapId);
+    if (authority === "owner") unpublishMap(scope, mapId, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     else {
       const req = testAccountRequest(new Request("http://instance.test"), undefined, "admin");
       metadataDb().prepare("UPDATE accounts SET is_admin = 1 WHERE id = 'admin'").run();

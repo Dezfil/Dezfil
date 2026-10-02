@@ -174,11 +174,11 @@ for (const theme of ["light", "dark"] as const) {
     const mapId = await createMap(page, `Published title ${theme}`);
     const token = await page.evaluate(
       async ({ id, authoredTheme }) => {
-        const response = await fetch(`/api/maps/${id}/publish`, {
+        const response = await (async function readThenWritePublicationSetup() { const basis = await (await fetch(`/api/maps/${id}`)).json(); return fetch(`/api/maps/${id}/publish`, {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: { "X-Edit-Revision": basis.editRevision, "content-type": "application/json" },
           body: JSON.stringify({ theme: authoredTheme }),
-        });
+        }); })();
         if (!response.ok) throw new Error(await response.text());
         return ((await response.json()) as { token: string }).token;
       },

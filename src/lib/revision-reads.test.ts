@@ -20,7 +20,7 @@ afterEach(() => { vi.restoreAllMocks(); db.close(); });
 it("pairs reached maps, lists, children and publication with safe covered-change facts", async () => {
   const scope = testAccountScope(db), map = createMap(scope, "Map");
   const layer = await createLayer(scope, map.id, { name: "Layer", sql: "SELECT ST_Point(1,2) AS geom" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-  publishMap(scope, map.id);
+  publishMap(scope, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   const facts = readDocumentRevision({ kind: "map", id: map.id }, db)!;
   const expected = { editRevision: facts.editRevision, lastChangedAt: facts.lastChangedAt,
     lastChangedBy: { name: scope.accountId, sqlName: "test_account" } };
@@ -29,7 +29,7 @@ it("pairs reached maps, lists, children and publication with safe covered-change
   const response = await getLayer(testAccountRequest(new Request(`http://instance.test/api/layers/${layer.id}`), db), { params: Promise.resolve({ id: layer.id }) });
   expect(await response.json()).toMatchObject(expected);
   expect(getPublicationState(scope, map.id)).toMatchObject(expected);
-  const token = publishMap(scope, map.id).token;
+  const token = publishMap(scope, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }).token;
   const anonymous = JSON.stringify(getPublishedSnapshot(token));
   expect(anonymous).not.toMatch(/editRevision|lastChanged|executableRevision|test_account|example.test/);
   updateMap(scope, map.id, { viewport: { lng: 2, lat: 3, zoom: 4 } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });

@@ -92,7 +92,7 @@ describe("maps", () => {
       name: "Stations",
       sql: "SELECT * FROM stations",
     }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-    publishMap(testAccountScope(), map.id);
+    publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     // The custom icon markup rides the copied viz whole.
     await updateLayer(testAccountScope(), layer.id, {

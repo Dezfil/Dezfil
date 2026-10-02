@@ -67,7 +67,7 @@ beforeEach(async () => {
   updateMap(testAccountScope(), map.id, {
     widgets: [{ ...CATEGORY_WIDGET, layerId: layer.id }],
   }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-  token = publishMap(testAccountScope(), map.id).token;
+  token = publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }).token;
 });
 
 afterEach(async () => {

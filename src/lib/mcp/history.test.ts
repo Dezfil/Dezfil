@@ -81,7 +81,7 @@ describe('external group association', () => {
     expect(result.structuredContent?.history).toBeNull();
   });
   it('publication is outside this history association', async () => {
-    const result = await call('publish_map', { id: mapId });
+    const result = await call('publish_map', { id: mapId, expected_revision: readEditRevision({ kind: "map", id: mapId })!.editRevision! });
     expect(result.isError ?? false).toBe(false);
     expect(steps()).toEqual([]);
     expect(result.structuredContent?.history).toBeNull();

@@ -56,7 +56,7 @@ export async function seedOwnership(base) {
     }
     const project = expectStatus(await api('POST', '/api/projects', { body: { name: sentinel,
       members: { addMaps: [map.id], addRecipes: [recipe.id], addTables: [table.id] } } }), 201);
-    const publication = expectStatus(await api('POST', `/api/maps/${map.id}/publish`), 201);
+    const publication = expectStatus(await api('POST', `/api/maps/${map.id}/publish`, { basis: captureBasis((await api('GET', `/api/maps/${map.id}`)).json) }), 201);
     owners.push({ accountId: credential.account.id, token: credential.token, cookie: credential.cookie,
       sentinel, tableId: table.id, hidden: hidden.name, mapId: map.id, layerId: layer.id,
       recipeId: recipe.id, stepId: step.id, runId: run.id, projectId: project.id, publication: publication.token });

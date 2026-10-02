@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { readDocumentRevision } from "@/lib/metadata/revisions";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import type { Database } from "better-sqlite3";
@@ -15,7 +16,7 @@ let db: Database, scopes: Record<string, AccountScope>, maps: Record<string, str
 beforeEach(() => {
   db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db);
   scopes = {}; maps = {}; tokens = {}; resetPublishCache();
-  for (const id of ["alice", "bob", "admin"]) { scopes[id] = testAccountScope(db, id); maps[id] = createMap(scopes[id], `Secret ${id}`).id; tokens[id] = publishMap(scopes[id], maps[id]).token; }
+  for (const id of ["alice", "bob", "admin"]) { scopes[id] = testAccountScope(db, id); maps[id] = createMap(scopes[id], `Secret ${id}`).id; tokens[id] = publishMap(scopes[id], maps[id], {}, { expectedRevision: readEditRevision({ kind: "map", id: maps[id] })?.editRevision }).token; }
   db.prepare("UPDATE accounts SET is_admin = 1 WHERE id = 'admin'").run();
 });
 afterEach(() => { resetPublishCache(); vi.restoreAllMocks(); db.close(); });
@@ -44,7 +45,7 @@ it.each(["session", "token"])("allows an admin %s to revoke only a known deactiv
   }
   expect(() => getPublicationState(scopes.admin, maps.alice)).toThrow(expect.objectContaining({ code: "not_found" }));
   db.prepare("UPDATE accounts SET status = 'active' WHERE id = 'alice'").run();
-  expect(getPublicationState(scopes.alice, maps.alice)).toBeNull(); expect(publishMap(scopes.alice, maps.alice).token).not.toBe(tokens.alice);
+  expect(getPublicationState(scopes.alice, maps.alice)).toBeNull(); expect(publishMap(scopes.alice, maps.alice, {}, { expectedRevision: readEditRevision({ kind: "map", id: maps.alice })?.editRevision }).token).not.toBe(tokens.alice);
 });
 it("keeps active owners, the admin's own active map and unknown tokens indistinguishable with no write", async () => {
   const before = state(); const missing = await revoke("admin", "missing"), control = await missing.json(); expect(missing.status).toBe(404);

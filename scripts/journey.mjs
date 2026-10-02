@@ -1260,7 +1260,7 @@ async function main() {
       ok("filter under the cap → inline instantly; cleared → tiles, no rebuild");
 
       // published view rewrites the tile URL to the token scope and serves it
-      const pub = await api("POST", `/api/maps/${tmap.json.id}/publish`);
+      const pub = await api("POST", `/api/maps/${tmap.json.id}/publish`, { basis: captureBasis((await api('GET', `/api/maps/${tmap.json.id}`)).json) });
       const view = await api("GET", `/api/published/${pub.json.token}`);
       const publishedLayer = view.json?.layers?.find((l) => l.id === tid);
       const pubTiles = publishedLayer?.render?.tiles;
@@ -1335,7 +1335,7 @@ async function main() {
       ok("server-result cutoff hides old published tiles and renders inline");
 
       // unpublish severs tile access immediately
-      await api("DELETE", `/api/maps/${tmap.json.id}/publish`, { raw: true });
+      await api("DELETE", `/api/maps/${tmap.json.id}/publish`, { basis: captureBasis((await api('GET', `/api/maps/${tmap.json.id}`)).json), raw: true });
       const severed = await api(
         "GET",
         pubTiles.url.replace("{z}", z).replace("{x}", tx).replace("{y}", ty),
@@ -1360,7 +1360,7 @@ async function main() {
   // 13. publish the map
   let token;
   {
-    const r = await api("POST", `/api/maps/${mapId}/publish`);
+    const r = await api("POST", `/api/maps/${mapId}/publish`, { basis: captureBasis((await api('GET', `/api/maps/${mapId}`)).json) });
     if (r.status !== 201 || !r.json?.token)
       fail("publish failed", JSON.stringify(r.json));
     token = r.json.token;
@@ -1488,10 +1488,10 @@ async function main() {
 
   // 15. republish returns the same token; unpublish stops resolution
   {
-    const again = await api("POST", `/api/maps/${mapId}/publish`);
+    const again = await api("POST", `/api/maps/${mapId}/publish`, { basis: captureBasis((await api('GET', `/api/maps/${mapId}`)).json) });
     if (again.json?.token !== token)
       fail("republish changed the token", JSON.stringify(again.json));
-    const un = await api("DELETE", `/api/maps/${mapId}/publish`, { raw: true });
+    const un = await api("DELETE", `/api/maps/${mapId}/publish`, { basis: captureBasis((await api('GET', `/api/maps/${mapId}`)).json), raw: true });
     if (un.status !== 200) fail("unpublish failed", `status ${un.status}`);
     const gone = await api("GET", `/api/published/${token}`);
     if (gone.status !== 404)

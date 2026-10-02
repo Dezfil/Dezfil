@@ -379,7 +379,7 @@ describe("the render split, generalized: live filters", () => {
       ],
     }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
 
-    const { token } = publishMap(testAccountScope(), map.id);
+    const { token } = publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const view = await getPublishedView(token, Date.now());
     const published = view?.layers.find((l) => l.id === layer.id);
     // The values filter is baked into the payload (a and c); the range
@@ -418,7 +418,7 @@ describe("published timeline", () => {
       timeline: { layerId: layer.id, field: "seen", speed: 2 },
     }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
-    const { token } = publishMap(testAccountScope(), map.id);
+    const { token } = publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const view = await getPublishedView(token, Date.now());
     expect(view?.timeline).toMatchObject({
       layerId: layer.id,
@@ -440,7 +440,7 @@ describe("published timeline", () => {
     const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await updateLayer(testAccountScope(), layer.id, { filters: [DAY_ONE] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-    const { token } = publishMap(testAccountScope(), map.id);
+    const { token } = publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     // The docked layer goes away; the published page must keep rendering.
     await removeLayer(testAccountScope(), layer.id, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });

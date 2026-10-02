@@ -542,7 +542,7 @@ export const MAP_PUBLISH_PATHS = {
       effects: writes(resource("publications", "id")),
       confirmation: {"target": "Publish {target}?", "consequence": "Anyone with the link can view its published data.", "subject": {"path": "/api/maps/{id}", "argument": "id", "name": "name"}},
       confirm: true,
-      parameters: [pathParam("id", "Map id.")],
+      parameters: [pathParam("id", "Map id."), editRevisionParam],
       requestBody: {
         required: false,
         content: {
@@ -565,7 +565,7 @@ export const MAP_PUBLISH_PATHS = {
           },
         },
       },
-      responses: { "201": jsonOk("#/components/schemas/PublishState", "Published.") },
+      responses: { ...editRevisionResponses, "201": jsonOk("#/components/schemas/PublishState", "Published.") },
     })),
     delete: op(mapAccess({
       summary: "Unpublish a map",
@@ -576,8 +576,8 @@ export const MAP_PUBLISH_PATHS = {
       effects: writes(resource("publications", "id")),
       confirmation: {"target": "Unpublish {target}?", "consequence": "Its published link will stop working.", "subject": {"path": "/api/maps/{id}", "argument": "id", "name": "name"}},
       confirm: true,
-      parameters: [pathParam("id", "Map id.")],
-      responses: { "200": jsonOk("#/components/schemas/EditRevisionResult", "Unpublished. The surviving map revision.") },
+      parameters: [pathParam("id", "Map id."), editRevisionParam],
+      responses: { ...editRevisionResponses, "200": jsonOk("#/components/schemas/EditRevisionResult", "Unpublished. The surviving map revision.") },
     })),
   },
   "/api/maps/{id}/published-fields": {

@@ -54,16 +54,16 @@ it("returns JSON revisions for formerly bodyless layer deletion and unpublicatio
   const removed = await removeLayerRoute(withFixtureRevision(req(`/api/layers/${layer.id}`, "DELETE"), revision(map.id)), { params: Promise.resolve({ id: layer.id }) });
   expect(removed.status).toBe(200);
   expect(await removed.json()).toMatchObject({ editRevision: revision(map.id) });
-  publishMap(scope, map.id);
-  const unpublished = await unpublishRoute(req(`/api/maps/${map.id}/publish`, "DELETE"), { params: Promise.resolve({ id: map.id }) });
+  publishMap(scope, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+  const unpublished = await unpublishRoute(withFixtureRevision(req(`/api/maps/${map.id}/publish`, "DELETE"), revision(map.id)), { params: Promise.resolve({ id: map.id }) });
   expect(unpublished.status).toBe(200);
   expect(await unpublished.json()).toMatchObject({ editRevision: revision(map.id) });
 });
 it("preserves accepted revisions through tool execution, MCP text/structured output and assistant context", async () => {
   const scope = testAccountScope(db), map = createMap(scope, "Map");
-  publishMap(scope, map.id);
+  publishMap(scope, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   const tool = buildTools().find(tool => tool.name === "unpublish_map")!;
-  const result = await executeTool(tool, { id: map.id }, "http://instance.test", dispatch);
+  const result = await executeTool(tool, { id: map.id, expected_revision: revision(map.id) }, "http://instance.test", dispatch);
   expect(result).toMatchObject({ status: 200, ok: true, body: { editRevision: revision(map.id) } });
   expect(elideAttachment(result.body)).toEqual(result.body);
   expect(elideAttachment({ editRevision: revision(map.id), attachment: { content_base64: "AA==", filename: "map.png", content_type: "image/png", size_bytes: 1 } }))

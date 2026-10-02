@@ -109,7 +109,7 @@ it("keeps saved publication SQL intact while rejecting a row-sourced projection 
  const map = createMap(scope(), "Saved projection"), layer = await createLayer(scope(), map.id, { name: "Projection", sql: "SELECT * FROM sources" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
  const sql = `SELECT ${transform("crs")} AS geometry FROM sources`;
  metadataDb().prepare("UPDATE layers SET sql = ? WHERE id = ?").run(sql, layer.id);
- const { token } = publishMap(scope(), map.id); resetPublishCache();
+ const { token } = publishMap(scope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }); resetPublishCache();
  try {
   const view = await getPublishedView(token, Date.now());
   expect(view?.layers[0]).toMatchObject({ render: { error: { code: "sql_rejected", message: "The SQL was not an accepted read-only query." } } });

@@ -76,7 +76,7 @@ beforeEach(async () => {
       }),
     ],
   }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-  token = publishMap(testAccountScope(), map.id).token;
+  token = publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }).token;
 });
 
 afterEach(async () => {

@@ -220,7 +220,7 @@ export async function seedSharing(base) {
     addMaps: [map.id], addRecipes: [recipe.id],
     addTables: [tables['ada.roads'].id, tables['ada.rivers'].id, tables['ada.roads_out'].id],
   } } }), 201);
-  const publication = expectStatus(await ada('POST', `/api/maps/${map.id}/publish`), 201).token;
+  const publication = expectStatus(await ada('POST', `/api/maps/${map.id}/publish`, { basis: captureBasis((await ada('GET', `/api/maps/${map.id}`)).json) }), 201).token;
 
   // Sharing: the person picker finds by name and by exact email, name and SQL name only.
   const byName = expectStatus(await ada('GET', '/api/accounts/search?q=VI'), 200).accounts;

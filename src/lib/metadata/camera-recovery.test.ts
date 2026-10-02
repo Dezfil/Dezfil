@@ -33,7 +33,7 @@ beforeEach(async () => {
   closeMetadataDb();
   resetPublishCache();
   id = createMap(testAccountScope(), "Legacy camera").id;
-  token = publishMap(testAccountScope(), id).token;
+  token = publishMap(testAccountScope(), id, {}, { expectedRevision: readEditRevision({ kind: "map", id: id })?.editRevision }).token;
   vi.mocked(renderMapImage).mockReset().mockResolvedValue({ png: new Uint8Array([137, 80, 78, 71]), abandoned: [] });
 });
 afterEach(async () => {

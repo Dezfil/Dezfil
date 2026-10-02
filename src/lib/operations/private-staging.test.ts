@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdtemp, rm, writeFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -85,7 +86,7 @@ it("refuses another owner, forged copies and publications before acquiring a con
   const { resolvePublication } = await import("@/lib/publish/publication-scope");
   const engine = await import("@/lib/duckdb");
   const prepared = await prepare("geocode_addresses"), input = prepared.inputs![0];
-  const map = createMap(scopes.alice, "Publication"), publication = resolvePublication(publishMap(scopes.alice, map.id).token)!.scope;
+  const map = createMap(scopes.alice, "Publication"), publication = resolvePublication(publishMap(scopes.alice, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }).token)!.scope;
   const connect = vi.spyOn(engine, "connectQueryInstance"), callback = vi.fn();
   try {
     for (const owner of [scopes.bob, scopes.admin]) await expect(boundedEvaluation(callback, { scope: owner, inputs: [input] })).rejects.toMatchObject({ code: "not_found" });

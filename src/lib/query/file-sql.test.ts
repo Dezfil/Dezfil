@@ -104,7 +104,7 @@ it("refuses saved file SQL without changing its persisted text or publication", 
  const map = createMap(scope(), "Saved file query"), layer = await createLayer(scope(), map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
  const sql = `SELECT * FROM read_parquet(${lit(path.join(directory, scopedDatasets(scope())[0].file))})`;
  metadataDb().prepare("UPDATE layers SET sql = ? WHERE id = ?").run(sql, layer.id);
- const { token } = publishMap(scope(), map.id); resetPublishCache();
+ const { token } = publishMap(scope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }); resetPublishCache();
  const view = await getPublishedView(token, Date.now());
  expect(view?.layers[0]).toMatchObject({ render: { error: { code: "sql_rejected" } } });
  expect(metadataDb().prepare("SELECT sql FROM layers WHERE id = ?").get(layer.id)).toEqual({ sql });

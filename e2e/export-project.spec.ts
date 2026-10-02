@@ -200,7 +200,7 @@ test("the 16-C export end to end", async ({ page, context }) => {
         sql: `SELECT * FROM ${src}`,
       } }));
     }
-    await api(page, "POST", `/api/maps/${m1}/publish`);
+    await readThenWriteBrowserSetup(page, `/api/maps/${m1}`, () => ({ method: "POST", path: `/api/maps/${m1}/publish` })).then(result => result.json);
     // The same-named second map: the collision case.
     await api(page, "POST", "/api/maps", { name: MAP1, projectId: pe });
     // The workflow, filed in PE; its run's output joins PE at commit.
