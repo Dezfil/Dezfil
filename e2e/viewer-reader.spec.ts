@@ -45,7 +45,7 @@ test("a Viewer reads the shared map and workflow and can change nothing", async 
     await test.step("an Editor opens the map in the builder, with its undo and its name to edit", async () => {
       const page = await eli.context.newPage();
       await page.goto(`/maps/${map.id}`);
-      await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByRole("button", { name: /^Undo/ })).toBeVisible({ timeout: 30_000 });
       await expect(page.getByRole("button", { name: mapName, exact: true })).toBeVisible();
       await page.close();
     });
@@ -58,7 +58,7 @@ test("a Viewer reads the shared map and workflow and can change nothing", async 
       await page.goto(`/maps/${map.id}`);
       await expect(page.getByRole("button", { name: "Fit to data", exact: true })).toBeVisible({ timeout: 30_000 });
       await expect(page.getByRole("img", { name: `Shared by ${ada.name}`, exact: true })).toBeVisible();
-      for (const name of ["Undo", "Redo", "Preview", "Publish", "Published", mapName]) {
+      for (const name of [/^Undo/, /^Redo/, "Preview", "Publish", "Published", mapName]) {
         await expect(page.getByRole("button", { name, exact: true })).toHaveCount(0);
       }
       await expect(page.getByRole("textbox", { name: "Map name" })).toHaveCount(0);

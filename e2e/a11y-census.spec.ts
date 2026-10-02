@@ -349,7 +349,7 @@ test.describe("census checks", () => {
       await page.goto(`/workflows/${id}`);
       await expect(page.locator("[data-workflow-canvas]")).toBeVisible();
       // Undo and Redo: the stack's seventh and eighth buttons, named while dimmed.
-      for (const name of ["Zoom in", "Zoom out", "Fit to view", "Framed view", "Arrange by dependency", "Undo", "Redo"]) {
+      for (const name of ["Zoom in", "Zoom out", "Fit to view", "Framed view", "Arrange by dependency", /^Undo/, /^Redo/]) {
         await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
       }
       await expect(page.getByRole("tab", { name: /^Sources/ })).toBeVisible();
@@ -643,13 +643,13 @@ test.describe("census checks", () => {
         // holds the hit floor.
         await page.getByRole("button", { name: "Arrange by dependency" }).click();
         await page.waitForTimeout(700);
-        const undoBtn = page.getByRole("button", { name: "Undo", exact: true });
+        const undoBtn = page.getByRole("button", { name: /^Undo/ });
         await expect(undoBtn).toBeEnabled();
         await expectRing(page, undoBtn, "the stage's Undo");
         await expectHitFloor(undoBtn, "the stage's Undo");
         await page.keyboard.press("Enter");
         await page.waitForTimeout(700);
-        const redoBtn = page.getByRole("button", { name: "Redo", exact: true });
+        const redoBtn = page.getByRole("button", { name: /^Redo/ });
         await expect(redoBtn).toBeEnabled();
         await expectRing(page, redoBtn, "the stage's Redo");
         await expectHitFloor(redoBtn, "the stage's Redo");

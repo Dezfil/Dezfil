@@ -382,11 +382,11 @@ test("builder correctness II — the browser regressions", async ({
 
   await test.step("compact header controls expose their full accessible names at 1024×600", async () => {
     await page.setViewportSize({ width: 1024, height: 600 });
-    // The exact names, resolved through real accname computation — the
-    // visible text label is display:none at this width.
-    for (const name of ["Undo", "Redo"]) {
+    // Accessible names retain the action prefix while disclosing the target.
+    // The visible text label is display:none at this width.
+    for (const name of [/^Undo/, /^Redo/]) {
       await expect(
-        page.getByRole("button", { name, exact: true }),
+        page.getByRole("button", { name }),
       ).toBeVisible();
     }
     await expect(
@@ -786,7 +786,7 @@ test("builder correctness II — the browser regressions", async ({
 
     // Undo restores the widget — the deletion was one durable step.
     await expect(page.getByText("Saving…", { exact: true })).toBeHidden();
-    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await page.getByRole("button", { name: /^Undo/ }).click();
     await expect(card).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Saving…", { exact: true })).toBeHidden();
   });
