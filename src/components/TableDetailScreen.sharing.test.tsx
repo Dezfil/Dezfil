@@ -45,6 +45,20 @@ describe("the dataset page's owner-only actions", () => {
     expect(html).toContain("Add to a map");
   });
 
+  it("opens Set geometry to its owner alone: no door on someone else's dataset, with or without geometry", () => {
+    const pairs = {
+      geometryColumn: null, geometryType: null,
+      geometryCandidates: [{ format: "pair", strength: "weak", sourceRetained: true, columns: ["x", "y"] }],
+    } as unknown as Partial<TableInspection>;
+    const withoutOwn = markup({ ...own, ...pairs });
+    expect(withoutOwn).toContain('data-set-geometry-door="primary"');
+    expect(withoutOwn).toContain('data-set-geometry-door="strip"');
+    // With geometry whose projection was assumed, the CRS chip is the door.
+    expect(markup({ ...own, crsAssumed: true })).toContain('data-set-geometry-door="crs"');
+    expect(markup({ ...theirs, ...pairs })).not.toContain("data-set-geometry-door");
+    expect(markup({ ...theirs, crsAssumed: true })).not.toContain("data-set-geometry-door");
+  });
+
   it("offers an Overture dataset's move to the latest release to its owner alone", () => {
     const overture = { source: "overture" as const, sourceParams: { theme: "transportation", type: "segment", release: "2026-09-17.0" } };
     expect(markup({ ...own, ...overture })).toContain("Update to latest release");

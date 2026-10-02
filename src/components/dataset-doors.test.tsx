@@ -190,7 +190,7 @@ describe("the dataset page's doors on Ada's roads", () => {
 });
 
 describe("the catalogue's set-geometry door", () => {
-  it("opens the page of the dataset picked, Ada's, with the panel", async () => {
+  it("shows on the reader's own dataset alone, and opens its page with the panel", async () => {
     const flat = BOTH.map((t) => ({ ...t, geometryColumn: null, geometryType: null }));
     catalogue.listing = {
       world: { projects: [], all: flat }, worldError: null, offered: flat, offeredError: null, onRetry: vi.fn(),
@@ -203,8 +203,12 @@ describe("the catalogue's set-geometry door", () => {
     const tablesSource = container.querySelectorAll("button").find((b) => b.textContent.startsWith("Tables"))!;
     await act(async () => tablesSource.click());
     expect(container.querySelectorAll('button[aria-label="roads"]')).toHaveLength(1);
+    // Ada's dataset changes by Ada alone: Bo is offered no panel that can only refuse.
     await act(async () => container.querySelector('button[aria-label="ada.roads"]')!.click());
+    expect(container.querySelector('[data-set-geometry-door="catalog"]')).toBeNull();
+    // His own same-named dataset opens his own page, by the name he types.
+    await act(async () => container.querySelector('button[aria-label="roads"]')!.click());
     await act(async () => container.querySelector('[data-set-geometry-door="catalog"]')!.click());
-    expect(doors.push).toHaveBeenCalledWith("/tables/ada.roads?geometry=set");
+    expect(doors.push).toHaveBeenCalledWith("/tables/roads?geometry=set");
   });
 });
