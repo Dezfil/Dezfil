@@ -855,6 +855,15 @@ replacing the former `invalid_request` (400), a breaking change. Malformed
 input still answers `invalid_request`. An unchanged orphan widget already
 stored in history remains readable and can be echoed unchanged.
 
+**Shared history attribution.** `GET /api/maps/{id}/history` returns
+`canUndo`, `canRedo`, `undoTarget` and `redoTarget`. Each target is null or
+contains `steps`, `eligible` and `reason`. Steps name their original author
+as `{ name, sqlName }`, or null for unknown historical authors. A target
+covers one contiguous group by one actor; coalescing never combines actors.
+Eligibility applies to the whole group under the caller's current edit,
+SQL admission and publication permissions. Undo and redo record the acting
+account as last changer while preserving each step's original author.
+
 **History and card images.** History follows the map: everyone who reaches it
 reads its availability, and undo and redo are content changes, open to whoever
 may change the map's content. Undo and redo validate the whole recorded

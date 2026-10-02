@@ -102,6 +102,6 @@ describe('external group association', () => {
     for (const expected of ['First', 'Manual', 'Last']) expect(body(await call('redo_change', { id: mapId })).name).toBe(expected);
     expect(body(await call('undo_change', { id: other })).name).toBe('Other');
     expect(body(await call('redo_change', { id: other })).name).toBe('Other changed');
-    expect(body(await call('get_history', { id: mapId }))).toEqual({ canUndo: true, canRedo: false });
+    expect(body(await call('get_history', { id: mapId }))).toMatchObject({ canUndo: true, canRedo: false });
   });
 });

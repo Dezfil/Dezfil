@@ -37,7 +37,7 @@ it("set, change, preview and clear preserve both undo and redo plus authored lay
   const layer = await createLayer(testAccountScope(), map.id, { name: "Points", sql: `SELECT ST_GeomFromText(payload) geometry FROM ${t.name}` });
   updateMap(testAccountScope(), map.id, { name: "Renamed", basemap: "dark" });
   await undoChange(testAccountScope(), map.id);
-  expect(mapHistory(testAccountScope(), map.id)).toEqual({ canUndo: true, canRedo: true });
+  expect(await mapHistory(testAccountScope(), map.id)).toMatchObject({ canUndo: true, canRedo: true });
   const history = metadataDb().prepare("SELECT * FROM map_history ORDER BY seq").all();
   const beforeLayer = requireLayer(testAccountScope(), layer.id);
   const beforeMap = metadataDb().prepare("SELECT * FROM maps WHERE id = ?").get(map.id);
@@ -48,7 +48,7 @@ it("set, change, preview and clear preserve both undo and redo plus authored lay
   expect(metadataDb().prepare("SELECT * FROM map_history ORDER BY seq").all()).toEqual(history);
   expect(metadataDb().prepare("SELECT * FROM maps WHERE id = ?").get(map.id)).toEqual(beforeMap);
   expect(requireLayer(testAccountScope(), layer.id)).toEqual(beforeLayer);
-  expect(mapHistory(testAccountScope(), map.id)).toEqual({ canUndo: true, canRedo: true });
+  expect(await mapHistory(testAccountScope(), map.id)).toMatchObject({ canUndo: true, canRedo: true });
 });
 it.each(["consumed-wkt", "assumed-parquet", "shapefile-no-prj"])("%s accepts its first projection correction, then explains second-change and clear refusal", async kind => {
   let t;

@@ -1,3 +1,5 @@
+import { recordDocumentChanges } from "./metadata/revisions";
+import { historyTarget, type HistoryTarget } from "./history-targets";
 import { assertHistoryRefs } from "./map-history-refs";
 import type { AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
@@ -15,12 +17,25 @@ import { admitMapSql, recheckSaved, savesAsOwner, type SavedAdmission } from "./
 /** The map + fresh history availability — what undo/redo return, and what
  * the builder seeds its buttons from. */
 export interface MapWithHistory extends MapWithLayers {
-  history: HistoryAvailability;
+  history: MapHistoryAvailability;
 }
 
-export function mapHistory(scope: AccountScope, id: string): HistoryAvailability {
+export interface MapHistoryAvailability extends HistoryAvailability {
+  undoTarget: HistoryTarget | null;
+  redoTarget: HistoryTarget | null;
+}
+
+export async function mapHistory(scope: AccountScope, id: string): Promise<MapHistoryAvailability> {
+  const snapshot = metadataDb().transaction(() => ({
+    map: requireMap(scope, id), layers: listLayers(id),
+    undo: undoSteps(id), redo: redoSteps(id), availability: historyAvailability(id),
+  }))();
+  const [undoTarget, redoTarget] = await Promise.all([
+    historyTarget(scope, snapshot.map, snapshot.layers, snapshot.undo, "undo"),
+    historyTarget(scope, snapshot.map, snapshot.layers, snapshot.redo, "redo"),
+  ]);
   requireMap(scope, id);
-  return historyAvailability(id);
+  return { ...snapshot.availability, undoTarget, redoTarget };
 }
 
 /**
@@ -127,9 +142,10 @@ async function applyHistory(
     for (const step of steps) applyStep(step, direction, removedLayers);
     const last = steps[steps.length - 1];
     setHistoryCursor(id, direction === "undo" ? last.seq - 1 : last.seq);
+    recordDocumentChanges(scope, [{ kind: "map", id }]);
   })();
   await Promise.all(removedLayers.map((lid) => removeTileArtifacts(lid)));
-  return { ...mapWithLayersFor(scope, id, "edit"), history: historyAvailability(id) };
+  return { ...mapWithLayersFor(scope, id, "edit"), history: await mapHistory(scope, id) };
 }
 
 /** Revert the newest step — or the whole group an assistant turn wrote. */

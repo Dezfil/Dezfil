@@ -52,7 +52,7 @@ export async function removeLayer(
         before: { widgets },
         after: { widgets: remaining },
         groupId,
-      });
+      }, metadataDb(), scope);
     }
     if (arrangement && arranged) {
       const pruned = arrangement.filter((lid) => lid !== id);
@@ -67,7 +67,7 @@ export async function removeLayer(
         before: { legendOrder: arrangement },
         after: { legendOrder: pruned.length ? pruned : null },
         groupId,
-      });
+      }, metadataDb(), scope);
     }
     deleteLayer(id);
     recordDocumentChanges(scope, [{ kind: "map", id: layer.mapId }]);
@@ -79,7 +79,7 @@ export async function removeLayer(
       before: layerImage(layer),
       after: null,
       groupId,
-    });
+    }, metadataDb(), scope);
   })();
   await removeTileArtifacts(id);
 }

@@ -329,7 +329,7 @@ describe("undo and redo application", () => {
 
     const undone = await undoChange(testAccountScope(), map.id);
     expect(stableJson(requireLayer(testAccountScope(), layer.id).style)).toBe(original);
-    expect(undone.history).toEqual({ canUndo: true, canRedo: true }); // add step below
+    expect(undone.history).toMatchObject({ canUndo: true, canRedo: true }); // add step below
 
     const redone = await redoChange(testAccountScope(), map.id);
     expect(stableJson(requireLayer(testAccountScope(), layer.id).style)).toBe(editedJson);
@@ -421,9 +421,9 @@ describe("undo and redo application", () => {
     const map = createMap(testAccountScope(), "m");
     updateMap(testAccountScope(), map.id, { name: "One" });
     await undoChange(testAccountScope(), map.id);
-    expect(mapHistory(testAccountScope(), map.id).canRedo).toBe(true);
+    expect((await mapHistory(testAccountScope(), map.id)).canRedo).toBe(true);
     updateMap(testAccountScope(), map.id, { name: "Two" });
-    expect(mapHistory(testAccountScope(), map.id)).toEqual({ canUndo: true, canRedo: false });
+    expect(await mapHistory(testAccountScope(), map.id)).toMatchObject({ canUndo: true, canRedo: false });
     await expect(redoChange(testAccountScope(), map.id)).rejects.toMatchObject({
       code: "invalid_request",
     });

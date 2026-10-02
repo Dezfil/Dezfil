@@ -10,7 +10,7 @@ export async function GET(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id } = await params;
-    return NextResponse.json(mapHistory(scope, id));
+    return NextResponse.json(await mapHistory(scope, id));
   } catch (error) {
     return errorResponse(error);
   }

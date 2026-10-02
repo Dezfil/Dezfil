@@ -121,6 +121,20 @@ export const MCP_PATHS = {
 };
 
 export const HISTORY_SCHEMAS = {
+        HistoryTarget: {
+          type: ["object", "null"],
+          properties: {
+            eligible: { type: "boolean", description: "Whether the caller may replay the entire target under current edit, SQL and publication rules." },
+            reason: { type: ["string", "null"], description: "The refusal reason, or null when eligible." },
+            steps: { type: "array", items: { type: "object", properties: {
+              id: { type: "string" }, scope: { type: "string", enum: ["map", "layer"] },
+              targetId: { type: "string" }, op: { type: "string", enum: ["add", "update", "delete"] },
+              createdAt: { type: "string", format: "date-time" },
+              author: { type: ["object", "null"], description: "Original actor; null means unknown. Ownership and later replay never reattribute a step.",
+                properties: { name: { type: "string" }, sqlName: { type: "string" } }, required: ["name", "sqlName"], additionalProperties: false },
+            }, required: ["id", "scope", "targetId", "op", "author", "createdAt"] } },
+          }, required: ["eligible", "reason", "steps"],
+        },
         History: {
           type: "object",
           description:
@@ -128,8 +142,10 @@ export const HISTORY_SCHEMAS = {
           properties: {
             canUndo: { type: "boolean" },
             canRedo: { type: "boolean" },
+            undoTarget: { $ref: "#/components/schemas/HistoryTarget" },
+            redoTarget: { $ref: "#/components/schemas/HistoryTarget" },
           },
-          required: ["canUndo", "canRedo"],
+          required: ["canUndo", "canRedo", "undoTarget", "redoTarget"],
         },
         MapWithHistory: {
           allOf: [

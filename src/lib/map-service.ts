@@ -530,7 +530,7 @@ export function updateMap(
         before,
         after,
         groupId: opts.groupId,
-      });
+      }, metadataDb(), scope);
     }
   })();
   return mapWithLayersFor(scope, id, "edit");

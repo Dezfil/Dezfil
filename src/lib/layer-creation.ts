@@ -18,6 +18,7 @@ import { POINTS_VIZ } from "@/lib/viz";
  * and move when the panel does. Recorded in the add's own gesture, so
  * one undo removes layer and slot together. */
 function enterArrangement(
+  scope: AccountScope,
   mapId: string,
   layerId: string,
   arrangement: string[],
@@ -33,7 +34,7 @@ function enterArrangement(
     before: { legendOrder: arrangement },
     after: { legendOrder: next },
     groupId,
-  });
+  }, metadataDb(), scope);
 }
 
 export async function createLayer(
@@ -88,8 +89,8 @@ export async function createLayer(
       before: null,
       after: layerImage(layer),
       groupId,
-    });
-    if (arrangement) enterArrangement(mapId, layer.id, arrangement, groupId);
+    }, metadataDb(), scope);
+    if (arrangement) enterArrangement(scope, mapId, layer.id, arrangement, groupId);
   })();
   return layer;
 }
@@ -126,9 +127,9 @@ export function duplicateLayer(
       before: null,
       after: layerImage(copy),
       groupId,
-    });
+    }, metadataDb(), scope);
     if (arrangement)
-      enterArrangement(source.mapId, copy.id, arrangement, groupId);
+      enterArrangement(scope, source.mapId, copy.id, arrangement, groupId);
     return copy;
   })();
 }

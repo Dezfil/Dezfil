@@ -338,6 +338,8 @@ describe("API parity", () => {
     expect(Object.keys(history.properties ?? {}).sort()).toEqual([
       "canRedo",
       "canUndo",
+      "redoTarget",
+      "undoTarget",
     ]);
     expect(doc.components.schemas.MapWithHistory).toBeDefined();
   });

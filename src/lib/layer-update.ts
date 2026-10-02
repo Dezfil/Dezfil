@@ -310,7 +310,7 @@ export async function deriveAndCommitUpdate(
         before: diff.before,
         after: diff.after,
         groupId: opts.groupId,
-      });
+      }, metadataDb(), scope);
     }
     committed = true;
   })();
