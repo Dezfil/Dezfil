@@ -36,8 +36,8 @@ function captureHistory(scope: AccountScope, id: string) {
 }
 async function presentHistory(scope: AccountScope, id: string, snapshot: ReturnType<typeof captureHistory>): Promise<MapHistoryAvailability> {
   const [undoTarget, redoTarget] = await Promise.all([
-    historyTarget(scope, snapshot.map, snapshot.layers, snapshot.undo, "undo"),
-    historyTarget(scope, snapshot.map, snapshot.layers, snapshot.redo, "redo"),
+    historyTarget(scope, snapshot.map, snapshot.layers, snapshot.undo, "undo", snapshot.facts.editRevision),
+    historyTarget(scope, snapshot.map, snapshot.layers, snapshot.redo, "redo", snapshot.facts.editRevision),
   ]);
   requireMap(scope, id);
   return { ...snapshot.availability, ...snapshot.facts, undoTarget, redoTarget };

@@ -6,7 +6,7 @@ import type { HistoryStep } from "./metadata/history";
 import type { Layer, MapRecord } from "./metadata/maps";
 import { requireMapFor } from "./map-access";
 import { historyChangesPublication } from "./publication-settings";
-import { admitMapSql } from "./save-admission";
+import { admitHistoryTarget } from "./history-admission-cache";
 
 export interface HistoryTarget {
   steps: { id: string; scope: HistoryStep["scope"]; targetId: string; op: HistoryStep["op"]; author: AccountLabel | null; createdAt: string }[];
@@ -16,7 +16,7 @@ export interface HistoryTarget {
 
 /** Explain the complete contiguous target using the same admission rules as
  * replay. Unknown historic actors stay unknown, including after transfer. */
-export async function historyTarget(scope: AccountScope, map: MapRecord, layers: Layer[], steps: HistoryStep[], direction: "undo" | "redo"): Promise<HistoryTarget | null> {
+export async function historyTarget(scope: AccountScope, map: MapRecord, layers: Layer[], steps: HistoryStep[], direction: "undo" | "redo", revision: string): Promise<HistoryTarget | null> {
   if (!steps.length) return null;
   const labels = accountLabels(steps.map(step => step.authorId));
   const target: HistoryTarget = {
@@ -27,10 +27,7 @@ export async function historyTarget(scope: AccountScope, map: MapRecord, layers:
   try {
     requireMapFor(scope, map.id, "edit");
     if (historyChangesPublication(map, layers, steps, direction)) requireMapFor(scope, map.id, "publish");
-    for (const step of steps) {
-      const image = direction === "undo" ? step.before : step.after;
-      if (step.scope === "layer" && typeof image?.sql === "string") await admitMapSql(scope, map.id, image.sql);
-    }
+    await admitHistoryTarget(scope, map.id, revision, steps, direction);
   } catch (error) {
     if (!(error instanceof ApiError || error instanceof AuthError)) throw error;
     target.eligible = false;
