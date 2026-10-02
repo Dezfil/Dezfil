@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { formatRelativeTime, readApiError } from "../api";
 import {
   IconDownload,
@@ -11,7 +11,7 @@ import {
   IconList,
 } from "../gallery-icons";
 import { invalidateProjects } from "../shell/use-project-name";
-import { useInstanceName } from "../shell/path-model";
+import { contributePath, releasePath, useInstanceName } from "../shell/path-model";
 import { Button } from "../ui/Button";
 import { AddDataDialog } from "../AddDataDialog";
 import { NewWorkflowDialog } from "../NewWorkflowDialog";
@@ -56,6 +56,18 @@ const NAME_MAX = 120;
 /** A change landed but the re-read did not: said, with the retry. */
 const STALE_AFTER_CHANGE =
   "The change was saved, but the project couldn't be re-read.";
+
+/** The project IS the page's object: its name heads the shell's path, and
+ * so the browser title, `<name> · <instance>`, for everyone who reaches
+ * it, whether or not they may rename it. */
+function ProjectPath({ name }: { name: string }) {
+  const pathname = usePathname();
+  useEffect(() => {
+    contributePath(pathname, { name, projectId: null });
+    return () => releasePath(pathname);
+  }, [pathname, name]);
+  return null;
+}
 
 export function ProjectHomeScreen({ id, files }: {
   id: string;
@@ -353,6 +365,7 @@ function ProjectHomeVisit({ id, home, files }: {
 
   return (
     <div className={styles.screen}>
+      <ProjectPath name={record.name} />
       {owns ? (
         <ProjectCrumbTail
           projectId={id}

@@ -18,7 +18,7 @@ vi.mock("../sharing/use-project-people", async (original) => ({
   ...await original<typeof import("../sharing/use-project-people")>(),
   useProjectPeople: () => new Map(home.people ? [["berlin", home.people]] : []),
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), usePathname: () => "/projects/berlin" }));
 vi.mock("../builder/drawer/use-operations", () => ({ useOperations: () => ({ operations: [] }) }));
 vi.mock("../AddDataDialog", () => ({ AddDataDialog: () => null }));
 vi.mock("../use-upload-queue", () => ({ useUploadQueue: () => ({}) }));
