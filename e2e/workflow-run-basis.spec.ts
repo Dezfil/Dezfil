@@ -128,10 +128,14 @@ async function dragUpstream(page: Page, workflow: Workflow) {
   const box = await tile.boundingBox();
   if (!box) throw new Error("The upstream tile is not visible.");
   const x = box.x + box.width / 2, y = box.y + box.height / 2;
+  const before = await position(page, workflow.upstream);
+  expect(await tile.evaluate((element, point) => element.contains(document.elementFromPoint(point.x, point.y)), { x, y })).toBe(true);
   await page.mouse.move(x, y);
   await page.mouse.down();
+  await page.mouse.move(x + 2, y);
   await page.mouse.move(x + 100, y + 60, { steps: 8 });
   await page.mouse.up();
+  await expect.poll(() => position(page, workflow.upstream)).not.toEqual(before);
 }
 
 function watchWrites(page: Page, id: string): Request[] {
@@ -229,22 +233,29 @@ test("a node drag based on the revision before its own promotion keeps its refus
     const before = await readLayout(request, workflow.id);
     const gate = new Promise<void>(resolve => { releaseReads = resolve; });
     let waitingReads = 0;
-    // Keep the editor on the revision it displayed while the real run
-    // finishes. API-context reads bypass this browser response barrier.
-    await page.route(`**/api/recipes/${workflow.id}`, async route => {
+    const path = `/api/recipes/${workflow.id}`;
+    // Hold both the run result and the definition refresh: a run poll can
+    // otherwise rebuild the nodes during the drag. The server still runs
+    // and promotes the proposal; API-context reads bypass this barrier.
+    await page.route(url => url.pathname === path || url.pathname === `${path}/runs` || url.pathname.startsWith(`${path}/runs/`), async route => {
       if (route.request().method() === "GET") { waitingReads++; await gate; }
       await route.continue();
     });
     const run = await startOnCanvas(page, workflow.id, basis.editRevision);
     await expect.poll(() => waitingReads).toBeGreaterThan(0);
     await finished(request, workflow.id, run.id);
-    expect((await readRecipe(request, workflow.id)).editRevision).not.toBe(basis.editRevision);
+    const promoted = await readRecipe(request, workflow.id);
+    expect(promoted.editRevision).not.toBe(basis.editRevision);
+    expect(promoted.steps.find(step => step.id === workflow.upstream)).toMatchObject({ parameters: { sql: "SELECT 2 AS value" }, proposedParameters: null });
+    await expect(page.locator("[data-run-dock]")).toHaveAttribute("data-run-dock", "running");
+    await expect(page.locator("[data-stale-recovery]")).toHaveCount(0);
     const writes = watchWrites(page, workflow.id);
     const draft = await expectStaleLayout(page, workflow.id, basis.editRevision, () => dragUpstream(page, workflow));
     expect(writes).toHaveLength(1);
     const refreshed = page.waitForResponse(response => new URL(response.url()).pathname === `/api/recipes/${workflow.id}` && response.request().method() === "GET");
     releaseReads();
     await refreshed;
+    await expect(page.locator("[data-run-dock]")).toHaveAttribute("data-run-dock", "ended");
     await recoverLayout(page, request, workflow, before, draft, writes);
     expect((await runs(request, workflow.id)).map(item => item.id)).toContain(run.id);
     expect((await runs(request, workflow.id))).toHaveLength(2);
