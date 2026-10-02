@@ -140,6 +140,17 @@ export function useBuilderMutations({
     return response;
   }), [sequence]);
 
+  const turn = useCallback((work: () => Promise<void>) => sequence.enqueue(async () => {
+    await work();
+    // The turn has settled while later editor intent still waits. Install the
+    // accepted document before releasing that intent; never stamp old payloads.
+    const response = await fetch(`/api/maps/${mapId}`, { cache: "no-store" });
+    if (!response.ok) throw new Error(await readApiError(response));
+    const body = await response.json() as MapWithLayers;
+    applyMapResponse(body, false, truthSeqRef.current);
+    await Promise.all(body.layers.map((layer) => refreshLayer(layer.id)));
+  }), [sequence, mapId, applyMapResponse, refreshLayer]);
+
   // Undo/redo — extracted to use-map-history.ts at the touch; the queue,
   // the generation fence and the keyboard binding live there unchanged.
   const { applyHistory } = useMapHistory({
@@ -157,7 +168,7 @@ export function useBuilderMutations({
   });
 
   return {
-    request, sequence, history, setHistory, edited, reloadKey, reload,
+    turn, request, sequence, history, setHistory, edited, reloadKey, reload,
     authoritativeLayersRef, truthSeqRef, layerConfirmedAtRef, layerRemovedAtRef,
     mapFieldEditedAtRef, mapAppliedAtRef, serverMapRef, reloadEpochRef,
     legendLive, onLegendLive, failures, fail, clearFailure, pendingSaves,

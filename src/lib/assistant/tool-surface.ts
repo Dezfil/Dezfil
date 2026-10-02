@@ -1,7 +1,7 @@
 import type { ToolDef } from '@/lib/tools/tools';
 import type { ToolCall } from './provider';
 
-/** External caller headers are owned by the assistant turn, not its model.
+/** Revision headers are owned per call by the loop, never by its model.
  * The alternate schema is projected from the same documented body/parameters.
  */
 export function assistantTools(tools: ToolDef[]): ToolDef[] {

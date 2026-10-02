@@ -1,5 +1,6 @@
 "use client";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { DocumentEditorContext } from "../../document-editor-context";
 import type { AssistantContext } from "@/lib/assistant/context";
 import type { AssistantEvent } from "@/lib/assistant/loop";
 import type { PendingReceipt, RunReceipt } from "@/lib/assistant/runs";
@@ -28,6 +29,8 @@ import { CONTINUING, TURN_STARTED, eventAnnouncements } from "./turn-announcemen
  * not done; the person then writes a new message. The pane no longer sends while
  * a card waits, so supersession stays the API's for headless clients. */
 export function useAssistantTurn(context: AssistantContext | undefined, onMutate: () => void) {
+  const editor = useContext(DocumentEditorContext);
+  const refreshAfterRecovery = useCallback(() => { if (!editor) onMutate(); }, [editor, onMutate]);
   const store = conversation;
   const state = useSyncExternalStore(store.subscribe, store.get, store.get);
   const { turns, input, live, busy, reading, announcements, recoveryId, error, availablePending } = state;
@@ -52,7 +55,7 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
     return () => { cancelled = true; };
   }, [statusAttempt]);
 
-  const { applyReceipt, readOutcome, recover } = useAssistantRecovery({ recoveryId, onMutate, replace, pendingList });
+  const { applyReceipt, readOutcome, recover } = useAssistantRecovery({ recoveryId, onMutate: refreshAfterRecovery, replace, pendingList });
   /** Read through a ref by the mount effect, whose dependencies stay the
    * mount's: re-running it would abort the flight it cleans up. */
   const recoverRef = useRef(recover);
@@ -74,7 +77,7 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
     return () => { store.flight?.abort(); };
   }, [pendingList, store]);
 
-  const stream = useCallback(async (payload: Record<string, unknown>, fresh: boolean) => {
+  const streamUnordered = useCallback(async (payload: Record<string, unknown>, fresh: boolean) => {
     const current = store.active!;
     store.set({ recoveryId: current.id });
     const controller = new AbortController(); store.flight = controller;
@@ -131,6 +134,11 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
     try { await readOutcome(current.id, reported); }
     catch (e) { store.set({ error: failed(e, "Check the request outcome to recover this turn.") }); }
   }, [applyReceipt, readOutcome, replace, store]);
+
+  const stream = useCallback((payload: Record<string, unknown>, fresh: boolean) => {
+    const work = () => streamUnordered(payload, fresh);
+    return editor ? editor.turn(work) : work();
+  }, [editor, streamUnordered]);
 
   /** The flight's end, read through a ref: it is defined with Stop below. */
   const afterFlightRef = useRef<() => void>(() => { store.locked = false; store.set({ busy: false }); });

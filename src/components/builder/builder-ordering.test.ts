@@ -52,5 +52,18 @@ it("orders real layer, map and history hooks with accepted field intent and inde
   w.calls[5].ok({ ...map, layers: [], history: { canUndo: false, canRedo: true }, editRevision: "undo" });
   await history;
   expect(editor.sequence.revision).toBe("undo");
+  let settleTurn!: () => void;
+  const assistant = editor.turn(() => new Promise<void>((resolve) => { settleTurn = resolve; }));
+  const later = editor.patchMap({ name: "after assistant" });
+  await w.settle();
+  expect(w.calls).toHaveLength(6);
+  settleTurn();
+  await w.settle();
+  expect(w.calls[6].method).toBe("GET");
+  w.calls[6].ok({ ...map, layers: [], editRevision: "assistant-result" });
+  await assistant; await w.settle();
+  expect(w.calls[7].headers.get("X-Edit-Revision")).toBe("assistant-result");
+  w.calls[7].ok({ ...map, layers: [], name: "after assistant", editRevision: "later" });
+  await later;
   harness.unmount();
 });

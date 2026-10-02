@@ -5,6 +5,7 @@ import type { DocumentSequence } from "./document-sequence";
 export interface DocumentEditorPort {
   sequence: DocumentSequence;
   request: typeof fetch;
+  turn: (work: () => Promise<void>) => Promise<void>;
 }
 export const DocumentEditorContext = createContext<DocumentEditorPort | null>(null);
 /** Descendant write surfaces participate in their editor's document sequence. */

@@ -183,6 +183,7 @@ export async function* resumeAssistant(
   const call = batch.calls[batch.index];
   const tool = ctx.byName.get(call.name);
   if (approved && tool) {
+    await ctx.revisions.readOnResume(tool, call.args, ctx.baseUrl, ctx.fetchImpl ?? fetch, ctx.signal);
     yield* observed(ctx, execAndRecord(ctx, tool, call, batch, { decision: "approved", historyMapId: parked.historyMapId }));
   } else {
     const body = JSON.stringify(
@@ -373,7 +374,7 @@ async function* processCalls(
         discovery: ctx.discovery,
         turn: ctx.turn,
         exchange: ctx.exchange,
-        calls: batch.calls,
+        calls: batch.calls.map((candidate) => assistantCall(candidate, ctx.byName.get(candidate.name))),
         index: batch.index,
         outcomes: batch.outcomes,
         steps: batch.steps,

@@ -12,6 +12,7 @@ import type { PendingActionStore } from "./pending";
 import type { AssistantPolicy } from "./policy";
 import type { ProviderExchange, ToolCall } from "./provider";
 import type { Decision } from "./runs";
+import { callPath, type AssistantRevisions } from "./edit-revisions";
 import { shapeLookOutcome } from "./look-outcome";
 
 /**
@@ -42,6 +43,7 @@ export interface ActionContext {
   fetchImpl?: typeof fetch;
   signal?: AbortSignal;
   headers: Record<string, string>;
+  revisions: AssistantRevisions;
   store: PendingActionStore;
   exchange: ProviderExchange;
 }
@@ -77,7 +79,7 @@ export async function* execAndRecord(
   try {
     if (ctx.signal?.aborted) throw ctx.signal.reason;
     dispatched = true;
-    result = await executeTool(tool, call.args, ctx.baseUrl, ctx.fetchImpl, ctx.headers,
+    result = await executeTool(tool, call.args, ctx.baseUrl, ctx.fetchImpl, { ...ctx.headers, ...ctx.revisions.headers(tool, call.args) },
       actionEffects(tool, call.args).readOnly ? ctx.signal : undefined);
   } catch (error) {
     const uncertain = dispatched && !actionEffects(tool, call.args).readOnly;
@@ -95,6 +97,7 @@ export async function* execAndRecord(
   const elapsedMs = Math.round(performance.now() - started);
   // The map check's image goes to the model natively and to nothing
   // else: the events and the receipt carry the facts alone.
+  if (result.ok) ctx.revisions.observe(callPath(tool, call.args), result.body);
   const look = shapeLookOutcome(call.name, result.ok, result.body);
   const modelBody = elideAttachment(look.modelBody);
   const effects = actionEffects(tool, call.args, result.body);

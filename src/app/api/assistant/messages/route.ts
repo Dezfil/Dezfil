@@ -4,6 +4,7 @@ import { requireCurrentActor } from "@/lib/auth/credentials";
 import { instanceFetch } from "@/lib/auth/instance-fetch";
 import { executionControl, type ExecutionControl } from "@/lib/assistant/execution-control";
 import { readSubmission } from "@/lib/assistant/recovery-data";
+import { AssistantRevisions } from "@/lib/assistant/edit-revisions";
 import { loadGrounding } from "@/lib/assistant/grounding";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { assistantRuns } from "@/lib/assistant/runs";
@@ -82,6 +83,8 @@ export async function POST(request: Request) {
     scope = accountScope(actor);
     const baseUrl = selfBaseUrl(request);
     const fetchImpl = instanceFetch(baseUrl, actor);
+    const revisions = new AssistantRevisions();
+    const observeRevision = (path: string, value: unknown) => revisions.observe(path, value);
     const availability = assistantAvailability();
     if (!availability.enabled) {
       throw new ApiError("assistant_disabled", availability.reason, 404);
@@ -100,7 +103,7 @@ export async function POST(request: Request) {
       }
       const { pending, approved } = parseResolution(body.resolution);
       const original = pendingActions.peek(scope, pending);
-      const grounding = original ? await loadGrounding(original.context, baseUrl, fetchImpl, request.signal) : undefined;
+      const grounding = original ? await loadGrounding(original.context, baseUrl, fetchImpl, request.signal, observeRevision) : undefined;
       requireCurrentActor(actor);
       const parked = pendingActions.claim(scope,
         pending,
@@ -132,7 +135,7 @@ export async function POST(request: Request) {
       if (claimedRun) { assistantRuns.resume(scope, claimedRun, approved ? "approved" : "declined"); control = executionControl(scope, claimedRun, request.signal); }
       return privateResponse(runStream(scope,
         resumeAssistant(parked, approved, {
-          grounding,
+          grounding, revisions,
           runId: claimedRun,
           baseUrl, fetchImpl, scope,
           signal: control?.signal ?? request.signal,
@@ -169,7 +172,7 @@ export async function POST(request: Request) {
     // exists: a run that fails before an answer still says it.
     assistantRuns.bindChoice(scope, runId, choice);
     control = executionControl(scope, runId, request.signal);
-    const grounding = await loadGrounding(context, baseUrl, fetchImpl, control.signal);
+    const grounding = await loadGrounding(context, baseUrl, fetchImpl, control.signal, observeRevision);
     requireCurrentActor(actor);
     // The implicit decline: the client abandons the shown confirmation
     // by naming it. Unknown ids are ignored — abandoning an already-gone
@@ -196,7 +199,7 @@ export async function POST(request: Request) {
         provider,
         { message: body.message, history: parseHistory(body.history), context },
         // The page action policy binds with the context here.
-        { baseUrl, fetchImpl, scope, signal: control.signal, grounding, runId, policy: policyFor(context) },
+        { baseUrl, fetchImpl, scope, signal: control.signal, grounding, revisions, runId, policy: policyFor(context) },
       ),
       runId,
       control,

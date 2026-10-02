@@ -1,3 +1,4 @@
+import { withoutWriteRevision } from "./edit-revisions";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { ResolvedConfirmation } from "./action-metadata";
 import { ApiError } from "@/lib/api/errors";
@@ -79,7 +80,7 @@ export class PendingActionStore {
     void exchange;
     if (parkedBytes(data) > RECOVERY_LIMITS.liveBytes) recoveryLimit();
     const id = randomUUID();
-    this.parked.set(id, Object.freeze({ ...run, accountId }));
+    this.parked.set(id, Object.freeze({ ...run, headers: withoutWriteRevision(run.headers), accountId }));
     return id;
   }
 

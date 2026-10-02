@@ -26,7 +26,7 @@ const collection = (total: number, read: string): Collection => ({ items: [], to
 /** Current instance facts are read through the documented loopback API. Only
  * bounded, explicitly projected facts cross into provider input.
  */
-export async function loadGrounding(context: AssistantContext | undefined, baseUrl: string, fetchImpl: typeof fetch = fetch, signal?: AbortSignal): Promise<string> {
+export async function loadGrounding(context: AssistantContext | undefined, baseUrl: string, fetchImpl: typeof fetch = fetch, signal?: AbortSignal, observe?: (path: string, value: unknown) => void): Promise<string> {
   async function read(path: string, contextual = false): Promise<Record<string, unknown>> {
     let response: Response;
     try { response = await fetchImpl(baseUrl + path, { signal }); }
@@ -38,7 +38,9 @@ export async function loadGrounding(context: AssistantContext | undefined, baseU
       }
       unavailable();
     }
-    return record(await response.json());
+    const body = record(await response.json());
+    observe?.(path, body);
+    return body;
   }
   async function catalogue(query = ""): Promise<TableCatalogue> {
     return await read("/api/catalogue/tables" + query) as unknown as TableCatalogue;
