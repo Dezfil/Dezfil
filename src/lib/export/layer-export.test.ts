@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
@@ -235,7 +236,7 @@ describe("layer export — the agent road", () => {
     const stored = await createLayer(testAccountScope(), map.id, {
       name: "Stations",
       sql: "SELECT name, geometry FROM stations",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     // Bridge fetch to the actual route handler: the tool exercises the
     // same code path a browser download does, no server needed.
@@ -436,7 +437,7 @@ describe("layer export — private native-download hand-off", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "Stations",
       sql: "SELECT name, geometry FROM stations",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     if (sql !== layer.sql) updateLayerFields(layer.id, { sql });
     return layer;
   }

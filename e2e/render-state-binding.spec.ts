@@ -1,3 +1,4 @@
+import { readThenWriteRequestSetup } from "./edit-basis";
 // The render page's half: the
 // page declares the filters it applied from the map it read first,
 // while each layer's data is read again by the layer render request. An
@@ -39,7 +40,7 @@ test("a filter edit landing between the map read and the layer render read is wh
   await render.route(`**/api/layers/${layerId}/render`, async (route) => {
     if (!edited) {
       edited = true;
-      const r = await context.request.patch(`/api/layers/${layerId}`, { data: { filters: [filter] } });
+      const r = await readThenWriteRequestSetup(context.request, `/api/layers/${layerId}`, () => ({ method: "PATCH", path: `/api/layers/${layerId}`, options: { data: { filters: [filter] } } }));
       expect(r.ok()).toBe(true);
     }
     await route.continue();

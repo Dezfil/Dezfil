@@ -215,7 +215,7 @@ export async function seedSharing(base) {
     output: (await layer(ada, 'Output', 'SELECT * FROM roads_out')).id,
   };
   const hiddenMap = expectStatus(await ada('POST', '/api/maps', { body: { name: 'Private' } }), 201);
-  expectStatus(await ada('POST', `/api/maps/${hiddenMap.id}/layers`, { body: { name: 'Parks', sql: 'SELECT * FROM parks' } }), 201);
+  expectStatus(await ada('POST', `/api/maps/${hiddenMap.id}/layers`, { basis: captureBasis((await ada('GET', `/api/maps/${hiddenMap.id}`)).json), body: { name: 'Parks', sql: 'SELECT * FROM parks' } }), 201);
   const project = expectStatus(await ada('POST', '/api/projects', { body: { name: 'Survey', members: {
     addMaps: [map.id], addRecipes: [recipe.id],
     addTables: [tables['ada.roads'].id, tables['ada.rivers'].id, tables['ada.roads_out'].id],
@@ -285,8 +285,8 @@ export async function seedSharing(base) {
   layers.editor = (await layer(eli, 'Eli roads', 'SELECT * FROM eli.roads')).id;
   for (const api of [eli, ada, vic]) assert.deepEqual(await drawn(api, layers.editor), ['eli_roads']);
   const layersBefore = expectStatus(await ada('GET', `/api/maps/${map.id}`), 200).layers.map(l => l.id);
-  book.refused('editor: save SQL naming the owner\'s unfiled dataset', await eli('POST', `/api/maps/${map.id}/layers`, { body: { name: 'Parks', sql: 'SELECT * FROM parks' } }), 400, unavailable('parks'));
-  book.refused('editor: save SQL naming a dataset that never existed', await eli('POST', `/api/maps/${map.id}/layers`, { body: { name: 'Nothing', sql: 'SELECT * FROM never_imported' } }), 400, unavailable('never_imported'));
+  book.refused('editor: save SQL naming the owner\'s unfiled dataset', await eli('POST', `/api/maps/${map.id}/layers`, { basis: captureBasis((await eli('GET', `/api/maps/${map.id}`)).json), body: { name: 'Parks', sql: 'SELECT * FROM parks' } }), 400, unavailable('parks'));
+  book.refused('editor: save SQL naming a dataset that never existed', await eli('POST', `/api/maps/${map.id}/layers`, { basis: captureBasis((await eli('GET', `/api/maps/${map.id}`)).json), body: { name: 'Nothing', sql: 'SELECT * FROM never_imported' } }), 400, unavailable('never_imported'));
   assert.deepEqual(expectStatus(await ada('GET', `/api/maps/${map.id}`), 200).layers.map(l => l.id), layersBefore, 'refused saves added nothing');
   const publicationWrites = [
     ['change the published fields', 'PATCH', `/api/layers/${layers.roads}`, { publishedFields: [] }],

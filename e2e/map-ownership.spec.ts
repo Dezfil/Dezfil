@@ -31,9 +31,9 @@ test("two ordinary accounts and an admin keep map lists and copied map URLs priv
       const created = await context.request.post("/api/maps", { data: { name } });
       expect(created.status()).toBe(201);
       maps.push(await created.json());
-      const layer = await context.request.post(`/api/maps/${maps.at(-1)!.id}/layers`, {
+      const layer = await readThenWriteRequestSetup(context.request, `/api/maps/${maps.at(-1)!.id}`, () => ({ method: "POST", path: `/api/maps/${maps.at(-1)!.id}/layers`, options: {
         data: { name: `Private layer ${randomUUID()}`, sql: "SELECT 1 AS value, ST_Point(13, 52) AS geom" },
-      });
+      } }));
       expect(layer.status()).toBe(201);
       layers.push(await layer.json());
     }

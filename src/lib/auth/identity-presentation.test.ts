@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { documentFacts } from "@/lib/metadata/document-facts";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -68,8 +69,8 @@ const facts = (dependencies: { id: string; qualifiedName: string; owned: boolean
 
 describe("dependencies by identity", () => {
   it("lists a map's qualified external reads resolved to identities, whose each is, and nothing unreached", async () => {
-    await createLayer(scopes.ada, ids.map, { name: "Roads", sql: "SELECT r.* FROM roads r JOIN bob.stations s ON r.sentinel <> s.sentinel" });
-    await createLayer(scopes.bob, ids.map, { name: "His", sql: "SELECT * FROM bob.roads" });
+    await createLayer(scopes.ada, ids.map, { name: "Roads", sql: "SELECT r.* FROM roads r JOIN bob.stations s ON r.sentinel <> s.sentinel" }, { expectedRevision: readEditRevision({ kind: "map", id: ids.map })?.editRevision });
+    await createLayer(scopes.bob, ids.map, { name: "His", sql: "SELECT * FROM bob.roads" }, { expectedRevision: readEditRevision({ kind: "map", id: ids.map })?.editRevision });
     expect(facts(await mapDependencies(scopes.bob, ids.map))).toEqual([
       { id: tables["ada.roads"].id, qualifiedName: "ada.roads", owned: false, producer: null },
       { id: tables["bob.roads"].id, qualifiedName: "roads", owned: true, producer: null },
@@ -95,7 +96,7 @@ describe("dependencies by identity", () => {
       { id: tables["ada.roads"].id, qualifiedName: "roads", owned: true, producer: null },
       { id: staged("ada"), qualifiedName: "staged", owned: true, producer: { ...W, owned: true } },
     ]);
-    await createLayer(scopes.bob, ids.map, { name: "Staged", sql: "SELECT * FROM bob.staged" });
+    await createLayer(scopes.bob, ids.map, { name: "Staged", sql: "SELECT * FROM bob.staged" }, { expectedRevision: readEditRevision({ kind: "map", id: ids.map })?.editRevision });
     expect(facts(await mapDependencies(scopes.ada, ids.map))).toEqual([
       { id: staged("bob"), qualifiedName: "bob.staged", owned: false, producer: { ...W, owned: true } },
     ]);

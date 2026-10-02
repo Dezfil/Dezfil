@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { mkdtemp, rm, readdir } from "node:fs/promises";
@@ -111,9 +113,9 @@ it("lets only the owner delete and fence an in-flight private build", async () =
   const held = gate(); effects.beforeExport = () => held.promise;
   const { removeLayer } = await import("@/lib/layer-removal");
   build("alice"); await vi.waitFor(() => expect(effects.export).toHaveBeenCalledOnce());
-  for (const account of ["bob", "admin"]) await expect(removeLayer(scopes[account], layers.alice)).rejects.toMatchObject({ status: 404 });
+  for (const account of ["bob", "admin"]) await expect(removeLayer(scopes[account], layers.alice, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layers.alice)?.mapId ?? "missing") })?.editRevision })).rejects.toMatchObject({ status: 404 });
   expect(getTileRecord(layers.alice)?.state).toBe("building");
-  await removeLayer(scopes.alice, layers.alice); held.release(); await tileBuildsSettled();
+  await removeLayer(scopes.alice, layers.alice, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layers.alice)?.mapId ?? "missing") })?.editRevision }); held.release(); await tileBuildsSettled();
   expect(getTileRecord(layers.alice)).toBeNull(); expect(existsSync(tileArchivePath(layers.alice))).toBe(false); expect(await readdir(tileScratchDir())).toEqual([]);
 });
 it("rebuilds after reactivation without inheriting an abandoned building or failure record", async () => {

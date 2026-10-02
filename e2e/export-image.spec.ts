@@ -165,13 +165,18 @@ test.describe("export image and data", () => {
       // name independently capped.
       await page.evaluate(
         async ({ layerId }) => {
-          await fetch(`/api/layers/${layerId}`, {
+          await (async function readThenWriteSetup() {
+const read = await fetch(`/api/layers/${layerId}`, { cache: "no-store" });
+if (!read.ok) throw new Error(await read.text());
+const shown = await read.json();
+return fetch(`/api/layers/${layerId}`, {
             method: "PATCH",
-            headers: { "content-type": "application/json" },
+            headers: { "X-Edit-Revision": shown.editRevision, "content-type": "application/json" },
             body: JSON.stringify({
               name: "berlin_restaurants_and_cafes_rated_by_riders",
             }),
           });
+})();
         },
         { layerId },
       );
@@ -199,11 +204,16 @@ test.describe("export image and data", () => {
       await page.keyboard.press("Escape");
       await page.evaluate(
         async ({ layerId }) => {
-          await fetch(`/api/layers/${layerId}`, {
+          await (async function readThenWriteSetup() {
+const read = await fetch(`/api/layers/${layerId}`, { cache: "no-store" });
+if (!read.ok) throw new Error(await read.text());
+const shown = await read.json();
+return fetch(`/api/layers/${layerId}`, {
             method: "PATCH",
-            headers: { "content-type": "application/json" },
+            headers: { "X-Edit-Revision": shown.editRevision, "content-type": "application/json" },
             body: JSON.stringify({ name: "stations" }),
           });
+})();
         },
         { layerId },
       );

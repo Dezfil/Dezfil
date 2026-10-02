@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { createHash } from "node:crypto";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -44,8 +46,8 @@ beforeEach(async () => {
   }
   shareProject("bob", "P", [["ada", "viewer"]], [tables.bob.id]);
   map = createMap(scopes.ada, "Survey");
-  await createLayer(scopes.ada, map.id, { name: "Mine", sql: "SELECT * FROM roads" });
-  theirs = await createLayer(scopes.ada, map.id, { name: "Theirs", sql: "SELECT * FROM bob.roads" });
+  await createLayer(scopes.ada, map.id, { name: "Mine", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+  theirs = await createLayer(scopes.ada, map.id, { name: "Theirs", sql: "SELECT * FROM bob.roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 });
 afterEach(async () => { closeMetadataDb(); resetQueryInstance(); vi.unstubAllEnvs(); await rm(directory, { recursive: true, force: true }); });
 
@@ -82,7 +84,7 @@ describe("card images record what they drew", () => {
 
   it("keeps a late upload after a SQL change unattributed", async () => {
     const seen = revision();
-    await updateLayer(scopes.ada, theirs.id, { sql: "SELECT * FROM roads" });
+    await updateLayer(scopes.ada, theirs.id, { sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(theirs.id)?.mapId ?? "missing") })?.editRevision });
     expect((await upload(png("late"), `revision=${seen}`)).status).toBe(204);
     expect((await evidence(`${map.id}.png`)).inputs).toBeNull();
   });
@@ -90,14 +92,14 @@ describe("card images record what they drew", () => {
   it("stamps each image of a themed pair on its own", async () => {
     const seen = revision();
     expect((await upload(png("light"), `theme=light&cycle=c1&revision=${seen}`)).status).toBe(202);
-    await updateLayer(scopes.ada, theirs.id, { sql: "SELECT * FROM roads" });
+    await updateLayer(scopes.ada, theirs.id, { sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(theirs.id)?.mapId ?? "missing") })?.editRevision });
     expect((await upload(png("dark"), `theme=dark&cycle=c1&revision=${seen}`)).status).toBe(204);
     expect(ids((await evidence(`${map.id}.c1.light.png`)).inputs)).toEqual([tables.ada.id, tables.bob.id].sort());
     expect((await evidence(`${map.id}.c1.dark.png`)).inputs).toBeNull();
   });
 
   it("records the whole reach behind a catalogue read", async () => {
-    await updateLayer(scopes.ada, theirs.id, { sql: "SELECT r.* FROM roads r WHERE EXISTS (SELECT view_name FROM duckdb_views())" });
+    await updateLayer(scopes.ada, theirs.id, { sql: "SELECT r.* FROM roads r WHERE EXISTS (SELECT view_name FROM duckdb_views())" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(theirs.id)?.mapId ?? "missing") })?.editRevision });
     expect((await upload(png("listing"), `revision=${revision()}`)).status).toBe(204);
     const stamped = await evidence(`${map.id}.png`);
     expect(stamped.inputs?.catalogue).toBe(true);

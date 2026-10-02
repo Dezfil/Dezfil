@@ -1,5 +1,5 @@
 import { documentFacts } from "@/lib/metadata/document-facts";
-import { recordDocumentChanges } from "@/lib/metadata/revisions";
+import { recordDocumentChanges, requireDocumentRevision } from "@/lib/metadata/revisions";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
 import { getLayer, getMap } from "@/lib/metadata/map-queries";
 import { listOwnedTables, updateOwnedTableData, deleteOwnedTable, ownedDependentLayerIds } from "@/lib/metadata/owned-tables";
@@ -470,7 +470,7 @@ export interface CascadeResult {
  * map: on one's own map the cascade stands, on anyone else's the layer stays
  * and fails by name for whoever opens it.
  */
-export async function cascadeDeleteSketch(scope: AccountScope, name: string, from: "layer" | "dataset" = "dataset"): Promise<CascadeResult> {
+export async function cascadeDeleteSketch(scope: AccountScope, name: string, from: "layer" | "dataset" = "dataset", opts: { expectedRevision?: unknown } = {}): Promise<CascadeResult> {
   const keyed = requireSketch(scope, name);
   return serialize(keyed.id, async () => {
     const fresh = requireSketch(scope, name);
@@ -498,7 +498,10 @@ export async function cascadeDeleteSketch(scope: AccountScope, name: string, fro
         } else {
           const layer = getLayer(layerId, db);
           if (!map || !layer || layer.mapId !== mapId) throw resourceAbsent();
-          if (from === "layer") requirePermitted(scope, "layer", layerId, "edit", db);
+          if (from === "layer") {
+            requirePermitted(scope, "layer", layerId, "edit", db);
+            requireDocumentRevision(scope, { kind: "map", id: mapId, expectedRevision: opts.expectedRevision }, db);
+          }
         }
       }
       if (mapId && layerId) {

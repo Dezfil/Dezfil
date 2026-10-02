@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -56,7 +57,7 @@ async function discover(entries: Entry[]): Promise<Entry[]> {
     }
   }
   const map = createMap(scope, "Discovery");
-  const layer = await createLayer(scope, map.id, { name: "Views", sql: "SELECT view_name, ST_Point(0, 0) AS geometry FROM duckdb_views() WHERE NOT internal ORDER BY view_name" });
+  const layer = await createLayer(scope, map.id, { name: "Views", sql: "SELECT view_name, ST_Point(0, 0) AS geometry FROM duckdb_views() WHERE NOT internal ORDER BY view_name" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   const render = await renderLayer(scope, layer);
   captured.push({ label: "layer render", sql: layer.sql, result: (render.geojson as { features: { properties: unknown }[] }).features.map(f => f.properties) });
   const recipe = createRecipe(scope, "Discovery");

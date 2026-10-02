@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import JSZip from "jszip";
@@ -48,7 +49,7 @@ beforeEach(async () => {
     .run(JSON.stringify({ connectionId: CONNECTION.id, connectionName: CONNECTION.name, schema: "secret_schema", table: "secret_table" }), parcels);
   shareProject("ada", "P", [["bob", "editor"], ["vic", "viewer"]], [parcels]);
   const map = createMap(scopes.ada, "Survey", "P");
-  await createLayer(scopes.ada, map.id, { name: "Parcels", sql: "SELECT * FROM parcels" });
+  await createLayer(scopes.ada, map.id, { name: "Parcels", sql: "SELECT * FROM parcels" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   mapId = map.id;
 });
 afterEach(async () => { closeMetadataDb(); resetQueryInstance(); resetSecretKeyCache(); vi.unstubAllEnvs(); await rm(directory, { recursive: true, force: true }); });

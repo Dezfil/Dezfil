@@ -1113,3 +1113,18 @@ its editRevision in X-Edit-Revision.” A stale value returns `409 stale_revisio
 first. Refusal changes no content, history, actor, publication or artifacts,
 including when validation races another edit. Reload explicitly before making
 a new edit; never attach a refreshed token to a refused payload.
+
+### Layer edit preconditions
+
+Layer creation, PATCH, in-map duplication and DELETE require the parent map's
+`X-Edit-Revision`. The generated `create_layer`, `update_layer`, `duplicate_layer`
+and `delete_layer` tools require `expected_revision`. Read the map or layer and
+retain that paired revision, then chain each accepted result. These operations
+return JSON with the resulting map `editRevision`; unchanged values still
+require the current revision and advance neither revision nor attribution.
+Missing or malformed bases return `400 invalid_request`; stale bases return
+`409 stale_revision` with the sentence above. A save racing SQL validation or
+style derivation is refused whole and is never re-derived on the newer state.
+Layer deletion includes an owned sketch's dataset and artifacts: a refused
+deletion leaves them intact. Dataset deletion itself remains outside the edit
+precondition contract, including its existing map-changing cascades.

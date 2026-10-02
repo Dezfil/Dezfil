@@ -1,3 +1,4 @@
+import { requireDocumentRevision } from "@/lib/metadata/revisions";
 import { readLayer } from "@/lib/layer-access";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
@@ -203,7 +204,7 @@ export async function PATCH(request: Request, { params }: Params) {
     if (layerWriteChangesPublication(current, fields)) requireLayerFor(scope, id, "publish");
     return NextResponse.json(
       await updateLayer(scope, id, fields, {
-        groupId: changeGroupOf(request),
+        expectedRevision: request.headers.get("X-Edit-Revision"), groupId: changeGroupOf(request),
         signal: request.signal,
       }),
     );
@@ -221,12 +222,13 @@ export async function DELETE(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id } = await params;
-    requireLayerFor(scope, id, "edit");
+    const layer = requireLayerFor(scope, id, "edit");
+    requireDocumentRevision(scope, { kind: "map", id: layer.mapId, expectedRevision: request.headers.get("X-Edit-Revision") });
     const owned = sketchOwnedByLayer(scope, id);
     if (owned) {
-      return NextResponse.json(await cascadeDeleteSketch(scope, owned.name, "layer"));
+      return NextResponse.json(await cascadeDeleteSketch(scope, owned.name, "layer", { expectedRevision: request.headers.get("X-Edit-Revision") }));
     }
-    return NextResponse.json(await removeLayer(scope, id, { groupId: changeGroupOf(request) }));
+    return NextResponse.json(await removeLayer(scope, id, { expectedRevision: request.headers.get("X-Edit-Revision"), groupId: changeGroupOf(request) }));
   } catch (error) {
     return errorResponse(error);
   }

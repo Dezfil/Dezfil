@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { documentFacts } from "@/lib/metadata/document-facts";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -49,8 +50,8 @@ beforeEach(async () => {
   shareProject("pat", "P", [["ada", "editor"], ["ed", "editor"]], [tables["ada.roads"].id]);
   const map = createMap(scopes.ada, "Survey", "P");
   mapId = map.id;
-  await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" });
-  await createLayer(scopes.ada, map.id, { name: "Parks", sql: "SELECT * FROM parks" });
+  await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+  await createLayer(scopes.ada, map.id, { name: "Parks", sql: "SELECT * FROM parks" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   token = publishMap(scopes.ada, map.id).token;
 });
 afterEach(async () => {

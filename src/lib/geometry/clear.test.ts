@@ -35,7 +35,7 @@ it("clear keeps every source and identity, repeats as a no-op and permits reappl
 it("set, change, preview and clear preserve both undo and redo plus authored layer SQL/style", async () => {
   const t = await stored("SELECT 'POINT (10 20)' payload, 30 x, 40 y");
   const map = createMap(testAccountScope(), "Geometry map");
-  const layer = await createLayer(testAccountScope(), map.id, { name: "Points", sql: `SELECT ST_GeomFromText(payload) geometry FROM ${t.name}` });
+  const layer = await createLayer(testAccountScope(), map.id, { name: "Points", sql: `SELECT ST_GeomFromText(payload) geometry FROM ${t.name}` }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   updateMap(testAccountScope(), map.id, { name: "Renamed", basemap: "dark" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   await undoChange(testAccountScope(), map.id);
   expect(await mapHistory(testAccountScope(), map.id)).toMatchObject({ canUndo: true, canRedo: true });

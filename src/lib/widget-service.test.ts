@@ -1,4 +1,5 @@
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -138,7 +139,7 @@ async function dashboard() {
   const layer = await createLayer(testAccountScope(), map.id, {
     name: "Trips",
     sql: "SELECT name, cat, val, geometry FROM trips",
-  });
+  }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   const widgets = WIDGETS.map((w) => ({
     ...w,
     layerId: w.type === "note" ? null : layer.id,
@@ -316,7 +317,7 @@ describe("widget authoring", () => {
 
   it("deleting a layer removes its widgets in the same undoable step", async () => {
     const { map, layer } = await dashboard();
-    await removeLayer(testAccountScope(), layer.id);
+    await removeLayer(testAccountScope(), layer.id, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     // The bound data widgets went with the layer; the note stays.
     expect(getMap(map.id)!.widgets.map((w) => w.id)).toEqual(["wn"]);
     // One undo gesture restores layer and widgets together.
@@ -401,7 +402,7 @@ describe("the settle lane", () => {
     const { map, layer } = await dashboard();
     const hexLayer = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const full = await renderLayerWithSelections(testAccountScope(), hexLayer, []);
     const constrained = await renderLayerWithSelections(testAccountScope(), hexLayer, [
       { field: "cat", kind: "values", values: ["A"] },
@@ -437,7 +438,7 @@ describe("published selection bounding", () => {
     const { map, layer } = await dashboard();
     const hexLayer = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const published = {
       timeline: map.timeline,
       widgets: map.widgets,
@@ -458,7 +459,7 @@ describe("published selection bounding", () => {
     const { map, layer } = await dashboard();
     const hexLayer = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const published = {
       timeline: map.timeline,
       widgets: map.widgets,
@@ -482,7 +483,7 @@ describe("published selection bounding", () => {
     const { map, layer } = await dashboard();
     const hexLayer = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const published = {
       timeline: map.timeline,
       widgets: map.widgets,
@@ -509,7 +510,7 @@ describe("published selection bounding", () => {
       tooltip: ["name"],
       popup: [],
       viz: { type: "cluster", radiusPx: 64, color: "fixed", showCounts: true },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const published = {
       timeline: map.timeline,
       widgets: [],

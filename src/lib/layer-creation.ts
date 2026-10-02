@@ -1,5 +1,5 @@
-import { documentFacts } from "./metadata/document-facts";
-import { recordDocumentChanges } from "@/lib/metadata/revisions";
+import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
+import { recordDocumentChanges, requireDocumentRevision } from "@/lib/metadata/revisions";
 import { randomUUID } from "node:crypto";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireMapFor } from "./map-access";
@@ -42,11 +42,12 @@ export async function createLayer(
   scope: AccountScope,
   mapId: string,
   input: { name: string; sql: string; style?: LayerStyle },
-  opts: { groupId?: string | null; signal?: AbortSignal } = {},
-): Promise<Layer> {
+  opts: { groupId?: string | null; signal?: AbortSignal; expectedRevision?: unknown } = {},
+): Promise<Layer & DocumentFacts> {
   // Admission (layer-admission.ts): the map under the acting scope, SQL
   // that draws geometry, and a given style valid with references the
   // result can honor.
+  requireDocumentRevision(scope, { kind: "map", id: mapId, expectedRevision: opts.expectedRevision });
   const { geometryType, saved } = await admitLayerCreate(scope, mapId, input, opts.signal);
   const now = new Date().toISOString();
   const ordinal = nextOrdinal(mapId);
@@ -76,6 +77,7 @@ export async function createLayer(
   return metadataDb().transaction(() => {
     const arrangement = requireMapFor(scope, mapId, "edit").legendOrder;
     recheckSaved(scope, saved);
+    requireDocumentRevision(scope, { kind: "map", id: mapId, expectedRevision: opts.expectedRevision });
     layer.ordinal = nextOrdinal(mapId);
     const groupId = arrangement
       ? (opts.groupId ?? randomUUID())
@@ -101,10 +103,11 @@ export async function createLayer(
 export function duplicateLayer(
   scope: AccountScope,
   id: string,
-  opts: { groupId?: string | null } = {},
-): Layer {
+  opts: { groupId?: string | null; expectedRevision?: unknown } = {},
+): Layer & DocumentFacts {
   return metadataDb().transaction(() => {
     const source = requireLayerFor(scope, id, "edit");
+    requireDocumentRevision(scope, { kind: "map", id: source.mapId, expectedRevision: opts.expectedRevision });
     const now = new Date().toISOString();
     const copy: Layer = {
       ...source,

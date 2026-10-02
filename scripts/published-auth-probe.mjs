@@ -8,15 +8,15 @@ export async function publishedAuthProbe(base) {
   const credential = await provisionJourney(base), api = journeyApi(base, { token: credential.token });
   const anonymous = journeyApi(base);
   const map = await api('POST', '/api/maps', { body: { name: 'Anonymous data and tiles' } }); assert.equal(map.status, 201);
-  const layer = await api('POST', `/api/maps/${map.json.id}/layers`, { body: { name: 'Filtered points', sql: "SELECT * FROM (VALUES ('a', 10, 20), ('b', 11, 21)) p(name, x, y) CROSS JOIN LATERAL (SELECT ST_Point(x, y) AS geometry)" } }); assert.equal(layer.status, 201);
-  assert.equal((await api('PATCH', `/api/layers/${layer.json.id}`, { body: { viz: { type: 'cluster', radiusPx: 64, color: 'fixed', showCounts: true } } })).status, 200);
+  const layer = await api('POST', `/api/maps/${map.json.id}/layers`, { basis: captureBasis((await api('GET', `/api/maps/${map.json.id}`)).json), body: { name: 'Filtered points', sql: "SELECT * FROM (VALUES ('a', 10, 20), ('b', 11, 21)) p(name, x, y) CROSS JOIN LATERAL (SELECT ST_Point(x, y) AS geometry)" } }); assert.equal(layer.status, 201);
+  assert.equal((await api('PATCH', `/api/layers/${layer.json.id}`, { basis: captureBasis((await api('GET', `/api/layers/${layer.json.id}`)).json), body: { viz: { type: 'cluster', radiusPx: 64, color: 'fixed', showCounts: true } } })).status, 200);
   const defaults = { layerId: layer.json.id, agg: 'count', aggField: null, unit: null, note: null, format: null, visible: true };
   const shown = await api('GET', `/api/maps/${map.json.id}`);
   assert.equal((await api('PATCH', `/api/maps/${map.json.id}`, { basis: captureBasis(shown.json), body: { widgetsPublished: true, widgets: [
     { ...defaults, id: 'category', type: 'category', title: 'Names', field: 'name' },
     { ...defaults, id: 'count', type: 'formula', title: 'Count', field: null },
   ] } })).status, 200);
-  const tiled = await api('POST', `/api/maps/${map.json.id}/layers`, { body: { name: 'Tiled points', sql: 'SELECT i, ST_Point(10 + (i % 49) * 0.001, 20 + floor(i / 49) * 0.001) AS geometry FROM range(2401) AS p(i)' } }); assert.equal(tiled.status, 201);
+  const tiled = await api('POST', `/api/maps/${map.json.id}/layers`, { basis: captureBasis((await api('GET', `/api/maps/${map.json.id}`)).json), body: { name: 'Tiled points', sql: 'SELECT i, ST_Point(10 + (i % 49) * 0.001, 20 + floor(i / 49) * 0.001) AS geometry FROM range(2401) AS p(i)' } }); assert.equal(tiled.status, 201);
   let render;
   const deadline = Date.now() + 120_000;
   do {

@@ -112,7 +112,7 @@ describe('coded known-tool errors', () => {
     const methods: string[] = [];
     const client = await testClient(request => { methods.push(request.method); return Response.json({ id: 'layer' }); });
     try {
-      expect(decode(await client.callTool({ name: 'delete_layer', arguments: { id: 'layer', change_group: 'group' } })).code).toBe('mcp_response_invalid');
+      expect(decode(await client.callTool({ name: 'delete_layer', arguments: { id: 'layer', change_group: 'group', expected_revision: '0'.repeat(32) } })).code).toBe('mcp_response_invalid');
       expect(methods).toEqual(['GET']);
     } finally { await client.close(); }
   });

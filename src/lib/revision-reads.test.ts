@@ -19,7 +19,7 @@ beforeEach(() => { db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataD
 afterEach(() => { vi.restoreAllMocks(); db.close(); });
 it("pairs reached maps, lists, children and publication with safe covered-change facts", async () => {
   const scope = testAccountScope(db), map = createMap(scope, "Map");
-  const layer = await createLayer(scope, map.id, { name: "Layer", sql: "SELECT ST_Point(1,2) AS geom" });
+  const layer = await createLayer(scope, map.id, { name: "Layer", sql: "SELECT ST_Point(1,2) AS geom" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   publishMap(scope, map.id);
   const facts = readDocumentRevision({ kind: "map", id: map.id }, db)!;
   const expected = { editRevision: facts.editRevision, lastChangedAt: facts.lastChangedAt,

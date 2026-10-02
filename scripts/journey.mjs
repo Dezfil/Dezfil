@@ -626,7 +626,7 @@ async function main() {
   // 8. create a layer from a SQL result
   let layerId;
   {
-    const r = await api("POST", `/api/maps/${mapId}/layers`, {
+    const r = await api("POST", `/api/maps/${mapId}/layers`, { basis: captureBasis((await api('GET', `/api/maps/${mapId}`)).json),
       body: { name: "Stations", sql: `SELECT name, riders, geometry FROM ${tableName}` },
     });
     if (r.status !== 201 || r.json?.style?.fill?.type !== "constant")
@@ -645,7 +645,7 @@ async function main() {
 
   // 10. edit the layer's SQL — same layer, different render
   {
-    const patch = await api("PATCH", `/api/layers/${layerId}`, {
+    const patch = await api("PATCH", `/api/layers/${layerId}`, { basis: captureBasis((await api('GET', `/api/layers/${layerId}`)).json),
       body: { sql: `SELECT name, riders, geometry FROM ${tableName} WHERE riders > 400` },
     });
     if (patch.status !== 200) fail("layer SQL edit failed", JSON.stringify(patch.json));
@@ -702,7 +702,7 @@ async function main() {
   // 12c. new layers cycle kepler default colors
   let secondLayerId;
   {
-    const r = await api("POST", `/api/maps/${mapId}/layers`, {
+    const r = await api("POST", `/api/maps/${mapId}/layers`, { basis: captureBasis((await api('GET', `/api/maps/${mapId}`)).json),
       body: { name: "All stations", sql: `SELECT * FROM ${tableName}` },
     });
     if (r.status !== 201) fail("second layer not created", JSON.stringify(r.json));
@@ -715,10 +715,10 @@ async function main() {
 
   // 12d. duplicate a layer — full copy, suffixed, on top
   {
-    await api("PATCH", `/api/layers/${secondLayerId}`, {
+    await api("PATCH", `/api/layers/${secondLayerId}`, { basis: captureBasis((await api('GET', `/api/layers/${secondLayerId}`)).json),
       body: { tooltip: ["name", "riders"], inLegend: false },
     });
-    const r = await api("POST", `/api/layers/${secondLayerId}/duplicate`);
+    const r = await api("POST", `/api/layers/${secondLayerId}/duplicate`, { basis: captureBasis((await api('GET', `/api/layers/${secondLayerId}`)).json) });
     if (
       r.status !== 201 ||
       r.json?.name !== "All stations copy" ||
@@ -751,7 +751,7 @@ async function main() {
       r.json?.inLegend !== false
     )
       fail("tooltip/legend fields did not persist", JSON.stringify(r.json));
-    const reset = await api("PATCH", `/api/layers/${secondLayerId}`, {
+    const reset = await api("PATCH", `/api/layers/${secondLayerId}`, { basis: captureBasis((await api('GET', `/api/layers/${secondLayerId}`)).json),
       body: { tooltip: null, inLegend: true },
     });
     if (reset.json?.tooltip !== null || reset.json?.inLegend !== true)
@@ -777,7 +777,7 @@ async function main() {
 
   // 12h. hexbin viz: server-side aggregation with an automatic value fill
   {
-    const r = await api("PATCH", `/api/layers/${layerId}`, {
+    const r = await api("PATCH", `/api/layers/${layerId}`, { basis: captureBasis((await api('GET', `/api/layers/${layerId}`)).json),
       body: {
         viz: { type: "hexbin", cellKm: 1.22, aggregate: { fn: "count" } },
       },
@@ -805,7 +805,7 @@ async function main() {
       !fields.json?.filterable?.some((f) => f.name === "riders")
     )
       fail("aggregated fields not split styling/filterable", JSON.stringify(fields.json));
-    const bad = await api("PATCH", `/api/layers/${layerId}`, {
+    const bad = await api("PATCH", `/api/layers/${layerId}`, { basis: captureBasis((await api('GET', `/api/layers/${layerId}`)).json),
       body: { viz: { type: "hexbin", cellKm: 99999, aggregate: { fn: "count" } } },
     });
     if (bad.status !== 400) fail("invalid viz accepted", JSON.stringify(bad.json));
@@ -826,7 +826,7 @@ async function main() {
     const up = await api("POST", "/api/tables", { form });
     if (up.status !== 201 || up.json?.geometryType !== "POINT")
       fail("flow CSV did not land with origin-pair geometry", JSON.stringify(up.json));
-    const flowLayer = await api("POST", `/api/maps/${mapId}/layers`, {
+    const flowLayer = await api("POST", `/api/maps/${mapId}/layers`, { basis: captureBasis((await api('GET', `/api/maps/${mapId}`)).json),
       body: {
         name: "Flows",
         sql: `SELECT route, origin_lon, origin_lat, dest_lon, dest_lat, trips, geometry FROM ${up.json.name}`,
@@ -835,7 +835,7 @@ async function main() {
     if (flowLayer.status !== 201)
       fail("flow layer not created", JSON.stringify(flowLayer.json));
     const flowId = flowLayer.json.id;
-    const arc = await api("PATCH", `/api/layers/${flowId}`, {
+    const arc = await api("PATCH", `/api/layers/${flowId}`, { basis: captureBasis((await api('GET', `/api/layers/${flowId}`)).json),
       body: {
         viz: {
           type: "arc",
@@ -858,12 +858,12 @@ async function main() {
       arcFeature?.properties?.trips === undefined
     )
       fail("arc did not render O→D lines", JSON.stringify(arcFeature));
-    const line = await api("PATCH", `/api/layers/${flowId}`, {
+    const line = await api("PATCH", `/api/layers/${flowId}`, { basis: captureBasis((await api('GET', `/api/layers/${flowId}`)).json),
       body: { viz: { ...arc.json.viz, type: "line" } },
     });
     if (line.status !== 200 || line.json?.viz?.type !== "line")
       fail("line viz not accepted", JSON.stringify(line.json));
-    const badArc = await api("PATCH", `/api/layers/${flowId}`, {
+    const badArc = await api("PATCH", `/api/layers/${flowId}`, { basis: captureBasis((await api('GET', `/api/layers/${flowId}`)).json),
       body: { viz: { type: "arc", origin: null, dest: null, height: 99 } },
     });
     if (badArc.status !== 400)
@@ -871,7 +871,7 @@ async function main() {
 
     // Icon and cluster ride a scratch point layer — the journey's main
     // layer keeps its hexbin state for the publish steps downstream.
-    const probe = await api("POST", `/api/maps/${mapId}/layers`, {
+    const probe = await api("POST", `/api/maps/${mapId}/layers`, { basis: captureBasis((await api('GET', `/api/maps/${mapId}`)).json),
       body: {
         name: "TypesProbe",
         sql: `SELECT name, riders, geometry FROM ${tableName}`,
@@ -880,17 +880,17 @@ async function main() {
     if (probe.status !== 201)
       fail("probe layer not created", JSON.stringify(probe.json));
     const probeId = probe.json.id;
-    const icon = await api("PATCH", `/api/layers/${probeId}`, {
+    const icon = await api("PATCH", `/api/layers/${probeId}`, { basis: captureBasis((await api('GET', `/api/layers/${probeId}`)).json),
       body: { viz: { type: "icon", glyph: "cafe" } },
     });
     if (icon.status !== 200 || icon.json?.viz?.glyph !== "cafe")
       fail("icon viz not accepted", JSON.stringify(icon.json));
-    const badIcon = await api("PATCH", `/api/layers/${probeId}`, {
+    const badIcon = await api("PATCH", `/api/layers/${probeId}`, { basis: captureBasis((await api('GET', `/api/layers/${probeId}`)).json),
       body: { viz: { type: "icon", glyph: "definitely-not-maki" } },
     });
     if (badIcon.status !== 400)
       fail("unknown glyph accepted", JSON.stringify(badIcon.json));
-    const cluster = await api("PATCH", `/api/layers/${probeId}`, {
+    const cluster = await api("PATCH", `/api/layers/${probeId}`, { basis: captureBasis((await api('GET', `/api/layers/${probeId}`)).json),
       body: {
         viz: {
           type: "cluster",
@@ -908,13 +908,13 @@ async function main() {
       clusterRender.json?.mode !== "inline"
     )
       fail("cluster layer did not stay inline", JSON.stringify(clusterRender.json));
-    const badCluster = await api("PATCH", `/api/layers/${probeId}`, {
+    const badCluster = await api("PATCH", `/api/layers/${probeId}`, { basis: captureBasis((await api('GET', `/api/layers/${probeId}`)).json),
       body: { viz: { type: "cluster", radiusPx: 4, color: "fixed", showCounts: true } },
     });
     if (badCluster.status !== 400)
       fail("invalid cluster radius accepted", JSON.stringify(badCluster.json));
     for (const id of [probeId, flowId]) {
-      const gone = await api("DELETE", `/api/layers/${id}`);
+      const gone = await api("DELETE", `/api/layers/${id}`, { basis: captureBasis((await api('GET', `/api/layers/${id}`)).json) });
       if (gone.status !== 200) fail("layer-types cleanup failed", String(gone.status));
     }
     ok("layer types: flow CSV → arc/line O→D; icon glyph; cluster; bad configs refused");
@@ -925,7 +925,7 @@ async function main() {
     const stats = await api("GET", `/api/layers/${secondLayerId}/fields/riders`);
     if (stats.status !== 200 || stats.json?.min !== 120 || stats.json?.max !== 900)
       fail("field stats did not seed the real extent", JSON.stringify(stats.json));
-    const filtered = await api("PATCH", `/api/layers/${secondLayerId}`, {
+    const filtered = await api("PATCH", `/api/layers/${secondLayerId}`, { basis: captureBasis((await api('GET', `/api/layers/${secondLayerId}`)).json),
       body: { filters: [{ field: "riders", kind: "range", min: 400, max: null }] },
     });
     if (filtered.status !== 200)
@@ -933,7 +933,7 @@ async function main() {
     const render = await api("GET", `/api/layers/${secondLayerId}/render`);
     if (render.json?.featureCount !== 3 || render.json?.liveFiltered !== true)
       fail("live filter did not stay client-enforced", JSON.stringify(render.json));
-    const agg = await api("PATCH", `/api/layers/${secondLayerId}`, {
+    const agg = await api("PATCH", `/api/layers/${secondLayerId}`, { basis: captureBasis((await api('GET', `/api/layers/${secondLayerId}`)).json),
       body: { viz: { type: "grid", cellKm: 1000, aggregate: { fn: "count" } } },
     });
     if (agg.status !== 200) fail("grid viz refused", JSON.stringify(agg.json));
@@ -944,7 +944,7 @@ async function main() {
     );
     if (cells.json?.ok !== true || total !== 2)
       fail("filters did not compose before aggregation", JSON.stringify(cells.json));
-    const bad = await api("PATCH", `/api/layers/${secondLayerId}`, {
+    const bad = await api("PATCH", `/api/layers/${secondLayerId}`, { basis: captureBasis((await api('GET', `/api/layers/${secondLayerId}`)).json),
       body: { filters: [{ field: "riders", kind: "nope" }] },
     });
     if (bad.status !== 400) fail("invalid filter accepted", JSON.stringify(bad.json));
@@ -953,14 +953,14 @@ async function main() {
 
   // 12j. removing filters and viz restores the original result exactly
   {
-    const r = await api("PATCH", `/api/layers/${secondLayerId}`, {
+    const r = await api("PATCH", `/api/layers/${secondLayerId}`, { basis: captureBasis((await api('GET', `/api/layers/${secondLayerId}`)).json),
       body: { filters: [], viz: { type: "points" } },
     });
     if (r.status !== 200) fail("reset failed", JSON.stringify(r.json));
     const render = await api("GET", `/api/layers/${secondLayerId}/render`);
     if (render.json?.featureCount !== 3)
       fail("reset did not restore the original result", JSON.stringify(render.json));
-    const heat = await api("PATCH", `/api/layers/${secondLayerId}`, {
+    const heat = await api("PATCH", `/api/layers/${secondLayerId}`, { basis: captureBasis((await api('GET', `/api/layers/${secondLayerId}`)).json),
       body: {
         viz: { type: "heatmap", radiusPx: 40, intensity: 1, weight: "riders" },
       },
@@ -972,7 +972,7 @@ async function main() {
 
   // 12k. legend text overrides round-trip; invalid labels refused
   {
-    const r = await api("PATCH", `/api/layers/${layerId}`, {
+    const r = await api("PATCH", `/api/layers/${layerId}`, { basis: captureBasis((await api('GET', `/api/layers/${layerId}`)).json),
       body: { legendTitle: "Stations by traffic", legendLabels: ["low", null, "high"] },
     });
     if (
@@ -981,7 +981,7 @@ async function main() {
       JSON.stringify(r.json?.legendLabels) !== JSON.stringify(["low", null, "high"])
     )
       fail("legend text did not round-trip", JSON.stringify(r.json));
-    const bad = await api("PATCH", `/api/layers/${layerId}`, {
+    const bad = await api("PATCH", `/api/layers/${layerId}`, { basis: captureBasis((await api('GET', `/api/layers/${layerId}`)).json),
       body: { legendLabels: [42] },
     });
     if (bad.status !== 400)
@@ -1032,7 +1032,7 @@ async function main() {
       fail("numeric stats lack a distribution", JSON.stringify(riders.json));
     ok("field kinds, ISO time extents, and distributions come from the database");
 
-    const tf = await api("PATCH", `/api/layers/${pingsLayerId}`, {
+    const tf = await api("PATCH", `/api/layers/${pingsLayerId}`, { basis: captureBasis((await api('GET', `/api/layers/${pingsLayerId}`)).json),
       body: {
         filters: [{ field: "seen", kind: "timerange", min: "2021-03-15", max: null }],
       },
@@ -1041,7 +1041,7 @@ async function main() {
     const render = await api("GET", `/api/layers/${pingsLayerId}/render`);
     if (render.json?.featureCount !== 3 || render.json?.liveFiltered !== true)
       fail("time filter did not stay client-enforced", JSON.stringify(render.json));
-    const badTime = await api("PATCH", `/api/layers/${pingsLayerId}`, {
+    const badTime = await api("PATCH", `/api/layers/${pingsLayerId}`, { basis: captureBasis((await api('GET', `/api/layers/${pingsLayerId}`)).json),
       body: {
         filters: [{ field: "seen", kind: "timerange", min: "yesterday", max: null }],
       },
@@ -1052,12 +1052,12 @@ async function main() {
 
     // Legend variable name: override the hexed layer's fill channel — the
     // published view below must carry it.
-    const attrs = await api("PATCH", `/api/layers/${layerId}`, {
+    const attrs = await api("PATCH", `/api/layers/${layerId}`, { basis: captureBasis((await api('GET', `/api/layers/${layerId}`)).json),
       body: { legendAttrs: { fill: "Traffic" } },
     });
     if (attrs.status !== 200 || attrs.json?.legendAttrs?.fill !== "Traffic")
       fail("legend attrs did not round-trip", JSON.stringify(attrs.json));
-    const badAttrs = await api("PATCH", `/api/layers/${layerId}`, {
+    const badAttrs = await api("PATCH", `/api/layers/${layerId}`, { basis: captureBasis((await api('GET', `/api/layers/${layerId}`)).json),
       body: { legendAttrs: { glow: "nope" } },
     });
     if (badAttrs.status !== 400)
@@ -1104,7 +1104,7 @@ async function main() {
       fail("size scale did not resolve the real domain", JSON.stringify(scale.json));
 
     const before = await api("GET", `/api/layers/${copyLayerId}`);
-    const styled = await api("PATCH", `/api/layers/${copyLayerId}`, {
+    const styled = await api("PATCH", `/api/layers/${copyLayerId}`, { basis: captureBasis((await api('GET', `/api/layers/${copyLayerId}`)).json),
       body: {
         style: {
           ...before.json.style,
@@ -1128,7 +1128,7 @@ async function main() {
       ...natural.json,
       breaks: natural.json.breaks.map((b, i) => (i === 0 ? b + 1 : b)),
     };
-    const editOk = await api("PATCH", `/api/layers/${copyLayerId}`, {
+    const editOk = await api("PATCH", `/api/layers/${copyLayerId}`, { basis: captureBasis((await api('GET', `/api/layers/${copyLayerId}`)).json),
       body: { style: { ...styled.json.style, fill: edited } },
     });
     if (
@@ -1137,7 +1137,7 @@ async function main() {
     )
       fail("manual break edit did not persist", JSON.stringify(editOk.json?.style?.fill));
     const scrambled = { ...edited, breaks: [...edited.breaks].reverse() };
-    const badBreaks = await api("PATCH", `/api/layers/${copyLayerId}`, {
+    const badBreaks = await api("PATCH", `/api/layers/${copyLayerId}`, { basis: captureBasis((await api('GET', `/api/layers/${copyLayerId}`)).json),
       body: { style: { ...styled.json.style, fill: scrambled } },
     });
     if (
@@ -1153,7 +1153,7 @@ async function main() {
       palette: "custom",
       colors: edited.colors.map((c, i) => (i === 0 ? { r: 1, g: 2, b: 3, a: 1 } : c)),
     };
-    const custom = await api("PATCH", `/api/layers/${copyLayerId}`, {
+    const custom = await api("PATCH", `/api/layers/${copyLayerId}`, { basis: captureBasis((await api('GET', `/api/layers/${copyLayerId}`)).json),
       body: { style: { ...editOk.json.style, fill: customFill } },
     });
     if (custom.status !== 200 || custom.json?.style?.fill?.colors?.[0]?.r !== 1)
@@ -1246,14 +1246,14 @@ async function main() {
       ok(`covered tile serves MVT (${bytes.toLocaleString()} bytes at ${z}/${tx}/${ty})`);
 
       // a filter under the cap returns to inline with no wait — and back
-      const filtered = await api("PATCH", `/api/layers/${tid}`, {
+      const filtered = await api("PATCH", `/api/layers/${tid}`, { basis: captureBasis((await api('GET', `/api/layers/${tid}`)).json),
         body: { filters: [{ field: "kind", kind: "values", values: ["k0"] }] },
       });
       if (filtered.status !== 200) fail("tiles: filter refused", JSON.stringify(filtered.json));
       const inline = await api("GET", `/api/layers/${tid}/render`);
       if (inline.json?.mode !== "inline")
         fail("tiles: under-cap filter did not return to inline", JSON.stringify(inline.json?.mode));
-      await api("PATCH", `/api/layers/${tid}`, { body: { filters: [] } });
+      await api("PATCH", `/api/layers/${tid}`, { basis: captureBasis((await api('GET', `/api/layers/${tid}`)).json), body: { filters: [] } });
       const back = await api("GET", `/api/layers/${tid}/render`);
       if (back.json?.mode !== "tiled" || back.json?.tiles?.state !== "ready")
         fail("tiles: clearing the filter did not restore ready tiles", JSON.stringify(back.json));
@@ -1279,7 +1279,7 @@ async function main() {
 
       // Adding a live filter re-fingerprints: its field must
       // reach the wire, so the archive rebuilds once…
-      const liveFiltered = await api("PATCH", `/api/layers/${tid}`, {
+      const liveFiltered = await api("PATCH", `/api/layers/${tid}`, { basis: captureBasis((await api('GET', `/api/layers/${tid}`)).json),
         body: { filters: [{ field: "id", kind: "range", min: 1, max: cap }] },
       });
       if (liveFiltered.status !== 200)
@@ -1297,7 +1297,7 @@ async function main() {
         fail("tiles: live-filter rebuild did not settle", JSON.stringify(liveTiles));
       // …and moving the filter's bounds never rebuilds:
       // paint and slider values stay outside the fingerprint.
-      const moved = await api("PATCH", `/api/layers/${tid}`, {
+      const moved = await api("PATCH", `/api/layers/${tid}`, { basis: captureBasis((await api('GET', `/api/layers/${tid}`)).json),
         body: { filters: [{ field: "id", kind: "range", min: 2, max: cap - 1 }] },
       });
       if (moved.status !== 200)
@@ -1311,13 +1311,13 @@ async function main() {
       );
       if (movedTiles?.state !== "ready" || movedTiles?.builtAt !== liveTiles.builtAt || movedTile.status !== 200)
         fail("tiles: a bound move retired or rebuilt the current artifact", JSON.stringify(movedTiles));
-      await api("PATCH", `/api/layers/${tid}`, { body: { filters: [] } });
+      await api("PATCH", `/api/layers/${tid}`, { basis: captureBasis((await api('GET', `/api/layers/${tid}`)).json), body: { filters: [] } });
       ok("live-filter add rebuilds once for its wire field; bound moves keep the artifact");
 
       // A server-applied filter changes the shipped result immediately. The
       // old published URL cannot expose its previous, broader archive while
       // the newly inline view is current.
-      const narrowed = await api("PATCH", `/api/layers/${tid}`, {
+      const narrowed = await api("PATCH", `/api/layers/${tid}`, { basis: captureBasis((await api('GET', `/api/layers/${tid}`)).json),
         body: { filters: [{ field: "kind", kind: "values", values: ["k0"] }] },
       });
       if (narrowed.status !== 200)
@@ -1331,7 +1331,7 @@ async function main() {
       );
       if (narrowedRender?.mode !== "inline" || staleTile.status !== 404)
         fail("tiles: superseded published archive remained accessible", `mode ${narrowedRender?.mode}, status ${staleTile.status}`);
-      await api("PATCH", `/api/layers/${tid}`, { body: { filters: [] } });
+      await api("PATCH", `/api/layers/${tid}`, { basis: captureBasis((await api('GET', `/api/layers/${tid}`)).json), body: { filters: [] } });
       ok("server-result cutoff hides old published tiles and renders inline");
 
       // unpublish severs tile access immediately
@@ -1346,7 +1346,7 @@ async function main() {
       ok("unpublish severs tile access immediately");
 
       // deleting the layer removes its archive; the tile endpoint 404s
-      await api("DELETE", `/api/layers/${tid}`, { raw: true });
+      await api("DELETE", `/api/layers/${tid}`, { basis: captureBasis((await api('GET', `/api/layers/${tid}`)).json), raw: true });
       const goneTile = await api("GET", tileUrl, { raw: true });
       if (goneTile.status !== 404)
         fail("tiles: deleted layer still serves tiles", `status ${goneTile.status}`);
@@ -1454,7 +1454,7 @@ async function main() {
         `wire ${derivedWire} vs stated ${derived.names}`,
       );
 
-    const set = await api("PATCH", `/api/layers/${pointsId}`, {
+    const set = await api("PATCH", `/api/layers/${pointsId}`, { basis: captureBasis((await api('GET', `/api/layers/${pointsId}`)).json),
       body: { publishedFields: ["riders"] },
     });
     if (
@@ -1478,7 +1478,7 @@ async function main() {
         `derived ${derivedWire} vs listed ${listedWire}`,
       );
 
-    const cleared = await api("PATCH", `/api/layers/${pointsId}`, {
+    const cleared = await api("PATCH", `/api/layers/${pointsId}`, { basis: captureBasis((await api('GET', `/api/layers/${pointsId}`)).json),
       body: { publishedFields: null },
     });
     if (cleared.status !== 200 || cleared.json?.publishedFields !== null)

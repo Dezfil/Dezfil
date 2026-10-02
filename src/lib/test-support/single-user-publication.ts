@@ -30,9 +30,9 @@ export async function singleUserPublication(directory: string): Promise<string> 
   }
   const map = createMap(scope, "Survey");
   const layers = [
-    await createLayer(scope, map.id, { name: "Roads", sql: "SELECT * FROM roads" }),
-    await createLayer(scope, map.id, { name: "Stats", sql: "SELECT name, value, ST_Point(value, value) AS geom FROM main.stats" }),
-    await createLayer(scope, map.id, { name: "Lanes", sql: "SELECT * FROM query_table('roads') WHERE sentinel = 'lane'" }),
+    await createLayer(scope, map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
+    await createLayer(scope, map.id, { name: "Stats", sql: "SELECT name, value, ST_Point(value, value) AS geom FROM main.stats" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
+    await createLayer(scope, map.id, { name: "Lanes", sql: "SELECT * FROM query_table('roads') WHERE sentinel = 'lane'" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
   ];
   updateMap(scope, map.id, { widgets: [{ id: "count", type: "formula", layerId: layers[0].id, title: "Count", field: null,
     agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });

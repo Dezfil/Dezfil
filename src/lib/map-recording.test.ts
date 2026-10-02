@@ -1,4 +1,5 @@
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { removeLayer } from "./layer-removal";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -63,22 +64,22 @@ it("attributes an Editor's layer changes and records reorder and removal", async
   db.exec("INSERT INTO project_people VALUES ('p','editor','editor','t')");
   db.prepare("UPDATE maps SET project_id = 'p' WHERE id = ?").run(map.id);
   let previous = revision(map.id);
-  const layer = await createLayer(editor, map.id, { name: "Layer", sql });
+  const layer = await createLayer(editor, map.id, { name: "Layer", sql }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   expect(revision(map.id).editRevision).not.toBe(previous.editRevision);
   expect(revision(map.id).lastChangedBy).toBe(editor.accountId);
   previous = revision(map.id);
-  await updateLayer(editor, layer.id, { name: "Changed" });
+  await updateLayer(editor, layer.id, { name: "Changed" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
   expect(revision(map.id).editRevision).not.toBe(previous.editRevision);
   previous = revision(map.id);
-  await updateLayer(editor, layer.id, { name: "Changed" });
+  await updateLayer(editor, layer.id, { name: "Changed" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
   expect(revision(map.id)).toEqual(previous);
-  const copy = duplicateLayer(editor, layer.id);
+  const copy = duplicateLayer(editor, layer.id, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
   expect(revision(map.id).editRevision).not.toBe(previous.editRevision);
   previous = revision(map.id);
   updateMap(editor, map.id, { layerOrder: [copy.id, layer.id] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   expect(revision(map.id).editRevision).not.toBe(previous.editRevision);
   previous = revision(map.id);
-  await removeLayer(editor, copy.id);
+  await removeLayer(editor, copy.id, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(copy.id)?.mapId ?? "missing") })?.editRevision });
   expect(revision(map.id).editRevision).not.toBe(previous.editRevision);
 });
 it("records publication changes once and leaves repeated settings alone", () => {
@@ -114,6 +115,6 @@ it("records sketch attachment and removal but excludes feature contents", async 
   const attached = revision(map.id);
   await appendFeature(scope, sketch.table.name, point);
   expect(revision(map.id)).toEqual(attached);
-  await cascadeDeleteSketch(scope, sketch.table.name, "layer");
+  await cascadeDeleteSketch(scope, sketch.table.name, "layer", { expectedRevision: attached.editRevision });
   expect(revision(map.id).editRevision).not.toBe(attached.editRevision);
 });

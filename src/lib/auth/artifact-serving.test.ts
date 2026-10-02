@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -50,7 +52,7 @@ beforeEach(async () => {
   }
   shareProject("ada", "P", [["bob", "viewer"], ["cyd", "editor"]], [tables.roads.id]);
   map = createMap(scopes.ada, "Survey", "P");
-  layer = await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" });
+  layer = await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 });
 afterEach(async () => {
   await tileBuildsSettled();
@@ -135,7 +137,7 @@ describe("retained artifacts are served by what they drew", () => {
   it("never serves the old artifacts for the owner's replacement SQL", async () => {
     await warm();
     await capture("roads");
-    await updateLayer(scopes.ada, layer.id, { sql: "SELECT * FROM parks" });
+    await updateLayer(scopes.ada, layer.id, { sql: "SELECT * FROM parks" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const edited = listLayers(map.id)[0];
     // The old archive is not ready for the new SQL, for anyone.
     expect((await render("ada", edited)).tiles?.state).toBe("building");
@@ -151,7 +153,7 @@ describe("retained artifacts are served by what they drew", () => {
   });
 
   it("lets the new owner's reach govern after a transfer, unattributed artifacts included", async () => {
-    const parks = await createLayer(scopes.ada, map.id, { name: "Parks", sql: "SELECT * FROM parks" });
+    const parks = await createLayer(scopes.ada, map.id, { name: "Parks", sql: "SELECT * FROM parks" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await warm(parks);
     // A card image made before images recorded what they drew.
     await mkdir(path.join(directory, "thumbnails"), { recursive: true });
@@ -173,7 +175,7 @@ describe("retained artifacts are served by what they drew", () => {
     const listing = createMap(scopes.ada, "Listing", "P");
     const read = await createLayer(scopes.ada, listing.id, {
       name: "Listing", sql: "SELECT r.* FROM roads r WHERE EXISTS (SELECT view_name FROM duckdb_views())",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: listing.id })?.editRevision });
     await warm(read);
     await capture("listing", revision(listing), listing);
     // Bob reaches `roads` but not Ada's `parks`, which the catalogue read
@@ -194,7 +196,7 @@ describe("retained artifacts are served by what they drew", () => {
     await capture("current");
     expect((await image("bob")).status).toBe(200);
     const seen = revision();
-    await updateLayer(scopes.ada, layer.id, { sql: "SELECT * FROM roads WHERE sentinel <> 'none'" });
+    await updateLayer(scopes.ada, layer.id, { sql: "SELECT * FROM roads WHERE sentinel <> 'none'" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     await capture("late", seen);
     expect((await image("bob")).body).toEqual(PLACEHOLDER);
     expect(Buffer.from((await image("ada")).bytes).toString("latin1")).toContain("late");

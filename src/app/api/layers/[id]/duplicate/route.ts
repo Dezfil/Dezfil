@@ -13,7 +13,7 @@ export async function POST(request: Request, { params }: Params) {
     const scope = requireRequestScope(request);
     const { id } = await params;
     return NextResponse.json(
-      duplicateLayer(scope, id, { groupId: changeGroupOf(request) }),
+      duplicateLayer(scope, id, { expectedRevision: request.headers.get("X-Edit-Revision"), groupId: changeGroupOf(request) }),
       { status: 201 },
     );
   } catch (error) {

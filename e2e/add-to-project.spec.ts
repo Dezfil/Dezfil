@@ -1,3 +1,4 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 // The 14-A dialog: the Maps action in both presentations and filing
 // states, the picker's ruled semantics, the checklist's truth from the
@@ -244,25 +245,25 @@ test("the add-to-project dialog end to end", async ({
         id: string;
       }
     ).id;
-    await api(page, "POST", `/api/maps/${mapId}/layers`, {
+    await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/layers`, body: {
       name: "shared",
       sql: `SELECT * FROM ${T_SHARED}`,
-    });
-    await api(page, "POST", `/api/maps/${mapId}/layers`, {
+    } }));
+    await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/layers`, body: {
       name: "derived",
       sql: `SELECT * FROM ${OUT1}`,
-    });
-    await api(page, "POST", `/api/maps/${mapId}/layers`, {
+    } }));
+    await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/layers`, body: {
       name: "plain",
       sql: `SELECT * FROM ${T_PLAIN}`,
-    });
+    } }));
     map2Id = (
       (await api(page, "POST", "/api/maps", { name: MAP2 })) as { id: string }
     ).id;
-    await api(page, "POST", `/api/maps/${map2Id}/layers`, {
+    await readThenWriteBrowserSetup(page, `/api/maps/${map2Id}`, () => ({ method: "POST", path: `/api/maps/${map2Id}/layers`, body: {
       name: "plain",
       sql: `SELECT * FROM ${T_PLAIN}`,
-    });
+    } }));
   });
 
   await test.step("the filed map's action reads as moving; the dialog asks and identifies the current project", async () => {
@@ -483,17 +484,17 @@ test("the add-to-project dialog end to end", async ({
     ).id;
     for (const name of Object.values(names)) {
       if (name === names.none) continue;
-      await api(page, "POST", `/api/maps/${map3Id}/layers`, {
+      await readThenWriteBrowserSetup(page, `/api/maps/${map3Id}`, () => ({ method: "POST", path: `/api/maps/${map3Id}/layers`, body: {
         name,
         sql: `SELECT * FROM ${name}`,
-      }).catch(() => null);
+      } })).catch(() => null);
     }
     // A layer cannot sit on a table without geometry; a join reads it,
     // so the dependencies read lists it — and the no-geometry tile shows.
-    await api(page, "POST", `/api/maps/${map3Id}/layers`, {
+    await readThenWriteBrowserSetup(page, `/api/maps/${map3Id}`, () => ({ method: "POST", path: `/api/maps/${map3Id}/layers`, body: {
       name: "joined",
       sql: `SELECT p.* FROM ${names.point} p JOIN ${names.none} r ON true`,
-    });
+    } }));
     await page.goto("/maps");
     const card = page.locator("article").filter({ hasText: map3 }).first();
     await card.hover();

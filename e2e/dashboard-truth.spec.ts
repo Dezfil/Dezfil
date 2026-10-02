@@ -212,11 +212,11 @@ test("dashboard answers are current, updating, or visibly failed — never silen
     layerId = await page.evaluate(async (mapId) => {
       const map = (await (
         await fetch(`/api/maps/${mapId}`, { cache: "no-store" })
-      ).json()) as { layers: { id: string }[] };
+      ).json()) as { editRevision: string; layers: { id: string }[] };
       const id = map.layers[0].id;
       const viz = await fetch(`/api/layers/${id}`, {
         method: "PATCH",
-        headers: { "content-type": "application/json" },
+        headers: { "X-Edit-Revision": map.editRevision, "content-type": "application/json" },
         body: JSON.stringify({
           viz: { type: "hexbin", cellKm: 5, aggregate: { fn: "count" } },
         }),

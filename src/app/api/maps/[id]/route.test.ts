@@ -1,4 +1,5 @@
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -58,7 +59,7 @@ beforeEach(async () => {
   const layer = await createLayer(testAccountScope(), mapId, {
     name: "Trips",
     sql: "SELECT name, cat, val, seen, geometry FROM trips",
-  });
+  }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
   layerId = layer.id;
 });
 
@@ -168,7 +169,7 @@ describe("widget writes", () => {
     expect(seeded.status).toBe(200);
     await updateLayer(testAccountScope(), layerId, {
       sql: "SELECT name, cat, seen, geometry FROM trips",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     const retitled = await patch({
       widgets: [
         widget({
@@ -206,7 +207,7 @@ describe("the echo compares what a widget reads, not how", () => {
     expect(seeded.status).toBe(200);
     await updateLayer(testAccountScope(), layerId, {
       sql: "SELECT name, cat, seen, geometry FROM trips",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     // Same field, same numeric requirement — nothing new is read.
     const summed = await patch({
       widgets: [widget({ id: "wf", layerId, field: "val", agg: "sum" })],
@@ -229,7 +230,7 @@ describe("timeline writes", () => {
   it("a timeline field must be a time column of its layer's result", async () => {
     await updateLayer(testAccountScope(), layerId, {
       filters: [{ field: "seen", kind: "timerange", min: null, max: null }],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     const ok = await patch({ timeline: { layerId, field: "seen" } }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(ok.status).toBe(200);
     // Strand the filter's column: the SQL edit and the filter echo stay
@@ -237,7 +238,7 @@ describe("timeline writes", () => {
     // reference against a schema that no longer provides it.
     await updateLayer(testAccountScope(), layerId, {
       sql: "SELECT name, cat, val, geometry FROM trips",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     await patch({ timeline: null }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(requireLayer(testAccountScope(), layerId).filters).toHaveLength(1);
     const redock = await patch({ timeline: { layerId, field: "seen" } }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
@@ -248,11 +249,11 @@ describe("timeline writes", () => {
   it("an unchanged docked timeline echoes through a widgets write", async () => {
     await updateLayer(testAccountScope(), layerId, {
       filters: [{ field: "seen", kind: "timerange", min: null, max: null }],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     await patch({ timeline: { layerId, field: "seen" } }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     await updateLayer(testAccountScope(), layerId, {
       sql: "SELECT name, cat, val, geometry FROM trips",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     // Re-sending the identical dock alongside other fields is an echo.
     const echoed = await patch({
       timeline: { layerId, field: "seen" },

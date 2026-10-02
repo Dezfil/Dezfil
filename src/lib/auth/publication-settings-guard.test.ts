@@ -1,5 +1,6 @@
-import { withFixtureRevision } from "@/lib/test-support/edit-basis";
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
+import { withFixtureRevision } from "@/lib/test-support/edit-basis";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
@@ -102,7 +103,7 @@ const replay = (direction: "undo" | "redo"): Pick<Case, "load" | "method" | "url
   ({ load: route[direction], method: "POST", url: id => `/api/maps/${id}/${direction}`, id: "M" });
 async function changeFields(fields: string[] | null) {
   const { updateLayer } = await import("@/lib/layer-service");
-  await updateLayer(scope("ada"), "L", { publishedFields: fields });
+  await updateLayer(scope("ada"), "L", { publishedFields: fields }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer("L")?.mapId ?? "missing") })?.editRevision });
 }
 const cases: Case[] = [
   { field: "token", path: "publish (mint)", load: route.publish, method: "POST", url: id => `/api/maps/${id}/publish`, id: "N",

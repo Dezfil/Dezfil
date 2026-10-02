@@ -43,8 +43,8 @@ beforeEach(async () => {
   }
   shareProject("ada", "P", [["bob", "viewer"]], [tables["ada.roads"].id]);
   map = createMap(scopes.ada, "Survey", "P");
-  roads = await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" });
-  parks = await createLayer(scopes.ada, map.id, { name: "Parks", sql: "SELECT * FROM parks" });
+  roads = await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+  parks = await createLayer(scopes.ada, map.id, { name: "Parks", sql: "SELECT * FROM parks" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   updateMap(scopes.ada, map.id, { widgets: [{ id: "count", type: "formula", layerId: roads.id, title: "Count", field: null,
     agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 });

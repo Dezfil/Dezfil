@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -54,14 +56,17 @@ describe("a single-user store's publications", () => {
       await ingestFile(scope, file, `${name}.csv`);
     }
     const map = createMap(scope, "Survey");
-    await createLayer(scope, map.id, { name: "Roads", sql: "SELECT * FROM roads" });
+    await createLayer(scope, map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const forms = {
       functions: "SELECT view_name, ST_Point(0, 0) AS geom FROM duckdb_views() WHERE NOT internal",
       columns: "SELECT DISTINCT table_name, ST_Point(0, 0) AS geom FROM duckdb_columns() WHERE NOT internal",
       schema: "SELECT table_name, ST_Point(0, 0) AS geom FROM information_schema.tables",
       master: "SELECT name, ST_Point(0, 0) AS geom FROM sqlite_master",
     };
-    const layers = await Promise.all(Object.entries(forms).map(([name, sql]) => createLayer(scope, map.id, { name, sql })));
+    const layers = [];
+    for (const [name, sql] of Object.entries(forms)) {
+      layers.push(await createLayer(scope, map.id, { name, sql }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })!.editRevision! }));
+    }
     // In the owner's own builder the catalogue is the owner's, as before.
     const own = await renderLayer(scope, layers[0]) as Rendered;
     expect(own.geojson!.features.map((feature) => feature.properties.view_name).sort()).toEqual(["parks", "roads"]);
@@ -80,8 +85,8 @@ describe("a single-user store's publications", () => {
     await writeFile(file, "sentinel,lon,lat\nroad,1,2\n");
     await ingestFile(scope, file, "roads.csv");
     const map = createMap(scope, "Survey");
-    await createLayer(scope, map.id, { name: "Roads", sql: "SELECT * FROM roads" });
-    await createLayer(scope, map.id, { name: "Views", sql: "SELECT view_name, ST_Point(0, 0) AS geom FROM duckdb_views() WHERE NOT internal" });
+    await createLayer(scope, map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await createLayer(scope, map.id, { name: "Views", sql: "SELECT view_name, ST_Point(0, 0) AS geom FROM duckdb_views() WHERE NOT internal" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const { token } = publishMap(scope, map.id);
     const views = layerOf(await getPublishedView(token, Date.now()), "Views");
     expect(views.ok).toBe(true);
@@ -109,8 +114,8 @@ describe("a publication on a shared store", () => {
     const map = createMap(scopes.ada, "Survey");
     fileMap(map.id, "P");
     mapId = map.id;
-    await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" });
-    await createLayer(scopes.ada, map.id, { name: "Stations", sql: "SELECT * FROM bob.stations" });
+    await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await createLayer(scopes.ada, map.id, { name: "Stations", sql: "SELECT * FROM bob.stations" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     token = publishMap(scopes.ada, map.id).token;
   });
 
@@ -149,7 +154,7 @@ describe("a publication on a shared store", () => {
     const now = Date.now();
     expect(layerOf(await getPublishedView(token, now), "Roads").ok).toBe(true);
     const roads = metadataDb().prepare("SELECT id FROM layers WHERE map_id = ? AND name = 'Roads'").get(mapId) as { id: string };
-    await updateLayer(scopes.ada, roads.id, { sql: "SELECT * FROM parks" });
+    await updateLayer(scopes.ada, roads.id, { sql: "SELECT * FROM parks" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(roads.id)?.mapId ?? "missing") })?.editRevision });
     expect(layerOf(await getPublishedView(token, now + 1), "Roads").geojson!.features.map((f) => f.properties.sentinel)).toEqual(["ada parks"]);
   });
 });

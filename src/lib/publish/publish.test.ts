@@ -1,4 +1,5 @@
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -57,7 +58,7 @@ afterEach(async () => {
 
 async function mapWithLayer() {
   const map = createMap(testAccountScope(), "m");
-  await createLayer(testAccountScope(), map.id, { name: "l", sql: "SELECT * FROM s" });
+  await createLayer(testAccountScope(), map.id, { name: "l", sql: "SELECT * FROM s" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   return map;
 }
 
@@ -309,7 +310,7 @@ describe("freshness bound", () => {
           haloWidth: 1, haloColor: { r: 12, g: 16, b: 24, a: 0.8 },
         },
       },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, 5_000_000);
     expect(view?.layers[0].popup).toEqual(["name"]);
@@ -329,7 +330,7 @@ describe("published-field projection", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "l",
       sql: "SELECT * FROM w",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     return { map, layer };
   }
 
@@ -344,7 +345,7 @@ describe("published-field projection", () => {
 
   it("view payload carries exactly the explicit interaction fields", async () => {
     const { map, layer } = await wideMap();
-    await updateLayer(testAccountScope(), layer.id, { tooltip: ["name"], popup: [] });
+    await updateLayer(testAccountScope(), layer.id, { tooltip: ["name"], popup: [] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     // The hidden column is absent from the wire, not merely undisplayed.
@@ -364,7 +365,7 @@ describe("published-field projection", () => {
     await updateLayer(testAccountScope(), layer.id, {
       tooltip: ["name", "secret"],
       publishedFields: ["riders"],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     // Tooltip entries outside the effective set do not ship; the viewer
@@ -381,7 +382,7 @@ describe("published-field projection", () => {
       tooltip: ["name"],
       popup: [],
       viz: { type: "cluster", radiusPx: 64, color: "fixed", showCounts: true },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const published = {
       timeline: null,
       widgets: [],
@@ -400,7 +401,7 @@ describe("published-field projection", () => {
     const { map, layer } = await wideMap();
     await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 50, aggregate: { fn: "count" } },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     // __anchor is the reserved label anchor for non-point cells — part of
@@ -417,7 +418,7 @@ describe("published-field projection", () => {
     const updated = await updateLayer(testAccountScope(), layer.id, {
       tooltip: ["name"],
       publishedFields: ["riders"],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(keysOf(await renderLayer(testAccountScope(), updated, undefined, { tileAccess: privateTileAccess(testAccountScope(), (updated).id) }))).toContain("secret");
   });
 
@@ -426,7 +427,7 @@ describe("published-field projection", () => {
     await updateLayer(testAccountScope(), layer.id, {
       tooltip: ["name", "secret"],
       publishedFields: ["riders"],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     // Break the layer underneath, bypassing validation — the published
     // view keeps rendering, the layer errors, and the config must not
     // name columns the (absent) wire never carried.
@@ -449,7 +450,7 @@ describe("published-field projection", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "l",
       sql: "SELECT * FROM flows",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await updateLayer(testAccountScope(), layer.id, {
       viz: {
         type: "arc",
@@ -459,7 +460,7 @@ describe("published-field projection", () => {
       },
       tooltip: ["riders"],
       popup: [],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     const viz = view?.layers[0].viz as {
@@ -483,7 +484,7 @@ describe("published-field projection", () => {
         customSvg:
           '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 4"><path d="M0 0h4v4z"/></svg>',
       },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const after = await getPublishedView(token, Date.now() + 40_000);
     const iconViz = after?.layers[0].viz as { customSvg?: string };
     expect(iconViz.customSvg).toContain("M0 0h4v4z");
@@ -511,7 +512,7 @@ describe("published-field projection", () => {
         },
       ],
     }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-    await updateLayer(testAccountScope(), layer.id, { visible: false });
+    await updateLayer(testAccountScope(), layer.id, { visible: false }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
     // No entry at all: no rows, no attributes, no extent to frame.
@@ -603,17 +604,17 @@ describe("published-field projection", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "l",
       sql: "SELECT * FROM t",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await updateLayer(testAccountScope(), layer.id, {
       filters: [{ field: "seen", kind: "timerange", min: null, max: null }],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     updateMap(testAccountScope(), map.id, {
       timeline: { layerId: layer.id, field: "seen", speed: 1 },
     }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const { token } = publishMap(testAccountScope(), map.id);
     expect((await getPublishedView(token, Date.now()))?.timeline).not.toBeNull();
 
-    await updateLayer(testAccountScope(), layer.id, { visible: false });
+    await updateLayer(testAccountScope(), layer.id, { visible: false }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect((await getPublishedView(token, Date.now()))?.timeline).toBeNull();
   });
 });
@@ -638,7 +639,7 @@ describe("published error disclosure", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "l",
       sql: "SELECT * FROM s",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const { token } = publishMap(testAccountScope(), map.id);
     await removeTable(testAccountScope(), "s");
     resetPublishCache();

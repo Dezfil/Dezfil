@@ -1,3 +1,4 @@
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { withFixtureRevision } from "@/lib/test-support/edit-basis";
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import type { Database } from "better-sqlite3";
@@ -110,12 +111,12 @@ it("preserves each owner's layer create, read, edit, duplicate and delete loop",
   const { GET, PATCH, DELETE } = await import("@/app/api/layers/[id]/route");
   const { POST: duplicate } = await import("@/app/api/layers/[id]/duplicate/route");
   for (const account of accounts) {
-    const created = await POST(input(account, `/api/maps/${maps[account]}/layers`, "POST", { name: "Own", sql: "SELECT 1" }), context(maps[account]));
+    const created = await POST(withFixtureRevision(input(account, `/api/maps/${maps[account]}/layers`, "POST", { name: "Own", sql: "SELECT 1" }), readEditRevision({ kind: "map", id: maps[account] })?.editRevision), context(maps[account]));
     expect(created.status).toBe(201); const layer = await created.json();
     expect((await GET(input(account, `/api/layers/${layer.id}`), context(layer.id))).status).toBe(200);
-    expect((await PATCH(input(account, `/api/layers/${layer.id}`, "PATCH", { name: "Edited" }), context(layer.id))).status).toBe(200);
-    expect((await duplicate(input(account, `/api/layers/${layer.id}/duplicate`, "POST", {}), context(layer.id))).status).toBe(201);
-    expect((await DELETE(input(account, `/api/layers/${layer.id}`, "DELETE"), context(layer.id))).status).toBe(200);
+    expect((await PATCH(withFixtureRevision(input(account, `/api/layers/${layer.id}`, "PATCH", { name: "Edited" }), readEditRevision({ kind: "map", id: readEditLayer(layer.id)?.mapId ?? "missing" })?.editRevision), context(layer.id))).status).toBe(200);
+    expect((await duplicate(withFixtureRevision(input(account, `/api/layers/${layer.id}/duplicate`, "POST", {}), readEditRevision({ kind: "map", id: readEditLayer(layer.id)?.mapId ?? "missing" })?.editRevision), context(layer.id))).status).toBe(201);
+    expect((await DELETE(withFixtureRevision(input(account, `/api/layers/${layer.id}`, "DELETE"), readEditRevision({ kind: "map", id: readEditLayer(layer.id)?.mapId ?? "missing" })?.editRevision), context(layer.id))).status).toBe(200);
   }
 });
 it("requires explicit service scopes and refuses hidden identities before work", async () => {
@@ -148,7 +149,7 @@ it.each(["create", "edit"])("rechecks activity after asynchronous %s geometry in
     return { geometryType: "POINT" };
   });
   const id = action === "create" ? maps.alice : "layer-alice";
-  const response = await (action === "create" ? POST : PATCH)(input("alice", "/api/layers", action === "create" ? "POST" : "PATCH", { name: "Late", sql: "SELECT 2 AS secret" }), context(id));
+  const response = await (action === "create" ? POST : PATCH)(withFixtureRevision(input("alice", "/api/layers", action === "create" ? "POST" : "PATCH", { name: "Late", sql: "SELECT 2 AS secret" }), readEditRevision({ kind: "map", id: maps.alice })!.editRevision!), context(id));
   expect(response.status).toBe(401); expect(snapshot()).toEqual(before);
   db.prepare("UPDATE accounts SET status = 'active' WHERE id = 'alice'").run();
   const { GET } = await import("@/app/api/layers/[id]/route");

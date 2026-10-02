@@ -34,7 +34,7 @@ it("never coalesces or groups two actors, even with an identical group value", a
   expect(revision.lastChangedBy).toBe(editor.accountId);
   expect(redoSteps(map.id)[0]).toMatchObject({ authorId: owner.accountId });
   await redoChange(editor, map.id);
-  expect(readDocumentRevision({ kind: "map", id: map.id })!.editRevision).not.toBe(revision.editRevision);
+  expect(readDocumentRevision({ kind: "map", id: map.id })!.editRevision!).not.toBe(revision.editRevision);
 });
 it("exposes original actors and whole-group replay eligibility to reached readers", async () => {
   const { owner, editor, viewer, map } = fixture();
@@ -55,7 +55,7 @@ it("keeps unknown historical authors and reports SQL admission failure before re
   const { owner, editor, map } = fixture();
   const { createLayer } = await import("./layer-creation");
   const { recordStep } = await import("./metadata/history");
-  const layer = await createLayer(owner, map.id, { name: "Layer", sql: "SELECT ST_Point(1, 2) AS geom" });
+  const layer = await createLayer(owner, map.id, { name: "Layer", sql: "SELECT ST_Point(1, 2) AS geom" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   recordStep({ mapId: map.id, targetId: layer.id, scope: "layer", op: "update",
     before: { sql: "SELECT * FROM unreachable_dataset" }, after: { sql: layer.sql } }, db);
   expect(await mapHistory(editor, map.id)).toMatchObject({ undoTarget: {

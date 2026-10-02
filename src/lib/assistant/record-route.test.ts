@@ -1,3 +1,5 @@
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { documentFacts } from "@/lib/metadata/document-facts";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -152,9 +154,10 @@ describe("the recorded map and change group match the stored history steps", () 
   it("two maps in one turn share the group; an excluded mutation exposes neither; a no-op update writes no step", async () => {
     const { map, builder } = await seed();
     const other = createMap(testAccountScope(), "Other map");
-    const layer = await createLayer(testAccountScope(), other.id, { name: "Facts", sql: "SELECT * FROM facts" });
+    const layer = await createLayer(testAccountScope(), other.id, { name: "Facts", sql: "SELECT * FROM facts" }, { expectedRevision: readEditRevision({ kind: "map", id: other.id })?.editRevision });
     const { stream, runId } = await turn([
       { text: "", toolCalls: [
+        { id: "read-b", name: "get_layer", args: { id: layer.id } },
         { id: "rename-a", name: "update_map", args: { id: map.id, name: "A renamed" } },
         { id: "rename-b", name: "update_layer", args: { id: layer.id, name: "Facts renamed" } },
         { id: "create-c", name: "create_map", args: { name: "C" } },
@@ -162,7 +165,7 @@ describe("the recorded map and change group match the stored history steps", () 
       ] },
       { text: "Done", toolCalls: [] },
     ], builder, "Rename things");
-    const [a, b, c, again] = results(stream);
+    const [, a, b, c, again] = results(stream);
     expect([a.ok, b.ok, c.ok, again.ok]).toEqual([true, true, true, true]);
     const group = a.history?.group;
     expect(group).toEqual(expect.any(String));
@@ -179,7 +182,7 @@ describe("the recorded map and change group match the stored history steps", () 
       { mapId: other.id, groupId: group, scope: "layer", op: "update" },
     ]);
     const receipt = await receiptOf(runId);
-    expect((receipt.actions as { history?: unknown }[]).map((x) => x.history)).toEqual([a.history, b.history, undefined, again.history]);
+    expect((receipt.actions as { history?: unknown }[]).map((x) => x.history)).toEqual([undefined, a.history, b.history, undefined, again.history]);
     // The history read carries its current basis and the original actor.
     expect(await (await api(`/api/maps/${map.id}/history`)).json()).toMatchObject({ canUndo: true, canRedo: false,
       ...documentFacts({ kind: "map", id: map.id }), redoTarget: null,
@@ -229,7 +232,7 @@ describe("declined and superseded decisions stay in the record too", () => {
 describe("the recorded subject and inputs", () => {
   it("a fill computation and a rename are inspectable through their retained inputs and words", async () => {
     const { map, builder } = await seed();
-    const layer = await createLayer(testAccountScope(), map.id, { name: "Facts", sql: "SELECT * FROM facts" });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "Facts", sql: "SELECT * FROM facts" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const { stream, runId } = await turn([
       { text: "", toolCalls: [
         { id: "fill-1", name: "compute_fill", args: { id: layer.id, attribute: "value", method: "quantile", classes: 3 } },
@@ -248,13 +251,13 @@ describe("the recorded subject and inputs", () => {
   });
   it("renaming the subject afterwards leaves the recorded subject unchanged", async () => {
     const { map, builder } = await seed();
-    const layer = await createLayer(testAccountScope(), map.id, { name: "Facts", sql: "SELECT * FROM facts" });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "Facts", sql: "SELECT * FROM facts" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const { runId } = await turn([
       { text: "", toolCalls: [{ id: "read-1", name: "get_layer", args: { id: layer.id } }] },
       { text: "Done", toolCalls: [] },
     ], builder, "Look at the layer");
     expect((await receiptOf(runId)).actions).toEqual([expect.objectContaining({ label: "Read the layer Facts", subject: { resource: "layers", id: layer.id, name: "Facts" } })]);
-    await api(`/api/layers/${layer.id}`, { name: "Later name" }, "PATCH");
+    await api(`/api/layers/${layer.id}`, { name: "Later name" }, "PATCH", readEditRevision({ kind: "map", id: readEditLayer(layer.id)!.mapId })!.editRevision!);
     expect(((await (await api(`/api/layers/${layer.id}`)).json()) as { name: string }).name).toBe("Later name");
     expect((await receiptOf(runId)).actions).toEqual([expect.objectContaining({ label: "Read the layer Facts", subject: { resource: "layers", id: layer.id, name: "Facts" } })]);
   });

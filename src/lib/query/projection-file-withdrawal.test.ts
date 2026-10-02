@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -92,7 +93,7 @@ it("refuses row-sourced projection reads during export, materialization and widg
  const { computeWidgetValues } = await import("@/lib/widget-service");
  const { scopedDatasets } = await import("./access");
  const source = path.join(directory, "sources.csv"); await writeFile(source, `crs,lon,lat\n${crs},1,2\n`); await ingestFile(scope(), source, "sources.csv");
- const map = createMap(scope(), "Projection consumers"), layer = await createLayer(scope(), map.id, { name: "Projection", sql: "SELECT * FROM sources" });
+ const map = createMap(scope(), "Projection consumers"), layer = await createLayer(scope(), map.id, { name: "Projection", sql: "SELECT * FROM sources" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
  const sql = `SELECT ST_X(${transform("crs")}) AS value FROM sources`;
  await expect(exportQueryResult(scope(), sql, "csv")).rejects.toMatchObject({ code: "sql_rejected", message: PROJECTION_REJECTION });
  await expect(materialize(scope(), { name: "denied", sql, operation: "sql_step" })).rejects.toMatchObject({ code: "sql_rejected", message: PROJECTION_REJECTION });
@@ -105,7 +106,7 @@ it("keeps saved publication SQL intact while rejecting a row-sourced projection 
  const { createLayer } = await import("@/lib/layer-service");
  const { publishMap, getPublishedView, resetPublishCache } = await import("@/lib/publish/publish-service");
  const source = path.join(directory, "sources.csv"); await writeFile(source, `crs,lon,lat\n${crs},1,2\n`); await ingestFile(scope(), source, "sources.csv");
- const map = createMap(scope(), "Saved projection"), layer = await createLayer(scope(), map.id, { name: "Projection", sql: "SELECT * FROM sources" });
+ const map = createMap(scope(), "Saved projection"), layer = await createLayer(scope(), map.id, { name: "Projection", sql: "SELECT * FROM sources" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
  const sql = `SELECT ${transform("crs")} AS geometry FROM sources`;
  metadataDb().prepare("UPDATE layers SET sql = ? WHERE id = ?").run(sql, layer.id);
  const { token } = publishMap(scope(), map.id); resetPublishCache();

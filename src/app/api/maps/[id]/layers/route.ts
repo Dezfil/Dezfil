@@ -1,3 +1,4 @@
+import { requireDocumentRevision } from "@/lib/metadata/revisions";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
@@ -27,6 +28,7 @@ export async function POST(request: Request, { params }: Params) {
     const scope = requireRequestScope(request);
     const { id } = await params;
     requireMapFor(scope, id, "edit");
+    requireDocumentRevision(scope, { kind: "map", id, expectedRevision: request.headers.get("X-Edit-Revision") });
     let body: { name?: unknown; sql?: unknown; style?: unknown; writtenIn?: unknown };
     try {
       body = (await request.json()) as typeof body;
@@ -58,7 +60,7 @@ export async function POST(request: Request, { params }: Params) {
         sql,
         style: body.style as LayerStyle | undefined,
       },
-      { groupId: changeGroupOf(request), signal: request.signal },
+      { expectedRevision: request.headers.get("X-Edit-Revision"), groupId: changeGroupOf(request), signal: request.signal },
     );
     return NextResponse.json(layer, { status: 201 });
   } catch (error) {

@@ -1,4 +1,5 @@
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
@@ -142,7 +143,7 @@ const cases: Case[] = [
   { label: "redo a published-fields change", action: "publish", method: "POST", target: "map", suffix: id => `/api/maps/${id}/redo`, load: route.redo, status: 200,
     setup: async () => {
       const { updateLayer } = await import("@/lib/layer-service");
-      await updateLayer(scope("ada"), "L", { publishedFields: null });
+      await updateLayer(scope("ada"), "L", { publishedFields: null }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer("L")?.mapId ?? "missing") })?.editRevision });
       await undoChange(scope("ada"), "M");
     },
     effect: () => value("SELECT published_fields FROM layers WHERE id = 'L'"), expected: null },
@@ -207,7 +208,7 @@ describe.each(cases)("$label", c => {
     for (const account of permitted(c.action)) {
       it(`lets ${account} make it`, async () => {
         await c.setup?.(); vi.clearAllMocks();
-        const response = await call(c, account, target(c, "M"), "session", readEditRevision({ kind: "map", id: "M" })!.editRevision);
+        const response = await call(c, account, target(c, "M"), "session", readEditRevision({ kind: "map", id: "M" })!.editRevision!);
         expect(response.status, JSON.stringify(await response.clone().json().catch(() => null))).toBe(c.status);
         expect(c.effect?.()).toEqual(c.expected);
       });
@@ -230,7 +231,7 @@ describe("the resource-owner freeze", () => {
 
 describe("the write response for someone else's map", () => {
   it("names the project the editor reaches it through, and answers as the editor's own read of the map does", async () => {
-    const response = await call(cases[0], "ed", "M", "session", readEditRevision({ kind: "map", id: "M" })!.editRevision);
+    const response = await call(cases[0], "ed", "M", "session", readEditRevision({ kind: "map", id: "M" })!.editRevision!);
     const written = await response.json() as Record<string, unknown>;
     expect(written).toMatchObject({ id: "M", name: "Renamed", projectId: "P", home: "ada" });
     const { GET } = await route.map();

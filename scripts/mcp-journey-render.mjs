@@ -11,7 +11,7 @@ export async function renderJourney({ call, gate }) {
     table = await call('upload_table', { filename: 'mcp_render.csv', content_base64: Buffer.from('name,lon,lat\nrender,0,0\n').toString('base64') });
     map = await call('create_map', { name: 'MCP render arm' });
     basis = captureBasis(map);
-    const layer = await call('create_layer', { id: map.id, name: 'Render point', sql: `SELECT * FROM "${table.name}"` });
+    const layer = await call('create_layer', { id: map.id, name: 'Render point', sql: `SELECT * FROM "${table.name}"` }, undefined, null, basis);
     basis = captureBasis(layer);
     basis = captureBasis(await call('update_map', { id: map.id, customBasemap: { url: fixture.styleUrl, name: 'Loopback fixture', force: true } }, undefined, null, basis));
     const definition = { viewport: { lng: 0, lat: 0, zoom: 10, pitch: 0, bearing: 0 }, size: { width: 480, height: 320 }, legend: { visible: false, corner: 'bottom-left', size: 'm' }, widgets: [], title: null, appearance: 'light', overlayScale: 2 };

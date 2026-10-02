@@ -219,7 +219,7 @@ test("builder correctness II — the browser regressions", async ({
     const seeded = await page.evaluate(async (mapId) => {
       const map = (await (
         await fetch(`/api/maps/${mapId}`, { cache: "no-store" })
-      ).json()) as { layers: { id: string; style: Record<string, unknown> }[] };
+      ).json()) as { editRevision: string; layers: { id: string; style: Record<string, unknown> }[] };
       const id = map.layers[0].id;
       // A categorical fill so the legend has entries and a channel.
       const style = {
@@ -237,7 +237,7 @@ test("builder correctness II — the browser regressions", async ({
       };
       let r = await fetch(`/api/layers/${id}`, {
         method: "PATCH",
-        headers: { "content-type": "application/json" },
+        headers: { "X-Edit-Revision": map.editRevision, "content-type": "application/json" },
         body: JSON.stringify({
           style,
           filters: [{ kind: "timerange", field: "ts", min: null, max: null }],

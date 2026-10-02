@@ -1,3 +1,4 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 // The 16-C project export: the three openers, the two steps' exact
 // forms, the review tree with its display-only truncation, the
@@ -194,10 +195,10 @@ test("the 16-C export end to end", async ({ page, context }) => {
       ["alpha", T_A],
       ["beta", T_SHARED],
     ] as const) {
-      await api(page, "POST", `/api/maps/${m1}/layers`, {
+      await readThenWriteBrowserSetup(page, `/api/maps/${m1}`, () => ({ method: "POST", path: `/api/maps/${m1}/layers`, body: {
         name: layer,
         sql: `SELECT * FROM ${src}`,
-      });
+      } }));
     }
     await api(page, "POST", `/api/maps/${m1}/publish`);
     // The same-named second map: the collision case.

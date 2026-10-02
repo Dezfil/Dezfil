@@ -1,4 +1,5 @@
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -51,7 +52,7 @@ async function seedThree() {
     const layer = await createLayer(testAccountScope(), map.id, {
       name,
       sql: "SELECT * FROM stations",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     ids.push(layer.id);
   }
   return { map, ids };
@@ -132,7 +133,7 @@ describe("legendOrder — the stored arrangement", () => {
     const { map, ids } = await seedThree();
     updateMap(testAccountScope(), map.id, { legendOrder: [ids[1], ids[0], ids[2]] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
-    await removeLayer(testAccountScope(), ids[0]);
+    await removeLayer(testAccountScope(), ids[0], { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(ids[0])?.mapId ?? "missing") })?.editRevision });
     const after = mapWithLayers(testAccountScope(), map.id);
     expect(after.layers.map((l) => l.id)).toEqual([ids[1], ids[2]]);
     expect(after.legendOrder).toEqual([ids[1], ids[2]]);
@@ -149,9 +150,9 @@ describe("legendOrder — the stored arrangement", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "Only",
       sql: "SELECT * FROM stations",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     updateMap(testAccountScope(), map.id, { legendOrder: [layer.id] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-    await removeLayer(testAccountScope(), layer.id);
+    await removeLayer(testAccountScope(), layer.id, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toBeNull();
   });
 
@@ -166,11 +167,11 @@ describe("legendOrder — the stored arrangement", () => {
     const delta = await createLayer(testAccountScope(), map.id, {
       name: "Delta",
       sql: "SELECT * FROM stations",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toEqual([delta.id, ...manual]);
 
     // Duplicated: same entry rule.
-    const copy = duplicateLayer(testAccountScope(), delta.id);
+    const copy = duplicateLayer(testAccountScope(), delta.id, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(delta.id)?.mapId ?? "missing") })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toEqual([
       copy.id,
       delta.id,

@@ -1,4 +1,5 @@
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -60,7 +61,7 @@ beforeEach(async () => {
   const layer = await createLayer(testAccountScope(), map.id, {
     name: "l",
     sql: "SELECT * FROM points",
-  });
+  }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   layerId = layer.id;
   mapId = map.id;
   updateMap(testAccountScope(), map.id, {
@@ -111,7 +112,7 @@ describe("published widget-values reader gate", () => {
     // reader's selection meets the gate.
     await updateLayer(testAccountScope(), layerId, {
       sql: "SELECT id, kind, kind AS score, geometry FROM points",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     const res = await values([
       { widgetId: "wh", kind: "range", min: 15, max: null },
     ]);
@@ -125,7 +126,7 @@ describe("published widget-values reader gate", () => {
   it("a selection on a stranded column refuses cleanly", async () => {
     await updateLayer(testAccountScope(), layerId, {
       sql: "SELECT id, score, geometry FROM points",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     const res = await values([
       { widgetId: "wc", kind: "exclude", values: ["a"] },
     ]);

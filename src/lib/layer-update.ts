@@ -1,4 +1,4 @@
-import { documentFacts } from "./metadata/document-facts";
+import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
 import { recordDocumentChanges } from "@/lib/metadata/revisions";
 import { mapEvaluation, type DatasetScope } from "@/lib/query/access";
 import type { AccountScope } from "@/lib/auth/scope";
@@ -80,13 +80,13 @@ export async function deriveAndCommitUpdate(
   scope: AccountScope,
   id: string,
   fields: UpdateLayerFields,
-  opts: { groupId?: string | null; signal?: AbortSignal },
-): Promise<Layer | null> {
+  opts: { groupId?: string | null; signal?: AbortSignal; expectedRevision?: unknown } = {},
+): Promise<Layer & DocumentFacts> {
   // Admission (layer-admission.ts): the layer under the acting scope,
   // changed SQL that still draws geometry, a valid style normalized, and
   // the references this request introduces resolving against the schema
   // as it leaves it, all before the derivations below.
-  const admitted = await admitLayerUpdate(scope, id, fields, opts.signal);
+  const admitted = await admitLayerUpdate(scope, id, fields, opts.signal, opts.expectedRevision);
   const layer = admitted.layer, evaluation = mapEvaluation(scope, layer.mapId);
   fields = admitted.fields;
   // A repeated write of the same filter image is a true no-op: in
@@ -274,21 +274,12 @@ export async function deriveAndCommitUpdate(
     if (stale !== undefined) fields = { ...fields, legendAttrs: stale };
   }
 
-  let fresh!: Layer;
-  let committed = false;
-  metadataDb().transaction(() => {
-    // The before-image is read here, inside the commit, not from the entry
-    // snapshot: the engine work above yields, and a concurrent write to the
-    // same layer may have landed since. History must diff against the state
-    // this write actually replaces, or undo restores a state that never
-    // existed. The derivations above were computed against the entry
-    // snapshot. If the layer moved while they settled, committing them
-    // would overwrite the concurrent write with stale derived containers —
-    // abort and let the caller re-derive against the fresh state.
-    const prior = admitLayerCommit(scope, id, layer, fields);
-    if (!prior) return;
+  return metadataDb().transaction(() => {
+    // The accepted basis must still be the one used for validation and
+    // derivation. Permission and SQL admission are rechecked first.
+    const prior = admitLayerCommit(scope, id, layer, fields, opts.expectedRevision);
     updateLayerFields(id, fields);
-    fresh = requireLayerFor(scope, id, "edit");
+    const fresh = requireLayerFor(scope, id, "edit");
     // Record what actually changed, as stored — post-normalization, so a
     // redo re-applies exactly what this write produced. The keys cover
     // the request plus the coupled adjustments folded into `fields`
@@ -313,10 +304,8 @@ export async function deriveAndCommitUpdate(
         groupId: opts.groupId,
       }, metadataDb(), scope);
     }
-    fresh = Object.assign(fresh, documentFacts({ kind: "map", id: layer.mapId }));
-    committed = true;
+    return { ...fresh, ...documentFacts({ kind: "map", id: layer.mapId }) };
   })();
-  return committed ? fresh : null;
 }
 
 /**

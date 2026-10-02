@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -42,8 +43,8 @@ afterEach(async () => { resetPublishCache(); closeMetadataDb(); resetQueryInstan
 describe("a held published view records what it drew", () => {
   it("names the datasets its layers' evaluations bound, and nothing else of the owner's", async () => {
     const map = createMap(scopes.ada, "Survey");
-    await createLayer(scopes.ada, map.id, { name: "Mine", sql: "SELECT * FROM roads" });
-    await createLayer(scopes.ada, map.id, { name: "Theirs", sql: "SELECT * FROM bob.roads" });
+    await createLayer(scopes.ada, map.id, { name: "Mine", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await createLayer(scopes.ada, map.id, { name: "Theirs", sql: "SELECT * FROM bob.roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const { token } = publishMap(scopes.ada, map.id);
     expect(cachedPublicationInputs(token)).toBeNull();
     expect(await getPublishedView(token, Date.now())).not.toBeNull();

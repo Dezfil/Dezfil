@@ -1,4 +1,5 @@
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { delegateCredential } from "@/lib/auth/delegation";
 import { requireRequestAuth } from "@/lib/auth/http";
@@ -107,11 +108,11 @@ describe.skipIf(!port)("the real bounded check renders the map", () => {
       customBasemap: { url: basemap.styleUrl, name: "Loopback", attribution: [{ label: "Loopback fixture" }] },
       legendCorner: "bottom-left",
     }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
-    kelp = (await createLayer(testAccountScope(), mapId, { name: "Kelp", sql: `SELECT * FROM ${table.name} WHERE kind = 'a'`, style: solid(KELP, 10) })).id;
-    amber = (await createLayer(testAccountScope(), mapId, { name: "Amber", sql: `SELECT * FROM ${table.name} WHERE kind = 'b'`, style: solid(AMBER, 10) })).id;
-    blue = (await createLayer(testAccountScope(), mapId, { name: "Blue", sql: `SELECT * FROM ${table.name} WHERE kind = 'c'`, style: solid(BLUE, 10) })).id;
-    await updateLayer(testAccountScope(), amber, { visible: false });
-    await updateLayer(testAccountScope(), blue, { filters: FILTER });
+    kelp = (await createLayer(testAccountScope(), mapId, { name: "Kelp", sql: `SELECT * FROM ${table.name} WHERE kind = 'a'`, style: solid(KELP, 10) }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision })).id;
+    amber = (await createLayer(testAccountScope(), mapId, { name: "Amber", sql: `SELECT * FROM ${table.name} WHERE kind = 'b'`, style: solid(AMBER, 10) }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision })).id;
+    blue = (await createLayer(testAccountScope(), mapId, { name: "Blue", sql: `SELECT * FROM ${table.name} WHERE kind = 'c'`, style: solid(BLUE, 10) }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision })).id;
+    await updateLayer(testAccountScope(), amber, { visible: false }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(amber)?.mapId ?? "missing") })?.editRevision });
+    await updateLayer(testAccountScope(), blue, { filters: FILTER }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(blue)?.mapId ?? "missing") })?.editRevision });
     updateMap(testAccountScope(), mapId, { widgets: [{ id: "w-count", type: "formula", layerId: kelp, title: "Points", field: null, agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }] }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     if (transportOnly) {
       const flat = encodePng({ width: 1024, height: 640, rgba: new Uint8Array(1024 * 640 * 4).fill(240) });

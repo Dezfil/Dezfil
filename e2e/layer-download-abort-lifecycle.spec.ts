@@ -294,11 +294,16 @@ test("a real timed-out prepare abort reclaims its exact scratch and leaves DuckD
     // clock and therefore about 90 seconds behind the page-only fake clock.
     const follower = await page.evaluate(
       async ({ id, sql }) => {
-        const response = await fetch(`/api/layers/${id}`, {
+        const response = await (async function readThenWriteSetup() {
+const read = await fetch(`/api/layers/${id}`, { cache: "no-store" });
+if (!read.ok) throw new Error(await read.text());
+const shown = await read.json();
+return fetch(`/api/layers/${id}`, {
           method: "PATCH",
-          headers: { "content-type": "application/json" },
+          headers: { "X-Edit-Revision": shown.editRevision, "content-type": "application/json" },
           body: JSON.stringify({ sql }),
         });
+})();
         return {
           status: response.status,
           body: (await response.json()) as {

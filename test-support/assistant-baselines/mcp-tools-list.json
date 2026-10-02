@@ -1,6 +1,6 @@
 {
   "count": 136,
-  "overall": "a331ace3cab78f9fd78c92289b9911375bf244d90845a97ceade8eaa555f2b51",
+  "overall": "8aaf46044087392a435ad2b5dbb855208a0e458de75e9948c6ce96726628ff55",
   "tools": {
     "get_account": "1d39e185a29991c180c5357ee693fb43d368491d0c799a0e52600ca88d32baa8",
     "update_account": "aa48f014a0723aae5821105fa13433bb3967b4ee09657841617ca21e573d8122",
@@ -115,11 +115,11 @@
     "delete_sketch_feature": "09da4724a8fe5fb56258b0c3d8a543c634e8b88d05c161119aa7d45e2db8a204",
     "delete_sketch": "aa00d8b03dbe3e92d8c4d6e1f95e5c2de7bc4721a101854e8ebd0f889c5de0cd",
     "list_layers": "80bc0f0efb42bad0780410a8dd438f92fe9d30dde0b36f7bfab6d861b783b650",
-    "create_layer": "6c321b145ae93845aafa164a96e0ddd44c7ef07978dc96f9d3d2aa0463366af5",
+    "create_layer": "3254a93a8579a6cd23ad9039d244b585bac57cc4e053dc4377e231b580492fd5",
     "get_layer": "a94a60e1b692ee8c9b70eabacbf1886dc472a45d89fdf304fc92a30cec68e915",
-    "update_layer": "ec2f8bb5051d4233f7b94d6f9b51ecb4cad75b0ef65b02912808c7dd5000e234",
-    "delete_layer": "de82dd25f560ef2b10af22ae6000bb30a489800854f1964600654530ad081c06",
-    "duplicate_layer": "466fb87d745ebabe0f709406b0a7eae9a82ab4053b7210109aa4cbb02cef7a75",
+    "update_layer": "88954c08290dd3b33c5ecac41eccfe0eafbf0e7e9ab321657fd5096c247f7896",
+    "delete_layer": "d99021530286773ee30afd6058b947ce2be743491df8bbc49bd04558db2de541",
+    "duplicate_layer": "819e7e877d4b38f5ce008019a72e423878d887fe9b92ae0b80790a9bbb20f778",
     "layer_extent": "dd08071f838edcee100d508ace91083b644736506ab1805f108eacd1c6bec02c",
     "look_at_map": "5baf879257f521fa0d9dfa6cdb5a6c5fb099f98452d4fbe6ef9d79f56e34e015",
     "read_map_look_image": "b67f3517f61738b0d1a30593aa9b0574c24da8a9a5d9d59fc26cd752e0d0b063",

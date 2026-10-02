@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import JSZip from "jszip";
@@ -40,7 +41,7 @@ beforeEach(async () => {
   }
   shareProject("ada", "P", [["bob", "editor"], ["vic", "viewer"]], [tables.ada.id, tables.bob.id]);
   const map = createMap(scopes.ada, "Survey", "P");
-  await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" });
+  await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   const recipe = createRecipe(scopes.ada, "Staging").id;
   fileRecipe(recipe, "P");
   addStep(recipe, { operation: "sql_step", parameters: { sql: "SELECT * FROM roads", name: "staged" } });

@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -55,9 +56,9 @@ beforeEach(async () => {
     N: createMap(scopes.ada, "Parks", "P"),
     C: createMap(scopes.cyd, "Cyd's", "P"),
   };
-  await createLayer(scopes.ada, maps.M.id, { name: "Roads", sql: "SELECT * FROM roads" });
-  await createLayer(scopes.ada, maps.N.id, { name: "Parks", sql: "SELECT * FROM parks" });
-  await createLayer(scopes.cyd, maps.C.id, { name: "Ada's roads", sql: "SELECT * FROM ada.roads" });
+  await createLayer(scopes.ada, maps.M.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: maps.M.id })?.editRevision });
+  await createLayer(scopes.ada, maps.N.id, { name: "Parks", sql: "SELECT * FROM parks" }, { expectedRevision: readEditRevision({ kind: "map", id: maps.N.id })?.editRevision });
+  await createLayer(scopes.cyd, maps.C.id, { name: "Ada's roads", sql: "SELECT * FROM ada.roads" }, { expectedRevision: readEditRevision({ kind: "map", id: maps.C.id })?.editRevision });
   for (const map of [maps.M, maps.N]) {
     const put = await call("ada", route.thumbnail, `/api/maps/${map.id}/thumbnail?revision=${mapSqlRevision(listLayers(map.id))}`,
       { id: map.id }, "PUT", png(map.name));

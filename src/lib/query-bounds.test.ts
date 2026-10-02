@@ -1,4 +1,5 @@
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -103,22 +104,22 @@ describe("query bounds — layer admission lanes", () => {
     const map = createMap(testAccountScope(), "m");
     timeoutNow();
     await expect(
-      createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_EVERYWHERE }),
+      createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_EVERYWHERE }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
     ).rejects.toMatchObject({ code: "query_timeout", status: 408 });
   }, 30_000);
 
   it("a SQL edit times out the same way", async () => {
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     timeoutNow();
     await expect(
-      updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE }),
+      updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision }),
     ).rejects.toMatchObject({ code: "query_timeout", status: 408 });
   }, 30_000);
 
   it("the fields lane is bounded through preparation", async () => {
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     timeoutNow();
     vi.mocked(registerTableViews).mockImplementationOnce(
       () => new Promise<void>(() => {}),
@@ -132,7 +133,7 @@ describe("query bounds — layer admission lanes", () => {
 describe("query bounds — stats and styling lanes", () => {
   it("field stats time out with the documented error", async () => {
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     timeoutNow();
     await expect(layerFieldStats(testAccountScope(), layer, "v")).rejects.toMatchObject({
       code: "query_timeout",
@@ -156,7 +157,7 @@ describe("query bounds — stats and styling lanes", () => {
 
   it("slider previews time out with the documented error", async () => {
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     timeoutNow();
     await expect(sliderPreviewData(testAccountScope(), layer)).rejects.toMatchObject({
       code: "query_timeout",
@@ -166,7 +167,7 @@ describe("query bounds — stats and styling lanes", () => {
 
   it("an edit's classification recomputation times out, never degrades", async () => {
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     // Budget above the (shortcut-fast) inspection, below the aggregation
     // scan — pinning the timeout to the recompute itself, and proving the
     // fill fallback does not swallow the bound into a constant fill.
@@ -174,7 +175,7 @@ describe("query bounds — stats and styling lanes", () => {
     await expect(
       updateLayer(testAccountScope(), layer.id, {
         viz: { type: "grid", cellKm: 1, aggregate: { fn: "sum", attribute: "v" } },
-      }),
+      }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision }),
     ).rejects.toMatchObject({ code: "query_timeout", status: 408 });
   }, 30_000);
 });
@@ -182,8 +183,8 @@ describe("query bounds — stats and styling lanes", () => {
 describe("query bounds — render lanes", () => {
   it("a render times out into the errored envelope with the documented code", async () => {
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST });
-    const slow = await updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    const slow = await updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     timeoutNow();
     const render = await renderLayer(testAccountScope(), slow, undefined, { tileAccess: privateTileAccess(testAccountScope(), (slow).id) });
     expect(render).toMatchObject({
@@ -194,7 +195,7 @@ describe("query bounds — render lanes", () => {
 
   it("a settle render with selections times out the same way", async () => {
     const map = createMap(testAccountScope(), "m");
-    const created = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES });
+    const created = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const gridded = await updateLayer(testAccountScope(), created.id, {
       viz: {
         type: "grid",
@@ -204,7 +205,7 @@ describe("query bounds — render lanes", () => {
         // so the stored layer arrives without waiting on the full scan.
         fill: { type: "constant", color: { r: 13, g: 125, b: 92, a: 1 } },
       },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(created.id)?.mapId ?? "missing") })?.editRevision });
     timeoutNow();
     const render = await renderLayerWithSelections(testAccountScope(), gridded, [
       { field: "v", kind: "values", values: ["1", "2"] },
@@ -219,7 +220,7 @@ describe("query bounds — render lanes", () => {
 describe("query bounds — widget lanes", () => {
   it("widget values time out with the documented error, not per-widget noise", async () => {
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const withWidgets = updateMap(testAccountScope(), map.id, {
       widgets: [
         {
@@ -247,8 +248,8 @@ describe("query bounds — widget lanes", () => {
 describe("query bounds — published lanes", () => {
   it("published view assembly bounds each layer, visible as the coded error", async () => {
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST });
-    await updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const { token } = publishMap(testAccountScope(), map.id);
     timeoutNow();
     const view = await getPublishedView(token, Date.now());
@@ -268,7 +269,7 @@ describe("query bounds — published lanes", () => {
 
   it("the published selection re-render route reports the coded envelope", async () => {
     const map = createMap(testAccountScope(), "m");
-    const created = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES });
+    const created = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const gridded = await updateLayer(testAccountScope(), created.id, {
       viz: {
         type: "grid",
@@ -276,7 +277,7 @@ describe("query bounds — published lanes", () => {
         aggregate: { fn: "sum", attribute: "v" },
         fill: { type: "constant", color: { r: 13, g: 125, b: 92, a: 1 } },
       },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(created.id)?.mapId ?? "missing") })?.editRevision });
     // The selection's field must be one the published surface declares
     // — as every real dashboard selection is.
     updateMap(testAccountScope(), map.id, {
@@ -321,7 +322,7 @@ describe("query bounds — published lanes", () => {
 
   it("the published widget-values route fails with the documented code", async () => {
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "slow", sql: SLOW_VALUES }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     updateMap(testAccountScope(), map.id, {
       widgets: [
         {
@@ -384,7 +385,7 @@ describe("trailing comments: valid SQL is not broken by its own comments", () =>
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "commented",
       sql: `${FAST} -- note`,
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect((await renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), (layer).id) })).ok).toBe(true);
 
     const withWidgets = updateMap(testAccountScope(), map.id, {
@@ -421,7 +422,7 @@ describe("query bounds — outcome attribution", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "tricky",
       sql: "SELECT 'interrupt' AS v, geometry FROM stations",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const withWidgets = updateMap(testAccountScope(), map.id, {
       widgets: [
         {
@@ -549,8 +550,8 @@ describe("query bounds — the memory budget", () => {
 describe("query bounds — a caller that leaves takes its work with it", () => {
   it("a builder render cancels with its departed caller", async () => {
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST });
-    const slow = await updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    const slow = await updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const caller = new AbortController();
     const started = Date.now();
     const render = renderLayer(testAccountScope(), slow, caller.signal, { tileAccess: privateTileAccess(testAccountScope(), (slow).id) });
@@ -561,8 +562,8 @@ describe("query bounds — a caller that leaves takes its work with it", () => {
 
   it("a published view assembly cancels with its departed reader", async () => {
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST });
-    await updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "fast", sql: FAST }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await updateLayer(testAccountScope(), layer.id, { sql: SLOW_EVERYWHERE }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const { token } = publishMap(testAccountScope(), map.id);
     const reader = new AbortController();
     const started = Date.now();

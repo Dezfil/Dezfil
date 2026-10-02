@@ -61,8 +61,8 @@ afterEach(async () => { await laneSettled(); resetLane(); closeMetadataDb(); res
 
 type Handler = (request: Request, context: { params: Promise<Record<string, string>> }) => Promise<Response>;
 async function call(account: string, load: () => Promise<Record<string, unknown>>, url: string, params: Record<string, string>,
-  method: string, body?: unknown) {
-  const request = testAccountRequest(new Request(`http://instance.test${url}`, { method, headers: { "content-type": "application/json" },
+  method: string, body?: unknown, basis?: string) {
+  const request = testAccountRequest(new Request(`http://instance.test${url}`, { method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": basis } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }) }), undefined, account);
   const response = await ((await load())[method] as Handler)(request, { params: Promise.resolve(params) });
   const text = await response.text();
@@ -147,7 +147,7 @@ describe("a sketch drawn on someone else's map", () => {
 
   it("leaves the drawer's dataset when someone else removes its layer, and goes with it when the drawer does", async () => {
     const first = (await draw("bob")).body as { tableId: string; layerId: string };
-    expect((await call("ada", route.layer, `/api/layers/${first.layerId}`, { id: first.layerId }, "DELETE")).status).toBe(200);
+    expect((await call("ada", route.layer, `/api/layers/${first.layerId}`, { id: first.layerId }, "DELETE", undefined, readEditRevision({ kind: "map", id: map.id })!.editRevision!)).status).toBe(200);
     expect(layerRow(first.layerId)).toBeUndefined();
     expect(tableRow(first.tableId)).toMatchObject({ owner_id: "bob" });
     // Its drawer can still delete it, the map untouched.
@@ -157,7 +157,7 @@ describe("a sketch drawn on someone else's map", () => {
     expect(tableRow(first.tableId)).toBeUndefined();
     expect(adasRows()).toEqual(before);
     const second = (await draw("bob")).body as { tableId: string; layerId: string };
-    expect((await call("bob", route.layer, `/api/layers/${second.layerId}`, { id: second.layerId }, "DELETE")).status).toBe(200);
+    expect((await call("bob", route.layer, `/api/layers/${second.layerId}`, { id: second.layerId }, "DELETE", undefined, readEditRevision({ kind: "map", id: map.id })!.editRevision!)).status).toBe(200);
     expect(layerRow(second.layerId)).toBeUndefined();
     expect(tableRow(second.tableId)).toBeUndefined();
   });
@@ -186,11 +186,11 @@ describe("a sketch drawn on someone else's map", () => {
 
 describe("deleting a dataset someone else's map and workflow name", () => {
   it("changes nothing of theirs: the layer and the step stay, and fail by name", async () => {
-    const layer = await createLayer(scopes.ada, map.id, { name: "Stations", sql: "SELECT * FROM bob.stations" });
+    const layer = await createLayer(scopes.ada, map.id, { name: "Stations", sql: "SELECT * FROM bob.stations" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     updateMap(scopes.ada, map.id, { widgets: [{ id: "count", type: "formula", layerId: layer.id, title: "Count", field: null,
       agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const bobsMap = createMap(scopes.bob, "Mine");
-    const bobsLayer = await createLayer(scopes.bob, bobsMap.id, { name: "Stations", sql: "SELECT * FROM stations" });
+    const bobsLayer = await createLayer(scopes.bob, bobsMap.id, { name: "Stations", sql: "SELECT * FROM stations" }, { expectedRevision: readEditRevision({ kind: "map", id: bobsMap.id })?.editRevision });
     const before = adasRows();
     expect((await call("bob", route.table, "/api/tables/stations", { name: "stations" }, "DELETE")).status).toBe(204);
     expect(tableRow(stations.id)).toBeUndefined();

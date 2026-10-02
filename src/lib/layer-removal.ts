@@ -1,5 +1,5 @@
 import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
-import { recordDocumentChanges } from "@/lib/metadata/revisions";
+import { recordDocumentChanges, requireDocumentRevision } from "@/lib/metadata/revisions";
 import { randomUUID } from "node:crypto";
 import { metadataDb } from "@/lib/metadata/db";
 import {
@@ -28,10 +28,11 @@ import type { AccountScope } from "@/lib/auth/scope";
 export async function removeLayer(
   scope: AccountScope,
   id: string,
-  opts: { groupId?: string | null } = {},
+  opts: { groupId?: string | null; expectedRevision?: unknown } = {},
 ): Promise<DocumentFacts> {
   const facts = metadataDb().transaction(() => {
     const layer = requireLayerFor(scope, id, "edit");
+    requireDocumentRevision(scope, { kind: "map", id: layer.mapId, expectedRevision: opts.expectedRevision });
     const map = getMap(layer.mapId);
     const widgets = map?.widgets ?? [];
     const bound = widgets.filter((w) => w.layerId === id);

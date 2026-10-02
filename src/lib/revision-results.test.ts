@@ -1,5 +1,6 @@
-import { declaredRevisionArguments } from "./edit-basis";
+import { withFixtureRevision } from "./test-support/edit-basis";
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { declaredRevisionArguments } from "./edit-basis";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Database } from "better-sqlite3";
 import * as metadata from "./metadata/db";
@@ -49,8 +50,8 @@ it("returns the created map's revision", async () => {
 });
 it("returns JSON revisions for formerly bodyless layer deletion and unpublication", async () => {
   const scope = testAccountScope(db), map = createMap(scope, "Map");
-  const layer = await createLayer(scope, map.id, { name: "Layer", sql: "SELECT ST_Point(1,2) AS geom" });
-  const removed = await removeLayerRoute(req(`/api/layers/${layer.id}`, "DELETE"), { params: Promise.resolve({ id: layer.id }) });
+  const layer = await createLayer(scope, map.id, { name: "Layer", sql: "SELECT ST_Point(1,2) AS geom" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+  const removed = await removeLayerRoute(withFixtureRevision(req(`/api/layers/${layer.id}`, "DELETE"), revision(map.id)), { params: Promise.resolve({ id: layer.id }) });
   expect(removed.status).toBe(200);
   expect(await removed.json()).toMatchObject({ editRevision: revision(map.id) });
   publishMap(scope, map.id);
@@ -135,7 +136,7 @@ it("omits the resulting revision when transfer ends the caller's reach", async (
 });
 it("returns the accepted history state while later work lands during artifact cleanup", async () => {
   const scope = testAccountScope(db), map = createMap(scope, "Before");
-  await createLayer(scope, map.id, { name: "Layer", sql: "SELECT ST_Point(1,2) AS geom" });
+  await createLayer(scope, map.id, { name: "Layer", sql: "SELECT ST_Point(1,2) AS geom" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   let release!: () => void, entered!: () => void;
   const waiting = new Promise<void>(resolve => { entered = resolve; });
   const barrier = new Promise<void>(resolve => { release = resolve; });

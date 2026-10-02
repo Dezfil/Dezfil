@@ -1,4 +1,5 @@
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -114,8 +115,8 @@ describe("docking the timeline", () => {
     await pingsTable();
     const map = createMap(testAccountScope(), "m");
     expect(map.timeline).toBeNull(); // earlier semantics: nothing docked
-    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL });
-    await updateLayer(testAccountScope(), layer.id, { filters: SEEN_FILTER });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await updateLayer(testAccountScope(), layer.id, { filters: SEEN_FILTER }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
 
     updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireMap(testAccountScope(), map.id).timeline).toEqual({
@@ -134,8 +135,8 @@ describe("docking the timeline", () => {
   it("persists an explicit speed", async () => {
     await pingsTable();
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL });
-    await updateLayer(testAccountScope(), layer.id, { filters: SEEN_FILTER });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await updateLayer(testAccountScope(), layer.id, { filters: SEEN_FILTER }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     updateMap(testAccountScope(), map.id, {
       timeline: { layerId: layer.id, field: "seen", speed: 4 },
     }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
@@ -145,7 +146,7 @@ describe("docking the timeline", () => {
   it("rejects unknown layers, missing filters, and aggregated layers — no partial write", async () => {
     await pingsTable();
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     // Not a layer of this map.
     expect(() =>
@@ -156,12 +157,12 @@ describe("docking the timeline", () => {
       updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
     ).toThrowError(/needs a time filter/);
     // A filter on a different field does not count for "seen".
-    await updateLayer(testAccountScope(), layer.id, { filters: SEEN_FILTER });
+    await updateLayer(testAccountScope(), layer.id, { filters: SEEN_FILTER }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(() =>
       updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "name" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
     ).toThrowError(/needs a time filter/);
     // Aggregated layers cannot animate — cells are aggregated server-side.
-    await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") });
+    await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(() =>
       updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
     ).toThrowError(/Aggregated layers/);
@@ -176,8 +177,8 @@ describe("docking the timeline", () => {
   it("dock and undock are recorded, undoable steps", async () => {
     await pingsTable();
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL });
-    await updateLayer(testAccountScope(), layer.id, { filters: SEEN_FILTER });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await updateLayer(testAccountScope(), layer.id, { filters: SEEN_FILTER }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
 
     updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     let state = await undoChange(testAccountScope(), map.id);
@@ -193,13 +194,13 @@ describe("docking the timeline", () => {
   it("tolerates the docked layer going away — the map still reads, dock intact", async () => {
     await pingsTable();
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL });
-    await updateLayer(testAccountScope(), layer.id, { filters: SEEN_FILTER });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await updateLayer(testAccountScope(), layer.id, { filters: SEEN_FILTER }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     // Deleting the layer does not cascade a map write (that would fight
     // undo); readers treat an unresolvable dock as no timeline.
-    await removeLayer(testAccountScope(), layer.id);
+    await removeLayer(testAccountScope(), layer.id, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(requireMap(testAccountScope(), map.id).timeline?.layerId).toBe(layer.id);
   });
 });
@@ -208,8 +209,8 @@ describe("the render split: docked time filter is client-side", () => {
   it("ships the time filter to the client, docked or not", async () => {
     await pingsTable();
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL });
-    await updateLayer(testAccountScope(), layer.id, { filters: [DAY_ONE] });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await updateLayer(testAccountScope(), layer.id, { filters: [DAY_ONE] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
 
     // Since every range/time filter is live: the data carries the full
     // extent and says so; the canvas windows it.
@@ -231,11 +232,11 @@ describe("the render split: docked time filter is client-side", () => {
   it("keeps every other filter server-side while docked", async () => {
     await pingsTable();
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     // The day-one window would exclude c; the values filter keeps only c.
     await updateLayer(testAccountScope(), layer.id, {
       filters: [DAY_ONE, { field: "name", kind: "values", values: ["c"] }],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     const docked = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
@@ -246,13 +247,13 @@ describe("the render split: docked time filter is client-side", () => {
   it("falls back to server-side filtering when the layer drifts to aggregated", async () => {
     await pingsTable();
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL });
-    await updateLayer(testAccountScope(), layer.id, { filters: [DAY_ONE] });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await updateLayer(testAccountScope(), layer.id, { filters: [DAY_ONE] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     // Aggregating after the dock: the dock is unresolvable, so the time
     // filter applies before aggregation again — cells reflect two rows.
-    await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("grid") });
+    await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("grid") }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const render = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(render.ok).toBe(true);
     const features = (
@@ -266,8 +267,8 @@ describe("the render split: docked time filter is client-side", () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "3";
     await pingsTable();
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL });
-    await updateLayer(testAccountScope(), layer.id, { filters: [DAY_ONE] });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await updateLayer(testAccountScope(), layer.id, { filters: [DAY_ONE] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     // Docked and over the cap (4 rows > 3): the tiled path, un-windowed.
@@ -282,7 +283,7 @@ describe("the render split: docked time filter is client-side", () => {
     // the archive is still ready, no rebuild starts.
     await updateLayer(testAccountScope(), layer.id, {
       filters: [{ ...DAY_ONE, max: "2021-03-02T23:59:59" }],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const moved = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(moved.tiles?.state).toBe("ready");
     expect(moved.tiles?.builtAt).toBe(ready.tiles?.builtAt);
@@ -306,14 +307,14 @@ describe("the render split, generalized: live filters", () => {
   it("ships a numeric range filter to the client; a values filter stays in SQL", async () => {
     await pingsTable();
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: XY_SQL });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: XY_SQL }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     // The range would keep only c (x ≤ 13.35); the values filter keeps a+c.
     await updateLayer(testAccountScope(), layer.id, {
       filters: [
         { field: "x", kind: "range", min: null, max: 13.35 },
         { field: "name", kind: "values", values: ["a", "c"] },
       ],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
 
     const render = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     // The values filter applied (a, c); the range filter shipped instead.
@@ -324,7 +325,7 @@ describe("the render split, generalized: live filters", () => {
   it("keeps filters past the slots in SQL — unless the dock claims one", async () => {
     await pingsTable();
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: XY_SQL });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: XY_SQL }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     // Four no-op ranges fill the slots; the day-one time filter overflows
     // into SQL, so it applies server-side (rows a and b).
     await updateLayer(testAccountScope(), layer.id, {
@@ -335,7 +336,7 @@ describe("the render split, generalized: live filters", () => {
         openRange("x4"),
         DAY_ONE,
       ],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const overflow = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(overflow.featureCount).toBe(2);
     expect(overflow.liveFiltered).toBe(true);
@@ -352,11 +353,11 @@ describe("the render split, generalized: live filters", () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "3";
     await pingsTable();
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await updateLayer(testAccountScope(), layer.id, {
       viz: defaultViz("heatmap"),
       filters: [DAY_ONE],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
 
     // Unfiltered result (4) is over the cap and a heatmap cannot tile —
     // every filter returns to SQL: correct rows, nothing live.
@@ -370,13 +371,13 @@ describe("the render split, generalized: live filters", () => {
   it("publishes the resolved live filters for the viewer to enforce", async () => {
     await pingsTable();
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: XY_SQL });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: XY_SQL }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await updateLayer(testAccountScope(), layer.id, {
       filters: [
         { field: "x", kind: "range", min: null, max: 13.35 },
         { field: "name", kind: "values", values: ["a", "c"] },
       ],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
 
     const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
@@ -395,11 +396,11 @@ describe("the render split, generalized: live filters", () => {
   it("a heatmap under the cap delegates like any other layer", async () => {
     await pingsTable();
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await updateLayer(testAccountScope(), layer.id, {
       viz: defaultViz("heatmap"),
       filters: [DAY_ONE],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
 
     const render = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(render.featureCount).toBe(4);
@@ -411,8 +412,8 @@ describe("published timeline", () => {
   it("carries the widget block and un-windowed data for the docked layer", async () => {
     await pingsTable();
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL });
-    await updateLayer(testAccountScope(), layer.id, { filters: [DAY_ONE] });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await updateLayer(testAccountScope(), layer.id, { filters: [DAY_ONE] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     updateMap(testAccountScope(), map.id, {
       timeline: { layerId: layer.id, field: "seen", speed: 2 },
     }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
@@ -436,13 +437,13 @@ describe("published timeline", () => {
   it("degrades an unresolvable dock to no timeline, not an error", async () => {
     await pingsTable();
     const map = createMap(testAccountScope(), "m");
-    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL });
-    await updateLayer(testAccountScope(), layer.id, { filters: [DAY_ONE] });
+    const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await updateLayer(testAccountScope(), layer.id, { filters: [DAY_ONE] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const { token } = publishMap(testAccountScope(), map.id);
 
     // The docked layer goes away; the published page must keep rendering.
-    await removeLayer(testAccountScope(), layer.id);
+    await removeLayer(testAccountScope(), layer.id, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const view = await getPublishedView(token, Date.now());
     expect(view).not.toBeNull();
     expect(view?.timeline).toBeNull();

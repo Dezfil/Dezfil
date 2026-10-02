@@ -1,3 +1,4 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 // The save status leaves the path card for the stage.
 //
@@ -1073,10 +1074,10 @@ test("the published view gains no chip and keeps its stack and legend", async ({
       id: string;
     }
   ).id;
-  await api(page, "POST", `/api/maps/${mapId}/layers`, {
+  await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/layers`, body: {
     name: "Ground",
     sql: "SELECT 1 AS n, ST_Point(13.4, 52.5) AS geom",
-  });
+  } }));
   const token = (
     (await api(page, "POST", `/api/maps/${mapId}/publish`)) as { token: string }
   ).token;

@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { createMap } from "@/lib/map-service";
 import { createLayer } from "@/lib/layer-service";
@@ -73,7 +74,7 @@ it.each(["column", "publication"])("%s failure keeps old artifact, manual choice
   const t = (await importFromUrl(testAccountScope(), "https://fixture.test/failure.csv")).tables[0];
   await setGeometry(testAccountScope(), t.name, geometryRevision(t), { format: "pair", columns: ["y", "x"] });
   await retirementsSettled();
-  const map=createMap(testAccountScope(), "Retained tiles"),layer=await createLayer(testAccountScope(), map.id,{name:"Tiles",sql:`SELECT geometry FROM ${t.name}`});
+  const map=createMap(testAccountScope(), "Retained tiles"),layer=await createLayer(testAccountScope(), map.id,{name:"Tiles",sql:`SELECT geometry FROM ${t.name}`}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   upsertTileRecord({layerId:layer.id,state:"ready",fingerprint:"before-failed-refresh",error:null,featureCount:1,builtAt:"2026-09-01T00:00:00Z"});
   const tileFile=tileArchivePath(layer.id);await mkdir(path.dirname(tileFile),{recursive:true});await writeFile(tileFile,"existing archive bytes");
   const tileBefore=getTileRecord(layer.id);

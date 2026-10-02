@@ -12,7 +12,7 @@ export async function installedLook(client, { call, gate }, renderLog) {
   try {
     map = await call('create_map', { name: 'Installed map check' });
     basis = captureBasis(map);
-    const layer = await call('create_layer', { id: map.id, name: 'Observed point', sql: "SELECT ST_Point(0, 0) AS geometry, 'point' AS name" });
+    const layer = await call('create_layer', { id: map.id, name: 'Observed point', sql: "SELECT ST_Point(0, 0) AS geometry, 'point' AS name" }, undefined, null, basis);
     basis = captureBasis(layer);
     const viewport = { lng: 0, lat: 0, zoom: 10, pitch: 0, bearing: 0 };
     basis = captureBasis(await call('update_map', { id: map.id, viewport, customBasemap: { name: 'Loopback', url: fixture.styleUrl, force: true } }, undefined, null, basis));

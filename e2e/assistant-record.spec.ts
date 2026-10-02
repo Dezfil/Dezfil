@@ -267,7 +267,7 @@ test.describe("4: the confirmation card and the settled entries", () => {
     await expect(pane(page).getByRole("textbox", { name: "Ask the assistant" })).toBeDisabled();
     await expect(pane(page).getByRole("button", { name: "Stop", exact: true })).toHaveCount(1);
     await expect(pane(page).getByRole("button", { name: "Send", exact: true })).toHaveCount(0);
-    await api(page, "DELETE", `/api/layers/${layerId}`);
+    await readThenWriteBrowserSetup(page, `/api/layers/${layerId}`, () => ({ method: "DELETE", path: `/api/layers/${layerId}` }));
     await card(page).getByRole("button", { name: "Confirm", exact: true }).click();
     await expect(pane(page).getByText("It was already gone.", { exact: true })).toBeVisible();
     await expect(card(page)).toHaveCount(0);

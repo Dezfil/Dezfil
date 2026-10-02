@@ -334,10 +334,10 @@ test("the Projects list and the project home", async ({
         projectId: p1,
       })) as { id: string }
     ).id;
-    await api(page, "POST", `/api/maps/${mapId}/layers`, {
+    await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/layers`, body: {
       name: T1,
       sql: `SELECT * FROM ${T1}`,
-    });
+    } }));
     await api(page, "POST", `/api/maps/${mapId}/publish`);
     wfId = (
       (await api(page, "POST", "/api/recipes", {
@@ -1551,8 +1551,8 @@ test("the project-first picker: three tabs, one atomic change with what it bring
       tOut = (await tables()).find((t) => t.name === `pk_out_${run}`)!.id;
       // A map in Elsewhere drawing the output and the map-only dataset.
       mapId = ((await api(page, "POST", "/api/maps", { name: P("Layered map"), projectId: other })) as { id: string }).id;
-      await api(page, "POST", `/api/maps/${mapId}/layers`, { name: `pk_out_${run}`, sql: `SELECT * FROM pk_out_${run}` });
-      await api(page, "POST", `/api/maps/${mapId}/layers`, { name: `pk_map_${run}`, sql: `SELECT * FROM pk_map_${run}` });
+      await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/layers`, body: { name: `pk_out_${run}`, sql: `SELECT * FROM pk_out_${run}` } }));
+      await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/layers`, body: { name: `pk_map_${run}`, sql: `SELECT * FROM pk_map_${run}` } }));
       // The map-only dataset is already in the home: the picker must
       // neither count it as brought nor send it again.
       await api(page, "PATCH", `/api/projects/${home}/members`, { addTables: [tMapOnly] });

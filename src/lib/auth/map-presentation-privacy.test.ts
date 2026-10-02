@@ -39,7 +39,7 @@ it.each(["session", "token"])("keeps map basemaps and layer styles private to ea
     const written = await writeMap(withFixtureRevision(request(actor, `/api/maps/${maps[actor]}`, "PATCH", { basemap: "light", customBasemap }, kind), readEditRevision({ kind: "map", id: maps[actor] })?.editRevision), params(maps[actor]));
     expect(written.status).toBe(200); expect(await written.json()).toMatchObject({ customBasemap });
     const style = { ...defaultStyle(null), opacity: actor === "alice" ? 0.2 : actor === "bob" ? 0.4 : 0.6 };
-    expect((await writeLayer(request(actor, `/api/layers/layer-${actor}`, "PATCH", { style }, kind), params(`layer-${actor}`))).status).toBe(200);
+    expect((await writeLayer(withFixtureRevision(request(actor, `/api/layers/layer-${actor}`, "PATCH", { style }, kind), readEditRevision({ kind: "map", id: maps[actor] })!.editRevision!), params(`layer-${actor}`))).status).toBe(200);
     expect(await (await readLayer(request(actor, `/api/layers/layer-${actor}`, "GET", undefined, kind), params(`layer-${actor}`))).json()).toMatchObject({ style });
   }
   expect(inspection).toHaveBeenCalledTimes(3); inspection.mockClear();

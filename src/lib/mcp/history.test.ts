@@ -20,7 +20,7 @@ beforeEach(async () => {
   closeMetadataDb(); resetQueryInstance();
   const csv = path.join(dir, 'facts.csv'); await writeFile(csv, 'name,lon,lat\na,0,0\n'); await ingestFile(testAccountScope(), csv, 'facts.csv');
   mapId = createMap(testAccountScope(), 'Original').id;
-  layerId = (await createLayer(testAccountScope(), mapId, { name: 'Layer', sql: 'SELECT * FROM facts' })).id;
+  layerId = (await createLayer(testAccountScope(), mapId, { name: 'Layer', sql: 'SELECT * FROM facts' }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision })).id;
   metadataDb().prepare('DELETE FROM map_history').run();
   seen = [];
   client = await testClient(request => { seen.push(request.clone()); return dispatchAssistantTestRoute(request); });
@@ -37,15 +37,17 @@ describe('external group association', () => {
   for (const name of ['update_map', 'create_layer', 'update_layer', 'delete_layer', 'duplicate_layer']) {
     it(`${name}: valid group forwards and matches stored history`, async () => {
       const args = name === 'update_map' ? { id: mapId, name: 'Renamed' } : name === 'create_layer' ? { id: mapId, name: 'Added', sql: 'SELECT * FROM facts' } : name === 'update_layer' ? { id: layerId, name: 'Renamed' } : { id: layerId };
-      const result = await call(name, {...(name === 'update_map' ? { expected_revision: readEditRevision({ kind: "map", id: mapId })?.editRevision } : {}),  ...args, change_group: 'external_group' });
+      const result = await call(name, {expected_revision: readEditRevision({ kind: "map", id: mapId })?.editRevision,  ...args, change_group: 'external_group' });
       expect(result.isError ?? false).toBe(false);
       expect(seen.some(request => request.method !== 'GET' && request.headers.get('X-Change-Group') === 'external_group')).toBe(true);
       expect(steps()).toEqual([expect.objectContaining({ mapId, groupId: 'external_group' })]);
       expect(result.structuredContent?.history).toEqual({ mapId, group: 'external_group' });
     });
     it(`${name}: invalid group dispatches nothing`, async () => {
-      const result = await call(name, { id: name === 'create_layer' || name === 'update_map' ? mapId : layerId, name: 'Changed', sql: 'SELECT * FROM facts', change_group: 'bad group' });
+      const args = name === 'update_map' ? { id: mapId, name: 'Changed' } : name === 'create_layer' ? { id: mapId, name: 'Added', sql: 'SELECT * FROM facts' } : name === 'update_layer' ? { id: layerId, name: 'Changed' } : { id: layerId };
+      const result = await call(name, { ...args, expected_revision: readEditRevision({ kind: "map", id: mapId })!.editRevision!, change_group: 'bad group' });
       expect(result.isError).toBe(true);
+      expect(JSON.stringify(result)).toContain("change_group");
       expect(seen).toHaveLength(0);
       expect(steps()).toEqual([]);
     });
@@ -56,7 +58,7 @@ describe('external group association', () => {
     expect(result.structuredContent?.history).toBeNull();
   });
   it('an internally grouped duplicate without a supplied marker has no association', async () => {
-    const result = await call('duplicate_layer', { id: layerId });
+    const result = await call('duplicate_layer', { id: layerId, expected_revision: readEditRevision({ kind: "map", id: mapId })!.editRevision! });
     expect(result.isError ?? false).toBe(false);
     expect(steps()).toHaveLength(1);
     expect(result.structuredContent?.history).toBeNull();

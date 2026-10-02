@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -71,7 +73,7 @@ async function pointLayer() {
   return createLayer(testAccountScope(), map.id, {
     name: "Stations",
     sql: "SELECT name, category, riders, geometry FROM stations",
-  });
+  }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 }
 
 /** A deliberately varied grid source for authoritative classification tests. */
@@ -94,14 +96,14 @@ async function settlementLayer() {
   const layer = await createLayer(testAccountScope(), map.id, {
     name: "Settlement",
     sql: "SELECT label, category, seen, score, geometry FROM settlement",
-  });
+  }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   return updateLayer(testAccountScope(), layer.id, {
     viz: {
       type: "grid",
       cellKm: 1,
       aggregate: { fn: "sum", attribute: "score" },
     },
-  });
+  }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
 }
 
 function ramp(fill: FillPaint | undefined) {
@@ -126,7 +128,7 @@ describe("aggregated rendering", () => {
     // margins; zoo and sudkreuz stay alone (verified against lib/hex-bin).
     const updated = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 3, aggregate: { fn: "count" } },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
 
     const viz = updated.viz as HexbinViz;
     expect(viz.fill).toBeDefined();
@@ -154,9 +156,9 @@ describe("aggregated rendering", () => {
 
   it("switching viz back to points loses nothing", async () => {
     const layer = await pointLayer();
-    const asHex = await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") });
+    const asHex = await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(asHex.style).toEqual(layer.style); // layer style untouched
-    const back = await updateLayer(testAccountScope(), layer.id, { viz: { type: "points" } });
+    const back = await updateLayer(testAccountScope(), layer.id, { viz: { type: "points" } }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(back.style).toEqual(layer.style);
     expect(back.sql).toBe(layer.sql);
     const render = await renderLayer(testAccountScope(), back, undefined, { tileAccess: privateTileAccess(testAccountScope(), (back).id) });
@@ -165,7 +167,7 @@ describe("aggregated rendering", () => {
 
   it("field stats answer for the aggregate value with a mean", async () => {
     const layer = await pointLayer();
-    await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") });
+    await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const { layerFieldStats } = await import("@/lib/layer-service");
     const stats = await layerFieldStats(testAccountScope(), requireLayer(testAccountScope(), layer.id), "value");
     if (stats.kind !== "numeric") throw new Error("expected numeric stats");
@@ -188,24 +190,24 @@ describe("aggregated rendering", () => {
     };
     const labeled = await updateLayer(testAccountScope(), layer.id, {
       style: { ...layer.style, label },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(labeled.style.label?.attribute).toBe("name");
 
     // Points → hexbin: cells label themselves; the stale attribute drops
     // (it would otherwise leave every cell silently unlabeled).
-    const asHex = await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") });
+    const asHex = await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(asHex.style.label).toBeDefined();
     expect(asHex.style.label?.attribute).toBeUndefined();
 
     // Hexbin → points: an attribute-less label has nothing to say on
     // simple features — the dead config drops entirely.
-    const back = await updateLayer(testAccountScope(), layer.id, { viz: { type: "points" } });
+    const back = await updateLayer(testAccountScope(), layer.id, { viz: { type: "points" } }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(back.style.label).toBeUndefined();
   });
 
   it("changing the aggregate reclassifies but keeps ramp choices", async () => {
     const layer = await pointLayer();
-    await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") });
+    await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const custom = await updateLayer(testAccountScope(), layer.id, {
       viz: {
         type: "hexbin",
@@ -213,7 +215,7 @@ describe("aggregated rendering", () => {
         aggregate: { fn: "count" },
         fill: undefined,
       } as HexbinViz,
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     // explicitly choose a palette by patching viz with a classified fill
     const withPalette = await updateLayer(testAccountScope(), layer.id, {
       viz: {
@@ -223,7 +225,7 @@ describe("aggregated rendering", () => {
           palette: "ice_and_fire",
         },
       } as HexbinViz,
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(((withPalette.viz as HexbinViz).fill as { palette: string }).palette).toBe(
       "ice_and_fire",
     );
@@ -234,7 +236,7 @@ describe("aggregated rendering", () => {
         cellKm: 3.23,
         aggregate: { fn: "avg", attribute: "riders" },
       },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const fill = (changed.viz as HexbinViz).fill;
     expect(fill?.type).toBe("quantile");
     if (fill?.type === "quantile") expect(fill.palette).toBe("ice_and_fire");
@@ -244,7 +246,7 @@ describe("aggregated rendering", () => {
     const layer = await pointLayer();
     const updated = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "grid", cellKm: 1000, aggregate: { fn: "sum", attribute: "riders" } },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const render = await renderLayer(testAccountScope(), updated, undefined, { tileAccess: privateTileAccess(testAccountScope(), (updated).id) });
     expect(render.ok).toBe(true);
     expect(render.featureCount).toBe(1);
@@ -256,12 +258,12 @@ describe("aggregated rendering", () => {
     const lines = await createLayer(testAccountScope(), map.id, {
       name: "Lines",
       sql: "SELECT ST_MakeLine(ST_Point(0,0), ST_Point(1,1)) AS geometry",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await expect(
-      updateLayer(testAccountScope(), lines.id, { viz: defaultViz("hexbin") }),
+      updateLayer(testAccountScope(), lines.id, { viz: defaultViz("hexbin") }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(lines.id)?.mapId ?? "missing") })?.editRevision }),
     ).rejects.toMatchObject({ code: "invalid_request", status: 400 });
     await expect(
-      updateLayer(testAccountScope(), lines.id, { viz: defaultViz("heatmap") }),
+      updateLayer(testAccountScope(), lines.id, { viz: defaultViz("heatmap") }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(lines.id)?.mapId ?? "missing") })?.editRevision }),
     ).rejects.toMatchObject({ code: "invalid_request", status: 400 });
   });
 
@@ -276,7 +278,7 @@ describe("aggregated rendering", () => {
 
     const updated = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 3, aggregate: { fn: "count" } },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const asCells = await renderLayer(testAccountScope(), updated, undefined, { tileAccess: privateTileAccess(testAccountScope(), (updated).id) });
     expect(asCells.ok).toBe(true);
     expect(asCells.featureCount).toBe(3);
@@ -284,7 +286,7 @@ describe("aggregated rendering", () => {
 
   it("the heatmap keeps its cap with an actionable message", async () => {
     const layer = await pointLayer();
-    await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("heatmap") });
+    await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("heatmap") }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     process.env.DEZFIL_RENDER_CAP_FEATURES = "3";
     const render = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(render.ok).toBe(false);
@@ -301,11 +303,11 @@ describe("filters", () => {
         { field: "riders", kind: "range", min: 400, max: null },
         { field: "category", kind: "values", values: ["u"] },
       ],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const render = await renderLayer(testAccountScope(), filtered, undefined, { tileAccess: privateTileAccess(testAccountScope(), (filtered).id) });
     expect(render.featureCount).toBe(2); // alexanderplatz + zoo
 
-    const aggregated = await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") });
+    const aggregated = await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const cells = await renderLayer(testAccountScope(), aggregated, undefined, { tileAccess: privateTileAccess(testAccountScope(), (aggregated).id) });
     const total = features(cells).reduce(
       (s, f) => s + Number(f.properties.count),
@@ -316,7 +318,7 @@ describe("filters", () => {
     const cleared = await updateLayer(testAccountScope(), layer.id, {
       filters: [],
       viz: { type: "points" },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect((await renderLayer(testAccountScope(), cleared, undefined, { tileAccess: privateTileAccess(testAccountScope(), (cleared).id) })).featureCount).toBe(4); // restored exactly
   });
 
@@ -330,7 +332,7 @@ describe("filters", () => {
     );
     const styled = await updateLayer(testAccountScope(), layer.id, {
       viz: { ...aggregatedViz(layer), fill: initialFill },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const beforeBreaks = ramp((styled.viz as AggregatedViz).fill).breaks;
     const exactFill = async (current: typeof styled) =>
       classifyFill(testAccountScope(), await layerEffectiveSql(testAccountScope(), current), "value", "equal", {
@@ -351,7 +353,7 @@ describe("filters", () => {
         max: null,
       },
     ];
-    const filtered = await updateLayer(testAccountScope(), layer.id, { filters });
+    const filtered = await updateLayer(testAccountScope(), layer.id, { filters }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const settled = ramp((filtered.viz as AggregatedViz).fill);
     const expected = await exactFill(filtered);
 
@@ -394,7 +396,7 @@ describe("filters", () => {
     ];
     let removed = filtered;
     for (const next of mutations) {
-      removed = await updateLayer(testAccountScope(), layer.id, { filters: next });
+      removed = await updateLayer(testAccountScope(), layer.id, { filters: next }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
       expect((removed.viz as AggregatedViz).fill).toEqual(
         await exactFill(removed),
       );
@@ -419,11 +421,11 @@ describe("filters", () => {
     };
     await updateLayer(testAccountScope(), layer.id, {
       viz: { ...aggregatedViz(layer), fill: custom },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
 
     const filtered = await updateLayer(testAccountScope(), layer.id, {
       filters: [{ field: "category", kind: "values", values: ["u"] }],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const settled = ramp((filtered.viz as AggregatedViz).fill);
     expect(settled.method).toBe("natural");
     expect(settled.baseMethod).toBeUndefined();
@@ -439,10 +441,10 @@ describe("filters", () => {
     await updateLayer(testAccountScope(), layer.id, {
       filters: [],
       viz: { ...(filtered.viz as AggregatedViz), fill: constant },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const constantFiltered = await updateLayer(testAccountScope(), layer.id, {
       filters: [{ field: "category", kind: "values", values: ["v"] }],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect((constantFiltered.viz as AggregatedViz).fill).toEqual(constant);
   });
 
@@ -450,7 +452,7 @@ describe("filters", () => {
     const layer = await pointLayer();
     await updateLayer(testAccountScope(), layer.id, {
       filters: [{ field: "riders", kind: "range", min: 800, max: null }],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const riders = await layerFieldStats(testAccountScope(), layer, "riders");
     expect(riders).toMatchObject({
       field: "riders",
@@ -494,7 +496,7 @@ describe("filters", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "Pings",
       sql: "SELECT label, seen, geometry FROM pings",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     const fields = await layerFields(testAccountScope(), layer);
     const seen = fields.filterable.find((f) => f.name === "seen");
@@ -512,7 +514,7 @@ describe("filters", () => {
     // everywhere else — the effective query keeps applying it.
     const filtered = await updateLayer(testAccountScope(), layer.id, {
       filters: [{ field: "seen", kind: "timerange", min: "2021-03-15", max: null }],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const render = await renderLayer(testAccountScope(), filtered, undefined, { tileAccess: privateTileAccess(testAccountScope(), (filtered).id) });
     expect(render.featureCount).toBe(3);
     expect(render.liveFiltered).toBe(true);

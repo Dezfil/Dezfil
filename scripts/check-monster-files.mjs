@@ -27,7 +27,7 @@ const CEILINGS = {
   // Layer service. Extractions so far: layer geometry inspection, the
   // deletion cascade, field/schema/statistics queries, creation, access, rendering and slider previews,
   // and the write admission.
-  "src/lib/layer-service.ts": 40,
+  "src/lib/layer-service.ts": 10,
   // The style panel. Extractions so far: the icon picker, the Label
   // section and the hover-field sections.
   "src/components/builder/StylePanel.tsx": 957,

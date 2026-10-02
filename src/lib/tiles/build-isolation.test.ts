@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -42,7 +43,7 @@ beforeEach(async () => {
   await ingestFile(scopes.ada, file, "roads.csv");
   shareProject("ada", "P", [["bob", "viewer"]]);
   const map = createMap(scopes.ada, "Survey", "P");
-  layer = await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" });
+  layer = await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 });
 afterEach(async () => {
   await tileBuildsSettled();
