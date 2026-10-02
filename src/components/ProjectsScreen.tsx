@@ -7,6 +7,7 @@ import {
   IconDownload,
   IconGrid,
   IconList,
+  IconPeople,
   IconRename,
   IconSearch,
   IconTrash,
@@ -25,7 +26,7 @@ import { Dialog } from "./ui/Dialog";
 import { ErrorNote } from "./ui/ErrorNote";
 import { ListHeading } from "./ListHeading";
 import { headingLine } from "./scope/model";
-import { PeopleIcon, PlusIcon } from "./ui/icons";
+import { PlusIcon } from "./ui/icons";
 import {
   filterProjects,
   PROJECT_SORTS,
@@ -342,7 +343,7 @@ export function ProjectsScreen() {
               setSharing(p);
             }}
           >
-            <PeopleIcon />
+            <IconPeople />
           </button>
         )}
         {owned && (
