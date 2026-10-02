@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, rm, access } from "node:fs/promises";
@@ -194,7 +195,7 @@ describe("cascadeDeleteSketch", () => {
     const made = await createSketch(testAccountScope(), map.id, square);
     // A manual legend arrangement includes the owner: the cascade must
     // prune its slot, not leave a dead UUID stored.
-    updateMap(testAccountScope(), map.id, { legendOrder: [made.layerId] });
+    updateMap(testAccountScope(), map.id, { legendOrder: [made.layerId] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     // A step targeting the owner (a style edit) and an unrelated one.
     recordStep({
       mapId: map.id,

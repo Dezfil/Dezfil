@@ -1092,3 +1092,24 @@ links carry a publication-only pending-adoption scope; setup atomically
 replaces it with the original account's scope. Token revocation is rechecked
 after asynchronous widget, render and extent work, and retires cached or
 in-flight assembled views.
+
+### Map edit preconditions
+
+Breaking change for unversioned clients: `PATCH /api/maps/{id}` requires
+`X-Edit-Revision` for every content field, including widgets, layer order,
+publication settings and unchanged values. A viewport-only PATCH needs none;
+a mixed viewport/content PATCH is atomic under the content revision. Map
+DELETE also requires the revision from the displayed or read map. Creation
+and copying to a new map need no destination revision. There remains one map
+PATCH operation. Its MCP `expected_revision` argument is conditionally required;
+`delete_map` requires it unconditionally.
+
+Read the map first, retain its `editRevision`, and send that exact value in
+`X-Edit-Revision` (MCP: `expected_revision`). Each accepted JSON result supplies
+the next revision. Deletion returns 204 with no surviving revision. Missing or
+malformed values return `400 invalid_request`: “Read this item first, then send
+its editRevision in X-Edit-Revision.” A stale value returns `409 stale_revision`:
+“This item has changed. Reload it before trying again.” Permission checks come
+first. Refusal changes no content, history, actor, publication or artifacts,
+including when validation races another edit. Reload explicitly before making
+a new edit; never attach a refreshed token to a refused payload.

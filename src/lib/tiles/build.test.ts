@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -297,7 +298,7 @@ describe("tile builds", () => {
     ensureTiles(privateTileAccess(testAccountScope(), (inputFor(other.id)).layerId), inputFor(other.id));
     await vi.waitFor(() => expect(existsSync(gate.started)).toBe(true));
 
-    await removeMap(testAccountScope(), mapId);
+    await removeMap(testAccountScope(), mapId, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     await gate.release();
     await tileBuildsSettled();
 

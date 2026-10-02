@@ -1,3 +1,4 @@
+import { AssistantRevisions } from "./edit-revisions";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { requireRequestAuth } from "@/lib/auth/http";
 import { instanceFetch } from "@/lib/auth/instance-fetch";
@@ -6,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { closeMetadataDb } from "@/lib/metadata/db";
-import { createMap } from "@/lib/map-service";
+import { createMap, mapWithLayers } from "@/lib/map-service";
 import { setLookDriverForTests } from "@/lib/export/map-look";
 import { encodePng } from "@/lib/export/png-codec";
 import type { RenderDriver } from "@/lib/export/render-image";
@@ -69,7 +70,9 @@ const call = (name: string, args: Record<string, unknown>) => ({ id: `o${++seq}`
 async function drive(provider: ModelProvider, deps: Partial<LoopDeps> = {}, signal?: AbortSignal): Promise<{ events: AssistantEvent[]; receipt: RunReceipt; threw?: unknown }> {
   const run = assistantRuns.reserve(testAccountScope()); assistantRuns.bind(testAccountScope(), run.id, { message: "go" });
   const events: AssistantEvent[] = [];
-  const loop: LoopDeps = { scope: testAccountScope(), baseUrl: origin, fetchImpl: instanceFetch(origin, requireRequestAuth(authenticatedRequest())), pending: new PendingActionStore(), stepBudget: 8, runId: run.id, signal, ...deps };
+  const revisions = new AssistantRevisions();
+  revisions.observe(`/api/maps/${mapId}`, mapWithLayers(testAccountScope(), mapId));
+  const loop: LoopDeps = { revisions, scope: testAccountScope(), baseUrl: origin, fetchImpl: instanceFetch(origin, requireRequestAuth(authenticatedRequest())), pending: new PendingActionStore(), stepBudget: 8, runId: run.id, signal, ...deps };
   let threw: unknown;
   try { for await (const event of runAssistant(provider, { message: "go", history: [], context: builder() }, loop)) { events.push(event); assistantRuns.record(testAccountScope(), run.id, event); } }
   catch (error) { threw = error; assistantRuns.record(testAccountScope(), run.id, { type: "error", code: "internal", message: "x" }); }

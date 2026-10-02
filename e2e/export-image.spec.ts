@@ -1057,14 +1057,14 @@ test.describe("framing, scale, and the elements", () => {
       }
       await page.evaluate(
         async ({ mapId }) => {
-          await fetch(`/api/maps/${mapId}`, {
+          await (async function readThenWriteSetup() { const basis = await (await fetch(`/api/maps/${mapId}`)).json(); return fetch(`/api/maps/${mapId}`, {
             method: "PATCH",
-            headers: { "content-type": "application/json" },
+            headers: { "X-Edit-Revision": basis.editRevision, "content-type": "application/json" },
             body: JSON.stringify({
               viewport: { lng: 13.4, lat: 52.5, zoom: 10, pitch: 0, bearing: 0 },
               basemap: "satellite",
             }),
-          });
+          }); })();
         },
         { mapId },
       );

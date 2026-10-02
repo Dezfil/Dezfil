@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { mkdir, rm } from "node:fs/promises";
 import { allMaps, removeMap } from "@/lib/map-service";
@@ -16,7 +17,7 @@ export async function isolateScenario(input: { live: boolean; dir: string }): Pr
   // The fixture account's maps (their layers go with them) and every dataset
   // removed through the repositories, rows and artifacts alike; the
   // directory itself stays, the standalone keeps serving from it.
-  for (const map of allMaps(testAccountScope())) await removeMap(testAccountScope(), map.id);
+  for (const map of allMaps(testAccountScope())) await removeMap(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   for (const table of await listTablesWithSize(testAccountScope())) await removeTable(testAccountScope(), table.name);
 }
 

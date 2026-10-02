@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { revokeInactivePublication } from "@/lib/publish/admin-revocation";
 import { testAccountRequest } from "@/lib/test-support/accounts";
 import { requireRequestAuth } from "./http";
@@ -27,7 +28,7 @@ beforeEach(async () => {
   mapId = createMap(scope, "Published sentinel").id;
   layerId = (await createLayer(scope, mapId, { name: "Private SQL", sql: "SELECT 10 score, ST_Point(1, 2) geometry" })).id;
   updateMap(scope, mapId, { widgets: [{ id: "w", type: "histogram", layerId, title: "Score", field: "score", agg: "count", aggField: null,
-    unit: null, note: null, format: null, visible: true }] });
+    unit: null, note: null, format: null, visible: true }] }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
   token = publishMap(scope, mapId).token;
 });
 afterEach(async () => { vi.restoreAllMocks(); closeMetadataDb(); resetQueryInstance(); resetPublishCache(); process.env.DEZFIL_DATA_DIR = initialDir; await rm(directory, { recursive: true, force: true }); });

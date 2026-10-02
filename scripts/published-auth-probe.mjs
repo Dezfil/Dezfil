@@ -1,3 +1,4 @@
+import { captureBasis } from './revision-fixtures.mjs';
 // Checks the anonymous projection with real data and tiles, without a browser.
 import assert from 'node:assert/strict';
 import { provisionJourney } from './journey-auth.mjs';
@@ -10,7 +11,8 @@ export async function publishedAuthProbe(base) {
   const layer = await api('POST', `/api/maps/${map.json.id}/layers`, { body: { name: 'Filtered points', sql: "SELECT * FROM (VALUES ('a', 10, 20), ('b', 11, 21)) p(name, x, y) CROSS JOIN LATERAL (SELECT ST_Point(x, y) AS geometry)" } }); assert.equal(layer.status, 201);
   assert.equal((await api('PATCH', `/api/layers/${layer.json.id}`, { body: { viz: { type: 'cluster', radiusPx: 64, color: 'fixed', showCounts: true } } })).status, 200);
   const defaults = { layerId: layer.json.id, agg: 'count', aggField: null, unit: null, note: null, format: null, visible: true };
-  assert.equal((await api('PATCH', `/api/maps/${map.json.id}`, { body: { widgetsPublished: true, widgets: [
+  const shown = await api('GET', `/api/maps/${map.json.id}`);
+  assert.equal((await api('PATCH', `/api/maps/${map.json.id}`, { basis: captureBasis(shown.json), body: { widgetsPublished: true, widgets: [
     { ...defaults, id: 'category', type: 'category', title: 'Names', field: 'name' },
     { ...defaults, id: 'count', type: 'formula', title: 'Count', field: null },
   ] } })).status, 200);

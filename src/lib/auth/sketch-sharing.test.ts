@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -164,7 +165,7 @@ describe("a sketch drawn on someone else's map", () => {
   it("is deleted by its drawer without touching the map it was drawn on, whose layer then fails by name", async () => {
     const { table, tableId, layerId } = (await draw("bob")).body as { table: string; tableId: string; layerId: string };
     updateMap(scopes.ada, map.id, { widgets: [{ id: "count", type: "formula", layerId, title: "Count", field: null,
-      agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }] });
+      agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const before = adasRows();
     expect((await call("bob", route.sketch, `/api/sketches/${table}`, { name: table }, "DELETE")).status).toBe(200);
     expect(tableRow(tableId)).toBeUndefined();
@@ -187,7 +188,7 @@ describe("deleting a dataset someone else's map and workflow name", () => {
   it("changes nothing of theirs: the layer and the step stay, and fail by name", async () => {
     const layer = await createLayer(scopes.ada, map.id, { name: "Stations", sql: "SELECT * FROM bob.stations" });
     updateMap(scopes.ada, map.id, { widgets: [{ id: "count", type: "formula", layerId: layer.id, title: "Count", field: null,
-      agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }] });
+      agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const bobsMap = createMap(scopes.bob, "Mine");
     const bobsLayer = await createLayer(scopes.bob, bobsMap.id, { name: "Stations", sql: "SELECT * FROM stations" });
     const before = adasRows();

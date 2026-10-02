@@ -1,3 +1,5 @@
+import { declaredRevisionArguments } from "./edit-basis";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Database } from "better-sqlite3";
 import * as metadata from "./metadata/db";
@@ -25,7 +27,7 @@ const revision = (id: string) => readDocumentRevision({ kind: "map", id }, db)!.
 const dispatch = (async (input: RequestInfo | URL, init?: RequestInit) => dispatchAssistantTestRoute(new Request(String(input), init))) as typeof fetch;
 async function call(name: string, args: Record<string, unknown>, document?: { kind: "map" | "workflow"; id: string }) {
   const tool = buildTools().find(tool => tool.name === name)!;
-  const result = await executeTool(tool, args, "http://instance.test", dispatch);
+  const result = await executeTool(tool, document ? declaredRevisionArguments(tool, args, readDocumentRevision(document, db)!) : args, "http://instance.test", dispatch);
   expect(result.ok, JSON.stringify(result)).toBe(true);
   const wire = mcpResult(tool, result, null);
   const validator = fromJsonSchema(tool.outputSchema as Parameters<typeof fromJsonSchema>[0]);
@@ -141,7 +143,7 @@ it("returns the accepted history state while later work lands during artifact cl
   const pending = undoChange(scope, map.id);
   await waiting;
   const accepted = revision(map.id);
-  updateMap(scope, map.id, { name: "Later" });
+  updateMap(scope, map.id, { name: "Later" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   release();
   expect(await pending).toMatchObject({ name: "Before", editRevision: accepted, history: { editRevision: accepted } });
 });

@@ -66,8 +66,8 @@ afterEach(async () => {
 });
 
 /** A verification read or write by the test itself, never through the loop's fetch. */
-const api = (url: string, body?: unknown, method = body === undefined ? "GET" : "POST") =>
-  dispatchAssistantTestRoute(new Request(origin + url, { method, ...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }) }));
+const api = (url: string, body?: unknown, method = body === undefined ? "GET" : "POST", basis?: string) =>
+  dispatchAssistantTestRoute(new Request(origin + url, { method, ...(body === undefined ? {} : { headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": basis } : {}) }, body: JSON.stringify(body) }) }));
 async function events(response: Response): Promise<AssistantEvent[]> {
   const text = await response.text();
   expect(response.status, text).toBe(200);
@@ -287,7 +287,8 @@ describe("a manual edit during the pause splits the turn's steps", () => {
     const pending = stream.find((e): e is Extract<AssistantEvent, { type: "confirm_required" }> => e.type === "confirm_required")!;
     expect(await mapName(map.id)).toBe("First");
     // The manual edit lands while the turn waits at its gate: no group.
-    await api(`/api/maps/${map.id}`, { name: "Manual" }, "PATCH");
+    const shown = await (await api(`/api/maps/${map.id}`)).json();
+    await api(`/api/maps/${map.id}`, { name: "Manual" }, "PATCH", shown.editRevision);
     const resumed = await events(await api("/api/assistant/messages", { resolution: { pending: pending.id, approved: true } }));
     expect(results(resumed).map((r) => [r.tool, r.ok])).toEqual([["publish_map", true], ["update_map", true]]);
     expect(await mapName(map.id)).toBe("Second");

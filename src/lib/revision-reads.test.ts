@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Database } from "better-sqlite3";
 import * as metadata from "./metadata/db";
@@ -31,7 +32,7 @@ it("pairs reached maps, lists, children and publication with safe covered-change
   const token = publishMap(scope, map.id).token;
   const anonymous = JSON.stringify(getPublishedSnapshot(token));
   expect(anonymous).not.toMatch(/editRevision|lastChanged|executableRevision|test_account|example.test/);
-  updateMap(scope, map.id, { viewport: { lng: 2, lat: 3, zoom: 4 } });
+  updateMap(scope, map.id, { viewport: { lng: 2, lat: 3, zoom: 4 } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   expect(readMap(scope, map.id)).toMatchObject(expected);
 });
 it("holds a workflow's revision with its captured steps across asynchronous presentation", async () => {

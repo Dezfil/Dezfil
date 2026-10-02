@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { removeLayer } from "./layer-removal";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -42,15 +43,15 @@ it("records same-clock edits and widget changes, excluding camera and no-ops", (
   const map = createMap(scope, "First");
   vi.spyOn(Date, "now").mockReturnValue(1234567890000);
   const initial = revision(map.id);
-  updateMap(scope, map.id, { name: "Second" });
+  updateMap(scope, map.id, { name: "Second" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   const changed = revision(map.id);
   expect(changed.editRevision).not.toBe(initial.editRevision);
   expect(changed.lastChangedAt).toBe(new Date(Date.now()).toISOString());
-  updateMap(scope, map.id, { widgetsPublished: false, viewport: { lng: 2, lat: 3, zoom: 4 } });
+  updateMap(scope, map.id, { widgetsPublished: false, viewport: { lng: 2, lat: 3, zoom: 4 } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   expect(revision(map.id).editRevision).not.toBe(changed.editRevision);
   const stable = revision(map.id), history = historyAvailability(map.id);
-  updateMap(scope, map.id, { name: "Second", widgetsPublished: false });
-  updateMap(scope, map.id, { viewport: { lng: 5, lat: 6, zoom: 7 } });
+  updateMap(scope, map.id, { name: "Second", widgetsPublished: false }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+  updateMap(scope, map.id, { viewport: { lng: 5, lat: 6, zoom: 7 } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   expect(revision(map.id)).toEqual(stable);
   expect(historyAvailability(map.id)).toEqual(history);
 });
@@ -74,7 +75,7 @@ it("attributes an Editor's layer changes and records reorder and removal", async
   const copy = duplicateLayer(editor, layer.id);
   expect(revision(map.id).editRevision).not.toBe(previous.editRevision);
   previous = revision(map.id);
-  updateMap(editor, map.id, { layerOrder: [copy.id, layer.id] });
+  updateMap(editor, map.id, { layerOrder: [copy.id, layer.id] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   expect(revision(map.id).editRevision).not.toBe(previous.editRevision);
   previous = revision(map.id);
   await removeLayer(editor, copy.id);

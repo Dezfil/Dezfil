@@ -469,7 +469,7 @@ describe("executeTool", () => {
       new Response(null, { status: 204 })) as typeof fetch;
     const result = await executeTool(
       tools.get("delete_map")!,
-      { id: "m1" },
+      { id: "m1", expected_revision: "0".repeat(32) },
       "http://localhost:3000",
       noContent,
     );

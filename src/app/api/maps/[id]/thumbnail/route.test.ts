@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, readdir } from "node:fs/promises";
@@ -114,7 +115,7 @@ describe("PUT and GET /api/maps/{id}/thumbnail by theme", () => {
     ).json()) as { id: string };
     expect(await get("?theme=light", copy.id)).toEqual({ status: 200, tag: "L" });
     expect(await get("?theme=dark", copy.id)).toEqual({ status: 200, tag: "D" });
-    await removeMap(testAccountScope(), mapId);
+    await removeMap(testAccountScope(), mapId, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     // The source's files are gone, theme by theme; the copy keeps its own.
     await expect(readThumbnail(testAccountScope(), mapId)).rejects.toMatchObject({ code: "not_found", status: 404 });
     expect((await readdir(path.join(dir, "data", "thumbnails"))).some(name => name.startsWith(mapId + "."))).toBe(false);
@@ -128,7 +129,7 @@ describe("PUT and GET /api/maps/{id}/thumbnail by theme", () => {
     ).json()) as { id: string };
     expect(await get("", copy.id)).toEqual({ status: 200, tag: "single" });
     expect(await get("?theme=dark", copy.id)).toEqual({ status: 200, tag: "single" });
-    await removeMap(testAccountScope(), copy.id);
+    await removeMap(testAccountScope(), copy.id, { expectedRevision: readEditRevision({ kind: "map", id: copy.id })?.editRevision });
     await expect(readThumbnail(testAccountScope(), copy.id)).rejects.toMatchObject({ code: "not_found", status: 404 });
     expect((await readdir(path.join(dir, "data", "thumbnails"))).some(name => name.startsWith(copy.id + "."))).toBe(false);
     expect(await get("", mapId)).toEqual({ status: 200, tag: "single" });

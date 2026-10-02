@@ -246,7 +246,7 @@ test("builder correctness II — the browser regressions", async ({
       if (!r.ok) throw new Error(await r.text());
       r = await fetch(`/api/maps/${mapId}`, {
         method: "PATCH",
-        headers: { "content-type": "application/json" },
+        headers: { "X-Edit-Revision": (await r.json()).editRevision, "content-type": "application/json" },
         body: JSON.stringify({
           timeline: { layerId: id, field: "ts", speed: 1 },
           widgets: [

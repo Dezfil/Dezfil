@@ -1,3 +1,4 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 // The retained record, its recovery and the confirmation card (3): the
 // record's lines and their inspection after a turn settles, entries
@@ -363,7 +364,7 @@ test.describe("2 and 3: recovery cases, the interleaved edit, and the words the 
     await send(page, "Rename, publish, rename");
     await expect(card(page)).toBeVisible();
     // The manual edit while the gate waits, through the map's own route.
-    await api(page, "PATCH", `/api/maps/${mapId}`, { name: "Manual" });
+    await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "PATCH", path: `/api/maps/${mapId}`, body: { name: "Manual" } }));
     // The approval's response is lost after the server has it.
     await page.route("**/api/assistant/messages", async (route) => {
       const response = await route.fetch(); await response.body(); await route.abort("connectionreset");

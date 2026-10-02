@@ -1,3 +1,5 @@
+import { withFixtureRevision } from "@/lib/test-support/edit-basis";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
@@ -68,12 +70,12 @@ const routes = {
   map: () => import("@/app/api/maps/[id]/route"),
 };
 async function call(route: keyof typeof routes, method: string, account: string, params: Record<string, string>,
-  body?: unknown, kind: "session" | "token" = "session") {
+  body?: unknown, kind: "session" | "token" = "session", basis?: string | null) {
   const path = route === "people" ? `/api/projects/${params.id}/people`
     : route === "person" ? `/api/projects/${params.id}/people/${params.sqlName}`
     : route === "project" ? `/api/projects/${params.id}` : `/api/maps/${params.id}`;
   const handler = ((await routes[route]()) as Record<string, unknown>)[method] as Handler;
-  const response = await handler(input(account, path, method, body, kind), { params: Promise.resolve(params) });
+  const response = await handler(withFixtureRevision(input(account, path, method, body, kind), basis), { params: Promise.resolve(params) });
   return { status: response.status, body: await response.json() as unknown };
 }
 const people = () => db.prepare("SELECT project_id, account_id, role, added_at FROM project_people ORDER BY 1, 2").all();
@@ -224,7 +226,7 @@ describe("a change governs the member's next request", () => {
     const rename = { name: "Renamed by Vi" };
     expect(await call("map", "PATCH", "vi", { id: "M" }, rename)).toEqual(forbidden);
     expect((await call("person", "PUT", "pat", { id: "P", sqlName: sqlName("vi") }, { role: "editor" })).status).toBe(200);
-    expect((await call("map", "PATCH", "vi", { id: "M" }, rename)).status).toBe(200);
+    expect((await call("map", "PATCH", "vi", { id: "M" }, rename, "session", readEditRevision({ kind: "map", id: "M" })!.editRevision)).status).toBe(200);
     expect((db.prepare("SELECT name FROM maps WHERE id = 'M'").get() as { name: string }).name).toBe("Renamed by Vi");
     expect((await call("person", "PUT", "pat", { id: "P", sqlName: sqlName("vi") }, { role: "viewer" })).status).toBe(200);
     expect(await call("map", "PATCH", "vi", { id: "M" }, { name: "Again" }, "token")).toEqual(forbidden);

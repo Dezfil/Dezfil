@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import path from "node:path";
@@ -35,7 +36,7 @@ it("set, change, preview and clear preserve both undo and redo plus authored lay
   const t = await stored("SELECT 'POINT (10 20)' payload, 30 x, 40 y");
   const map = createMap(testAccountScope(), "Geometry map");
   const layer = await createLayer(testAccountScope(), map.id, { name: "Points", sql: `SELECT ST_GeomFromText(payload) geometry FROM ${t.name}` });
-  updateMap(testAccountScope(), map.id, { name: "Renamed", basemap: "dark" });
+  updateMap(testAccountScope(), map.id, { name: "Renamed", basemap: "dark" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   await undoChange(testAccountScope(), map.id);
   expect(await mapHistory(testAccountScope(), map.id)).toMatchObject({ canUndo: true, canRedo: true });
   const history = metadataDb().prepare("SELECT * FROM map_history ORDER BY seq").all();

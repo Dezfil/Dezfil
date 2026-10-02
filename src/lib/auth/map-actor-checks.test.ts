@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
@@ -130,13 +131,13 @@ const cases: Case[] = [
   { label: "remove a layer", action: "edit", method: "DELETE", target: "layer", suffix: id => `/api/layers/${id}`,
     load: route.layer, status: 200, effect: () => value("SELECT count(*) FROM layers WHERE map_id = 'M'"), expected: 0 },
   { label: "undo a content change", action: "edit", method: "POST", target: "map", suffix: id => `/api/maps/${id}/undo`, load: route.undo, status: 200,
-    setup: async () => { updateMap(scope("ada"), "M", { name: "Changed by the owner" }); },
+    setup: async () => { updateMap(scope("ada"), "M", { name: "Changed by the owner" }, { expectedRevision: readEditRevision({ kind: "map", id: "M" })?.editRevision }); },
     effect: () => value("SELECT name FROM maps WHERE id = 'M'"), expected: "Shared map" },
   { label: "redo a content change", action: "edit", method: "POST", target: "map", suffix: id => `/api/maps/${id}/redo`, load: route.redo, status: 200,
-    setup: async () => { updateMap(scope("ada"), "M", { name: "Changed by the owner" }); await undoChange(scope("ada"), "M"); },
+    setup: async () => { updateMap(scope("ada"), "M", { name: "Changed by the owner" }, { expectedRevision: readEditRevision({ kind: "map", id: "M" })?.editRevision }); await undoChange(scope("ada"), "M"); },
     effect: () => value("SELECT name FROM maps WHERE id = 'M'"), expected: "Changed by the owner" },
   { label: "undo a widget publication change", action: "publish", method: "POST", target: "map", suffix: id => `/api/maps/${id}/undo`, load: route.undo, status: 200,
-    setup: async () => { updateMap(scope("ada"), "M", { widgetsPublished: false }); },
+    setup: async () => { updateMap(scope("ada"), "M", { widgetsPublished: false }, { expectedRevision: readEditRevision({ kind: "map", id: "M" })?.editRevision }); },
     effect: () => value("SELECT widgets_published FROM maps WHERE id = 'M'"), expected: 1 },
   { label: "redo a published-fields change", action: "publish", method: "POST", target: "map", suffix: id => `/api/maps/${id}/redo`, load: route.redo, status: 200,
     setup: async () => {
@@ -159,9 +160,11 @@ const cases: Case[] = [
 ];
 const permitted = (action: Case["action"]) => action === "edit" || action === "sketch" ? ["ada", "pat", "ed"] : ["ada"];
 const target = (c: Case, map: string) => (c.target === "map" ? map : map === "M" ? "L" : map === "U" ? "UL" : "missing");
-async function call(c: Case, account: string, id: string, kind = "session") {
+async function call(c: Case, account: string, id: string, kind = "session", basis?: string | null) {
   const handler = (await c.load())[c.method] as Handler;
-  return handler(input(account, c.suffix(id), c.method, c.body, kind), { params: Promise.resolve({ id }) });
+  const request = input(account, c.suffix(id), c.method, c.body, kind);
+  if (basis) request.headers.set("X-Edit-Revision", basis);
+  return handler(request, { params: Promise.resolve({ id }) });
 }
 async function refusal(c: Case, account: string, id: string, missing: string) {
   const before = snapshot();
@@ -204,7 +207,7 @@ describe.each(cases)("$label", c => {
     for (const account of permitted(c.action)) {
       it(`lets ${account} make it`, async () => {
         await c.setup?.(); vi.clearAllMocks();
-        const response = await call(c, account, target(c, "M"));
+        const response = await call(c, account, target(c, "M"), "session", readEditRevision({ kind: "map", id: "M" })!.editRevision);
         expect(response.status, JSON.stringify(await response.clone().json().catch(() => null))).toBe(c.status);
         expect(c.effect?.()).toEqual(c.expected);
       });
@@ -227,7 +230,7 @@ describe("the resource-owner freeze", () => {
 
 describe("the write response for someone else's map", () => {
   it("names the project the editor reaches it through, and answers as the editor's own read of the map does", async () => {
-    const response = await call(cases[0], "ed", "M");
+    const response = await call(cases[0], "ed", "M", "session", readEditRevision({ kind: "map", id: "M" })!.editRevision);
     const written = await response.json() as Record<string, unknown>;
     expect(written).toMatchObject({ id: "M", name: "Renamed", projectId: "P", home: "ada" });
     const { GET } = await route.map();

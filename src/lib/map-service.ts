@@ -1,5 +1,5 @@
 import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
-import { recordDocumentChanges, recordDocumentBatch } from "@/lib/metadata/revisions";
+import { recordDocumentChanges, recordDocumentBatch, requireDocumentRevision } from "@/lib/metadata/revisions";
 import { fileMap } from "@/lib/metadata/owned-projects";
 import { assertMapLayerRefs } from "./map-layer-refs";
 import { requireMapFor, mapWithLayersFor, ownMapWithLayers } from "./map-access";
@@ -386,13 +386,16 @@ export function updateMap(
     widgetsPublished: unknown;
     layerOrder: string[];
   }>,
-  opts: { groupId?: string | null } = {},
-): MapWithLayers {
+  opts: { groupId?: string | null; expectedRevision?: unknown } = {},
+): MapWithLayers & DocumentFacts {
   // Content is the editors' to change; the widget publication toggle is a
   // publication setting, the owner's alone.
   const prior = requireMapFor(scope, id, "edit");
   if (mapWriteChangesPublication(prior, fields)) requireMapFor(scope, id, "publish");
+  const covered = Object.entries(fields).some(([key, value]) => key !== "viewport" && value !== undefined);
+  const checkRevision = () => { if (covered) requireDocumentRevision(scope, { kind: "map", id, expectedRevision: opts.expectedRevision }); };
   assertMapLayerRefs(prior, listLayers(id), fields);
+  checkRevision();
   // Validate everything before writing anything — no partial writes.
   const basemapLayers =
     fields.basemapLayers === undefined
@@ -480,6 +483,7 @@ export function updateMap(
   metadataDb().transaction(() => {
     const current = requireMapFor(scope, id, "edit");
     if (mapWriteChangesPublication(current, fields)) requireMapFor(scope, id, "publish");
+    checkRevision();
     if (
       fields.name !== undefined ||
       fields.viewport !== undefined ||
@@ -559,7 +563,7 @@ function requireDuplicable(scope: AccountScope, id: string): MapRecord {
   return getMap(id)!;
 }
 
-export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
+export function duplicateMap(scope: AccountScope, id: string): MapWithLayers & DocumentFacts {
   requireAccountScope(scope);
   const source = requireDuplicable(scope, id);
   const layers = listLayers(id);
@@ -639,9 +643,10 @@ export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
   return ownMapWithLayers(scope, newId);
 }
 
-export async function removeMap(scope: AccountScope, id: string): Promise<void> {
+export async function removeMap(scope: AccountScope, id: string, opts: { expectedRevision?: unknown } = {}): Promise<void> {
   const { map, layerIds, removeImages } = metadataDb().transaction(() => {
     const map = requireMapFor(scope, id, "delete");
+    requireDocumentRevision(scope, { kind: "map", id, action: "delete", expectedRevision: opts.expectedRevision });
     const layerIds = listLayers(id).map((l) => l.id);
     // The set the map leaves must notice: the cascade removes nothing
     // here (the reference nulls), but the project's own clock advances.

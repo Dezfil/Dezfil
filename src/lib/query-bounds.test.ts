@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -235,7 +236,7 @@ describe("query bounds — widget lanes", () => {
           visible: true,
         },
       ],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     timeoutNow();
     await expect(
       computeWidgetValues(testAccountScope(), withWidgets, withWidgets.layers, []),
@@ -294,7 +295,7 @@ describe("query bounds — published lanes", () => {
           visible: true,
         },
       ],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const { token } = publishMap(testAccountScope(), map.id);
     timeoutNow();
     const response = await publishedRenderRoute(
@@ -337,7 +338,7 @@ describe("query bounds — published lanes", () => {
           visible: true,
         },
       ],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const { token } = publishMap(testAccountScope(), map.id);
     timeoutNow();
     const response = await publishedWidgetValuesRoute(
@@ -402,7 +403,7 @@ describe("trailing comments: valid SQL is not broken by its own comments", () =>
           visible: true,
         },
       ],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const values = await computeWidgetValues(testAccountScope(), withWidgets, withWidgets.layers, []);
     expect(values.widgets[0]).toMatchObject({ id: "wf" });
     expect(values.widgets[0]).not.toHaveProperty("error");
@@ -437,7 +438,7 @@ describe("query bounds — outcome attribution", () => {
           visible: true,
         },
       ],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     // The engine's conversion error quotes the value; the boundary's own
     // flag — not the message text — decides, so this degrades per widget
     // instead of escaping as a request-level failure.

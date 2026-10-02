@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deflateSync } from "node:zlib";
@@ -245,7 +246,7 @@ describe("the state identity is what the renderer consumed", () => {
     // configuration reaches the renderer, established by what it reports.
     const { driver } = driverOf(async () => {
       await createLayer(testAccountScope(), mapId, { name: "After", sql: "SELECT 2 AS x, ST_Point(13.5, 52.6) AS geom" });
-      updateMap(testAccountScope(), mapId, { legendCorner: "top-right" });
+      updateMap(testAccountScope(), mapId, { legendCorner: "top-right" }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
       consumed = consumedOf(mapId);
       return { png: new Uint8Array(pngFixture(64, 40, 0)), consumed: JSON.stringify(consumed) };
     });

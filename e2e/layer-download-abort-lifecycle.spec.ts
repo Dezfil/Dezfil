@@ -396,7 +396,7 @@ test("a real timed-out prepare abort reclaims its exact scratch and leaves DuckD
     if (mapId) {
       await page
         .evaluate(async (id) => {
-          await fetch(`/api/maps/${id}`, { method: "DELETE" });
+          await (async function readThenWriteSetup() { const basis = await (await fetch(`/api/maps/${id}`)).json(); return fetch(`/api/maps/${id}`, { headers: { "X-Edit-Revision": basis.editRevision }, method: "DELETE" }); })();
         }, mapId)
         .catch(() => undefined);
     }

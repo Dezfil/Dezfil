@@ -109,7 +109,8 @@ it('3a categorical: ten classes, fallback, corresponding labels and visibility',
   expect(entries.at(-1)!.color).toEqual(fill.other);
   await journey.call('update_layer', { id: layer.id, inLegend: false });
   expect((await journey.call('get_layer', { id: layer.id })).inLegend).toBe(false);
-  await journey.call('update_map', { id: map.id, legendCorner: 'top-right', legendOrder: [layer.id] });
+  const shown = await journey.call('get_map', { id: map.id });
+  await journey.call('update_map', { id: map.id, legendCorner: 'top-right', legendOrder: [layer.id], expected_revision: shown.editRevision });
   expect(await journey.call('get_map', { id: map.id })).toMatchObject({ legendCorner: 'top-right', legendOrder: [layer.id] });
 });
 it('3b provenance: record the actual engine and spatial extension versions', async () => {

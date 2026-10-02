@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -64,7 +65,7 @@ beforeEach(async () => {
   });
   updateMap(testAccountScope(), map.id, {
     widgets: [{ ...CATEGORY_WIDGET, layerId: layer.id }],
-  });
+  }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   token = publishMap(testAccountScope(), map.id).token;
 });
 
@@ -155,7 +156,7 @@ describe("published settle route", () => {
           layerId,
         },
       ],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     const res = await settle([
       { field: "score", kind: "range", min: 15, max: null },
     ]);

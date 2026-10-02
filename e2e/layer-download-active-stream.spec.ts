@@ -1,3 +1,4 @@
+import { readThenWriteRequestSetup } from "./edit-basis";
 // Active-native-transfer evidence/0093. The existing recovery journey proves
 // the original download bytes, but its tiny fixture can finish before status
 // uncertainty releases the ticket. This arm keeps the real CSV attachment in
@@ -684,7 +685,7 @@ test("status recovery releases the UI while the same native stream stays alive",
     await page.unrouteAll({ behavior: "ignoreErrors" }).catch(() => undefined);
     await proxy?.close().catch(() => undefined);
     if (mapId) {
-      await request.delete(`/api/maps/${mapId}`).catch(() => undefined);
+      await readThenWriteRequestSetup(request, `/api/maps/${mapId}`, () => ({ method: "DELETE" })).catch(() => undefined);
     }
     await request.delete(`/api/tables/${tableName}`).catch(() => undefined);
   }

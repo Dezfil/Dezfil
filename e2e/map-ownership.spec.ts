@@ -1,3 +1,4 @@
+import { readThenWriteRequestSetup } from "./edit-basis";
 import { randomUUID } from "node:crypto";
 import { test, expect, type BrowserContext } from "@playwright/test";
 
@@ -84,7 +85,7 @@ test("two ordinary accounts and an admin keep map lists and copied map URLs priv
       await expect(page.getByRole("textbox", { name: "Map name", exact: true })).toHaveValue(maps[i].name);
     }
   } finally {
-    for (let i = 0; i < maps.length; i++) await contexts[i].request.delete(`/api/maps/${maps[i].id}`);
+    for (let i = 0; i < maps.length; i++) await readThenWriteRequestSetup(contexts[i].request, `/api/maps/${maps[i].id}`, () => ({ method: "DELETE" }));
     for (const context of contexts) await context.close();
   }
 });

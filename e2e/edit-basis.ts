@@ -33,3 +33,16 @@ export async function readThenWriteBrowserSetup(page: Page, readPath: string, in
   const write = intent(read.json);
   return browserApi(page, write.method, write.path, write.body, basis);
 }
+
+/** API-context setup only. Intent is formed after the read, with no retry. */
+export async function readThenWriteRequestSetup(
+  api: import("@playwright/test").APIRequestContext,
+  path: string,
+  intent: () => { method: string; options?: Parameters<typeof api.fetch>[1] },
+) {
+  const read = await api.get(path);
+  if (!read.ok()) throw new Error(`Cannot prepare ${path}: ${read.status()}`);
+  const basis = captureBasis(await read.json());
+  const { method, options } = intent();
+  return api.fetch(path, { ...options, method, headers: { ...options?.headers, "X-Edit-Revision": String(basis.editRevision) } });
+}

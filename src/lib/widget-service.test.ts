@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -142,7 +143,7 @@ async function dashboard() {
     ...w,
     layerId: w.type === "note" ? null : layer.id,
   }));
-  const withWidgets = updateMap(testAccountScope(), map.id, { widgets });
+  const withWidgets = updateMap(testAccountScope(), map.id, { widgets }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   return { map: withWidgets, layer };
 }
 
@@ -284,12 +285,12 @@ describe("widget authoring", () => {
     expect(() =>
       updateMap(testAccountScope(), map.id, {
         widgets: [{ ...WIDGETS[0], layerId: "not-a-layer" }],
-      }),
+      }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
     ).toThrow(ApiError);
-    expect(() => updateMap(testAccountScope(), map.id, { widgets: [{ bad: true }] })).toThrow(
+    expect(() => updateMap(testAccountScope(), map.id, { widgets: [{ bad: true }] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision })).toThrow(
       ApiError,
     );
-    expect(() => updateMap(testAccountScope(), map.id, { widgetsPublished: "yes" })).toThrow(
+    expect(() => updateMap(testAccountScope(), map.id, { widgetsPublished: "yes" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision })).toThrow(
       ApiError,
     );
   });
@@ -358,7 +359,7 @@ describe("widget authoring", () => {
     // list back succeeds, while INTRODUCING a foreign reference is still
     // refused — the distinction that keeps the validator useful.
     expect(() =>
-      updateMap(testAccountScope(), map.id, { widgets: redone.widgets }),
+      updateMap(testAccountScope(), map.id, { widgets: redone.widgets }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
     ).not.toThrow();
     expect(() =>
       updateMap(testAccountScope(), map.id, {
@@ -366,7 +367,7 @@ describe("widget authoring", () => {
           ...redone.widgets,
           { ...WIDGETS[1], id: "wnew", layerId: "another-dead-layer" },
         ],
-      }),
+      }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
     ).toThrow(ApiError);
 
     // Undoing the replay restores the layer, and every widget resolves
@@ -564,14 +565,14 @@ describe("published dashboards", () => {
       widgets: map.widgets.map((w) =>
         w.id === "wh" ? { ...w, visible: false } : w,
       ),
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const { token } = publishMap(testAccountScope(), map.id);
 
     const view = await getPublishedView(token, Date.now());
     // The note ships like any visible widget.
     expect(view?.widgets.map((w) => w.id)).toEqual(["wf", "wc", "wn"]);
 
-    updateMap(testAccountScope(), map.id, { widgetsPublished: false });
+    updateMap(testAccountScope(), map.id, { widgetsPublished: false }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const hidden = await getPublishedView(token, Date.now());
     expect(hidden?.widgets).toEqual([]);
   });

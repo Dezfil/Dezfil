@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -73,7 +74,7 @@ beforeEach(async () => {
         field: "kind",
       }),
     ],
-  });
+  }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   token = publishMap(testAccountScope(), map.id).token;
 });
 
@@ -148,7 +149,7 @@ describe("published widget-values reader gate", () => {
           field: "kind",
         }),
       ],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     const res = await values([
       { widgetId: "wh", kind: "range", min: 25, max: null },
     ]);

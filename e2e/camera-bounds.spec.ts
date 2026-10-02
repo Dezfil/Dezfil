@@ -1,3 +1,4 @@
+import { readThenWriteRequestSetup } from "./edit-basis";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { expect, test } from "@playwright/test";
@@ -151,7 +152,7 @@ for (const [name, camera] of [
         previous = resized;
       }
     } finally {
-      expect((await page.request.delete(`/api/maps/${id}`)).status()).toBe(204);
+      expect((await readThenWriteRequestSetup(page.request, `/api/maps/${id}`, () => ({ method: "DELETE" }))).status()).toBe(204);
     }
   });
 }

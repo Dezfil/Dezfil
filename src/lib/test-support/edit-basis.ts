@@ -6,3 +6,9 @@ import { captureBasis } from "../../../scripts/revision-fixtures.mjs";
 export function capturedExpectation(document: DocumentKey, value: unknown): DocumentExpectation {
   return { ...document, expectedRevision: captureBasis(value).editRevision };
 }
+
+/** Passive request adapter. The fixture caller owns the captured read. */
+export function withFixtureRevision(request: Request, revision: string | null | undefined): Request {
+  if (revision) request.headers.set("X-Edit-Revision", revision);
+  return request;
+}

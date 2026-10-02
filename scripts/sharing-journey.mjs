@@ -264,7 +264,8 @@ export async function seedSharing(base) {
   assert.equal(await snapshot(), before, 'every refused viewer write left the store as it was');
 
   // The Editor edits the map, runs the workflow and files and draws their own dataset.
-  expectStatus(await eli('PATCH', `/api/maps/${map.id}`, { body: { name: 'Survey, edited' } }), 200, 'editor renames the map');
+  const renameBasis = captureBasis(expectStatus(await eli('GET', `/api/maps/${map.id}`), 200));
+  expectStatus(await eli('PATCH', `/api/maps/${map.id}`, { basis: renameBasis, body: { name: 'Survey, edited' } }), 200, 'editor renames the map');
   const ownerOutput = expectStatus(await ada('GET', `/api/tables/${tables['ada.roads_out'].id}`), 200);
   await runWorkflow(eli, recipe.id);
   const editorOutput = expectStatus(await eli('GET', '/api/tables/roads_out'), 200);
@@ -346,7 +347,8 @@ export async function seedSharing(base) {
   book.absent('admin: membership of a frozen project', await adminApi('PUT', `/api/projects/${project.id}/people/vic`, { body: { role: 'editor' } }),
     await adminApi('PUT', `/api/projects/${missing}/people/vic`, { body: { role: 'editor' } }));
   await setStatus('eli', 'active');
-  expectStatus(await ada('PATCH', `/api/maps/${map.id}`, { body: { name: 'Survey, edited' } }), 200, 'reactivation restores the editor\'s edit');
+  const reactivatedBasis = captureBasis(expectStatus(await ada('GET', `/api/maps/${map.id}`), 200));
+  expectStatus(await ada('PATCH', `/api/maps/${map.id}`, { basis: reactivatedBasis, body: { name: 'Survey, edited' } }), 200, 'reactivation restores the editor\'s edit');
   // Deactivation ended their sessions: everyone signs in afresh for the verify run.
   for (const name of ['eli', 'vic']) people[name] = await signIn(base, name);
   return { ...state, seedRefusals: book.refusals };

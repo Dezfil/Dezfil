@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -325,7 +326,7 @@ describe("read lanes stay degradation, never retro-refusal", () => {
           visible: true,
         },
       ],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     // Drift: the column vanishes under stored references (the mechanism a
     // refresh shares — the read path cannot tell why it is gone).
     await updateLayer(testAccountScope(), layer.id, {

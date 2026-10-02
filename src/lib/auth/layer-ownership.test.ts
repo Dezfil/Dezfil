@@ -1,3 +1,5 @@
+import { withFixtureRevision } from "@/lib/test-support/edit-basis";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
@@ -90,7 +92,7 @@ it.each(["widgets", "timeline", "layerOrder", "legendOrder", "preview"])("refuse
   for (const layerId of ["layer-bob", "missing"]) {
     const body = field === "preview" ? { draft: widget(layerId) } : field === "widgets" ? { widgets: [widget("layer-alice", "own"), widget(layerId)] }
       : field === "timeline" ? { timeline: { layerId, field: "time" } } : { [field]: [layerId] };
-    responses.push(await (field === "preview" ? POST : PATCH)(input("alice", `/api/maps/${maps.alice}`, field === "preview" ? "POST" : "PATCH", body), context(maps.alice)));
+    responses.push(await (field === "preview" ? POST : PATCH)(withFixtureRevision(input("alice", `/api/maps/${maps.alice}`, field === "preview" ? "POST" : "PATCH", body), readEditRevision({ kind: "map", id: maps.alice })?.editRevision), context(maps.alice)));
   }
   expect(responses.map(r => r.status)).toEqual([404, 404]);
   expect(await responses[0].json()).toEqual(await responses[1].json());
@@ -100,7 +102,7 @@ it("checks the exact parent even when both maps belong to the caller", async () 
   const second = createMap(testAccountScope(db, "alice"), "Second");
   const { PATCH } = await import("@/app/api/maps/[id]/route");
   const before = snapshot();
-  expect((await PATCH(input("alice", `/api/maps/${second.id}`, "PATCH", { widgets: [widget("layer-alice")] }), context(second.id))).status).toBe(404);
+  expect((await PATCH(withFixtureRevision(input("alice", `/api/maps/${second.id}`, "PATCH", { widgets: [widget("layer-alice")] }), readEditRevision({ kind: "map", id: second.id })?.editRevision), context(second.id))).status).toBe(404);
   expect(snapshot()).toEqual(before); expect(effects.query).not.toHaveBeenCalled();
 });
 it("preserves each owner's layer create, read, edit, duplicate and delete loop", async () => {

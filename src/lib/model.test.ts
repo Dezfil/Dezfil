@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -57,9 +58,9 @@ describe("maps", () => {
     const map = createMap(testAccountScope(), "Transit");
     expect(allMaps(testAccountScope()).map((m) => m.id)).toContain(map.id);
     expect(mapWithLayers(testAccountScope(), map.id).name).toBe("Transit");
-    updateMap(testAccountScope(), map.id, { name: "Transit v2" });
+    updateMap(testAccountScope(), map.id, { name: "Transit v2" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).name).toBe("Transit v2");
-    await removeMap(testAccountScope(), map.id);
+    await removeMap(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(allMaps(testAccountScope())).toEqual([]);
   });
 
@@ -85,7 +86,7 @@ describe("maps", () => {
         pitch: 0,
         bearing: 0,
       },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "Stations",
       sql: "SELECT * FROM stations",
@@ -133,7 +134,7 @@ describe("maps", () => {
     const map = createMap(testAccountScope(), "m");
     updateMap(testAccountScope(), map.id, {
       viewport: { lng: 13.4, lat: 52.5, zoom: 11, pitch: 45, bearing: -15 },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).viewport).toEqual({
       lng: 13.4,
       lat: 52.5,
@@ -146,9 +147,9 @@ describe("maps", () => {
   it("persists the basemap choice; null means deployment default", () => {
     const map = createMap(testAccountScope(), "m");
     expect(mapWithLayers(testAccountScope(), map.id).basemap).toBeNull();
-    updateMap(testAccountScope(), map.id, { basemap: "light" });
+    updateMap(testAccountScope(), map.id, { basemap: "light" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).basemap).toBe("light");
-    updateMap(testAccountScope(), map.id, { basemap: null });
+    updateMap(testAccountScope(), map.id, { basemap: null }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).basemap).toBeNull();
   });
 });

@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
@@ -45,10 +46,10 @@ const call = (url: string, init: RequestInit = {}) =>
   dispatchAssistantTestRoute(new Request(origin + url, init));
 /** An edit through the documented map route, grouped when a marker is given
  * exactly as any agent would group its own. */
-async function edit(id: string, fields: Record<string, unknown>, group?: string) {
+async function edit(id: string, fields: Record<string, unknown>, group?: string, basis?: string) {
   const response = await call(`/api/maps/${id}`, {
     method: "PATCH",
-    headers: { "content-type": "application/json", ...(group ? { [CHANGE_GROUP_HEADER]: group } : {}) },
+    headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": basis } : {}), ...(group ? { [CHANGE_GROUP_HEADER]: group } : {}) },
     body: JSON.stringify(fields),
   });
   expect(response.status, await response.clone().text()).toBe(200);
@@ -98,16 +99,16 @@ describe("the boundary the map's history gives", () => {
     // Grouped and consecutive: two different fields, so the timeline's
     // coalescing of same-shaped edits is not what is being measured.
     const grouped = createMap(testAccountScope(), "Original A");
-    await edit(grouped.id, { name: "Renamed A" }, "turn-a");
-    await edit(grouped.id, { legendCorner: "top-right" }, "turn-a");
+    await edit(grouped.id, { name: "Renamed A" }, "turn-a", readEditRevision({ kind: "map", id: grouped.id })!.editRevision!);
+    await edit(grouped.id, { legendCorner: "top-right" }, "turn-a", readEditRevision({ kind: "map", id: grouped.id })!.editRevision!);
     await undo(grouped.id);
     expect(await readMap(grouped.id)).toMatchObject({ name: "Original A", legendCorner: null });
 
     // The same group, with one ungrouped edit between its two edits.
     const split = createMap(testAccountScope(), "Original B");
-    await edit(split.id, { name: "First" }, "turn-b");
-    await edit(split.id, { name: "Manual" });
-    await edit(split.id, { legendCorner: "top-right" }, "turn-b");
+    await edit(split.id, { name: "First" }, "turn-b", readEditRevision({ kind: "map", id: split.id })!.editRevision!);
+    await edit(split.id, { name: "Manual" }, undefined, readEditRevision({ kind: "map", id: split.id })!.editRevision!);
+    await edit(split.id, { legendCorner: "top-right" }, "turn-b", readEditRevision({ kind: "map", id: split.id })!.editRevision!);
     await undo(split.id);
     // One undo took the group's later edit alone: its earlier rename stands,
     // so a turn's edits are not one step and a whole group is not one step.

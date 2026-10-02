@@ -735,7 +735,7 @@ async function main() {
     const ids = before.json.layers.map((l) => l.id);
     const reversed = [...ids].reverse();
     const r = await api("PATCH", `/api/maps/${mapId}`, {
-      body: { layerOrder: reversed },
+      basis: captureBasis(before.json), body: { layerOrder: reversed },
     });
     const after = r.json?.layers?.map((l) => l.id);
     if (r.status !== 200 || JSON.stringify(after) !== JSON.stringify(reversed))
@@ -761,13 +761,14 @@ async function main() {
 
   // 12g. basemap choice persists; invalid values are refused
   {
+    const shown = await api("GET", `/api/maps/${mapId}`);
     const r = await api("PATCH", `/api/maps/${mapId}`, {
-      body: { basemap: "light" },
+      basis: captureBasis(shown.json), body: { basemap: "light" },
     });
     if (r.status !== 200 || r.json?.basemap !== "light")
       fail("basemap not persisted", JSON.stringify(r.json));
     const bad = await api("PATCH", `/api/maps/${mapId}`, {
-      body: { basemap: "sepia" },
+      basis: captureBasis(r.json), body: { basemap: "sepia" },
     });
     if (bad.status !== 400)
       fail("invalid basemap accepted", JSON.stringify(bad.json));
@@ -1063,7 +1064,8 @@ async function main() {
       fail("invalid legend attrs accepted", JSON.stringify(badAttrs.json));
     ok("legend variable names round-trip; unknown channels refused");
 
-    await api("DELETE", `/api/maps/${pm.json.id}`, { raw: true });
+    const removeBasis = captureBasis((await api("GET", `/api/maps/${pm.json.id}`)).json);
+    await api("DELETE", `/api/maps/${pm.json.id}`, { raw: true, basis: removeBasis });
     await api("DELETE", `/api/tables/${pingsTable}`, { raw: true });
   }
 
@@ -1348,7 +1350,8 @@ async function main() {
       const goneTile = await api("GET", tileUrl, { raw: true });
       if (goneTile.status !== 404)
         fail("tiles: deleted layer still serves tiles", `status ${goneTile.status}`);
-      await api("DELETE", `/api/maps/${tmap.json.id}`, { raw: true });
+      const removeBasis = captureBasis((await api("GET", `/api/maps/${tmap.json.id}`)).json);
+      await api("DELETE", `/api/maps/${tmap.json.id}`, { raw: true, basis: removeBasis });
       await api("DELETE", `/api/tables/${tilesTable}`, { raw: true });
       ok("deleting the layer removes its tiles; journey artifacts cleaned up");
     }
@@ -1741,7 +1744,9 @@ async function main() {
     try {
       // All public-basemap persistence checks have already run. This style
       // and its tiles now live beside the renderer, including in a container.
+      const shown = await api("GET", `/api/maps/${mapId}`);
       const patched = await api("PATCH", `/api/maps/${mapId}`, {
+        basis: captureBasis(shown.json),
         body: { customBasemap: { url: fixture.styleUrl, name: "Journey fixture", force: true } },
       });
       if (patched.status !== 200)

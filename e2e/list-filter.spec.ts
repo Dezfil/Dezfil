@@ -1,3 +1,4 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 // The project filter on the three lists (which takes the count off the
 // All projects row and its face and leaves every other row's number
@@ -284,7 +285,7 @@ test("the list filter across Maps, Workflows and Data", async ({
       projectId: string | null;
     };
     expect(created.projectId).toBe(pa);
-    await api(page, "DELETE", `/api/maps/${createdId}`);
+    await readThenWriteBrowserSetup(page, `/api/maps/${createdId}`, () => ({ method: "DELETE", path: `/api/maps/${createdId}` }));
     await page.goto("/maps?project=none");
     // The unfiled scope's face on Maps, where this step already stands
     // under it. Its value is residue-bound on a shared instance, so the
@@ -306,7 +307,7 @@ test("the list filter across Maps, Workflows and Data", async ({
       projectId: string | null;
     };
     expect(loose.projectId).toBeNull();
-    await api(page, "DELETE", `/api/maps/${looseId}`);
+    await readThenWriteBrowserSetup(page, `/api/maps/${looseId}`, () => ({ method: "DELETE", path: `/api/maps/${looseId}` }));
   });
 
   await test.step("Maps: the scope survives a reload; unknown, empty and deleted scopes refuse", async () => {

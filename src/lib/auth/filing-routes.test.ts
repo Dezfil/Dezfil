@@ -1,3 +1,5 @@
+import { withFixtureRevision } from "@/lib/test-support/edit-basis";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { documentFacts } from "@/lib/metadata/document-facts";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -60,8 +62,8 @@ function snapshot() {
     .map(name => db.prepare(`SELECT * FROM ${name} ORDER BY 1`).all());
 }
 type Handler = (request: Request, context: { params: Promise<{ id: string }> }) => Promise<Response>;
-async function call(load: () => Promise<Record<string, unknown>>, method: string, account: string, path: string, id: string, body?: unknown, kind = "session") {
-  const response = await ((await load())[method] as Handler)(input(account, path, method, body, kind), { params: Promise.resolve({ id }) });
+async function call(load: () => Promise<Record<string, unknown>>, method: string, account: string, path: string, id: string, body?: unknown, kind = "session", basis?: string | null) {
+  const response = await ((await load())[method] as Handler)(withFixtureRevision(input(account, path, method, body, kind), basis), { params: Promise.resolve({ id }) });
   const text = await response.text();
   return { status: response.status, body: text ? JSON.parse(text) as Record<string, unknown> : null };
 }
@@ -184,13 +186,13 @@ describe("the freeze", () => {
     expect((await file("ed", { removeMaps: ["EP"] })).status).toBe(200);
     expect((await file("vi", { removeMaps: ["VM"] })).status).toBe(200);
     // Contents others own inside the frozen project keep their editing permissions.
-    expect((await call(route.map, "PATCH", "ed", "/api/maps/M", "M", { name: "Edited" })).status).toBe(200);
+    expect((await call(route.map, "PATCH", "ed", "/api/maps/M", "M", { name: "Edited" }, "session", readEditRevision({ kind: "map", id: "M" })!.editRevision)).status).toBe(200);
   });
 
   it("lets the active project owner remove a frozen resource, which stays read-only for everyone", async () => {
     db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'ada'").run();
-    expect(await call(route.map, "PATCH", "pat", "/api/maps/M", "M", { name: "Edited" })).toEqual(forbidden);
-    expect(await call(route.map, "PATCH", "ed", "/api/maps/M", "M", { name: "Edited" })).toEqual(forbidden);
+    expect(await call(route.map, "PATCH", "pat", "/api/maps/M", "M", { name: "Edited" }, "session", readEditRevision({ kind: "map", id: "M" })!.editRevision)).toEqual(forbidden);
+    expect(await call(route.map, "PATCH", "ed", "/api/maps/M", "M", { name: "Edited" }, "session", readEditRevision({ kind: "map", id: "M" })!.editRevision)).toEqual(forbidden);
     expect((await file("pat", { removeMaps: ["M"], removeTables: ["D"] })).status).toBe(200);
     expect([projectOf("maps", "M"), datasetProjects("D"), ownerOf("maps", "M")]).toEqual([null, [], "ada"]);
   });

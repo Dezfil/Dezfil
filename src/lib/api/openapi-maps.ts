@@ -1,4 +1,4 @@
-import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA } from "./openapi-document-facts";
+import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA, editRevisionParam, conditionalMapRevisionParam, editRevisionResponses } from "./openapi-document-facts";
 import { FILING_DESTINATION } from "./openapi-project-access";
 import { resultAccess } from "./openapi-result-access";
 import { mapChildren } from "./openapi-map-children";
@@ -101,7 +101,7 @@ export const MAP_RESOURCE_PATHS = {
       tool: "update_map", mcp: REMOTE_REPLACE,
       display: {"verb": "Updated the map {subject}", "subject": {"resource": "maps", "argument": "id", "name": ["name"]}},
       effects: recorded(writes(resource("maps", "id"))),
-      parameters: [pathParam("id", "Map id."), changeGroupParam],
+      parameters: [pathParam("id", "Map id."), changeGroupParam, conditionalMapRevisionParam],
       requestBody: {
         content: {
           "application/json": {
@@ -110,7 +110,7 @@ export const MAP_RESOURCE_PATHS = {
           },
         },
       },
-      responses: {
+      responses: { ...editRevisionResponses,
         "200": jsonOk("#/components/schemas/MapWithLayers"),
       },
     }))),
@@ -122,8 +122,8 @@ export const MAP_RESOURCE_PATHS = {
       effects: writes(resource("maps", "id"), resource("layers"), resource("publications", "id"), resource("projects")),
       confirmation: {"target": "Delete {target}?", "consequence": "This deletes the map and its layers and stops its published link.", "subject": {"path": "/api/maps/{id}", "argument": "id", "name": "name"}},
       confirm: true,
-      parameters: [pathParam("id", "Map id.")],
-      responses: { "204": { description: "Deleted." } },
+      parameters: [pathParam("id", "Map id."), editRevisionParam],
+      responses: { ...editRevisionResponses, "204": { description: "Deleted." } },
     })),
   },
   "/api/maps/{id}/thumbnail": {

@@ -128,7 +128,7 @@ export async function verifyOwnership(base, { owners }) {
         ['get_recipe', { id: foreign.recipeId }, { id: missing }],
         ['get_recipe_run', { id: foreign.recipeId, runId: foreign.runId }, { id: foreign.recipeId, runId: missing }],
         ['inspect_table', { name: foreign.hidden }, { name: missing }],
-        ['delete_map', { id: foreign.mapId }, { id: missing }],
+        ['delete_map', { id: foreign.mapId, expected_revision: '0'.repeat(32) }, { id: missing, expected_revision: '0'.repeat(32) }],
       ]) {
         assert.deepEqual(await mcp.call(tool, hiddenArgs, 'not_found'), await mcp.call(tool, absentArgs, 'not_found')); comparisons++;
       }

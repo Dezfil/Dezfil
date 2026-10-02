@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -23,11 +24,11 @@ vi.mock("@/lib/net/inspect-style", async (importOriginal) => ({
 let dir: string;
 let mapId: string;
 
-const patch = (body: unknown) =>
+const patch = (body: unknown, basis: string) =>
   PATCH(
     testAccountRequest(new Request("http://localhost/x", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Edit-Revision": basis },
       body: JSON.stringify(body),
     })),
     { params: Promise.resolve({ id: mapId }) },
@@ -55,10 +56,10 @@ afterEach(async () => {
 
 describe("custom basemap PATCH", () => {
   it("saves a valid style with its snapshot and leaves the key untouched", async () => {
-    await patch({ basemap: "streets" });
+    await patch({ basemap: "streets" }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     const res = await patch({
       customBasemap: { url: "https://x.test/s.json", name: "Company dark" },
-    });
+    }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(res.status).toBe(200);
     const map = (await res.json()) as {
       basemap: string;
@@ -73,9 +74,9 @@ describe("custom basemap PATCH", () => {
   });
 
   it("clearing reveals the stored key; the record answers null", async () => {
-    await patch({ basemap: "streets" });
-    await patch({ customBasemap: { url: "https://x.test/s.json" } });
-    const res = await patch({ customBasemap: null });
+    await patch({ basemap: "streets" }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
+    await patch({ customBasemap: { url: "https://x.test/s.json" } }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
+    const res = await patch({ customBasemap: null }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     const map = (await res.json()) as {
       basemap: string;
       customBasemap: unknown;
@@ -88,7 +89,7 @@ describe("custom basemap PATCH", () => {
     inspection = { verdict: "unreachable", detail: "HTTP 404." };
     const blockedRes = await patch({
       customBasemap: { url: "https://gone.test/s.json" },
-    });
+    }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(blockedRes.status).toBe(400);
     const { error } = (await blockedRes.json()) as {
       error: { message: string };
@@ -96,7 +97,7 @@ describe("custom basemap PATCH", () => {
     expect(error.message).toContain("force: true");
     const forcedRes = await patch({
       customBasemap: { url: "https://gone.test/s.json", force: true },
-    });
+    }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(forcedRes.status).toBe(200);
     const map = (await forcedRes.json()) as {
       customBasemap: { attribution: { label: string }[] };
@@ -108,7 +109,7 @@ describe("custom basemap PATCH", () => {
     inspection = { verdict: "not_style", detail: "The response is not JSON." };
     const res = await patch({
       customBasemap: { url: "https://x.test/page.html", force: true },
-    });
+    }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(res.status).toBe(400);
   });
 
@@ -116,8 +117,8 @@ describe("custom basemap PATCH", () => {
     // Two rapid same-field writes coalesce into one step by design, so
     // undo returns to the pre-custom state — exactly how the basemap
     // key behaves.
-    await patch({ customBasemap: { url: "https://x.test/a.json" } });
-    await patch({ customBasemap: { url: "https://x.test/b.json" } });
+    await patch({ customBasemap: { url: "https://x.test/a.json" } }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
+    await patch({ customBasemap: { url: "https://x.test/b.json" } }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     const undone = await undoChange(testAccountScope(), mapId);
     expect(undone.customBasemap).toBeNull();
     const redone = await redoChange(testAccountScope(), mapId);

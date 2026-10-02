@@ -1,3 +1,4 @@
+import { readThenWriteRequestSetup } from "./edit-basis";
 import { expect, test } from "@playwright/test";
 import { alignmentPoint, alignmentPositionError, alignmentStats, startAlignmentBasemap } from "../scripts/map-alignment-fixture.mjs";
 import { addLayer, createMap, patchLayer, patchMap, routeHouse, seedCsv } from "./support";
@@ -104,7 +105,7 @@ for (const [pole, sign] of [["north", 1], ["south", -1]] as const) {
       expect(alignmentPositionError(stats, sign), "absolute geographic position of exported landmarks").toBeLessThan(1.5);
       await testInfo.attach(`${pole}-server-export`, { body: bytes, contentType: "image/png" });
     } finally {
-      expect((await page.request.delete(`/api/maps/${id}`)).status()).toBe(204);
+      expect((await readThenWriteRequestSetup(page.request, `/api/maps/${id}`, () => ({ method: "DELETE" }))).status()).toBe(204);
       expect((await page.request.delete(`/api/tables/${name}`)).status()).toBe(204);
     }
   });

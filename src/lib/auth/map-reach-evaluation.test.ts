@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -45,7 +46,7 @@ beforeEach(async () => {
   roads = await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" });
   parks = await createLayer(scopes.ada, map.id, { name: "Parks", sql: "SELECT * FROM parks" });
   updateMap(scopes.ada, map.id, { widgets: [{ id: "count", type: "formula", layerId: roads.id, title: "Count", field: null,
-    agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }] });
+    agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 });
 afterEach(async () => { closeMetadataDb(); resetQueryInstance(); vi.unstubAllEnvs(); await rm(directory, { recursive: true, force: true }); });
 

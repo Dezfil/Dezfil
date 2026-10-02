@@ -1,6 +1,6 @@
 {
   "count": 136,
-  "overall": "2caa54e190c7871671310ab7393479de804966bd37560002208438037dbed6da",
+  "overall": "a331ace3cab78f9fd78c92289b9911375bf244d90845a97ceade8eaa555f2b51",
   "tools": {
     "get_account": "1d39e185a29991c180c5357ee693fb43d368491d0c799a0e52600ca88d32baa8",
     "update_account": "aa48f014a0723aae5821105fa13433bb3967b4ee09657841617ca21e573d8122",
@@ -98,8 +98,8 @@
     "sanitize_icon_svg": "9df9d905130ef98dc6cbc96288dc0c7c64a3e661b1eca2451a16754c49c5f76a",
     "inspect_basemap_style": "e10d15745783e6009aa808589e9de4a0c9cc802513a923b727863dc01ad54956",
     "get_map": "3ebb2396cadaa128ece7cd2e7e1a9ef27acde9a2b3261204ac80792d526a334a",
-    "update_map": "c8ab6deede8a1afc32a9731bea235b1c7e67bc84db306ea560e281072ab87f4d",
-    "delete_map": "b3f0e7db403bc80f4751cc276f5d8577a8378d91cce22a0457698fb7f9111923",
+    "update_map": "4da71b637d6e467e4426b8127150074e76086460dbec419a88fae23e92c5b4ea",
+    "delete_map": "8e64ef5fcaf7cc19869fd57a6d6ef9ebd46d8d068afbb3732c338a084bafc89d",
     "read_widget_values": "3454b3f431086642005d47e0196bc24ccbd3925b5ddb0279fc7f1f6cc7d65709",
     "search_map": "8293c87e17396b89f5661f9ba9d0f2db683f2d79d1e3aa0be798f0e936cb92e1",
     "get_map_dependencies": "a940f036cd7aecf4d457131be54bdacf6b25363c0c12ff407ade96dfa1b8bdf0",

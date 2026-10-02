@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { assistantRuns } from "@/lib/assistant/runs";
@@ -83,7 +84,7 @@ describe("grounding through real message and resource routes", () => {
     expect(first.map).toMatchObject({ id: map.id, name: "Original map", layers: { items: [{ id: layer.id, name: "Chosen layer", sql: "SELECT * FROM facts" }] } });
     expect(first.catalogue.items[0]).toMatchObject({ name: "facts", rowCount: 1, geometryColumn: "geometry", geometryType: "POINT" });
     expect(first.catalogue.items[0].columns.map((column: { name: string }) => column.name)).toContain("value");
-    await updateMap(testAccountScope(), map.id, { name: "Changed map" });
+    await updateMap(testAccountScope(), map.id, { name: "Changed map" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await updateLayer(testAccountScope(), layer.id, { name: "Changed layer", visible: false });
     const nextCsv = path.join(dir, "new.csv"); await writeFile(nextCsv, "new_column\ncurrent\n"); await ingestFile(testAccountScope(), nextCsv, "new.csv");
     const second = await send(context);
@@ -100,7 +101,7 @@ describe("grounding through real message and resource routes", () => {
     const events = (await initial.text()).trim().split("\n").map((line) => JSON.parse(line));
     const pending = events.find((event) => event.type === "confirm_required").id;
     expect(pendingActions.peek(testAccountScope(), pending)?.calls[0].args).toEqual({ id: layer.id });
-    await updateMap(testAccountScope(), map.id, { name: "Name changed while pending" });
+    await updateMap(testAccountScope(), map.id, { name: "Name changed while pending" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await updateLayer(testAccountScope(), layer.id, { visible: false });
     const csv = path.join(dir, "later.csv"); await writeFile(csv, "later_column\n9\n"); await ingestFile(testAccountScope(), csv, "later.csv");
     const response = await post({ resolution: { pending, approved: false } });

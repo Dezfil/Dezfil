@@ -1,3 +1,4 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 // The Projects screens: the list per page 05 (creation through both
 // affordances under the name contract, search and the three sorts, both
@@ -211,7 +212,7 @@ test("departed project-home continuations keep project B clean", async ({ page, 
       expect(saved.name).toBe(renamed);
     });
   } finally {
-    if (mapId) await api(page, "DELETE", `/api/maps/${mapId}`).catch(() => {});
+    if (mapId) await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "DELETE", path: `/api/maps/${mapId}` })).catch(() => {});
     for (const id of made) await api(page, "DELETE", `/api/projects/${id}`).catch(() => {});
   }
 });
@@ -872,7 +873,7 @@ test("the Projects page: the picture by count and the counts that drop zeros", a
       // then A), not the timestamps.
       const mapA = (await api(page, "POST", "/api/maps", { name: P("Map A"), projectId: five })) as { id: string };
       await api(page, "POST", "/api/maps", { name: P("Map B"), projectId: five });
-      await api(page, "PATCH", `/api/maps/${mapA.id}`, { name: P("Map A edited") });
+      await readThenWriteBrowserSetup(page, `/api/maps/${mapA.id}`, () => ({ method: "PATCH", path: `/api/maps/${mapA.id}`, body: { name: P("Map A edited") } }));
       await api(page, "POST", "/api/recipes", { name: P("Flow five"), projectId: five });
       await api(page, "POST", "/api/recipes", { name: P("Flow five b"), projectId: five });
       await api(page, "PATCH", `/api/projects/${five}/members`, { addTables: [ta, tb] });

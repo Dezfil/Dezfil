@@ -1,3 +1,5 @@
+import { withFixtureRevision } from "@/lib/test-support/edit-basis";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { documentFacts } from "@/lib/metadata/document-facts";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -159,7 +161,7 @@ describe("a publication's token", () => {
   });
 
   it("stays out of what an editor's own changes answer", async () => {
-    const renamed = await call(route.map, "PATCH", input("edd", "/api/maps/M", "PATCH", { name: "Renamed" }), { id: "M" });
+    const renamed = await call(route.map, "PATCH", withFixtureRevision(input("edd", "/api/maps/M", "PATCH", { name: "Renamed" }), readEditRevision({ kind: "map", id: "M" })?.editRevision), { id: "M" });
     expect(renamed.status).toBe(200);
     expect(renamed.body).toMatchObject({ name: "Renamed", publishToken: null, published: true });
     const undone = await call(route.undo, "POST", input("edd", "/api/maps/M/undo", "POST"), { id: "M" });
@@ -228,7 +230,7 @@ describe("reading a reached map", () => {
 
 describe("writes answer with the map as its writer sees it", () => {
   it("answers an editor's change and undo with the map's owner, SQL home and project", async () => {
-    const renamed = await call(route.map, "PATCH", input("edd", "/api/maps/M", "PATCH", { name: "Edited" }), { id: "M" });
+    const renamed = await call(route.map, "PATCH", withFixtureRevision(input("edd", "/api/maps/M", "PATCH", { name: "Edited" }), readEditRevision({ kind: "map", id: "M" })?.editRevision), { id: "M" });
     expect(renamed.status).toBe(200);
     expect(renamed.body).toMatchObject({ id: "M", name: "Edited", owner: ADA, home: "ada", projectId: "P" });
     const undone = await call(route.undo, "POST", input("edd", "/api/maps/M/undo", "POST"), { id: "M" });

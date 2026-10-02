@@ -40,6 +40,17 @@ export function validateEditRevision(value: unknown): string {
   return value;
 }
 
+/** A preflight before asynchronous validation, repeated inside the content
+ * transaction. Permission always precedes any revision fact. */
+export function requireDocumentRevision(scope: AccountScope, document: DocumentExpectation, db: Database = metadataDb()): void {
+  if (document.kind === "map") requirePermitted(scope, "map", document.id, document.action ?? "edit", db);
+  else requirePermitted(scope, "workflow", document.id, document.action ?? "edit", db);
+  const expected = validateEditRevision(document.expectedRevision);
+  if (readDocumentRevision(document, db)?.editRevision !== expected) {
+    throw new ApiError("stale_revision", ERROR_CATALOGUE.stale_revision, 409);
+  }
+}
+
 /** Internal metadata read. Reached projections decide what a caller sees. */
 export function readDocumentRevision(document: DocumentKey, db: Database = metadataDb()): DocumentRevision | null {
   const executable = document.kind === "workflow" ? "executable_revision" : "NULL";

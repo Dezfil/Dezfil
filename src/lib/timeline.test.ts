@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -116,7 +117,7 @@ describe("docking the timeline", () => {
     const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL });
     await updateLayer(testAccountScope(), layer.id, { filters: SEEN_FILTER });
 
-    updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } });
+    updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireMap(testAccountScope(), map.id).timeline).toEqual({
       layerId: layer.id,
       field: "seen",
@@ -124,9 +125,9 @@ describe("docking the timeline", () => {
     });
 
     // An unrelated update leaves the dock alone; explicit null removes it.
-    updateMap(testAccountScope(), map.id, { name: "renamed" });
+    updateMap(testAccountScope(), map.id, { name: "renamed" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireMap(testAccountScope(), map.id).timeline).not.toBeNull();
-    updateMap(testAccountScope(), map.id, { timeline: null });
+    updateMap(testAccountScope(), map.id, { timeline: null }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireMap(testAccountScope(), map.id).timeline).toBeNull();
   });
 
@@ -137,7 +138,7 @@ describe("docking the timeline", () => {
     await updateLayer(testAccountScope(), layer.id, { filters: SEEN_FILTER });
     updateMap(testAccountScope(), map.id, {
       timeline: { layerId: layer.id, field: "seen", speed: 4 },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireMap(testAccountScope(), map.id).timeline?.speed).toBe(4);
   });
 
@@ -148,24 +149,24 @@ describe("docking the timeline", () => {
 
     // Not a layer of this map.
     expect(() =>
-      updateMap(testAccountScope(), map.id, { timeline: { layerId: "nope", field: "seen" } }),
+      updateMap(testAccountScope(), map.id, { timeline: { layerId: "nope", field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
     ).toThrowError(expect.objectContaining({ code: "not_found", status: 404 }));
     // No timerange filter on that field yet.
     expect(() =>
-      updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }),
+      updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
     ).toThrowError(/needs a time filter/);
     // A filter on a different field does not count for "seen".
     await updateLayer(testAccountScope(), layer.id, { filters: SEEN_FILTER });
     expect(() =>
-      updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "name" } }),
+      updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "name" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
     ).toThrowError(/needs a time filter/);
     // Aggregated layers cannot animate — cells are aggregated server-side.
     await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") });
     expect(() =>
-      updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }),
+      updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
     ).toThrowError(/Aggregated layers/);
     // Malformed shape.
-    expect(() => updateMap(testAccountScope(), map.id, { timeline: 7 })).toThrowError(
+    expect(() => updateMap(testAccountScope(), map.id, { timeline: 7 }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision })).toThrowError(
       /timeline must be/,
     );
 
@@ -178,7 +179,7 @@ describe("docking the timeline", () => {
     const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL });
     await updateLayer(testAccountScope(), layer.id, { filters: SEEN_FILTER });
 
-    updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } });
+    updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     let state = await undoChange(testAccountScope(), map.id);
     expect(state.timeline).toBeNull();
     state = await redoChange(testAccountScope(), map.id);
@@ -194,7 +195,7 @@ describe("docking the timeline", () => {
     const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL });
     await updateLayer(testAccountScope(), layer.id, { filters: SEEN_FILTER });
-    updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } });
+    updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     // Deleting the layer does not cascade a map write (that would fight
     // undo); readers treat an unresolvable dock as no timeline.
@@ -217,12 +218,12 @@ describe("the render split: docked time filter is client-side", () => {
     expect(before.liveFiltered).toBe(true);
 
     // The dock changes playback, never the data.
-    updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } });
+    updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const docked = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(docked.featureCount).toBe(4);
     expect(docked.liveFiltered).toBe(true);
 
-    updateMap(testAccountScope(), map.id, { timeline: null });
+    updateMap(testAccountScope(), map.id, { timeline: null }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const after = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(after.featureCount).toBe(4);
   });
@@ -235,7 +236,7 @@ describe("the render split: docked time filter is client-side", () => {
     await updateLayer(testAccountScope(), layer.id, {
       filters: [DAY_ONE, { field: "name", kind: "values", values: ["c"] }],
     });
-    updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } });
+    updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     const docked = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     // c survives: its time filter is delegated, the values filter is not.
@@ -247,7 +248,7 @@ describe("the render split: docked time filter is client-side", () => {
     const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL });
     await updateLayer(testAccountScope(), layer.id, { filters: [DAY_ONE] });
-    updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } });
+    updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     // Aggregating after the dock: the dock is unresolvable, so the time
     // filter applies before aggregation again — cells reflect two rows.
@@ -267,7 +268,7 @@ describe("the render split: docked time filter is client-side", () => {
     const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL });
     await updateLayer(testAccountScope(), layer.id, { filters: [DAY_ONE] });
-    updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } });
+    updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     // Docked and over the cap (4 rows > 3): the tiled path, un-windowed.
     const first = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
@@ -288,7 +289,7 @@ describe("the render split: docked time filter is client-side", () => {
 
     // Undocking changes nothing: the time filter is live either way, so
     // the fingerprint — and the archive — hold steady.
-    updateMap(testAccountScope(), map.id, { timeline: null });
+    updateMap(testAccountScope(), map.id, { timeline: null }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const undocked = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(undocked.mode).toBe("tiled");
     expect(undocked.tiles?.builtAt).toBe(ready.tiles?.builtAt);
@@ -342,7 +343,7 @@ describe("the render split, generalized: live filters", () => {
     // Docking the timeline guarantees the time filter a slot: it moves to
     // the client (full extent ships), one no-op range takes its place in
     // SQL — playback never sits on an undelegated filter.
-    updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } });
+    updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const docked = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(docked.featureCount).toBe(4);
   });
@@ -414,7 +415,7 @@ describe("published timeline", () => {
     await updateLayer(testAccountScope(), layer.id, { filters: [DAY_ONE] });
     updateMap(testAccountScope(), map.id, {
       timeline: { layerId: layer.id, field: "seen", speed: 2 },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
@@ -437,7 +438,7 @@ describe("published timeline", () => {
     const map = createMap(testAccountScope(), "m");
     const layer = await createLayer(testAccountScope(), map.id, { name: "P", sql: PINGS_SQL });
     await updateLayer(testAccountScope(), layer.id, { filters: [DAY_ONE] });
-    updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } });
+    updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const { token } = publishMap(testAccountScope(), map.id);
 
     // The docked layer goes away; the published page must keep rendering.

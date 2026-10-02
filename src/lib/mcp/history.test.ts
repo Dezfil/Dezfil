@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -36,7 +37,7 @@ describe('external group association', () => {
   for (const name of ['update_map', 'create_layer', 'update_layer', 'delete_layer', 'duplicate_layer']) {
     it(`${name}: valid group forwards and matches stored history`, async () => {
       const args = name === 'update_map' ? { id: mapId, name: 'Renamed' } : name === 'create_layer' ? { id: mapId, name: 'Added', sql: 'SELECT * FROM facts' } : name === 'update_layer' ? { id: layerId, name: 'Renamed' } : { id: layerId };
-      const result = await call(name, { ...args, change_group: 'external_group' });
+      const result = await call(name, {...(name === 'update_map' ? { expected_revision: readEditRevision({ kind: "map", id: mapId })?.editRevision } : {}),  ...args, change_group: 'external_group' });
       expect(result.isError ?? false).toBe(false);
       expect(seen.some(request => request.method !== 'GET' && request.headers.get('X-Change-Group') === 'external_group')).toBe(true);
       expect(steps()).toEqual([expect.objectContaining({ mapId, groupId: 'external_group' })]);
@@ -50,7 +51,7 @@ describe('external group association', () => {
     });
   }
   it('an omitted marker has explicit absent association and an ungrouped step', async () => {
-    const result = await call('update_map', { id: mapId, name: 'Ungrouped' });
+    const result = await call('update_map', {expected_revision: readEditRevision({ kind: "map", id: mapId })?.editRevision,  id: mapId, name: 'Ungrouped' });
     expect(steps()).toEqual([expect.objectContaining({ groupId: null })]);
     expect(result.structuredContent?.history).toBeNull();
   });
@@ -67,12 +68,12 @@ describe('external group association', () => {
     }
   });
   it('a no-op has association but no history step', async () => {
-    const result = await call('update_map', { id: mapId, name: 'Original', change_group: 'noop' });
+    const result = await call('update_map', {expected_revision: readEditRevision({ kind: "map", id: mapId })?.editRevision,  id: mapId, name: 'Original', change_group: 'noop' });
     expect(steps()).toEqual([]);
     expect(result.structuredContent?.history).toEqual({ mapId, group: 'noop' });
   });
   it('a failed call has no association or step', async () => {
-    const result = await call('update_map', { id: 'missing', name: 'Failed', change_group: 'failure' });
+    const result = await call('update_map', {expected_revision: readEditRevision({ kind: "map", id: 'missing' })?.editRevision,  id: 'missing', name: 'Failed', change_group: 'failure' });
     expect(result.isError).toBe(true);
     expect(steps()).toEqual([]);
     expect(result.structuredContent?.history).toBeNull();
@@ -85,10 +86,10 @@ describe('external group association', () => {
   });
   it('two maps and a manual interleaving have independent literal undo/redo states', async () => {
     const other = createMap(testAccountScope(), 'Other').id;
-    await call('update_map', { id: mapId, name: 'First', change_group: 'shared' });
-    await call('update_map', { id: other, name: 'Other changed', change_group: 'shared' });
-    await call('update_map', { id: mapId, name: 'Manual' });
-    await call('update_map', { id: mapId, name: 'Last', change_group: 'shared' });
+    await call('update_map', {expected_revision: readEditRevision({ kind: "map", id: mapId })?.editRevision,  id: mapId, name: 'First', change_group: 'shared' });
+    await call('update_map', {expected_revision: readEditRevision({ kind: "map", id: other })?.editRevision,  id: other, name: 'Other changed', change_group: 'shared' });
+    await call('update_map', {expected_revision: readEditRevision({ kind: "map", id: mapId })?.editRevision,  id: mapId, name: 'Manual' });
+    await call('update_map', {expected_revision: readEditRevision({ kind: "map", id: mapId })?.editRevision,  id: mapId, name: 'Last', change_group: 'shared' });
     expect(steps().filter(row => (row as { mapId: string }).mapId === mapId)).toEqual([
       expect.objectContaining({ mapId, groupId: 'shared' }),
       expect.objectContaining({ mapId, groupId: null }), expect.objectContaining({ mapId, groupId: 'shared' }),

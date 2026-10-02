@@ -224,7 +224,7 @@ test("dashboard answers are current, updating, or visibly failed — never silen
       if (!viz.ok) throw new Error(await viz.text());
       const widgets = await fetch(`/api/maps/${mapId}`, {
         method: "PATCH",
-        headers: { "content-type": "application/json" },
+        headers: { "X-Edit-Revision": (await viz.json()).editRevision, "content-type": "application/json" },
         body: JSON.stringify({
           widgets: [
             {

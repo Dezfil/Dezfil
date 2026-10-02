@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Database } from "better-sqlite3";
 import * as metadata from "./metadata/db";
@@ -19,9 +20,9 @@ function fixture() {
 }
 it("never coalesces or groups two actors, even with an identical group value", async () => {
   const { owner, editor, map } = fixture();
-  updateMap(owner, map.id, { name: "One" }, { groupId: "same" });
-  updateMap(editor, map.id, { name: "Two" }, { groupId: "same" });
-  updateMap(owner, map.id, { name: "Three" }, { groupId: "same" });
+  updateMap(owner, map.id, { name: "One" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision, groupId: "same" });
+  updateMap(editor, map.id, { name: "Two" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision, groupId: "same" });
+  updateMap(owner, map.id, { name: "Three" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision, groupId: "same" });
   expect(db.prepare("SELECT author_id FROM map_history ORDER BY seq").all()).toEqual([
     { author_id: owner.accountId }, { author_id: editor.accountId }, { author_id: owner.accountId },
   ]);
@@ -37,8 +38,8 @@ it("never coalesces or groups two actors, even with an identical group value", a
 });
 it("exposes original actors and whole-group replay eligibility to reached readers", async () => {
   const { owner, editor, viewer, map } = fixture();
-  updateMap(owner, map.id, { name: "Renamed" }, { groupId: "one" });
-  updateMap(owner, map.id, { widgetsPublished: false }, { groupId: "one" });
+  updateMap(owner, map.id, { name: "Renamed" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision, groupId: "one" });
+  updateMap(owner, map.id, { widgetsPublished: false }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision, groupId: "one" });
   const history = await mapHistory(editor, map.id);
   expect(history).toMatchObject({ canUndo: true, undoTarget: { eligible: false, reason: expect.any(String), steps: [
     { author: { name: owner.accountId, sqlName: expect.any(String) } },

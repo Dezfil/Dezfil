@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -111,7 +112,7 @@ describe("publish / unpublish", () => {
     const { token } = publishMap(testAccountScope(), map.id);
     expect(await getPublishedView(token, Date.now())).not.toBeNull();
 
-    await removeMap(testAccountScope(), map.id);
+    await removeMap(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(await getPublishedView(token, Date.now())).toBeNull();
     resetPublishCache();
     closeMetadataDb();
@@ -140,7 +141,7 @@ describe("publish / unpublish", () => {
     const { token } = publishMap(testAccountScope(), map.id);
 
     const inFlight = getPublishedView(token, Date.now());
-    await removeMap(testAccountScope(), map.id);
+    await removeMap(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     expect(await inFlight).toBeNull();
     expect(await getPublishedView(token, Date.now())).toBeNull();
@@ -196,7 +197,7 @@ describe("freshness bound", () => {
           visible: true,
         },
       ],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const after = await getPublishedView(token, t0 + 1000);
     expect(after?.widgets).toHaveLength(1);
     expect(after?.widgets[0]).toMatchObject({
@@ -214,7 +215,7 @@ describe("freshness bound", () => {
     const before = await getPublishedView(token, t0);
     expect(before?.basemapLayers).toBeNull(); // everything visible, as ever
 
-    updateMap(testAccountScope(), map.id, { basemapLayers: { labels: false, roads: false } });
+    updateMap(testAccountScope(), map.id, { basemapLayers: { labels: false, roads: false } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const after = await getPublishedView(token, t0 + 1000);
     expect(after?.basemapLayers).toEqual({ labels: false, roads: false });
   });
@@ -237,7 +238,7 @@ describe("freshness bound", () => {
       "https://imagery.example/tiles/{z}/{y}/{x}?key=SECRET";
     process.env.DEZFIL_SATELLITE_ATTRIBUTION = "© Imagery Provider";
     try {
-      updateMap(testAccountScope(), map.id, { basemap: "satellite" });
+      updateMap(testAccountScope(), map.id, { basemap: "satellite" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
       const after = await getPublishedView(token, t0 + 31_000);
       expect(after?.basemapUrl).toBe("/api/basemaps/satellite");
       expect(after?.basemapKind).toBe("imagery");
@@ -261,7 +262,7 @@ describe("freshness bound", () => {
         name: "Company dark",
         attribution: [{ label: "© Somebody", href: "https://somebody.test" }],
       },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const view = await getPublishedView(token, t0);
     // Custom wins outright: fixed URL in both themes, the saved snapshot
     // as credit — never the OpenFreeMap fallback — and the stored key
@@ -274,7 +275,7 @@ describe("freshness bound", () => {
     ]);
     expect(view?.basemapKey).toBeNull();
     // Clearing reveals the stored key's own resolution again.
-    updateMap(testAccountScope(), map.id, { customBasemap: null });
+    updateMap(testAccountScope(), map.id, { customBasemap: null }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const cleared = await getPublishedView(token, t0 + 31_000);
     expect(cleared?.customBasemap).toBeNull();
     expect(cleared?.basemapAttribution?.[0]?.label).toBe("© OpenMapTiles");
@@ -287,7 +288,7 @@ describe("freshness bound", () => {
     const t0 = 5_000_000;
     expect((await getPublishedView(token, t0))?.legendCorner).toBeNull();
 
-    updateMap(testAccountScope(), map.id, { legendCorner: "top-right" });
+    updateMap(testAccountScope(), map.id, { legendCorner: "top-right" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const after = await getPublishedView(token, t0 + 1000);
     expect(after?.legendCorner).toBe("top-right");
   });
@@ -509,7 +510,7 @@ describe("published-field projection", () => {
           visible: true,
         },
       ],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await updateLayer(testAccountScope(), layer.id, { visible: false });
     const { token } = publishMap(testAccountScope(), map.id);
     const view = await getPublishedView(token, Date.now());
@@ -608,7 +609,7 @@ describe("published-field projection", () => {
     });
     updateMap(testAccountScope(), map.id, {
       timeline: { layerId: layer.id, field: "seen", speed: 1 },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const { token } = publishMap(testAccountScope(), map.id);
     expect((await getPublishedView(token, Date.now()))?.timeline).not.toBeNull();
 
@@ -733,14 +734,14 @@ describe("published theme", () => {
   it("an ordinary map edit does not change the active publication's default", async () => {
     const map = await mapWithLayer();
     const { token } = publishMap(testAccountScope(), map.id, { theme: "light" });
-    updateMap(testAccountScope(), map.id, { name: "renamed" });
+    updateMap(testAccountScope(), map.id, { name: "renamed" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const view = await getPublishedView(token, Date.now());
     expect(view!.theme).toBe("light");
   });
 
   it("an explicit basemap never follows the theme", async () => {
     const map = await mapWithLayer();
-    updateMap(testAccountScope(), map.id, { basemap: "streets" });
+    updateMap(testAccountScope(), map.id, { basemap: "streets" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const { token } = publishMap(testAccountScope(), map.id, { theme: "light" });
     const view = await getPublishedView(token, Date.now());
     expect(view!.theme).toBe("light");
