@@ -499,7 +499,10 @@ durable dataset with recorded provenance.
 home resolves every name in that home within the reader's reach: a name out
 of reach is a missing input named as written, with the sentence a resource
 evaluation gives, and lineage, output links and captured layers out of reach
-are left out. Workflows: a named, ordered list of steps whose dependencies
+are left out. A reader with no output of their own is shown the owner's; when
+that output exists outside the reader's reach, the step's condition is
+`output_unavailable`, naming nothing, never `output_missing`, which says the
+output was deleted. Workflows: a named, ordered list of steps whose dependencies
 point only backwards, so the system can answer what is now out of date. The
 family covers the workflow, its steps, their order, the canvas layout, and
 the runs of both a single step and the whole workflow. Each person's run

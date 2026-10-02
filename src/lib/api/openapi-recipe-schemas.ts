@@ -89,12 +89,16 @@ export const RECIPE_SCHEMAS = {
       },
       condition: {
         type: "string",
-        enum: ["broken", "output_missing", "stale", "never_run", "current"],
+        enum: ["broken", "output_missing", "output_unavailable", "stale", "never_run", "current"],
         description:
           "The first condition true of it, in the order broken, " +
-          "output missing, stale, never run, current — un-runnable " +
-          "before un-current, because offering a re-run that cannot " +
-          "succeed tells the user the wrong thing.",
+          "output missing, output unavailable, stale, never run, " +
+          "current — un-runnable before un-current, because offering a " +
+          "re-run that cannot succeed tells the user the wrong thing. " +
+          "`output_missing`: the output of the run described was " +
+          "deleted. `output_unavailable`: that output exists but is " +
+          "outside the caller's reach (the workflow owner's, shown to a " +
+          "caller with no output of their own); it is named nowhere.",
       },
       conditions: {
         type: "array",

@@ -105,10 +105,14 @@ describe("a reached workflow's view", () => {
     expect(own).toMatchObject({ condition: "current", inputs: [{ id: tables["ada.parks"].id, name: "parks" }], missingInputs: [] });
   });
 
-  it("leaves out an output link and its attempt's output the reader cannot follow, reading the output as missing to them", async () => {
-    unfileDataset("P", outputId("park_copy"));
+  it("leaves out an output link and its attempt's output the reader cannot follow, reading the output as not available to them", async () => {
+    const hidden = outputId("park_copy");
+    unfileDataset("P", hidden);
     const { step } = await read("bob");
-    expect(step("copy")).toMatchObject({ output: null, conditions: expect.arrayContaining(["output_missing"]) });
+    expect(step("copy")).toMatchObject({ output: null, conditions: expect.arrayContaining(["output_unavailable"]) });
+    // It exists: never read as deleted, and named nowhere in the condition.
+    expect(step("copy").conditions).not.toContain("output_missing");
+    expect(JSON.stringify(step("copy"))).not.toContain(hidden);
     expect(step("copy").latestAttempt).toMatchObject({ state: "succeeded" });
     expect(step("copy").latestAttempt!.output).toBeUndefined();
     const runs = (await call("bob", route.runs, `/api/recipes/${steps.recipe}/runs`, { id: steps.recipe })).body.runs as
@@ -118,6 +122,18 @@ describe("a reached workflow's view", () => {
     expect(runs[0].members.find((m) => m.stepId === steps.copy)!.output).toBeNull();
     // Its owner still follows every link.
     expect((await read("ada")).step("copy").output).toMatchObject({ id: outputId("park_copy"), name: "park_copy", runner: { sqlName: "ada" } });
+  });
+
+  it("still reads an output its owner deleted as deleted, to the owner and to everyone else", async () => {
+    const { DELETE } = await import("@/app/api/tables/[name]/route");
+    const deleted = await DELETE(testAccountRequest(new Request("http://instance.test/api/tables/final", { method: "DELETE" }), undefined, "ada"),
+      { params: Promise.resolve({ name: "final" }) });
+    expect(deleted.status).toBe(204);
+    for (const account of ["ada", "bob"]) {
+      const { step } = await read(account);
+      expect(step("final").conditions, account).toContain("output_missing");
+      expect(step("final").conditions, account).not.toContain("output_unavailable");
+    }
   });
 
   it("lists it, its runs, layout and datasets to everyone who reaches it and to nobody else", async () => {

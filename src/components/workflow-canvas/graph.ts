@@ -47,6 +47,7 @@ export type StateWord =
   | "cannot run"
   | "run failed"
   | "output deleted"
+  | "output not available"
   | "stale"
   | "edited"
   | "never run"
@@ -133,6 +134,7 @@ const BADGE: Record<StateWord, BadgeGlyph> = {
   "cannot run": "warn",
   "run failed": "warn",
   "output deleted": "rerun",
+  "output not available": null,
   stale: "rerun",
   edited: "edit",
   "never run": null,
@@ -142,6 +144,7 @@ const BADGE: Record<StateWord, BadgeGlyph> = {
 const CONDITION_WORD: Record<string, string> = {
   broken: "cannot run",
   output_missing: "output deleted",
+  output_unavailable: "output not available",
   stale: "stale",
   never_run: "never run",
   current: "up to date",

@@ -193,6 +193,14 @@ function describedSteps(scope: AccountScope, steps: RecipeStep[], ownerId: strin
   return { steps: described, runs };
 }
 
+/** The described outputs that still exist but lie outside the reader's
+ * reach: the workflow owner's, shown to a reader with none of their own. */
+function outputsOutOfReach(steps: RecipeStep[], artifacts: ReadonlyMap<string, string>): Set<string> {
+  const exists = metadataDb().prepare("SELECT 1 FROM data_tables WHERE id = ?");
+  return new Set(steps.flatMap((step) =>
+    step.outputTableId && !artifacts.has(step.outputTableId) && exists.get(step.outputTableId) ? [step.outputTableId] : []));
+}
+
 function describedOutput(scope: AccountScope, step: RecipeStep, described: { accountId: string; run: DescribedRun } | null,
   ownerId: string): (OutputLink & DescribedRun) | null {
   if (!step.outputTableId || !described) return null;
@@ -221,6 +229,7 @@ export async function readRecipe(scope: AccountScope, recipeId: string): Promise
     steps,
     edges: [...edgesByStep.values()].flat(),
     currentArtifact: artifacts,
+    unavailable: outputsOutOfReach(steps, artifacts),
   });
   if (!home) {
     for (const condition of conditions.values()) {

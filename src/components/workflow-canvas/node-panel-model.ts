@@ -133,6 +133,9 @@ export function callouts(member: NodeMember, operation: OperationDef | null): Ca
   if (step.conditions.includes("output_missing")) {
     out.push({ key: "output_missing", tone: "warn", head: "Output deleted.", body: "The dataset this made is gone. Run again to make it." });
   }
+  if (step.conditions.includes("output_unavailable")) {
+    out.push({ key: "output_unavailable", tone: "plain", head: "Output not available to you." });
+  }
   if (step.conditions.includes("stale")) {
     out.push({ key: "stale", tone: "warn", head: "Stale.", body: step.causes.map(causeSentence).join(" ") || undefined });
   }

@@ -31,3 +31,11 @@ it("lists every workflow the caller reaches", () => {
   const document = buildOpenApiDocument() as unknown as { paths: Record<string, Record<string, { description: string }>> };
   expect(document.paths["/api/recipes"].get.description).toContain("Every recipe the caller reaches (their own, and every one filed in a project they own or belong to)");
 });
+
+it("tells an output outside the caller's reach apart from a deleted one, naming nothing", () => {
+  const schemas = buildOpenApiDocument().components.schemas as unknown as Record<string, { properties: Record<string, { enum?: string[]; description?: string }> }>;
+  const condition = schemas.RecipeStep.properties.condition;
+  expect(condition.enum).toEqual(["broken", "output_missing", "output_unavailable", "stale", "never_run", "current"]);
+  expect(condition.description).toContain("`output_unavailable`: that output exists but is outside the caller's reach");
+  expect(condition.description).toContain("it is named nowhere");
+});

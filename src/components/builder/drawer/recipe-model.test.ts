@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  CONDITION_WORD,
   NO_STARTING_LAYER,
   isDraft,
   listedRecipes,
@@ -129,6 +130,14 @@ describe("the roll-up badge", () => {
       ],
     });
     expect(rollUp(hidden)).toBe("output_missing");
+  });
+
+  it("rolls up an output outside the reader's reach after a deleted one, and words it as not available", () => {
+    const steps = [step({ id: "a", condition: "stale", conditions: ["stale"] }),
+      step({ id: "b", condition: "output_unavailable", conditions: ["output_unavailable"] })];
+    expect(rollUp(recipe({ steps }))).toBe("output_unavailable");
+    expect(rollUp(recipe({ steps: [...steps, step({ id: "c", condition: "output_missing", conditions: ["output_missing"] })] }))).toBe("output_missing");
+    expect(CONDITION_WORD.output_unavailable).toBe("Output not available");
   });
 
   it("has nothing to roll up when there are no steps", () => {

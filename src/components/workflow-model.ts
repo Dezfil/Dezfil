@@ -75,6 +75,7 @@ export function nodeState(step: WorkflowStep): { label: string; tone: ChipTone }
   if (conditions.includes("broken")) return { label: "cannot run", tone: "bad" };
   if (attempt === "failed") return { label: "run failed", tone: "bad" };
   if (conditions.includes("output_missing")) return { label: "output deleted", tone: "warn" };
+  if (conditions.includes("output_unavailable")) return { label: "output not available", tone: "muted" };
   if (conditions.includes("stale")) return { label: "stale", tone: "warn" };
   if (step.proposedParameters) return { label: "edited", tone: "warn" };
   if (conditions.includes("never_run")) return { label: "never run", tone: "muted" };

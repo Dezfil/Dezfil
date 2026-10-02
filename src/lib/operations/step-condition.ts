@@ -15,9 +15,14 @@ import { deriveStaleness, type StaleCause } from "./staleness";
  * **Conditions coexist.** A never-run step can lose an input; a stale step can
  * lose its output; a step can lose both at once. So every true condition is
  * reported and a surface picks what to show. Where one must be named first the
- * order is **broken, output missing, stale, never run, current** — un-runnable
- * before un-current, because offering a re-run that cannot succeed tells the
- * user the wrong thing.
+ * order is **broken, output missing, output unavailable, stale, never run,
+ * current** — un-runnable before un-current, because offering a re-run that
+ * cannot succeed tells the user the wrong thing.
+ *
+ * **Unavailable is not missing.** A reader is shown the workflow owner's
+ * output when they have none of their own; when that output exists outside
+ * the reader's reach, it is not available to them, never deleted, and the
+ * condition names nothing.
  *
  * **Broken is transitive.** A step whose producer cannot run cannot run either,
  * so a deleted input breaks the steps that read it *and* everything downstream
@@ -28,6 +33,7 @@ import { deriveStaleness, type StaleCause } from "./staleness";
 export type ConditionKind =
   | "broken"
   | "output_missing"
+  | "output_unavailable"
   | "stale"
   | "never_run"
   | "current";
@@ -36,6 +42,7 @@ export type ConditionKind =
 const PRECEDENCE: ConditionKind[] = [
   "broken",
   "output_missing",
+  "output_unavailable",
   "stale",
   "never_run",
   "current",
@@ -70,8 +77,12 @@ export type ConditionEdge = LineageEdge & { prospective?: true };
 export interface ConditionInput {
   steps: RecipeStep[];
   edges: ConditionEdge[];
-  /** The artifact each live table holds; a table absent here is deleted. */
+  /** The artifact each live table holds; a table absent here is deleted,
+   * unless it is listed as unavailable. */
   currentArtifact: Map<string, string>;
+  /** Tables that exist outside the reader's reach: absent from the
+   * artifacts, but not deleted. */
+  unavailable?: ReadonlySet<string>;
 }
 
 /**
@@ -137,8 +148,9 @@ export function deriveConditions(
     if (step.outputTableId === null) {
       found.add("never_run");
     } else if (!currentArtifact.has(step.outputTableId)) {
-      // It produced something and that something has been deleted.
-      found.add("output_missing");
+      // It produced something the reader cannot read: deleted, or there and
+      // outside their reach.
+      found.add(input.unavailable?.has(step.outputTableId) ? "output_unavailable" : "output_missing");
     }
 
     const causes = stale.get(step.id) ?? [];
