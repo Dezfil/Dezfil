@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { readApiError } from "../api";
+import { readApiError, readRecipes } from "../api";
 import { serverUnreachable } from "../failure-copy";
 import { GeometryIcon, geometryKind } from "../gallery-icons";
 import { unreachedProjects } from "../scope/model";
@@ -27,6 +27,7 @@ import {
   type FilingSubject,
 } from "./add-model";
 import { KindIcon } from "./ProjectPicture";
+import { EMPTY_WORD, contentsWords, workflowCounts } from "./model";
 import styles from "./AddToProjectDialog.module.css";
 
 /* The 14-A dialog: the picker
@@ -88,6 +89,8 @@ type Reads =
       projects: ProjectRowWire[];
       /** Every project the reader reaches, filing rights or not. */
       reached: Set<string>;
+      /** Each project's workflows, from the workflow-origin listing. */
+      workflows: Map<string, number>;
     };
 
 export function AddToProjectDialog({
@@ -147,9 +150,10 @@ export function AddToProjectDialog({
                   "list the workflow's datasets",
                 ).then((b) => b.datasets)
               : Promise.resolve([]);
-        const [deps, listed] = await Promise.all([
+        const [deps, listed, workflows] = await Promise.all([
           depsRead,
           readJson<ProjectRowWire[]>("/api/projects", "load the projects"),
+          readRecipes("workflow"),
         ]);
         if (cancelled) return;
         setAnswered({
@@ -159,6 +163,7 @@ export function AddToProjectDialog({
             deps,
             projects: listed.filter(mayFile),
             reached: new Set(listed.map((p) => p.id)),
+            workflows: workflowCounts(workflows),
           },
         });
         // One's own datasets start selected, and for a map the workflows of
@@ -426,7 +431,7 @@ export function AddToProjectDialog({
                     <span className={styles.pMeta}>
                       {current
                         ? "current project"
-                        : `${p.mapCount} map${p.mapCount === 1 ? "" : "s"} · ${p.tableCount} dataset${p.tableCount === 1 ? "" : "s"}`}
+                        : contentsWords(p, ready?.workflows.get(p.id) ?? 0).join(" · ") || EMPTY_WORD}
                     </span>
                   </label>
                 );

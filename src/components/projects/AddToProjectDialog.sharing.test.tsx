@@ -36,6 +36,9 @@ const PROJECTS = [
   { id: "port", name: "Port traffic", mapCount: 2, tableCount: 3, role: "viewer", owner: ada },
 ];
 
+/** The workflow-origin listing: Berlin holds one workflow, Quay survey none. */
+const WORKFLOWS = [{ id: "w-bo", name: "Station catchments", projectId: "berlin" }];
+
 let calls: { url: string; method: string; body: unknown }[];
 let refuse: string | null;
 let host: ReturnType<typeof installDomHost>;
@@ -52,6 +55,7 @@ beforeEach(() => {
     if (input === "/api/maps/m1/dependencies") return ok({ datasets: DEPS });
     if (input === "/api/recipes/w1/dependencies") return ok({ datasets: [] });
     if (input === "/api/projects" && method === "GET") return ok(PROJECTS);
+    if (input === "/api/recipes?origin=workflow") return ok({ recipes: WORKFLOWS });
     if (input.endsWith("/members")) {
       return refuse
         ? { ok: false, status: 403, json: async () => ({ error: { code: "forbidden", message: refuse } }) }
@@ -110,6 +114,15 @@ describe("the Add-to-project dialog as an Editor", () => {
     expect(destinations.some((t) => t.includes("Quay survey"))).toBe(true);
     expect(destinations.some((t) => t.includes("Berlin housing study"))).toBe(true);
     expect(destinations.some((t) => t.includes("Port traffic"))).toBe(false);
+  });
+
+  it("counts a destination's workflows as the share dialog does, beside its maps and datasets", async () => {
+    await openMap();
+    const meta = (name: string) => all('input[name="add-destination"]').find((r) => r.parentElement!.textContent.includes(name))!
+      .parentElement!.textContent;
+    expect(meta("Berlin housing study")).toContain("3 maps · 1 workflow · 5 datasets");
+    expect(meta("Quay survey")).toContain("1 map · 2 datasets");
+    expect(meta("Quay survey")).not.toContain("workflow");
   });
 
   it("starts with Bo's own datasets and the workflow of his that makes them, each a box of its own", async () => {
