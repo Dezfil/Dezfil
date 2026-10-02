@@ -68,6 +68,15 @@ describe("bounded grounding projections", () => {
     expect(names(inHerWorkflow)).toEqual([["mine", "bob.roads", []], ["hers", "ada.roads", ["p"]]]);
     // With no page, nothing is named for a page.
     expect(names(await ground(undefined, api({ tables })))).toEqual([["mine", undefined, []], ["hers", undefined, ["p"]]]);
+    // A SQL name or a dataset name that is also a keyword is quoted, as the
+    // engine must read it back.
+    const keywords = [
+      table("roads", { id: "ordered", qualifiedName: "order.roads", owner: { name: "Ord", sqlName: "order" }, projectIds: [] }),
+      table("group", { id: "grouped", qualifiedName: "group", projectIds: [] }),
+      table("z_dependency"),
+    ];
+    expect(names(await ground({ ...builder, selectedLayerId: null }, homed(api({ tables: keywords, layers: [] }), "ada"))))
+      .toEqual([["ordered", '"order".roads', []], ["grouped", '"group"', []]]);
   });
 
   it("orders dependency/project/other table tiers and selected layers first", async () => {

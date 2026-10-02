@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api/errors";
+import { tableReference } from "@/components/sql/sql-draft";
 import type { TableCatalogue } from "@/lib/table-catalogue";
 import type { AssistantContext } from "./context";
 import { pick, projectMember, projectStep, record } from "./grounding-projection";
@@ -120,9 +121,10 @@ export async function loadGrounding(context: AssistantContext | undefined, baseU
     const table = page.tables?.[0];
     if (!table || table.qualifiedName !== name) unavailable();
     // How the page's own SQL names it: plain when it is the home's dataset
-    // and no output of the workflow takes the name, owner-qualified else.
+    // and no output of the workflow takes the name, owner-qualified else,
+    // each part quoted where the engine would read it as a keyword.
     const inHome = home === undefined ? {} : {
-      homeName: table.owner.sqlName === home && !declared.has(table.name.toLowerCase()) ? table.name : `${table.owner.sqlName}.${table.name}`,
+      homeName: tableReference(table.owner.sqlName === home && !declared.has(table.name.toLowerCase()) ? table.name : `${table.owner.sqlName}.${table.name}`),
     };
     const value = { ...pick(table, ["id", "name", "qualifiedName", "owner", "projectIds", "rowCount", "geometryColumn", "geometryType", "crsAssumed", "columnCount", "nextColumnOffset"]), ...inHome, columns: table.columns.map((column) => pick(column, ["name", "type"])), incomplete: table.nextColumnOffset !== null };
     const path = `/api/catalogue/tables?names=${encodeURIComponent(name)}`;
