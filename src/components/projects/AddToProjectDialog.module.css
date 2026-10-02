@@ -302,6 +302,29 @@
   color: var(--fg);
 }
 
+/* One's own subject still filed in a project one no longer reaches: the
+   checklist's even-bordered raised row, the line and its one action. */
+.unreached {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+
+.unreached span {
+  flex: 1;
+}
+
+.unreached b {
+  font-weight: 600;
+  color: var(--fg);
+}
+
 .refusal {
   padding: 0 18px;
 }

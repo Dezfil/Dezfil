@@ -416,9 +416,11 @@ export const TABLE_SCHEMAS = {
         type: "array",
         items: { type: "string" },
         description:
-          "The projects this dataset is in that the caller reaches; " +
-          "empty = in none the caller reaches. A dataset can be in " +
-          "several; the order carries no meaning.",
+          "The projects this dataset is in that the caller reaches, and " +
+          "for the caller's own dataset every project it is in, one they " +
+          "no longer reach included (they withdraw it with PATCH " +
+          "/api/projects/{id}/members); empty = in no project. A dataset " +
+          "can be in several; the order carries no meaning.",
       },
     },
   },

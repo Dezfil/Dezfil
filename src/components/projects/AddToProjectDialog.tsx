@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { readApiError } from "../api";
 import { serverUnreachable } from "../failure-copy";
 import { GeometryIcon, geometryKind } from "../gallery-icons";
+import { unreachedProjects } from "../scope/model";
 import { invalidateProjects } from "../shell/use-project-name";
 import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
@@ -34,7 +35,10 @@ import styles from "./AddToProjectDialog.module.css";
    into are offered. The checklist offers one's own datasets and, apart
    from them, the workflows of one's own that make them, each a box of its
    own; another person's dependency is listed as not one's to add.
-   Submission is single-flight over the two shipped membership roads. */
+   Submission is single-flight over the two shipped membership roads.
+   One's own subject still filed in a project one no longer reaches (one
+   was removed from it) says so, and takes it out of there in one press:
+   a withdrawal is always its owner's. */
 
 const NAME_MAX = 120;
 
@@ -82,16 +86,23 @@ type Reads =
       status: "ready";
       deps: DependencyWire[];
       projects: ProjectRowWire[];
+      /** Every project the reader reaches, filing rights or not. */
+      reached: Set<string>;
     };
 
 export function AddToProjectDialog({
   subject,
   onClose,
   onDone,
+  onWithdrawn,
 }: {
   /** A map or, a workflow or a dataset. */
   subject: FilingSubject;
   onClose: () => void;
+  /** The subject was taken out of projects the reader no longer reaches:
+   * their identities, for the caller's own truth-keeping, and the refusal
+   * that stopped the rest, if one did after some were taken out. */
+  onWithdrawn: (outcome: { projectIds: string[]; refusal?: string }) => void;
   /** The confirmed outcome: the destination's id and name, and what
    * moved, for the caller's own truth-keeping and statement. */
   onDone: (outcome: {
@@ -143,7 +154,12 @@ export function AddToProjectDialog({
         if (cancelled) return;
         setAnswered({
           attempt: mine,
-          reads: { status: "ready", deps, projects: listed.filter(mayFile) },
+          reads: {
+            status: "ready",
+            deps,
+            projects: listed.filter(mayFile),
+            reached: new Set(listed.map((p) => p.id)),
+          },
         });
         // One's own datasets start selected, and for a map the workflows of
         // one's own that make them.
@@ -211,6 +227,49 @@ export function AddToProjectDialog({
     subject.kind,
   );
   const canConfirm = ready !== null && foot.enabled && !submitting;
+  // Filed where the reader no longer reaches: the directory does not list it.
+  const unreached = useMemo(
+    () => (ready ? [...currentIds].filter((id) => !ready.reached.has(id)) : []),
+    [ready, currentIds],
+  );
+
+  const withdraw = useCallback(async () => {
+    if (inFlight.current || unreached.length === 0) return;
+    inFlight.current = true;
+    setSubmitting(true);
+    setRefusal(null);
+    const change =
+      subject.kind === "map"
+        ? { removeMaps: [subject.id] }
+        : subject.kind === "workflow"
+          ? { removeRecipes: [subject.id] }
+          : { removeTables: [subject.id] };
+    const done: string[] = [];
+    try {
+      for (const projectId of unreached) {
+        const response = await fetch(`/api/projects/${projectId}/members`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(change),
+        });
+        if (!response.ok) throw new Error(await readApiError(response));
+        done.push(projectId);
+      }
+      onWithdrawn({ projectIds: done });
+    } catch (e) {
+      const refusal =
+        e instanceof Error ? e.message : "The change couldn't be applied.";
+      // What was taken out stays out: the caller keeps that truth and says
+      // the refusal. Nothing taken out keeps the dialog, as a filing does.
+      if (done.length > 0) {
+        onWithdrawn({ projectIds: done, refusal });
+        return;
+      }
+      setRefusal(refusal);
+      inFlight.current = false;
+      setSubmitting(false);
+    }
+  }, [unreached, subject, onWithdrawn]);
 
   const confirm = useCallback(async () => {
     if (!ready || !destination || inFlight.current) return;
@@ -307,6 +366,21 @@ export function AddToProjectDialog({
 
       {ready && (
         <div className={styles.body}>
+          {unreached.length > 0 && (
+            <div className={styles.unreached} data-unreached-project>
+              <span>
+                <b>In {unreachedProjects(unreached.length)}.</b> Its people
+                still see it.
+              </span>
+              <Button
+                variant="quiet"
+                onClick={() => void withdraw()}
+                disabled={submitting}
+              >
+                Take it out
+              </Button>
+            </div>
+          )}
           <div className={styles.selHead}>Project</div>
           <input
             className={styles.findInput}

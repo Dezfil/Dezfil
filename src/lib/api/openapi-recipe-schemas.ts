@@ -190,8 +190,11 @@ export const RECIPE_SCHEMAS = {
       projectId: {
         type: ["string", "null"],
         description:
-          "The project this workflow is in, when the caller reaches " +
-          "that project; null = in none the caller reaches.",
+          "The project this workflow is in: on the caller's own " +
+          "workflow always, a project they no longer reach included " +
+          "(they withdraw it with PATCH /api/projects/{id}/members), " +
+          "and on anyone else's the project through which the caller " +
+          "reaches it; null = in no project.",
       },
       owner: {
         $ref: "#/components/schemas/ResourceOwner",

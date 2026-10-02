@@ -38,6 +38,7 @@ import {
   scopeRows,
   headingLine,
   tileSubLine,
+  unreachedProjects,
 } from "./scope/model";
 import { useProjectScope } from "./scope/use-scope";
 import { useScopeWorld } from "./scope/use-scope-world";
@@ -534,6 +535,20 @@ export function TablesScreen({
             projectIds: filing.projectIds,
           }}
           onClose={() => setFiling(null)}
+          onWithdrawn={({ projectIds, refusal }) => {
+            const tableId = filing.id;
+            setFiling(null);
+            // Out of the projects one no longer reaches: the dataset keeps
+            // its other memberships, before the reconciling read answers.
+            const out = (t: TableListing) =>
+              t.id === tableId
+                ? { ...t, projectIds: t.projectIds.filter((id) => !projectIds.includes(id)) }
+                : t;
+            mutate((w) => ({ ...w, all: w.all.map(out), scoped: w.scoped.map(out) }));
+            if (refusal) setActionError(refusal);
+            else setFiledNote(`${filing.name} taken out of ${unreachedProjects(projectIds.length)}.`);
+            void refresh().catch(() => {});
+          }}
           onDone={({ projectId, projectName }) => {
             const tableId = filing.id;
             setFiling(null);

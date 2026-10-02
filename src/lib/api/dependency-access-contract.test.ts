@@ -13,7 +13,7 @@ it("publishes dependency identity under reach and generated tool parity", () => 
   expect(workflow).not.toContain("every current registered output of the workflow");
   for (const path of paths) {
     const description = document.paths[path].get.description;
-    expect(description, path).toContain("Memberships name only projects the caller reaches; producers only workflows the caller reaches, each marked with whether the caller owns it.");
+    expect(description, path).toContain("Memberships name the projects the caller reaches, and on the caller's own datasets every project they are in, one the caller no longer reaches included; producers only workflows the caller reaches, each marked with whether the caller owns it.");
     expect(description, path).not.toContain("producers only the caller's own workflows");
   }
   for (const path of paths) expect(document.paths[path].get.responses).toHaveProperty("404");

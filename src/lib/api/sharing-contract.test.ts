@@ -187,3 +187,32 @@ it("promises owner-only access nowhere a project grant reaches", () => {
   const seededClaims = new Set(seeded.flatMap(text => text.match(privateTo) ?? []).map(sentence => sentence.trim()));
   expect([...seededClaims]).not.toEqual(["Connections are private to the authenticated account"]);
 });
+
+it("reports one's own filing in a project one no longer reaches, by identity, and keeps none for the unfiled alone", () => {
+  const { paths, components } = document();
+  const schemas = components.schemas as unknown as Record<string, { properties: Record<string, { description: string; items?: { properties: Record<string, { description: string }> } }> }>;
+  const own = /(a project|one) they no longer reach included/;
+  const withdraw = "PATCH /api/projects/{id}/members";
+  const fields = [
+    schemas.MapPresence.properties.projectId.description,
+    schemas.Recipe.properties.projectId.description,
+    schemas.Table.properties.projectIds.description,
+    schemas.DependencyDataset.properties.projectIds.description,
+    schemas.TableCatalogue.properties.tables.items!.properties.projectIds.description,
+  ];
+  for (const text of fields) expect(text).toMatch(own);
+  for (const text of [fields[0], fields[1], fields[2], fields[4]]) expect(text).toContain(withdraw);
+  for (const path of ["/api/maps", "/api/recipes", "/api/tables"]) {
+    const scope = (paths[path].get.parameters as unknown as { name: string; description: string }[]).find(p => p.name === "project")!;
+    expect(scope.description, path).toContain("filed in no project at all");
+  }
+  const catalogue = (paths["/api/catalogue/tables"].get.parameters as unknown as { name: string; description: string }[]).find(p => p.name === "project")!;
+  expect(catalogue.description).toContain("filed in no project at all");
+  for (const name of ["list_maps", "get_map", "list_recipes", "get_recipe", "list_tables", "inspect_table", "read_table_catalogue"]) {
+    expect(JSON.stringify(tool(name).outputSchema), name).toMatch(own);
+  }
+  const texts = publishedTexts();
+  for (const phrase of ["in none the caller reaches", "filed in no project it reaches", "filed in no project they reach", "never another. Identities only"]) {
+    expect(texts.filter(text => text.includes(phrase)), phrase).toEqual([]);
+  }
+});

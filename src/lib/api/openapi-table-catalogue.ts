@@ -13,7 +13,7 @@ export const TABLE_CATALOGUE_PATHS = {
       parameters: [
         query("after", "Exclusive qualifiedName cursor from nextAfter."),
         query("names", "Comma-separated exact names as the caller would type them (qualifiedName), at most 32: a plain name is the caller's own dataset, <sql name>.<name> another owner's. Missing or unreached names answer not_found."),
-        query("project", "Only this reached project's datasets, whoever owns them; none means the caller's own datasets filed in no project they reach. An unknown or unreached project answers not_found."),
+        query("project", "Only this reached project's datasets, whoever owns them; none means the caller's own datasets filed in no project at all. An unknown or unreached project answers not_found."),
         query("limit", "Tables per page, 1 to 32; default 32.", { type: "integer", minimum: 1, maximum: 32 }),
         query("columns", "Columns per table, 0 to 64; default 64. Zero returns identities and recorded facts with the column count.", { type: "integer", minimum: 0, maximum: 64 }),
         query("columnOffset", "Zero-based column cursor, default 0.", { type: "integer", minimum: 0 }),
@@ -36,7 +36,7 @@ export const TABLE_CATALOGUE_SCHEMAS = {
             id: { type: "string" }, name: { type: "string" },
             qualifiedName: { type: "string", description: "The name the caller would type: the plain name for the caller's own dataset, <sql name>.<name> for another owner's." },
             owner: { $ref: "#/components/schemas/ResourceOwner" },
-            projectIds: { type: "array", items: { type: "string" }, description: "The projects through which the caller reaches this dataset: those it is filed in that the caller owns or belongs to, never another. Identities only; the projects listing names them." },
+            projectIds: { type: "array", items: { type: "string" }, description: "The projects this dataset is filed in that the caller owns or belongs to, and for the caller's own dataset every project it is filed in, one they no longer reach included (they withdraw it with PATCH /api/projects/{id}/members); never another person's membership in a project the caller does not reach. Identities only; the projects listing names those the caller reaches." },
             rowCount: { type: "integer" },
             geometryColumn: { type: ["string", "null"] }, geometryType: { type: ["string", "null"] }, crsAssumed: { type: "boolean" },
             columnCount: { type: "integer" }, nextColumnOffset: { type: ["integer", "null"] },

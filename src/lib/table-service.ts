@@ -41,9 +41,9 @@ export interface TableInspection extends DataTable, DatasetPresence {
   inputs: ResolvedInput[] | null;
 }
 
-/** A listed table plus its artifact's size on disk, the reached
- * projects it belongs to (empty = in none the reader reaches), its owner
- * and the name its reader would type. */
+/** A listed table plus its artifact's size on disk, the projects it
+ * belongs to that the reader reaches (and for the reader's own, every one),
+ * its owner and the name its reader would type. */
 export type TableListing = DataTable & DatasetPresence & {
   sizeBytes: number | null;
   projectIds: string[];
@@ -62,7 +62,8 @@ async function artifactSize(table: DataTable): Promise<number | null> {
  * in a project it owns or belongs to, each with its owner and the name its
  * reader would type, so two same-named datasets both appear, once each.
  * `project` narrows to one reached project's datasets, whoever owns them;
- * `none` to the account's own datasets filed in no project it reaches.
+ * `none` to the account's own datasets filed in no project at all: its own
+ * memberships name even a project it no longer reaches.
  */
 export function listTablesWithSize(
   scope: AccountScope,

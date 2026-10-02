@@ -303,7 +303,7 @@ export const MAP_RESOURCE_PATHS = {
     get: op(mapAccess({
       summary: "The datasets a map draws from",
       description:
-        "Each layer's references resolve to dataset identities in the map's SQL home within the caller's reach, and each one is listed with its owner and the name the caller would type: a dataset the caller cannot reach is left out rather than named, and a same-named dataset of the caller's own never stands in for the map's. Memberships name only projects the caller reaches; producers only workflows the caller reaches, each marked with whether the caller owns it. " +
+        "Each layer's references resolve to dataset identities in the map's SQL home within the caller's reach, and each one is listed with its owner and the name the caller would type: a dataset the caller cannot reach is left out rather than named, and a same-named dataset of the caller's own never stands in for the map's. Memberships name the projects the caller reaches, and on the caller's own datasets every project they are in, one the caller no longer reaches included; producers only workflows the caller reaches, each marked with whether the caller owns it. " +
         "The 14-A filing checklist's subject: every " +
         "registered dataset used by at least one of the map's saved " +
         "layers, exactly once, with its source, row count, project " +
@@ -643,8 +643,11 @@ export const MAP_SCHEMAS = {
       projectId: {
         type: ["string", "null"],
         description:
-          "The project this map is in, when the caller reaches that " +
-          "project; null when it is in none the caller reaches.",
+          "The project this map is in: on the caller's own map always, " +
+          "a project they no longer reach included (they withdraw it " +
+          "with PATCH /api/projects/{id}/members), and on anyone else's " +
+          "the project through which the caller reaches it; null = in " +
+          "no project.",
       },
       owner: {
         $ref: "#/components/schemas/ResourceOwner",
@@ -719,8 +722,10 @@ export const MAP_SCHEMAS = {
           projectId: {
             type: ["string", "null"],
             description:
-              "The project this map is in, when the caller reaches that " +
-              "project; null = in none the caller reaches. Never part of " +
+              "The project this map is in: on the caller's own map " +
+              "always, a project they no longer reach included, and on " +
+              "anyone else's the project through which the caller " +
+              "reaches it; null = in no project. Never part of " +
               "the published view.",
           },
           layerCount: { type: "integer" },
@@ -752,8 +757,10 @@ export const MAP_DETAIL_SCHEMAS = {
           projectId: {
             type: ["string", "null"],
             description:
-              "The project this map is in, when the caller reaches that " +
-              "project; null = in none the caller reaches. Detail reads " +
+              "The project this map is in: on the caller's own map " +
+              "always, a project they no longer reach included, and on " +
+              "anyone else's the project through which the caller " +
+              "reaches it; null = in no project. Detail reads " +
               "carry it; the published surfaces never do.",
           },
         },

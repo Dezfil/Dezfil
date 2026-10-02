@@ -5,7 +5,7 @@ import { installDomHost, type HostElement } from "../testing/dom-host";
 import { SignedIn } from "../sharing/signed-in";
 import { AddToProjectDialog } from "./AddToProjectDialog";
 import { AddItemsDialog } from "./AddItemsDialog";
-import type { DependencyWire } from "./add-model";
+import type { DependencyWire, FilingSubject } from "./add-model";
 
 /**
  * Filing under sharing, as Bo, an Editor of Berlin and a Viewer of Port:
@@ -50,6 +50,7 @@ beforeEach(() => {
     calls.push({ url: input, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
     const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body });
     if (input === "/api/maps/m1/dependencies") return ok({ datasets: DEPS });
+    if (input === "/api/recipes/w1/dependencies") return ok({ datasets: [] });
     if (input === "/api/projects" && method === "GET") return ok(PROJECTS);
     if (input.endsWith("/members")) {
       return refuse
@@ -94,7 +95,7 @@ async function openMap() {
     root.render(
       <SignedIn account={bo}>
         <AddToProjectDialog subject={{ kind: "map", id: "m1", name: "Stations map", projectId: null }}
-          onClose={() => {}} onDone={(o) => { done = o; }} />
+          onClose={() => {}} onDone={(o) => { done = o; }} onWithdrawn={() => {}} />
       </SignedIn>,
     );
   });
@@ -178,5 +179,61 @@ describe("the project-first picker as an Editor", () => {
     const sub = q("[data-picker-sub]")!.textContent;
     expect(sub).toContain("brings stations, blocks");
     expect(sub).toContain("ada.rents is not yours to add");
+  });
+});
+
+describe("one's own work still filed in a project one no longer reaches", () => {
+  let withdrawn: unknown;
+  async function open(subject: FilingSubject) {
+    withdrawn = null;
+    // Each opening is a fresh dialog, as the lists mount it.
+    act(() => root.render(null));
+    await act(async () => {
+      root.render(
+        <SignedIn account={bo}>
+          <AddToProjectDialog subject={subject} onClose={() => {}} onDone={(o) => { done = o; }}
+            onWithdrawn={(o) => { withdrawn = o; }} />
+        </SignedIn>,
+      );
+    });
+    await settle();
+    await settle();
+  }
+  const takeOut = () => all("button").find((b) => b.textContent === "Take it out");
+  const patch = () => calls.filter((c) => c.method === "PATCH");
+
+  it("offers to take a dataset out of it, by the identity its reads report", async () => {
+    await open({ kind: "dataset", id: "customers", name: "customers", projectIds: ["gone", "mine"] });
+    expect(host.document.body.textContent).toContain("In a project you no longer reach.");
+    await click(takeOut());
+    expect(patch()).toEqual([{ url: "/api/projects/gone/members", method: "PATCH", body: { removeTables: ["customers"] } }]);
+    expect(withdrawn).toEqual({ projectIds: ["gone"] });
+    expect(done).toBeNull();
+  });
+
+  it("takes a map or a workflow out by its own kind", async () => {
+    await open({ kind: "map", id: "m1", name: "Stations map", projectId: "gone" });
+    await click(takeOut());
+    await open({ kind: "workflow", id: "w1", name: "Station catchments", projectId: "gone" });
+    await click(takeOut());
+    expect(patch().map((c) => [c.url, c.body])).toEqual([
+      ["/api/projects/gone/members", { removeMaps: ["m1"] }],
+      ["/api/projects/gone/members", { removeRecipes: ["w1"] }],
+    ]);
+  });
+
+  it("says nothing of the kind for work filed only where one reaches, a Viewer's project included", async () => {
+    await open({ kind: "dataset", id: "stations", name: "stations", projectIds: ["mine", "port"] });
+    expect(host.document.body.textContent).not.toContain("no longer reach");
+    expect(takeOut()).toBeUndefined();
+  });
+
+  it("keeps the dialog and says a refused withdrawal in the shipped note", async () => {
+    await open({ kind: "dataset", id: "customers", name: "customers", projectIds: ["gone"] });
+    refuse = "The resource was not found.";
+    await click(takeOut());
+    expect(host.document.body.textContent).toContain("The resource was not found.");
+    expect(withdrawn).toBeNull();
+    expect(takeOut()).toBeTruthy();
   });
 });

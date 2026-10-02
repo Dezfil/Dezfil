@@ -56,14 +56,19 @@ export function updateOwnedTableGeometryType(scope: AccountScope, ref: Pick<Data
     .run(geometryType, owner, ref.id, ref.name, ref.file);
 }
 /**
- * Every dataset's memberships in the projects the acting account reaches.
- * A dataset filed in a project the account does not reach never names it:
- * memberships elsewhere are facts about projects it cannot see.
+ * Every dataset's memberships as the acting account may know them: in the
+ * projects it reaches, and for its own datasets in every project they are
+ * filed in. A dataset's filing is a fact about the dataset, so its owner is
+ * told of a membership in a project they were removed from, by identity,
+ * and can withdraw it; anyone else's dataset filed in a project the account
+ * does not reach never names that project.
  */
 export function reachedTableProjectIds(scope: AccountScope, db: Database = metadataDb()): Map<string, string[]> {
   const me = requireAccountScope(scope, db);
   const rows = db.prepare(`SELECT pd.table_id, pd.project_id FROM project_datasets pd
-    WHERE pd.project_id IN (${REACHED_PROJECTS}) ORDER BY pd.project_id`).all({ me }) as { table_id: string; project_id: string }[];
+    WHERE pd.project_id IN (${REACHED_PROJECTS})
+      OR pd.table_id IN (SELECT id FROM data_tables WHERE owner_id = @me)
+    ORDER BY pd.project_id`).all({ me }) as { table_id: string; project_id: string }[];
   const memberships = new Map<string, string[]>();
   for (const row of rows) memberships.set(row.table_id, [...(memberships.get(row.table_id) ?? []), row.project_id]);
   return memberships;

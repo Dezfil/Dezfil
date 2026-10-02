@@ -17,7 +17,8 @@ export const PROJECT_SCOPE_PARAM = {
     "Narrow to one project's members by project id: any project the " +
     "caller reaches, its own or one shared with it, whoever owns what " +
     'is filed there; "none" narrows to the caller\'s own items filed ' +
-    "in no project it reaches. Omitted, everything the caller reaches " +
+    "in no project at all (one still filed in a project the caller no " +
+    "longer reaches is not none). Omitted, everything the caller reaches " +
     "answers. An unknown or unreached project is not found, never an " +
     "empty list.",
 };
@@ -376,8 +377,9 @@ export const PROJECT_DEPENDENCY_SCHEMAS = {
         type: "array",
         items: { type: "string" },
         description:
-          "Every project the dataset is in that the caller reaches; " +
-          "order carries no meaning.",
+          "Every project the dataset is in that the caller reaches, and " +
+          "for the caller's own dataset every project it is in, one they " +
+          "no longer reach included; order carries no meaning.",
       },
       geometryColumn: {
         type: ["string", "null"],

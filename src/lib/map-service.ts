@@ -332,7 +332,8 @@ function cssColor(c: { r: number; g: number; b: number; a: number }): string {
  * The maps the acting account reaches: its own and every map filed in a
  * project it owns or belongs to. `project` narrows to one reachable
  * project's maps, whoever owns them; `none` to the account's own maps that
- * are filed nowhere it can see.
+ * are filed nowhere. One still filed in a project its owner no longer
+ * reaches names that project and is not none.
  */
 export function mapsOverview(scope: AccountScope, project?: string | "none"): MapOverview[] {
   // An unknown or unreachable project refuses — a silently empty list

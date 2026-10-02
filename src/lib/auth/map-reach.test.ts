@@ -12,7 +12,8 @@ import { createApiToken } from "./credentials";
  * Pat owns project P, where Ada and Edd are editors and Viv a viewer; Out, an
  * admin, owns project Q, where nobody else belongs; Zed belongs to nothing.
  * Ada owns map M filed in P (published), U unfiled, and Z filed in Q, a
- * project she cannot reach; Pat owns PM, filed in P. People rows are written
+ * project she cannot reach (as when she is removed from it); Pat owns PM,
+ * filed in P. People rows are written
  * directly: no route adds them yet.
  *
  * A map is reached by its owner and by the owner and people of the project it
@@ -103,23 +104,24 @@ describe("listing maps over reach", () => {
     expect(ids((await list("zed")).body)).toEqual([]);
   });
 
-  it("names every listed map's owner and SQL home, and its project only where the caller reaches it", async () => {
+  it("names every listed map's owner and SQL home, and its project where the caller reaches it or the map is the caller's own", async () => {
     const byId = (body: unknown) => new Map((body as { id: string }[]).map(map => [map.id, map as Record<string, unknown>]));
     const viv = byId((await list("viv")).body);
     expect(viv.get("M")).toMatchObject({ owner: ADA, home: "ada", projectId: "P", layerCount: 1 });
     expect(viv.get("PM")).toMatchObject({ owner: { name: "pat", sqlName: "pat" }, home: "pat", projectId: "P" });
     const ada = byId((await list("ada")).body);
     expect(ada.get("U")).toMatchObject({ owner: ADA, home: "ada", projectId: null });
-    // Filed in a project Ada cannot reach: her map names no project to her.
-    expect(ada.get("Z")).toMatchObject({ owner: ADA, projectId: null });
+    // Filed in a project Ada cannot reach: her own map still names it, by
+    // identity, so she can take it out; the project stays absent to her.
+    expect(ada.get("Z")).toMatchObject({ owner: ADA, projectId: "Q" });
     expect(byId((await list("out")).body).get("Z")).toMatchObject({ owner: ADA, home: "ada", projectId: "Q" });
     for (const map of [...viv.values(), ...ada.values()]) expect(JSON.stringify(map)).not.toContain("@example.test");
   });
 
-  it("narrows to any reached project, keeps none as the caller's own unfiled maps, and refuses an unreached project as a missing one", async () => {
+  it("narrows to any reached project, keeps none as the caller's own maps filed nowhere, and refuses an unreached project as a missing one", async () => {
     expect(ids((await list("viv", "?project=P")).body)).toEqual(["PM", "M"]);
     expect(ids((await list("ada", "?project=P")).body)).toEqual(["PM", "M"]);
-    expect(ids((await list("ada", "?project=none")).body)).toEqual(["Z", "U"]);
+    expect(ids((await list("ada", "?project=none")).body)).toEqual(["U"]);
     expect(ids((await list("viv", "?project=none")).body)).toEqual([]);
     expect(ids((await list("out", "?project=Q")).body)).toEqual(["Z"]);
     for (const [account, project] of [["zed", "P"], ["ada", "Q"], ["out", "P"]]) {
@@ -141,7 +143,7 @@ describe("reading a reached map", () => {
       expect(read.body, account).toMatchObject({ id: "M", owner: ADA, home: "ada", projectId: "P", publishToken: "token-shared-map-000000" });
       expect((read.body as { layers: { id: string }[] }).layers.map(layer => layer.id)).toEqual(["L"]);
     }
-    expect((await call(route.map, "GET", input("ada", "/api/maps/Z"), { id: "Z" })).body).toMatchObject({ projectId: null });
+    expect((await call(route.map, "GET", input("ada", "/api/maps/Z"), { id: "Z" })).body).toMatchObject({ projectId: "Q" });
     expect((await call(route.map, "GET", input("out", "/api/maps/Z"), { id: "Z" })).body).toMatchObject({ projectId: "Q", owner: ADA });
   });
 

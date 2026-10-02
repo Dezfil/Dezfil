@@ -22,7 +22,7 @@ import { useTheme } from "@/components/theme";
 import { useViewPrefs } from "./use-view-prefs";
 import { ListHeading } from "./ListHeading";
 import { ScopeFilter } from "./scope/ScopeFilter";
-import { headingLine, scopeRows, tileSubLine } from "./scope/model";
+import { headingLine, scopeRows, tileSubLine, unreachedProjects } from "./scope/model";
 import { useProjectScope } from "./scope/use-scope";
 import { useScopeWorld } from "./scope/use-scope-world";
 import { AsyncState } from "./ui/AsyncState";
@@ -82,7 +82,9 @@ function StateChip({ live }: { live: boolean }) {
 }
 
 /** The passive project fact: text, never a
- * control; a missing directory name renders nothing rather than an id. */
+ * control, never an id. One's own work can stay filed in a project one was
+ * removed from: the directory has no name for it, and it is said as such
+ * rather than as in no project. */
 export function ProjectTag({
   projectId,
   projects,
@@ -98,7 +100,13 @@ export function ProjectTag({
     );
   }
   const name = projects.find((p) => p.id === projectId)?.name;
-  return name ? <span className={gallery.projTag}>{name}</span> : null;
+  return name ? (
+    <span className={gallery.projTag}>{name}</span>
+  ) : (
+    <span className={gallery.projTag} data-unreached>
+      {unreachedProjects(1)}
+    </span>
+  );
 }
 
 export function MapsScreen() {
@@ -715,6 +723,20 @@ export function MapsScreen() {
             projectId: filing.projectId,
           }}
           onClose={() => setFiling(null)}
+          onWithdrawn={({ projectIds, refusal }) => {
+            const mapId = filing.id;
+            setFiling(null);
+            // Out of a project one no longer reaches: in no project now,
+            // before the reconciling read answers and whether or not it does.
+            const out = (x: MapOverview) =>
+              x.id === mapId && x.projectId !== null && projectIds.includes(x.projectId)
+                ? { ...x, projectId: null }
+                : x;
+            mutate((w) => ({ ...w, all: w.all.map(out), scoped: w.scoped.map(out) }));
+            if (refusal) setActionError(refusal);
+            else setFiledNote(`${filing.name} taken out of ${unreachedProjects(projectIds.length)}.`);
+            void refresh().catch(() => {});
+          }}
           onDone={({ projectId, projectName }) => {
             const mapId = filing.id;
             const moved = !!filing.projectId;

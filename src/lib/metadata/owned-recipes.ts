@@ -25,13 +25,14 @@ export function requireRecipe(scope: AccountScope, id: string, db: Database = me
 /** The workflows an account reaches, most recent first: its own, and every
  * workflow filed in a project it owns or belongs to. `project` narrows to one
  * reached project's workflows, whoever owns them; `none` to the account's own
- * workflows filed nowhere. */
+ * workflows filed nowhere. One still filed in a project its owner no longer
+ * reaches is filed, not none: its owner can see and withdraw that filing. */
 export function listRecipes(scope: AccountScope, db: Database = metadataDb(), filter: { origin?: recipes.RecipeOrigin; project?: string | "none" } = {}) {
   const me = requireAccountScope(scope, db);
   const where = [`(owner_id = @me OR project_id IN (${REACHED_PROJECTS}))`];
   const args: Record<string, string> = { me };
   if (filter.origin) { where.push("origin = @origin"); args.origin = filter.origin; }
-  if (filter.project === "none") where.push(`owner_id = @me AND (project_id IS NULL OR project_id NOT IN (${REACHED_PROJECTS}))`);
+  if (filter.project === "none") where.push("owner_id = @me AND project_id IS NULL");
   else if (filter.project) {
     requireReachable(scope, "project", filter.project, db);
     where.push("project_id = @project"); args.project = filter.project;

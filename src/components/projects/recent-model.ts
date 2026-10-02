@@ -1,4 +1,5 @@
 import type { MapOverview, TableListing } from "../api";
+import { membershipNames } from "../scope/model";
 import { geometryChipLabel } from "../table-chips";
 import { nodeWord, type WorkflowListing } from "../workflow-model";
 
@@ -23,16 +24,17 @@ export const KIND_WORD: Record<RecentItem["kind"], string> = {
   dataset: "Dataset",
 };
 
-/** The project names an object lives in, alphabetical; unknown names
- * omitted, never invented; empty means not in a project. */
+/** The project names an object lives in, alphabetical; a project the
+ * directory cannot name is one the reader no longer reaches, said without
+ * a name, never invented; empty means not in a project. */
 export function whereNames(
   projectIds: readonly (string | null)[],
   names: Map<string, string>,
 ): string[] {
-  return projectIds
-    .map((id) => (id ? names.get(id) : undefined))
-    .filter((n): n is string => typeof n === "string")
-    .sort((a, b) => a.localeCompare(b));
+  return membershipNames(
+    projectIds.filter((id): id is string => id !== null),
+    names,
+  );
 }
 
 /** The one line: "in A, B" or "not in a project". */

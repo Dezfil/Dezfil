@@ -18,7 +18,7 @@ import { useViewPrefs } from "./use-view-prefs";
 import { ProjectTag } from "./MapsScreen";
 import { ScopeFilter } from "./scope/ScopeFilter";
 import { ListHeading } from "./ListHeading";
-import { headingLine, scopeRows, tileSubLine } from "./scope/model";
+import { headingLine, scopeRows, tileSubLine, unreachedProjects } from "./scope/model";
 import { useProjectScope } from "./scope/use-scope";
 import { useScopeWorld } from "./scope/use-scope-world";
 import { WorkflowStatusChip } from "./WorkflowStatusChip";
@@ -338,6 +338,20 @@ export function WorkflowsScreen() {
             projectId: filing.projectId,
           }}
           onClose={() => setFiling(null)}
+          onWithdrawn={({ projectIds, refusal }) => {
+            const workflowId = filing.id;
+            setFiling(null);
+            // Out of a project one no longer reaches: in no project now,
+            // before the reconciling read answers and whether or not it does.
+            const out = (x: WorkflowListing) =>
+              x.id === workflowId && x.projectId !== null && projectIds.includes(x.projectId)
+                ? { ...x, projectId: null }
+                : x;
+            mutate((w) => ({ ...w, all: w.all.map(out), scoped: w.scoped.map(out) }));
+            if (refusal) setActionError(refusal);
+            else setFiledNote(`${filing.name} taken out of ${unreachedProjects(projectIds.length)}.`);
+            void reload().catch(() => {});
+          }}
           onDone={({ projectId, projectName }) => {
             const workflowId = filing.id;
             const moved = !!filing.projectId;

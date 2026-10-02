@@ -162,3 +162,18 @@ describe("the Data list's card and row", () => {
     expect(html).toContain('aria-label="Add to a project: roads"');
   });
 });
+
+describe("one's own work still filed in a project one no longer reaches", () => {
+  it("says so on the map and workflow cards, never that it is in no project, and keeps its filing door", () => {
+    lists.view = "grid";
+    lists.world = { projects, all: [], scoped: [{ ...map("m-bo", "Berth occupancy", bo), projectId: "gone" }] };
+    const maps = asBo(<MapsScreen />);
+    lists.world = { projects, all: [], scoped: [{ ...workflow("w-bo", "Vessel density", bo), projectId: "gone" }] };
+    const workflows = asBo(<WorkflowsScreen />);
+    for (const [html, name] of [[maps, "Berth occupancy"], [workflows, "Vessel density"]]) {
+      expect(html, name).toContain("a project you no longer reach");
+      expect(html, name).not.toContain("not in a project");
+      expect(html, name).toMatch(new RegExp(`aria-label="[^"]*project[^"]*: ${name}"`, "i"));
+    }
+  });
+});

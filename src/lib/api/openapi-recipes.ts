@@ -180,7 +180,7 @@ export const RECIPE_PATHS = {
     get: op(workflowAccess({
       summary: "The datasets a workflow reads and writes",
       description:
-        "Each step's references resolve to dataset identities in the workflow's SQL home within the caller's reach, the workflow's own outputs as the caller would run them, and each one is listed with its owner and the name the caller would type: a dataset the caller cannot reach is left out rather than named, and a same-named dataset of the caller's own never stands in for the home's. Memberships name only projects the caller reaches; producers only workflows the caller reaches, each marked with whether the caller owns it. " +
+        "Each step's references resolve to dataset identities in the workflow's SQL home within the caller's reach, the workflow's own outputs as the caller would run them, and each one is listed with its owner and the name the caller would type: a dataset the caller cannot reach is left out rather than named, and a same-named dataset of the caller's own never stands in for the home's. Memberships name the projects the caller reaches, and on the caller's own datasets every project they are in, one the caller no longer reaches included; producers only workflows the caller reaches, each marked with whether the caller owns it. " +
         "The filing checklist's subject for a workflow: " +
         "every registered dataset the workflow's current node " +
         "definitions read (a pending edit over the active one) and " +

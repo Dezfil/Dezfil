@@ -127,7 +127,11 @@ its publication settings (the token, the published fields, the widget
 publication toggle, the theme and the reader controls). Datasets change,
 refresh and go only by their owner, whatever the role, because a dataset's
 name is bound into other people's SQL. The owner of a resource may always
-withdraw it from any project, member or not.
+withdraw it from any project, member or not. A person removed from a project
+keeps their own work filed there until they take it out: their own reads and
+listings still report that project's identity (`projectId`, `projectIds`),
+though the project itself stays absent to them, so the work never reads as
+in no project and they withdraw it by that identity on the members call.
 
 **The project's owner** alone renames the project, edits its note,
 dissolves it, gives and removes roles and transfers it; an administrator has
@@ -392,8 +396,10 @@ bring data in from elsewhere, several of them with a matching `preview` or
 `GET /api/tables/{name}/features`. `GET /api/catalogue/tables` is the
 schema-only listing built for agents, and is the one paginated endpoint in
 the API (below); each of its rows names the owner, the `qualifiedName` and
-`projectIds`, the projects through which the caller reaches that dataset
-(never one they do not reach), as `GET /api/tables` does. The assistant's
+`projectIds`, the projects it is filed in that the caller reaches, and for
+the caller's own dataset every project it is filed in (never another
+person's membership in a project the caller does not reach), as
+`GET /api/tables` does. The assistant's
 grounding reads it by `qualifiedName`, one identity per name, and on a map or
 workflow page adds the page's `home` and each table's `homeName`, the name
 that page's own SQL uses for it. Geometry recognition lives here too: `GET`, `PUT` and
@@ -410,8 +416,9 @@ file through a ticket that `GET /api/query/export` then redeems.
 
 **Maps.** A map groups ordered, styled layers. Every map read and listing
 carries `owner` (display name and SQL name) and `home` (the SQL name of the
-account whose datasets the map's plain table names mean), and `projectId`
-only when the caller reaches that project; `GET /api/maps` lists the caller's
+account whose datasets the map's plain table names mean), and `projectId`:
+on the caller's own map always, even a project they no longer reach, and on
+anyone else's the project through which the caller reaches it; `GET /api/maps` lists the caller's
 own maps and every map filed in a project they own or belong to, and
 `?project=` accepts any project they reach. Create, read, update, delete,
 duplicate; plus the editing history (`GET /api/maps/{id}/history`,
@@ -517,7 +524,8 @@ projects and the ones shared with them; each carries `owner` and the
 caller's `role` (`owner`, `editor` or `viewer`), and its counts and size
 cover everything filed in it. Any reached project is a valid `?project=`
 value on the maps, datasets and workflows listings, and `none` means the
-caller's own items filed in no project they reach. Renaming, the note and
+caller's own items filed in no project at all; one still filed in a project
+its owner no longer reaches is not `none`. Renaming, the note and
 dissolution stay the project owner's. Export (`POST /api/projects/{id}/export`)
 is open to everyone who reaches the project, viewers included: a selection
 names members filed in it that the caller reaches, whoever owns them. In the

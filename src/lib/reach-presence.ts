@@ -8,11 +8,14 @@ import { mapStanding, type MapStanding } from "@/lib/metadata/map-queries";
 
 /**
  * What a reached map or workflow carries beyond its stored record: the
- * project it is filed in when the caller reaches that project (null
- * otherwise, so a response never names a project its caller cannot reach),
- * its owner, and its SQL home, the account whose space its SQL binds in.
- * One's own resources carry the same fields, the owner being the caller, so
- * a client never special-cases them.
+ * project it is filed in, its owner, and its SQL home, the account whose
+ * space its SQL binds in. The project is named by its identity when the
+ * caller reaches that project, and on the caller's own resource always: a
+ * resource's filing is a fact about the resource, and its owner withdraws
+ * it by that identity even from a project they were removed from. Anyone
+ * else is never told of a project they cannot reach. One's own resources
+ * carry the same fields, the owner being the caller, so a client never
+ * special-cases them.
  */
 export interface Presence {
   projectId: string | null;
@@ -32,8 +35,9 @@ export function presencesOf(scope: AccountScope, standings: readonly MapStanding
     // A home is stamped from the creator; an unstamped one is its owner's.
     const home = labels.get(standing.homeId ?? standing.ownerId);
     if (!owner || !home) throw resourceAbsent();
+    const told = standing.projectId !== null && (standing.ownerId === scope.accountId || projects.has(standing.projectId));
     return {
-      projectId: standing.projectId !== null && projects.has(standing.projectId) ? standing.projectId : null,
+      projectId: told ? standing.projectId : null,
       owner,
       home: home.sqlName,
     };

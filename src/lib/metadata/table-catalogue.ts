@@ -46,7 +46,9 @@ export function catalogueRecords(scope: AccountScope, query: CatalogueQuery) {
     predicates.push("r.qualified IN (SELECT value FROM json_each(@names))");
   }
   if (query.project === "none") {
-    predicates.push(`r.owner_id = @me AND NOT EXISTS (SELECT 1 FROM project_datasets p WHERE p.table_id = r.id AND p.project_id IN (${REACHED_PROJECTS}))`);
+    // One's own dataset filed in a project one no longer reaches is filed:
+    // its memberships name that project, and its owner can withdraw it.
+    predicates.push("r.owner_id = @me AND NOT EXISTS (SELECT 1 FROM project_datasets p WHERE p.table_id = r.id)");
   } else if (query.project) {
     predicates.push("EXISTS (SELECT 1 FROM project_datasets p WHERE p.table_id = r.id AND p.project_id = @project)");
     args.project = query.project;

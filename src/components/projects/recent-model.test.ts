@@ -95,8 +95,10 @@ describe("recent things across kinds", () => {
     expect(whereLine(["Atlas", "Berlin"])).toBe("in Atlas, Berlin");
   });
 
-  it("omits an unknown project name rather than inventing one", () => {
-    expect(whereNames(["pa", "ghost", null], names)).toEqual(["Berlin"]);
+  it("says a project the reader no longer reaches rather than naming it or calling the item unfiled", () => {
+    expect(whereNames(["pa", "ghost", null], names)).toEqual(["Berlin", "a project you no longer reach"]);
+    expect(whereLine(whereNames(["ghost"], names))).toBe("in a project you no longer reach");
+    expect(whereNames([null], names)).toEqual([]);
   });
 
   it("heads the card by the instance, or plainly when unnamed", () => {

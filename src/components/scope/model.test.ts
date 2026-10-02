@@ -247,14 +247,27 @@ describe("the dataset Project cell", () => {
     ).toBe("also in Berlin");
   });
 
-  it("reads unfiled with no membership, and omits unknown names", () => {
+  it("reads unfiled with no membership alone, and says a project the reader no longer reaches without naming it", () => {
     expect(datasetProjectFact([], { kind: "none" }, names)).toEqual({
       text: "not in a project",
       none: true,
     });
+    // One's own dataset still filed in a project one was removed from: the
+    // directory has no name for it, and it is not in no project.
     expect(
       datasetProjectFact(["ghost", "b"], { kind: "all" }, names).text,
-    ).toBe("Atlas");
+    ).toBe("Atlas, a project you no longer reach");
+    expect(datasetProjectFact(["ghost"], { kind: "all" }, names)).toEqual({
+      text: "a project you no longer reach",
+      none: false,
+    });
+    expect(
+      datasetProjectFact(["ghost", "wraith"], { kind: "all" }, names).text,
+    ).toBe("2 projects you no longer reach");
+    expect(
+      datasetProjectFact(["a", "ghost"], { kind: "project", id: "a" }, names)
+        .text,
+    ).toBe("also in a project you no longer reach");
   });
 });
 
