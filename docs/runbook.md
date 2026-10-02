@@ -445,7 +445,7 @@ these at a scratch instance on its own data directory.
 
 ```sh
 docker build -t dezfil .
-docker run -d --name dezfil -p 3000:3000 -v dezfil-data:/data dezfil
+docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data dezfil
 ```
 
 Readiness is `GET /api/health`, expected within 30 seconds of the container
