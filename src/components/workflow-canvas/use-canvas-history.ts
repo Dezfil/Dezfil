@@ -409,11 +409,13 @@ export function useCanvasHistory({
   const queue = useRef<Promise<void>>(Promise.resolve());
 
   /** The recipe as it stands, read by the operation before its first
-   * attempt and before every Retry. */
+   * attempt and before every Retry. Read the committed graph through the
+   * live ref so progress cannot replace the header's press callback and
+   * trigger another screen render, graph and history publication. */
   const readSteps = useCallback(async () => {
     await edits.idle();
-    return edits.document?.recipe?.steps ?? graph.members.flatMap((member) => member.kind === "node" ? [member.step] : []);
-  }, [edits, graph]);
+    return edits.document?.recipe?.steps ?? live.current.graph.members.flatMap((member) => member.kind === "node" ? [member.step] : []);
+  }, [edits]);
 
   /** A recipe step put back, through the operation that
    * reverses it: the history operation reads first, applies through the
