@@ -1,3 +1,4 @@
+import { recordStepEdit } from "@/lib/metadata/workflow-recording";
 import { getStep as getReachedStep } from "@/lib/metadata/owned-recipes";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
@@ -186,7 +187,7 @@ export function stepAuthorizer(
         db,
       );
       // A proposal becomes the step's meaning only now that a run of it worked.
-      if (plan.isProposal) promoteProposal(plan.step.id, db);
+      if (plan.isProposal) recordStepEdit(scope, plan.step.id, () => promoteProposal(plan.step.id, db), db);
     }
 
     if (cascadeId) {

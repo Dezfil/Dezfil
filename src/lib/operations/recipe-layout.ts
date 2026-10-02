@@ -1,3 +1,4 @@
+import { recordDocumentChanges } from "@/lib/metadata/revisions";
 import type { AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
@@ -57,6 +58,7 @@ export function writeLayout(
     }
     const written = putLayout(recipeId, document, db);
     touchRecipe(scope, recipeId, db);
+    recordDocumentChanges(scope, [{ kind: "workflow", id: recipeId }], db);
     return { document, updatedAt: written.updatedAt };
   })();
 }

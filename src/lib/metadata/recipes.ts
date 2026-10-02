@@ -1,3 +1,4 @@
+import { recordDocumentCreation } from "./revisions";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { randomUUID } from "node:crypto";
@@ -177,6 +178,7 @@ export function createRecipe(
     createdAt: now,
     updatedAt: now,
   };
+  db.transaction(() => {
   db.prepare(
     `INSERT INTO recipes (owner_id, home_account_id, id, name, origin, project_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
@@ -189,6 +191,8 @@ export function createRecipe(
     recipe.createdAt,
     recipe.updatedAt,
   );
+  recordDocumentCreation(scope, { kind: "workflow", id: recipe.id }, db);
+  })();
   return recipe;
 }
 
