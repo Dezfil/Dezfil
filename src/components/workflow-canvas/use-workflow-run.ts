@@ -200,6 +200,14 @@ class Runner implements WorkflowRunner {
       this.set({ active, phase: "running", overlaid: true, ended: null });
       this.ports.onRunSeen(active);
       void this.poll(active.id, gen);
+    } else {
+      // Re-observation cancels the previous poll. If that run finished
+      // before this list arrived, this observation must settle it instead.
+      const ended = runs.find((run) => run.id === this.state.active?.id && terminal(run));
+      if (ended) {
+        this.set({ active: ended, phase: "settling" });
+        void this.settleAfter(ended, gen);
+      }
     }
     return active;
   };

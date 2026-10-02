@@ -1,8 +1,9 @@
 "use client";
-import { fetchWorkflow, fetchLayout, readWorkflowPage, type PageRead } from "./workflow-canvas/workflow-read";
+import { readWorkflowPage, type PageRead } from "./workflow-canvas/workflow-read";
 import { CanvasRecoveryContext, withWorkflowRecovery, type WorkflowRecoveryProps } from "./workflow-canvas/WorkflowRecovery";
 import { STALE_MESSAGE } from "./document-sequence";
 import { useRecipeRefresh } from "./workflow-canvas/use-recipe-refresh";
+import { useWorkflowEditorPort } from "./workflow-canvas/use-workflow-editor-port";
 import { WorkflowDocument } from "./workflow-canvas/workflow-document";
 import { DocumentEditorContext } from "./document-editor-context";
 
@@ -377,20 +378,7 @@ function WorkflowEditor({
     [edits, refreshRecipe, refreshTables],
   );
   const runner = useWorkflowRun(id, runPorts, editorDocument);
-  const editorPort = useMemo(() => ({
-    sequence: editorDocument,
-    request: editorDocument.request,
-    turn: (work: () => Promise<void>) => editorDocument.enqueue(async () => {
-      if (editorDocument.stale) throw new Error(STALE_MESSAGE);
-      await work();
-      if (editorDocument.stale) return;
-      const [recipe, layout] = await Promise.all([fetchWorkflow(id), fetchLayout(id)]);
-      editorDocument.install(recipe, layout);
-      void runner.observe();
-      void refreshTables();
-      setLive((current) => current ? { ...current, recipe, layout } : current);
-    }),
-  }), [editorDocument, id, runner, refreshTables]);
+  const editorPort = useWorkflowEditorPort(id, editorDocument, runner, refreshTables, setLive);
   // The assistant's door and open state: the door follows Undo and Redo in the header's left
   // group; the pane is the canvas's to mount, closed on every page open. A run resolved from
   // the pane that declared writes re-reads the recipe, the tables and the runs: a builder
