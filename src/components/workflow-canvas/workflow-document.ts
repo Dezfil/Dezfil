@@ -1,3 +1,4 @@
+import { acceptedDocumentFacts } from "../accepted-document-facts";
 import { DocumentSequence } from "../document-sequence";
 import type { WorkflowListing, WorkflowStep } from "../workflow-model";
 import type { LayoutRead } from "./placement";
@@ -30,7 +31,7 @@ export class WorkflowDocument extends DocumentSequence {
       if (body.step) steps = steps.some((s) => s.id === body.step!.id) ? steps.map((s) => s.id === body.step!.id ? body.step! : s) : [...steps, body.step];
       const removed = method === "DELETE" && /\/steps\/([^/]+)$/.exec(path)?.[1];
       if (removed) steps = steps.filter((s) => s.id !== removed);
-      this.recipe = { ...this.recipe, steps, ...(this.revision ? { editRevision: this.revision } : {}) };
+      this.recipe = { ...this.recipe, ...acceptedDocumentFacts(body.layout), ...acceptedDocumentFacts(body), steps, ...(this.revision ? { editRevision: this.revision } : {}) };
     }
   }
   /** Inside an already reserved turn; never queues recursively. */

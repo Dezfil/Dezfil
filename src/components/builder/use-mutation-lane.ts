@@ -11,6 +11,7 @@ import {
 } from "react";
 import type { Layer, MapWithLayers } from "@/lib/metadata/maps";
 import { CHANGE_GROUP_HEADER } from "@/lib/api/change-group";
+import { acceptedDocumentFacts } from "../accepted-document-facts";
 import { readApiError } from "../api";
 import type { LayerRenderData } from "./render-data";
 import { BuilderDrafts } from "./builder-drafts";
@@ -331,7 +332,7 @@ export function useMutationLane({
       if (serverMapRef.current) {
         serverMapRef.current = {
           ...serverMapRef.current,
-          ...{ editRevision: sequence.revision },
+          ...acceptedDocumentFacts(layer),
           layers: serverMapRef.current.layers.map((candidate) =>
             candidate.id === layer.id ? layer : candidate,
           ),
@@ -344,6 +345,7 @@ export function useMutationLane({
         current
           ? {
               ...current,
+              ...acceptedDocumentFacts(layer),
               layers: drafts.apply({ ...(serverMapRef.current ?? current), layers: (serverMapRef.current ?? current).layers.map((candidate) =>
                 candidate.id === layer.id ? layer : candidate,
               ) }).layers,

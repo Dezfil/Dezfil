@@ -40,6 +40,8 @@ import { ViewOnly } from "./workflow-canvas/view-only";
 import { usePathname } from "next/navigation";
 import { contributePath, releasePath } from "@/components/shell/path-model";
 import styles from "./WorkflowScreen.module.css";
+import { LastChanged, type LastChange } from "./sharing/LastChanged";
+import { acceptedDocumentFacts } from "./accepted-document-facts";
 import { PathOwnerMark } from "./sharing/PeopleMarks";
 import type { PersonLabel } from "./sharing/people";
 
@@ -69,12 +71,14 @@ const NAME_MAX = 120;
 export function CrumbName({
   name,
   owner,
+  facts = {},
   onRename,
   readOnly = false,
 }: {
   name: string;
   /** The workflow's owner: named beside it when it is someone else's. */
   owner?: PersonLabel | null;
+  facts?: LastChange;
   onRename: (next: string) => void;
   /** A Viewer's page: the name, no rename. */
   readOnly?: boolean;
@@ -90,6 +94,7 @@ export function CrumbName({
         <span className={styles.crumbSep}>/</span>
         <span className={styles.plainName}>{name}</span>
         <PathOwnerMark owner={owner} />
+      <LastChanged value={facts} head />
       </span>
     );
   }
@@ -131,6 +136,7 @@ export function CrumbName({
         </button>
       )}
       <PathOwnerMark owner={owner} />
+      <LastChanged value={facts} head />
     </span>
   );
 }
@@ -178,6 +184,8 @@ function WorkflowEditor({
   const latestRecipeRead = useRef<Promise<boolean> | null>(null);
   const refreshRecipe = useCallback(async (): Promise<boolean> => {
     const mine = ++refreshSeq.current;
+    const accepted = acceptedDocumentFacts(editorDocument.recipe);
+    setLive((l) => l ? { ...l, recipe: { ...l.recipe, ...accepted } } : l);
     const read = (async () => {
       try {
         const recipe = await fetchWorkflow(id);
@@ -196,8 +204,8 @@ function WorkflowEditor({
     return landed;
   }, [id, editorDocument]);
   const onLayoutWritten = useCallback((layout: LayoutRead) => {
-    setLive((l) => (l ? { ...l, layout } : l));
-  }, []);
+    setLive((l) => (l ? { ...l, layout, recipe: { ...l.recipe, ...acceptedDocumentFacts(editorDocument.recipe) } } : l));
+  }, [editorDocument]);
   // Add data: the workspace's dialog, its upload queue owned here so a
   // closed dialog never orphans a file on the way; a table it brings in
   // joins the pane and lands on the canvas as a loose source, the recipe
@@ -491,7 +499,7 @@ function WorkflowEditor({
       {crumbSlot &&
         page &&
         createPortal(
-          <CrumbName name={name} owner={page.recipe.owner} onRename={(n) => void rename(n)} readOnly={viewOnly} />,
+          <CrumbName name={name} owner={page.recipe.owner} facts={page.recipe} onRename={(n) => void rename(n)} readOnly={viewOnly} />,
           crumbSlot,
         )}
       {historySlot &&

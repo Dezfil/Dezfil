@@ -1,0 +1,39 @@
+import { act } from "react";
+import { createRoot } from "react-dom/client";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { installDomHost } from "../testing/dom-host";
+import { SignedIn } from "./signed-in";
+import { HeaderChrome } from "../builder/BuilderChrome";
+import { CrumbName } from "../WorkflowScreen";
+import { PlainCrumbTail } from "../shell/PlainCrumbTail";
+
+vi.mock("next/navigation", () => ({ usePathname: () => "/maps/m" }));
+vi.mock("../builder/export/ExportControl", () => ({ ExportControl: () => null }));
+vi.mock("../builder/publish/PublishControl", () => ({ PublishControl: () => null }));
+vi.mock("../builder/assistant/AssistantDoor", () => ({ AssistantDoor: () => null }));
+vi.mock("../builder/MapPresentation", () => ({ MapPresentation: () => null }));
+vi.mock("@/components/theme", () => ({ useTheme: () => ({ theme: "light", toggle() {} }) }));
+const facts = { lastChangedAt: "2026-10-02T14:00:00Z", lastChangedBy: { name: "Ada Okafor", sqlName: "ada" } };
+let host: ReturnType<typeof installDomHost>;
+let root: ReturnType<typeof createRoot>;
+beforeEach(() => {
+  vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-02T14:03:00Z"));
+  host = installDomHost();
+  for (const id of ["header-crumb-slot", "header-actions-left", "header-actions-right"]) {
+    const el = host.document.createElement("span"); el.setAttribute("id", id); host.document.body.appendChild(el);
+  }
+  const container = host.document.createElement("div"); host.document.body.appendChild(container);
+  root = createRoot(container as unknown as Element);
+});
+afterEach(() => { act(() => root.unmount()); host.uninstall(); vi.useRealTimers(); });
+it.each(["builder", "canvas", "reader"])("names the changer after the %s path name", async surface => {
+  const props = { name: "Harbour", owner: { name: "Owner", sqlName: "owner" }, facts, onRename() {}, readOnly: true };
+  const map = { id: "m", ...props, ...facts, layers: [], publishToken: null };
+  await act(async () => root.render(<SignedIn account={{ name: "Bo", sqlName: "bo" }}>{surface === "builder"
+    ? <HeaderChrome map={map as never} projectId="p" history={{ canUndo: false, canRedo: false }} onUndo={() => {}} onRedo={() => {}} onRename={() => {}} assistant={{} as never} onPublishChange={() => {}} renders={{}} layerDataDownloads={{} as never} />
+    : surface === "canvas" ? <CrumbName {...props} /> : <PlainCrumbTail {...props} />}</SignedIn>));
+  const fact = host.document.querySelector("[data-last-changed]");
+  expect(fact?.textContent).toBe("Ada · 3 min ago");
+  expect(fact?.querySelector("svg")).toBeTruthy();
+  expect(host.document.body.textContent.indexOf("Harbour")).toBeLessThan(host.document.body.textContent.indexOf("Ada ·"));
+});

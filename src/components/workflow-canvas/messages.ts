@@ -14,6 +14,7 @@ import type { RunMember, WorkflowRun } from "./run-overlay";
 export type Level = "info" | "ok" | "warn" | "error";
 
 export interface LogEntry {
+  runner?: WorkflowRun["runner"];
   id: string;
   runId: string;
   /** The node the entry is about; null for the run's own entries. */
@@ -114,7 +115,8 @@ export function composeLog(runs: WorkflowRun[]): LogEntry[] {
     if (a.rank !== b.rank) return a.rank - b.rank;
     return a.ord - b.ord;
   });
-  return out.map((e) => ({ id: e.id, runId: e.runId, stepId: e.stepId, node: e.node, time: e.time, level: e.level, text: e.text }));
+  const actors = new Map(runs.map(run => [run.id, run.runner ?? null]));
+  return out.map((e) => ({ runner: actors.get(e.runId), id: e.id, runId: e.runId, stepId: e.stepId, node: e.node, time: e.time, level: e.level, text: e.text }));
 }
 
 /** The entries about one node. */

@@ -18,7 +18,7 @@ import { HeaderChrome } from "../builder/BuilderChrome";
  * mark.
  */
 
-const crumbs = vi.hoisted(() => ({ owner: undefined as unknown }));
+const crumbs = vi.hoisted(() => ({ owner: undefined as unknown, facts: undefined as unknown }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/maps/m" }));
 vi.mock("../builder/export/ExportControl", () => ({ ExportControl: () => null }));
 vi.mock("../builder/publish/PublishControl", () => ({ PublishControl: () => null }));
@@ -105,19 +105,20 @@ describe("the builder's path tail", () => {
 describe("the reader", () => {
   it("hands the map's owner to its path tail", async () => {
     vi.doMock("../shell/PlainCrumbTail", () => ({
-      PlainCrumbTail: (props: { owner?: { sqlName: string } }) => {
-        crumbs.owner = props.owner;
+      PlainCrumbTail: (props: { owner?: { sqlName: string }; facts?: unknown }) => {
+        crumbs.owner = props.owner; crumbs.facts = props.facts;
         return null;
       },
     }));
     vi.resetModules();
     const { ReaderStage } = await import("../reader/MapReader");
-    const map = { id: "m", name: "Station catchments", layers: [], widgets: [], timeline: null, viewport: { lng: 0, lat: 0, zoom: 2 }, owner: ada } as unknown as MapWithLayers;
+    const map = { id: "m", name: "Station catchments", lastChangedAt: "2026-10-02", lastChangedBy: bo, layers: [], widgets: [], timeline: null, viewport: { lng: 0, lat: 0, zoom: 2 }, owner: ada } as unknown as MapWithLayers;
     renderToStaticMarkup(
       <ReaderStage mapId="m" map={map} projectId={null} renders={{}} basemapUrl="https://tiles.test/style.json"
         basemapOverrideUrl={null} basemapOverrideAttribution={[]} basemaps={BASEMAPS} />,
     );
     expect(crumbs.owner).toEqual(ada);
+    expect(crumbs.facts).toEqual({ lastChangedAt: "2026-10-02", lastChangedBy: bo });
     vi.doUnmock("../shell/PlainCrumbTail");
   });
 });

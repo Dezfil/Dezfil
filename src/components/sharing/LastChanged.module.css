@@ -1,2 +1,13 @@
 .fact { white-space: nowrap; }
 .fact[data-unknown] { font-style: italic; }
+
+.head {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 10px;
+  padding-right: 4px;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+.head svg { width: 13px; height: 13px; color: var(--fg-faint); flex: none; }

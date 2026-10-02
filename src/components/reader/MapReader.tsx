@@ -9,6 +9,7 @@ import { useTheme } from "@/components/theme";
 import { readApiError } from "../api";
 import { serverUnreachable } from "../failure-copy";
 import { contributePath, releasePath } from "../shell/path-model";
+import { acceptedDocumentFacts } from "../accepted-document-facts";
 import { PlainCrumbTail } from "../shell/PlainCrumbTail";
 import { StageButton, StageStack } from "../map/StageStack";
 import type { CameraHandle } from "../map/camera-handle";
@@ -234,7 +235,7 @@ export function ReaderStage({
 
   return (
     <>
-      <PlainCrumbTail name={map.name} owner={(map as { owner?: PersonLabel }).owner} />
+      <PlainCrumbTail facts={acceptedDocumentFacts(map)} name={map.name} owner={(map as { owner?: PersonLabel }).owner} />
       <MapPresentation
         stage={stage}
         map={map}

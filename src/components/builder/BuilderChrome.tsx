@@ -16,6 +16,8 @@ import { PublishControl } from "./publish/PublishControl";
 import type { LayerRenderData } from "@/lib/layer-service";
 import { ExportControl } from "./export/ExportControl";
 import type { LayerDataDownloadPort } from "./use-layer-data-downloads";
+import { LastChanged } from "../sharing/LastChanged";
+import { acceptedDocumentFacts } from "../accepted-document-facts";
 import { PathOwnerMark } from "../sharing/PeopleMarks";
 import type { PersonLabel } from "../sharing/people";
 import styles from "./MapBuilder.module.css";
@@ -149,6 +151,7 @@ export function HeaderChrome({
         </button>
       )}
       <PathOwnerMark owner={(map as { owner?: PersonLabel }).owner} />
+      <LastChanged value={acceptedDocumentFacts(map)} head />
     </span>
   );
 

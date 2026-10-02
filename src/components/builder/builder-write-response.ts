@@ -1,3 +1,4 @@
+import { acceptedDocumentFacts } from "../accepted-document-facts";
 import type { MapWithLayers, Layer } from "@/lib/metadata/maps";
 
 /** Fold a covered success into accepted state before releasing the queue.
@@ -5,7 +6,7 @@ import type { MapWithLayers, Layer } from "@/lib/metadata/maps";
 export function acceptedMapWrite(current: MapWithLayers | null, path: string, method: string, value: unknown): MapWithLayers | null {
   if (!current || !value || typeof value !== "object") return current;
   const body = value as Record<string, unknown>;
-  const base = typeof body.editRevision === "string" ? { ...current, editRevision: body.editRevision } : current;
+  const base = { ...current, ...acceptedDocumentFacts(body) };
   if (Array.isArray(body.layers)) return body as unknown as MapWithLayers;
   if (typeof body.sql === "string" && typeof body.id === "string") {
     const layer = body as unknown as Layer;

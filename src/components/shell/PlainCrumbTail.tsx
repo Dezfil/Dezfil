@@ -1,5 +1,6 @@
 "use client";
 
+import { LastChanged, type LastChange } from "../sharing/LastChanged";
 import { useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import styles from "@/components/builder/MapBuilder.module.css";
@@ -17,10 +18,12 @@ const subscribeNever = () => () => {};
 export function PlainCrumbTail({
   name,
   owner,
+  facts,
 }: {
   name: string;
   /** The item's owner: named beside it when it is someone else's. */
   owner?: PersonLabel | null;
+  facts?: LastChange;
 }) {
   const mounted = useSyncExternalStore(
     subscribeNever,
@@ -35,6 +38,7 @@ export function PlainCrumbTail({
       <span className={styles.crumbSep}>/</span>
       <span className={styles.plainName}>{name}</span>
       <PathOwnerMark owner={owner} />
+      {facts && <LastChanged value={facts} head />}
     </span>,
     slot,
   );

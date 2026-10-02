@@ -34,8 +34,10 @@ it("orders real layer, map and history hooks with accepted field intent and inde
   expect(w.calls[1].headers.has("X-Edit-Revision")).toBe(false);
   expect(w.calls[0].headers.get("X-Edit-Revision")).toBe("initial");
   w.calls[1].ok({ editRevision: "camera-must-not-win" });
-  w.calls[0].ok({ ...first, sql: "slow", editRevision: "sql" });
+  const facts = { lastChangedAt: "2026-10-02", lastChangedBy: { name: "Ada", sqlName: "ada" } };
+  w.calls[0].ok({ ...first, sql: "slow", editRevision: "sql", ...facts });
   await sql; await w.settle();
+  expect(map).toMatchObject(facts);
   expect(w.calls[2].headers.get("X-Edit-Revision")).toBe("sql");
   expect(w.calls[2].body).toEqual({ style: { opacity: 1, fill: "blue" } });
   w.calls[2].ok({ ...second, style: { opacity: 1, fill: "blue" }, editRevision: "fill" });
