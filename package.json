@@ -44,6 +44,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "journey:browser": "playwright test",
+    "admin:recover": "node scripts/admin-recover.mjs",
     "journey:recovery": "node scripts/recovery-journey.mjs",
     "probe:gate": "node scripts/gate-journey.mjs",
     "probe:login": "node scripts/login-http-probe.mjs",
