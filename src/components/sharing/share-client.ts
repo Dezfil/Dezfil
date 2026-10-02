@@ -1,3 +1,4 @@
+import { editHeaders, type EditBasis } from "@/lib/edit-basis";
 import { readApiError } from "../api";
 import { serverUnreachable } from "../failure-copy";
 import type { PersonLabel, ProjectPersonWire } from "./people";
@@ -58,4 +59,11 @@ export async function removePerson(projectId: string, sqlName: string): Promise<
 /** Make one of the project's members its owner. */
 export async function transferProject(projectId: string, sqlName: string): Promise<void> {
   await call<unknown>(`/api/projects/${encodeURIComponent(projectId)}/transfer`, json("POST", { to: sqlName }), "hand the project over");
+}
+
+/** The caller owns the displayed basis, including while a recipient is picked. */
+export async function transferDocument(kind: "map" | "workflow", item: EditBasis & { id: string }, sqlName: string): Promise<unknown> {
+  const init = json("POST", { to: sqlName });
+  return call(`/api/${kind === "map" ? "maps" : "recipes"}/${encodeURIComponent(item.id)}/transfer`,
+    { ...init, headers: editHeaders(item, init.headers) }, "hand the item over");
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { editHeaders } from "@/lib/edit-basis";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatRelativeTime, readApiError, readRecipes } from "./api";
@@ -160,12 +161,14 @@ export function WorkflowsScreen() {
   );
 
   const deleteWorkflow = useCallback(
-    async (id: string) => {
+    async (item: WorkflowListing) => {
+      const { id } = item;
       setBusyId(id);
       setConfirmId(null);
       try {
         const response = await fetch(`/api/recipes/${id}`, {
           method: "DELETE",
+          headers: item.editRevision ? editHeaders({ editRevision: item.editRevision }) : undefined,
         });
         if (!response.ok) throw new Error(await readApiError(response));
         await reload();
@@ -264,7 +267,7 @@ export function WorkflowsScreen() {
             aria-label={armed ? `Confirm deleting ${w.name}` : `Delete ${w.name}`}
             onClick={(e) => {
               e.stopPropagation();
-              if (armed) void deleteWorkflow(w.id);
+              if (armed) void deleteWorkflow(w);
               else setConfirmId(w.id);
             }}
             onBlur={() => setConfirmId(null)}
@@ -336,6 +339,7 @@ export function WorkflowsScreen() {
             id: filing.id,
             name: filing.name,
             projectId: filing.projectId,
+            editRevision: filing.editRevision,
           }}
           onClose={() => setFiling(null)}
           onWithdrawn={({ projectIds, refusal }) => {

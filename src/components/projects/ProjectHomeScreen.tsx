@@ -1,5 +1,6 @@
 "use client";
 
+import { membershipBody } from "./filing-intent";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -253,7 +254,9 @@ function ProjectHomeVisit({ id, home, files }: {
         const response = await fetch(`/api/projects/${id}/members`, {
           method: "PATCH",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify(change),
+          body: JSON.stringify(membershipBody({ members: change, bases: item.kind === "dataset" ? {} : {
+            [`${item.kind}:${item.id}`]: (item.kind === "map" ? item.map.editRevision : item.workflow.editRevision) ?? "",
+          } })),
         });
         if (!response.ok) throw new Error(await readApiError(response));
         invalidateProjects();

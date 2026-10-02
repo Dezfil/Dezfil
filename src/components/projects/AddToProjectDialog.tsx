@@ -1,5 +1,6 @@
 "use client";
 
+import { filingIntent, membershipBody, subjectBasis } from "./filing-intent";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { readApiError, readRecipes } from "../api";
 import { serverUnreachable } from "../failure-copy";
@@ -16,7 +17,6 @@ import {
   dialogTitleParts,
   footer,
   initialSelection,
-  membersFor,
   producersOf,
   resolveEnter,
   searchRows,
@@ -255,7 +255,7 @@ export function AddToProjectDialog({
         const response = await fetch(`/api/projects/${projectId}/members`, {
           method: "PATCH",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify(change),
+          body: JSON.stringify(membershipBody({ members: change, bases: subjectBasis(subject) })),
         });
         if (!response.ok) throw new Error(await readApiError(response));
         done.push(projectId);
@@ -281,7 +281,8 @@ export function AddToProjectDialog({
     inFlight.current = true;
     setSubmitting(true);
     setRefusal(null);
-    const members = membersFor(subject, ready.deps, checked);
+    const intent = filingIntent(subject, ready.deps, checked);
+    const members = membershipBody(intent);
     const datasetIds = members.addTables ?? [];
     const workflowIds =
       subject.kind === "map" ? (members.addRecipes ?? []) : [];
