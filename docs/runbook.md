@@ -264,6 +264,11 @@ serves on that loopback port; start the instance for that with
 instance can reach the port (in a container, in its network namespace). Use
 an owned loopback port of 3300 or higher.
 
+The pipeline's image job runs both journeys after every merge this way: each
+on a fresh volume of its own, seeded, the container replaced over that
+volume, then verified, driven from the MCP probe client image in the
+instance's network namespace, the sharing one over its scripted wire.
+
 The ownership and sharing journeys' route-handler tests also run without a
 listening socket (the sharing one serves its scripted model wire on an
 ephemeral loopback port). Their SQLite reopen and engine reset do not establish process or
