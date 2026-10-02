@@ -130,7 +130,7 @@ interface Shared {
   groupOf: (operation: string) => string | null;
   /** The name, or the rename input while editing. */
   nameCell: ReactNode;
-  /** The three actions: rename, export, the two-press delete. */
+  /** The actions: rename, export, share, the two-press delete. */
   acts: ReactNode;
   onOpen: () => void;
 }

@@ -78,6 +78,16 @@ export const IconTrash = () => (
   </Stroke>
 );
 
+/** The people glyph at the gallery's weight, so a card's Share action
+ * sits level with its neighbours; the chrome-tier glyph in the shared
+ * icon module draws the same figure heavier. */
+export const IconPeople = () => (
+  <Stroke>
+    <circle cx="9.2" cy="8.4" r="3.2" />
+    <path d="M3.2 19.6c.7-3.1 3.1-5 6-5s5.3 1.9 6 5M15.4 5.6a3.2 3.2 0 0 1 0 5.6M17.6 14.9c1.7.6 3 2.2 3.5 4.7" />
+  </Stroke>
+);
+
 export const IconSql = () => (
   <Stroke>
     <path d="m8 9-4 3 4 3M16 9l4 3-4 3M13 6l-2 12" />
