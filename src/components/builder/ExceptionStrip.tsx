@@ -1,4 +1,5 @@
 "use client";
+import { editHeaders } from "@/lib/edit-basis";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { readApiError } from "../api";
@@ -65,7 +66,7 @@ export function ExceptionStrip({ layer }: { layer: { id: string; sql: string } }
     try {
       const accepted = await fetch(
         `/api/recipes/${encodeURIComponent(status.recipeId)}/steps/${encodeURIComponent(status.stepId)}/run`,
-        { method: "POST" },
+        { method: "POST", headers: status.editRevision ? editHeaders({ editRevision: status.editRevision }) : undefined },
       );
       if (!accepted.ok) throw new Error(await readApiError(accepted));
       // A step's own run is one of the recipe's runs: its one member's

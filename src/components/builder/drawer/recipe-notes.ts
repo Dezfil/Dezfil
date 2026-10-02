@@ -86,6 +86,7 @@ export function reloadRecipeNotes(): void {
  * own condition — never a recipe roll-up. */
 export interface OutputStatus {
   recipeId: string;
+  editRevision?: string;
   stepId: string;
   operation: string;
   /** The served label, falling back to the humanized id while the catalog
@@ -152,6 +153,7 @@ export function useOutputStatus(layerSql: string): OutputStatus | null {
       });
       return {
         recipeId: recipe.id,
+        ...(recipe.editRevision ? { editRevision: recipe.editRevision } : {}),
         stepId: step.id,
         operation: step.operation,
         operationLabel:

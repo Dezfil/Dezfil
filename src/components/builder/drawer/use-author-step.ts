@@ -1,6 +1,9 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { editHeaders } from "@/lib/edit-basis";
+import { useEditorRequest } from "../../document-editor-context";
+import type { RecipeSummary } from "./recipe-model";
 import { readApiError, type TableListing } from "../../api";
 import type { AuthoredStep } from "./ParameterForm";
 import { pollUntilTerminal } from "./poll";
@@ -57,6 +60,7 @@ export interface AuthorStepPort {
   clearError: () => void;
   author: (args: {
     recipeId: string | null;
+    recipe?: RecipeSummary;
     recipeName: string;
     step: AuthoredStep;
     /**
@@ -81,15 +85,19 @@ export function useAuthorStep({
 }): AuthorStepPort {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const request = useEditorRequest();
+  const acceptedBases = useRef(new Map<string, string>());
 
   const author = useCallback(
     async ({
       recipeId,
+      recipe,
       recipeName,
       step,
       onRecipe,
     }: {
       recipeId: string | null;
+      recipe?: RecipeSummary;
       recipeName: string;
       step: AuthoredStep;
       onRecipe: (recipeId: string) => void;
@@ -99,18 +107,26 @@ export function useAuthorStep({
       try {
         // 1. The recipe, if this is the first run of a draft.
         let id = recipeId;
+        let revision = recipe?.editRevision ?? (id ? acceptedBases.current.get(id) : undefined);
+        const accept = (result: { editRevision?: string }) => {
+          if (result.editRevision) {
+            revision = result.editRevision;
+            if (id) acceptedBases.current.set(id, revision);
+          }
+        };
+        const headers = (initial?: HeadersInit) => revision ? editHeaders({ editRevision: revision }, initial) : new Headers(initial);
         if (id === null) {
-          id = (
-            await readJson<{ recipe: { id: string } }>(
-              await fetch("/api/recipes", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                // The builder's one-step recipes say so, which is what keeps
-                // them off the workflows page.
-                body: JSON.stringify({ name: recipeName, origin: "builder" }),
-              }),
-            )
-          ).recipe.id;
+          const created = await readJson<{ recipe: { id: string; editRevision: string } }>(
+            await fetch("/api/recipes", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              // The builder's one-step recipes say so, which is what keeps
+              // them off the workflows page.
+              body: JSON.stringify({ name: recipeName, origin: "builder" }),
+            }),
+          );
+          id = created.recipe.id;
+          accept(created.recipe);
           // Bound here, not at the end: everything after this can fail, and a
           // retry must join the recipe rather than mint another.
           onRecipe(id);
@@ -124,6 +140,8 @@ export function useAuthorStep({
         // an unfinished one-step recipe holds at most one output-less
         // step, and the sweep deletes whatever is there before adding.
         if (recipeId !== null) {
+          // This read locates unfinished work. It never replaces the basis
+          // captured with the form or returned by our accepted predecessor.
           const listed = await readJson<{
             recipes: {
               id: string;
@@ -134,19 +152,20 @@ export function useAuthorStep({
           for (const stale of bound?.steps.filter((x) => x.output === null) ?? []) {
             const removal = await fetch(
               `/api/recipes/${encodeURIComponent(id)}/steps/${encodeURIComponent(stale.id)}`,
-              { method: "DELETE" },
+              { method: "DELETE", headers: headers() },
             );
             if (!removal.ok && removal.status !== 404) {
               throw new Error(await readApiError(removal));
             }
+            if (removal.ok) accept(await removal.json());
           }
         }
         // A refusal here — an unknown input, a backward read, a name already
         // taken — is the API's own sentence, shown as it is.
-        const { step: added } = await readJson<{ step: { id: string } }>(
+        const addedResult = await readJson<{ step: { id: string }; editRevision: string }>(
           await fetch(`/api/recipes/${encodeURIComponent(id)}/steps`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: headers({ "Content-Type": "application/json" }),
             body: JSON.stringify({
               operation: step.operation,
               parameters: step.parameters,
@@ -154,6 +173,8 @@ export function useAuthorStep({
             }),
           }),
         );
+        accept(addedResult);
+        const added = addedResult.step;
 
         // 3. Run it, and 4. wait for a terminal state. The run outlives this
         // request by design, so what happens here is polling, not awaiting.
@@ -162,7 +183,7 @@ export function useAuthorStep({
         const { run: accepted } = await readJson<{ run: { id: string; members: { jobId: string | null }[] } }>(
           await fetch(
             `/api/recipes/${encodeURIComponent(id)}/steps/${encodeURIComponent(added.id)}/run`,
-            { method: "POST" },
+            { method: "POST", headers: headers() },
           ),
         );
         const jobId = accepted.members[0]?.jobId;
@@ -206,7 +227,7 @@ export function useAuthorStep({
         if (table.geometryColumn !== null) {
           try {
             const layer = await readJson<{ id: string }>(
-              await fetch(`/api/maps/${encodeURIComponent(mapId)}/layers`, {
+              await request(`/api/maps/${encodeURIComponent(mapId)}/layers`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 // The output is the runner's own dataset, named as their
@@ -257,7 +278,7 @@ export function useAuthorStep({
         onSettled();
       }
     },
-    [mapId, onSettled],
+    [mapId, onSettled, request],
   );
 
   return { busy, error, clearError: useCallback(() => setError(null), []), author };

@@ -8,6 +8,8 @@ import type { ModelChoice } from "./model-choice";
 import { modelChoice } from "./model-choice-store";
 import { ModelPicker } from "./ModelPicker";
 import { useAssistantTurn } from "./use-assistant-turn";
+import { DocumentEditorContext, type DocumentEditorPort } from "../../document-editor-context";
+import { DocumentSequence } from "../../document-sequence";
 
 /**
  * What the pane is left holding when a submission is refused ("a later
@@ -38,10 +40,10 @@ const pickerFor = (bound: ModelChoice | undefined) =>
   renderToStaticMarkup(<ModelPicker models={OFFERED} instanceModel="gpt-5.6-terra" disabled={false} bound={bound} />);
 
 /** The hook's own callbacks, over the tab's real conversation store. */
-function paneTurn(): Turn {
+function paneTurn(editor: DocumentEditorPort | null = null): Turn {
   let captured: Turn | undefined;
   function Probe() { captured = useAssistantTurn(undefined, () => {}); return null; }
-  renderToStaticMarkup(<Probe />);
+  renderToStaticMarkup(<DocumentEditorContext.Provider value={editor}><Probe /></DocumentEditorContext.Provider>);
   return captured!;
 }
 
@@ -72,6 +74,21 @@ const seen = (method: string, url: string) => sent.some((call) => call.method ==
 
 beforeEach(() => { conversation.resetForTests(); modelChoice.resetForTests(); sent = []; });
 afterEach(() => { globalThis.fetch = original; });
+
+it("orders recovered assistant results before later editor intent", async () => {
+  const sequence = new DocumentSequence("map");
+  const events: string[] = [];
+  let release!: () => void;
+  const saving = sequence.enqueue(() => new Promise<void>((resolve) => { release = resolve; }));
+  answering((_method, url) => url === `/api/assistant/runs/${RUN}` ? json(receipt({ state: "completed", actions: [{ id: "edit", tool: "update_map", status: "succeeded" }] })) : undefined);
+  const editor: DocumentEditorPort = { sequence, request: fetch, turn: work => sequence.enqueue(async () => { await work(); events.push("accepted recovery"); }) };
+  const recovery = paneTurn(editor).recover(RUN);
+  const later = sequence.enqueue(async () => { events.push("later intent"); });
+  expect(sent).toHaveLength(0);
+  release();
+  await Promise.all([saving, recovery, later]);
+  expect(events).toEqual(["accepted recovery", "later intent"]);
+});
 
 describe("a run that is no longer there", () => {
   it("gives the picker back, instead of locking it on a pair no run holds", async () => {

@@ -1,4 +1,5 @@
 "use client";
+import { editHeaders } from "@/lib/edit-basis";
 
 import { useState } from "react";
 import { readApiError } from "./api";
@@ -75,7 +76,7 @@ export function TableRunState({
     try {
       const accepted = await fetch(
         `/api/recipes/${encodeURIComponent(ref.recipeId)}/steps/${encodeURIComponent(ref.stepId)}/run`,
-        { method: "POST" },
+        { method: "POST", headers: recipe?.editRevision ? editHeaders(recipe) : undefined },
       );
       if (!accepted.ok) throw new Error(await readApiError(accepted));
       // A step's own run is one of the recipe's runs: its one member's

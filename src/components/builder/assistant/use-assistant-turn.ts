@@ -55,7 +55,11 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
     return () => { cancelled = true; };
   }, [statusAttempt]);
 
-  const { applyReceipt, readOutcome, recover } = useAssistantRecovery({ recoveryId, onMutate: refreshAfterRecovery, replace, pendingList });
+  const { applyReceipt, readOutcome, recover: recoverUnordered } = useAssistantRecovery({ recoveryId, onMutate: refreshAfterRecovery, replace, pendingList });
+  const recover = useCallback((id?: string) => {
+    const work = () => recoverUnordered(id);
+    return editor ? editor.turn(work) : work();
+  }, [editor, recoverUnordered]);
   /** Read through a ref by the mount effect, whose dependencies stay the
    * mount's: re-running it would abort the flight it cleans up. */
   const recoverRef = useRef(recover);
