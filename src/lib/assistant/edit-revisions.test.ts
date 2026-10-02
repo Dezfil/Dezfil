@@ -77,3 +77,21 @@ it("owns every compound filing basis and parks none through a confirmation", asy
   expect(paths).toEqual(["/api/maps/m", "/api/recipes/w"]);
   expect(resumed.bodyArguments(tool, call.args)).toMatchObject({ expectedRevisions: { "map:m": "after-wait-m", "workflow:w": "after-wait-w" } });
 });
+
+it("the loop starts a leaf from its planning result and does not replace it with a later read", async () => {
+  const { testAccountScope } = await import("@/lib/test-support/accounts");
+  const { runAssistant } = await import("./loop");
+  const { stubProvider } = await import("./providers/stub");
+  const tool = buildTools().find(t => t.name === "run_recipe")!;
+  const sent: (string | null)[] = [], reads: string[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => {
+    reads.push(String(input));
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    if (body.plan) return Response.json({ editRevision: "planned", plan: { wide: false, members: ["s"] } });
+    sent.push(new Headers(init?.headers).get("X-Edit-Revision"));
+    return Response.json({ error: { code: "stale_revision", message: "This item has changed. Reload it before trying again." } }, { status: 409 });
+  };
+  const provider = stubProvider([{ text: "", toolCalls: [{ id: "run", name: tool.name, args: { id: "w", fromStepId: "s", expected_revision: "invented" } }] }, { text: "Done", toolCalls: [] }]);
+  for await (const event of runAssistant(provider, { message: "Run", history: [] }, { scope: testAccountScope(undefined, "start-basis"), tools: [tool], fetchImpl, baseUrl: "http://instance.test", autoCheck: false })) void event;
+  expect(sent).toEqual(["planned"]); expect(reads).toEqual(["http://instance.test/api/recipes/w/runs", "http://instance.test/api/recipes/w/runs"]);
+});

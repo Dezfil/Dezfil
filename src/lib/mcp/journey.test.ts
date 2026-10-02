@@ -105,7 +105,7 @@ it('local search makes no external request; the listed external branches contact
       expect((await pollRun(journey.call, 'get_operation_run', { id: accepted.run.id })).state).toBe('succeeded');
     } else {
       const recipe = (await journey.call('create_recipe', { name: 'External branch' })).recipe;
-      await journey.call('add_recipe_step', { id: recipe.id, operation: 'geocode_addresses', parameters });
+      await journey.call('add_recipe_step', { id: recipe.id, operation: 'geocode_addresses', parameters, expected_revision: recipe.editRevision });
       const accepted = await journey.gate('run_recipe', { id: recipe.id }, true);
       expect((await pollRun(journey.call, 'get_recipe_run', { id: recipe.id, runId: accepted.body.run.id })).outcome).toBe('completed');
     }

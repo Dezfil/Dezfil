@@ -145,12 +145,7 @@ async function runWorkflow(
   recipeId: string,
   stepId: string,
 ): Promise<RunRecord> {
-  const started = await api<{ run: RunRecord }>(
-    page,
-    "POST",
-    `/api/recipes/${recipeId}/runs`,
-    {},
-  );
+  const started = await readThenWriteBrowserSetup(page, `/api/recipes/${recipeId}`, () => ({ method: "POST", path: `/api/recipes/${recipeId}/runs`, body: {} })).then(result => result.json as { run: RunRecord });
   await expect
     .poll(async () => (await readRun(page, recipeId, started.run.id)).outcome, {
       timeout: 60_000,

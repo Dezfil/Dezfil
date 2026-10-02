@@ -118,7 +118,7 @@ describe("the name rule at add and edit", () => {
     const id = await newRecipe();
     const added = await add(id, "SELECT name FROM stations", "frozen_out");
     const stepId = ((await body(added)).step as Json).id as string;
-    expect((await runStep(testAccountRequest(post({})), PS(id, stepId))).status).toBe(202);
+    expect((await runStep(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), PS(id, stepId))).status).toBe(202);
     await laneSettled();
     expect(((await stepsOf(id))[0].output as Json).name).toBe("frozen_out");
     await refused(
@@ -144,7 +144,7 @@ describe("proposals and their discard", () => {
     const id = await newRecipe();
     const added = await add(id, "SELECT name FROM stations", "prop_out");
     const stepId = ((await body(added)).step as Json).id as string;
-    expect((await runStep(testAccountRequest(post({})), PS(id, stepId))).status).toBe(202);
+    expect((await runStep(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), PS(id, stepId))).status).toBe(202);
     await laneSettled();
     // A change after the run is a proposal.
     const changed = await editStep(withFixtureRevision(testAccountRequest(post({ parameters: { sql: "SELECT name, lon FROM stations", name: "prop_out" } })), readEditRevision({ kind: "workflow", id: id })?.editRevision), PS(id, stepId));
@@ -237,7 +237,7 @@ describe("removal truth", () => {
     // A produced node with one reader.
     const a = ((await body(await add(id, "SELECT name FROM stations", "rm_a"))).step as Json).id as string;
     await add(id, "SELECT * FROM rm_a", "rm_b");
-    expect((await runStep(testAccountRequest(post({})), PS(id, a))).status).toBe(202);
+    expect((await runStep(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), PS(id, a))).status).toBe(202);
     await laneSettled();
     const gone = await body(await remove(id, a));
     expect(gone.output).toEqual({ name: "rm_a", state: "exists" });
@@ -246,7 +246,7 @@ describe("removal truth", () => {
     expect(gone.message).toMatch(/remains.*One node reads it as a workspace table now/);
     // A produced node whose dataset was deleted since.
     const c = ((await body(await add(id, "SELECT name FROM stations", "rm_c"))).step as Json).id as string;
-    expect((await runStep(testAccountRequest(post({})), PS(id, c))).status).toBe(202);
+    expect((await runStep(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), PS(id, c))).status).toBe(202);
     await laneSettled();
     expect((await deleteTable(testAccountRequest(post({})), { params: Promise.resolve({ name: "rm_c" }) })).status).toBeLessThan(300);
     const deleted = await body(await remove(id, c));

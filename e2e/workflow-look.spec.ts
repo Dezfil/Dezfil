@@ -448,7 +448,7 @@ for (const theme of ["light", "dark"] as const) {
     await test.step("the panel's callout wraps: no sideways scroll after an edit with long names", async () => {
       const panel = page.locator("[data-node-panel]");
       // The callout shows for a node whose output holds a last run: run it once.
-      await api(page, "POST", `/api/recipes/${id}/runs`);
+      await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/runs` })).then(result => result.json);
       await expect
         .poll(async () => ((await api(page, "GET", `/api/recipes/${id}`)).recipe as { steps: { output: unknown }[] }).steps[0]?.output ?? null, { timeout: 30000 })
         .not.toBeNull();
@@ -545,7 +545,7 @@ test("the glass surfaces compute their declared blur", async ({ page }) => {
   await expectBlur(page.locator('header [class*="headCard"]'), "blur(18px)", "the workspace header");
   await expectBlur(pane(page), "blur(18px)", "the canvas pane");
 
-  await api(page, "POST", `/api/recipes/${id}/runs`);
+  await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/runs` })).then(result => result.json);
   await expect
     .poll(async () => ((await api(page, "GET", `/api/recipes/${id}`)).recipe as { steps: { output: unknown }[] }).steps[0]?.output ?? null, { timeout: 30_000 })
     .not.toBeNull();

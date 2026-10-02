@@ -604,9 +604,15 @@ export const RECIPE_SCHEMAS = {
       },
     },
   },
+  RecipeRunStarted: {
+    type: "object", required: ["run", "editRevision"],
+    properties: { run: { $ref: "#/components/schemas/RecipeRun" }, editRevision: DOCUMENT_FACT_PROPERTIES.editRevision },
+  },
   RecipeRunPlan: {
     type: "object",
+    required: ["plan", "editRevision"],
     properties: {
+      editRevision: DOCUMENT_FACT_PROPERTIES.editRevision,
       plan: {
         type: "object",
         properties: {

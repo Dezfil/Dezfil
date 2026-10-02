@@ -72,7 +72,7 @@ async function addSql(page: Page, id: string, sql: string, name: string): Promis
 /** Run everything and wait for the run to settle; then every step that
  * ran has an output. */
 async function runAll(page: Page, id: string) {
-  await api(page, "POST", `/api/recipes/${id}/runs`);
+  await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/runs` })).then(result => result.json);
   await expect
     .poll(
       async () => {

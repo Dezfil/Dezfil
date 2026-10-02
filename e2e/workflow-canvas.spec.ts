@@ -242,7 +242,7 @@ test("edges, states, the stage, the minimap, the pane, failures, emptiness and f
     // The tables route is keyed by name.
     await api(page, "DELETE", `/api/tables/${gone}`);
     // The failing node runs and fails; the reader cannot run.
-    await api(page, "POST", `/api/recipes/${id}/steps/${failing}/run`);
+    await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps/${failing}/run` })).then(result => result.json);
     await expect
       .poll(async () => ((await readRecipe(page, id)).steps as Json[])[1].latestAttempt, { timeout: 30_000 })
       .toMatchObject({ state: "failed" });
@@ -376,10 +376,10 @@ test("edges, states, the stage, the minimap, the pane, failures, emptiness and f
     // live output is not listed at all.
     const elsewhere = await newRecipe(page, `Elsewhere ${runId}`);
     const theirs = await addSql(page, elsewhere, `SELECT name FROM ${table}`, `${table}_theirs`);
-    await api(page, "POST", `/api/recipes/${elsewhere}/steps/${theirs}/run`);
+    await readThenWriteBrowserSetup(page, `/api/recipes/${elsewhere}`, () => ({ method: "POST", path: `/api/recipes/${elsewhere}/steps/${theirs}/run` })).then(result => result.json);
     const id = await newRecipe(page, `Pane ${runId}`);
     const step = await addSql(page, id, `SELECT name FROM ${table}`, `${table}_pane`);
-    await api(page, "POST", `/api/recipes/${id}/steps/${step}/run`);
+    await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps/${step}/run` })).then(result => result.json);
     for (const r of [elsewhere, id]) {
       await expect
         .poll(async () => ((await readRecipe(page, r)).steps as Json[])[0].output, { timeout: 30_000 })

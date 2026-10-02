@@ -214,7 +214,7 @@ test("the 16-C export end to end", async ({ page, context }) => {
       operation: "sql_step",
       parameters: { sql: `SELECT * FROM ${T_A}`, name: OUT },
     } })).then(result => result.json);
-    await api(page, "POST", `/api/recipes/${wf}/runs`);
+    await readThenWriteBrowserSetup(page, `/api/recipes/${wf}`, () => ({ method: "POST", path: `/api/recipes/${wf}/runs` })).then(result => result.json);
     await expect
       .poll(
         async () =>

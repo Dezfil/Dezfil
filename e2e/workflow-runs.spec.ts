@@ -383,11 +383,11 @@ test("a slow statement: waiting and running across the tiles, the unsettled memb
 
   await test.step("a second start while the run is in flight is refused by the API naming the run; the action here is Cancel", async () => {
     const live = (await listRuns(page, id))[0];
-    const second = await api(page, "POST", `/api/recipes/${id}/runs`);
+    const second = await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/runs` }));
     expect(second.status).toBe(409);
     expect(String((second.json.error as Json).code)).toBe("run_in_flight");
     expect(String((second.json.error as Json).message)).toContain(live.id);
-    const single = await api(page, "POST", `/api/recipes/${id}/steps/${aside}/run`);
+    const single = await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps/${aside}/run` }));
     expect(single.status).toBe(409);
     expect((await listRuns(page, id)).length).toBe(1);
     await expect(runAll(page)).toHaveCount(0);
@@ -431,7 +431,7 @@ test("a slow statement: waiting and running across the tiles, the unsettled memb
   });
 
   await test.step("a run started headlessly is found on open, and the outcome line follows it", async () => {
-    const started = await ok(page, "POST", `/api/recipes/${id}/steps/${slow}/run`);
+    const started = await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps/${slow}/run` })).then(result => result.json);
     const headless = (started.run as Run).id;
     await page.goto(`/workflows/${id}`);
     await settled(page);

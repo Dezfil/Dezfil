@@ -268,7 +268,7 @@ export async function seedSharing(base) {
   const renameBasis = captureBasis(expectStatus(await eli('GET', `/api/maps/${map.id}`), 200));
   expectStatus(await eli('PATCH', `/api/maps/${map.id}`, { basis: renameBasis, body: { name: 'Survey, edited' } }), 200, 'editor renames the map');
   const ownerOutput = expectStatus(await ada('GET', `/api/tables/${tables['ada.roads_out'].id}`), 200);
-  await runWorkflow(eli, recipe.id);
+  await runWorkflow(eli, recipe.id, captureBasis((await eli('GET', `/api/recipes/${recipe.id}`)).json));
   const editorOutput = expectStatus(await eli('GET', '/api/tables/roads_out'), 200);
   assert.equal(editorOutput.owner.sqlName, 'eli', 'the Editor\'s run output is the Editor\'s own dataset');
   assert.notEqual(editorOutput.id, ownerOutput.id);

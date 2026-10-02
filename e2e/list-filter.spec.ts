@@ -196,7 +196,7 @@ test("the list filter across Maps, Workflows and Data", async ({
         parameters: { sql: `SELECT * FROM ${T_UP}`, name: OUT },
       } })).then(result => result.json)) as { step: { id: string } }
     ).step.id;
-    await api(page, "POST", `/api/recipes/${w1}/runs`, { members: [step] });
+    await readThenWriteBrowserSetup(page, `/api/recipes/${w1}`, () => ({ method: "POST", path: `/api/recipes/${w1}/runs`, body: { members: [step] } })).then(result => result.json);
     await expect
       .poll(
         async () => {

@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -54,7 +55,7 @@ describe("a step completed after the upgrade", () => {
     expect(rows("SELECT runner_id, output_table_id, output_table_name, job_id, run_id FROM step_runner_outputs WHERE step_id = ?", step.id))
       .toEqual([{ runner_id: "test-account", output_table_id: alone.outputTableId, output_table_name: "named_stations", job_id: job.id, run_id: null }]);
 
-    const run = await startCascade(scope, { recipeId: recipe.id });
+    const run = await startCascade(scope, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id })?.editRevision, recipeId: recipe.id });
     await cascadeSettled(run.id);
     await laneSettled();
     const member = (rows("SELECT job_id FROM cascade_members WHERE cascade_id = ?", run.id) as { job_id: string }[])[0];

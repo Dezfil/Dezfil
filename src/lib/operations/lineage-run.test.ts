@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm, stat } from "node:fs/promises";
@@ -262,7 +263,7 @@ describe("lineage pinned to the run", () => {
     const one = step();
     const two = step("lineage_dependent", "SELECT value FROM lineage_output");
     const hold = holdAt("copied", one.id);
-    const cascade = await startCascade(testAccountScope(), { recipeId });
+    const cascade = await startCascade(testAccountScope(), { expectedRevision: readEditRevision({ kind: "workflow", id: recipeId })?.editRevision, recipeId });
     try {
       await hold.reached();
       await refresh();
@@ -295,7 +296,7 @@ describe("lineage pinned to the run", () => {
 
     // Explicit user rerun, after both outputs have published. This is the clean
     // cascade control, with the same identities and now the current values.
-    const clean = await startCascade(testAccountScope(), { recipeId });
+    const clean = await startCascade(testAccountScope(), { expectedRevision: readEditRevision({ kind: "workflow", id: recipeId })?.editRevision, recipeId });
     await cascadeSettled(clean.id);
     expect(readCascade(testAccountScope(), clean.id).outcome).toBe("completed");
     expect(readCascade(testAccountScope(), clean.id).members.map((m) => m.state)).toEqual(["succeeded", "succeeded"]);

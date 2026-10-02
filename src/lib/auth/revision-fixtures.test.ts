@@ -71,3 +71,19 @@ it("declares the revision argument on every covered map mutation offered to exte
   }
   expect(tools.find(tool => tool.name === "update_map")!.inputSchema.required ?? []).not.toContain("expected_revision");
 });
+
+it("carries the workflow planning response's token through the external confirmation fixture", async () => {
+  const callTool = vi.fn(async ({ arguments: args }: { arguments: Record<string, unknown> }) => {
+    const result = args.plan ? { editRevision: "planned", plan: { wide: true, members: ["s"] } } : { run: { id: "run" } };
+    return { content: [{ type: "text", text: JSON.stringify(result) }], structuredContent: { result, history: null } };
+  });
+  const client = {
+    listTools: async () => ({ tools: [{ name: "run_recipe", inputSchema: { properties: { expected_revision: {} } }, _meta: {
+      "dezfil/confirmation": { policy: "when_wide", target: "Run {target}", consequence: "Run", subject: { path: "/api/recipes/{id}", name: "name" } },
+      "dezfil/effects": { planningArgument: "plan" },
+    } }] }), callTool,
+  };
+  const journey = await journeyClient(client, async () => ({ name: "Workflow", editRevision: "later" }));
+  await journey.gate("run_recipe", { id: "w" }, true);
+  expect(callTool.mock.calls[1][0].arguments).toEqual({ id: "w", members: ["s"], expected_revision: "planned" });
+});

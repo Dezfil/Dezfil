@@ -1203,3 +1203,15 @@ including project creation and dataset membership. The result's `revisions`
 contains each still-reachable document's resulting token. These are breaking
 request-contract changes. Project dissolution and project transfer remain
 exempt, and dissolution still advances each affected document's revision.
+
+Workflow start requests now require `X-Edit-Revision` (`expected_revision` in
+MCP), for both a whole/dependent workflow and a single step. `plan: true`
+remains a read with no revision input; its response includes the `editRevision`
+paired with the planned definition. Carry that token into the start after
+pending saves settle. Missing or malformed tokens answer `400 invalid_request`;
+a stale token, including a change during asynchronous planning, answers
+`409 stale_revision` before any run, job or output is created. Starts never
+silently replan against a newer revision. An accepted start returns its
+`editRevision` with `run` and does not itself advance the document revision.
+This is a breaking request-contract change. The existing confirmed-membership
+check and single-run lock still apply.

@@ -58,7 +58,7 @@ beforeEach(async () => {
 afterEach(async () => { await laneSettled(); resetLane(); closeMetadataDb(); resetQueryInstance(); vi.unstubAllEnvs(); await rm(directory, { recursive: true, force: true }); });
 
 async function run(account: string) {
-  const cascade = await startSingleRun(scopes[account], ids.W, ids.S);
+  const cascade = await startSingleRun(scopes[account], ids.W, ids.S, { expectedRevision: readEditRevision({ kind: "workflow", id: ids.W })?.editRevision });
   await cascadeSettled(cascade.id); await laneSettled();
   return cascade.id;
 }

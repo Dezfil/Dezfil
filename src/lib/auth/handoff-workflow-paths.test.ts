@@ -113,7 +113,7 @@ describe("a layer captured into a workflow", () => {
 
 describe("a node moved between workflows", () => {
   it("carries a departing output as the mover's own dataset and the source home's datasets qualified", async () => {
-    const run = await startSingleRun(scopes.bob, ids.W1, ids.staged);
+    const run = await startSingleRun(scopes.bob, ids.W1, ids.staged, { expectedRevision: readEditRevision({ kind: "workflow", id: ids.W1 })?.editRevision });
     await cascadeSettled(run.id); await laneSettled();
     const values = { sql: "SELECT * FROM staged UNION ALL SELECT * FROM roads", name: "pasted" };
     const added = await addTo("bob", ids.B, { operation: "sql_step", parameters: values, writtenIn: { kind: "workflow", id: ids.W1 } });

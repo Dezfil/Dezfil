@@ -38,5 +38,5 @@ it("documents one-time token disclosure, ownership and atomic current-password r
   const doc = buildOpenApiDocument();
   expect(Object.keys(doc.paths)).toHaveLength(124);
   expect(Object.values(doc.paths).flatMap(Object.keys)).toHaveLength(163);
-  expect(Object.keys(doc.components.schemas)).toHaveLength(161);
+  expect(Object.keys(doc.components.schemas)).toHaveLength(162);
 });

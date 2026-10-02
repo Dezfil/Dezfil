@@ -86,7 +86,7 @@ function watchMutations(page: Page): { method: string; url: string }[] {
 /** Run the named Buffer and what follows it (the unnamed Buffer and the one
  * reading a vanished table cannot run): the Buffer then holds a last run. */
 async function runOnce(page: Page, id: string, from: string) {
-  await api(page, "POST", `/api/recipes/${id}/runs`, { fromStepId: from });
+  await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/runs`, body: { fromStepId: from } })).then(result => result.json);
   await expect.poll(async () => (await readRecipe(page, id)).steps.find((s) => s.id === from)?.output ?? null, { timeout: 40_000 }).not.toBeNull();
   await page.waitForTimeout(400);
 }

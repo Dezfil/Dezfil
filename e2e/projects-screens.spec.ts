@@ -577,9 +577,9 @@ test("the Projects list and the project home", async ({
     await expect(page.locator("[data-attention]")).toHaveCount(0);
     // Run the node once, then edit it: the pending edit classifies the
     // workflow to-run-again with its truthful cause.
-    await api(page, "POST", `/api/recipes/${wfId}/runs`, {
+    await readThenWriteBrowserSetup(page, `/api/recipes/${wfId}`, () => ({ method: "POST", path: `/api/recipes/${wfId}/runs`, body: {
       members: [stepId],
-    });
+    } })).then(result => result.json);
     await expect
       .poll(
         async () => {
@@ -608,7 +608,7 @@ test("the Projects list and the project home", async ({
         parameters: { sql: `SELECT * FROM ${T2}`, name: `pj_hex_${runId}` },
       } })).then(result => result.json)) as { step: { id: string } }
     ).step.id;
-    await api(page, "POST", `/api/recipes/${wf2}/runs`, { members: [step2] });
+    await readThenWriteBrowserSetup(page, `/api/recipes/${wf2}`, () => ({ method: "POST", path: `/api/recipes/${wf2}/runs`, body: { members: [step2] } })).then(result => result.json);
     await expect
       .poll(
         async () => {
@@ -1538,7 +1538,7 @@ test("the project-first picker: three tabs, one atomic change with what it bring
         operation: "sql_step",
         parameters: { sql: `SELECT * FROM pk_src_${run}`, name: `pk_out_${run}` },
       } })).then(result => result.json);
-      const run1 = (await api(page, "POST", `/api/recipes/${wfId}/runs`, {})) as { id: string };
+      const run1 = (await readThenWriteBrowserSetup(page, `/api/recipes/${wfId}`, () => ({ method: "POST", path: `/api/recipes/${wfId}/runs`, body: {} })).then(result => result.json)) as { id: string };
       await expect
         .poll(
           async () => {

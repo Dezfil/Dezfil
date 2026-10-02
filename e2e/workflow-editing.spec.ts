@@ -44,7 +44,7 @@ const readLayout = async (page: Page, id: string) => (await api(page, "GET", `/a
 const tableNames = async (page: Page) =>
   (await page.evaluate(async () => ((await (await fetch("/api/tables")).json()) as { name: string }[]).map((t) => t.name))).sort();
 async function runAndWait(page: Page, id: string, stepId: string) {
-  await api(page, "POST", `/api/recipes/${id}/steps/${stepId}/run`);
+  await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps/${stepId}/run` })).then(result => result.json);
   await expect.poll(async () => (await readRecipe(page, id)).steps.find((s) => s.id === stepId)?.output, { timeout: 30_000 }).not.toBeNull();
 }
 function watchWrites(page: Page): Request[] {

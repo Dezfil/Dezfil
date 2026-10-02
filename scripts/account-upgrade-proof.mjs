@@ -1,3 +1,4 @@
+import { captureBasis } from "./revision-fixtures.mjs";
 // Executable migration, restore and restart proof. Never accepts an existing
 // data directory: it creates an old store and upgrades only a scratch copy.
 import assert from 'node:assert/strict';
@@ -115,7 +116,7 @@ try {
   assert.equal((await api('GET', '/api/operations/runs/legacy-job')).status, 200);
   const download = await api('GET', `/api/tables/${legacy.table}/export?format=csv`, { raw: true });
   assert.equal(download.status, 200); assert.ok((await download.text()).includes('station'));
-  const run = await api('POST', `/api/recipes/${legacy.workflow}/steps/${legacy.step}/run`); assert.equal(run.status, 202);
+  const run = await api('POST', `/api/recipes/${legacy.workflow}/steps/${legacy.step}/run`, { basis: captureBasis((await api('GET', `/api/recipes/${legacy.workflow}`)).json) }); assert.equal(run.status, 202);
   let finished;
   for (let i = 0; i < 120; i++) {
     finished = await api('GET', `/api/recipes/${legacy.workflow}/runs/${run.json.run.id}`);

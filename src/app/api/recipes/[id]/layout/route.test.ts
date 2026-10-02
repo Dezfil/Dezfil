@@ -283,7 +283,7 @@ describe("the layout document", () => {
     expect((await write(id, { notes: [note("a", "teal")] })).status).toBe(400);
     expect(await at()).toBe(t1);
     // A run is not an edit.
-    const run = await runStep(testAccountRequest(req("POST", {})), { params: Promise.resolve({ id, stepId: s1 }) });
+    const run = await runStep(withFixtureRevision(testAccountRequest(req("POST", {})), readEditRevision({ kind: "workflow", id: id })?.editRevision), { params: Promise.resolve({ id, stepId: s1 }) });
     expect(run.status).toBe(202);
     await laneSettled();
     expect(await at()).toBe(t1);

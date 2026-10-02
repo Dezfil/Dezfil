@@ -587,9 +587,9 @@ test("the scoped catalog end to end", async ({ page, context }) => {
           parameters: { input, distance: 10, name },
         })) as { step: { id: string } };
         const { run } = (await (
-          await fetch(`/api/recipes/${recipe.id}/steps/${step.id}/run`, {
+          await (async function readThenWriteWorkflowSetup() { const basis = await (await fetch(`/api/recipes/${recipe.id}`)).json(); return fetch(`/api/recipes/${recipe.id}/steps/${step.id}/run`, { headers: { "X-Edit-Revision": basis.editRevision },
             method: "POST",
-          })
+          }); })()
         ).json()) as { run: { members: { jobId: string | null }[] } };
         const jobId = run.members[0]?.jobId;
         if (!jobId) return "accepted without an attempt";

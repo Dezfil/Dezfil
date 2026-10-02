@@ -51,7 +51,7 @@ beforeEach(async () => {
     copy: addStep(recipe.id, { operation: "sql_step", parameters: { sql: "SELECT * FROM parks", name: "park_copy" } }).id,
     recipe: recipe.id,
   };
-  const run = await startCascade(scopes.ada, { recipeId: recipe.id });
+  const run = await startCascade(scopes.ada, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id })?.editRevision, recipeId: recipe.id });
   await cascadeSettled(run.id); await laneSettled();
 });
 afterEach(async () => { await laneSettled(); resetLane(); closeMetadataDb(); resetQueryInstance(); vi.unstubAllEnvs(); await rm(directory, { recursive: true, force: true }); });

@@ -114,7 +114,7 @@ test("a Viewer reads the shared map and workflow and can change nothing", async 
       await page.keyboard.press("Delete");
       await page.waitForTimeout(1_000);
       expect(writes.map((r) => `${r.method()} ${new URL(r.url()).pathname}`)).toEqual([]);
-      const refused = await vic.api.post(`/api/recipes/${recipe}/runs`, { data: {} });
+      const refused = await readThenWriteRequestSetup(vic.api, `/api/recipes/${recipe}`, () => ({ method: "POST", path: `/api/recipes/${recipe}/runs`, options: { data: {} } }));
       expect(refused.status()).toBe(403);
       expect(await refused.json()).toEqual(PERMISSION);
     });

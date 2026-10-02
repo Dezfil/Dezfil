@@ -46,7 +46,7 @@ export async function seedOwnership(base) {
     const step = expectStatus(await api('POST', `/api/recipes/${recipe.id}/steps`, { basis: captureBasis(recipe), body: {
       operation: 'sql_step', parameters: { name: 'roads_copy', sql: 'SELECT * FROM roads' },
     } }), 201).step;
-    const run = expectStatus(await api('POST', `/api/recipes/${recipe.id}/steps/${step.id}/run`), 202).run;
+    const run = expectStatus(await api('POST', `/api/recipes/${recipe.id}/steps/${step.id}/run`, { basis: captureBasis((await api('GET', `/api/recipes/${recipe.id}`)).json) }), 202).run;
     const deadline = Date.now() + 30_000;
     for (;;) {
       const current = expectStatus(await api('GET', `/api/recipes/${recipe.id}/runs/${run.id}`), 200).run;

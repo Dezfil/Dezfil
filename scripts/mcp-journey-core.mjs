@@ -25,7 +25,8 @@ export async function journeyClient(client, readSubject, observe = () => {}) {
     assert.ok(tool, name);
     const fact = tool._meta['dezfil/confirmation'];
     const effects = tool._meta['dezfil/effects'];
-    const plan = fact.policy === 'when_wide' ? (await call(name, { ...args, [effects.planningArgument]: true })).plan : undefined;
+    const planned = fact.policy === 'when_wide' ? await call(name, { ...args, [effects.planningArgument]: true }) : undefined;
+    const plan = planned ? { ...planned.plan, editRevision: planned.editRevision } : undefined;
     const needed = fact.policy === 'required' || (fact.policy === 'when_wide' && plan.wide);
     let target;
     if (needed) {

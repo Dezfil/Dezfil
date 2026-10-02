@@ -54,12 +54,12 @@ const inspect = async (page: Page, name: string) => (await ok(page, "GET", `/api
 const features = async (page: Page, name: string) => (await ok(page, "GET", `/api/tables/${encodeURIComponent(name)}/features?sample=1`)) as unknown as Features;
 const listRuns = async (page: Page, id: string) => (await ok(page, "GET", `/api/recipes/${id}/runs`)).runs as Run[];
 const runAll = async (page: Page, id: string) => {
-  const run = (await ok(page, "POST", `/api/recipes/${id}/runs`, {})).run as Run;
+  const run = (await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/runs`, body: {} })).then(result => result.json)).run as Run;
   await expect.poll(async () => (await listRuns(page, id)).find((r) => r.id === run.id)?.outcome, { timeout: 60_000 }).not.toBeNull();
   return run.id;
 };
 const runOne = async (page: Page, id: string, stepId: string) => {
-  const run = (await ok(page, "POST", `/api/recipes/${id}/steps/${stepId}/run`, {})).run as Run;
+  const run = (await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps/${stepId}/run`, body: {} })).then(result => result.json)).run as Run;
   await expect.poll(async () => (await listRuns(page, id)).find((r) => r.id === run.id)?.outcome, { timeout: 60_000 }).not.toBeNull();
   return run.id;
 };

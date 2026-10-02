@@ -1,10 +1,11 @@
+import { callPath, type AssistantRevisions } from "./edit-revisions";
 import { ApiError } from "@/lib/api/errors";
 import type { ToolDef } from "@/lib/tools/tools";
 import { executeTool } from "@/lib/tools/execute";
 import type { ToolCall } from "./provider";
 import { valuesAt, type ResolvedConfirmation } from "./action-metadata";
 
-interface ConfirmationDeps { baseUrl: string; fetchImpl?: typeof fetch; signal?: AbortSignal }
+interface ConfirmationDeps { revisions?: AssistantRevisions; baseUrl: string; fetchImpl?: typeof fetch; signal?: AbortSignal }
 /** The recipe API owns membership. Bind its current ordered plan, never model-supplied membership. */
 export async function prepareConfirmation(tool: ToolDef, call: ToolCall, deps: ConfirmationDeps): Promise<{ words: ResolvedConfirmation; subject?: unknown } | undefined> {
   let required = tool.confirm;
@@ -14,6 +15,7 @@ export async function prepareConfirmation(tool: ToolDef, call: ToolCall, deps: C
     if (!probe.ok || typeof plan?.wide !== "boolean" || !Array.isArray(plan.members) || !plan.members.every((id) => typeof id === "string" && id.length > 0)) {
       throw new ApiError("assistant_plan_unavailable", "The current workflow membership could not be established. No run was approved or started.", 409);
     }
+    deps.revisions?.observe(callPath(tool, call.args), probe.body);
     call.args = { ...call.args, members: [...plan.members] };
     required = plan.wide;
   }

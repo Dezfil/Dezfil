@@ -342,7 +342,7 @@ async function main() {
       fail("running the whole recipe was not reported wide", JSON.stringify(wholePlan.json));
 
     // Run it: dependency order, and its own durable result.
-    const started = await api("POST", `/api/recipes/${recipeId}/runs`, { body: {} });
+    const started = await api("POST", `/api/recipes/${recipeId}/runs`, { basis: captureBasis((await api('GET', `/api/recipes/${recipeId}`)).json), body: {} });
     if (started.status !== 202 || !started.json?.run?.id)
       fail("recipe run was not accepted", JSON.stringify(started.json));
     const finished = await settleRecipeRun(recipeId, started.json.run.id, "run all");
@@ -360,7 +360,7 @@ async function main() {
     // what the second read is a generation behind. It goes stale and names the
     // input that did it — while the first, which just ran, is current.
     const beforeRerun = (await api("GET", "/api/tables")).json.find((t) => t.name === one);
-    const rerun = await api("POST", `/api/recipes/${recipeId}/steps/${stepOne.id}/run`);
+    const rerun = await api("POST", `/api/recipes/${recipeId}/steps/${stepOne.id}/run`, { basis: captureBasis((await api('GET', `/api/recipes/${recipeId}`)).json) });
     if (rerun.status !== 202) fail("step re-run was not accepted", JSON.stringify(rerun.json));
     // A node's own run is one of the recipe's runs: one member, listed.
     if (rerun.json.run.kind !== "single" || rerun.json.run.members?.length !== 1)
@@ -390,7 +390,7 @@ async function main() {
     // Re-running the top brings the chain current, in order, without the user
     // sequencing anything.
     {
-      const again = await api("POST", `/api/recipes/${recipeId}/runs`, {
+      const again = await api("POST", `/api/recipes/${recipeId}/runs`, { basis: captureBasis((await api('GET', `/api/recipes/${recipeId}`)).json),
         body: { fromStepId: stepOne.id },
       });
       if (again.status !== 202)
@@ -434,7 +434,7 @@ async function main() {
       const listed = await api("GET", "/api/recipes?origin=workflow");
       if (!listed.json?.recipes?.some((r) => r.id === copy.id))
         fail("the copy is not listed as a workflow", JSON.stringify(listed.json?.recipes?.map((r) => r.id)));
-      const ran = await api("POST", `/api/recipes/${copy.id}/runs`, { body: {} });
+      const ran = await api("POST", `/api/recipes/${copy.id}/runs`, { basis: captureBasis((await api('GET', `/api/recipes/${copy.id}`)).json), body: {} });
       if (ran.status !== 202) fail("the copy's run was not accepted", JSON.stringify(ran.json));
       const done = await settleRecipeRun(copy.id, ran.json.run.id, "run the copy");
       if (done.outcome !== "completed") fail("the copy did not run to completion", JSON.stringify(done));

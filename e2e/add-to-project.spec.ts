@@ -225,7 +225,7 @@ test("the add-to-project dialog end to end", async ({
       } })).then(result => result.json);
     }
     // One run-all produces both outputs.
-    await api(page, "POST", `/api/recipes/${wfId}/runs`);
+    await readThenWriteBrowserSetup(page, `/api/recipes/${wfId}`, () => ({ method: "POST", path: `/api/recipes/${wfId}/runs` })).then(result => result.json);
     await expect
       .poll(
         async () => {

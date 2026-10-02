@@ -91,7 +91,7 @@ async function runSettled(page: Page, id: string, before: number) {
     .toBe(true);
 }
 async function runAndWait(page: Page, id: string, stepId: string) {
-  await api(page, "POST", `/api/recipes/${id}/steps/${stepId}/run`);
+  await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps/${stepId}/run` })).then(result => result.json);
   await expect.poll(async () => stepById(await readRecipe(page, id), stepId)?.output ?? null, { timeout: 40_000 }).not.toBeNull();
   await page.waitForTimeout(400);
 }
