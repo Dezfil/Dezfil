@@ -11,7 +11,7 @@ shareable view — from one container.
 For development, with live reload:
 
 ```sh
-npm install
+npm ci
 npm run dev
 ```
 
@@ -21,17 +21,18 @@ With Docker installed:
 
 ```sh
 docker build -t dezfil .
-docker run -d --name dezfil -p 3000:3000 -v dezfil-data:/data dezfil
+docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data dezfil
 ```
 
 Open <http://localhost:3000>. The instance reports readiness at
 `/api/health`.
 
-Everything Dezfil stores — tables, maps, layers, styles, published links —
+Everything Dezfil stores, including accounts, sessions, token records, tables,
+maps, layers, styles and published links,
 lives in the `/data` volume (`dezfil-data` above). Back up by copying that
 volume with the container stopped; move to a new container by mounting the
 same volume. To move to another machine, stop the container and copy the
-whole directory: nothing Dezfil needs lives outside it. Running without
+whole directory and preserve any externally supplied `DEZFIL_SECRET_KEY`. Running without
 the volume works, but state then lasts only for that container's lifetime.
 
 On first run, create the initial admin account. Application pages and APIs
@@ -53,10 +54,26 @@ before updating. SQL uses your imported datasets by name. Direct file reads
 and file-referencing projection definitions are refused, including in saved
 queries and published layers; ordinary EPSG transforms remain supported.
 
+Create a personal token in Settings under **API / MCP tokens** for a script or
+agent. Copy its secret once; it cannot be read back. REST and MCP calls use that
+account's current permissions. Revoking a token stops both. See the
+[MCP guide](docs/mcp.md) for client setup and the [API guide](docs/api.md) for
+ordered writes.
+
+Maps and workflows refuse a save based on an older edit revision, even from
+another tab signed into the same account. Unsaved values remain visible. Reload
+offers text copying before discarding the draft and reading current work; it does
+not merge or replay the refused edit. Saved camera moves remain independent.
+Last-change labels identify the person who changed the document; ownership is a
+separate fact. Project sharing gives Viewers read access and Editors map/workflow
+editing and run access. Publication, deletion and transfer remain the owner's.
+
 ## Configuration
 
-Every setting is optional; the defaults below are production-sane. Pass them
-as `-e NAME=value` on `docker run`.
+The deployment settings below are optional. Pass them as `-e NAME=value` on
+`docker run` and restart to change them. Settings also saves account preferences
+and admin-managed instance preferences in the data directory. The optional model
+catalogue is a file there. See [configuration](docs/configuration.md).
 
 | Setting | Default | What it controls |
 |---|---|---|
@@ -201,7 +218,7 @@ rest; the same modules decide for the message route.
 ## Develop
 
 ```sh
-npm install
+npm ci
 npm run dev        # app on http://localhost:3000, data in ./data
 npm test           # unit tests
 npm run lint

@@ -153,7 +153,14 @@ finding dropped for being merely plausible is a finding someone relearns.
 
 ## Out of scope for now
 
-- **Organizations.** Local accounts and sign-in exist; fuller account documentation follows.
+Local accounts, private ownership and project sharing are shipped. Maps and
+workflows use edit revisions: stale saves are refused, unsaved work stays visible,
+and Reload offers text copying before discarding it. There is no automatic merge.
+
+- **Organizations, SSO, audit logs and finer grants.** Sharing is through a
+  project's Viewer or Editor role. Administration does not grant private content
+  access. Individual resource grants and organization-wide permissions are outside
+  this model.
 - **Warehouse connectors.** The engine is DuckDB over files, plus the
   PostGIS connections the ingest path already documents.
 
