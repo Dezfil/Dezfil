@@ -547,10 +547,12 @@ attempt to add, or anyone's attempt to remove what someone else owns from a
 project they do not own, is refused with `forbidden` and changes nothing.
 
 A project's people are its owner and its members, each member a `viewer` or
-an `editor`. `GET /api/projects/{id}/people` answers them to everyone who
-reaches the project: the owner first, then the members by name, each with
-display name, SQL name and role, and `deactivated` while their account is (a
-deactivated member's grant is inert until reactivation). `PUT
+an `editor`. `GET /api/projects/{id}/people` answers them to the project's
+owner: the owner first, then the members by name, each with display name, SQL
+name and role, and `deactivated` while their account is (a deactivated
+member's grant is inert until reactivation). Anyone else who reaches the
+project is answered the owner and themselves alone, with their own role: the
+roster is the owner's to manage. `PUT
 /api/projects/{id}/people/{sqlName}` with a `role` adds a person or changes
 their role, and `DELETE` on the same path removes one; both are the project
 owner's alone, a member's attempt answers `forbidden`, and an administrator

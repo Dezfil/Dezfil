@@ -19,8 +19,9 @@ const LOCAL_SET: McpConsequences = { destructiveHint: true, openWorldHint: false
 const TRANSFER: McpConsequences = { destructiveHint: true, openWorldHint: false, idempotentHint: false };
 
 const PEOPLE_RULES =
-  "A project's people are its owner and its members, each member a viewer or an editor. Everyone who reaches " +
-  "the project reads them. Adding a person, changing a role and removing a person are the project owner's " +
+  "A project's people are its owner and its members, each member a viewer or an editor. The project's owner " +
+  "reads them all; anyone else who reaches the project reads the owner and themselves alone, with their own " +
+  "role. Adding a person, changing a role and removing a person are the project owner's " +
   "alone: a member's attempt returns forbidden and an administrator gains nothing. A person is named by their " +
   "SQL name. A change governs the person's reach on their next request, with no sign-out. ";
 const sqlNameParam = pathParam("sqlName", "The person's SQL name.");
@@ -59,7 +60,7 @@ const PEOPLE_PATHS = {
     get: op(projectAccess({
       summary: "List a project's people",
       description: PEOPLE_RULES +
-        "Answers the owner first, then the members by name, each with their display name, SQL name and role, " +
+        "Answers the owner first, then the members by name (to a member, themselves), each with their display name, SQL name and role, " +
         "and marked deactivated while their account is: a deactivated member keeps their place with their " +
         "grant inert until reactivation. Never an email or an account identity.",
       tag: "Projects",

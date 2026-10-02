@@ -33,19 +33,26 @@ type PersonRow = { name: string; sql_name: string; status: string; role: Project
 const person = (row: PersonRow): ProjectPerson =>
   ({ name: row.name, sqlName: row.sql_name, role: row.role, deactivated: row.status !== "active" });
 
-function peopleOf(projectId: string, ownerId: string, db: Database): ProjectPerson[] {
+/** The owner first, then the members by name; `only` narrows the members to
+ * one account. */
+function peopleOf(projectId: string, ownerId: string, db: Database, only?: string): ProjectPerson[] {
   const owner = db.prepare("SELECT name, sql_name, status, 'owner' AS role FROM accounts WHERE id = ?").get(ownerId) as PersonRow;
   const members = db.prepare(`SELECT a.name, a.sql_name, a.status, pp.role FROM project_people pp
-    JOIN accounts a ON a.id = pp.account_id WHERE pp.project_id = ?
-    ORDER BY a.name COLLATE NOCASE, a.sql_name`).all(projectId) as PersonRow[];
+    JOIN accounts a ON a.id = pp.account_id WHERE pp.project_id = @project AND (@only IS NULL OR pp.account_id = @only)
+    ORDER BY a.name COLLATE NOCASE, a.sql_name`).all({ project: projectId, only: only ?? null }) as PersonRow[];
   return [owner, ...members].map(person);
 }
 
-/** The people of a reached project, the owner first, then its members by name. */
+/** The people of a reached project, as its reader may know them. The roster
+ * and its deactivation marks are the project owner's to manage, so the owner
+ * reads it whole, the owner first, then its members by name; anyone else who
+ * reaches the project reads its owner and themselves with their own role. */
 export function listProjectPeople(scope: AccountScope, projectId: string, db: Database = metadataDb()): ProjectPerson[] {
   return db.transaction(() => {
     const project = requireReachable(scope, "project", projectId, db);
-    return peopleOf(project.parentId, project.ownerId, db);
+    return project.relation === "owner"
+      ? peopleOf(project.parentId, project.ownerId, db)
+      : peopleOf(project.parentId, project.ownerId, db, scope.accountId);
   })();
 }
 

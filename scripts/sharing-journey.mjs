@@ -310,8 +310,11 @@ export async function seedSharing(base) {
   assert.equal(handedMap.owner.sqlName ?? handedMap.owner, 'eli');
   await linkHolds(base, state, 'after the map\'s transfer');
   expectStatus(await ada('POST', `/api/projects/${project.id}/transfer`, { body: { to: 'eli' } }), 200, 'transfer the project');
-  assert.deepEqual(expectStatus(await vic('GET', `/api/projects/${project.id}/people`), 200).people.map(person => [person.sqlName, person.role]),
+  assert.deepEqual(expectStatus(await eli('GET', `/api/projects/${project.id}/people`), 200).people.map(person => [person.sqlName, person.role]),
     [['eli', 'owner'], ['ada', 'editor'], ['vic', 'viewer']]);
+  // A member reads the owner and themselves; the roster is the owner's.
+  assert.deepEqual(expectStatus(await vic('GET', `/api/projects/${project.id}/people`), 200).people.map(person => [person.sqlName, person.role]),
+    [['eli', 'owner'], ['vic', 'viewer']]);
   for (const api of [ada, eli, vic]) {
     assert.deepEqual(await drawn(api, layers.roads), ['ada_roads'], 'the map keeps its home: plain roads stays the home\'s');
     assert.deepEqual(sentinels(await rowsOf(api, `SELECT sentinel FROM ${api === ada ? 'roads' : 'ada.roads'}`)), ['ada_roads']);

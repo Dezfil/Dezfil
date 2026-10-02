@@ -15,7 +15,8 @@ import { PERMISSION_REFUSAL } from "./reach";
  * invitation never redeemed and Bo an active account outside the project. Ada
  * files her map M into P.
  *
- * Everyone who reaches the project reads its people, the owner first. Only the
+ * The project's owner reads its people, the owner first; a member reads the
+ * owner and themselves, their own role included, and nobody else. Only the
  * project's owner adds a person, changes a role or removes one; a member is
  * refused by the permission shape, anyone else by the absent shape, alike on a
  * session and a token, and a refusal changes nothing. A change governs the
@@ -89,15 +90,26 @@ const PEOPLE = () => [
 ];
 
 describe("reading a project's people", () => {
-  it("answers everyone who reaches the project the same list, the owner first, members by name, the deactivated marked", async () => {
-    for (const account of ["pat", "ada", "vi"]) {
-      for (const kind of ["session", "token"] as const) {
-        expect(await call("people", "GET", account, { id: "P" }, undefined, kind), `${account} ${kind}`)
-          .toEqual({ status: 200, body: { people: PEOPLE() } });
-      }
+  it("answers the project's owner the whole list, the owner first, members by name, the deactivated marked", async () => {
+    for (const kind of ["session", "token"] as const) {
+      expect(await call("people", "GET", "pat", { id: "P" }, undefined, kind), kind)
+        .toEqual({ status: 200, body: { people: PEOPLE() } });
     }
     // Never an email, an admin flag or an account identity.
-    expect(JSON.stringify((await call("people", "GET", "vi", { id: "P" })).body)).not.toMatch(/example\.test|isAdmin|"id"/);
+    expect(JSON.stringify((await call("people", "GET", "pat", { id: "P" })).body)).not.toMatch(/example\.test|isAdmin|"id"/);
+  });
+
+  it("answers a member the owner and themselves alone: never the rest of the roster or its deactivation marks", async () => {
+    const [owner, ada, , vi] = PEOPLE();
+    for (const [account, own] of [["ada", ada], ["vi", vi]] as const) {
+      for (const kind of ["session", "token"] as const) {
+        expect(await call("people", "GET", account, { id: "P" }, undefined, kind), `${account} ${kind}`)
+          .toEqual({ status: 200, body: { people: [owner, own] } });
+      }
+    }
+    const read = JSON.stringify((await call("people", "GET", "vi", { id: "P" })).body);
+    expect(read).not.toMatch(/Dee Gone|ada Lovelace|"deactivated":true/);
+    expect(read).not.toMatch(/example\.test|isAdmin|"id"/);
   });
 
   it("refuses an outsider and an admin exactly as a project that does not exist", async () => {

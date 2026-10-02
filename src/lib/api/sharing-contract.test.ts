@@ -216,3 +216,13 @@ it("reports one's own filing in a project one no longer reaches, by identity, an
     expect(texts.filter(text => text.includes(phrase)), phrase).toEqual([]);
   }
 });
+
+it("documents the roster as the owner's to read whole, a member reading the owner and themselves alone", () => {
+  const sentence = "The project's owner reads them all; anyone else who reaches the project reads the owner and themselves alone, with their own role.";
+  const paths = document().paths;
+  for (const [path, method] of [["/api/projects/{id}/people", "get"], ["/api/projects/{id}/people/{sqlName}", "put"], ["/api/projects/{id}/people/{sqlName}", "delete"]]) {
+    expect(paths[path][method].description, `${method} ${path}`).toContain(sentence);
+    expect(paths[path][method].description, `${method} ${path}`).not.toContain("Everyone who reaches the project reads them.");
+  }
+  expect(tool("list_project_people").description).toContain(sentence);
+});
