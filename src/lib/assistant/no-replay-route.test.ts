@@ -2,6 +2,8 @@ import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import v8 from "node:v8";
+import vm from "node:vm";
 import { closeMetadataDb } from "@/lib/metadata/db";
 import { resetQueryInstance } from "@/lib/duckdb";
 import { ingestFile } from "@/lib/ingest/ingest";
@@ -124,6 +126,39 @@ describe("a dropped stream", () => {
     expect(name).toBe("Renamed once");
     expect(receipt.actions).toEqual([expect.objectContaining({ tool: "update_map", status: "succeeded", label: "Updated the map Renamed once" })]);
     expect(patches(map.id)).toHaveLength(1);
+    expect(p.calls()).toBe(1);
+  });
+
+  it("reaches the route when a full collection runs between its return and the departure", async () => {
+    // The fixture hands the route a Request derived from the test's own,
+    // whose signal follows the test's through a weakly held link. A full
+    // collection in that window must not cut the link: the departure still
+    // reaches the route, and the turn ends interrupted after one call.
+    v8.setFlagsFromString("--expose-gc");
+    const gc = vm.runInNewContext("gc") as (options?: { type: "major" }) => void;
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+    const { map, builder } = await seed();
+    const held = { promise: null as unknown as Promise<void>, release: () => {} };
+    held.promise = new Promise<void>((resolve) => { held.release = resolve; });
+    holdPatch = held;
+    const p = provider([
+      { text: "", toolCalls: [{ id: "rename-collected", name: "update_map", args: { id: map.id, name: "Renamed once" } }] },
+      { text: "Done", toolCalls: [] },
+    ]);
+    const runId = await reserve();
+    const controller = new AbortController();
+    const request = new Request(origin + "/api/assistant/messages", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ runId, message: "Rename", context: builder }), signal: controller.signal });
+    const response = await dispatchAssistantTestRoute(request);
+    expect(response.status).toBe(200);
+    await vi.waitFor(() => expect(patches(map.id)).toHaveLength(1));
+    await settle(); gc({ type: "major" }); await settle(); gc({ type: "major" });
+    controller.abort(new DOMException("departed", "AbortError"));
+    expect(request.signal.aborted).toBe(true);
+    held.release();
+    const drained = (await response.text()).trim().split("\n").map((l) => (JSON.parse(l) as AssistantEvent).type);
+    expect(drained).toEqual(["tool_call", "tool_result", "done"]);
+    await vi.waitFor(async () => expect((await receiptOf(runId)).state).not.toBe("running"));
+    expect((await receiptOf(runId)).state).toBe("interrupted");
     expect(p.calls()).toBe(1);
   });
 });
