@@ -191,10 +191,10 @@ test("the list filter across Maps, Workflows and Data", async ({
     // A run output joins its workflow's project with source "operation",
     // giving the scope a second source kind for the chip fallback.
     const step = (
-      (await api(page, "POST", `/api/recipes/${w1}/steps`, {
+      (await readThenWriteBrowserSetup(page, `/api/recipes/${w1}`, () => ({ method: "POST", path: `/api/recipes/${w1}/steps`, body: {
         operation: "sql_step",
         parameters: { sql: `SELECT * FROM ${T_UP}`, name: OUT },
-      })) as { step: { id: string } }
+      } })).then(result => result.json)) as { step: { id: string } }
     ).step.id;
     await api(page, "POST", `/api/recipes/${w1}/runs`, { members: [step] });
     await expect
@@ -398,7 +398,7 @@ test("the list filter across Maps, Workflows and Data", async ({
       recipe: { projectId: string | null };
     };
     expect(made.recipe.projectId).toBe(pa);
-    await api(page, "DELETE", `/api/recipes/${wfId}`);
+    await readThenWriteBrowserSetup(page, `/api/recipes/${wfId}`, () => ({ method: "DELETE", path: `/api/recipes/${wfId}` })).then(result => result.json);
   });
 
   await test.step("Data: the unset scope's face and its All row", async () => {

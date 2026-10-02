@@ -1,3 +1,4 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 // Resting baselines for the two-tone operation set (plan's pixel round):
 // the four surfaces that draw an operation's pictogram, captured at rest
@@ -47,7 +48,7 @@ for (const theme of ["light", "dark"] as const) {
     await page.goto("/workflows");
     await seedCsv(page, tableName, readFileSync(path.join(FIXTURES_DIR, "stations.csv"), "utf8"));
     const recipe = (await api(page, "POST", "/api/recipes", { name: `Icon pixels ${theme} ${runId}` })).recipe as { id: string };
-    await api(page, "POST", `/api/recipes/${recipe.id}/steps`, { operation: "sql_step", parameters: { sql: `SELECT * FROM ${tableName}`, name: `oip_out_${theme}_${runId}` } });
+    await readThenWriteBrowserSetup(page, `/api/recipes/${recipe.id}`, () => ({ method: "POST", path: `/api/recipes/${recipe.id}/steps`, body: { operation: "sql_step", parameters: { sql: `SELECT * FROM ${tableName}`, name: `oip_out_${theme}_${runId}` } } })).then(result => result.json);
     await page.goto(`/workflows/${recipe.id}`);
     await expect(page.locator("[data-workflow-canvas]")).toBeVisible();
     await page.waitForTimeout(400);

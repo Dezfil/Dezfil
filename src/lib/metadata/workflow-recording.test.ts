@@ -1,3 +1,5 @@
+import { getStep as readEditStep } from "@/lib/metadata/recipes";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { open } from "./db";
 import type { Database } from "better-sqlite3";
@@ -18,44 +20,44 @@ it("records creation and separates name/layout changes from executable generatio
   const first = revision(recipe.id);
   expect(first.lastChangedBy).toBe(scope.accountId);
   expect(first.executableRevision).toMatch(/^[a-f0-9]{32}$/);
-  workflows.renameRecipe(scope, recipe.id, "Second", db);
+  workflows.renameRecipe(scope, recipe.id, "Second", db, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id }, db)?.editRevision });
   const renamed = revision(recipe.id);
   expect(renamed.editRevision).not.toBe(first.editRevision);
   expect(renamed.executableRevision).toBe(first.executableRevision);
-  workflows.renameRecipe(scope, recipe.id, "Second", db);
+  workflows.renameRecipe(scope, recipe.id, "Second", db, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id }, db)?.editRevision });
   expect(revision(recipe.id)).toEqual(renamed);
   const layout = { steps: {}, sources: { roads: { x: 2, y: 3 } }, notes: [] };
-  writeLayout(scope, recipe.id, layout, db);
+  writeLayout(scope, recipe.id, layout, db, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id }, db)?.editRevision });
   const moved = revision(recipe.id);
   expect(moved.editRevision).not.toBe(renamed.editRevision);
   expect(moved.executableRevision).toBe(first.executableRevision);
-  writeLayout(scope, recipe.id, layout, db);
+  writeLayout(scope, recipe.id, layout, db, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id }, db)?.editRevision });
   expect(revision(recipe.id)).toEqual(moved);
 });
 it("records every executable change, including same-clock edit and restore, and ignores no-ops", () => {
   const scope = testAccountScope(db), recipe = workflows.createRecipe(scope, "First", db);
   vi.spyOn(Date, "now").mockReturnValue(1234567890000);
   let previous = revision(recipe.id);
-  const step = workflows.addStep(scope, recipe.id, { operation: "sql_step", parameters }, db);
+  const step = workflows.addStep(scope, recipe.id, { operation: "sql_step", parameters }, db, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id }, db)?.editRevision });
   expect(revision(recipe.id).executableRevision).not.toBe(previous.executableRevision);
   for (const next of [{ ...parameters, sql: "SELECT 2 AS n" }, parameters]) {
     previous = revision(recipe.id);
-    workflows.editStep(scope, step.id, next, db);
+    workflows.editStep(scope, step.id, next, db, undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: (readEditStep(step.id, db)?.recipeId ?? "missing") }, db)?.editRevision });
     expect(revision(recipe.id).executableRevision).not.toBe(previous.executableRevision);
     expect(revision(recipe.id).editRevision).not.toBe(previous.editRevision);
   }
   previous = revision(recipe.id);
-  workflows.editStep(scope, step.id, parameters, db);
-  workflows.discardProposal(scope, step.id, db);
-  workflows.reorderSteps(scope, recipe.id, [step.id], db);
-  workflows.moveStep(scope, step.id, 0, db);
+  workflows.editStep(scope, step.id, parameters, db, undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: (readEditStep(step.id, db)?.recipeId ?? "missing") }, db)?.editRevision });
+  workflows.discardProposal(scope, step.id, db, { expectedRevision: readEditRevision({ kind: "workflow", id: (readEditStep(step.id, db)?.recipeId ?? "missing") }, db)?.editRevision });
+  workflows.reorderSteps(scope, recipe.id, [step.id], db, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id }, db)?.editRevision });
+  workflows.moveStep(scope, step.id, 0, db, { expectedRevision: readEditRevision({ kind: "workflow", id: (readEditStep(step.id, db)?.recipeId ?? "missing") }, db)?.editRevision });
   expect(revision(recipe.id)).toEqual(previous);
-  const second = workflows.copyStep(scope, step.id, recipe.id, { ...parameters, name: "copy" }, db);
+  const second = workflows.copyStep(scope, step.id, recipe.id, { ...parameters, name: "copy" }, db, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id }, db)?.editRevision });
   previous = revision(recipe.id);
-  workflows.reorderSteps(scope, recipe.id, [second.id, step.id], db);
+  workflows.reorderSteps(scope, recipe.id, [second.id, step.id], db, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id }, db)?.editRevision });
   expect(revision(recipe.id).executableRevision).not.toBe(previous.executableRevision);
   previous = revision(recipe.id);
-  workflows.removeStep(scope, second.id, db);
+  workflows.removeStep(scope, second.id, db, { expectedRevision: readEditRevision({ kind: "workflow", id: (readEditStep(second.id, db)?.recipeId ?? "missing") }, db)?.editRevision });
   expect(revision(recipe.id).executableRevision).not.toBe(previous.executableRevision);
 });
 it("attributes promotion to the runner while output bookkeeping leaves facts alone", () => {
@@ -64,11 +66,11 @@ it("attributes promotion to the runner while output bookkeeping leaves facts alo
   db.prepare("INSERT INTO projects (id, name, owner_id, created_at, updated_at) VALUES ('p','P',?,'t','t')").run(owner.accountId);
   db.exec("INSERT INTO project_people VALUES ('p','runner','editor','t')");
   db.prepare("UPDATE recipes SET project_id = 'p' WHERE id = ?").run(recipe.id);
-  const step = workflows.addStep(owner, recipe.id, { operation: "sql_step", parameters }, db);
+  const step = workflows.addStep(owner, recipe.id, { operation: "sql_step", parameters }, db, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id }, db)?.editRevision });
   let previous = revision(recipe.id);
   recordOutput(step.id, { id: "out", name: "output" }, "now", db);
   expect(revision(recipe.id)).toEqual(previous);
-  workflows.editStep(owner, step.id, { ...parameters, sql: "SELECT 2 AS n" }, db);
+  workflows.editStep(owner, step.id, { ...parameters, sql: "SELECT 2 AS n" }, db, undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: (readEditStep(step.id, db)?.recipeId ?? "missing") }, db)?.editRevision });
   const proposed = workflows.requireStep(owner, recipe.id, step.id, db);
   previous = revision(recipe.id);
   const authorize = stepAuthorizer(runner, { step: proposed, running: proposed.proposedParameters!, isProposal: true }, () => true);

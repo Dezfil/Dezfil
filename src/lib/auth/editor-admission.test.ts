@@ -62,7 +62,7 @@ afterEach(async () => { await laneSettled(); resetLane(); closeMetadataDb(); res
 
 type Handler = (request: Request, context: { params: Promise<Record<string, string>> }) => Promise<Response>;
 async function call(account: string, load: () => Promise<Record<string, unknown>>, url: string, params: Record<string, string>,
-  method: string, body?: unknown, basis?: string) {
+  method: string, body?: unknown, basis?: string | null) {
   const request = testAccountRequest(new Request(`http://instance.test${url}`, { method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": basis } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }) }), undefined, account);
   const response = await ((await load())[method] as Handler)(request, { params: Promise.resolve(params) });
@@ -188,7 +188,7 @@ describe("undo and redo by someone other than the map's owner", () => {
 
 describe("a workflow step saved by someone other than the workflow's owner", () => {
   const addStepAs = (account: string, operation: string, parameters: Record<string, unknown>) =>
-    call(account, route.steps, `/api/recipes/${recipeId}/steps`, { id: recipeId }, "POST", { operation, parameters });
+    call(account, route.steps, `/api/recipes/${recipeId}/steps`, { id: recipeId }, "POST", { operation, parameters }, readEditRevision({ kind: "workflow", id: recipeId })?.editRevision);
 
   it("refuses SQL naming a dataset out of the editor's reach, with nothing written", async () => {
     await refused(() => addStepAs("bob", "sql_step", { sql: "SELECT * FROM secret", name: "leak" }), "secret");
@@ -208,10 +208,10 @@ describe("a workflow step saved by someone other than the workflow's owner", () 
   it("refuses an edit of a step the same way, whether it would land or wait as a proposal", async () => {
     const step = (db().prepare("SELECT id FROM recipe_steps WHERE recipe_id = ?").get(recipeId) as { id: string }).id;
     await refused(() => call("bob", route.step, `/api/recipes/${recipeId}/steps/${step}`, { id: recipeId, stepId: step }, "PATCH",
-      { parameters: { sql: "SELECT * FROM secret", name: "staged" } }), "secret");
+      { parameters: { sql: "SELECT * FROM secret", name: "staged" } }, readEditRevision({ kind: "workflow", id: recipeId })?.editRevision), "secret");
     db().prepare("UPDATE recipe_steps SET output_table_id = ?, output_table_name = 'staged' WHERE id = ?").run(tables["ada.roads"].id, step);
     await refused(() => call("bob", route.step, `/api/recipes/${recipeId}/steps/${step}`, { id: recipeId, stepId: step }, "PATCH",
-      { parameters: { sql: "SELECT * FROM secret", name: "staged" } }), "secret");
+      { parameters: { sql: "SELECT * FROM secret", name: "staged" } }, readEditRevision({ kind: "workflow", id: recipeId })?.editRevision), "secret");
   });
 
   it("keeps the owner's own saves as they were", async () => {

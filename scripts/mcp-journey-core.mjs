@@ -173,7 +173,8 @@ export async function newerJourney(journey, sourceUrl) {
   assert.equal(unstarted.state, 'not_run'); assert.equal(unstarted.jobId, null);
   const catalogue = await call('list_tables');
   assert.ok(!catalogue.some(t => ['mcp_broken', 'mcp_downstream'].includes(t.name)));
-  await gate('delete_recipe', { id: recipe.id }, true);
+  const removalBasis = captureBasis(await call('get_recipe', { id: recipe.id }));
+  await gate('delete_recipe', { id: recipe.id }, true, removalBasis);
   await gate('delete_table', { name: 'mcp_buffer' }, true);
   await gate('delete_table', { name: table.name }, true);
 }

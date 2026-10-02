@@ -1,3 +1,4 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Page } from "@playwright/test";
 import { isAllowedConsoleError } from "./console-allowlist";
@@ -213,18 +214,13 @@ test("a source refresh makes its node stale; a re-run replaces the output and th
         })
       ).recipe.id;
       stepId = (
-        await api<{ step: { id: string } }>(
-          page,
-          "POST",
-          `/api/recipes/${recipeId}/steps`,
-          {
+        await readThenWriteBrowserSetup(page, `/api/recipes/${recipeId}`, () => ({ method: "POST", path: `/api/recipes/${recipeId}/steps`, body: {
             operation: "sql_step",
             parameters: {
               sql: `SELECT * FROM ${sourceName}`,
               name: outputName,
             },
-          },
-        )
+          } })).then(result => result.json as { step: { id: string } })
       ).step.id;
       const firstRun = await runWorkflow(page, recipeId, stepId);
       expect(firstRun.outcome).toBe("completed");

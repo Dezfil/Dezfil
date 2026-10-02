@@ -1,3 +1,4 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 // The conversation across the three pages (answer to its: one shared
 // conversation in the tab, carried by a pane every closed) and the parked
@@ -56,7 +57,7 @@ async function seed(page: Page) {
   const layerId = await addLayer(page, mapId, table, `SELECT * FROM ${table}`);
   const made = await api(page, "POST", "/api/recipes", { name: `nav workflow ${runId}` });
   const recipeId = (made.recipe as { id: string }).id;
-  await api(page, "POST", `/api/recipes/${recipeId}/steps`, { operation: "sql_step", parameters: { sql: `SELECT name FROM ${table}`, name: `${table}_one` } });
+  await readThenWriteBrowserSetup(page, `/api/recipes/${recipeId}`, () => ({ method: "POST", path: `/api/recipes/${recipeId}/steps`, body: { operation: "sql_step", parameters: { sql: `SELECT name FROM ${table}`, name: `${table}_one` } } })).then(result => result.json);
   return { mapId, layerId, recipeId, table };
 }
 async function onBuilder(page: Page, mapId: string) {

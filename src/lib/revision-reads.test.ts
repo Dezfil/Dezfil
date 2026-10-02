@@ -1,3 +1,4 @@
+import { getStep as readEditStep } from "@/lib/metadata/recipes";
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Database } from "better-sqlite3";
@@ -37,7 +38,7 @@ it("pairs reached maps, lists, children and publication with safe covered-change
 });
 it("holds a workflow's revision with its captured steps across asynchronous presentation", async () => {
   const scope = testAccountScope(db), recipe = createRecipe(scope, "Workflow", db);
-  const step = addStep(scope, recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 1", name: "out" } }, db);
+  const step = addStep(scope, recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 1", name: "out" } }, db, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id }, db)?.editRevision });
   const before = readDocumentRevision({ kind: "workflow", id: recipe.id }, db)!;
   let release!: () => void, entered!: () => void;
   const waiting = new Promise<void>(resolve => { entered = resolve; });
@@ -45,7 +46,7 @@ it("holds a workflow's revision with its captured steps across asynchronous pres
   vi.spyOn(reads, "stepReads").mockImplementation(async () => { entered(); await barrier; return []; });
   const pending = readRecipe(scope, recipe.id);
   await waiting;
-  editStep(scope, step.id, { sql: "SELECT 2", name: "out" }, db);
+  editStep(scope, step.id, { sql: "SELECT 2", name: "out" }, db, undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: (readEditStep(step.id, db)?.recipeId ?? "missing") }, db)?.editRevision });
   release();
   const result = recipePayload(await pending);
   expect(result).toMatchObject({ editRevision: before.editRevision, steps: [{ parameters: { sql: "SELECT 1" }, editRevision: before.editRevision }] });
@@ -71,7 +72,7 @@ it("pairs project entries and filing producers with each document's own revision
   const { readWorkflowDependencies } = await import("./recipe-dependencies");
   const { recordOutput } = await import("./metadata/recipes");
   const recipe = createRecipe(scope, "Workflow", db);
-  const step = addStep(scope, recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 1", name: "out" } }, db);
+  const step = addStep(scope, recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 1", name: "out" } }, db, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id }, db)?.editRevision });
   recordOutput(step.id, { id: "output", name: "out" }, "time", db);
   const project = createProject(scope, { name: "Project", members: { addMaps: [map.id], addRecipes: [recipe.id] } }, db);
   const mapRevision = readDocumentRevision({ kind: "map", id: map.id }, db)!.editRevision;

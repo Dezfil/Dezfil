@@ -263,7 +263,7 @@ async function main() {
     const one = `${tableName}_r1`;
     const two = `${tableName}_r2`;
     const addStep = async (parameters) => {
-      const r = await api("POST", `/api/recipes/${recipeId}/steps`, {
+      const r = await api("POST", `/api/recipes/${recipeId}/steps`, { basis: captureBasis((await api('GET', `/api/recipes/${recipeId}`)).json),
         body: { operation: "sql_step", parameters },
       });
       if (r.status !== 201 || !r.json?.step?.id)
@@ -297,7 +297,7 @@ async function main() {
       if (empty.status !== 200 || empty.json?.layout?.updatedAt !== null || empty.json?.layout?.notes?.length !== 0)
         fail("an unarranged recipe did not read the empty document", JSON.stringify(empty.json));
       const editedBefore = (await api("GET", `/api/recipes/${recipeId}`)).json?.recipe?.updatedAt;
-      const put = await api("PUT", `/api/recipes/${recipeId}/layout`, {
+      const put = await api("PUT", `/api/recipes/${recipeId}/layout`, { basis: captureBasis((await api('GET', `/api/recipes/${recipeId}`)).json),
         body: { ...layoutDoc, steps: { ...layoutDoc.steps, "not-a-node": { x: 1, y: 1 } } },
       });
       if (put.status !== 200) fail("the layout was not accepted", JSON.stringify(put.json));
@@ -307,10 +307,10 @@ async function main() {
         fail("the layout did not read back as written, with the unknown node dropped", JSON.stringify(back.json));
       const editedAfter = (await api("GET", `/api/recipes/${recipeId}`)).json?.recipe?.updatedAt;
       if (!(editedAfter > editedBefore)) fail("a changed layout write did not count as an edit", `${editedBefore} → ${editedAfter}`);
-      const same = await api("PUT", `/api/recipes/${recipeId}/layout`, { body: layoutDoc });
+      const same = await api("PUT", `/api/recipes/${recipeId}/layout`, { basis: captureBasis((await api('GET', `/api/recipes/${recipeId}`)).json), body: layoutDoc });
       const editedAgain = (await api("GET", `/api/recipes/${recipeId}`)).json?.recipe?.updatedAt;
       if (same.status !== 200 || editedAgain !== editedAfter) fail("an identical layout write counted as an edit", `${editedAfter} → ${editedAgain}`);
-      const refused = await api("PUT", `/api/recipes/${recipeId}/layout`, {
+      const refused = await api("PUT", `/api/recipes/${recipeId}/layout`, { basis: captureBasis((await api('GET', `/api/recipes/${recipeId}`)).json),
         body: { notes: [{ ...layoutDoc.notes[0], color: "teal" }] },
       });
       if (refused.status !== 400 || !/color/.test(refused.json?.error?.message ?? ""))
@@ -320,7 +320,7 @@ async function main() {
 
     // The rule is enforced at the change, not at the run: a step may read
     // workspace tables and earlier steps only.
-    const backwards = await api("POST", `/api/recipes/${recipeId}/steps`, {
+    const backwards = await api("POST", `/api/recipes/${recipeId}/steps`, { basis: captureBasis((await api('GET', `/api/recipes/${recipeId}`)).json),
       body: {
         operation: "sql_step",
         parameters: { sql: `SELECT * FROM ${two}_later`, name: `${two}_later` },
@@ -447,7 +447,7 @@ async function main() {
       const copyRead = await api("GET", `/api/recipes/${copy.id}`);
       if (copyRead.json?.recipe?.summary?.status !== "up_to_date")
         fail("the copy is not up to date after its run", JSON.stringify(copyRead.json?.recipe?.summary));
-      const removedCopy = await api("DELETE", `/api/recipes/${copy.id}`);
+      const removedCopy = await api("DELETE", `/api/recipes/${copy.id}`, { basis: captureBasis((await api('GET', `/api/recipes/${copy.id}`)).json) });
       if (removedCopy.status !== 200)
         fail("the copy could not be deleted", JSON.stringify(removedCopy.json));
       ok("a workflow was duplicated into a copy that ran on its own outputs and left the original alone");
@@ -456,17 +456,17 @@ async function main() {
     // The editing contract: names, the order inside an edit,
     // SQL that does not parse, proposals and their discard, removal truth.
     {
-      const frozen = await api("PATCH", `/api/recipes/${recipeId}/steps/${stepOne.id}`, {
+      const frozen = await api("PATCH", `/api/recipes/${recipeId}/steps/${stepOne.id}`, { basis: captureBasis((await api('GET', `/api/recipes/${recipeId}`)).json),
         body: { parameters: { sql: `SELECT name, riders FROM ${tableName}`, name: `${one}_renamed` } },
       });
       if (frozen.status !== 400 || !/keeps its name/.test(frozen.json?.error?.message ?? ""))
         fail("a produced output's name was not frozen", JSON.stringify(frozen.json));
-      const taken = await api("POST", `/api/recipes/${recipeId}/steps`, {
+      const taken = await api("POST", `/api/recipes/${recipeId}/steps`, { basis: captureBasis((await api('GET', `/api/recipes/${recipeId}`)).json),
         body: { operation: "sql_step", parameters: { sql: "SELECT 1 AS n", name: one } },
       });
       if (taken.status !== 400 || taken.json?.error?.code !== "name_taken")
         fail("a sibling's declared name was not refused", JSON.stringify(taken.json));
-      const unparsed = await api("POST", `/api/recipes/${recipeId}/steps`, {
+      const unparsed = await api("POST", `/api/recipes/${recipeId}/steps`, { basis: captureBasis((await api('GET', `/api/recipes/${recipeId}`)).json),
         body: { operation: "sql_step", parameters: { sql: "SELEC nonsense FROM", name: `${tableName}_r3` } },
       });
       if (unparsed.status !== 201 || unparsed.json?.step?.reads?.length !== 0)
@@ -474,7 +474,7 @@ async function main() {
       const three = unparsed.json.step;
       // Step one comes to read step three's output: a proposal (it has run) that
       // moves one and its dependent two after three.
-      const linked = await api("PATCH", `/api/recipes/${recipeId}/steps/${stepOne.id}`, {
+      const linked = await api("PATCH", `/api/recipes/${recipeId}/steps/${stepOne.id}`, { basis: captureBasis((await api('GET', `/api/recipes/${recipeId}`)).json),
         body: { parameters: { sql: `SELECT * FROM ${tableName}_r3`, name: one } },
       });
       if (linked.status !== 200 || linked.json?.applied !== "proposed")
@@ -482,10 +482,10 @@ async function main() {
       const ordered = (await api("GET", `/api/recipes/${recipeId}`)).json?.recipe?.steps?.map((s) => s.parameters.name) ?? [];
       if (ordered.join(",") !== `${tableName}_r3,${one},${two}`)
         fail("the reader and its dependent did not move after the producer", ordered.join(","));
-      const dropped = await api("DELETE", `/api/recipes/${recipeId}/steps/${stepOne.id}/proposal`);
+      const dropped = await api("DELETE", `/api/recipes/${recipeId}/steps/${stepOne.id}/proposal`, { basis: captureBasis((await api('GET', `/api/recipes/${recipeId}`)).json) });
       if (dropped.status !== 200 || dropped.json?.discarded !== true || dropped.json?.step?.proposedParameters !== null)
         fail("the pending edit was not discarded", JSON.stringify(dropped.json));
-      const removedThree = await api("DELETE", `/api/recipes/${recipeId}/steps/${three.id}`);
+      const removedThree = await api("DELETE", `/api/recipes/${recipeId}/steps/${three.id}`, { basis: captureBasis((await api('GET', `/api/recipes/${recipeId}`)).json) });
       if (removedThree.status !== 200 || removedThree.json?.output?.state !== "never" || removedThree.json?.outputsRemain !== false)
         fail("removing a never-run node did not say so", JSON.stringify(removedThree.json));
       ok("the editing contract held: a frozen name, a sibling's name refused, unparsed SQL saved, a later producer ordered, a proposal discarded, a removal told truthfully");
@@ -493,7 +493,7 @@ async function main() {
 
     // Deleting the recipe leaves its datasets standing — the disclosure the
     // confirmation is for.
-    const removed = await api("DELETE", `/api/recipes/${recipeId}`);
+    const removed = await api("DELETE", `/api/recipes/${recipeId}`, { basis: captureBasis((await api('GET', `/api/recipes/${recipeId}`)).json) });
     if (removed.status !== 200 || removed.json?.outputsRemain !== true)
       fail("recipe deletion did not disclose that outputs remain", JSON.stringify(removed.json));
     const survivors = (await api("GET", "/api/tables")).json.filter((t) =>

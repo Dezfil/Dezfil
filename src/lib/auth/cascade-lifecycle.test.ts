@@ -1,3 +1,5 @@
+import { getStep as readEditStep } from "@/lib/metadata/recipes";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import path from "node:path";
@@ -100,7 +102,7 @@ it("keeps result identity private after both its step and output are deleted", a
   const run = await startSingleRun(scopes.alice, recipe.id, step.id); await cascadeSettled(run.id);
   const { readCascade } = await import("@/lib/operations/cascade"), before = readCascade(scopes.alice, run.id);
   const { removeTable } = await import("@/lib/table-service"); const { removeStep } = await import("@/lib/metadata/owned-recipes");
-  await removeTable(scopes.alice, "same_output"); removeStep(scopes.alice, step.id);
+  await removeTable(scopes.alice, "same_output"); removeStep(scopes.alice, step.id, undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: (readEditStep(step.id, undefined)?.recipeId ?? "missing") }, undefined)?.editRevision });
   expect(readCascade(scopes.alice, run.id)).toEqual(before);
   for (const account of ["bob", "admin"]) {
     expect(() => readCascade(scopes[account], run.id)).toThrow(expect.objectContaining({ status: 404 }));
@@ -130,7 +132,7 @@ it("drains a single admitted job when its workflow disappears before the member 
     await admission.beforeMutation();
     expect(getJob(jobId)?.state).toBe("running");
     expect(getCascade(cascadeId)?.members[0]).toMatchObject({ state: "pending", jobId: null });
-    deleteRecipe(scopes.alice, recipe.id); admission.release();
+    deleteRecipe(scopes.alice, recipe.id, undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id }, undefined)?.editRevision }); admission.release();
     await cancellation.beforeMutation();
     // The cancellation is durable while preparation still holds the lane.
     expect(getJob(jobId)?.state).toBe("cancelled");

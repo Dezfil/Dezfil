@@ -1178,3 +1178,15 @@ change for unversioned publication clients. The separate admin operation
 `DELETE /api/publications/{token}` still needs no revision: it can revoke only
 a deactivated owner's known token, advances the map revision and returns no
 private document facts.
+
+
+Workflow definition and layout writes require `X-Edit-Revision` (MCP
+`expected_revision`): rename/delete, add/edit/remove/move a step, discard a
+proposal and replace the layout. Read the workflow, step or layout and retain
+its paired token. All share one revision, including notes and positions; chain
+each accepted JSON result. Missing or malformed revisions return
+`400 invalid_request`; stale revisions return `409 stale_revision` with
+“This item has changed. Reload it before trying again.” Validation races are
+refused without changing definition, layout, attribution or outputs. A current
+no-op keeps its revision. Creation and duplication into a new workflow need no
+destination revision. This breaks unversioned workflow editing clients.

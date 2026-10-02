@@ -1,3 +1,4 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Page, type Request } from "@playwright/test";
 import { isAllowedConsoleError } from "./console-allowlist";
@@ -47,10 +48,10 @@ const newRecipe = async (page: Page, name: string) => {
   return id;
 };
 const addSql = async (page: Page, id: string, sql: string, name: string) =>
-  ((await ok(page, "POST", `/api/recipes/${id}/steps`, { operation: "sql_step", parameters: { sql, name } })).step as { id: string }).id;
+  ((await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps`, body: { operation: "sql_step", parameters: { sql, name } } })).then(result => result.json)).step as { id: string }).id;
 const readLayout = async (page: Page, id: string) => (await ok(page, "GET", `/api/recipes/${id}/layout`)).layout as Layout;
 const readRecipe = async (page: Page, id: string) => (await ok(page, "GET", `/api/recipes/${id}`)).recipe as Json & { steps: Json[]; updatedAt: string };
-const putLayout = (page: Page, id: string, layout: Partial<Layout>) => ok(page, "PUT", `/api/recipes/${id}/layout`, { steps: {}, sources: {}, notes: [], ...layout });
+const putLayout = (page: Page, id: string, layout: Partial<Layout>) => readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "PUT", path: `/api/recipes/${id}/layout`, body: { steps: {}, sources: {}, notes: [], ...layout } })).then(result => result.json);
 const listRuns = async (page: Page, id: string) => (await ok(page, "GET", `/api/recipes/${id}/runs`)).runs as Run[];
 
 /** Every layout write the page makes. */
@@ -523,7 +524,7 @@ test("headless notes: stacking under the graph and among themselves, the label b
     await expect(page.locator("[data-note]")).toHaveCount(1);
     await expect(page.getByText("No nodes yet")).toHaveCount(0);
     const gone = await addSql(page, lone, "SELECT 1 AS x", `nh_gone_${runId}`);
-    await ok(page, "DELETE", `/api/recipes/${lone}/steps/${gone}`);
+    await readThenWriteBrowserSetup(page, `/api/recipes/${lone}`, () => ({ method: "DELETE", path: `/api/recipes/${lone}/steps/${gone}` })).then(result => result.json);
     expect((await notesOf(page, lone)).map((n) => n.id)).toEqual(["only"]);
     const copy = (await ok(page, "POST", `/api/recipes/${lone}/duplicate`, {})).recipe as { id: string };
     made.push(copy.id);
@@ -532,7 +533,7 @@ test("headless notes: stacking under the graph and among themselves, the label b
     await settled(page);
     await expect(noteEl(page, "only")).toBeVisible();
     const layoutBefore = await readLayout(page, lone);
-    const refused = await api(page, "PUT", `/api/recipes/${lone}/layout`, { steps: {}, sources: {}, notes: [{ ...layoutBefore.notes[0], color: "red" }] });
+    const refused = await readThenWriteBrowserSetup(page, `/api/recipes/${lone}`, () => ({ method: "PUT", path: `/api/recipes/${lone}/layout`, body: { steps: {}, sources: {}, notes: [{ ...layoutBefore.notes[0], color: "red" }] } }));
     expect(refused.status).toBe(400);
     expect(await readLayout(page, lone)).toEqual(layoutBefore);
   });

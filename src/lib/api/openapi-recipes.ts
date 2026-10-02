@@ -1,3 +1,4 @@
+import { editRevisionParam, editRevisionResponses } from "./openapi-document-facts";
 import { CARRY_RULE, WRITTEN_IN_REF } from "./openapi-written-in";
 import { FILING_DESTINATION } from "./openapi-project-access";
 import { cascadeAccess } from "./openapi-cascade-access";
@@ -118,7 +119,7 @@ export const RECIPE_PATHS = {
       tool: "update_recipe", mcp: LOCAL_REPLACE,
       display: {"verb": "Updated the workflow {subject}", "subject": {"resource": "recipes", "argument": "id", "name": ["recipe.name", "name"]}},
       effects: writes(resource("recipes", "id")),
-      parameters: [pathParam("id", "Recipe id.")],
+      parameters: [editRevisionParam, pathParam("id", "Recipe id.")],
       requestBody: {
         required: true,
         content: {
@@ -131,7 +132,7 @@ export const RECIPE_PATHS = {
           },
         },
       },
-      responses: { "200": jsonOk("#/components/schemas/RecipeEnvelope") },
+      responses: { ...editRevisionResponses, "200": jsonOk("#/components/schemas/RecipeEnvelope") },
     })),
     delete: op(workflowAccess({
       summary: "Delete a recipe",
@@ -146,8 +147,8 @@ export const RECIPE_PATHS = {
       effects: writes(resource("recipes", "id"), resource("projects")),
       confirmation: {"target": "Delete {target}?", "consequence": "This deletes the workflow. Its output datasets remain in the workspace.", "subject": {"path": "/api/recipes/{id}", "argument": "id", "name": "recipe.name"}},
       confirm: true,
-      parameters: [pathParam("id", "Recipe id.")],
-      responses: {
+      parameters: [editRevisionParam, pathParam("id", "Recipe id.")],
+      responses: { ...editRevisionResponses,
         "200": jsonOk("#/components/schemas/RecipeDeleted"),
       },
     })),
@@ -239,7 +240,7 @@ export const RECIPE_PATHS = {
       tool: "set_recipe_layout", mcp: LOCAL_REPLACE,
       display: {"verb": "Arranged the workflow {subject}", "subject": {"resource": "recipes", "argument": "id"}},
       effects: writes(resource("recipes", "id")),
-      parameters: [pathParam("id", "Recipe id.")],
+      parameters: [editRevisionParam, pathParam("id", "Recipe id.")],
       requestBody: {
         required: true,
         content: {
@@ -248,7 +249,7 @@ export const RECIPE_PATHS = {
           },
         },
       },
-      responses: { "200": jsonOk("#/components/schemas/RecipeLayoutEnvelope") },
+      responses: { ...editRevisionResponses, "200": jsonOk("#/components/schemas/RecipeLayoutEnvelope") },
     })),
   },
   "/api/recipes/{id}/steps": {
@@ -287,7 +288,7 @@ export const RECIPE_PATHS = {
       tool: "add_recipe_step", mcp: LOCAL_ADD,
       display: {"verb": "Added a step to the workflow {subject}", "subject": {"resource": "recipes", "argument": "id", "name": ["recipe.name", "name"]}},
       effects: writes(resource("recipes", "id")),
-      parameters: [pathParam("id", "Recipe id.")],
+      parameters: [editRevisionParam, pathParam("id", "Recipe id.")],
       requestBody: {
         required: true,
         content: {
@@ -335,7 +336,7 @@ export const RECIPE_PATHS = {
           },
         },
       },
-      responses: {
+      responses: { ...editRevisionResponses,
         "201": jsonOk("#/components/schemas/RecipeStepEnvelope", "Created."),
       },
     })),
@@ -382,7 +383,7 @@ export const RECIPE_PATHS = {
       tool: "update_recipe_step", mcp: LOCAL_REPLACE,
       display: {"verb": "Edited a step of the workflow {subject}", "subject": {"resource": "recipes", "argument": "id", "name": ["recipe.name", "name"]}},
       effects: writes(resource("recipes", "id")),
-      parameters: [
+      parameters: [editRevisionParam,
         pathParam("id", "Recipe id."),
         pathParam("stepId", "Step id."),
       ],
@@ -412,7 +413,7 @@ export const RECIPE_PATHS = {
           },
         },
       },
-      responses: {
+      responses: { ...editRevisionResponses,
         "200": jsonOk("#/components/schemas/RecipeStepEdited"),
       },
     })),
@@ -430,11 +431,11 @@ export const RECIPE_PATHS = {
       effects: writes(resource("recipes", "id")),
       confirmation: {"target": "Remove {target}?", "consequence": "This removes the node from its workflow. Existing output datasets and run history remain.", "subject": {"path": "/api/recipes/{id}/steps/{stepId}", "argument": "stepId", "name": "step.parameters.name"}},
       confirm: true,
-      parameters: [
+      parameters: [editRevisionParam,
         pathParam("id", "Recipe id."),
         pathParam("stepId", "Step id."),
       ],
-      responses: {
+      responses: { ...editRevisionResponses,
         "200": jsonOk("#/components/schemas/RecipeStepRemoved"),
       },
     })),
@@ -450,11 +451,11 @@ export const RECIPE_PATHS = {
       tool: "discard_recipe_step_edit", mcp: LOCAL_REPLACE,
       display: {"verb": "Discarded a step's pending edit on the workflow {subject}", "subject": {"resource": "recipes", "argument": "id", "name": ["recipe.name", "name"]}},
       effects: writes(resource("recipes", "id")),
-      parameters: [
+      parameters: [editRevisionParam,
         pathParam("id", "Recipe id."),
         pathParam("stepId", "Step id."),
       ],
-      responses: {
+      responses: { ...editRevisionResponses,
         "200": jsonOk("#/components/schemas/RecipeStepDiscarded"),
       },
     })),
@@ -473,7 +474,7 @@ export const RECIPE_PATHS = {
       tool: "move_recipe_step", mcp: LOCAL_REPLACE,
       display: {"verb": "Moved a step of the workflow {subject}", "subject": {"resource": "recipes", "argument": "id", "name": ["recipe.name", "name"]}},
       effects: writes(resource("recipes", "id")),
-      parameters: [
+      parameters: [editRevisionParam,
         pathParam("id", "Recipe id."),
         pathParam("stepId", "Step id."),
       ],
@@ -494,7 +495,7 @@ export const RECIPE_PATHS = {
           },
         },
       },
-      responses: { "200": jsonOk("#/components/schemas/RecipeEnvelope") },
+      responses: { ...editRevisionResponses, "200": jsonOk("#/components/schemas/RecipeEnvelope") },
     })),
   },
   "/api/recipes/{id}/steps/{stepId}/run": {

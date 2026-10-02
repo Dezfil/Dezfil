@@ -1,3 +1,5 @@
+import { withFixtureRevision } from "@/lib/test-support/edit-basis";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -61,7 +63,7 @@ async function newRecipe(name = "R"): Promise<string> {
 
 async function newStep(recipeId: string, sql: string, name: string): Promise<string> {
   const response = await addStep(
-    testAccountRequest(req("POST", { operation: "sql_step", parameters: { sql, name } })),
+    withFixtureRevision(testAccountRequest(req("POST", { operation: "sql_step", parameters: { sql, name } })), readEditRevision({ kind: "workflow", id: recipeId })?.editRevision),
     P(recipeId),
   );
   expect(response.status).toBe(201);
@@ -75,7 +77,7 @@ const layout = async (id: string) => {
   expect(response.status).toBe(200);
   return (await body(response)).layout as Json;
 };
-const write = async (id: string, doc: unknown) => putLayout(testAccountRequest(req("PUT", doc)), P(id));
+const write = async (id: string, doc: unknown) => putLayout(withFixtureRevision(testAccountRequest(req("PUT", doc)), readEditRevision({ kind: "workflow", id: id })?.editRevision), P(id));
 
 const EMPTY = { steps: {}, sources: {}, notes: [], updatedAt: null };
 const note = (id: string, color = "yellow") => ({
@@ -191,7 +193,7 @@ describe("the layout document", () => {
     await refused({ notes: [note("a"), note("a")] }, /duplicates/);
     await refused({ notes: Array.from({ length: 101 }, (_, i) => note(`n${i}`)) }, /at most 100/);
     // Not JSON at all.
-    const broken = await putLayout(testAccountRequest(req("PUT", undefined, "{not json")), P(id));
+    const broken = await putLayout(withFixtureRevision(testAccountRequest(req("PUT", undefined, "{not json")), readEditRevision({ kind: "workflow", id: id })?.editRevision), P(id));
     expect(broken.status).toBe(400);
     expect(await layout(id)).toEqual(stored);
   });
@@ -310,7 +312,7 @@ describe("the layout document", () => {
     expect((await write(id, { steps: { [s1]: { x: 1, y: 1 }, [s2]: { x: 2, y: 2 } }, notes: [note("a")] })).status).toBe(200);
     const t1 = await at();
     expect(t1 > t0).toBe(true);
-    const removed = await removeStep(testAccountRequest(req("DELETE")), { params: Promise.resolve({ id, stepId: s2 }) });
+    const removed = await removeStep(withFixtureRevision(testAccountRequest(req("DELETE")), readEditRevision({ kind: "workflow", id: id })?.editRevision), { params: Promise.resolve({ id, stepId: s2 }) });
     expect(removed.status).toBe(200);
     const t2 = await at();
     const read = await layout(id);
@@ -330,14 +332,14 @@ describe("the layout document", () => {
       sources: { stations: { x: 3, y: 3 } },
       notes: [note("keep")],
     });
-    const removed = await removeStep(testAccountRequest(req("DELETE")), { params: Promise.resolve({ id, stepId: s2 }) });
+    const removed = await removeStep(withFixtureRevision(testAccountRequest(req("DELETE")), readEditRevision({ kind: "workflow", id: id })?.editRevision), { params: Promise.resolve({ id, stepId: s2 }) });
     expect(removed.status).toBe(200);
     const after = await layout(id);
     expect(after.steps).toEqual({ [s1]: { x: 1, y: 1 } });
     expect(after.sources).toEqual({ stations: { x: 3, y: 3 } });
     expect(after.notes).toEqual([note("keep")]);
     // Deleting the recipe takes the document with it.
-    expect((await deleteRecipeRoute(testAccountRequest(req("DELETE")), P(id))).status).toBe(200);
+    expect((await deleteRecipeRoute(withFixtureRevision(testAccountRequest(req("DELETE")), readEditRevision({ kind: "workflow", id: id })?.editRevision), P(id))).status).toBe(200);
     expect(metadataDb().prepare(`SELECT count(*) AS n FROM recipe_layouts`).get()).toEqual({ n: 0 });
     expect((await readLayout(testAccountRequest(req("GET")), P(id))).status).toBe(404);
   });

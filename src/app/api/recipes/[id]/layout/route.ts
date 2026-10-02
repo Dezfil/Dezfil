@@ -1,3 +1,4 @@
+import { EDIT_REVISION_HEADER } from "@/lib/edit-basis";
 import { revisionEnvelope } from "@/lib/metadata/document-results";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
@@ -27,7 +28,7 @@ export async function PUT(request: Request, { params }: Params) {
     const scope = requireRequestScope(request);
     const { id } = await params;
     const body = await jsonBody(request);
-    return NextResponse.json(revisionEnvelope("layout", layoutPayload(writeLayout(scope, id, body))));
+    return NextResponse.json(revisionEnvelope("layout", layoutPayload(writeLayout(scope, id, body, undefined, { expectedRevision: request.headers.get(EDIT_REVISION_HEADER) }))));
   } catch (error) {
     return errorResponse(error);
   }

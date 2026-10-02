@@ -1,3 +1,4 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Page, type Locator, type Request } from "@playwright/test";
 import fs from "node:fs";
@@ -37,7 +38,7 @@ async function api(page: Page, method: string, path: string, body?: unknown, bas
 }
 const newRecipe = async (page: Page, name: string) => ((await api(page, "POST", "/api/recipes", { name })).recipe as { id: string }).id;
 const addStep = async (page: Page, id: string, operation: string, parameters: Json) =>
-  ((await api(page, "POST", `/api/recipes/${id}/steps`, { operation, parameters })).step as { id: string }).id;
+  ((await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps`, body: { operation, parameters } })).then(result => result.json)).step as { id: string }).id;
 const readRecipe = async (page: Page, id: string) => (await api(page, "GET", `/api/recipes/${id}`)).recipe as Json & { steps: Step[] };
 const readLayout = async (page: Page, id: string) => (await api(page, "GET", `/api/recipes/${id}/layout`)).layout as Json & { steps: Json; sources: Json };
 const tableNames = async (page: Page) =>
@@ -337,7 +338,7 @@ test("adding, sources, linking through ports and the picker, the controls, the n
     for (const bad of ["", "!!!", stations, "Result Buffer"]) {
       const r = await page.evaluate(
         async ({ id, stepId, bad }) => {
-          const res = await fetch(`/api/recipes/${id}/steps/${stepId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ parameters: { input: "x", distance: 1, name: bad } }) });
+          const res = await (async function readThenWriteWorkflowSetup() { const basis = await (await fetch(`/api/recipes/${id}`)).json(); return fetch(`/api/recipes/${id}/steps/${stepId}`, { method: "PATCH", headers: { "X-Edit-Revision": basis.editRevision, "content-type": "application/json" }, body: JSON.stringify({ parameters: { input: "x", distance: 1, name: bad } }) }); })();
           return { status: res.status, text: await res.text() };
         },
         { id, stepId, bad },

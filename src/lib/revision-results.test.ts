@@ -87,7 +87,7 @@ it("returns and requires workflow result revisions across definition, layout and
   const copy = await call("duplicate_recipe", { id });
   expect(copy.editRevision).toBe(readDocumentRevision({ kind: "workflow", id: (copy.recipe as { id: string }).id }, db)!.editRevision);
   await call("remove_recipe_step", { id, stepId }, doc);
-  const deleted = await call("delete_recipe", { id });
+  const deleted = await call("delete_recipe", { id, expected_revision: readDocumentRevision(doc, db)!.editRevision });
   expect(deleted).not.toHaveProperty("editRevision");
 });
 it("returns map revisions across edits, copies, layer operations and publication", async () => {

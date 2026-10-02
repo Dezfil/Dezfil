@@ -66,9 +66,9 @@ beforeEach(async () => {
 afterEach(async () => { await laneSettled(); resetLane(); closeMetadataDb(); resetQueryInstance(); vi.unstubAllEnvs(); await rm(directory, { recursive: true, force: true }); });
 
 type Handler = (request: Request, context: { params: Promise<Record<string, string>> }) => Promise<Response>;
-async function call(account: string, load: () => Promise<Record<string, unknown>>, url: string, params: Record<string, string>, method: string, body: unknown) {
+async function call(account: string, load: () => Promise<Record<string, unknown>>, url: string, params: Record<string, string>, method: string, body: unknown, basis?: string | null) {
   const request = testAccountRequest(new Request(`http://instance.test${url}`, {
-    method, headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+    method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": basis } : {}) }, body: JSON.stringify(body),
   }), undefined, account);
   const response = await ((await load())[method] as Handler)(request, { params: Promise.resolve(params) });
   const text = await response.text();
@@ -78,7 +78,7 @@ const stepsRoute = () => import("@/app/api/recipes/[id]/steps/route");
 const stepRoute = () => import("@/app/api/recipes/[id]/steps/[stepId]/route");
 const runRoute = () => import("@/app/api/operations/run/route");
 const addTo = (account: string, recipe: string, body: Record<string, unknown>) =>
-  call(account, stepsRoute, `/api/recipes/${recipe}/steps`, { id: recipe }, "POST", body);
+  call(account, stepsRoute, `/api/recipes/${recipe}/steps`, { id: recipe }, "POST", body, readEditRevision({ kind: "workflow", id: recipe })?.editRevision);
 const storedSql = (body: Record<string, unknown> | null) =>
   ((body?.step as { parameters: { sql: string } }).parameters.sql);
 const stepCount = (recipe: string) =>
@@ -149,7 +149,7 @@ describe("a node moved between workflows", () => {
     expect((added.body?.step as { parameters: { input: string } }).parameters.input).toBe("bob.roads");
     const stepId = (added.body?.step as { id: string }).id;
     const edited = await call("bob", stepRoute, `/api/recipes/${ids.W3}/steps/${stepId}`, { id: ids.W3, stepId }, "PATCH",
-      { parameters: { input: "roads", distance: 20, name: "buffered" }, writtenIn: { kind: "console" } });
+      { parameters: { input: "roads", distance: 20, name: "buffered" }, writtenIn: { kind: "console" } }, readEditRevision({ kind: "workflow", id: ids.W3 })?.editRevision);
     expect(edited.status).toBe(200);
     expect((edited.body?.step as { parameters: { input: string; distance: number } }).parameters).toMatchObject({ input: "bob.roads", distance: 20 });
   });

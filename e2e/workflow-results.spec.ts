@@ -1,3 +1,4 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Page } from "@playwright/test";
 import { isAllowedConsoleError } from "./console-allowlist";
@@ -48,7 +49,7 @@ const newRecipe = async (page: Page, name: string) => {
   return id;
 };
 const addSql = async (page: Page, id: string, sql: string, name: string) =>
-  ((await ok(page, "POST", `/api/recipes/${id}/steps`, { operation: "sql_step", parameters: { sql, name } })).step as { id: string }).id;
+  ((await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps`, body: { operation: "sql_step", parameters: { sql, name } } })).then(result => result.json)).step as { id: string }).id;
 const inspect = async (page: Page, name: string) => (await ok(page, "GET", `/api/tables/${encodeURIComponent(name)}`)) as unknown as Inspection;
 const features = async (page: Page, name: string) => (await ok(page, "GET", `/api/tables/${encodeURIComponent(name)}/features?sample=1`)) as unknown as Features;
 const listRuns = async (page: Page, id: string) => (await ok(page, "GET", `/api/recipes/${id}/runs`)).runs as Run[];
@@ -62,7 +63,7 @@ const runOne = async (page: Page, id: string, stepId: string) => {
   await expect.poll(async () => (await listRuns(page, id)).find((r) => r.id === run.id)?.outcome, { timeout: 60_000 }).not.toBeNull();
   return run.id;
 };
-const propose = async (page: Page, id: string, stepId: string, parameters: Json) => ok(page, "PATCH", `/api/recipes/${id}/steps/${stepId}`, { parameters });
+const propose = async (page: Page, id: string, stepId: string, parameters: Json) => readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "PATCH", path: `/api/recipes/${id}/steps/${stepId}`, body: { parameters } })).then(result => result.json);
 
 async function settled(page: Page) {
   await expect(page.locator("[data-workflow-canvas]")).toBeVisible();

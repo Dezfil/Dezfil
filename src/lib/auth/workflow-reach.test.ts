@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -56,8 +57,8 @@ beforeEach(async () => {
 afterEach(async () => { await laneSettled(); resetLane(); closeMetadataDb(); resetQueryInstance(); vi.unstubAllEnvs(); await rm(directory, { recursive: true, force: true }); });
 
 type Handler = (request: Request, context: { params: Promise<Record<string, string>> }) => Promise<Response>;
-async function call(account: string, load: () => Promise<Record<string, unknown>>, url: string, params: Record<string, string> = {}, method = "GET", body?: unknown) {
-  const request = testAccountRequest(new Request(`http://instance.test${url}`, { method, headers: { "content-type": "application/json" },
+async function call(account: string, load: () => Promise<Record<string, unknown>>, url: string, params: Record<string, string> = {}, method = "GET", body?: unknown, basis?: string | null) {
+  const request = testAccountRequest(new Request(`http://instance.test${url}`, { method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": basis } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }) }), undefined, account);
   const response = await ((await load())[method] as Handler)(request, { params: Promise.resolve(params) });
   return { status: response.status, body: await response.json() as Record<string, unknown> };
@@ -163,7 +164,7 @@ describe("a reached workflow's view", () => {
   });
 
   it("answers an editor's change with the view as the editor reads it", async () => {
-    const renamed = await call("edd", route.recipe, `/api/recipes/${steps.recipe}`, { id: steps.recipe }, "PATCH", { name: "Edited" });
+    const renamed = await call("edd", route.recipe, `/api/recipes/${steps.recipe}`, { id: steps.recipe }, "PATCH", { name: "Edited" }, readEditRevision({ kind: "workflow", id: steps.recipe })?.editRevision);
     expect(renamed.status).toBe(200);
     const recipe = renamed.body.recipe as RecipeWire;
     expect(recipe).toMatchObject({ owner: { sqlName: "ada" }, home: "ada", projectId: "P" });
@@ -171,7 +172,7 @@ describe("a reached workflow's view", () => {
       { tableId: "missing:parks", tableName: "parks", message: 'The dataset "parks" is not available to you.' },
     ]);
     const edited = await call("edd", route.step, `/api/recipes/${steps.recipe}/steps/${steps.copy}`, { id: steps.recipe, stepId: steps.copy },
-      "PATCH", { parameters: { sql: "SELECT * FROM roads", name: "park_copy" } });
+      "PATCH", { parameters: { sql: "SELECT * FROM roads", name: "park_copy" } }, readEditRevision({ kind: "workflow", id: steps.recipe })?.editRevision);
     expect(edited.status).toBe(200);
     expect(edited.body).toMatchObject({ applied: "proposed", step: { id: steps.copy, reads: ["roads"] } });
   });

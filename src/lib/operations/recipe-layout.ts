@@ -1,5 +1,5 @@
 import { documentFacts, type DocumentFacts } from "@/lib/metadata/document-facts";
-import { recordDocumentChanges } from "@/lib/metadata/revisions";
+import { recordDocumentChanges, requireDocumentRevision } from "@/lib/metadata/revisions";
 import type { AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
@@ -47,11 +47,13 @@ export function writeLayout(
   recipeId: string,
   body: unknown,
   db: Database = metadataDb(),
+  options: { expectedRevision?: unknown } = {},
 ): StoredLayout & DocumentFacts {
   return db.transaction(() => {
     // An edit, answered with the raw document: the owner's, the project
     // owner's or an editor's.
     requirePermitted(scope, "workflow", recipeId, "edit", db);
+    requireDocumentRevision(scope, { kind: "workflow", id: recipeId, expectedRevision: options.expectedRevision }, db);
     const stepIds = new Set(listRecipeSteps(recipeId, db).map((s) => s.id));
     const document = normalizeLayout(body, stepIds);
     const current = getLayout(recipeId, db);

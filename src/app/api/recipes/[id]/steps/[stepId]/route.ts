@@ -1,3 +1,5 @@
+import { EDIT_REVISION_HEADER } from "@/lib/edit-basis";
+import { requireDocumentRevision } from "@/lib/metadata/revisions";
 import { documentFacts } from "@/lib/metadata/document-facts";
 import { recordDocumentBatch } from "@/lib/metadata/revisions";
 import { revisionEnvelope } from "@/lib/metadata/document-results";
@@ -5,14 +7,13 @@ import { requireStep } from "@/lib/metadata/owned-recipes";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { requireWorkflowEdit } from "@/lib/workflow-access";
 import { NextResponse } from "next/server";
-import { ApiError, errorResponse } from "@/lib/api/errors";
+import { errorResponse } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
 import {
   editStep,
   listSteps,
   removeStep,
   reorderSteps,
-  type RecipeStep,
 } from "@/lib/metadata/owned-recipes";
 import { outputNameRefusal, registeredOutputName } from "@/lib/operations/output-names";
 import {
@@ -60,6 +61,8 @@ export async function PATCH(request: Request, { params }: Params) {
     const scope = requireRequestScope(request);
     const { id, stepId } = await params;
     requireWorkflowEdit(scope, id, stepId);
+    const options = { expectedRevision: request.headers.get(EDIT_REVISION_HEADER) };
+    requireDocumentRevision(scope, { kind: "workflow", id, ...options });
     const step = requireStep(scope, id, stepId);
     const body = await jsonBody(request);
 
@@ -97,8 +100,6 @@ export async function PATCH(request: Request, { params }: Params) {
     if (refusal) throw refusal;
     if (typeof parameters.name === "string") parameters.name = registeredOutputName(parameters.name);
     const steps = listSteps(scope, id, db);
-    const stamp = (list: RecipeStep[]) => list.map((s) => `${s.id}:${s.ordinal}:${s.updatedAt}`).join("|");
-    const before = stamp(steps);
     // What the step would read next. SQL the parser cannot read is accepted
     // here with no reads: the canvas saves what is typed, and the dry run
     // and the run refuse it and say why.
@@ -122,14 +123,12 @@ export async function PATCH(request: Request, { params }: Params) {
     }
     // Committed only if nothing moved under the checks.
     const landed = recordDocumentBatch(scope, () => {
-      if (stamp(listSteps(scope, id, db)) !== before) {
-        throw new ApiError("invalid_request", "This workflow changed while the edit was being checked. Try again.", 409);
-      }
+      requireDocumentRevision(scope, { kind: "workflow", id, ...options }, db);
       const again = outputNameRefusal({ scope, db, recipeId: id, stepId: step.id, produced: step.outputTableName, typed: parameters.name });
       if (again) throw again;
       recheckSaved(scope, saved);
-      const applied = editStep(scope, stepId, parameters, db, origin);
-      if (order) reorderSteps(scope, id, order, db);
+      const applied = editStep(scope, stepId, parameters, db, origin, options);
+      if (order) reorderSteps(scope, id, order, db, options);
       return applied;
     }, db);
     return NextResponse.json({
@@ -157,6 +156,8 @@ export async function DELETE(_request: Request, { params }: Params) {
     const scope = requireRequestScope(_request);
     const { id, stepId } = await params;
     requireWorkflowEdit(scope, id, stepId);
+    const options = { expectedRevision: _request.headers.get(EDIT_REVISION_HEADER) };
+    requireDocumentRevision(scope, { kind: "workflow", id, ...options });
     const step = requireStep(scope, id, stepId);
     const steps = listSteps(scope, id);
     // The output as its remover may see it: one they reach exists; one gone
@@ -178,7 +179,7 @@ export async function DELETE(_request: Request, { params }: Params) {
       .filter((s) => s.id !== stepId && declared !== null && (reads.get(s.id) ?? []).includes(declared))
       .map((s) => ({ id: s.id, operation: s.operation, label: findOperation(s.operation).label }));
     const facts = metadataDb().transaction(() => {
-      removeStep(scope, stepId);
+      removeStep(scope, stepId, undefined, options);
       return documentFacts({ kind: "workflow", id });
     })();
     const name = recorded !== null && visible === null ? null : step.outputTableName ?? (declared ? declared : null);

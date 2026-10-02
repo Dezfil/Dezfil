@@ -1,3 +1,4 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { isAllowedConsoleError } from "./console-allowlist";
@@ -40,7 +41,7 @@ async function api(page: Page, method: string, path: string, body?: unknown, bas
 }
 const newRecipe = async (page: Page, name: string) => ((await api(page, "POST", "/api/recipes", { name })).recipe as { id: string }).id;
 const addStep = async (page: Page, id: string, operation: string, parameters: Json) =>
-  ((await api(page, "POST", `/api/recipes/${id}/steps`, { operation, parameters })).step as { id: string }).id;
+  ((await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps`, body: { operation, parameters } })).then(result => result.json)).step as { id: string }).id;
 const readRecipe = async (page: Page, id: string) => (await api(page, "GET", `/api/recipes/${id}`)).recipe as Json & { steps: Step[] };
 const readLayout = async (page: Page, id: string) =>
   (await api(page, "GET", `/api/recipes/${id}/layout`)).layout as Json & { steps: Record<string, { x: number; y: number }>; sources: Json; notes: Json[] };

@@ -1,3 +1,4 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Locator, type Page, type Request } from "@playwright/test";
 import { isAllowedConsoleError } from "./console-allowlist";
@@ -53,10 +54,10 @@ const newRecipe = async (page: Page, name: string) => {
   return id;
 };
 const addStep = async (page: Page, id: string, operation: string, parameters: Json) =>
-  ((await api(page, "POST", `/api/recipes/${id}/steps`, { operation, parameters })).step as { id: string }).id;
+  ((await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps`, body: { operation, parameters } })).then(result => result.json)).step as { id: string }).id;
 const readRecipe = async (page: Page, id: string) => (await api(page, "GET", `/api/recipes/${id}`)).recipe as Recipe;
 const readLayout = async (page: Page, id: string) => (await api(page, "GET", `/api/recipes/${id}/layout`)).layout as Layout;
-const putLayout = (page: Page, id: string, layout: Partial<Layout>) => api(page, "PUT", `/api/recipes/${id}/layout`, { steps: {}, sources: {}, notes: [], ...layout });
+const putLayout = (page: Page, id: string, layout: Partial<Layout>) => readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "PUT", path: `/api/recipes/${id}/layout`, body: { steps: {}, sources: {}, notes: [], ...layout } })).then(result => result.json);
 const stepById = (r: Recipe, id: string) => r.steps.find((s) => s.id === id) ?? null;
 /** The positions of a read: what a layout undo restores, field for field. */
 const positionsOf = (l: Layout) => ({ steps: l.steps, sources: l.sources });
@@ -661,7 +662,7 @@ test("layout steps: Arrange, a drag, arrow runs, every note step, a source, Arra
     await page.getByRole("button", { name: "Arrange by dependency" }).click();
     await expect.poll(async () => (await readLayout(page, w.id)).steps[w.buf]).not.toEqual(start.steps[w.buf]);
     await page.waitForTimeout(700);
-    await api(page, "DELETE", `/api/recipes/${w.id}/steps/${w.filt}`);
+    await readThenWriteBrowserSetup(page, `/api/recipes/${w.id}`, () => ({ method: "DELETE", path: `/api/recipes/${w.id}/steps/${w.filt}` })).then(result => result.json);
     // Nothing pushes a headless recipe change to an open canvas, so the
     // tile stands until a read: the undo writes the screen back, and the
     // layout read, pruned to the recipe, holds no position for the node
@@ -1041,7 +1042,7 @@ test("recipe steps, removals: a never-run node back in its place with its reader
 
   await test.step("a node whose dataset was deleted, removed then undone: back, never run, the notice saying it must run again", async () => {
     const restored = await addStep(page, w.id, "buffer", { input: points, distance: 100, name: `${w.bufName}_again` });
-    await api(page, "POST", `/api/recipes/${w.id}/steps/${restored}/move`, { ordinal: 0 });
+    await readThenWriteBrowserSetup(page, `/api/recipes/${w.id}`, () => ({ method: "POST", path: `/api/recipes/${w.id}/steps/${restored}/move`, body: { ordinal: 0 } })).then(result => result.json);
     await runAndWait(page, w.id, restored);
     await api(page, "DELETE", `/api/tables/${w.bufName}_again`);
     await page.reload();
@@ -1268,7 +1269,7 @@ test("pending work, runs and refusals: an unsent value, an invalid one, a save o
     // The tool's own distance is empty until the panel fills it, and an
     // empty one refuses the run: it is set headlessly, so the add stays
     // the record's newest step.
-    await api(page, "PATCH", `/api/recipes/${id}/steps/${added.id}`, { parameters: { ...added.parameters, distance: 100 } });
+    await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "PATCH", path: `/api/recipes/${id}/steps/${added.id}`, body: { parameters: { ...added.parameters, distance: 100 } } })).then(result => result.json);
     await runAndWait(page, id, added.id);
     await undo(page);
     await expect(notice(page)).toContainText("Not undone");
@@ -1460,7 +1461,7 @@ test("pending work, runs and refusals: an unsent value, an invalid one, a save o
     const before = await distanceOf();
     await panel(page).getByRole("spinbutton", { name: /^distance/ }).fill("300");
     await expect.poll(distanceOf).toBe(300);
-    await api(page, "PATCH", `/api/recipes/${id}/steps/${buf}`, { parameters: { input: points, distance: 400, name: bufName } });
+    await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "PATCH", path: `/api/recipes/${id}/steps/${buf}`, body: { parameters: { input: points, distance: 400, name: bufName } } })).then(result => result.json);
     await undo(page);
     await expect(notice(page)).toContainText("Undone: Buffer edited");
     await expect.poll(distanceOf).toBe(before);

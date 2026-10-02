@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createHash } from "node:crypto";
@@ -145,7 +146,7 @@ describe("the project export capability", () => {
       steps: { [step.id]: { x: 40, y: 80 } },
       sources: {},
       notes: [],
-    });
+    }, undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id }, undefined)?.editRevision });
     const aBytes = Buffer.from("parquet-bytes-a");
     const tA = await seedDataset("t-a", "stations", aBytes);
     const tLeft = await seedDataset("t-left", "left_out", Buffer.from("x"));

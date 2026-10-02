@@ -219,10 +219,10 @@ test("the add-to-project dialog end to end", async ({
       [OUT1, T_SHARED],
       [OUT2, T_PLAIN],
     ] as const) {
-      await api(page, "POST", `/api/recipes/${wfId}/steps`, {
+      await readThenWriteBrowserSetup(page, `/api/recipes/${wfId}`, () => ({ method: "POST", path: `/api/recipes/${wfId}/steps`, body: {
         operation: "sql_step",
         parameters: { sql: `SELECT * FROM ${src}`, name },
-      });
+      } })).then(result => result.json);
     }
     // One run-all produces both outputs.
     await api(page, "POST", `/api/recipes/${wfId}/runs`);
@@ -786,7 +786,7 @@ test("a workflow's card offers the add-to-project action", async ({
     await expect(page.getByRole("dialog")).not.toContainText("move together");
     await page.keyboard.press("Escape");
   } finally {
-    await api(page, "DELETE", `/api/recipes/${id}`).catch(() => {});
+    await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "DELETE", path: `/api/recipes/${id}` })).then(result => result.json).catch(() => {});
   }
 });
 

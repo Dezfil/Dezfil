@@ -1,3 +1,4 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 // The scoped add-layer catalog: the filter row above the shared browser's search
 // in the Tables view and the SQL workbench, the ruled defaults per filing state,
@@ -614,7 +615,7 @@ test("the scoped catalog end to end", async ({ page, context }) => {
         () => (window as unknown as { __alsRecipe?: string }).__alsRecipe ?? "",
       );
       if (recipeId)
-        await api(page, "DELETE", `/api/recipes/${recipeId}`).catch(() => {});
+        await readThenWriteBrowserSetup(page, `/api/recipes/${recipeId}`, () => ({ method: "DELETE", path: `/api/recipes/${recipeId}` })).then(result => result.json).catch(() => {});
       await api(page, "DELETE", `/api/tables/${T_OUT}`).catch(() => {});
     };
     try {

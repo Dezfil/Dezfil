@@ -1,3 +1,4 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 // The assistant on the workflow canvas (of with overrides B): the door
 // after Redo, the pane replacing or joining the node and source panels by
@@ -77,7 +78,7 @@ async function seedWorkflow(page: Page, opts: { failing?: boolean; slow?: boolea
   const id = (made.recipe as { id: string }).id;
   // The slow step does work the engine cannot shortcut, so a run is observed in progress.
   const sql = opts.failing ? `SELECT * FROM ${table}_missing_table` : opts.slow ? "SELECT sum(a.range * b.range) AS n FROM range(40000) a, range(40000) b" : `SELECT name FROM ${table}`;
-  const one = await api(page, "POST", `/api/recipes/${id}/steps`, { operation: "sql_step", parameters: { sql, name: `${table}_one` } });
+  const one = await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps`, body: { operation: "sql_step", parameters: { sql, name: `${table}_one` } } })).then(result => result.json);
   return { id, table, step: (one.step as { id: string }).id, stepName: `${table}_one` };
 }
 async function openCanvas(page: Page, id: string, width: number) {
@@ -416,7 +417,7 @@ test.describe("7: the pane, the panels and the band", () => {
       expect(Math.abs(after.x - before.x)).toBeLessThanOrEqual(1);
       expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(1);
       expect(zoomAfter.match(/scale\(([^)]+)\)/)?.[1]).toBe(zoomBefore.match(/scale\(([^)]+)\)/)?.[1]);
-      await api(page, "DELETE", `/api/recipes/${id}/sources/${encodeURIComponent(other)}`).catch(() => undefined);
+      await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "DELETE", path: `/api/recipes/${id}/sources/${encodeURIComponent(other)}` })).then(result => result.json).catch(() => undefined);
       if (width === 1000) continue;
     }
   });

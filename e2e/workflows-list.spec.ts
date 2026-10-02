@@ -30,11 +30,11 @@ async function createChain(page: Page): Promise<string> {
         { operation: "sql_step", parameters: { sql: `SELECT count(*) AS n FROM ${table}_one`, name: `${table}_two` } },
       ];
       for (const step of steps) {
-        const added = await fetch(`/api/recipes/${recipe.id}/steps`, {
+        const added = await (async function readThenWriteWorkflowSetup() { const basis = await (await fetch(`/api/recipes/${recipe.id}`)).json(); return (async function readThenWriteWorkflowSetup() { const basis = await (await fetch(`/api/recipes/${recipe.id}`)).json(); return fetch(`/api/recipes/${recipe.id}/steps`, {
           method: "POST",
           headers,
           body: JSON.stringify(step),
-        });
+        }); })(); })();
         if (!added.ok) throw new Error(await added.text());
       }
       return recipe.id;

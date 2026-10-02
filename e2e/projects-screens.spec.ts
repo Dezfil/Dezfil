@@ -346,10 +346,10 @@ test("the Projects list and the project home", async ({
       })) as { recipe: { id: string } }
     ).recipe.id;
     stepId = (
-      (await api(page, "POST", `/api/recipes/${wfId}/steps`, {
+      (await readThenWriteBrowserSetup(page, `/api/recipes/${wfId}`, () => ({ method: "POST", path: `/api/recipes/${wfId}/steps`, body: {
         operation: "sql_step",
         parameters: { sql: `SELECT * FROM ${T1}`, name: `pj_out_${runId}` },
-      })) as { step: { id: string } }
+      } })).then(result => result.json)) as { step: { id: string } }
     ).step.id;
   });
 
@@ -590,9 +590,9 @@ test("the Projects list and the project home", async ({
         { timeout: 60_000 },
       )
       .toBe("succeeded");
-    await api(page, "PATCH", `/api/recipes/${wfId}/steps/${stepId}`, {
+    await readThenWriteBrowserSetup(page, `/api/recipes/${wfId}`, () => ({ method: "PATCH", path: `/api/recipes/${wfId}/steps/${stepId}`, body: {
       parameters: { sql: `SELECT name FROM ${T1}`, name: `pj_out_${runId}` },
-    });
+    } })).then(result => result.json);
     // A second affected workflow: every affected member gets its own
     // row, and each Run targets its own workflow.
     const wf2 = (
@@ -602,10 +602,10 @@ test("the Projects list and the project home", async ({
       })) as { recipe: { id: string } }
     ).recipe.id;
     const step2 = (
-      (await api(page, "POST", `/api/recipes/${wf2}/steps`, {
+      (await readThenWriteBrowserSetup(page, `/api/recipes/${wf2}`, () => ({ method: "POST", path: `/api/recipes/${wf2}/steps`, body: {
         operation: "sql_step",
         parameters: { sql: `SELECT * FROM ${T2}`, name: `pj_hex_${runId}` },
-      })) as { step: { id: string } }
+      } })).then(result => result.json)) as { step: { id: string } }
     ).step.id;
     await api(page, "POST", `/api/recipes/${wf2}/runs`, { members: [step2] });
     await expect
@@ -619,9 +619,9 @@ test("the Projects list and the project home", async ({
         { timeout: 60_000 },
       )
       .toBe("succeeded");
-    await api(page, "PATCH", `/api/recipes/${wf2}/steps/${step2}`, {
+    await readThenWriteBrowserSetup(page, `/api/recipes/${wf2}`, () => ({ method: "PATCH", path: `/api/recipes/${wf2}/steps/${step2}`, body: {
       parameters: { sql: `SELECT name FROM ${T2}`, name: `pj_hex_${runId}` },
-    });
+    } })).then(result => result.json);
     await page.reload();
     const callout = page.locator(`[data-attention="${wfId}"]`);
     const callout2 = page.locator(`[data-attention="${wf2}"]`);
@@ -1143,7 +1143,7 @@ test("the project home: facts that drop zeros, only the sections with something,
           await expect.soft(main.getByRole("link", { name, exact: true })).toHaveCount(0);
         }
       } finally {
-        await api(page, "DELETE", `/api/recipes/${wf.id}`).catch(() => {});
+        await readThenWriteBrowserSetup(page, `/api/recipes/${wf.id}`, () => ({ method: "DELETE", path: `/api/recipes/${wf.id}` })).then(result => result.json).catch(() => {});
       }
       await page.reload();
       await expect(page.locator("[data-section]")).toHaveCount(2);
@@ -1533,10 +1533,10 @@ test("the project-first picker: three tabs, one atomic change with what it bring
       await api(page, "PATCH", `/api/projects/${other}/members`, { addTables: [tShared] });
       // A workflow reading the shared dataset and writing an output.
       wfId = ((await api(page, "POST", "/api/recipes", { name: P("Producer") })) as { recipe: { id: string } }).recipe.id;
-      await api(page, "POST", `/api/recipes/${wfId}/steps`, {
+      await readThenWriteBrowserSetup(page, `/api/recipes/${wfId}`, () => ({ method: "POST", path: `/api/recipes/${wfId}/steps`, body: {
         operation: "sql_step",
         parameters: { sql: `SELECT * FROM pk_src_${run}`, name: `pk_out_${run}` },
-      });
+      } })).then(result => result.json);
       const run1 = (await api(page, "POST", `/api/recipes/${wfId}/runs`, {})) as { id: string };
       await expect
         .poll(
@@ -1674,6 +1674,6 @@ test("the project-first picker: three tabs, one atomic change with what it bring
     });
   } finally {
     for (const id of made) await api(page, "DELETE", `/api/projects/${id}`).catch(() => {});
-    if (wfId) await api(page, "DELETE", `/api/recipes/${wfId}`).catch(() => {});
+    if (wfId) await readThenWriteBrowserSetup(page, `/api/recipes/${wfId}`, () => ({ method: "DELETE", path: `/api/recipes/${wfId}` })).then(result => result.json).catch(() => {});
   }
 });

@@ -1,3 +1,6 @@
+import { withFixtureRevision } from "@/lib/test-support/edit-basis";
+import { getStep as readEditStep } from "@/lib/metadata/recipes";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
@@ -107,8 +110,8 @@ it("refuses hidden layer capture without adding or changing a workflow step", as
   const replies = [];
   for (const id of [layers.bob, "missing"]) {
     const body = { operation: "sql_step", fromLayerId: id, parameters: { name: "fresh" } };
-    replies.push(await POST(input("alice", "/api/recipes/steps", "POST", body), { params: Promise.resolve({ id: recipes.alice }) }));
-    replies.push(await PATCH(input("alice", "/api/recipes/steps", "PATCH", body), { params: Promise.resolve({ id: recipes.alice, stepId: steps.alice }) }));
+    replies.push(await POST(withFixtureRevision(input("alice", "/api/recipes/steps", "POST", body), readEditRevision({ kind: "workflow", id: recipes.alice })?.editRevision), { params: Promise.resolve({ id: recipes.alice }) }));
+    replies.push(await PATCH(withFixtureRevision(input("alice", "/api/recipes/steps", "PATCH", body), readEditRevision({ kind: "workflow", id: recipes.alice })?.editRevision), { params: Promise.resolve({ id: recipes.alice, stepId: steps.alice }) }));
   }
   expect(replies.map(r => r.status)).toEqual([404, 404, 404, 404]);
   expect(await replies[0].json()).toEqual(await replies[2].json()); expect(await replies[1].json()).toEqual(await replies[3].json());
@@ -125,7 +128,7 @@ it("ignores another account's datasets and pending declarations when allocating 
   insertTable(testAccountScope(db, "bob"), table("private_input"), db);
   insertTable(testAccountScope(db, "bob"), table("roads_copy"), db);
   addStep(recipes.bob, { operation: "sql_step", parameters: { name: "roads_copy_2", sql: "SELECT 2" } }, db);
-  const response = await POST(input("alice", "/api/recipes/steps", "POST", { operation: "sql_step", parameters: { sql: "SELECT 1", name: "private_input" } }), { params: Promise.resolve({ id: recipes.alice }) });
+  const response = await POST(withFixtureRevision(input("alice", "/api/recipes/steps", "POST", { operation: "sql_step", parameters: { sql: "SELECT 1", name: "private_input" } }), readEditRevision({ kind: "workflow", id: recipes.alice })?.editRevision), { params: Promise.resolve({ id: recipes.alice }) });
   expect(response.status).toBe(201);
   const copy = await duplicateRecipe(testAccountScope(db, "alice"), recipes.alice);
   expect(db.prepare("SELECT parameters FROM recipe_steps WHERE recipe_id = ? ORDER BY ordinal").all(copy.id)).toEqual([
@@ -140,23 +143,23 @@ it("requires ownership at workflow services and rolls back mixed references", as
   const scope = testAccountScope(db, "alice"), before = snapshot();
   for (const id of [recipes.bob, "missing"]) {
     expect(() => owned.listSteps(scope, id)).toThrow(expect.objectContaining({ status: 404 }));
-    expect(() => owned.addStep(scope, id, { operation: "sql_step", parameters: {} })).toThrow(expect.objectContaining({ status: 404 }));
+    expect(() => owned.addStep(scope, id, { operation: "sql_step", parameters: {} }, undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: id }, undefined)?.editRevision })).toThrow(expect.objectContaining({ status: 404 }));
     await expect(readRecipe(scope, id)).rejects.toMatchObject({ status: 404 });
   }
   for (const id of [steps.bob, "missing"]) {
-    expect(() => owned.editStep(scope, id, {})).toThrow(expect.objectContaining({ status: 404 }));
-    expect(() => owned.removeStep(scope, id)).toThrow(expect.objectContaining({ status: 404 }));
-    expect(() => owned.reorderSteps(scope, recipes.alice, [steps.alice, id])).toThrow(expect.objectContaining({ status: 404 }));
+    expect(() => owned.editStep(scope, id, {}, undefined, undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: (readEditStep(id, undefined)?.recipeId ?? "missing") }, undefined)?.editRevision })).toThrow(expect.objectContaining({ status: 404 }));
+    expect(() => owned.removeStep(scope, id, undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: (readEditStep(id, undefined)?.recipeId ?? "missing") }, undefined)?.editRevision })).toThrow(expect.objectContaining({ status: 404 }));
+    expect(() => owned.reorderSteps(scope, recipes.alice, [steps.alice, id], undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: recipes.alice }, undefined)?.editRevision })).toThrow(expect.objectContaining({ status: 404 }));
   }
   for (const id of [projects.bob, "missing"]) expect(() => owned.fileRecipe(scope, recipes.alice, id)).toThrow(expect.objectContaining({ status: 404 }));
   for (const id of [layers.bob, "missing"]) {
     expect(() => captureLayerSource(scope, id)).toThrow(expect.objectContaining({ status: 404 }));
-    expect(() => owned.addStep(scope, recipes.alice, { operation: "sql_step", parameters: {}, origin: { layerId: id } })).toThrow(expect.objectContaining({ status: 404 }));
+    expect(() => owned.addStep(scope, recipes.alice, { operation: "sql_step", parameters: {}, origin: { layerId: id } }, undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: recipes.alice }, undefined)?.editRevision })).toThrow(expect.objectContaining({ status: 404 }));
   }
   for (const invalid of [undefined, null, { accountId: "alice" }]) {
     const missing = invalid as Parameters<typeof owned.listRecipes>[0];
     expect(() => owned.listRecipes(missing)).toThrow(expect.objectContaining({ status: 401 }));
-    expect(() => owned.addStep(missing, recipes.alice, { operation: "sql_step", parameters: {} })).toThrow(expect.objectContaining({ status: 401 }));
+    expect(() => owned.addStep(missing, recipes.alice, { operation: "sql_step", parameters: {} }, undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: recipes.alice }, undefined)?.editRevision })).toThrow(expect.objectContaining({ status: 401 }));
   }
   expect(snapshot()).toEqual(before); expect(effects.reads).not.toHaveBeenCalled();
 });
@@ -172,7 +175,7 @@ it.each(["add", "edit", "duplicate", "read"])("refuses a late workflow %s after 
     await expect(readRecipe(scope, recipes.alice)).rejects.toMatchObject({ status: 401 });
   } else {
     const body = { operation: "sql_step", parameters: { sql: "SELECT 2", name: operation === "edit" ? "roads" : "fresh" } };
-    const req = input("alice", "/api/recipes", operation === "edit" ? "PATCH" : "POST", body);
+    const req = withFixtureRevision(input("alice", "/api/recipes", operation === "edit" ? "PATCH" : "POST", body), readEditRevision({ kind: "workflow", id: recipes.alice })?.editRevision);
     const response = operation === "add" ? await (await import("@/app/api/recipes/[id]/steps/route")).POST(req, { params: Promise.resolve({ id: recipes.alice }) })
       : await (await import("@/app/api/recipes/[id]/steps/[stepId]/route")).PATCH(req, { params: Promise.resolve({ id: recipes.alice, stepId: steps.alice }) });
     expect(response.status).toBe(401);
@@ -183,7 +186,7 @@ it("rechecks a captured layer before committing the new step", async () => {
   const before = snapshot();
   effects.reads.mockImplementationOnce(async () => { db.prepare("DELETE FROM layers WHERE id = ?").run(layers.alice); return []; });
   const { POST } = await import("@/app/api/recipes/[id]/steps/route");
-  const response = await POST(input("alice", "/api/recipes", "POST", { operation: "sql_step", fromLayerId: layers.alice, parameters: { name: "fresh" } }), { params: Promise.resolve({ id: recipes.alice }) });
+  const response = await POST(withFixtureRevision(input("alice", "/api/recipes", "POST", { operation: "sql_step", fromLayerId: layers.alice, parameters: { name: "fresh" } }), readEditRevision({ kind: "workflow", id: recipes.alice })?.editRevision), { params: Promise.resolve({ id: recipes.alice }) });
   expect(response.status).toBe(404); expect(snapshot()).toEqual(before);
 });
 it("duplicates captured SQL and historical origin after the source layer is deleted", async () => {

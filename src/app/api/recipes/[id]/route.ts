@@ -1,3 +1,5 @@
+import { EDIT_REVISION_HEADER } from "@/lib/edit-basis";
+import { requireDocumentRevision } from "@/lib/metadata/revisions";
 import { revisionEnvelope } from "@/lib/metadata/document-results";
 import { resourceAbsent } from "@/lib/auth/owned-resource";
 import { requireRequestScope } from "@/lib/auth/scope-http";
@@ -26,8 +28,10 @@ export async function PATCH(request: Request, { params }: Params) {
     const scope = requireRequestScope(request);
     const { id } = await params;
     requireWorkflowEdit(scope, id);
+    const options = { expectedRevision: request.headers.get(EDIT_REVISION_HEADER) };
+    requireDocumentRevision(scope, { kind: "workflow", id, ...options });
     const body = await jsonBody(request);
-    if (!renameRecipe(scope, id, recipeName(body))) {
+    if (!renameRecipe(scope, id, recipeName(body), undefined, options)) {
       throw resourceAbsent();
     }
     return NextResponse.json(revisionEnvelope("recipe", recipePayload(await readRecipe(scope, id))));
@@ -50,7 +54,7 @@ export async function DELETE(_request: Request, { params }: Params) {
     const { id } = await params;
     // Deleting a workflow is its owner's act.
     requirePermitted(scope, "workflow", id, "delete");
-    if (!deleteRecipe(scope, id)) {
+    if (!deleteRecipe(scope, id, undefined, { expectedRevision: _request.headers.get(EDIT_REVISION_HEADER) })) {
       throw resourceAbsent();
     }
     return NextResponse.json({

@@ -1,3 +1,4 @@
+import { readThenWriteRequestSetup } from "./edit-basis";
 // A Viewer's map and workflow: the map opens in the reader inside the
 // workspace shell, with the map, legend and widgets and nothing that edits,
 // and no shortcut writes anything; a layer reading a dataset the Viewer
@@ -35,7 +36,7 @@ test("a Viewer reads the shared map and workflow and can change nothing", async 
       { name: "Parks", sql: `SELECT * FROM parks_${tag}` },
     ]);
     const recipe = (await (await ada.api.post("/api/recipes", { data: { name: `Staging ${tag}` } })).json()).recipe.id as string;
-    expect((await ada.api.post(`/api/recipes/${recipe}/steps`, { data: { operation: "sql_step", parameters: { name: `staged_${tag}`, sql: `SELECT * FROM roads_${tag}` } } })).status()).toBe(201);
+    expect((await readThenWriteRequestSetup(ada.api, `/api/recipes/${recipe}`, () => ({ method: "POST", path: `/api/recipes/${recipe}/steps`, options: { data: { operation: "sql_step", parameters: { name: `staged_${tag}`, sql: `SELECT * FROM roads_${tag}` } } } }))).status()).toBe(201);
     const projectId = await createProject(ada, `Survey ${tag}`, { addMaps: [map.id], addRecipes: [recipe], addTables: [roads.id] });
     await share(ada, projectId, vic, "viewer");
     await share(ada, projectId, eli, "editor");

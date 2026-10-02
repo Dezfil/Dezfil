@@ -1,3 +1,4 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 // The header path and browser titles: the Workspace segment is retired,
 // the project renders as a plain segment on filed object pages, titles
@@ -572,7 +573,7 @@ test("the header card reaches the pane on the workflow canvas and the SQL consol
       [
         "workflow canvas",
         `/workflows/${recipeId}`,
-        (name) => api(page, "PATCH", `/api/recipes/${recipeId}`, { name }),
+        (name) => readThenWriteBrowserSetup(page, `/api/recipes/${recipeId}`, () => ({ method: "PATCH", path: `/api/recipes/${recipeId}`, body: { name } })).then(result => result.json),
         canvasPane,
       ],
       [
@@ -654,7 +655,7 @@ test("the header card reaches the pane on the workflow canvas and the SQL consol
   });
 
   await test.step("at a narrow window the workflow canvas's and the SQL console's actions stay inside the viewport and pressable; the run dock's refusal text moves the floor", async () => {
-    await api(page, "PATCH", `/api/recipes/${recipeId}`, { name: RECIPE_SHORT });
+    await readThenWriteBrowserSetup(page, `/api/recipes/${recipeId}`, () => ({ method: "PATCH", path: `/api/recipes/${recipeId}`, body: { name: RECIPE_SHORT } })).then(result => result.json);
     const inside = async (where: string, width: number) => {
       const actions = headerActions(page);
       const count = await actions.count();
