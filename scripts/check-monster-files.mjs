@@ -30,7 +30,7 @@ const CEILINGS = {
   "src/lib/layer-service.ts": 40,
   // The style panel. Extractions so far: the icon picker, the Label
   // section and the hover-field sections.
-  "src/components/builder/StylePanel.tsx": 1191,
+  "src/components/builder/StylePanel.tsx": 957,
   // The parameter form, after the catalog-driven parameter controls left
   // for parameter-controls so the workflow canvas composes the same rows.
   "src/components/builder/drawer/ParameterForm.tsx": 449,
