@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import type { HistoryAvailability } from "@/lib/metadata/history";
+import type { SharedHistory as HistoryAvailability } from "./shared-history";
+import { editHeaders } from "@/lib/edit-basis";
 import type { DocumentSequence } from "../document-sequence";
 import { readApiError } from "../api";
 import type { MapWithLayers } from "@/lib/metadata/maps";
@@ -32,6 +33,7 @@ export function useMapHistory(opts: {
   reload: () => void;
   fail: (key: FailureKey, message: string) => void;
   clearFailure: (key: FailureKey) => void;
+  target: (direction: "undo" | "redo") => string | null;
   setHistory: Dispatch<SetStateAction<HistoryAvailability>>;
   setSelectedId: Dispatch<SetStateAction<string | null>>;
   rendersRef: MutableRefObject<Record<string, LayerRenderData>>;
@@ -44,7 +46,7 @@ export function useMapHistory(opts: {
     reload,
     fail,
     clearFailure,
-    setHistory,
+    setHistory, target,
     setSelectedId,
     rendersRef,
     setRenders,
@@ -61,6 +63,8 @@ export function useMapHistory(opts: {
       // are never in flight together and their responses cannot land out
       // of order. The repaint carries a generation, so a superseded
       // batch never overwrites a newer one's result.
+      const editRevision = target(direction);
+      if (!editRevision) return Promise.resolve();
       const result = sequence.enqueue(async () => {
         if (sequence.stale) return;
         const generation = (historyGenerationRef.current += 1);
@@ -72,7 +76,7 @@ export function useMapHistory(opts: {
             : `/api/maps/${mapId}/redo`;
         let response: Response;
         try {
-          response = await track(sequence.writeFetch(url, { method: "POST", headers: sequence.headers() }));
+          response = await track(fetch(url, { method: "POST", headers: editHeaders({ editRevision }) }).then(response => sequence.observe(response)));
         } catch (cause) {
           fail(
             "history",
@@ -144,7 +148,7 @@ export function useMapHistory(opts: {
       reload,
       clearFailure,
       fail,
-      setHistory,
+      setHistory, target,
       setSelectedId,
       rendersRef,
       setRenders,

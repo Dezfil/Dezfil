@@ -6,9 +6,11 @@ import { contributePath, releasePath } from "@/components/shell/path-model";
 import { useHeaderReach } from "@/components/shell/use-header-reach";
 import { createPortal } from "react-dom";
 import type { MapWithLayers } from "@/lib/metadata/maps";
-import type { HistoryAvailability } from "@/lib/metadata/history";
-import { IconButton } from "../ui/IconButton";
-import { UndoIcon, RedoIcon, PreviewIcon } from "../ui/icons";
+import type { SharedHistory } from "./shared-history";
+import { SharedHistoryControls } from "./SharedHistoryControls";
+import { useContext } from "react";
+import { DocumentEditorContext } from "../document-editor-context";
+import { PreviewIcon } from "../ui/icons";
 import { AssistantDoor, type AssistantDoorProps } from "./assistant/AssistantDoor";
 import { PublishControl } from "./publish/PublishControl";
 import type { LayerRenderData } from "@/lib/layer-service";
@@ -51,7 +53,7 @@ export function HeaderChrome({
   map: MapWithLayers;
   /** The map's project; the shell's path reads it. */
   projectId: string | null;
-  history: HistoryAvailability;
+  history: SharedHistory;
   onUndo: () => void;
   onRedo: () => void;
   onRename: (name: string) => void;
@@ -68,6 +70,7 @@ export function HeaderChrome({
   renders: Record<string, LayerRenderData | undefined>;
   layerDataDownloads: LayerDataDownloadPort;
 }) {
+  const editor = useContext(DocumentEditorContext);
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(map.name);
   // Escape abandons a rename in progress; the blur that follows must not
@@ -151,26 +154,7 @@ export function HeaderChrome({
 
   const leftActions = (
     <>
-      <IconButton
-        className={`${styles.chromeBtn} ${styles.iconBtn}`}
-        tone="chrome"
-        hint
-        action="Undo"
-        shortcut="⌘Z / Ctrl+Z"
-        icon={<UndoIcon />}
-        onClick={onUndo}
-        disabled={!history.canUndo}
-      />
-      <IconButton
-        className={`${styles.chromeBtn} ${styles.iconBtn}`}
-        tone="chrome"
-        hint
-        action="Redo"
-        shortcut="⇧⌘Z / Ctrl+Y"
-        icon={<RedoIcon />}
-        onClick={onRedo}
-        disabled={!history.canRedo}
-      />
+      <SharedHistoryControls history={history} map={map} stale={editor?.sequence.stale || editor?.sequence.pending} onUndo={onUndo} onRedo={onRedo} />
       <AssistantDoor {...assistant} className={styles.chromeBtn} />
       {viewUrl && (
         <a

@@ -30,3 +30,27 @@ it("keeps refused SQL and queued legend and style edits while halting every cove
   expect(map.name).toBe("later name");
   h.unmount();
 });
+
+it("does not replay an undisclosed history target while an edit waits", async () => {
+  const w = wire(); vi.stubGlobal("fetch", w.fetch);
+  vi.stubGlobal("window", { addEventListener() {}, removeEventListener() {} });
+  let map = { id: "map", layers: [], editRevision: "seen" } as unknown as MapWithLayers;
+  const refs = { current: {} };
+  const h = new HookHarness(() => useBuilderMutations({ mapId: "map", map, setMap: next => { map = typeof next === "function" ? next(map)! : next!; }, rendersRef: refs, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} }));
+  const e = h.value; e.serverMapRef.current = map; e.sequence.accept(map);
+  e.setHistory({ canUndo: true, canRedo: false, editRevision: "seen", undoTarget: { eligible: true, reason: null, steps: [] } });
+  const patch = e.patchMap({ name: "mine" });
+  const undo = e.applyHistory("undo");
+  w.calls[0].ok({ ...map, name: "mine", editRevision: "accepted" });
+  await patch; await w.settle();
+  await undo;
+  expect(w.calls).toHaveLength(1);
+  expect(e.sequence.stale).toBe(false);
+  expect(e.sequence.revision).toBe("accepted");
+  expect(h.render().history.canUndo).toBe(false);
+  const facts = w.pending("GET", "/api/maps/map/history")[0];
+  facts.ok({ canUndo: true, canRedo: false, editRevision: "accepted", undoTarget: { eligible: true, reason: null, steps: [] } });
+  await w.settle();
+  expect(h.render().history.canUndo).toBe(true);
+  h.unmount();
+});

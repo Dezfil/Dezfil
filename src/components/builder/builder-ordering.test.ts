@@ -28,7 +28,6 @@ it("orders real layer, map and history hooks with accepted field intent and inde
   const fill = editor.patchLayer("b", { style: { opacity: 1, fill: "blue" } });
   const opacity = editor.patchLayer("b", { style: { opacity: 0.5, fill: "red" } });
   const settings = editor.patchMap({ name: "new" });
-  const history = editor.applyHistory("undo");
   editor.camera({ lng: 1, lat: 2, zoom: 3 });
   await w.settle();
   expect(w.calls.map((c) => c.path)).toEqual(["/api/layers/a", "/api/maps/map"]);
@@ -48,6 +47,9 @@ it("orders real layer, map and history hooks with accepted field intent and inde
   expect(w.calls[4].body).toEqual({ name: "new" });
   w.calls[4].ok({ ...editor.serverMapRef.current, name: "new", editRevision: "map-save" });
   await settings; await w.settle();
+  editor.setHistory({ canUndo: true, canRedo: false, editRevision: "map-save", undoTarget: { eligible: true, reason: null, steps: [] } });
+  const history = editor.applyHistory("undo");
+  await w.settle();
   expect(w.calls[5].path).toBe("/api/maps/map/undo");
   w.calls[5].ok({ ...map, layers: [], history: { canUndo: false, canRedo: true }, editRevision: "undo" });
   await history;

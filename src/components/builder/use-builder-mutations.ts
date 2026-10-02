@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type Dispatch, type SetStateAction } from "react";
 import type { Layer, MapWithLayers } from "@/lib/metadata/maps";
-import type { HistoryAvailability } from "@/lib/metadata/history";
+import { historyControl, type SharedHistory as HistoryAvailability } from "./shared-history";
 import type { Bounds } from "@/lib/geo-bounds";
 import { readApiError } from "../api";
 import type { LegendLiveText } from "./LegendTab";
@@ -29,17 +29,28 @@ export function useBuilderMutations({
 }) {
   const sequence = useMemo(() => new DocumentSequence(mapId), [mapId]);
   const [reloadKey, setReloadKey] = useState(0);
-  // Undo/redo availability: seeded by the history read, then derived —
-  // any successful edit enables undo and clears redo; undo/redo responses
-  // carry the authoritative values.
-  const [history, setHistory] = useState<HistoryAvailability>({
-    canUndo: false,
-    canRedo: false,
-  });
-  const edited = useCallback(
-    () => setHistory({ canUndo: true, canRedo: false }),
-    [],
-  );
+  const [history, setHistoryState] = useState<HistoryAvailability>({ canUndo: false, canRedo: false });
+  const historyRef = useRef(history);
+  const setHistory = useCallback<Dispatch<SetStateAction<HistoryAvailability>>>((next) => {
+    const value = typeof next === "function" ? next(historyRef.current) : next;
+    historyRef.current = value; setHistoryState(value);
+  }, []);
+  const [historyRead, requestHistory] = useState(0);
+  const edited = useCallback(() => {
+    setHistory({ canUndo: false, canRedo: false });
+    requestHistory(value => value + 1);
+  }, [setHistory]);
+  useEffect(() => {
+    if (!historyRead || sequence.stale) return;
+    let cancelled = false;
+    const revision = sequence.revision;
+    void fetch(`/api/maps/${mapId}/history`).then(async response => {
+      if (!response.ok) return;
+      const facts = await response.json() as HistoryAvailability;
+      if (!cancelled && facts.editRevision === revision && sequence.revision === revision) setHistory(facts);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [mapId, sequence, historyRead, setHistory]);
   const authoritativeLayersRef = useRef<Record<string, Layer>>({});
   // Response application is newest-wins per object. A map response
   // embeds the whole layer set as it stood when the server read it, so
@@ -139,9 +150,10 @@ export function useBuilderMutations({
       sequence.accept(body);
       serverMapRef.current = acceptedMapWrite(serverMapRef.current, String(input), init?.method ?? "GET", body);
       if (serverMapRef.current) authoritativeLayersRef.current = Object.fromEntries(serverMapRef.current.layers.map((layer) => [layer.id, layer]));
+      if ((init?.method ?? "GET") !== "GET") edited();
     }
     return response;
-  }), [sequence]);
+  }), [sequence, edited]);
 
   const turn = useCallback((work: () => Promise<void>) => sequence.enqueue(async () => {
     if (sequence.stale) throw new Error("This item has changed. Reload it before trying again.");
@@ -153,8 +165,9 @@ export function useBuilderMutations({
     if (!response.ok) throw new Error(await readApiError(response));
     const body = await response.json() as MapWithLayers;
     applyMapResponse(body, false, truthSeqRef.current);
+    edited();
     await Promise.all(body.layers.map((layer) => refreshLayer(layer.id)));
-  }), [sequence, mapId, applyMapResponse, refreshLayer]);
+  }), [sequence, mapId, applyMapResponse, refreshLayer, edited]);
 
   // Undo/redo — extracted to use-map-history.ts at the touch; the queue,
   // the generation fence and the keyboard binding live there unchanged.
@@ -167,6 +180,10 @@ export function useBuilderMutations({
     fail,
     clearFailure,
     setHistory,
+    target: direction => {
+      const facts = historyRef.current;
+      return historyControl(facts, direction, undefined, sequence.stale || sequence.pending).disabled ? null : facts.editRevision ?? null;
+    },
     setSelectedId,
     rendersRef,
     setRenders,
@@ -249,7 +266,8 @@ export function useBuilderReload({
         // Seed the undo/redo buttons; also re-runs after assistant turns.
         void fetch(`/api/maps/${mapId}/history`).then(async (r) => {
           if (r.ok && !cancelled) {
-            setHistory((await r.json()) as HistoryAvailability);
+            const facts = await r.json() as HistoryAvailability;
+            if (facts.editRevision === sequence.revision) setHistory(facts);
           }
         });
         const entries = await Promise.all(
