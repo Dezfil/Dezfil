@@ -1,6 +1,6 @@
 import type { OperationDef, OperationInput } from "@/lib/operations/catalog";
 import type { TableListing } from "../api";
-import { normalName } from "../workflow-producers";
+import { normalName, readKey, readTarget } from "../workflow-producers";
 import type { CanvasGraph, CanvasMember, NodeMember, SourceMember } from "./graph";
 import {
   classOfTable,
@@ -48,18 +48,23 @@ export function expectedClass(
 }
 
 /** The member a table name resolves to: a node that answers to it, or the
- * source that carries it. */
+ * source that carries it. A qualified name, `<sql name>.<dataset>`, is that
+ * person's dataset and never a node's output, whatever its sanitized form
+ * spells. */
 export function memberByName(graph: CanvasGraph, name: string): CanvasMember | null {
-  const key = normalName(name);
-  for (const m of graph.members) {
-    if (m.kind === "node") {
-      const names = [m.step.output?.name, m.step.parameters.name, m.step.proposedParameters?.name].filter(
-        (n): n is string => typeof n === "string" && n !== "",
-      );
-      if (names.some((n) => normalName(n) === key)) return m;
+  if (readTarget(name).owner === null) {
+    const key = normalName(name);
+    for (const m of graph.members) {
+      if (m.kind === "node") {
+        const names = [m.step.output?.name, m.step.parameters.name, m.step.proposedParameters?.name].filter(
+          (n): n is string => typeof n === "string" && n !== "",
+        );
+        if (names.some((n) => normalName(n) === key)) return m;
+      }
     }
   }
-  return graph.members.find((m) => m.kind === "source" && normalName(m.name) === key) ?? null;
+  const key = readKey(name);
+  return graph.members.find((m) => m.kind === "source" && readKey(m.name) === key) ?? null;
 }
 
 /** The catalog's acceptance, asked of a class rather than a table: `any`

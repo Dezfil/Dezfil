@@ -19,6 +19,7 @@ import {
 import { useDryRun } from "../builder/drawer/use-dry-run";
 import { normalName } from "../workflow-producers";
 import { effectiveParameters, type CanvasGraph, type NodeMember } from "./graph";
+import { outputNameTaken, readerAddressOf } from "./home-names";
 import { expectedClass } from "./link-rules";
 import { callouts, pickerOptions, unproducedOutput } from "./node-panel-model";
 import { InputPicker } from "./InputPicker";
@@ -82,7 +83,8 @@ export function NodePanel({
   const siblingHolder = graph.members.find(
     (m) => m.kind === "node" && m.id !== member.id && normalName(m.outputName) === normalName(registeredName(typedName || "x")),
   );
-  const tableTaken = (name: string) => tables.some((t) => normalName(t.name) === normalName(name));
+  // Taken where the output lands or would shadow: the home or the reader's own space.
+  const tableTaken = outputNameTaken(tables, graph.home);
   const nameIssue = produced
     ? null
     : (nameProblem(typedName, tableTaken) ??
@@ -118,12 +120,13 @@ export function NodePanel({
 
   const firstInput = operation?.inputs[0] ?? null;
   // A field parameter names the columns of the input the catalog declares
-  // for it (a join's right key reads the right table), else the first.
+  // for it (a join's right key reads the right table), else the first,
+  // asked for as the reader addresses the dataset the input names.
   const tableFor = (parameter: OperationParameter): string | null => {
     const port = parameter.ofInput ?? firstInput?.name ?? null;
     const name = port && typeof values[port] === "string" ? (values[port] as string) : null;
     if (!name || unproducedOutput(name, graph, tables)) return null;
-    return name;
+    return readerAddressOf(name, graph, tables);
   };
   const unproducedInputs = operation
     ? operation.inputs

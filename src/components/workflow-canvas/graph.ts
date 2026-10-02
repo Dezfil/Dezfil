@@ -119,6 +119,9 @@ export interface CanvasGraph {
   edges: CanvasEdge[];
   /** Distinct present external reads — the API summary's source count. */
   presentSourceCount: number;
+  /** The SQL name of the workflow's home, where its plain names live;
+   * null or absent when it is not known. */
+  home?: string | null;
 }
 
 const BADGE: Record<StateWord, BadgeGlyph> = {
@@ -376,5 +379,6 @@ export function canvasGraph(input: GraphInput): CanvasGraph {
     members: [...sources.values(), ...nodes],
     edges,
     presentSourceCount: present.size,
+    home: input.home ?? null,
   };
 }

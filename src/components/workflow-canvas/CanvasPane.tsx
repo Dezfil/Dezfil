@@ -9,9 +9,9 @@ import { geometryGlyphType } from "../geometry-class";
 import { DatabaseIcon, PlusIcon, SearchIcon } from "../ui/icons";
 import { TabPanel, Tabs } from "../ui/Tabs";
 import { GeometryGlyph, OperationGlyph, ToolsIcon } from "../ui/operation-icons";
-import { normalName, sourceId } from "../workflow-producers";
 import { NODE_H, NODE_W } from "./arrange";
 import type { CanvasGraph } from "./graph";
+import { paneRow, typedName } from "./home-names";
 import type { FlowNode } from "./to-flow";
 import { useViewOnly } from "./view-only";
 import styles from "./WorkflowCanvas.module.css";
@@ -75,11 +75,11 @@ export function CanvasPane({
     () => new Set(graph.members.flatMap((m) => (m.kind === "node" && m.step.output ? [m.step.output.id] : []))),
     [graph],
   );
-  const onCanvas = useMemo(
-    () => new Set(graph.members.flatMap((m) => (m.kind === "source" ? [normalName(m.name)] : []))),
-    [graph],
-  );
   const listed = useMemo(() => tables.filter((t) => !liveOutputs.has(t.id)), [liveOutputs, tables]);
+  // Each row by the dataset it is: the name its reader types, the name a
+  // drop writes in the workflow's home, and the source holding this very
+  // dataset. Two people's same-named datasets are two rows, never one.
+  const rows = useMemo(() => new Map(listed.map((t) => [t.id, paneRow(t, graph)])), [graph, listed]);
   const sq = queries.sources.trim().toLowerCase();
   const tq = queries.tools.trim().toLowerCase();
   // The reference's order: the workspace's tables first, the other
@@ -87,7 +87,7 @@ export function CanvasPane({
   const groups = useMemo(() => {
     const order = ["workspace", "outputs", "sketches"];
     return groupTables(
-      listed.filter((t) => !sq || t.name.toLowerCase().includes(sq)),
+      listed.filter((t) => !sq || typedName(t).toLowerCase().includes(sq)),
       [],
     ).sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
   }, [listed, sq]);
@@ -106,8 +106,7 @@ export function CanvasPane({
     return [...byGroup.entries()].sort((a, b) => order(a[0]) - order(b[0]));
   }, [operations, tq]);
 
-  const centreOn = (name: string) => {
-    const id = sourceId(name);
+  const centreOn = (id: string) => {
     const n = nodes.find((x) => x.id === id);
     if (!n) return;
     // Centre at the zoom the user has, not the library's maximum.
@@ -124,7 +123,7 @@ export function CanvasPane({
   const [ghost, setGhost] = useState<{ x: number; y: number; label: string } | null>(null);
   const press = (e: ReactPointerEvent<HTMLElement>, kind: "tool" | "table", key: string, label: string) => {
     if (e.button !== 0) return;
-    if (lockReason && !(kind === "table" && onCanvas.has(normalName(key)))) return;
+    if (lockReason && !(kind === "table" && rows.get(key)?.here)) return;
     drag.current = { kind, key, x: e.clientX, y: e.clientY, moved: false, label };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
@@ -154,11 +153,14 @@ export function CanvasPane({
   };
   const act = (kind: "tool" | "table", key: string, at: DropPoint) => {
     if (kind === "table") {
-      // Already on the canvas: centre on it, whether clicked or dragged —
-      // a second add never moves what is there. Centring is
-      // navigation, so the lock leaves it.
-      if (onCanvas.has(normalName(key))) centreOn(key);
-      else if (!lockReason) onAddSource(key, at);
+      // A table row's key is its dataset's id. Already on the canvas:
+      // centre on it, whether clicked or dragged — a second add never moves
+      // what is there. Centring is navigation, so the lock leaves it. A new
+      // source is stored by the name the workflow's home writes it.
+      const row = rows.get(key);
+      if (!row) return;
+      if (row.sourceId) centreOn(row.sourceId);
+      else if (!lockReason) onAddSource(row.written, at);
       return;
     }
     if (lockReason) return;
@@ -234,32 +236,33 @@ export function CanvasPane({
               <div key={g.key} className={styles.paneGroup}>
                 <p className={styles.eyebrow}>{g.label}</p>
                 {g.tables.map(({ table }) => {
-                  const here = onCanvas.has(normalName(table.name));
+                  const row = rows.get(table.id) ?? paneRow(table, graph);
+                  const { here, typed } = row;
                   return (
                     <button
                       key={table.id}
                       type="button"
                       className={styles.tableRow}
                       data-on={here || undefined}
-                      data-table={table.name}
+                      data-table={typed}
                       disabled={lockReason !== null && !here}
                       aria-label={
                         here
-                          ? `${table.name}, on canvas: centre the view on it`
+                          ? `${typed}, on canvas: centre the view on it`
                           : lockReason
-                            ? `Add ${table.name} to the canvas: ${lockReason}`
-                            : `Add ${table.name} to the canvas`
+                            ? `Add ${typed} to the canvas: ${lockReason}`
+                            : `Add ${typed} to the canvas`
                       }
-                      onPointerDown={(e) => press(e, "table", table.name, table.name)}
+                      onPointerDown={(e) => press(e, "table", table.id, typed)}
                       onPointerMove={move}
                       onPointerUp={release}
                       onPointerCancel={cancel}
-                      onKeyDown={(e) => keyed(e, "table", table.name)}
+                      onKeyDown={(e) => keyed(e, "table", table.id)}
                     >
                       <span className={styles.rowGlyph} data-kind={table.geometryColumn !== null ? "spatial" : "none"}>
                         <GeometryGlyph geometryType={geometryGlyphType(table)} />
                       </span>
-                      <span className={styles.rowName}>{table.name}</span>
+                      <span className={styles.rowName}>{typed}</span>
                       {here ? (
                         <span className={styles.onCanvas}>on canvas</span>
                       ) : (

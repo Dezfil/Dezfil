@@ -17,6 +17,8 @@ import { AsyncState, useAsync } from "./ui/AsyncState";
 import type { HistoryChrome } from "./workflow-canvas/WorkflowCanvas";
 import { useUploadQueue } from "./use-upload-queue";
 import { canvasGraph } from "./workflow-canvas/graph";
+import { importedInHome } from "./workflow-canvas/home-names";
+import { useSignedInSqlName } from "./sharing/signed-in";
 import type { LayoutRead } from "./workflow-canvas/placement";
 import { savedWhisper, type Whisper } from "./workflow-canvas/save-whisper";
 import type { SaveState } from "./workflow-canvas/use-layout-saves";
@@ -472,6 +474,19 @@ export function WorkflowScreen({
         : null,
     [page, runOverlay],
   );
+  // A table the reader just imported is their own: on someone else's
+  // workflow its loose source is written qualified with their SQL name, so
+  // it names their dataset rather than a same-named one of the home's.
+  const reader = useSignedInSqlName();
+  const home = page?.recipe.home ?? null;
+  const sourceRequest = useMemo(
+    () =>
+      addSourceRequest && {
+        ...addSourceRequest,
+        names: addSourceRequest.names.map((n) => importedInHome(n, reader, home)),
+      },
+    [addSourceRequest, home, reader],
+  );
 
   return (
     <ViewOnly value={viewOnly} runs={runs}>
@@ -535,7 +550,7 @@ export function WorkflowScreen({
               onLayoutWritten={onLayoutWritten}
               edits={edits}
               onAddData={() => setAddDataOpen(true)}
-              addSourceRequest={addSourceRequest}
+              addSourceRequest={sourceRequest}
               runner={runner}
               onRunFrom={(from) => void askRun(from)}
               onListingStale={() => void refreshTables()}

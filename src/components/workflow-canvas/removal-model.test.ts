@@ -21,8 +21,9 @@ const step = (o: Partial<WorkflowStep> & { id: string; operation: string; parame
 const member = (g: ReturnType<typeof canvasGraph>, id: string) => g.members.find((m) => m.id === id || (m.kind === "source" && m.name === id))!;
 
 describe("the removal plan", () => {
+  // A produced output is the listed dataset of the same identity.
   const steps = [
-    step({ id: "a", operation: "buffer", parameters: { input: "stations", name: "a_out" }, reads: ["stations"], output: { id: "o", name: "a_out" }, conditions: ["current"] }),
+    step({ id: "a", operation: "buffer", parameters: { input: "stations", name: "a_out" }, reads: ["stations"], output: { id: "t_a_out", name: "a_out" }, conditions: ["current"] }),
     step({ id: "b", ordinal: 1, operation: "buffer", parameters: { input: "a_out", name: "b_out" }, reads: ["a_out"] }),
     step({ id: "c", ordinal: 2, operation: "buffer", parameters: { input: "b_out", name: "c_out" }, reads: ["b_out"] }),
     step({ id: "d", ordinal: 3, operation: "buffer", parameters: { input: "stations", name: "d_out" }, reads: ["stations"], output: { id: "o2", name: "d_out" }, conditions: ["output_missing"] }),
