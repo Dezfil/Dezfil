@@ -83,6 +83,29 @@ describe("qualified names in written SQL", () => {
     expect(await rows(scopes.bob, "SELECT sentinel FROM query_table('ada.parquet')")).toEqual([{ sentinel: "ada parquet" }]);
   });
 
+  it("keeps a qualified dataset apart from a same-named one in the same statement", async () => {
+    expect((await rows(scopes.bob, "SELECT * FROM roads JOIN ada.roads USING (lon)")).length).toBe(1);
+    for (const sql of [
+      "SELECT roads.sentinel AS mine, ada.roads.sentinel AS theirs FROM roads JOIN ada.roads USING (lon)",
+      "SELECT roads.sentinel AS mine, ada.roads.sentinel AS theirs FROM ada.roads JOIN roads ON roads.lon = ada.roads.lon",
+      "SELECT roads.sentinel AS mine, ada.roads.sentinel AS theirs FROM roads, ada.roads",
+    ]) expect(await rows(scopes.bob, sql), sql).toEqual([{ mine: "bob roads", theirs: "ada roads" }]);
+    expect(await rows(scopes.bob, "SELECT ada.roads.sentinel AS a, bob.roads.sentinel AS b FROM ada.roads JOIN bob.roads USING (lon)"))
+      .toEqual([{ a: "ada roads", b: "bob roads" }]);
+    // The home's own qualified name is a second reference to the same dataset.
+    expect(await rows(scopes.ada, "SELECT roads.sentinel AS a, ada.roads.sentinel AS b FROM roads JOIN ada.roads USING (lon)"))
+      .toEqual([{ a: "ada roads", b: "ada roads" }]);
+  });
+
+  it("refuses a relation named twice with the engine's ambiguity, naming nothing internal", async () => {
+    for (const sql of ["SELECT * FROM roads JOIN roads USING (lon)", "SELECT * FROM ada.roads JOIN ada.roads USING (lon)", "SELECT * FROM roads, main.roads"]) {
+      const failure = await executeQuery(scopes.bob, sql).then(() => null, (error: Error & { code?: string }) => error);
+      expect(failure, sql).toMatchObject({ code: "sql_error" });
+      expect(failure!.message, sql).toMatch(/Ambiguous reference to table "(?:ada\.)?roads"/);
+      expect(failure!.message, sql).not.toMatch(/temp|main|memory|use:|\.roads"? or|""/);
+    }
+  });
+
   it("resolves the home's own qualified name to its plain dataset", async () => {
     expect(await rows(scopes.ada, "SELECT sentinel FROM ada.roads")).toEqual([{ sentinel: "ada roads" }]);
     expect(await rows(scopes.ada, "SELECT ada.roads.sentinel FROM ada.roads")).toEqual([{ sentinel: "ada roads" }]);

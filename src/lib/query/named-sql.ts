@@ -23,7 +23,8 @@ import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
  * two-part name whose first part is a person's SQL name, `ada.roads`, is
  * mapped onto the view this evaluation mounted for that dataset, wherever it
  * appears: a table reference (keeping `roads` as its alias, as a schema-
- * qualified table would), a qualified column (`ada.roads.x`), a qualified
+ * qualified table would, or `ada.roads` when another relation of its FROM
+ * clause goes by `roads`), a qualified column (`ada.roads.x`), a qualified
  * star exclusion, a dynamic table-function argument and nested SQL. Aliases,
  * common table expressions and struct paths keep their meaning: a first part
  * that is an alias in scope is never a SQL name. A home dataset that a
@@ -109,6 +110,24 @@ async function refuseWithheldRelation(conn: DuckDBConnection, plan: MountPlan | 
   if (await bindsAsRelation(conn, parts)) throw catalogueWithheld();
 }
 
+/** How many relations of one FROM clause go by each name (lower-cased): an
+ * alias, else a base table's own name. Joins are counted through; nested
+ * queries have FROM clauses of their own. */
+function relationNames(table: unknown, names = new Map<string, number>()): Map<string, number> {
+  if (!record(table)) return names;
+  if (table.type === "JOIN") { relationNames(table.left, names); relationNames(table.right, names); return names; }
+  const name = typeof table.alias === "string" && table.alias ? table.alias : table.type === "BASE_TABLE" ? String(table.table_name) : "";
+  if (name) names.set(name.toLowerCase(), (names.get(name.toLowerCase()) ?? 0) + 1);
+  return names;
+}
+
+/** A qualified reference as it was written, `ada.roads`, from any of its
+ * spellings: the person's SQL name and the dataset, or the one mount name. */
+function writtenQualified(parts: readonly string[]): string {
+  const last = parts.at(-1)!;
+  return last.includes(".") || parts.length < 2 ? last : `${parts.at(-2)}.${last}`;
+}
+
 /** How a qualified name is reached here, when it names a SQL name's dataset. */
 function qualifiedBinding(plan: MountPlan | undefined, parts: readonly string[]): { key: string; binding: QualifiedBinding | undefined } | null {
   if (!plan) return null;
@@ -125,11 +144,12 @@ async function compileNamedSql(conn: DuckDBConnection, sql: string, synthetics: 
   let changed = false;
 
   /** Scope: tables and aliases in scope (lower-cased), the CTE names in
-   * scope, and the qualified tables rewritten here, by `<sql name>.<name>`,
-   * with the alias their columns now go by. */
-  interface Scope { tables: Set<string>; aliases: Set<string>; ctes: Set<string>; qualified: Map<string, string> }
-  const fresh = (): Scope => ({ tables: new Set(), aliases: new Set(), ctes: new Set(), qualified: new Map() });
-  const copy = (scope: Scope): Scope => ({ tables: new Set(scope.tables), aliases: new Set(scope.aliases), ctes: new Set(scope.ctes), qualified: new Map(scope.qualified) });
+   * scope, the qualified tables rewritten here, by `<sql name>.<name>`,
+   * with the alias their columns now go by, and how many relations of the
+   * current FROM clause go by each name. */
+  interface Scope { tables: Set<string>; aliases: Set<string>; ctes: Set<string>; qualified: Map<string, string>; from: Map<string, number> }
+  const fresh = (): Scope => ({ tables: new Set(), aliases: new Set(), ctes: new Set(), qualified: new Map(), from: new Map() });
+  const copy = (scope: Scope): Scope => ({ tables: new Set(scope.tables), aliases: new Set(scope.aliases), ctes: new Set(scope.ctes), qualified: new Map(scope.qualified), from: scope.from });
 
   async function walk(value: unknown, scope: Scope): Promise<void> {
     if (Array.isArray(value)) { for (const child of value) await walk(child, scope); return; }
@@ -155,7 +175,7 @@ async function compileNamedSql(conn: DuckDBConnection, sql: string, synthetics: 
 
     if (value.type === "SELECT_NODE") {
       // Resolve FROM before expressions, including computed query_table names.
-      const local = copy(inner);
+      const local = { ...copy(inner), from: relationNames(value.from_table) };
       await walk(value.from_table, local);
       for (const [key, child] of Object.entries(value)) {
         if (key !== "from_table" && key !== "cte_map") await walk(child, local);
@@ -180,8 +200,12 @@ async function compileNamedSql(conn: DuckDBConnection, sql: string, synthetics: 
         const written = String(value.table_name);
         const target = "view" in found.binding ? found.binding.view : syntheticName(synthetics, plan!, found.binding);
         value.catalog_name = ""; value.schema_name = ""; value.table_name = target;
-        // A schema-qualified table goes by its own name; so does its view.
-        if (!value.alias && target.toLowerCase() !== written.toLowerCase()) value.alias = written;
+        // A schema-qualified table goes by its own name; so does its view,
+        // unless another relation of the same FROM clause goes by that name:
+        // then it goes by the qualified name as written, so `roads` and
+        // `ada.roads` stay two relations.
+        const name = (inner.from.get(written.toLowerCase()) ?? 0) > 1 ? writtenQualified(parts) : written;
+        if (!value.alias && target.toLowerCase() !== name.toLowerCase()) value.alias = name;
         const alias = String(value.alias || target).toLowerCase();
         inner.aliases.add(alias);
         inner.qualified.set(found.key, alias);

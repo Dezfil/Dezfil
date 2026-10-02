@@ -87,12 +87,27 @@ const ABSENT_TABLE = /(?:Catalog Error:\s*)?(?:Table|Schema|Catalog) with name [
 const FILE_DIAGNOSTIC = /(?:\b(?:IO|Permission) Error:|\b(?:parquet|read_parquet|magic bytes|No files found|failed to open file|cannot open file)\b)/i;
 const PRIVATE_PATH = /(?:^|[\s"'(:])(?:\/(?!\s)|[a-z]:[\\/]|\\\\|~[\\/])[^\s"')]+/i;
 
+const AMBIGUOUS_TABLE = /^((?:Binder Error: )?)Ambiguous reference to table "([\s\S]*?)" \((?:use: |duplicate alias )[\s\S]*\)$/;
+const LOCAL_QUALIFIER = /^(?:"?(?:temp|memory)"?\.)?"?main"?\./i;
+
+/** Two relations going by one name, said with the name as a person wrote it.
+ * The engine spells a local table with the catalogue and schema it lives in
+ * and offers those spellings as the way out; neither means anything to the
+ * person, and the way out is an alias. */
+function ambiguousTable(diagnosis: string): string | null {
+  const match = AMBIGUOUS_TABLE.exec(diagnosis);
+  if (!match) return null;
+  const name = match[2].replace(LOCAL_QUALIFIER, "").replace(/^"([\s\S]*)"$/, (_, inner: string) => inner.replace(/""/g, '"'));
+  return `${match[1]}Ambiguous reference to table "${name}" (duplicate alias "${name}", explicitly alias one of the tables using "AS my_alias")`;
+}
+
 /** Only input-facing diagnosis travels. Engine suggestions and internal
  * statements are never a discovery API; artifact and native-library failures
  * do not disclose filenames, schemas, library internals or stack traces. */
 export function safeEngineMessage(message: string): string {
-  const diagnosis = stripStatementQuote(message);
-  if (ABSENT_TABLE.test(diagnosis)) return UNKNOWN_TABLE_MESSAGE;
+  const quoted = stripStatementQuote(message);
+  if (ABSENT_TABLE.test(quoted)) return UNKNOWN_TABLE_MESSAGE;
+  const diagnosis = ambiguousTable(quoted) ?? quoted;
   if (FILE_DIAGNOSTIC.test(diagnosis)) return DATASET_READ_MESSAGE;
   const withoutSuggestions = diagnosis.split(/\n\s*(?:Did you mean\b|Candidate (?:bindings|functions)\s*:|Candidates\s*:)/i, 1)[0].trimEnd();
   if (PRIVATE_PATH.test(withoutSuggestions) || /\bInternal Error:|__dezfil_|Stack Trace:/i.test(withoutSuggestions)) return FAILED_QUERY_MESSAGE;

@@ -742,7 +742,9 @@ Unqualified names, `main.table`, `memory.table`, `memory.main.table`, and
 computed `query_table()` / nested `query()` references resolve inside that local
 catalogue. So does `<SQL name>.<dataset>`, wherever a table can be named: in a
 table reference (where the table goes by its dataset name, as a
-schema-qualified one would), a qualified column (`ada.roads.x`), a qualified
+schema-qualified one would, unless another table of the same `FROM` goes by
+that name: then it goes by `ada.roads`, so `roads JOIN ada.roads` joins two
+tables), a qualified column (`ada.roads.x`), a qualified
 star exclusion, a computed or listed `query_table()` argument, a table macro
 such as `histogram_values()`, and nested or serialized SQL. It names that
 person's dataset, external even when a workflow's declared output shares the
