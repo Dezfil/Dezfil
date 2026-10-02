@@ -137,6 +137,7 @@ function mapFromRow(r: MapRow): MapRecord {
     widgetsPublished: r.widgets_published === 1,
     publishToken: r.publish_token,
     publishedAt: r.published_at,
+    published: r.publish_token !== null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };

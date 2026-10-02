@@ -53,6 +53,7 @@ export function mapProjection(wire: Record<string, unknown>): object {
   const kept = { ...wire };
   delete kept.publishToken;
   delete kept.publishedAt;
+  delete kept.published;
   delete kept.projectId;
   return kept;
 }

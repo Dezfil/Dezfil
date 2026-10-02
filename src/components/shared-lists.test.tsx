@@ -35,7 +35,8 @@ const map = (id: string, name: string, owner: typeof ada, published = false): Ma
   ({
     id, name, viewport: { lng: 0, lat: 0, zoom: 2 }, basemap: null, customBasemap: null, basemapLayers: null,
     note: null, legendCorner: null, legendOrder: null, timeline: null, widgets: [], widgetsPublished: false,
-    publishToken: published ? `token-${id}` : null, publishedAt: null,
+    // The token is the owner's alone: Bo reads Ada's published map as published, with no token.
+    publishToken: published && owner === bo ? `token-${id}` : null, publishedAt: published ? "2026-09-01T00:00:00Z" : null, published,
     createdAt: "2026-09-01T00:00:00Z", updatedAt: "2026-09-02T00:00:00Z",
     projectId: "berlin", owner, home: owner.sqlName, layerCount: 1, layerColors: [],
   }) as unknown as MapOverview;
@@ -68,7 +69,8 @@ describe.each(["grid", "list"] as const)("the Maps list (%s)", (layout) => {
   it("keeps only what reads Ada's map among its quick actions", () => {
     const html = render();
     expect(html).toContain('aria-label="Duplicate Station catchments"');
-    expect(html).toContain('aria-label="Copy share link for Station catchments"');
+    // Her link is hers to hand out: Bo reads that it is published, not the link.
+    expect(html).not.toContain('aria-label="Copy share link for Station catchments"');
     expect(html).not.toContain('aria-label="Delete Station catchments"');
     expect(html).not.toMatch(/aria-label="[^"]*project[^"]*: Station catchments"/i);
     expect(html).toContain('aria-label="Delete Berth occupancy"');
@@ -175,5 +177,18 @@ describe("one's own work still filed in a project one no longer reaches", () => 
       expect(html, name).not.toContain("not in a project");
       expect(html, name).toMatch(new RegExp(`aria-label="[^"]*project[^"]*: ${name}"`, "i"));
     }
+  });
+});
+
+describe("a published map someone else owns", () => {
+  it("reads as published on its card and in the Published count without its token, and its link stays with the owner's own", () => {
+    lists.view = "grid";
+    lists.world = { projects, all: [], scoped: [map("m-ada", "Station catchments", ada, true), map("m-bo", "Berth occupancy", bo, true)] };
+    const html = asBo(<MapsScreen />);
+    expect(html.match(/data-live="true"/g)).toHaveLength(2);
+    expect(html).not.toContain(">Draft<");
+    expect(html).toContain('aria-label="Copy share link for Berth occupancy"');
+    expect(html).not.toContain('aria-label="Copy share link for Station catchments"');
+    expect(html).not.toContain("token-m-ada");
   });
 });

@@ -230,7 +230,7 @@ export function MapsScreen() {
       };
       const publish = (m: MapOverview) =>
         m.id === id
-          ? { ...m, publishToken: body.token, publishedAt: body.publishedAt }
+          ? { ...m, publishToken: body.token, publishedAt: body.publishedAt, published: true }
           : m;
       mutate((w) => ({ ...w, all: w.all.map(publish), scoped: w.scoped.map(publish) }));
       setActionError(null);
@@ -285,8 +285,8 @@ export function MapsScreen() {
     if (!maps) return null;
     const q = query.trim().toLowerCase();
     const filtered = maps.filter((m) => {
-      if (filter === "published" && !m.publishToken) return false;
-      if (filter === "drafts" && m.publishToken) return false;
+      if (filter === "published" && !m.published) return false;
+      if (filter === "drafts" && m.published) return false;
       return !q || m.name.toLowerCase().includes(q);
     });
     return [...filtered].sort((a, b) => {
@@ -297,7 +297,7 @@ export function MapsScreen() {
   }, [maps, query, filter, sort]);
 
   const counts = useMemo(() => {
-    const published = maps?.filter((m) => m.publishToken).length ?? 0;
+    const published = maps?.filter((m) => m.published).length ?? 0;
     return {
       all: maps?.length ?? 0,
       published,
@@ -616,7 +616,7 @@ export function MapsScreen() {
                     </span>
                   </div>
                   <div className={gallery.cardChips}>
-                    <StateChip live={!!m.publishToken} />
+                    <StateChip live={m.published} />
                     <ProjectTag
                       projectId={m.projectId}
                       projects={world?.projects ?? []}
@@ -665,7 +665,7 @@ export function MapsScreen() {
                   layer{m.layerCount === 1 ? "" : "s"}
                 </span>
                 <span className={gallery.colState}>
-                  <StateChip live={!!m.publishToken} />
+                  <StateChip live={m.published} />
                 </span>
                 <span className={`${gallery.colWhen} ${gallery.num}`}>
                   {formatRelativeTime(m.updatedAt)}

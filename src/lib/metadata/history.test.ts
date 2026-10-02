@@ -39,6 +39,7 @@ function makeMap(id: string, db: Database): void {
     widgetsPublished: true,
     publishToken: null,
     publishedAt: null,
+    published: false,
     createdAt: now,
     updatedAt: now,
   };

@@ -1,5 +1,5 @@
 import type { AccountScope } from "@/lib/auth/scope";
-import { requireMap, requireMapFor } from "@/lib/map-access";
+import { ownsMap, requireMap, requireMapFor } from "@/lib/map-access";
 import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
 import { getMap, getMapByToken, getPublishedTheme, getViewerControls,
@@ -16,8 +16,10 @@ export interface PublishState {
 /** The active publication's authored settings. The author
  * surface reads this: a map record deliberately carries no publication
  * state, so without it the publish surface could not show the default it
- * is about to change. */
-export interface PublicationState extends PublishState {
+ * is about to change. The token is the map owner's alone: anyone else who
+ * reaches the map reads the settings without it. */
+export interface PublicationState extends Omit<PublishState, "token"> {
+  token?: string;
   theme: PublishedTheme;
   viewerControls: ViewerControls;
 }
@@ -39,7 +41,7 @@ export function getPublicationState(scope: AccountScope, id: string): Publicatio
   const map = requireMap(scope, id);
   if (!map.publishToken || !map.publishedAt) return null;
   return {
-    token: map.publishToken,
+    ...(ownsMap(scope, id) ? { token: map.publishToken } : {}),
     publishedAt: map.publishedAt,
     theme: getPublishedTheme(id) ?? "dark",
     viewerControls: normalizeViewerControls(getViewerControls(id)),

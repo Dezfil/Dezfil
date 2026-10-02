@@ -127,10 +127,10 @@ function MapCard({ map: m, owner }: { map: MapOverview; owner: PersonLabel | nul
           <div className={gallery.cardChips}>
             <span
               className={gallery.chip}
-              data-live={m.publishToken ? true : undefined}
+              data-live={m.published ? true : undefined}
             >
               <i />
-              {m.publishToken ? "Published" : "Draft"}
+              {m.published ? "Published" : "Draft"}
             </span>
           </div>
         </div>
@@ -337,10 +337,10 @@ export function HomeSections({
                     <span className={gallery.colState}>
                       <span
                         className={gallery.chip}
-                        data-live={m.publishToken ? true : undefined}
+                        data-live={m.published ? true : undefined}
                       >
                         <i />
-                        {m.publishToken ? "Published" : "Draft"}
+                        {m.published ? "Published" : "Draft"}
                       </span>
                     </span>
                     <span className={gallery.colWhen}>

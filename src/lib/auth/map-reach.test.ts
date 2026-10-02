@@ -135,12 +135,45 @@ describe("listing maps over reach", () => {
   });
 });
 
+describe("a publication's token", () => {
+  const TOKEN = "token-shared-map-000000";
+  it("is read by the map's owner alone: everyone else who reaches the map reads that it is published, and since when", async () => {
+    const owner = await call(route.map, "GET", input("ada", "/api/maps/M"), { id: "M" });
+    expect(owner.body).toMatchObject({ publishToken: TOKEN, published: true });
+    expect((await call(route.publish, "GET", input("ada", "/api/maps/M/publish"), { id: "M" })).body).toMatchObject({ token: TOKEN });
+    expect((await list("ada")).text).toContain(TOKEN);
+    for (const account of ["pat", "edd", "viv"]) {
+      for (const kind of ["session", "token"] as const) {
+        const read = await call(route.map, "GET", input(account, "/api/maps/M", "GET", undefined, kind), { id: "M" });
+        expect(read.body, `${account} ${kind}`).toMatchObject({ publishToken: null, published: true, publishedAt: "2026-01-01T00:00:00.000Z" });
+        for (const answer of [read, await list(account, "", kind),
+          await call(route.publish, "GET", input(account, "/api/maps/M/publish", "GET", undefined, kind), { id: "M" })]) {
+          expect(answer.text, `${account} ${kind}`).not.toContain(TOKEN);
+        }
+      }
+      expect(((await list(account)).body as { id: string; published: boolean }[]).find(map => map.id === "M")).toMatchObject({ published: true, publishToken: null });
+    }
+    // An unpublished map reads unpublished to everyone.
+    expect(((await list("viv")).body as { id: string; published: boolean }[]).find(map => map.id === "PM")).toMatchObject({ published: false, publishToken: null });
+  });
+
+  it("stays out of what an editor's own changes answer", async () => {
+    const renamed = await call(route.map, "PATCH", input("edd", "/api/maps/M", "PATCH", { name: "Renamed" }), { id: "M" });
+    expect(renamed.status).toBe(200);
+    expect(renamed.body).toMatchObject({ name: "Renamed", publishToken: null, published: true });
+    const undone = await call(route.undo, "POST", input("edd", "/api/maps/M/undo", "POST"), { id: "M" });
+    expect(undone.status).toBe(200);
+    expect(undone.body).toMatchObject({ name: "Shared map", publishToken: null, published: true });
+    for (const answer of [renamed, undone]) expect(answer.text).not.toContain(TOKEN);
+  });
+});
+
 describe("reading a reached map", () => {
   it("serves the map with its layers, owner, SQL home and reached project to everyone who reaches it", async () => {
     for (const account of ["ada", "pat", "edd", "viv"]) {
       const read = await call(route.map, "GET", input(account, "/api/maps/M"), { id: "M" });
       expect(read.status, account).toBe(200);
-      expect(read.body, account).toMatchObject({ id: "M", owner: ADA, home: "ada", projectId: "P", publishToken: "token-shared-map-000000" });
+      expect(read.body, account).toMatchObject({ id: "M", owner: ADA, home: "ada", projectId: "P", published: true, publishedAt: "2026-01-01T00:00:00.000Z" });
       expect((read.body as { layers: { id: string }[] }).layers.map(layer => layer.id)).toEqual(["L"]);
     }
     expect((await call(route.map, "GET", input("ada", "/api/maps/Z"), { id: "Z" })).body).toMatchObject({ projectId: "Q" });
@@ -152,7 +185,9 @@ describe("reading a reached map", () => {
       expect((await call(route.layers, "GET", input(account, "/api/maps/M/layers"), { id: "M" })).body).toMatchObject([{ id: "L" }]);
       expect((await call(route.layer, "GET", input(account, "/api/layers/L"), { id: "L" })).body).toMatchObject({ id: "L", mapId: "M" });
       expect((await call(route.history, "GET", input(account, "/api/maps/M/history"), { id: "M" })).body).toEqual({ canUndo: false, canRedo: false });
-      expect((await call(route.publish, "GET", input(account, "/api/maps/M/publish"), { id: "M" })).body).toMatchObject({ token: "token-shared-map-000000" });
+      const state = (await call(route.publish, "GET", input(account, "/api/maps/M/publish"), { id: "M" })).body;
+      expect(state, account).toMatchObject({ publishedAt: "2026-01-01T00:00:00.000Z", theme: "dark" });
+      expect(state, account).not.toHaveProperty("token");
       expect((await call(route.sketches, "GET", input(account, "/api/maps/M/sketches"), { id: "M" })).body).toEqual([]);
     }
   });

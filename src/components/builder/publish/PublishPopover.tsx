@@ -534,10 +534,10 @@ export function PublishPopover({
   // one re-render a minute, so "just now" does not outlive the minute.
   const [, setMinute] = useState(0);
   useEffect(() => {
-    if (!map.publishToken) return;
+    if (!map.published) return;
     const timer = setInterval(() => setMinute((m) => m + 1), 60_000);
     return () => clearInterval(timer);
-  }, [map.publishToken]);
+  }, [map.published]);
 
   // Anything that can move the shared-field statement: map-level config
   // (timeline, widgets) and every layer's durable state and visibility.
@@ -545,6 +545,8 @@ export function PublishPopover({
     .map((l) => `${l.id}:${l.updatedAt}:${l.visible ? 1 : 0}`)
     .join(",")}`;
 
+  // The link is the map owner's to hand out: only their reads carry the
+  // token, so anyone else sees the publication live without its link.
   const url = map.publishToken
     ? `${typeof window !== "undefined" ? window.location.origin : ""}/v/${map.publishToken}`
     : null;
@@ -603,7 +605,7 @@ export function PublishPopover({
       {error && (
         <ErrorNote message={error} onDismiss={() => setError(null)} />
       )}
-      {map.publishToken ? (
+      {map.published ? (
         <>
           <div className={styles.top}>
             <span className={styles.live}>
@@ -616,27 +618,33 @@ export function PublishPopover({
                 </span>
               )}
             </span>
-            <a
-              className={styles.openLink}
-              href={url ?? "#"}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Open <ExternalIcon />
-            </a>
+            {url && (
+              <a
+                className={styles.openLink}
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open <ExternalIcon />
+              </a>
+            )}
           </div>
           <div className={styles.hero}>
-            <div className={styles.url} data-publish-url={url}>
-              {url?.replace(/^https?:\/\//, "")}
-            </div>
-            <Button
-              variant="primary"
-              className={styles.copyBtn}
-              onClick={() => void copy()}
-            >
-              {copied ? <CheckIcon /> : <CopyIcon />}
-              {copied ? "Link copied" : "Copy link"}
-            </Button>
+            {url && (
+              <>
+                <div className={styles.url} data-publish-url={url}>
+                  {url.replace(/^https?:\/\//, "")}
+                </div>
+                <Button
+                  variant="primary"
+                  className={styles.copyBtn}
+                  onClick={() => void copy()}
+                >
+                  {copied ? <CheckIcon /> : <CopyIcon />}
+                  {copied ? "Link copied" : "Copy link"}
+                </Button>
+              </>
+            )}
             <Audience tense="present" />
           </div>
           <SharedFields
@@ -653,9 +661,11 @@ export function PublishPopover({
           />
           <div className={styles.rule} />
           <div className={styles.foot}>
-            <Button variant="quiet" onClick={() => setView("embed")}>
-              Embed
-            </Button>
+            {url && (
+              <Button variant="quiet" onClick={() => setView("embed")}>
+                Embed
+              </Button>
+            )}
             <Button
               variant="quiet"
               className={styles.unpublish}

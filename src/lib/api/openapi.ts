@@ -2620,7 +2620,11 @@ export function buildOpenApiDocument() {
           description:
             "An active publication's authored settings.",
           properties: {
-            token: { type: "string" },
+            token: {
+              type: "string",
+              description:
+                "The published link's token, the map owner's alone: absent for anyone else who reaches the map.",
+            },
             publishedAt: { type: "string" },
             theme: { type: "string", enum: ["light", "dark"] },
             viewerControls: { $ref: "#/components/schemas/ViewerControls" },

@@ -68,6 +68,7 @@ function seedMap(
     widgetsPublished: true,
     publishToken,
     publishedAt: publishToken ? when : null,
+    published: publishToken !== null,
     createdAt: when,
     updatedAt: when,
   };
@@ -255,6 +256,7 @@ describe("the project export capability", () => {
     expect(published.id).toBe("m-new");
     expect(published.publishToken).toBeUndefined();
     expect(published.publishedAt).toBeUndefined();
+    expect(published.published).toBeUndefined();
     expect(published.projectId).toBeUndefined();
     expect(published.layers).toEqual([]);
     for (const name of entries.filter((e) => e.endsWith(".json"))) {

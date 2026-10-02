@@ -7,7 +7,7 @@ export { mapHistory, undoChange, redoChange, type MapWithHistory } from "./map-h
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { mayFileInto, requireFilingDestination, requirePermitted, requireReachable } from "@/lib/auth/reach";
 import { listReachableMaps } from "@/lib/metadata/map-queries";
-import { presencesOf, type Presence } from "@/lib/reach-presence";
+import { mapPresencesOf, type Presence } from "@/lib/reach-presence";
 import { randomUUID } from "node:crypto";
 import { ApiError } from "@/lib/api/errors";
 import { removeTileArtifacts } from "@/lib/tiles/build";
@@ -298,6 +298,7 @@ export function createMap(scope: AccountScope, name: string, projectId: string |
     widgetsPublished: true,
     publishToken: null,
     publishedAt: null,
+    published: false,
     createdAt: now,
     updatedAt: now,
   };
@@ -341,7 +342,7 @@ export function mapsOverview(scope: AccountScope, project?: string | "none"): Ma
   requireAccountScope(scope);
   if (project && project !== "none") requireReachable(scope, "project", project);
   const entries = listReachableMaps(scope);
-  const presences = presencesOf(scope, entries);
+  const presences = mapPresencesOf(scope, entries);
   return entries
     .map((entry, i) => {
       const layers = listLayers(entry.map.id);
@@ -572,6 +573,7 @@ export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
       widgets: [],
       publishToken: null,
       publishedAt: null,
+      published: false,
       createdAt: now,
       updatedAt: now,
     }, metadataDb(), home);

@@ -39,11 +39,11 @@ export function PublishControl({
       <button
         ref={triggerRef}
         className={styles.trigger}
-        data-published={map.publishToken !== null}
+        data-published={map.published}
         onClick={() => setOpen((o) => !o)}
         {...popoverTriggerProps("publish-popover", open)}
       >
-        {map.publishToken ? "Published" : "Publish"}
+        {map.published ? "Published" : "Publish"}
       </button>
       {open && (
         <div id="publish-popover" ref={popRef} className={styles.pop}>

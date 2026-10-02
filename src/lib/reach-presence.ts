@@ -44,10 +44,26 @@ export function presencesOf(scope: AccountScope, standings: readonly MapStanding
   });
 }
 
+/**
+ * A map's presence also withholds its publication's token from everyone but
+ * the map's owner. The token is the link: holding it is being able to hand
+ * the map out, and handing it out is the owner's act. Everyone who reaches
+ * the map still reads that it is published, and since when, from the map
+ * record. Every map response spreads this over the record, so the token is
+ * null there for anyone else.
+ */
+export type MapPresence = Presence & { publishToken?: null };
+
+/** The presences of several admitted maps, in order. */
+export function mapPresencesOf(scope: AccountScope, standings: readonly MapStanding[], db: Database = metadataDb()): MapPresence[] {
+  return presencesOf(scope, standings, db).map((presence, i) =>
+    standings[i].ownerId === scope.accountId ? presence : { ...presence, publishToken: null });
+}
+
 /** A map's presence, for a caller who reaches it; else the absent refusal. */
-export function mapPresence(scope: AccountScope, mapId: string, db: Database = metadataDb()): Presence {
+export function mapPresence(scope: AccountScope, mapId: string, db: Database = metadataDb()): MapPresence {
   requireReachable(scope, "map", mapId, db);
   const standing = mapStanding(mapId, db);
   if (!standing) throw resourceAbsent();
-  return presencesOf(scope, [standing], db)[0];
+  return mapPresencesOf(scope, [standing], db)[0];
 }

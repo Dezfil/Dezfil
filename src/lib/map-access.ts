@@ -17,7 +17,8 @@ export function mapWithLayers(scope: AccountScope, id: string): MapWithLayers {
 }
 
 /** A reached map as its reader sees it: its layers, the project it is filed
- * in when the reader reaches that project, its owner and its SQL home. */
+ * in as its reader may know it, its owner, its SQL home, and its
+ * publication's token only when the reader owns the map. */
 export function readMap(scope: AccountScope, id: string): MapWithLayers & Presence {
   const map = mapWithLayers(scope, id);
   return { ...map, ...mapPresence(scope, id) };

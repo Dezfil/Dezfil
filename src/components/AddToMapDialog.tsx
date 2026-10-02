@@ -244,8 +244,8 @@ export function AddToMapDialog({ subject, onClose }: Props) {
                 </small>
                 <StatusDot
                   className={styles.stateDot}
-                  state={m.publishToken ? "Published" : "Draft"}
-                  tone={m.publishToken ? "live" : "quiet"}
+                  state={m.published ? "Published" : "Draft"}
+                  tone={m.published ? "live" : "quiet"}
                 />
               </span>
             </button>

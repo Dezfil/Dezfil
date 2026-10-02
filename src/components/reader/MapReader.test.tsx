@@ -41,7 +41,7 @@ const layer = (id: string, name: string): Layer => ({
 const map: MapWithLayers = {
   id: "map-1", name: "Station catchments", viewport: { lng: 13.4, lat: 52.5, zoom: 10 }, basemap: null,
   customBasemap: null, basemapLayers: null, note: null, legendCorner: null, legendOrder: null, timeline: null,
-  widgets: [], widgetsPublished: false, publishToken: null, publishedAt: null,
+  widgets: [], widgetsPublished: false, publishToken: null, publishedAt: null, published: false,
   createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z",
   layers: [layer("l-stations", "Stations"), layer("l-roads", "Roads")],
 };

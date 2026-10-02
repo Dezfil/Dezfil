@@ -470,7 +470,11 @@ selection, the widget publication toggle, the theme and the reader controls
 change only by the map's owner: through these operations, through map and
 layer writes that carry them, and through undo and redo. For anyone else a
 write or a replay that would change one is refused whole with `forbidden`,
-and nothing changes.
+and nothing changes. The token is the link, so it is the owner's to read as
+well: every map read and listing carries `publishToken` to the map's owner
+alone and `null` to anyone else who reaches the map, beside `published` and
+`publishedAt`, which everyone reads, and the publication read answers anyone
+else its settings without `token`.
 
 **Sketches.** Drawing on the map as data. A draw session becomes one
 ordinary dataset plus one layer; features carry a stable id and a drawn

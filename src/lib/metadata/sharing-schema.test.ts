@@ -25,7 +25,7 @@ const now = "2026-01-01T00:00:00.000Z";
 const record = (id: string): MapRecord => ({
   id, name: id, viewport: { lng: 0, lat: 0, zoom: 1 }, basemap: null, customBasemap: null, basemapLayers: null,
   note: null, legendCorner: null, legendOrder: null, timeline: null, widgets: [], widgetsPublished: true,
-  publishToken: null, publishedAt: null, createdAt: now, updatedAt: now,
+  publishToken: null, publishedAt: null, published: false, createdAt: now, updatedAt: now,
 });
 const table = (id: string, name: string): DataTable => ({
   id, name, sourceFilename: null, file: `tables/${id}.parquet`, format: "geoparquet", geometryColumn: null,

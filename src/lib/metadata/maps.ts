@@ -157,8 +157,13 @@ export interface MapRecord {
   widgets: MapWidget[];
   /** Whether widgets ship with the published view. */
   widgetsPublished: boolean;
+  /** The link's token: the capability a publication is. Every map read
+   * gives it to the map's owner alone; anyone else reads null. */
   publishToken: string | null;
   publishedAt: string | null;
+  /** Whether a publication is live, which everyone who reaches the map
+   * reads: derived from the stored token, never stored itself. */
+  published: boolean;
   createdAt: string;
   updatedAt: string;
 }

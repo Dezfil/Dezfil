@@ -500,7 +500,9 @@ export const MAP_PUBLISH_PATHS = {
         "active publication. 204 when the map is not " +
         "published — a state, not an error. A map record carries no " +
         "publication state, so this is how an author surface reads " +
-        "back what it is about to change.",
+        "back what it is about to change. The token is the map owner's " +
+        "alone: anyone else who reaches the map reads the settings " +
+        "without it.",
       tag: "Publish",
       tool: "get_publication_state", mcp: LOCAL_READ,
       display: {"verb": "Read the publication of the map {subject}", "subject": {"resource": "maps", "argument": "id"}},
@@ -707,8 +709,20 @@ export const MAP_SCHEMAS = {
         description:
           "Whether widgets ship with the published view.",
       },
-      publishToken: { type: ["string", "null"] },
+      publishToken: {
+        type: ["string", "null"],
+        description:
+          "The published link's token, the map owner's alone: null to " +
+          "anyone else who reaches the map, and null while unpublished. " +
+          "Handing the link out is publishing, which stays the owner's act.",
+      },
       publishedAt: { type: ["string", "null"] },
+      published: {
+        type: "boolean",
+        description:
+          "Whether a publication is live, for everyone who reaches the " +
+          "map; `publishedAt` says since when.",
+      },
       createdAt: { type: "string" },
       updatedAt: { type: "string" },
     },
