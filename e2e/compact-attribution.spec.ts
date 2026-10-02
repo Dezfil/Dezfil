@@ -3,6 +3,7 @@
 import { createServer, type Server } from "node:http";
 import { test, expect, type Page } from "@playwright/test";
 import { createMap, routeHouse, seedCsv } from "./support";
+import { readThenWriteRequestSetup } from "./edit-basis";
 
 let fixture: Server;
 let fixtureUrl: string;
@@ -17,7 +18,9 @@ test.beforeEach(async ({ baseURL }) => {
 
 test.afterEach(async ({ request }) => {
   for (const route of cleanupRoutes.reverse()) {
-    const response = await request.delete(route);
+    const response = route.startsWith("/api/maps/")
+      ? await readThenWriteRequestSetup(request, route, () => ({ method: "DELETE" }))
+      : await request.delete(route);
     expect(response.status(), `clean up ${route}`).toBe(204);
   }
 });
