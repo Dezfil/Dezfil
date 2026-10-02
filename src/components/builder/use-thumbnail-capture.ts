@@ -13,6 +13,7 @@ import type { CustomBasemap } from "@/lib/metadata/maps";
 import { mapSqlRevision, type RevisionLayer } from "@/lib/map-sql-revision";
 import type { SnapshotCapture, SnapshotHandle } from "../map/capture";
 import { composeOverGround, renderOffscreenGround } from "../map/offscreen-ground";
+import { useSignedInSqlName } from "../sharing/signed-in";
 import {
   createThumbnailRunner,
   mintThumbnailCycle,
@@ -53,10 +54,20 @@ export interface ThumbnailMapBasemap {
   basemapLayers: BasemapLayers | null;
 }
 
-/** The slice of the map record a capture reads: its basemap, and the layers
- * whose SQL revision the images are sent with. */
+/** The slice of the map record a capture reads: its basemap, the layers
+ * whose SQL revision the images are sent with, and its owner, whose act a
+ * browser capture is. */
 export interface ThumbnailMapState extends ThumbnailMapBasemap {
   layers?: readonly RevisionLayer[];
+  owner?: { sqlName: string } | null;
+}
+
+/** Whether this builder takes the map's card images. A browser capture is
+ * the map owner's, so a builder opened on someone else's map (an Editor's)
+ * takes none and sends nothing; when either side is unknown, as outside the
+ * workspace shell, the builder captures as an owner's always has. */
+export function capturesThumbnail(owner: string | null | undefined, signedIn: string | null): boolean {
+  return !owner || !signedIn || owner === signedIn;
 }
 
 /** Whether, and how, this capture takes a second image: only a genuine
@@ -129,6 +140,7 @@ export function useThumbnailCapture(
   // theme or the basemap may have moved in the meantime.
   const planRef = useRef<ThumbnailCyclePlan>({ themed: null });
   const { theme, basemapUrl, basemapOverrideUrl, basemaps } = theming;
+  const captures = capturesThumbnail(map?.owner?.sqlName, useSignedInSqlName());
   useEffect(() => {
     planRef.current = map
       ? capturePlan(map, {
@@ -184,8 +196,8 @@ export function useThumbnailCapture(
   // snapshot — including the initial load, so stale thumbnails heal on
   // open (behavior preserved verbatim from MapBuilder).
   useEffect(() => {
-    if (map) scheduleSnapshot();
-  }, [map, renders, scheduleSnapshot]);
+    if (map && captures) scheduleSnapshot();
+  }, [map, renders, captures, scheduleSnapshot]);
   // Unmount just drops a pending capture.
   useEffect(
     () => () => {
