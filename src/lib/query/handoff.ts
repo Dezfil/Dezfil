@@ -7,7 +7,7 @@ import { constantValue, constantValues, isCteReference } from "./references";
 import { classifyReference, writtenReference } from "./reference-forms";
 import { qualifiedNameParts } from "./qualified-name";
 import { resolveClassified, unavailableDataset, type Namespace, type ReachableDataset } from "./bindings";
-import { bindsAsRelation } from "./named-sql";
+import { bindsAsRelation, relationNames } from "./named-sql";
 
 /**
  * The handoff: SQL or a named input carried from the evaluation context it
@@ -36,6 +36,13 @@ import { bindsAsRelation } from "./named-sql";
  *    name) or where it is one of the engine's own relations; anywhere else it
  *    is refused, naming the reference, because it would silently start
  *    meaning someone else's dataset.
+ *
+ * A moved table keeps the name its columns go by. Without an alias of its
+ * own, a table goes by its own name; written qualified, it goes by the
+ * qualified name instead wherever another relation of its FROM clause goes by
+ * that name (the compiler's rule, `named-sql.ts`). So a plain `roads` that
+ * moves into `bo.roads` beside `ada.roads`, or into a dataset of another
+ * name, is aliased as `roads`, and `roads.x` keeps reading it.
  *
  * Only the carried copy is rewritten, and only at the references that change:
  * the rest of the text, comments and layout included, is kept byte for byte.
@@ -116,7 +123,10 @@ export function carryName(value: string, from: Namespace, to: Namespace): string
 interface Literal { start: number; end: number }
 
 type Occurrence =
-  | { kind: "table"; parts: string[]; start: number }
+  /** `named`: the table has an alias of its own; `crowded`: another relation
+   * of its FROM clause goes by its name; `bare`: the table stands where no
+   * alias may be written (`DESCRIBE roads`). */
+  | { kind: "table"; parts: string[]; start: number; named: boolean; crowded: boolean; bare: boolean }
   | { kind: "column"; names: string[]; start: number }
   | { kind: "name"; value: string; literal: Literal | null }
   | { kind: "nested"; sql: string; literal: Literal | null };
@@ -183,9 +193,24 @@ const keyOf = (parts: readonly string[]) => JSON.stringify(parts.map((part) => p
 /** Every place a statement names a table, with where it was written. */
 async function occurrences(conn: DuckDBConnection, tree: unknown, text: Buffer): Promise<Occurrence[]> {
   const out: Occurrence[] = [];
+  const crowded = new WeakSet<object>(), bare = new WeakSet<object>();
+  /** The base tables of one FROM clause, through its joins. */
+  const tablesOf = (table: unknown): SqlNode[] => !isSqlNode(table) ? []
+    : table.type === "JOIN" ? [...tablesOf(table.left), ...tablesOf(table.right)]
+    : table.type === "BASE_TABLE" ? [table] : [];
   async function walk(node: unknown, scope: ReadonlySet<string>): Promise<void> {
     if (Array.isArray(node)) { for (const child of node) await walk(child, scope); return; }
     if (!isSqlNode(node)) return;
+    if (node.type === "SELECT_NODE") {
+      const names = relationNames(node.from_table);
+      for (const table of tablesOf(node.from_table)) {
+        if (!table.alias && (names.get(String(table.table_name).toLowerCase()) ?? 0) > 1) crowded.add(table);
+      }
+    }
+    // `DESCRIBE roads` and its kin read a table that takes no alias.
+    if (node.type === "SHOW_REF" && isSqlNode(node.query) && isSqlNode(node.query.from_table) && node.query.from_table.type === "BASE_TABLE") {
+      bare.add(node.query.from_table);
+    }
     // The same scoping the reference walk applies: a CTE is not a dataset.
     let inner = scope;
     const cteMap = isSqlNode(node.cte_map) ? node.cte_map.map : null;
@@ -205,7 +230,8 @@ async function occurrences(conn: DuckDBConnection, tree: unknown, text: Buffer):
       const catalog = typeof node.catalog_name === "string" ? node.catalog_name : "";
       const schema = typeof node.schema_name === "string" ? node.schema_name : "";
       if (!isCteReference(inner, catalog, schema, node.table_name) && typeof node.query_location === "number") {
-        out.push({ kind: "table", parts: [catalog, schema, node.table_name].filter(Boolean), start: node.query_location });
+        out.push({ kind: "table", parts: [catalog, schema, node.table_name].filter(Boolean), start: node.query_location,
+          named: typeof node.alias === "string" && node.alias !== "", crowded: crowded.has(node), bare: bare.has(node) });
       }
     }
     if (node.class === "COLUMN_REF" && Array.isArray(node.column_names) && node.column_names.length >= 3 && typeof node.query_location === "number") {
@@ -305,8 +331,14 @@ export async function carrySql(conn: DuckDBConnection, sql: string, from: Namesp
       const end = identifiersAt(text, occurrence.start, occurrence.parts);
       if (end === null) throw notCarriable(writtenReference(occurrence.parts));
       const replacement = await tableText(conn, target);
-      edits.push({ start: occurrence.start, end, text: replacement });
-      if (occurrence.parts.length > 1) renamed.set(keyOf(occurrence.parts), replacement);
+      // The name its columns go by, kept where the moved table would go by
+      // another one.
+      const implicit = occurrence.parts.at(-1)!;
+      const aliased = !occurrence.named && !occurrence.bare
+        && (occurrence.crowded || target.at(-1)!.toLowerCase() !== implicit.toLowerCase());
+      const alias = aliased ? await tableText(conn, [implicit]) : null;
+      edits.push({ start: occurrence.start, end, text: alias ? `${replacement} AS ${alias}` : replacement });
+      if (occurrence.parts.length > 1) renamed.set(keyOf(occurrence.parts), alias ?? replacement);
     } else if (occurrence.kind === "name") {
       const parts = qualifiedNameParts(occurrence.value) ?? [occurrence.value];
       const target = await decided(parts);

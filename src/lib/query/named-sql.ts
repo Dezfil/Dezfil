@@ -113,7 +113,7 @@ async function refuseWithheldRelation(conn: DuckDBConnection, plan: MountPlan | 
 /** How many relations of one FROM clause go by each name (lower-cased): an
  * alias, else a base table's own name. Joins are counted through; nested
  * queries have FROM clauses of their own. */
-function relationNames(table: unknown, names = new Map<string, number>()): Map<string, number> {
+export function relationNames(table: unknown, names = new Map<string, number>()): Map<string, number> {
   if (!record(table)) return names;
   if (table.type === "JOIN") { relationNames(table.left, names); relationNames(table.right, names); return names; }
   const name = typeof table.alias === "string" && table.alias ? table.alias : table.type === "BASE_TABLE" ? String(table.table_name) : "";

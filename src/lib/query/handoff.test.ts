@@ -164,6 +164,19 @@ describe("carrying SQL text", () => {
     expect(await carry("SELECT * FROM roads", fromOrder, adaMap)).toBe('SELECT * FROM "order"."roads"');
   });
 
+  it("keeps a moved table's implicit name where another relation of its FROM clause goes by it", async () => {
+    // `roads.name` named Bo's plain `roads`; qualified, it would go by
+    // `bo.roads` beside `ada.roads`, so it keeps `roads` as its alias.
+    expect(await carry("SELECT roads.name, ada.roads.name FROM roads, ada.roads", boConsole, adaMap))
+      .toBe("SELECT roads.name, ada.roads.name FROM bo.roads AS roads, ada.roads");
+    expect(await carry("SELECT r.name FROM roads r, ada.roads", boConsole, adaMap)).toBe("SELECT r.name FROM bo.roads r, ada.roads");
+    expect(await carry("SELECT main.roads.name FROM main.roads, ada.roads", boConsole, adaMap))
+      .toBe("SELECT roads.name FROM bo.roads AS roads, ada.roads");
+    // Alone in its FROM clause, a schema-qualified table goes by its own name.
+    expect(await carry("SELECT roads.name FROM roads", boConsole, adaMap)).toBe("SELECT roads.name FROM bo.roads");
+    expect(await carry("DESCRIBE roads", boConsole, adaMap)).toBe("DESCRIBE bo.roads");
+  });
+
   it("carries a departing output and keeps a home dataset external against the destination's output", async () => {
     expect(await carry("SELECT * FROM staged", adaWorkflowForBo, adaMap)).toBe("SELECT * FROM bo.staged");
     expect(await carry("SELECT * FROM roads", adaMap, declaresRoads)).toBe("SELECT * FROM ada.roads");
@@ -208,5 +221,20 @@ describe("a carried statement keeps its rows where it lands", () => {
     try { carried = await carrySql(conn, sql, namespaceFor(console), namespaceFor(inMap)); } finally { conn.disconnectSync(); }
     expect(carried).toBe("SELECT sentinel FROM bob.roads UNION ALL SELECT sentinel FROM ada.roads ORDER BY 1 DESC");
     expect(await rows(inMap, carried)).toEqual(["bob", "ada"]);
+  });
+
+  it("keeps a column qualified by a moved table's implicit name bound to that table", async () => {
+    const adaRoads = listOwnedTables(scopes.ada)[0];
+    shareProject("ada", "P", [["bob", "editor"]], [adaRoads.id]);
+    const map = createMap(scopes.ada, "Ada's map", "P");
+    const console = contextOf(scopes.bob);
+    const inMap = mapEvaluation(scopes.bob, map.id);
+    const sql = "SELECT roads.sentinel AS mine, ada.roads.sentinel AS shared FROM roads, ada.roads";
+    const pairs = async (scope: Parameters<typeof executeQuery>[0], text: string) => (await executeQuery(scope, text)).preview;
+    expect(await pairs(console, sql)).toEqual([{ mine: "bob", shared: "ada" }]);
+    const conn = await connectQueryInstance();
+    let carried: string;
+    try { carried = await carrySql(conn, sql, namespaceFor(console), namespaceFor(inMap)); } finally { conn.disconnectSync(); }
+    expect(await pairs(inMap, carried)).toEqual([{ mine: "bob", shared: "ada" }]);
   });
 });

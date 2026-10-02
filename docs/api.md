@@ -779,6 +779,11 @@ text was written and written again for where it goes:
 - a plain name of one of the source workflow's own outputs becomes the
   dataset the caller's latest successful run of that output made.
 
+A table that becomes qualified keeps the name its columns go by: where it
+would otherwise go by another (a relation of the same FROM clause shares its
+name, or the dataset an output stands for is named differently), it is
+aliased as written, so Bob's `FROM roads, ada.roads` carried into Ada's map
+becomes `FROM bob.roads AS roads, ada.roads` and `roads.x` still reads his.
 Only those references change; the rest of the text, comments and layout
 included, is stored as written, and nothing where the text came from is
 touched. A reference that cannot be carried refuses the request with
