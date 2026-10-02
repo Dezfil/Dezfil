@@ -172,16 +172,16 @@ async function recoverLayout(page: Page, api: APIRequestContext, workflow: Workf
   expect(writes).toHaveLength(writeCount);
 
   await chip.getByRole("button", { name: "Reload", exact: true }).click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toContainText(/discard/i);
-  await expect(dialog).toContainText(/unsaved/i);
-  await dialog.getByRole("button", { name: "Not now", exact: true }).click();
+  const notice = chip.locator("[data-stale-recovery]");
+  await expect(notice).toContainText(/discard/i);
+  await expect(notice).toContainText(/unsaved/i);
+  await notice.getByRole("button", { name: "Not now", exact: true }).click();
   await assertDraft();
   expect(writes).toHaveLength(writeCount);
 
   await chip.getByRole("button", { name: "Reload", exact: true }).click();
-  await dialog.getByRole("button", { name: "Reload", exact: true }).click();
-  await expect(dialog).toHaveCount(0);
+  await notice.getByRole("button", { name: "Reload", exact: true }).click();
+  await expect(notice).toHaveCount(0);
   await expect(chip.getByText(STALE, { exact: true })).toHaveCount(0);
   for (const id of [workflow.upstream, workflow.downstream]) await expect.poll(() => position(page, id)).toEqual(before.steps[id]);
   await page.waitForTimeout(1200);

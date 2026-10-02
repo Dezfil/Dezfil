@@ -29,6 +29,7 @@ test("themed captures land through style changes and viewers see attribution wit
       await route.fulfill({ response });
     });
     await page.goto(`/maps/${map.id}`);
+    await expect(page.getByRole("button", { name: map.name, exact: true })).toBeVisible();
     await expect.poll(() => captures.length, { timeout: 60_000 }).toBeGreaterThanOrEqual(2);
     expect(captures.slice(0, 2).map(c => c.status)).toEqual([202, 204]);
     expect(captures[0].cycle).toBe(captures[1].cycle);
@@ -39,7 +40,7 @@ test("themed captures land through style changes and viewers see attribution wit
     const read = await viewer.context.newPage(); await read.goto(`/maps/${map.id}`);
     await expect(read.locator("[data-last-changed]")).toContainText("Ada ·");
     await expect(read.getByRole("button", { name: /^Undo/ })).toHaveCount(0);
-    await expect(read.getByRole("button", { name: /^Rename/ })).toHaveCount(0);
+    await expect(read.getByRole("button", { name: map.name, exact: true })).toHaveCount(0);
     await test.info().attach("reader-attribution", { body: await read.screenshot(), contentType: "image/png" });
     await read.goto(`/projects/${project}`);
     await expect(read.locator("[data-last-changed]").first()).toContainText("Ada ·");
