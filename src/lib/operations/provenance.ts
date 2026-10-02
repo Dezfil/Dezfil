@@ -1,6 +1,7 @@
-import { requireOwnedResource } from "@/lib/auth/owned-resource";
+import { reachableDatasetIds, requireReachable } from "@/lib/auth/reach";
 import type { AccountScope } from "@/lib/auth/scope";
 import { listOwnedTables } from "@/lib/metadata/owned-tables";
+import { reachableDatasets } from "@/lib/query/bindings";
 import type { DataTable } from "@/lib/metadata/tables";
 
 /**
@@ -12,6 +13,11 @@ import type { DataTable } from "@/lib/metadata/tables";
  * though the run had used whatever now holds that name. So each input is
  * resolved by its recorded id and reported missing when nothing carries it —
  * the derived table's provenance never silently re-points at a stranger.
+ *
+ * Within the reader's reach: an input the reader reaches resolves to what it
+ * is now. The derived dataset's owner reads every other input as missing,
+ * the same for one deleted and one no longer theirs to reach; anyone else
+ * reads only the inputs they reach, the rest left out rather than named.
  */
 
 export interface ResolvedInput {
@@ -27,14 +33,13 @@ export interface ResolvedInput {
 }
 
 export function resolveInputs(scope: AccountScope, table: DataTable): ResolvedInput[] | null {
-  requireOwnedResource(scope, "dataset", table.id);
+  const author = requireReachable(scope, "dataset", table.id).relation === "owner";
   if (table.source !== "operation") return null;
   const raw = table.sourceParams?.inputs;
   if (!Array.isArray(raw)) return null;
 
-  const all = listOwnedTables(scope);
-  const byId = new Map(all.map((t) => [t.id, t]));
-  const byName = new Map(all.map((t) => [t.name.toLowerCase(), t]));
+  const byId = new Map(reachableDatasets(reachableDatasetIds(scope)).map((t) => [t.id, t]));
+  const byName = new Map(listOwnedTables(scope).map((t) => [t.name.toLowerCase(), t]));
 
   return raw.flatMap((entry): ResolvedInput[] => {
     if (typeof entry !== "object" || entry === null) return [];
@@ -51,8 +56,10 @@ export function resolveInputs(scope: AccountScope, table: DataTable): ResolvedIn
         },
       ];
     }
-    // The id is gone. If its old name now belongs to something else, say so
-    // rather than let a reader assume the input is simply renamed.
+    if (!author) return [];
+    // The id is gone, or out of reach. If its old name now belongs to
+    // something else, say so rather than let a reader assume the input is
+    // simply renamed.
     const usurper = byName.get(name.toLowerCase());
     return [{ id, name, missing: true, nameReclaimed: usurper !== undefined }];
   });

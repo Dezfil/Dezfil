@@ -52,6 +52,7 @@ function seedMap(id: string, publishToken: string | null = null): MapRecord {
     widgetsPublished: true,
     publishToken,
     publishedAt: publishToken ? now : null,
+    published: publishToken !== null,
     createdAt: now,
     updatedAt: now,
   };

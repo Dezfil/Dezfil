@@ -65,8 +65,9 @@ sense to a browser.
 
 The settings read and update are generated as `get_settings` and
 `update_settings`. They address the authenticated account's display name
-and view preferences. Updating the instance name requires current admin
-authority; a forbidden or invalid field refuses the entire patch.
+and view preferences, the source list's grouping among them. Updating the
+instance name requires current admin authority; a forbidden or invalid field
+refuses the entire patch.
 
 Own-account operations generate `get_account`, `update_account`,
 `change_password`, `list_api_tokens`, `create_api_token` and `revoke_api_token`.
@@ -79,6 +80,15 @@ Administration generates `list_users`, `invite_user`, `update_user_access` and
 mutations declare confirmation and their consequences. Invitation and reset
 links are disclosed once, expire after seven days and are shared by the admin.
 
+A project's people generate `list_project_people`, `set_project_person` and
+`remove_project_person`. Anyone who reaches the project reads them; the two
+changes are the project owner's and declare confirmation, since each changes
+who reaches the project. Transfer generates `transfer_project`,
+`transfer_map` and `transfer_workflow`, each the owner's and each behind
+confirmation, since only the new owner can give it back. `find_accounts`
+is the directory search any signed-in account may call to find someone to
+share with; it answers display names and SQL names only.
+
 Derivation is pure over a static document, so the tool set is built once per
 process and reused.
 
@@ -86,8 +96,8 @@ process and reused.
 
 | | |
 |---|---|
-| Documented operations | 155 |
-| Operations that become tools | 129 |
+| Documented operations | 163 |
+| Operations that become tools | 136 |
 | Deliberately excluded | 27 |
 
 Measured by building the OpenAPI document and the tool set from

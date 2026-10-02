@@ -4,28 +4,27 @@ import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { changeGroupOf } from "@/lib/api/change-group";
 import {
-  mapWithLayers,
+  readMap,
   updateMap,
   removeMap,
   validateMapWriteRefs,
-  requireMap,
+  requireMapFor,
 } from "@/lib/map-service";
-import { ownedMapProjectId } from "@/lib/metadata/map-queries";
+import { mapWriteChangesPublication } from "@/lib/publication-settings";
+import { mapPresence } from "@/lib/reach-presence";
 import { isBasemapKey, type BasemapKey } from "@/lib/basemap";
 import { resolveCustomBasemapWrite } from "@/lib/basemap-custom";
 import type { CustomBasemap, Viewport } from "@/lib/metadata/maps";
 
 type Params = { params: Promise<{ id: string }> };
 
-/** Read a map's full definition, including its layers. */
+/** Read a map's full definition, including its layers, its owner and its
+ * SQL home: the caller's own map, or one filed in a project they reach. */
 export async function GET(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id } = await params;
-    return NextResponse.json({
-      ...mapWithLayers(scope, id),
-      projectId: ownedMapProjectId(scope, id),
-    });
+    return NextResponse.json(readMap(scope, id));
   } catch (error) {
     return errorResponse(error);
   }
@@ -36,13 +35,15 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id } = await params;
-    requireMap(scope, id);
+    const current = requireMapFor(scope, id, "edit");
     let body: Record<string, unknown>;
     try {
       body = (await request.json()) as Record<string, unknown>;
     } catch {
       throw new ApiError("invalid_request", "Expected a JSON body.", 400);
     }
+    // A publication setting is refused before anything is inspected.
+    if (mapWriteChangesPublication(current, body)) requireMapFor(scope, id, "publish");
     const fields: {
       name?: string;
       viewport?: Viewport;
@@ -168,7 +169,7 @@ export async function PATCH(request: Request, { params }: Params) {
     await validateMapWriteRefs(scope, id, fields, request.signal);
     return NextResponse.json({
       ...(await updateMap(scope, id, fields, { groupId: changeGroupOf(request) })),
-      projectId: ownedMapProjectId(scope, id),
+      ...mapPresence(scope, id),
     });
   } catch (error) {
     return errorResponse(error);

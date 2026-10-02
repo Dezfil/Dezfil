@@ -19,6 +19,10 @@ import { MapTab } from "./MapTab";
 import { ProvenanceTab } from "./ProvenanceTab";
 import styles from "./ResultsBand.module.css";
 
+/** A listed dataset by the name its reader types: one's own plain, someone
+ * else's qualified, so a same-named dataset of the reader's is never read. */
+const typedName = (table: TableListing) => table.qualifiedName ?? table.name;
+
 const TABS: { id: BandTab; label: string }[] = [
   { id: "messages", label: "Messages" },
   { id: "data", label: "Data" },
@@ -112,7 +116,7 @@ export function ResultsBand({
   const listed = resolveShown(selected, tables);
   const wantMap = open && effectiveTab(wanted, availability(listed)) === "map";
   const reads = useDatasetReads(
-    listed.kind === "dataset" ? { id: listed.table.id, name: listed.table.name, producedAt: listed.table.importedAt, renewal, features: wantMap } : null,
+    listed.kind === "dataset" ? { id: listed.table.id, name: typedName(listed.table), producedAt: listed.table.importedAt, renewal, features: wantMap } : null,
   );
   // Identity is checked on the answer itself: an inspection whose id is
   // not the resolved dataset's is a name reclaimed by another table since
@@ -303,7 +307,7 @@ export function ResultsBand({
                 Add to a map
               </Button>
             ) : null}
-            <Link href={`/tables/${encodeURIComponent(state.table.name)}`} className={styles.act} data-band-open-explorer>
+            <Link href={`/tables/${encodeURIComponent(typedName(state.table))}`} className={styles.act} data-band-open-explorer>
               <ExternalIcon /> Open in Data
             </Link>
           </div>

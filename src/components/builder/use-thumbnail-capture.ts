@@ -10,8 +10,10 @@ import {
 import { effectiveBasemap } from "@/lib/basemap-effective";
 import type { BasemapLayers } from "@/lib/basemap-layers";
 import type { CustomBasemap } from "@/lib/metadata/maps";
+import { mapSqlRevision, type RevisionLayer } from "@/lib/map-sql-revision";
 import type { SnapshotCapture, SnapshotHandle } from "../map/capture";
 import { composeOverGround, renderOffscreenGround } from "../map/offscreen-ground";
+import { useSignedInSqlName } from "../sharing/signed-in";
 import {
   createThumbnailRunner,
   mintThumbnailCycle,
@@ -50,6 +52,22 @@ export interface ThumbnailMapBasemap {
   basemap: BasemapKey | null;
   customBasemap: CustomBasemap | null;
   basemapLayers: BasemapLayers | null;
+}
+
+/** The slice of the map record a capture reads: its basemap, the layers
+ * whose SQL revision the images are sent with, and its owner, whose act a
+ * browser capture is. */
+export interface ThumbnailMapState extends ThumbnailMapBasemap {
+  layers?: readonly RevisionLayer[];
+  owner?: { sqlName: string } | null;
+}
+
+/** Whether this builder takes the map's card images. A browser capture is
+ * the map owner's, so a builder opened on someone else's map (an Editor's)
+ * takes none and sends nothing; when either side is unknown, as outside the
+ * workspace shell, the builder captures as an owner's always has. */
+export function capturesThumbnail(owner: string | null | undefined, signedIn: string | null): boolean {
+  return !owner || !signedIn || owner === signedIn;
 }
 
 /** Whether, and how, this capture takes a second image: only a genuine
@@ -96,11 +114,22 @@ export function thumbnailCyclePlan(
   };
 }
 
+/** The plan a capture runs on: the theming decision, and the map's SQL
+ * revision as the builder holds it, which every image of the cycle is sent
+ * with. Read when the capture starts, like the rest of the plan. */
+export function capturePlan(
+  map: ThumbnailMapState,
+  theming: ThumbnailTheming,
+): ThumbnailCyclePlan {
+  const plan = thumbnailCyclePlan(map, theming);
+  return map.layers ? { ...plan, revision: mapSqlRevision(map.layers) } : plan;
+}
+
 export function useThumbnailCapture(
   mapId: string,
   /** The map state — any new identity refreshes the snapshot, and a
    * falsy map schedules nothing. */
-  map: ThumbnailMapBasemap | null,
+  map: ThumbnailMapState | null,
   /** The layer renders — any new identity refreshes the snapshot. */
   renders: unknown,
   theming: ThumbnailTheming,
@@ -111,9 +140,10 @@ export function useThumbnailCapture(
   // theme or the basemap may have moved in the meantime.
   const planRef = useRef<ThumbnailCyclePlan>({ themed: null });
   const { theme, basemapUrl, basemapOverrideUrl, basemaps } = theming;
+  const captures = capturesThumbnail(map?.owner?.sqlName, useSignedInSqlName());
   useEffect(() => {
     planRef.current = map
-      ? thumbnailCyclePlan(map, {
+      ? capturePlan(map, {
           theme,
           basemapUrl,
           basemapOverrideUrl,
@@ -166,8 +196,8 @@ export function useThumbnailCapture(
   // snapshot — including the initial load, so stale thumbnails heal on
   // open (behavior preserved verbatim from MapBuilder).
   useEffect(() => {
-    if (map) scheduleSnapshot();
-  }, [map, renders, scheduleSnapshot]);
+    if (map && captures) scheduleSnapshot();
+  }, [map, renders, captures, scheduleSnapshot]);
   // Unmount just drops a pending capture.
   useEffect(
     () => () => {

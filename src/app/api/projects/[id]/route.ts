@@ -3,9 +3,9 @@ import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import {
   deleteProject,
-  requireProject,
   updateProject,
 } from "@/lib/metadata/owned-projects";
+import { requirePermitted } from "@/lib/auth/reach";
 import { projectOverview } from "@/lib/project-service";
 
 type Params = { params: Promise<{ id: string }> };
@@ -50,7 +50,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id } = await params;
-    requireProject(scope, id);
+    requirePermitted(scope, "project", id, "dissolve");
     deleteProject(scope, id);
     return NextResponse.json({
       deleted: true,

@@ -1,6 +1,6 @@
 import { AuthError } from "@/lib/auth/errors";
 import type { AccountScope } from "@/lib/auth/scope";
-import { requireOwnedResource } from "@/lib/auth/owned-resource";
+import { canReach, requireReachable } from "@/lib/auth/reach";
 import { createWriteStream } from "node:fs";
 import { mkdir, readdir, rm, stat } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
@@ -8,10 +8,11 @@ import path from "node:path";
 import { ZipFile } from "yazl";
 import { ApiError } from "@/lib/api/errors";
 import { dataDir } from "@/lib/config";
-import type { DataTable } from "@/lib/metadata/tables";
-import { listOwnedTables } from "@/lib/metadata/owned-tables";
+import { listReachableTables } from "@/lib/metadata/owned-tables";
 import { projectMemberIds, requireProject } from "@/lib/metadata/owned-projects";
-import { mapWithLayers } from "@/lib/map-service";
+import { readMap } from "@/lib/map-service";
+import { datasetPresence } from "@/lib/dataset-presence";
+import { readerSqlName } from "@/lib/map-dependencies";
 import { recipePayload } from "@/lib/operations/recipe-api";
 import { readRecipe } from "@/lib/operations/recipe-view";
 import { layoutPayload, readLayout } from "@/lib/operations/recipe-layout";
@@ -74,6 +75,29 @@ function canonical(
 }
 
 /**
+ * Every selected member, asked again as the archive completes: still within
+ * the initiator's reach and still in the project. One withdrawn while the
+ * archive was assembled (unfiled, deleted, or out of reach) fails the whole
+ * export by name, as a vanished artifact does: never a thinner archive.
+ */
+function requireSelectionInReach(
+  scope: AccountScope,
+  projectId: string,
+  chosen: { kind: "map" | "workflow" | "dataset"; id: string; name: string }[],
+): void {
+  const members = projectMemberIds(scope, projectId);
+  const filed = { map: members.maps, workflow: members.recipes, dataset: members.tables };
+  for (const member of chosen) {
+    if (canReach(scope, member.kind, member.id) && filed[member.kind].includes(member.id)) continue;
+    throw new ApiError(
+      "export_failed",
+      `The ${member.kind} "${member.name}" is not available to you, so the archive was not delivered.`,
+      409,
+    );
+  }
+}
+
+/**
  * Assemble the 16-C archive: validate through the read-only member
  * preflight, project every chosen member, and write one zip to a
  * temporary file under the data directory — finalized on disk before
@@ -86,12 +110,15 @@ export async function assembleProjectExport(
   projectId: string,
   selection: ProjectExportSelection,
 ): Promise<PreparedProjectExport> {
-  requireOwnedResource(scope, "project", projectId);
+  // Anyone who reaches the project exports it, viewers included; every
+  // selected member must be filed in it and within their reach, whoever
+  // owns it.
+  requireReachable(scope, "project", projectId);
   const project = requireProject(scope, projectId);
   const members = projectMemberIds(scope, projectId);
-  for (const id of selection.maps) requireOwnedResource(scope, "map", id);
-  for (const id of selection.recipes) requireOwnedResource(scope, "workflow", id);
-  for (const id of selection.tables) requireOwnedResource(scope, "dataset", id);
+  for (const id of selection.maps) requireReachable(scope, "map", id);
+  for (const id of selection.recipes) requireReachable(scope, "workflow", id);
+  for (const id of selection.tables) requireReachable(scope, "dataset", id);
   const maps = canonical("maps", selection.maps, members.maps);
   const recipes = canonical("workflows", selection.recipes, members.recipes);
   const tables = canonical("datasets", selection.tables, members.tables);
@@ -106,13 +133,18 @@ export async function assembleProjectExport(
   const base = archiveBaseName(selection.file);
   const root = `${base}.dezfil`;
   const requestedFormat = selection.datasetFormat ?? DEFAULT_DATASET_FORMAT;
-  const byId = new Map(listOwnedTables(scope).map((t) => [t.id, t]));
+  // Each dataset goes by the name its exporter types: the plain name for
+  // their own, `<sql name>.<name>` for anyone else's, so two people's
+  // `roads` are two entries.
+  const byId = new Map(listReachableTables(scope).map((t) => [t.table.id, { ...t.table, ...datasetPresence(scope, t) }]));
   const chosenTables = tables
     .map((id) => byId.get(id))
-    .filter((t): t is DataTable => t !== undefined);
+    .filter((t): t is NonNullable<typeof t> => t !== undefined);
 
+  // Maps and workflows carry their SQL home, the account whose datasets
+  // their plain names mean.
   const mapDocs = maps.map((id) => {
-    const wire = mapWithLayers(scope, id) as unknown as Record<string, unknown>;
+    const wire = readMap(scope, id) as unknown as Record<string, unknown>;
     return { id, name: String(wire.name ?? id), doc: mapProjection(wire) };
   });
   const workflowDocs = await Promise.all(
@@ -132,6 +164,9 @@ export async function assembleProjectExport(
     formatVersion: PROJECT_EXPORT_FORMAT_VERSION,
     generator: "dezfil",
     exportedAt: new Date().toISOString(),
+    // Whose names the dataset entries use: theirs plain, anyone else's
+    // qualified with the owner's SQL name.
+    exportedBy: { sqlName: readerSqlName(scope) },
     project: { name: project.name, note: project.note },
     contents: {
       maps: mapDocs.map((m, i) => ({
@@ -147,7 +182,9 @@ export async function assembleProjectExport(
       datasets: chosenTables.map((t) => ({
         id: t.id,
         name: t.name,
-        file: `datasets/${datasetFileName(t.name, requestedFormat, t.geometryColumn !== null)}`,
+        qualifiedName: t.qualifiedName,
+        owner: t.owner,
+        file: `datasets/${datasetFileName(t.qualifiedName, requestedFormat, t.geometryColumn !== null)}`,
         // The effective format per dataset (additive under format
         // version 1): a non-spatial dataset under GeoJSON is CSV.
         format: effectiveDatasetFormat(
@@ -167,7 +204,7 @@ export async function assembleProjectExport(
     } catch {
       throw new ApiError(
         "export_failed",
-        `The dataset "${t.name}" has no stored artifact to export.`,
+        `The dataset "${t.qualifiedName}" has no stored artifact to export.`,
         500,
       );
     }
@@ -214,7 +251,7 @@ export async function assembleProjectExport(
     for (const t of chosenTables) {
       const spatial = t.geometryColumn !== null;
       const effective = effectiveDatasetFormat(requestedFormat, spatial);
-      const entry = `${root}/datasets/${datasetFileName(t.name, requestedFormat, spatial)}`;
+      const entry = `${root}/datasets/${datasetFileName(t.qualifiedName, requestedFormat, spatial)}`;
       if (effective === "geoparquet") {
         // Byte for byte the stored artifact; yazl reads it during the
         // pipe, and a vanished or replaced file fails the whole
@@ -224,12 +261,13 @@ export async function assembleProjectExport(
       }
       let converted: Awaited<ReturnType<typeof exportTable>>;
       try {
-        converted = await exportTable(scope, t.name, effective);
+        // Addressed by identity: never a same-named dataset of the caller's.
+        converted = await exportTable(scope, t.id, effective);
       } catch (e) {
         if (e instanceof AuthError || (e instanceof ApiError && e.code === "not_found")) throw e;
         throw new ApiError(
           "export_failed",
-          `The dataset "${t.name}" could not be written as ` +
+          `The dataset "${t.qualifiedName}" could not be written as ` +
             `${effective === "csv" ? "CSV" : "GeoJSON"}: ${
               e instanceof Error ? e.message : "unknown failure"
             }`,
@@ -254,6 +292,11 @@ export async function assembleProjectExport(
     await cleanConversions();
     const { size } = await stat(staged);
     requireProject(scope, projectId);
+    requireSelectionInReach(scope, projectId, [
+      ...mapDocs.map((m) => ({ kind: "map" as const, id: m.id, name: m.name })),
+      ...workflowDocs.map((w) => ({ kind: "workflow" as const, id: w.id, name: w.name })),
+      ...chosenTables.map((t) => ({ kind: "dataset" as const, id: t.id, name: t.qualifiedName })),
+    ]);
     return { path: staged, filename: `${base}.zip`, size };
   } catch (e) {
     await rm(staged, { force: true });

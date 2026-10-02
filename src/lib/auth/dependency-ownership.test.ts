@@ -17,6 +17,9 @@ import { tileFingerprint, resetTileBuilds } from "@/lib/tiles/build";
 import { invalidateTilesForTable } from "@/lib/ingest/refresh";
 import { getTileRecord, upsertTileRecord } from "@/lib/metadata/tiles";
 import { removeTable } from "@/lib/table-service";
+import { mkdtempSync, rmSync } from "node:fs";
+import path from "node:path";
+import { datasetInputs, seedTileEvidence } from "@/lib/test-support/tile-evidence";
 
 let db: Database;
 const accounts = ["alice", "bob", "admin"];
@@ -31,8 +34,12 @@ function table(account: string): DataTable {
 function lineage(scope: AccountScope, id: string) { return edgesForStep(scope, id, db); }
 function readers(scope: AccountScope, id: string) { return edgesForInput(scope, id, db); }
 function clear(scope: AccountScope, id: string) { return clearEdges(scope, id, db); }
-function fingerprint(account: string) { return tileFingerprint("SELECT * FROM roads", [], "", `${account}-layer`); }
+/** Each account's layer reads its own `roads`: the identity its evaluation recorded. */
+function fingerprint(account: string) { return tileFingerprint("SELECT * FROM roads", [], "", datasetInputs([table(account).id], false, db)); }
+let directory: string;
 beforeEach(() => {
+  directory = mkdtempSync(path.join(process.env.DEZFIL_DATA_DIR!, "dependency-ownership-"));
+  vi.stubEnv("DEZFIL_DATA_DIR", directory);
   db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db);
   scopes = {}; maps = {}; steps = {}; recipes = {}; parse.after = undefined; parse.calls = 0;
   for (const account of accounts) {
@@ -46,20 +53,27 @@ beforeEach(() => {
     recordOutput(steps[account], { id: table(account).id, name: "roads" }, "time", db);
     replaceEdges(scope, steps[account], table(account).id, [{ inputTableId: table(account).id, inputTableName: "roads", boundArtifact: table(account).file }], db);
     upsertTileRecord({ layerId: `${account}-layer`, state: "ready", fingerprint: "seed", error: null, featureCount: 1, builtAt: "time" }, db);
+    seedTileEvidence(`${account}-layer`, "seed", "time", { catalogue: false, datasets: [{ id: table(account).id, file: table(account).file }] });
   }
   db.prepare("UPDATE accounts SET is_admin = 1 WHERE id = 'admin'").run();
 });
-afterEach(() => { resetTileBuilds(); vi.restoreAllMocks(); db.close(); });
+afterEach(() => { resetTileBuilds(); vi.restoreAllMocks(); db.close(); vi.unstubAllEnvs(); rmSync(directory, { recursive: true, force: true }); });
 it("selects producers within each owner before decoding private workflow content", () => {
   for (const account of accounts) expect([...currentProducers(scopes[account]).keys()]).toEqual([table(account).id]);
   db.prepare("UPDATE recipe_steps SET parameters = 'private-invalid-json' WHERE id = ?").run(steps.bob);
   expect([...currentProducers(scopes.alice).keys()]).toEqual([table("alice").id]);
 });
 it("does not expose a foreign workflow claiming an owned dataset as its output", async () => {
+  // Bob's workflow, out of Alice's reach, claims her dataset as its output,
+  // in the legacy column and as his run's recorded output.
   db.prepare("UPDATE recipe_steps SET output_table_id = ? WHERE id = ?").run(table("alice").id, steps.bob);
+  db.prepare("UPDATE step_runner_outputs SET output_table_id = ? WHERE step_id = ?").run(table("alice").id, steps.bob);
   db.prepare("UPDATE recipe_steps SET output_table_id = NULL WHERE id = ?").run(steps.alice);
+  const own = { id: recipes.alice, name: "alice", owned: true };
+  expect((await mapDependencies(scopes.alice, maps.alice))[0].producer).toEqual(own);
+  expect((await workflowDependencies(scopes.alice, recipes.alice))[0].producer).toEqual(own);
+  db.prepare("DELETE FROM step_runner_outputs WHERE step_id = ?").run(steps.alice);
   expect((await mapDependencies(scopes.alice, maps.alice))[0].producer).toBeNull();
-  expect((await workflowDependencies(scopes.alice, recipes.alice))[0].producer).toBeNull();
 });
 it.each(accounts)("keeps %s's fingerprint stable through another owner's refresh, delete and name reuse", account => {
   const before = fingerprint(account), other = accounts.find(a => a !== account)!;

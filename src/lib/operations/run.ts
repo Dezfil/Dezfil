@@ -4,7 +4,7 @@ import { failInactiveJob } from "@/lib/metadata/jobs";
 import { admit, type RunRequest } from "./run-admission";
 import { pruneAfterJob } from "./run-history";
 export { admitOwned, type RunRequest } from "./run-admission";
-export { prune, cancelRun, markAndSignalRunCancellation, pruneRunCancellation, waitForRunCancellation, type RunCancellation } from "./run-history";
+export { prune, cancelRun, markAndSignalRunCancellation, markAndSignalMemberCancellation, pruneRunCancellation, waitForRunCancellation, type RunCancellation } from "./run-history";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { randomUUID } from "node:crypto";
@@ -24,6 +24,7 @@ import type {
 } from "./compile";
 import { LostAuthority, materialize, type BoundInput } from "./materialize";
 import * as lane from "./lane";
+import type { DatasetScope } from "@/lib/query/access";
 
 /**
  * Running an operation.
@@ -59,6 +60,8 @@ function operationTimeout(): ApiError {
  */
 export type Publisher = (
   jobFinished: (db: Database, output: { id: string; name: string }) => boolean,
+  /** The job whose success this publication commits. */
+  jobId: string,
 ) => (
   table: { id: string; name: string },
   db: Database,
@@ -78,6 +81,9 @@ export interface SubmitOptions {
   warnings?: string[];
   /** The input generations the SQL was built for; re-checked before work. */
   bindings?: Record<string, string>;
+  /** Where the run reads: a workflow step's evaluation context. A standalone
+   * run reads in the caller's own space. */
+  evaluation?: DatasetScope;
   /**
    * Work that must happen before this run has a statement at all.
    *
@@ -156,9 +162,10 @@ function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions)
         timeoutError: operationTimeout,
         ...(options.replaceTable ? { replaceTable: options.replaceTable } : {}),
         ...(options.bindings ? { requireBindings: options.bindings } : {}),
+        ...(options.evaluation ? { evaluation: options.evaluation } : {}),
         // The authority check, inside the publication transaction.
         authorize: options.publisher
-          ? options.publisher(jobFinished)
+          ? options.publisher(jobFinished, job.id)
           : (table, db) => jobFinished(db, { id: table.id, name: table.name }),
         ...(options.onPublished ? { onPublished: options.onPublished } : {}),
       });

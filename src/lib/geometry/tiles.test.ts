@@ -13,6 +13,7 @@ import { tileArchivePath } from "@/lib/tiles/paths";
 import { clearGeometry, setGeometry } from "./service";
 import { geometryRevision } from "./read";
 import { cleanupGeometryTest, setupGeometryTest, stored } from "@/lib/test-support/geometry";
+import { datasetInputs } from "@/lib/test-support/tile-evidence";
 let dir: string;
 let release: (() => Promise<void>) | undefined;
 beforeEach(async () => { dir = await setupGeometryTest(); resetTileBuilds(); });
@@ -29,7 +30,9 @@ it("actual running tiles cannot publish after a geometry change; unrelated tiles
   ensureTiles(privateTileAccess(testAccountScope(), (input(unrelated.id,otherSql)).layerId), input(unrelated.id,otherSql)); await tileBuildsSettled();
   expect(getTileRecord(unrelated.id)).toMatchObject({state:"ready",error:null});
   const unrelatedRecord=getTileRecord(unrelated.id), unrelatedBytes=await readFile(tileArchivePath(unrelated.id));
-  const beforeFingerprint=tileFingerprint(sql,[],"", layer.id), otherFingerprint=tileFingerprint(otherSql,[],"", unrelated.id);
+  // Each layer's identities: the one dataset it reads, as it stands when asked.
+  const reads=(id:string)=>datasetInputs([id]);
+  const beforeFingerprint=tileFingerprint(sql,[],"", reads(t.id)), otherFingerprint=tileFingerprint(otherSql,[],"", reads(other.id));
   const started=path.join(dir,"started"),released=path.join(dir,"released"),executable=path.join(dir,"gated-tiler");
   await writeFile(executable,`#!/bin/sh
 if [ "$1" = "--version" ]; then exec tippecanoe --version; fi
@@ -46,8 +49,8 @@ exec tippecanoe "$@"
   // This immediate assertion catches omitted prompt invalidation even when
   // a changed fingerprint would lazily repair the next render.
   expect(getTileRecord(layer.id)).toBeNull();
-  expect(tileFingerprint(sql,[],"", layer.id)).not.toBe(beforeFingerprint);
-  expect(tileFingerprint(otherSql,[],"", unrelated.id)).toBe(otherFingerprint);
+  expect(tileFingerprint(sql,[],"", reads(t.id))).not.toBe(beforeFingerprint);
+  expect(tileFingerprint(otherSql,[],"", reads(other.id))).toBe(otherFingerprint);
   await release(); await tileBuildsSettled();
   expect(getTileRecord(layer.id)).toBeNull(); expect(existsSync(tileArchivePath(layer.id))).toBe(false);
   expect(getTileRecord(unrelated.id)).toEqual(unrelatedRecord);

@@ -1,11 +1,12 @@
 import { expect, it } from "vitest";
 import { buildOpenApiDocument } from "./openapi";
 import { buildTools } from "@/lib/tools/tools";
-it("documents inherited history and thumbnail ownership and atomic replay refusal", () => {
+it("documents history under the map's reach, thumbnails served by what they drew and atomic replay refusal", () => {
   const document = buildOpenApiDocument() as unknown as { paths: Record<string, Record<string, { description: string; responses: Record<string, unknown> }>> };
   for (const suffix of ["history", "undo", "redo", "thumbnail"]) {
     for (const operation of Object.values(document.paths[`/api/maps/{id}/${suffix}`])) {
-      expect(operation.description).toContain("History and thumbnails inherit the map owner's private access");
+      expect(operation.description).toContain("History follows its map: everyone who reaches the map reads its availability");
+      expect(operation.description).toContain("an image is served, and copied into a duplicate, only for someone who reaches the map and can now reach every one of them");
       expect(operation.responses).toHaveProperty("404");
     }
   }

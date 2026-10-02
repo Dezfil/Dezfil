@@ -195,6 +195,7 @@ describe("the datasets a map draws from", () => {
     expect(byName.get("station_buffers")!.producer).toEqual({
       id: wf.id,
       name: "Station catchments",
+      owned: true,
     });
     expect(byName.get("tool_result")!.producer).toBeNull();
   });

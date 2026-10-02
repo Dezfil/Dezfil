@@ -1,4 +1,5 @@
 import { requireRequestScope } from "@/lib/auth/scope-http";
+import { requireWorkflowRunStart } from "@/lib/workflow-access";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
 import { readCascade, startSingleRun } from "@/lib/operations/cascade";
@@ -18,8 +19,9 @@ type Params = { params: Promise<{ id: string; stepId: string }> };
  * confirmation property honest — a control that sometimes ran three other
  * steps could not be described as narrow.
  *
- * A re-run replaces the step's output in place, keeping its id and name, so
- * every layer built on that table keeps pointing at fresh data.
+ * A re-run replaces the same runner's earlier output of the step in place,
+ * keeping its id and name, so every layer built on that table keeps pointing
+ * at fresh data; another runner's output is never touched.
  *
  * Ordinarily, an admission refusal leaves no run and no attempt. The narrow
  * exception is a run already listable when cancellation is accepted: a later
@@ -29,6 +31,10 @@ export async function POST(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id, stepId } = await params;
+    // Starting a run is for whoever may run the workflow; the run is theirs
+    // and its output their own dataset. A viewer is refused by the
+    // permission shape.
+    requireWorkflowRunStart(scope, id, stepId);
     // A node's own run is one of the recipe's runs: one member, the same
     // lock, the same driver. Ordinary refusal removes it before the request
     // answers; accepted cancellation retains the listable exception.

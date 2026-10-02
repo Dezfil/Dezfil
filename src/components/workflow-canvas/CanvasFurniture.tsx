@@ -75,7 +75,7 @@ export function CanvasFurniture({ selected, graph, operations, tables, layout, l
       {panel && (
         <div hidden={layout.panelHidden} style={style} data-canvas-furniture data-panel-shift={layout.panelShift || undefined}>
           {panel.kind === "node" ? (
-            <NodePanel key={panel.id} member={panel} graph={graph} operations={operations} tables={tables} onClose={onClose} onRemove={onRemove} lockReason={lockReason} />
+            <NodePanel key={panel.id} recipeId={recipe.id} member={panel} graph={graph} operations={operations} tables={tables} onClose={onClose} onRemove={onRemove} lockReason={lockReason} />
           ) : (
             <SourcePanel key={panel.id} member={panel} graph={graph} onSelect={onSelect} onClose={onClose} onRemove={onRemoveSource} lockReason={lockReason} />
           )}

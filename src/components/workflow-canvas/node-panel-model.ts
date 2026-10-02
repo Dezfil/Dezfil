@@ -1,8 +1,9 @@
 import type { OperationDef } from "@/lib/operations/catalog";
 import { formatCount, type TableListing } from "../api";
 import type { WorkflowStep } from "../workflow-model";
-import { normalName } from "../workflow-producers";
-import type { CanvasGraph, CanvasMember, NodeMember } from "./graph";
+import { readKey } from "../workflow-producers";
+import { listedFor, type CanvasGraph, type CanvasMember, type NodeMember } from "./graph";
+import { heldTableIds, writtenInHome } from "./home-names";
 import { classOfTable, classRefusal, expectedClass, linkRefusal, memberByName, outputNameOf, type GeometryClass } from "./link-rules";
 
 /**
@@ -132,6 +133,9 @@ export function callouts(member: NodeMember, operation: OperationDef | null): Ca
   if (step.conditions.includes("output_missing")) {
     out.push({ key: "output_missing", tone: "warn", head: "Output deleted.", body: "The dataset this made is gone. Run again to make it." });
   }
+  if (step.conditions.includes("output_unavailable")) {
+    out.push({ key: "output_unavailable", tone: "plain", head: "Output not available to you." });
+  }
   if (step.conditions.includes("stale")) {
     out.push({ key: "stale", tone: "warn", head: "Stale.", body: step.causes.map(causeSentence).join(" ") || undefined });
   }
@@ -197,24 +201,30 @@ export function pickerOptions(args: {
       if (m.kind === "node") refused.push({ name: "", label: m.label, node: true, reason, kind, fact: "not named", id: m.id });
       continue;
     }
-    const key = normalName(name);
+    const key = readKey(name);
     if (seen.has(key)) continue;
     seen.add(key);
     const fact = m.kind === "node" ? "node" : m.missing ? "missing" : m.table ? `${formatCount(m.table.rowCount)} rows` : "";
     (reason === null ? accepted : refused).push({ name, label: name, node: m.kind === "node", reason, kind, fact });
   }
   // A workspace table not on the canvas is offered under the same rules:
-  // the class it holds against what the input accepts.
+  // the class it holds against what the input accepts. It is offered by the
+  // name the workflow's home writes it, so the reader's own dataset is never
+  // stored as a same-named one of the home's; one the canvas already holds
+  // is its member's row.
   const input = operations.find((o) => o.id === to.step.operation)?.inputs.find((i) => i.name === port) ?? null;
   const elsewhere: PickerOption[] = [];
+  const held = heldTableIds(graph);
   for (const t of tables) {
-    const key = normalName(t.name);
+    if (held.has(t.id)) continue;
+    const name = writtenInHome(t, graph.home);
+    const key = readKey(name);
     if (seen.has(key)) continue;
-    if (memberByName(graph, t.name)) continue;
+    if (memberByName(graph, name)) continue;
     seen.add(key);
     const kind = classOfTable(t);
-    const reason = input ? classRefusal(input, t.name, kind) : null;
-    (reason === null ? elsewhere : refused).push({ name: t.name, label: t.name, node: false, reason, kind, fact: `${formatCount(t.rowCount)} rows` });
+    const reason = input ? classRefusal(input, name, kind) : null;
+    (reason === null ? elsewhere : refused).push({ name, label: name, node: false, reason, kind, fact: `${formatCount(t.rowCount)} rows` });
   }
   const byName = (a: PickerOption, b: PickerOption) => a.label.localeCompare(b.label);
   return { accepted: accepted.sort(byName), refused: refused.sort(byName), elsewhere: elsewhere.sort(byName) };
@@ -228,9 +238,9 @@ export function currentOption(
   options: { accepted: PickerOption[]; refused: PickerOption[]; elsewhere: PickerOption[] },
 ): PickerOption | null {
   if (!current) return null;
-  const key = normalName(current);
+  const key = readKey(current);
   for (const list of [options.accepted, options.elsewhere, options.refused]) {
-    const hit = list.find((o) => o.name !== "" && normalName(o.name) === key);
+    const hit = list.find((o) => o.name !== "" && readKey(o.name) === key);
     if (hit) return hit;
   }
   return { name: current, label: current, node: false, reason: `“${current}” is not on the canvas or in the workspace.`, kind: "unknown", fact: "missing" };
@@ -259,10 +269,12 @@ export function downstreamOf(graph: CanvasGraph, id: string): NodeMember[] {
   return graph.members.filter((m): m is NodeMember => m.kind === "node" && seen.has(m.id));
 }
 
-/** Whether a name an input holds is an output nothing has produced yet. */
+/** Whether a name an input holds is an output nothing has produced yet. A
+ * listed dataset the name points at in the workflow's home says it is
+ * there; the reader's own same-named dataset says nothing. */
 export function unproducedOutput(name: string | null, graph: CanvasGraph, tables: TableListing[]): boolean {
   if (!name) return false;
-  if (tables.some((t) => normalName(t.name) === normalName(name))) return false;
+  if (listedFor(tables, name, graph.home)) return false;
   const m = memberByName(graph, name);
   return m !== null && m.kind === "node" && m.step.output === null;
 }

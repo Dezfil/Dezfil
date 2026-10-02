@@ -203,10 +203,13 @@ it("filters ownership before parsing hidden map and layer content", async () => 
   expect((await response.json()).map((map: { id: string }) => map.id)).toEqual([ids.alice]);
 });
 
-it("rolls back duplication if the stored project reference is outside the owner's space", async () => {
+it("never files a duplicate into a project its owner cannot file in: the copy is unfiled and that project gains nothing", async () => {
   const { duplicateMap } = await import("@/lib/map-service");
   db.prepare("UPDATE maps SET project_id = ? WHERE id = ?").run(projects.bob, ids.alice);
-  const before = snapshot();
-  expect(() => duplicateMap(testAccountScope(db, "alice"), ids.alice)).toThrow(expect.objectContaining({ code: "not_found", status: 404 }));
-  expect(snapshot()).toEqual(before);
+  const filed = () => db.prepare("SELECT id FROM maps WHERE project_id = ? ORDER BY id").all(projects.bob);
+  const before = filed();
+  const copy = duplicateMap(testAccountScope(db, "alice"), ids.alice);
+  expect(copy).toMatchObject({ name: expect.stringMatching(/ copy$/) });
+  expect(db.prepare("SELECT owner_id, project_id FROM maps WHERE id = ?").get(copy.id)).toEqual({ owner_id: "alice", project_id: null });
+  expect(filed()).toEqual(before);
 });

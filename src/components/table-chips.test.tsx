@@ -30,7 +30,7 @@ describe("the assumed-CRS chip as a door", () => {
 describe("the chip on the Data page's cards and rows stays as shipped", () => {
   it("neither the card nor the row renders the door", async () => {
     const { TableCard, TableRow } = await import("./data-cards");
-    const listing = { ...table, sizeBytes: 100, projectIds: [] };
+    const listing = { ...table, sizeBytes: 100, projectIds: [], owner: { name: "Ada", sqlName: "ada" }, qualifiedName: "trips" };
     const actions = { table: listing, confirming: false, deleting: false, onOpen() {}, onQuery() {}, onAddToMap() {}, onFile() {}, onDeletePress() {}, onDeleteBlur() {}, onDeleteConfirm() {}, onDeleteCancel() {}, onDownload() {} } as unknown as Parameters<typeof TableCard>[0]["actions"];
     const card = renderToStaticMarkup(<TableCard table={listing} index={0} actions={actions} />);
     expect(card).toContain(">WGS84 assumed<");

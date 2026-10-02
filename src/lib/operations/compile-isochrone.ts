@@ -1,3 +1,4 @@
+import { bindingKey } from "./input-ref";
 import type { AccountScope } from "@/lib/auth/scope";
 import type { DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
@@ -219,6 +220,7 @@ export async function compileIsochrone(
   operation: OperationDef,
   params: Record<string, unknown>,
   requireName: boolean,
+  reads: DatasetScope = scope,
 ): Promise<CompiledRun> {
   const label = operation.label;
   // First, because it is about the instance rather than the request.
@@ -228,19 +230,19 @@ export async function compileIsochrone(
   if (requireName && !name) required(label, "name");
   const named = str(params, "input");
   if (!named) required(label, "input");
-  const table = inputTable(scope, named, "input");
+  const table = inputTable(reads, named, "input");
   const assumed = assumedCrsOf([table]);
 
-  await refuseWrongGeometry(scope, table, label);
+  await refuseWrongGeometry(reads, table, label);
   const mode = modeOf(operation, params, label);
   const bands = bandsOf(params, label);
-  await refuseCollisions(scope, table, label);
+  await refuseCollisions(reads, table, label);
   refuseSize(table, label);
 
   return {
     sql: "",
     name,
-    bindings: { [table.name.toLowerCase()]: table.file },
+    bindings: { [bindingKey(table)]: table.file },
     // Origins × bands: every origin and every band gets a
     // row, answered or not, which is what makes the count knowable before
     // a request is made. The class is the catalog's declaration (E7).
@@ -256,6 +258,7 @@ export async function compileIsochrone(
     assumedCrs: assumed,
     prepare: async (context) => {
       const staged = await stageIsochroneBatch(scope, {
+        reads,
         table,
         mode,
         bands,

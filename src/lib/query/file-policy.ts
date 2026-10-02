@@ -5,6 +5,8 @@ import type { DuckDBConnection } from "@duckdb/node-api";
 import { ApiError } from "@/lib/api/errors";
 import { qualifiedNameParts } from "./qualified-name";
 import { constantArgument, constantExpression, isSqlNode, sqlText, type SqlNode } from "./sql-tree";
+import { mountPlanOf } from "./mount-plan";
+import { classifyReference } from "./reference-forms";
 
 const REJECTION = "Queries must use named datasets. File access and engine path discovery are not accepted.";
 function refuse(): never { throw new ApiError("sql_rejected", REJECTION, 400); }
@@ -37,9 +39,19 @@ function catalogKey(name: string, schema = ""): string {
   return schema === "information_schema" ? `${schema}.${name}` : name;
 }
 async function ownRelation(conn: DuckDBConnection, name: string, schema: string, catalog: string): Promise<boolean> {
+  if (!catalog && schema && mountedBinding(conn, [schema, name])) return true;
   if (!["", "main", "memory", "temp"].includes(schema) || !["", "memory", "temp"].includes(catalog.toLowerCase())) return false;
   const rows = await conn.runAndReadAll("SELECT view_name FROM duckdb_views() WHERE database_name = 'temp' AND schema_name = 'main' AND NOT internal AND lower(view_name) = ?", [name]);
   return rows.getRowObjects().length > 0;
+}
+/** A name this evaluation's own registration bound to a dataset: another
+ * owner's `<sql name>.<dataset>` as a qualified name or as its one quoted
+ * mount name, never a name a statement could mint for itself. */
+function mountedBinding(conn: DuckDBConnection, parts: string[]): boolean {
+  const plan = mountPlanOf(conn);
+  if (!plan) return false;
+  const classified = classifyReference(parts);
+  return classified.form === "qualified" && plan.qualified.has(`${classified.qualifier}.${classified.name}`);
 }
 async function tableTarget(conn: DuckDBConnection, target: string, ctes: ReadonlySet<string>, catalogues: Set<string>): Promise<void> {
   const parts = qualifiedNameParts(target);
@@ -53,8 +65,13 @@ async function tableTarget(conn: DuckDBConnection, target: string, ctes: Readonl
 }
 async function baseTarget(conn: DuckDBConnection, name: string, schema: string, catalog: string, ctes: ReadonlySet<string>, catalogues: Set<string>): Promise<void> {
   if (!schema && !catalog && ctes.has(name)) return;
-  // Registered dataset names cannot contain these characters. A quoted CTE can.
-  if ([name, schema, catalog].some(part => /[.\\/:*?\[\]]/.test(part))) refuse();
+  // Registered dataset names cannot contain these characters. A quoted CTE
+  // can, and so can one mount: another owner's dataset under its single
+  // quoted name, admitted only as a binding this evaluation registered.
+  const local = ["", "main"].includes(schema) && ["", "memory", "temp"].includes(catalog.toLowerCase());
+  if (!(local && /^[^\\/:*?\[\]]+$/.test(name) && mountedBinding(conn, [name]))) {
+    if ([name, schema, catalog].some(part => /[.\\/:*?\[\]]/.test(part))) refuse();
+  }
   const key = catalogKey(name, schema);
   if ((FORBIDDEN.has(key) || CATALOG_COLUMNS[key]) && !await ownRelation(conn, name, schema, catalog)) {
     if (FORBIDDEN.has(key)) refuse();

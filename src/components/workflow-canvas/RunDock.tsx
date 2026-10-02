@@ -4,6 +4,7 @@ import { Button } from "../ui/Button";
 import { PlayIcon, XIcon } from "../ui/icons";
 import { outcomeLine, settledCount } from "./run-overlay";
 import type { WorkflowRunner } from "./use-workflow-run";
+import { useRunsOffered } from "./view-only";
 import styles from "./WorkflowCanvas.module.css";
 
 /**
@@ -28,6 +29,8 @@ export function RunDock({
   onRunAll: () => void;
   onDismissRefusal: () => void;
 }) {
+  // A Viewer watches a run's progress and starts or stops none.
+  const runs = useRunsOffered();
   const { active, phase, ended, readFailure } = runner.state;
   const inFlight = active !== null && active.outcome === null;
   const busy = phase === "starting" || phase === "cancelling";
@@ -71,7 +74,7 @@ export function RunDock({
           </button>
         </span>
       ) : null}
-      {inFlight ? (
+      {!runs ? null : inFlight ? (
         <Button
           variant="danger"
           size="chrome"

@@ -11,7 +11,10 @@ type Params = { params: Promise<{ id: string }> };
 /**
  * Render data (GeoJSON) for one layer. A layer that cannot render — deleted
  * table, over the cap — returns ok:false with a reason, not an HTTP error,
- * so the rest of a map keeps working.
+ * so the rest of a map keeps working. Anyone who reaches the map reads it,
+ * evaluated in the map's home within the reader's reach; a tile archive is
+ * served to a reader who can reach everything it drew, and anyone else's
+ * render prepares one in their own reach.
  */
 export async function GET(request: Request, { params }: Params) {
   try {

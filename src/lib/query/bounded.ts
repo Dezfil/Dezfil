@@ -8,6 +8,7 @@ import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { registerTableViews } from "./views";
 import { trackInflight } from "./inflight";
 import { pinBindings, type BindingSnapshot } from "./binding-snapshot";
+import { foldEvaluation, openCollections } from "./evaluation-inputs";
 
 // The boundary's callers import the cancellation from here; it lives with
 // the API errors so the response mapping stays cycle-free.
@@ -126,6 +127,9 @@ async function runBoundedEvaluation<T>(
   const { signal, scope } = options ?? {};
   requireDatasetScope(scope);
   if (signal?.aborted) throw new EvaluationCancelled();
+  // Whatever this evaluation binds is evidence for the artifacts being
+  // assembled where it was started.
+  const collections = openCollections();
 
   const budgetMs = options.budgetMs ?? limits.queryTimeoutMs;
   const timeoutError = (): ApiError =>
@@ -257,6 +261,7 @@ async function runBoundedEvaluation<T>(
       clearTimeout(timer);
       if (repeater) clearInterval(repeater);
       signal?.removeEventListener("abort", onAbort);
+      foldEvaluation(collections, conn);
     }
   } finally {
     if (!deferDisconnect) { conn.disconnectSync(); staging.release(); }

@@ -1,3 +1,4 @@
+import { tableRef } from "./input-ref";
 import { ApiError } from "@/lib/api/errors";
 import { ident } from "@/lib/ingest/ingest";
 import type { DataTable } from "@/lib/metadata/tables";
@@ -190,7 +191,7 @@ function carriedExpression(
   right: DataTable,
   leftGeom: string,
 ): string {
-  const rightName = ident(right.name);
+  const rightName = tableRef(right);
   const rightGeom = `r.${ident(right.geometryColumn!)}`;
   const where = `${predicateSql}(${leftGeom}, ${rightGeom})`;
 
@@ -237,5 +238,5 @@ export function spatialJoinSql(
   // output geometry and the actual result agree instead of colliding.
   return `SELECT l.*,
        ${carried}
-FROM ${ident(left.name)} AS l`;
+FROM ${tableRef(left)} AS l`;
 }

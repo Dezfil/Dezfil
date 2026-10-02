@@ -235,6 +235,7 @@ describe("the canvas graph", () => {
       [{ conditions: ["broken", "never_run"], condition: "broken", latestAttempt: { state: "failed" } }, "cannot run", "warn"],
       [{ conditions: ["stale"], condition: "stale", latestAttempt: { state: "failed" } }, "run failed", "warn"],
       [{ conditions: ["output_missing", "stale"], condition: "output_missing" }, "output deleted", "rerun"],
+      [{ conditions: ["output_unavailable"], condition: "output_unavailable" }, "output not available", null],
       [{ conditions: ["stale"], condition: "stale", proposedParameters: { a: 1 } }, "stale", "rerun"],
       [{ conditions: ["current"], condition: "current", proposedParameters: { a: 1 } }, "edited", "edit"],
       [{ conditions: ["never_run"], condition: "never_run" }, "never run", null],

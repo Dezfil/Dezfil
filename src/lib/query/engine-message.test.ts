@@ -110,6 +110,20 @@ describe("safe query failures", () => {
     expect(safeEngineMessage('Binder Error: Referenced column "value" not found.\nCandidate bindings: "hidden_name"'))
       .toBe('Binder Error: Referenced column "value" not found.');
   });
+  it("names an ambiguous table as it was written, without the engine's internal catalogue or schema", async () => {
+    const { safeEngineMessage } = await import("./engine-message");
+    const generic = 'Binder Error: Ambiguous reference to table "roads" (duplicate alias "roads", explicitly alias one of the tables using "AS my_alias")';
+    for (const message of [
+      'Binder Error: Ambiguous reference to table "roads" (use: main.roads or .roads)',
+      'Binder Error: Ambiguous reference to table ""temp".main.roads" (duplicate alias ""temp".main.roads", explicitly alias one of the tables using "AS my_alias")',
+      'Binder Error: Ambiguous reference to table "memory.main.roads" (use: "temp".main.roads or memory.main.roads)',
+      generic,
+    ]) expect(safeEngineMessage(message), message).toBe(generic);
+    const qualified = 'Binder Error: Ambiguous reference to table "ada.roads" (duplicate alias "ada.roads", explicitly alias one of the tables using "AS my_alias")';
+    expect(safeEngineMessage(qualified)).toBe(qualified);
+    expect(safeEngineMessage('Binder Error: Ambiguous reference to table ""ada.roads"" (duplicate alias ""ada.roads"", explicitly alias one of the tables using "AS my_alias")'))
+      .toBe(qualified);
+  });
   it("keeps file paths and engine traces out of query failures", async () => {
     const { safeEngineMessage, normalizeEngineError } = await import("./engine-message");
     const { ApiError } = await import("@/lib/api/errors");

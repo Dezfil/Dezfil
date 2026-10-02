@@ -15,6 +15,7 @@ import {
 } from "./api";
 import { AddToMapDialog, tableSubject } from "./AddToMapDialog";
 import { ExportMenu } from "./ExportMenu";
+import { datasetQueryHref } from "./dataset-doors";
 import { TablePreviewMap } from "./TablePreviewMap";
 import { Spinner } from "./Spinner";
 import { TablePreviewGrid } from "./TablePreviewGrid";
@@ -278,10 +279,14 @@ function TableDetail({
   // While the panel is open the grid shows the answer's own rows with its
   // chosen columns tagged and its unreadable rows marked (live-preview.ts).
   const grid = livePreview(panel.state, table);
+  // A dataset is changed by its owner alone, whatever the reader's role on
+  // a project that files it. One's own is typed by its plain name, someone
+  // else's by `<sql name>.<name>`.
+  const own = table.qualifiedName === table.name;
 
   return (
     <div className={styles.screen}>
-      <PlainCrumbTail name={table.name} />
+      <PlainCrumbTail name={table.name} owner={table.owner} />
       <div className={styles.head}>
         <Link
           href="/data"
@@ -317,7 +322,7 @@ function TableDetail({
             <button
               type="button"
               className={gallery.primary}
-              onClick={() => setAddToMap(table.name)}
+              onClick={() => setAddToMap(table.qualifiedName)}
               data-add-to-map="primary"
             >
               <IconAddToMap />
@@ -347,18 +352,17 @@ function TableDetail({
             className={styles.aux}
             title="Query in SQL"
             aria-label={`Query ${table.name} in SQL`}
-            onClick={() =>
-              router.push(`/sql?table=${encodeURIComponent(table.name)}`)
-            }
+            onClick={() => router.push(datasetQueryHref(table))}
           >
             <IconSql />
           </button>
           <ExportMenu
             name={table.name}
+            dataset={table}
             spatial={!!table.geometryColumn}
             triggerClassName={styles.aux}
           />
-          {isRefreshableImport(table) && (
+          {own && isRefreshableImport(table) && (
             <button
               className={styles.aux}
               title="Re-run the stored import"
@@ -370,7 +374,7 @@ function TableDetail({
               <IconRefresh />
             </button>
           )}
-          {confirming ? (
+          {!own ? null : confirming ? (
             <span className={styles.confirm}>
               Delete this table and its data?
               <button className={styles.dangerBtn} onClick={remove}>
@@ -428,7 +432,7 @@ function TableDetail({
           table={table}
           onSettled={onRunSettled}
         />
-        {table.source === "overture" && (
+        {own && table.source === "overture" && (
           <button
             className={styles.provenanceAct}
             onClick={() => void refresh("latest")}
@@ -499,7 +503,7 @@ function TableDetail({
                 />
               ) : (
                 <TablePreviewMap
-                  name={table.name}
+                  name={table.qualifiedName}
                   crsAssumed={table.crsAssumed}
                   onSetGeometry={
                     doors && table.geometryColumn === null
@@ -525,7 +529,7 @@ function TableDetail({
                 {grid.columns.length} columns · {formatBytes(table.sizeBytes)} on
                 disk ·{" "}
                 <Link
-                  href={`/sql?table=${encodeURIComponent(table.name)}`}
+                  href={datasetQueryHref(table)}
                   className={styles.sqlLink}
                 >
                   Open in SQL workspace <CaretIcon />

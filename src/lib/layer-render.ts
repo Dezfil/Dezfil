@@ -1,10 +1,11 @@
 import { namedSql } from "@/lib/query/named-sql";
+import { recordedInputs } from "@/lib/query/evaluation-inputs";
 import { tiledRender, errored } from "./tiles/render";
 import type { TileAccess } from "./tiles/access";
 import type { DatasetScope } from "./query/access";
 import { limits } from "./limits";
 import { ApiError } from "./api/errors";
-import { safeEngineMessage } from "./query/engine-message";
+import { DatasetUnavailable, safeEngineMessage } from "./query/engine-message";
 import { boundedEvaluation, EvaluationCancelled } from "./query/bounded";
 import { effectiveSql, wrappable, OD_GEOMETRY } from "./query/compile";
 import type { Layer } from "./metadata/maps";
@@ -12,6 +13,7 @@ import { AGG_ELEV, isAggregated, isOdViz, type LayerFilter } from "./viz";
 import { publishedFieldsFor, type PublishedMapContext } from "./publish/published-fields";
 import { renderCapRefusal } from "./layer-render-copy";
 import { renderFilters } from "./layer-render-filters";
+import { layerEvaluation } from "./query/context";
 
 function ident(s: string): string { return `"${s.replace(/"/g, '""')}"`; }
 
@@ -101,6 +103,7 @@ export async function renderLayer(
   signal?: AbortSignal,
   opts: RenderLayerOpts = {},
 ): Promise<LayerRenderData> {
+  scope = layerEvaluation(scope, layer);
   try {
     return await boundedEvaluation(async (conn) => {
       const compiledSql = await namedSql(conn, layer.sql);
@@ -207,7 +210,7 @@ export async function renderLayer(
             nonGeometry.map((c) => c.name),
             featureCount,
             geometryType,
-            { liveFiltered, published: opts.published !== undefined, tileAccess: opts.tileAccess },
+            { liveFiltered, published: opts.published !== undefined, tileAccess: opts.tileAccess, inputs: recordedInputs(conn) },
           );
         }
         // A heatmap whose undelegated result cannot ship falls back to
@@ -288,7 +291,7 @@ export async function renderLayer(
       layer.id,
       error instanceof ApiError ? error.code : "sql_error",
       error instanceof Error
-        ? safeEngineMessage(error.message)
+        ? error instanceof DatasetUnavailable ? error.message : safeEngineMessage(error.message)
         : "The layer could not render.",
     );
   }

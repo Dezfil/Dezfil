@@ -58,6 +58,8 @@ export type ErrorCode =
   | "widget_layer_missing"
   | "column_unavailable"
   | "field_not_published"
+  /** A published layer or widget reading the catalogue its link withholds. */
+  | "catalogue_not_published"
   | "selection_incompatible"
   | "rate_limited"
   | "catalogue_too_large"

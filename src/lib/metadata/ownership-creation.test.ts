@@ -17,7 +17,7 @@ const now = "2026-01-01T00:00:00.000Z";
 const map: MapRecord = {
   id: "map", name: "Private map", viewport: { lng: 0, lat: 0, zoom: 1 }, basemap: null,
   customBasemap: null, basemapLayers: null, note: null, legendCorner: null, legendOrder: null,
-  timeline: null, widgets: [], widgetsPublished: true, publishToken: null, publishedAt: null,
+  timeline: null, widgets: [], widgetsPublished: true, publishToken: null, publishedAt: null, published: false,
   createdAt: now, updatedAt: now,
 };
 const table: DataTable = {

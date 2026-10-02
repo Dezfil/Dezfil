@@ -1,3 +1,4 @@
+import { tableRef } from "./input-ref";
 import { ApiError } from "@/lib/api/errors";
 import { ident } from "@/lib/ingest/ingest";
 import type { DataTable } from "@/lib/metadata/tables";
@@ -31,7 +32,7 @@ function geometryOf(table: DataTable, verb: string, role: string): string {
 /** The other input, dissolved to one shape — what "against the whole of it"
  * means, and the reason these verbs do not multiply rows. */
 function wholeOf(table: DataTable, column: string): string {
-  return `(SELECT ST_Union_Agg(${ident(column)}) FROM ${ident(table.name)} WHERE ${ident(column)} IS NOT NULL)`;
+  return `(SELECT ST_Union_Agg(${ident(column)}) FROM ${tableRef(table)} WHERE ${ident(column)} IS NOT NULL)`;
 }
 
 /**
@@ -53,7 +54,7 @@ export function clipSql(input: DataTable, clip: DataTable): string {
   // user's own data could carry.
   return `SELECT * FROM (
   SELECT t.* REPLACE (ST_Intersection(t.${geom}, ${whole}) AS ${geom})
-  FROM ${ident(input.name)} AS t
+  FROM ${tableRef(input)} AS t
   WHERE t.${geom} IS NOT NULL
 ) AS c
 WHERE NOT ST_IsEmpty(${geom})`;
@@ -71,7 +72,7 @@ export function differenceSql(input: DataTable, erase: DataTable): string {
   const whole = wholeOf(erase, eraseGeom);
   return `SELECT * FROM (
   SELECT t.* REPLACE (ST_Difference(t.${geom}, ${whole}) AS ${geom})
-  FROM ${ident(input.name)} AS t
+  FROM ${tableRef(input)} AS t
   WHERE t.${geom} IS NOT NULL
 ) AS d
 WHERE NOT ST_IsEmpty(${geom})`;

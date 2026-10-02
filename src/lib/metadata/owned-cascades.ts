@@ -1,29 +1,64 @@
 import type { Database } from "better-sqlite3";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
+import { canReach, requirePermitted, requireReachable } from "@/lib/auth/reach";
 import { metadataDb } from "./db";
 import * as cascades from "./cascades";
 export type { CascadeKind, CascadeRun, MemberIdentity, MemberState } from "./cascades";
 
+/** The account that started a run: recorded on the run, the workflow's owner
+ * for a record made before runs had initiators. */
+const INITIATOR = "COALESCE(c.initiator_id, r.owner_id)";
+
+/** A run as its driver reads it: its initiator, or its workflow's owner. */
 export function getCascade(scope: AccountScope, id: string, db: Database = metadataDb()) {
-  const owner = requireAccountScope(scope, db);
+  const me = requireAccountScope(scope, db);
   if (!db.prepare(`SELECT c.id FROM cascade_runs c JOIN recipes r ON r.id = c.recipe_id
-    WHERE c.id = ? AND r.owner_id = ?`).get(id, owner)) return null;
+    WHERE c.id = @id AND (${INITIATOR} = @me OR r.owner_id = @me)`).get({ id, me })) return null;
   return cascades.getCascade(id, db);
 }
+/**
+ * A run's own driving: admitting its members, recording what became of them
+ * and settling it. Its initiator's, read from the run itself, whether or not
+ * they still reach its workflow; anyone else is absent.
+ */
+function requireRunInitiator(scope: AccountScope, id: string, db: Database) {
+  const me = requireAccountScope(scope, db);
+  if (!db.prepare(`SELECT c.id FROM cascade_runs c JOIN recipes r ON r.id = c.recipe_id
+    WHERE c.id = ? AND ${INITIATOR} = ?`).get(id, me)) throw resourceAbsent();
+}
+/** A run read, as its workflow is reached: everyone who reaches the workflow
+ * reads its contained runs. */
+export function readReachedCascade(scope: AccountScope, id: string, db: Database = metadataDb()) {
+  if (!canReach(scope, "cascade", id, db)) return null;
+  return cascades.getCascade(id, db);
+}
+/** A reached workflow's runs, newest first. */
+export function listReachedCascades(scope: AccountScope, recipeId: string, db: Database = metadataDb()) {
+  requireReachable(scope, "workflow", recipeId, db);
+  return cascades.listCascades(recipeId, db);
+}
+/** Authority over a run's own record while it is stopped: its initiator's,
+ * read from the run itself, or its workflow owner's. Anyone else is absent. */
+function requireRunAuthority(scope: AccountScope, id: string, db: Database) {
+  const me = requireAccountScope(scope, db);
+  if (!db.prepare(`SELECT c.id FROM cascade_runs c JOIN recipes r ON r.id = c.recipe_id
+    WHERE c.id = @id AND (${INITIATOR} = @me OR r.owner_id = @me)`).get({ id, me })) throw resourceAbsent();
+}
+
 export function requireCascadeMember(scope: AccountScope, id: string, stepId: string, db: Database = metadataDb()) {
-  requireOwnedResource(scope, "cascade", id, db);
+  requireRunInitiator(scope, id, db);
   if (!db.prepare("SELECT step_id FROM cascade_members WHERE cascade_id = ? AND step_id = ?").get(id, stepId)) throw resourceAbsent();
 }
-export function requireWorkflowStep(scope: AccountScope, recipeId: string, stepId: string, db: Database = metadataDb()) {
-  requireOwnedResource(scope, "workflow", recipeId, db);
-  if (!db.prepare("SELECT id FROM recipe_steps WHERE id = ? AND recipe_id = ?").get(stepId, recipeId)) throw resourceAbsent();
-}
+/** Record a run started by the acting account, who may run the workflow:
+ * its owner, the project's owner acting as an editor, or an editor. */
 export function createCascade(scope: AccountScope, recipeId: string, kind: cascades.CascadeKind, members: cascades.MemberIdentity[], db: Database = metadataDb()) {
   return db.transaction(() => {
-    requireOwnedResource(scope, "workflow", recipeId, db);
-    for (const member of members) requireWorkflowStep(scope, recipeId, member.stepId, db);
-    return cascades.createCascade(recipeId, kind, members, db);
+    requirePermitted(scope, "workflow", recipeId, "run", db);
+    for (const member of members) {
+      if (!db.prepare("SELECT id FROM recipe_steps WHERE id = ? AND recipe_id = ?").get(member.stepId, recipeId)) throw resourceAbsent();
+    }
+    return cascades.createCascade(recipeId, kind, members, db, requireAccountScope(scope, db));
   })();
 }
 export function listCascades(scope: AccountScope, recipeId?: string, db: Database = metadataDb()) {
@@ -34,8 +69,9 @@ export function listCascades(scope: AccountScope, recipeId?: string, db: Databas
     .all(owner, ...(recipeId ? [recipeId] : [])) as { id: string }[];
   return ids.map(row => cascades.getCascade(row.id, db)!);
 }
+/** The workflow's run in flight, whoever started it: one at a time. */
 export function activeCascade(scope: AccountScope, recipeId: string, db: Database = metadataDb()) {
-  requireOwnedResource(scope, "workflow", recipeId, db); return cascades.activeCascade(recipeId, db);
+  requireReachable(scope, "workflow", recipeId, db); return cascades.activeCascade(recipeId, db);
 }
 export function setMember(scope: AccountScope, id: string, stepId: string, update: Parameters<typeof cascades.setMember>[2], db: Database = metadataDb()) {
   db.transaction(() => {
@@ -54,20 +90,21 @@ export function setMember(scope: AccountScope, id: string, stepId: string, updat
   })();
 }
 export function snapshotAttempt(scope: AccountScope, id: string, stepId: string, job: Parameters<typeof cascades.snapshotAttempt>[2], db: Database = metadataDb()) {
-  requireCascadeMember(scope, id, stepId, db);
+  requireRunAuthority(scope, id, db);
+  if (!db.prepare("SELECT step_id FROM cascade_members WHERE cascade_id = ? AND step_id = ?").get(id, stepId)) throw resourceAbsent();
   const row = db.prepare("SELECT owner_id FROM operation_jobs WHERE id = ?").get(job.id) as { owner_id: string } | undefined;
   if ((row && row.owner_id !== scope.accountId) || job.subjectKind !== "step" || job.subjectId !== stepId) throw resourceAbsent();
   cascades.snapshotAttempt(id, stepId, job, db);
 }
 export function raiseCancelFence(scope: AccountScope, id: string, db: Database = metadataDb()) {
-  requireOwnedResource(scope, "cascade", id, db); return cascades.raiseCancelFence(id, db);
+  requireRunAuthority(scope, id, db); return cascades.raiseCancelFence(id, db);
 }
 export function isCancelled(scope: AccountScope, id: string, db: Database = metadataDb()) {
-  requireOwnedResource(scope, "cascade", id, db); return cascades.isCancelled(id, db);
+  requireRunInitiator(scope, id, db); return cascades.isCancelled(id, db);
 }
 export function finishCascade(scope: AccountScope, id: string, outcome: cascades.CascadeOutcome, finishedAt: string, db: Database = metadataDb()) {
-  requireOwnedResource(scope, "cascade", id, db); return cascades.finishCascade(id, outcome, finishedAt, db);
+  requireRunInitiator(scope, id, db); return cascades.finishCascade(id, outcome, finishedAt, db);
 }
 export function deleteCascade(scope: AccountScope, id: string, db: Database = metadataDb()) {
-  requireOwnedResource(scope, "cascade", id, db); return cascades.deleteCascade(id, db);
+  requireRunInitiator(scope, id, db); return cascades.deleteCascade(id, db);
 }

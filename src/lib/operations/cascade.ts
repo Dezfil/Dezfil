@@ -1,6 +1,6 @@
 import type { DatasetScope } from "@/lib/query/access";
 import { settleInactiveCascade } from "./cascade-inactive";
-import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
+import { resourceAbsent } from "@/lib/auth/owned-resource";
 import { driveCascade, cancelAdmittedMember, settleCoordinatorFailure, type Graph } from "./cascade-driver";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
@@ -15,17 +15,21 @@ import {
   type CascadeRun,
   activeCascade,
   deleteCascade,
-  snapshotAttempt,
   type MemberIdentity,
+  readReachedCascade,
 } from "@/lib/metadata/owned-cascades";
+import * as cascades from "@/lib/metadata/cascades";
+import { requireCancellable, requirePermitted } from "@/lib/auth/reach";
+import { outputLinks } from "./output-links";
 import { metadataDb } from "@/lib/metadata/db";
 import { publishedMessage } from "@/lib/api/error-catalogue";
-import { getJob } from "@/lib/metadata/owned-jobs";
 import { isTerminal } from "@/lib/metadata/jobs";
+// Planning and starting a run are for whoever may run the workflow; its
+// definition is read as they reach it.
 import { getRecipe, listSteps, type RecipeStep } from "@/lib/metadata/owned-recipes";
 import { dependenciesWithin } from "./recipe-order";
 import {
-  markAndSignalRunCancellation,
+  markAndSignalMemberCancellation,
   pruneRunCancellation,
   waitForRunCancellation,
   type RunCancellation,
@@ -139,6 +143,9 @@ function identityOf(step: RecipeStep): MemberIdentity {
 }
 
 export async function planCascade(scope: AccountScope, request: CascadeRequest): Promise<CascadePlan> {
+  // Whoever may run the workflow plans it: anyone else is refused before
+  // anything is read.
+  requirePermitted(scope, "workflow", request.recipeId, "run");
   const recipe = getRecipe(scope, request.recipeId);
   if (!recipe) {
     throw resourceAbsent();
@@ -151,7 +158,7 @@ export async function planCascade(scope: AccountScope, request: CascadeRequest):
     throw new ApiError("invalid_request", "This recipe has no steps to run.", 400);
   }
   const graph = await dependencyGraph(scope, steps);
-  requireOwnedResource(scope, "workflow", request.recipeId);
+  requirePermitted(scope, "workflow", request.recipeId, "run");
 
   if (!request.fromStepId) {
     return {
@@ -263,6 +270,7 @@ export async function startCascade(scope: AccountScope, request: CascadeRequest)
  */
 export async function startSingleRun(scope: AccountScope, recipeId: string, stepId: string): Promise<CascadeRun> {
   requireAccountScope(scope);
+  requirePermitted(scope, "workflow", recipeId, "run");
   const recipe = getRecipe(scope, recipeId);
   if (!recipe) {
     throw resourceAbsent();
@@ -352,6 +360,9 @@ export async function startSingleRun(scope: AccountScope, recipeId: string, step
 export interface CascadeView extends CascadeRun {
   /** Every dataset this cascade produced, from its members' own jobs. */
   outputs: { id: string; name: string }[];
+  /** Whose run it is: its outputs and lineage are that person's. Null for a
+   * run recorded before runs were attributed. */
+  runner: { name: string; sqlName: string } | null;
 }
 
 /**
@@ -364,17 +375,30 @@ export interface CascadeView extends CascadeRun {
  * durable result.
  */
 export function readCascade(scope: AccountScope, id: string): CascadeView {
-  const cascade = getCascade(scope, id);
-  if (!cascade) {
+  const stored = readReachedCascade(scope, id);
+  if (!stored) {
     throw resourceAbsent();
   }
+  // A run follows its workflow: everyone who reaches the workflow reads it,
+  // with every output link the reader cannot follow left out.
+  const linked = outputLinks(scope, stored);
+  const cascade = {
+    ...stored,
+    members: stored.members.map((m) => ({
+      ...m,
+      output: linked(m.output),
+      attempt: m.attempt ? { ...m.attempt, output: linked(m.attempt.output) } : null,
+    })),
+  };
   // From the member rows, not from the jobs. A job is pruned once its
   // subject's history is deep enough, and a durable result that forgot what it
   // produced would be a worse record than none.
   const outputs = cascade.members
     .filter((m) => m.state === "succeeded" && m.output !== null)
     .map((m) => m.output!);
-  return { ...cascade, outputs };
+  const runner = metadataDb().prepare(`SELECT a.name, a.sql_name AS sqlName FROM cascade_runs c
+    JOIN accounts a ON a.id = c.initiator_id WHERE c.id = ?`).get(id) as { name: string; sqlName: string } | undefined;
+  return { ...cascade, outputs, runner: runner ?? null };
 }
 
 /**
@@ -386,10 +410,15 @@ export function readCascade(scope: AccountScope, id: string): CascadeView {
  * members stay finished and their outputs stand. The wait at the end is for
  * the driver, which records every interrupted member as it settles and only
  * then writes the outcome, so what this returns is the whole record.
+ *
+ * The members' jobs are the run's initiator's, whoever cancels: the workflow's
+ * owner stopping a run someone else started interrupts that person's jobs,
+ * read and stopped through the run itself.
  */
 export async function cancelCascade(scope: AccountScope, id: string): Promise<CascadeRun> {
-  requireOwnedResource(scope, "cascade", id);
-  const beforeFence = getCascade(scope, id);
+  // The run's initiator or its workflow's owner.
+  requireCancellable(scope, id);
+  const beforeFence = cascades.getCascade(id);
   if (!beforeFence) {
     throw resourceAbsent();
   }
@@ -400,15 +429,15 @@ export async function cancelCascade(scope: AccountScope, id: string): Promise<Ca
   raiseCancelFence(scope, id);
   // The actionable snapshot is after the fence: every member it names was
   // admitted before cancellation won, and no later admission can join it.
-  const cascade = getCascade(scope, id) ?? beforeFence;
+  const cascade = cascades.getCascade(id) ?? beforeFence;
   const cancellations: { stepId: string; cancellation: RunCancellation }[] = [];
   for (const member of cascade.members) {
     if (member.state !== "running" || !member.jobId) continue;
-    const job = getJob(scope, member.jobId);
-    if (job && !isTerminal(job.state)) {
+    const job = cascades.getCascadeJob(id, member.jobId);
+    if (job && job.subjectKind === "step" && job.subjectId === member.stepId && !isTerminal(job.state)) {
       cancellations.push({
         stepId: member.stepId,
-        cancellation: markAndSignalRunCancellation(scope, member.jobId),
+        cancellation: markAndSignalMemberCancellation(id, member.jobId),
       });
     }
   }
@@ -419,13 +448,15 @@ export async function cancelCascade(scope: AccountScope, id: string): Promise<Ca
   // This explicit boundary is what keeps the attempt at depth one; relying on
   // the driver's later settlement loses the job when pruning wins the race.
   for (const { stepId, cancellation } of cancellations) {
-    const stopped = getJob(scope, cancellation.job.id) ?? cancellation.job;
-    snapshotAttempt(scope, id, stepId, stopped);
+    const stopped = cascades.getCascadeJob(id, cancellation.job.id) ?? cancellation.job;
+    cascades.snapshotAttempt(id, stepId, stopped);
   }
   for (const { cancellation } of cancellations) pruneRunCancellation(cancellation);
   await Promise.all(
     cancellations.map(({ cancellation }) => waitForRunCancellation(cancellation)),
   );
   await cascadeSettled(id);
-  return getCascade(scope, id) ?? cascade;
+  // The answer is the canceller's: withheld from one deactivated meanwhile.
+  requireAccountScope(scope);
+  return cascades.getCascade(id) ?? cascade;
 }

@@ -1,5 +1,5 @@
 import type { AccountScope } from "@/lib/auth/scope";
-import { requireMap } from "@/lib/map-access";
+import { ownsMap, requireMap, requireMapFor } from "@/lib/map-access";
 import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
 import { getMap, getMapByToken, getPublishedTheme, getViewerControls,
@@ -16,8 +16,10 @@ export interface PublishState {
 /** The active publication's authored settings. The author
  * surface reads this: a map record deliberately carries no publication
  * state, so without it the publish surface could not show the default it
- * is about to change. */
-export interface PublicationState extends PublishState {
+ * is about to change. The token is the map owner's alone: anyone else who
+ * reaches the map reads the settings without it. */
+export interface PublicationState extends Omit<PublishState, "token"> {
+  token?: string;
   theme: PublishedTheme;
   viewerControls: ViewerControls;
 }
@@ -36,18 +38,19 @@ export interface PublishSettings {
  * earlier publication, an unstated setting and an omitted member all
  * reading as every control on. */
 export function getPublicationState(scope: AccountScope, id: string): PublicationState | null {
-  const map = requirePublishedMapOwner(scope, id);
+  const map = requireMap(scope, id);
   if (!map.publishToken || !map.publishedAt) return null;
   return {
-    token: map.publishToken,
+    ...(ownsMap(scope, id) ? { token: map.publishToken } : {}),
     publishedAt: map.publishedAt,
     theme: getPublishedTheme(id) ?? "dark",
     viewerControls: normalizeViewerControls(getViewerControls(id)),
   };
 }
 
+/** Minting, changing and revoking a publication are the map owner's acts. */
 function requirePublishedMapOwner(scope: AccountScope, id: string) {
-  return requireMap(scope, id);
+  return requireMapFor(scope, id, "publish");
 }
 
 /** Publish a map, or return the existing link unchanged if already published

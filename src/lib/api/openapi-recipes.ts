@@ -1,3 +1,5 @@
+import { CARRY_RULE, WRITTEN_IN_REF } from "./openapi-written-in";
+import { FILING_DESTINATION } from "./openapi-project-access";
 import { cascadeAccess } from "./openapi-cascade-access";
 import { jobAccess } from "./openapi-job-access";
 import { workflowAccess } from "./openapi-workflow-access";
@@ -18,7 +20,7 @@ export const RECIPE_PATHS = {
     get: op(workflowAccess({
       summary: "List recipes",
       description:
-        "Every recipe in the workspace, each with its steps and their " +
+        "Every recipe the caller reaches (their own, and every one filed in a project they own or belong to), each with its steps and their " +
         "current conditions, what each step reads now, and a summary " +
         "of the whole (its status and counts). A recipe is a workspace " +
         "object like a dataset — not owned by a map, and outliving the " +
@@ -73,7 +75,7 @@ export const RECIPE_PATHS = {
                     "The project the new workflow joins; " +
                     "omitted or null, it starts unfiled. An unknown " +
                     "project refuses and creates nothing. Builder-origin " +
-                    "recipes are refused project membership.",
+                    "recipes are refused project membership." + FILING_DESTINATION,
                 },
               },
               required: ["name"],
@@ -178,11 +180,11 @@ export const RECIPE_PATHS = {
     get: op(workflowAccess({
       summary: "The datasets a workflow reads and writes",
       description:
-        "Dependency identities, memberships and producers resolve only within the authenticated account. Another owner's same-name dataset never changes this result. " +
+        "Each step's references resolve to dataset identities in the workflow's SQL home within the caller's reach, the workflow's own outputs as the caller would run them, and each one is listed with its owner and the name the caller would type: a dataset the caller cannot reach is left out rather than named, and a same-named dataset of the caller's own never stands in for the home's. Memberships name the projects the caller reaches, and on the caller's own datasets every project they are in, one the caller no longer reaches included; producers only workflows the caller reaches, each marked with whether the caller owns it. " +
         "The filing checklist's subject for a workflow: " +
         "every registered dataset the workflow's current node " +
         "definitions read (a pending edit over the active one) and " +
-        "every current registered output of the workflow, exactly " +
+        "every runner's recorded output of the workflow that the caller reaches, exactly " +
         "once — a dataset both read and written appears once — with " +
         "the same facts as a map's dependencies: source, row count, " +
         "project memberships, the producing workflow, geometry column " +
@@ -270,7 +272,15 @@ export const RECIPE_PATHS = {
         "later change. Where the layer is drawn as hex bins, grid cells " +
         "or origin–destination lines, the step consumes the **rows " +
         "behind** those cells rather than the cells themselves, and the " +
-        "answer says so in `origin.substitutionNote`.\n\n" +
+        "answer says so in `origin.substitutionNote`. Any layer the " +
+        "caller reaches can be captured, its SQL carried from its map's " +
+        "home into this workflow's context; one the caller does not " +
+        "reach answers as a missing one.\n\n" +
+        "Give `writtenIn` when the parameters were written elsewhere " +
+        "(a node copied from another workflow, the caller's console, a " +
+        "map): their dataset inputs and SQL are carried into this " +
+        "workflow's context, where this step's own output already takes " +
+        "its name. " + CARRY_RULE + "\n\n" +
         "A step that would read its own output, or a later step's, is " +
         "refused here rather than at run time.",
       tag: "Recipes",
@@ -300,7 +310,14 @@ export const RECIPE_PATHS = {
                   type: "string",
                   description:
                     "Author from this layer: its filtered SQL is " +
-                    "captured into the step's `sql` parameter.",
+                    "captured into the step's `sql` parameter, carried " +
+                    "from the layer's map into this workflow.",
+                },
+                writtenIn: {
+                  ...WRITTEN_IN_REF,
+                  description:
+                    "Where `parameters` were written, when not in this " +
+                    "workflow; they are carried into it.",
                 },
               },
               required: ["operation"],
@@ -377,7 +394,19 @@ export const RECIPE_PATHS = {
               type: "object",
               properties: {
                 parameters: { type: "object" },
-                fromLayerId: { type: "string" },
+                fromLayerId: {
+                  type: "string",
+                  description:
+                    "Re-author from this layer, any the caller reaches: " +
+                    "its filtered SQL is captured and carried from its " +
+                    "map into this workflow.",
+                },
+                writtenIn: {
+                  ...WRITTEN_IN_REF,
+                  description:
+                    "Where `parameters` were written, when not in this " +
+                    "workflow; they are carried into it as an add's are.",
+                },
               },
             },
           },
@@ -478,9 +507,10 @@ export const RECIPE_PATHS = {
         "`/api/recipes/{id}/runs/{runId}` for its outcome. **This runs " +
         "the step and nothing else** — carrying its dependents is the " +
         "recipe-run endpoint's job.\n\n" +
-        "A re-run replaces the step's output **in place**, keeping the " +
-        "dataset's id and name, so every layer built on it keeps " +
-        "pointing at fresh data with no re-wiring. A failed re-run " +
+        "A re-run replaces the same runner's earlier output of the step " +
+        "**in place**, keeping the dataset's id and name, so every layer " +
+        "built on it keeps pointing at fresh data with no re-wiring; " +
+        "another runner's output is never touched. A failed re-run " +
         "leaves the previous output intact and queryable.\n\n" +
         "**What a caller may rely on.** The recipe's one-run-at-a-time " +
         "rule applies: while a run is in flight this answers **409 " +
@@ -654,7 +684,14 @@ export const RECIPE_PATHS = {
         pathParam("id", "Recipe id."),
         pathParam("runId", "Recipe run id."),
       ],
-      responses: { "200": jsonOk("#/components/schemas/RecipeRunEnvelope") },
+      responses: {
+        "200": jsonOk("#/components/schemas/RecipeRunEnvelope"),
+        "204": {
+          description:
+            "Cancelled for its initiator, who no longer reaches the " +
+            "workflow: the run is not shown.",
+        },
+      },
     }))),
   },
 };

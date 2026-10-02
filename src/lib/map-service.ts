@@ -1,11 +1,13 @@
 import { fileMap } from "@/lib/metadata/owned-projects";
 import { assertMapLayerRefs } from "./map-layer-refs";
-import { requireMap, mapWithLayers } from "./map-access";
-export { requireMap, mapWithLayers } from "./map-access";
+import { requireMapFor, mapWithLayersFor, ownMapWithLayers } from "./map-access";
+import { mapWriteChangesPublication } from "./publication-settings";
+export { requireMap, mapWithLayers, readMap, requireMapFor, mapWithLayersFor, requireOwnMap, ownMapWithLayers, ownsMap } from "./map-access";
 export { mapHistory, undoChange, redoChange, type MapWithHistory } from "./map-history";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
-import { requireOwnedResource } from "@/lib/auth/owned-resource";
-import { listOwnedMaps, ownedMapProjectId } from "@/lib/metadata/map-queries";
+import { mayFileInto, requireFilingDestination, requirePermitted, requireReachable } from "@/lib/auth/reach";
+import { listReachableMaps } from "@/lib/metadata/map-queries";
+import { mapPresencesOf, type Presence } from "@/lib/reach-presence";
 import { randomUUID } from "node:crypto";
 import { ApiError } from "@/lib/api/errors";
 import { removeTileArtifacts } from "@/lib/tiles/build";
@@ -30,6 +32,7 @@ import {
 } from "@/lib/basemap-layers";
 import {
   insertMap,
+  mapHome,
   getMap,
   updateMapFields,
   deleteMap,
@@ -46,6 +49,7 @@ import {
   touchProjectsOf,
 } from "@/lib/metadata/projects";
 import { metadataDb } from "@/lib/metadata/db";
+import { mapEvaluation } from "@/lib/query/context";
 import {
   recordStep,
   diffImages,
@@ -222,7 +226,7 @@ export async function validateMapWriteRefs(
   fields: { timeline?: unknown; widgets?: unknown; layerOrder?: unknown; legendOrder?: unknown },
   signal?: AbortSignal,
 ): Promise<void> {
-  const map = requireMap(scope, mapId);
+  const map = requireMapFor(scope, mapId, "edit");
   const layers = new Map(listLayers(mapId).map((l) => [l.id, l]));
   assertMapLayerRefs(map, [...layers.values()], fields);
   const perLayer = new Map<string, ColumnRef[]>();
@@ -269,7 +273,7 @@ export async function validateMapWriteRefs(
     const layer = layers.get(layerId)!;
     const problem = refProblem(
       refs,
-      await fieldsForWrite(scope, layer.sql, layer.viz, signal),
+      await fieldsForWrite(mapEvaluation(scope, mapId), layer.sql, layer.viz, signal),
     );
     if (problem) throw new ApiError("column_unavailable", problem, 400);
   }
@@ -277,7 +281,7 @@ export async function validateMapWriteRefs(
 
 export function createMap(scope: AccountScope, name: string, projectId: string | null = null): MapRecord {
   requireAccountScope(scope);
-  if (projectId) requireOwnedResource(scope, "project", projectId);
+  if (projectId) requireFilingDestination(scope, projectId);
   const now = new Date().toISOString();
   const map: MapRecord = {
     id: randomUUID(),
@@ -294,28 +298,29 @@ export function createMap(scope: AccountScope, name: string, projectId: string |
     widgetsPublished: true,
     publishToken: null,
     publishedAt: null,
+    published: false,
     createdAt: now,
     updatedAt: now,
   };
   metadataDb().transaction(() => {
-    if (projectId) requireOwnedResource(scope, "project", projectId);
+    if (projectId) requireFilingDestination(scope, projectId);
     insertMap(scope, map);
     if (projectId) fileMap(scope, map.id, projectId);
   })();
   return map;
 }
 
+/** Every map the acting account reaches. */
 export function allMaps(scope: AccountScope): MapRecord[] {
-  return listOwnedMaps(scope);
+  return listReachableMaps(scope).map((entry) => entry.map);
 }
 
 /** A listed map plus what its card needs: how many layers it
  * has and one representative color per layer, in draw order — and, the
- * project it is in (null = not in one). The reference is deliberately
- * not on MapRecord, so the published snapshot's revision never observes
- * a membership change. */
-export interface MapOverview extends MapRecord {
-  projectId: string | null;
+ * project it is in (null = not in one), its owner and its SQL home. The
+ * reference is deliberately not on MapRecord, so the published snapshot's
+ * revision never observes a membership change. */
+export interface MapOverview extends MapRecord, Presence {
   layerCount: number;
   layerColors: string[];
 }
@@ -324,26 +329,35 @@ function cssColor(c: { r: number; g: number; b: number; a: number }): string {
   return `rgba(${c.r}, ${c.g}, ${c.b}, ${c.a})`;
 }
 
+/**
+ * The maps the acting account reaches: its own and every map filed in a
+ * project it owns or belongs to. `project` narrows to one reachable
+ * project's maps, whoever owns them; `none` to the account's own maps that
+ * are filed nowhere. One still filed in a project its owner no longer
+ * reaches names that project and is not none.
+ */
 export function mapsOverview(scope: AccountScope, project?: string | "none"): MapOverview[] {
-  // An unknown project refuses — a silently empty list would read as an
-  // empty project.
+  // An unknown or unreachable project refuses — a silently empty list
+  // would read as an empty project.
   requireAccountScope(scope);
-  if (project && project !== "none") requireOwnedResource(scope, "project", project);
-  return listOwnedMaps(scope)
-    .map((m) => {
-      const layers = listLayers(m.id);
+  if (project && project !== "none") requireReachable(scope, "project", project);
+  const entries = listReachableMaps(scope);
+  const presences = mapPresencesOf(scope, entries);
+  return entries
+    .map((entry, i) => {
+      const layers = listLayers(entry.map.id);
       return {
-        ...m,
-        projectId: ownedMapProjectId(scope, m.id),
+        ...entry.map,
+        ...presences[i],
         layerCount: layers.length,
         layerColors: layers.map((l) => cssColor(representativeColor(l.style))),
       };
     })
-    .filter((m) =>
+    .filter((m, i) =>
       project === undefined
         ? true
         : project === "none"
-          ? m.projectId === null
+          ? m.projectId === null && entries[i].ownerId === scope.accountId
           : m.projectId === project,
     );
 }
@@ -367,7 +381,10 @@ export function updateMap(
   }>,
   opts: { groupId?: string | null } = {},
 ): MapWithLayers {
-  const prior = requireMap(scope, id);
+  // Content is the editors' to change; the widget publication toggle is a
+  // publication setting, the owner's alone.
+  const prior = requireMapFor(scope, id, "edit");
+  if (mapWriteChangesPublication(prior, fields)) requireMapFor(scope, id, "publish");
   assertMapLayerRefs(prior, listLayers(id), fields);
   // Validate everything before writing anything — no partial writes.
   const basemapLayers =
@@ -454,7 +471,8 @@ export function updateMap(
     }
   }
   metadataDb().transaction(() => {
-    requireMap(scope, id);
+    const current = requireMapFor(scope, id, "edit");
+    if (mapWriteChangesPublication(current, fields)) requireMapFor(scope, id, "publish");
     if (
       fields.name !== undefined ||
       fields.viewport !== undefined ||
@@ -513,7 +531,7 @@ export function updateMap(
       });
     }
   })();
-  return mapWithLayers(scope, id);
+  return mapWithLayersFor(scope, id, "edit");
 }
 
 /**
@@ -521,16 +539,29 @@ export function updateMap(
  * under fresh ids — an unpublished draft named "<name> copy". History
  * stays behind; a docked timeline follows its copied layer. Tiles rebuild
  * lazily for the new layer ids, like any new layer.
+ *
+ * Anyone who reaches the map may duplicate it, a frozen one included: the
+ * copy is the duplicator's own, keeps the original's SQL home and its
+ * layers' SQL as stored (so plain names still mean the home's datasets),
+ * and lands in the original's project only when the duplicator may file
+ * there (its owner or an editor); a viewer's copy is unfiled.
  */
+function requireDuplicable(scope: AccountScope, id: string): MapRecord {
+  requirePermitted(scope, "map", id, "duplicate");
+  return getMap(id)!;
+}
+
 export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
   requireAccountScope(scope);
-  const source = requireMap(scope, id);
+  const source = requireDuplicable(scope, id);
   const layers = listLayers(id);
   const now = new Date().toISOString();
   const newId = randomUUID();
   metadataDb().transaction(() => {
-    requireMap(scope, id);
+    requireDuplicable(scope, id);
     const layerIds = new Map<string, string>();
+    // The copy keeps its source's SQL home, whoever makes it.
+    const home = mapHome(id) ?? undefined;
     insertMap(scope, {
       ...source,
       id: newId,
@@ -542,9 +573,10 @@ export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
       widgets: [],
       publishToken: null,
       publishedAt: null,
+      published: false,
       createdAt: now,
       updatedAt: now,
-    });
+    }, metadataDb(), home);
     for (const layer of layers) {
       const layerId = randomUUID();
       layerIds.set(layer.id, layerId);
@@ -594,17 +626,14 @@ export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
     // transaction, so a move racing the copy cannot file it where the
     // source no longer is (found at review).
     const sourceProject = mapProjectId(id);
-    if (sourceProject) {
-      requireOwnedResource(scope, "project", sourceProject);
-      fileMap(scope, newId, sourceProject);
-    }
+    if (sourceProject && mayFileInto(scope, sourceProject)) fileMap(scope, newId, sourceProject);
   })();
-  return mapWithLayers(scope, newId);
+  return ownMapWithLayers(scope, newId);
 }
 
 export async function removeMap(scope: AccountScope, id: string): Promise<void> {
   const { map, layerIds, removeImages } = metadataDb().transaction(() => {
-    const map = requireMap(scope, id);
+    const map = requireMapFor(scope, id, "delete");
     const layerIds = listLayers(id).map((l) => l.id);
     // The set the map leaves must notice: the cascade removes nothing
     // here (the reference nulls), but the project's own clock advances.

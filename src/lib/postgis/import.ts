@@ -1,4 +1,5 @@
 import { resourceAbsent, requireOwnedResource } from "@/lib/auth/owned-resource";
+import { requireFilingDestination } from "@/lib/auth/reach";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -187,7 +188,7 @@ export async function importPostgis(
 ): Promise<DataTable> {
   requireAccountScope(scope);
   const projectId = importProjectId(request.projectId);
-  if (projectId) requireOwnedResource(scope, "project", projectId);
+  if (projectId) requireFilingDestination(scope, projectId);
   const { recipe, requestedName } = resolvePostgisRequest(request);
   requireOwnedResource(scope, "connection", recipe.connectionId);
   const { connection, target } = requireTarget(scope, recipe.connectionId);

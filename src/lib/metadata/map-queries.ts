@@ -11,12 +11,39 @@ import { metadataDb } from "./db";
 import type { CustomBasemap, Layer, MapNote, MapRecord } from "./maps";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
+import { REACHED_PROJECTS } from "@/lib/auth/reach";
 
 /** Private listings select the owner's rows before projection or aggregation. */
 export function listOwnedMaps(scope: AccountScope, db: Database = metadataDb()): MapRecord[] {
   const ownerId = requireAccountScope(scope, db);
   return (db.prepare("SELECT * FROM maps WHERE owner_id = ? ORDER BY created_at DESC")
     .all(ownerId) as MapRow[]).map(mapFromRow);
+}
+
+/** Who owns a map, whose space its SQL binds in, and where it is filed. */
+export interface MapStanding {
+  ownerId: string;
+  homeId: string | null;
+  projectId: string | null;
+}
+type StandingRow = { owner_id: string; home_account_id: string | null; project_id: string | null };
+const standingOf = (row: StandingRow): MapStanding =>
+  ({ ownerId: row.owner_id, homeId: row.home_account_id, projectId: row.project_id });
+
+/** The maps an account reaches, most recent first: its own, and every map
+ * filed in a project it owns or belongs to. The rows are selected through
+ * the reach rule before anything is decoded. */
+export function listReachableMaps(scope: AccountScope, db: Database = metadataDb()): (MapStanding & { map: MapRecord })[] {
+  const me = requireAccountScope(scope, db);
+  const rows = db.prepare(`SELECT * FROM maps WHERE owner_id = @me OR project_id IN (${REACHED_PROJECTS})
+    ORDER BY created_at DESC`).all({ me }) as (MapRow & StandingRow)[];
+  return rows.map(row => ({ map: mapFromRow(row), ...standingOf(row) }));
+}
+
+/** A map's standing, for a caller the reach kernel has already admitted. */
+export function mapStanding(id: string, db: Database = metadataDb()): MapStanding | null {
+  const row = db.prepare("SELECT owner_id, home_account_id, project_id FROM maps WHERE id = ?").get(id) as StandingRow | undefined;
+  return row ? standingOf(row) : null;
 }
 
 export function getOwnedMap(scope: AccountScope, id: string, db: Database = metadataDb()): MapRecord {
@@ -110,6 +137,7 @@ function mapFromRow(r: MapRow): MapRecord {
     widgetsPublished: r.widgets_published === 1,
     publishToken: r.publish_token,
     publishedAt: r.published_at,
+    published: r.publish_token !== null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };

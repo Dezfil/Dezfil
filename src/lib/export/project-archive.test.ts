@@ -65,6 +65,7 @@ describe("the map projection", () => {
     // The seeded publication facts that must NOT survive.
     publishToken: "tok-secret-value",
     publishedAt: "2026-08-03T00:00:00.000Z",
+    published: true,
     // The route-level membership that must not survive either.
     projectId: "p1",
     layers: [{ id: "l1", name: "stations", sql: "SELECT 1" }],
@@ -74,6 +75,7 @@ describe("the map projection", () => {
     const out = mapProjection(wire) as Record<string, unknown>;
     expect(out.publishToken).toBeUndefined();
     expect(out.publishedAt).toBeUndefined();
+    expect(out.published).toBeUndefined();
     expect(out.projectId).toBeUndefined();
     expect(JSON.stringify(out)).not.toContain("tok-secret-value");
     // Authored publication CONTROLS are definition, not state.

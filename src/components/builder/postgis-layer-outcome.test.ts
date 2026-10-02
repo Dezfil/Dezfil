@@ -66,6 +66,14 @@ describe("the PostGIS single-table layer outcome", () => {
       "/api/maps/map-1/layers",
       expect.objectContaining({ method: "POST" }),
     );
+    // The imported table is the importer's own, named as their console
+    // names it: the server carries it into the map's home.
+    const init = (request.mock.calls[0] as unknown as [string, RequestInit])[1];
+    expect(JSON.parse(String(init.body))).toEqual({
+      name: "source_places",
+      sql: "SELECT * FROM source_places",
+      writtenIn: { kind: "console" },
+    });
   });
 
   it("keeps an attribute-only snapshot without attempting a layer", async () => {

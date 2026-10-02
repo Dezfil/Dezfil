@@ -16,6 +16,10 @@ export interface ProjectOverview {
   note: string | null;
   createdAt: string;
   updatedAt: string;
+  /** The project's owner and how the reader stands to it; a project the
+   * reader owns says "owner". */
+  owner?: { name: string; sqlName: string };
+  role?: "owner" | "editor" | "viewer";
   mapCount: number;
   publishedMapCount: number;
   recipeCount: number;

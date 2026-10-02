@@ -3,6 +3,8 @@ import {
   actionLabel,
   distinctProducers,
   footer,
+  initialSelection,
+  producersOf,
   resolveEnter,
   searchRows,
   dialogTitle,
@@ -10,6 +12,7 @@ import {
   membersFor,
   subjectCopy,
   type DependencyWire,
+  type FilingSelection,
   type FilingSubject,
 } from "./add-model";
 
@@ -17,7 +20,8 @@ import {
 
 const dep = (
   id: string,
-  producer: { id: string; name: string } | null = null,
+  producer: { id: string; name: string; owned?: boolean } | null = null,
+  owned = true,
 ): DependencyWire => ({
   id,
   name: id,
@@ -26,14 +30,19 @@ const dep = (
   projectIds: [],
   geometryColumn: "geometry",
   geometryType: "POINT",
-  producer,
+  owned,
+  producer: producer && { owned: true, ...producer },
+});
+const pick = (datasets: string[], workflows: string[] = []): FilingSelection => ({
+  datasets: new Set(datasets),
+  workflows: new Set(workflows),
 });
 
 describe("distinct producers", () => {
   it("counts one workflow once across several checked outputs", () => {
     const wf = { id: "w1", name: "Catchments" };
     const deps = [dep("a", wf), dep("b", wf), dep("c")];
-    expect(distinctProducers(deps, new Set(["a", "b", "c"]))).toEqual([wf]);
+    expect(distinctProducers(deps, new Set(["a", "b", "c"]))).toEqual([{ ...wf, owned: true }]);
     expect(distinctProducers(deps, new Set(["c"]))).toEqual([]);
   });
 });
@@ -46,26 +55,26 @@ describe("the live footer", () => {
   it("counts the map, datasets and distinct workflows; Map only with none", () => {
     const all = footer(
       deps,
-      new Set(["a", "b", "c"]),
+      pick(["a", "b", "c"], ["w1"]),
       { kind: "existing", id: "p1" },
       names,
     );
     expect(all.status).toBe("Map · 3 datasets · 1 workflow");
     expect(all.label).toBe("Add 5 items to Berlin");
     expect(all.enabled).toBe(true);
-    const none = footer(deps, new Set(), { kind: "existing", id: "p1" }, names);
+    const none = footer(deps, pick([]), { kind: "existing", id: "p1" }, names);
     expect(none.status).toBe("Map only");
     expect(none.label).toBe("Add 1 item to Berlin");
   });
 
   it("stays unavailable without a destination or an unnamed New", () => {
-    expect(footer(deps, new Set(), null, names).enabled).toBe(false);
-    const unnamed = footer(deps, new Set(), { kind: "new", name: "  " }, names);
+    expect(footer(deps, pick([]), null, names).enabled).toBe(false);
+    const unnamed = footer(deps, pick([]), { kind: "new", name: "  " }, names);
     expect(unnamed.enabled).toBe(false);
     expect(unnamed.label).toBe("Add 1 item to a new project");
     const named = footer(
       deps,
-      new Set(),
+      pick([]),
       { kind: "new", name: " Atlas " },
       names,
     );
@@ -75,13 +84,13 @@ describe("the live footer", () => {
     // confirmation the server would refuse.
     const over = footer(
       deps,
-      new Set(),
+      pick([]),
       { kind: "new", name: "x".repeat(121) },
       names,
     );
     expect(over.enabled).toBe(false);
     expect(
-      footer(deps, new Set(), { kind: "new", name: "x".repeat(120) }, names)
+      footer(deps, pick([]), { kind: "new", name: "x".repeat(120) }, names)
         .enabled,
     ).toBe(true);
   });
@@ -128,14 +137,13 @@ describe("the opening action's wording", () => {
 describe("the subject kinds", () => {
   const wf = { id: "wf", name: "Lane density" };
   const deps = [dep("a", wf), dep("b", wf), dep("c")];
-  const all = new Set(["a", "b", "c"]);
 
-  it("a map moves with its checked datasets and their producers, once", () => {
+  it("a map moves with the datasets and the workflows that make them that are picked, each once", () => {
     expect(
       membersFor(
         { kind: "map", id: "m1", name: "M", projectId: null },
         deps,
-        all,
+        pick(["a", "b", "c"], ["wf"]),
       ),
     ).toEqual({
       addMaps: ["m1"],
@@ -143,7 +151,7 @@ describe("the subject kinds", () => {
       addRecipes: ["wf"],
     });
     expect(
-      footer(deps, all, { kind: "existing", id: "p" }, () => "Berlin", "map"),
+      footer(deps, pick(["a", "b", "c"], ["wf"]), { kind: "existing", id: "p" }, () => "Berlin", "map"),
     ).toEqual({
       status: "Map · 3 datasets · 1 workflow",
       label: "Add 5 items to Berlin",
@@ -151,21 +159,20 @@ describe("the subject kinds", () => {
     });
   });
 
-  it("a workflow moves with its checked datasets only — never their producers", () => {
-    expect(
-      membersFor(
-        { kind: "workflow", id: "wf", name: "W", projectId: "p0" },
-        deps,
-        new Set(["a", "c"]),
-      ),
-    ).toEqual({
-      addRecipes: ["wf"],
+  it("a workflow moves with the datasets picked, and a producing workflow only when it is picked", () => {
+    const subject = { kind: "workflow" as const, id: "w0", name: "W", projectId: "p0" };
+    expect(membersFor(subject, deps, pick(["a", "c"]))).toEqual({
+      addRecipes: ["w0"],
       addTables: ["a", "c"],
+    });
+    expect(membersFor(subject, deps, pick(["a"], ["wf"]))).toEqual({
+      addRecipes: ["w0", "wf"],
+      addTables: ["a"],
     });
     expect(
       footer(
         deps,
-        new Set(["a", "c"]),
+        pick(["a", "c"]),
         { kind: "existing", id: "p" },
         () => "Berlin",
         "workflow",
@@ -175,7 +182,7 @@ describe("the subject kinds", () => {
       label: "Add 3 items to Berlin",
       enabled: true,
     });
-    expect(footer(deps, new Set(), null, () => null, "workflow").status).toBe(
+    expect(footer(deps, pick([]), null, () => null, "workflow").status).toBe(
       "Workflow only",
     );
   });
@@ -187,11 +194,11 @@ describe("the subject kinds", () => {
       name: "stations",
       projectIds: ["p0", "p1"],
     };
-    expect(membersFor(subject, [], new Set())).toEqual({ addTables: ["t1"] });
+    expect(membersFor(subject, [], pick([]))).toEqual({ addTables: ["t1"] });
     expect(
       footer(
         [],
-        new Set(),
+        pick([]),
         { kind: "existing", id: "p" },
         () => "Berlin",
         "dataset",
@@ -208,6 +215,49 @@ describe("the subject kinds", () => {
     expect(
       dialogTitle({ kind: "workflow", id: "w", name: "W", projectId: "p" }),
     ).toBe("Move W to another project");
+  });
+});
+
+/**
+ * The selection model under sharing: one's own datasets and the workflows
+ * of one's own that make them are each selectable on their own; another
+ * person's dependency is listed but is not theirs to add, and nothing
+ * unselected is filed.
+ */
+describe("the selection model", () => {
+  const mine = { id: "wf", name: "Lane density" };
+  const adas = { id: "wa", name: "Ada's rents", owned: false };
+  const deps = [dep("a", mine), dep("b", adas, false), dep("c"), dep("d", null, false)];
+  const map = { kind: "map" as const, id: "m1", name: "M", projectId: null };
+  const workflow = { kind: "workflow" as const, id: "wf", name: "Lane density", projectId: null };
+
+  it("lists the workflows that make the datasets, once each, the subject itself aside", () => {
+    expect(producersOf(map, deps)).toEqual([
+      { id: "wf", name: "Lane density", owned: true },
+      { id: "wa", name: "Ada's rents", owned: false },
+    ]);
+    expect(producersOf(workflow, deps).map((p) => p.id)).toEqual(["wa"]);
+  });
+
+  it("starts with one's own datasets selected, and for a map one's own workflows that make them", () => {
+    const start = initialSelection(map, deps);
+    expect([...start.datasets]).toEqual(["a", "c"]);
+    expect([...start.workflows]).toEqual(["wf"]);
+    expect([...initialSelection(workflow, deps).workflows]).toEqual([]);
+  });
+
+  it("files a dataset without the workflow that makes it, and the workflow without its dataset", () => {
+    expect(membersFor(map, deps, pick(["a"]))).toEqual({ addMaps: ["m1"], addTables: ["a"], addRecipes: [] });
+    expect(membersFor(map, deps, pick([], ["wf"]))).toEqual({ addMaps: ["m1"], addTables: [], addRecipes: ["wf"] });
+  });
+
+  it("never files what is not one's own, even if asked", () => {
+    expect(membersFor(map, deps, pick(["a", "b", "d"], ["wf", "wa"]))).toEqual({
+      addMaps: ["m1"],
+      addTables: ["a"],
+      addRecipes: ["wf"],
+    });
+    expect(footer(deps, pick(["a", "b"], ["wa"]), null, () => null, "map").status).toBe("Map · 1 dataset");
   });
 });
 

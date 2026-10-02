@@ -6,8 +6,11 @@ import type { Database } from "better-sqlite3";
 import type { OperationJob } from "@/lib/metadata/jobs";
 import { admitOwned, submitRun } from "./run";
 import { planPublication, stepAuthorizer } from "./step-run";
-import { getRecipe, getStep } from "@/lib/metadata/owned-recipes";
+import { recipeStanding } from "@/lib/metadata/owned-recipes";
+import { getStep as getStepRow } from "@/lib/metadata/recipes";
 import { fileTable } from "@/lib/metadata/owned-projects";
+import { isPermitted, mayFileInto, requirePermitted } from "@/lib/auth/reach";
+import { workflowEvaluation } from "@/lib/query/context";
 
 /**
  * Running one recipe step.
@@ -29,6 +32,13 @@ import { fileTable } from "@/lib/metadata/owned-projects";
  * rules — including being refused if that name is taken — and the old table
  * stays exactly where it was. Treating a rename as a replacement would silently
  * move a table other layers point at.
+ *
+ * **The run is its runner's.** Anyone who may run the workflow (its owner,
+ * the project's owner acting as an editor, an editor) runs a step as
+ * themselves: it reads in the workflow's home within the runner's reach, the
+ * job is the runner's, the output is created in the runner's own space and
+ * never replaces or alters anyone else's dataset, and an unrelated dataset of
+ * the runner's already holding the name is refused by the ordinary name rule.
  */
 export interface StepRunOptions {
   /**
@@ -50,8 +60,13 @@ export async function startStepRun(
   options: StepRunOptions = {},
 ): Promise<OperationJob> {
   requireAccountScope(scope);
+  // Admitted only for an account that may run the workflow now.
+  requirePermitted(scope, "step", stepId, "run");
   const plan = planPublication(scope, stepId);
   if (options.cascadeId) requireCascadeMember(scope, options.cascadeId, stepId);
+  // The step reads in its workflow's home, with this runner's reach and the
+  // workflow's declared outputs as this runner has produced them.
+  const evaluation = workflowEvaluation(scope, plan.step.recipeId);
 
   const admitted = await admitOwned(
     scope,
@@ -62,6 +77,7 @@ export async function startStepRun(
       subject: plan.step.id,
     },
     plan.replaceTable,
+    evaluation,
   );
 
   if (options.cascadeId) requireCascadeMember(scope, options.cascadeId, stepId);
@@ -86,26 +102,31 @@ export async function startStepRun(
     ...(admitted.measurement ? { measurement: admitted.measurement } : {}),
     ...(admitted.warnings ? { warnings: admitted.warnings } : {}),
     ...(admitted.bindings ? { bindings: admitted.bindings } : {}),
+    evaluation,
     // A step runs a prepared verb exactly as a one-off run does: the
     // preparation is part of what was admitted, and dropping it here would
     // publish a statement that does not exist.
     ...(admitted.prepare ? { prepare: admitted.prepare } : {}),
     ...(replaceTable ? { replaceTable } : {}),
     ...(options.cascadeId ? { onSettled: (jobId: string) => archiveCascadeAttempt(options.cascadeId!, stepId, jobId) } : {}),
-    publisher: (jobFinished) =>
-      stepAuthorizer(scope, plan, jobFinished, options.cascadeId),
+    publisher: (jobFinished, jobId) =>
+      stepAuthorizer(scope, plan, jobFinished, options.cascadeId, jobId),
     onPublished: stepOutputFiler(scope, plan.step.id),
   });
 }
 
 /** The output follows the workflow's project as it is AT THE PUBLISHING
  * COMMIT — read inside the publication transaction, never captured at
- * run start. Exported so the race test exercises the exact function
- * production runs. */
+ * run start — and is filed there only when the runner may still run the
+ * workflow and may file into that project then (its owner, or an editor,
+ * while its owner is active). Otherwise the output completes unfiled: a
+ * private completion files nothing. Exported so the race test exercises
+ * the exact function production runs. */
 export function stepOutputFiler(scope: AccountScope, stepId: string) {
   return (table: { id: string }, db: Database): void => {
-    const current = getStep(scope, stepId, db);
-    const recipe = current ? getRecipe(scope, current.recipeId, db) : null;
-    if (recipe?.projectId) fileTable(scope, table.id, recipe.projectId, db);
+    const current = getStepRow(stepId, db);
+    if (!current || !isPermitted(scope, "step", stepId, "run", db)) return;
+    const projectId = recipeStanding(current.recipeId, db)?.projectId;
+    if (projectId && mayFileInto(scope, projectId, db)) fileTable(scope, table.id, projectId, db);
   };
 }

@@ -20,6 +20,7 @@ const table = (id: string, projectIds: string[]): TableListing =>
   ({
     id,
     name: id,
+    qualifiedName: id,
     sourceFilename: `${id}.geojson`,
     format: "geoparquet",
     file: `tables/${id}.parquet`,

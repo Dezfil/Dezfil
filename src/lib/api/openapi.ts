@@ -29,6 +29,8 @@ import { CONNECTION_PATHS, CONNECTION_SCHEMAS } from "./openapi-connections";
 import { RECIPE_PATHS } from "./openapi-recipes";
 import { MAP_COLLECTION_PATHS, MAP_RESOURCE_PATHS, MAP_RENDER_PATHS, MAP_PUBLISH_PATHS, MAP_DEPENDENCY_SCHEMAS, MAP_SCHEMAS, MAP_DETAIL_SCHEMAS } from "./openapi-maps";
 import { PROJECT_PATHS, PROJECT_DEPENDENCY_SCHEMAS, PROJECT_SCHEMAS } from "./openapi-projects";
+import { SHARING_PATHS, SHARING_SCHEMAS } from "./openapi-sharing";
+import { WRITTEN_IN_REF, WRITTEN_IN_SCHEMAS } from "./openapi-written-in";
 import { SKETCH_PATHS } from "./openapi-sketches";
 import { LAYER_RESOURCE_PATHS, LAYER_QUERY_PATHS, LAYER_SCHEMAS } from "./openapi-layers";
 import { RECIPE_DEPENDENCY_SCHEMAS, RECIPE_SCHEMAS } from "./openapi-recipe-schemas";
@@ -55,9 +57,12 @@ export function buildOpenApiDocument() {
         "publish read-only shareable views. Every capability the UI offers is " +
         "one of these documented calls; the whole journey can be driven headlessly. " +
         "Protected operations require a current cookie session or account bearer token. " +
-        "Maps, datasets, workflows, connections, projects and retained work are private to the authenticated account. " +
-        "Administrators have no additional content access. Dataset and connection names are owner-local; " +
-        "hidden and missing private resources share the same refusal. Instance catalogues and saved palettes remain shared. " +
+        "Every map, dataset, workflow, connection and project has one owner and is private to its owner unless a project shares it: " +
+        "a project's owner gives people the viewer or editor role, and they reach the project and everything filed in it, whoever owns it. " +
+        "A viewer reads; an editor also changes the content of its maps and workflows and runs its workflows; deletion, publication, sharing and transfer stay the owner's, " +
+        "and datasets change only by their owner. Connections are never shared, and standalone jobs, renders and downloads stay with the account that started them. " +
+        "Administrators have no additional content access. Dataset and connection names are owner-local: in SQL another person's reachable dataset is <sql name>.<dataset>, " +
+        "and a map's or workflow's SQL reads in its SQL home. Unreached and missing resources share the same refusal. Instance catalogues and saved palettes remain shared. " +
         "User SQL reads named datasets only; direct or indirect file reads and path discovery are refused. " +
         "Cookie mutations require the same trusted Origin. Identity-bearing responses, " +
         "including authentication refusals, are private, no-store. Only entry, readiness " +
@@ -102,10 +107,12 @@ export function buildOpenApiDocument() {
           ". A map or workflow is in at most one project; a dataset " +
           "can be in several. Project workflows are workflow-origin " +
           "recipes; builder-origin recipes cannot be project members. " +
-          "Projects organize the workspace: they never " +
-          "change what SQL sees, how dataset names collide, or what a " +
-          "published view serves. Deleting one dissolves the set and " +
-          "deletes nothing.",
+          "A project is also the one boundary of sharing: its owner " +
+          "gives people the viewer or editor role, and they reach " +
+          "everything filed in it, whoever owns it. Filing never changes " +
+          "who owns a resource or what a plain table name means in a " +
+          "map's or workflow's SQL. Deleting one dissolves the set, ends " +
+          "every person's reach through it and deletes nothing.",
       },
       {
         name: "Agents",
@@ -311,8 +318,11 @@ export function buildOpenApiDocument() {
           description:
             SQL_POLICY + " " +
             "Named datasets resolve only " +
-            "inside the authenticated account, including catalog-qualified names " +
-            "and query()/query_table() expressions. Each evaluation uses fresh " +
+            "within the caller's reach: a plain name, and its catalog-qualified " +
+            "forms, is the caller's own dataset; another person's dataset the " +
+            "caller reaches through a project is <sql name>.<dataset>, and the " +
+            "caller's own SQL name qualifies their own. Both hold in " +
+            "query()/query_table() expressions and nested SQL. Each evaluation uses fresh " +
             "connection-local views on one shared hardened engine. Returns a capped " +
             "preview plus the exact total row count. Geometry cells in the " +
             "preview are WKT text by default; pass geometry: \"geojson\" " +
@@ -338,6 +348,18 @@ export function buildOpenApiDocument() {
                       description:
                         "How geometry columns travel in the preview. " +
                         "Default wkt.",
+                    },
+                    writtenIn: {
+                      ...WRITTEN_IN_REF,
+                      description:
+                        "Evaluate the SQL where it was written: in a map's " +
+                        "SQL home, as its layers are, or in a workflow's " +
+                        "context with its declared outputs as the caller " +
+                        "runs them, always within the caller's reach. A " +
+                        "name that binds nothing there, when the home is " +
+                        "someone else's, is refused naming it, as a layer's " +
+                        "would be. Omitted or console, the caller's own " +
+                        "console.",
                     },
                   },
                   required: ["sql"],
@@ -479,6 +501,7 @@ export function buildOpenApiDocument() {
       },
       ...MAP_COLLECTION_PATHS,
       ...PROJECT_PATHS,
+      ...SHARING_PATHS,
       "/api/icons/sanitize": {
         post: op({
           summary: "Sanitize custom icon SVG",
@@ -761,6 +784,7 @@ export function buildOpenApiDocument() {
       securitySchemes: AUTH_SECURITY_SCHEMES,
       schemas: {
         ...AUTH_SCHEMAS,
+        ...WRITTEN_IN_SCHEMAS,
         ...ACCOUNT_SCHEMAS,
         ...USERS_SCHEMAS,
         // Documented as a schema only: the operation that consumes it is
@@ -1828,6 +1852,7 @@ export function buildOpenApiDocument() {
         },
         ...MAP_SCHEMAS,
         ...PROJECT_SCHEMAS,
+        ...SHARING_SCHEMAS,
         ...MAP_DETAIL_SCHEMAS,
         ...HISTORY_SCHEMAS,
         FillPaint: {
@@ -2595,7 +2620,11 @@ export function buildOpenApiDocument() {
           description:
             "An active publication's authored settings.",
           properties: {
-            token: { type: "string" },
+            token: {
+              type: "string",
+              description:
+                "The published link's token, the map owner's alone: absent for anyone else who reaches the map.",
+            },
             publishedAt: { type: "string" },
             theme: { type: "string", enum: ["light", "dark"] },
             viewerControls: { $ref: "#/components/schemas/ViewerControls" },

@@ -28,6 +28,15 @@ const graphOf = (steps: WorkflowStep[]) => canvasGraph({ steps, layout: { steps:
 const node = (g: ReturnType<typeof canvasGraph>, id: string) => g.members.find((m) => m.id === id) as NodeMember;
 
 describe("the node panel's callouts", () => {
+  it("says an output outside the reader's reach is not available to them, never that it was deleted, and names nothing", () => {
+    const g = graphOf([step({ id: "c", operation: "sql_step", parameters: { sql: "SELECT 1", name: "c_out" },
+      condition: "output_unavailable", conditions: ["output_unavailable"] })]);
+    const said = callouts(node(g, "c"), OPS[0]);
+    expect(said.map((c) => c.key)).toEqual(["output_unavailable"]);
+    expect(said[0]).toMatchObject({ head: "Output not available to you." });
+    expect(said[0].body).toBeUndefined();
+  });
+
   it("orders them as discloses: in flight, cannot run, unavailable, failed, cancelled, deleted, stale, edited", () => {
     const g = graphOf([
       step({

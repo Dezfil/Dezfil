@@ -43,7 +43,7 @@ export function OutputFacts({ step, outputName, table }: { step: WorkflowStep; o
               size="compact"
               disabled={table.geometryColumn === null}
               title={table.geometryColumn === null ? NO_GEOMETRY_LAYER : undefined}
-              onClick={() => setSubject(table.name)}
+              onClick={() => setSubject(table.qualifiedName)}
               data-add-to-map
             >
               Add to a map

@@ -6,6 +6,7 @@ import { effectiveSql, wrappable } from "@/lib/query/compile";
 import { inspectLayerGeometry } from "@/lib/layer-geometry";
 import type { Layer } from "@/lib/metadata/maps";
 import { isAggregated, AGG_VALUE, AGG_COUNT, type LayerViz } from "@/lib/viz";
+import { layerEvaluation } from "@/lib/query/context";
 
 function ident(s: string): string {
   return `"${s.replace(/"/g, '""')}"`;
@@ -107,6 +108,7 @@ async function describeBase(
   layer: Layer,
   signal?: AbortSignal,
 ): Promise<{ fields: LayerField[]; geometryColumns: string[] }> {
+  scope = layerEvaluation(scope, layer);
   return boundedEvaluation(async (conn) => {
     const sub = `(${wrappable(await namedSql(conn, layer.sql))}) AS q`;
     const described = await conn.runAndReadAll(`DESCRIBE SELECT * FROM ${sub}`);
@@ -242,6 +244,7 @@ export async function layerFieldStats(
   field: string,
   signal?: AbortSignal,
 ): Promise<FieldStats> {
+  scope = layerEvaluation(scope, layer);
   // An aggregated layer styles value/count — computed by the aggregation,
   // absent from the base result. Their distribution comes from the
   // effective query, the same values classification sees.

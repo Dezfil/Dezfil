@@ -12,7 +12,7 @@ import { resetQueryInstance } from "@/lib/duckdb";
 import { createMap } from "@/lib/map-service";
 import { createLayer, renderLayer, updateLayer } from "@/lib/layer-service";
 import { getLayer, getMap } from "@/lib/metadata/maps";
-import { upsertTileRecord } from "@/lib/metadata/tiles";
+import { datasetInputs, seedReadyTiles } from "@/lib/test-support/tile-evidence";
 import { publishMap, unpublishMap } from "@/lib/publish/publish-service";
 import { publishedFieldsSignature } from "@/lib/publish/published-fields";
 import {
@@ -25,7 +25,8 @@ import { currentPublishedTile } from "./published";
 import { readTile } from "./serve";
 
 /** The fingerprint exactly as the build path mints it — layer and map read
- * from durable state, the parity the published gate must reproduce. */
+ * from durable state, the identities the export bound (the one dataset the
+ * layer reads), the parity the published gate must reproduce. */
 function builtFingerprint(id: string): string {
   const layer = getLayer(id)!;
   const map = getMap(layer.mapId)!;
@@ -36,14 +37,20 @@ function builtFingerprint(id: string): string {
       timeline: map.timeline,
       widgets: map.widgets,
       widgetsPublished: map.widgetsPublished,
-    }), id,
+    }), datasetInputs([pointsId]),
   );
+}
+
+/** A ready record with the evidence its build would have written. */
+function seedRecord(featureCount: number): void {
+  seedReadyTiles(layerId, { fingerprint: builtFingerprint(layerId), featureCount, builtAt }, datasetInputs([pointsId]));
 }
 
 let dir: string;
 let mapId: string;
 let layerId: string;
 let token: string;
+let pointsId: string;
 const sql = "SELECT id, kind, score, geometry FROM points";
 const builtAt = "2026-07-14T12:00:00.123Z";
 
@@ -56,7 +63,7 @@ beforeEach(async () => {
   resetTileBuilds();
   const source = path.join(dir, "points.csv");
   await writeFile(source, "id,kind,score,lon,lat\n1,a,10,1,2\n2,b,20,3,4\n");
-  await ingestFile(testAccountScope(), source, "points.csv");
+  pointsId = (await ingestFile(testAccountScope(), source, "points.csv")).id;
   const map = createMap(testAccountScope(), "m");
   mapId = map.id;
   const layer = await createLayer(testAccountScope(), map.id, { name: "l", sql });
@@ -64,14 +71,7 @@ beforeEach(async () => {
   token = publishMap(testAccountScope(), map.id).token;
   ensureTileDirs();
   await writeFile(tileArchivePath(layerId), "artifact");
-  upsertTileRecord({
-    layerId,
-    state: "ready",
-    fingerprint: builtFingerprint(layerId),
-    error: null,
-    featureCount: 40,
-    builtAt,
-  });
+  seedRecord(40);
 });
 
 afterEach(async () => {
@@ -91,14 +91,7 @@ describe("current published tile eligibility", () => {
     await updateLayer(testAccountScope(), layerId, {
       filters: [{ field: "score", kind: "range", min: 10, max: 20 }],
     });
-    upsertTileRecord({
-      layerId,
-      state: "ready",
-      fingerprint: builtFingerprint(layerId),
-      error: null,
-      featureCount: 40,
-      builtAt,
-    });
+    seedRecord(40);
     const version = String(Date.parse(builtAt));
     const before = currentPublishedTile(token, layerId, version);
     expect(before?.fingerprint).toBe(builtFingerprint(layerId));
@@ -134,14 +127,7 @@ describe("current published tile eligibility", () => {
     expect(currentPublishedTile(token, layerId, version)).toBeNull();
 
     await updateLayer(testAccountScope(), layerId, { filters: [] });
-    upsertTileRecord({
-      layerId,
-      state: "ready",
-      fingerprint: builtFingerprint(layerId),
-      error: null,
-      featureCount: 10,
-      builtAt,
-    });
+    seedRecord(10);
     expect(currentPublishedTile(token, layerId, version)).toBeNull();
   });
 

@@ -529,7 +529,7 @@ describe("cancelling a cascade", () => {
     expect(memberOf(settled, slow.id).state).toBe("failed");
     expect(getJob(memberOf(settled, slow.id).jobId!)!.state).toBe("cancelled");
     expect(getTableByName("cancel_slow")).toBeNull();
-    expect(readCascade(testAccountScope(), cascade.id)).toEqual({ ...settled, outputs: [] });
+    expect(readCascade(testAccountScope(), cascade.id)).toEqual({ ...settled, outputs: [], runner: { name: "test-account", sqlName: "test_account" } });
 
     // Nothing further was admitted…
     const never = memberOf(settled, after.id);
@@ -649,7 +649,7 @@ describe("cancelling a cascade with more than one member admitted", () => {
     expect(memberOf(settled, left.id).attempt?.state).toBe("cancelled");
     expect(memberOf(settled, right.id).attempt?.state).toBe("cancelled");
     const reread = readCascade(testAccountScope(), cascade.id);
-    expect(reread).toEqual({ ...settled, outputs: [] });
+    expect(reread).toEqual({ ...settled, outputs: [], runner: { name: "test-account", sqlName: "test_account" } });
     expect(reread.members.map((member) => member.state)).not.toContain("running");
   }, 180_000);
 });
@@ -973,7 +973,7 @@ describe("a node's own run is one of the workflow's runs", () => {
       const [startAnswer, cancelAnswer] = await Promise.all([started, cancelled]);
       expect(startAnswer.outcome).toBe("cancelled");
       expect(cancelAnswer.outcome).toBe("cancelled");
-      expect(readCascade(testAccountScope(), pending.id)).toEqual({ ...cancelAnswer, outputs: [] });
+      expect(readCascade(testAccountScope(), pending.id)).toEqual({ ...cancelAnswer, outputs: [], runner: { name: "test-account", sqlName: "test_account" } });
       expect(memberOf(cancelAnswer, held.id).attempt?.state).toBe("cancelled");
     } finally {
       releaseAdmission();
@@ -1028,7 +1028,7 @@ describe("a node's own run is one of the workflow's runs", () => {
         stoppedReason: "The held admission was refused.",
         attempt: null,
       });
-      expect(readCascade(testAccountScope(), pending.id)).toEqual({ ...answer, outputs: [] });
+      expect(readCascade(testAccountScope(), pending.id)).toEqual({ ...answer, outputs: [], runner: { name: "test-account", sqlName: "test_account" } });
       expect(listCascades(recipeId)).toHaveLength(1);
     } finally {
       releaseAdmission();

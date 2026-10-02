@@ -28,6 +28,11 @@ export interface CatalogListing {
   scope: ProjectScope;
   onScope: (id: string) => void;
   onRetry: () => void;
+  /** A dataset as the map's SQL types it; the reader's console's way
+   * without a map. */
+  typed?: (table: TableListing) => string;
+  /** The line under the scope on someone else's map. */
+  homeLine?: { lead: string; example: string } | null;
 }
 
 async function readListing(scopeKey: string | null): Promise<TableListing[]> {

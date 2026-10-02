@@ -1,5 +1,4 @@
 import type { TableListing } from "../api";
-import { normalName } from "../workflow-producers";
 import type { CanvasGraph, NodeMember, SourceMember } from "./graph";
 
 /**
@@ -43,7 +42,9 @@ export function removalPlan(member: NodeMember, graph: CanvasGraph, tables: Tabl
   const readers = readersOf(member, graph);
   const produced = step.output;
   if (produced && produced.name) {
-    const listed = tables.some((t) => normalName(t.name) === normalName(produced.name!)) && !step.conditions.includes("output_missing");
+    // The produced dataset by its identity: a reader's own dataset that
+    // shares its name is not it.
+    const listed = tables.some((t) => t.id === produced.id) && !step.conditions.includes("output_missing");
     if (listed) {
       const who = readers.length ? ` ${list(readers)} ${readers.length === 1 ? "goes" : "go"} on reading it as a workspace table.` : "";
       return { state: "exists", dataset: produced.name, readers, sentence: `The dataset ${produced.name} stays.${who}` };

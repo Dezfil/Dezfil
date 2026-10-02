@@ -107,6 +107,7 @@ creates it and proves it writable (`src/lib/data-dir.ts`).
 | `tiles/` | One PMTiles archive per tiled layer. |
 | `tiles/scratch/` | The one place the hardened engine may write. Tile builds export here and the finished archive is renamed one level up. |
 | `thumbnails/` | Map card images, with a small manifest per map when a map carries one image per theme. |
+| `artifact-inputs/tiles/`, `artifact-inputs/thumbnails/` | What each tile archive and card image drew: the dataset identities and artifacts, one small file per archive or image. Lost evidence leaves its artifact unattributed, served to the map's owner alone. |
 | `exports/` | Staging for project exports. Old siblings are swept as new ones are assembled. |
 | `cache/overpass/`, `cache/geocode/`, `cache/isochrone/` | Provider answer caches, each with its own size and freshness budget. |
 | `tmp/` | Scratch for uploads, downloads and exports in flight. Swept whole at boot. |
@@ -122,8 +123,10 @@ metadata.
 Map and layer metadata lives in an embedded SQLite database, opened through
 one module (`src/lib/metadata/db.ts`) with write-ahead logging and foreign
 keys on. Schema changes are an ordered list of migration statements applied
-by version number, each inside its own transaction. There is no migration
-library and no external tool.
+by version number, each inside its own transaction. A statement that needs a
+value derived by the application's own rules, such as an account's SQL name,
+calls it as a SQL function the migration runner registers on the connection.
+There is no migration library and no external tool.
 
 Keeping metadata embedded is what preserves the one-container promise. The
 repository modules beside `db.ts` deliberately keep their SQL portable, so
@@ -160,9 +163,16 @@ into a PMTiles archive of vector tiles, and the finished archive is renamed
 into place so the previous one keeps serving until the instant it is
 replaced.
 
-Freshness is a fingerprint over the effective query plus the identities of
-the artifacts it reads, so restyling never looks like a data change and a
-data change never fails to look like one. The application serves tiles
+Freshness is a fingerprint over the effective query plus the dataset
+identities its evaluation bound, each with its current artifact, so
+restyling never looks like a data change and a data change never fails to
+look like one. The build records those identities beside the archive
+(`src/lib/tiles/evidence.ts`), from the export's own evaluation
+(`src/lib/query/evaluation-inputs.ts`); a refresh or deletion of a dataset
+finds the layers whose tiles drew it by that record. Builds queue per layer
+and per requesting reach: the layer's record names only the archive being
+served, a failure stays with the attempt that failed, and only a committed
+build replaces the archive. The application serves tiles
 itself by reading byte ranges out of the archive
 (`src/lib/tiles/serve.ts`); there is no tile server.
 

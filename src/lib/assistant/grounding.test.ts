@@ -3,7 +3,7 @@ import { loadGrounding, GROUNDING_MAX_BYTES } from "./grounding";
 import type { AssistantContext } from "./context";
 
 const table = (name: string, extra: Record<string, unknown> = {}) => ({
-  id: `id-${name}`, name, rowCount: 3, geometryColumn: "geom", geometryType: "POINT", crsAssumed: false,
+  id: `id-${name}`, name, qualifiedName: name, owner: { name: "Ada", sqlName: "ada" }, rowCount: 3, geometryColumn: "geom", geometryType: "POINT", crsAssumed: false,
   columns: [{ name: "value", type: "INTEGER" }], columnCount: 1, nextColumnOffset: null, ...extra,
 });
 const layer = (id: string, extra: Record<string, unknown> = {}) => ({ id, mapId: "m", name: id, sql: "SELECT * FROM z_dependency", style: { fill: [1, 2, 3] }, visible: false, filters: [], ...extra });
@@ -19,7 +19,7 @@ function api(options: { layers?: unknown[]; steps?: unknown[]; members?: unknown
     if (url.pathname === "/api/recipes/r/runs/run") return Response.json({ run: { id: "run", recipeId: "r", outcome: "partly_completed", members: options.members ?? [] } });
     if (url.pathname === "/api/catalogue/tables") {
       const named = url.searchParams.get("names");
-      const chosen = named ? tables.filter((entry) => entry.name === named) : url.searchParams.has("project") ? tables.filter((entry) => entry.name === "y_project") : tables.slice(0, 32);
+      const chosen = named ? tables.filter((entry) => entry.qualifiedName === named) : url.searchParams.has("project") ? tables.filter((entry) => entry.name === "y_project") : tables.slice(0, 32);
       return Response.json({ tables: chosen, total: tables.length, nextAfter: !named && tables.length > 32 ? chosen.at(-1)!.name : null });
     }
     return Response.json({ error: { code: "not_found" } }, { status: 404 });
@@ -31,6 +31,54 @@ const workflow: AssistantContext = { page: "workflow", recipeId: "r", selectedSt
 async function ground(context: AssistantContext | undefined, fetchImpl: typeof fetch) { return JSON.parse(await loadGrounding(context, "http://localhost:3201", fetchImpl)); }
 
 describe("bounded grounding projections", () => {
+  it("grounds two owners' same-named datasets apart, each read by the name its reader would type", async () => {
+    const tables = [table("roads", { id: "own" }), table("roads", { id: "theirs", qualifiedName: "ada.roads" })];
+    const value = await ground(undefined, api({ tables }));
+    expect(value.catalogue.items.map((item: { id: string; qualifiedName: string; read: string }) => [item.id, item.qualifiedName, item.read])).toEqual([
+      ["own", "roads", "/api/catalogue/tables?names=roads"],
+      ["theirs", "ada.roads", "/api/catalogue/tables?names=ada.roads"],
+    ]);
+  });
+
+  it("names each table as the page's own SQL does when the page's home is someone else's", async () => {
+    const tables = [
+      table("roads", { id: "mine", owner: { name: "Bob", sqlName: "bob" }, projectIds: [] }),
+      table("roads", { id: "hers", qualifiedName: "ada.roads", projectIds: ["p"] }),
+      table("z_dependency"),
+    ];
+    const homed = (fetchImpl: typeof fetch, home: string, steps?: unknown[]): typeof fetch => async (input) => {
+      const response = await fetchImpl(input);
+      const url = new URL(String(input));
+      if (url.pathname === "/api/maps/m") return Response.json({ ...await response.json(), home });
+      if (url.pathname === "/api/recipes/r") {
+        const body = await response.json() as { recipe: Record<string, unknown> };
+        return Response.json({ recipe: { ...body.recipe, home, ...(steps ? { steps } : {}) } });
+      }
+      return response;
+    };
+    const names = (value: { catalogue: { items: { id: string; homeName?: string; projectIds?: string[] }[] } }) =>
+      value.catalogue.items.filter((item) => item.id !== "id-z_dependency").map((item) => [item.id, item.homeName, item.projectIds]);
+    const onAdasMap = await ground({ ...builder, selectedLayerId: null }, homed(api({ tables, layers: [] }), "ada"));
+    expect(onAdasMap.map.home).toBe("ada");
+    expect(names(onAdasMap)).toEqual([["mine", "bob.roads", []], ["hers", "roads", ["p"]]]);
+    // Her workflow's own output takes the plain name: her roads is qualified.
+    const inHerWorkflow = await ground({ ...workflow, selectedStepId: null, lastRunId: null },
+      homed(api({ tables }), "ada", [step("roads", { parameters: { sql: "SELECT 1", name: "roads" }, proposedParameters: null })]));
+    expect(inHerWorkflow.recipe.home).toBe("ada");
+    expect(names(inHerWorkflow)).toEqual([["mine", "bob.roads", []], ["hers", "ada.roads", ["p"]]]);
+    // With no page, nothing is named for a page.
+    expect(names(await ground(undefined, api({ tables })))).toEqual([["mine", undefined, []], ["hers", undefined, ["p"]]]);
+    // A SQL name or a dataset name that is also a keyword is quoted, as the
+    // engine must read it back.
+    const keywords = [
+      table("roads", { id: "ordered", qualifiedName: "order.roads", owner: { name: "Ord", sqlName: "order" }, projectIds: [] }),
+      table("group", { id: "grouped", qualifiedName: "group", projectIds: [] }),
+      table("z_dependency"),
+    ];
+    expect(names(await ground({ ...builder, selectedLayerId: null }, homed(api({ tables: keywords, layers: [] }), "ada"))))
+      .toEqual([["ordered", '"order".roads', []], ["grouped", '"group"', []]]);
+  });
+
   it("orders dependency/project/other table tiers and selected layers first", async () => {
     const value = await ground(builder, api({ project: true, layers: [layer("a"), layer("l")] }));
     expect(value.catalogue.items.map((item: { name: string }) => item.name)).toEqual(["z_dependency", "y_project", "a"]);

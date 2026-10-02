@@ -38,8 +38,9 @@ adopts them in the same transaction as the account, preferences and session.
 Failed adoption rolls back and can be retried. Existing identities, SQL,
 public links, credentials, memberships and artifact paths are preserved.
 Other accounts start with their own empty space. An admin flag does not grant
-access to the original account's content, and there is no ownership transfer
-operation. Deactivation freezes private work; reactivation restores access to
+access to the original account's content or a way to reassign it: only an
+owner can transfer their project, map or workflow, to someone it is already
+shared with. Deactivation freezes private work; reactivation restores access to
 the same records. Existing published links keep their read-only projection.
 New resources take their owner from the authenticated creator; request fields
 cannot assign a different owner. Dataset and connection names are unique within
@@ -50,6 +51,17 @@ constraints cannot read that store safely. Restore its matching backup as well.
 Restore the matching old application and the complete pre-upgrade backup to
 roll back. An older build cannot safely write the upgraded metadata schema.
 Account for work written after the backup before restoring it.
+
+The project-sharing storage upgrade takes the same backup. It gives every
+account a SQL name, derived from the display name (else the email's local
+part, else `user`, with a number added on a collision or on a name the query
+engine reserves) and fixed from then on. It marks each map and workflow with
+its owner's space as its SQL home, and records which account started each
+workflow run and produced each step output. Nothing is shared by it: every
+project keeps its owner and has no members. An installation still awaiting
+first-account setup receives the homes and run records in the setup
+transaction. The upgrade is one transaction: a failure leaves the store as it
+was, and the next start tries again.
 
 Named SQL runs against connection-local temporary views for its owner. Existing
 `main.table`, `memory.table`, `memory.main.table` and computed dynamic named
@@ -232,8 +244,34 @@ then run `verify <base-url> <scratch-state-file>` to repeat those assertions
 with the saved sessions and tokens. Use an owned loopback port of 3300 or
 higher. The state file is created exclusively with mode 0600.
 
-The ownership journey's route-handler tests also run without a listening
-socket. Their SQLite reopen and engine reset do not establish process or
+`node scripts/sharing-journey.mjs seed <base-url> <scratch-state-file>`
+provisions an admin and four ordinary accounts on an empty scratch instance:
+an owner who shares a project once as Viewer and once as Editor, and a
+non-member. The seed walks the sharing rules end to end: the Viewer's writes
+refused alike with nothing changed, the Editor's edit, run, filing and
+qualified layer, the Editor's refused SQL and publication changes, a dataset
+removed from the project, the published link with a catalogue probe, both
+transfers and both deactivations. `verify <base-url> <scratch-state-file>`
+repeats the read-side assertions with the saved credentials after the server
+is replaced: listings and the project export telling two people's `roads`
+apart, the right rows through the console and MCP, hidden equal to missing
+for the non-member, and same-named SQL evaluated concurrently. Both print
+every refusal body they compared. With `--assistant-wire=<port>` they also
+read through the assistant's tool path over a scripted model wire the script
+serves on that loopback port; start the instance for that with
+`DEZFIL_AI_PROVIDER=openai`, any `OPENAI_API_KEY` and
+`OPENAI_BASE_URL=http://127.0.0.1:<port>/v1`, and run the script where the
+instance can reach the port (in a container, in its network namespace). Use
+an owned loopback port of 3300 or higher.
+
+The pipeline's image job runs both journeys after every merge this way: each
+on a fresh volume of its own, seeded, the container replaced over that
+volume, then verified, driven from the MCP probe client image in the
+instance's network namespace, the sharing one over its scripted wire.
+
+The ownership and sharing journeys' route-handler tests also run without a
+listening socket (the sharing one serves its scripted model wire on an
+ephemeral loopback port). Their SQLite reopen and engine reset do not establish process or
 container restart behavior; run the HTTP commands for that evidence.
 
 `node scripts/mcp-journey.mjs <base-url>` runs the same journey over the MCP

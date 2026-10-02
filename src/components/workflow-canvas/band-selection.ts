@@ -1,6 +1,5 @@
 import type { TableListing } from "../api";
-import { normalName } from "../workflow-producers";
-import type { CanvasMember, NodeMember } from "./graph";
+import { listedFor, type CanvasMember, type NodeMember } from "./graph";
 
 /**
  * What the results band shows for the selection, derived from the canvas
@@ -46,8 +45,11 @@ export function resolveShown(member: CanvasMember | null, tables: TableListing[]
   }
   // The listing as last read decides, before the graph's own flag: a table
   // imported since the graph was built is present the moment the listing
-  // says so.
-  const table = tables.find((t) => normalName(t.name) === normalName(member.name));
+  // says so. The dataset the graph resolved is the one meant; a name only
+  // when the graph found none, and then its owner as the graph read it.
+  const table = member.tableId !== null
+    ? tables.find((t) => t.id === member.tableId)
+    : listedFor(tables, member.name, member.space);
   return table ? { kind: "dataset", table } : { kind: "missing" };
 }
 
@@ -112,7 +114,7 @@ export type AddToMap = { kind: "absent" } | { kind: "unavailable"; reason: strin
 export function addToMapFor(shown: Shown): AddToMap {
   if (shown.kind !== "dataset") return { kind: "absent" };
   if (shown.table.geometryColumn === null) return { kind: "unavailable", reason: NO_GEOMETRY_LAYER };
-  return { kind: "available", name: shown.table.name };
+  return { kind: "available", name: shown.table.qualifiedName ?? shown.table.name };
 }
 
 /** The bar's lead: a node by its label with its dataset's name, a source by

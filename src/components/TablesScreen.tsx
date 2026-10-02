@@ -38,6 +38,7 @@ import {
   scopeRows,
   headingLine,
   tileSubLine,
+  unreachedProjects,
 } from "./scope/model";
 import { useProjectScope } from "./scope/use-scope";
 import { useScopeWorld } from "./scope/use-scope-world";
@@ -60,6 +61,9 @@ import { useAsyncCollection } from "./use-async-collection";
 import gallery from "./gallery.module.css";
 import styles from "./TablesScreen.module.css";
 import { serverUnreachable } from "./failure-copy";
+import { ownedByOther, type PersonLabel } from "./sharing/people";
+import { useSignedInSqlName } from "./sharing/signed-in";
+import { datasetPageHref, datasetQueryHref } from "./dataset-doors";
 
 export type { DataSort } from "./data-folders";
 const DATA_SORTS = ["updated", "name", "rows", "size"] as const;
@@ -114,6 +118,10 @@ export function TablesScreen({
   initialPostgisConnectionId?: string | null;
 }) {
   const router = useRouter();
+  // Someone else's dataset or workflow is marked with its owner in the lists.
+  const me = useSignedInSqlName();
+  const othersOwner = (item: { owner?: PersonLabel }) =>
+    ownedByOther(item.owner, me) ? item.owner : null;
   // The catalog load runs through the shared async contract; the edits
   // overlay keeps deletes and refreshes updating in place, without
   // flashing the resolved catalog back to a pending state.
@@ -325,21 +333,24 @@ export function TablesScreen({
   }, [settleQueueForClose]);
 
   const remove = useCallback(
-    async (name: string) => {
+    async (table: TableListing) => {
+      const name = table.name;
       setDeleting(name);
       try {
         const response = await fetch(
-          `/api/tables/${encodeURIComponent(name)}`,
+          `/api/tables/${encodeURIComponent(table.qualifiedName)}`,
           { method: "DELETE" },
         );
         if (!response.ok) {
           setActionError(await readApiError(response));
           return;
         }
+        // The deleted dataset goes, by identity: someone else's dataset of
+        // the same name stays listed.
         mutate((w) => ({
           ...w,
-          all: w.all.filter((t) => t.name !== name),
-          scoped: w.scoped.filter((t) => t.name !== name),
+          all: w.all.filter((t) => t.id !== table.id),
+          scoped: w.scoped.filter((t) => t.id !== table.id),
         }));
         setActionError(null);
         // A folder the deletion empties out of what is shown (its last
@@ -347,7 +358,7 @@ export function TablesScreen({
         // closed, not merely hidden: it must not reappear open when the
         // search clears (found at review).
         if (openFolder && tables) {
-          const remaining = tables.filter((t) => t.name !== name);
+          const remaining = tables.filter((t) => t.id !== table.id);
           const stillShown = shownItems(foldTables(remaining, workflows), {
             query,
             filter,
@@ -447,12 +458,14 @@ export function TablesScreen({
     table: t,
     confirming: confirmName === t.name,
     deleting: deleting === t.name,
-    onOpen: () => router.push(`/tables/${t.name}`),
-    onQuery: () => router.push(`/sql?table=${encodeURIComponent(t.name)}`),
-    onAddToMap: () => setAddToMap(t.name),
+    // Every door addresses the dataset by the name its reader types, so
+    // someone else's same-named dataset never opens one's own.
+    onOpen: () => router.push(datasetPageHref(t)),
+    onQuery: () => router.push(datasetQueryHref(t)),
+    onAddToMap: () => setAddToMap(t.qualifiedName),
     onFile: () => setFiling(t),
     onDeletePress: () => {
-      if (confirmName === t.name) void remove(t.name);
+      if (confirmName === t.name) void remove(t);
       else setConfirmName(t.name);
     },
     onDeleteBlur: () => setConfirmName(null),
@@ -522,6 +535,20 @@ export function TablesScreen({
             projectIds: filing.projectIds,
           }}
           onClose={() => setFiling(null)}
+          onWithdrawn={({ projectIds, refusal }) => {
+            const tableId = filing.id;
+            setFiling(null);
+            // Out of the projects one no longer reaches: the dataset keeps
+            // its other memberships, before the reconciling read answers.
+            const out = (t: TableListing) =>
+              t.id === tableId
+                ? { ...t, projectIds: t.projectIds.filter((id) => !projectIds.includes(id)) }
+                : t;
+            mutate((w) => ({ ...w, all: w.all.map(out), scoped: w.scoped.map(out) }));
+            if (refusal) setActionError(refusal);
+            else setFiledNote(`${filing.name} taken out of ${unreachedProjects(projectIds.length)}.`);
+            void refresh().catch(() => {});
+          }}
           onDone={({ projectId, projectName }) => {
             const tableId = filing.id;
             setFiling(null);
@@ -755,6 +782,7 @@ export function TablesScreen({
                             table={item.table}
                             index={i}
                             actions={actionsFor(item.table)}
+                            owner={othersOwner(item.table)}
                           />
                         ) : (
                           <FolderCard
@@ -763,6 +791,7 @@ export function TablesScreen({
                             index={i}
                             open={item.id === shownOpen}
                             handlers={folderHandlers(item)}
+                            owner={othersOwner(item.workflow)}
                           />
                         ),
                       );
@@ -780,6 +809,7 @@ export function TablesScreen({
                                 table={t}
                                 index={j}
                                 actions={actionsFor(t)}
+                                owner={othersOwner(t)}
                               />
                             ))}
                           </FolderPane>,
@@ -814,6 +844,7 @@ export function TablesScreen({
                               key={item.table.id}
                               table={item.table}
                               actions={actionsFor(item.table)}
+                              owner={othersOwner(item.table)}
                               projectFact={datasetProjectFact(
                                 item.table.projectIds,
                                 scope,
@@ -828,6 +859,7 @@ export function TablesScreen({
                                 handlers={folderHandlers(item)}
                                 nameCellClass={styles.nameCell}
                                 withProjectCell
+                                owner={othersOwner(item.workflow)}
                               />
                               {item.id === shownOpen &&
                                 item.matching.map((t) => (
@@ -835,6 +867,7 @@ export function TablesScreen({
                                     key={t.id}
                                     table={t}
                                     actions={actionsFor(t)}
+                                    owner={othersOwner(t)}
                                     nested
                                     className={folderStyles.nested}
                                     leading={<NestedIndent />}

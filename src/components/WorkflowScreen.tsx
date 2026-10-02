@@ -14,11 +14,11 @@ import { readApiError, readOperations, readTables } from "./api";
 import { serverUnreachable } from "./failure-copy";
 import { AddDataDialog } from "./AddDataDialog";
 import { AsyncState, useAsync } from "./ui/AsyncState";
-import { IconButton } from "./ui/IconButton";
-import { RedoIcon, UndoIcon } from "./ui/icons";
 import type { HistoryChrome } from "./workflow-canvas/WorkflowCanvas";
 import { useUploadQueue } from "./use-upload-queue";
 import { canvasGraph } from "./workflow-canvas/graph";
+import { importedInHome } from "./workflow-canvas/home-names";
+import { useSignedInSqlName } from "./sharing/signed-in";
 import type { LayoutRead } from "./workflow-canvas/placement";
 import { savedWhisper, type Whisper } from "./workflow-canvas/save-whisper";
 import type { SaveState } from "./workflow-canvas/use-layout-saves";
@@ -30,11 +30,15 @@ import {
 import { RunDock } from "./workflow-canvas/RunDock";
 import { RunConfirmDialog, rowsFromGraph } from "./workflow-canvas/RunConfirmDialog";
 import { useRunConfirm } from "./workflow-canvas/use-run-confirm";
-import { WorkflowAssistantDoor, useWorkflowAssistant } from "./workflow-canvas/WorkflowAssistantHost";
+import { useWorkflowAssistant } from "./workflow-canvas/WorkflowAssistantHost";
+import { HeaderHistory } from "./workflow-canvas/HeaderHistory";
+import { ViewOnly } from "./workflow-canvas/view-only";
 import type { WorkflowListing } from "./workflow-model";
 import { usePathname } from "next/navigation";
 import { contributePath, releasePath } from "@/components/shell/path-model";
 import styles from "./WorkflowScreen.module.css";
+import { PathOwnerMark } from "./sharing/PeopleMarks";
+import type { PersonLabel } from "./sharing/people";
 
 /**
  * A workflow's page: the shell crumb carries its name, renamed inline as a
@@ -88,18 +92,33 @@ interface PageRead {
  * save, a stopped import — is drawn on the canvas's own stage, and the
  * card no longer keeps its margin. */
 
-function CrumbName({
+export function CrumbName({
   name,
+  owner,
   onRename,
+  readOnly = false,
 }: {
   name: string;
+  /** The workflow's owner: named beside it when it is someone else's. */
+  owner?: PersonLabel | null;
   onRename: (next: string) => void;
+  /** A Viewer's page: the name, no rename. */
+  readOnly?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(name);
   // Escape abandons a rename in progress; the blur that follows must not
   // commit the draft (the builder's rule, found during verification).
   const cancelled = useRef(false);
+  if (readOnly) {
+    return (
+      <span className={styles.crumbTail}>
+        <span className={styles.crumbSep}>/</span>
+        <span className={styles.plainName}>{name}</span>
+        <PathOwnerMark owner={owner} />
+      </span>
+    );
+  }
   return (
     <span className={styles.crumbTail}>
       <span className={styles.crumbSep}>/</span>
@@ -137,11 +156,24 @@ function CrumbName({
           {name}
         </button>
       )}
+      <PathOwnerMark owner={owner} />
     </span>
   );
 }
 
-export function WorkflowScreen({ id }: { id: string }) {
+export function WorkflowScreen({
+  id,
+  viewOnly = false,
+  runs = !viewOnly,
+}: {
+  id: string;
+  /** The page of whoever may not change the workflow, decided by the page
+   * from their standing: the canvas is view-only and nothing on it edits. */
+  viewOnly?: boolean;
+  /** Whether its runs are offered: whoever may run it, which a frozen
+   * workflow still allows to its Editors. */
+  runs?: boolean;
+}) {
   const load = useCallback(async (): Promise<PageRead> => {
     const [recipe, layout, tables, operations] = await Promise.all([
       fetchWorkflow(id),
@@ -437,17 +469,32 @@ export function WorkflowScreen({ id }: { id: string }) {
             tables: page.tables,
             operations: page.operations,
             run: runOverlay,
+            home: page.recipe.home ?? null,
           })
         : null,
     [page, runOverlay],
   );
+  // A table the reader just imported is their own: on someone else's
+  // workflow its loose source is written qualified with their SQL name, so
+  // it names their dataset rather than a same-named one of the home's.
+  const reader = useSignedInSqlName();
+  const home = page?.recipe.home ?? null;
+  const sourceRequest = useMemo(
+    () =>
+      addSourceRequest && {
+        ...addSourceRequest,
+        names: addSourceRequest.names.map((n) => importedInHome(n, reader, home)),
+      },
+    [addSourceRequest, home, reader],
+  );
 
   return (
-    <div className={styles.screen} data-workflow-frame>
+    <ViewOnly value={viewOnly} runs={runs}>
+    <div className={styles.screen} data-workflow-frame data-view-only={viewOnly || undefined}>
       {crumbSlot &&
         page &&
         createPortal(
-          <CrumbName name={name} onRename={(n) => void rename(n)} />,
+          <CrumbName name={name} owner={page.recipe.owner} onRename={(n) => void rename(n)} readOnly={viewOnly} />,
           crumbSlot,
         )}
       {historySlot &&
@@ -455,33 +502,7 @@ export function WorkflowScreen({ id }: { id: string }) {
         graph &&
         history &&
         createPortal(
-          <span className={styles.history} data-history-chrome>
-            <IconButton
-              className={styles.histBtn}
-              tone="chrome"
-              hint
-              action={history.reason ? `Undo: ${history.reason}` : "Undo"}
-              shortcut="⌘Z / Ctrl+Z"
-              icon={<UndoIcon />}
-              onPointerDown={() => history.seal()}
-              onClick={() => history.press("undo")}
-              disabled={!history.canUndo || history.reason !== null}
-              data-undo
-            />
-            <IconButton
-              className={styles.histBtn}
-              tone="chrome"
-              hint
-              action={history.reason ? `Redo: ${history.reason}` : "Redo"}
-              shortcut="⇧⌘Z / Ctrl+Y"
-              icon={<RedoIcon />}
-              onPointerDown={() => history.seal()}
-              onClick={() => history.press("redo")}
-              disabled={!history.canRedo || history.reason !== null}
-              data-redo
-            />
-            <WorkflowAssistantDoor assistant={assistant} />
-          </span>,
+          <HeaderHistory history={history} assistant={assistant} />,
           historySlot,
         )}
       {actionSlot &&
@@ -529,7 +550,7 @@ export function WorkflowScreen({ id }: { id: string }) {
               onLayoutWritten={onLayoutWritten}
               edits={edits}
               onAddData={() => setAddDataOpen(true)}
-              addSourceRequest={addSourceRequest}
+              addSourceRequest={sourceRequest}
               runner={runner}
               onRunFrom={(from) => void askRun(from)}
               onListingStale={() => void refreshTables()}
@@ -551,5 +572,6 @@ export function WorkflowScreen({ id }: { id: string }) {
         uploadQueue={uploadQueue}
       />
     </div>
+    </ViewOnly>
   );
 }

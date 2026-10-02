@@ -1,8 +1,8 @@
 import { requireRequestScope } from "@/lib/auth/scope-http";
+import { requireFilingDestination } from "@/lib/auth/reach";
 import { NextResponse } from "next/server";
 import { errorResponse, ApiError } from "@/lib/api/errors";
 import { importOsm } from "@/lib/osm/import";
-import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { importProjectId } from "@/lib/project-scope";
 
 /** Import OpenStreetMap data via Overpass as tables. */
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     // Preflight: an unknown project refuses before any source is
     // contacted.
     const projectId = importProjectId(body.projectId);
-    if (projectId) requireOwnedResource(scope, "project", projectId);
+    if (projectId) requireFilingDestination(scope, projectId);
     const tables = await importOsm(scope, {
       selectors: body.selectors,
       ql: body.ql,

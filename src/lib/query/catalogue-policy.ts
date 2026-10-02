@@ -21,6 +21,14 @@ export const CATALOG_COLUMNS: Record<string, string[]> = {
   pragma_database_list: ["seq", "name"],
 };
 
+/** The catalogue functions that list relations or their columns: what a
+ * published link's restricted mount would answer differently from its
+ * owner's whole reach. The engine's own relations read as tables
+ * (information_schema, pg_catalog, sqlite_master) are read the same way. */
+export const CATALOGUE_READERS = new Set([
+  "duckdb_views", "duckdb_tables", "duckdb_columns", "duckdb_constraints", "duckdb_dependencies", "duckdb_indexes",
+]);
+
 /** Track catalogue relations through each SELECT scope. A safe projection is a
  * safe derived relation; catalogue aliases never make definitions into data. */
 export function inspectCatalogues(tree: SqlNode, sources: Map<SqlNode, Set<string>>, refuse: () => never): void {

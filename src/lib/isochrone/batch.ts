@@ -1,3 +1,5 @@
+import { tableRef } from "@/lib/operations/input-ref";
+import { namedSql } from "@/lib/query/named-sql";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { prepareStagingInput, removeStagingInput, type StagingInput } from "@/lib/query/staging";
 import type { DuckDBConnection } from "@duckdb/node-api";
@@ -5,6 +7,7 @@ import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { ident } from "@/lib/ingest/ingest";
 import type { DataTable } from "@/lib/metadata/tables";
 import { boundedEvaluation } from "@/lib/query/bounded";
+import type { DatasetScope } from "@/lib/query/access";
 import {
   COSTING_BY_MODE,
   configuredIsochroneEndpoint,
@@ -64,6 +67,8 @@ export interface IsochroneBatchOptions {
   signal?: AbortSignal;
   deadlineAt: number;
   timeoutError: () => ApiError;
+  /** Where the input is read: the run's evaluation, its account otherwise. */
+  reads?: DatasetScope;
 }
 
 interface StagedBand {
@@ -91,12 +96,12 @@ async function distinctOrigins(
   table: DataTable,
 ): Promise<{ lon: number; lat: number }[]> {
   const geom = ident(table.geometryColumn!);
-  const reader = await conn.runAndReadAll(
+  const reader = await conn.runAndReadAll(await namedSql(conn,
     `SELECT DISTINCT ST_X(${geom}) AS lon, ST_Y(${geom}) AS lat
-     FROM ${ident(table.name)}
+     FROM ${tableRef(table)}
      WHERE ${geom} IS NOT NULL AND NOT ST_IsEmpty(${geom})
      ORDER BY 1, 2`,
-  );
+  ));
   return reader
     .getRowObjects()
     .filter(
@@ -171,7 +176,7 @@ export function isochronePublicationSql(
   bands: number[],
   stage: StagingInput,
 ): string {
-  const source = ident(table.name);
+  const source = tableRef(table);
   const geom = ident(table.geometryColumn!);
   const bandRows = bands.map((minutes) => `(${minutes})`).join(", ");
   return `SELECT s.* EXCLUDE (${geom}),
@@ -211,7 +216,7 @@ export async function stageIsochroneBatch(
 
   const origins = await boundedEvaluation(
     async (conn) => distinctOrigins(conn, table),
-    { scope,
+    { scope: options.reads ?? scope,
       ...(signal ? { signal } : {}),
       budgetMs: remaining(deadlineAt, timeoutError),
       timeoutError,

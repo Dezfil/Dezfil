@@ -3,6 +3,7 @@ import path from "node:path";
 import { mkdirSync } from "node:fs";
 import { dataDir } from "@/lib/config";
 import { MIGRATIONS } from "./migrations";
+import { allocateSqlNames, type SqlNameIdentity } from "./sql-names";
 
 export { MIGRATIONS } from "./migrations";
 
@@ -39,6 +40,10 @@ export function open(file: string): Database.Database {
 }
 
 function migrate(db: Database.Database): void {
+  // Migrations that derive values with the application's own rules call
+  // them as SQL functions, so one derivation serves upgrade and creation.
+  db.function("allocate_sql_names", { deterministic: true }, (accounts: unknown) =>
+    JSON.stringify(allocateSqlNames(JSON.parse(String(accounts)) as SqlNameIdentity[])));
   const applied = db.pragma("user_version", { simple: true }) as number;
   for (let v = applied; v < MIGRATIONS.length; v++) {
     db.transaction(() => {

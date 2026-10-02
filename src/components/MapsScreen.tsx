@@ -22,12 +22,15 @@ import { useTheme } from "@/components/theme";
 import { useViewPrefs } from "./use-view-prefs";
 import { ListHeading } from "./ListHeading";
 import { ScopeFilter } from "./scope/ScopeFilter";
-import { headingLine, scopeRows, tileSubLine } from "./scope/model";
+import { headingLine, scopeRows, tileSubLine, unreachedProjects } from "./scope/model";
 import { useProjectScope } from "./scope/use-scope";
 import { useScopeWorld } from "./scope/use-scope-world";
 import { AsyncState } from "./ui/AsyncState";
 import { ErrorNote } from "./ui/ErrorNote";
 import { CheckIcon, PlusIcon } from "./ui/icons";
+import { OwnerPill } from "./sharing/PeopleMarks";
+import { ownedByOther } from "./sharing/people";
+import { useSignedInSqlName } from "./sharing/signed-in";
 import gallery from "./gallery.module.css";
 import styles from "./MapsScreen.module.css";
 import { serverUnreachable } from "./failure-copy";
@@ -79,7 +82,9 @@ function StateChip({ live }: { live: boolean }) {
 }
 
 /** The passive project fact: text, never a
- * control; a missing directory name renders nothing rather than an id. */
+ * control, never an id. One's own work can stay filed in a project one was
+ * removed from: the directory has no name for it, and it is said as such
+ * rather than as in no project. */
 export function ProjectTag({
   projectId,
   projects,
@@ -95,12 +100,23 @@ export function ProjectTag({
     );
   }
   const name = projects.find((p) => p.id === projectId)?.name;
-  return name ? <span className={gallery.projTag}>{name}</span> : null;
+  return name ? (
+    <span className={gallery.projTag}>{name}</span>
+  ) : (
+    <span className={gallery.projTag} data-unreached>
+      {unreachedProjects(1)}
+    </span>
+  );
 }
 
 export function MapsScreen() {
   const router = useRouter();
   const { theme } = useTheme();
+  // Someone else's map is marked with its owner and keeps only what reads
+  // it among its quick actions.
+  const me = useSignedInSqlName();
+  const othersOwner = (m: MapOverview) =>
+    ownedByOther(m.owner, me) ? m.owner : null;
   // The listing load runs through the shared async contract; the
   // scaffolding's edits overlay keeps mutations updating the list in
   // place, and a retry's fresh answer discards them.
@@ -214,7 +230,7 @@ export function MapsScreen() {
       };
       const publish = (m: MapOverview) =>
         m.id === id
-          ? { ...m, publishToken: body.token, publishedAt: body.publishedAt }
+          ? { ...m, publishToken: body.token, publishedAt: body.publishedAt, published: true }
           : m;
       mutate((w) => ({ ...w, all: w.all.map(publish), scoped: w.scoped.map(publish) }));
       setActionError(null);
@@ -269,8 +285,8 @@ export function MapsScreen() {
     if (!maps) return null;
     const q = query.trim().toLowerCase();
     const filtered = maps.filter((m) => {
-      if (filter === "published" && !m.publishToken) return false;
-      if (filter === "drafts" && m.publishToken) return false;
+      if (filter === "published" && !m.published) return false;
+      if (filter === "drafts" && m.published) return false;
       return !q || m.name.toLowerCase().includes(q);
     });
     return [...filtered].sort((a, b) => {
@@ -281,7 +297,7 @@ export function MapsScreen() {
   }, [maps, query, filter, sort]);
 
   const counts = useMemo(() => {
-    const published = maps?.filter((m) => m.publishToken).length ?? 0;
+    const published = maps?.filter((m) => m.published).length ?? 0;
     return {
       all: maps?.length ?? 0,
       published,
@@ -290,21 +306,32 @@ export function MapsScreen() {
   }, [maps]);
 
 
-  const quickActions = (m: MapOverview, rowStyle: string) => (
+  // A map one may only view opens in the reader, not the builder: someone
+  // else's map in a project where one is a Viewer.
+  const viewOnly = (m: MapOverview) =>
+    othersOwner(m) !== null &&
+    world?.projects.find((p) => p.id === m.projectId)?.role === "viewer";
+
+  const quickActions = (m: MapOverview, rowStyle: string) => {
+    const mine = othersOwner(m) === null;
+    const opens = viewOnly(m) ? "Open" : "Open in builder";
+    return (
     <span className={rowStyle}>
+      {mine && (
+        <button
+          data-hint={actionLabel("map", !!m.projectId)}
+          aria-label={`${actionLabel("map", !!m.projectId)}: ${m.name}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            setFiling(m);
+          }}
+        >
+          <IconFolderPlus />
+        </button>
+      )}
       <button
-        data-hint={actionLabel("map", !!m.projectId)}
-        aria-label={`${actionLabel("map", !!m.projectId)}: ${m.name}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          setFiling(m);
-        }}
-      >
-        <IconFolderPlus />
-      </button>
-      <button
-        data-hint="Open in builder"
-        aria-label={`Open ${m.name} in the builder`}
+        data-hint={opens}
+        aria-label={viewOnly(m) ? `Open ${m.name}` : `Open ${m.name} in the builder`}
         onClick={(e) => {
           e.stopPropagation();
           router.push(`/maps/${m.id}`);
@@ -334,7 +361,7 @@ export function MapsScreen() {
         >
           {copiedId === m.id ? <CheckIcon /> : <IconLink />}
         </button>
-      ) : (
+      ) : mine ? (
         <button
           data-hint="Publish map"
           aria-label={`Publish ${m.name}`}
@@ -346,30 +373,33 @@ export function MapsScreen() {
         >
           <IconPublish />
         </button>
+      ) : null}
+      {mine && (
+        <button
+          className={gallery.deleteAct}
+          data-confirm={confirmId === m.id || undefined}
+          disabled={deletingId === m.id}
+          data-hint={
+            confirmId === m.id ? "Click again to delete permanently" : "Delete map"
+          }
+          aria-label={
+            confirmId === m.id
+              ? `Confirm deleting ${m.name}`
+              : `Delete ${m.name}`
+          }
+          onClick={(e) => {
+            e.stopPropagation();
+            if (confirmId === m.id) void deleteMap(m.id);
+            else setConfirmId(m.id);
+          }}
+          onBlur={() => setConfirmId(null)}
+        >
+          {confirmId === m.id ? "Delete?" : <IconTrash />}
+        </button>
       )}
-      <button
-        className={gallery.deleteAct}
-        data-confirm={confirmId === m.id || undefined}
-        disabled={deletingId === m.id}
-        data-hint={
-          confirmId === m.id ? "Click again to delete permanently" : "Delete map"
-        }
-        aria-label={
-          confirmId === m.id
-            ? `Confirm deleting ${m.name}`
-            : `Delete ${m.name}`
-        }
-        onClick={(e) => {
-          e.stopPropagation();
-          if (confirmId === m.id) void deleteMap(m.id);
-          else setConfirmId(m.id);
-        }}
-        onBlur={() => setConfirmId(null)}
-      >
-        {confirmId === m.id ? "Delete?" : <IconTrash />}
-      </button>
     </span>
-  );
+    );
+  };
 
   return (
     <div className={styles.screen}>
@@ -586,7 +616,7 @@ export function MapsScreen() {
                     </span>
                   </div>
                   <div className={gallery.cardChips}>
-                    <StateChip live={!!m.publishToken} />
+                    <StateChip live={m.published} />
                     <ProjectTag
                       projectId={m.projectId}
                       projects={world?.projects ?? []}
@@ -594,6 +624,9 @@ export function MapsScreen() {
                   </div>
                 </div>
               </div>
+              {othersOwner(m) && (
+                <OwnerPill owner={othersOwner(m)!} placement="corner" />
+              )}
               {quickActions(m, gallery.acts)}
             </article>
           ))}
@@ -622,6 +655,9 @@ export function MapsScreen() {
                 </span>
                 <span className={gallery.colName}>
                   <span className={gallery.rowName}>{m.name}</span>
+                  {othersOwner(m) && (
+                    <OwnerPill owner={othersOwner(m)!} placement="inline" />
+                  )}
                 </span>
                 <span className={gallery.colMeta}>
                   <LayerDots colors={m.layerColors} />
@@ -629,7 +665,7 @@ export function MapsScreen() {
                   layer{m.layerCount === 1 ? "" : "s"}
                 </span>
                 <span className={gallery.colState}>
-                  <StateChip live={!!m.publishToken} />
+                  <StateChip live={m.published} />
                 </span>
                 <span className={`${gallery.colWhen} ${gallery.num}`}>
                   {formatRelativeTime(m.updatedAt)}
@@ -687,6 +723,20 @@ export function MapsScreen() {
             projectId: filing.projectId,
           }}
           onClose={() => setFiling(null)}
+          onWithdrawn={({ projectIds, refusal }) => {
+            const mapId = filing.id;
+            setFiling(null);
+            // Out of a project one no longer reaches: in no project now,
+            // before the reconciling read answers and whether or not it does.
+            const out = (x: MapOverview) =>
+              x.id === mapId && x.projectId !== null && projectIds.includes(x.projectId)
+                ? { ...x, projectId: null }
+                : x;
+            mutate((w) => ({ ...w, all: w.all.map(out), scoped: w.scoped.map(out) }));
+            if (refusal) setActionError(refusal);
+            else setFiledNote(`${filing.name} taken out of ${unreachedProjects(projectIds.length)}.`);
+            void refresh().catch(() => {});
+          }}
           onDone={({ projectId, projectName }) => {
             const mapId = filing.id;
             const moved = !!filing.projectId;

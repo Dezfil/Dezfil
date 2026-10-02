@@ -33,6 +33,9 @@ interface TicketEntry {
   accountId: string;
   binding: LayerDownloadBinding;
   file: PreparedLayerDownload;
+  /** Whether the source is still the claimant's to be handed, asked on the
+   * claim; absent, the ticket asks nothing beyond the account. */
+  servable: (() => boolean) | null;
   status: LayerDownloadStatus;
   timer: ReturnType<typeof setTimeout> | null;
   prepareSignal: AbortSignal | null;
@@ -121,6 +124,7 @@ export class LayerDownloadTicketStore {
     binding: LayerDownloadBinding,
     file: PreparedLayerDownload,
     signal?: AbortSignal,
+    servable?: () => boolean,
   ): string {
     const accountId = requireAccountScope(scope);
     let ticket: string;
@@ -132,6 +136,7 @@ export class LayerDownloadTicketStore {
       scope, accountId,
       binding: { ...binding },
       file,
+      servable: servable ?? null,
       status: "prepared",
       timer: null,
       prepareSignal: null,
@@ -167,6 +172,13 @@ export class LayerDownloadTicketStore {
   ): ClaimedLayerDownload | null {
     const entry = this.boundEntry(scope, ticket, binding);
     if (!entry || entry.status !== "prepared") return null;
+    // The hand-over is where reach is asked again: a source that left the
+    // claimant's reach since the ticket refuses the claim, and the prepared
+    // file goes.
+    if (entry.servable && !entry.servable()) {
+      this.settle(ticket, entry, "failed");
+      return null;
+    }
 
     this.transferPrepareOwnership(entry);
     this.clearTimer(entry);

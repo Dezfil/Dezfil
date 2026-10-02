@@ -1,6 +1,7 @@
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { finish, getJob, requireJob, type OperationJob } from "@/lib/metadata/owned-jobs";
-import { isTerminal, pruneSubject, pruneJobHistory } from "@/lib/metadata/jobs";
+import { finish as finishJob, isTerminal, pruneSubject, pruneJobHistory } from "@/lib/metadata/jobs";
+import { getCascadeJob } from "@/lib/metadata/cascades";
 import * as lane from "./lane";
 
 /**
@@ -26,37 +27,60 @@ export function prune(scope: AccountScope, subjectId: string, subjectKind?: Oper
 }
 
 export interface RunCancellation {
-  scope: AccountScope;
   job: OperationJob;
   wasTerminal: boolean;
   settled: Promise<void>;
+  /** The job as it now stands, read the way it was found. */
+  reread: () => OperationJob | null;
+  /** The subject-history cap the cancellation owes. */
+  prune: () => void;
+}
+
+/** Mark first, then signal. The mark is what removes the run's authority to
+ * publish, so a run that finishes during the signal still cannot commit —
+ * this ordering closes the race and is not incidental. */
+function markAndSignal(job: OperationJob, mark: () => void, reread: () => OperationJob | null,
+  prune: () => void): RunCancellation {
+  if (isTerminal(job.state)) {
+    return { job, wasTerminal: true, settled: Promise.resolve(), reread, prune };
+  }
+  mark();
+  lane.cancel(job.id);
+  const marked = reread() ?? { ...job, state: "cancelled" as const };
+  const settled = Promise.race([
+    lane.jobSettled(job.id),
+    new Promise<void>((resolve) => setTimeout(resolve, CANCEL_SETTLE_GRACE_MS)),
+  ]);
+  return { job: marked, wasTerminal: false, settled, reread, prune };
 }
 
 /** Raise the publication fence and signal the lane, without waiting or pruning. */
 export function markAndSignalRunCancellation(scope: AccountScope, jobId: string): RunCancellation {
   const job = requireJob(scope, jobId);
-  if (isTerminal(job.state)) {
-    return { scope, job, wasTerminal: true, settled: Promise.resolve() };
-  }
+  return markAndSignal(job,
+    () => { finish(scope, jobId, { state: "cancelled" }, new Date().toISOString()); },
+    () => getJob(scope, jobId),
+    () => prune(scope, job.subjectId, job.subjectKind));
+}
 
-  // Mark first, then signal. The mark is what removes the run's authority to
-  // publish, so a run that finishes during the signal still cannot commit —
-  // this ordering closes the race and is not incidental.
-  finish(scope, jobId, { state: "cancelled" }, new Date().toISOString());
-  lane.cancel(jobId);
-  const marked = getJob(scope, jobId) ?? { ...job, state: "cancelled" as const };
-  const settled = Promise.race([
-    lane.jobSettled(jobId),
-    new Promise<void>((resolve) => setTimeout(resolve, CANCEL_SETTLE_GRACE_MS)),
-  ]);
-  return { scope, job: marked, wasTerminal: false, settled };
+/**
+ * The same, for a member of a workflow run, acting on the job through the run
+ * rather than through the canceller's own jobs: the job is the run
+ * initiator's, and the run's initiator and its workflow's owner may both stop
+ * it. The caller has already been authorized to cancel the run.
+ */
+export function markAndSignalMemberCancellation(cascadeId: string, jobId: string): RunCancellation {
+  const job = getCascadeJob(cascadeId, jobId);
+  if (!job) throw new Error(`Run ${cascadeId} holds no job ${jobId}.`);
+  return markAndSignal(job,
+    () => { finishJob(jobId, { state: "cancelled" }, new Date().toISOString()); },
+    () => getCascadeJob(cascadeId, jobId),
+    () => pruneAfterJob(jobId));
 }
 
 /** Apply the ordinary subject-history cap after a cancellation mark. */
 export function pruneRunCancellation(cancellation: RunCancellation): void {
-  if (!cancellation.wasTerminal) {
-    prune(cancellation.scope, cancellation.job.subjectId, cancellation.job.subjectKind);
-  }
+  if (!cancellation.wasTerminal) cancellation.prune();
 }
 
 /** Wait within the existing engine-settlement budget, without pruning. */
@@ -64,7 +88,7 @@ export async function waitForRunCancellation(
   cancellation: RunCancellation,
 ): Promise<OperationJob> {
   await cancellation.settled;
-  return getJob(cancellation.scope, cancellation.job.id) ?? cancellation.job;
+  return cancellation.reread() ?? cancellation.job;
 }
 
 /**

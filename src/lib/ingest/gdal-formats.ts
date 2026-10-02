@@ -1,5 +1,5 @@
 import { ownedTableNames, listOwnedTables } from "@/lib/metadata/owned-tables";
-import { requireOwnedResource } from "@/lib/auth/owned-resource";
+import { requireFilingDestination } from "@/lib/auth/reach";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { replayGeometryRelation, type GeometryReplay } from "@/lib/geometry/replay";
 import { randomUUID } from "node:crypto";
@@ -331,7 +331,7 @@ export async function ingestSpatialFile(
   requestedName?: string,
 ): Promise<IngestResult> {
   requireAccountScope(scope);
-  if (provenance?.projectId) requireOwnedResource(scope, "project", provenance.projectId);
+  if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
   const format = detectFormat(originalFilename) as GdalFormat;
   const prepared = await prepareSource(format, sourcePath, originalFilename);
   try {
@@ -448,7 +448,7 @@ export async function ingestSource(
   requestedName?: string,
 ): Promise<IngestResult> {
   requireAccountScope(scope);
-  if (provenance?.projectId) requireOwnedResource(scope, "project", provenance.projectId);
+  if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
   const format = detectFormat(originalFilename);
   if (isGdalFormat(format)) {
     return ingestSpatialFile(

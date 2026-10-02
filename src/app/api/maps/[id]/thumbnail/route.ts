@@ -1,7 +1,7 @@
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
-import { requireMap } from "@/lib/map-service";
+import { requireMap, requireMapFor } from "@/lib/map-service";
 import {
   isThumbnailCycle,
   isThumbnailTheme,
@@ -10,6 +10,8 @@ import {
   saveThumbnail,
   type ThumbnailTheme,
 } from "@/lib/map-thumbnails";
+import { captureInputs } from "@/lib/thumbnail-evidence";
+import { isMapSqlRevision } from "@/lib/map-sql-revision";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -33,13 +35,17 @@ function themeOf(request: Request): ThumbnailTheme | null {
 }
 
 /** The map's latest snapshot; 404 while none exists. With a
- * theme, that theme's image, falling back to whatever the map has. */
+ * theme, that theme's image, falling back to whatever the map has.
+ * Everyone who reaches the map is served an image whose recorded datasets
+ * they can all reach now (an unattributed image: the owner alone);
+ * anyone else gets the same 404, the card's placeholder. */
 export async function GET(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id } = await params;
+    const theme = themeOf(request);
     requireMap(scope, id);
-    const png = await readThumbnail(scope, id, themeOf(request));
+    const png = await readThumbnail(scope, id, theme);
     if (!png) {
       throw new ApiError("not_found", "This map has no snapshot yet.", 404);
     }
@@ -56,14 +62,26 @@ export async function GET(request: Request, { params }: Params) {
   }
 }
 
+/** The map's SQL revision the capture saw when it started; absent means none. */
+function revisionOf(request: Request): string | null {
+  const revision = new URL(request.url).searchParams.get("revision");
+  if (revision === null) return null;
+  if (!isMapSqlRevision(revision)) {
+    throw new ApiError("invalid_request", "A revision is 16 lowercase hexadecimal digits.", 400);
+  }
+  return revision;
+}
+
 /** Store the map's snapshot — a PNG body, captured by the builder. With a
  * theme and a cycle, one of a themed pair: held (202) until the partner
- * arrives under the same cycle, then published together (204). */
+ * arrives under the same cycle, then published together (204). Each image
+ * is stamped with what the map's SQL draws at the revision the capture saw,
+ * or kept unattributed when that revision is missing or has moved. */
 export async function PUT(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id } = await params;
-    requireMap(scope, id);
+    requireMapFor(scope, id, "capture");
     const theme = themeOf(request);
     const cycle = new URL(request.url).searchParams.get("cycle");
     if (theme && !isThumbnailCycle(cycle)) {
@@ -91,13 +109,15 @@ export async function PUT(request: Request, { params }: Params) {
     if (!PNG_MAGIC.every((byte, i) => body[i] === byte)) {
       throw new ApiError("invalid_request", "The body is not a PNG.", 400);
     }
+    const revision = revisionOf(request);
+    const inputs = await captureInputs(scope, id, revision);
     if (theme) {
-      const outcome = await saveThemedThumbnail(scope, id, theme, cycle!, body);
+      const outcome = await saveThemedThumbnail(scope, id, theme, cycle!, body, inputs);
       return new NextResponse(null, {
         status: outcome === "held" ? 202 : 204,
       });
     }
-    await saveThumbnail(scope, id, body);
+    await saveThumbnail(scope, id, body, inputs);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return errorResponse(error);

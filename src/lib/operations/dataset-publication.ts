@@ -1,7 +1,10 @@
 import { getOwnedTableByName, updateOwnedTableData, requireOwnedTableReference } from "@/lib/metadata/owned-tables";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { reachableDatasetIds } from "@/lib/auth/reach";
 import { ApiError } from "@/lib/api/errors";
+import { unavailableDataset } from "@/lib/query/bindings";
 import { metadataDb } from "@/lib/metadata/db";
+import type { Database } from "better-sqlite3";
 import { insertTable, type DataTable } from "@/lib/metadata/tables";
 import type { BoundInput, MaterializeRequest } from "./materialize";
 
@@ -35,6 +38,7 @@ export function publishDataset(
   try {
     db.transaction(() => {
       requireAccountScope(scope, db);
+      requireInputsInReach(scope, bound, db);
       if (replaceTable) requireOwnedTableReference(scope, replaceTable, db);
       if (authorize && !authorize(table, db, bound)) throw new LostAuthority();
       if (replaceTable) {
@@ -71,6 +75,24 @@ export function publishDataset(
     throw error;
   }
   return replaced;
+}
+
+/**
+ * Reach to the inputs, at commit. An input that was someone else's when the
+ * run bound it must still be within the runner's reach as the output commits:
+ * withdrawn since (unfiled, deleted by its owner, or out of reach once the
+ * runner left the project), it refuses the output even though the run already
+ * read it, named as the statement wrote it. An input of the runner's own keeps
+ * the rule it always had: deleted while the run read its pinned artifact, it
+ * stays recorded by its identity.
+ */
+function requireInputsInReach(scope: AccountScope, bound: BoundInput[], db: Database): void {
+  const runner = scope.accountId;
+  const others = bound.filter((input) => input.ownerId !== runner);
+  if (others.length === 0) return;
+  const reach = reachableDatasetIds(scope, db);
+  const withdrawn = others.find((input) => !reach.has(input.id));
+  if (withdrawn) throw unavailableDataset(withdrawn.written ?? withdrawn.name);
 }
 
 /** A replacement whose target vanished — deleted, or its name reclaimed by a

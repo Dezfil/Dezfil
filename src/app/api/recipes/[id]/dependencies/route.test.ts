@@ -111,7 +111,7 @@ describe("the datasets a workflow reads and writes", () => {
     expect(byName.get("stations")!.projectIds).toEqual([]);
     expect(byName.get("districts")!.projectIds).toEqual([berlin.id]);
     expect(byName.get("districts")!.geometryType).toBe("POLYGON");
-    expect(byName.get("station_buffers")!.producer).toEqual({ id: wf.id, name: "Station catchments" });
+    expect(byName.get("station_buffers")!.producer).toEqual({ id: wf.id, name: "Station catchments", owned: true });
     expect(byName.get("stations")!.producer).toBeNull();
   });
 

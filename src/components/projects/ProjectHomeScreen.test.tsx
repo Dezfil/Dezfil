@@ -8,7 +8,7 @@ import { invalidateProjects } from "../shell/use-project-name";
 const crumb = vi.hoisted(() => ({
   onRename: (name: string): void => { throw new Error(`No rendered rename callback for ${name}`); },
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), usePathname: () => "/projects/berlin" }));
 vi.mock("./home-read", async (original) => ({
   ...await original<typeof import("./home-read")>(),
   useProjectHome: vi.fn(),
@@ -58,7 +58,7 @@ describe("project-home mutation cache", () => {
     let release!: (response: Response) => void;
     const fetcher = vi.fn(() => new Promise<Response>((resolve) => { release = resolve; }));
     vi.stubGlobal("fetch", fetcher);
-    renderToStaticMarkup(<ProjectHomeScreen id="a" />);
+    renderToStaticMarkup(<ProjectHomeScreen id="a" files />);
     crumb.onRename("Saved new name");
     expect(fetcher).toHaveBeenCalledWith("/api/projects/a", expect.objectContaining({
       method: "PATCH", body: JSON.stringify({ name: "Saved new name" }),

@@ -1,18 +1,16 @@
 import { randomUUID } from "node:crypto";
 import type { AccountScope } from "@/lib/auth/scope";
-import { ApiError } from "@/lib/api/errors";
-import { requireMap } from "./map-access";
-import { requireLayer } from "./layer-access";
+import { requireMapFor } from "./map-access";
+import { requireLayerFor } from "./layer-access";
+import { admitLayerCreate } from "./layer-admission";
+import { recheckSaved } from "./save-admission";
 import { layerImage } from "./layer-history-image";
-import { assertWritableRefs } from "./layer-write-refs";
-import { inspectLayerGeometry } from "./layer-geometry";
 import { metadataDb } from "@/lib/metadata/db";
 import { insertLayer, updateMapFields, nextOrdinal, type Layer } from "@/lib/metadata/maps";
 import { recordStep } from "@/lib/metadata/history";
-import { styleProblem, normalizeStyle, type LayerStyle } from "@/lib/style/style";
+import { normalizeStyle, type LayerStyle } from "@/lib/style/style";
 import { defaultStyle } from "@/lib/style/defaults";
 import { POINTS_VIZ } from "@/lib/viz";
-import { styleRefs } from "@/lib/column-validation";
 
 /** A new layer enters a manual legend arrangement at the top, durably
  * left unstored, its slot would re-derive from the panel on every render
@@ -43,23 +41,10 @@ export async function createLayer(
   input: { name: string; sql: string; style?: LayerStyle },
   opts: { groupId?: string | null; signal?: AbortSignal } = {},
 ): Promise<Layer> {
-  requireMap(scope, mapId);
-  const { geometryType } = await inspectLayerGeometry(scope, input.sql, opts.signal);
-  if (input.style !== undefined) {
-    const problem = styleProblem(input.style);
-    if (problem) {
-      throw new ApiError("invalid_request", `The style is not valid: ${problem}`, 400);
-    }
-    // A created layer has no stored config to echo: every reference the
-    // style carries is introduced here and validates.
-    await assertWritableRefs(scope,
-      styleRefs(input.style),
-      [],
-      input.sql,
-      POINTS_VIZ,
-      opts.signal,
-    );
-  }
+  // Admission (layer-admission.ts): the map under the acting scope, SQL
+  // that draws geometry, and a given style valid with references the
+  // result can honor.
+  const { geometryType, saved } = await admitLayerCreate(scope, mapId, input, opts.signal);
   const now = new Date().toISOString();
   const ordinal = nextOrdinal(mapId);
   const layer: Layer = {
@@ -86,7 +71,8 @@ export async function createLayer(
     updatedAt: now,
   };
   metadataDb().transaction(() => {
-    const arrangement = requireMap(scope, mapId).legendOrder;
+    const arrangement = requireMapFor(scope, mapId, "edit").legendOrder;
+    recheckSaved(scope, saved);
     layer.ordinal = nextOrdinal(mapId);
     const groupId = arrangement
       ? (opts.groupId ?? randomUUID())
@@ -114,7 +100,7 @@ export function duplicateLayer(
   opts: { groupId?: string | null } = {},
 ): Layer {
   return metadataDb().transaction(() => {
-    const source = requireLayer(scope, id);
+    const source = requireLayerFor(scope, id, "edit");
     const now = new Date().toISOString();
     const copy: Layer = {
       ...source,
@@ -124,7 +110,7 @@ export function duplicateLayer(
       createdAt: now,
       updatedAt: now,
     };
-    const arrangement = requireMap(scope, source.mapId).legendOrder;
+    const arrangement = requireMapFor(scope, source.mapId, "edit").legendOrder;
     const groupId = arrangement
       ? (opts.groupId ?? randomUUID())
       : opts.groupId;

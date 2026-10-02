@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { usePathname } from "next/navigation";
 import styles from "@/components/builder/MapBuilder.module.css";
-import { contributePath, releasePath } from "./path-model";
 
 const subscribeNever = () => () => {};
 
@@ -71,19 +69,12 @@ export function ProjectCrumbTail({
   name: string;
   onRename: (next: string) => void;
 }) {
-  const pathname = usePathname();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(name);
   const cancelled = useRef(false);
   void projectId;
-
-  // The project page's path: the project IS the object, so its title
-  // reads `<name> · <instance>` with no repeated section.
-  useEffect(() => {
-    contributePath(pathname, { name, projectId: null });
-    return () => releasePath(pathname);
-  }, [pathname, name]);
-
+  // The project page's path, and so its title, is the home's own: it
+  // names the project for every reader, not only the one who renames it.
   const mounted = useSyncExternalStore(
     subscribeNever,
     () => true,

@@ -1,6 +1,7 @@
 import type { Database } from "better-sqlite3";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
-import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
+import { resourceAbsent } from "@/lib/auth/owned-resource";
+import { requirePermitted, requireReachable } from "@/lib/auth/reach";
 import { metadataDb } from "./db";
 import * as jobs from "./jobs";
 export type { OperationJob, JobQuery, JobOutcome } from "./jobs";
@@ -24,10 +25,20 @@ export function listJobs(scope: AccountScope, query: jobs.JobQuery = {}, db: Dat
   return (db.prepare(`SELECT * FROM operation_jobs WHERE ${where.join(" AND ")}
     ORDER BY accepted_at DESC, id DESC LIMIT ${limit}`).all(...args) as jobs.JobRow[]).map(jobs.jobFromRow);
 }
+/** A step's most recent attempt, whoever made it: a step's attempts are
+ * contained in its workflow and read by everyone who reaches it. */
+export function latestStepAttempt(scope: AccountScope, stepId: string, db: Database = metadataDb()) {
+  requireReachable(scope, "step", stepId, db);
+  const row = db.prepare(`SELECT * FROM operation_jobs WHERE subject_kind = 'step' AND subject_id = ?
+    ORDER BY accepted_at DESC, id DESC LIMIT 1`).get(stepId) as jobs.JobRow | undefined;
+  return row ? jobs.jobFromRow(row) : null;
+}
+/** Mint a job for the acting account. A step's job is admitted only for an
+ * account that may run the step's workflow now; the job is that runner's. */
 export function insertJob(scope: AccountScope, job: jobs.OperationJob, db: Database = metadataDb()) {
   return db.transaction(() => {
     requireAccountScope(scope, db);
-    if (job.subjectKind === "step") requireOwnedResource(scope, "step", job.subjectId, db);
+    if (job.subjectKind === "step") requirePermitted(scope, "step", job.subjectId, "run", db);
     jobs.insertJob(scope, job, db);
   })();
 }

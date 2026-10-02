@@ -1,3 +1,4 @@
+import { FILING_DESTINATION } from "./openapi-project-access";
 import { resultAccess } from "./openapi-result-access";
 import { mapChildren } from "./openapi-map-children";
 import { layerAccess } from "./openapi-layer-access";
@@ -53,7 +54,7 @@ export const MAP_COLLECTION_PATHS = {
                   type: ["string", "null"],
                   description:
                     "The project the new map joins; omitted or null, " +
-                    "it starts unfiled.",
+                    "it starts unfiled." + FILING_DESTINATION,
                 },
               },
             },
@@ -61,7 +62,7 @@ export const MAP_COLLECTION_PATHS = {
           },
         },
       },
-      responses: { "201": jsonOk("#/components/schemas/Map", "Created.") },
+      responses: { "201": jsonOk("#/components/schemas/MapCreated", "Created.") },
     })),
   },
 };
@@ -134,8 +135,11 @@ export const MAP_RESOURCE_PATHS = {
         "name the theme to read that one. The fallback order: " +
         "the named theme's image, then the map's single image, then " +
         "the other theme's; a request naming no theme answers the " +
-        "light image, then dark, then the single image. Only a map with no " +
-        "image at all is refused.",
+        "light image, then dark, then the single image. An image the " +
+        "reader may not be served (one that drew a dataset beyond their " +
+        "reach, or an unattributed one read by anyone but the owner) is " +
+        "passed over like a missing one; when none is left the answer is " +
+        "the same 404 as for a map with no image at all.",
       tag: "Maps",
       // UI sugar, not a map capability — outside the agent tool set.
       tool: false,
@@ -159,7 +163,12 @@ export const MAP_RESOURCE_PATHS = {
         "held until the other theme arrives under the same cycle, and " +
         "the pair then replaces everything the map had, together. A " +
         "cycle that never completes leaves the map's images as they " +
-        "were; a later cycle's completion discards it.",
+        "were; a later cycle's completion discards it. Each image is " +
+        "stamped with the datasets its map's SQL draws, bound in the " +
+        "map's home within the uploader's reach at the revision the " +
+        "capture saw; an image sent without a revision, or whose map's " +
+        "layers moved from that revision before it arrived, is kept " +
+        "unattributed.",
       tag: "Maps",
       tool: false,
       effects: writes(resource("maps", "id")),
@@ -175,6 +184,16 @@ export const MAP_RESOURCE_PATHS = {
             "The capture cycle a themed snapshot belongs to; required " +
             "with a theme, refused without one. Two writes carrying " +
             "the same cycle and different themes form one pair.",
+        },
+        {
+          name: "revision",
+          in: "query",
+          required: false,
+          schema: { type: "string", pattern: "^[0-9a-f]{16}$" },
+          description:
+            "The map's SQL revision when the capture started: a digest " +
+            "of its layers' identities and SQL in layer order, as the " +
+            "builder computes it. Absent, the image is unattributed.",
         },
       ],
       requestBody: {
@@ -284,7 +303,7 @@ export const MAP_RESOURCE_PATHS = {
     get: op(mapAccess({
       summary: "The datasets a map draws from",
       description:
-        "Dependency identities, memberships and producers resolve only within the authenticated account. Another owner's same-name dataset never changes this result. " +
+        "Each layer's references resolve to dataset identities in the map's SQL home within the caller's reach, and each one is listed with its owner and the name the caller would type: a dataset the caller cannot reach is left out rather than named, and a same-named dataset of the caller's own never stands in for the map's. Memberships name the projects the caller reaches, and on the caller's own datasets every project they are in, one the caller no longer reaches included; producers only workflows the caller reaches, each marked with whether the caller owns it. " +
         "The 14-A filing checklist's subject: every " +
         "registered dataset used by at least one of the map's saved " +
         "layers, exactly once, with its source, row count, project " +
@@ -481,7 +500,9 @@ export const MAP_PUBLISH_PATHS = {
         "active publication. 204 when the map is not " +
         "published — a state, not an error. A map record carries no " +
         "publication state, so this is how an author surface reads " +
-        "back what it is about to change.",
+        "back what it is about to change. The token is the map owner's " +
+        "alone: anyone else who reaches the map reads the settings " +
+        "without it.",
       tag: "Publish",
       tool: "get_publication_state", mcp: LOCAL_READ,
       display: {"verb": "Read the publication of the map {subject}", "subject": {"resource": "maps", "argument": "id"}},
@@ -498,6 +519,8 @@ export const MAP_PUBLISH_PATHS = {
     post: op(mapAccess({
       summary: "Publish a map",
       description:
+        "Minting a publication and changing its theme or reader " +
+        "controls are the map owner's alone. " +
         "Returns a stable, unguessable token. Idempotent while " +
         "published. The optional `theme` (\"light\" | \"dark\") " +
         "sets the published view's authored default: omitted on " +
@@ -545,7 +568,7 @@ export const MAP_PUBLISH_PATHS = {
     })),
     delete: op(mapAccess({
       summary: "Unpublish a map",
-      description: "The link stops resolving immediately.",
+      description: "The link stops resolving immediately. Revoking a publication is the map owner's alone.",
       tag: "Publish",
       tool: "unpublish_map", mcp: LOCAL_REPLACE,
       display: {"verb": "Unpublished the map {subject}", "subject": {"resource": "maps", "argument": "id"}},
@@ -589,7 +612,7 @@ export const MAP_DEPENDENCY_SCHEMAS = {
         type: "array",
         description:
           "The distinct registered datasets the map's layers read, " +
-          "alphabetical by name.",
+          "alphabetical by the name the caller would type.",
         items: { $ref: "#/components/schemas/DependencyDataset" },
       },
     },
@@ -598,6 +621,56 @@ export const MAP_DEPENDENCY_SCHEMAS = {
 };
 
 export const MAP_SCHEMAS = {
+  ResourceOwner: {
+    type: "object",
+    description:
+      "A person a resource names: its owner, or the account whose SQL " +
+      "home it is. The display name and the SQL name, never an email.",
+    properties: {
+      name: { type: "string" },
+      sqlName: {
+        type: "string",
+        description: "The person's SQL name, the qualifier other people's SQL uses for their datasets.",
+      },
+    },
+    required: ["name", "sqlName"],
+  },
+  MapPresence: {
+    type: "object",
+    description:
+      "What every map read and listing carries beyond the stored map, " +
+      "the same for the caller's own maps as for maps shared with them. " +
+      "Never part of the published view.",
+    properties: {
+      projectId: {
+        type: ["string", "null"],
+        description:
+          "The project this map is in: on the caller's own map always, " +
+          "a project they no longer reach included (they withdraw it " +
+          "with PATCH /api/projects/{id}/members), and on anyone else's " +
+          "the project through which the caller reaches it; null = in " +
+          "no project.",
+      },
+      owner: {
+        $ref: "#/components/schemas/ResourceOwner",
+        description: "The map's owner.",
+      },
+      home: {
+        type: "string",
+        description:
+          "The SQL name of the map's SQL home: the account whose " +
+          "datasets its plain table names mean, whoever reads it. Fixed " +
+          "at creation; duplication and transfer keep it.",
+      },
+    },
+    required: ["projectId", "owner", "home"],
+  },
+  MapCreated: {
+    allOf: [
+      { $ref: "#/components/schemas/Map" },
+      { $ref: "#/components/schemas/MapPresence" },
+    ],
+  },
   Map: {
     type: "object",
     properties: {
@@ -636,8 +709,20 @@ export const MAP_SCHEMAS = {
         description:
           "Whether widgets ship with the published view.",
       },
-      publishToken: { type: ["string", "null"] },
+      publishToken: {
+        type: ["string", "null"],
+        description:
+          "The published link's token, the map owner's alone: null to " +
+          "anyone else who reaches the map, and null while unpublished. " +
+          "Handing the link out is publishing, which stays the owner's act.",
+      },
       publishedAt: { type: ["string", "null"] },
+      published: {
+        type: "boolean",
+        description:
+          "Whether a publication is live, for everyone who reaches the " +
+          "map; `publishedAt` says since when.",
+      },
       createdAt: { type: "string" },
       updatedAt: { type: "string" },
     },
@@ -651,8 +736,11 @@ export const MAP_SCHEMAS = {
           projectId: {
             type: ["string", "null"],
             description:
-              "The project this map is in; null = not in " +
-              "a project. Never part of the published view.",
+              "The project this map is in: on the caller's own map " +
+              "always, a project they no longer reach included, and on " +
+              "anyone else's the project through which the caller " +
+              "reaches it; null = in no project. Never part of " +
+              "the published view.",
           },
           layerCount: { type: "integer" },
           layerColors: {
@@ -664,6 +752,7 @@ export const MAP_SCHEMAS = {
           },
         },
       },
+      { $ref: "#/components/schemas/MapPresence" },
     ],
   },
   MapList: {
@@ -682,12 +771,15 @@ export const MAP_DETAIL_SCHEMAS = {
           projectId: {
             type: ["string", "null"],
             description:
-              "The project this map is in; null = not " +
-              "in a project. Detail reads carry it; the published " +
-              "surfaces never do.",
+              "The project this map is in: on the caller's own map " +
+              "always, a project they no longer reach included, and on " +
+              "anyone else's the project through which the caller " +
+              "reaches it; null = in no project. Detail reads " +
+              "carry it; the published surfaces never do.",
           },
         },
       },
+      { $ref: "#/components/schemas/MapPresence" },
       {
         type: "object",
         properties: {
@@ -742,7 +834,9 @@ export const MAP_DETAIL_SCHEMAS = {
       widgetsPublished: {
         type: "boolean",
         description:
-          "Whether widgets ship with the published view.",
+          "Whether widgets ship with the published view. A publication " +
+          "setting: only the map's owner changes it, and anyone else's " +
+          "write that would change it is refused whole with forbidden.",
       },
       layerOrder: {
         type: "array",

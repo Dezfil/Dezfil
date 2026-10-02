@@ -5,6 +5,7 @@ import { assertReadOnlySelect } from "@/lib/query/guard";
 import { getOwnedTableByName, requireOwnedTableReference } from "@/lib/metadata/owned-tables";
 import { deriveTableName } from "@/lib/ingest/naming";
 import { compileOperation, type CompiledRun } from "./compile";
+import type { DatasetScope } from "@/lib/query/access";
 
 export interface RunRequest {
   operation: string;
@@ -38,6 +39,8 @@ export async function admit(
   scope: AccountScope,
   request: RunRequest,
   owns?: { id: string; name: string },
+  /** A workflow step's evaluation context; a standalone run is the caller's. */
+  evaluation: DatasetScope = scope,
 ): Promise<{
   sql: string;
   name: string;
@@ -53,6 +56,7 @@ export async function admit(
   const { sql, name, measurement, bindings, prepare, assumedCrs: ownRoute } = await compileOperation(scope,
     request.operation,
     params,
+    { evaluation },
   );
 
   // An empty subject is refused rather than quietly treated as absent: it
@@ -93,7 +97,7 @@ export async function admit(
   // checked in any case — so this skips a check that cannot run, not one that
   // matters.
   if (!prepare) {
-    await boundedEvaluation(async (conn) => assertReadOnlySelect(conn, sql), { scope });
+    await boundedEvaluation(async (conn) => assertReadOnlySelect(conn, sql), { scope: evaluation });
   }
 
   // The assumed-CRS observation, said **before the run**: a metric answer over data whose WGS84 was guessed is still
@@ -130,7 +134,8 @@ export async function admitOwned(
   scope: AccountScope,
   request: RunRequest,
   owns: { id: string; name: string } | undefined,
+  evaluation: DatasetScope = scope,
 ) {
-  return admit(scope, request, owns);
+  return admit(scope, request, owns, evaluation);
 }
 

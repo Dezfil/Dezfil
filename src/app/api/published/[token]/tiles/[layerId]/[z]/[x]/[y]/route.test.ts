@@ -12,7 +12,7 @@ import { resetQueryInstance } from "@/lib/duckdb";
 import { createMap } from "@/lib/map-service";
 import { createLayer } from "@/lib/layer-service";
 import { getLayer } from "@/lib/metadata/maps";
-import { upsertTileRecord } from "@/lib/metadata/tiles";
+import { datasetInputs, seedReadyTiles } from "@/lib/test-support/tile-evidence";
 import { publishMap, unpublishMap } from "@/lib/publish/publish-service";
 import { publishedFieldsSignature } from "@/lib/publish/published-fields";
 import { resetRateLimits } from "@/lib/publish/rate-limit";
@@ -39,7 +39,7 @@ beforeEach(async () => {
   readTileMock.mockReset();
   const source = path.join(dir, "points.csv");
   await writeFile(source, "id,lon,lat\n1,1,2\n2,3,4\n");
-  await ingestFile(testAccountScope(), source, "points.csv");
+  const points = await ingestFile(testAccountScope(), source, "points.csv");
   const map = createMap(testAccountScope(), "m");
   mapId = map.id;
   const layer = await createLayer(testAccountScope(), map.id, { name: "l", sql });
@@ -50,11 +50,10 @@ beforeEach(async () => {
   ensureTileDirs();
   await writeFile(tileArchivePath(layerId), "artifact");
   const built = getLayer(layerId)!;
-  upsertTileRecord({
-    layerId,
-    state: "ready",
-    // Exactly as the build path mints it — the parity the route's
-    // authorization must reproduce.
+  // Exactly as the build path mints it, with the evidence it writes — the
+  // parity the route's authorization must reproduce.
+  const inputs = datasetInputs([points.id]);
+  seedReadyTiles(layerId, {
     fingerprint: tileFingerprint(
       sql,
       [],
@@ -62,12 +61,11 @@ beforeEach(async () => {
         timeline: map.timeline,
         widgets: map.widgets,
         widgetsPublished: map.widgetsPublished,
-      }), layerId,
+      }), inputs,
     ),
-    error: null,
     featureCount: 2,
     builtAt,
-  });
+  }, inputs);
 });
 
 afterEach(async () => {

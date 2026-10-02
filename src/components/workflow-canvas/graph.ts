@@ -3,7 +3,7 @@ import type { TableListing } from "../api";
 import { formatRelativeTime } from "../api";
 import { nodeState, type ChipTone, type WorkflowStep } from "../workflow-model";
 import type { RunMemberOverlay, RunOverlay } from "./run-overlay";
-import { normalName, producersByName, sourceId } from "../workflow-producers";
+import { normalName, producerOf, producersByName, readKey, readTarget, sourceId } from "../workflow-producers";
 
 /**
  * The canvas's graph: what is on the canvas and how it is joined, derived
@@ -34,6 +34,8 @@ export interface GraphInput {
    * missing on the listing's account. */
   tables: TableListing[] | null;
   operations: OperationDef[];
+  /** The SQL name of the workflow's home, where its plain names live. */
+  home?: string | null;
 }
 
 export type StateWord =
@@ -45,6 +47,7 @@ export type StateWord =
   | "cannot run"
   | "run failed"
   | "output deleted"
+  | "output not available"
   | "stale"
   | "edited"
   | "never run"
@@ -84,6 +87,13 @@ export interface SourceMember {
   id: string;
   name: string;
   table: { rowCount: number; geometryType: string | null; geometryColumn: string | null } | null;
+  /** The listed dataset the name points at, and the name its reader types
+   * for it; null when the listing holds no such dataset. */
+  tableId: string | null;
+  typedName: string | null;
+  /** The SQL name of the space the name points at: its qualifier, else the
+   * workflow's home; null when the home is not known. */
+  space: string | null;
   missing: boolean;
   /** Positioned by the layout though nothing reads it. */
   loose: boolean;
@@ -110,6 +120,9 @@ export interface CanvasGraph {
   edges: CanvasEdge[];
   /** Distinct present external reads — the API summary's source count. */
   presentSourceCount: number;
+  /** The SQL name of the workflow's home, where its plain names live;
+   * null or absent when it is not known. */
+  home?: string | null;
 }
 
 const BADGE: Record<StateWord, BadgeGlyph> = {
@@ -121,6 +134,7 @@ const BADGE: Record<StateWord, BadgeGlyph> = {
   "cannot run": "warn",
   "run failed": "warn",
   "output deleted": "rerun",
+  "output not available": null,
   stale: "rerun",
   edited: "edit",
   "never run": null,
@@ -130,6 +144,7 @@ const BADGE: Record<StateWord, BadgeGlyph> = {
 const CONDITION_WORD: Record<string, string> = {
   broken: "cannot run",
   output_missing: "output deleted",
+  output_unavailable: "output not available",
   stale: "stale",
   never_run: "never run",
   current: "up to date",
@@ -173,30 +188,52 @@ export function disclosureOf(step: WorkflowStep, label: string, outputName: stri
   return parts.join(" · ");
 }
 
+/**
+ * The listed dataset a name written in the workflow's home points at: a
+ * plain name the home's, `<sql name>.<dataset>` that person's. Two people's
+ * same-named datasets are both in a reader's listing, so the name alone
+ * never decides. A listing entry that carries no owner is matched by name.
+ */
+export function listedFor(tables: readonly TableListing[], written: string, home: string | null | undefined): TableListing | null {
+  const target = readTarget(written);
+  const owner = target.owner ?? home?.toLowerCase() ?? null;
+  const name = normalName(target.name);
+  return (
+    tables.find((t) => {
+      if (normalName(t.name) !== name) return false;
+      const listedOwner = t.owner?.sqlName?.toLowerCase();
+      return owner === null || listedOwner === undefined || listedOwner === owner;
+    }) ?? null
+  );
+}
+
 export function canvasGraph(input: GraphInput): CanvasGraph {
   const ordered = [...input.steps].sort((a, b) => a.ordinal - b.ordinal);
   const producer = producersByName(ordered);
   const ops = new Map(input.operations.map((o) => [o.id, o]));
-  const tables = input.tables ? new Map(input.tables.map((t) => [normalName(t.name), t])) : null;
+  const tables = input.tables;
 
   // Names the recipe itself reports missing, outright (not through a
   // producer): the authoritative account, whatever the listing says.
   const reportedMissing = new Set<string>();
   for (const s of ordered) {
-    for (const m of s.missingInputs) if (!m.throughStepId) reportedMissing.add(normalName(m.tableName));
+    for (const m of s.missingInputs) if (!m.throughStepId) reportedMissing.add(readKey(m.tableName));
   }
 
   const sources = new Map<string, SourceMember>();
   const source = (name: string, how: { loose?: boolean; lineageOnly?: boolean }) => {
-    const key = normalName(name);
+    const key = readKey(name);
     let m = sources.get(key);
     if (!m) {
-      const t = tables?.get(key) ?? null;
+      const t = tables ? listedFor(tables, name, input.home) : null;
       m = {
         kind: "source",
         id: sourceId(name),
         name,
         table: t ? { rowCount: t.rowCount, geometryType: t.geometryType, geometryColumn: t.geometryColumn } : null,
+        tableId: t?.id ?? null,
+        typedName: t ? t.qualifiedName ?? t.name : null,
+        space: readTarget(name).owner ?? input.home?.toLowerCase() ?? null,
         missing: reportedMissing.has(key) || (tables !== null && !t),
         loose: !!how.loose,
         lineageOnly: !!how.lineageOnly,
@@ -212,7 +249,7 @@ export function canvasGraph(input: GraphInput): CanvasGraph {
     return m;
   };
   const endpointFor = (name: string): string => {
-    const p = producer.get(normalName(name));
+    const p = producerOf(producer, name);
     return p ?? source(name, {}).id;
   };
 
@@ -256,12 +293,12 @@ export function canvasGraph(input: GraphInput): CanvasGraph {
       sql,
     });
 
-    const staleTables = new Set(s.causes.map((c) => normalName(c.tableName)));
-    const lineage = new Set(s.inputs.map((i) => normalName(i.name)));
+    const staleTables = new Set(s.causes.map((c) => readKey(c.tableName)));
+    const lineage = new Set(s.inputs.map((i) => readKey(i.name)));
     const activeValues = new Map<string, string>();
     for (const p of ports) {
       const v = s.parameters[p.name];
-      if (typeof v === "string") activeValues.set(p.name, normalName(v));
+      if (typeof v === "string") activeValues.set(p.name, readKey(v));
     }
 
     // Present reads: one edge per read; a named input's read attaches to
@@ -269,8 +306,8 @@ export function canvasGraph(input: GraphInput): CanvasGraph {
     // node's to its side.
     const claimed = new Set<string>();
     const attachFor = (read: string): CanvasEdge["attachment"] => {
-      const key = normalName(read);
-      const port = ports.find((p) => !claimed.has(p.name) && p.value !== null && normalName(p.value) === key);
+      const key = readKey(read);
+      const port = ports.find((p) => !claimed.has(p.name) && p.value !== null && readKey(p.value) === key);
       if (!port) return { kind: "sql" };
       claimed.add(port.name);
       return { kind: "port", port: port.name };
@@ -279,16 +316,16 @@ export function canvasGraph(input: GraphInput): CanvasGraph {
     // reads of one table into one name.
     const seenReads: string[] = [];
     for (const read of s.reads) {
-      const key = normalName(read);
+      const key = readKey(read);
       // Every port set to this table draws its own edge.
-      const matching = ports.filter((p) => p.value !== null && normalName(p.value) === key);
+      const matching = ports.filter((p) => p.value !== null && readKey(p.value) === key);
       const count = Math.max(1, matching.length);
       if (seenReads.includes(key)) continue;
       seenReads.push(key);
       for (let i = 0; i < count; i++) {
         const attachment = attachFor(read);
         const from = endpointFor(read);
-        if (!producer.has(key)) present.add(key);
+        if (producerOf(producer, read) === undefined) present.add(key);
         const proposed =
           s.proposedParameters !== null &&
           (attachment.kind === "port"
@@ -311,9 +348,9 @@ export function canvasGraph(input: GraphInput): CanvasGraph {
     // "built from" — only where a pending edit moved the definition away.
     if (s.proposedParameters !== null && s.output !== null) {
       for (const input of s.inputs) {
-        const key = normalName(input.name);
+        const key = readKey(input.name);
         if (seenReads.includes(key)) continue;
-        const p = producer.get(key);
+        const p = producerOf(producer, input.name);
         const from = p ?? source(input.name, { lineageOnly: true }).id;
         // A named-input node draws its lineage into the port that read the
         // table (the active definition's), or its first port: the SQL side
@@ -336,8 +373,8 @@ export function canvasGraph(input: GraphInput): CanvasGraph {
 
   // Loose tables the layout positions though nothing reads them.
   for (const name of Object.keys(input.layout.sources)) {
-    const key = normalName(name);
-    if (producer.has(key) || sources.has(key)) continue;
+    const key = readKey(name);
+    if (producerOf(producer, name) !== undefined || sources.has(key)) continue;
     source(name, { loose: true });
   }
 
@@ -345,5 +382,6 @@ export function canvasGraph(input: GraphInput): CanvasGraph {
     members: [...sources.values(), ...nodes],
     edges,
     presentSourceCount: present.size,
+    home: input.home ?? null,
   };
 }

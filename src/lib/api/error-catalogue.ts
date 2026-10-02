@@ -12,7 +12,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   email_taken: "An account already uses this normalized email address.",
   self_change_refused: "Another admin must change your admin flag or deactivate your account.",
   last_admin: "Keep at least one active admin.",
-  forbidden: "This request is not permitted for the current account or origin.",
+  forbidden: "This request is not permitted for the current account or origin: an admin-only request, a cookie request from another origin, or a change to something the account can view but cannot make. A refused change has no effect.",
   invalid_link: "This sign-in link is unavailable, expired, replaced or already used.",
   current_password_required: "Enter your current password to make this change.",
   ingress_unavailable: "Trusted socket provenance is unavailable. Authentication entry cannot proceed.",
@@ -116,6 +116,8 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
     "The write introduces a reference to a column the layer's result does not provide, or provides with a type the channel cannot use, so it was refused; stored references are never retro-refused.",
   field_not_published:
     "The selection references a field the published surface does not declare: outside the layer's effective published field set and not a published widget's field.",
+  catalogue_not_published:
+    "A published layer or widget whose SQL reads the instance's catalogue does not evaluate on the link while its owner holds datasets the map does not name: a published map reaches only the datasets its own layers name, and the link would otherwise disclose the others.",
   selection_incompatible:
     "The selection's values cannot be evaluated against its field's type (for example a time range on a non-time field); it was refused before evaluation.",
   rate_limited: "Too many requests or sign-in attempts; retry after the indicated delay.",

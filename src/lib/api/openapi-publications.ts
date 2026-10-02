@@ -4,7 +4,7 @@ import { LOCAL_DELETE } from "./operation-mcp";
 import { resource, writes } from "./operation-metadata";
 
 export function publicationAccess<T extends Parameters<typeof op>[0]>(config: T): T {
-  return { ...config, description: "The token retains the map owner's dataset scope independently of visitor credentials, including while the owner is deactivated. Before first-account setup, a legacy token has only its pending-adoption publication scope; setup retires that scope atomically. Revocation is checked after asynchronous work before returning results. The projection never exposes account identity, private SQL, dataset paths or connection credentials. " + (config.description ?? "") };
+  return { ...config, description: "The token evaluates the map's SQL in its SQL home with the map owner's current reach, independently of visitor credentials, including while the owner is deactivated, restricted to the datasets the map's own layers name: nothing else of the owner's space is mounted for the link. A layer or widget that reads the instance's catalogue fails with catalogue_not_published while the owner holds datasets the map does not name, and one naming a dataset the owner can no longer reach fails with sql_error. Before first-account setup, a legacy token has only its pending-adoption publication scope; setup retires that scope atomically. Revocation is checked after asynchronous work before returning results. The projection never exposes account identity, private SQL, dataset paths or connection credentials. " + (config.description ?? "") };
 }
 export const PUBLICATION_ADMIN_PATHS = {
   "/api/publications/{token}": {

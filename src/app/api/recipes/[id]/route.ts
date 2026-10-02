@@ -1,8 +1,10 @@
 import { resourceAbsent } from "@/lib/auth/owned-resource";
 import { requireRequestScope } from "@/lib/auth/scope-http";
+import { requireWorkflowEdit } from "@/lib/workflow-access";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
-import { deleteRecipe, getRecipe, renameRecipe } from "@/lib/metadata/owned-recipes";
+import { deleteRecipe, renameRecipe } from "@/lib/metadata/owned-recipes";
+import { requirePermitted } from "@/lib/auth/reach";
 import { readRecipe } from "@/lib/operations/recipe-view";
 import { jsonBody, recipeName, recipePayload } from "@/lib/operations/recipe-api";
 
@@ -22,6 +24,7 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id } = await params;
+    requireWorkflowEdit(scope, id);
     const body = await jsonBody(request);
     if (!renameRecipe(scope, id, recipeName(body))) {
       throw resourceAbsent();
@@ -44,8 +47,9 @@ export async function DELETE(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id } = await params;
-    const recipe = getRecipe(scope, id);
-    if (!recipe || !deleteRecipe(scope, id)) {
+    // Deleting a workflow is its owner's act.
+    requirePermitted(scope, "workflow", id, "delete");
+    if (!deleteRecipe(scope, id)) {
       throw resourceAbsent();
     }
     return NextResponse.json({

@@ -1,32 +1,45 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { readApiError } from "../api";
+import { readApiError, readRecipes } from "../api";
 import { serverUnreachable } from "../failure-copy";
 import { GeometryIcon, geometryKind } from "../gallery-icons";
+import { unreachedProjects } from "../scope/model";
 import { invalidateProjects } from "../shell/use-project-name";
 import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { ErrorNote } from "../ui/ErrorNote";
 import { Spinner } from "../Spinner";
 import {
+  addable,
   dialogTitle,
   dialogTitleParts,
   footer,
+  initialSelection,
   membersFor,
+  producersOf,
   resolveEnter,
   searchRows,
   subjectCopy,
   type DependencyWire,
   type Destination,
+  type FilingSelection,
   type FilingSubject,
 } from "./add-model";
+import { KindIcon } from "./ProjectPicture";
+import { EMPTY_WORD, contentsWords, workflowCounts } from "./model";
 import styles from "./AddToProjectDialog.module.css";
 
 /* The 14-A dialog: the picker
-   over the checklist over the live footer. Nothing is picked on open —
-   it asks, it does not guess. Submission is single-flight over the two
-   shipped membership roads. */
+   over the checklist over the live footer. No destination is picked on
+   open — it asks, it does not guess — and only the projects one may file
+   into are offered. The checklist offers one's own datasets and, apart
+   from them, the workflows of one's own that make them, each a box of its
+   own; another person's dependency is listed as not one's to add.
+   Submission is single-flight over the two shipped membership roads.
+   One's own subject still filed in a project one no longer reaches (one
+   was removed from it) says so, and takes it out of there in one press:
+   a withdrawal is always its owner's. */
 
 const NAME_MAX = 120;
 
@@ -46,7 +59,15 @@ interface ProjectRowWire {
   name: string;
   mapCount: number;
   tableCount: number;
+  /** The reader's role: an owner or an Editor may file there. */
+  role?: "owner" | "editor" | "viewer";
 }
+
+/** A project one may file one's own work into: one's own, or one where one
+ * is an Editor. */
+const mayFile = (p: ProjectRowWire) => p.role === undefined || p.role === "owner" || p.role === "editor";
+
+const NOTHING: FilingSelection = { datasets: new Set(), workflows: new Set() };
 
 async function readJson<T>(path: string, doing: string): Promise<T> {
   let response: Response;
@@ -66,16 +87,25 @@ type Reads =
       status: "ready";
       deps: DependencyWire[];
       projects: ProjectRowWire[];
+      /** Every project the reader reaches, filing rights or not. */
+      reached: Set<string>;
+      /** Each project's workflows, from the workflow-origin listing. */
+      workflows: Map<string, number>;
     };
 
 export function AddToProjectDialog({
   subject,
   onClose,
   onDone,
+  onWithdrawn,
 }: {
   /** A map or, a workflow or a dataset. */
   subject: FilingSubject;
   onClose: () => void;
+  /** The subject was taken out of projects the reader no longer reaches:
+   * their identities, for the caller's own truth-keeping, and the refusal
+   * that stopped the rest, if one did after some were taken out. */
+  onWithdrawn: (outcome: { projectIds: string[]; refusal?: string }) => void;
   /** The confirmed outcome: the destination's id and name, and what
    * moved, for the caller's own truth-keeping and statement. */
   onDone: (outcome: {
@@ -94,7 +124,7 @@ export function AddToProjectDialog({
   const [attempt, setAttempt] = useState(1);
   const reads: Reads =
     answered.attempt === attempt ? answered.reads : { status: "pending" };
-  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [checked, setChecked] = useState<FilingSelection>(NOTHING);
   const [destination, setDestination] = useState<Destination>(null);
   const [query, setQuery] = useState("");
   const [newName, setNewName] = useState("");
@@ -120,17 +150,25 @@ export function AddToProjectDialog({
                   "list the workflow's datasets",
                 ).then((b) => b.datasets)
               : Promise.resolve([]);
-        const [deps, projects] = await Promise.all([
+        const [deps, listed, workflows] = await Promise.all([
           depsRead,
           readJson<ProjectRowWire[]>("/api/projects", "load the projects"),
+          readRecipes("workflow"),
         ]);
         if (cancelled) return;
         setAnswered({
           attempt: mine,
-          reads: { status: "ready", deps, projects },
+          reads: {
+            status: "ready",
+            deps,
+            projects: listed.filter(mayFile),
+            reached: new Set(listed.map((p) => p.id)),
+            workflows: workflowCounts(workflows),
+          },
         });
-        // Everything the map draws from starts selected.
-        setChecked(new Set(deps.map((d) => d.id)));
+        // One's own datasets start selected, and for a map the workflows of
+        // one's own that make them.
+        setChecked(initialSelection(subject, deps));
       } catch (e) {
         if (!cancelled)
           setAnswered({
@@ -148,6 +186,8 @@ export function AddToProjectDialog({
     return () => {
       cancelled = true;
     };
+    // The subject's identity and kind decide the reads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subject.id, subject.kind, attempt]);
 
   const copy = subjectCopy(subject.kind);
@@ -167,6 +207,10 @@ export function AddToProjectDialog({
   );
 
   const ready = reads.status === "ready" ? reads : null;
+  const producers = useMemo(
+    () => (ready ? producersOf(subject, ready.deps) : []),
+    [ready, subject],
+  );
   const names = useMemo(
     () => new Map((ready?.projects ?? []).map((p) => [p.id, p.name])),
     [ready],
@@ -188,6 +232,49 @@ export function AddToProjectDialog({
     subject.kind,
   );
   const canConfirm = ready !== null && foot.enabled && !submitting;
+  // Filed where the reader no longer reaches: the directory does not list it.
+  const unreached = useMemo(
+    () => (ready ? [...currentIds].filter((id) => !ready.reached.has(id)) : []),
+    [ready, currentIds],
+  );
+
+  const withdraw = useCallback(async () => {
+    if (inFlight.current || unreached.length === 0) return;
+    inFlight.current = true;
+    setSubmitting(true);
+    setRefusal(null);
+    const change =
+      subject.kind === "map"
+        ? { removeMaps: [subject.id] }
+        : subject.kind === "workflow"
+          ? { removeRecipes: [subject.id] }
+          : { removeTables: [subject.id] };
+    const done: string[] = [];
+    try {
+      for (const projectId of unreached) {
+        const response = await fetch(`/api/projects/${projectId}/members`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(change),
+        });
+        if (!response.ok) throw new Error(await readApiError(response));
+        done.push(projectId);
+      }
+      onWithdrawn({ projectIds: done });
+    } catch (e) {
+      const refusal =
+        e instanceof Error ? e.message : "The change couldn't be applied.";
+      // What was taken out stays out: the caller keeps that truth and says
+      // the refusal. Nothing taken out keeps the dialog, as a filing does.
+      if (done.length > 0) {
+        onWithdrawn({ projectIds: done, refusal });
+        return;
+      }
+      setRefusal(refusal);
+      inFlight.current = false;
+      setSubmitting(false);
+    }
+  }, [unreached, subject, onWithdrawn]);
 
   const confirm = useCallback(async () => {
     if (!ready || !destination || inFlight.current) return;
@@ -284,6 +371,21 @@ export function AddToProjectDialog({
 
       {ready && (
         <div className={styles.body}>
+          {unreached.length > 0 && (
+            <div className={styles.unreached} data-unreached-project>
+              <span>
+                <b>In {unreachedProjects(unreached.length)}.</b> Its people
+                still see it.
+              </span>
+              <Button
+                variant="quiet"
+                onClick={() => void withdraw()}
+                disabled={submitting}
+              >
+                Take it out
+              </Button>
+            </div>
+          )}
           <div className={styles.selHead}>Project</div>
           <input
             className={styles.findInput}
@@ -329,7 +431,7 @@ export function AddToProjectDialog({
                     <span className={styles.pMeta}>
                       {current
                         ? "current project"
-                        : `${p.mapCount} map${p.mapCount === 1 ? "" : "s"} · ${p.tableCount} dataset${p.tableCount === 1 ? "" : "s"}`}
+                        : contentsWords(p, ready?.workflows.get(p.id) ?? 0).join(" · ") || EMPTY_WORD}
                     </span>
                   </label>
                 );
@@ -386,13 +488,16 @@ export function AddToProjectDialog({
                 <button
                   type="button"
                   onClick={() =>
-                    setChecked(new Set(ready.deps.map((d) => d.id)))
+                    setChecked({
+                      ...checked,
+                      datasets: new Set(ready.deps.filter(addable).map((d) => d.id)),
+                    })
                   }
                 >
                   All
                 </button>
                 <i>·</i>
-                <button type="button" onClick={() => setChecked(new Set())}>
+                <button type="button" onClick={() => setChecked({ ...checked, datasets: new Set() })}>
                   None
                 </button>
               </span>
@@ -406,16 +511,22 @@ export function AddToProjectDialog({
                   .map((id) => names.get(id))
                   .filter((x): x is string => typeof x === "string")
                   .sort((a, b) => a.localeCompare(b));
+                const mine = addable(d);
                 return (
-                  <label key={d.id} className={styles.checkRow}>
+                  <label
+                    key={d.id}
+                    className={styles.checkRow}
+                    data-not-addable={mine ? undefined : ""}
+                  >
                     <input
                       type="checkbox"
-                      checked={checked.has(d.id)}
+                      checked={mine && checked.datasets.has(d.id)}
+                      disabled={!mine}
                       onChange={(e) => {
-                        const next = new Set(checked);
+                        const next = new Set(checked.datasets);
                         if (e.target.checked) next.add(d.id);
                         else next.delete(d.id);
-                        setChecked(next);
+                        setChecked({ ...checked, datasets: next });
                       }}
                     />
                     <span
@@ -426,12 +537,17 @@ export function AddToProjectDialog({
                         kind={geometryKind(d.geometryType, d.geometryColumn)}
                       />
                     </span>
-                    <span className={styles.dsName}>{d.name}</span>
+                    <span className={styles.dsName}>{d.qualifiedName ?? d.name}</span>
                     <span className={styles.dsMeta}>
                       {SOURCE_WORDS[d.source] ?? d.source} ·{" "}
                       {d.rowCount.toLocaleString("en-US")} row
                       {d.rowCount === 1 ? "" : "s"}
                     </span>
+                    {!mine && (
+                      <span className={styles.dsSub}>
+                        {d.owner ? <><b>{d.owner.name}</b>’s · </> : null}not yours to add
+                      </span>
+                    )}
                     {d.producer && (
                       <span className={styles.dsSub}>
                         {d.producer.id === subject.id ? (
@@ -439,17 +555,11 @@ export function AddToProjectDialog({
                         ) : (
                           <>
                             made by <b>{d.producer.name}</b>
-                            {/* Producers ride along with a MAP's checked
-                                outputs; a workflow moves with its datasets
-                                only, so no such promise here. */}
-                            {subject.kind === "map" && checked.has(d.id)
-                              ? ", which comes along"
-                              : ""}
                           </>
                         )}
                       </span>
                     )}
-                    {others.length > 0 && (
+                    {mine && others.length > 0 && (
                       <span className={styles.dsSub}>
                         also in <b>{others.join(", ")}</b>, stays shared
                       </span>
@@ -461,6 +571,45 @@ export function AddToProjectDialog({
                 <div className={styles.pickEmpty}>{copy.empty}</div>
               )}
             </div>
+          )}
+          {/* The workflows that make those datasets, each a box of its own:
+              a dataset can be filed without the workflow that makes it, and
+              the workflow without its dataset. */}
+          {copy.checklist !== null && producers.length > 0 && (
+            <>
+              <div className={styles.selHead}>
+                Workflows that make them <small>{producers.length}</small>
+              </div>
+              <div className={styles.checkRows} data-producers>
+                {producers.map((p) => (
+                  <label
+                    key={p.id}
+                    className={styles.checkRow}
+                    data-not-addable={p.owned ? undefined : ""}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={p.owned && checked.workflows.has(p.id)}
+                      disabled={!p.owned}
+                      onChange={(e) => {
+                        const next = new Set(checked.workflows);
+                        if (e.target.checked) next.add(p.id);
+                        else next.delete(p.id);
+                        setChecked({ ...checked, workflows: next });
+                      }}
+                    />
+                    <span className={styles.typeTile} data-kind="workflow">
+                      <KindIcon kind="workflow" />
+                    </span>
+                    <span className={styles.dsName} data-producer-name>
+                      {p.name}
+                    </span>
+                    <span className={styles.dsMeta}>Workflow</span>
+                    {!p.owned && <span className={styles.dsSub}>not yours to add</span>}
+                  </label>
+                ))}
+              </div>
+            </>
           )}
         </div>
       )}

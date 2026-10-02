@@ -1,9 +1,10 @@
 import { resourceAbsent } from "@/lib/auth/owned-resource";
 import { requireRequestScope } from "@/lib/auth/scope-http";
+import { requireWorkflowEdit } from "@/lib/workflow-access";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
-import { getRecipe, getStep, listSteps, moveStep } from "@/lib/metadata/owned-recipes";
+import { getStep, listSteps, moveStep } from "@/lib/metadata/owned-recipes";
 import { assertOrderingValid } from "@/lib/operations/recipe-order";
 import { readRecipe } from "@/lib/operations/recipe-view";
 import { readsByStep } from "@/lib/operations/step-reads";
@@ -26,9 +27,7 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id, stepId } = await params;
-    if (!getRecipe(scope, id)) {
-      throw resourceAbsent();
-    }
+    requireWorkflowEdit(scope, id, stepId);
     const step = getStep(scope, stepId);
     if (!step || step.recipeId !== id) {
       throw resourceAbsent();

@@ -210,6 +210,78 @@ jobs:
         run: |
           mcp_client_version=$(node -p "require('./package-lock.json').packages['node_modules/@modelcontextprotocol/client'].version")
           docker build -f scripts/mcp-probe-client.Dockerfile --build-arg MCP_CLIENT_VERSION="$mcp_client_version" -t dezfil-mcp-probe:ci .
+      # The account journeys, each on a fresh store of its own: what a person
+      # owns stays theirs (an admin and two people), and a project shares
+      # exactly what it files (an owner, a Viewer, an Editor and a stranger,
+      # the assistant's tool path read over a scripted model wire). Each
+      # seeds, the container is replaced over the same volume, and it
+      # verifies again with the saved credentials. They run from the probe
+      # client in the instance's network namespace: they drive MCP too.
+      - name: Ownership journey across a container replacement
+        run: |
+          mkdir -p "$RUNNER_TEMP/journeys"
+          chmod 777 "$RUNNER_TEMP/journeys"
+          start() {
+            docker run -d --rm --name dezfil-ownership-ci --network=none \
+              -e PORT=3383 -e DEZFIL_RENDER_CAP_FEATURES=2000 \
+              -e DEZFIL_EGRESS_ALLOWLIST=127.0.0.1 \
+              -v dezfil-ownership-ci-data:/data dezfil:ci
+            for i in $(seq 1 30); do
+              if docker exec dezfil-ownership-ci node -e "fetch('http://127.0.0.1:3383/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
+                return 0
+              fi
+              sleep 1
+            done
+            docker logs dezfil-ownership-ci
+            return 1
+          }
+          journey() {
+            docker run --rm --network=container:dezfil-ownership-ci \
+              -v "$PWD/scripts:/probe/scripts:ro" -v "$RUNNER_TEMP/journeys:/state" \
+              dezfil-mcp-probe:ci node /probe/scripts/ownership-journey.mjs \
+              "$1" http://127.0.0.1:3383 /state/ownership-state.json
+          }
+          start
+          journey seed
+          docker stop dezfil-ownership-ci
+          start
+          journey verify
+          docker stop dezfil-ownership-ci
+      - name: Sharing journey across a container replacement
+        run: |
+          mkdir -p "$RUNNER_TEMP/journeys"
+          chmod 777 "$RUNNER_TEMP/journeys"
+          start() {
+            docker run -d --rm --name dezfil-sharing-ci --network=none \
+              -e PORT=3384 -e DEZFIL_RENDER_CAP_FEATURES=2000 \
+              -e DEZFIL_EGRESS_ALLOWLIST=127.0.0.1 \
+              -e DEZFIL_AI_PROVIDER=openai -e OPENAI_API_KEY=scripted-wire \
+              -e OPENAI_BASE_URL=http://127.0.0.1:3341/v1 \
+              -v dezfil-sharing-ci-data:/data dezfil:ci
+            for i in $(seq 1 30); do
+              if docker exec dezfil-sharing-ci node -e "fetch('http://127.0.0.1:3384/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
+                return 0
+              fi
+              sleep 1
+            done
+            docker logs dezfil-sharing-ci
+            return 1
+          }
+          journey() {
+            docker run --rm --network=container:dezfil-sharing-ci \
+              -v "$PWD/scripts:/probe/scripts:ro" -v "$RUNNER_TEMP/journeys:/state" \
+              dezfil-mcp-probe:ci node /probe/scripts/sharing-journey.mjs \
+              "$1" http://127.0.0.1:3384 /state/sharing-state.json --assistant-wire=3341
+          }
+          start
+          journey seed
+          docker stop dezfil-sharing-ci
+          start
+          journey verify
+          docker stop dezfil-sharing-ci
+      - name: Stop the account journey containers
+        if: always()
+        run: docker stop dezfil-ownership-ci dezfil-sharing-ci 2>/dev/null || true
       - name: MCP restart, HTTP departure and notification characterization
         run: node scripts/mcp-process-driver.mjs --container dezfil:ci --client-image dezfil-mcp-probe:ci --port 3377
       - name: Installed plugin HTTP journey

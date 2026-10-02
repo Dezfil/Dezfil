@@ -47,7 +47,8 @@ describe("schema-only catalogue", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toEqual({ total: 1, nextAfter: null, tables: [{
-      id: "table-0", name: "table_00", rowCount: 987, geometryColumn: null, geometryType: null, crsAssumed: false,
+      id: "table-0", name: "table_00", qualifiedName: "table_00", owner: { name: "test-account", sqlName: "test_account" }, projectIds: [],
+      rowCount: 987, geometryColumn: null, geometryType: null, crsAssumed: false,
       columns: [0, 1, 2].map((i) => ({ name: `column_${i}`, type: "INTEGER" })), columnCount: 3, nextColumnOffset: null,
     }] });
     const queries = read.mock.calls.map(([sql]) => sql);

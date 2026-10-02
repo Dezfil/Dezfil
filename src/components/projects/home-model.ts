@@ -33,7 +33,7 @@ export function homeStats(members: {
     maps: members.maps.length,
     workflows: members.workflows.length,
     datasets: members.tables.length,
-    published: members.maps.filter((m) => m.publishToken).length,
+    published: members.maps.filter((m) => m.published).length,
     sizeLabel: complete ? label : `≥ ${label}`,
   };
 }

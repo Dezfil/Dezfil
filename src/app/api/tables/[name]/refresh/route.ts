@@ -2,7 +2,8 @@ import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse, ApiError } from "@/lib/api/errors";
 import { refreshTable } from "@/lib/ingest/refresh";
-import { ownedTableProjectIds } from "@/lib/metadata/owned-tables";
+import { reachedTableProjectIds } from "@/lib/metadata/owned-tables";
+import { requireOwnDataset } from "@/lib/dataset-address";
 
 type Params = { params: Promise<{ name: string }> };
 
@@ -11,7 +12,9 @@ type Params = { params: Promise<{ name: string }> };
 export async function POST(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
-    const { name } = await params;
+    // Refreshing is the owner's: another person's dataset is refused by the
+    // permission shape, whichever address names it.
+    const name = requireOwnDataset(scope, (await params).name).table.name;
     const body = (await request.json().catch(() => null)) as {
       release?: unknown;
     } | null;
@@ -34,7 +37,7 @@ export async function POST(request: Request, { params }: Params) {
     // answer like every Table-shaped response.
     return NextResponse.json({
       ...refreshed,
-      projectIds: ownedTableProjectIds(scope).get(refreshed.id) ?? [],
+      projectIds: reachedTableProjectIds(scope).get(refreshed.id) ?? [],
     });
   } catch (error) {
     return errorResponse(error);

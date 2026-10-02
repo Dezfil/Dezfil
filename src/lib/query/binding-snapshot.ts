@@ -1,5 +1,6 @@
 import type { DuckDBConnection } from "@duckdb/node-api";
 import type { DataTable } from "@/lib/metadata/tables";
+import type { RegisteredMount } from "./views";
 
 /** Only the facts materialization needs from the generation it actually bound. */
 export type BoundTable = Readonly<Pick<DataTable,
@@ -7,6 +8,10 @@ export type BoundTable = Readonly<Pick<DataTable,
 >>;
 
 export interface BindingSnapshot {
+  /** The evidence by dataset identity: what materialization records. */
+  byId: ReadonlyMap<string, BoundTable>;
+  /** The same evidence by the view each was mounted under: a plain name,
+   * or `<sql name>.<dataset>` for another owner's dataset. */
   byName: ReadonlyMap<string, BoundTable>;
   geometryOf(name: string): string | null;
 }
@@ -27,19 +32,21 @@ export interface BindingSnapshot {
  */
 export async function pinBindings(
   conn: DuckDBConnection,
-  registered: readonly DataTable[],
+  registered: readonly (DataTable | RegisteredMount)[],
 ): Promise<BindingSnapshot> {
   await conn.run("BEGIN TRANSACTION");
   await conn.runAndReadAll("SELECT count(*) FROM duckdb_views()");
-  const byName = new Map(registered.map((table) => [
-    table.name.toLowerCase(),
-    Object.freeze({
-      id: table.id,
-      name: table.name,
-      file: table.file,
-      geometryColumn: table.geometryColumn,
-      crsAssumed: table.crsAssumed,
-    }),
-  ]));
-  return { byName, geometryOf: (name) => byName.get(name.toLowerCase())?.geometryColumn ?? null };
+  const bound = registered.map((table) => Object.freeze({
+    id: table.id,
+    name: table.name,
+    file: table.file,
+    geometryColumn: table.geometryColumn,
+    crsAssumed: table.crsAssumed,
+  }));
+  const byId = new Map(bound.map((table) => [table.id, table]));
+  const byName = new Map(registered.flatMap((table, index) => {
+    const view = "view" in table ? table.view : table.name;
+    return view === null ? [] : [[view.toLowerCase(), bound[index]] as const];
+  }));
+  return { byId, byName, geometryOf: (name) => byName.get(name.toLowerCase())?.geometryColumn ?? null };
 }

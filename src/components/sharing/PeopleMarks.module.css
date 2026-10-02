@@ -1,0 +1,90 @@
+/* The people marks. The chip wears the gallery's chip; these rules only
+   size its glyph. The pill is the strip's free corner (top left; the quick
+   actions hold the right), or a quiet inline mark in a list row's name
+   cell. The initials sit in the accent wash, as the dialog's people do. */
+
+.peopleChip svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.ownerPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 3px 0 7px;
+  border-radius: var(--radius-pill);
+  color: var(--fg-muted);
+  flex: none;
+}
+
+.ownerPill svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+
+.ownerPill[data-placement="corner"] {
+  position: absolute;
+  top: 9px;
+  left: 9px;
+  z-index: 3;
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+.ownerPill[data-placement="inline"] {
+  margin-left: 8px;
+  vertical-align: middle;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  /* Inside a mono table cell the initials still read in the UI face. */
+  font-family: var(--font-ui);
+}
+
+/* Beside an opened item's name in the header path. */
+.ownerPill[data-placement="path"] {
+  height: 22px;
+  margin-left: 4px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+}
+
+.initials {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+/* The shared project's head: one quiet line under the name. */
+.roleLine {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 5px;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+
+.roleLine b {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.roleLine .initials {
+  width: 20px;
+  height: 20px;
+}

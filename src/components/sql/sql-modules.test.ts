@@ -109,7 +109,7 @@ describe("snippets", () => {
 });
 
 describe("table search", () => {
-  const t = (name: string): TableListing => ({ name } as unknown as TableListing);
+  const t = (name: string): TableListing => ({ name, qualifiedName: name } as unknown as TableListing);
   const tables = [t("berlin_cafes"), t("districts"), t("routes")];
   const cols = (n: string) => (n === "berlin_cafes" ? ["id", "name", "rating"] : n === "districts" ? ["id", "name"] : null);
   it("matches by name, then by column, naming the column", () => {
@@ -142,5 +142,31 @@ describe("stored history is validated", () => {
     expect(starterSql("berlin_cafes")).toBe("SELECT *\nFROM berlin_cafes\nLIMIT 100;");
     const s = SNIPPETS.find((x) => x.id === "buffer")!;
     expect(renderSnippet(s, { table: "My Table", geometryColumn: "Geo Col" })).toContain('ST_Buffer("Geo Col", 0.002) AS "Geo Col"\nFROM "My Table"');
+  });
+});
+
+describe("a typed reference the engine reads back", () => {
+  it("quotes every keyword that would break a bare qualifier or name", async () => {
+    const { DuckDBInstance } = await import("@duckdb/node-api");
+    const { tableReference } = await import("./sql-draft");
+    const instance = await DuckDBInstance.create(":memory:");
+    const conn = await instance.connect();
+    try {
+      const parses = async (sql: string) =>
+        !JSON.parse(String((await conn.runAndReadAll("SELECT json_serialize_sql(?::VARCHAR) AS j", [sql])).getRowObjects()[0].j)).error;
+      const keywords = (await conn.runAndReadAll("SELECT keyword_name FROM duckdb_keywords()")).getRowObjects()
+        .map((row) => String(row.keyword_name)).filter((name) => /^[a-z_][a-z0-9_]*$/.test(name));
+      expect(keywords.length).toBeGreaterThan(100);
+      const broken: string[] = [];
+      for (const keyword of keywords) {
+        for (const typed of [keyword, `${keyword}.roads`, `bo.${keyword}`]) {
+          if (!await parses(`SELECT * FROM ${tableReference(typed)}`)) broken.push(typed);
+        }
+      }
+      expect(broken).toEqual([]);
+    } finally {
+      conn.disconnectSync();
+      instance.closeSync();
+    }
   });
 });

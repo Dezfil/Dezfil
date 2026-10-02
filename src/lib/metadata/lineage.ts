@@ -1,6 +1,7 @@
 import type { Database } from "better-sqlite3";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
+import { reachableDatasetIds, requireReachable } from "@/lib/auth/reach";
 import { randomUUID } from "node:crypto";
 import { metadataDb } from "./db";
 
@@ -86,22 +87,27 @@ export function replaceEdges(
   db: Database = metadataDb(),
 ): void {
   const owner = requireAccountScope(scope, db);
-  requireOwnedResource(scope, "step", stepId, db);
+  requireReachable(scope, "step", stepId, db);
   // A bound input may have been deleted while its pinned artifact was read.
   // A new output is recorded before insertion in the publication transaction.
-  // Existing identities must belong to this owner; absent ones remain recorded
-  // by their original identity and never resolve through a reclaimed name.
-  for (const id of [outputTableId, ...edges.map(edge => edge.inputTableId)]) {
-    const row = db.prepare("SELECT owner_id FROM data_tables WHERE id = ?").get(id) as { owner_id: string | null } | undefined;
-    if (row && row.owner_id !== owner) throw resourceAbsent();
+  // The output is the runner's own; every input that still exists is one the
+  // runner reaches. Absent ones remain recorded by their original identity
+  // and never resolve through a reclaimed name.
+  const output = db.prepare("SELECT owner_id FROM data_tables WHERE id = ?").get(outputTableId) as { owner_id: string | null } | undefined;
+  if (output && output.owner_id !== owner) throw resourceAbsent();
+  const reachable = reachableDatasetIds(scope, db);
+  for (const edge of edges) {
+    if (db.prepare("SELECT id FROM data_tables WHERE id = ?").get(edge.inputTableId) && !reachable.has(edge.inputTableId)) throw resourceAbsent();
   }
   const now = new Date().toISOString();
-  db.prepare(`DELETE FROM lineage_edges WHERE step_id = ?`).run(stepId);
+  // Edges are the runner's: a run replaces what the same account's earlier
+  // run of this step bound, and records itself as the runner.
+  db.prepare(`DELETE FROM lineage_edges WHERE step_id = ? AND (runner_id = ? OR runner_id IS NULL)`).run(stepId, owner);
   const insert = db.prepare(
     `INSERT INTO lineage_edges
        (id, step_id, output_table_id, input_table_id, input_table_name,
-        bound_artifact, recorded_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        bound_artifact, recorded_at, runner_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const e of edges) {
     insert.run(
@@ -112,6 +118,7 @@ export function replaceEdges(
       e.inputTableName,
       e.boundArtifact,
       now,
+      owner,
     );
   }
 }
@@ -127,6 +134,29 @@ export function edgesForStep(
   const rows = db.prepare(`SELECT e.* FROM lineage_edges e LEFT JOIN data_tables t ON t.id = e.input_table_id
     WHERE e.step_id = ? AND (t.id IS NULL OR t.owner_id = ?) ORDER BY e.input_table_name`).all(stepId, owner) as Row[];
   return rows.map(hydrate);
+}
+
+/**
+ * What a step read, as one reader of its workflow may see it: every recorded
+ * edge whose input the reader reaches, and, for the workflow's owner, every
+ * edge whose input no longer exists, the record of an input since deleted.
+ * An input someone else still holds out of the reader's reach is left out,
+ * never named.
+ */
+export function reachedEdgesForStep(
+  scope: AccountScope,
+  stepId: string,
+  reachable: ReadonlySet<string>,
+  db: Database = metadataDb(),
+  /** Only this runner's edges: the run a view describes. */
+  runner?: string | null,
+): LineageEdge[] {
+  const owner = requireReachable(scope, "step", stepId, db).relation === "owner";
+  if (runner === null) return [];
+  const rows = db.prepare(`SELECT e.*, t.id AS live FROM lineage_edges e LEFT JOIN data_tables t ON t.id = e.input_table_id
+    WHERE e.step_id = ? ${runner === undefined ? "" : "AND e.runner_id = ?"} ORDER BY e.input_table_name`)
+    .all(...(runner === undefined ? [stepId] : [stepId, runner])) as (Row & { live: string | null })[];
+  return rows.filter((row) => reachable.has(row.input_table_id) || (owner && row.live === null)).map(hydrate);
 }
 
 /** Which steps read this table — the direction staleness travels. */

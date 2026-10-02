@@ -128,9 +128,12 @@ export async function createPostgisLayerFromTable(
     const response = await request(`/api/maps/${mapId}/layers`, {
       method: "POST",
       headers: { "content-type": "application/json" },
+      // The imported table is the importer's own: named as their console
+      // names it and carried into the map's home by the server.
       body: JSON.stringify({
         name: table.name,
         sql: `SELECT * FROM ${table.name}`,
+        writtenIn: { kind: "console" },
       }),
     });
     if (!response.ok) {
@@ -249,7 +252,7 @@ export function useLayerSourceCoordinator({
   // automatic retry (spec decision 8). Durable work lives here, in the
   // builder's lifetime, so closing the catalog never orphans it.
   const createLayerInline = useCallback(
-    async (name: string, sql: string): Promise<CreateLayerOutcome> => {
+    async (name: string, sql: string, writtenIn?: { kind: "console" }): Promise<CreateLayerOutcome> => {
       try {
         const trimmed = name.trim();
         const response = await fetch(`/api/maps/${mapId}/layers`, {
@@ -258,6 +261,7 @@ export function useLayerSourceCoordinator({
           body: JSON.stringify({
             ...(trimmed !== "" ? { name: trimmed } : {}),
             sql,
+            ...(writtenIn ? { writtenIn } : {}),
           }),
         });
         if (!response.ok) {
@@ -302,6 +306,7 @@ export function useLayerSourceCoordinator({
             body: JSON.stringify({
               name: table.name,
               sql: `SELECT * FROM ${table.name}`,
+              writtenIn: { kind: "console" },
             }),
           });
           if (!response.ok) {
@@ -727,6 +732,8 @@ export function useLayerSourceCoordinator({
     setPendingSkips,
     onLayerAdded,
     createLayerInline,
+    /** The map the catalog adds to: its SQL previews run in its home. */
+    mapId,
     // The held-open notes ride the queue object the catalog already
     // receives (plan: the existing model, the builder shell untouched).
     // A newer batch's stamp hides stale notes.

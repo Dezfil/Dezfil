@@ -48,6 +48,7 @@ function sample(id: string, createdAt: string): MapRecord {
     widgetsPublished: true,
     publishToken: null,
     publishedAt: null,
+    published: false,
     createdAt,
     updatedAt: createdAt,
   };

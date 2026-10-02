@@ -25,7 +25,9 @@ import type {
 import { ErrorNote } from "../../ui/ErrorNote";
 import { CatalogTablesView } from "./CatalogTablesView";
 import { CatalogWorkbench } from "./CatalogWorkbench";
-import { followName, followSeed, impliedQuery } from "./catalog-state";
+import { followName, followSeed, homeLine, impliedQuery, typedInHome } from "./catalog-state";
+import { useSignedInSqlName } from "../../sharing/signed-in";
+import type { PersonLabel } from "../../sharing/people";
 import { parseScope, type ProjectScope } from "../../scope/model";
 import { useProjectName } from "../../shell/use-project-name";
 import {
@@ -36,6 +38,7 @@ import { Dialog } from "../../ui/Dialog";
 import { TabPanel, Tabs, type TabSpec } from "../../ui/Tabs";
 import { IconButton } from "../../ui/IconButton";
 import { XIcon } from "../../ui/icons";
+import { datasetGeometryHref } from "../../dataset-doors";
 import styles from "./AddLayerCatalog.module.css";
 
 /** The two ways a file becomes a table. */
@@ -92,8 +95,10 @@ interface Props {
    * (decision 11 allows dismissal mid-flight) surfaces here instead of
    * vanishing with the unmount — the builder's notice channel. */
   onDismissedOutcome?: (message: string) => void;
-  /** Coordinator-backed create; durable work survives the dialog. */
-  createLayer: (name: string, sql: string) => Promise<CreateLayerOutcome>;
+  /** Coordinator-backed create; durable work survives the dialog. SQL
+   * written in the console (a picked dataset) says so and is carried into
+   * the map's home. */
+  createLayer: (name: string, sql: string, writtenIn?: { kind: "console" }) => Promise<CreateLayerOutcome>;
   /** Edit mode: persist SQL through the existing reconciling save lane.
    * Resolves true when the save was accepted. */
   updateLayer?: (sql: string) => Promise<boolean>;
@@ -121,6 +126,13 @@ interface Props {
   /** The map's project: the filter's default scope and the
    * import context — imports from a filed map's catalog join it. */
   projectId?: string | null;
+  /** The map being added to: the SQL view previews in its home. */
+  mapId?: string;
+  /** The SQL name of the map's SQL home: the catalogue names datasets as
+   * the map's SQL types them. */
+  mapHome?: string | null;
+  /** The map's owner, named in the line under the scope. */
+  mapOwner?: PersonLabel | null;
 }
 
 /**
@@ -145,6 +157,9 @@ export function AddLayerCatalog({
   listingStamp = 0,
   initialViewport = null,
   projectId = null,
+  mapId,
+  mapHome = null,
+  mapOwner = null,
 }: Props) {
   const editing = request.kind === "edit";
   // The non-spatial note's door (04): the catalog closes, its
@@ -154,7 +169,7 @@ export function AddLayerCatalog({
   const setGeometry = useCallback(
     (table: TableListing) => {
       onClose();
-      router.push(`/tables/${encodeURIComponent(table.name)}?geometry=set`);
+      router.push(datasetGeometryHref(table));
     },
     [onClose, router],
   );
@@ -200,10 +215,12 @@ export function AddLayerCatalog({
   // only real while the offered list still has it — and a scope change
   // that resolves without it CLEARS the stored pick,
   // so it can never silently resurrect under a later scope.
+  // A pick is held by the name its reader types, which tells two
+  // same-named datasets apart.
   const [pickedName, setPickedName] = useState<string | null>(null);
   const settleOffered = useCallback((offered: TableListing[]) => {
     setPickedName((current) =>
-      current !== null && !offered.some((t) => t.name === current)
+      current !== null && !offered.some((t) => t.qualifiedName === current)
         ? null
         : current,
     );
@@ -220,15 +237,21 @@ export function AddLayerCatalog({
   const pickScope = useCallback((id: string) => {
     setScope(parseScope(id === "all" ? null : id));
   }, []);
+  // Names as the map's SQL types them: on someone else's map one's own
+  // datasets carry one's SQL name, and one line under the scope says so.
+  const me = useSignedInSqlName();
+  const typed = useCallback((t: TableListing) => typedInHome(t, mapHome), [mapHome]);
   const listing: CatalogListing = {
     ...reads,
     scope,
     onScope: pickScope,
+    typed,
+    homeLine: homeLine(mapHome, mapOwner, me, reads.offered ?? []),
   };
   const offered = reads.offered;
   const picked =
     pickedName !== null && offered !== null
-      ? (offered.find((t) => t.name === pickedName) ?? null)
+      ? (offered.find((t) => t.qualifiedName === pickedName) ?? null)
       : null;
 
   // The import wing's stated trade: imports made from a filed map's
@@ -261,7 +284,7 @@ export function AddLayerCatalog({
     const previousAuto = prevAutoRef.current;
     setName((n) => followName(n, previousAuto, t.name));
     prevAutoRef.current = t.name;
-    setPickedName(t.name);
+    setPickedName(t.qualifiedName);
   }, []);
 
   // Inline commit outcome: rejection and
@@ -277,13 +300,13 @@ export function AddLayerCatalog({
   const prevSeedRef = useRef<string | null>(null);
   const switchToSql = useCallback(() => {
     setSqlDraft((d) => {
-      const next = followSeed(d, prevSeedRef.current, picked?.name ?? null);
+      const next = followSeed(d, prevSeedRef.current, picked ? typed(picked) : null);
       if (next !== d) prevSeedRef.current = next;
       return next;
     });
     setCreateError(null);
     setSource("sql");
-  }, [picked]);
+  }, [picked, typed]);
   const switchToTables = useCallback(() => {
     setCreateError(null);
     setSource("tables");
@@ -313,9 +336,12 @@ export function AddLayerCatalog({
     if (busy || picked === null || picked.geometryColumn === null) return;
     setBusy(true);
     setCreateError(null);
+    // The pick names the dataset as the console does, and that is where
+    // the server carries it from: another person's map gets its identity.
     const outcome = await createLayer(
       name.trim() || picked.name,
-      impliedQuery(picked.name),
+      impliedQuery(picked.qualifiedName),
+      { kind: "console" },
     );
     setBusy(false);
     settleCreate(outcome);
@@ -369,6 +395,7 @@ export function AddLayerCatalog({
           <div className={styles.sqlView}>
             <CatalogWorkbench
               listing={listing}
+              mapId={mapId}
               draft={editDraft}
               onDraft={setEditDraft}
               mode="edit"
@@ -458,6 +485,7 @@ export function AddLayerCatalog({
           <div className={styles.sqlView}>
             <CatalogWorkbench
               listing={listing}
+              mapId={mapId}
               draft={sqlDraft}
               onDraft={setSqlDraft}
               mode="add"

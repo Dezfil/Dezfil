@@ -1,5 +1,5 @@
 import type { WorkflowStep } from "./workflow-model";
-import { normalName, producersByName } from "./workflow-producers";
+import { producerOf, producersByName, readKey } from "./workflow-producers";
 
 /**
  * The graph a card draws: sources and nodes laid out by dependency, edges
@@ -38,8 +38,8 @@ export function workflowGraph(steps: WorkflowStep[]): WorkflowGraph {
   for (const s of ordered) {
     let d = 1;
     for (const read of s.reads) {
-      const key = normalName(read);
-      const p = producer.get(key);
+      const key = readKey(read);
+      const p = producerOf(producer, read);
       if (p && p !== s.id) {
         d = Math.max(d, (depth.get(p) ?? 0) + 1);
         edges.push({ from: p, to: s.id });

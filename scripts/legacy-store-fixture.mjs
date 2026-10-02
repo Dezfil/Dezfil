@@ -12,10 +12,11 @@ import { DuckDBInstance } from '@duckdb/node-api';
 // loads the same migrations with Node's type stripping. Scope resolution to
 // this import so the fixture does not change other modules' loader behavior.
 const migrationsUrl = new URL('../src/lib/metadata/migrations.ts', import.meta.url).href;
-const migrationModules = new Set(['./migrations-datasets-connections', './migrations-ownership']);
+const metadataUrl = new URL('../src/lib/metadata/', import.meta.url).href;
+const migrationModules = new Set(['./migrations-datasets-connections', './migrations-ownership', './migrations-sharing', './sql-names']);
 const migrationLoader = registerHooks({
   resolve(specifier, context, next) {
-    if (context.parentURL === migrationsUrl && migrationModules.has(specifier)) {
+    if (context.parentURL?.startsWith(metadataUrl) && migrationModules.has(specifier)) {
       return { ...next(specifier + '.ts', context), format: 'module-typescript' };
     }
     const result = next(specifier, context);
@@ -85,14 +86,21 @@ export async function legacyFiles(directory) {
   return Object.fromEntries(await Promise.all(['metadata.sqlite', 'secret.key', 'tables/legacy.parquet'].map(async file =>
     [file, createHash('sha256').update(await readFile(path.join(directory, file))).digest('hex')])));
 }
+// Columns an upgrade stamps from ownership rather than carrying over: the
+// owner itself, a map's or workflow's SQL home, and a lineage edge's runner.
+const ownershipStamps = new Set(['owner_id', 'home_account_id', 'runner_id']);
 export function legacyRows(db) {
   return Object.fromEntries(['projects', 'maps', 'layers', 'data_tables', 'project_datasets', 'recipes', 'recipe_steps', 'pg_connections', 'map_history', 'operation_jobs', 'recipe_layouts', 'lineage_edges']
     .map(table => [table, db.prepare(`SELECT * FROM ${table} ORDER BY 1, 2`).all().map(row =>
-      Object.fromEntries(Object.entries(row).filter(([key]) => key !== "owner_id")))]));
+      Object.fromEntries(Object.entries(row).filter(([key]) => !ownershipStamps.has(key))))]));
 }
 export function assertLegacyOwners(db, accountId) {
   for (const table of ['maps', 'data_tables', 'recipes', 'pg_connections', 'projects', 'operation_jobs']) {
     assert.deepEqual(db.prepare(`SELECT DISTINCT owner_id FROM ${table}`).all(), [{ owner_id: accountId }], table);
+  }
+  for (const table of ['maps', 'recipes']) {
+    if (!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = 'home_account_id'`).get()) continue;
+    assert.deepEqual(db.prepare(`SELECT DISTINCT home_account_id FROM ${table}`).all(), [{ home_account_id: accountId }], `${table} home`);
   }
   assert.deepEqual(db.pragma('foreign_key_check'), []);
 }

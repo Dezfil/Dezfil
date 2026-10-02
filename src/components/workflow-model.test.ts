@@ -60,6 +60,8 @@ describe("a node's state word on the workflow page", () => {
     expect(nodeState(node({ conditions: ["broken", "stale"], latestAttempt: { state: "failed" } })).label).toBe("cannot run");
     expect(nodeState(node({ conditions: ["stale"], latestAttempt: { state: "failed" } })).label).toBe("run failed");
     expect(nodeState(node({ conditions: ["output_missing", "stale"] })).label).toBe("output deleted");
+    // An output that exists outside the reader's reach is not deleted.
+    expect(nodeState(node({ conditions: ["output_unavailable"] }))).toEqual({ label: "output not available", tone: "muted" });
     expect(nodeState(node({ conditions: ["stale"], proposedParameters: { a: 1 } })).label).toBe("stale");
     expect(nodeState(node({ conditions: ["current"], proposedParameters: { a: 1 } })).label).toBe("edited");
     expect(nodeState(node({ conditions: ["never_run"] })).label).toBe("never run");

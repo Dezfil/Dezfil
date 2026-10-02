@@ -1,4 +1,5 @@
 import { SQL_POLICY } from "./openapi-sql";
+import { CARRY_RULE, WRITTEN_IN_REF } from "./openapi-written-in";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { jobAccess } from "./openapi-job-access";
 import { LOCAL_READ, LOCAL_REPLACE, REMOTE_ADD } from "./operation-mcp";
@@ -25,6 +26,16 @@ export const JOB_PATHS = {
         "Set dryRun to ask what the operation would produce without " +
         "writing anything; a dry run is synchronous and mints no " +
         "run.\n\n" +
+        "A parameter that names a dataset takes the caller's own " +
+        "dataset by its bare name, and another person's dataset the " +
+        "caller reaches by its qualified name, <sql name>.<name>; a " +
+        "dataset out of reach is refused exactly as one that does not " +
+        "exist.\n\n" +
+        "Give `writtenIn` when the parameters were written in a map's " +
+        "home or a workflow (a result previewed there and saved as a " +
+        "dataset, a tool previewing a layer's SQL): they are carried into " +
+        "the caller's own console, where a run reads its names, and the " +
+        "output is the caller's own dataset either way. " + CARRY_RULE + "\n\n" +
         SQL_POLICY + " " +
         "**sql_step** keeps the result of a read-only SELECT as a " +
         "dataset: the escape hatch inside any recipe, and the way to " +
@@ -77,6 +88,12 @@ export const JOB_PATHS = {
                   type: "boolean",
                   description:
                     "Report what the run would produce and write nothing.",
+                },
+                writtenIn: {
+                  ...WRITTEN_IN_REF,
+                  description:
+                    "Where `parameters` were written, when not the " +
+                    "caller's own console; they are carried into it.",
                 },
               },
               required: ["operation", "parameters"],

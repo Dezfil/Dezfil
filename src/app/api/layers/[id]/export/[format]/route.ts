@@ -21,6 +21,8 @@ import {
   type LayerDownloadBinding,
 } from "@/lib/export/layer-download-tickets";
 import { trackInflight } from "@/lib/query/inflight";
+import { collectInputs } from "@/lib/query/evaluation-inputs";
+import { layerDownloadSource } from "@/lib/export/layer-download-source";
 
 type Params = { params: Promise<{ id: string; format: string }> };
 
@@ -152,12 +154,12 @@ async function prepareDownload(
     if (request.signal.aborted) throw new EvaluationCancelled();
     ticket = await trackInflight(
       (async () => {
-        const file = await exportLayerResult(
+        const { value: file, inputs } = await collectInputs(() => exportLayerResult(
           scope,
           layer,
           binding.format,
           request.signal,
-        );
+        ));
         try {
           const size = (await stat(file.path)).size;
           return layerDownloadTickets.prepare(
@@ -165,6 +167,7 @@ async function prepareDownload(
             binding,
             { ...file, size },
             request.signal,
+            layerDownloadSource(scope, layer, inputs),
           );
         } catch (error) {
           await file.cleanup().catch(() => undefined);

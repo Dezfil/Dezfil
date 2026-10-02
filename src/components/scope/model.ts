@@ -7,6 +7,8 @@
  * membership treated many-to-many with no preference.
  */
 
+import { firstName } from "../sharing/people";
+
 export type ProjectScope =
   | { kind: "all" }
   | { kind: "none" }
@@ -31,6 +33,19 @@ export interface ScopeRow {
   id: string; // "all" | "none" | a project id
   name: string;
   count: number;
+  /** A project someone else owns and shares with the reader. */
+  shared?: true;
+  /** That project's owner, by first name. */
+  owner?: string;
+}
+
+/** A project as the directory names it: the reader's role and the owner
+ * arrive with every project the reader reaches. */
+export interface ScopeProject {
+  id: string;
+  name: string;
+  role?: "owner" | "editor" | "viewer";
+  owner?: { name: string; sqlName: string };
 }
 
 /** The unset scope's row id. */
@@ -51,13 +66,14 @@ export function printedCount(row: {
   return row.id === ALL_SCOPE ? null : row.count;
 }
 
-/** The popover's rows: All, every project (zero counts included), and
- * Not in a project. `membershipOf` returns every project an item is
- * in; empty means unfiled. A dataset therefore counts in each of its
- * projects and as unfiled only with none. */
+/** The popover's rows: All, the reader's own projects, the projects
+ * shared with them (each with its owner's first name), and Not in a
+ * project; zero counts included. `membershipOf` returns every project an
+ * item is in; empty means unfiled. A dataset therefore counts in each of
+ * its projects and as unfiled only with none. */
 export function scopeRows<T>(
   items: T[],
-  projects: { id: string; name: string }[],
+  projects: ScopeProject[],
   membershipOf: (item: T) => string[],
 ): ScopeRow[] {
   const perProject = new Map<string, number>();
@@ -69,13 +85,17 @@ export function scopeRows<T>(
       perProject.set(id, (perProject.get(id) ?? 0) + 1);
     }
   }
+  const sharedWithReader = (p: ScopeProject) => !!p.role && p.role !== "owner";
+  const row = (p: ScopeProject): ScopeRow => {
+    const base = { id: p.id, name: p.name, count: perProject.get(p.id) ?? 0 };
+    if (!sharedWithReader(p)) return base;
+    const owner = p.owner ? firstName(p.owner.name) : null;
+    return owner ? { ...base, shared: true, owner } : { ...base, shared: true };
+  };
   return [
     { id: ALL_SCOPE, name: "All projects", count: items.length },
-    ...projects.map((p) => ({
-      id: p.id,
-      name: p.name,
-      count: perProject.get(p.id) ?? 0,
-    })),
+    ...projects.filter((p) => !sharedWithReader(p)).map(row),
+    ...projects.filter(sharedWithReader).map(row),
     { id: "none", name: "Not in a project", count: unfiled },
   ];
 }
@@ -126,10 +146,36 @@ export function headingLine(opts: {
   return where ? `${scopedTotal}${where}` : null;
 }
 
+/** Projects the reader no longer reaches, said without a name: one's own
+ * work stays filed in a project one was removed from until one takes it
+ * out, and the directory, which lists what one reaches, has no name for it. */
+export function unreachedProjects(count: number): string {
+  return count === 1
+    ? "a project you no longer reach"
+    : `${count} projects you no longer reach`;
+}
+
+/** Membership identities as words: the names the directory knows,
+ * alphabetical so order asserts nothing, then any it does not know as
+ * projects the reader no longer reaches. */
+export function membershipNames(
+  ids: readonly string[],
+  names: ReadonlyMap<string, string>,
+): string[] {
+  const named = ids
+    .map((id) => names.get(id))
+    .filter((n): n is string => typeof n === "string")
+    .sort((a, b) => a.localeCompare(b));
+  const unreached = new Set(ids.filter((id) => !names.has(id))).size;
+  return unreached ? [...named, unreachedProjects(unreached)] : named;
+}
+
 /** The dataset row's Project cell: under a
  * named scope the scope itself is the context, so the cell names only the OTHER memberships ("also
  * in..."); elsewhere every membership is
- * a peer, alphabetical so order asserts nothing; none reads unfiled. */
+ * a peer, alphabetical so order asserts nothing; none reads unfiled, and
+ * only none: a membership the directory cannot name is a project the
+ * reader no longer reaches. */
 export function datasetProjectFact(
   projectIds: string[],
   scope: ProjectScope,
@@ -138,11 +184,7 @@ export function datasetProjectFact(
   // Identity is the ID: names are legitimately non-unique, so the
   // scope is excluded BY ID before any name resolves — a same-named
   // sibling membership must survive into the label.
-  const nameOf = (ids: string[]) =>
-    ids
-      .map((id) => names.get(id))
-      .filter((n): n is string => typeof n === "string")
-      .sort((a, b) => a.localeCompare(b));
+  const nameOf = (ids: string[]) => membershipNames(ids, names);
   if (projectIds.length === 0) return { text: "not in a project", none: true };
   if (scope.kind === "project") {
     const others = nameOf(projectIds.filter((id) => id !== scope.id));

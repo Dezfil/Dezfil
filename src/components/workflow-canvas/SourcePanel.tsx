@@ -35,7 +35,10 @@ export function SourcePanel({
   /** The canvas lock's reason while locked. */
   lockReason?: string | null;
 }) {
-  const read = useTableFacts(member.missing ? null : member.name);
+  // The dataset by the name its reader types: the home's `roads` is
+  // someone else's when the reader is not the home, and a bare name would
+  // read the reader's own.
+  const read = useTableFacts(member.missing ? null : member.typedName);
   // A node reading the table through two ports is one reader.
   const readers = graph.edges
     .filter((e) => e.from === member.id && e.time !== "lineage")
@@ -141,8 +144,8 @@ export function SourcePanel({
           )}
         </section>
         <div className={styles.btnRow}>
-          {!member.missing ? (
-            <Link href={`/tables/${encodeURIComponent(member.name)}`} className={styles.linkBtn} data-open-explorer>
+          {!member.missing && member.typedName ? (
+            <Link href={`/tables/${encodeURIComponent(member.typedName)}`} className={styles.linkBtn} data-open-explorer>
               <ExternalIcon /> Open in Data
             </Link>
           ) : null}

@@ -20,7 +20,6 @@ import widgetStyles from "../widgets/Widgets.module.css";
 import { readApiFailure } from "../api";
 import {
   NETWORK_FAILURE,
-  failureProse,
   type EndpointResult,
 } from "../widgets/dashboard-state";
 import {
@@ -56,6 +55,7 @@ import { Compass } from "../Compass";
 import { timeToMs, windowToRange, type TimeWindowMs } from "@/lib/time";
 import { createStatusChannel } from "@/lib/map-status";
 import { CursorReadout } from "./CursorReadout";
+import { FailedLayers } from "./FailedLayers";
 import styles from "./PublishedView.module.css";
 
 const MapCanvas = dynamic(
@@ -743,34 +743,14 @@ export function PublishedView({
             {fitFailure}
           </span>
         )}
-        {failedLayers.length > 0 && (
-          <div className={styles.failedList}>
-            {failedLayers.map((l) => (
-              <span
-                key={l.id}
-                className={styles.layerFailed}
-                role="alert"
-                data-layer-failed={l.id}
-              >
-                &ldquo;{l.name}&rdquo; unavailable:{" "}
-                {failureProse(
-                  l.render.ok ? null : (l.render.error ?? null),
-                  "reader",
-                )}
-              </span>
-            ))}
-            {/* A transient failure clears on the server, not in the
-                payload the reader already holds — without this the only
-                way back is reloading the page by hand. */}
-            <button
-              className={styles.failedRetry}
-              data-layer-retry
-              onClick={() => setPollTick((t) => t + 1)}
-            >
-              Retry
-            </button>
-          </div>
-        )}
+        <FailedLayers
+          layers={failedLayers.map((l) => ({
+            id: l.id,
+            name: l.name,
+            failure: l.render.ok ? null : (l.render.error ?? null),
+          }))}
+          onRetry={() => setPollTick((t) => t + 1)}
+        />
         {/* The control stack sits under the map's name, which reads as
             its heading, and above a top-left legend — the column stacks
             in DOM order, so there is no overlap and no CSS special case.

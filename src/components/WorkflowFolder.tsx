@@ -5,6 +5,8 @@ import { formatBytes, formatCount, formatRelativeTime } from "./api";
 import type { DataFolder } from "./data-folders";
 import { IconOpen } from "./gallery-icons";
 import { escapeBelongsToMenu } from "./menu-escape";
+import { OwnerPill } from "./sharing/PeopleMarks";
+import type { PersonLabel } from "./sharing/people";
 import { SOURCE_COLORS } from "./table-chips";
 import { WorkflowStatusChip } from "./WorkflowStatusChip";
 import gallery from "./gallery.module.css";
@@ -100,11 +102,15 @@ export function FolderCard({
   index,
   open,
   handlers,
+  owner = null,
 }: {
   folder: DataFolder;
   index: number;
   open: boolean;
   handlers: FolderHandlers;
+  /** Someone else's workflow: its owner, marked in the corner as the
+   * dataset cards beside it are. */
+  owner?: PersonLabel | null;
 }) {
   return (
     <article
@@ -151,6 +157,7 @@ export function FolderCard({
           </div>
         </div>
       </div>
+      {owner && <OwnerPill owner={owner} placement="corner" />}
       <span className={gallery.acts}>
         <button
           data-hint="Open workflow"
@@ -221,11 +228,14 @@ export function FolderRow({
   handlers,
   nameCellClass,
   withProjectCell,
+  owner = null,
 }: {
   folder: DataFolder;
   open: boolean;
   handlers: FolderHandlers;
   nameCellClass: string;
+  /** Someone else's workflow: its owner, marked after the name. */
+  owner?: PersonLabel | null;
   /** Column alignment only: a folder is a presentation
    * grouping and asserts no project membership. */
   withProjectCell?: boolean;
@@ -259,6 +269,7 @@ export function FolderRow({
           {CHEVRON}
         </button>
         {folder.name}
+        {owner && <OwnerPill owner={owner} placement="inline" />}
       </td>
       <td>
         <span className={gallery.chip} style={{ "--dot": SOURCE_COLORS.operation } as React.CSSProperties}>

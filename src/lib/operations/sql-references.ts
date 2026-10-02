@@ -1,3 +1,5 @@
+import { classifyReference } from "@/lib/query/reference-forms";
+
 /**
  * Where a SQL text names its tables.
  *
@@ -27,6 +29,9 @@ export interface TableReference {
   /** How the name is carried: a bare or quoted identifier, or the string
    * argument of `query_table`. */
   form: "bare" | "quoted" | "string";
+  /** The parts written before the name in a dotted chain (`ada` in
+   * `ada.roads`, `main` in `main.roads`), without quotes. */
+  qualifier?: string[];
 }
 
 /** A `query('…')` argument: SQL text carried inside a string literal, whose
@@ -215,7 +220,9 @@ function scan(sql: string): { refs: TableReference[]; nested: NestedSql[] } {
     if (!first || first.kind !== "ident") continue; // a subquery, a file, nothing
     // a dotted chain: a.b.c — the table is the last part
     let last = first;
+    const qualifier: string[] = [];
     while (isPunct(tokens[j + 1], ".") && tokens[j + 2]?.kind === "ident") {
+      qualifier.push(last.text);
       j += 2;
       last = tokens[j] as Extract<Token, { kind: "ident" }>;
     }
@@ -233,7 +240,8 @@ function scan(sql: string): { refs: TableReference[]; nested: NestedSql[] } {
     const up = upper(last);
     if (up !== null && (LIST_ENDERS.has(up) || JOIN_KINDS.has(up))) continue;
     if (inScopeCte(cteList, last.text.toLowerCase(), i)) continue;
-    refs.push({ name: last.text, start: last.start, end: last.end, form: last.quoted ? "quoted" : "bare" });
+    refs.push({ name: last.text, start: last.start, end: last.end, form: last.quoted ? "quoted" : "bare",
+      ...(qualifier.length ? { qualifier } : {}) });
   }
   return { refs, nested };
 }
@@ -256,6 +264,9 @@ export function rewriteTableReferences(
   const { refs, nested } = scan(sql);
   const edits: { start: number; end: number; text: string }[] = [];
   for (const ref of refs) {
+    // Only a plain name can mean the workflow's own output: `ada.roads` is
+    // that person's dataset wherever it is written, and stays as written.
+    if (ref.qualifier && classifyReference([...ref.qualifier, ref.name]).form !== "plain") continue;
     const next = rename(ref.name.toLowerCase());
     if (next === null) continue;
     edits.push({

@@ -1,0 +1,802 @@
+[
+  {
+    "label": "views",
+    "sql": "SELECT database_name, schema_name, view_name, internal, temporary, column_count FROM duckdb_views() WHERE NOT internal ORDER BY view_name",
+    "result": {
+      "columns": [
+        {
+          "name": "database_name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "schema_name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "view_name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "internal",
+          "type": "BOOLEAN"
+        },
+        {
+          "name": "temporary",
+          "type": "BOOLEAN"
+        },
+        {
+          "name": "column_count",
+          "type": "BIGINT"
+        }
+      ],
+      "rowCount": 3,
+      "preview": [
+        {
+          "database_name": "temp",
+          "schema_name": "main",
+          "view_name": "group",
+          "internal": false,
+          "temporary": true,
+          "column_count": "4"
+        },
+        {
+          "database_name": "temp",
+          "schema_name": "main",
+          "view_name": "roads",
+          "internal": false,
+          "temporary": true,
+          "column_count": "4"
+        },
+        {
+          "database_name": "temp",
+          "schema_name": "main",
+          "view_name": "stats",
+          "internal": false,
+          "temporary": true,
+          "column_count": "2"
+        }
+      ],
+      "previewTruncated": false
+    }
+  },
+  {
+    "label": "views bare",
+    "sql": "SELECT view_name FROM duckdb_views ORDER BY view_name",
+    "result": {
+      "columns": [
+        {
+          "name": "view_name",
+          "type": "VARCHAR"
+        }
+      ],
+      "rowCount": 3,
+      "preview": [
+        {
+          "view_name": "group"
+        },
+        {
+          "view_name": "roads"
+        },
+        {
+          "view_name": "stats"
+        }
+      ],
+      "previewTruncated": false
+    }
+  },
+  {
+    "label": "tables",
+    "sql": "SELECT table_catalog, table_schema, table_name, table_type FROM information_schema.tables ORDER BY ALL",
+    "result": {
+      "columns": [
+        {
+          "name": "table_catalog",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "table_schema",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "table_name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "table_type",
+          "type": "VARCHAR"
+        }
+      ],
+      "rowCount": 3,
+      "preview": [
+        {
+          "table_catalog": "temp",
+          "table_schema": "main",
+          "table_name": "group",
+          "table_type": "VIEW"
+        },
+        {
+          "table_catalog": "temp",
+          "table_schema": "main",
+          "table_name": "roads",
+          "table_type": "VIEW"
+        },
+        {
+          "table_catalog": "temp",
+          "table_schema": "main",
+          "table_name": "stats",
+          "table_type": "VIEW"
+        }
+      ],
+      "previewTruncated": false
+    }
+  },
+  {
+    "label": "columns",
+    "sql": "SELECT table_catalog, table_schema, table_name, column_name, ordinal_position, data_type FROM information_schema.columns WHERE table_catalog = 'temp' ORDER BY ALL",
+    "result": {
+      "columns": [
+        {
+          "name": "table_catalog",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "table_schema",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "table_name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "column_name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "ordinal_position",
+          "type": "INTEGER"
+        },
+        {
+          "name": "data_type",
+          "type": "VARCHAR"
+        }
+      ],
+      "rowCount": 10,
+      "preview": [
+        {
+          "table_catalog": "temp",
+          "table_schema": "main",
+          "table_name": "group",
+          "column_name": "geometry",
+          "ordinal_position": 4,
+          "data_type": "GEOMETRY('EPSG:4326')"
+        },
+        {
+          "table_catalog": "temp",
+          "table_schema": "main",
+          "table_name": "group",
+          "column_name": "lat",
+          "ordinal_position": 3,
+          "data_type": "DOUBLE"
+        },
+        {
+          "table_catalog": "temp",
+          "table_schema": "main",
+          "table_name": "group",
+          "column_name": "lon",
+          "ordinal_position": 2,
+          "data_type": "DOUBLE"
+        },
+        {
+          "table_catalog": "temp",
+          "table_schema": "main",
+          "table_name": "group",
+          "column_name": "sentinel",
+          "ordinal_position": 1,
+          "data_type": "VARCHAR"
+        },
+        {
+          "table_catalog": "temp",
+          "table_schema": "main",
+          "table_name": "roads",
+          "column_name": "geometry",
+          "ordinal_position": 4,
+          "data_type": "GEOMETRY('EPSG:4326')"
+        },
+        {
+          "table_catalog": "temp",
+          "table_schema": "main",
+          "table_name": "roads",
+          "column_name": "lat",
+          "ordinal_position": 3,
+          "data_type": "DOUBLE"
+        },
+        {
+          "table_catalog": "temp",
+          "table_schema": "main",
+          "table_name": "roads",
+          "column_name": "lon",
+          "ordinal_position": 2,
+          "data_type": "DOUBLE"
+        },
+        {
+          "table_catalog": "temp",
+          "table_schema": "main",
+          "table_name": "roads",
+          "column_name": "sentinel",
+          "ordinal_position": 1,
+          "data_type": "VARCHAR"
+        },
+        {
+          "table_catalog": "temp",
+          "table_schema": "main",
+          "table_name": "stats",
+          "column_name": "name",
+          "ordinal_position": 1,
+          "data_type": "VARCHAR"
+        },
+        {
+          "table_catalog": "temp",
+          "table_schema": "main",
+          "table_name": "stats",
+          "column_name": "value",
+          "ordinal_position": 2,
+          "data_type": "BIGINT"
+        }
+      ],
+      "previewTruncated": false
+    }
+  },
+  {
+    "label": "engine columns",
+    "sql": "SELECT database_name, schema_name, table_name, column_name, column_index, data_type, is_nullable FROM duckdb_columns() WHERE NOT internal ORDER BY ALL",
+    "result": {
+      "columns": [
+        {
+          "name": "database_name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "schema_name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "table_name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "column_name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "column_index",
+          "type": "INTEGER"
+        },
+        {
+          "name": "data_type",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "is_nullable",
+          "type": "BOOLEAN"
+        }
+      ],
+      "rowCount": 10,
+      "preview": [
+        {
+          "database_name": "temp",
+          "schema_name": "main",
+          "table_name": "group",
+          "column_name": "geometry",
+          "column_index": 4,
+          "data_type": "GEOMETRY('EPSG:4326')",
+          "is_nullable": true
+        },
+        {
+          "database_name": "temp",
+          "schema_name": "main",
+          "table_name": "group",
+          "column_name": "lat",
+          "column_index": 3,
+          "data_type": "DOUBLE",
+          "is_nullable": true
+        },
+        {
+          "database_name": "temp",
+          "schema_name": "main",
+          "table_name": "group",
+          "column_name": "lon",
+          "column_index": 2,
+          "data_type": "DOUBLE",
+          "is_nullable": true
+        },
+        {
+          "database_name": "temp",
+          "schema_name": "main",
+          "table_name": "group",
+          "column_name": "sentinel",
+          "column_index": 1,
+          "data_type": "VARCHAR",
+          "is_nullable": true
+        },
+        {
+          "database_name": "temp",
+          "schema_name": "main",
+          "table_name": "roads",
+          "column_name": "geometry",
+          "column_index": 4,
+          "data_type": "GEOMETRY('EPSG:4326')",
+          "is_nullable": true
+        },
+        {
+          "database_name": "temp",
+          "schema_name": "main",
+          "table_name": "roads",
+          "column_name": "lat",
+          "column_index": 3,
+          "data_type": "DOUBLE",
+          "is_nullable": true
+        },
+        {
+          "database_name": "temp",
+          "schema_name": "main",
+          "table_name": "roads",
+          "column_name": "lon",
+          "column_index": 2,
+          "data_type": "DOUBLE",
+          "is_nullable": true
+        },
+        {
+          "database_name": "temp",
+          "schema_name": "main",
+          "table_name": "roads",
+          "column_name": "sentinel",
+          "column_index": 1,
+          "data_type": "VARCHAR",
+          "is_nullable": true
+        },
+        {
+          "database_name": "temp",
+          "schema_name": "main",
+          "table_name": "stats",
+          "column_name": "name",
+          "column_index": 1,
+          "data_type": "VARCHAR",
+          "is_nullable": true
+        },
+        {
+          "database_name": "temp",
+          "schema_name": "main",
+          "table_name": "stats",
+          "column_name": "value",
+          "column_index": 2,
+          "data_type": "BIGINT",
+          "is_nullable": true
+        }
+      ],
+      "previewTruncated": false
+    }
+  },
+  {
+    "label": "engine tables",
+    "sql": "SELECT count(*) AS n FROM duckdb_tables() WHERE NOT internal",
+    "result": {
+      "columns": [
+        {
+          "name": "n",
+          "type": "BIGINT"
+        }
+      ],
+      "rowCount": 1,
+      "preview": [
+        {
+          "n": "0"
+        }
+      ],
+      "previewTruncated": false
+    }
+  },
+  {
+    "label": "schemas",
+    "sql": "SELECT database_name, schema_name FROM duckdb_schemas() ORDER BY ALL",
+    "result": {
+      "columns": [
+        {
+          "name": "database_name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "schema_name",
+          "type": "VARCHAR"
+        }
+      ],
+      "rowCount": 5,
+      "preview": [
+        {
+          "database_name": "memory",
+          "schema_name": "main"
+        },
+        {
+          "database_name": "system",
+          "schema_name": "information_schema"
+        },
+        {
+          "database_name": "system",
+          "schema_name": "main"
+        },
+        {
+          "database_name": "system",
+          "schema_name": "pg_catalog"
+        },
+        {
+          "database_name": "temp",
+          "schema_name": "main"
+        }
+      ],
+      "previewTruncated": false
+    }
+  },
+  {
+    "label": "sqlite master",
+    "sql": "SELECT type, name, tbl_name FROM sqlite_master WHERE name NOT LIKE 'duckdb_%' AND name NOT LIKE 'pragma_%' ORDER BY type, name, tbl_name",
+    "result": {
+      "columns": [
+        {
+          "name": "type",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "tbl_name",
+          "type": "VARCHAR"
+        }
+      ],
+      "rowCount": 3,
+      "preview": [
+        {
+          "type": "view",
+          "name": "group",
+          "tbl_name": "group"
+        },
+        {
+          "type": "view",
+          "name": "roads",
+          "tbl_name": "roads"
+        },
+        {
+          "type": "view",
+          "name": "stats",
+          "tbl_name": "stats"
+        }
+      ],
+      "previewTruncated": false
+    }
+  },
+  {
+    "label": "pg views",
+    "sql": "SELECT schemaname, viewname FROM pg_catalog.pg_views WHERE schemaname = 'main' AND viewname NOT LIKE 'duckdb_%' AND viewname NOT LIKE 'pragma_%' AND viewname NOT LIKE 'sqlite_%' ORDER BY schemaname, viewname",
+    "result": {
+      "columns": [
+        {
+          "name": "schemaname",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "viewname",
+          "type": "VARCHAR"
+        }
+      ],
+      "rowCount": 3,
+      "preview": [
+        {
+          "schemaname": "main",
+          "viewname": "group"
+        },
+        {
+          "schemaname": "main",
+          "viewname": "roads"
+        },
+        {
+          "schemaname": "main",
+          "viewname": "stats"
+        }
+      ],
+      "previewTruncated": false
+    }
+  },
+  {
+    "label": "table info",
+    "sql": "SELECT * FROM pragma_table_info('roads')",
+    "result": {
+      "columns": [
+        {
+          "name": "cid",
+          "type": "INTEGER"
+        },
+        {
+          "name": "name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "type",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "notnull",
+          "type": "BOOLEAN"
+        },
+        {
+          "name": "dflt_value",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "pk",
+          "type": "BOOLEAN"
+        }
+      ],
+      "rowCount": 4,
+      "preview": [
+        {
+          "cid": 0,
+          "name": "sentinel",
+          "type": "VARCHAR",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false
+        },
+        {
+          "cid": 1,
+          "name": "lon",
+          "type": "DOUBLE",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false
+        },
+        {
+          "cid": 2,
+          "name": "lat",
+          "type": "DOUBLE",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false
+        },
+        {
+          "cid": 3,
+          "name": "geometry",
+          "type": "GEOMETRY('EPSG:4326')",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false
+        }
+      ],
+      "previewTruncated": false
+    }
+  },
+  {
+    "label": "table info reserved",
+    "sql": "SELECT * FROM pragma_table_info('group')",
+    "result": {
+      "columns": [
+        {
+          "name": "cid",
+          "type": "INTEGER"
+        },
+        {
+          "name": "name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "type",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "notnull",
+          "type": "BOOLEAN"
+        },
+        {
+          "name": "dflt_value",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "pk",
+          "type": "BOOLEAN"
+        }
+      ],
+      "rowCount": 4,
+      "preview": [
+        {
+          "cid": 0,
+          "name": "sentinel",
+          "type": "VARCHAR",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false
+        },
+        {
+          "cid": 1,
+          "name": "lon",
+          "type": "DOUBLE",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false
+        },
+        {
+          "cid": 2,
+          "name": "lat",
+          "type": "DOUBLE",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false
+        },
+        {
+          "cid": 3,
+          "name": "geometry",
+          "type": "GEOMETRY('EPSG:4326')",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false
+        }
+      ],
+      "previewTruncated": false
+    }
+  },
+  {
+    "label": "show",
+    "sql": "SELECT * FROM pragma_show('stats')",
+    "result": {
+      "columns": [
+        {
+          "name": "column_name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "column_type",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "null",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "key",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "default",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "extra",
+          "type": "VARCHAR"
+        }
+      ],
+      "rowCount": 2,
+      "preview": [
+        {
+          "column_name": "name",
+          "column_type": "VARCHAR",
+          "null": "YES",
+          "key": null,
+          "default": null,
+          "extra": null
+        },
+        {
+          "column_name": "value",
+          "column_type": "BIGINT",
+          "null": "YES",
+          "key": null,
+          "default": null,
+          "extra": null
+        }
+      ],
+      "previewTruncated": false
+    }
+  },
+  {
+    "label": "dynamic",
+    "sql": "SELECT * FROM query_table(['roads', 'memory.main.group'], true) ORDER BY ALL",
+    "result": {
+      "columns": [
+        {
+          "name": "sentinel",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "lon",
+          "type": "DOUBLE"
+        },
+        {
+          "name": "lat",
+          "type": "DOUBLE"
+        },
+        {
+          "name": "geometry",
+          "type": "GEOMETRY('EPSG:4326')"
+        }
+      ],
+      "rowCount": 2,
+      "preview": [
+        {
+          "sentinel": "group",
+          "lon": 13.3,
+          "lat": 52.4,
+          "geometry": "POINT (13.3 52.4)"
+        },
+        {
+          "sentinel": "road",
+          "lon": 13.4,
+          "lat": 52.5,
+          "geometry": "POINT (13.4 52.5)"
+        }
+      ],
+      "previewTruncated": false
+    }
+  },
+  {
+    "label": "qualified",
+    "sql": "SELECT sentinel FROM memory.main.roads UNION ALL SELECT sentinel FROM main.\"group\" ORDER BY ALL",
+    "result": {
+      "columns": [
+        {
+          "name": "sentinel",
+          "type": "VARCHAR"
+        }
+      ],
+      "rowCount": 2,
+      "preview": [
+        {
+          "sentinel": "group"
+        },
+        {
+          "sentinel": "road"
+        }
+      ],
+      "previewTruncated": false
+    }
+  },
+  {
+    "label": "layer render",
+    "sql": "SELECT view_name, ST_Point(0, 0) AS geometry FROM duckdb_views() WHERE NOT internal ORDER BY view_name",
+    "result": [
+      {
+        "view_name": "group"
+      },
+      {
+        "view_name": "roads"
+      },
+      {
+        "view_name": "stats"
+      }
+    ]
+  },
+  {
+    "label": "workflow step",
+    "sql": "SELECT view_name FROM duckdb_views() WHERE NOT internal",
+    "result": {
+      "columns": [
+        {
+          "name": "view_name",
+          "type": "VARCHAR"
+        }
+      ],
+      "rowCount": 4,
+      "preview": [
+        {
+          "view_name": "group"
+        },
+        {
+          "view_name": "roads"
+        },
+        {
+          "view_name": "stage_one"
+        },
+        {
+          "view_name": "stats"
+        }
+      ],
+      "previewTruncated": false
+    }
+  }
+]

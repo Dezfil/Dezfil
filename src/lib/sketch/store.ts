@@ -1,7 +1,11 @@
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
-import { getOwnedMap, getOwnedLayer, ownedMapProjectId } from "@/lib/metadata/map-queries";
-import { listOwnedTables, updateOwnedTableData, deleteOwnedTable, ownedDependentLayerIds, fileOwnedTable } from "@/lib/metadata/owned-tables";
+import { getLayer, getMap } from "@/lib/metadata/map-queries";
+import { listOwnedTables, updateOwnedTableData, deleteOwnedTable, ownedDependentLayerIds } from "@/lib/metadata/owned-tables";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { requireFilingAddition, requirePermitted } from "@/lib/auth/reach";
+import { getAccount } from "@/lib/metadata/accounts";
+import { fileTable, mapProjectId } from "@/lib/metadata/projects";
+import { mapHome } from "@/lib/metadata/maps";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { mkdir, rm } from "node:fs/promises";
@@ -146,11 +150,37 @@ export interface CreatedSketch {
   featureId: string;
 }
 
+const quoted = (identifier: string) => `"${identifier.replace(/"/g, '""')}"`;
+
+/** How a sketch layer names its dataset in its map's home: plainly where the
+ * drawer is the home, else qualified with the drawer's SQL name, so the layer
+ * never binds a same-named dataset of the home's. Both parts of the qualified
+ * name are quoted: a SQL name may also be a keyword (`order`, `group`). */
+function sketchReference(scope: AccountScope, mapId: string, name: string, db = metadataDb()): string {
+  if (mapHome(mapId, db) === scope.accountId) return name;
+  return `${quoted(getAccount(scope.accountId, db)!.sqlName)}.${quoted(name)}`;
+}
+
+/** Whether the drawer may file their sketch into the map's project: the
+ * filing rule, whose refusal leaves the sketch unfiled. */
+function mayFile(scope: AccountScope, tableId: string, projectId: string, db = metadataDb()): boolean {
+  try {
+    requireFilingAddition(scope, "dataset", tableId, projectId, db);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * First commit: one failure-safe outcome minting the dataset and its
  * owning layer together, provenance recorded, no history step. The
  * artifact is written first; every registry write shares one transaction;
  * a failed transaction removes the artifact.
+ *
+ * Anyone who may change the map's content draws on it. The dataset is the
+ * drawer's own, filed into the map's project as the drawer may file, and
+ * the layer names it unambiguously in the map's home.
  */
 export async function createSketch(
   scope: AccountScope,
@@ -160,7 +190,8 @@ export async function createSketch(
   requireAccountScope(scope);
   const refusal = sketchFeatureError(feature);
   if (refusal) throw new ApiError("invalid_sketch_feature", refusal, 400);
-  const map = getOwnedMap(scope, mapId);
+  requirePermitted(scope, "map", mapId, "sketch");
+  const map = getMap(mapId)!;
 
   const stored: StoredSketchFeature = {
     id: randomUUID(),
@@ -173,7 +204,7 @@ export async function createSketch(
     );
     const db = metadataDb();
     const created = db.transaction(() => {
-      requireOwnedResource(scope, "map", mapId, db);
+      requirePermitted(scope, "map", mapId, "sketch", db);
       const table = registerTable(
         scope,
         {
@@ -196,16 +227,16 @@ export async function createSketch(
       );
       // The sketch follows its map's project as it is AT THIS COMMIT —
       // read inside the transaction, not from the map object captured
-      // before the artifact build.
-      const projectId = ownedMapProjectId(scope, mapId, db);
-      if (projectId) fileOwnedTable(scope, table.id, projectId, db);
+      // before the artifact build — where its drawer may file it.
+      const projectId = mapProjectId(mapId, db);
+      if (projectId && mayFile(scope, table.id, projectId, db)) fileTable(table.id, projectId, db);
       const ordinal = nextOrdinal(mapId, db);
       const now = new Date().toISOString();
       const layer: Layer = {
         id: randomUUID(),
         mapId,
         name: displayNameFor(table.name),
-        sql: `SELECT * FROM ${table.name}`,
+        sql: `SELECT * FROM ${sketchReference(scope, mapId, table.name, db)}`,
         style: sketchLayerStyle(ordinal),
         visible: true,
         tooltip: null,
@@ -398,7 +429,9 @@ export async function moveVertex(
  * the layer-delete route's cascade test (enforced at the API, not
  * inferred client-side). */
 export function sketchOwnedByLayer(scope: AccountScope, layerId: string): DataTable | null {
-  requireOwnedResource(scope, "layer", layerId);
+  // Only the acting account's own sketch cascades: a layer drawing someone
+  // else's sketch is removed alone, and their dataset stays.
+  requirePermitted(scope, "layer", layerId, "edit");
   return (
     listOwnedTables(scope).find(
       (t) => t.source === "sketch" && ownerOf(t).layerId === layerId,
@@ -407,6 +440,11 @@ export function sketchOwnedByLayer(scope: AccountScope, layerId: string): DataTa
 }
 
 /* ---------------- the cascade ---------------- */
+
+function ownsMap(scope: AccountScope, mapId: string, db = metadataDb()): boolean {
+  const row = db.prepare("SELECT owner_id FROM maps WHERE id = ?").get(mapId) as { owner_id: string | null } | undefined;
+  return row?.owner_id === requireAccountScope(scope, db);
+}
 
 export interface CascadeResult {
   layerId: string | null;
@@ -419,8 +457,14 @@ export interface CascadeResult {
  * artifacts leave together. No new history step is written, and every
  * step that targeted the owner leaves the timeline — replay can neither
  * restore nor error on destroyed state. Unrelated steps survive.
+ *
+ * Only the sketch's own drawer deletes it. Removing one's own sketch layer
+ * (`from: "layer"`) keeps that cascade on any map whose content one may
+ * change. Deleting the sketch dataset itself never modifies another person's
+ * map: on one's own map the cascade stands, on anyone else's the layer stays
+ * and fails by name for whoever opens it.
  */
-export async function cascadeDeleteSketch(scope: AccountScope, name: string): Promise<CascadeResult> {
+export async function cascadeDeleteSketch(scope: AccountScope, name: string, from: "layer" | "dataset" = "dataset"): Promise<CascadeResult> {
   const keyed = requireSketch(scope, name);
   return serialize(keyed.id, async () => {
     const fresh = requireSketch(scope, name);
@@ -430,19 +474,29 @@ export async function cascadeDeleteSketch(scope: AccountScope, name: string): Pr
         `"${name}" was deleted and its name reclaimed while this cascade was in flight; nothing was removed.`,
         409,
       );
-    const { mapId, layerId } = ownerOf(fresh);
+    const recorded = ownerOf(fresh);
     // Every dependent layer's tile artifacts leave with the table: a duplicate with a PMTiles
     // archive would otherwise
     // keep serving deleted rows instead of the standing missing-table
     // state. Snapshot before the registry row disappears.
     const dependents = ownedDependentLayerIds(scope, fresh.name);
     const db = metadataDb();
-    db.transaction(() => {
+    const { mapId, layerId } = db.transaction(() => {
       requireOwnedResource(scope, "dataset", fresh.id, db);
+      let { mapId, layerId } = recorded;
       if (mapId && layerId) {
-        const map = getOwnedMap(scope, mapId, db);
-        const layer = getOwnedLayer(scope, layerId, db);
-        if (layer.mapId !== mapId) throw resourceAbsent();
+        const map = getMap(mapId, db);
+        if (map && from === "dataset" && !ownsMap(scope, mapId, db)) {
+          // Someone else's map keeps its layer, whatever became of it.
+          mapId = layerId = null;
+        } else {
+          const layer = getLayer(layerId, db);
+          if (!map || !layer || layer.mapId !== mapId) throw resourceAbsent();
+          if (from === "layer") requirePermitted(scope, "layer", layerId, "edit", db);
+        }
+      }
+      if (mapId && layerId) {
+        const map = getMap(mapId, db);
         if (map) {
           const remaining = map.widgets.filter((w) => w.layerId !== layerId);
           if (remaining.length !== map.widgets.length)
@@ -468,6 +522,7 @@ export async function cascadeDeleteSketch(scope: AccountScope, name: string): Pr
       // project's clock.
       touchProjectsOf({ tableId: fresh.id }, db);
       deleteOwnedTable(scope, fresh, db);
+      return { mapId, layerId };
     })();
     for (const dependent of new Set([...(layerId ? [layerId] : []), ...dependents]))
       await removeTileArtifacts(dependent);

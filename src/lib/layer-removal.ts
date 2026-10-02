@@ -7,7 +7,7 @@ import {
 } from "@/lib/metadata/maps";
 import { recordStep } from "@/lib/metadata/history";
 import { removeTileArtifacts } from "@/lib/tiles/build";
-import { requireLayer } from "./layer-access";
+import { requireLayerFor } from "./layer-access";
 import { layerImage } from "./layer-history-image";
 import type { AccountScope } from "@/lib/auth/scope";
 
@@ -29,7 +29,7 @@ export async function removeLayer(
   opts: { groupId?: string | null } = {},
 ): Promise<void> {
   metadataDb().transaction(() => {
-    const layer = requireLayer(scope, id);
+    const layer = requireLayerFor(scope, id, "edit");
     const map = getMap(layer.mapId);
     const widgets = map?.widgets ?? [];
     const bound = widgets.filter((w) => w.layerId === id);

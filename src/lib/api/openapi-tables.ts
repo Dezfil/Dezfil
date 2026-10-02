@@ -1,3 +1,4 @@
+import { FILING_DESTINATION } from "./openapi-project-access";
 import { datasetAccess } from "./openapi-dataset-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, REMOTE_REPLACE } from "./operation-mcp";
@@ -46,7 +47,7 @@ export const TABLE_COLLECTION_PATHS = {
           description:
             "The project every created table joins — a " +
             "query parameter because the body is the file itself. An " +
-            "unknown project refuses before the upload is received.",
+            "unknown project refuses before the upload is received." + FILING_DESTINATION,
         },
       ],
       requestBody: {
@@ -260,11 +261,25 @@ export const TABLE_SCHEMAS = {
     properties: {
       id: { type: "string" },
       name: { type: "string" },
+      qualifiedName: {
+        type: "string",
+        description:
+          "The name the caller would type for this dataset: its plain " +
+          "name when it is the caller's own, <sql name>.<name> when it " +
+          "is another owner's, which tells two same-named datasets " +
+          "apart. Present on every listing and read.",
+      },
+      owner: {
+        $ref: "#/components/schemas/ResourceOwner",
+        description: "The dataset's owner. Present on every listing and read.",
+      },
       sourceFilename: {
         type: ["string", "null"],
         description:
           "The file this table arrived as. Null for a derived " +
-          "table, whose output never was a file.",
+          "table, whose output never was a file, and, to anyone but " +
+          "its owner, for a PostGIS snapshot, whose remote schema and " +
+          "table belong to its owner's connection.",
       },
       format: {
         type: "string",
@@ -322,6 +337,12 @@ export const TABLE_SCHEMAS = {
       sourceParams: {
         type: ["object", "null"],
         description:
+          "As stored for the caller's own dataset. For another owner's, " +
+          "null when it would name a connection (a PostGIS snapshot shows " +
+          "its source kind and nothing more) or a map the caller does not " +
+          "reach. " +
+          "For another owner's derived dataset, `inputs` lists only the " +
+          "inputs the caller reaches; its `sql` and `parameters` are as stored. " +
           "Parameters that re-run the import (e.g. { url }); null " +
           "for single-file uploads. Container-format tables " +
           "also record { layer, group? } — the source layer and, " +
@@ -359,7 +380,10 @@ export const TABLE_SCHEMAS = {
           "For a derived table: the inputs its run recorded, " +
           "resolved by the id each was recorded under. An input whose " +
           "id no longer exists reads as missing — never as whatever " +
-          "now carries its name.",
+          "now carries its name. Resolved within the caller's reach: " +
+          "the dataset's owner reads an input they no longer reach as " +
+          "missing, exactly as a deleted one; anyone else reads only " +
+          "the inputs they reach.",
         items: {
           type: "object",
           properties: {
@@ -392,9 +416,11 @@ export const TABLE_SCHEMAS = {
         type: "array",
         items: { type: "string" },
         description:
-          "The projects this dataset is in; empty = not " +
-          "in a project. A dataset can be in several; the order " +
-          "carries no meaning.",
+          "The projects this dataset is in that the caller reaches, and " +
+          "for the caller's own dataset every project it is in, one they " +
+          "no longer reach included (they withdraw it with PATCH " +
+          "/api/projects/{id}/members); empty = in no project. A dataset " +
+          "can be in several; the order carries no meaning.",
       },
     },
   },

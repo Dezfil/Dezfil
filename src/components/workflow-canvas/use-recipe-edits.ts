@@ -44,11 +44,16 @@ export interface EditNote {
   pasted?: boolean;
 }
 
+/** A step to add, and the workflow its values were written in when that is
+ * another one. */
+export type AddInput = { operation: string; parameters: Record<string, unknown>; writtenIn?: { kind: "workflow"; id: string } };
+
 export interface RecipeEdits {
   /** Shared unresolved drafts; wrappers pass this read/subscription seat through. */
   readonly drafts?: EditDrafts;
-  /** Add a step; resolves with the step the API made, or the refusal. */
-  add: (input: { operation: string; parameters: Record<string, unknown> }, note?: EditNote) => Promise<EditOutcome>;
+  /** Add a step; resolves with the step the API made, or the refusal. A
+   * pasted node from another workflow says where it was written. */
+  add: (input: AddInput, note?: EditNote) => Promise<EditOutcome>;
   /** Replace a step's definition; serialized per node. */
   edit: (stepId: string, parameters: Record<string, unknown>, note?: EditNote) => Promise<EditOutcome>;
   discard: (stepId: string) => Promise<EditOutcome>;
@@ -252,9 +257,9 @@ export class RecipeEditor implements RecipeCoordinator {
 
   edit = (stepId: string, parameters: Record<string, unknown>, note?: EditNote): Promise<EditOutcome> => this.editWith(stepId, parameters, null, note);
 
-  add = (input: { operation: string; parameters: Record<string, unknown> }): Promise<EditOutcome> => this.track(this.addNow(input, null));
+  add = (input: AddInput): Promise<EditOutcome> => this.track(this.addNow(input, null));
 
-  private addNow = async (input: { operation: string; parameters: Record<string, unknown> }, owner: (() => void) | null): Promise<EditOutcome> => {
+  private addNow = async (input: AddInput, owner: (() => void) | null): Promise<EditOutcome> => {
     this.publish({ kind: "saving" });
     const result = await call(`/api/recipes/${this.id}/steps`, { method: "POST", body: JSON.stringify(input) }, "add the node");
     if (result.ok) {

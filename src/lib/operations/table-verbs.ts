@@ -1,3 +1,4 @@
+import { tableRef } from "./input-ref";
 import { ApiError } from "@/lib/api/errors";
 import { ident } from "@/lib/ingest/ingest";
 import type { DataTable } from "@/lib/metadata/tables";
@@ -98,7 +99,7 @@ export function filterRowsSql(
   const field = `t.${ident(column)}`;
   const operator = OPERATOR[comparison];
   if (comparison === "is_null" || comparison === "is_not_null") {
-    return `SELECT * FROM ${ident(table.name)} AS t WHERE ${field} ${operator}`;
+    return `SELECT * FROM ${tableRef(table)} AS t WHERE ${field} ${operator}`;
   }
   if (value === null) {
     throw new ApiError(
@@ -114,10 +115,10 @@ export function filterRowsSql(
     // with 100 — the user's value became a query language they did not know
     // they were writing.
     const escaped = String(value).replace(/([%_\\])/g, "\\$1");
-    return `SELECT * FROM ${ident(table.name)} AS t
+    return `SELECT * FROM ${tableRef(table)} AS t
 WHERE CAST(${field} AS VARCHAR) LIKE ${literal(`%${escaped}%`)} ESCAPE '\\'`;
   }
-  return `SELECT * FROM ${ident(table.name)} AS t WHERE ${field} ${operator} ${literal(value)}`;
+  return `SELECT * FROM ${tableRef(table)} AS t WHERE ${field} ${operator} ${literal(value)}`;
 }
 
 /**
@@ -146,11 +147,11 @@ export function joinByKeySql(
   return `WITH ranked AS (
   SELECT *, row_number() OVER (PARTITION BY ${ident(rightKey)} ORDER BY ${ident(rightKey)}) AS rank_in_key,
          count(*) OVER (PARTITION BY ${ident(rightKey)}) AS match_count
-  FROM ${ident(right.name)}
+  FROM ${tableRef(right)}
 )
 SELECT l.*,
        ${select}r.match_count AS join_match_count
-FROM ${ident(left.name)} AS l
+FROM ${tableRef(left)} AS l
 LEFT JOIN ranked AS r
 ON l.${ident(leftKey)} = r.${ident(rightKey)} AND r.rank_in_key = 1`;
 }
@@ -173,7 +174,7 @@ export function dissolveSql(
   const group = groups.length > 0 ? `GROUP BY ${groups.join(", ")}` : "";
   return `SELECT ${select}count(*) AS feature_count,
        ST_Union_Agg(t.${geom}) AS ${geom}
-FROM ${ident(table.name)} AS t
+FROM ${tableRef(table)} AS t
 WHERE t.${geom} IS NOT NULL
 ${group}`;
 }
@@ -201,6 +202,6 @@ export function groupSummarizeSql(
   const select = [...groups, ...columns].join(",\n       ");
   const group = groups.length > 0 ? `GROUP BY ${groups.join(", ")}` : "";
   return `SELECT ${select}
-FROM ${ident(table.name)} AS t
+FROM ${tableRef(table)} AS t
 ${group}`;
 }

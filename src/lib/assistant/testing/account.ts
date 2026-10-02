@@ -7,6 +7,12 @@ import { socketRequest } from "./socket-request";
 
 export const TEST_ACCOUNT_ID = "test-account";
 const credentials = new WeakMap<Database, string>();
+/** The Request each caller's Request was dispatched as. The derived one's
+ * signal follows the caller's through a weakly held link, so nothing but
+ * this keeps it alive once the route has returned: a full collection then
+ * would cut the link, and a departure would never reach the route. It lives
+ * as long as the caller's Request does. */
+const dispatched = new WeakMap<Request, Request>();
 
 /** A real account credential for existing route fixtures. No auth service is mocked. */
 export function authenticatedRequest(request = new Request("http://127.0.0.1:3000/api/assistant/runs", { method: "POST" })): Request {
@@ -30,7 +36,9 @@ export function authenticatedRequest(request = new Request("http://127.0.0.1:300
   // Keep the caller's Request alive in the abort chain. Another temporary
   // Request would give undici an intermediate weak signal listener.
   headers.forEach((value, name) => request.headers.set(name, value));
-  return socketRequest(request);
+  const derived = socketRequest(request);
+  dispatched.set(request, derived);
+  return derived;
 }
 
 export function authenticatedRoute<Args extends unknown[]>(handler: (request: Request, ...args: Args) => Promise<Response>) {

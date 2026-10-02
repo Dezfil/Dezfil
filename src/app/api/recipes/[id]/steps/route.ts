@@ -1,11 +1,10 @@
-import { resourceAbsent } from "@/lib/auth/owned-resource";
 import { requireRequestScope } from "@/lib/auth/scope-http";
+import { requireWorkflowEdit } from "@/lib/workflow-access";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
 import {
   addStep,
-  getRecipe,
   listSteps,
   touchRecipe,
   type RecipeStep,
@@ -15,12 +14,13 @@ import { outputNameRefusal, registeredOutputName } from "@/lib/operations/output
 import { assertBackwardOnly } from "@/lib/operations/recipe-order";
 import { readStep } from "@/lib/operations/recipe-view";
 import { stepReads } from "@/lib/operations/step-reads";
+import { admitStepDefinition, recheckSaved } from "@/lib/save-admission";
 import {
-  captureLayerSource,
   jsonBody,
   requireString,
   stepPayload,
 } from "@/lib/operations/recipe-api";
+import { arrivingDefinition } from "@/lib/operations/step-handoff";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -32,7 +32,8 @@ type Params = { params: Promise<{ id: string }> };
  * drifted when someone edited a filter would not be reproducible. Where the
  * layer aggregates — hex bin, grid, origin–destination — the step takes the
  * rows behind the cells, and the answer says so rather than leaving the
- * substitution to be discovered.
+ * substitution to be discovered. Any layer the caller reaches can be
+ * captured; its SQL is carried from the map's home into this workflow's.
  *
  * **The backward-only rule is enforced here, at the change.** A step that would
  * read its own output, or a later step's, is refused now rather than at run
@@ -42,9 +43,7 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id } = await params;
-    if (!getRecipe(scope, id)) {
-      throw resourceAbsent();
-    }
+    requireWorkflowEdit(scope, id);
     const body = await jsonBody(request);
     const operation = findOperation(requireString(body, "operation"));
     const parameters =
@@ -54,13 +53,17 @@ export async function POST(request: Request, { params }: Params) {
         ? { ...(body.parameters as Record<string, unknown>) }
         : {};
 
-    let origin: Record<string, unknown> | null = null;
-    if (typeof body.fromLayerId === "string" && body.fromLayerId !== "") {
-      const captured = captureLayerSource(scope, body.fromLayerId);
-      parameters.sql = captured.sql;
-      origin = captured.origin;
-    }
+    // A definition written elsewhere (another workflow's node, the console,
+    // a map) and a captured layer's SQL are carried into this workflow's
+    // context, their references keeping the datasets they meant.
+    const arriving = await arrivingDefinition(scope, id, operation.id, parameters, body, request.signal);
+    Object.assign(parameters, arriving.parameters);
+    const origin: Record<string, unknown> | null = arriving.origin ?? null;
 
+    // Someone other than the workflow's owner saves only what they can
+    // evaluate themselves: every dataset it names within their reach in the
+    // workflow's home, its declared outputs exempt.
+    const saved = await admitStepDefinition(scope, id, operation.id, parameters, request.signal);
     const db = metadataDb();
     // The name rule: refused in its own words, or stored in its
     // registered form.
@@ -99,6 +102,7 @@ export async function POST(request: Request, { params }: Params) {
       }
       const again = outputNameRefusal({ scope, db, recipeId: id, stepId: null, produced: null, typed: parameters.name });
       if (again) throw again;
+      recheckSaved(scope, saved);
       const added = addStep(scope, id, { operation: operation.id, parameters, origin }, db);
       // Accepted, so the recipe is edited.
       touchRecipe(scope, id, db);

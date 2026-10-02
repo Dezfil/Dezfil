@@ -14,9 +14,13 @@ export const PROJECT_SCOPE_PARAM = {
   required: false,
   schema: { type: "string" },
   description:
-    "Narrow to one project's members by project id, or to the unfiled " +
-    'with "none". Omitted, everything answers. An unknown project is ' +
-    "not found, never an empty list.",
+    "Narrow to one project's members by project id: any project the " +
+    "caller reaches, its own or one shared with it, whoever owns what " +
+    'is filed there; "none" narrows to the caller\'s own items filed ' +
+    "in no project at all (one still filed in a project the caller no " +
+    "longer reaches is not none). Omitted, everything the caller reaches " +
+    "answers. An unknown or unreached project is not found, never an " +
+    "empty list.",
 };
 
 export const PROJECT_PATHS = {
@@ -24,7 +28,7 @@ export const PROJECT_PATHS = {
     get: op(projectAccess({
       summary: "List projects",
       description:
-        "Every project with its member counts (maps, workflows as " +
+        "Every project the caller reaches, its own and those shared with it, with its member counts (maps, workflows as " +
         "workflow-origin recipes, " +
         "datasets, published maps), its size total — `sizeComplete` " +
         "is false when a member dataset's size is unknown, so the sum " +
@@ -168,7 +172,14 @@ export const PROJECT_PATHS = {
         "nothing does. Only workflows can be project " +
         "members. Adding a map or eligible recipe moves it from any " +
         "previous project; adding a dataset adds another membership; " +
-        "repeated adds are idempotent. Answers the updated composite.",
+        "repeated adds are idempotent. Each part follows the filing " +
+        "rules, so a caller may add only their own resources, and a " +
+        "removal of what is not filed there changes nothing. An owner " +
+        "who no longer reaches the project may still withdraw their " +
+        "own resources from it; anyone else is answered as for an " +
+        "unknown project. Answers the updated composite as the caller " +
+        "reads it, empty for an owner who withdrew from a project they " +
+        "do not reach.",
       tag: "Projects",
       tool: "update_project_members", mcp: LOCAL_REPLACE,
       display: {"verb": "Changed the members of the project {subject}", "subject": {"resource": "projects", "argument": "id", "name": ["name"]}},
@@ -203,7 +214,14 @@ export const PROJECT_PATHS = {
         "projections (publication state, membership and runtime " +
         "stripped; the workflow carries its canvas layout), and a " +
         "versioned project.json manifest naming every included " +
-        "member. The archive is assembled and finalized before any " +
+        "member. Every dataset has its own entry under the name the " +
+        "exporter types for it, its qualifiedName: the plain name for " +
+        "the exporter's own, <sql name>.<name> for another owner's, so " +
+        "two people's same-named datasets never collide; the manifest " +
+        "names each one's qualifiedName and owner and the exporter's " +
+        "SQL name (exportedBy). Map and workflow documents carry their " +
+        "SQL home, the account whose datasets their plain names mean. " +
+        "No connection facts travel. The archive is assembled and finalized before any " +
         "success is claimed — a failed assembly is a coded refusal, " +
         "never a truncated file. Refuses an unknown project, an " +
         "empty selection, and any id that is not a current member. " +
@@ -339,14 +357,29 @@ export const PROJECT_DEPENDENCY_SCHEMAS = {
     properties: {
       id: { type: "string" },
       name: { type: "string" },
+      qualifiedName: {
+        type: "string",
+        description:
+          "The name the caller would type: the plain name for the " +
+          "caller's own dataset, <sql name>.<name> for another owner's.",
+      },
+      owner: { $ref: "#/components/schemas/ResourceOwner" },
+      owned: {
+        type: "boolean",
+        description:
+          "True when the caller owns the dataset: a filing checklist " +
+          "offers only these. Another person's dependency is listed as " +
+          "not the caller's to add.",
+      },
       source: { type: "string" },
       rowCount: { type: "integer" },
       projectIds: {
         type: "array",
         items: { type: "string" },
         description:
-          "Every project the dataset is in; order carries no " +
-          "meaning.",
+          "Every project the dataset is in that the caller reaches, and " +
+          "for the caller's own dataset every project it is in, one they " +
+          "no longer reach included; order carries no meaning.",
       },
       geometryColumn: {
         type: ["string", "null"],
@@ -363,17 +396,25 @@ export const PROJECT_DEPENDENCY_SCHEMAS = {
       producer: {
         type: ["object", "null"],
         description:
-          "The workflow-origin recipe whose current output this " +
-          "dataset is; null otherwise.",
+          "The workflow-origin recipe a run of which recorded this " +
+          "dataset as its output, when the caller reaches that " +
+          "workflow; null otherwise.",
         properties: {
           id: { type: "string" },
           name: { type: "string" },
+          owned: {
+            type: "boolean",
+            description: "True when the caller owns the workflow and so may file it.",
+          },
         },
       },
     },
     required: [
       "id",
       "name",
+      "qualifiedName",
+      "owner",
+      "owned",
       "source",
       "rowCount",
       "projectIds",
@@ -422,11 +463,25 @@ export const PROJECT_SCHEMAS = {
           "False when a member dataset's size is unknown — the sum " +
           "is partial and says so.",
       },
+      owner: {
+        $ref: "#/components/schemas/ResourceOwner",
+        description: "The project's owner.",
+      },
+      role: {
+        type: "string",
+        enum: ["owner", "editor", "viewer"],
+        description:
+          "How the caller stands to the project: its owner, or one of " +
+          "its people. A project with any role but owner is one shared " +
+          "with the caller.",
+      },
     },
     required: [
       "id",
       "name",
       "note",
+      "owner",
+      "role",
       "createdAt",
       "updatedAt",
       "mapCount",

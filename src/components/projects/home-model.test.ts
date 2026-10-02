@@ -21,15 +21,16 @@ const rel = (iso: string) => `~${iso}`;
 describe("the stats line counts what the sections list", () => {
   it("counts members, published maps, and sums sizes honestly", () => {
     const stats = homeStats({
-      maps: [map({ publishToken: "t" }), map({ publishToken: null })],
+      // Someone else's published map carries no token, only that it is published.
+      maps: [map({ publishToken: "t", published: true }), map({ publishToken: null, published: true }), map({ publishToken: null, published: false })],
       workflows: [wf([])],
       tables: [table({ sizeBytes: 2048 }), table({ sizeBytes: 1024 })],
     });
     expect(stats).toEqual({
-      maps: 2,
+      maps: 3,
       workflows: 1,
       datasets: 2,
-      published: 1,
+      published: 2,
       sizeLabel: "3 KB",
     });
   });

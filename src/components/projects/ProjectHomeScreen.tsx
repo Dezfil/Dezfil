@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { formatRelativeTime, readApiError } from "../api";
 import {
   IconDownload,
@@ -11,7 +11,7 @@ import {
   IconList,
 } from "../gallery-icons";
 import { invalidateProjects } from "../shell/use-project-name";
-import { useInstanceName } from "../shell/path-model";
+import { contributePath, releasePath, useInstanceName } from "../shell/path-model";
 import { Button } from "../ui/Button";
 import { AddDataDialog } from "../AddDataDialog";
 import { NewWorkflowDialog } from "../NewWorkflowDialog";
@@ -30,6 +30,11 @@ import { ExportProjectDialog } from "./ExportProjectDialog";
 import { HomeSections, type HomeView } from "./HomeSections";
 import { KindIcon } from "./ProjectPicture";
 import { ProjectCrumbTail } from "../shell/ProjectCrumbTail";
+import { PlainCrumbTail } from "../shell/PlainCrumbTail";
+import { RoleLine } from "../sharing/PeopleMarks";
+import { MembersLine } from "../sharing/MembersLine";
+import { ShareDialog } from "../sharing/ShareDialog";
+import { PeopleIcon } from "../ui/icons";
 import { attentionRows, factsLine, homeStats } from "./home-model";
 import {
   useCatalogue,
@@ -52,16 +57,35 @@ const NAME_MAX = 120;
 const STALE_AFTER_CHANGE =
   "The change was saved, but the project couldn't be re-read.";
 
-export function ProjectHomeScreen({ id }: { id: string }) {
+/** The project IS the page's object: its name heads the shell's path, and
+ * so the browser title, `<name> · <instance>`, for everyone who reaches
+ * it, whether or not they may rename it. */
+function ProjectPath({ name }: { name: string }) {
+  const pathname = usePathname();
+  useEffect(() => {
+    contributePath(pathname, { name, projectId: null });
+    return () => releasePath(pathname);
+  }, [pathname, name]);
+  return null;
+}
+
+export function ProjectHomeScreen({ id, files }: {
+  id: string;
+  /** Whether the reader may file their own work into the project now, as
+   * the server's reach kernel answered for the page: its owner or an
+   * Editor, while its owner is active. */
+  files: boolean;
+}) {
   const home = useProjectHome(id);
   // Keep the reader across route changes to reject departed responses, while
   // drafts, dialogs and busy flags are local to the displayed project visit.
-  return <ProjectHomeVisit key={id} id={id} home={home} />;
+  return <ProjectHomeVisit key={id} id={id} home={home} files={files} />;
 }
 
-function ProjectHomeVisit({ id, home }: {
+function ProjectHomeVisit({ id, home, files }: {
   id: string;
   home: ReturnType<typeof useProjectHome>;
+  files: boolean;
 }) {
   const router = useRouter();
   const {
@@ -95,6 +119,9 @@ function ProjectHomeVisit({ id, home }: {
 
   const [actionError, setActionError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  // The share dialog, the owner's: opened from the head's Share action or
+  // its members line.
+  const [sharing, setSharing] = useState(false);
   const [exportNote, setExportNote] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState<string | null>(null);
@@ -111,9 +138,9 @@ function ProjectHomeVisit({ id, home }: {
   const isEmpty =
     world !== null &&
     world.maps.length + world.workflows.length + world.tables.length === 0;
-  // The workspace catalogue, read only while the project is empty or
-  // the picker is open.
-  const catalogue = useCatalogue(isEmpty || picking);
+  // The workspace catalogue, read only while the project is empty and
+  // takes additions, or the picker is open.
+  const catalogue = useCatalogue((isEmpty && files) || picking);
   const exclude = useMemo(
     () => ({
       maps: new Set(world?.maps.map((m) => m.id) ?? []),
@@ -329,14 +356,25 @@ function ProjectHomeVisit({ id, home }: {
 
   const { record, maps, workflows, tables, names, lastRuns } = state.value;
   const hasContent = maps.length + workflows.length + tables.length > 0;
+  // How the reader stands to the project, as its read says: its owner
+  // keeps the whole head; its people get the role line, and renaming, the
+  // note and the menu stay the owner's. Add to project, the picker and the
+  // empty home's offers follow whether the reader may file here now.
+  const role = record.role ?? "owner";
+  const owns = role === "owner";
 
   return (
     <div className={styles.screen}>
-      <ProjectCrumbTail
-        projectId={id}
-        name={record.name}
-        onRename={(next) => void rename(next)}
-      />
+      <ProjectPath name={record.name} />
+      {owns ? (
+        <ProjectCrumbTail
+          projectId={id}
+          name={record.name}
+          onRename={(next) => void rename(next)}
+        />
+      ) : (
+        <PlainCrumbTail name={record.name} />
+      )}
       <div className={styles.heading}>
         <div className={styles.headLeft}>
           {nameDraft !== null ? (
@@ -356,6 +394,11 @@ function ProjectHomeVisit({ id, home }: {
           ) : (
             <h1>{record.name}</h1>
           )}
+          {!owns && record.owner && (
+            <RoleLine owner={record.owner} role={role} />
+          )}
+          {owns && <MembersLine projectId={id} onOpen={() => setSharing(true)} />}
+          {owns ? (
           <div className={styles.noteLine}>
             {noteDraft !== null ? (
               <input
@@ -382,6 +425,13 @@ function ProjectHomeVisit({ id, home }: {
               </>
             )}
           </div>
+          ) : (
+            record.note && (
+              <div className={styles.noteLine}>
+                <span>{record.note}</span>
+              </div>
+            )
+          )}
           {stats && (
             <div className={styles.stats} data-facts>
               {factsLine(stats, record, formatRelativeTime).map((f, i) => (
@@ -403,29 +453,38 @@ function ProjectHomeVisit({ id, home }: {
           )}
         </div>
         <div className={styles.headActs} data-head-acts>
-          <Button size="chrome" onClick={() => setPicking(true)}>
-            <IconFolderPlus /> Add to project
-          </Button>
+          {files && (
+            <Button size="chrome" onClick={() => setPicking(true)}>
+              <IconFolderPlus /> Add to project
+            </Button>
+          )}
           {hasContent && (
             <Button size="chrome" onClick={() => setExporting(true)}>
               <IconDownload /> Export project
             </Button>
           )}
-          <Menu
-            label="Project actions"
-            triggerLabel="More"
-            trigger="⋯"
-            className={styles.menuWrap}
-            triggerClassName={styles.menuTrigger}
-            menuClassName={styles.menu}
-          >
-            <MenuItem onSelect={() => setNameDraft(record.name)}>
-              Rename
-            </MenuItem>
-            <MenuItem danger onSelect={() => setConfirmingDelete(true)}>
-              Delete project
-            </MenuItem>
-          </Menu>
+          {owns && (
+            <Button size="chrome" onClick={() => setSharing(true)} data-share-action>
+              <PeopleIcon /> Share
+            </Button>
+          )}
+          {owns && (
+            <Menu
+              label="Project actions"
+              triggerLabel="More"
+              trigger="⋯"
+              className={styles.menuWrap}
+              triggerClassName={styles.menuTrigger}
+              menuClassName={styles.menu}
+            >
+              <MenuItem onSelect={() => setNameDraft(record.name)}>
+                Rename
+              </MenuItem>
+              <MenuItem danger onSelect={() => setConfirmingDelete(true)}>
+                Delete project
+              </MenuItem>
+            </Menu>
+          )}
         </div>
       </div>
 
@@ -463,6 +522,26 @@ function ProjectHomeVisit({ id, home }: {
         />
       )}
 
+      {sharing && (
+        <ShareDialog
+          projectId={id}
+          projectName={record.name}
+          counts={{ maps: maps.length, workflows: workflows.length, datasets: tables.length }}
+          tables={tables}
+          onClose={() => setSharing(false)}
+          onTransferred={(sentence) => {
+            // Handed over: the home re-reads as its new Editor's.
+            setSharing(false);
+            invalidateProjects();
+            if (!ownsAction(renderedAction)) return;
+            setExportNote(sentence);
+            void refresh().then((ok) => {
+              if (!ok && ownsAction(renderedAction)) setStale(true);
+            });
+          }}
+        />
+      )}
+
       {/* The view switch stands where the list screens keep theirs: the
           tail of the toolbar row under the head, on the shared toolbar
           rules, only while there is content to switch. */}
@@ -492,12 +571,15 @@ function ProjectHomeVisit({ id, home }: {
       )}
 
       <div className={styles.scroller} data-home-content>
-        <AttentionArea
-          rows={attention}
-          workflows={workflows}
-          opLabel={opLabel}
-          onChanged={confirmMembership}
-        />
+        {/* Its call to run again is for those who may run: not a Viewer. */}
+        {role !== "viewer" && (
+          <AttentionArea
+            rows={attention}
+            workflows={workflows}
+            opLabel={opLabel}
+            onChanged={confirmMembership}
+          />
+        )}
         {hasContent ? (
           <HomeSections
             projectId={id}
@@ -509,6 +591,8 @@ function ProjectHomeVisit({ id, home }: {
             view={view}
             groupOf={groupOf}
           />
+        ) : !files ? (
+          <p className={gallery.empty}>This project is empty.</p>
         ) : (
           <EmptyHome
             projectId={id}

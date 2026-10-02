@@ -3,12 +3,13 @@ import { finishCascade, getCascade, getCascadeJob, setMember, snapshotAttempt } 
 import { failInactiveJob, type OperationJob } from "@/lib/metadata/jobs";
 import * as lane from "./lane";
 
-/** Terminal bookkeeping for an inactive durable owner. This cannot start work,
- * publish data, read a private response or change an active owner's run. */
+/** Terminal bookkeeping for a run whose initiator is inactive. This cannot
+ * start work, publish data, read a private response or change an active
+ * initiator's run, whoever owns the workflow. */
 export async function settleInactiveCascade(id: string, admitted: Map<string, string>): Promise<boolean> {
   const db = metadataDb();
   if (!db.prepare(`SELECT c.id FROM cascade_runs c JOIN recipes r ON r.id = c.recipe_id
-    JOIN accounts a ON a.id = r.owner_id WHERE c.id = ? AND a.status <> 'active' AND c.outcome IS NULL`).get(id)) return false;
+    JOIN accounts a ON a.id = COALESCE(c.initiator_id, r.owner_id) WHERE c.id = ? AND a.status <> 'active' AND c.outcome IS NULL`).get(id)) return false;
   const before = getCascade(id, db)!;
   const jobs = new Map<string, OperationJob>();
   const waiting: Promise<void>[] = [];

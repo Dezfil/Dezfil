@@ -4,9 +4,10 @@ import { NOTE_TEXT_MAX } from "./note-text";
 /**
  * The clipboard item: what a copied node or note is as text, and the
  * strict reading back. An internal, versioned interchange, not a route
- * or a tool: a node carries its operation and the values the panel
- * showed; a note its text, colour and size; nothing else travels (no
- * output, attempt, history, lineage, layout or origin). Anything that is
+ * or a tool: a node carries its operation, the values the panel
+ * showed and the workflow they were written in; a note its text, colour
+ * and size; nothing else travels (no output, attempt, history, lineage,
+ * layout or origin). Anything that is
  * not exactly this reads as nothing, so foreign text on the clipboard
  * never becomes a paste.
  */
@@ -17,7 +18,9 @@ export type NoteColor = (typeof NOTE_COLOR_NAMES)[number];
 export const CLIPBOARD_MARK = "dezfil-canvas-item";
 export const CLIPBOARD_VERSION = 1;
 
-export type NodeClipboardItem = { kind: "node"; operation: string; parameters: Record<string, unknown> };
+/** A node carries the workflow its values were written in, so a paste
+ * into another workflow can say so and have them carried over. */
+export type NodeClipboardItem = { kind: "node"; operation: string; parameters: Record<string, unknown>; source?: string };
 export type NoteClipboardItem = { kind: "note"; text: string; color: NoteColor; w: number; h: number };
 export type ClipboardItem = NodeClipboardItem | NoteClipboardItem;
 
@@ -54,7 +57,11 @@ export function readClipboardItem(text: string): ClipboardItem | null {
     if (typeof o.operation !== "string" || o.operation.trim() === "") return null;
     const p = o.parameters;
     if (!p || typeof p !== "object" || Array.isArray(p) || !plain(p)) return null;
-    return { kind: "node", operation: o.operation, parameters: { ...(p as Record<string, unknown>) } };
+    if (o.source !== undefined && (typeof o.source !== "string" || o.source === "")) return null;
+    return {
+      kind: "node", operation: o.operation, parameters: { ...(p as Record<string, unknown>) },
+      ...(typeof o.source === "string" ? { source: o.source } : {}),
+    };
   }
   if (o.kind === "note") {
     if (typeof o.text !== "string" || o.text.length > NOTE_TEXT_MAX) return null;
@@ -63,4 +70,10 @@ export function readClipboardItem(text: string): ClipboardItem | null {
     return { kind: "note", text: o.text, color: o.color as NoteColor, w: o.w, h: o.h };
   }
   return null;
+}
+
+/** Where a pasted node's values were written, when that is another
+ * workflow than the one it lands in: the API carries them over from there. */
+export function pasteSource(item: NodeClipboardItem, here: string): { writtenIn: { kind: "workflow"; id: string } } | Record<string, never> {
+  return item.source && item.source !== here ? { writtenIn: { kind: "workflow", id: item.source } } : {};
 }

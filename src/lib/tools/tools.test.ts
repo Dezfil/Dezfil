@@ -170,8 +170,9 @@ describe("tool parity", () => {
 
   it("body keys carry the documented request fields", () => {
     const byName = new Map(buildTools().map((t) => [t.name, t]));
-    // run_sql carries the geometry encoding beside the statement.
-    expect(byName.get("run_sql")?.bodyKeys).toEqual(["sql", "geometry"]);
+    // run_sql carries the geometry encoding beside the statement, and
+    // where the statement was written.
+    expect(byName.get("run_sql")?.bodyKeys).toEqual(["sql", "geometry", "writtenIn"]);
     expect(byName.get("export_sql_result")?.bodyKeys).toEqual([
       "sql",
       "format",
@@ -180,6 +181,7 @@ describe("tool parity", () => {
     ]);
     expect(byName.get("run_sql")?.inputSchema.required).toContain("sql");
     expect(byName.get("create_layer")?.bodyKeys).toContain("sql");
+    expect(byName.get("create_layer")?.bodyKeys).toContain("writtenIn");
     expect(byName.get("update_map")?.bodyKeys).toContain("viewport");
     expect(byName.get("create_postgis_connection")?.bodyKeys).toEqual([
       "name",
@@ -264,9 +266,16 @@ describe("tool parity", () => {
       "invite_user",
       "issue_user_sign_in_link",
       "publish_map",
+      // Who reaches a project is an exposure change in both directions.
+      "remove_project_person",
       "remove_recipe_step",
       "revoke_api_token",
       "revoke_inactive_publication",
+      "set_project_person",
+      // Ownership is the one change only the new owner can undo.
+      "transfer_map",
+      "transfer_project",
+      "transfer_workflow",
       "unpublish_map",
       "update_user_access",
     ]);

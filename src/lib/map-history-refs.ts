@@ -3,7 +3,7 @@ import { resourceAbsent } from "@/lib/auth/owned-resource";
 import { metadataDb } from "@/lib/metadata/db";
 import { listLayers, type Layer } from "@/lib/metadata/maps";
 import type { HistoryStep } from "@/lib/metadata/history";
-import { requireMap } from "./map-access";
+import { requireMapFor } from "./map-access";
 import { assertMapLayerRefs } from "./map-layer-refs";
 
 /** Simulate the complete gesture before replay writes anything. Restored rows
@@ -11,7 +11,7 @@ import { assertMapLayerRefs } from "./map-layer-refs";
  * replacement target, even when a history image claims the current map. */
 export function assertHistoryRefs(scope: AccountScope, mapId: string,
   steps: HistoryStep[], direction: "undo" | "redo"): void {
-  let map = requireMap(scope, mapId);
+  let map = requireMapFor(scope, mapId, "edit");
   const layers = new Map(listLayers(mapId).map(layer => [layer.id, layer]));
   const removed = new Set<string>();
   for (const step of steps) {

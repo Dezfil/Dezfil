@@ -12,7 +12,9 @@ import { requireRequestAuth } from "./http";
 
 const effects = vi.hoisted(() => ({ reads: vi.fn(async () => [] as string[]), engine: vi.fn() }));
 vi.mock("@/lib/operations/step-reads", async original => ({ ...await original<typeof import("@/lib/operations/step-reads")>(), stepReads: effects.reads }));
-vi.mock("@/lib/duckdb", () => ({ withConnection: effects.engine, trustedH3Ready: vi.fn() }));
+// The trusted engine is held off; the hardened query instance stays real,
+// because capturing a layer reads its SQL there to carry it over.
+vi.mock("@/lib/duckdb", async original => ({ ...await original<typeof import("@/lib/duckdb")>(), withConnection: effects.engine, trustedH3Ready: vi.fn() }));
 let db: Database;
 let recipes: Record<string, string>, steps: Record<string, string>, projects: Record<string, string>, layers: Record<string, string>;
 const accounts = ["alice", "bob", "admin"];

@@ -216,6 +216,7 @@ describe("camera persistence", () => {
         widgetsPublished: true,
         publishToken: null,
         publishedAt: null,
+        published: false,
         createdAt: now,
         updatedAt: now,
       },

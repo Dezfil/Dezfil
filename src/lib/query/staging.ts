@@ -6,6 +6,7 @@ import { dataDir } from "@/lib/config";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { resourceAbsent } from "@/lib/auth/owned-resource";
 import type { DatasetScope } from "./access";
+import { authorityOf } from "./context";
 
 const stagingBrand: unique symbol = Symbol("private staging input");
 export interface StagingInput {
@@ -67,7 +68,7 @@ export interface StagingLease {
  * A capability stays with the job that received it; even another evaluation
  * by the same account has no staging input unless that job passes it. */
 export function leaseStagingInputs(scope: DatasetScope, inputs: readonly StagingInput[] = []): StagingLease {
-  const owner = inputs.length ? requireAccountScope(scope as AccountScope) : null;
+  const owner = inputs.length ? requireAccountScope(authorityOf(scope) as AccountScope) : null;
   const selected = inputs.map(input => {
     const stage = stages.get(input);
     if (!stage || stage.owner !== owner || stage.disposed) throw resourceAbsent();

@@ -2,12 +2,14 @@ import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { createMap, mapsOverview } from "@/lib/map-service";
-import { ownedMapProjectId } from "@/lib/metadata/map-queries";
+import { mapPresence } from "@/lib/reach-presence";
 import { importProjectId, projectScope } from "@/lib/project-scope";
 
-/** List all maps, each with its layer count and colors.
- * `?project=<id>` narrows to that project's, `?project=none` to the
- * unfiled; an unknown project answers not found. */
+/** List the maps the caller reaches (their own, and every map filed in a
+ * project they own or belong to), each with its layer count, colors, owner
+ * and SQL home. `?project=<id>` narrows to that project's, `?project=none`
+ * to the caller's own unfiled maps; an unknown or unreachable project
+ * answers not found. */
 export async function GET(request: Request) {
   try {
     const scope = requireRequestScope(request);
@@ -40,7 +42,7 @@ export async function POST(request: Request) {
     }
     const map = createMap(scope, name, projectId);
     return NextResponse.json(
-      { ...map, projectId: ownedMapProjectId(scope, map.id) },
+      { ...map, ...mapPresence(scope, map.id) },
       { status: 201 },
     );
   } catch (error) {

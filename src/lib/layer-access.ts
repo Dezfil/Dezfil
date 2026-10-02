@@ -1,6 +1,17 @@
 import type { AccountScope } from "@/lib/auth/scope";
-import { getOwnedLayer } from "@/lib/metadata/map-queries";
+import { requirePermitted, requireReachable, type ActionOf } from "@/lib/auth/reach";
+import { getLayer, type Layer } from "@/lib/metadata/maps";
 
-export function requireLayer(scope: AccountScope, id: string) {
-  return getOwnedLayer(scope, id);
+/** A layer read: the layer when the acting account reaches its map, else
+ * the absent refusal. */
+export function requireLayer(scope: AccountScope, id: string): Layer {
+  requireReachable(scope, "layer", id);
+  return getLayer(id)!;
+}
+
+/** A layer write: the layer when the acting account may take this action on
+ * its map, else the absent refusal (unreachable) or the permission refusal. */
+export function requireLayerFor(scope: AccountScope, id: string, action: ActionOf<"layer">): Layer {
+  requirePermitted(scope, "layer", id, action);
+  return getLayer(id)!;
 }

@@ -1,3 +1,4 @@
+import { bindingKey } from "./input-ref";
 import type { AccountScope } from "@/lib/auth/scope";
 import type { DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
@@ -166,6 +167,7 @@ export async function compileGeocode(
   operation: OperationDef,
   params: Record<string, unknown>,
   requireName: boolean,
+  reads: DatasetScope = scope,
 ): Promise<CompiledRun> {
   const label = operation.label;
   // First, because it is the one refusal that is about the instance rather than
@@ -176,11 +178,11 @@ export async function compileGeocode(
   if (requireName && !name) required(label, "name");
   const named = str(params, "input");
   if (!named) required(label, "input");
-  const table = inputTable(scope, named, "input");
+  const table = inputTable(reads, named, "input");
 
   refuseGeometry(table, label);
-  const column = await addressColumn(scope, table, params, label);
-  await refuseCollisions(scope, table, label);
+  const column = await addressColumn(reads, table, params, label);
+  await refuseCollisions(reads, table, label);
   refuseSize(table, label);
 
   return {
@@ -190,7 +192,7 @@ export async function compileGeocode(
     name,
     // The generation the answers will be joined to, captured here — before a
     // single request is spent — and re-checked inside the publication (J10).
-    bindings: { [table.name.toLowerCase()]: table.file },
+    bindings: { [bindingKey(table)]: table.file },
     // **Answerable without asking anybody**, which is what makes a dry run of a
     // provider verb possible at all: one row goes out for every row in, so the
     // count is the input's own, and the class is the catalog's declaration
@@ -203,6 +205,7 @@ export async function compileGeocode(
     },
     prepare: async (context) => {
       const staged = await stageBatch(scope, {
+        reads,
         table,
         column,
         ...(context.signal ? { signal: context.signal } : {}),

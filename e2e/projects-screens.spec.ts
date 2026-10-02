@@ -1043,16 +1043,16 @@ test("the project home: facts that drop zeros, only the sections with something,
         page.locator("[data-facts] [data-fact]").evaluateAll((els) => els.map((e) => e.getAttribute("data-fact"))),
       ).toEqual(["maps", "datasets", "published", "size", "updated"]);
       await expect(page.locator('[data-fact="published"]')).toHaveText("1 published");
-      // The actions, left to right: Add, Export, the menu, and nothing
-      // else (the switch left the head).
+      // The actions, left to right: Add, Export, the owner's Share, the
+      // menu, and nothing else (the switch left the head).
       const acts = page.locator("[data-head-acts]");
       const labels = await acts.locator("button, [role=group]").evaluateAll((els) =>
         els.map((e) => e.getAttribute("aria-label") ?? e.textContent?.trim() ?? ""),
       );
-      expect.soft(labels).toEqual(["Add to project", "Export project", "More"]);
+      expect.soft(labels).toEqual(["Add to project", "Export project", "Share", "More"]);
     });
 
-    await test.step("the switch under the head where the list screens keep it; the head's three controls at one height", async () => {
+    await test.step("the switch under the head where the list screens keep it; the head's four controls at one height", async () => {
       // A box read once the entrance animation has settled: two reads
       // 120ms apart agree.
       const settle = async (loc: Locator) => {
@@ -1085,10 +1085,10 @@ test("the project home: facts that drop zeros, only the sections with something,
         const acts = page.locator("[data-head-acts]");
         await expect(acts.getByRole("button", { name: "More", exact: true })).toBeVisible();
         const heights: number[] = [];
-        for (const name of ["Add to project", "Export project", "More"]) {
+        for (const name of ["Add to project", "Export project", "Share", "More"]) {
           heights.push((await settle(acts.getByRole("button", { name, exact: true }))).height);
         }
-        expect.soft(heights, `${viewport.width}: the three head controls at one height`).toEqual([heights[0], heights[0], heights[0]]);
+        expect.soft(heights, `${viewport.width}: the four head controls at one height`).toEqual([heights[0], heights[0], heights[0], heights[0]]);
         expect.soft(Math.round(heights[0]), `${viewport.width}: the chrome metric`).toBe(38);
         const heading = await settle(acts.locator("xpath=.."));
         const homeSwitch = page.locator("[data-switch-row]").getByRole("group", { name: "View" });

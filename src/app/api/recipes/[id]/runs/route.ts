@@ -1,20 +1,21 @@
 import { requireRequestScope } from "@/lib/auth/scope-http";
+import { requireWorkflowRunStart } from "@/lib/workflow-access";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
-import { listCascades } from "@/lib/metadata/owned-cascades";
+import { listReachedCascades } from "@/lib/metadata/owned-cascades";
 import { planCascade, readCascade, startCascade } from "@/lib/operations/cascade";
 import { cascadePayload, optionalJsonBody } from "@/lib/operations/recipe-api";
 
 type Params = { params: Promise<{ id: string }> };
 
 /** A recipe's own runs, newest first — each one durable, and readable long
- * after it finished. */
+ * after it finished, by everyone who reaches the recipe. */
 export async function GET(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id } = await params;
     return NextResponse.json({
-      runs: listCascades(scope, id).map((c) => cascadePayload(readCascade(scope, c.id))),
+      runs: listReachedCascades(scope, id).map((c) => cascadePayload(readCascade(scope, c.id))),
     });
   } catch (error) {
     return errorResponse(error);
@@ -40,6 +41,10 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id } = await params;
+    // Planning and starting a run are for whoever may run the workflow; the
+    // run is theirs and its outputs their own datasets. A viewer is refused
+    // by the permission shape.
+    requireWorkflowRunStart(scope, id);
     // **Absent is not the same as malformed here, and conflating them is not a
     // tidiness question.** On this endpoint an absent body means *run the whole
     // recipe*, so treating a truncated payload or a mistyped field as absent

@@ -13,6 +13,7 @@ import {
   beginPreview,
   impliedQuery,
   previewCurrency,
+  previewRequest,
   settlePreview,
   type PreviewState,
 } from "./catalog-state";
@@ -32,6 +33,9 @@ interface Props {
    * and the scope narrows only what the browser offers, never what the
    * draft may name. */
   listing: CatalogListing;
+  /** The map the layer belongs to: the preview runs in its SQL home, the
+   * context the saved layer is read in, so what is saved is what ran. */
+  mapId?: string;
   draft: string;
   onDraft: (sql: string) => void;
   mode: "add" | "edit";
@@ -63,6 +67,7 @@ interface Props {
  */
 export function CatalogWorkbench({
   listing,
+  mapId,
   draft,
   onDraft,
   mode,
@@ -98,7 +103,7 @@ export function CatalogWorkbench({
           const response = await fetch("/api/query", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ sql: sqlText }),
+            body: JSON.stringify(previewRequest(sqlText, mapId)),
           });
           const outcome = response.ok
             ? {
@@ -129,7 +134,7 @@ export function CatalogWorkbench({
         }
       })();
     },
-    [],
+    [mapId],
   );
 
   const dirty =
@@ -138,6 +143,9 @@ export function CatalogWorkbench({
       : draft.trim() !== "";
   const currency = previewCurrency(preview, draft);
   const settled = preview.settled;
+  // A preview refusal that Add or Update met too is said once, beside the
+  // draft, where the action's outcome stands.
+  const previewError = settled?.error != null && settled.error !== error ? settled.error : null;
 
   return (
     <div className={styles.workbench}>
@@ -152,7 +160,8 @@ export function CatalogWorkbench({
               // handle round-trips onChange; before the lazy editor
               // mounts, the draft carries the text and the focus debt
               // settles on mount.
-              const statement = impliedQuery(t.name);
+              // As the map's SQL types it: the workbench previews there.
+              const statement = impliedQuery(listing.typed ? listing.typed(t) : t.qualifiedName);
               if (editorHandle.current !== null) {
                 editorHandle.current.replaceAll(statement);
               } else {
@@ -213,12 +222,14 @@ export function CatalogWorkbench({
             <Spinner /> Running preview…
           </p>
         ) : settled === null ? null : settled.error !== null ? (
-          <ErrorNote
-            message={settled.error}
-            onDismiss={() =>
-              setPreview((s) => ({ ...s, settled: null }))
-            }
-          />
+          previewError === null ? null : (
+            <ErrorNote
+              message={previewError}
+              onDismiss={() =>
+                setPreview((s) => ({ ...s, settled: null }))
+              }
+            />
+          )
         ) : (
           <>
             {currency === "stale" && (

@@ -42,8 +42,9 @@ export function memberFileNames(names: string[]): string[] {
   });
 }
 
-/** The map document: the documented map-with-layers facts minus
- * publication STATE — the fact, the credential, the timestamp
+/** The map document: the documented map-with-layers facts, its owner
+ * and SQL home included, minus publication STATE — the fact, the
+ * credential, the timestamp
  * ("Publishing belongs to this server", the ruled callout) — and minus
  * project membership (the archive's own structure carries it). The
  * authored publication CONTROLS (publishedFields, widgetsPublished)
@@ -52,6 +53,7 @@ export function mapProjection(wire: Record<string, unknown>): object {
   const kept = { ...wire };
   delete kept.publishToken;
   delete kept.publishedAt;
+  delete kept.published;
   delete kept.projectId;
   return kept;
 }
@@ -65,7 +67,7 @@ interface WorkflowStepWire {
 }
 
 /** The workflow document: an explicit allow-list of definition
- * facts — identity, name, origin, timestamps, and each node's own
+ * facts — identity, name, origin, its SQL home, timestamps, and each node's own
  * definition — with the documented layout payload as its annex, and
  * none of the wire's interleaved runtime (status, outputs, conditions,
  * causes, missing inputs, lineage, attempts, success times) or its
@@ -75,6 +77,7 @@ export function workflowProjection(
     id: unknown;
     name: unknown;
     origin: unknown;
+    home?: unknown;
     createdAt: unknown;
     updatedAt: unknown;
     steps: Record<string, unknown>[];
@@ -85,6 +88,8 @@ export function workflowProjection(
     id: wire.id,
     name: wire.name,
     origin: wire.origin,
+    // The SQL home its steps' plain names mean.
+    home: wire.home,
     createdAt: wire.createdAt,
     updatedAt: wire.updatedAt,
     steps: wire.steps.map(

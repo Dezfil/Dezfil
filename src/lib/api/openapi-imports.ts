@@ -1,3 +1,4 @@
+import { FILING_DESTINATION } from "./openapi-project-access";
 import { datasetAccess } from "./openapi-dataset-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { REMOTE_ADD, REMOTE_READ } from "./operation-mcp";
@@ -44,7 +45,7 @@ export const IMPORT_PATHS = {
                   description:
                     "The project every created table joins" +
                     "; omitted or null, unfiled. An unknown " +
-                    "project refuses before the source is contacted.",
+                    "project refuses before the source is contacted." + FILING_DESTINATION,
                 },
               },
               required: ["url"],
@@ -142,7 +143,7 @@ export const IMPORT_PATHS = {
                   description:
                     "The project every created table joins" +
                     "; omitted or null, unfiled. An unknown " +
-                    "project refuses before the source is contacted.",
+                    "project refuses before the source is contacted." + FILING_DESTINATION,
                 },
               },
               required: ["theme"],
@@ -624,7 +625,7 @@ export const IMPORT_PATHS = {
                   description:
                     "The project every created table joins" +
                     "; omitted or null, unfiled. An unknown " +
-                    "project refuses before the source is contacted.",
+                    "project refuses before the source is contacted." + FILING_DESTINATION,
                 },
               },
             },

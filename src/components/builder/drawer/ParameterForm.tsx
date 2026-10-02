@@ -203,7 +203,7 @@ export function ParameterForm({
   const gate: DryRunGate = useDryRun(
     complete
       ? {
-          operation: operation.id,
+          operation: operation.id, ...(layerSql && mapId ? { writtenIn: { kind: "map" as const, id: mapId } } : {}),
           parameters: layerSql
             ? {
                 ...sent,

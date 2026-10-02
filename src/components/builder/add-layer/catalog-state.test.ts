@@ -51,6 +51,14 @@ describe("followName", () => {
   });
 });
 
+describe("impliedQuery", () => {
+  it("writes a pick as the engine reads it back, quoting a keyword part", () => {
+    expect(impliedQuery("bo.stations")).toBe("SELECT * FROM bo.stations");
+    expect(impliedQuery("group.stations")).toBe('SELECT * FROM "group".stations');
+    expect(impliedQuery("asof.order")).toBe('SELECT * FROM "asof"."order"');
+  });
+});
+
 describe("followSeed", () => {
   it("seeds an empty draft with the implied query", () => {
     expect(followSeed("", null, "wind_farms")).toBe(

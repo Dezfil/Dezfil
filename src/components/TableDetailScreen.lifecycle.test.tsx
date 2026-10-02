@@ -43,6 +43,7 @@ const before: TableInspection = {
   id: "fixture", name: "trips", sourceFilename: "trips.csv", file: "tables/fixture.parquet", format: "csv", geometryColumn: null, geometryType: null,
   crsAssumed: false, headerSuspect: false, rowCount: 1000, source: "upload", sourceParams: null, createdAt: "2026-09-13T10:00:00Z", importedAt: "2026-09-13T10:00:00Z",
   columns: [{ name: "id", type: "BIGINT" }, { name: "column01", type: "VARCHAR" }], preview: [{ id: 1, column01: "LINESTRING(1 2, 3 4)" }], sizeBytes: 1024, projectIds: [], inputs: null,
+  owner: { name: "Ada", sqlName: "ada" }, qualifiedName: "trips",
 };
 const after: TableInspection = {
   ...before, geometryColumn: "geometry", geometryType: "LINESTRING", crsAssumed: true,

@@ -15,6 +15,11 @@ import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 // and the loading/updating split.
 
 describe("failureProse", () => {
+  it("gives published readers one short sentence for SQL that reads more than the link publishes", () => {
+    const failure = { code: "catalogue_not_published", message: ERROR_CATALOGUE.catalogue_not_published };
+    expect(failureProse(failure, "reader")).toBe("It reads data this link does not publish.");
+    expect(failureProse(failure, "author")).toBe(ERROR_CATALOGUE.catalogue_not_published);
+  });
   it("gives published readers request-only rate-limit wording while retaining sign-in detail for authors", () => {
     const failure = { code: "rate_limited", message: ERROR_CATALOGUE.rate_limited };
     expect(failureProse(failure, "reader")).toBe("Too many requests. Retry after the indicated delay.");

@@ -19,6 +19,7 @@ export type StepCondition = StepSummary["condition"];
 const ROLL_UP: StepCondition[] = [
   "broken",
   "output_missing",
+  "output_unavailable",
   "stale",
   "never_run",
   "current",
@@ -29,6 +30,7 @@ const ROLL_UP: StepCondition[] = [
 export const CONDITION_WORD: Record<StepCondition, string> = {
   broken: "Broken",
   output_missing: "Output missing",
+  output_unavailable: "Output not available",
   stale: "Stale",
   never_run: "Not run",
   current: "Current",

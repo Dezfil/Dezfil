@@ -35,6 +35,11 @@
      one copy as it holds the left literal. */
   --assistant-offset: 0px;
   --stage-right: calc(var(--gutter) + var(--assistant-offset));
+  /* What the stage stack takes from each top corner: the builder's stack
+     stands on the left; a surface that stands it on the right (the reader)
+     moves the two. */
+  --stage-stack-left: 46px;
+  --stage-stack-right: 0px;
 }
 
 @media (max-width: 1120px) {
@@ -325,13 +330,13 @@
 /* Top-left clears the stage stack (the stack lives left now). */
 .overlayCorner[data-corner="top-left"] {
   top: 16px;
-  left: 62px;
+  left: calc(16px + var(--stage-stack-left));
   align-items: flex-start;
 }
 
 .overlayCorner[data-corner="top-right"] {
   top: 16px;
-  right: 16px;
+  right: calc(16px + var(--stage-stack-right));
   align-items: flex-end;
 }
 

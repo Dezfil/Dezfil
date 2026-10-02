@@ -1,4 +1,5 @@
 import { SQL_QUERY } from "./openapi-sql";
+import { CARRY_RULE, WRITTEN_IN_REF } from "./openapi-written-in";
 import { resultAccess } from "./openapi-result-access";
 import { tileAccess } from "./openapi-tile-access";
 import { layerAccess } from "./openapi-layer-access";
@@ -86,12 +87,14 @@ export const LAYER_RESOURCE_PATHS = {
       summary: "Delete a layer",
       description:
         "Recorded on the undo timeline — an undo restores the layer " +
-        "whole.",
+        "whole. Removing one's own sketch layer also deletes its sketch " +
+        "dataset, wherever the map is; removing a layer that draws " +
+        "someone else's sketch leaves their dataset.",
       tag: "Layers",
       tool: "delete_layer", mcp: LOCAL_DELETE,
       display: {"verb": "Deleted the layer {subject}", "subject": {"resource": "layers", "argument": "id"}},
       effects: recorded(writes(resource("layers", "id"), resource("maps"), resource("tables"))),
-      confirmation: {"target": "Delete {target}?", "consequence": "This removes the layer and its bound widgets. An owning sketch layer also deletes its sketch dataset.", "subject": {"path": "/api/layers/{id}", "argument": "id", "name": "name"}},
+      confirmation: {"target": "Delete {target}?", "consequence": "This removes the layer and its bound widgets. Your own sketch layer also deletes its sketch dataset.", "subject": {"path": "/api/layers/{id}", "argument": "id", "name": "name"}},
       confirm: true,
       parameters: [pathParam("id", "Layer id."), changeGroupParam],
       responses: { "204": { description: "Deleted." } },
@@ -543,6 +546,15 @@ export const LAYER_SCHEMAS = {
       name: { type: "string" },
       sql: SQL_QUERY,
       style: { $ref: "#/components/schemas/Style" },
+      writtenIn: {
+        ...WRITTEN_IN_REF,
+        description:
+          "Where sql was written, when not in this map: the caller's " +
+          "console (a dataset's \"Add to a map\" too), another map or a " +
+          "workflow. The SQL is carried into this map's SQL home and the " +
+          "layer stores the carried text. " + CARRY_RULE + " Omitted, the " +
+          "SQL is this map's own, read in its home as every saved layer is.",
+      },
     },
     required: ["sql"],
   },
@@ -580,7 +592,10 @@ export const LAYER_SCHEMAS = {
           "an existing result column); null restores " +
           "the derived minimal projection. The functional core — " +
           "fields the published map needs to render, label, filter " +
-          "and cross-filter — publishes regardless of this list.",
+          "and cross-filter — publishes regardless of this list. A " +
+          "publication setting: only the map's owner changes it, and " +
+          "anyone else's write that would change it is refused whole " +
+          "with forbidden.",
       },
       inLegend: { type: "boolean" },
       viz: { $ref: "#/components/schemas/Viz" },

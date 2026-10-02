@@ -61,15 +61,22 @@ export const GUIDANCE_SECTIONS: readonly { id: string; audience: 'shared' | 'ass
       "Credential configuration belongs to the client transport, outside tool arguments and task messages.",
   },
   {
-    id: "private-space",
+    id: "ownership-and-sharing",
     audience: "shared",
     text:
-      "Maps, datasets, workflows, connections, projects and retained job or download results are private to the authenticated account, including from administrators. " +
-      "SQL names resolve only to that account's own datasets; the same name can belong to different accounts. A hidden resource is unavailable in the same way as a missing one. " +
+      "Every map, dataset, workflow, connection and project has one owner and is private to its owner, administrators included, unless a project shares it: " +
+      "a project's owner gives people the viewer or editor role, and they reach the project and everything filed in it, whoever owns it. " +
+      "A viewer reads; an editor also changes the content of the project's maps and workflows, runs its workflows into their own datasets and files their own work there. " +
+      "Deleting, publishing, sharing and transferring stay with the owner, datasets change only by their owner, connections are never shared, " +
+      "and standalone job, download and render results stay with the account that started them. Listings name each item's owner, and each project the caller's role. " +
+      "An unreached resource is unavailable in the same way as a missing one, and a change the caller may not make answers forbidden. " +
+      "Every account has a SQL name. In SQL run directly, a plain table name is the caller's own dataset and <sql name>.<dataset> is another person's reachable dataset, the qualifiedName listings give; the same name can belong to different people. " +
+      "A map's or workflow's SQL reads in its SQL home, the space of the account that created it (its home): there a plain name is the home's dataset and anyone else's is qualified. " +
       "Imports create named datasets for SQL. File readers, file-relation shorthand, path discovery and file-referencing PROJ definitions return sql_rejected regardless of path ownership or existence. " +
       "Named datasets, qualified or dynamic named references and ordinary EPSG transforms remain supported. Saved SQL is retained unchanged, including queries that now fail this policy. " +
-      "Built-in and configured basemaps, palette and operation catalogues, reference catalogues and offered models are shared. Every authenticated account can create or delete a saved palette; a map's style and custom basemap remain private. " +
-      "A published token grants only its read-only projection, evaluated in the map owner's dataset space. Deactivation freezes private work while existing publications stay readable; " +
+      "Built-in and configured basemaps, palette and operation catalogues, reference catalogues and offered models are shared. Every authenticated account can create or delete a saved palette; a map's style and custom basemap belong to the map. " +
+      "A published token grants only its read-only projection, evaluated in the map's SQL home with its owner's reach and restricted to the datasets the map names. " +
+      "Deactivation freezes an account's work, its content read-only for everyone who reaches it, while existing publications stay readable; " +
       "an admin can revoke a deactivated owner's known publication token without gaining access to the map.",
   },
   {
@@ -78,7 +85,10 @@ export const GUIDANCE_SECTIONS: readonly { id: string; audience: 'shared' | 'ass
     text:
       "Read the grounding block before writing any SQL: it holds the tables, their columns and the map or workflow you are on, as data. " +
       "Where a collection is marked incomplete or a fact you need is absent, inspect further with the reads before you assume it: " +
-      "the table catalogue for a schema, the layer fields for a layer's columns, the field statistics for a field's extent or values.",
+      "the table catalogue for a schema, the layer fields for a layer's columns, the field statistics for a field's extent or values. " +
+      "Each table carries its qualifiedName, the name SQL run in the console uses for it. On a map or workflow page the block also names that page's SQL home and gives each table " +
+      "homeName: the name that page's own SQL uses for it, plain for the home's dataset unless one of the workflow's outputs takes the name, <sql name>.<dataset> otherwise. " +
+      "SQL saved into that map's layers or that workflow's steps names tables by homeName; run_sql given writtenIn for the page reads them the same way.",
   },
   {
     id: "candidate-filter",

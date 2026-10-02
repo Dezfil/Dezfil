@@ -1,3 +1,4 @@
+import { bindingKey } from "./input-ref";
 import type { DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
 import type { CompiledRun } from "./compile";
@@ -99,7 +100,7 @@ export async function compileBuffer(
       fallback: !crs.local,
       assumedCrs: assumedCrsOf([table]),
     },
-    bindings: { [table.name.toLowerCase()]: table.file },
+    bindings: { [bindingKey(table)]: table.file },
   };
 }
 
@@ -150,6 +151,6 @@ export async function compileMeasureColumns(
       fallback: area?.local === false,
       assumedCrs: assumedCrsOf([table]),
     },
-    bindings: { [table.name.toLowerCase()]: table.file },
+    bindings: { [bindingKey(table)]: table.file },
   };
 }

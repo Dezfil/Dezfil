@@ -1,0 +1,32 @@
+/* A Viewer's map, laid out as the published viewer's corners draw it in
+   the reader's reference. There is no inspector, so the stage's left edge
+   moves to where the inspector itself would stand (the builder's rail sits
+   at 82px); every stage site reads `--stage-left`, which follows. The
+   control stack holds the right edge, so the widgets and a right-hand
+   legend stand clear of it, and the left corner no longer clears a stack
+   that is not there. */
+:global(body[data-map-reader]) {
+  --stage-left-base: 82px;
+  --stage-stack-right: 48px;
+  --stage-stack-left: 0px;
+}
+
+/* The control stack: top right, flush with the stage's inset. */
+.stack {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 6;
+}
+
+/* A layer the reader cannot draw: the shipped failure note heading the
+   stage's top-left corner, where the builder's status line stands, so a
+   legend there stands under it, clear of the widgets and the stack on the
+   right. */
+.failures {
+  /* The stage is the viewport less the rail and its insets. */
+  width: min(420px, calc(100vw - 470px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

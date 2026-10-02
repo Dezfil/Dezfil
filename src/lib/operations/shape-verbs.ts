@@ -1,3 +1,4 @@
+import { tableRef } from "./input-ref";
 import { ApiError } from "@/lib/api/errors";
 import { ident } from "@/lib/ingest/ingest";
 import type { DataTable } from "@/lib/metadata/tables";
@@ -39,7 +40,7 @@ function geometryOf(table: DataTable, verb: string): string {
 export function centroidSql(table: DataTable): string {
   const geom = ident(geometryOf(table, "a centroid"));
   return `SELECT * EXCLUDE (${geom}), ST_Centroid(t.${geom}) AS ${geom}
-FROM ${ident(table.name)} AS t
+FROM ${tableRef(table)} AS t
 WHERE t.${geom} IS NOT NULL`;
 }
 
@@ -57,7 +58,7 @@ export function convexHullSql(table: DataTable, groupBy: string[]): string {
   const group = groups.length > 0 ? `GROUP BY ${groups.join(", ")}` : "";
   return `SELECT ${select}count(*) AS feature_count,
        ST_ConvexHull(ST_Union_Agg(t.${geom})) AS ${geom}
-FROM ${ident(table.name)} AS t
+FROM ${tableRef(table)} AS t
 WHERE t.${geom} IS NOT NULL
 ${group}`;
 }
@@ -86,7 +87,7 @@ export function simplifySql(
   const measured = intoMeasurement(`t.${geom}`, crs.crs);
   return `SELECT * FROM (
   SELECT t.* REPLACE (${backToStored(`ST_Simplify(${measured}, ${toleranceM})`, crs.crs)} AS ${geom})
-  FROM ${ident(table.name)} AS t
+  FROM ${tableRef(table)} AS t
   WHERE t.${geom} IS NOT NULL
 ) AS s
 WHERE NOT ST_IsEmpty(${geom})`;

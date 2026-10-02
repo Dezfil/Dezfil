@@ -157,8 +157,13 @@ export interface MapRecord {
   widgets: MapWidget[];
   /** Whether widgets ship with the published view. */
   widgetsPublished: boolean;
+  /** The link's token: the capability a publication is. Every map read
+   * gives it to the map's owner alone; anyone else reads null. */
   publishToken: string | null;
   publishedAt: string | null;
+  /** Whether a publication is live, which everyone who reaches the map
+   * reads: derived from the stored token, never stored itself. */
+  published: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -169,14 +174,17 @@ export interface MapWithLayers extends MapRecord {
 
 // ---- maps ----
 
-export function insertMap(scope: AccountScope, m: MapRecord, db: Database = metadataDb()): void {
+/** Insert a map owned by the acting account. Its SQL home is the creator's
+ * space unless `home` names another: a copy keeps its source's home. */
+export function insertMap(scope: AccountScope, m: MapRecord, db: Database = metadataDb(), home?: string): void {
   const ownerId = requireAccountScope(scope, db);
   db.prepare(
     `INSERT INTO maps
-       (owner_id, id, name, view_lng, view_lat, view_zoom, view_pitch, view_bearing, basemap, custom_basemap, basemap_layers, note, legend_corner, legend_order, timeline, widgets, widgets_published, publish_token, published_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (owner_id, home_account_id, id, name, view_lng, view_lat, view_zoom, view_pitch, view_bearing, basemap, custom_basemap, basemap_layers, note, legend_corner, legend_order, timeline, widgets, widgets_published, publish_token, published_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     ownerId,
+    home ?? ownerId,
     m.id,
     m.name,
     m.viewport.lng,
@@ -198,6 +206,13 @@ export function insertMap(scope: AccountScope, m: MapRecord, db: Database = meta
     m.createdAt,
     m.updatedAt,
   );
+}
+
+/** The account whose space a map's SQL is evaluated in; null only for a
+ * map that does not exist or awaits first-account adoption. */
+export function mapHome(id: string, db: Database = metadataDb()): string | null {
+  const row = db.prepare("SELECT home_account_id FROM maps WHERE id = ?").get(id) as { home_account_id: string | null } | undefined;
+  return row?.home_account_id ?? null;
 }
 
 /** Read a published map and its ordered layers from one SQLite snapshot.

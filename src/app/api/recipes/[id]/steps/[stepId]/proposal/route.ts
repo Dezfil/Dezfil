@@ -1,8 +1,9 @@
 import { resourceAbsent } from "@/lib/auth/owned-resource";
 import { requireRequestScope } from "@/lib/auth/scope-http";
+import { requireWorkflowEdit } from "@/lib/workflow-access";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
-import { discardProposal, getRecipe, getStep } from "@/lib/metadata/owned-recipes";
+import { discardProposal, getStep } from "@/lib/metadata/owned-recipes";
 import { readStep } from "@/lib/operations/recipe-view";
 import { stepPayload } from "@/lib/operations/recipe-api";
 
@@ -18,9 +19,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id, stepId } = await params;
-    if (!getRecipe(scope, id)) {
-      throw resourceAbsent();
-    }
+    requireWorkflowEdit(scope, id, stepId);
     const step = getStep(scope, stepId);
     if (!step || step.recipeId !== id) {
       throw resourceAbsent();

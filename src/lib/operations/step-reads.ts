@@ -50,6 +50,15 @@ export function declaredReads(step: StepDefinition): string[] | null {
     .map((v) => v.toLowerCase());
 }
 
+/**
+ * Every table a step reads, as it writes them: plain names, and
+ * `<sql name>.<dataset>` for another person's dataset, which is external
+ * even when an output of the workflow shares its dataset's name. A verb
+ * names its inputs already in that form; a SQL step's qualified reads are
+ * kept beside its plain ones, once each, lower-cased as the plain ones are.
+ * No consumer takes a qualified read for one of the workflow's own outputs:
+ * those are found by plain name only.
+ */
 export async function stepReads(scope: DatasetScope, step: StepDefinition): Promise<string[]> {
   const declared = declaredReads(step);
   if (declared !== null) return declared;
@@ -60,9 +69,11 @@ export async function stepReads(scope: DatasetScope, step: StepDefinition): Prom
   // The parse alone: a table named here need not exist yet, and asking the
   // registry would drop exactly the dependencies a not-yet-run producer
   // creates.
-  return boundedEvaluation(async (conn) =>
-    (await queryInputs(conn, sql, () => null)).tables, { scope },
-  );
+  return boundedEvaluation(async (conn) => {
+    const { tables, external } = await queryInputs(conn, sql, () => null);
+    const qualified = [...new Set(external.map((name) => name.toLowerCase()))].sort();
+    return [...tables, ...qualified];
+  }, { scope });
 }
 
 /** Every step's read set, which is what a whole-recipe check or plan needs. */

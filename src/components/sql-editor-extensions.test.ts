@@ -21,6 +21,13 @@ describe("referencedTables", () => {
   it("ignores a subquery keyword and an alias-only reference", () => {
     expect(referencedTables("SELECT * FROM (SELECT 1) AS q", known)).toEqual([]);
   });
+  it("finds a dataset by the name its reader types: someone else's qualified, beside one's own same-named one", () => {
+    const typed = ["roads", "ada.roads", "ada.rivers"];
+    expect(referencedTables("SELECT * FROM roads JOIN ada.roads o ON true", typed)).toEqual(["roads", "ada.roads"]);
+    expect(referencedTables('SELECT * FROM "ada"."rivers"', typed)).toEqual(["ada.rivers"]);
+    expect(referencedTables("SELECT * FROM ada.roads", ["roads"])).toEqual([]);
+    expect(referencedTables("SELECT * FROM main.roads JOIN cy.roads c ON true", typed)).toEqual([]);
+  });
 });
 
 describe("tokenRangeAt", () => {

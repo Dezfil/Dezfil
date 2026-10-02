@@ -34,5 +34,32 @@ export function producersByName(steps: WorkflowStep[]): Map<string, string> {
   return producer;
 }
 
+const QUALIFIED = /^([a-z][a-z0-9_]*)\.(.+)$/i;
+
+/**
+ * A name a step reads, as written in the workflow's home, split into the
+ * space it names and the dataset: `<sql name>.<dataset>` is that person's
+ * dataset, a plain name the home's (`owner` null) or an output of the
+ * workflow itself. The registry's sanitizer must never see the qualified
+ * form whole: it would take the dataset part for a file extension.
+ */
+export function readTarget(name: string): { owner: string | null; name: string } {
+  const qualified = QUALIFIED.exec(name.trim());
+  return qualified ? { owner: qualified[1].toLowerCase(), name: qualified[2] } : { owner: null, name };
+}
+
+/** The key a read answers to: two names key alike only when they name the
+ * same dataset as written, so `bo.roads` and `bo.rivers` stay two. */
+export function readKey(name: string): string {
+  const target = readTarget(name);
+  return target.owner === null ? normalName(name) : `${target.owner}.${normalName(target.name)}`;
+}
+
+/** The node that produces a read: a qualified name is always external,
+ * even when a node's output shares its dataset's name. */
+export function producerOf(producer: ReadonlyMap<string, string>, read: string): string | undefined {
+  return readTarget(read).owner === null ? producer.get(normalName(read)) : undefined;
+}
+
 /** The id a source node carries for a table name. */
-export const sourceId = (name: string) => `src:${normalName(name)}`;
+export const sourceId = (name: string) => `src:${readKey(name)}`;

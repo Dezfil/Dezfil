@@ -24,7 +24,7 @@ export function UserRow({ account, own, open, busy, handOver, onToggle, onAccess
     <button className={styles.rowLine} type="button" aria-expanded={open} aria-controls={id} disabled={busy}
       onClick={() => { setConfirm(null); onToggle(); }}>
       <span className={styles.person}><span className={styles.avatar} aria-hidden>{account.name.trim().split(/\s+/).slice(0, 2).map(word => word[0]).join("").toUpperCase()}</span>
-        <b>{account.name}{own && <small> · you</small>}</b></span>
+        <span className={styles.identity}><b>{account.name}{own && <small> · you</small>}</b><span className={styles.sqlName}>{account.sqlName}</span></span></span>
       <span className={styles.email}>{account.email}</span><span className={styles.role}>{account.isAdmin ? "Admin" : "Member"}</span>
       <StatusDot state={status} tone={account.status === "active" ? "live" : "quiet"} />
       <span className={styles.seen}>{account.lastSignInAt ? new Date(account.lastSignInAt).toLocaleDateString() : "Never"}</span>

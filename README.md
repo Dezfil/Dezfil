@@ -37,10 +37,12 @@ the volume works, but state then lasts only for that container's lifetime.
 On first run, create the initial admin account. Application pages and APIs
 require a session or an account API token; admins manage accounts and the
 instance name. Each account's maps, datasets, workflows, connections and
-projects are private, including from admins. Dataset and connection names
-belong to that account's space. Basemap, palette, operation and model
-catalogues remain shared; any signed-in account can save or delete a custom
-palette. Published links and embeds remain readable without an account,
+projects are private, including from admins, until a project's owner shares the
+project: its people then reach everything filed in it, as viewers or editors.
+Connections are never shared. Dataset and connection names belong to that
+account's space; SQL names another person's dataset `<sql name>.<dataset>`.
+Basemap, palette, operation and model catalogues remain shared; any signed-in
+account can save or delete a custom palette. Published links and embeds remain readable without an account,
 as does the readiness probe. An instance upgraded from a release without accounts
 also shows setup once. Secure new and upgraded instances until you complete setup,
 and complete it promptly: whoever reaches setup first becomes the admin.

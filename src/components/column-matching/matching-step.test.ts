@@ -64,7 +64,8 @@ const answer = (choice: GeometryChoice, revision = "r1"): GeometryPreview => ({
   sample: { rows: [{ index: 0, values: { id: 1 }, status: "readable" }], features: { type: "FeatureCollection", features: [] } },
 });
 const setResult = (choice: GeometryChoice): GeometrySetResult => ({
-  table: { ...landed, geometryColumn: "geometry", geometryType: "POINT", crsAssumed: true, sizeBytes: 10, projectIds: [] } as TableListing,
+  table: { ...landed, geometryColumn: "geometry", geometryType: "POINT", crsAssumed: true, sizeBytes: 10, projectIds: [],
+    owner: { name: "Ada", sqlName: "ada" }, qualifiedName: landed.name } as TableListing,
   revision: "r2", currentChoice: choice, mode: "set", extent: [8, 50, 9, 51],
 });
 

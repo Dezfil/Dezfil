@@ -6,7 +6,8 @@ import { requireMap } from "@/lib/map-service";
 
 type Params = { params: Promise<{ id: string }> };
 
-/** The map's sketch datasets — provenance and per-kind counts. */
+/** The caller's own sketch datasets on a map they reach — provenance and
+ * per-kind counts. */
 export async function GET(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);

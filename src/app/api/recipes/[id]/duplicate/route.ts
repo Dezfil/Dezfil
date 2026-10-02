@@ -16,6 +16,7 @@ export async function POST(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id } = await params;
+    // Anyone who reaches the workflow may duplicate it into their own space.
     const copy = await duplicateRecipe(scope, id);
     return NextResponse.json(
       { recipe: recipePayload(await readRecipe(scope, copy.id)) },

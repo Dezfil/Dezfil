@@ -4,11 +4,19 @@ import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { dataDir } from "@/lib/config";
 import { withConnection } from "@/lib/duckdb";
 import { catalogueRecords, type CatalogueQuery } from "@/lib/metadata/table-catalogue";
+import { reachedTableProjectIds } from "@/lib/metadata/owned-tables";
 import { trackInflight } from "@/lib/query/inflight";
 
 export const CATALOGUE_MAX_BYTES = 96 * 1024;
 export interface CatalogueTable {
-  id: string; name: string; rowCount: number;
+  id: string; name: string;
+  /** The name the caller would type: plain for their own, `<sql name>.<name>` for someone else's. */
+  qualifiedName: string;
+  owner: { name: string; sqlName: string };
+  /** The projects through which the caller reaches the dataset: those it is
+   * filed in that the caller owns or belongs to. Identities only. */
+  projectIds: string[];
+  rowCount: number;
   geometryColumn: string | null; geometryType: string | null; crsAssumed: boolean;
   columns: { name: string; type: string }[]; columnCount: number; nextColumnOffset: number | null;
 }
@@ -43,6 +51,7 @@ export function parseCatalogueQuery(url: URL): CatalogueQuery {
 export async function readTableCatalogue(scope: AccountScope, query: CatalogueQuery, signal?: AbortSignal): Promise<TableCatalogue> {
   if (signal?.aborted) throw new EvaluationCancelled();
   const { records, total, more } = catalogueRecords(scope, query);
+  const memberships = reachedTableProjectIds(scope);
   return trackInflight(withConnection(async (conn) => {
     const abort = () => conn.interrupt();
     signal?.addEventListener("abort", abort, { once: true });
@@ -57,13 +66,15 @@ export async function readTableCatalogue(scope: AccountScope, query: CatalogueQu
         const described = await conn.runAndReadAll(`SELECT name, type FROM pragma_table_info('catalogue_schema') ORDER BY cid LIMIT ${query.columns} OFFSET ${query.columnOffset}`);
         const columns = described.getRowObjects() as unknown as { name: string; type: string }[];
         tables.push({
-          id: record.id, name: record.name, rowCount: record.row_count,
+          id: record.id, name: record.name, qualifiedName: record.qualified,
+          owner: { name: record.owner_name, sqlName: record.owner_sql_name },
+          projectIds: [...(memberships.get(record.id) ?? [])].sort(), rowCount: record.row_count,
           geometryColumn: record.geometry_column, geometryType: record.geometry_type, crsAssumed: Boolean(record.crs_assumed),
           columns, columnCount, nextColumnOffset: query.columnOffset + columns.length < columnCount ? query.columnOffset + columns.length : null,
         });
         if (Buffer.byteLength(JSON.stringify(tables)) > CATALOGUE_MAX_BYTES) throw new ApiError("catalogue_too_large", "The schema page exceeds 96 KiB. Request fewer tables or columns.", 422);
       }
-      const result = { tables, total, nextAfter: more ? tables.at(-1)!.name : null };
+      const result = { tables, total, nextAfter: more ? tables.at(-1)!.qualifiedName : null };
       if (Buffer.byteLength(JSON.stringify(result)) > CATALOGUE_MAX_BYTES) throw new ApiError("catalogue_too_large", "The schema page exceeds 96 KiB. Request fewer tables or columns.", 422);
       return result;
     } finally { signal?.removeEventListener("abort", abort); }

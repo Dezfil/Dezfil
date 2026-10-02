@@ -122,7 +122,8 @@ function firstGeometryColumn(columns: readonly { name: string; type: string }[])
 
 export function ResultsPane(p: Props) {
   const { shown, busy, tab, onTab } = p;
-  const previewName = shown.kind === "preview" ? shown.table.name : null;
+  // The preview reads the dataset by the name its reader types.
+  const previewName = shown.kind === "preview" ? shown.table.qualifiedName : null;
   const features = useTableFeatures(previewName);
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [downloadNote, setDownloadNote] = useState<string | null>(null);
@@ -207,7 +208,7 @@ export function ResultsPane(p: Props) {
             <span className={styles.leadChip}>
               <IconTable /> Preview
             </span>
-            <b>{shown.table.name}</b>
+            <b>{shown.table.qualifiedName}</b>
             <button type="button" className={styles.linkBtn} onClick={() => p.onOpenAsSql(shown.table)}>
               Open as SQL
             </button>
@@ -409,7 +410,7 @@ export function ResultsPane(p: Props) {
               <div className={styles.errorWrap}>
                 <ErrorNote
                   message={shown.schema.error}
-                  onRetry={() => p.onRetrySchema(shown.table.name)}
+                  onRetry={() => p.onRetrySchema(shown.table.qualifiedName)}
                 />
               </div>
             )}

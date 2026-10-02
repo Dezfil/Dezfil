@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BASEMAPS, BASEMAP_FALLBACKS } from "@/lib/basemap";
-import { thumbnailCyclePlan } from "./use-thumbnail-capture";
+import { capturePlan, thumbnailCyclePlan } from "./use-thumbnail-capture";
+import { mapSqlRevision } from "@/lib/map-sql-revision";
 
 /** Which maps take a second card image: only a genuine Auto. */
 describe("the thumbnail cycle plan", () => {
@@ -46,5 +47,32 @@ describe("the thumbnail cycle plan", () => {
     expect(
       thumbnailCyclePlan(auto, { ...theming, basemapOverrideUrl: "https://pin.test/s.json" }),
     ).toEqual({ themed: null });
+  });
+});
+
+describe("the revision a capture plan carries", () => {
+  const theming = { theme: "light" as const, basemapUrl: BASEMAPS[0].url, basemapOverrideUrl: null };
+  const map = {
+    basemap: "streets" as const, customBasemap: null, basemapLayers: null,
+    layers: [{ id: "a", sql: "SELECT * FROM roads" }, { id: "b", sql: "SELECT * FROM bo.roads" }],
+  };
+
+  it("is the map's SQL revision as the builder holds it, beside the theming decision", () => {
+    const plan = capturePlan(map, theming);
+    expect(plan.themed).toBeNull();
+    expect(plan.revision).toBe(mapSqlRevision(map.layers));
+    expect(plan.revision).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  it("moves with any layer's SQL, its identity or the layer order, and nothing else", () => {
+    const base = capturePlan(map, theming).revision;
+    expect(capturePlan({ ...map, basemap: "light" }, theming).revision).toBe(base);
+    expect(capturePlan({ ...map, layers: [map.layers[0], { id: "b", sql: "SELECT * FROM roads" }] }, theming).revision).not.toBe(base);
+    expect(capturePlan({ ...map, layers: [map.layers[0], { id: "c", sql: map.layers[1].sql }] }, theming).revision).not.toBe(base);
+    expect(capturePlan({ ...map, layers: [map.layers[1], map.layers[0]] }, theming).revision).not.toBe(base);
+  });
+
+  it("is absent when the map's layers are not known", () => {
+    expect(capturePlan({ basemap: "streets", customBasemap: null, basemapLayers: null }, theming).revision).toBeUndefined();
   });
 });
