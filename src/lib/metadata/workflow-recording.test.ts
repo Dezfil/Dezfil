@@ -73,7 +73,7 @@ it("attributes promotion to the runner while output bookkeeping leaves facts alo
   workflows.editStep(owner, step.id, { ...parameters, sql: "SELECT 2 AS n" }, db, undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: (readEditStep(step.id, db)?.recipeId ?? "missing") }, db)?.editRevision });
   const proposed = workflows.requireStep(owner, recipe.id, step.id, db);
   previous = revision(recipe.id);
-  const authorize = stepAuthorizer(runner, { step: proposed, running: proposed.proposedParameters!, isProposal: true }, () => true);
+  const authorize = stepAuthorizer(runner, { step: proposed, running: proposed.proposedParameters!, isProposal: true, executableRevision: previous.executableRevision! }, () => true);
   db.transaction(() => expect(authorize({ id: "runner-output", name: "output" }, db, [])).toBe(true))();
   expect(revision(recipe.id)).toMatchObject({ lastChangedBy: runner.accountId });
   expect(revision(recipe.id).executableRevision).not.toBe(previous.executableRevision);

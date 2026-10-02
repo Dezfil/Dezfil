@@ -235,6 +235,17 @@ export function cascadeMatchesExecutable(id: string, recipeId: string, db: Datab
     .get(id, recipeId);
 }
 
+/** Called only after a guarded promotion, inside its publication transaction.
+ * Other runs retain the generation they admitted. */
+export function advanceCascadeExecutable(id: string, recipeId: string, previous: string, db: Database): void {
+  if (!db.inTransaction) throw new Error("Run basis advancement requires the publication transaction.");
+  const changed = db.prepare(`UPDATE cascade_runs SET admitted_executable_revision =
+    (SELECT executable_revision FROM recipes WHERE id = ?)
+    WHERE id = ? AND recipe_id = ? AND admitted_executable_revision = ?`)
+    .run(recipeId, id, recipeId, previous).changes;
+  if (changed !== 1) throw new Error("The run basis changed during promotion.");
+}
+
 export function getCascade(
   id: string,
   db: Database = metadataDb(),

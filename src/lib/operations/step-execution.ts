@@ -1,5 +1,4 @@
 import { archiveCascadeAttempt } from "@/lib/metadata/cascades";
-import { readDocumentRevision } from "@/lib/metadata/revisions";
 import { metadataDb } from "@/lib/metadata/db";
 import { requireRunBasis } from "./run-basis";
 import { requireCascadeMember } from "@/lib/metadata/owned-cascades";
@@ -69,7 +68,7 @@ export async function startStepRun(
   const { plan, executableRevision } = db.transaction(() => {
     if (options.cascadeId) requireCascadeMember(scope, options.cascadeId, stepId, db);
     const plan = planPublication(scope, stepId);
-    const executableRevision = readDocumentRevision({ kind: "workflow", id: plan.step.recipeId }, db)!.executableRevision!;
+    const executableRevision = plan.executableRevision;
     requireRunBasis(plan.step.recipeId, executableRevision, options.cascadeId, db);
     return { plan, executableRevision };
   })();
