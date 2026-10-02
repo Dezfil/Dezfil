@@ -225,42 +225,38 @@ test("a run promotes its upstream proposal and continues into its downstream nod
   }
 });
 
-test("a node drag based on the revision before its own promotion keeps its refused position until Reload", async ({ page, request }) => {
+test("a node drag after its own run promotes a proposal saves with the adopted revision", async ({ page, request }) => {
   const workflow = await seedWorkflow(request, runTag(), true);
-  let releaseReads = () => {};
   try {
     const basis = await openCanvas(page, workflow);
     const before = await readLayout(request, workflow.id);
-    const gate = new Promise<void>(resolve => { releaseReads = resolve; });
-    let waitingReads = 0;
-    const path = `/api/recipes/${workflow.id}`;
-    // Hold both the run result and the definition refresh: a run poll can
-    // otherwise rebuild the nodes during the drag. The server still runs
-    // and promotes the proposal; API-context reads bypass this barrier.
-    await page.route(url => url.pathname === path || url.pathname === `${path}/runs` || url.pathname.startsWith(`${path}/runs/`), async route => {
-      if (route.request().method() === "GET") { waitingReads++; await gate; }
-      await route.continue();
-    });
     const run = await startOnCanvas(page, workflow.id, basis.editRevision);
-    await expect.poll(() => waitingReads).toBeGreaterThan(0);
     await finished(request, workflow.id, run.id);
+    await expect(page.locator("[data-run-dock]")).toHaveAttribute("data-run-dock", "ended", { timeout: 60_000 });
+    await expect(page.locator("[data-run-dock]")).toContainText("Completed");
     const promoted = await readRecipe(request, workflow.id);
     expect(promoted.editRevision).not.toBe(basis.editRevision);
     expect(promoted.steps.find(step => step.id === workflow.upstream)).toMatchObject({ parameters: { sql: "SELECT 2 AS value" }, proposedParameters: null });
-    await expect(page.locator("[data-run-dock]")).toHaveAttribute("data-run-dock", "running");
-    await expect(page.locator("[data-stale-recovery]")).toHaveCount(0);
+
     const writes = watchWrites(page, workflow.id);
-    const draft = await expectStaleLayout(page, workflow.id, basis.editRevision, () => dragUpstream(page, workflow));
+    const saved = page.waitForResponse(response => new URL(response.url()).pathname === `/api/recipes/${workflow.id}/layout` && response.request().method() === "PUT");
+    await dragUpstream(page, workflow);
+    const response = await saved;
+    expect(response.request().headers()["x-edit-revision"]).toBe(promoted.editRevision);
+    expect(response.status(), await response.text()).toBe(200);
+    const draft = response.request().postDataJSON() as Layout;
+    expect(draft.steps[workflow.upstream]).not.toEqual(before.steps[workflow.upstream]);
+    await expect.poll(() => position(page, workflow.upstream)).toEqual(draft.steps[workflow.upstream]);
+    expect((await readLayout(request, workflow.id)).steps).toEqual(draft.steps);
+    const chip = page.locator("[data-save-status-corner]");
+    await expect(chip.getByText("Saved", { exact: true })).toBeVisible();
+    await expect(chip).not.toContainText(STALE);
+    await expect(chip.getByRole("button", { name: "Reload", exact: true })).toHaveCount(0);
+    await expect(page.locator("[data-stale-recovery]")).toHaveCount(0);
     expect(writes).toHaveLength(1);
-    const refreshed = page.waitForResponse(response => new URL(response.url()).pathname === `/api/recipes/${workflow.id}` && response.request().method() === "GET");
-    releaseReads();
-    await refreshed;
-    await expect(page.locator("[data-run-dock]")).toHaveAttribute("data-run-dock", "ended");
-    await recoverLayout(page, request, workflow, before, draft, writes);
     expect((await runs(request, workflow.id)).map(item => item.id)).toContain(run.id);
-    expect((await runs(request, workflow.id))).toHaveLength(2);
+    expect(await runs(request, workflow.id)).toHaveLength(2);
   } finally {
-    releaseReads();
     await cancelOutstanding(request, workflow.id);
   }
 });
