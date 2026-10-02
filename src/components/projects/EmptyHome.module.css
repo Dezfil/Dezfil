@@ -145,6 +145,21 @@
   gap: 1px;
 }
 
+/* The name and, on someone else's work, its owner's pill after it. */
+.nameLine {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.nameLine b {
+  min-width: 0;
+}
+
+.nameLine > span {
+  flex: none;
+}
+
 .text b {
   font-size: var(--text-body);
   font-weight: 600;

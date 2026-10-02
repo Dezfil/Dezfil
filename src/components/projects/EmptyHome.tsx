@@ -9,6 +9,8 @@ import { ErrorNote } from "../ui/ErrorNote";
 import { Spinner } from "../Spinner";
 import { MoveIcon, PlusIcon } from "../ui/icons";
 import { WorkflowThumb } from "../WorkflowThumb";
+import { OwnerPill } from "../sharing/PeopleMarks";
+import { useSignedInSqlName } from "../sharing/signed-in";
 import { KindIcon } from "./ProjectPicture";
 import type { CatalogueState } from "./home-read";
 import {
@@ -24,9 +26,10 @@ import styles from "./EmptyHome.module.css";
 /**
  * The empty project: the plate that says so and starts new things, then
  * the recent card — the last touched things across the workspace, the
- * kind first on every row, an Add on each (a Move where a filed map or
- * workflow would leave its project). Presentation only: the home owns
- * the reads, the creates and the filing.
+ * kind first on every row, an Add on each of one's own (a Move where a
+ * filed map or workflow would leave its project), and the owner's pill on
+ * someone else's, which is not one's to file. Presentation only: the home
+ * owns the reads, the creates and the filing.
  */
 
 export function EmptyHome({
@@ -62,12 +65,13 @@ export function EmptyHome({
   onAddData: () => void;
   onRetryCatalogue: () => void;
 }) {
+  const me = useSignedInSqlName();
   const items = useMemo(
     () =>
       catalogue.status === "ready"
-        ? recentItems({ ...catalogue.value, projectId, exclude, names })
+        ? recentItems({ ...catalogue.value, projectId, exclude, names, me })
         : [],
-    [catalogue, projectId, exclude, names],
+    [catalogue, projectId, exclude, names, me],
   );
   const hasRows = catalogue.status === "ready" && items.length > 0;
 
@@ -139,9 +143,12 @@ export function EmptyHome({
               )}
             </span>
             <span className={styles.text}>
-              <b className={it.kind === "dataset" ? styles.mono : undefined} data-recent-name>
-                {it.name}
-              </b>
+              <span className={styles.nameLine}>
+                <b className={it.kind === "dataset" ? styles.mono : undefined} data-recent-name>
+                  {it.name}
+                </b>
+                {it.owner && <OwnerPill owner={it.owner} placement="inline" />}
+              </span>
               <small data-recent-meta>
                 <span data-recent-where>{whereLine(it.where)}</span>
                 <i>·</i>
@@ -150,16 +157,18 @@ export function EmptyHome({
                 {formatRelativeTime(it.time)}
               </small>
             </span>
-            <Button
-              className={styles.add}
-              aria-label={`${moves ? "Move" : "Add"} ${it.name}`}
-              busy={busyId === it.id}
-              disabled={busyId !== null}
-              onClick={() => onAdd(it)}
-              data-recent-action={moves ? "move" : "add"}
-            >
-              {moves ? <MoveIcon /> : <PlusIcon />} {moves ? "Move" : "Add"}
-            </Button>
+            {!it.owner && (
+              <Button
+                className={styles.add}
+                aria-label={`${moves ? "Move" : "Add"} ${it.name}`}
+                busy={busyId === it.id}
+                disabled={busyId !== null}
+                onClick={() => onAdd(it)}
+                data-recent-action={moves ? "move" : "add"}
+              >
+                {moves ? <MoveIcon /> : <PlusIcon />} {moves ? "Move" : "Add"}
+              </Button>
+            )}
           </div>
           );
         })}
