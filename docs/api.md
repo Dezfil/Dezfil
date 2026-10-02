@@ -1145,3 +1145,23 @@ sketch dataset nor its artifacts, map content, history or publication.
 Feature edits and dataset-side sketch deletion remain dataset operations
 without a revision precondition; a deletion that changes a map definition
 advances that map's revision.
+
+### Shared undo and redo preconditions
+
+`POST /api/maps/{id}/undo` and `/redo` (`undo_change`, `redo_change`) require
+`X-Edit-Revision` (MCP `expected_revision`) from the map or history state the
+caller saw. This is a breaking change for callers that omitted it. Missing
+or malformed revisions answer `400 invalid_request`; stale ones answer
+`409 stale_revision`: “This item has changed. Reload it before trying again.”
+The check is repeated after SQL admission, before changing any row or cursor.
+A current request with no eligible timeline position still answers
+`409 invalid_request` with “Nothing to undo.” or “Nothing to redo.”
+
+Undo targets the latest applied step or contiguous group, whoever authored
+it; redo targets the next undone one. Groups and coalescing never cross actor
+boundaries. There is no selective personal undo and no skipping an ineligible
+group. Publication restrictions, SQL admission and reference checks refuse
+the whole group, without changing content, history, attribution or artifacts.
+Accepted replay returns a fresh revision and attributes the action to the
+replayer while keeping the original step authors. Restoring identical values
+or a deleted layer never revives an old token. A new edit discards redo.

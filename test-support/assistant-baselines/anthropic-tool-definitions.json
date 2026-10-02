@@ -1,6 +1,6 @@
 {
   "count": 136,
-  "overall": "92f1b33e7b912d1319abaedafba31a357a417b8eeb57744c67880eccffbb6c98",
+  "overall": "45934416423f7ffb5039f29e0f92e49006c9a5546317fce0237b8b962085b3a8",
   "tools": {
     "get_account": "f9449c42bd1f10ea7744e222cc62614d4a204d733c1126e6dcc7d958fb005cb1",
     "update_account": "a34794caa0ea61a1c0ff2a4db66741a6fe74c54c10ae4d0f2ca4dca73e7bc221",
@@ -105,8 +105,8 @@
     "get_map_dependencies": "23c5055da62d29e9c9abed9bf4e5baea85237d26482a9be04ac9055368815af5",
     "duplicate_map": "8dcca0edac0fecfdb6771e68f18819ce4a11b62626017ac51a115ab171c9af75",
     "get_history": "f8c4ce11fa0a1035bf35f6f24dae5d53b44dedcbac94fd503195279cdcac9eb4",
-    "undo_change": "595809fcdb0438c7068e0032afb9aca7ec9643db34444f3d363840f429685a8f",
-    "redo_change": "4a4503304028ad790e01f6c5625508e5e6f59e145b697acd984208bc77d14bcb",
+    "undo_change": "a9b90c710793a926972df577fcb8d66862083777421867c3dbab211a40031a0c",
+    "redo_change": "37777088d09fba732186d911636beb1dca5ce8ee83a51f4d68055c49896d051a",
     "list_map_sketches": "76605675a64f844098da105b8d1070c692811de1560f0f34945d741036bb6b83",
     "create_sketch": "2dc5972fcdce97501ac78051b1372be39e5598c210f4930e03ffa236d0147a3e",
     "get_sketch_features": "47b98f55110150a882fdd1e572eaa8ec9f4d70c12adacaa5332b5f3ceda960e4",

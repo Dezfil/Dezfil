@@ -135,7 +135,7 @@ const cases: Case[] = [
     setup: async () => { updateMap(scope("ada"), "M", { name: "Changed by the owner" }, { expectedRevision: readEditRevision({ kind: "map", id: "M" })?.editRevision }); },
     effect: () => value("SELECT name FROM maps WHERE id = 'M'"), expected: "Shared map" },
   { label: "redo a content change", action: "edit", method: "POST", target: "map", suffix: id => `/api/maps/${id}/redo`, load: route.redo, status: 200,
-    setup: async () => { updateMap(scope("ada"), "M", { name: "Changed by the owner" }, { expectedRevision: readEditRevision({ kind: "map", id: "M" })?.editRevision }); await undoChange(scope("ada"), "M"); },
+    setup: async () => { updateMap(scope("ada"), "M", { name: "Changed by the owner" }, { expectedRevision: readEditRevision({ kind: "map", id: "M" })?.editRevision }); await undoChange(scope("ada"), "M", { expectedRevision: readEditRevision({ kind: "map", id: "M" })?.editRevision }); },
     effect: () => value("SELECT name FROM maps WHERE id = 'M'"), expected: "Changed by the owner" },
   { label: "undo a widget publication change", action: "publish", method: "POST", target: "map", suffix: id => `/api/maps/${id}/undo`, load: route.undo, status: 200,
     setup: async () => { updateMap(scope("ada"), "M", { widgetsPublished: false }, { expectedRevision: readEditRevision({ kind: "map", id: "M" })?.editRevision }); },
@@ -144,7 +144,7 @@ const cases: Case[] = [
     setup: async () => {
       const { updateLayer } = await import("@/lib/layer-service");
       await updateLayer(scope("ada"), "L", { publishedFields: null }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer("L")?.mapId ?? "missing") })?.editRevision });
-      await undoChange(scope("ada"), "M");
+      await undoChange(scope("ada"), "M", { expectedRevision: readEditRevision({ kind: "map", id: "M" })?.editRevision });
     },
     effect: () => value("SELECT published_fields FROM layers WHERE id = 'L'"), expected: null },
   { label: "publish with a theme", action: "publish", method: "POST", target: "map", suffix: id => `/api/maps/${id}/publish`, body: { theme: "light" },

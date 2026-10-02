@@ -37,7 +37,7 @@ it("set, change, preview and clear preserve both undo and redo plus authored lay
   const map = createMap(testAccountScope(), "Geometry map");
   const layer = await createLayer(testAccountScope(), map.id, { name: "Points", sql: `SELECT ST_GeomFromText(payload) geometry FROM ${t.name}` }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   updateMap(testAccountScope(), map.id, { name: "Renamed", basemap: "dark" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-  await undoChange(testAccountScope(), map.id);
+  await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   expect(await mapHistory(testAccountScope(), map.id)).toMatchObject({ canUndo: true, canRedo: true });
   const history = metadataDb().prepare("SELECT * FROM map_history ORDER BY seq").all();
   const beforeLayer = requireLayer(testAccountScope(), layer.id);

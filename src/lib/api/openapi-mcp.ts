@@ -1,4 +1,4 @@
-import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA } from "./openapi-document-facts";
+import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA, editRevisionParam, editRevisionResponses } from "./openapi-document-facts";
 import { mapChildren } from "./openapi-map-children";
 import { mapAccess } from "./openapi-map-access";
 import { authenticatedOp } from "./openapi-authenticated";
@@ -48,10 +48,10 @@ export const HISTORY_PATHS = {
             "Reverts the latest step on the map's history. Consecutive " +
             "edits in a group form a step, and an edit from outside the " +
             "group between them starts a new one, so one turn's edits can " +
-            "span several steps. Restores are verbatim: exactly the values " +
+            "span several steps. Grouping never crosses actors. Restores are verbatim: exactly the values " +
             "stored before the change. Returns the refreshed map with fresh " +
-            "availability; 409 when there is nothing to undo, or when the " +
-            "history moved while the replay was being checked. Redo " +
+            "availability and a fresh editRevision; 409 invalid_request when there is nothing to undo, " +
+            "or 409 stale_revision when the seen revision is no longer current, including during SQL admission. Redo " +
             "re-applies the stored change. A replay that would change a " +
             "publication setting (the widget publication toggle or a " +
             "layer's published fields) is the map owner's alone: anyone " +
@@ -60,8 +60,8 @@ export const HISTORY_PATHS = {
           tool: "undo_change", mcp: HISTORY_MOVE,
           display: {"verb": "Undid a change on the map {subject}", "subject": {"resource": "maps", "argument": "id", "name": ["name"]}},
           effects: writes(resource("maps", "id"), resource("layers")),
-          parameters: [pathParam("id", "Map id.")],
-          responses: { "200": jsonOk("#/components/schemas/MapWithHistory") },
+          parameters: [pathParam("id", "Map id."), editRevisionParam],
+          responses: { ...editRevisionResponses, "200": jsonOk("#/components/schemas/MapWithHistory") },
         }))),
       },
       "/api/maps/{id}/redo": {
@@ -70,8 +70,8 @@ export const HISTORY_PATHS = {
           description:
             "Re-applies the most recently undone change (or grouped turn), " +
             "exactly as it was stored. Any fresh edit after an undo " +
-            "discards the redo branch. 409 when there is nothing to redo, " +
-            "or when the history moved while the replay was being checked. " +
+            "discards the redo branch. Returns a fresh editRevision, never an older token even when values match. " +
+            "409 invalid_request when there is nothing to redo, or 409 stale_revision when the seen revision is no longer current, including during SQL admission. " +
             "A replay that would change a publication setting (the widget " +
             "publication toggle or a layer's published fields) is the map " +
             "owner's alone: anyone else is refused whole with forbidden, " +
@@ -80,8 +80,8 @@ export const HISTORY_PATHS = {
           tool: "redo_change", mcp: HISTORY_MOVE,
           display: {"verb": "Redid a change on the map {subject}", "subject": {"resource": "maps", "argument": "id", "name": ["name"]}},
           effects: writes(resource("maps", "id"), resource("layers")),
-          parameters: [pathParam("id", "Map id.")],
-          responses: { "200": jsonOk("#/components/schemas/MapWithHistory") },
+          parameters: [pathParam("id", "Map id."), editRevisionParam],
+          responses: { ...editRevisionResponses, "200": jsonOk("#/components/schemas/MapWithHistory") },
         }))),
       },
 };

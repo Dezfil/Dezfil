@@ -188,11 +188,11 @@ describe("recording layer changes", () => {
     await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "icon", glyph: "marker", customSvg: svg },
     }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
-    await undoChange(testAccountScope(), map.id);
+    await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(
       (requireLayer(testAccountScope(), layer.id).viz as { customSvg?: string }).customSvg,
     ).toBeUndefined();
-    await redoChange(testAccountScope(), map.id);
+    await redoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(
       (requireLayer(testAccountScope(), layer.id).viz as { customSvg?: string }).customSvg,
     ).toBe(svg);
@@ -244,9 +244,9 @@ describe("recording layer changes", () => {
     expect(step.before).toEqual(before);
     expect(step.after).toEqual({ filters, viz: filtered.viz });
 
-    await undoChange(testAccountScope(), map.id);
+    await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireLayer(testAccountScope(), layer.id)).toMatchObject(before);
-    await redoChange(testAccountScope(), map.id);
+    await redoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireLayer(testAccountScope(), layer.id)).toMatchObject({
       filters,
       viz: filtered.viz,
@@ -329,11 +329,11 @@ describe("undo and redo application", () => {
     }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const editedJson = stableJson(edited.style);
 
-    const undone = await undoChange(testAccountScope(), map.id);
+    const undone = await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(stableJson(requireLayer(testAccountScope(), layer.id).style)).toBe(original);
     expect(undone.history).toMatchObject({ canUndo: true, canRedo: true }); // add step below
 
-    const redone = await redoChange(testAccountScope(), map.id);
+    const redone = await redoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(stableJson(requireLayer(testAccountScope(), layer.id).style)).toBe(editedJson);
     expect(redone.history.canRedo).toBe(false);
   });
@@ -348,9 +348,9 @@ describe("undo and redo application", () => {
     const hexed = await updateLayer(testAccountScope(), layer.id, { viz: defaultViz("hexbin") }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const hexJson = stableJson(hexed.viz);
 
-    await undoChange(testAccountScope(), map.id);
+    await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireLayer(testAccountScope(), layer.id).viz).toEqual({ type: "points" });
-    await redoChange(testAccountScope(), map.id);
+    await redoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     // The restored viz is the recorded one — including the fill computed at
     // edit time — not a fresh classification.
     expect(stableJson(requireLayer(testAccountScope(), layer.id).viz)).toBe(hexJson);
@@ -367,11 +367,11 @@ describe("undo and redo application", () => {
     await removeLayer(testAccountScope(), a.id, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(a.id)?.mapId ?? "missing") })?.editRevision });
     expect(listLayers(map.id).map((l) => l.id)).toEqual([b.id]);
 
-    await undoChange(testAccountScope(), map.id);
+    await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(stableJson(requireLayer(testAccountScope(), a.id))).toBe(beforeDelete);
     expect(listLayers(map.id).map((l) => l.id)).toEqual([a.id, b.id]);
 
-    await redoChange(testAccountScope(), map.id); // delete again
+    await redoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }); // delete again
     expect(listLayers(map.id).map((l) => l.id)).toEqual([b.id]);
   });
 
@@ -382,9 +382,9 @@ describe("undo and redo application", () => {
       name: "Stations",
       sql: STATIONS_SQL,
     }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-    await undoChange(testAccountScope(), map.id);
+    await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(listLayers(map.id)).toHaveLength(0);
-    await redoChange(testAccountScope(), map.id);
+    await redoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireLayer(testAccountScope(), layer.id).name).toBe("Stations");
   });
 
@@ -394,9 +394,9 @@ describe("undo and redo application", () => {
     const a = await createLayer(testAccountScope(), map.id, { name: "A", sql: STATIONS_SQL }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const b = await createLayer(testAccountScope(), map.id, { name: "B", sql: STATIONS_SQL }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     updateMap(testAccountScope(), map.id, { layerOrder: [b.id, a.id] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-    await undoChange(testAccountScope(), map.id);
+    await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(listLayers(map.id).map((l) => l.id)).toEqual([a.id, b.id]);
-    await redoChange(testAccountScope(), map.id);
+    await redoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(listLayers(map.id).map((l) => l.id)).toEqual([b.id, a.id]);
   });
 
@@ -410,7 +410,7 @@ describe("undo and redo application", () => {
     await updateLayer(testAccountScope(), layer.id, { name: "Renamed" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision, groupId: "turn-1" });
     updateMap(testAccountScope(), map.id, { basemap: "dark" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision, groupId: "turn-1" });
 
-    const undone = await undoChange(testAccountScope(), map.id);
+    const undone = await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireLayer(testAccountScope(), layer.id).name).toBe("Stations");
     expect(requireMap(testAccountScope(), map.id).basemap).toBeNull();
     // One undo consumed the whole group; the next target is the add step.
@@ -422,18 +422,18 @@ describe("undo and redo application", () => {
   it("a fresh edit after undo discards the redo branch", async () => {
     const map = createMap(testAccountScope(), "m");
     updateMap(testAccountScope(), map.id, { name: "One" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-    await undoChange(testAccountScope(), map.id);
+    await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect((await mapHistory(testAccountScope(), map.id)).canRedo).toBe(true);
     updateMap(testAccountScope(), map.id, { name: "Two" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(await mapHistory(testAccountScope(), map.id)).toMatchObject({ canUndo: true, canRedo: false });
-    await expect(redoChange(testAccountScope(), map.id)).rejects.toMatchObject({
+    await expect(redoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision })).rejects.toMatchObject({
       code: "invalid_request",
     });
   });
 
   it("refuses cleanly when there is nothing to undo", async () => {
     const map = createMap(testAccountScope(), "m");
-    await expect(undoChange(testAccountScope(), map.id)).rejects.toMatchObject({
+    await expect(undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision })).rejects.toMatchObject({
       code: "invalid_request",
     });
   });
@@ -469,9 +469,9 @@ describe("undo and redo application", () => {
     expect(requireLayer(testAccountScope(), layer.id).style).toEqual(fast.style);
     expect(timeline(map.id)[0].after?.style).toEqual(fast.style);
     // Only accepted changes enter the timeline.
-    await undoChange(testAccountScope(), map.id);
+    await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireLayer(testAccountScope(), layer.id).style).toEqual(labeled.style);
-    await undoChange(testAccountScope(), map.id);
+    await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireLayer(testAccountScope(), layer.id).style).toEqual(layer.style);
   });
 
@@ -501,7 +501,7 @@ describe("undo and redo application", () => {
     await updateLayer(testAccountScope(), layer.id, { name: "Renamed mid-flight" }, { expectedRevision: basis });
     await refusal;
     expect(requireLayer(testAccountScope(), layer.id)).toMatchObject({ name: "Renamed mid-flight", filters: aggregated.filters });
-    await undoChange(testAccountScope(), map.id);
+    await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireLayer(testAccountScope(), layer.id).name).toBe("Stations");
   });
 
@@ -521,11 +521,11 @@ describe("undo and redo application", () => {
       visible: true,
     };
     updateMap(testAccountScope(), map.id, { name: "Titled", widgets: [note] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-    await undoChange(testAccountScope(), map.id);
+    await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const reverted = requireMap(testAccountScope(), map.id);
     expect(reverted.name).toBe("m");
     expect(reverted.widgets).toEqual([]);
-    await redoChange(testAccountScope(), map.id);
+    await redoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const reapplied = requireMap(testAccountScope(), map.id);
     expect(reapplied.name).toBe("Titled");
     expect(reapplied.widgets).toEqual([note]);

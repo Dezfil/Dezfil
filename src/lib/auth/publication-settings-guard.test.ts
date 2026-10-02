@@ -121,14 +121,14 @@ const cases: Case[] = [
   { field: "widget publication", path: "undo", ...replay("undo"), setup: async () => { updateMap(scope("ada"), "M", { widgetsPublished: false }, { expectedRevision: readEditRevision({ kind: "map", id: "M" })?.editRevision }); },
     owned: { widgets: 1 } },
   { field: "widget publication", path: "redo", ...replay("redo"),
-    setup: async () => { updateMap(scope("ada"), "M", { widgetsPublished: false }, { expectedRevision: readEditRevision({ kind: "map", id: "M" })?.editRevision }); await undoChange(scope("ada"), "M"); }, owned: { widgets: 0 } },
+    setup: async () => { updateMap(scope("ada"), "M", { widgetsPublished: false }, { expectedRevision: readEditRevision({ kind: "map", id: "M" })?.editRevision }); await undoChange(scope("ada"), "M", { expectedRevision: readEditRevision({ kind: "map", id: "M" })?.editRevision }); }, owned: { widgets: 0 } },
   { field: "widget publication", path: "undo of a grouped rename", ...replay("undo"),
     setup: async () => { updateMap(scope("ada"), "M", { name: "Renamed", widgetsPublished: false }, { expectedRevision: readEditRevision({ kind: "map", id: "M" })?.editRevision }); }, owned: { widgets: 1 } },
   { field: "published fields", path: "layer write", ...layerPatch({ publishedFields: null }), owned: { fields: null } },
   { field: "published fields", path: "layer write with a rename", ...layerPatch({ name: "Streets", publishedFields: [] }), owned: { fields: "[]" } },
   { field: "published fields", path: "undo", ...replay("undo"), setup: () => changeFields(null), owned: { fields: '["v"]' } },
   { field: "published fields", path: "redo", ...replay("redo"),
-    setup: async () => { await changeFields(null); await undoChange(scope("ada"), "M"); }, owned: { fields: null } },
+    setup: async () => { await changeFields(null); await undoChange(scope("ada"), "M", { expectedRevision: readEditRevision({ kind: "map", id: "M" })?.editRevision }); }, owned: { fields: null } },
 ];
 async function call(c: Case, account: string, kind = "session", basis?: string | null) {
   const handler = (await c.load())[c.method] as Handler;

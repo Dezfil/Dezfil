@@ -139,7 +139,7 @@ describe("legendOrder — the stored arrangement", () => {
     expect(after.legendOrder).toEqual([ids[1], ids[2]]);
 
     // One undo restores the layer and its slot together (one group).
-    await undoChange(testAccountScope(), map.id);
+    await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const restored = mapWithLayers(testAccountScope(), map.id);
     expect(restored.layers).toHaveLength(3);
     expect(restored.legendOrder).toEqual([ids[1], ids[0], ids[2]]);
@@ -179,7 +179,7 @@ describe("legendOrder — the stored arrangement", () => {
     ]);
 
     // One undo removes the duplicate and its slot together.
-    await undoChange(testAccountScope(), map.id);
+    await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const after = mapWithLayers(testAccountScope(), map.id);
     expect(after.layers.some((l) => l.id === copy.id)).toBe(false);
     expect(after.legendOrder).toEqual([delta.id, ...manual]);
@@ -206,13 +206,13 @@ describe("legendOrder — the stored arrangement", () => {
     // 3s coalesce window) rapid same-shape writes merge by design.
     updateMap(testAccountScope(), map.id, { legendOrder: arrangement }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision, groupId: "move" });
 
-    await undoChange(testAccountScope(), map.id);
+    await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toBeNull();
-    await redoChange(testAccountScope(), map.id);
+    await redoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toEqual(arrangement);
 
     updateMap(testAccountScope(), map.id, { legendOrder: null }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision, groupId: "reset" });
-    await undoChange(testAccountScope(), map.id);
+    await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toEqual(arrangement);
   });
 });

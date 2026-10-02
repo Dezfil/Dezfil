@@ -63,10 +63,10 @@ describe('external group association', () => {
     expect(steps()).toHaveLength(1);
     expect(result.structuredContent?.history).toBeNull();
   });
-  it('history tools expose only map identity, with no selective group control', async () => {
+  it('history moves require the seen revision and offer no selective group control', async () => {
     const { tools } = await client.listTools();
     for (const name of ['get_history', 'undo_change', 'redo_change']) {
-      expect(Object.keys(tools.find(tool => tool.name === name)!.inputSchema.properties!)).toEqual(['id']);
+      expect(Object.keys(tools.find(tool => tool.name === name)!.inputSchema.properties!)).toEqual(name === 'get_history' ? ['id'] : ['id', 'expected_revision']);
     }
   });
   it('a no-op has association but no history step', async () => {
@@ -98,13 +98,13 @@ describe('external group association', () => {
     ]);
     expect(steps().filter(row => (row as { mapId: string }).mapId === other)).toEqual([expect.objectContaining({ mapId: other, groupId: 'shared' })]);
     for (const expected of ['Manual', 'First', 'Original']) {
-      const result = await call('undo_change', { id: mapId }); expect(body(result).name).toBe(expected);
+      const result = await call('undo_change', { expected_revision: readEditRevision({ kind: "map", id: mapId })!.editRevision!, id: mapId }); expect(body(result).name).toBe(expected);
       expect(result.structuredContent?.history).toBeNull();
       expect(body(await call('get_map', { id: other })).name).toBe('Other changed');
     }
-    for (const expected of ['First', 'Manual', 'Last']) expect(body(await call('redo_change', { id: mapId })).name).toBe(expected);
-    expect(body(await call('undo_change', { id: other })).name).toBe('Other');
-    expect(body(await call('redo_change', { id: other })).name).toBe('Other changed');
+    for (const expected of ['First', 'Manual', 'Last']) expect(body(await call('redo_change', { expected_revision: readEditRevision({ kind: "map", id: mapId })!.editRevision!, id: mapId })).name).toBe(expected);
+    expect(body(await call('undo_change', { expected_revision: readEditRevision({ kind: "map", id: other })!.editRevision!, id: other })).name).toBe('Other');
+    expect(body(await call('redo_change', { expected_revision: readEditRevision({ kind: "map", id: other })!.editRevision!, id: other })).name).toBe('Other changed');
     expect(body(await call('get_history', { id: mapId }))).toMatchObject({ canUndo: true, canRedo: false });
   });
 });

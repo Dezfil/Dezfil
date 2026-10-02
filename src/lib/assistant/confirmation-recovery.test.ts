@@ -142,9 +142,9 @@ for (const interleaved of [false, true]) it(`undo and redo preserve two confirma
   expect((await map(mapId)).name).toBe("After pauses"); expect((await read(id)).state).toBe("completed");
   expect(provider.recording.exchanges).toHaveLength(1);
   const undoNames = interleaved ? ["Manual edit", "Before pause", "Original"] : ["Original"];
-  for (const name of undoNames) { await dispatch(req(`/api/maps/${mapId}/undo`, {})); expect((await map(mapId)).name).toBe(name); }
+  for (const name of undoNames) { await dispatch(withFixtureRevision(req(`/api/maps/${mapId}/undo`, {}), readEditRevision({ kind: "map", id: mapId })!.editRevision!)); expect((await map(mapId)).name).toBe(name); }
   const redoNames = interleaved ? ["Before pause", "Manual edit", "After pauses"] : ["After pauses"];
-  for (const name of redoNames) { await dispatch(req(`/api/maps/${mapId}/redo`, {})); expect((await map(mapId)).name).toBe(name); }
+  for (const name of redoNames) { await dispatch(withFixtureRevision(req(`/api/maps/${mapId}/redo`, {}), readEditRevision({ kind: "map", id: mapId })!.editRevision!)); expect((await map(mapId)).name).toBe(name); }
 });
 
 it("the whole-turn budget spans two recovered pauses", async () => {

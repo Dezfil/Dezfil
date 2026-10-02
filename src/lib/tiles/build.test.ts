@@ -387,7 +387,7 @@ describe("tile builds", () => {
     await vi.waitFor(() => expect(existsSync(gate.started)).toBe(true));
 
     await removeLayer(testAccountScope(), layerId, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
-    await undoChange(testAccountScope(), mapId);
+    await undoChange(testAccountScope(), mapId, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     expect(ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input()).state).toBe("building");
 
     await gate.release();

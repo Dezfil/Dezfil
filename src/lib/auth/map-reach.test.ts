@@ -164,7 +164,7 @@ describe("a publication's token", () => {
     const renamed = await call(route.map, "PATCH", withFixtureRevision(input("edd", "/api/maps/M", "PATCH", { name: "Renamed" }), readEditRevision({ kind: "map", id: "M" })?.editRevision), { id: "M" });
     expect(renamed.status).toBe(200);
     expect(renamed.body).toMatchObject({ name: "Renamed", publishToken: null, published: true });
-    const undone = await call(route.undo, "POST", input("edd", "/api/maps/M/undo", "POST"), { id: "M" });
+    const undone = await call(route.undo, "POST", withFixtureRevision(input("edd", "/api/maps/M/undo", "POST"), readEditRevision({ kind: "map", id: "M" })!.editRevision!), { id: "M" });
     expect(undone.status).toBe(200);
     expect(undone.body).toMatchObject({ name: "Shared map", publishToken: null, published: true });
     for (const answer of [renamed, undone]) expect(answer.text).not.toContain(TOKEN);
@@ -233,7 +233,7 @@ describe("writes answer with the map as its writer sees it", () => {
     const renamed = await call(route.map, "PATCH", withFixtureRevision(input("edd", "/api/maps/M", "PATCH", { name: "Edited" }), readEditRevision({ kind: "map", id: "M" })?.editRevision), { id: "M" });
     expect(renamed.status).toBe(200);
     expect(renamed.body).toMatchObject({ id: "M", name: "Edited", owner: ADA, home: "ada", projectId: "P" });
-    const undone = await call(route.undo, "POST", input("edd", "/api/maps/M/undo", "POST"), { id: "M" });
+    const undone = await call(route.undo, "POST", withFixtureRevision(input("edd", "/api/maps/M/undo", "POST"), readEditRevision({ kind: "map", id: "M" })!.editRevision!), { id: "M" });
     expect(undone.status).toBe(200);
     expect(undone.body).toMatchObject({ id: "M", name: "Shared map", owner: ADA, home: "ada", projectId: "P", history: { canRedo: true } });
   });

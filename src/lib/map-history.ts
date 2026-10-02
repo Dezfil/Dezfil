@@ -1,5 +1,6 @@
 import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
-import { recordDocumentChanges } from "./metadata/revisions";
+import { recordDocumentChanges, requireDocumentRevision } from "./metadata/revisions";
+import { ERROR_CATALOGUE } from "./api/error-catalogue";
 import { historyTarget, type HistoryTarget } from "./history-targets";
 import { assertHistoryRefs } from "./map-history-refs";
 import type { AccountScope } from "@/lib/auth/scope";
@@ -17,7 +18,7 @@ import { admitMapSql, recheckSaved, savesAsOwner, type SavedAdmission } from "./
 
 /** The map + fresh history availability — what undo/redo return, and what
  * the builder seeds its buttons from. */
-export interface MapWithHistory extends MapWithLayers {
+export interface MapWithHistory extends MapWithLayers, DocumentFacts {
   history: MapHistoryAvailability;
 }
 
@@ -106,14 +107,16 @@ const stepKey = (steps: HistoryStep[]) => steps.map((step) => step.id).join("|")
  * the map's home. Admitted before the replay's transaction, which applies
  * only the steps admitted and refuses whole if the timeline moved meanwhile.
  */
-async function admitReplay(scope: AccountScope, id: string, direction: "undo" | "redo"):
+async function admitReplay(scope: AccountScope, id: string, direction: "undo" | "redo", expectedRevision: unknown):
   Promise<{ key: string; saved: SavedAdmission[] } | null> {
   const map = requireMapFor(scope, id, "edit");
-  if (savesAsOwner(scope, "map", id)) return null;
   const steps = direction === "undo" ? undoSteps(id) : redoSteps(id);
   // A replay that would change a publication setting is refused before any
   // SQL it restores is evaluated.
   if (historyChangesPublication(map, listLayers(id), steps, direction)) requireMapFor(scope, id, "publish");
+  assertHistoryRefs(scope, id, steps, direction);
+  requireDocumentRevision(scope, { kind: "map", id, expectedRevision });
+  if (savesAsOwner(scope, "map", id)) return null;
   const saved: SavedAdmission[] = [];
   for (const sql of restoredSql(steps, direction)) saved.push(await admitMapSql(scope, id, sql));
   return { key: stepKey(steps), saved };
@@ -123,14 +126,19 @@ async function applyHistory(
   scope: AccountScope,
   id: string,
   direction: "undo" | "redo",
+  expectedRevision: unknown,
 ): Promise<MapWithHistory> {
   const removedLayers: string[] = [];
-  const admitted = await admitReplay(scope, id, direction);
+  const admitted = await admitReplay(scope, id, direction, expectedRevision);
   const accepted = metadataDb().transaction(() => {
     // Undo and redo are content changes; one that would put back or take
     // away a publication setting is the owner's alone, refused whole.
     const map = requireMapFor(scope, id, "edit");
     const steps = direction === "undo" ? undoSteps(id) : redoSteps(id);
+    if (historyChangesPublication(map, listLayers(id), steps, direction)) requireMapFor(scope, id, "publish");
+    if (admitted) recheckSaved(scope, ...admitted.saved);
+    assertHistoryRefs(scope, id, steps, direction);
+    requireDocumentRevision(scope, { kind: "map", id, expectedRevision });
     if (steps.length === 0) {
       throw new ApiError(
         "invalid_request",
@@ -138,14 +146,11 @@ async function applyHistory(
         409,
       );
     }
-    if (historyChangesPublication(map, listLayers(id), steps, direction)) requireMapFor(scope, id, "publish");
     // The steps applied are the steps admitted, by the standing admitted.
     const owner = savesAsOwner(scope, "map", id);
     if (admitted ? owner || admitted.key !== stepKey(steps) : !owner) {
-      throw new ApiError("invalid_request", "The map changed while the change was being checked. Try again.", 409);
+      throw new ApiError("stale_revision", ERROR_CATALOGUE.stale_revision, 409);
     }
-    if (admitted) recheckSaved(scope, ...admitted.saved);
-    assertHistoryRefs(scope, id, steps, direction);
     for (const step of steps) applyStep(step, direction, removedLayers);
     const last = steps[steps.length - 1];
     setHistoryCursor(id, direction === "undo" ? last.seq - 1 : last.seq);
@@ -157,11 +162,11 @@ async function applyHistory(
 }
 
 /** Revert the newest step — or the whole group an assistant turn wrote. */
-export function undoChange(scope: AccountScope, id: string): Promise<MapWithHistory> {
-  return applyHistory(scope, id, "undo");
+export function undoChange(scope: AccountScope, id: string, opts: { expectedRevision?: unknown } = {}): Promise<MapWithHistory> {
+  return applyHistory(scope, id, "undo", opts.expectedRevision);
 }
 
 /** Re-apply the newest undone step (or group). */
-export function redoChange(scope: AccountScope, id: string): Promise<MapWithHistory> {
-  return applyHistory(scope, id, "redo");
+export function redoChange(scope: AccountScope, id: string, opts: { expectedRevision?: unknown } = {}): Promise<MapWithHistory> {
+  return applyHistory(scope, id, "redo", opts.expectedRevision);
 }

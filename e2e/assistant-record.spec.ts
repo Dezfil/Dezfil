@@ -383,9 +383,9 @@ test.describe("2 and 3: recovery cases, the interleaved edit, and the words the 
     expect(provider.captures).toHaveLength(3);
     // 3f: undo walks Second, Manual, First; the record's order is unchanged.
     const name = async () => (await api(page, "GET", `/api/maps/${mapId}`)).name;
-    await api(page, "POST", `/api/maps/${mapId}/undo`); expect(await name()).toBe("Manual");
-    await api(page, "POST", `/api/maps/${mapId}/undo`); expect(await name()).toBe("First");
-    await api(page, "POST", `/api/maps/${mapId}/redo`); expect(await name()).toBe("Manual");
+    await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/undo` })); expect(await name()).toBe("Manual");
+    await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/undo` })); expect(await name()).toBe("First");
+    await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/redo` })); expect(await name()).toBe("Manual");
     await expect(entriesNow.nth(0).getByRole("button")).toContainText("Updated the map First");
     // 2g: the tab's state is cleared after settlement, and a locator to a gone run clears on its 404.
     await expect.poll(() => page.evaluate(() => sessionStorage.getItem("dezfil.assistant.active"))).toBeNull();

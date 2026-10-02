@@ -119,9 +119,9 @@ describe("custom basemap PATCH", () => {
     // key behaves.
     await patch({ customBasemap: { url: "https://x.test/a.json" } }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     await patch({ customBasemap: { url: "https://x.test/b.json" } }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
-    const undone = await undoChange(testAccountScope(), mapId);
+    const undone = await undoChange(testAccountScope(), mapId, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     expect(undone.customBasemap).toBeNull();
-    const redone = await redoChange(testAccountScope(), mapId);
+    const redone = await redoChange(testAccountScope(), mapId, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     expect(redone.customBasemap?.url).toBe("https://x.test/b.json");
   });
 });

@@ -1,5 +1,5 @@
-import { withFixtureRevision } from "./test-support/edit-basis";
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { withFixtureRevision } from "./test-support/edit-basis";
 import { declaredRevisionArguments } from "./edit-basis";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Database } from "better-sqlite3";
@@ -141,7 +141,7 @@ it("returns the accepted history state while later work lands during artifact cl
   const waiting = new Promise<void>(resolve => { entered = resolve; });
   const barrier = new Promise<void>(resolve => { release = resolve; });
   vi.spyOn(tiles, "removeTileArtifacts").mockImplementation(async () => { entered(); await barrier; });
-  const pending = undoChange(scope, map.id);
+  const pending = undoChange(scope, map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   await waiting;
   const accepted = revision(map.id);
   updateMap(scope, map.id, { name: "Later" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });

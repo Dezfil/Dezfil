@@ -54,8 +54,8 @@ async function edit(id: string, fields: Record<string, unknown>, group?: string,
   });
   expect(response.status, await response.clone().text()).toBe(200);
 }
-const undo = async (id: string) => {
-  const response = await call(`/api/maps/${id}/undo`, { method: "POST" });
+const undo = async (id: string, basis: string) => {
+  const response = await call(`/api/maps/${id}/undo`, { method: "POST", headers: { "X-Edit-Revision": basis } });
   expect(response.status, await response.clone().text()).toBe(200);
 };
 const readMap = async (id: string) =>
@@ -101,7 +101,7 @@ describe("the boundary the map's history gives", () => {
     const grouped = createMap(testAccountScope(), "Original A");
     await edit(grouped.id, { name: "Renamed A" }, "turn-a", readEditRevision({ kind: "map", id: grouped.id })!.editRevision!);
     await edit(grouped.id, { legendCorner: "top-right" }, "turn-a", readEditRevision({ kind: "map", id: grouped.id })!.editRevision!);
-    await undo(grouped.id);
+    await undo(grouped.id, readEditRevision({ kind: "map", id: grouped.id })!.editRevision!);
     expect(await readMap(grouped.id)).toMatchObject({ name: "Original A", legendCorner: null });
 
     // The same group, with one ungrouped edit between its two edits.
@@ -109,7 +109,7 @@ describe("the boundary the map's history gives", () => {
     await edit(split.id, { name: "First" }, "turn-b", readEditRevision({ kind: "map", id: split.id })!.editRevision!);
     await edit(split.id, { name: "Manual" }, undefined, readEditRevision({ kind: "map", id: split.id })!.editRevision!);
     await edit(split.id, { legendCorner: "top-right" }, "turn-b", readEditRevision({ kind: "map", id: split.id })!.editRevision!);
-    await undo(split.id);
+    await undo(split.id, readEditRevision({ kind: "map", id: split.id })!.editRevision!);
     // One undo took the group's later edit alone: its earlier rename stands,
     // so a turn's edits are not one step and a whole group is not one step.
     expect(await readMap(split.id)).toMatchObject({ name: "Manual", legendCorner: null });

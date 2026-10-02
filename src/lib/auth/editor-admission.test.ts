@@ -159,28 +159,28 @@ describe("undo and redo by someone other than the map's owner", () => {
   it("refuses a replay that would restore SQL the editor cannot evaluate, whole, with nothing restored", async () => {
     const layer = await createLayer(scopes.ada, map.id, { name: "Hidden", sql: "SELECT * FROM secret" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await updateLayer(scopes.ada, layer.id, { sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
-    await refused(() => call("bob", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST"), "secret");
-    await refused(() => call("pat", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST"), "secret");
-    expect((await call("ada", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST")).status).toBe(200);
+    await refused(() => call("bob", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST", undefined, readEditRevision({ kind: "map", id: map.id })!.editRevision!), "secret");
+    await refused(() => call("pat", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST", undefined, readEditRevision({ kind: "map", id: map.id })!.editRevision!), "secret");
+    expect((await call("ada", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST", undefined, readEditRevision({ kind: "map", id: map.id })!.editRevision!)).status).toBe(200);
   });
 
   it("refuses a redo the same way", async () => {
     const layer = await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await updateLayer(scopes.ada, layer.id, { sql: "SELECT * FROM secret" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
-    await undoChange(scopes.ada, map.id);
-    await refused(() => call("bob", route.redo, `/api/maps/${map.id}/redo`, { id: map.id }, "POST"), "secret");
+    await undoChange(scopes.ada, map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await refused(() => call("bob", route.redo, `/api/maps/${map.id}/redo`, { id: map.id }, "POST", undefined, readEditRevision({ kind: "map", id: map.id })!.editRevision!), "secret");
   });
 
   it("refuses putting back a removed layer whose SQL the editor cannot evaluate", async () => {
     const layer = await createLayer(scopes.ada, map.id, { name: "Hidden", sql: "SELECT * FROM secret" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect((await call("bob", route.layer, `/api/layers/${layer.id}`, { id: layer.id }, "DELETE", undefined, readEditRevision({ kind: "map", id: map.id })!.editRevision!)).status).toBe(200);
-    await refused(() => call("bob", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST"), "secret");
+    await refused(() => call("bob", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST", undefined, readEditRevision({ kind: "map", id: map.id })!.editRevision!), "secret");
   });
 
   it("restores SQL the editor reaches", async () => {
     const layer = await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM ada.roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await updateLayer(scopes.ada, layer.id, { sql: "SELECT * FROM bob.stations" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
-    const undone = await call("bob", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST");
+    const undone = await call("bob", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST", undefined, readEditRevision({ kind: "map", id: map.id })!.editRevision!);
     expect(undone.status).toBe(200);
     expect(db().prepare("SELECT sql FROM layers WHERE id = ?").get(layer.id)).toEqual({ sql: "SELECT * FROM ada.roads" });
   });

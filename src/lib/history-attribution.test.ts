@@ -27,13 +27,13 @@ it("never coalesces or groups two actors, even with an identical group value", a
     { author_id: owner.accountId }, { author_id: editor.accountId }, { author_id: owner.accountId },
   ]);
   expect(undoSteps(map.id)).toHaveLength(1);
-  await undoChange(editor, map.id);
+  await undoChange(editor, map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   expect(undoSteps(map.id)).toHaveLength(1);
   expect(redoSteps(map.id)).toHaveLength(1);
   const revision = readDocumentRevision({ kind: "map", id: map.id })!;
   expect(revision.lastChangedBy).toBe(editor.accountId);
   expect(redoSteps(map.id)[0]).toMatchObject({ authorId: owner.accountId });
-  await redoChange(editor, map.id);
+  await redoChange(editor, map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   expect(readDocumentRevision({ kind: "map", id: map.id })!.editRevision!).not.toBe(revision.editRevision);
 });
 it("exposes original actors and whole-group replay eligibility to reached readers", async () => {
@@ -48,7 +48,7 @@ it("exposes original actors and whole-group replay eligibility to reached reader
   expect((await mapHistory(owner, map.id))).toMatchObject({ undoTarget: { eligible: true, reason: null } });
   expect((await mapHistory(viewer, map.id))).toMatchObject({ undoTarget: { eligible: false } });
   const before = db.prepare("SELECT * FROM maps").all();
-  await expect(undoChange(editor, map.id)).rejects.toThrow();
+  await expect(undoChange(editor, map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision })).rejects.toThrow();
   expect(db.prepare("SELECT * FROM maps").all()).toEqual(before);
 });
 it("keeps unknown historical authors and reports SQL admission failure before replay", async () => {

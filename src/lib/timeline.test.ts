@@ -181,9 +181,9 @@ describe("docking the timeline", () => {
     await updateLayer(testAccountScope(), layer.id, { filters: SEEN_FILTER }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
 
     updateMap(testAccountScope(), map.id, { timeline: { layerId: layer.id, field: "seen" } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
-    let state = await undoChange(testAccountScope(), map.id);
+    let state = await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(state.timeline).toBeNull();
-    state = await redoChange(testAccountScope(), map.id);
+    state = await redoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(state.timeline).toEqual({
       layerId: layer.id,
       field: "seen",

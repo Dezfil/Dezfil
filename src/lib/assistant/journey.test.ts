@@ -773,6 +773,7 @@ describe("assistant journey (exit gate)", () => {
     // "undo that" — one undo call reverts the whole turn.
     const { events } = await drive(
       [
+        { text: "", toolCalls: [call("get_map", { id: map.id }, "read-basis")] },
         {
           text: "Undoing that change.",
           toolCalls: [call("undo_change", { id: map.id }, "t3")],
@@ -1031,6 +1032,7 @@ describe("confirmation contract", () => {
     // "undo that" — one undo reverts the edits before and after the pause.
     await drive(
       [
+        { text: "", toolCalls: [call("get_map", { id: map.id }, "read-basis")] },
         {
           text: "Undoing that turn.",
           toolCalls: [call("undo_change", { id: map.id }, "u4")],
@@ -1045,6 +1047,7 @@ describe("confirmation contract", () => {
     // …and one redo restores the whole turn.
     await drive(
       [
+        { text: "", toolCalls: [call("get_map", { id: map.id }, "read-basis")] },
         {
           text: "Redoing it.",
           toolCalls: [call("redo_change", { id: map.id }, "u5")],

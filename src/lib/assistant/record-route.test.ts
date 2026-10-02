@@ -304,8 +304,8 @@ describe("a manual edit during the pause splits the turn's steps", () => {
     const steps = metadataDb().prepare("SELECT group_id AS groupId, after FROM map_history WHERE map_id = ? ORDER BY seq").all(map.id) as { groupId: string | null; after: string }[];
     expect(steps.map((step) => [step.groupId, (JSON.parse(step.after) as { name: string }).name])).toEqual([[group, "First"], [null, "Manual"], [group, "Second"]]);
     // boundary through the documented undo and redo, the map read after each.
-    const undo = async () => { await api(`/api/maps/${map.id}/undo`, {}, "POST"); return mapName(map.id); };
-    const redo = async () => { await api(`/api/maps/${map.id}/redo`, {}, "POST"); return mapName(map.id); };
+    const undo = async () => { await api(`/api/maps/${map.id}/undo`, {}, "POST", readEditRevision({ kind: "map", id: map.id })!.editRevision!); return mapName(map.id); };
+    const redo = async () => { await api(`/api/maps/${map.id}/redo`, {}, "POST", readEditRevision({ kind: "map", id: map.id })!.editRevision!); return mapName(map.id); };
     expect(await undo()).toBe("Manual");
     expect(await undo()).toBe("First");
     expect(await undo()).toBe("Original map");

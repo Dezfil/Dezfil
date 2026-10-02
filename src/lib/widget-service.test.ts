@@ -298,9 +298,9 @@ describe("widget authoring", () => {
 
   it("records history — undo removes the widget step, redo restores it", async () => {
     const { map } = await dashboard();
-    const undone = await undoChange(testAccountScope(), map.id);
+    const undone = await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(undone.widgets).toEqual([]);
-    const redone = await redoChange(testAccountScope(), map.id);
+    const redone = await redoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(redone.widgets.map((w) => w.id)).toEqual(["wf", "wc", "wh", "wn"]);
   });
 
@@ -321,11 +321,11 @@ describe("widget authoring", () => {
     // The bound data widgets went with the layer; the note stays.
     expect(getMap(map.id)!.widgets.map((w) => w.id)).toEqual(["wn"]);
     // One undo gesture restores layer and widgets together.
-    const undone = await undoChange(testAccountScope(), map.id);
+    const undone = await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(undone.layers.map((l) => l.id)).toContain(layer.id);
     expect(undone.widgets.map((w) => w.id)).toEqual(["wf", "wc", "wh", "wn"]);
     // Redo removes both again — never an orphan in the stored row.
-    const redone = await redoChange(testAccountScope(), map.id);
+    const redone = await redoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(redone.layers.map((l) => l.id)).not.toContain(layer.id);
     expect(redone.widgets.map((w) => w.id)).toEqual(["wn"]);
   });
@@ -345,11 +345,11 @@ describe("widget authoring", () => {
       before: { ...layer }, // the whole-layer image an earlier delete wrote
       after: null,
     });
-    const restored = await undoChange(testAccountScope(), map.id);
+    const restored = await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(restored.layers.map((l) => l.id)).toContain(layer.id);
     expect(restored.widgets).toHaveLength(4);
 
-    const redone = await redoChange(testAccountScope(), map.id);
+    const redone = await redoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(redone.layers.map((l) => l.id)).not.toContain(layer.id);
     // The widgets are KEPT, not swept: undoing again must restore the
     // author's configuration whole, so the replay never destroys it. They are inert on every read
@@ -373,7 +373,7 @@ describe("widget authoring", () => {
 
     // Undoing the replay restores the layer, and every widget resolves
     // again — nothing was lost on the way through.
-    const restoredAgain = await undoChange(testAccountScope(), map.id);
+    const restoredAgain = await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(restoredAgain.layers.map((l) => l.id)).toContain(layer.id);
     expect(restoredAgain.widgets).toHaveLength(4);
   });
