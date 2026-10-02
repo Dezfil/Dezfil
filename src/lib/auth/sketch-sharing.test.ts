@@ -77,7 +77,7 @@ const route = {
   table: () => import("@/app/api/tables/[name]/route"),
 };
 const db = () => metadataDb();
-const draw = (account: string) => call(account, route.sketches, `/api/maps/${map.id}/sketches`, { id: map.id }, "POST", { feature: point });
+const draw = (account: string, basis: string | null) => call(account, route.sketches, `/api/maps/${map.id}/sketches`, { id: map.id }, "POST", { feature: point }, basis ?? undefined);
 const tableRow = (id: string) => db().prepare("SELECT id, name, owner_id FROM data_tables WHERE id = ?").get(id) as { name: string; owner_id: string } | undefined;
 const layerRow = (id: string) => db().prepare("SELECT id, sql FROM layers WHERE id = ?").get(id) as { sql: string } | undefined;
 /** Everything of Ada's that a deletion by someone else must leave alone. */
@@ -97,7 +97,7 @@ const forbidden = { status: 403, body: { error: { code: "forbidden", message: PE
 describe("a sketch drawn on someone else's map", () => {
   it("is the drawer's own dataset, filed in the map's project, named by the drawer's SQL name in the map's home", async () => {
     for (const account of ["bob", "pat"]) {
-      const created = await draw(account);
+      const created = await draw(account, readEditRevision({ kind: "map", id: map.id })!.editRevision);
       expect(created.status, account).toBe(201);
       const { tableId, layerId, table } = created.body as { tableId: string; layerId: string; table: string };
       expect(tableRow(tableId)).toMatchObject({ owner_id: account, name: table });
@@ -118,7 +118,7 @@ describe("a sketch drawn on someone else's map", () => {
     testAccountScope(undefined, "order");
     expect(getAccount("order")!.sqlName).toBe("order");
     db().prepare("INSERT INTO project_people VALUES (?, ?, ?, ?)").run("P", "order", "editor", new Date().toISOString());
-    const created = await draw("order");
+    const created = await draw("order", readEditRevision({ kind: "map", id: map.id })!.editRevision);
     expect(created.status).toBe(201);
     const { table, layerId } = created.body as { table: string; layerId: string };
     for (const reader of ["ada", "order"]) expect(await drawn(reader, layerId), reader).toMatchObject({ ok: true, geojson: { features: [{}] } });
@@ -126,13 +126,13 @@ describe("a sketch drawn on someone else's map", () => {
   });
 
   it("is refused to a viewer by the permission shape and to an outsider as absent", async () => {
-    expect(await draw("vi")).toEqual(forbidden);
-    expect((await draw("cyd")).status).toBe(404);
+    expect(await draw("vi", readEditRevision({ kind: "map", id: map.id })!.editRevision)).toEqual(forbidden);
+    expect((await draw("cyd", readEditRevision({ kind: "map", id: map.id })!.editRevision)).status).toBe(404);
     expect(db().prepare("SELECT count(*) AS n FROM data_tables WHERE source = 'sketch'").get()).toEqual({ n: 0 });
   });
 
   it("has its features edited by its drawer only, whatever the map's role grants", async () => {
-    const { table } = (await draw("bob")).body as { table: string };
+    const { table } = (await draw("bob", readEditRevision({ kind: "map", id: map.id })!.editRevision)).body as { table: string };
     expect((await call("bob", route.features, `/api/sketches/${table}/features`, { name: table }, "POST", { feature: point })).status).toBe(201);
     for (const account of ["ada", "pat"]) {
       const address = `bob.${table}`;
@@ -146,7 +146,7 @@ describe("a sketch drawn on someone else's map", () => {
   });
 
   it("leaves the drawer's dataset when someone else removes its layer, and goes with it when the drawer does", async () => {
-    const first = (await draw("bob")).body as { tableId: string; layerId: string };
+    const first = (await draw("bob", readEditRevision({ kind: "map", id: map.id })!.editRevision)).body as { tableId: string; layerId: string };
     expect((await call("ada", route.layer, `/api/layers/${first.layerId}`, { id: first.layerId }, "DELETE", undefined, readEditRevision({ kind: "map", id: map.id })!.editRevision!)).status).toBe(200);
     expect(layerRow(first.layerId)).toBeUndefined();
     expect(tableRow(first.tableId)).toMatchObject({ owner_id: "bob" });
@@ -156,14 +156,14 @@ describe("a sketch drawn on someone else's map", () => {
     expect((await call("bob", route.sketch, `/api/sketches/${name}`, { name }, "DELETE")).status).toBe(200);
     expect(tableRow(first.tableId)).toBeUndefined();
     expect(adasRows()).toEqual(before);
-    const second = (await draw("bob")).body as { tableId: string; layerId: string };
+    const second = (await draw("bob", readEditRevision({ kind: "map", id: map.id })!.editRevision)).body as { tableId: string; layerId: string };
     expect((await call("bob", route.layer, `/api/layers/${second.layerId}`, { id: second.layerId }, "DELETE", undefined, readEditRevision({ kind: "map", id: map.id })!.editRevision!)).status).toBe(200);
     expect(layerRow(second.layerId)).toBeUndefined();
     expect(tableRow(second.tableId)).toBeUndefined();
   });
 
   it("is deleted by its drawer without touching the map it was drawn on, whose layer then fails by name", async () => {
-    const { table, tableId, layerId } = (await draw("bob")).body as { table: string; tableId: string; layerId: string };
+    const { table, tableId, layerId } = (await draw("bob", readEditRevision({ kind: "map", id: map.id })!.editRevision)).body as { table: string; tableId: string; layerId: string };
     updateMap(scopes.ada, map.id, { widgets: [{ id: "count", type: "formula", layerId, title: "Count", field: null,
       agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const before = adasRows();
@@ -175,7 +175,7 @@ describe("a sketch drawn on someone else's map", () => {
 
   it("keeps the whole cascade on the drawer's own map", async () => {
     const own = createMap(scopes.ada, "Own");
-    const created = await call("ada", route.sketches, `/api/maps/${own.id}/sketches`, { id: own.id }, "POST", { feature: point });
+    const created = await call("ada", route.sketches, `/api/maps/${own.id}/sketches`, { id: own.id }, "POST", { feature: point }, own.editRevision);
     const { table, tableId, layerId } = created.body as { table: string; tableId: string; layerId: string };
     expect(layerRow(layerId)!.sql).toBe(`SELECT * FROM ${table}`);
     expect((await call("ada", route.sketch, `/api/sketches/${table}`, { name: table }, "DELETE")).status).toBe(200);

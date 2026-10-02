@@ -34,7 +34,7 @@ export async function POST(request: Request, { params }: Params) {
     } catch {
       throw new ApiError("invalid_request", "Expected a JSON body.", 400);
     }
-    const created = await createSketch(scope, id, body.feature);
+    const created = await createSketch(scope, id, body.feature, { expectedRevision: request.headers.get("X-Edit-Revision") });
     return NextResponse.json(
       {
         editRevision: created.editRevision,

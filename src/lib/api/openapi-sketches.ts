@@ -1,4 +1,4 @@
-import { DOCUMENT_FACT_PROPERTIES, EDIT_REVISION_SCHEMA } from "./openapi-document-facts";
+import { DOCUMENT_FACT_PROPERTIES, EDIT_REVISION_SCHEMA, editRevisionParam, editRevisionResponses } from "./openapi-document-facts";
 import { datasetAccess } from "./openapi-dataset-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { SKETCH_ROW_COUNT_RESPONSE } from "./openapi-tool-responses";
@@ -68,7 +68,7 @@ export const SKETCH_PATHS = {
       tool: "create_sketch", mcp: LOCAL_ADD,
       display: {"verb": "Started a sketch on the map {subject}", "subject": {"resource": "maps", "argument": "id"}},
       effects: writes(resource("tables", "", "tableId"), resource("layers", "", "layerId"), resource("maps", "id")),
-      parameters: [pathParam("id", "Map id.")],
+      parameters: [pathParam("id", "Map id."), editRevisionParam],
       requestBody: {
         required: true,
         content: {
@@ -125,7 +125,7 @@ export const SKETCH_PATHS = {
             },
           },
         },
-        "400": { description: "The feature failed the structural gate." },
+        ...editRevisionResponses,
       },
     })),
   },

@@ -72,7 +72,7 @@ const square = {
 describe("createSketch", () => {
   it("mints table and owning layer together, provenance recorded, no history", async () => {
     const map = createMap(testAccountScope(), "Berlin mobility risk");
-    const made = await createSketch(testAccountScope(), map.id, square);
+    const made = await createSketch(testAccountScope(), map.id, square, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(made.table.name).toBe("berlin_mobility_risk_sketch");
     expect(made.table.source).toBe("sketch");
     expect(made.table.sourceParams).toMatchObject({
@@ -93,9 +93,9 @@ describe("createSketch", () => {
 
   it("keeps a dotted map name whole and advances the suffix on collision", async () => {
     const map = createMap(testAccountScope(), "Map v1.2");
-    const first = await createSketch(testAccountScope(), map.id, point);
+    const first = await createSketch(testAccountScope(), map.id, point, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(first.table.name).toBe("map_v1_2_sketch");
-    const second = await createSketch(testAccountScope(), map.id, point);
+    const second = await createSketch(testAccountScope(), map.id, point, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(second.table.name).toBe("map_v1_2_sketch_2");
     expect(second.layerName).toBe("Sketch 2");
   });
@@ -103,7 +103,7 @@ describe("createSketch", () => {
   it("refuses a malformed feature and leaves nothing behind", async () => {
     const map = createMap(testAccountScope(), "Clean");
     await expect(
-      createSketch(testAccountScope(), map.id, { kind: "polygon", geometry: point.geometry }),
+      createSketch(testAccountScope(), map.id, { kind: "polygon", geometry: point.geometry }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
     ).rejects.toMatchObject({ code: "invalid_sketch_feature" });
     expect(listLayers(map.id)).toHaveLength(0);
     expect(await mapSketches(testAccountScope(), map.id)).toHaveLength(0);
@@ -113,7 +113,7 @@ describe("createSketch", () => {
 describe("mutations", () => {
   it("appends mixed kinds into one dataset with a composite class and stable identity", async () => {
     const map = createMap(testAccountScope(), "Mixed");
-    const made = await createSketch(testAccountScope(), map.id, point);
+    const made = await createSketch(testAccountScope(), map.id, point, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const before = getTableByName("mixed_sketch");
     await appendFeature(testAccountScope(), "mixed_sketch", line);
     await appendFeature(testAccountScope(), "mixed_sketch", square);
@@ -129,7 +129,7 @@ describe("mutations", () => {
 
   it("deletes exactly one row and keeps the empty dataset and layer at zero", async () => {
     const map = createMap(testAccountScope(), "Del");
-    const made = await createSketch(testAccountScope(), map.id, point);
+    const made = await createSketch(testAccountScope(), map.id, point, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const second = await appendFeature(testAccountScope(), "del_sketch", square);
     await deleteFeature(testAccountScope(), "del_sketch", made.featureId);
     let features = await listFeatures(testAccountScope(), "del_sketch");
@@ -150,7 +150,7 @@ describe("mutations", () => {
 
   it("moves exactly one vertex, closing position included, and preserves count and kind", async () => {
     const map = createMap(testAccountScope(), "Move");
-    const made = await createSketch(testAccountScope(), map.id, square);
+    const made = await createSketch(testAccountScope(), map.id, square, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await moveVertex(testAccountScope(), "move_sketch", made.featureId, 0, [13.35, 52.45]);
     const [feature] = await listFeatures(testAccountScope(), "move_sketch");
     const ring = (feature.geometry as { coordinates: [number, number][][] })
@@ -163,7 +163,7 @@ describe("mutations", () => {
 
   it("refuses vertex moves on non-polygon kinds, bad indexes and bad positions", async () => {
     const map = createMap(testAccountScope(), "Refuse");
-    const made = await createSketch(testAccountScope(), map.id, line);
+    const made = await createSketch(testAccountScope(), map.id, line, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await expect(
       moveVertex(testAccountScope(), "refuse_sketch", made.featureId, 0, [0, 0]),
     ).rejects.toMatchObject({ code: "vertex_move_refused" });
@@ -178,7 +178,7 @@ describe("mutations", () => {
 
   it("serializes concurrent appends — both land, none silently lost", async () => {
     const map = createMap(testAccountScope(), "Race");
-    await createSketch(testAccountScope(), map.id, point);
+    await createSketch(testAccountScope(), map.id, point, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await Promise.all([
       appendFeature(testAccountScope(), "race_sketch", line),
       appendFeature(testAccountScope(), "race_sketch", square),
@@ -192,7 +192,7 @@ describe("mutations", () => {
 describe("cascadeDeleteSketch", () => {
   it("removes owner, dataset and artifact; purges owner steps; keeps unrelated history", async () => {
     const map = createMap(testAccountScope(), "Cascade");
-    const made = await createSketch(testAccountScope(), map.id, square);
+    const made = await createSketch(testAccountScope(), map.id, square, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     // A manual legend arrangement includes the owner: the cascade must
     // prune its slot, not leave a dead UUID stored.
     updateMap(testAccountScope(), map.id, { legendOrder: [made.layerId] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
@@ -241,7 +241,7 @@ describe("cascadeDeleteSketch", () => {
 
   it("work queued behind a cascade is refused and never lands in a reclaimed dataset", async () => {
     const map = createMap(testAccountScope(), "Reclaim");
-    await createSketch(testAccountScope(), map.id, point);
+    await createSketch(testAccountScope(), map.id, point, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     // The cascade enters the sketch's lane first; the append resolves its
     // keyed identity NOW (the old table) but queues behind the cascade.
     // Depending on when the queued work wakes it meets either the
@@ -255,7 +255,7 @@ describe("cascadeDeleteSketch", () => {
     append.catch(() => undefined);
     await cascade;
     const again = createMap(testAccountScope(), "Reclaim!");
-    await createSketch(testAccountScope(), again.id, point);
+    await createSketch(testAccountScope(), again.id, point, { expectedRevision: readEditRevision({ kind: "map", id: again.id })?.editRevision });
     await expect(append).rejects.toSatisfy(
       (e: { status?: number }) => e.status === 404 || e.status === 409,
     );
@@ -265,7 +265,7 @@ describe("cascadeDeleteSketch", () => {
 
   it("purges owner-referencing widget images; untouched steps survive", async () => {
     const map = createMap(testAccountScope(), "Widgets");
-    const made = await createSketch(testAccountScope(), map.id, square);
+    const made = await createSketch(testAccountScope(), map.id, square, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     recordStep({
       mapId: map.id,
       scope: "map",
@@ -300,17 +300,17 @@ describe("the sketch's project context", () => {
     const p = createProject(testAccountScope(), { name: "A" });
     fileMap(filed.id, p.id);
 
-    const onFiled = await createSketch(testAccountScope(), filed.id, point);
+    const onFiled = await createSketch(testAccountScope(), filed.id, point, { expectedRevision: readEditRevision({ kind: "map", id: filed.id })?.editRevision });
     expect(tableProjectIds().get(onFiled.table.id)).toEqual([p.id]);
 
-    const onLoose = await createSketch(testAccountScope(), loose.id, point);
+    const onLoose = await createSketch(testAccountScope(), loose.id, point, { expectedRevision: readEditRevision({ kind: "map", id: loose.id })?.editRevision });
     expect(tableProjectIds().get(onLoose.table.id)).toBeUndefined();
 
     // The membership read happens at the registering commit; the map
     // record captured at call time cannot carry a project at all, so a
     // start-time capture is structurally impossible here.
     fileMap(filed.id, null);
-    const afterUnfiling = await createSketch(testAccountScope(), filed.id, point);
+    const afterUnfiling = await createSketch(testAccountScope(), filed.id, point, { expectedRevision: readEditRevision({ kind: "map", id: filed.id })?.editRevision });
     expect(tableProjectIds().get(afterUnfiling.table.id)).toBeUndefined();
   });
 });
@@ -320,7 +320,7 @@ describe("settled sketch mutation lanes (widening)", () => {
   for (const outcome of ["success", "failure", "cascade"] as const) {
     it(`releases the retained lane after ${outcome}`, async () => {
       const map = createMap(testAccountScope(), "Lane cleanup");
-      const made = await createSketch(testAccountScope(), map.id, point);
+      const made = await createSketch(testAccountScope(), map.id, point, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
       const retained: Map<unknown, unknown>[] = [];
       const original = Map.prototype.set;
       const observe = vi.spyOn(Map.prototype, "set").mockImplementation(function (

@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DuckDBConnection } from "@duckdb/node-api";
@@ -43,8 +44,8 @@ const exists = (file: string) => access(file).then(() => true, () => false);
 
 async function seed() {
   const map = createMap(testAccountScope(), "Retained sketch");
-  const sketch = await createSketch(testAccountScope(), map.id, polygon);
-  const other = await createSketch(testAccountScope(), map.id, point);
+  const sketch = await createSketch(testAccountScope(), map.id, polygon, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+  const other = await createSketch(testAccountScope(), map.id, point, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   return { map, sketch, other, facts: documentFacts({ kind: "map", id: map.id }) };
 }
 

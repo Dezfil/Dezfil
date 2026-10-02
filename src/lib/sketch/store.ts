@@ -189,11 +189,13 @@ export async function createSketch(
   scope: AccountScope,
   mapId: string,
   feature: unknown,
+  opts: { expectedRevision?: unknown } = {},
 ): Promise<CreatedSketch> {
   requireAccountScope(scope);
+  requirePermitted(scope, "map", mapId, "sketch");
+  requireDocumentRevision(scope, { kind: "map", id: mapId, expectedRevision: opts.expectedRevision });
   const refusal = sketchFeatureError(feature);
   if (refusal) throw new ApiError("invalid_sketch_feature", refusal, 400);
-  requirePermitted(scope, "map", mapId, "sketch");
   const map = getMap(mapId)!;
 
   const stored: StoredSketchFeature = {
@@ -208,6 +210,7 @@ export async function createSketch(
     const db = metadataDb();
     const created = db.transaction(() => {
       requirePermitted(scope, "map", mapId, "sketch", db);
+      requireDocumentRevision(scope, { kind: "map", id: mapId, expectedRevision: opts.expectedRevision }, db);
       const table = registerTable(
         scope,
         {

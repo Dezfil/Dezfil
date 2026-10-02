@@ -1526,7 +1526,7 @@ async function main() {
     const mapId = madeMap.json.id;
 
     // First commit mints dataset + owning layer together, named from the map.
-    const first = await api("POST", `/api/maps/${mapId}/sketches`, {
+    const first = await api("POST", `/api/maps/${mapId}/sketches`, { basis: captureBasis((await api("GET", `/api/maps/${mapId}`)).json),
       body: { feature: square },
     });
     if (first.status !== 201 || first.json?.table !== "sketch_journey_sketch")
@@ -1599,7 +1599,7 @@ async function main() {
 
     // A second session advances the suffix; its points feed the filter test.
     const mk = (lng, lat) => ({ kind: "point", geometry: { type: "Point", coordinates: [lng, lat] } });
-    const second = await api("POST", `/api/maps/${mapId}/sketches`, { body: { feature: mk(13.05, 52.05) } });
+    const second = await api("POST", `/api/maps/${mapId}/sketches`, { basis: captureBasis((await api("GET", `/api/maps/${mapId}`)).json), body: { feature: mk(13.05, 52.05) } });
     if (second.status !== 201 || second.json.table !== "sketch_journey_sketch_2" || second.json.layerName !== "Sketch 2")
       fail("the collision did not advance visibly", JSON.stringify(second.json));
     const sk2 = second.json;

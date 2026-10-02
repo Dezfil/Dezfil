@@ -110,7 +110,7 @@ it("records sketch attachment and removal but excludes feature contents", async 
   const scope = testAccountScope(), map = createMap(scope, "First");
   const point = { kind: "point", geometry: { type: "Point", coordinates: [1, 2] } };
   const previous = revision(map.id);
-  const sketch = await createSketch(scope, map.id, point);
+  const sketch = await createSketch(scope, map.id, point, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   expect(revision(map.id).editRevision).not.toBe(previous.editRevision);
   const attached = revision(map.id);
   await appendFeature(scope, sketch.table.name, point);

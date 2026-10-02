@@ -1128,3 +1128,20 @@ style derivation is refused whole and is never re-derived on the newer state.
 Layer deletion includes an owned sketch's dataset and artifacts: a refused
 deletion leaves them intact. Dataset deletion itself remains outside the edit
 precondition contract, including its existing map-changing cascades.
+
+### Sketch attachment preconditions
+
+Starting a sketch (`POST /api/maps/{id}/sketches`, `create_sketch`) requires
+that map's current revision. Removing its layer uses the same precondition
+as other layer deletions. This is a breaking change for callers that omitted
+`X-Edit-Revision` (or MCP `expected_revision`). Missing or malformed values
+answer `400 invalid_request`; stale values answer `409 stale_revision` with
+“This item has changed. Reload it before trying again.”
+
+Attachment checks the revision before artifact creation and again in the
+registry transaction. A refused attachment removes its staged file and
+registers no dataset or layer. A refused layer removal changes neither the
+sketch dataset nor its artifacts, map content, history or publication.
+Feature edits and dataset-side sketch deletion remain dataset operations
+without a revision precondition; a deletion that changes a map definition
+advances that map's revision.
