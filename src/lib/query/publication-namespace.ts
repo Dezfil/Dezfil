@@ -15,9 +15,12 @@ import { mountPlanOf, planMounts, setMountPlan } from "./mount-plan";
  * are resolved from every layer's SQL (widgets and filters read the layers),
  * through the same resolver live evaluation uses, in the owner's full reach,
  * and remembered by what they were resolved from: the map, its layers' SQL
- * and that reach. `withheld` says the owner's reach holds datasets the map
- * does not name, which catalogue discovery through the link would otherwise
- * have listed.
+ * and that reach. Only the identities are remembered: each reuse takes the
+ * datasets' records from the reach as it is read now, so a refresh or a
+ * rerun that gives a dataset a new artifact or geometry is drawn at once and
+ * a retired artifact is never mounted. `withheld` says the owner's reach
+ * holds datasets the map does not name, which catalogue discovery through
+ * the link would otherwise have listed.
  */
 export interface PublicationReach {
   namespace: Namespace;
@@ -25,7 +28,7 @@ export interface PublicationReach {
 }
 
 const MEMORY = 256;
-const remembered = new Map<string, PublicationReach>();
+const remembered = new Map<string, ReadonlySet<string>>();
 
 type LayerSql = { id: string; sql: string };
 function layerSql(mapId: string, db: Database): LayerSql[] {
@@ -50,7 +53,8 @@ function restricted(full: Namespace, ids: ReadonlySet<string>): PublicationReach
 /** The restriction already resolved for this publication as it stands, or
  * null until an evaluation has resolved it. */
 export function rememberedPublication(mapId: string, full: Namespace, db: Database = metadataDb()): PublicationReach | null {
-  return remembered.get(publicationKey(mapId, full, db)) ?? null;
+  const ids = remembered.get(publicationKey(mapId, full, db));
+  return ids ? restricted(full, ids) : null;
 }
 
 /**
@@ -63,7 +67,7 @@ export async function resolvePublication(conn: DuckDBConnection, mapId: string, 
   const layers = layerSql(mapId, db);
   const key = keyOf(mapId, full, layers);
   const known = remembered.get(key);
-  if (known) return known;
+  if (known) return restricted(full, known);
   // A provisional plan lets the guard recognise the quoted name of another
   // owner's mounted dataset while the references are read; nothing is
   // mounted under it, and the evaluation's own plan replaces it.
@@ -81,10 +85,9 @@ export async function resolvePublication(conn: DuckDBConnection, mapId: string, 
   } finally {
     if (previous) setMountPlan(conn, previous);
   }
-  const reach = restricted(full, ids);
-  remembered.set(key, reach);
+  remembered.set(key, ids);
   if (remembered.size > MEMORY) remembered.delete(remembered.keys().next().value!);
-  return reach;
+  return restricted(full, ids);
 }
 
 /** Tests reset shared state. */
