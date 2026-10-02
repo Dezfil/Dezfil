@@ -22,13 +22,15 @@ for (const sameAccount of [true, false]) test(`builder keeps refused SQL and leg
     await ada.context.grantPermissions(["clipboard-read", "clipboard-write"]);
     const page = await ada.context.newPage(), other = await bo.context.newPage();
     await page.goto(`/maps/${map.id}`); await other.goto(`/maps/${map.id}`);
-    await expect(page.getByRole("button", { name: "Layer menu for Berths" })).toBeVisible();
-    await expect(other.getByRole("button", { name: "Layer menu for Berths" })).toBeVisible();
+    const row = page.locator("li", { hasText: "Berths" });
+    const otherRow = other.locator("li", { hasText: "Berths" });
+    await expect(row.getByRole("button", { name: "Layer menu", exact: true })).toBeVisible();
+    await expect(otherRow.getByRole("button", { name: "Layer menu", exact: true })).toBeVisible();
     const changed = await readThenWriteRequestSetup(bo.api, mapPath, () => ({ method: "PATCH", options: { data: { name: "Accepted elsewhere" } } }));
     expect(changed.status()).toBe(200);
     let writes = 0;
     page.on("request", req => { if (req.method() === "PATCH" && req.url().includes(`/api/layers/${layer.id}`)) writes++; });
-    await page.getByRole("button", { name: "Layer menu for Berths" }).click();
+    await row.getByRole("button", { name: "Layer menu", exact: true }).click();
     await page.getByRole("menuitem", { name: "Edit source" }).click();
     const sql = "SELECT ST_Point(14, 53) AS geometry";
     const editor = page.getByRole("textbox", { name: "Layer SQL query" });

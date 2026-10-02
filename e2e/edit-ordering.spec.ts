@@ -31,7 +31,8 @@ test("a slow SQL save holds another layer's style without losing its preview", a
     await route.continue();
   });
   await page.goto(`/maps/${map.id}`);
-  await page.getByRole("button", { name: "Layer menu for Slow" }).click();
+  const slowRow = page.locator("li", { hasText: "Slow" });
+  await slowRow.getByRole("button", { name: "Layer menu", exact: true }).click();
   await page.getByRole("menuitem", { name: "Edit source" }).click();
   await page.getByRole("textbox", { name: "Layer SQL query" }).fill("SELECT ST_Point(14, 53) AS geometry");
   await page.getByRole("button", { name: "Update layer", exact: true }).click(); await ready;
