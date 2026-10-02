@@ -1,3 +1,4 @@
+import { recordDocumentChanges } from "@/lib/metadata/revisions";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
 import { getLayer, getMap } from "@/lib/metadata/map-queries";
 import { listOwnedTables, updateOwnedTableData, deleteOwnedTable, ownedDependentLayerIds } from "@/lib/metadata/owned-tables";
@@ -253,6 +254,7 @@ export async function createSketch(
         updatedAt: now,
       };
       insertLayer(layer, db);
+      recordDocumentChanges(scope, [{ kind: "map", id: mapId }], db);
       const params = { mapId, mapName: map.name, layerId: layer.id };
       setSourceParams({ name: table.name, id: table.id }, params, db);
       return {
@@ -516,6 +518,7 @@ export async function cascadeDeleteSketch(scope: AccountScope, name: string, fro
           purgeStepsReferencing(mapId, layerId, db);
         }
         deleteLayer(layerId, db);
+        recordDocumentChanges(scope, [{ kind: "map", id: mapId }], db);
       }
       // The set the sketch leaves must notice (found at review): the
       // cascade removes the membership row but cannot advance the

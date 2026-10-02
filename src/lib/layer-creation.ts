@@ -1,3 +1,4 @@
+import { recordDocumentChanges } from "@/lib/metadata/revisions";
 import { randomUUID } from "node:crypto";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireMapFor } from "./map-access";
@@ -78,6 +79,7 @@ export async function createLayer(
       ? (opts.groupId ?? randomUUID())
       : opts.groupId;
     insertLayer(layer);
+    recordDocumentChanges(scope, [{ kind: "map", id: mapId }]);
     recordStep({
       mapId,
       scope: "layer",
@@ -115,6 +117,7 @@ export function duplicateLayer(
       ? (opts.groupId ?? randomUUID())
       : opts.groupId;
     insertLayer(copy);
+    recordDocumentChanges(scope, [{ kind: "map", id: source.mapId }]);
     recordStep({
       mapId: source.mapId,
       scope: "layer",

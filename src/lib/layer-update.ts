@@ -1,3 +1,4 @@
+import { recordDocumentChanges } from "@/lib/metadata/revisions";
 import { mapEvaluation, type DatasetScope } from "@/lib/query/access";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireLayerFor } from "./layer-access";
@@ -300,6 +301,7 @@ export async function deriveAndCommitUpdate(
       keys,
     );
     if (diff) {
+      recordDocumentChanges(scope, [{ kind: "map", id: layer.mapId }]);
       recordStep({
         mapId: layer.mapId,
         scope: "layer",

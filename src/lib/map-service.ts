@@ -1,3 +1,4 @@
+import { recordDocumentChanges } from "@/lib/metadata/revisions";
 import { fileMap } from "@/lib/metadata/owned-projects";
 import { assertMapLayerRefs } from "./map-layer-refs";
 import { requireMapFor, mapWithLayersFor, ownMapWithLayers } from "./map-access";
@@ -520,6 +521,7 @@ export function updateMap(
       after.layerOrder = fields.layerOrder;
     }
     if (Object.keys(before).length) {
+      recordDocumentChanges(scope, [{ kind: "map", id }]);
       recordStep({
         mapId: id,
         scope: "map",

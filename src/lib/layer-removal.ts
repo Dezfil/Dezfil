@@ -1,3 +1,4 @@
+import { recordDocumentChanges } from "@/lib/metadata/revisions";
 import { randomUUID } from "node:crypto";
 import { metadataDb } from "@/lib/metadata/db";
 import {
@@ -69,6 +70,7 @@ export async function removeLayer(
       });
     }
     deleteLayer(id);
+    recordDocumentChanges(scope, [{ kind: "map", id: layer.mapId }]);
     recordStep({
       mapId: layer.mapId,
       scope: "layer",

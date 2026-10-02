@@ -1,3 +1,5 @@
+import { stableJson } from "@/lib/metadata/history";
+import { recordDocumentChanges } from "@/lib/metadata/revisions";
 import type { AccountScope } from "@/lib/auth/scope";
 import { ownsMap, requireMap, requireMapFor } from "@/lib/map-access";
 import { ApiError } from "@/lib/api/errors";
@@ -71,10 +73,13 @@ export function publishMap(
     const map = requirePublishedMapOwner(scope, id);
     const { theme, viewerControls } = settings;
     if (map.publishToken && map.publishedAt) {
+      const changed = (theme !== undefined && theme !== (getPublishedTheme(id) ?? "dark")) ||
+        (viewerControls !== undefined && stableJson(normalizeViewerControls(viewerControls)) !== stableJson(normalizeViewerControls(getViewerControls(id))));
       if (theme) setPublishedTheme(id, theme);
       if (viewerControls) {
         setViewerControls(id, normalizeViewerControls(viewerControls));
       }
+      if (changed) recordDocumentChanges(scope, [{ kind: "map", id }]);
       return { token: map.publishToken, publishedAt: map.publishedAt };
     }
     const token = generateToken();
@@ -88,6 +93,7 @@ export function publishMap(
       id,
       viewerControls ? normalizeViewerControls(viewerControls) : null,
     );
+    recordDocumentChanges(scope, [{ kind: "map", id }]);
     return { token, publishedAt };
   })();
 }
@@ -103,6 +109,7 @@ export function unpublishMap(scope: AccountScope, id: string): void {
     // publication state too and leave with it.
     setPublishedTheme(id, null);
     setViewerControls(id, null);
+    if (map.publishToken) recordDocumentChanges(scope, [{ kind: "map", id }]);
     return map.publishToken;
   })();
   if (token) invalidatePublishedToken(token);
