@@ -105,11 +105,13 @@ describe("account storage upgrade", () => {
         VALUES ('connection', 'Survey DB', 'db.example.test', 5432, 'survey', 'reader', 'opaque-encrypted-envelope', '${now}');`);
     const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
       .all() as { name: string }[]).map(({ name }) => name);
-    // Owners, SQL homes and run stamps are derived at adoption, not carried.
-    const stamps = new Set(["owner_id", "home_account_id", "initiator_id", "runner_id"]);
+    // Compare the fields the old store actually held, independently of
+    // columns added by later migrations.
+    const priorColumns = Object.fromEntries(tables.map(name => [name,
+      (db.pragma(`table_info("${name}")`) as { name: string }[]).map(c => c.name)]));
     const snapshot = () => Object.fromEntries(tables.map(name =>
       [name, db.prepare(`SELECT * FROM "${name}"`).all().map(row =>
-        Object.fromEntries(Object.entries(row as object).filter(([key]) => !stamps.has(key))))]));
+        Object.fromEntries(Object.entries(row as object).filter(([key]) => priorColumns[name].includes(key))))]));
     const before = snapshot();
     db.close();
     db = open(file);
