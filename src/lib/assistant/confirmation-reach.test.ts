@@ -7,6 +7,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
 import { resetQueryInstance } from "@/lib/duckdb";
 import { createRecipe, addStep } from "@/lib/metadata/recipes";
+import { editStep } from "@/lib/metadata/owned-recipes";
+import { readDocumentRevision } from "@/lib/metadata/revisions";
 import { fileRecipe } from "@/lib/metadata/projects";
 import { listCascades } from "@/lib/metadata/cascades";
 import { cascadeSettled } from "@/lib/operations/cascade";
@@ -70,13 +72,15 @@ it.each([
   ["demoted to viewer", "UPDATE project_people SET role = 'viewer' WHERE account_id = 'test-account'", "forbidden"],
   ["removed from the project", "DELETE FROM project_people WHERE account_id = 'test-account'", "not_found"],
   ["left as an editor", null, null],
+  ["step SQL changed by another editor", "definition", "stale_revision"],
 ])("checks the caller again when the confirmation resumes: %s", async (_label, change, code) => {
   testAccountScope(undefined, "test-account");
   const ada = testAccountScope(undefined, "ada");
-  shareProject("ada", "P", [["test-account", "editor"]]);
+  const bo = testAccountScope(undefined, "bo");
+  shareProject("ada", "P", [["test-account", "editor"], ["bo", "editor"]]);
   const W = createRecipe(ada, "Shared workflow").id;
   fileRecipe(W, "P");
-  addStep(W, { operation: "sql_step", parameters: { sql: "SELECT 1 AS v", name: "one" } });
+  const first = addStep(W, { operation: "sql_step", parameters: { sql: "SELECT 1 AS v", name: "one" } });
   addStep(W, { operation: "sql_step", parameters: { sql: "SELECT 2 AS v", name: "two" } });
 
   factory.provider = stubProvider([reply(tool("run_recipe", { id: W })), reply()] as ScriptEntry[]);
@@ -85,8 +89,11 @@ it.each([
   const parked = ((await (await pending()).json()).pending as { id: string; runId: string; tool: string }[]).find((p) => p.runId === id);
   expect(parked).toMatchObject({ tool: "run_recipe" });
 
-  if (change) metadataDb().prepare(change).run();
+  if (change === "definition") editStep(bo, first.id, { sql: "SELECT 9 AS v", name: "one" }, undefined, undefined,
+    { expectedRevision: readDocumentRevision({ kind: "workflow", id: W })!.editRevision });
+  else if (change) metadataDb().prepare(change).run();
   const resumed = await events(await message(req("/api/assistant/messages", { resolution: { pending: parked!.id, approved: true } })));
+  for (const run of listCascades(W)) { await cascadeSettled(run.id); await laneSettled(); }
   if (code) {
     expect(resumed).toContainEqual(expect.objectContaining({ type: "tool_result", tool: "run_recipe", ok: false, body: { error: expect.objectContaining({ code }) } }));
     expect(listCascades(W)).toHaveLength(0);

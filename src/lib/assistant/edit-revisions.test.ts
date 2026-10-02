@@ -139,3 +139,34 @@ it("tracks duplicated maps and workflows by the returned identity, including chi
   const workflow = buildTools().find(tool => tool.name === "update_recipe")!;
   expect(ledger.headers(workflow, { [workflow.pathParams[0]]: "copy" })).toEqual({ "X-Edit-Revision": "copy-workflow" });
 });
+
+
+it("a confirmed run retains the planning revision despite fresh grounding after a step edit", async () => {
+  const { testAccountScope } = await import("@/lib/test-support/accounts");
+  const { runAssistant, resumeAssistant } = await import("./loop");
+  const { stubProvider } = await import("./providers/stub");
+  const { PendingActionStore } = await import("./pending");
+  const tool = buildTools().find(t => t.name === "run_recipe")!;
+  const sent: (string | null)[] = [];
+  let current = "planned";
+  const fetchImpl: typeof fetch = async (_input, init) => {
+    if ((init?.method ?? "GET") === "GET") return Response.json({ recipe: { id: "w", name: "Shared", editRevision: current } });
+    if (JSON.parse(String(init?.body ?? "{}")).plan) return Response.json({ editRevision: current, plan: { wide: true, members: ["a", "b"] } });
+    const revision = new Headers(init?.headers).get("X-Edit-Revision"); sent.push(revision);
+    return revision === current ? Response.json({ run: { id: "started" }, editRevision: current })
+      : Response.json({ error: { code: "stale_revision", message: "This item has changed. Reload it before trying again." } }, { status: 409 });
+  };
+  const scope = testAccountScope(undefined, "confirmed-start"), pending = new PendingActionStore();
+  const deps = { scope, pending, tools: [tool], fetchImpl, baseUrl: "http://fixture.test", autoCheck: false };
+  const provider = stubProvider([{ text: "", toolCalls: [{ id: "run", name: tool.name, args: { id: "w" } }] }, { text: "Done", toolCalls: [] }]);
+  let id = "";
+  for await (const event of runAssistant(provider, { message: "Run", history: [] }, deps)) if (event.type === "confirm_required") id = event.id;
+  expect(sent).toEqual([]);
+  current = "sql-edited";
+  const grounded = new AssistantRevisions();
+  grounded.observe("/api/recipes/w", { recipe: { id: "w", editRevision: current } });
+  const outcomes = [];
+  for await (const event of resumeAssistant(pending.claim(scope, id, "approved")!, true, { ...deps, revisions: grounded })) outcomes.push(event);
+  expect(sent).toEqual(["planned"]);
+  expect(outcomes).toContainEqual(expect.objectContaining({ type: "tool_result", ok: false, body: { error: expect.objectContaining({ code: "stale_revision" }) } }));
+});

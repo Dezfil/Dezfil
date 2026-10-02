@@ -1214,7 +1214,10 @@ paired with the planned definition. Carry that token into the start after
 pending saves settle. Missing or malformed tokens answer `400 invalid_request`;
 a stale token, including a change during asynchronous planning, answers
 `409 stale_revision` before any run, job or output is created. Starts never
-silently replan against a newer revision. An accepted start returns its
+silently replan against a newer revision. Assistant confirmations retain the
+planning revision with their approved members. Approval after a definition edit
+is refused even when membership is unchanged or fresh grounding has read the edit.
+An accepted start returns its
 `editRevision` with `run` and does not itself advance the document revision.
 This is a breaking request-contract change. The existing confirmed-membership
 check and single-run lock still apply.

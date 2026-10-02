@@ -1,3 +1,4 @@
+import { ApiError } from "@/lib/api/errors";
 import type { ToolDef } from "@/lib/tools/tools";
 import { EDIT_REVISION_HEADER } from "@/lib/edit-basis";
 
@@ -38,8 +39,8 @@ export class AssistantRevisions {
     return tool.compoundRevisionPath === "self" ? { ...args, expectedRevisions }
       : { ...args, members: { ...members, expectedRevisions } };
   }
-  /** Resume is an explicit new admission after a confirmation wait. */
-  async readOnResume(tool: ToolDef, args: Record<string, unknown>, baseUrl: string, fetchImpl: typeof fetch, signal?: AbortSignal) {
+  /** Writes resume with fresh admission; a run keeps the approved plan basis. */
+  async readOnResume(tool: ToolDef, args: Record<string, unknown>, baseUrl: string, fetchImpl: typeof fetch, signal?: AbortSignal, runPlanRevision?: string) {
     if (tool.compoundRevisionPath) {
       const members = tool.compoundRevisionPath === "self" ? args : record(args.members);
       for (const key of filingDocuments(members ?? {})) {
@@ -52,6 +53,14 @@ export class AssistantRevisions {
     }
     if (!tool.headerParams?.some((p) => p.name.toLowerCase() === EDIT_REVISION_HEADER.toLowerCase())) return;
     const path = callPath(tool, args);
+    if (/\/(runs|run)$/.test(path)) {
+      const key = this.document(path);
+      if (!key || !runPlanRevision) throw new ApiError("assistant_plan_unavailable", "The approved run plan has no revision. No run was started.", 409);
+      // Grounding may have learned a newer token while confirmation waited.
+      // Only the plan paired with the approved members can authorize this run.
+      this.revisions.set(key, runPlanRevision);
+      return;
+    }
     const match = /^\/api\/(maps|recipes|layers|sketches)\/[^/]+/.exec(path);
     if (!match) return;
     const response = await fetchImpl(baseUrl.replace(/\/$/, "") + match[0], { signal });

@@ -26,6 +26,8 @@ export interface ParkedRun {
   /** Account binding only; the resolving request supplies a fresh credential. */
   accountId: string;
   confirmation?: ResolvedConfirmation;
+  /** The approved run plan retains its basis through the confirmation wait. */
+  runPlanRevision?: string;
   /** The map the gated change belongs to, read with the subject before
    * the pause, for a change whose response names no map. */
   historyMapId?: string;
