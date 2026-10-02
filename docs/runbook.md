@@ -7,18 +7,19 @@ they are written down.
 
 ## Running an instance locally
 
-Node.js 24 or newer is required. Run `npm install`, then `npm run dev`: the
+Node.js 24 or newer is required. Run `npm ci`, then `npm run dev`: the
 app serves on `http://localhost:3000`. For another port use
 `PORT=3210 npm run dev` or `npm run dev -- --port 3210`. For a
 production-shaped run: `npm run build`, then `PORT=3210 npm start`.
 
 All durable state lives in one directory. `DEZFIL_DATA_DIR` names it;
 unset, it defaults to `./data` under the working directory, and the image
-sets `/data`. Nothing the instance needs lives outside it, so a backup is a
-copy of that directory with the instance stopped.
+sets `/data`. Back up that directory with the instance stopped and preserve any
+externally supplied encryption key.
 
 What appears inside it as the instance is used: `metadata.sqlite` (maps,
-layers, styles, published links, connections), `tables/` (the GeoParquet
+layers, styles, published links, connections, accounts, sessions, token records,
+workflows and runs), `tables/` (the GeoParquet
 artifacts), `thumbnails/`, `tmp/` (scratch for imports, exports and tile
 builds), `cache/overpass/` once an OSM import runs, and `secret.key` on
 first boot unless `DEZFIL_SECRET_KEY` was set first. An optional
@@ -49,7 +50,9 @@ After duplicate names exist across accounts, an older build with global name
 constraints cannot read that store safely. Restore its matching backup as well.
 
 Restore the matching old application and the complete pre-upgrade backup to
-roll back. An older build cannot safely write the upgraded metadata schema.
+roll back. A build predating ownership or sharing cannot safely write those upgraded stores.
+The later edit-revision additions alone remain compatible with the immediately
+preceding writers. That compatibility does not replace a rollback backup.
 Account for work written after the backup before restoring it.
 
 The project-sharing storage upgrade takes the same backup. It gives every
@@ -86,6 +89,145 @@ reloads retain drafts; sign-out or an account change clears private browser
 memory, including assistant recovery locators and prepared download state.
 Saved layer and workflow SQL in the data directory is unaffected by this
 browser cleanup.
+
+## Full backup and restore
+
+Stop every process using the directory before copying it. For a checkout managed
+by a service, stop that service first. With absolute paths chosen for your host:
+
+```sh
+store=/srv/dezfil/data
+backup=/srv/backups/dezfil-stopped
+# Stop the instance before this copy. The destination must not already exist.
+test ! -e "$backup"
+cp -a "$store" "$backup"
+```
+
+Keep the application version and deployment configuration with the backup. Include
+`secret.key` if generated; store the exact externally supplied `DEZFIL_SECRET_KEY`
+securely if you use one. Preserve SQLite journal/WAL files and all artifacts,
+account/session/token records, model catalogue, caches and thumbnails.
+
+Restore with the instance stopped, keeping the displaced directory for inspection:
+
+```sh
+store=/srv/dezfil/data
+backup=/srv/backups/dezfil-stopped
+test ! -e "$store.before-restore"
+mv "$store" "$store.before-restore"
+cp -a "$backup" "$store"
+# Start the matching application version with the matching encryption key.
+```
+
+For the named Docker volume in the README, use your installed image to copy the
+stopped volume. Choose an empty backup directory and keep its contents private:
+
+```sh
+docker stop dezfil
+mkdir -m 700 "$PWD/dezfil-backup"
+docker run --rm --user root --entrypoint sh \
+  -v dezfil-data:/data:ro -v "$PWD/dezfil-backup:/backup" dezfil \
+  -c 'cp -a /data/. /backup/'
+```
+
+Restore into a new volume so the current copy remains available:
+
+```sh
+docker volume create dezfil-restored
+docker run --rm --user root --entrypoint sh \
+  -v dezfil-restored:/data -v "$PWD/dezfil-backup:/backup:ro" dezfil \
+  -c 'cp -a /backup/. /data/ && chown -R node:node /data'
+docker run -d --name dezfil-restored -p 127.0.0.1:3210:3000 \
+  -v dezfil-restored:/data dezfil
+```
+
+Use the backed-up image version and supply the original external encryption key,
+if any, through your deployment's secret mechanism. Check sign-in, datasets, maps,
+workflows and published links on the isolated restore before routing traffic to it.
+Token secrets cannot be read back. Restored credentials keep their backed-up
+validity and expiry; revocations made after the backup are absent. Review access
+before exposing the restore. No restoration can recover later writes.
+
+To rehearse an upgrade, start the new image against a separate copy of this stopped
+backup on an isolated port. Check readiness, sign-in and representative saved work,
+then stop the rehearsal. Only then start the new image on the original directory.
+An upgrade from a release without accounts still needs first-admin setup under
+restricted access. Existing last changers and history authors start unknown; new
+changes record their own actors. Legacy runs keep their stored or adopted initiator. See
+[self-hosting](self-hosting.md#upgrading) for the attribution limits.
+
+## Admin account recovery
+
+Run these in a terminal, using the application version matching the existing
+store. The origin is the address the recipient will open, with no path, query,
+credentials or fragment. `--email` matches a normalized exact email; omit it only
+when there is exactly one active admin.
+
+Checkout:
+
+```sh
+npm run admin:recover -- --data-dir /srv/dezfil/data \
+  --origin https://maps.example.com --email admin@example.com
+```
+
+Running container:
+
+```sh
+docker exec -it dezfil node scripts/admin-recover.mjs \
+  --data-dir /data --origin https://maps.example.com --email admin@example.com
+```
+
+One-off container against the stopped volume, without starting the server:
+
+```sh
+docker run --rm -it -v dezfil-data:/data dezfil \
+  node scripts/admin-recover.mjs --data-dir /data \
+  --origin https://maps.example.com --email admin@example.com
+```
+
+The last two commands allocate a TTY because the link is terminal-only. Do not
+pipe it to a log. The command selects an active admin in a setup-complete compatible
+store; it never initializes, upgrades, promotes or reactivates an account. A busy
+store is retried for at most five seconds and then refused without changes.
+Successful issuance revokes that account's password, earlier links, sessions and
+API/MCP tokens and prints one fragment link with account and expiry. Open it
+within fifteen minutes and choose a password. Other accounts are unaffected.
+This is not compromise cleanup; see the [limits](self-hosting.md#recovering-an-admin-account).
+
+`admin:recover` restores account entry. `journey:recovery` is a separate test of
+workflow-run recovery after a server restart; it is not an account command.
+
+## Headless clients
+
+Create an API / MCP token in Settings, copy the secret once and supply it as
+`DEZFIL_API_TOKEN` through your client's secret storage. It grants the same current
+permissions as that account, including project roles, with no admin content bypass.
+The following shell example requires `curl` and `jq`. It creates a private map,
+reads it and chains two accepted writes before printing the resulting revision:
+
+```sh
+set -eu
+base=https://maps.example.com
+: "${DEZFIL_API_TOKEN:?Supply an account token}"
+request() { curl --fail-with-body -sS -H "Authorization: Bearer $DEZFIL_API_TOKEN" "$@"; }
+created=$(request -X POST "$base/api/maps" -H 'Content-Type: application/json' -d '{"name":"Field notes"}')
+id=$(printf '%s' "$created" | jq -er '.id')
+current=$(request "$base/api/maps/$id")
+revision=$(printf '%s' "$current" | jq -er '.editRevision')
+changed=$(request -X PATCH "$base/api/maps/$id" -H 'Content-Type: application/json' \
+  -H "X-Edit-Revision: $revision" -d '{"name":"Survey map"}')
+revision=$(printf '%s' "$changed" | jq -er '.editRevision')
+changed=$(request -X PATCH "$base/api/maps/$id" -H 'Content-Type: application/json' \
+  -H "X-Edit-Revision: $revision" -d '{"basemap":"light"}')
+printf '%s' "$changed" | jq -er '.editRevision'
+```
+
+A 409 `stale_revision` stops the example. Inspect a fresh read and deliberately
+compose a new edit; do not attach its token to the refused payload and replay it.
+A 400 `invalid_request` for a missing revision means the client must implement the
+read/write contract. Child writes use the parent's revision. See the
+[API](api.md#editing-with-revisions) and [MCP](mcp.md#editing-with-revisions)
+guides for compound filing, run starts, exceptions and executable examples.
 
 ## A second isolated instance
 

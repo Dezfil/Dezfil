@@ -8,7 +8,38 @@ read this.
 
 ## Accounts and access
 
-Local accounts and sign-in protect the instance; fuller account documentation follows.
+Keep a fresh instance reachable only by you until first-admin setup is complete.
+The first person to finish setup becomes the admin. Bind the container port to
+loopback or restrict access at your proxy before opening the setup page. Once an
+account exists there is no open signup.
+
+Admins invite people from Users. Dezfil sends no outbound mail: the admin copies
+and privately delivers a single-use invitation or reset link, valid for seven days.
+The recipient chooses a password of at least eight characters; very common
+passwords are refused. Issuing a replacement link invalidates the previous links,
+password and browser sessions. Ordinary resets leave API tokens valid; revoke
+those separately in Settings when needed. Deactivated accounts cannot redeem a link.
+
+Each account owns its maps, datasets, workflows, projects and connections.
+Projects are the sharing boundary. A project owner gives another account a
+**Viewer** or **Editor** role for everything filed there. Viewers read; Editors
+also edit maps and workflows and run workflows. Deleting, publishing, sharing and
+transferring stay with the resource owner. Datasets change only by their owner;
+connections are never shared. Runs create outputs owned by their runner.
+
+Admin authority manages accounts and instance preferences, without access to
+another person's private content. Owners can transfer a map or workflow filed in
+a shared project to someone it is shared with, and transfer a project to one of
+its members. Datasets and connections cannot transfer. Deactivation ends sessions
+and prevents token use, but keeps ownership, content and published links. An admin
+can revoke a deactivated owner's known published token without reading the map.
+Reactivation restores access to retained work; it does not restore ended sessions.
+Another admin must remove your admin flag or deactivate you, and at least one
+active admin must remain.
+
+For scripts and agents, create an API / MCP token in Settings. Its secret is shown
+once, and its authority follows the account's current permissions. Keep the secret
+with the client; revocation stops REST and MCP use together.
 
 A published link is a capability. It carries a token, it is not guessable, and it
 grants read access to one published map until you unpublish it. Anyone the link
@@ -18,8 +49,9 @@ reaches can pass it on.
 
 Everything the instance keeps lives in one directory, the durable data directory,
 mounted as a volume in the container. Tables, the map and layer metadata, published
-links, the encryption key, cached tiles and thumbnails are all inside it. Nothing the
-instance needs lives outside it.
+links, accounts, password hashes, sessions, API token records, workflows and run
+records, generated encryption keys, cached tiles and thumbnails are all inside it.
+An externally supplied `DEZFIL_SECRET_KEY` must be preserved separately.
 
 That makes three operations simple:
 
@@ -32,14 +64,29 @@ That makes three operations simple:
 Running without a volume works and is useful for a look around, but the state then
 lives and dies with that container.
 
+A full stopped backup includes `metadata.sqlite` and any SQLite journal/WAL files,
+all artifact directories, thumbnails, caches and the optional model catalogue.
+Do not back up only the GeoParquet files or only SQLite. Restore the whole copy
+into an empty directory with the matching application version and encryption key.
+Restore file ownership so the container's `node` user can read and write it.
+
+Passwords and tokens are not recoverable as plaintext. Restored account, session,
+link and token records retain their backed-up validity and expiry: a credential
+revoked after the backup can become valid again after restoration. Review and
+revoke restored credentials as needed before reopening access. Work accepted
+after the backup is not in the restore. Test the restore on an isolated port and
+copy, never with two servers writing the same directory. The
+[runbook](runbook.md#full-backup-and-restore) gives checkout and volume commands.
+
 ## The encryption key
 
 Stored credentials, such as the password for a database connection, are encrypted at
 rest. The key comes from the setting if you provide one; otherwise the instance
 generates one on first boot and writes it into the data directory.
 
-Set it explicitly if your backups and your data directory can ever become separated,
-because data encrypted under a lost key cannot be recovered. Keep it out of your
+If you set `DEZFIL_SECRET_KEY` externally, back up that exact value securely
+alongside the deployment configuration. Otherwise include `secret.key` from the
+data directory. Data encrypted under a lost or wrong key cannot be recovered. Keep it out of your
 shell history and out of version control, the way you would any other secret.
 
 ## What leaves the instance
@@ -110,3 +157,53 @@ Read the changelog before a major version.
 
 An instance upgraded from a release without accounts shows setup once. Complete
 it promptly: whoever reaches setup first becomes the admin over the existing data.
+
+An ownership upgrade adopts old work into the recorded original account, even if
+that account is no longer an admin. With no accounts yet, first-admin setup adopts
+it atomically. It preserves identities, SQL homes, memberships, public links and
+artifacts. It does not make existing private projects shared.
+
+Edit-revision storage is additive. Existing maps and workflows receive durable
+revisions while their pre-existing last changer and history authors remain
+**Unknown**. Ownership adoption is not evidence of authorship. Existing workflow
+runs retain their stored initiator; older run records adopted into the original
+account show that adopted initiator, not a newly inferred historical author.
+The next accepted covered change records its real actor. Saved camera motion,
+thumbnail capture and refused saves do not assign an author.
+
+Clients that write maps or workflows must now read an edit revision and carry it
+on each covered write. Formerly bodyless covered successes return JSON with the
+new revision. Update headless clients with the server; see the
+[API guide](api.md#editing-with-revisions). For rollback use the complete stopped
+backup and its matching build. The revision-only schema additions support the
+immediately preceding compatible writers, but that is not a general promise that
+older releases understand ownership or sharing storage.
+
+## Recovering an admin account
+
+With filesystem access, use `npm run admin:recover` in a checkout or the packaged
+`scripts/admin-recover.mjs` in the container. The
+[runbook](runbook.md#admin-account-recovery) provides all three invocations.
+The command requires an existing, compatible, setup-complete data directory and
+an explicit reachable HTTP/HTTPS origin. It never creates or migrates a store.
+It selects the sole active admin, or an exact email supplied with `--email` when
+several exist. It cannot create an admin or reactivate an account.
+
+Recovery works while the server is running or stopped. It waits at most five
+seconds for a busy store; refusal prints no link and changes no credentials.
+After successful issuance the selected account's password, earlier links, browser
+sessions and API/MCP tokens are invalidated atomically. Other accounts and all
+content, ownership and admin flags stay as they were.
+
+The single-use link lasts fifteen minutes. Its secret is in the URL fragment,
+shown only in the invoking terminal with the selected email and expiry. Use a TTY
+and do not redirect the output into logs. Open the link at the supplied origin
+and choose a new password. Restarting does not extend its expiry, and another
+successful recovery replaces it. Ordinary admin-issued resets keep their
+seven-day lifetime.
+
+Recovery restores entry, not trust after hostile setup or a compromised machine.
+It does not remove an intruder's other accounts, undo content changes or revoke
+other accounts' credentials. Isolate such an instance and restore a trusted backup
+or rebuild after assessing what changed. Filesystem control already grants control
+of the data; there is no network recovery endpoint or ownership bypass.

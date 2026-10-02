@@ -15,3 +15,9 @@ it("distinguishes deployment settings from persisted preferences and the model c
   expect(configuration).not.toMatch(/configured entirely through environment|nothing is stored in the database|nothing can be\s+changed at runtime/);
   for (const term of ["account preferences", "instance preferences", "assistant-models.json", "restart", "Settings"]) expect(configuration).toContain(term);
 });
+
+it("gives operators complete restoration and credential recovery instructions", () => {
+  const guide = read("docs/self-hosting.md"), runbook = read("docs/runbook.md");
+  for (const term of ["seven days", "Viewer", "Editor", "Unknown", "initiator", "plaintext", "backed-up validity", "fifteen minutes", "five seconds", "hostile setup"]) expect(guide.replace(/\s+/g, " ")).toContain(term);
+  for (const term of ["## Full backup and restore", "## Admin account recovery", "npm run admin:recover --", "docker exec -it", "docker run --rm -it", "--data-dir", "--origin", "--email", "X-Edit-Revision", "jq -er '.editRevision'"]) expect(runbook).toContain(term);
+});
