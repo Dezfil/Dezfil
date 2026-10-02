@@ -143,6 +143,10 @@ export function useBuilderMutations({
     clearLegendLive,
   });
 
+  const settledLayer = useCallback((layerId: string): Layer | null =>
+    drafts.hasLayer(layerId) ? null : authoritativeLayersRef.current[layerId] ?? null,
+  [drafts]);
+
   const request = useCallback<typeof fetch>((input, init) => sequence.enqueue(async () => {
     const response = await sequence.writeFetch(input, init);
     if (response.ok) {
@@ -190,7 +194,7 @@ export function useBuilderMutations({
   });
 
   return {
-    stale, drafts, savedMap, turn, request, sequence, history, setHistory, edited, reloadKey, reload,
+    stale, drafts, savedMap, turn, request, sequence, settledLayer, history, setHistory, edited, reloadKey, reload,
     authoritativeLayersRef, truthSeqRef, layerConfirmedAtRef, layerRemovedAtRef,
     mapFieldEditedAtRef, mapAppliedAtRef, serverMapRef, reloadEpochRef,
     legendLive, onLegendLive, failures, fail, clearFailure, pendingSaves,
