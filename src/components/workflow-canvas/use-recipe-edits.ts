@@ -118,7 +118,7 @@ type Pending = { revision: number; parameters: Record<string, unknown>; owner: (
 export class RecipeEditor implements RecipeCoordinator {
   private uncertain: UncertainEdits;
   readonly drafts = new EditDrafts();
-  private latest = new Map<string, Record<string, unknown>>();
+  private latest = new Map<string, { parameters: Record<string, unknown>; compose: (accepted: Record<string, unknown> | undefined) => Record<string, unknown> | undefined }>();
   /** Every mutation on the wire, with what it answered. */
   private inflight = new Set<Promise<EditOutcome | RemovalOutcome>>();
   private windows = new Set<{ rejected: EditRejection | null }>();
@@ -226,17 +226,20 @@ export class RecipeEditor implements RecipeCoordinator {
     }
     return this.settle(result, owner ?? this.retry(() => {
       const again = this.latest.get(stepId);
-      if (again) void this.edit(stepId, again);
+      if (again) void this.edit(stepId, again.parameters);
     }), stepId, revision);
   }
 
   private editWith(stepId: string, parameters: Record<string, unknown>, owner: (() => void) | null, note?: EditNote): Promise<EditOutcome> {
     if (this.document.disposed) return Promise.resolve({ kind: "superseded" });
-    const revision = this.drafts.offer(stepId, parameters, note?.field);
+    const previous = this.latest.get(stepId);
+    const retrying = this.drafts.get(stepId) && previous && JSON.stringify(previous.parameters) === JSON.stringify(parameters);
     const step = this.document.step(stepId);
-    const before = this.latest.get(stepId) ?? step?.proposedParameters ?? step?.parameters;
-    const compose = fieldIntent(before, parameters);
-    this.latest.set(stepId, parameters);
+    const before = previous?.parameters ?? step?.proposedParameters ?? step?.parameters;
+    // Both the raw and recording-owned Retry retain the original field intent.
+    const compose = retrying ? previous.compose : fieldIntent(before, parameters);
+    const revision = this.drafts.offer(stepId, parameters, note?.field);
+    this.latest.set(stepId, { parameters, compose });
     return this.track(this.document.enqueue(() => {
       const accepted = this.document.step(stepId);
       const next = compose(accepted?.proposedParameters ?? accepted?.parameters) ?? parameters;
