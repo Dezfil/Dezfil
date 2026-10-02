@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { LastChanged } from "../sharing/LastChanged";
 import { formatRelativeTime } from "../api";
 import { DataMotif, IconFolder, geometryFamilies } from "../gallery-icons";
 import { MapStrip } from "../MapStrip";
@@ -154,7 +155,7 @@ export function EmptyHome({
                 <i>·</i>
                 {it.fact}
                 <i>·</i>
-                {formatRelativeTime(it.time)}
+                {it.kind === "dataset" ? formatRelativeTime(it.time) : <LastChanged value={it.kind === "map" ? it.map : it.workflow} />}
               </small>
             </span>
             {!it.owner && (

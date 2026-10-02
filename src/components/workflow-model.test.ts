@@ -6,7 +6,7 @@ const sum = (status: RecipeSummary["status"], count = 0): RecipeSummary => ({
   nodes: 3, sources: 1, liveOutputs: 0, status, count,
 });
 const wf = (name: string, status: RecipeSummary["status"], count = 0, when = "2026-08-25T00:00:00.000Z"): WorkflowListing => ({
-  id: name, name, origin: "workflow", projectId: null, createdAt: when, updatedAt: when, summary: sum(status, count), steps: [],
+  id: name, name, origin: "workflow", projectId: null, createdAt: when, updatedAt: when, lastChangedAt: when, summary: sum(status, count), steps: [],
 });
 
 describe("the chip a card wears", () => {
@@ -41,8 +41,8 @@ describe("the filters", () => {
 
 describe("the sorts", () => {
   it("sort by last edited, by created, and by name", () => {
-    const a = { ...wf("b", "up_to_date"), createdAt: "2026-08-01T00:00:00.000Z", updatedAt: "2026-08-25T10:00:00.000Z" };
-    const b = { ...wf("a", "up_to_date"), createdAt: "2026-08-02T00:00:00.000Z", updatedAt: "2026-08-25T09:00:00.000Z" };
+    const a = { ...wf("b", "up_to_date"), createdAt: "2026-08-01T00:00:00.000Z", lastChangedAt: "2026-08-25T10:00:00.000Z" };
+    const b = { ...wf("a", "up_to_date"), createdAt: "2026-08-02T00:00:00.000Z", lastChangedAt: "2026-08-25T09:00:00.000Z" };
     expect(sortWorkflows([b, a], "edited").map((w) => w.name)).toEqual(["b", "a"]);
     expect(sortWorkflows([a, b], "created").map((w) => w.name)).toEqual(["a", "b"]);
     expect(sortWorkflows([a, b], "name").map((w) => w.name)).toEqual(["a", "b"]);

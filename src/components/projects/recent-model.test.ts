@@ -11,14 +11,14 @@ import type { WorkflowListing } from "../workflow-model";
 /** The empty home's recent list. */
 
 const map = (over: Partial<MapOverview>) =>
-  ({ id: "m", name: "M", projectId: null, layerCount: 2, updatedAt: "2026-09-01T00:00:00Z", ...over }) as MapOverview;
+  ({ id: "m", name: "M", projectId: null, layerCount: 2, updatedAt: "2026-09-01T00:00:00Z", lastChangedAt: "2026-09-01T00:00:00Z", ...over }) as MapOverview;
 const wf = (over: Partial<WorkflowListing>) =>
   ({
     id: "w",
     name: "W",
     origin: "workflow",
     projectId: null,
-    updatedAt: "2026-09-01T00:00:00Z",
+    updatedAt: "2026-09-01T00:00:00Z", lastChangedAt: "2026-09-01T00:00:00Z",
     summary: { nodes: 2, sources: 1, liveOutputs: 0, status: "up_to_date", count: 0 },
     steps: [],
     ...over,
@@ -45,8 +45,8 @@ const HOME = "home";
 describe("recent things across kinds", () => {
   it("merges the kinds newest first by each kind's own time, six at most", () => {
     const items = recentItems({
-      maps: [map({ id: "m1", updatedAt: "2026-09-05T00:00:00Z" }), map({ id: "m2", updatedAt: "2026-09-01T00:00:00Z" })],
-      workflows: [wf({ id: "w1", updatedAt: "2026-09-04T00:00:00Z" })],
+      maps: [map({ id: "m1", lastChangedAt: "2026-09-05T00:00:00Z" }), map({ id: "m2", lastChangedAt: "2026-09-01T00:00:00Z" })],
+      workflows: [wf({ id: "w1", lastChangedAt: "2026-09-04T00:00:00Z" })],
       tables: [
         table({ id: "t1", importedAt: "2026-09-06T00:00:00Z" }),
         table({ id: "t2", importedAt: null, createdAt: "2026-09-03T00:00:00Z" }),

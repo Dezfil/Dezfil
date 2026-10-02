@@ -1,10 +1,11 @@
 "use client";
 
+import { LastChanged } from "./sharing/LastChanged";
 import { editHeaders } from "@/lib/edit-basis";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { MapOverview } from "./api";
-import { formatRelativeTime, readApiError } from "./api";
+import { readApiError } from "./api";
 import {
   IconDuplicate,
   IconFolderPlus,
@@ -296,7 +297,7 @@ export function MapsScreen() {
     return [...filtered].sort((a, b) => {
       if (sort === "name") return a.name.localeCompare(b.name);
       if (sort === "created") return b.createdAt.localeCompare(a.createdAt);
-      return b.updatedAt.localeCompare(a.updatedAt);
+      return (b.lastChangedAt ?? "").localeCompare(a.lastChangedAt ?? "");
     });
   }, [maps, query, filter, sort]);
 
@@ -616,7 +617,7 @@ export function MapsScreen() {
                   <div className={gallery.cardTop}>
                     <span className={gallery.cardName}>{m.name}</span>
                     <span className={gallery.cardWhen}>
-                      {formatRelativeTime(m.updatedAt)}
+                      <LastChanged value={m} />
                     </span>
                   </div>
                   <div className={gallery.cardChips}>
@@ -672,7 +673,7 @@ export function MapsScreen() {
                   <StateChip live={m.published} />
                 </span>
                 <span className={`${gallery.colWhen} ${gallery.num}`}>
-                  {formatRelativeTime(m.updatedAt)}
+                  <LastChanged value={m} />
                 </span>
                 <span className={gallery.colActs} />
               </button>
