@@ -299,7 +299,7 @@ export function useMutationLane({
           // of applying (two writers converge).
           return false;
         }
-        drafts.accepted(ticket, Object.keys(body), serverMapRef.current);
+        drafts.accepted(ticket, serverMapRef.current);
         applyMapResponse(updated, true, sentAt);
         return true;
       });
@@ -389,7 +389,7 @@ export function useMutationLane({
         // A gesture may reset an earlier queued change. Compare only once
         // that predecessor has settled and this gesture owns the turn.
         if (opts.skipUnchanged && Object.entries(body).every(([key, value]) => JSON.stringify(value) === JSON.stringify(current[key as keyof Layer]))) {
-          drafts.accepted(ticket, Object.keys(body), serverMapRef.current);
+          drafts.accepted(ticket, serverMapRef.current);
           syncAuthoritativeLayer(current, false);
           clearFailure(lane);
           return current;
@@ -452,7 +452,7 @@ export function useMutationLane({
           // A response from an older editor lifetime cannot establish a basis.
           return null;
         }
-        drafts.accepted(ticket, Object.keys(body), serverMapRef.current);
+        drafts.accepted(ticket, serverMapRef.current);
         syncAuthoritativeLayer(updated, true);
         // Anything that changes the effective query needs fresh render data —
         // except a settled timeline window, whose caller skips the refetch:

@@ -6,6 +6,41 @@ vi.mock("react", () => hookReact);
 import { useBuilderMutations } from "./use-builder-mutations";
 
 afterEach(() => vi.unstubAllGlobals());
+it("keeps failed opacity visible after fill saves and retires it only after an opacity correction", async () => {
+  const w = wire(); vi.stubGlobal("fetch", w.fetch);
+  vi.stubGlobal("window", { addEventListener() {}, removeEventListener() {} });
+  const layer = { id: "a", sql: "SELECT 1", style: { opacity: 1, fill: "red" } };
+  let map = { id: "m", layers: [layer], editRevision: "initial" } as unknown as MapWithLayers;
+  const h = new HookHarness(() => useBuilderMutations({ mapId: "m", map, setMap: next => { map = typeof next === "function" ? next(map)! : next!; }, rendersRef: { current: {} }, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} }));
+  const editor = h.value;
+  editor.serverMapRef.current = map; editor.authoritativeLayersRef.current = { a: map.layers[0] }; editor.sequence.accept(map);
+  const opacity = editor.patchLayer("a", { style: { opacity: 0.5, fill: "red" } });
+  await w.settle(); w.pending("PATCH", "/api/layers/a")[0].cut();
+  expect(await opacity).toBeNull(); h.render();
+  expect(editor.drafts.hasLayer("a")).toBe(true);
+
+  const fill = h.value.patchLayer("a", { style: { opacity: 0.5, fill: "blue" } });
+  await w.settle();
+  const savedFill = w.pending("PATCH", "/api/layers/a")[0];
+  expect(savedFill.body).toEqual({ style: { opacity: 1, fill: "blue" } });
+  savedFill.ok({ ...layer, style: { opacity: 1, fill: "blue" }, editRevision: "fill" });
+  await fill; h.render();
+  expect(editor.serverMapRef.current?.layers[0].style).toEqual({ opacity: 1, fill: "blue" });
+  expect(map.layers[0].style).toEqual({ opacity: 0.5, fill: "blue" });
+  expect(editor.drafts.hasLayer("a")).toBe(true);
+
+  const corrected = h.value.patchLayer("a", { style: { opacity: 0.7, fill: "blue" } });
+  await w.settle();
+  const savedOpacity = w.pending("PATCH", "/api/layers/a")[0];
+  expect(savedOpacity.headers.get("X-Edit-Revision")).toBe("fill");
+  expect(savedOpacity.body).toEqual({ style: { opacity: 0.7, fill: "blue" } });
+  savedOpacity.ok({ ...layer, style: { opacity: 0.7, fill: "blue" }, editRevision: "opacity" });
+  await corrected;
+  expect(map.layers[0].style).toEqual({ opacity: 0.7, fill: "blue" });
+  expect(editor.drafts.hasLayer("a")).toBe(false);
+  h.unmount();
+});
+
 it("retires refused SQL after an accepted correction and preserves unrelated and newer drafts", async () => {
   const w = wire(); vi.stubGlobal("fetch", w.fetch);
   vi.stubGlobal("window", { addEventListener() {}, removeEventListener() {} });
