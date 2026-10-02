@@ -140,14 +140,19 @@ describe("the consumers bind by identity", () => {
       expect(await queryInputs(conn, "SELECT * FROM bob.parcels JOIN roads USING (id)", () => null))
         .toMatchObject({ tables: ["roads"], external: ["bob.parcels"] });
     } finally { conn.disconnectSync(); }
-    // A step reading Ada's own `staged` by qualified name does not depend on
-    // the later step whose declared output is called `staged`.
+    // A step reading Ada's own `staged` by qualified name names that read
+    // as written, and does not depend on the later step whose declared
+    // output is called `staged`.
     const reader = { id: "reader", ordinal: 0, operation: "sql_step", parameters: { sql: "SELECT * FROM ada.staged", name: "first" }, proposedParameters: null, outputTableName: null };
     const producer = { id: "producer", ordinal: 1, operation: "sql_step", parameters: { sql: "SELECT * FROM roads", name: "staged" }, proposedParameters: null, outputTableName: null };
     const steps = [reader, producer] as unknown as Parameters<typeof assertOrderingValid>[0];
     const reads = new Map([["reader", await stepReads(scopes.ada, reader)], ["producer", await stepReads(scopes.ada, producer)]]);
-    expect(reads.get("reader")).toEqual([]);
+    expect(reads.get("reader")).toEqual(["ada.staged"]);
     expect(() => assertOrderingValid(steps, reads)).not.toThrow();
+    // The control: the same read written plain is the producer's output,
+    // read before it is made, and the order is refused.
+    const plain = new Map([["reader", ["staged"]], ["producer", reads.get("producer")!]]);
+    expect(() => assertOrderingValid(steps, plain)).toThrow();
   });
 
   it("refuses to materialize a statement whose qualified reference is outside reach, naming it", async () => {
