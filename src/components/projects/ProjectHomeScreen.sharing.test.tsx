@@ -13,7 +13,7 @@ import { SignedIn } from "../sharing/signed-in";
  * project menu. The owner's home is unchanged.
  */
 
-const home = vi.hoisted(() => ({ record: null as unknown, crumb: "", people: null as unknown }));
+const home = vi.hoisted(() => ({ record: null as unknown, crumb: "", people: null as unknown, empty: false }));
 vi.mock("../sharing/use-project-people", async (original) => ({
   ...await original<typeof import("../sharing/use-project-people")>(),
   useProjectPeople: () => new Map(home.people ? [["berlin", home.people]] : []),
@@ -36,7 +36,7 @@ vi.mock("./home-read", async (original) => ({
       status: "ready",
       value: {
         record: home.record as ProjectRecordWire,
-        maps: [{ id: "m", name: "Station catchments", projectId: "berlin", layerCount: 1, layerColors: [],
+        maps: home.empty ? [] : [{ id: "m", name: "Station catchments", projectId: "berlin", layerCount: 1, layerColors: [],
           updatedAt: "2026-09-02T00:00:00Z", publishToken: null, owner: ada, home: "ada" } as unknown as MapOverview],
         workflows: [], tables: [], names: new Map(), lastRuns: new Map(),
       } satisfies HomeWorld,
@@ -51,12 +51,14 @@ const record = (role: "owner" | "editor" | "viewer"): ProjectRecordWire => ({
   id: "berlin", name: "Berlin housing study", note: "Where rent pressure meets the tram.",
   createdAt: "2026-09-01T00:00:00Z", updatedAt: "2026-09-02T00:00:00Z", role, owner: ada,
 });
-const render = (role: "owner" | "editor" | "viewer") => {
+/** `files`: whether the reader may file into the project now, as the page
+ * asks the server: an owner or an Editor of a project whose owner is active. */
+const render = (role: "owner" | "editor" | "viewer", files = role !== "viewer") => {
   home.record = record(role);
   home.crumb = "";
   return renderToStaticMarkup(
     <SignedIn account={{ name: "Bo Lindqvist", sqlName: "bo" }}>
-      <ProjectHomeScreen id="berlin" />
+      <ProjectHomeScreen id="berlin" files={files} />
     </SignedIn>,
   );
 };
@@ -89,6 +91,24 @@ describe("a shared project's home", () => {
     expect(html).not.toContain('aria-label="More"');
     expect(html).not.toContain(">edit<");
     expect(home.crumb).toBe("plain:Berlin housing study");
+  });
+
+  it("offers an Editor no Add to project while the project's owner is deactivated", () => {
+    const html = render("editor", false);
+    expect(html).toContain('data-role-line="editor"');
+    expect(html).toContain("Export project");
+    expect(html).not.toContain("Add to project");
+  });
+
+  it("offers nothing to add to an empty project while its owner is deactivated", () => {
+    home.empty = true;
+    const open = render("editor");
+    const frozen = render("editor", false);
+    home.empty = false;
+    expect(open).toContain("data-recent");
+    expect(frozen).not.toContain("data-recent");
+    expect(frozen).not.toContain("data-empty-plate");
+    expect(frozen).toContain("This project is empty.");
   });
 
   it("gives the owner the Share action beside Add to project and Export project", () => {

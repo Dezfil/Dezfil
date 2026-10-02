@@ -58,7 +58,7 @@ describe("project-home mutation cache", () => {
     let release!: (response: Response) => void;
     const fetcher = vi.fn(() => new Promise<Response>((resolve) => { release = resolve; }));
     vi.stubGlobal("fetch", fetcher);
-    renderToStaticMarkup(<ProjectHomeScreen id="a" />);
+    renderToStaticMarkup(<ProjectHomeScreen id="a" files />);
     crumb.onRename("Saved new name");
     expect(fetcher).toHaveBeenCalledWith("/api/projects/a", expect.objectContaining({
       method: "PATCH", body: JSON.stringify({ name: "Saved new name" }),

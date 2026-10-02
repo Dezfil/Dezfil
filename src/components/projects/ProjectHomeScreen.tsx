@@ -57,16 +57,23 @@ const NAME_MAX = 120;
 const STALE_AFTER_CHANGE =
   "The change was saved, but the project couldn't be re-read.";
 
-export function ProjectHomeScreen({ id }: { id: string }) {
+export function ProjectHomeScreen({ id, files }: {
+  id: string;
+  /** Whether the reader may file their own work into the project now, as
+   * the server's reach kernel answered for the page: its owner or an
+   * Editor, while its owner is active. */
+  files: boolean;
+}) {
   const home = useProjectHome(id);
   // Keep the reader across route changes to reject departed responses, while
   // drafts, dialogs and busy flags are local to the displayed project visit.
-  return <ProjectHomeVisit key={id} id={id} home={home} />;
+  return <ProjectHomeVisit key={id} id={id} home={home} files={files} />;
 }
 
-function ProjectHomeVisit({ id, home }: {
+function ProjectHomeVisit({ id, home, files }: {
   id: string;
   home: ReturnType<typeof useProjectHome>;
+  files: boolean;
 }) {
   const router = useRouter();
   const {
@@ -119,9 +126,9 @@ function ProjectHomeVisit({ id, home }: {
   const isEmpty =
     world !== null &&
     world.maps.length + world.workflows.length + world.tables.length === 0;
-  // The workspace catalogue, read only while the project is empty or
-  // the picker is open.
-  const catalogue = useCatalogue(isEmpty || picking);
+  // The workspace catalogue, read only while the project is empty and
+  // takes additions, or the picker is open.
+  const catalogue = useCatalogue((isEmpty && files) || picking);
   const exclude = useMemo(
     () => ({
       maps: new Set(world?.maps.map((m) => m.id) ?? []),
@@ -338,8 +345,9 @@ function ProjectHomeVisit({ id, home }: {
   const { record, maps, workflows, tables, names, lastRuns } = state.value;
   const hasContent = maps.length + workflows.length + tables.length > 0;
   // How the reader stands to the project, as its read says: its owner
-  // keeps the whole head; its people get the role line, an Editor keeps
-  // Add to project, and renaming, the note and the menu stay the owner's.
+  // keeps the whole head; its people get the role line, and renaming, the
+  // note and the menu stay the owner's. Add to project, the picker and the
+  // empty home's offers follow whether the reader may file here now.
   const role = record.role ?? "owner";
   const owns = role === "owner";
 
@@ -432,7 +440,7 @@ function ProjectHomeVisit({ id, home }: {
           )}
         </div>
         <div className={styles.headActs} data-head-acts>
-          {role !== "viewer" && (
+          {files && (
             <Button size="chrome" onClick={() => setPicking(true)}>
               <IconFolderPlus /> Add to project
             </Button>
@@ -570,7 +578,7 @@ function ProjectHomeVisit({ id, home }: {
             view={view}
             groupOf={groupOf}
           />
-        ) : role === "viewer" ? (
+        ) : !files ? (
           <p className={gallery.empty}>This project is empty.</p>
         ) : (
           <EmptyHome
