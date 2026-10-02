@@ -1,6 +1,7 @@
 // Run only against an isolated store. Seed once, replace the server, then verify
 // the saved credentials again. The state file contains synthetic credentials.
 import assert from 'node:assert/strict';
+import { captureBasis } from './revision-fixtures.mjs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { provisionJourney } from './journey-auth.mjs';
 import { journeyApi } from './journey-http.mjs';
@@ -40,9 +41,9 @@ export async function seedOwnership(base) {
     const table = await upload(api, 'roads', sentinel);
     const hidden = await upload(api, `only_${index}`, sentinel);
     const map = expectStatus(await api('POST', '/api/maps', { body: { name: sentinel } }), 201);
-    const layer = expectStatus(await api('POST', `/api/maps/${map.id}/layers`, { body: { name: 'Roads', sql: 'SELECT * FROM roads' } }), 201);
+    const layer = expectStatus(await api('POST', `/api/maps/${map.id}/layers`, { basis: captureBasis(map), body: { name: 'Roads', sql: 'SELECT * FROM roads' } }), 201);
     const recipe = expectStatus(await api('POST', '/api/recipes', { body: { name: sentinel } }), 201).recipe;
-    const step = expectStatus(await api('POST', `/api/recipes/${recipe.id}/steps`, { body: {
+    const step = expectStatus(await api('POST', `/api/recipes/${recipe.id}/steps`, { basis: captureBasis(recipe), body: {
       operation: 'sql_step', parameters: { name: 'roads_copy', sql: 'SELECT * FROM roads' },
     } }), 201).step;
     const run = expectStatus(await api('POST', `/api/recipes/${recipe.id}/steps/${step.id}/run`), 202).run;

@@ -7,6 +7,7 @@ import { startLoopbackBasemap, assertBasemapTraffic } from "./loopback-basemap.m
 import { decodePng, countColored } from "./png-probe.mjs";
 import { provisionJourney } from "./journey-auth.mjs";
 import { journeyApi } from "./journey-http.mjs";
+import { captureBasis } from "./revision-fixtures.mjs";
 
 const base = process.argv[2] ?? "http://localhost:3000";
 
@@ -1003,6 +1004,7 @@ async function main() {
     const pingsTable = up.json.name;
     const pm = await api("POST", "/api/maps", { body: { name: "Journey pings" } });
     const lr = await api("POST", `/api/maps/${pm.json.id}/layers`, {
+      basis: captureBasis(pm.json),
       body: { name: "Pings", sql: `SELECT label, seen, geometry FROM ${pingsTable}` },
     });
     if (lr.status !== 201) fail("pings layer not created", JSON.stringify(lr.json));
@@ -1190,6 +1192,7 @@ async function main() {
 
       const tmap = await api("POST", "/api/maps", { body: { name: "Tiled journey" } });
       const tlayer = await api("POST", `/api/maps/${tmap.json.id}/layers`, {
+        basis: captureBasis(tmap.json),
         body: { name: "Everything", sql: `SELECT id, kind, geometry FROM ${tilesTable}` },
       });
       if (tlayer.status !== 201) fail("tiles: layer failed", JSON.stringify(tlayer.json));

@@ -1,6 +1,14 @@
 import { vi } from 'vitest';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { buildMcpFetchHandler } from './handler';
+import { declaredToolArguments } from '../../../scripts/revision-fixtures.mjs';
+import type { EditBasis } from '@/lib/edit-basis';
+
+/** Opt-in fixture call. Ordinary client.callTool, including malformed and
+ * missing argument probes, stays completely untouched. */
+export function callFixtureTool(client: Client, tool: { name: string; inputSchema: unknown }, args: Record<string, unknown>, basis: EditBasis) {
+  return client.callTool({ name: tool.name, arguments: declaredToolArguments(tool, args, basis) });
+}
 
 export async function testClient(api: (request: Request) => Response | Promise<Response>) {
   const handler = buildMcpFetchHandler();

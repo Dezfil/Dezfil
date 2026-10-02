@@ -6,6 +6,7 @@
 // instance must have been started with OPENAI_API_KEY set to any value,
 // DEZFIL_AI_PROVIDER=openai and OPENAI_BASE_URL=http://127.0.0.1:<port>/v1.
 import assert from 'node:assert/strict';
+import { captureBasis } from './revision-fixtures.mjs';
 import { randomUUID } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -88,8 +89,8 @@ async function settle(api, recipeId, runId) {
   }
 }
 
-async function runWorkflow(api, recipeId) {
-  const started = expectStatus(await api('POST', `/api/recipes/${recipeId}/runs`, { body: {} }), 202, 'run the workflow').run;
+async function runWorkflow(api, recipeId, basis) {
+  const started = expectStatus(await api('POST', `/api/recipes/${recipeId}/runs`, { body: {}, basis }), 202, 'run the workflow').run;
   const run = await settle(api, recipeId, started.id);
   assert.equal(run.outcome, 'completed', JSON.stringify(run));
   return run;
@@ -196,13 +197,18 @@ export async function seedSharing(base) {
     'nia.roads': await upload(nia, 'roads', 'nia_roads'),
   };
   const recipe = expectStatus(await ada('POST', '/api/recipes', { body: { name: 'Staging' } }), 201).recipe;
-  expectStatus(await ada('POST', `/api/recipes/${recipe.id}/steps`, { body: {
+  const staged = expectStatus(await ada('POST', `/api/recipes/${recipe.id}/steps`, { basis: captureBasis(recipe), body: {
     operation: 'sql_step', parameters: { name: 'roads_out', sql: 'SELECT * FROM roads' },
   } }), 201);
-  await runWorkflow(ada, recipe.id);
+  await runWorkflow(ada, recipe.id, captureBasis(staged));
   tables['ada.roads_out'] = expectStatus(await ada('GET', '/api/tables/roads_out'), 200);
   const map = expectStatus(await ada('POST', '/api/maps', { body: { name: 'Survey' } }), 201);
-  const layer = async (api, name, sql) => expectStatus(await api('POST', `/api/maps/${map.id}/layers`, { body: { name, sql } }), 201, `layer ${name}`);
+  let layerBasis = captureBasis(map);
+  const layer = async (api, name, sql) => {
+    const created = expectStatus(await api('POST', `/api/maps/${map.id}/layers`, { body: { name, sql }, basis: layerBasis }), 201, `layer ${name}`);
+    layerBasis = captureBasis(created);
+    return created;
+  };
   const layers = {
     roads: (await layer(ada, 'Roads', 'SELECT * FROM roads')).id,
     rivers: (await layer(ada, 'Rivers', 'SELECT * FROM rivers')).id,

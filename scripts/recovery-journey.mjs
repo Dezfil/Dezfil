@@ -21,6 +21,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { provisionJourney } from "./journey-auth.mjs";
 import { assertEvidenceWorktree } from "./dezfil-plugin-safety.mjs";
 import path from "node:path";
+import { captureBasis, fixtureHeaders } from "./revision-fixtures.mjs";
 
 assertEvidenceWorktree(process.cwd());
 let authenticatedFetch;
@@ -43,10 +44,11 @@ const bad = (label, detail) => {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function api(method, route, body) {
+async function api(method, route, body, basis) {
   const response = await authenticatedFetch(`${BASE}${route}`, {
     method,
-    ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
+    headers: fixtureHeaders(basis, body ? { "Content-Type": "application/json" } : {}),
+    ...(body ? { body: JSON.stringify(body) } : {}),
   });
   let json = null;
   try {
@@ -154,19 +156,19 @@ try {
       const slow = await api("POST", `/api/recipes/${recipeId}/steps`, {
         operation: "sql_step",
         parameters: { sql: ENDLESS, name: "interrupted_cascade_output" },
-      });
+      }, captureBasis(recipe.json));
       // A second step, so the cascade also has a member that never starts.
-      await api("POST", `/api/recipes/${recipeId}/steps`, {
+      const downstream = await api("POST", `/api/recipes/${recipeId}/steps`, {
         operation: "sql_step",
         parameters: {
           sql: "SELECT count(*) AS n FROM interrupted_cascade_output",
           name: "interrupted_cascade_downstream",
         },
-      });
+      }, captureBasis(slow.json));
       if (slow.status !== 201) {
         bad("could not add a recipe step", JSON.stringify(slow.json));
       } else {
-        const run = await api("POST", `/api/recipes/${recipeId}/runs`, {});
+        const run = await api("POST", `/api/recipes/${recipeId}/runs`, {}, captureBasis(downstream.json));
         if (run.status !== 202) bad("recipe run was not accepted", JSON.stringify(run.json));
         else {
           cascadeId = run.json.run.id;
