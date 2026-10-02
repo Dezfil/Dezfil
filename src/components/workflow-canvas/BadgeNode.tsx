@@ -6,6 +6,7 @@ import { OperationGlyph } from "../ui/operation-icons";
 import type { BadgeFlowNode } from "./to-flow";
 import { SQL_HANDLE, OUT_HANDLE, disclosureId } from "./to-flow";
 import { NODE_W } from "./arrange";
+import { UnsavedMark } from "../builder/UnsavedFields";
 import styles from "./WorkflowCanvas.module.css";
 
 /**
@@ -74,6 +75,7 @@ export function BadgeNode({ data, selected, dragging, isConnectable }: NodeProps
       <span className={styles.tLabel} style={{ top: BOX.y + BOX.h + 7 }}>
         <b className={styles.tName}>{m.label}</b>
         <span className={styles.tOut}>{m.outputName}</span>
+        {data.unsavedPosition && <UnsavedMark>unsaved position</UnsavedMark>}
       </span>
       <span id={disclosureId(m.id)} className={styles.disclosure} data-disclosure>
         {m.disclosure}

@@ -468,9 +468,9 @@ export function useCanvasHistory({
 
   const press = useCallback(
     (direction: Direction) => {
-      queue.current = queue.current.then(() => take(direction)).catch(() => undefined);
+      queue.current = queue.current.then(() => edits.document?.stale || edits.document?.disposed ? undefined : take(direction)).catch(() => undefined);
     },
-    [take],
+    [take, edits.document],
   );
 
   // The chord, at the document while the canvas is mounted: the whole workflow page counts, the

@@ -1,4 +1,7 @@
 "use client";
+import { fetchWorkflow, fetchLayout, readWorkflowPage, type PageRead } from "./workflow-canvas/workflow-read";
+import { CanvasRecoveryContext, withWorkflowRecovery, type WorkflowRecoveryProps } from "./workflow-canvas/WorkflowRecovery";
+import { STALE_MESSAGE } from "./document-sequence";
 import { WorkflowDocument } from "./workflow-canvas/workflow-document";
 import { DocumentEditorContext } from "./document-editor-context";
 
@@ -12,8 +15,7 @@ import {
   useEffect,
 } from "react";
 import { createPortal } from "react-dom";
-import { readApiError, readOperations, readTables } from "./api";
-import { serverUnreachable } from "./failure-copy";
+import { readApiError, readTables } from "./api";
 import { AddDataDialog } from "./AddDataDialog";
 import { AsyncState, useAsync } from "./ui/AsyncState";
 import type { HistoryChrome } from "./workflow-canvas/WorkflowCanvas";
@@ -35,7 +37,6 @@ import { useRunConfirm } from "./workflow-canvas/use-run-confirm";
 import { useWorkflowAssistant } from "./workflow-canvas/WorkflowAssistantHost";
 import { HeaderHistory } from "./workflow-canvas/HeaderHistory";
 import { ViewOnly } from "./workflow-canvas/view-only";
-import type { WorkflowListing } from "./workflow-model";
 import { usePathname } from "next/navigation";
 import { contributePath, releasePath } from "@/components/shell/path-model";
 import styles from "./WorkflowScreen.module.css";
@@ -59,35 +60,6 @@ const WorkflowCanvas = dynamic(
 
 const subscribeNever = () => () => {};
 const NAME_MAX = 120;
-
-async function fetchWorkflow(id: string): Promise<WorkflowListing> {
-  let response: Response;
-  try {
-    response = await fetch(`/api/recipes/${id}`, { cache: "no-store" });
-  } catch {
-    throw new Error(serverUnreachable("load the workflow"));
-  }
-  if (!response.ok) throw new Error(await readApiError(response));
-  return ((await response.json()) as { recipe: WorkflowListing }).recipe;
-}
-
-async function fetchLayout(id: string): Promise<LayoutRead> {
-  let response: Response;
-  try {
-    response = await fetch(`/api/recipes/${id}/layout`, { cache: "no-store" });
-  } catch {
-    throw new Error(serverUnreachable("load the workflow's layout"));
-  }
-  if (!response.ok) throw new Error(await readApiError(response));
-  return ((await response.json()) as { layout: LayoutRead }).layout;
-}
-
-interface PageRead {
-  recipe: WorkflowListing;
-  layout: LayoutRead;
-  tables: Awaited<ReturnType<typeof readTables>>;
-  operations: Awaited<ReturnType<typeof readOperations>>;
-}
 
 /** The crumb tail carries the path and nothing else: the
  * whisper, owned by whoever last spoke — a rename, a layout or recipe
@@ -163,11 +135,12 @@ export function CrumbName({
   );
 }
 
-export function WorkflowScreen({
+function WorkflowEditor({
+  recoverySeed, onRecovered,
   id,
   viewOnly = false,
   runs = !viewOnly,
-}: {
+}: WorkflowRecoveryProps & {
   id: string;
   /** The page of whoever may not change the workflow, decided by the page
    * from their standing: the canvas is view-only and nothing on it edits. */
@@ -178,15 +151,10 @@ export function WorkflowScreen({
 }) {
   const editorDocument = useMemo(() => new WorkflowDocument(id), [id]);
   const load = useCallback(async (): Promise<PageRead> => {
-    const [recipe, layout, tables, operations] = await Promise.all([
-      fetchWorkflow(id),
-      fetchLayout(id),
-      readTables(),
-      readOperations(),
-    ]);
-    editorDocument.install(recipe, layout);
-    return { recipe, layout, tables, operations };
-  }, [id, editorDocument]);
+    const page = recoverySeed ?? await readWorkflowPage(id);
+    editorDocument.install(page.recipe, page.layout);
+    return page;
+  }, [id, editorDocument, recoverySeed]);
   const { state, retry } = useAsync<PageRead>(load, `workflow:${id}`);
   // The live state: the first read seeds it; every accepted change
   // re-reads the recipe, an import re-reads the tables, a layout write
@@ -378,7 +346,10 @@ export function WorkflowScreen({
   const recipeFailure = useRef<() => SaveState | null>(() => null);
   const whisperFor = useCallback(
     (owner: "layout" | "recipe") => (next: SaveState) => {
-      if (next.kind === "saving") {
+      if (next.kind === "stale") {
+        stopClear(owner);
+        setWhisper({ owner, text: STALE_MESSAGE, tone: "bad" });
+      } else if (next.kind === "saving") {
         stopClear(owner);
         setWhisper({ owner, text: "Saving…" });
       } else if (next.kind === "saved") {
@@ -425,7 +396,9 @@ export function WorkflowScreen({
     sequence: editorDocument,
     request: editorDocument.request,
     turn: (work: () => Promise<void>) => editorDocument.enqueue(async () => {
+      if (editorDocument.stale) throw new Error(STALE_MESSAGE);
       await work();
+      if (editorDocument.stale) return;
       const [recipe, layout] = await Promise.all([fetchWorkflow(id), fetchLayout(id)]);
       editorDocument.install(recipe, layout);
       void runner.observe();
@@ -507,6 +480,12 @@ export function WorkflowScreen({
 
   return (
     <DocumentEditorContext.Provider value={editorPort}>
+    <CanvasRecoveryContext.Provider value={{ document: editorDocument, recover: async () => {
+      await editorDocument.idle();
+      const seed = await readWorkflowPage(id);
+      editorDocument.dispose();
+      onRecovered?.(seed);
+    } }}>
     <ViewOnly value={viewOnly} runs={runs}>
     <div className={styles.screen} data-workflow-frame data-view-only={viewOnly || undefined}>
       {crumbSlot &&
@@ -591,6 +570,9 @@ export function WorkflowScreen({
       />
     </div>
     </ViewOnly>
+    </CanvasRecoveryContext.Provider>
     </DocumentEditorContext.Provider>
   );
 }
+
+export const WorkflowScreen = withWorkflowRecovery(WorkflowEditor);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { STALE_MESSAGE } from "../document-sequence";
 import { WorkflowDocument } from "./workflow-document";
 import { editHeaders } from "@/lib/edit-basis";
 import { readApiFailure } from "../api";
@@ -272,6 +273,7 @@ class Runner implements WorkflowRunner {
     const blocked = await this.barrier();
     if (blocked && "message" in blocked) return { refused: blocked.kind === "save_failed" ? `Couldn't save the change, so nothing started. ${blocked.message}` : blocked.message };
     return this.document.enqueue(async () => {
+      if (this.document.stale) return { refused: STALE_MESSAGE };
       const result = await call(`/api/recipes/${this.id}/runs`,
         { method: "POST", body: JSON.stringify({ plan: true, ...(fromStepId ? { fromStepId } : {}) }) }, "plan the run");
       if (!result.ok) return { refused: "failed" in result ? result.failed : result.refused.message };
@@ -283,6 +285,7 @@ class Runner implements WorkflowRunner {
   /** The pre-run barrier: what is typed lands, everything in flight is
    * awaited; a refused or failed save starts nothing. */
   private async barrier(): Promise<StartOutcome | null> {
+    if (this.document.stale) return { kind: "save_failed", message: STALE_MESSAGE };
     if (this.flush) {
       const outcome = await this.flush();
       if (outcome && (outcome.kind === "refused" || outcome.kind === "failed")) {
@@ -339,7 +342,7 @@ class Runner implements WorkflowRunner {
     if (blocked) return blocked;
     this.set({ phase: "starting" });
     const { editRevision, ...input } = request;
-    const result = await this.document.enqueue(() => call(`/api/recipes/${this.id}/runs`, { method: "POST", headers: editRevision ? editHeaders({ editRevision }) : this.document.headers(), body: JSON.stringify(input) }, "start the run"));
+    const result = await this.document.enqueue(() => call(`/api/recipes/${this.id}/runs`, { method: "POST", headers: editRevision ? editHeaders({ editRevision }) : this.document.headers(), body: JSON.stringify(input) }, "start the run", (path, init) => this.document.stale ? Promise.resolve(this.document.refusal()) : fetch(path, init).then(response => this.document.observe(response))));
     return this.finishStart(result, lifetime);
   };
 
@@ -350,7 +353,7 @@ class Runner implements WorkflowRunner {
     if (closed) return closed;
     if (blocked) return blocked;
     this.set({ phase: "starting" });
-    const result = await this.document.enqueue(() => call(`/api/recipes/${this.id}/steps/${stepId}/run`, { method: "POST", headers: this.document.headers() }, "run the node"));
+    const result = await this.document.enqueue(() => call(`/api/recipes/${this.id}/steps/${stepId}/run`, { method: "POST", headers: this.document.headers() }, "run the node", (path, init) => this.document.stale ? Promise.resolve(this.document.refusal()) : fetch(path, init).then(response => this.document.observe(response))));
     return this.finishStart(result, lifetime);
   };
 

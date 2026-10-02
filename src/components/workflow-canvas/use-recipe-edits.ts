@@ -5,7 +5,7 @@ import type { WorkflowStep } from "../workflow-model";
 import { editCall as call, UncertainEdits, type EditAnswer as Answer } from "./edit-transport";
 import { EditDrafts, type EditRejection } from "./edit-drafts";
 import { WorkflowDocument } from "./workflow-document";
-import { fieldIntent } from "../document-sequence";
+import { fieldIntent, STALE_MESSAGE } from "../document-sequence";
 import type { SaveState } from "./use-layout-saves";
 
 /**
@@ -165,6 +165,7 @@ export class RecipeEditor implements RecipeCoordinator {
    * same Retry can leave after unlock. */
   private retry(run: () => void): () => void {
     return () => {
+      if (this.document.stale || this.document.disposed) return;
       const reason = this.retryCurrent.lockReason();
       if (reason) {
         this.retryCurrent.say(reason, "bad");
@@ -179,7 +180,7 @@ export class RecipeEditor implements RecipeCoordinator {
    * continuation when it had one, the raw re-issue otherwise. */
   private published: SaveState | null = null;
   private publish(state: SaveState): void {
-    const next = this.drafts.failure() ?? state;
+    const next = this.document.stale ? { kind: "stale" as const } : this.drafts.failure() ?? state;
     if (next === this.published) return;
     this.published = next;
     this.ports().onState(next);
@@ -230,6 +231,7 @@ export class RecipeEditor implements RecipeCoordinator {
   }
 
   private editWith(stepId: string, parameters: Record<string, unknown>, owner: (() => void) | null, note?: EditNote): Promise<EditOutcome> {
+    if (this.document.disposed) return Promise.resolve({ kind: "superseded" });
     const revision = this.drafts.offer(stepId, parameters, note?.field);
     const step = this.document.step(stepId);
     const before = this.latest.get(stepId) ?? step?.proposedParameters ?? step?.parameters;
@@ -310,6 +312,7 @@ export class RecipeEditor implements RecipeCoordinator {
       // Mutations can queue more mutations; wait until nothing is on the wire.
       while (this.inflight.size > 0) await Promise.allSettled([...this.inflight]);
       await this.idle();
+      if (this.document.stale) return { kind: "refused", code: "stale_revision", message: STALE_MESSAGE };
       return this.drafts.rejected(window.rejected);
     } finally {
       this.windows.delete(window);

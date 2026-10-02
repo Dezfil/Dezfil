@@ -19,6 +19,7 @@ export interface SaveStatusMessage {
   text: string;
   tone?: "bad";
   action?: { label: string; run: () => void };
+  actions?: { label: string; run: () => void; disabled?: boolean }[];
 }
 
 /** A channel the chip draws a line for. `key` names the line for the
@@ -99,15 +100,10 @@ export function SaveStatusChip({
               line, the words to this. */}
           <span className={styles.lineText}>
             {message?.text}
-            {message?.action ? (
-              <button
-                type="button"
-                className={styles.action}
-                onClick={message.action.run}
-              >
-                {message.action.label}
-              </button>
-            ) : null}
+            {(message?.actions ?? (message?.action ? [message.action] : [])).map((action) => (
+              <button key={action.label} type="button" className={styles.action} onClick={action.run}
+                disabled={"disabled" in action && action.disabled === true}>{action.label}</button>
+            ))}
           </span>
         </span>
       ))}

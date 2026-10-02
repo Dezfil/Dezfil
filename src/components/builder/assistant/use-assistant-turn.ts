@@ -234,7 +234,7 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
     const id = store.active?.id;
     if (id) void json(`${runPath(id)}/cancel`, { method: "POST" }).catch(() => {});
     store.flight?.abort();
-  }, [applyReceipt, readOutcome, replace, store, editor]);
+  }, [applyReceipt, readOutcome, replace, store]);
   /** A flight ended: a Stop kept while it was in flight now runs. */
   const stopRef = useRef(stop);
   stopRef.current = stop;

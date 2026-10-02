@@ -8,6 +8,7 @@ import { fieldIntent } from "../document-sequence";
 
 /** What the frame shows while the layout or recipe is being stored. */
 export type SaveState =
+  | { kind: "stale" }
   | { kind: "saving" }
   | { kind: "saved" }
   | { kind: "failed"; message: string; retry: () => void };
@@ -82,7 +83,7 @@ export class LayoutSaveCoordinator implements LayoutSaves {
 
   /** The latest document successfully read by the screen. */
   setLayout(layout: LayoutRead): void {
-    if (this.pendingCount === 0 && (!this.document.revision || layout.editRevision === this.document.revision)) this.base = layout;
+    if (!this.document.stale && this.pendingCount === 0 && (!this.document.revision || layout.editRevision === this.document.revision)) this.base = layout;
   }
 
   /** The screen's latest graph and callbacks. */
@@ -91,6 +92,7 @@ export class LayoutSaveCoordinator implements LayoutSaves {
   }
 
   private send = async (snapshot: LayoutSnapshot): Promise<void> => {
+      if (this.document.stale || this.document.disposed) { this.current.onState({ kind: "stale" }); return; }
       const doc = this.document.layout ?? this.base;
       const steps: Record<string, { x: number; y: number }> = {};
       const sources: Record<string, { x: number; y: number }> = { ...doc.sources };
@@ -128,6 +130,7 @@ export class LayoutSaveCoordinator implements LayoutSaves {
         this.current.onWritten?.(this.base);
         if (this.pendingCount === 1) this.current.onState({ kind: "saved" });
       } catch (e) {
+        if (this.document.stale) { this.current.onState({ kind: "stale" }); return; }
         this.current.onState({
           kind: "failed",
           message: e instanceof Error ? e.message : "Couldn’t save",
@@ -147,9 +150,11 @@ export class LayoutSaveCoordinator implements LayoutSaves {
     return { positions: { ...layout.steps, ...Object.fromEntries(Object.entries(layout.sources).map(([name, position]) => [`src:${name}`, position])) }, notes: layout.notes };
   }
   private write = (snapshot: LayoutSnapshot, retry = false): void => {
+    if (this.document.disposed) return;
     const before = (!retry && this.latest) || this.snapshotOf(this.base);
     const compose = fieldIntent(before, snapshot);
     this.latest = snapshot;
+    this.document.draftLayout = snapshot;
     this.pendingCount++;
     void this.document.enqueue(async () => {
       try { await this.send(compose(this.snapshotOf(this.document.layout ?? this.base))); }
@@ -183,5 +188,5 @@ export class LayoutSaveCoordinator implements LayoutSaves {
     this.write(snapshot);
   };
 
-  pending = (): boolean => this.pendingCount > 0;
+  pending = (): boolean => this.document.stale || this.pendingCount > 0;
 }

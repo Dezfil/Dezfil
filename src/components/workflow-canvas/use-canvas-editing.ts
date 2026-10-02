@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type Dispatch, type RefObject, type SetStateAction } from "react";
 import { applyNodeChanges, type NodeChange, type ReactFlowInstance } from "@xyflow/react";
 import type { OperationDef } from "@/lib/operations/catalog";
 import type { TableListing } from "../api";
@@ -136,6 +136,7 @@ export function useCanvasEditing({
 }) {
   // The canvas lock: this page's way of looking.
   const lock = useCanvasLock();
+  const stale = useSyncExternalStore(rawEdits.document!.subscribe, rawEdits.document!.snapshot, rawEdits.document!.snapshot);
   // May this person edit the canvas now, and if not, why: the one gate
   // every mutating interaction below reads, and every flag the renderer
   // sets for editing. Today the lock alone closes it.
@@ -155,8 +156,8 @@ export function useCanvasEditing({
   const historyPress = history.press;
   const historySeal = history.seal;
   useEffect(() => {
-    onHistory({ canUndo: history.canUndo, canRedo: history.canRedo, reason: gate.reason, press: historyPress, seal: historySeal });
-  }, [onHistory, history.canUndo, history.canRedo, gate.reason, historyPress, historySeal]);
+    onHistory({ canUndo: history.canUndo, canRedo: history.canRedo, reason: stale ? "This item has changed. Reload it before trying again." : gate.reason, press: historyPress, seal: historySeal });
+  }, [onHistory, history.canUndo, history.canRedo, gate.reason, stale, historyPress, historySeal]);
   // What the pane, the panels and the link handlers call: the same
   // coordinator, recording what the workflow accepts. The record's own
   // inverses travel the unrecorded road, `rawEdits`.
