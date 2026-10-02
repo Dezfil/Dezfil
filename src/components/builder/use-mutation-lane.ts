@@ -371,7 +371,7 @@ export function useMutationLane({
     (
       layerId: string,
       request: Record<string, unknown> | ((current: Layer) => Record<string, unknown>),
-      opts: { skipRefresh?: boolean; separateHistoryStep?: boolean } = {},
+      opts: { skipRefresh?: boolean; separateHistoryStep?: boolean; skipUnchanged?: boolean } = {},
     ): Promise<Layer | null> => {
       const shown = map?.layers.find((layer) => layer.id === layerId);
       const compose = typeof request === "function" ? request : patchIntent(shown, request);
@@ -386,6 +386,14 @@ export function useMutationLane({
         // Failures are owned per layer lane: a save that fails on one
         // layer must keep its banner through another layer's success.
         const lane = `layer:${layerId}` as const;
+        // A gesture may reset an earlier queued change. Compare only once
+        // that predecessor has settled and this gesture owns the turn.
+        if (opts.skipUnchanged && Object.entries(body).every(([key, value]) => JSON.stringify(value) === JSON.stringify(current[key as keyof Layer]))) {
+          drafts.accepted(ticket, Object.keys(body), serverMapRef.current);
+          syncAuthoritativeLayer(current, false);
+          clearFailure(lane);
+          return current;
+        }
         const headers: Record<string, string> = {
           "content-type": "application/json",
         };

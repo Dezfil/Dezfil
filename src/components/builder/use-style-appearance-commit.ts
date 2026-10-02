@@ -16,10 +16,8 @@ export function useStyleAppearanceCommit({ sequence, authoritativeLayersRef, app
     const version = appearancePreviewVersionRef.current[layerId] ?? 0;
     const current = authoritativeLayersRef.current[layerId];
     if (!current) return false;
-    const next = { ...current.style, ...partial };
-    const unchanged = JSON.stringify(next) === JSON.stringify(current.style);
-    const updated = unchanged ? current : await patchLayer(layerId,
-      accepted => ({ style: { ...accepted.style, ...partial } }), { separateHistoryStep: true });
+    const updated = await patchLayer(layerId,
+      accepted => ({ style: { ...accepted.style, ...partial } }), { separateHistoryStep: true, skipUnchanged: true });
     if (sequence.stale) return false;
     if (appearancePreviewVersionRef.current[layerId] === version) clearAppearanceDraft(layerId);
     return updated !== null;
