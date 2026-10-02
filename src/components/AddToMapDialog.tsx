@@ -13,6 +13,7 @@ import { MapStrip } from "./MapStrip";
 import gallery from "./gallery.module.css";
 import styles from "./AddToMapDialog.module.css";
 import { serverUnreachable } from "./failure-copy";
+import { tableReference } from "./sql/sql-draft";
 
 /** What lands as the layer when a map is picked (spec the dialog
  * is SQL-scoped — tables and query results walk through the same door). */
@@ -26,13 +27,14 @@ export interface LayerSubject {
 }
 
 /** The table cards' subject: the dataset as its reader types it (its
- * `qualifiedName`), so another person's same-named dataset is never the
- * one that lands. The layer and the label take the dataset's own name. */
+ * `qualifiedName`, a keyword part quoted), so another person's same-named
+ * dataset is never the one that lands. The layer and the label take the
+ * dataset's own name. */
 export function tableSubject(reference: string | null): LayerSubject | null {
   if (reference === null) return null;
   const name = reference.slice(reference.lastIndexOf(".") + 1);
   return {
-    sql: `SELECT * FROM ${reference}`,
+    sql: `SELECT * FROM ${tableReference(reference)}`,
     name,
     label: name,
   };

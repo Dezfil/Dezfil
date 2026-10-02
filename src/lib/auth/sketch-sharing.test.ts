@@ -6,6 +6,7 @@ import { resetQueryInstance } from "@/lib/duckdb";
 import { ingestFile } from "@/lib/ingest/ingest";
 import { addStep, createRecipe } from "@/lib/metadata/recipes";
 import { fileMap, fileRecipe } from "@/lib/metadata/projects";
+import { getAccount } from "@/lib/metadata/accounts";
 import { createMap, updateMap } from "@/lib/map-service";
 import { createLayer } from "@/lib/layer-service";
 import { laneSettled, resetLane } from "@/lib/operations/lane";
@@ -100,7 +101,7 @@ describe("a sketch drawn on someone else's map", () => {
       const { tableId, layerId, table } = created.body as { tableId: string; layerId: string; table: string };
       expect(tableRow(tableId)).toMatchObject({ owner_id: account, name: table });
       expect(db().prepare("SELECT project_id FROM project_datasets WHERE table_id = ?").all(tableId)).toEqual([{ project_id: "P" }]);
-      expect(layerRow(layerId)!.sql).toBe(`SELECT * FROM ${account}.${table}`);
+      expect(layerRow(layerId)!.sql).toBe(`SELECT * FROM "${account}"."${table}"`);
       // Everyone who reaches the map draws the drawer's feature.
       for (const reader of ["ada", "bob", "pat", "vi"]) expect((await drawn(reader, layerId)).geojson?.features, `${account} ${reader}`).toHaveLength(1);
     }
@@ -110,6 +111,17 @@ describe("a sketch drawn on someone else's map", () => {
       expect((listed.body as unknown as { tableId: string }[]).map((s) => tableRow(s.tableId)!.owner_id), account)
         .toEqual(account === "ada" ? [] : [account]);
     }
+  });
+
+  it("quotes the drawer's SQL name, so one that is also a SQL keyword draws", async () => {
+    testAccountScope(undefined, "order");
+    expect(getAccount("order")!.sqlName).toBe("order");
+    db().prepare("INSERT INTO project_people VALUES (?, ?, ?, ?)").run("P", "order", "editor", new Date().toISOString());
+    const created = await draw("order");
+    expect(created.status).toBe(201);
+    const { table, layerId } = created.body as { table: string; layerId: string };
+    for (const reader of ["ada", "order"]) expect(await drawn(reader, layerId), reader).toMatchObject({ ok: true, geojson: { features: [{}] } });
+    expect(layerRow(layerId)!.sql).toBe(`SELECT * FROM "order"."${table}"`);
   });
 
   it("is refused to a viewer by the permission shape and to an outsider as absent", async () => {

@@ -150,12 +150,15 @@ export interface CreatedSketch {
   featureId: string;
 }
 
+const quoted = (identifier: string) => `"${identifier.replace(/"/g, '""')}"`;
+
 /** How a sketch layer names its dataset in its map's home: plainly where the
  * drawer is the home, else qualified with the drawer's SQL name, so the layer
- * never binds a same-named dataset of the home's. */
+ * never binds a same-named dataset of the home's. Both parts of the qualified
+ * name are quoted: a SQL name may also be a keyword (`order`, `group`). */
 function sketchReference(scope: AccountScope, mapId: string, name: string, db = metadataDb()): string {
   if (mapHome(mapId, db) === scope.accountId) return name;
-  return `${getAccount(scope.accountId, db)!.sqlName}.${name}`;
+  return `${quoted(getAccount(scope.accountId, db)!.sqlName)}.${quoted(name)}`;
 }
 
 /** Whether the drawer may file their sketch into the map's project: the

@@ -1,5 +1,6 @@
 import type { TableListing } from "../../api";
 import type { QueryResult } from "../../query-types";
+import { tableReference } from "../../sql/sql-draft";
 
 /** Case-insensitive substring filter over table names.
  * The listing's server order — newest tables first — is preserved; this
@@ -60,9 +61,10 @@ export function homeLine(
 
 /** The SQL a table pick compiles to — one definition, shared by the
  * create call, the footer disclosure, and the table-to-SQL carry, so
- * the stated query and the stored query cannot drift. */
+ * the stated query and the stored query cannot drift. The typed name is
+ * written as the engine reads it back: a part that is a keyword is quoted. */
 export function impliedQuery(table: string): string {
-  return `SELECT * FROM ${table}`;
+  return `SELECT * FROM ${tableReference(table)}`;
 }
 
 /** The preview's request: the SQL as typed, evaluated in the map's SQL

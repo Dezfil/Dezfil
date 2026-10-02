@@ -13,12 +13,13 @@ export function quoteIdentifier(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
 }
 
-/** Words the engine will not read as a bare identifier. A bounded list of
- * the reserved words a column or table is likely to collide with; a name
- * on it is quoted, a name off it may still be quoted for its shape. */
+/** Words the engine will not read as a bare identifier: every keyword that
+ * breaks a bare table name or the qualifier of a qualified one, and the
+ * reserved words a column is likely to collide with. A name on it is quoted,
+ * a name off it may still be quoted for its shape. */
 const RESERVED = new Set(
   (
-    "all analyse analyze and any array as asc asymmetric authorization binary both case cast check collate collation column concurrently constraint create cross current_catalog current_date current_role current_schema current_time current_timestamp current_user default deferrable desc describe distinct do else end except false fetch for foreign freeze from full grant group having ilike in initially inner intersect into is isnull join lateral leading left like limit localtime localtimestamp natural not notnull null offset on only or order outer overlaps pivot placing primary qualify references returning right select session_user show similar some summarize symmetric table tablesample then to trailing true union unique unpivot user using variadic verbose when where window with"
+    "all analyse analyze and anti any array as asc asof asymmetric at authorization binary both by case cast check collate collation column concurrently constraint create cross current_catalog current_date current_role current_schema current_time current_timestamp current_user default deferrable desc describe distinct do else end except false fetch for foreign freeze from full glob grant group having ilike in initially inner intersect into is isnull join lambda lateral leading left like limit localtime localtimestamp natural not notnull null offset on only or order outer overlaps pivot pivot_longer pivot_wider placing positional primary qualify references returning right select semi session_user show similar some summarize symmetric table tablesample then to trailing true union unique unpack unpivot user using variadic verbose when where window with"
   ).split(" "),
 );
 

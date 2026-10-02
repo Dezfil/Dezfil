@@ -17,6 +17,11 @@ describe("the add-to-map landing", () => {
     expect(tableSubject(null)).toBeNull();
   });
 
+  it("quotes a part of the reference the engine would read as a keyword", () => {
+    expect(tableSubject("order.roads")).toEqual({ sql: 'SELECT * FROM "order".roads', name: "roads", label: "roads" });
+    expect(tableSubject("semi.group")).toEqual({ sql: 'SELECT * FROM "semi"."group"', name: "group", label: "group" });
+  });
+
   it("says the SQL was written in the console", () => {
     expect(landingRequest(tableSubject("ada.roads")!, "  ")).toEqual({
       name: "roads", sql: "SELECT * FROM ada.roads", writtenIn: { kind: "console" },
