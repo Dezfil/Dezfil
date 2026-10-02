@@ -49,7 +49,7 @@ export type FailureKey = FailureLane | `layer:${string}`;
  * whisper.
  *
  * The truth refs (tickets, before-image, epoch) stay declared in
- * MapBuilder and arrive here as parameters: the load effect and the
+ * useBuilderMutations and arrive here as parameters: the load effect and the
  * structural mutations (duplicate, delete, reorder, widget edits) take
  * tickets on the same counters, so those refs are genuinely shared state,
  * not lane internals.

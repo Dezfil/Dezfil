@@ -56,7 +56,6 @@ import {
 } from "./builder-shell-state";
 import {
   fetchLayerRender,
-  renderBounds,
   type LayerRenderData,
 } from "./render-data";
 import { useLayerSourceCoordinator } from "./use-layer-source-coordinator";
@@ -76,7 +75,6 @@ import { useLabelCounts } from "./use-label-counts";
 import {
   LegendTab,
   type LegendFocus,
-  type LegendLiveText,
 } from "./LegendTab";
 import type { LegendTextTarget } from "../map/LegendPanel";
 import { useTimeline } from "./use-timeline";
@@ -88,8 +86,8 @@ import {
   useMapPresentation,
 } from "./use-map-presentation";
 import { useQuerySliderPreview } from "./use-query-slider-preview";
-import { useMutationLane } from "./use-mutation-lane";
-import { useMapHistory } from "./use-map-history";
+import { useBuilderMutations, useBuilderReload } from "./use-builder-mutations";
+import { useBuilderCamera } from "./use-builder-camera";
 import { useLayerDataDownloads } from "./use-layer-data-downloads";
 import { BuilderFailureNotes } from "./BuilderFailureNotes";
 import styles from "./MapBuilder.module.css";
@@ -131,7 +129,6 @@ export function MapBuilder({
     [map],
   );
   const [fitBounds, setFitBounds] = useState<Bounds | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
   const [tab, setTab] = useState<RailTab>("layers");
   // The helpers: Tools left, the assistant right, the two stage edges
   // the camera frames against, and the header's door.
@@ -164,17 +161,6 @@ export function MapBuilder({
       body.removeAttribute("data-status-pill-hidden");
     };
   }, [mapFull, statusPillHidden]);
-  // Undo/redo availability: seeded by the history read, then derived —
-  // any successful edit enables undo and clears redo; undo/redo responses
-  // carry the authoritative values.
-  const [history, setHistory] = useState<HistoryAvailability>({
-    canUndo: false,
-    canRedo: false,
-  });
-  const edited = useCallback(
-    () => setHistory({ canUndo: true, canRedo: false }),
-    [],
-  );
   const viewportRef = useRef<Viewport | null>(null);
   // The export image card: opened from the header's Export menu. Its
   // live handle leads, while settled and stored fallbacks keep Image
@@ -185,100 +171,22 @@ export function MapBuilder({
     mapLayerRef,
     map?.viewport ?? { lng: 0, lat: 0, zoom: 1 },
   );
-  const authoritativeLayersRef = useRef<Record<string, Layer>>({});
-  // Response application is newest-wins per object. A map response
-  // embeds the whole layer set as it stood when the server read it, so
-  // applying one wholesale can revert a layer its own lane has since
-  // confirmed — and then poison the authoritative ref the next commit
-  // diffs against. Every confirmation takes a ticket from this counter;
-  // a response only speaks for layers nobody confirmed after it was
-  // sent.
-  const truthSeqRef = useRef(0);
-  const layerConfirmedAtRef = useRef<Record<string, number>>({});
-  // Structural changes take tickets too: a duplicate's copy must not be
-  // removed, and a deletion must not be undone, by a map response sent
-  // before they were confirmed.
-  const layerRemovedAtRef = useRef<Record<string, number>>({});
-  // Optimistic map-field edits (widgets, layer order) take tickets so an
-  // earlier response's echo cannot regress them while their own write is
-  // still queued — a further edit built from the regressed state would
-  // durably drop the queued one.
-  const mapFieldEditedAtRef = useRef<
-    Partial<Record<"widgets" | "layerOrder" | "legendOrder", number>>
-  >({});
-  /** The counter's value when the current map state was produced. */
-  const mapAppliedAtRef = useRef(0);
-  // The last server-confirmed map body: what queued patch bodies merge
-  // against when their turn starts, and what the builder falls back to
-  // when even the reconciliation read fails — optimistic state must not
-  // stand indefinitely as if accepted.
-  const serverMapRef = useRef<MapWithLayers | null>(null);
-  // Bumped by every whole-map resync (load, applied history step). A save
-  // whose request predates the bump may not apply its echo — the resync
-  // already holds newer truth, and a stale echo would revert it (two
-  // writers converge).
-  const reloadEpochRef = useRef(0);
-
-  const reload = useCallback(() => setReloadKey((k) => k + 1), []);
-
   const refreshLayer = useCallback(async (layerId: string) => {
     const data = await fetchLayerRender(layerId);
     rendersRef.current = { ...rendersRef.current, [layerId]: data };
     setRenders((r) => ({ ...r, [layerId]: data }));
   }, []);
 
-  // In-progress Legend-tab text, mirrored to the canvas legend on every
-  // keystroke; a layer's entry clears when its save echoes back, at which
-  // point persisted and live text agree anyway.
-  const [legendLive, setLegendLive] = useState<Record<string, LegendLiveText>>(
-    {},
-  );
-  const onLegendLive = useCallback((id: string, text: LegendLiveText) => {
-    setLegendLive((prev) => ({ ...prev, [id]: { ...prev[id], ...text } }));
-  }, []);
-  // A recovered read is authoritative for live text too: the lane
-  // discards an entry that was waiting for a lost response rather than
-  // leaving it over stale state.
-  const clearLegendLive = useCallback((layerId: string) => {
-    setLegendLive((prev) => {
-      if (!(layerId in prev)) return prev;
-      const next = { ...prev };
-      delete next[layerId];
-      return next;
-    });
-  }, []);
-
-  // The mutation/recovery lane: the ordered write lanes with
-  // verify-then-reconcile recovery, newest-wins response application,
-  // lane-owned failure banners, and pending-saves accounting — extracted
-  // beside MapBuilder (use-mutation-lane.ts), sharing the truth refs above.
-  const {
-    failures,
-    fail,
-    clearFailure,
-    pendingSaves,
-    track,
-    applyMapResponse,
-    patchMap,
-    patchLayer,
-  } = useMutationLane({
-    mapId,
-    map,
-    setMap,
-    rendersRef,
-    authoritativeLayersRef,
-    truthSeqRef,
-    layerConfirmedAtRef,
-    layerRemovedAtRef,
-    mapFieldEditedAtRef,
-    mapAppliedAtRef,
-    serverMapRef,
-    reloadEpochRef,
-    refreshLayer,
-    reload,
-    edited,
-    clearLegendLive,
+  const mutations = useBuilderMutations({
+    mapId, map, setMap, rendersRef, setRenders, setSelectedId, refreshLayer,
   });
+  const {
+    history, setHistory, edited, reloadKey, reload, authoritativeLayersRef, truthSeqRef,
+    layerConfirmedAtRef, layerRemovedAtRef, mapFieldEditedAtRef, serverMapRef,
+    legendLive, onLegendLive, failures, fail, clearFailure, pendingSaves,
+    track, patchMap, patchLayer, applyHistory,
+  } = mutations;
+  const persistViewport = useBuilderCamera(mapId, viewportRef, track);
 
   const layerDownloads = useLayerDataDownloads(mapId, map?.layers ?? []);
 
@@ -366,82 +274,12 @@ export function MapBuilder({
         endQuerySliderPreview(layerId);
       }
     },
-    [endQuerySliderPreview, reconcileQuerySliderPreview],
+    [authoritativeLayersRef, endQuerySliderPreview, reconcileQuerySliderPreview],
   );
 
-  // Load the map and every layer's render data.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        // Authority demands fresh truth: if a write confirms while the
-        // read is on the wire, the body may predate it — re-read rather
-        // than install a snapshot that would regress the accepted edit.
-        // Contention is transient; the cap only guards a pathological
-        // edit storm.
-        let body!: MapWithLayers;
-        for (let attempt = 0; attempt < 3; attempt++) {
-          const seqAtStart = truthSeqRef.current;
-          const response = await fetch(`/api/maps/${mapId}`);
-          if (!response.ok) throw new Error(await readApiError(response));
-          body = (await response.json()) as MapWithLayers & {
-            projectId?: string | null;
-          };
-          if (cancelled) return;
-          if (truthSeqRef.current === seqAtStart) break;
-        }
-        authoritativeLayersRef.current = Object.fromEntries(
-          body.layers.map((layer) => [layer.id, layer]),
-        );
-        // A load is authoritative for the whole map: it supersedes every
-        // lane confirmation, so a late response cannot drag it back
-        // (this is also the assistant's resync path).
-        layerConfirmedAtRef.current = {};
-        layerRemovedAtRef.current = {};
-        mapFieldEditedAtRef.current = {};
-        truthSeqRef.current += 1;
-        reloadEpochRef.current += 1;
-        mapAppliedAtRef.current = truthSeqRef.current;
-        serverMapRef.current = body;
-        setMap(body);
-        setMapProjectId(
-          (body as { projectId?: string | null }).projectId ?? null,
-        );
-        // A recovered reload clears the load lane's standing failure —
-        // its banner must not outlive the condition.
-        clearFailure("load");
-        // Seed the undo/redo buttons; also re-runs after assistant turns.
-        void fetch(`/api/maps/${mapId}/history`).then(async (r) => {
-          if (r.ok && !cancelled) {
-            setHistory((await r.json()) as HistoryAvailability);
-          }
-        });
-        const entries = await Promise.all(
-          body.layers.map(
-            async (l) => [l.id, await fetchLayerRender(l.id)] as const,
-          ),
-        );
-        if (cancelled) return;
-        const nextRenders = Object.fromEntries(entries);
-        rendersRef.current = nextRenders;
-        setRenders(nextRenders);
-        // Frame the data once it has loaded (spec: fit-to-bounds on the data
-        // extent). Done here in the load handler, not a reactive effect.
-        // During an import's focus window the camera belongs to the newly
-        // added layers — no global reframe.
-        if (!importFocusRef.current.active) {
-          const b = renderBounds(entries.map(([, r]) => r));
-          if (b) setFitBounds([...b] as Bounds);
-        }
-      } catch (e) {
-        if (!cancelled)
-          fail("load", e instanceof Error ? e.message : "Failed to load map");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [mapId, reloadKey, clearFailure, fail, importFocusRef]);
+  useBuilderReload({
+    mapId, mutations, importFocusRef, setMap, setMapProjectId, rendersRef, setRenders, setFitBounds,
+  });
 
   // Tiles prepare in the background: poll a preparing layer's render
   // until it settles into ready (drawn) or failed (errored state).
@@ -464,51 +302,6 @@ export function MapBuilder({
     truthSeqRef,
     mapFieldEditedAtRef,
   });
-
-  // The camera keeps its own lane, outside the ordered map queue: it is
-  // latest-wins by nature — the newest position is the truth whatever the
-  // arrival order — and persisting it must never delay or reorder a real
-  // edit. Its response is deliberately never read, so it cannot regress
-  // anything. A failed write is the one permitted silent drop: nothing
-  // surfaces, and the next movement persists normally. Single-flight
-  // makes latest-wins real on the server too: at most one camera write is
-  // in the air, and a burst coalesces to the newest position — so arrival
-  // order can never settle an older viewport.
-  const cameraFlightRef = useRef(false);
-  const cameraPendingRef = useRef<Viewport | null>(null);
-  const persistViewport = useCallback(
-    (v: Viewport) => {
-      viewportRef.current = v;
-      if (cameraFlightRef.current) {
-        // Coalesce, never queue: only the newest position matters.
-        cameraPendingRef.current = v;
-        return;
-      }
-      const send = (position: Viewport) => {
-        cameraFlightRef.current = true;
-        void track(
-          fetch(`/api/maps/${mapId}`, {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ viewport: position }),
-          }),
-        )
-          .catch(() => {
-            // Silent by design — the camera is unrecorded in history and
-            // the next gesture repairs it. Handled so it is never an
-            // unhandled rejection.
-          })
-          .finally(() => {
-            cameraFlightRef.current = false;
-            const pending = cameraPendingRef.current;
-            cameraPendingRef.current = null;
-            if (pending) send(pending);
-          });
-      };
-      send(v);
-    },
-    [mapId, track],
-  );
 
   // Snapshot capture: wiring lives in its own hook (the at-touch slice
   // for the capture surface).
@@ -547,7 +340,7 @@ export function MapBuilder({
       heatmapDraftVizRef.current[layerId] = draft;
       heatmapPreviewSetterRef.current?.(layerId, "viz", true, { viz: draft });
     },
-    [],
+    [authoritativeLayersRef],
   );
 
   const commitHeatmapViz = useCallback(
@@ -605,7 +398,7 @@ export function MapBuilder({
       heatmapCommitQueueRef.current[layerId] = result.then(() => undefined);
       return result;
     },
-    [patchLayer],
+    [authoritativeLayersRef, patchLayer],
   );
 
   const previewAggregationViz = useCallback(
@@ -660,7 +453,7 @@ export function MapBuilder({
       aggregationCommitQueueRef.current[layerId] = result.then(() => undefined);
       return result;
     },
-    [endQuerySliderPreview, patchLayer, settleQuerySliderPreview],
+    [authoritativeLayersRef, endQuerySliderPreview, patchLayer, settleQuerySliderPreview],
   );
 
   const setAppearanceDraft = useCallback(
@@ -693,7 +486,7 @@ export function MapBuilder({
         style: { ...(prior?.style ?? layer.style), ...partial },
       });
     },
-    [setAppearanceDraft],
+    [authoritativeLayersRef, setAppearanceDraft],
   );
 
   const previewAggregatedFill = useCallback(
@@ -708,7 +501,7 @@ export function MapBuilder({
         priorViz?.type === layer.viz.type ? priorViz : layer.viz;
       setAppearanceDraft(layerId, { ...prior, viz: { ...viz, fill } });
     },
-    [setAppearanceDraft],
+    [authoritativeLayersRef, setAppearanceDraft],
   );
 
   const commitStyleAppearance = useCallback(
@@ -741,7 +534,7 @@ export function MapBuilder({
       appearanceCommitQueueRef.current[layerId] = result.then(() => undefined);
       return result;
     },
-    [clearAppearanceDraft, patchLayer],
+    [authoritativeLayersRef, clearAppearanceDraft, patchLayer],
   );
 
   // Cell height slides like any appearance channel (field fix): the
@@ -759,7 +552,7 @@ export function MapBuilder({
       const viz = priorViz?.type === layer.viz.type ? priorViz : layer.viz;
       setAppearanceDraft(layerId, { ...prior, viz: { ...viz, elevation } });
     },
-    [setAppearanceDraft],
+    [authoritativeLayersRef, setAppearanceDraft],
   );
 
   const commitAggregatedElevation = useCallback(
@@ -792,7 +585,7 @@ export function MapBuilder({
       appearanceCommitQueueRef.current[layerId] = result.then(() => undefined);
       return result;
     },
-    [clearAppearanceDraft, patchLayer],
+    [authoritativeLayersRef, clearAppearanceDraft, patchLayer],
   );
 
   const commitAggregatedFill = useCallback(
@@ -825,7 +618,7 @@ export function MapBuilder({
       appearanceCommitQueueRef.current[layerId] = result.then(() => undefined);
       return result;
     },
-    [clearAppearanceDraft, patchLayer],
+    [authoritativeLayersRef, clearAppearanceDraft, patchLayer],
   );
 
   // Arc/line/cluster appearance previews: height, target color, and cluster
@@ -840,7 +633,7 @@ export function MapBuilder({
       const prior = appearanceDraftRef.current[layerId];
       setAppearanceDraft(layerId, { ...prior, viz });
     },
-    [setAppearanceDraft],
+    [authoritativeLayersRef, setAppearanceDraft],
   );
 
   const commitVizAppearance = useCallback(
@@ -872,7 +665,7 @@ export function MapBuilder({
       appearanceCommitQueueRef.current[layerId] = result.then(() => undefined);
       return result;
     },
-    [clearAppearanceDraft, patchLayer],
+    [authoritativeLayersRef, clearAppearanceDraft, patchLayer],
   );
 
   // The widget editor's unsaved widget: the presentation overlays it on
@@ -975,23 +768,8 @@ export function MapBuilder({
       filterCommitQueueRef.current[layer.id] = result.then(() => undefined);
       return result;
     },
-    [patchLayer, timelineDock, live],
+    [authoritativeLayersRef, patchLayer, live, timelineDock],
   );
-
-  // Undo/redo — extracted to use-map-history.ts at the touch; the queue,
-  // the generation fence and the keyboard binding live there unchanged.
-  const { applyHistory } = useMapHistory({
-    mapId,
-    track,
-    applyMapResponse,
-    reload,
-    fail,
-    clearFailure,
-    setHistory,
-    setSelectedId,
-    rendersRef,
-    setRenders,
-  });
 
   // In-place label edit on the canvas legend: merge the one slot into the
   // layer's positional overrides and save through the same PATCH the rail
@@ -1067,7 +845,7 @@ export function MapBuilder({
       edited();
       await refreshLayer(copy.id);
     },
-    [refreshLayer, track, edited, reload, clearFailure, fail],
+    [clearFailure, authoritativeLayersRef, truthSeqRef, layerConfirmedAtRef, serverMapRef, edited, refreshLayer, fail, reload, track],
   );
 
   const reorderLayers = useCallback(
@@ -1086,7 +864,7 @@ export function MapBuilder({
       });
       void patchMap({ layerOrder: bottomUpIds });
     },
-    [patchMap],
+    [mapFieldEditedAtRef, patchMap, truthSeqRef],
   );
 
   // Draw on the map: the whole integration lives in
@@ -1187,7 +965,7 @@ export function MapBuilder({
       }
       edited();
     },
-    [selectedId, track, edited, reload, clearFailure, fail, draw, mapId],
+    [draw, clearFailure, selectedId, truthSeqRef, layerRemovedAtRef, mapFieldEditedAtRef, layerConfirmedAtRef, authoritativeLayersRef, serverMapRef, edited, track, fail, reload, mapId, setHistory],
   );
 
   if (failures.load && !map) {
