@@ -25,7 +25,7 @@ import { Dialog } from "./ui/Dialog";
 import { ErrorNote } from "./ui/ErrorNote";
 import { ListHeading } from "./ListHeading";
 import { headingLine } from "./scope/model";
-import { PlusIcon } from "./ui/icons";
+import { PeopleIcon, PlusIcon } from "./ui/icons";
 import {
   filterProjects,
   PROJECT_SORTS,
@@ -41,6 +41,7 @@ import {
 import { useProjectsWorld, type ProjectsWorld } from "./projects/read";
 import { PeopleChip } from "./sharing/PeopleMarks";
 import { peopleMark } from "./sharing/people";
+import { ShareDialog } from "./sharing/ShareDialog";
 import { useProjectPeople } from "./sharing/use-project-people";
 import { useViewPrefs } from "./use-view-prefs";
 import gallery from "./gallery.module.css";
@@ -84,6 +85,8 @@ export function ProjectsScreen() {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [exporting, setExporting] = useState<{ id: string; name: string } | null>(null);
   const [exportNote, setExportNote] = useState<string | null>(null);
+  // The share dialog, the owner's, opened from a card's Share action.
+  const [sharing, setSharing] = useState<ProjectOverview | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ id: string; value: string } | null>(
     null,
@@ -331,6 +334,19 @@ export function ProjectsScreen() {
         </button>
         {owned && (
           <button
+            data-hint="Share project"
+            aria-label={`Share ${p.name}`}
+            data-share-action
+            onClick={(e) => {
+              e.stopPropagation();
+              setSharing(p);
+            }}
+          >
+            <PeopleIcon />
+          </button>
+        )}
+        {owned && (
+          <button
             className={gallery.deleteAct}
             data-confirm={armed || undefined}
             data-hint={armed ? undefined : "Delete project"}
@@ -541,6 +557,31 @@ export function ProjectsScreen() {
           onDone={(message) => {
             setExporting(null);
             setExportNote(message);
+          }}
+        />
+      )}
+      {sharing && world && (
+        <ShareDialog
+          projectId={sharing.id}
+          projectName={sharing.name}
+          // What the card says it holds: the workflows by the listing,
+          // as the card counts them.
+          counts={{
+            maps: sharing.mapCount,
+            workflows: wfCounts.get(sharing.id) ?? 0,
+            datasets: sharing.tableCount,
+          }}
+          tables={world.tables.filter((t) => t.projectIds.includes(sharing.id))}
+          onClose={() => setSharing(null)}
+          onTransferred={(sentence) => {
+            // Handed over: the card re-reads as its new Editor's.
+            setSharing(null);
+            invalidateProjects();
+            setExportNote(sentence);
+            refresh().catch(() => {
+              /* A failed re-read keeps what is shown; the next load
+                 reads the truth */
+            });
           }}
         />
       )}

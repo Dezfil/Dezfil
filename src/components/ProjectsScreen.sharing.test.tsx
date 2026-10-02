@@ -1,25 +1,32 @@
+import { act } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProjectsWorld } from "./projects/read";
 import type { ProjectOverview } from "./projects/model";
+import { SignedIn } from "./sharing/signed-in";
+import { installDomHost, type HostElement } from "./testing/dom-host";
 import { ProjectsScreen } from "./ProjectsScreen";
 
 /**
  * The Projects page's people chip, beside the published chip: the people
  * glyph with a count on a project one shares, the owner and one's role on a
  * project shared with one, nothing on a project only its owner reaches. A
- * project someone else owns offers Export alone; renaming and dissolving
- * stay its owner's.
+ * project someone else owns offers Export alone; renaming, sharing and
+ * dissolving stay its owner's. The owner's Share action opens the share
+ * dialog on that project, and a hand-over made there is said on the page.
  */
 
 const view = vi.hoisted(() => ({ value: "grid" as "grid" | "list", peopleAsked: [] as string[][] }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+const spies = vi.hoisted(() => ({ push: vi.fn(), invalidateProjects: vi.fn(), refresh: vi.fn(async () => {}) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: spies.push }) }));
 vi.mock("./builder/drawer/use-operations", () => ({ useOperations: () => ({ operations: [] }) }));
 vi.mock("./use-view-prefs", () => ({
   useViewPrefs: () => ({ view: view.value, sort: "updated", setView: vi.fn(), setSort: vi.fn() }),
 }));
-vi.mock("./shell/use-project-name", () => ({ invalidateProjects: vi.fn() }));
-vi.mock("./sharing/use-project-people", () => ({
+vi.mock("./shell/use-project-name", () => ({ invalidateProjects: spies.invalidateProjects }));
+vi.mock("./sharing/use-project-people", async (original) => ({
+  ...await original<typeof import("./sharing/use-project-people")>(),
   useProjectPeople: (ids: string[]) => {
     view.peopleAsked.push([...ids]);
     return new Map([["port", [
@@ -29,11 +36,24 @@ vi.mock("./sharing/use-project-people", () => ({
     ]]]);
   },
 }));
+// The share dialog's menus as inline lists, so their items can be pressed
+// in the node host.
+vi.mock("./ui/Menu", () => ({
+  Menu: ({ children, label, triggerLabel, trigger }: { children: React.ReactNode; label: string; triggerLabel?: string; trigger: React.ReactNode }) => (
+    <div data-menu={label}>
+      <button type="button" aria-label={triggerLabel ?? label}>{trigger}</button>
+      {children}
+    </div>
+  ),
+  MenuItem: ({ children, onSelect }: { children: React.ReactNode; onSelect?: () => void }) => (
+    <button type="button" role="menuitem" onClick={onSelect}>{children}</button>
+  ),
+}));
 const world = vi.hoisted(() => ({ value: null as unknown }));
 vi.mock("./projects/read", () => ({
   useProjectsWorld: () => ({
     state: { status: "ready", value: world.value },
-    retry: vi.fn(), mutate: vi.fn(), refresh: vi.fn(),
+    retry: vi.fn(), mutate: vi.fn(), refresh: spies.refresh,
   }),
 }));
 
@@ -84,5 +104,95 @@ describe.each(["grid", "list"] as const)("the Projects page's people chip (%s)",
     expect(html).not.toContain('aria-label="Delete Berlin housing study"');
     expect(html).toContain('aria-label="Rename Port traffic"');
     expect(html).toContain('aria-label="Delete Port traffic"');
+  });
+
+  it("offers Share between Export and Delete on a project one owns, and not on one shared with one", () => {
+    const html = render();
+    const share = /<button[^>]*aria-label="Share Port traffic"[^>]*>/.exec(html);
+    expect(share).not.toBeNull();
+    expect(share?.[0]).toContain('data-hint="Share project"');
+    expect(share?.[0]).toContain("data-share-action");
+    expect(html.indexOf('aria-label="Export Port traffic"')).toBeLessThan(share!.index);
+    expect(share!.index).toBeLessThan(html.indexOf('aria-label="Delete Port traffic"'));
+    expect(html).not.toContain('aria-label="Share Berlin housing study"');
+  });
+});
+
+describe.each(["grid", "list"] as const)("sharing from the Projects page (%s)", (layout) => {
+  const answer = (status: number, body: unknown) => ({ ok: status < 400, status, json: async () => body });
+  let calls: string[];
+  let host: ReturnType<typeof installDomHost>;
+  let root: ReturnType<typeof createRoot>;
+  beforeEach(() => {
+    view.value = layout;
+    calls = [];
+    spies.push.mockClear();
+    spies.invalidateProjects.mockClear();
+    spies.refresh.mockClear();
+    vi.stubGlobal("fetch", vi.fn(async (input: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? "GET"} ${input}`);
+      if (input === "/api/projects/port/people") {
+        return answer(200, { people: [
+          { name: "Bo Lindqvist", sqlName: "bo", role: "owner", deactivated: false },
+          { name: "Ada Okafor", sqlName: "ada", role: "editor", deactivated: false },
+        ] });
+      }
+      if (input === "/api/projects/port/transfer") return answer(200, { id: "port", owner: ada });
+      throw new Error(`unexpected ${init?.method ?? "GET"} ${input}`);
+    }));
+    host = installDomHost();
+    const container = host.document.createElement("div");
+    host.document.body.appendChild(container);
+    root = createRoot(container as unknown as Element);
+  });
+  afterEach(() => {
+    act(() => root.unmount());
+    host.uninstall();
+    vi.unstubAllGlobals();
+  });
+
+  const q = (selector: string) => host.document.querySelector(selector);
+  const button = (label: string) => host.document.querySelectorAll("button").find((b) => b.getAttribute("aria-label") === label);
+  const click = (el: HostElement | null | undefined) => act(async () => { el!.click(); await new Promise((r) => setTimeout(r, 0)); });
+  const mount = () => act(async () => {
+    root.render(<SignedIn account={bo}><ProjectsScreen /></SignedIn>);
+  });
+
+  it("opens the share dialog on that project from its Share action, without opening the project", async () => {
+    await mount();
+    expect(q("[data-share-dialog]")).toBeNull();
+    await click(button("Share Port traffic"));
+    expect(q("[data-share-dialog]")?.getAttribute("aria-label")).toBe("Share Port traffic");
+    expect(q("[data-share-dialog]")?.textContent).toContain("Port traffic");
+    expect(calls).toContain("GET /api/projects/port/people");
+    expect(spies.push).not.toHaveBeenCalled();
+  });
+
+  it("says in the dialog what the card counts: workflows by the listing, not the overview's recipe count", async () => {
+    const shown = world.value as ProjectsWorld;
+    world.value = {
+      ...shown,
+      projects: shown.projects.map((p) => (p.id === "port" ? { ...p, recipeCount: 4, tableCount: 2 } : p)),
+    };
+    try {
+      await mount();
+      await click(button("Share Port traffic"));
+      expect(q("[data-share-dialog]")?.textContent).toContain("People get everything in it: 1 map, 2 datasets.");
+    } finally {
+      world.value = shown;
+    }
+  });
+
+  it("says a hand-over in the page's status line and re-reads the projects", async () => {
+    await mount();
+    await click(button("Share Port traffic"));
+    const ownerMenu = q('[data-member="bo"]')!.querySelector("[data-menu]")!;
+    await click(ownerMenu.querySelector('[role="menuitem"]'));
+    await click(q("[data-hand-over-confirm]"));
+    expect(calls).toContain("POST /api/projects/port/transfer");
+    expect(q("[data-share-dialog]")).toBeNull();
+    expect(q('p[role="status"]')?.textContent).toBe("Ada Okafor owns Port traffic now.");
+    expect(spies.invalidateProjects).toHaveBeenCalled();
+    expect(spies.refresh).toHaveBeenCalled();
   });
 });
