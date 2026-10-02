@@ -299,7 +299,7 @@ export function useMutationLane({
           // of applying (two writers converge).
           return false;
         }
-        drafts.accepted(ticket);
+        drafts.accepted(ticket, Object.keys(body), serverMapRef.current);
         applyMapResponse(updated, true, sentAt);
         return true;
       });
@@ -444,7 +444,7 @@ export function useMutationLane({
           // A response from an older editor lifetime cannot establish a basis.
           return null;
         }
-        drafts.accepted(ticket);
+        drafts.accepted(ticket, Object.keys(body), serverMapRef.current);
         syncAuthoritativeLayer(updated, true);
         // Anything that changes the effective query needs fresh render data —
         // except a settled timeline window, whose caller skips the refetch:
@@ -464,6 +464,7 @@ export function useMutationLane({
       authoritativeLayersRef,
       refreshLayer,
       syncAuthoritativeLayer,
+      serverMapRef,
       track,
       clearFailure,
       fail,
