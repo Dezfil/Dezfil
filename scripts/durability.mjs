@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { writeFile, readFile } from 'node:fs/promises';
 import { provisionJourney } from './journey-auth.mjs';
 import { journeyApi } from './journey-http.mjs';
+import { captureBasis } from './revision-fixtures.mjs';
 
 const [mode, base = 'http://localhost:3000', stateFile = 'durability-state.json'] = process.argv.slice(2);
 const anonymous = journeyApi(base);
@@ -21,8 +22,8 @@ if (mode === 'seed') {
   form.append('file', new Blob(['name,lon,lat\ndurable,10,20\n']), 'durability.csv');
   const up = await api('POST', '/api/tables', { form }); assert.equal(up.status, 201);
   const map = await api('POST', '/api/maps', { body: { name: 'Durable map' } }); assert.equal(map.status, 201);
-  const layer = await api('POST', `/api/maps/${map.json.id}/layers`, { body: { name: 'L', sql: `SELECT * FROM ${up.json.name}` } }); assert.equal(layer.status, 201);
-  const pub = await api('POST', `/api/maps/${map.json.id}/publish`); assert.equal(pub.status, 201);
+  const layer = await api('POST', `/api/maps/${map.json.id}/layers`, { basis: captureBasis(map.json), body: { name: 'L', sql: `SELECT * FROM ${up.json.name}` } }); assert.equal(layer.status, 201);
+  const pub = await api('POST', `/api/maps/${map.json.id}/publish`, { basis: captureBasis(layer.json) }); assert.equal(pub.status, 201);
   await writeFile(stateFile, JSON.stringify({ table: up.json.name, mapId: map.json.id, layerId: layer.json.id, publication: pub.json.token,
     accountId: credentials.account.id, cookie: credentials.cookie, token: credentials.token,
     revokedCookie: revokedSession.cookie, revokedToken: revoked.json.secret }), { mode: 0o600 });
