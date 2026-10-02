@@ -1,4 +1,4 @@
-import { recordDocumentChanges } from "@/lib/metadata/revisions";
+import { recordDocumentChanges, recordDocumentBatch } from "@/lib/metadata/revisions";
 import { fileMap } from "@/lib/metadata/owned-projects";
 import { assertMapLayerRefs } from "./map-layer-refs";
 import { requireMapFor, mapWithLayersFor, ownMapWithLayers } from "./map-access";
@@ -303,11 +303,11 @@ export function createMap(scope: AccountScope, name: string, projectId: string |
     createdAt: now,
     updatedAt: now,
   };
-  metadataDb().transaction(() => {
+  recordDocumentBatch(scope, () => {
     if (projectId) requireFilingDestination(scope, projectId);
     insertMap(scope, map);
     if (projectId) fileMap(scope, map.id, projectId);
-  })();
+  });
   return map;
 }
 
@@ -559,7 +559,7 @@ export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
   const layers = listLayers(id);
   const now = new Date().toISOString();
   const newId = randomUUID();
-  metadataDb().transaction(() => {
+  recordDocumentBatch(scope, () => {
     requireDuplicable(scope, id);
     const layerIds = new Map<string, string>();
     // The copy keeps its source's SQL home, whoever makes it.
@@ -629,7 +629,7 @@ export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
     // source no longer is (found at review).
     const sourceProject = mapProjectId(id);
     if (sourceProject && mayFileInto(scope, sourceProject)) fileMap(scope, newId, sourceProject);
-  })();
+  });
   return ownMapWithLayers(scope, newId);
 }
 

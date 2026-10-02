@@ -165,16 +165,17 @@ describe("transferring a map or a workflow", () => {
       const record = row(table, filed);
       const response = await call(route, "ada", filed, to("ed"), "token");
       expect(response).toEqual({ status: 200, body: { id: filed, owner: { name: "ed", sqlName: sqlName("ed") } } });
-      expect(row(table, filed)).toEqual({ ...record, owner_id: "ed" });
+      expect(row(table, filed)).toEqual({ ...record, owner_id: "ed", edit_revision: expect.any(String), last_changed_at: expect.any(String), last_changed_by: "ada" });
+      expect(row(table, filed).edit_revision).not.toBe(record.edit_revision);
       expect(row(table, filed).home_account_id).toBe("ada");
       const after = snapshot();
       const ownerless = (tables: unknown[][]) => tables.map(rows => (rows as Record<string, unknown>[]).map(entry =>
-        entry.id === filed && "owner_id" in entry ? without(entry, "owner_id") : entry));
+        entry.id === filed && "owner_id" in entry ? without(without(without(without(entry, "owner_id"), "edit_revision"), "last_changed_at"), "last_changed_by") : entry));
       expect(ownerless(after)).toEqual(ownerless(before));
       expect(gate()).toEqual([]);
       // And on to the project's owner from there.
       expect((await call(route, "ed", filed, to("pat"))).status).toBe(200);
-      expect(row(table, filed)).toEqual({ ...record, owner_id: "pat" });
+      expect(row(table, filed)).toEqual({ ...record, owner_id: "pat", edit_revision: expect.any(String), last_changed_at: expect.any(String), last_changed_by: "ed" });
     });
 
     it(`refuses an unfiled ${noun} with the one reason, file it first`, async () => {

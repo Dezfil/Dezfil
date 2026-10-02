@@ -1,3 +1,4 @@
+import { readDocumentRevision } from "@/lib/metadata/revisions";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import type { Database } from "better-sqlite3";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
@@ -29,13 +30,17 @@ it.each(["session", "token"])("allows an admin %s to revoke only a known deactiv
   const before = state(); const warmed = await getPublishedView(tokens.alice, Date.now()); expect(warmed?.name).toBe("Secret alice");
   db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'alice'").run();
   expect((await getPublishedView(tokens.alice, Date.now()))?.name).toBe("Secret alice");
+  const previous = readDocumentRevision({ kind: "map", id: maps.alice }, db)!;
   const response = await revoke("admin", tokens.alice, kind); expect(response.status).toBe(204); expect(await response.text()).toBe("");
   expect(response.headers.get("cache-control")).toContain("no-store");
   expect(await getPublishedView(tokens.alice, Date.now())).toBeNull();
+  const changed = readDocumentRevision({ kind: "map", id: maps.alice }, db)!;
+  expect(changed.editRevision).not.toBe(previous.editRevision);
+  expect(changed.lastChangedBy).toBe("admin");
   const after = state() as Record<string, unknown>[];
   for (let i = 0; i < after.length; i++) {
     if (after[i].id !== maps.alice) expect(after[i]).toEqual(before[i]);
-    else expect(after[i]).toMatchObject({ ...(before[i] as object), publish_token: null, published_at: null, published_theme: null, viewer_controls: null, updated_at: after[i].updated_at });
+    else expect(after[i]).toMatchObject({ ...(before[i] as object), publish_token: null, published_at: null, published_theme: null, viewer_controls: null, updated_at: after[i].updated_at, edit_revision: changed.editRevision, last_changed_by: "admin", last_changed_at: changed.lastChangedAt });
   }
   expect(() => getPublicationState(scopes.admin, maps.alice)).toThrow(expect.objectContaining({ code: "not_found" }));
   db.prepare("UPDATE accounts SET status = 'active' WHERE id = 'alice'").run();

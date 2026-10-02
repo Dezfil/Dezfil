@@ -26,7 +26,7 @@ const newRevision = () => randomBytes(16).toString("hex");
 const revisionPattern = /^[0-9a-f]{32}$/;
 const recordings = new WeakMap<Database, {
   actor: string;
-  declared: Set<string>;
+  declared: Set<string> | null;
   changes: CoveredChange[];
 }>();
 
@@ -84,7 +84,7 @@ export function recordDocumentChanges(scope: AccountScope, changes: readonly Cov
   if (pending) {
     if (pending.actor !== actor) throw new Error("A document commit has one acting account.");
     for (const change of unique.values()) {
-      if (!pending.declared.has(keyFor(change))) throw new Error("A covered change must have a declared revision basis.");
+      if (pending.declared && !pending.declared.has(keyFor(change))) throw new Error("A covered change must have a declared revision basis.");
       pending.changes.push(change);
     }
     return;
@@ -148,4 +148,27 @@ export function commitDocumentChanges<T>(scope: AccountScope, operation: {
     }
     return { value, revisions };
   }).immediate();
+}
+
+/** Internal composition for creation and lifecycle operations. Nested child
+ * recorders contribute to one content transaction and each document advances
+ * once. Request preconditions, when present, belong to commitDocumentChanges. */
+export function recordDocumentBatch<T>(scope: AccountScope, apply: () => T, db: Database = metadataDb()): T {
+  return db.transaction(() => {
+    const actor = requireAccountScope(scope, db);
+    const outer = recordings.get(db);
+    if (outer) {
+      if (outer.actor !== actor) throw new Error("A document commit has one acting account.");
+      const length = outer.changes.length;
+      try { return apply(); }
+      catch (error) { outer.changes.length = length; throw error; }
+    }
+    const pending = { actor, declared: null, changes: [] as CoveredChange[] };
+    recordings.set(db, pending);
+    let value: T;
+    try { value = apply(); }
+    finally { recordings.delete(db); }
+    recordDocumentChanges(scope, pending.changes, db);
+    return value;
+  })();
 }

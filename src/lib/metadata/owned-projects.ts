@@ -1,3 +1,4 @@
+import { recordFiling, filedDocuments, memberDocuments } from "./filing-recording";
 import type { Database } from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
@@ -119,7 +120,7 @@ export function createProject(scope: AccountScope, input: { name: unknown; note?
       .run(owner, project.id, project.name, project.note, now, now);
     if (input.members) {
       checkMembers(scope, project.id, input.members, db);
-      projects.changeMembers(project.id, input.members, db);
+      recordFiling(scope, memberDocuments(input.members), () => projects.changeMembers(project.id, input.members!, db), db);
     }
     return requireOwnProject(scope, project.id, db);
   })();
@@ -134,13 +135,13 @@ export function updateProject(scope: AccountScope, id: string, fields: { name?: 
 }
 /** Dissolution is the project owner's: the contents stay, unfiled. */
 export function deleteProject(scope: AccountScope, id: string, db: Database = metadataDb()) {
-  return db.transaction(() => { requirePermitted(scope, "project", id, "dissolve", db); return projects.deleteProject(id, db); })();
+  return db.transaction(() => { requirePermitted(scope, "project", id, "dissolve", db); return recordFiling(scope, filedDocuments(id, db), () => projects.deleteProject(id, db), db); })();
 }
 /** One compound filing change, all of it or none. */
 export function changeMembers(scope: AccountScope, id: string, change: projects.MemberChange, db: Database = metadataDb()) {
   return db.transaction(() => {
     checkMembers(scope, id, change, db);
-    projects.changeMembers(id, change, db);
+    recordFiling(scope, memberDocuments(change), () => projects.changeMembers(id, change, db), db);
   })();
 }
 /** File a map into a project, or out of the one it is in (null). */
@@ -148,7 +149,7 @@ export function fileMap(scope: AccountScope, id: string, projectId: string | nul
   return db.transaction(() => {
     if (projectId !== null) requireFilingAddition(scope, "map", id, projectId, db);
     requireMove(scope, "map", id, projectId, db);
-    projects.fileMap(id, projectId, db);
+    recordFiling(scope, [{ kind: "map", id }], () => projects.fileMap(id, projectId, db), db);
   })();
 }
 /** File a workflow into a project, or out of the one it is in (null). */
@@ -156,7 +157,7 @@ export function fileRecipe(scope: AccountScope, id: string, projectId: string | 
   return db.transaction(() => {
     if (projectId !== null) requireFilingAddition(scope, "workflow", id, projectId, db);
     requireMove(scope, "workflow", id, projectId, db);
-    projects.fileRecipe(id, projectId, db);
+    recordFiling(scope, [{ kind: "workflow", id }], () => projects.fileRecipe(id, projectId, db), db);
   })();
 }
 export function fileTable(scope: AccountScope, id: string, projectId: string, db: Database = metadataDb()) {

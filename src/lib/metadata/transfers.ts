@@ -1,3 +1,4 @@
+import { recordDocumentChanges } from "./revisions";
 import type { Database } from "better-sqlite3";
 import { ApiError } from "@/lib/api/errors";
 import { requirePermitted } from "@/lib/auth/reach";
@@ -81,6 +82,7 @@ function transferFiled(kind: keyof typeof FILED, scope: AccountScope, id: string
     throughTransferGate({ kind, id: resource.parentId, from: resource.ownerId, to: recipient.id }, db, () => {
       db.prepare(`UPDATE ${table} SET owner_id = ? WHERE id = ?`).run(recipient.id, resource.parentId);
     });
+    recordDocumentChanges(scope, [{ kind, id: resource.parentId }], db);
     return result(resource.parentId, recipient.id, db);
   }).immediate();
 }

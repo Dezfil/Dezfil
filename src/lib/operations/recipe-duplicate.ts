@@ -1,3 +1,4 @@
+import { recordDocumentBatch } from "@/lib/metadata/revisions";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { mayFileInto, requirePermitted } from "@/lib/auth/reach";
 import { ApiError } from "@/lib/api/errors";
@@ -168,7 +169,7 @@ export async function duplicateRecipe(scope: AccountScope, sourceId: string): Pr
 
   // 3. Write, after checking that nothing moved under the plan.
   const name = copyName(source.name);
-  return db.transaction(() => {
+  return recordDocumentBatch(scope, () => {
     requireRecipe(scope, sourceId, db);
     if (stamp(listSteps(scope, sourceId, db)) !== before) {
       throw new ApiError(
@@ -220,5 +221,5 @@ export async function duplicateRecipe(scope: AccountScope, sourceId: string): Pr
       );
     }
     return copy;
-  })();
+  }, db);
 }
