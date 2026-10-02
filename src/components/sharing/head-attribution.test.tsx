@@ -26,14 +26,21 @@ beforeEach(() => {
   root = createRoot(container as unknown as Element);
 });
 afterEach(() => { act(() => root.unmount()); host.uninstall(); vi.useRealTimers(); });
-it.each(["builder", "canvas", "reader"])("names the changer after the %s path name", async surface => {
+it.each(["builder", "canvas", "reader"].flatMap(surface => ["ada", "bo"].map(sqlName => ({ surface, sqlName }))))("keeps the $surface attribution static for $sqlName", async ({ surface, sqlName }) => {
   const props = { name: "Harbour", owner: { name: "Owner", sqlName: "owner" }, facts, onRename() {}, readOnly: true };
   const map = { id: "m", ...props, ...facts, layers: [], publishToken: null };
-  await act(async () => root.render(<SignedIn account={{ name: "Bo", sqlName: "bo" }}>{surface === "builder"
+  await act(async () => root.render(<SignedIn account={{ name: sqlName, sqlName }}>{surface === "builder"
     ? <HeaderChrome map={map as never} projectId="p" history={{ canUndo: false, canRedo: false }} onUndo={() => {}} onRedo={() => {}} onRename={() => {}} assistant={{} as never} onPublishChange={() => {}} renders={{}} layerDataDownloads={{} as never} />
     : surface === "canvas" ? <CrumbName {...props} /> : <PlainCrumbTail {...props} />}</SignedIn>));
   const fact = host.document.querySelector("[data-last-changed]");
   expect(fact?.textContent).toBe("Ada · 3 min ago");
+  expect(fact?.getAttribute("title")).toContain("Ada Okafor (ada)");
+  expect(fact?.hasAttribute("tabindex")).toBe(false);
+  expect(fact?.matches("button")).toBe(false);
+  expect(fact?.getAttribute("role")).not.toBe("button");
+  expect(fact?.closest("[data-hint]")).toBeNull();
+  expect(fact?.querySelector("[tabindex]")).toBeNull();
+  expect(fact?.querySelector("button")).toBeNull();
   expect(fact?.querySelector("svg")).toBeTruthy();
   expect(host.document.body.textContent.indexOf("Harbour")).toBeLessThan(host.document.body.textContent.indexOf("Ada ·"));
 });

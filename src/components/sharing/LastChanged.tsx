@@ -16,10 +16,10 @@ export function LastChanged({ value, head = false }: { value: LastChange; head?:
   const me = useSignedInSqlName();
   const actor = value.lastChangedBy;
   const time = value.lastChangedAt ? formatRelativeTime(value.lastChangedAt) : "";
-  const who = actor ? actor.sqlName === me ? "" : firstName(actor.name) : "Unknown";
+  const who = actor ? !head && actor.sqlName === me ? "" : firstName(actor.name) : "Unknown";
   const label = [who, time].filter(Boolean).join(" · ");
   const exact = value.lastChangedAt ? new Date(value.lastChangedAt).toLocaleString() : "";
   const title = actor ? `${actor.name} (${actor.sqlName})${exact ? ` · ${exact}` : ""}`
     : `Changed${exact ? ` ${exact}` : ""} by an account the record does not name`;
-  return <span className={head ? `${styles.fact} ${styles.head}` : styles.fact} data-last-changed data-unknown={!actor || undefined} title={title} data-hint={title} aria-label={`Last changed: ${label}`}>{head && <ClockIcon />}{label}</span>;
+  return <span className={head ? `${styles.fact} ${styles.head}` : styles.fact} data-last-changed data-unknown={!actor || undefined} title={title} data-hint={head ? undefined : title} aria-label={`Last changed: ${label}`}>{head && <ClockIcon />}{label}</span>;
 }
