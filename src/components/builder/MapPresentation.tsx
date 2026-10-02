@@ -75,7 +75,8 @@ export interface CanvasAuthoring {
  * optional prop (the legend's editing, the widget cards' actions, the
  * canvas's authoring callbacks), and the host's own furniture enters
  * through two slots, `overlay` first over the map and `controls` before
- * the credit, so sibling rules in the stylesheet keep their order.
+ * the credit, so sibling rules in the stylesheet keep their order, and
+ * through `lead`, which heads the top-left corner, above a legend there.
  */
 export function MapPresentation({
   stage,
@@ -89,6 +90,7 @@ export function MapPresentation({
   windowRef,
   overlay,
   controls,
+  lead,
   legend,
   widgetActions,
   canvas,
@@ -110,6 +112,8 @@ export function MapPresentation({
   windowRef?: Ref<HTMLDivElement>;
   overlay?: ReactNode;
   controls?: ReactNode;
+  /** The host's notes on the top-left line, above a top-left legend. */
+  lead?: ReactNode;
   legend?: LegendEditing;
   widgetActions?: WidgetCardActions;
   canvas?: CanvasAuthoring;
@@ -201,6 +205,7 @@ export function MapPresentation({
             cornerLift={stage.cornerLift}
             creditLift={stage.creditLift}
             statusPillHidden={stage.statusPillHidden}
+            lead={lead}
           />
           {/* The widget rail: the dashboard column on the stage's right
               edge. Cards drag to reorder; each carries a ⋮ menu; a

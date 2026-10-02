@@ -19,15 +19,13 @@
   z-index: 6;
 }
 
-/* A layer the reader cannot draw: the shipped failure note on the stage's
-   top-left line, where the builder's status line stands, above a top-left
-   legend and clear of the widgets and the stack on the right. */
+/* A layer the reader cannot draw: the shipped failure note heading the
+   stage's top-left corner, where the builder's status line stands, so a
+   legend there stands under it, clear of the widgets and the stack on the
+   right. */
 .failures {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  z-index: 6;
-  width: min(420px, calc(100% - 360px));
+  /* The stage is the viewport less the rail and its insets. */
+  width: min(420px, calc(100vw - 470px));
   display: flex;
   flex-direction: column;
   gap: 8px;

@@ -7,6 +7,7 @@ import {
   type RefObject,
 } from "react";
 import type { MapWithLayers } from "@/lib/metadata/maps";
+import type { Corner } from "@/lib/corners";
 import type { Bounds } from "@/lib/geo-bounds";
 import { effectiveStyle, type LayerFilter } from "@/lib/viz";
 import type { MapWidget, WidgetSelection } from "@/lib/widgets";
@@ -125,6 +126,8 @@ export interface MapPresentationInput {
   statusPillHidden?: boolean;
   /** Fullscreen moves the stage's corners, so placement re-measures. */
   fullscreen?: boolean;
+  /** Where the legend stands while the author has not placed it. */
+  defaultLegendCorner?: Corner;
   /** Authoring: query-slider previews drawn over the stored layers. */
   sliderDrafts?: Record<string, QuerySliderDraft>;
   /** Authoring: appearance drafts drawn over the stored layers and legend. */
@@ -154,6 +157,7 @@ export function useMapPresentation({
   clearFailure,
   statusPillHidden = false,
   fullscreen = false,
+  defaultLegendCorner = "bottom-left",
   sliderDrafts = NO_SLIDER_DRAFTS,
   appearanceDrafts = NO_APPEARANCE_DRAFTS,
   legendLive = NO_LEGEND_LIVE,
@@ -266,7 +270,7 @@ export function useMapPresentation({
     widgetDraft,
   );
   const railVisible = visibleWidgets.length > 0;
-  const legendCorner = map?.legendCorner ?? "bottom-left";
+  const legendCorner = map?.legendCorner ?? defaultLegendCorner;
   const legendPlacement = useLegendPlacement(
     legendCorner,
     railVisible,

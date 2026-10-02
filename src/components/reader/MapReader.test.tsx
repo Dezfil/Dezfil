@@ -24,7 +24,7 @@ vi.mock("../builder/MapPresentation", () => ({
     presented.props = props;
     return (
       <div data-presentation>
-        {props.overlay as React.ReactNode}
+        {props.lead as React.ReactNode}
         {props.controls as React.ReactNode}
       </div>
     );
@@ -138,10 +138,9 @@ describe("the reader's layout", () => {
     expect(body).toMatch(/--stage-stack-left:\s*0px/);
   });
 
-  it("reads the failure note on the stage's top-left line, where the builder's status line is", () => {
+  it("flows the failure note in the top-left corner's column rather than over it", () => {
     const failures = rule(".failures {");
-    expect(failures).toMatch(/top:\s*16px/);
-    expect(failures).toMatch(/left:\s*16px/);
+    expect(failures).not.toMatch(/position:\s*absolute/);
     expect(failures).not.toMatch(/translateX/);
   });
 });

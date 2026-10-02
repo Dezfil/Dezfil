@@ -167,6 +167,9 @@ export function ReaderStage({
     clearFailure,
     // The published viewer's calm: no status pill.
     statusPillHidden: true,
+    // The reader lays the map out with the legend top left, the widgets
+    // and the control stack top right; a corner the author chose stands.
+    defaultLegendCorner: "top-left",
   });
 
   const refreshLayer = useCallback(async (layerId: string) => {
@@ -241,7 +244,7 @@ export function ReaderStage({
         fitBounds={fitBounds}
         timeline={bar}
         audience="reader"
-        overlay={
+        lead={
           failed.length > 0 || fitFailure ? (
             <div className={styles.failures} data-reader-failures>
               {failed.map((l) => {
