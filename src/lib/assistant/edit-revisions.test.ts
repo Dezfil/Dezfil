@@ -54,3 +54,26 @@ it("the real loop uses each accepted result and parks no write revision across r
   for await (const event of resumeAssistant(parked, true, deps)) void event;
   expect(sent).toEqual(["initial", "accepted-1", "after-wait"]);
 });
+
+it("owns every compound filing basis and parks none through a confirmation", async () => {
+  const { assistantCall, assistantTools } = await import("./tool-surface");
+  const tool = buildTools().find(t => t.name === "update_project_members")!;
+  const create = buildTools().find(t => t.name === "create_project")!;
+  const ledger = new AssistantRevisions();
+  ledger.observe("/api/maps/m", { id: "m", editRevision: "map-first" });
+  ledger.observe("/api/recipes/w", { recipe: { id: "w", editRevision: "workflow-first" } });
+  const supplied = { addMaps: ["m"], addRecipes: ["w"], expectedRevisions: { "map:m": "model-stamp" } };
+  const call = assistantCall({ id: "call", name: tool.name, args: supplied }, tool);
+  expect(call.args).not.toHaveProperty("expectedRevisions");
+  expect(assistantTools([tool])[0].inputSchema.properties).not.toHaveProperty("expectedRevisions");
+  expect(ledger.bodyArguments(tool, call.args)).toMatchObject({ expectedRevisions: { "map:m": "map-first", "workflow:w": "workflow-first" } });
+  ledger.observe("/api/projects/p/members", { revisions: [{ kind: "map", id: "m", editRevision: "map-accepted" }, { kind: "workflow", id: "w", editRevision: "workflow-accepted" }] });
+  expect(ledger.bodyArguments(create, { name: "New", members: supplied })).toMatchObject({ members: { expectedRevisions: { "map:m": "map-accepted", "workflow:w": "workflow-accepted" } } });
+  const resumed = new AssistantRevisions(), paths: string[] = [];
+  await resumed.readOnResume(tool, call.args, "http://instance.test", async input => {
+    const path = new URL(String(input)).pathname; paths.push(path);
+    return Response.json(path.includes("maps") ? { id: "m", editRevision: "after-wait-m" } : { recipe: { id: "w", editRevision: "after-wait-w" } });
+  });
+  expect(paths).toEqual(["/api/maps/m", "/api/recipes/w"]);
+  expect(resumed.bodyArguments(tool, call.args)).toMatchObject({ expectedRevisions: { "map:m": "after-wait-m", "workflow:w": "after-wait-w" } });
+});

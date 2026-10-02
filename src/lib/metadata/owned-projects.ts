@@ -1,5 +1,6 @@
+import { compareDocumentRevision } from "./revisions";
 import { documentResults } from "./document-results";
-import { recordFiling, filedDocuments, memberDocuments } from "./filing-recording";
+import { recordFiling, filedDocuments, memberDocuments, requireFilingRevisions } from "./filing-recording";
 import type { Database } from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
@@ -121,6 +122,7 @@ export function createProject(scope: AccountScope, input: { name: unknown; note?
       .run(owner, project.id, project.name, project.note, now, now);
     if (input.members) {
       checkMembers(scope, project.id, input.members, db);
+      requireFilingRevisions(input.members, db);
       recordFiling(scope, memberDocuments(input.members), () => projects.changeMembers(project.id, input.members!, db), db);
     }
     return requireOwnProject(scope, project.id, db);
@@ -142,23 +144,28 @@ export function deleteProject(scope: AccountScope, id: string, db: Database = me
 export function changeMembers(scope: AccountScope, id: string, change: projects.MemberChange, db: Database = metadataDb()) {
   return db.transaction(() => {
     checkMembers(scope, id, change, db);
+    requireFilingRevisions(change, db);
     recordFiling(scope, memberDocuments(change), () => projects.changeMembers(id, change, db), db);
     return documentResults(scope, memberDocuments(change), db);
   })();
 }
 /** File a map into a project, or out of the one it is in (null). */
-export function fileMap(scope: AccountScope, id: string, projectId: string | null, db: Database = metadataDb()) {
+export function fileMap(scope: AccountScope, id: string, projectId: string | null, db: Database = metadataDb(), options: { expectedRevision?: unknown } = {}) {
   return db.transaction(() => {
+    requireReachable(scope, "map", id, db);
     if (projectId !== null) requireFilingAddition(scope, "map", id, projectId, db);
     requireMove(scope, "map", id, projectId, db);
+    compareDocumentRevision({ kind: "map", id, expectedRevision: options.expectedRevision }, db);
     recordFiling(scope, [{ kind: "map", id }], () => projects.fileMap(id, projectId, db), db);
   })();
 }
 /** File a workflow into a project, or out of the one it is in (null). */
-export function fileRecipe(scope: AccountScope, id: string, projectId: string | null, db: Database = metadataDb()) {
+export function fileRecipe(scope: AccountScope, id: string, projectId: string | null, db: Database = metadataDb(), options: { expectedRevision?: unknown } = {}) {
   return db.transaction(() => {
+    requireReachable(scope, "workflow", id, db);
     if (projectId !== null) requireFilingAddition(scope, "workflow", id, projectId, db);
     requireMove(scope, "workflow", id, projectId, db);
+    compareDocumentRevision({ kind: "workflow", id, expectedRevision: options.expectedRevision }, db);
     recordFiling(scope, [{ kind: "workflow", id }], () => projects.fileRecipe(id, projectId, db), db);
   })();
 }

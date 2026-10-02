@@ -1190,3 +1190,16 @@ each accepted JSON result. Missing or malformed revisions return
 refused without changing definition, layout, attribution or outputs. A current
 no-op keeps its revision. Creation and duplication into a new workflow need no
 destination revision. This breaks unversioned workflow editing clients.
+
+Direct map and workflow filing and transfer require the revision paired with
+that document's read. Transfers send `X-Edit-Revision` (`expected_revision` in
+MCP). Compound filing, including initial members when creating a project, puts
+`expectedRevisions` inside the member-change object. Its keys are `map:<id>` and
+`workflow:<id>`, with the respective `editRevision` values. Every map and workflow
+named in an add or removal needs a basis, including unchanged memberships;
+datasets need none. Missing or malformed bases answer `400 invalid_request`;
+one stale basis answers `409 stale_revision` and rolls back the entire change,
+including project creation and dataset membership. The result's `revisions`
+contains each still-reachable document's resulting token. These are breaking
+request-contract changes. Project dissolution and project transfer remain
+exempt, and dissolution still advances each affected document's revision.

@@ -55,7 +55,7 @@ export async function seedOwnership(base) {
       await new Promise(resolve => setTimeout(resolve, 50));
     }
     const project = expectStatus(await api('POST', '/api/projects', { body: { name: sentinel,
-      members: { addMaps: [map.id], addRecipes: [recipe.id], addTables: [table.id] } } }), 201);
+      members: { addMaps: [map.id], addRecipes: [recipe.id], addTables: [table.id], expectedRevisions: { [`map:${map.id}`]: captureBasis((await api('GET', `/api/maps/${map.id}`)).json).editRevision, [`workflow:${recipe.id}`]: captureBasis((await api('GET', `/api/recipes/${recipe.id}`)).json).editRevision } } } }), 201);
     const publication = expectStatus(await api('POST', `/api/maps/${map.id}/publish`, { basis: captureBasis((await api('GET', `/api/maps/${map.id}`)).json) }), 201);
     owners.push({ accountId: credential.account.id, token: credential.token, cookie: credential.cookie,
       sentinel, tableId: table.id, hidden: hidden.name, mapId: map.id, layerId: layer.id,

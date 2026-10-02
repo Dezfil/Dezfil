@@ -147,6 +147,8 @@ export function listProjects(db: Database = metadataDb()): ProjectRecord[] {
 /** One compound membership change: everything
  * applies in one transaction or nothing does. */
 export interface MemberChange {
+  /** One seen revision for every named map and workflow, keyed by kind:id. */
+  expectedRevisions?: unknown;
   addMaps?: string[];
   removeMaps?: string[];
   addRecipes?: string[];

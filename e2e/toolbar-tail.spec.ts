@@ -1,3 +1,4 @@
+import { readThenWriteFilingBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 // The list toolbar's tail: the Sort control and the Grid/List toggle are
 // one unit at the toolbar's right end. Across the width band where the
@@ -75,11 +76,15 @@ test("the toolbar's tail wraps as one, to the right", async ({
       name: string;
     }[];
     const tableId = tables.find((t) => t.name === tableName)!.id;
-    await api(page, "PATCH", `/api/projects/${pid}/members`, {
+    await readThenWriteFilingBrowserSetup(page, {
       addMaps: [mapId],
       addRecipes: [recipeId],
       addTables: [tableId],
-    });
+    }, expectedRevisions => ({ method: "PATCH", path: `/api/projects/${pid}/members`, body: { ...{
+      addMaps: [mapId],
+      addRecipes: [recipeId],
+      addTables: [tableId],
+    }, expectedRevisions } })).then(result => result.json);
   });
 
   try {

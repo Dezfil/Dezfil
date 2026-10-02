@@ -1,3 +1,4 @@
+import { readThenWriteFilingBrowserSetup } from "./edit-basis";
 import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 // The Projects screens: the list per page 05 (creation through both
@@ -168,7 +169,7 @@ test("departed project-home continuations keep project B clean", async ({ page, 
     });
 
     await test.step("a held recent Add settles after departure without a notice, stale banner or redirect in B", async () => {
-      await api(page, "PATCH", `/api/projects/${a}/members`, { removeMaps: [mapId] });
+      await readThenWriteFilingBrowserSetup(page, { removeMaps: [mapId] }, expectedRevisions => ({ method: "PATCH", path: `/api/projects/${a}/members`, body: { ...{ removeMaps: [mapId] }, expectedRevisions } })).then(result => result.json);
       // Keep this fixture first in Recent even on a residue-bearing instance;
       // the membership PATCH and all scoped reads still reach the server.
       const recent = async (route: Route) => {
@@ -181,7 +182,7 @@ test("departed project-home continuations keep project B clean", async ({ page, 
       try {
         await crumb.getByRole("link", { name: renamed, exact: true }).click();
         await expect(page.locator("[data-empty-plate]")).toBeVisible();
-        await heldMutation(`/api/projects/${a}/members`, { addMaps: [mapId] }, async () => {
+        await heldMutation(`/api/projects/${a}/members`, { addMaps: [mapId], expectedRevisions: { [`map:${mapId}`]: ((await api(page, "GET", `/api/maps/${mapId}`)) as { editRevision: string }).editRevision } }, async () => {
           await page.getByRole("button", { name: `Add ${mapName}`, exact: true }).click();
         });
         const saved = (await api(page, "GET", `/api/maps/${mapId}`)) as { projectId: string };

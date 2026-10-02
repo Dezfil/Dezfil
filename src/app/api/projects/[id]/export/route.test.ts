@@ -1,3 +1,4 @@
+import { readFilingRevisions } from "@/lib/test-support/edit-basis";
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -153,11 +154,15 @@ describe("the project export capability", () => {
     const project = createProject(testAccountScope(), {
       name: "Berlin mobility study",
       note: "The staged note",
-      members: {
+      members: { ...{
         addMaps: ["m-old", "m-new"],
         addRecipes: [recipe.id],
         addTables: [tA.id, tOut.id, tLeft.id],
-      },
+      }, expectedRevisions: readFilingRevisions({
+        addMaps: ["m-old", "m-new"],
+        addRecipes: [recipe.id],
+        addTables: [tA.id, tOut.id, tLeft.id],
+      }, undefined) },
     });
     const digestBefore = sha256(aBytes);
 
@@ -299,7 +304,7 @@ describe("the project export capability", () => {
     seedMap("m-1", "Solo", at(1));
     const project = createProject(testAccountScope(), {
       name: "Shelf",
-      members: { addMaps: ["m-1"] },
+      members: { ...{ addMaps: ["m-1"] }, expectedRevisions: readFilingRevisions({ addMaps: ["m-1"] }, undefined) },
     });
     const unknown = await post("p-none", { maps: ["m-1"], file: "x" });
     expect(unknown.status).toBe(404);
@@ -354,7 +359,7 @@ describe("the project export capability", () => {
     const t = await seedDataset("t-gone", "vanishing", Buffer.from("y"));
     const project = createProject(testAccountScope(), {
       name: "Shelf",
-      members: { addTables: [t.id] },
+      members: { ...{ addTables: [t.id] }, expectedRevisions: readFilingRevisions({ addTables: [t.id] }, undefined) },
     });
     // The artifact vanishes before assembly (the injected failure).
     await rm(path.join(data, t.file));
@@ -369,7 +374,7 @@ describe("the project export capability", () => {
     const t = await seedDataset("t-d", "direct", Buffer.from("direct-bytes"));
     const project = createProject(testAccountScope(), {
       name: "Shelf",
-      members: { addTables: [t.id] },
+      members: { ...{ addTables: [t.id] }, expectedRevisions: readFilingRevisions({ addTables: [t.id] }, undefined) },
     });
     const res = await POST(
       testAccountRequest(new Request("http://test", {
@@ -396,7 +401,7 @@ describe("the project export capability", () => {
     seedMap("m-1", "Solo", at(1));
     const project = createProject(testAccountScope(), {
       name: "Shelf",
-      members: { addMaps: ["m-1"] },
+      members: { ...{ addMaps: ["m-1"] }, expectedRevisions: readFilingRevisions({ addMaps: ["m-1"] }, undefined) },
     });
     const prepared = await post(project.id, { maps: ["m-1"], file: "solo" });
     const grant = (await prepared.json()) as { ticket: string; key: string };

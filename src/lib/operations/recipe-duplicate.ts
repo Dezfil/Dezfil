@@ -195,7 +195,7 @@ export async function duplicateRecipe(scope: AccountScope, sourceId: string): Pr
     // preparation files the copy where the source is NOW, and a
     // dissolved project reads null (found at review).
     const live = getRecipe(scope, sourceId, db);
-    if (live?.projectId && mayFileInto(scope, live.projectId, db)) fileRecipe(scope, copy.id, live.projectId, db);
+    if (live?.projectId && mayFileInto(scope, live.projectId, db)) fileRecipe(scope, copy.id, live.projectId, db, { expectedRevision: readDocumentRevision({ kind: "workflow", id: copy.id }, db)!.editRevision });
     const copiedIds = new Map<string, string>();
     planned.forEach((p, i) => {
       copiedIds.set(steps[i].id, copyStep(scope, steps[i].id, copy.id, p.parameters, db, { expectedRevision: readDocumentRevision({ kind: "workflow", id: copy.id }, db)!.editRevision }).id);

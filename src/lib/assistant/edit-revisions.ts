@@ -27,8 +27,29 @@ export class AssistantRevisions {
     const revision = key && this.revisions.get(key);
     return revision ? { [EDIT_REVISION_HEADER]: revision } : {};
   }
+  bodyArguments(tool: ToolDef, args: Record<string, unknown>): Record<string, unknown> {
+    if (!tool.compoundRevisionPath) return args;
+    const members = tool.compoundRevisionPath === "self" ? args : record(args.members);
+    if (!members) return args;
+    const expectedRevisions = Object.fromEntries(filingDocuments(members).flatMap(key => {
+      const revision = this.revisions.get(key);
+      return revision ? [[key, revision]] : [];
+    }));
+    return tool.compoundRevisionPath === "self" ? { ...args, expectedRevisions }
+      : { ...args, members: { ...members, expectedRevisions } };
+  }
   /** Resume is an explicit new admission after a confirmation wait. */
   async readOnResume(tool: ToolDef, args: Record<string, unknown>, baseUrl: string, fetchImpl: typeof fetch, signal?: AbortSignal) {
+    if (tool.compoundRevisionPath) {
+      const members = tool.compoundRevisionPath === "self" ? args : record(args.members);
+      for (const key of filingDocuments(members ?? {})) {
+        const colon = key.indexOf(":");
+        const path = `/api/${key.slice(0, colon) === "map" ? "maps" : "recipes"}/${encodeURIComponent(key.slice(colon + 1))}`;
+        const response = await fetchImpl(baseUrl.replace(/\/$/, "") + path, { signal });
+        if (response.ok) this.observe(path, await response.json());
+      }
+      return;
+    }
     if (!tool.headerParams?.some((p) => p.name.toLowerCase() === EDIT_REVISION_HEADER.toLowerCase())) return;
     const path = callPath(tool, args);
     const match = /^\/api\/(maps|recipes|layers|sketches)\/[^/]+/.exec(path);
@@ -66,4 +87,12 @@ export class AssistantRevisions {
       }
     }
   }
+}
+
+function filingDocuments(members: Record<string, unknown>): string[] {
+  return [...new Set((["addMaps", "removeMaps", "addRecipes", "removeRecipes"] as const).flatMap(field => {
+    const ids = members[field];
+    return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string")
+      .map(id => `${field.endsWith("Maps") ? "map" : "workflow"}:${id}`) : [];
+  }))];
 }

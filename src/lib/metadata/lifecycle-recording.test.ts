@@ -1,3 +1,5 @@
+import { readFilingRevisions } from "@/lib/test-support/edit-basis";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Database } from "better-sqlite3";
 import * as metadata from "./db";
@@ -22,29 +24,29 @@ function fixture() {
 it("records direct and compound filing while preserving no-ops and executable generations", () => {
   const { owner, map, workflow, project } = fixture();
   const before = [facts(map), facts(workflow)];
-  fileMap(owner, map.id, project.id, db); fileRecipe(owner, workflow.id, project.id, db);
+  fileMap(owner, map.id, project.id, db, { expectedRevision: readEditRevision({ kind: "map", id: map.id }, db)?.editRevision }); fileRecipe(owner, workflow.id, project.id, db, { expectedRevision: readEditRevision({ kind: "workflow", id: workflow.id }, db)?.editRevision });
   const filed = [facts(map), facts(workflow)];
   for (let i = 0; i < 2; i++) expect(filed[i].editRevision).not.toBe(before[i].editRevision);
   expect(filed[1].executableRevision).toBe(before[1].executableRevision);
-  changeMembers(owner, project.id, { addMaps: [map.id], addRecipes: [workflow.id] }, db);
+  changeMembers(owner, project.id, { ...{ addMaps: [map.id], addRecipes: [workflow.id] }, expectedRevisions: readFilingRevisions({ addMaps: [map.id], addRecipes: [workflow.id] }, db) }, db);
   updateProject(owner, project.id, { name: "Renamed" }, db);
   expect([facts(map), facts(workflow)]).toEqual(filed);
-  changeMembers(owner, project.id, { removeMaps: [map.id], removeRecipes: [workflow.id] }, db);
+  changeMembers(owner, project.id, { ...{ removeMaps: [map.id], removeRecipes: [workflow.id] }, expectedRevisions: readFilingRevisions({ removeMaps: [map.id], removeRecipes: [workflow.id] }, db) }, db);
   expect(facts(map).editRevision).not.toBe(filed[0].editRevision);
   expect(facts(workflow).editRevision).not.toBe(filed[1].editRevision);
 });
 it("rolls back facts with a refused compound filing", () => {
   const { owner, map, workflow, project } = fixture();
   const before = [facts(map), facts(workflow)];
-  expect(() => changeMembers(owner, project.id, { addMaps: [map.id], addRecipes: [workflow.id], addTables: ["missing"] }, db)).toThrow();
+  expect(() => changeMembers(owner, project.id, { ...{ addMaps: [map.id], addRecipes: [workflow.id], addTables: ["missing"] }, expectedRevisions: readFilingRevisions({ addMaps: [map.id], addRecipes: [workflow.id], addTables: ["missing"] }, db) }, db)).toThrow();
   expect([facts(map), facts(workflow)]).toEqual(before);
   expect(db.prepare("SELECT project_id FROM maps WHERE id = ?").get(map.id)).toEqual({ project_id: null });
 });
 it("attributes transfers and dissolution to their acting account, preserving executable meaning", () => {
   const { owner, map, workflow, project } = fixture();
-  changeMembers(owner, project.id, { addMaps: [map.id], addRecipes: [workflow.id] }, db);
+  changeMembers(owner, project.id, { ...{ addMaps: [map.id], addRecipes: [workflow.id] }, expectedRevisions: readFilingRevisions({ addMaps: [map.id], addRecipes: [workflow.id] }, db) }, db);
   const before = [facts(map), facts(workflow)];
-  transferMap(owner, map.id, "editor", db); transferWorkflow(owner, workflow.id, "editor", db);
+  transferMap(owner, map.id, "editor", db, { expectedRevision: readEditRevision({ kind: "map", id: map.id }, db)?.editRevision }); transferWorkflow(owner, workflow.id, "editor", db, { expectedRevision: readEditRevision({ kind: "workflow", id: workflow.id }, db)?.editRevision });
   const transferred = [facts(map), facts(workflow)];
   for (let i = 0; i < 2; i++) {
     expect(transferred[i].editRevision).not.toBe(before[i].editRevision);

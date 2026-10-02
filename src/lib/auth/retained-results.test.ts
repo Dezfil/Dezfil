@@ -1,3 +1,4 @@
+import { readFilingRevisions } from "@/lib/test-support/edit-basis";
 import { DuckDBConnection } from "@duckdb/node-api";
 import { readHold } from "@/lib/test-support/read-hold";
 import { exportQueryResult } from "@/lib/export/layer-export";
@@ -89,7 +90,7 @@ it.each(["session", "token"])("keeps standalone query download receipts private 
   expect(await (await read("alice", ticket)).text()).toContain("private-alice");
 });
 it.each(["session", "token"])("keeps project archives private after deleting their source for %s callers", async kind => {
-  const project = createProject(testAccountScope(undefined, "alice"), { name: "Private", members: { addMaps: [maps.alice] } });
+  const project = createProject(testAccountScope(undefined, "alice"), { name: "Private", members: { ...{ addMaps: [maps.alice] }, expectedRevisions: readFilingRevisions({ addMaps: [maps.alice] }, undefined) } });
   const params = { params: Promise.resolve({ id: project.id }) };
   const response = await projectPrepare(request("alice", `/api/projects/${project.id}/export`, "POST", { maps: [maps.alice], file: "private", prepare: true }, kind), params);
   expect(response.status).toBe(200); const { ticket, key } = await response.json();

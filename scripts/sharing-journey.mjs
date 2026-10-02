@@ -217,6 +217,7 @@ export async function seedSharing(base) {
   const hiddenMap = expectStatus(await ada('POST', '/api/maps', { body: { name: 'Private' } }), 201);
   expectStatus(await ada('POST', `/api/maps/${hiddenMap.id}/layers`, { basis: captureBasis((await ada('GET', `/api/maps/${hiddenMap.id}`)).json), body: { name: 'Parks', sql: 'SELECT * FROM parks' } }), 201);
   const project = expectStatus(await ada('POST', '/api/projects', { body: { name: 'Survey', members: {
+    expectedRevisions: { [`map:${map.id}`]: captureBasis((await ada('GET', `/api/maps/${map.id}`)).json).editRevision, [`workflow:${recipe.id}`]: captureBasis((await ada('GET', `/api/recipes/${recipe.id}`)).json).editRevision },
     addMaps: [map.id], addRecipes: [recipe.id],
     addTables: [tables['ada.roads'].id, tables['ada.rivers'].id, tables['ada.roads_out'].id],
   } } }), 201);
@@ -320,7 +321,7 @@ export async function seedSharing(base) {
   await linkHolds(base, state, 'before the transfer');
 
   // Transfers: the map to the Editor, then the project; nothing rebinds.
-  const handedMap = expectStatus(await ada('POST', `/api/maps/${map.id}/transfer`, { body: { to: 'eli' } }), 200, 'transfer the map');
+  const handedMap = expectStatus(await ada('POST', `/api/maps/${map.id}/transfer`, { basis: captureBasis((await ada('GET', `/api/maps/${map.id}`)).json), body: { to: 'eli' } }), 200, 'transfer the map');
   assert.equal(handedMap.owner.sqlName ?? handedMap.owner, 'eli');
   await linkHolds(base, state, 'after the map\'s transfer');
   expectStatus(await ada('POST', `/api/projects/${project.id}/transfer`, { body: { to: 'eli' } }), 200, 'transfer the project');

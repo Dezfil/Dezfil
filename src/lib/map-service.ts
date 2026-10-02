@@ -308,7 +308,7 @@ export function createMap(scope: AccountScope, name: string, projectId: string |
   recordDocumentBatch(scope, () => {
     if (projectId) requireFilingDestination(scope, projectId);
     insertMap(scope, map);
-    if (projectId) fileMap(scope, map.id, projectId);
+    if (projectId) fileMap(scope, map.id, projectId, undefined, { expectedRevision: documentFacts({ kind: "map", id: map.id }).editRevision });
   });
   return { ...map, ...documentFacts({ kind: "map", id: map.id }) };
   })();
@@ -638,7 +638,7 @@ export function duplicateMap(scope: AccountScope, id: string): MapWithLayers & D
     // transaction, so a move racing the copy cannot file it where the
     // source no longer is (found at review).
     const sourceProject = mapProjectId(id);
-    if (sourceProject && mayFileInto(scope, sourceProject)) fileMap(scope, newId, sourceProject);
+    if (sourceProject && mayFileInto(scope, sourceProject)) fileMap(scope, newId, sourceProject, undefined, { expectedRevision: documentFacts({ kind: "map", id: newId }).editRevision });
   });
   return ownMapWithLayers(scope, newId);
 }

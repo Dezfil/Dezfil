@@ -1,3 +1,4 @@
+import { readDocumentRevision } from "@/lib/metadata/revisions";
 import { revisionEnvelope } from "@/lib/metadata/document-results";
 import { recordDocumentBatch } from "@/lib/metadata/revisions";
 import { requireRequestScope } from "@/lib/auth/scope-http";
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
     if (projectId) requireFilingDestination(scope, projectId);
     const recipe = recordDocumentBatch(scope, () => {
       const created = createRecipe(scope, recipeName(body), undefined, recipeOrigin(body));
-      if (projectId) fileRecipe(scope, created.id, projectId);
+      if (projectId) fileRecipe(scope, created.id, projectId, undefined, { expectedRevision: readDocumentRevision({ kind: "workflow", id: created.id })!.editRevision });
       return created;
     });
     return NextResponse.json(

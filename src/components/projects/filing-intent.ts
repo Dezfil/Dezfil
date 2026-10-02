@@ -21,9 +21,7 @@ export function filingIntent(subject: FilingSubject, deps: DependencyWire[], sel
   return { members: membersFor(subject, deps, selection), bases };
 }
 
-/** Keep the captured bases at the transport boundary. The compound input
- * field ships with its enforcing route; the current contract accepts only
- * member ids. No transport read may replace these displayed bases. */
-export function membershipBody(intent: MembershipIntent): MembershipIntent["members"] {
-  return intent.members;
+/** Serialize only the bases captured with the displayed selections. */
+export function membershipBody(intent: MembershipIntent): MembershipIntent["members"] & { expectedRevisions: FilingBases } {
+  return { ...intent.members, expectedRevisions: intent.bases };
 }

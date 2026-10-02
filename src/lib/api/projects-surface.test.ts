@@ -196,6 +196,7 @@ describe("the projects surface", () => {
       "tables",
     ]);
     expect(Object.keys(schemas.ProjectMemberChange.properties ?? {})).toEqual([
+      "expectedRevisions",
       "addMaps",
       "removeMaps",
       "addRecipes",

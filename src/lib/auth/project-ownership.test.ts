@@ -1,3 +1,5 @@
+import { readFilingRevisions } from "@/lib/test-support/edit-basis";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { documentFacts } from "@/lib/metadata/document-facts";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -97,14 +99,14 @@ it.each(fields)("refuses mixed initial %s at the service boundary without creati
   for (const account of accounts) for (const other of accounts.filter(a => a !== account)) {
     const scope = testAccountScope(db, account);
     for (const id of [member(field, other), "missing"]) {
-      expect(() => createProject(scope, { name: "Uncommitted", members: { [field]: [member(field, account), id] } }, db)).toThrow(expect.objectContaining({ status: 404 }));
+      expect(() => createProject(scope, { name: "Uncommitted", members: { ...{ [field]: [member(field, account), id] }, expectedRevisions: readFilingRevisions({ [field]: [member(field, account), id] }, db) } }, db)).toThrow(expect.objectContaining({ status: 404 }));
       expect(snapshot()).toEqual(before);
     }
   }
 });
 it("deleting an owned project only unfiles its contents and preserves another filing", async () => {
   const { DELETE } = await import("@/app/api/projects/[id]/route");
-  const extra = createProject(testAccountScope(db, "alice"), { name: "Second filing", members: { addTables: ["alice"] } }, db);
+  const extra = createProject(testAccountScope(db, "alice"), { name: "Second filing", members: { ...{ addTables: ["alice"] }, expectedRevisions: readFilingRevisions({ addTables: ["alice"] }, db) } }, db);
   const before = snapshot();
   const response = await DELETE(input("alice", "/api/projects", "DELETE"), { params: Promise.resolve({ id: projects.alice }) });
   expect(response.status).toBe(200); expect(await response.json()).toMatchObject({ contentsRemain: true });
@@ -125,16 +127,16 @@ it("checks service scopes and every member before touching names, notes or filin
     expect(() => owned.updateProject(scope, id, { name: "Changed", note: "Changed" })).toThrow(expect.objectContaining({ status: 404 }));
     expect(() => owned.deleteProject(scope, id)).toThrow(expect.objectContaining({ status: 404 }));
     expect(() => owned.projectMemberIds(scope, id)).toThrow(expect.objectContaining({ status: 404 }));
-    expect(() => owned.fileMap(scope, maps.alice, id)).toThrow(expect.objectContaining({ status: 404 }));
-    expect(() => owned.fileRecipe(scope, recipes.alice, id)).toThrow(expect.objectContaining({ status: 404 }));
+    expect(() => owned.fileMap(scope, maps.alice, id, undefined, { expectedRevision: readEditRevision({ kind: "map", id: maps.alice }, undefined)?.editRevision })).toThrow(expect.objectContaining({ status: 404 }));
+    expect(() => owned.fileRecipe(scope, recipes.alice, id, undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: recipes.alice }, undefined)?.editRevision })).toThrow(expect.objectContaining({ status: 404 }));
     expect(() => owned.fileTable(scope, "alice", id)).toThrow(expect.objectContaining({ status: 404 }));
   }
-  expect(() => owned.changeMembers(scope, projects.alice, { removeMaps: [maps.alice], removeRecipes: [recipes.bob] })).toThrow(expect.objectContaining({ status: 404 }));
+  expect(() => owned.changeMembers(scope, projects.alice, { ...{ removeMaps: [maps.alice], removeRecipes: [recipes.bob] }, expectedRevisions: readFilingRevisions({ removeMaps: [maps.alice], removeRecipes: [recipes.bob] }, undefined) })).toThrow(expect.objectContaining({ status: 404 }));
   for (const invalid of [undefined, null, { accountId: "alice" }]) {
     const missing = invalid as Parameters<typeof owned.listProjects>[0];
     expect(() => owned.listProjects(missing)).toThrow(expect.objectContaining({ status: 401 }));
     expect(() => owned.projectMemberCounts(missing)).toThrow(expect.objectContaining({ status: 401 }));
-    expect(() => owned.changeMembers(missing, projects.alice, {})).toThrow(expect.objectContaining({ status: 401 }));
+    expect(() => owned.changeMembers(missing, projects.alice, { ...{}, expectedRevisions: readFilingRevisions({}, undefined) })).toThrow(expect.objectContaining({ status: 401 }));
   }
   expect(snapshot()).toEqual(before);
 });
@@ -189,13 +191,13 @@ it("each account can create, rename, refile and dissolve its own project", async
   const { PATCH, DELETE } = await import("@/app/api/projects/[id]/route");
   const { PATCH: members } = await import("@/app/api/projects/[id]/members/route");
   for (const account of accounts) {
-    const body = { name: "Shared display name", ownerId: "bob", members: { addMaps: [maps[account]], addRecipes: [recipes[account]], addTables: [account] } };
+    const body = { name: "Shared display name", ownerId: "bob", members: { addMaps: [maps[account]], addRecipes: [recipes[account]], addTables: [account], expectedRevisions: readFilingRevisions({ addMaps: [maps[account]], addRecipes: [recipes[account]] }, db) } };
     const response = await POST(input(account, "/api/projects", "POST", body));
     expect(response.status).toBe(201); const project = await response.json();
     expect(project).toMatchObject({ mapCount: 1, recipeCount: 1, tableCount: 1 });
     expect(db.prepare("SELECT owner_id FROM projects WHERE id = ?").get(project.id)).toEqual({ owner_id: account });
     expect((await PATCH(input(account, "/api/projects", "PATCH", { name: "Renamed", note: "Personal" }), { params: Promise.resolve({ id: project.id }) })).status).toBe(200);
-    const removed = await members(input(account, "/api/projects/members", "PATCH", { removeMaps: [maps[account]], removeRecipes: [recipes[account]], removeTables: [account] }), { params: Promise.resolve({ id: project.id }) });
+    const removed = await members(input(account, "/api/projects/members", "PATCH", { ...{ removeMaps: [maps[account]], removeRecipes: [recipes[account]], removeTables: [account] }, expectedRevisions: readFilingRevisions({ removeMaps: [maps[account]], removeRecipes: [recipes[account]], removeTables: [account] }, undefined) }), { params: Promise.resolve({ id: project.id }) });
     expect(removed.status).toBe(200); expect(await removed.json()).toEqual({ maps: [], recipes: [], tables: [], revisions: [{ kind: "map" as const, id: maps[account] }, { kind: "workflow" as const, id: recipes[account] }].map(doc => ({ ...doc, editRevision: documentFacts(doc, db).editRevision })) });
     expect((await DELETE(input(account, "/api/projects", "DELETE"), { params: Promise.resolve({ id: project.id }) })).status).toBe(200);
     expect(db.prepare("SELECT owner_id FROM data_tables WHERE id = ?").get(account)).toEqual({ owner_id: account });

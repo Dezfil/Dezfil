@@ -1,3 +1,4 @@
+import { editRevisionParam, editRevisionResponses } from "./openapi-document-facts";
 import { DOCUMENT_FACT_PROPERTIES } from "./openapi-document-facts";
 import { projectAccess } from "./openapi-project-access";
 import { mapAccess } from "./openapi-map-access";
@@ -169,9 +170,9 @@ const TRANSFER_PATHS = {
       confirmation: { target: "Make someone else the owner of {target}?",
         consequence: "Its publication, deletion and transfer become theirs, and its SQL home stays as it is. Only they can give it back.",
         subject: { path: "/api/maps/{id}", argument: "id", name: "name" } },
-      parameters: [pathParam("id", "Map id.")],
+      parameters: [editRevisionParam, pathParam("id", "Map id.")],
       requestBody: transferBody,
-      responses: { ...TRANSFERRED, "200": jsonOk("#/components/schemas/DocumentTransfer") },
+      responses: { ...editRevisionResponses, ...TRANSFERRED, "200": jsonOk("#/components/schemas/DocumentTransfer") },
     })),
   },
   "/api/recipes/{id}/transfer": {
@@ -188,9 +189,9 @@ const TRANSFER_PATHS = {
       confirmation: { target: "Make someone else the owner of {target}?",
         consequence: "Its deletion and transfer become theirs, and its SQL home and run history stay as they are. Only they can give it back.",
         subject: { path: "/api/recipes/{id}", argument: "id", name: "recipe.name" } },
-      parameters: [pathParam("id", "Workflow id.")],
+      parameters: [editRevisionParam, pathParam("id", "Workflow id.")],
       requestBody: transferBody,
-      responses: { ...TRANSFERRED, "200": jsonOk("#/components/schemas/DocumentTransfer") },
+      responses: { ...editRevisionResponses, ...TRANSFERRED, "200": jsonOk("#/components/schemas/DocumentTransfer") },
     })),
   },
 };

@@ -1,3 +1,4 @@
+import { readFilingRevisions } from "@/lib/test-support/edit-basis";
 import { withFixtureRevision } from "@/lib/test-support/edit-basis";
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { documentFacts } from "@/lib/metadata/document-facts";
@@ -74,32 +75,32 @@ const route = {
   map: () => import("@/app/api/maps/[id]/route"),
   recipes: () => import("@/app/api/recipes/route"),
 };
-const file = (account: string, change: Record<string, string[]>, project = "P", kind = "session") =>
-  call(route.members, "PATCH", account, `/api/projects/${project}/members`, project, change, kind);
+const file = (account: string, change: Record<string, string[]>, project = "P", kind = "session", expectedRevisions?: Record<string, string>) =>
+  call(route.members, "PATCH", account, `/api/projects/${project}/members`, project, { ...change, expectedRevisions }, kind);
 const forbidden = { status: 403, body: { error: { code: "forbidden", message: PERMISSION_REFUSAL } } };
 const projectOf = (table: "maps" | "recipes", id: string) => (db.prepare(`SELECT project_id FROM ${table} WHERE id = ?`).get(id) as { project_id: string | null }).project_id;
 const datasetProjects = (id: string) => (db.prepare("SELECT project_id FROM project_datasets WHERE table_id = ? ORDER BY 1").all(id) as { project_id: string }[]).map(r => r.project_id);
 const ownerOf = (table: "maps" | "recipes" | "data_tables", id: string) => (db.prepare(`SELECT owner_id FROM ${table} WHERE id = ?`).get(id) as { owner_id: string }).owner_id;
 async function refused(account: string, change: Record<string, string[]>, expected: "forbidden" | "absent", project = "P") {
   const before = snapshot();
-  const session = await file(account, change, project), token = await file(account, change, project, "token");
+  const session = await file(account, change, project, undefined, readFilingRevisions(change, db)), token = await file(account, change, project, "token", readFilingRevisions(change, db));
   expect(token).toEqual(session);
   if (expected === "forbidden") expect(session).toEqual(forbidden);
-  else expect(session).toEqual(await file(account, change, "missing"));
+  else expect(session).toEqual(await file(account, change, "missing", undefined, readFilingRevisions(change, db)));
   expect(session.status).toBe(expected === "forbidden" ? 403 : 404);
   expect(snapshot()).toEqual(before);
 }
 
 describe("adding to a project", () => {
   it("lets an editor file their own map, workflow and dataset, answered with the project as they read it", async () => {
-    const answer = await file("ed", { addMaps: ["E"], addRecipes: ["EW"], addTables: ["ED"] });
+    const answer = await file("ed", { addMaps: ["E"], addRecipes: ["EW"], addTables: ["ED"] }, undefined, undefined, readFilingRevisions({ addMaps: ["E"], addRecipes: ["EW"], addTables: ["ED"] }, db));
     expect(answer.status).toBe(200);
     expect([projectOf("maps", "E"), projectOf("recipes", "EW"), datasetProjects("ED")]).toEqual(["P", "P", ["P"]]);
     expect((answer.body!.maps as { id: string }[]).map(m => m.id).sort()).toEqual(["E", "M", "VM"]);
   });
 
   it("moves an editor's own map out of the project it was in", async () => {
-    expect((await file("ed", { addMaps: ["ER"] })).status).toBe(200);
+    expect((await file("ed", { addMaps: ["ER"] }, undefined, undefined, readFilingRevisions({ addMaps: ["ER"] }, db))).status).toBe(200);
     expect(projectOf("maps", "ER")).toBe("P");
   });
 
@@ -132,22 +133,22 @@ describe("adding to a project", () => {
 
 describe("removing from a project", () => {
   it("lets an owner withdraw their own resource, a viewer included", async () => {
-    expect((await file("ada", { removeMaps: ["M"], removeRecipes: ["W"], removeTables: ["D"] })).status).toBe(200);
+    expect((await file("ada", { removeMaps: ["M"], removeRecipes: ["W"], removeTables: ["D"] }, undefined, undefined, readFilingRevisions({ removeMaps: ["M"], removeRecipes: ["W"], removeTables: ["D"] }, db))).status).toBe(200);
     expect([projectOf("maps", "M"), projectOf("recipes", "W"), datasetProjects("D")]).toEqual([null, null, []]);
-    expect((await file("vi", { removeMaps: ["VM"] })).status).toBe(200);
+    expect((await file("vi", { removeMaps: ["VM"] }, undefined, undefined, readFilingRevisions({ removeMaps: ["VM"] }, db))).status).toBe(200);
     expect(projectOf("maps", "VM")).toBeNull();
   });
 
   it("lets an owner withdraw their own resource from a project they no longer belong to", async () => {
     db.prepare("DELETE FROM project_people WHERE account_id = 'ada'").run();
-    expect(await file("ada", { removeMaps: ["M"] })).toEqual({ status: 200, body: { maps: [], recipes: [], tables: [], revisions: [{ kind: "map" as const, id: "M" }].map(doc => ({ ...doc, editRevision: documentFacts(doc, db).editRevision })) } });
+    expect(await file("ada", { removeMaps: ["M"] }, undefined, undefined, readFilingRevisions({ removeMaps: ["M"] }, db))).toEqual({ status: 200, body: { maps: [], recipes: [], tables: [], revisions: [{ kind: "map" as const, id: "M" }].map(doc => ({ ...doc, editRevision: documentFacts(doc, db).editRevision })) } });
     expect(projectOf("maps", "M")).toBeNull();
     // Anything else from outside the project is as if the project did not exist.
     await refused("ada", { removeRecipes: ["W"], addMaps: ["M"] }, "absent");
   });
 
   it("lets the project's owner remove anything, which never deletes or reassigns it", async () => {
-    expect((await file("pat", { removeMaps: ["M", "VM"], removeRecipes: ["W"], removeTables: ["D"] })).status).toBe(200);
+    expect((await file("pat", { removeMaps: ["M", "VM"], removeRecipes: ["W"], removeTables: ["D"] }, undefined, undefined, readFilingRevisions({ removeMaps: ["M", "VM"], removeRecipes: ["W"], removeTables: ["D"] }, db))).status).toBe(200);
     expect([projectOf("maps", "M"), projectOf("maps", "VM"), projectOf("recipes", "W"), datasetProjects("D")]).toEqual([null, null, null, []]);
     expect([ownerOf("maps", "M"), ownerOf("maps", "VM"), ownerOf("recipes", "W"), ownerOf("data_tables", "D")]).toEqual(["ada", "vi", "ada", "ada"]);
   });
@@ -160,7 +161,7 @@ describe("removing from a project", () => {
 
   it("changes nothing for a removal of what is not filed there", async () => {
     const before = snapshot();
-    expect((await file("ed", { removeMaps: ["E"] })).status).toBe(200);
+    expect((await file("ed", { removeMaps: ["E"] }, undefined, undefined, readFilingRevisions({ removeMaps: ["E"] }, db))).status).toBe(200);
     expect(snapshot()).toEqual(before);
   });
 });
@@ -183,8 +184,8 @@ describe("the freeze", () => {
     db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'pat'").run();
     await refused("ed", { addMaps: ["E"] }, "forbidden");
     expect((await call(route.maps, "POST", "ed", "/api/maps", "", { name: "Nope", projectId: "P" })).status).toBe(403);
-    expect((await file("ed", { removeMaps: ["EP"] })).status).toBe(200);
-    expect((await file("vi", { removeMaps: ["VM"] })).status).toBe(200);
+    expect((await file("ed", { removeMaps: ["EP"] }, undefined, undefined, readFilingRevisions({ removeMaps: ["EP"] }, db))).status).toBe(200);
+    expect((await file("vi", { removeMaps: ["VM"] }, undefined, undefined, readFilingRevisions({ removeMaps: ["VM"] }, db))).status).toBe(200);
     // Contents others own inside the frozen project keep their editing permissions.
     expect((await call(route.map, "PATCH", "ed", "/api/maps/M", "M", { name: "Edited" }, "session", readEditRevision({ kind: "map", id: "M" })!.editRevision)).status).toBe(200);
   });
@@ -193,7 +194,7 @@ describe("the freeze", () => {
     db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'ada'").run();
     expect(await call(route.map, "PATCH", "pat", "/api/maps/M", "M", { name: "Edited" }, "session", readEditRevision({ kind: "map", id: "M" })!.editRevision)).toEqual(forbidden);
     expect(await call(route.map, "PATCH", "ed", "/api/maps/M", "M", { name: "Edited" }, "session", readEditRevision({ kind: "map", id: "M" })!.editRevision)).toEqual(forbidden);
-    expect((await file("pat", { removeMaps: ["M"], removeTables: ["D"] })).status).toBe(200);
+    expect((await file("pat", { removeMaps: ["M"], removeTables: ["D"] }, undefined, undefined, readFilingRevisions({ removeMaps: ["M"], removeTables: ["D"] }, db))).status).toBe(200);
     expect([projectOf("maps", "M"), datasetProjects("D"), ownerOf("maps", "M")]).toEqual([null, [], "ada"]);
   });
 });

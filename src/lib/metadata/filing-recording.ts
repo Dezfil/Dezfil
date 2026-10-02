@@ -1,6 +1,6 @@
 import type { Database } from "better-sqlite3";
 import type { AccountScope } from "@/lib/auth/scope";
-import { recordDocumentChanges, type DocumentKey } from "./revisions";
+import { compareDocumentRevision, recordDocumentChanges, type DocumentKey } from "./revisions";
 
 const projectOf = (document: DocumentKey, db: Database) =>
   (db.prepare(`SELECT project_id FROM ${document.kind === "map" ? "maps" : "recipes"} WHERE id = ?`)
@@ -23,4 +23,13 @@ export function memberDocuments(change: { addMaps?: string[]; removeMaps?: strin
     ...[...new Set([...(change.addMaps ?? []), ...(change.removeMaps ?? [])])].map(id => ({ kind: "map" as const, id })),
     ...[...new Set([...(change.addRecipes ?? []), ...(change.removeRecipes ?? [])])].map(id => ({ kind: "workflow" as const, id })),
   ];
+}
+
+/** Called only after every member's filing permission has been established. */
+export function requireFilingRevisions(change: Parameters<typeof memberDocuments>[0] & { expectedRevisions?: unknown }, db: Database): void {
+  const values = change.expectedRevisions;
+  const bases = values !== null && typeof values === "object" && !Array.isArray(values) ? values as Record<string, unknown> : {};
+  for (const document of memberDocuments(change)) {
+    compareDocumentRevision({ ...document, expectedRevision: bases[`${document.kind}:${document.id}`] }, db, "expectedRevisions");
+  }
 }

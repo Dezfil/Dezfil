@@ -156,7 +156,7 @@ test("the list filter across Maps, Workflows and Data", async ({
       page,
       "PATCH",
       `/api/projects/${pa}/members`,
-      { addRecipes: [builder] },
+      { addRecipes: [builder], expectedRevisions: { [`workflow:${builder}`]: ((await api(page, "GET", `/api/recipes/${builder}`)) as { recipe: { editRevision: string } }).recipe.editRevision } },
     );
     expect(refused.status).toBe(400);
     expect(refused.body).toMatchObject({

@@ -1,3 +1,4 @@
+import { compoundRevisionPath, withoutCompoundRevision } from "./compound-revisions";
 import { projectOutput, type OutputOperation, type OutputAdaptation } from "./output-schema";
 import type { JsonSchema } from "./schema";
 import type { McpConsequences } from "@/lib/api/operation-mcp";
@@ -21,6 +22,7 @@ export interface ToolDef {
   description: string;
   inputSchema: InputSchema;
   providerInputSchema?: InputSchema;
+  compoundRevisionPath?: "members" | "self";
   outputSchema?: InputSchema;
   rawOutputSchema?: JsonSchema;
   outputAdaptation?: OutputAdaptation;
@@ -129,12 +131,18 @@ export function deriveTools(doc: ReturnType<typeof buildOpenApiDocument>): ToolD
       }
       const description = [op.summary, op.description].filter(Boolean).join(". ");
 
+      const compoundPath = compoundRevisionPath(input.inputSchema);
+      let providerInputSchema = input.headerParams.length
+        ? projectInput({ ...op, parameters: op.parameters?.filter(parameter => parameter.in !== "header") }, schemas, name).inputSchema
+        : undefined;
+      if (compoundPath) providerInputSchema = withoutCompoundRevision(providerInputSchema ?? input.inputSchema, compoundPath);
       tools.push({
         name,
         description,
         ...input,
         ...projectOutput(op, schemas, name),
-        ...(input.headerParams.length ? { providerInputSchema: projectInput({ ...op, parameters: op.parameters?.filter(parameter => parameter.in !== "header") }, schemas, name).inputSchema } : {}),
+        ...(providerInputSchema ? { providerInputSchema } : {}),
+        ...(compoundPath ? { compoundRevisionPath: compoundPath } : {}),
         method,
         path: apiPath,
         confirm: op["x-confirm"] === true,

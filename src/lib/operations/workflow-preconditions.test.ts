@@ -1,3 +1,4 @@
+import { readFilingRevisions } from "@/lib/test-support/edit-basis";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Database } from "better-sqlite3";
 import * as metadata from "@/lib/metadata/db";
@@ -79,7 +80,7 @@ it.each(["ada", "eli"])("uses one revision for owner %s and their Editor, includ
   const editor = owner === "ada" ? "eli" : "ada";
   const scopes = { ada: testAccountScope(db, "ada"), eli: testAccountScope(db, "eli"), viewer: testAccountScope(db, "viewer") };
   const recipe = createRecipe(scopes[owner as "ada" | "eli"], "Shared", db);
-  const project = createProject(scopes[owner as "ada" | "eli"], { name: "Project", members: { addRecipes: [recipe.id] } }, db);
+  const project = createProject(scopes[owner as "ada" | "eli"], { name: "Project", members: { ...{ addRecipes: [recipe.id] }, expectedRevisions: readFilingRevisions({ addRecipes: [recipe.id] }, db) } }, db);
   for (const [account, role] of [[editor, "editor"], ["viewer", "viewer"]]) db.prepare("INSERT INTO project_people VALUES (?, ?, ?, ?)").run(project.id, account, role, new Date().toISOString());
   const seen = revision(recipe.id);
   vi.spyOn(Date, "now").mockReturnValue(1234567890000);

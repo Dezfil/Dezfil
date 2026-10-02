@@ -1,3 +1,4 @@
+import { readFilingRevisions } from "@/lib/test-support/edit-basis";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -123,7 +124,7 @@ describe("project rows", () => {
     expect(() =>
       createProject(
         testAccountScope(db),
-        { name: "Doomed", members: { addMaps: ["m1"], addTables: ["t-none"] } },
+        { name: "Doomed", members: { ...{ addMaps: ["m1"], addTables: ["t-none"] }, expectedRevisions: readFilingRevisions({ addMaps: ["m1"], addTables: ["t-none"] }, db) } },
         db,
       ),
     ).toThrow(expect.objectContaining({ code: "not_found", status: 404 }));
@@ -216,7 +217,7 @@ describe("dissolution and member deletion", () => {
     seedTable("t1");
     const a = createProject(
       testAccountScope(db),
-      { name: "A", members: { addMaps: ["m1"], addTables: ["t1"] } },
+      { name: "A", members: { ...{ addMaps: ["m1"], addTables: ["t1"] }, expectedRevisions: readFilingRevisions({ addMaps: ["m1"], addTables: ["t1"] }, db) } },
       db,
     );
     expect(deleteProject(a.id, db)).toBe(true);
@@ -230,7 +231,7 @@ describe("dissolution and member deletion", () => {
   it("deleting a member removes only its memberships, and the affected projects' clocks advance when told", () => {
     seedTable("t1");
     seedTable("t2");
-    const a = createProject(testAccountScope(db), { name: "A", members: { addTables: ["t1", "t2"] } }, db);
+    const a = createProject(testAccountScope(db), { name: "A", members: { ...{ addTables: ["t1", "t2"] }, expectedRevisions: readFilingRevisions({ addTables: ["t1", "t2"] }, db) } }, db);
     const before = getProject(a.id, db)!;
     touchProjectsOf({ tableId: "t1" }, db, "2027-01-01T00:00:00.000Z");
     db.prepare(`DELETE FROM data_tables WHERE id = 't1'`).run();
@@ -249,10 +250,10 @@ describe("member counts", () => {
     seedTable("t1");
     const a = createProject(
       testAccountScope(db),
-      { name: "A", members: { addMaps: ["m1", "m2"], addRecipes: [r.id], addTables: ["t1"] } },
+      { name: "A", members: { ...{ addMaps: ["m1", "m2"], addRecipes: [r.id], addTables: ["t1"] }, expectedRevisions: readFilingRevisions({ addMaps: ["m1", "m2"], addRecipes: [r.id], addTables: ["t1"] }, db) } },
       db,
     );
-    const b = createProject(testAccountScope(db), { name: "B", members: { addTables: ["t1"] } }, db);
+    const b = createProject(testAccountScope(db), { name: "B", members: { ...{ addTables: ["t1"] }, expectedRevisions: readFilingRevisions({ addTables: ["t1"] }, db) } }, db);
     const counts = projectMemberCounts(db);
     expect(counts.get(a.id)).toEqual({ maps: 2, publishedMaps: 1, recipes: 1, tables: 1 });
     expect(counts.get(b.id)).toEqual({ maps: 0, publishedMaps: 0, recipes: 0, tables: 1 });
@@ -290,11 +291,15 @@ describe("the export preflight's member ids", () => {
       testAccountScope(db),
       {
         name: "Order proof",
-        members: {
+        members: { ...{
           addMaps: ["m-old", "m-new"],
           addRecipes: [rOlder, rNewer],
           addTables: ["t-old", "t-new"],
-        },
+        }, expectedRevisions: readFilingRevisions({
+          addMaps: ["m-old", "m-new"],
+          addRecipes: [rOlder, rNewer],
+          addTables: ["t-old", "t-new"],
+        }, db) },
       },
       db,
     );

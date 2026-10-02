@@ -1,3 +1,4 @@
+import { readFilingRevisions } from "@/lib/test-support/edit-basis";
 import { documentFacts } from "@/lib/metadata/document-facts";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -39,7 +40,7 @@ beforeEach(async () => {
   shareProject("bo", "B", [["ada", "editor"], ["cy", "viewer"]]);
   shareProject("ada", "Q", [["dee", "viewer"]]);
   expect((await call("ada", route.members, "/api/projects/B/members", "PATCH", { id: "B" },
-    { addTables: [customers.id], addMaps: [mapId], addRecipes: [workflowId] })).status).toBe(200);
+    { ...{ addTables: [customers.id], addMaps: [mapId], addRecipes: [workflowId] }, expectedRevisions: readFilingRevisions({ addTables: [customers.id], addMaps: [mapId], addRecipes: [workflowId] }, undefined) })).status).toBe(200);
   expect((await call("ada", route.members, "/api/projects/Q/members", "PATCH", { id: "Q" }, { addTables: [customers.id] })).status).toBe(200);
   expect((await call("cy", route.table, "/api/tables/ada.customers", "GET", { name: "ada.customers" })).status).toBe(200);
   expect((await call("bo", route.person, "/api/projects/B/people/ada", "DELETE", { id: "B", sqlName: "ada" })).status).toBe(200);
@@ -102,7 +103,7 @@ describe("a removed member's own work filed in the project", () => {
 
   it("is withdrawn by the identity her reads report, which ends the reach it gave others", async () => {
     const answer = await call("ada", route.members, "/api/projects/B/members", "PATCH", { id: "B" },
-      { removeTables: [customers.id], removeMaps: [mapId], removeRecipes: [workflowId] });
+      { ...{ removeTables: [customers.id], removeMaps: [mapId], removeRecipes: [workflowId] }, expectedRevisions: readFilingRevisions({ removeTables: [customers.id], removeMaps: [mapId], removeRecipes: [workflowId] }, undefined) });
     expect(answer).toEqual({ status: 200, body: { maps: [], recipes: [], tables: [], revisions: [{ kind: "map" as const, id: mapId }, { kind: "workflow" as const, id: workflowId }].map(doc => ({ ...doc, editRevision: documentFacts(doc).editRevision })) } });
     expect(find(await rows("ada", route.tables, "/api/tables"), customers.id)?.projectIds).toEqual(["Q"]);
     expect(find(await rows("ada", route.maps, "/api/maps?project=none"), mapId)?.projectId).toBeNull();

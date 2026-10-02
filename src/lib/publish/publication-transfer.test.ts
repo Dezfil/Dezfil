@@ -82,7 +82,7 @@ describe("a transferred map's publication", () => {
     expect(sentinels(layerOf(before, "Parks"))).toEqual(["ada parks"]);
     expect(await mounted(resolvePublication(token)!.scope)).toEqual(["parks", "roads"]);
 
-    const transferred = await call("ada", "transfer", "POST", { to: getAccount("ed")!.sqlName });
+    const transferred = await call("ada", "transfer", "POST", { to: getAccount("ed")!.sqlName }, readEditRevision({ kind: "map", id: mapId })?.editRevision);
     expect(transferred).toEqual({ status: 200, body: { id: mapId, editRevision: documentFacts({ kind: "map", id: mapId }).editRevision, owner: { name: "ed", sqlName: getAccount("ed")!.sqlName } } });
     const map = metadataDb().prepare("SELECT owner_id, home_account_id, publish_token FROM maps WHERE id = ?").get(mapId);
     expect(map).toEqual({ owner_id: "ed", home_account_id: "ada", publish_token: token });
@@ -97,7 +97,7 @@ describe("a transferred map's publication", () => {
   }, 60_000);
 
   it("belongs to the new owner: only they read its settings, change or revoke it", async () => {
-    expect((await call("ada", "transfer", "POST", { to: getAccount("ed")!.sqlName })).status).toBe(200);
+    expect((await call("ada", "transfer", "POST", { to: getAccount("ed")!.sqlName }, readEditRevision({ kind: "map", id: mapId })?.editRevision)).status).toBe(200);
     expect(await call("ed", "publish", "GET")).toMatchObject({ status: 200, body: { token } });
     expect(await call("ada", "publish", "DELETE")).toMatchObject({ status: 403, body: { error: { code: "forbidden" } } });
     expect(await call("ada", "publish", "POST", { theme: "light" })).toMatchObject({ status: 403 });

@@ -13,8 +13,7 @@ describe("displayed filing and transfer bases", () => {
     ] as DependencyWire[];
     const intent = filingIntent(subject, deps, { datasets: new Set(["d"]), workflows: new Set(["w"]) });
     expect(intent.bases).toEqual({ "map:m": "map-shown", "workflow:w": "producer-shown" });
-    // The preparatory boundary does not invent an undeclared compound field.
-    expect(membershipBody(intent)).toEqual({ addMaps: ["m"], addRecipes: ["w"], addTables: ["d"] });
+    expect(membershipBody(intent)).toEqual({ addMaps: ["m"], addRecipes: ["w"], addTables: ["d"], expectedRevisions: intent.bases });
   });
 
   it("keeps an explicitly selected producer's displayed basis ahead of its dependency projection", () => {

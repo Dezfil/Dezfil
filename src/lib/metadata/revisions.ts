@@ -32,10 +32,10 @@ const recordings = new WeakMap<Database, {
 
 /** Validate only after the caller's authorization checks. No normalization:
  * a supplied basis must be exactly the token paired with its read. */
-export function validateEditRevision(value: unknown): string {
+export function validateEditRevision(value: unknown, input = "X-Edit-Revision"): string {
   if (typeof value !== "string" || !revisionPattern.test(value)) {
     throw new ApiError("invalid_request",
-      "Read this item first, then send its editRevision in X-Edit-Revision.", 400);
+      `Read this item first, then send its editRevision in ${input}.`, 400);
   }
   return value;
 }
@@ -45,7 +45,13 @@ export function validateEditRevision(value: unknown): string {
 export function requireDocumentRevision(scope: AccountScope, document: DocumentExpectation, db: Database = metadataDb()): void {
   if (document.kind === "map") requirePermitted(scope, "map", document.id, document.action ?? "edit", db);
   else requirePermitted(scope, "workflow", document.id, document.action ?? "edit", db);
-  const expected = validateEditRevision(document.expectedRevision);
+  compareDocumentRevision(document, db);
+}
+
+/** Internal comparison after operation-specific authorization, including filing
+ * withdrawal which does not require content-edit permission. */
+export function compareDocumentRevision(document: DocumentKey & { expectedRevision: unknown }, db: Database = metadataDb(), input = "X-Edit-Revision"): void {
+  const expected = validateEditRevision(document.expectedRevision, input);
   if (readDocumentRevision(document, db)?.editRevision !== expected) {
     throw new ApiError("stale_revision", ERROR_CATALOGUE.stale_revision, 409);
   }

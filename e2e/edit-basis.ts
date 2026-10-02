@@ -46,3 +46,20 @@ export async function readThenWriteRequestSetup(
   const { method, path: writePath = path, options } = intent();
   return api.fetch(writePath, { ...options, method, headers: { ...options?.headers, "X-Edit-Revision": String(basis.editRevision) } });
 }
+
+/** Compound setup only: read all selected documents, then form the new
+ * filing intent. Displayed-action and stale-refusal tests pass their own bases. */
+export async function readThenWriteFilingBrowserSetup(page: Page, selection: Record<string, unknown>, intent: (expectedRevisions: Record<string, string>) => SetupIntent): Promise<BrowserAnswer> {
+  const expectedRevisions: Record<string, string> = {};
+  for (const key of ["addMaps", "removeMaps", "addRecipes", "removeRecipes"]) {
+    const ids = selection[key];
+    if (!Array.isArray(ids)) continue;
+    for (const id of ids) {
+      const kind = key.endsWith("Maps") ? "map" : "workflow";
+      const basis = await captureBrowserBasis(page, `/api/${kind === "map" ? "maps" : "recipes"}/${encodeURIComponent(String(id))}`);
+      expectedRevisions[`${kind}:${id}`] = basis.editRevision!;
+    }
+  }
+  const write = intent(expectedRevisions);
+  return browserApi(page, write.method, write.path, write.body);
+}

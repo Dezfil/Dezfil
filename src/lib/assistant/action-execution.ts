@@ -79,7 +79,7 @@ export async function* execAndRecord(
   try {
     if (ctx.signal?.aborted) throw ctx.signal.reason;
     dispatched = true;
-    result = await executeTool(tool, call.args, ctx.baseUrl, ctx.fetchImpl, { ...ctx.headers, ...ctx.revisions.headers(tool, call.args) },
+    result = await executeTool(tool, ctx.revisions.bodyArguments(tool, call.args), ctx.baseUrl, ctx.fetchImpl, { ...ctx.headers, ...ctx.revisions.headers(tool, call.args) },
       actionEffects(tool, call.args).readOnly ? ctx.signal : undefined);
   } catch (error) {
     const uncertain = dispatched && !actionEffects(tool, call.args).readOnly;

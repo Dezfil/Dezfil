@@ -98,7 +98,7 @@ async function openMap() {
   await act(async () => {
     root.render(
       <SignedIn account={bo}>
-        <AddToProjectDialog subject={{ kind: "map", id: "m1", name: "Stations map", projectId: null }}
+        <AddToProjectDialog subject={{ kind: "map", id: "m1", name: "Stations map", editRevision: "map-shown", projectId: null }}
           onClose={() => {}} onDone={(o) => { done = o; }} onWithdrawn={() => {}} />
       </SignedIn>,
     );
@@ -153,7 +153,7 @@ describe("the Add-to-project dialog as an Editor", () => {
     expect(calls.find((c) => c.method === "PATCH")).toEqual({
       url: "/api/projects/berlin/members",
       method: "PATCH",
-      body: { addMaps: ["m1"], addTables: ["stations", "blocks"], addRecipes: [] },
+      body: { addMaps: ["m1"], addTables: ["stations", "blocks"], addRecipes: [], expectedRevisions: { "map:m1": "map-shown" } },
     });
     expect(done).toMatchObject({ projectId: "berlin", datasetIds: ["stations", "blocks"], workflowIds: [] });
   });
@@ -176,7 +176,7 @@ describe("the project-first picker as an Editor", () => {
         <SignedIn account={bo}>
           <AddItemsDialog projectId="berlin" projectName="Berlin housing study"
             catalogue={{ status: "ready", value: {
-              maps: [{ id: "m1", name: "Stations map", projectId: null, layerCount: 2, owner: bo },
+              maps: [{ id: "m1", name: "Stations map", editRevision: "map-shown", projectId: null, layerCount: 2, owner: bo },
                 { id: "m2", name: "Rent map", projectId: "port", layerCount: 1, owner: ada }] as never,
               workflows: [], tables: [],
             } }}
@@ -219,19 +219,19 @@ describe("one's own work still filed in a project one no longer reaches", () => 
     await open({ kind: "dataset", id: "customers", name: "customers", projectIds: ["gone", "mine"] });
     expect(host.document.body.textContent).toContain("In a project you no longer reach.");
     await click(takeOut());
-    expect(patch()).toEqual([{ url: "/api/projects/gone/members", method: "PATCH", body: { removeTables: ["customers"] } }]);
+    expect(patch()).toEqual([{ url: "/api/projects/gone/members", method: "PATCH", body: { removeTables: ["customers"], expectedRevisions: {} } }]);
     expect(withdrawn).toEqual({ projectIds: ["gone"] });
     expect(done).toBeNull();
   });
 
   it("takes a map or a workflow out by its own kind", async () => {
-    await open({ kind: "map", id: "m1", name: "Stations map", projectId: "gone" });
+    await open({ kind: "map", id: "m1", name: "Stations map", editRevision: "map-shown", projectId: "gone" });
     await click(takeOut());
-    await open({ kind: "workflow", id: "w1", name: "Station catchments", projectId: "gone" });
+    await open({ kind: "workflow", id: "w1", name: "Station catchments", editRevision: "workflow-shown", projectId: "gone" });
     await click(takeOut());
     expect(patch().map((c) => [c.url, c.body])).toEqual([
-      ["/api/projects/gone/members", { removeMaps: ["m1"] }],
-      ["/api/projects/gone/members", { removeRecipes: ["w1"] }],
+      ["/api/projects/gone/members", { removeMaps: ["m1"], expectedRevisions: { "map:m1": "map-shown" } }],
+      ["/api/projects/gone/members", { removeRecipes: ["w1"], expectedRevisions: { "workflow:w1": "workflow-shown" } }],
     ]);
   });
 

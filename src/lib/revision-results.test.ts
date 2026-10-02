@@ -113,14 +113,14 @@ it("returns map revisions for sketch attachment and both cascade entry points", 
 });
 it("returns withdrawn filing revisions and omits documents lost on dissolution", async () => {
   const own = createMap(testAccountScope(db), "Own");
-  const project = await call("create_project", { name: "Project", members: { addMaps: [own.id] } });
+  const project = await call("create_project", { name: "Project", members: { addMaps: [own.id], expectedRevisions: { [`map:${own.id}`]: revision(own.id) } } });
   expect(project.revisions).toEqual([{ kind: "map", id: own.id, editRevision: revision(own.id) }]);
-  const removed = await call("update_project_members", { id: project.id, removeMaps: [own.id] });
+  const removed = await call("update_project_members", { id: project.id, removeMaps: [own.id], expectedRevisions: { [`map:${own.id}`]: revision(own.id) } });
   expect(removed).toMatchObject({ maps: [], revisions: [{ kind: "map", id: own.id, editRevision: revision(own.id) }] });
   const other = createMap(testAccountScope(db, "other"), "Other");
   db.prepare("INSERT INTO project_people VALUES (?, 'other', 'editor', 't')").run(project.id);
-  fileMap(testAccountScope(db, "other"), other.id, project.id as string, db);
-  await call("update_project_members", { id: project.id, addMaps: [own.id] });
+  fileMap(testAccountScope(db, "other"), other.id, project.id as string, db, { expectedRevision: readEditRevision({ kind: "map", id: other.id }, db)?.editRevision });
+  await call("update_project_members", { id: project.id, addMaps: [own.id], expectedRevisions: { [`map:${own.id}`]: revision(own.id) } });
   const dissolved = await call("delete_project", { id: project.id });
   expect(dissolved.revisions).toEqual([{ kind: "map", id: own.id, editRevision: revision(own.id) }]);
 });
@@ -131,7 +131,7 @@ it("omits the resulting revision when transfer ends the caller's reach", async (
   db.prepare("INSERT INTO project_people VALUES (?, ?, 'editor', 't')").run(project.id, owner.accountId);
   const map = createMap(owner, "Map", project.id);
   db.prepare("DELETE FROM project_people WHERE project_id = ? AND account_id = ?").run(project.id, owner.accountId);
-  const result = await call("transfer_map", { id: map.id, to: "other" });
+  const result = await call("transfer_map", { id: map.id, to: "other", expected_revision: revision(map.id) });
   expect(result).not.toHaveProperty("editRevision");
 });
 it("returns the accepted history state while later work lands during artifact cleanup", async () => {

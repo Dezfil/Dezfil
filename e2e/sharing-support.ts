@@ -68,7 +68,7 @@ export async function createMapWithLayer(person: Person, mapName: string, layers
 }
 
 export async function createProject(person: Person, name: string, members: { addMaps?: string[]; addRecipes?: string[]; addTables?: string[] } = {}): Promise<string> {
-  const response = await person.api.post("/api/projects", { data: { name, members } });
+  const response = await readThenCreateFiledProjectSetup(person, name, members);
   expect(response.status(), await response.text()).toBe(201);
   return (await response.json()).id;
 }
@@ -87,4 +87,17 @@ export async function expectAbsentAlike(api: APIRequestContext, hiddenUrl: strin
 
 export async function closeAll(people: (Person | undefined)[]): Promise<void> {
   for (const person of people) await person?.context.close();
+}
+
+/** API fixture setup: read the chosen documents before forming the filing. */
+async function readThenCreateFiledProjectSetup(person: Person, name: string, selection: { addMaps?: string[]; addRecipes?: string[]; addTables?: string[] }) {
+  const expectedRevisions: Record<string, string> = {};
+  for (const [kind, ids] of [["map", selection.addMaps], ["workflow", selection.addRecipes]] as const) {
+    for (const id of ids ?? []) {
+      const read = await person.api.get(`/api/${kind === "map" ? "maps" : "recipes"}/${id}`);
+      expect(read.status()).toBe(200);
+      expectedRevisions[`${kind}:${id}`] = captureBasis(await read.json()).editRevision;
+    }
+  }
+  return person.api.post("/api/projects", { data: { name, members: { ...selection, expectedRevisions } } });
 }

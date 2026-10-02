@@ -1,3 +1,4 @@
+import { readFilingRevisions } from "@/lib/test-support/edit-basis";
 import { getStep as readEditStep } from "@/lib/metadata/recipes";
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -74,7 +75,7 @@ it("pairs project entries and filing producers with each document's own revision
   const recipe = createRecipe(scope, "Workflow", db);
   const step = addStep(scope, recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 1", name: "out" } }, db, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id }, db)?.editRevision });
   recordOutput(step.id, { id: "output", name: "out" }, "time", db);
-  const project = createProject(scope, { name: "Project", members: { addMaps: [map.id], addRecipes: [recipe.id] } }, db);
+  const project = createProject(scope, { name: "Project", members: { ...{ addMaps: [map.id], addRecipes: [recipe.id] }, expectedRevisions: readFilingRevisions({ addMaps: [map.id], addRecipes: [recipe.id] }, db) } }, db);
   const mapRevision = readDocumentRevision({ kind: "map", id: map.id }, db)!.editRevision;
   const workflowRevision = readDocumentRevision({ kind: "workflow", id: recipe.id }, db)!.editRevision;
   const members = await projectMembers(scope, project.id);

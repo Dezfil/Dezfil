@@ -151,7 +151,7 @@ it("requires ownership at workflow services and rolls back mixed references", as
     expect(() => owned.removeStep(scope, id, undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: (readEditStep(id, undefined)?.recipeId ?? "missing") }, undefined)?.editRevision })).toThrow(expect.objectContaining({ status: 404 }));
     expect(() => owned.reorderSteps(scope, recipes.alice, [steps.alice, id], undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: recipes.alice }, undefined)?.editRevision })).toThrow(expect.objectContaining({ status: 404 }));
   }
-  for (const id of [projects.bob, "missing"]) expect(() => owned.fileRecipe(scope, recipes.alice, id)).toThrow(expect.objectContaining({ status: 404 }));
+  for (const id of [projects.bob, "missing"]) expect(() => owned.fileRecipe(scope, recipes.alice, id, undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: recipes.alice }, undefined)?.editRevision })).toThrow(expect.objectContaining({ status: 404 }));
   for (const id of [layers.bob, "missing"]) {
     expect(() => captureLayerSource(scope, id)).toThrow(expect.objectContaining({ status: 404 }));
     expect(() => owned.addStep(scope, recipes.alice, { operation: "sql_step", parameters: {}, origin: { layerId: id } }, undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: recipes.alice }, undefined)?.editRevision })).toThrow(expect.objectContaining({ status: 404 }));
