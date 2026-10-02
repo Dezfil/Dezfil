@@ -1,3 +1,4 @@
+import { revisionEnvelope } from "@/lib/metadata/document-results";
 import { resourceAbsent } from "@/lib/auth/owned-resource";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { requireWorkflowEdit } from "@/lib/workflow-access";
@@ -14,7 +15,7 @@ export async function GET(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id } = await params;
-    return NextResponse.json({ recipe: recipePayload(await readRecipe(scope, id)) });
+    return NextResponse.json(revisionEnvelope("recipe", recipePayload(await readRecipe(scope, id))));
   } catch (error) {
     return errorResponse(error);
   }
@@ -29,7 +30,7 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!renameRecipe(scope, id, recipeName(body))) {
       throw resourceAbsent();
     }
-    return NextResponse.json({ recipe: recipePayload(await readRecipe(scope, id)) });
+    return NextResponse.json(revisionEnvelope("recipe", recipePayload(await readRecipe(scope, id))));
   } catch (error) {
     return errorResponse(error);
   }

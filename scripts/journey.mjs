@@ -913,7 +913,7 @@ async function main() {
       fail("invalid cluster radius accepted", JSON.stringify(badCluster.json));
     for (const id of [probeId, flowId]) {
       const gone = await api("DELETE", `/api/layers/${id}`);
-      if (gone.status !== 204) fail("layer-types cleanup failed", String(gone.status));
+      if (gone.status !== 200) fail("layer-types cleanup failed", String(gone.status));
     }
     ok("layer types: flow CSV → arc/line O→D; icon glyph; cluster; bad configs refused");
   }
@@ -1486,7 +1486,7 @@ async function main() {
     if (again.json?.token !== token)
       fail("republish changed the token", JSON.stringify(again.json));
     const un = await api("DELETE", `/api/maps/${mapId}/publish`, { raw: true });
-    if (un.status !== 204) fail("unpublish failed", `status ${un.status}`);
+    if (un.status !== 200) fail("unpublish failed", `status ${un.status}`);
     const gone = await api("GET", `/api/published/${token}`);
     if (gone.status !== 404)
       fail("unpublished link still resolves", JSON.stringify(gone.json));
@@ -1628,7 +1628,7 @@ async function main() {
     // The cascade: owner layer + dataset + artifact leave together; the
     // other sketch, the tool output and history stay.
     const cascade = await api("DELETE", `/api/sketches/${sk1.table}`);
-    if (cascade.status !== 204) fail("the cascade was refused", JSON.stringify(cascade.json));
+    if (cascade.status !== 200) fail("the cascade was refused", JSON.stringify(cascade.json));
     const goneTable = await api("GET", `/api/tables/${sk1.table}`);
     if (goneTable.status !== 404)
       fail("the cascaded dataset still answers", JSON.stringify(goneTable.json));

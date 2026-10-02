@@ -7,3 +7,9 @@ export const DOCUMENT_FACT_PROPERTIES = {
 };
 export const DOCUMENT_FACT_SCHEMA = { type: "object", properties: DOCUMENT_FACT_PROPERTIES,
   required: ["editRevision", "lastChangedAt", "lastChangedBy"] };
+
+export const EDIT_REVISION_SCHEMA = { type: "object", properties: { editRevision: DOCUMENT_FACT_PROPERTIES.editRevision }, required: ["editRevision"] };
+export const DOCUMENT_RESULTS_SCHEMA = { type: "object", properties: {
+  revisions: { type: "array", description: "Resulting revisions for each affected surviving map or workflow the caller still reaches, including withdrawn filings. Empty when none remain reachable.",
+    items: { type: "object", properties: { kind: { type: "string", enum: ["map", "workflow"] }, id: { type: "string" }, editRevision: DOCUMENT_FACT_PROPERTIES.editRevision }, required: ["kind", "id", "editRevision"] } },
+}, required: ["revisions"] };

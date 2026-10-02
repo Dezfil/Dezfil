@@ -1,3 +1,4 @@
+import { documentFacts } from "@/lib/metadata/document-facts";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
@@ -195,7 +196,7 @@ it("each account can create, rename, refile and dissolve its own project", async
     expect(db.prepare("SELECT owner_id FROM projects WHERE id = ?").get(project.id)).toEqual({ owner_id: account });
     expect((await PATCH(input(account, "/api/projects", "PATCH", { name: "Renamed", note: "Personal" }), { params: Promise.resolve({ id: project.id }) })).status).toBe(200);
     const removed = await members(input(account, "/api/projects/members", "PATCH", { removeMaps: [maps[account]], removeRecipes: [recipes[account]], removeTables: [account] }), { params: Promise.resolve({ id: project.id }) });
-    expect(removed.status).toBe(200); expect(await removed.json()).toEqual({ maps: [], recipes: [], tables: [] });
+    expect(removed.status).toBe(200); expect(await removed.json()).toEqual({ maps: [], recipes: [], tables: [], revisions: [{ kind: "map" as const, id: maps[account] }, { kind: "workflow" as const, id: recipes[account] }].map(doc => ({ ...doc, editRevision: documentFacts(doc, db).editRevision })) });
     expect((await DELETE(input(account, "/api/projects", "DELETE"), { params: Promise.resolve({ id: project.id }) })).status).toBe(200);
     expect(db.prepare("SELECT owner_id FROM data_tables WHERE id = ?").get(account)).toEqual({ owner_id: account });
   }

@@ -37,6 +37,7 @@ export async function POST(request: Request, { params }: Params) {
     const created = await createSketch(scope, id, body.feature);
     return NextResponse.json(
       {
+        editRevision: created.editRevision,
         table: created.table.name,
         tableId: created.table.id,
         layerId: created.layerId,

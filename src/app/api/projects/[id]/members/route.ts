@@ -34,9 +34,9 @@ export async function PATCH(request: Request, { params }: Params) {
       throw new ApiError("invalid_request", "Expected a JSON body.", 400);
     }
     const change = memberChange(body);
-    changeMembers(scope, id, change);
-    return NextResponse.json(canReach(scope, "project", id)
-      ? await projectMembers(scope, id) : { maps: [], recipes: [], tables: [] });
+    const revisions = changeMembers(scope, id, change);
+    return NextResponse.json({ ...(canReach(scope, "project", id)
+      ? await projectMembers(scope, id) : { maps: [], recipes: [], tables: [] }), revisions });
   } catch (error) {
     return errorResponse(error);
   }

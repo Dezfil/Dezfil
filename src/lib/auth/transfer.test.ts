@@ -164,7 +164,7 @@ describe("transferring a map or a workflow", () => {
       const before = snapshot();
       const record = row(table, filed);
       const response = await call(route, "ada", filed, to("ed"), "token");
-      expect(response).toEqual({ status: 200, body: { id: filed, owner: { name: "ed", sqlName: sqlName("ed") } } });
+      expect(response).toEqual({ status: 200, body: { id: filed, editRevision: row(table, filed).edit_revision, owner: { name: "ed", sqlName: sqlName("ed") } } });
       expect(row(table, filed)).toEqual({ ...record, owner_id: "ed", edit_revision: expect.any(String), last_changed_at: expect.any(String), last_changed_by: "ada" });
       expect(row(table, filed).edit_revision).not.toBe(record.edit_revision);
       expect(row(table, filed).home_account_id).toBe("ada");

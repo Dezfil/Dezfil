@@ -1,3 +1,6 @@
+import { documentFacts } from "@/lib/metadata/document-facts";
+import { recordDocumentBatch } from "@/lib/metadata/revisions";
+import { revisionEnvelope } from "@/lib/metadata/document-results";
 import { requireStep } from "@/lib/metadata/owned-recipes";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { requireWorkflowEdit } from "@/lib/workflow-access";
@@ -38,7 +41,7 @@ export async function GET(_request: Request, { params }: Params) {
     const scope = requireRequestScope(_request);
     const { id, stepId } = await params;
     requireStep(scope, id, stepId);
-    return NextResponse.json({ step: stepPayload(await readStep(scope, id, stepId)) });
+    return NextResponse.json(revisionEnvelope("step", stepPayload(await readStep(scope, id, stepId))));
   } catch (error) {
     return errorResponse(error);
   }
@@ -118,7 +121,7 @@ export async function PATCH(request: Request, { params }: Params) {
       assertBackwardOnly(steps, { stepId: step.id, ordinal: step.ordinal, reads });
     }
     // Committed only if nothing moved under the checks.
-    const landed = db.transaction(() => {
+    const landed = recordDocumentBatch(scope, () => {
       if (stamp(listSteps(scope, id, db)) !== before) {
         throw new ApiError("invalid_request", "This workflow changed while the edit was being checked. Try again.", 409);
       }
@@ -128,9 +131,9 @@ export async function PATCH(request: Request, { params }: Params) {
       const applied = editStep(scope, stepId, parameters, db, origin);
       if (order) reorderSteps(scope, id, order, db);
       return applied;
-    })();
+    }, db);
     return NextResponse.json({
-      step: stepPayload(await readStep(scope, id, stepId)),
+      ...revisionEnvelope("step", stepPayload(await readStep(scope, id, stepId))),
       // "active" changed what the step means; "proposed" is waiting on a run.
       applied: landed,
     });
@@ -174,7 +177,10 @@ export async function DELETE(_request: Request, { params }: Params) {
     const readers = steps
       .filter((s) => s.id !== stepId && declared !== null && (reads.get(s.id) ?? []).includes(declared))
       .map((s) => ({ id: s.id, operation: s.operation, label: findOperation(s.operation).label }));
-    removeStep(scope, stepId);
+    const facts = metadataDb().transaction(() => {
+      removeStep(scope, stepId);
+      return documentFacts({ kind: "workflow", id });
+    })();
     const name = recorded !== null && visible === null ? null : step.outputTableName ?? (declared ? declared : null);
     const message = recorded !== null && visible === null
       ? "The step was removed."
@@ -187,6 +193,7 @@ export async function DELETE(_request: Request, { params }: Params) {
           : "The step was removed. It had not produced a dataset." +
             (readers.length && name ? ` ${readers.length === 1 ? "One node reads" : `${readers.length} nodes read`} "${name}", which nothing produces now.` : "");
     return NextResponse.json({
+      editRevision: facts.editRevision,
       removed: stepId,
       output: name ? { name, state } : null,
       readers,

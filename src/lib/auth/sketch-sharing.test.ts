@@ -146,17 +146,17 @@ describe("a sketch drawn on someone else's map", () => {
 
   it("leaves the drawer's dataset when someone else removes its layer, and goes with it when the drawer does", async () => {
     const first = (await draw("bob")).body as { tableId: string; layerId: string };
-    expect((await call("ada", route.layer, `/api/layers/${first.layerId}`, { id: first.layerId }, "DELETE")).status).toBe(204);
+    expect((await call("ada", route.layer, `/api/layers/${first.layerId}`, { id: first.layerId }, "DELETE")).status).toBe(200);
     expect(layerRow(first.layerId)).toBeUndefined();
     expect(tableRow(first.tableId)).toMatchObject({ owner_id: "bob" });
     // Its drawer can still delete it, the map untouched.
     const before = adasRows();
     const name = tableRow(first.tableId)!.name;
-    expect((await call("bob", route.sketch, `/api/sketches/${name}`, { name }, "DELETE")).status).toBe(204);
+    expect((await call("bob", route.sketch, `/api/sketches/${name}`, { name }, "DELETE")).status).toBe(200);
     expect(tableRow(first.tableId)).toBeUndefined();
     expect(adasRows()).toEqual(before);
     const second = (await draw("bob")).body as { tableId: string; layerId: string };
-    expect((await call("bob", route.layer, `/api/layers/${second.layerId}`, { id: second.layerId }, "DELETE")).status).toBe(204);
+    expect((await call("bob", route.layer, `/api/layers/${second.layerId}`, { id: second.layerId }, "DELETE")).status).toBe(200);
     expect(layerRow(second.layerId)).toBeUndefined();
     expect(tableRow(second.tableId)).toBeUndefined();
   });
@@ -166,7 +166,7 @@ describe("a sketch drawn on someone else's map", () => {
     updateMap(scopes.ada, map.id, { widgets: [{ id: "count", type: "formula", layerId, title: "Count", field: null,
       agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }] });
     const before = adasRows();
-    expect((await call("bob", route.sketch, `/api/sketches/${table}`, { name: table }, "DELETE")).status).toBe(204);
+    expect((await call("bob", route.sketch, `/api/sketches/${table}`, { name: table }, "DELETE")).status).toBe(200);
     expect(tableRow(tableId)).toBeUndefined();
     expect(adasRows()).toEqual(before);
     expect(await drawn("ada", layerId)).toMatchObject({ ok: false, error: { message: `The dataset "bob.${table}" is not available to you.` } });
@@ -177,7 +177,7 @@ describe("a sketch drawn on someone else's map", () => {
     const created = await call("ada", route.sketches, `/api/maps/${own.id}/sketches`, { id: own.id }, "POST", { feature: point });
     const { table, tableId, layerId } = created.body as { table: string; tableId: string; layerId: string };
     expect(layerRow(layerId)!.sql).toBe(`SELECT * FROM ${table}`);
-    expect((await call("ada", route.sketch, `/api/sketches/${table}`, { name: table }, "DELETE")).status).toBe(204);
+    expect((await call("ada", route.sketch, `/api/sketches/${table}`, { name: table }, "DELETE")).status).toBe(200);
     expect(tableRow(tableId)).toBeUndefined();
     expect(layerRow(layerId)).toBeUndefined();
   });

@@ -1,3 +1,4 @@
+import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
 import { recordDocumentChanges } from "@/lib/metadata/revisions";
 import { randomUUID } from "node:crypto";
 import { metadataDb } from "@/lib/metadata/db";
@@ -28,8 +29,8 @@ export async function removeLayer(
   scope: AccountScope,
   id: string,
   opts: { groupId?: string | null } = {},
-): Promise<void> {
-  metadataDb().transaction(() => {
+): Promise<DocumentFacts> {
+  const facts = metadataDb().transaction(() => {
     const layer = requireLayerFor(scope, id, "edit");
     const map = getMap(layer.mapId);
     const widgets = map?.widgets ?? [];
@@ -80,6 +81,8 @@ export async function removeLayer(
       after: null,
       groupId,
     }, metadataDb(), scope);
+    return documentFacts({ kind: "map", id: layer.mapId });
   })();
   await removeTileArtifacts(id);
+  return facts;
 }

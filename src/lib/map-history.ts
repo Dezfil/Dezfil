@@ -26,18 +26,23 @@ export interface MapHistoryAvailability extends HistoryAvailability, DocumentFac
   redoTarget: HistoryTarget | null;
 }
 
-export async function mapHistory(scope: AccountScope, id: string): Promise<MapHistoryAvailability> {
-  const snapshot = metadataDb().transaction(() => ({
+function captureHistory(scope: AccountScope, id: string) {
+  return metadataDb().transaction(() => ({
     map: requireMap(scope, id), layers: listLayers(id),
     facts: documentFacts({ kind: "map", id }),
     undo: undoSteps(id), redo: redoSteps(id), availability: historyAvailability(id),
   }))();
+}
+async function presentHistory(scope: AccountScope, id: string, snapshot: ReturnType<typeof captureHistory>): Promise<MapHistoryAvailability> {
   const [undoTarget, redoTarget] = await Promise.all([
     historyTarget(scope, snapshot.map, snapshot.layers, snapshot.undo, "undo"),
     historyTarget(scope, snapshot.map, snapshot.layers, snapshot.redo, "redo"),
   ]);
   requireMap(scope, id);
   return { ...snapshot.availability, ...snapshot.facts, undoTarget, redoTarget };
+}
+export async function mapHistory(scope: AccountScope, id: string): Promise<MapHistoryAvailability> {
+  return presentHistory(scope, id, captureHistory(scope, id));
 }
 
 /**
@@ -121,7 +126,7 @@ async function applyHistory(
 ): Promise<MapWithHistory> {
   const removedLayers: string[] = [];
   const admitted = await admitReplay(scope, id, direction);
-  metadataDb().transaction(() => {
+  const accepted = metadataDb().transaction(() => {
     // Undo and redo are content changes; one that would put back or take
     // away a publication setting is the owner's alone, refused whole.
     const map = requireMapFor(scope, id, "edit");
@@ -145,9 +150,10 @@ async function applyHistory(
     const last = steps[steps.length - 1];
     setHistoryCursor(id, direction === "undo" ? last.seq - 1 : last.seq);
     recordDocumentChanges(scope, [{ kind: "map", id }]);
+    return { map: mapWithLayersFor(scope, id, "edit"), history: captureHistory(scope, id) };
   })();
   await Promise.all(removedLayers.map((lid) => removeTileArtifacts(lid)));
-  return { ...mapWithLayersFor(scope, id, "edit"), history: await mapHistory(scope, id) };
+  return { ...accepted.map, history: await presentHistory(scope, id, accepted.history) };
 }
 
 /** Revert the newest step — or the whole group an assistant turn wrote. */

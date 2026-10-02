@@ -1,3 +1,4 @@
+import { documentFacts } from "@/lib/metadata/document-facts";
 import { recordDocumentChanges } from "@/lib/metadata/revisions";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
 import { getLayer, getMap } from "@/lib/metadata/map-queries";
@@ -148,6 +149,7 @@ export interface CreatedSketch {
   table: DataTable;
   layerId: string;
   layerName: string;
+  editRevision: string;
   featureId: string;
 }
 
@@ -261,6 +263,7 @@ export async function createSketch(
         table: { ...table, sourceParams: params },
         layerId: layer.id,
         layerName: layer.name,
+        editRevision: documentFacts({ kind: "map", id: mapId }, db).editRevision,
       };
     })();
     return { ...created, featureId: stored.id };
@@ -449,6 +452,7 @@ function ownsMap(scope: AccountScope, mapId: string, db = metadataDb()): boolean
 }
 
 export interface CascadeResult {
+  editRevision?: string;
   layerId: string | null;
   mapId: string | null;
 }
@@ -483,7 +487,7 @@ export async function cascadeDeleteSketch(scope: AccountScope, name: string, fro
     // state. Snapshot before the registry row disappears.
     const dependents = ownedDependentLayerIds(scope, fresh.name);
     const db = metadataDb();
-    const { mapId, layerId } = db.transaction(() => {
+    const { mapId, layerId, editRevision } = db.transaction(() => {
       requireOwnedResource(scope, "dataset", fresh.id, db);
       let { mapId, layerId } = recorded;
       if (mapId && layerId) {
@@ -525,7 +529,7 @@ export async function cascadeDeleteSketch(scope: AccountScope, name: string, fro
       // project's clock.
       touchProjectsOf({ tableId: fresh.id }, db);
       deleteOwnedTable(scope, fresh, db);
-      return { mapId, layerId };
+      return { mapId, layerId, ...(mapId ? { editRevision: documentFacts({ kind: "map", id: mapId }, db).editRevision } : {}) };
     })();
     for (const dependent of new Set([...(layerId ? [layerId] : []), ...dependents]))
       await removeTileArtifacts(dependent);
@@ -537,6 +541,6 @@ export async function cascadeDeleteSketch(scope: AccountScope, name: string, fro
       );
     });
     retireArtifact(absOf(fresh.file));
-    return { layerId, mapId };
+    return { layerId, mapId, ...(editRevision ? { editRevision } : {}) };
   });
 }

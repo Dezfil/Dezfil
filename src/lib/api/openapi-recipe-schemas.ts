@@ -1,4 +1,4 @@
-import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA } from "./openapi-document-facts";
+import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA, EDIT_REVISION_SCHEMA } from "./openapi-document-facts";
 export const RECIPE_DEPENDENCY_SCHEMAS = {
   WorkflowDependencies: {
     type: "object",
@@ -40,6 +40,7 @@ export const RECIPE_SCHEMAS = {
     },
   },
   RecipeStep: {
+    allOf: [DOCUMENT_FACT_SCHEMA],
     type: "object",
     properties: {
       ...DOCUMENT_FACT_PROPERTIES,
@@ -183,6 +184,7 @@ export const RECIPE_SCHEMAS = {
     },
   },
   Recipe: {
+    allOf: [DOCUMENT_FACT_SCHEMA],
     type: "object",
     properties: {
       ...DOCUMENT_FACT_PROPERTIES,
@@ -278,6 +280,7 @@ export const RECIPE_SCHEMAS = {
     },
   },
   RecipeEnvelope: {
+    allOf: [EDIT_REVISION_SCHEMA],
     type: "object",
     properties: { recipe: { $ref: "#/components/schemas/Recipe" } },
   },
@@ -291,10 +294,12 @@ export const RECIPE_SCHEMAS = {
     },
   },
   RecipeStepEnvelope: {
+    allOf: [EDIT_REVISION_SCHEMA],
     type: "object",
     properties: { step: { $ref: "#/components/schemas/RecipeStep" } },
   },
   RecipeStepEdited: {
+    allOf: [EDIT_REVISION_SCHEMA],
     type: "object",
     properties: {
       step: { $ref: "#/components/schemas/RecipeStep" },
@@ -308,6 +313,7 @@ export const RECIPE_SCHEMAS = {
     },
   },
   RecipeStepRemoved: {
+    allOf: [EDIT_REVISION_SCHEMA],
     type: "object",
     properties: {
       removed: { type: "string" },
@@ -342,6 +348,7 @@ export const RECIPE_SCHEMAS = {
     },
   },
   RecipeStepDiscarded: {
+    allOf: [EDIT_REVISION_SCHEMA],
     type: "object",
     properties: {
       step: { $ref: "#/components/schemas/RecipeStep" },
@@ -432,6 +439,7 @@ export const RECIPE_SCHEMAS = {
     ],
   },
   RecipeLayoutEnvelope: {
+    allOf: [EDIT_REVISION_SCHEMA],
     type: "object",
     properties: { layout: { $ref: "#/components/schemas/RecipeLayout" } },
   },

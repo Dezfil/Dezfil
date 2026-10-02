@@ -1,4 +1,4 @@
-import { DOCUMENT_FACT_PROPERTIES } from "./openapi-document-facts";
+import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_RESULTS_SCHEMA } from "./openapi-document-facts";
 import { resultAccess } from "./openapi-result-access";
 import { projectAccess } from "./openapi-project-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
@@ -73,7 +73,7 @@ export const PROJECT_PATHS = {
         },
       },
       responses: {
-        "201": jsonOk("#/components/schemas/Project", "Created."),
+        "201": jsonOk("#/components/schemas/ProjectCreated", "Created."),
       },
     })),
   },
@@ -138,6 +138,7 @@ export const PROJECT_PATHS = {
             "application/json": {
               schema: {
                 type: "object",
+                allOf: [DOCUMENT_RESULTS_SCHEMA],
                 properties: {
                   deleted: { type: "boolean" },
                   contentsRemain: { type: "boolean" },
@@ -198,7 +199,7 @@ export const PROJECT_PATHS = {
           },
         },
       },
-      responses: { "200": jsonOk("#/components/schemas/ProjectMembers") },
+      responses: { "200": jsonOk("#/components/schemas/ProjectMembersChanged") },
     })),
   },
   "/api/projects/{id}/export": {
@@ -498,6 +499,8 @@ export const PROJECT_SCHEMAS = {
     type: "array",
     items: { $ref: "#/components/schemas/Project" },
   },
+  ProjectCreated: { allOf: [{ $ref: "#/components/schemas/Project" }, DOCUMENT_RESULTS_SCHEMA] },
+  ProjectMembersChanged: { allOf: [{ $ref: "#/components/schemas/ProjectMembers" }, DOCUMENT_RESULTS_SCHEMA] },
   ProjectMembers: {
     type: "object",
     description:
@@ -506,7 +509,8 @@ export const PROJECT_SCHEMAS = {
     properties: {
       maps: { $ref: "#/components/schemas/MapList" },
       recipes: {
-        $ref: "#/components/schemas/RecipeList",
+        type: "array",
+        items: { $ref: "#/components/schemas/Recipe" },
         description:
           "The project's workflow-origin recipes; the field name stays " +
           "`recipes` for wire compatibility.",

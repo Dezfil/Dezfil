@@ -1,3 +1,4 @@
+import { revisionEnvelope } from "@/lib/metadata/document-results";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
@@ -19,7 +20,7 @@ export async function POST(_request: Request, { params }: Params) {
     // Anyone who reaches the workflow may duplicate it into their own space.
     const copy = await duplicateRecipe(scope, id);
     return NextResponse.json(
-      { recipe: recipePayload(await readRecipe(scope, copy.id)) },
+      revisionEnvelope("recipe", recipePayload(await readRecipe(scope, copy.id))),
       { status: 201, headers: { Location: `/api/recipes/${copy.id}` } },
     );
   } catch (error) {

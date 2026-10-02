@@ -1,3 +1,4 @@
+import { revisionEnvelope } from "@/lib/metadata/document-results";
 import { resourceAbsent } from "@/lib/auth/owned-resource";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { requireWorkflowEdit } from "@/lib/workflow-access";
@@ -27,7 +28,7 @@ export async function DELETE(_request: Request, { params }: Params) {
     const discarded = step.proposedParameters !== null;
     if (discarded) discardProposal(scope, stepId);
     return NextResponse.json({
-      step: stepPayload(await readStep(scope, id, stepId)),
+      ...revisionEnvelope("step", stepPayload(await readStep(scope, id, stepId))),
       discarded,
     });
   } catch (error) {

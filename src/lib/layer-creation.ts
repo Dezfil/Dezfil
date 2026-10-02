@@ -1,3 +1,4 @@
+import { documentFacts } from "./metadata/document-facts";
 import { recordDocumentChanges } from "@/lib/metadata/revisions";
 import { randomUUID } from "node:crypto";
 import type { AccountScope } from "@/lib/auth/scope";
@@ -72,7 +73,7 @@ export async function createLayer(
     createdAt: now,
     updatedAt: now,
   };
-  metadataDb().transaction(() => {
+  return metadataDb().transaction(() => {
     const arrangement = requireMapFor(scope, mapId, "edit").legendOrder;
     recheckSaved(scope, saved);
     layer.ordinal = nextOrdinal(mapId);
@@ -91,8 +92,8 @@ export async function createLayer(
       groupId,
     }, metadataDb(), scope);
     if (arrangement) enterArrangement(scope, mapId, layer.id, arrangement, groupId);
+    return { ...layer, ...documentFacts({ kind: "map", id: mapId }) };
   })();
-  return layer;
 }
 
 /** Duplicate a layer in place: full copy — SQL, style, tooltip, legend flag —
@@ -130,6 +131,6 @@ export function duplicateLayer(
     }, metadataDb(), scope);
     if (arrangement)
       enterArrangement(scope, source.mapId, copy.id, arrangement, groupId);
-    return copy;
+    return { ...copy, ...documentFacts({ kind: "map", id: source.mapId }) };
   })();
 }

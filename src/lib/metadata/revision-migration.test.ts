@@ -6,7 +6,7 @@ import { MIGRATIONS, open } from "./db";
 import { allocateSqlNames, type SqlNameIdentity } from "./sql-names";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { getMap, updateMapFields } from "./maps";
-import { createRecipe, getRecipe } from "./recipes";
+import { getRecipe } from "./recipes";
 import { createCascade } from "./cascades";
 
 const ENTRY = 45;
@@ -138,12 +138,14 @@ describe("document revision migration", () => {
 
   it("allows pre-revision readers and writers to omit every new field", () => {
     reopen();
-    // These repositories still use the pre-revision field lists. Inserts,
-    // updates and existing SELECT * hydrators must accept the additive schema.
+    // Use the old insert's explicit columns: current creation now records
+    // its actor. Older writers and SELECT * hydrators remain compatible.
     expect(getMap("map", db)?.name).toBe("Survey");
     updateMapFields("map", { name: "Edited by an older writer" }, db);
     expect(getMap("map", db)?.name).toBe("Edited by an older writer");
-    const recipe = createRecipe(testAccountScope(db, "ada"), "Older writer", db);
+    const recipe = { id: "older-recipe" };
+    db.prepare("INSERT INTO recipes (id, name, origin, owner_id, home_account_id, created_at, updated_at) VALUES (?, ?, 'workflow', 'ada', 'ada', ?, ?)")
+      .run(recipe.id, "Older writer", time, time);
     expect(getRecipe(recipe.id, db)?.name).toBe("Older writer");
     const created = db.prepare("SELECT edit_revision, executable_revision, last_changed_by FROM recipes WHERE id = ?").get(recipe.id);
     expect(created).toEqual({ edit_revision: expect.stringMatching(token),

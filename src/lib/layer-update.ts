@@ -1,3 +1,4 @@
+import { documentFacts } from "./metadata/document-facts";
 import { recordDocumentChanges } from "@/lib/metadata/revisions";
 import { mapEvaluation, type DatasetScope } from "@/lib/query/access";
 import type { AccountScope } from "@/lib/auth/scope";
@@ -312,6 +313,7 @@ export async function deriveAndCommitUpdate(
         groupId: opts.groupId,
       }, metadataDb(), scope);
     }
+    fresh = Object.assign(fresh, documentFacts({ kind: "map", id: layer.mapId }));
     committed = true;
   })();
   return committed ? fresh : null;

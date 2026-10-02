@@ -1,3 +1,4 @@
+import { revisionEnvelope } from "@/lib/metadata/document-results";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { requireWorkflowEdit } from "@/lib/workflow-access";
 import { NextResponse } from "next/server";
@@ -109,7 +110,7 @@ export async function POST(request: Request, { params }: Params) {
       return added;
     })();
     return NextResponse.json(
-      { step: stepPayload(await readStep(scope, id, step.id)) },
+      revisionEnvelope("step", stepPayload(await readStep(scope, id, step.id))),
       {
         status: 201,
         headers: { Location: `/api/recipes/${id}/steps/${step.id}` },

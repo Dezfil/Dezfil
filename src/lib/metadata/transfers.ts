@@ -1,7 +1,8 @@
+import { documentFacts } from "./document-facts";
 import { recordDocumentChanges } from "./revisions";
 import type { Database } from "better-sqlite3";
 import { ApiError } from "@/lib/api/errors";
-import { requirePermitted } from "@/lib/auth/reach";
+import { canReach, requirePermitted } from "@/lib/auth/reach";
 import type { AccountScope } from "@/lib/auth/scope";
 import { accountLabels, type AccountLabel } from "./accounts";
 import { metadataDb } from "./db";
@@ -24,6 +25,7 @@ import { throughTransferGate } from "./ownership-transfer";
 
 export interface TransferResult {
   id: string;
+  editRevision?: string;
   /** The new owner. */
   owner: AccountLabel;
 }
@@ -83,7 +85,9 @@ function transferFiled(kind: keyof typeof FILED, scope: AccountScope, id: string
       db.prepare(`UPDATE ${table} SET owner_id = ? WHERE id = ?`).run(recipient.id, resource.parentId);
     });
     recordDocumentChanges(scope, [{ kind, id: resource.parentId }], db);
-    return result(resource.parentId, recipient.id, db);
+    return { ...result(resource.parentId, recipient.id, db),
+      ...(canReach(scope, kind, resource.parentId, db)
+        ? { editRevision: documentFacts({ kind, id: resource.parentId }, db).editRevision } : {}) };
   }).immediate();
 }
 

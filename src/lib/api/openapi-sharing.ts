@@ -1,3 +1,4 @@
+import { DOCUMENT_FACT_PROPERTIES } from "./openapi-document-facts";
 import { projectAccess } from "./openapi-project-access";
 import { mapAccess } from "./openapi-map-access";
 import { workflowAccess } from "./openapi-workflow-access";
@@ -170,7 +171,7 @@ const TRANSFER_PATHS = {
         subject: { path: "/api/maps/{id}", argument: "id", name: "name" } },
       parameters: [pathParam("id", "Map id.")],
       requestBody: transferBody,
-      responses: TRANSFERRED,
+      responses: { ...TRANSFERRED, "200": jsonOk("#/components/schemas/DocumentTransfer") },
     })),
   },
   "/api/recipes/{id}/transfer": {
@@ -189,7 +190,7 @@ const TRANSFER_PATHS = {
         subject: { path: "/api/recipes/{id}", argument: "id", name: "recipe.name" } },
       parameters: [pathParam("id", "Workflow id.")],
       requestBody: transferBody,
-      responses: TRANSFERRED,
+      responses: { ...TRANSFERRED, "200": jsonOk("#/components/schemas/DocumentTransfer") },
     })),
   },
 };
@@ -261,6 +262,8 @@ export const SHARING_SCHEMAS = {
     },
     required: ["accounts"],
   },
+  DocumentTransfer: { allOf: [{ $ref: "#/components/schemas/Transfer" }], type: "object",
+    properties: { editRevision: { ...DOCUMENT_FACT_PROPERTIES.editRevision, description: "Resulting revision, present only while the caller still reaches the transferred document." } } },
   Transfer: {
     type: "object",
     description: "A completed transfer: the resource's identity and its new owner.",

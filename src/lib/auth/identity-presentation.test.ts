@@ -1,3 +1,4 @@
+import { documentFacts } from "@/lib/metadata/document-facts";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -83,7 +84,7 @@ describe("dependencies by identity", () => {
 
   it("names each runner's output with its producing workflow, which only its owner may file", async () => {
     await run("ada"); await run("bob");
-    const W = { id: ids.W, name: "Staging" };
+    const W = { id: ids.W, name: "Staging", ...documentFacts({ kind: "workflow", id: ids.W }) };
     expect(facts(await workflowDependencies(scopes.bob, ids.W))).toEqual([
       { id: tables["ada.roads"].id, qualifiedName: "ada.roads", owned: false, producer: null },
       { id: staged("ada"), qualifiedName: "ada.staged", owned: false, producer: { ...W, owned: false } },

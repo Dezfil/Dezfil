@@ -1,4 +1,4 @@
-import { DOCUMENT_FACT_PROPERTIES } from "./openapi-document-facts";
+import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA } from "./openapi-document-facts";
 import { SQL_QUERY } from "./openapi-sql";
 import { CARRY_RULE, WRITTEN_IN_REF } from "./openapi-written-in";
 import { resultAccess } from "./openapi-result-access";
@@ -98,7 +98,7 @@ export const LAYER_RESOURCE_PATHS = {
       confirmation: {"target": "Delete {target}?", "consequence": "This removes the layer and its bound widgets. Your own sketch layer also deletes its sketch dataset.", "subject": {"path": "/api/layers/{id}", "argument": "id", "name": "name"}},
       confirm: true,
       parameters: [pathParam("id", "Layer id."), changeGroupParam],
-      responses: { "204": { description: "Deleted." } },
+      responses: { "200": jsonOk("#/components/schemas/EditRevisionResult", "Deleted. The surviving map revision.") },
     })),
   },
   "/api/layers/{id}/duplicate": {
@@ -468,6 +468,7 @@ export const LAYER_QUERY_PATHS = {
 
 export const LAYER_SCHEMAS = {
   Layer: {
+    allOf: [DOCUMENT_FACT_SCHEMA],
     type: "object",
     properties: {
       ...DOCUMENT_FACT_PROPERTIES,

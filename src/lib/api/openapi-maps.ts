@@ -1,4 +1,4 @@
-import { DOCUMENT_FACT_PROPERTIES } from "./openapi-document-facts";
+import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA } from "./openapi-document-facts";
 import { FILING_DESTINATION } from "./openapi-project-access";
 import { resultAccess } from "./openapi-result-access";
 import { mapChildren } from "./openapi-map-children";
@@ -577,7 +577,7 @@ export const MAP_PUBLISH_PATHS = {
       confirmation: {"target": "Unpublish {target}?", "consequence": "Its published link will stop working.", "subject": {"path": "/api/maps/{id}", "argument": "id", "name": "name"}},
       confirm: true,
       parameters: [pathParam("id", "Map id.")],
-      responses: { "204": { description: "Unpublished." } },
+      responses: { "200": jsonOk("#/components/schemas/EditRevisionResult", "Unpublished. The surviving map revision.") },
     })),
   },
   "/api/maps/{id}/published-fields": {
@@ -674,6 +674,7 @@ export const MAP_SCHEMAS = {
     ],
   },
   Map: {
+    allOf: [DOCUMENT_FACT_SCHEMA],
     type: "object",
     properties: {
       ...DOCUMENT_FACT_PROPERTIES,

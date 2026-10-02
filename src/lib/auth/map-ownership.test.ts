@@ -132,7 +132,7 @@ it.each(["session", "token"])("preserves each %s owner's read, edit, duplicate, 
     expect(copied.layers).toHaveLength(1);
     expect(copied.layers[0].id).not.toBe(`layer-${account}`);
     expect(db.prepare("SELECT owner_id FROM maps WHERE id = ?").get(copied.id)).toEqual({ owner_id: account });
-    expect((await publication.DELETE(input(account, `/api/maps/${id}/publish`, "DELETE", undefined, kind), context)).status).toBe(204);
+    expect((await publication.DELETE(input(account, `/api/maps/${id}/publish`, "DELETE", undefined, kind), context)).status).toBe(200);
     const published = await publication.POST(input(account, `/api/maps/${id}/publish`, "POST", { theme: "light" }, kind), context);
     expect(published.status).toBe(201);
     expect((await published.json()).token).not.toBe(`token-${account}`);
@@ -177,14 +177,14 @@ it("requires explicit service scopes and refuses hidden map identities before an
     const invalid = scope as Scope;
     for (const action of [...actions(invalid, ids.alice), () => service.allMaps(invalid),
       () => service.mapsOverview(invalid), () => listOwnedMaps(invalid, db)]) {
-      await expect(Promise.resolve().then(action)).rejects.toMatchObject({ code: "authentication_required", status: 401 });
+      await expect(Promise.resolve().then<unknown>(action)).rejects.toMatchObject({ code: "authentication_required", status: 401 });
     }
   }
   for (const account of accounts) {
     const scope = testAccountScope(db, account);
     for (const other of accounts.filter(id => id !== account)) {
       for (const action of actions(scope, ids[other])) {
-        await expect(Promise.resolve().then(action)).rejects.toMatchObject({ code: "not_found", status: 404 });
+        await expect(Promise.resolve().then<unknown>(action)).rejects.toMatchObject({ code: "not_found", status: 404 });
       }
     }
   }

@@ -113,7 +113,7 @@ it("preserves each owner's layer create, read, edit, duplicate and delete loop",
     expect((await GET(input(account, `/api/layers/${layer.id}`), context(layer.id))).status).toBe(200);
     expect((await PATCH(input(account, `/api/layers/${layer.id}`, "PATCH", { name: "Edited" }), context(layer.id))).status).toBe(200);
     expect((await duplicate(input(account, `/api/layers/${layer.id}/duplicate`, "POST", {}), context(layer.id))).status).toBe(201);
-    expect((await DELETE(input(account, `/api/layers/${layer.id}`, "DELETE"), context(layer.id))).status).toBe(204);
+    expect((await DELETE(input(account, `/api/layers/${layer.id}`, "DELETE"), context(layer.id))).status).toBe(200);
   }
 });
 it("requires explicit service scopes and refuses hidden identities before work", async () => {

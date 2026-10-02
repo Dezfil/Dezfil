@@ -1,4 +1,4 @@
-import { DOCUMENT_FACT_PROPERTIES } from "./openapi-document-facts";
+import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA } from "./openapi-document-facts";
 import { mapChildren } from "./openapi-map-children";
 import { mapAccess } from "./openapi-map-access";
 import { authenticatedOp } from "./openapi-authenticated";
@@ -137,6 +137,7 @@ export const HISTORY_SCHEMAS = {
           }, required: ["eligible", "reason", "steps"],
         },
         History: {
+    allOf: [DOCUMENT_FACT_SCHEMA],
           type: "object",
           description:
             "Undo/redo availability on the map's timeline.",

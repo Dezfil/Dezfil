@@ -1,3 +1,4 @@
+import { documentFacts } from "@/lib/metadata/document-facts";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -102,7 +103,7 @@ describe("a removed member's own work filed in the project", () => {
   it("is withdrawn by the identity her reads report, which ends the reach it gave others", async () => {
     const answer = await call("ada", route.members, "/api/projects/B/members", "PATCH", { id: "B" },
       { removeTables: [customers.id], removeMaps: [mapId], removeRecipes: [workflowId] });
-    expect(answer).toEqual({ status: 200, body: { maps: [], recipes: [], tables: [] } });
+    expect(answer).toEqual({ status: 200, body: { maps: [], recipes: [], tables: [], revisions: [{ kind: "map" as const, id: mapId }, { kind: "workflow" as const, id: workflowId }].map(doc => ({ ...doc, editRevision: documentFacts(doc).editRevision })) } });
     expect(find(await rows("ada", route.tables, "/api/tables"), customers.id)?.projectIds).toEqual(["Q"]);
     expect(find(await rows("ada", route.maps, "/api/maps?project=none"), mapId)?.projectId).toBeNull();
     expect(find(await rows("ada", route.recipes, "/api/recipes?origin=workflow&project=none"), workflowId)?.projectId).toBeNull();

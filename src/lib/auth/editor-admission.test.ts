@@ -171,7 +171,7 @@ describe("undo and redo by someone other than the map's owner", () => {
 
   it("refuses putting back a removed layer whose SQL the editor cannot evaluate", async () => {
     const layer = await createLayer(scopes.ada, map.id, { name: "Hidden", sql: "SELECT * FROM secret" });
-    expect((await call("bob", route.layer, `/api/layers/${layer.id}`, { id: layer.id }, "DELETE")).status).toBe(204);
+    expect((await call("bob", route.layer, `/api/layers/${layer.id}`, { id: layer.id }, "DELETE")).status).toBe(200);
     await refused(() => call("bob", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST"), "secret");
   });
 

@@ -1,4 +1,4 @@
-import { DOCUMENT_FACT_PROPERTIES } from "./openapi-document-facts";
+import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA, EDIT_REVISION_SCHEMA } from "./openapi-document-facts";
 import { SQL_POLICY, SQL_QUERY } from "./openapi-sql";
 import { PUBLICATION_ADMIN_PATHS, publicationAccess } from "./openapi-publications";
 import { resultAccess } from "./openapi-result-access";
@@ -2584,7 +2584,9 @@ export function buildOpenApiDocument() {
             },
           },
         },
+        EditRevisionResult: EDIT_REVISION_SCHEMA,
         PublishState: {
+          allOf: [DOCUMENT_FACT_SCHEMA],
           type: "object",
           properties: {
             token: { type: "string" },

@@ -1,3 +1,4 @@
+import { revisionEnvelope } from "@/lib/metadata/document-results";
 import { recordDocumentBatch } from "@/lib/metadata/revisions";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { requireFilingDestination } from "@/lib/auth/reach";
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
       return created;
     });
     return NextResponse.json(
-      { recipe: recipePayload(await readRecipe(scope, recipe.id)) },
+      revisionEnvelope("recipe", recipePayload(await readRecipe(scope, recipe.id))),
       { status: 201, headers: { Location: `/api/recipes/${recipe.id}` } },
     );
   } catch (error) {

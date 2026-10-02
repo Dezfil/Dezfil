@@ -281,7 +281,7 @@ export async function validateMapWriteRefs(
   }
 }
 
-export function createMap(scope: AccountScope, name: string, projectId: string | null = null): MapRecord {
+export function createMap(scope: AccountScope, name: string, projectId: string | null = null): MapRecord & DocumentFacts {
   requireAccountScope(scope);
   if (projectId) requireFilingDestination(scope, projectId);
   const now = new Date().toISOString();
@@ -304,12 +304,14 @@ export function createMap(scope: AccountScope, name: string, projectId: string |
     createdAt: now,
     updatedAt: now,
   };
+  return metadataDb().transaction(() => {
   recordDocumentBatch(scope, () => {
     if (projectId) requireFilingDestination(scope, projectId);
     insertMap(scope, map);
     if (projectId) fileMap(scope, map.id, projectId);
   });
-  return map;
+  return { ...map, ...documentFacts({ kind: "map", id: map.id }) };
+  })();
 }
 
 /** Every map the acting account reaches. */

@@ -1,3 +1,4 @@
+import { documentFacts } from "@/lib/metadata/document-facts";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
@@ -137,7 +138,7 @@ describe("removing from a project", () => {
 
   it("lets an owner withdraw their own resource from a project they no longer belong to", async () => {
     db.prepare("DELETE FROM project_people WHERE account_id = 'ada'").run();
-    expect(await file("ada", { removeMaps: ["M"] })).toEqual({ status: 200, body: { maps: [], recipes: [], tables: [] } });
+    expect(await file("ada", { removeMaps: ["M"] })).toEqual({ status: 200, body: { maps: [], recipes: [], tables: [], revisions: [{ kind: "map" as const, id: "M" }].map(doc => ({ ...doc, editRevision: documentFacts(doc, db).editRevision })) } });
     expect(projectOf("maps", "M")).toBeNull();
     // Anything else from outside the project is as if the project did not exist.
     await refused("ada", { removeRecipes: ["W"], addMaps: ["M"] }, "absent");

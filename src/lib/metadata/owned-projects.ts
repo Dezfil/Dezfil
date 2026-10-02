@@ -1,3 +1,4 @@
+import { documentResults } from "./document-results";
 import { recordFiling, filedDocuments, memberDocuments } from "./filing-recording";
 import type { Database } from "better-sqlite3";
 import { randomUUID } from "node:crypto";
@@ -142,6 +143,7 @@ export function changeMembers(scope: AccountScope, id: string, change: projects.
   return db.transaction(() => {
     checkMembers(scope, id, change, db);
     recordFiling(scope, memberDocuments(change), () => projects.changeMembers(id, change, db), db);
+    return documentResults(scope, memberDocuments(change), db);
   })();
 }
 /** File a map into a project, or out of the one it is in (null). */

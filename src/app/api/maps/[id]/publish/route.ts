@@ -47,8 +47,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id } = await params;
-    unpublishMap(scope, id);
-    return new NextResponse(null, { status: 204 });
+    return NextResponse.json(unpublishMap(scope, id));
   } catch (error) {
     return errorResponse(error);
   }

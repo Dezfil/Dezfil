@@ -15,8 +15,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { name } = await params;
-    await cascadeDeleteSketch(scope, name);
-    return new NextResponse(null, { status: 204 });
+    return NextResponse.json(await cascadeDeleteSketch(scope, name));
   } catch (error) {
     return errorResponse(error);
   }

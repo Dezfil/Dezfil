@@ -72,7 +72,7 @@ export function publishMap(
   scope: AccountScope,
   id: string,
   settings: PublishSettings = {},
-): PublishState {
+): PublishState & DocumentFacts {
   return metadataDb().transaction(() => {
     const map = requirePublishedMapOwner(scope, id);
     const { theme, viewerControls } = settings;
@@ -84,7 +84,7 @@ export function publishMap(
         setViewerControls(id, normalizeViewerControls(viewerControls));
       }
       if (changed) recordDocumentChanges(scope, [{ kind: "map", id }]);
-      return { token: map.publishToken, publishedAt: map.publishedAt };
+      return { token: map.publishToken, publishedAt: map.publishedAt, ...documentFacts({ kind: "map", id }) };
     }
     const token = generateToken();
     const publishedAt = new Date().toISOString();
@@ -98,14 +98,14 @@ export function publishMap(
       viewerControls ? normalizeViewerControls(viewerControls) : null,
     );
     recordDocumentChanges(scope, [{ kind: "map", id }]);
-    return { token, publishedAt };
+    return { token, publishedAt, ...documentFacts({ kind: "map", id }) };
   })();
 }
 
 /** Unpublish: the link stops resolving immediately; a later republish mints a
  * fresh, unrelated token (spec: rotation is the revocation story). */
-export function unpublishMap(scope: AccountScope, id: string): void {
-  const token = metadataDb().transaction(() => {
+export function unpublishMap(scope: AccountScope, id: string): DocumentFacts {
+  const { token, facts } = metadataDb().transaction(() => {
     const map = requirePublishedMapOwner(scope, id);
     updateMapFields(id, { publishToken: null, publishedAt: null });
     // The authored theme is publication state: it leaves with the token,
@@ -114,9 +114,10 @@ export function unpublishMap(scope: AccountScope, id: string): void {
     setPublishedTheme(id, null);
     setViewerControls(id, null);
     if (map.publishToken) recordDocumentChanges(scope, [{ kind: "map", id }]);
-    return map.publishToken;
+    return { token: map.publishToken, facts: documentFacts({ kind: "map", id }) };
   })();
   if (token) invalidatePublishedToken(token);
+  return facts;
 }
 
 /** Guard used by mutation endpoints: a published token never authorizes a

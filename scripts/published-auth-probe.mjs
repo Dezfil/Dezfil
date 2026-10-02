@@ -44,7 +44,7 @@ export async function publishedAuthProbe(base) {
   const ownTile = await api('GET', render.json.tiles.url.replace('{z}', '0').replace('{x}', '0').replace('{y}', '0'), { raw: true });
   assert.equal(ownTile.status, 200); assert.equal(ownTile.headers.get('cache-control'), 'private, no-store'); await ownTile.body?.cancel();
   const privateTile = await anonymous('GET', render.json.tiles.url.replace('{z}', '0').replace('{x}', '0').replace('{y}', '0'), { raw: true }); assert.equal(privateTile.status, 401); await privateTile.body?.cancel();
-  assert.equal((await api('DELETE', `/api/maps/${map.json.id}/publish`, { raw: true })).status, 204);
+  assert.equal((await api('DELETE', `/api/maps/${map.json.id}/publish`, { raw: true })).status, 200);
   assert.equal((await anonymous('GET', url, { raw: true })).status, 404);
   assert.equal((await api('GET', `/api/maps/${map.json.id}`)).json.widgets.length, 2, 'reader selections did not rewrite the map');
   console.log('confirmed: anonymous configured basemap projection, widgets, selection extent, filtered data, real MVT bytes; private tiles and revoked published tiles refused');

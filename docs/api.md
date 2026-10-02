@@ -867,6 +867,26 @@ separately read definition and layout belong together only when revisions match.
 Camera, thumbnails, dataset contents and run bookkeeping do not advance these
 facts. Write preconditions are not yet required by these preparatory changes.
 
+Covered JSON successes return the resulting `editRevision`, including map,
+layer, sketch attachment, publication, history, workflow definition, step,
+layout, direct filing and map/workflow transfer responses. Workflow envelopes
+carry it at the top level as well as on the enclosed definition or layout.
+Project creation with members, membership changes and dissolution return
+`revisions: [{ kind, id, editRevision }]` for each affected surviving map or
+workflow the caller still reaches, including withdrawn filings. Project
+member workflows are an array of ordinary workflow entries.
+
+This is a breaking change to the success contract for layer deletion, sketch deletion and
+unpublication from `204` to `200` with JSON. Sketch deletion returns
+`{ mapId, layerId, editRevision? }`; when it changes no map, both IDs are null
+and no revision is returned. Complete-document deletion has no resulting
+revision; a transfer ending the caller's reach also omits it. Administrative
+publication revocation retains its narrow bodyless
+response without disclosing map facts, and cancellation keeps its documented
+conditional bodyless response. Generated tool schemas describe these JSON
+results; the executor, MCP structured/text output and assistant context retain
+their revisions.
+
 **Shared history attribution.** `GET /api/maps/{id}/history` returns
 `canUndo`, `canRedo`, `undoTarget` and `redoTarget`. Each target is null or
 contains `steps`, `eligible` and `reason`. Steps name their original author

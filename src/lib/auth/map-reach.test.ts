@@ -1,3 +1,4 @@
+import { documentFacts } from "@/lib/metadata/document-facts";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
@@ -184,7 +185,7 @@ describe("reading a reached map", () => {
     for (const account of ["pat", "edd", "viv"]) {
       expect((await call(route.layers, "GET", input(account, "/api/maps/M/layers"), { id: "M" })).body).toMatchObject([{ id: "L" }]);
       expect((await call(route.layer, "GET", input(account, "/api/layers/L"), { id: "L" })).body).toMatchObject({ id: "L", mapId: "M" });
-      expect((await call(route.history, "GET", input(account, "/api/maps/M/history"), { id: "M" })).body).toEqual({ canUndo: false, canRedo: false });
+      expect((await call(route.history, "GET", input(account, "/api/maps/M/history"), { id: "M" })).body).toEqual({ canUndo: false, canRedo: false, undoTarget: null, redoTarget: null, ...documentFacts({ kind: "map", id: "M" }, db) });
       const state = (await call(route.publish, "GET", input(account, "/api/maps/M/publish"), { id: "M" })).body;
       expect(state, account).toMatchObject({ publishedAt: "2026-01-01T00:00:00.000Z", theme: "dark" });
       expect(state, account).not.toHaveProperty("token");

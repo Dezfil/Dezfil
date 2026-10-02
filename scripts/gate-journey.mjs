@@ -92,7 +92,7 @@ export async function gateJourney(base) {
   for (const [method, pathname] of [['DELETE', `/api/published/${token}`], ['GET', `/api/published/${token}/authoring`], ['GET', '/api/config'], ['GET', '/api/future.svg'], ['GET', '/api/maps'], ['OPTIONS', '/api/maps']]) {
     const response = await anonymous(method, pathname, { raw: true }); check(response.status === 401, `no expanded exception ${method} ${pathname}: ${response.status}`); await response.body?.cancel();
   }
-  assert.equal((await api('DELETE', `/api/maps/${publicMap.json.id}/publish`, { raw: true })).status, 204);
+  assert.equal((await api('DELETE', `/api/maps/${publicMap.json.id}/publish`, { raw: true })).status, 200);
   for (const suffix of ['', `/extent/${layer.json.id}`, '/widget-values', `/render/${layer.json.id}`]) {
     const response = await anonymous(suffix ? 'POST' : 'GET', `/api/published/${token}${suffix}`, suffix ? { body: {} } : {});
     check(response.status === 404, `revoked publication ${suffix}: ${response.status}`);

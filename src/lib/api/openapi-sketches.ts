@@ -1,4 +1,4 @@
-import { DOCUMENT_FACT_PROPERTIES } from "./openapi-document-facts";
+import { DOCUMENT_FACT_PROPERTIES, EDIT_REVISION_SCHEMA } from "./openapi-document-facts";
 import { datasetAccess } from "./openapi-dataset-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { SKETCH_ROW_COUNT_RESPONSE } from "./openapi-tool-responses";
@@ -107,11 +107,12 @@ export const SKETCH_PATHS = {
       },
       responses: {
         "201": {
-          description: "The minted sketch.",
+          description: "The minted sketch and resulting map editRevision.",
           content: {
             "application/json": {
               schema: {
                 type: "object",
+                allOf: [EDIT_REVISION_SCHEMA],
                 properties: {
                   table: { type: "string" },
                   tableId: { type: "string" },
@@ -290,7 +291,10 @@ export const SKETCH_PATHS = {
       effects: writes(resource("tables", "name"), resource("layers"), resource("maps")),
       parameters: [pathParam("name", "Sketch table name.")],
       responses: {
-        "204": { description: "Layer and dataset are gone." },
+        "200": { description: "Layer and dataset are gone. A changed surviving map carries its resulting editRevision.", content: { "application/json": { schema: {
+          type: "object", properties: { mapId: { type: ["string", "null"] }, layerId: { type: ["string", "null"] }, editRevision: DOCUMENT_FACT_PROPERTIES.editRevision }, required: ["mapId", "layerId"],
+          anyOf: [{ properties: { mapId: { type: "string" } }, required: ["editRevision"] }, { properties: { mapId: { type: "null" } } }],
+        } } } },
         "404": { description: "Not a sketch dataset." },
       },
     })),
