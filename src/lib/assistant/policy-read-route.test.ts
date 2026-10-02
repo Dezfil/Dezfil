@@ -22,8 +22,7 @@ import { dispatchAssistantTestRoute } from "./testing/route-dispatch";
  * policy, the admitted operations and the default offer, equal to what
  * the message route actually offers a run under that page (read from the
  * stub's captured exchange) and what the policy admits (read from the
- * policy module); it generates no tool and the exclusion inventory moved
- * by exactly one.
+ * policy module); neither the read nor its automatic methods generate a tool.
  */
 
 const factory = vi.hoisted(() => ({ provider: null as ModelProvider | null }));
@@ -83,18 +82,12 @@ describe("the policy read equals what the route offers and admits", () => {
 });
 
 describe("the policy read is no tool", () => {
-  it("is documented, excluded from tool generation, and the inventory moved by one", () => {
+  it("is documented and excluded from tool generation, including its automatic methods", () => {
     const doc = buildOpenApiDocument() as unknown as { paths: Record<string, Record<string, { "x-tool"?: string | false }>> };
     expect(doc.paths["/api/assistant/policy"].get["x-tool"]).toBe(false);
     expect(buildTools().some((t) => t.path === "/api/assistant/policy")).toBe(false);
-    // The map check and image read, plus authenticated settings read/update,
-    // plus a project's people, the three transfers and the directory search.
-    expect(buildTools()).toHaveLength(136);
     const excluded = Object.entries(doc.paths).flatMap(([p, methods]) => Object.entries(methods).filter(([, op]) => op["x-tool"] === false).map(([m]) => `${m.toUpperCase()} ${p}`));
-    // 23 once imagery became a configured basemap: its style document is
-    // a renderer asset, not an operation an agent calls.
-    // Entry/session exchange adds six exclusions; settings now generates tools.
-    expect(excluded).toHaveLength(27);
-    expect(excluded).toContain("GET /api/assistant/policy");
+    expect(excluded.filter(operation => operation.endsWith(" /api/assistant/policy")).sort())
+      .toEqual(["GET /api/assistant/policy", "HEAD /api/assistant/policy", "OPTIONS /api/assistant/policy"]);
   });
 });

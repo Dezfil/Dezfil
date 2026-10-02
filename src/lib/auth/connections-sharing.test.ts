@@ -92,7 +92,8 @@ describe("connection-bearing operations under a project grant", () => {
     const before = stored();
     let driven = 0;
     for (const [route, load] of Object.entries(routes)) {
-      for (const method of Object.keys(document.paths[route]).map((m) => m.toUpperCase())) {
+      // Automatic methods are exercised through the gate, not direct handler exports.
+      for (const method of Object.keys(document.paths[route]).filter(m => m !== "head" && m !== "options").map((m) => m.toUpperCase())) {
         // Creating and listing name no connection; listing is searched below.
         if (route === "/api/connections/postgis") continue;
         for (const account of ["bob", "vic", "cyd"]) {

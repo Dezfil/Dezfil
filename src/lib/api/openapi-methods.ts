@@ -4,7 +4,7 @@ import { ERROR_RESPONSE, op } from "./openapi-helpers";
 type Operation = { tags?: string[]; parameters?: unknown[]; responses: Record<string, unknown> };
 /** Describe automatic methods explicitly, without adding route handlers or tools. */
 export function withAutomaticMethods<T extends { paths: Record<string, Record<string, Operation>> }>(document: T): T {
-  document = structuredClone(document);
+  document = { ...document, paths: structuredClone(document.paths) };
   for (const methods of Object.values(document.paths)) {
     if (methods.get && !methods.head) {
       methods.head = op({ summary: "Read response headers", tag: methods.get.tags?.[0] ?? "System", tool: false,
