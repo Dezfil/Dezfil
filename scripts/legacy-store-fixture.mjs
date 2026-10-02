@@ -13,7 +13,7 @@ import { DuckDBInstance } from '@duckdb/node-api';
 // this import so the fixture does not change other modules' loader behavior.
 const migrationsUrl = new URL('../src/lib/metadata/migrations.ts', import.meta.url).href;
 const metadataUrl = new URL('../src/lib/metadata/', import.meta.url).href;
-const migrationModules = new Set(['./migrations-datasets-connections', './migrations-ownership', './migrations-sharing', './sql-names']);
+const migrationModules = new Set(['./migrations-datasets-connections', './migrations-ownership', './migrations-sharing', './migrations-revisions', './sql-names']);
 const migrationLoader = registerHooks({
   resolve(specifier, context, next) {
     if (context.parentURL?.startsWith(metadataUrl) && migrationModules.has(specifier)) {
@@ -86,13 +86,21 @@ export async function legacyFiles(directory) {
   return Object.fromEntries(await Promise.all(['metadata.sqlite', 'secret.key', 'tables/legacy.parquet'].map(async file =>
     [file, createHash('sha256').update(await readFile(path.join(directory, file))).digest('hex')])));
 }
-// Columns an upgrade stamps from ownership rather than carrying over: the
-// owner itself, a map's or workflow's SQL home, and a lineage edge's runner.
-const ownershipStamps = new Set(['owner_id', 'home_account_id', 'runner_id']);
+// Compare exactly the columns carried by the fixture's pinned schema.
+// Later additive facts have their own migration proofs; neither missing nor
+// changed legacy values can hide behind a growing list of excluded fields.
+let legacyColumns;
 export function legacyRows(db) {
-  return Object.fromEntries(['projects', 'maps', 'layers', 'data_tables', 'project_datasets', 'recipes', 'recipe_steps', 'pg_connections', 'map_history', 'operation_jobs', 'recipe_layouts', 'lineage_edges']
-    .map(table => [table, db.prepare(`SELECT * FROM ${table} ORDER BY 1, 2`).all().map(row =>
-      Object.fromEntries(Object.entries(row).filter(([key]) => !ownershipStamps.has(key))))]));
+  if (!legacyColumns) {
+    const prior = new Database(':memory:');
+    try {
+      for (const migration of MIGRATIONS.slice(0, legacy.version)) prior.exec(migration);
+      legacyColumns = Object.fromEntries(['projects', 'maps', 'layers', 'data_tables', 'project_datasets', 'recipes', 'recipe_steps', 'pg_connections', 'map_history', 'operation_jobs', 'recipe_layouts', 'lineage_edges']
+        .map(table => [table, prior.pragma(`table_info(${table})`).map(column => column.name)]));
+    } finally { prior.close(); }
+  }
+  return Object.fromEntries(Object.entries(legacyColumns).map(([table, columns]) =>
+    [table, db.prepare(`SELECT ${columns.map(name => `"${name}"`).join(', ')} FROM ${table} ORDER BY 1, 2`).all()]));
 }
 export function assertLegacyOwners(db, accountId) {
   for (const table of ['maps', 'data_tables', 'recipes', 'pg_connections', 'projects', 'operation_jobs']) {
