@@ -58,3 +58,16 @@ it("carries a held basis through the stock MCP fixture while confirmation reads 
   expect(client.callTool).toHaveBeenCalledWith({ name: "delete_map", arguments: { id: "m", expected_revision: "shown" } });
   expect(read).toHaveBeenCalledTimes(1);
 });
+
+
+it("declares the revision argument on every covered map mutation offered to external clients", () => {
+  const required = ["delete_map", "create_layer", "update_layer", "delete_layer", "duplicate_layer", "create_sketch", "undo_change", "redo_change"];
+  const tools = buildTools();
+  for (const name of [...required, "update_map"]) {
+    const tool = tools.find(tool => tool.name === name)!;
+    expect(tool.inputSchema.properties, name).toHaveProperty("expected_revision");
+    expect(tool.headerParams, name).toContainEqual({ name: "X-Edit-Revision", argument: "expected_revision" });
+    if (required.includes(name)) expect(tool.inputSchema.required, name).toContain("expected_revision");
+  }
+  expect(tools.find(tool => tool.name === "update_map")!.inputSchema.required ?? []).not.toContain("expected_revision");
+});
