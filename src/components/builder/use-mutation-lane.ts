@@ -2,8 +2,6 @@
 
 import {
   useCallback,
-  useEffect,
-  useRef,
   useState,
   type Dispatch,
   type RefObject,
@@ -13,7 +11,7 @@ import type { Layer, MapWithLayers } from "@/lib/metadata/maps";
 import { CHANGE_GROUP_HEADER } from "@/lib/api/change-group";
 import { readApiError } from "../api";
 import type { LayerRenderData } from "./render-data";
-import { layerContainsPatch, mapContainsPatch } from "./layer-patch";
+import { DocumentSequence, patchIntent } from "../document-sequence";
 
 /** Who raised a failure — and therefore who owns clearing it. */
 export const FAILURE_LANES = [
@@ -56,6 +54,7 @@ export type FailureKey = FailureLane | `layer:${string}`;
  */
 export function useMutationLane({
   mapId,
+  sequence,
   map,
   setMap,
   rendersRef,
@@ -68,11 +67,11 @@ export function useMutationLane({
   serverMapRef,
   reloadEpochRef,
   refreshLayer,
-  reload,
   edited,
   clearLegendLive,
 }: {
   mapId: string;
+  sequence: DocumentSequence;
   /** Current map state — the lane keeps the authoritative per-layer ref
    * in step with it (newest-wins). */
   map: MapWithLayers | null;
@@ -93,7 +92,6 @@ export function useMutationLane({
   refreshLayer: (layerId: string) => Promise<void>;
   /** Whole-map resync — the recovery of last resort for structural
    * uncertainty. */
-  reload: () => void;
   /** Any successful edit enables undo and clears redo. */
   edited: () => void;
   /** Discards a layer's in-progress Legend-tab text — a recovered read
@@ -130,16 +128,6 @@ export function useMutationLane({
       setPendingSaves((n) => n - 1);
     }
   }, []);
-
-  // All durable mutations for one layer share an ordering boundary. Without
-  // it, an uncertain response from one control could resync a stale layer
-  // over a later accepted change from another control.
-  const layerPatchQueueRef = useRef<Record<string, Promise<void>>>({});
-  // Map-level mutations share one ordered lane per map: requests run
-  // strictly in call order, so two in-flight saves can never resolve out of
-  // order and revert each other. The camera deliberately bypasses this lane
-  // — latest-wins, never queued.
-  const mapPatchQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   // Every map-shaped response — save echoes, recovery reads, undo bodies —
   // lands through one application seam, so response discipline has a single
@@ -183,6 +171,8 @@ export function useMutationLane({
         }
       }
       mapAppliedAtRef.current = truthSeqRef.current;
+      sequence.accept(body);
+      authoritativeLayersRef.current = Object.fromEntries(layers.map((layer) => [layer.id, layer]));
       serverMapRef.current = { ...body, layers };
       setMap((current) => {
         let next = { ...body, layers };
@@ -215,6 +205,7 @@ export function useMutationLane({
     },
     [
       authoritativeLayersRef,
+      sequence,
       edited,
       layerConfirmedAtRef,
       layerRemovedAtRef,
@@ -226,24 +217,6 @@ export function useMutationLane({
       truthSeqRef,
     ],
   );
-
-  // Keep the authoritative ref in step with map state for the paths that
-  // set it directly (duplicate, delete, reorder, widget edits). It follows
-  // the same newest-wins rule: a layer its own lane confirmed after this
-  // map state was produced keeps the lane's version.
-  useEffect(() => {
-    if (!map) return;
-    const appliedAt = mapAppliedAtRef.current;
-    const next: Record<string, Layer> = {};
-    for (const layer of map.layers) {
-      const confirmedAt = layerConfirmedAtRef.current[layer.id];
-      next[layer.id] =
-        confirmedAt !== undefined && confirmedAt > appliedAt
-          ? (authoritativeLayersRef.current[layer.id] ?? layer)
-          : layer;
-    }
-    authoritativeLayersRef.current = next;
-  }, [map, authoritativeLayersRef, layerConfirmedAtRef, mapAppliedAtRef]);
 
   const patchMap = useCallback(
     (
@@ -258,52 +231,17 @@ export function useMutationLane({
         changeGroup?: string;
       } = {},
     ): Promise<boolean> => {
-      const result = mapPatchQueueRef.current.then(async () => {
+      const compose = typeof request === "function" ? request : patchIntent(map, request);
+      const result = sequence.enqueue(async () => {
         // A queued whole-object body (basemap group toggles) built at call
         // time would be stale by its turn — the earlier queued edit already
         // landed. A thunk builds the body from server truth as the turn
         // starts, so queued edits compose instead of reverting each other.
-        const body =
-          typeof request === "function"
-            ? request(serverMapRef.current)
-            : request;
+        const body = compose(serverMapRef.current);
         // Taken inside the lane, immediately before the request goes out:
         // any layer confirmed after this point outranks what comes back.
         const sentAt = truthSeqRef.current;
         const epoch = reloadEpochRef.current;
-        // Where a write may have landed, find out — never guess. The
-        // authoritative re-read also heals optimistic state that ran ahead
-        // of a refused request (the layer lane's recovery, generalized).
-        const reconcile = async (uncertain: boolean): Promise<boolean> => {
-          // When the truth read fails too — thrown or refused — the server
-          // is effectively unreachable. Fall back to the last
-          // server-confirmed state rather than leave optimistic edits
-          // (widgets, order) standing as if accepted (rolled back or
-          // reconciled, never guessed).
-          const rollBack = () => {
-            if (serverMapRef.current) {
-              applyMapResponse(serverMapRef.current, false, sentAt);
-            }
-            return false;
-          };
-          try {
-            const response = await fetch(`/api/maps/${mapId}`, {
-              cache: "no-store",
-            });
-            if (!response.ok) return rollBack();
-            const recovered = (await response.json()) as MapWithLayers;
-            const accepted =
-              uncertain &&
-              mapContainsPatch(
-                recovered as unknown as Record<string, unknown>,
-                body,
-              );
-            applyMapResponse(recovered, accepted, sentAt);
-            return accepted;
-          } catch {
-            return rollBack();
-          }
-        };
         const unconfirmed = (cause: unknown) =>
           fail(
             "map",
@@ -317,29 +255,29 @@ export function useMutationLane({
           response = await track(
             fetch(`/api/maps/${mapId}`, {
               method: "PATCH",
-              headers: {
+              headers: sequence.headers({
                 "content-type": "application/json",
                 ...(opts.changeGroup
                   ? { "X-Change-Group": opts.changeGroup }
                   : null),
-              },
+              }),
               body: JSON.stringify(body),
             }),
           );
         } catch (cause) {
           unconfirmed(cause);
-          return reconcile(true);
+          return false;
         }
         if (!response.ok) {
           fail("map", await readApiError(response));
-          return reconcile(false);
+          return false;
         }
         let updated: MapWithLayers;
         try {
           updated = (await response.json()) as MapWithLayers;
         } catch (cause) {
           unconfirmed(cause);
-          return reconcile(true);
+          return false;
         }
         // A clean save clears this lane's standing failure — and only
         // this lane's.
@@ -349,19 +287,17 @@ export function useMutationLane({
           // landed while this request was in flight: the echo is older
           // than the resync's truth and would revert it. Re-read instead
           // of applying (two writers converge).
-          return reconcile(true);
+          return false;
         }
         applyMapResponse(updated, true, sentAt);
         return true;
       });
-      mapPatchQueueRef.current = result.then(
-        () => undefined,
-        () => undefined,
-      );
       return result;
     },
     [
       mapId,
+      map,
+      sequence,
       track,
       applyMapResponse,
       clearFailure,
@@ -374,6 +310,7 @@ export function useMutationLane({
 
   const syncAuthoritativeLayer = useCallback(
     (layer: Layer, changed: boolean) => {
+      sequence.accept(layer);
       authoritativeLayersRef.current[layer.id] = layer;
       // This layer's own lane just spoke: no map response sent before now
       // may regress it.
@@ -382,6 +319,7 @@ export function useMutationLane({
       if (serverMapRef.current) {
         serverMapRef.current = {
           ...serverMapRef.current,
+          ...{ editRevision: sequence.revision },
           layers: serverMapRef.current.layers.map((candidate) =>
             candidate.id === layer.id ? layer : candidate,
           ),
@@ -405,6 +343,7 @@ export function useMutationLane({
     [
       authoritativeLayersRef,
       clearLegendLive,
+      sequence,
       edited,
       layerConfirmedAtRef,
       serverMapRef,
@@ -416,11 +355,15 @@ export function useMutationLane({
   const patchLayer = useCallback(
     (
       layerId: string,
-      body: Record<string, unknown>,
+      request: Record<string, unknown> | ((current: Layer) => Record<string, unknown>),
       opts: { skipRefresh?: boolean; separateHistoryStep?: boolean } = {},
     ): Promise<Layer | null> => {
-      const before = layerPatchQueueRef.current[layerId] ?? Promise.resolve();
-      const result = before.catch(() => undefined).then(async () => {
+      const shown = map?.layers.find((layer) => layer.id === layerId);
+      const compose = typeof request === "function" ? request : patchIntent(shown, request);
+      const result = sequence.enqueue(async () => {
+        const current = authoritativeLayersRef.current[layerId];
+        if (!current) return null;
+        const body = compose(current);
         const epoch = reloadEpochRef.current;
         // Failures are owned per layer lane: a save that fails on one
         // layer must keep its banner through another layer's success.
@@ -447,28 +390,10 @@ export function useMutationLane({
               body.popup !== undefined ||
               body.publishedFields !== undefined ||
               body.style !== undefined));
-        const recover = async (cause: unknown): Promise<Layer | null> => {
-          const detail =
-            cause instanceof Error ? cause.message : "Network failure.";
+        const recover = (cause: unknown): null => {
+          const detail = cause instanceof Error ? cause.message : "Network failure.";
           fail(lane, `The layer save could not be confirmed. ${detail}`);
-          try {
-            const response = await fetch(`/api/layers/${layerId}`, {
-              cache: "no-store",
-            });
-            if (!response.ok) return null;
-            const recovered = (await response.json()) as Layer;
-            const accepted = layerContainsPatch(
-              recovered as unknown as Record<string, unknown>,
-              body,
-            );
-            syncAuthoritativeLayer(recovered, accepted);
-            if (!opts.skipRefresh && changesRender) await refreshLayer(layerId);
-            return accepted ? recovered : null;
-          } catch {
-            // The authoritative read is best-effort. Callers still receive a
-            // failed outcome and unwind their preview to the last known layer.
-            return null;
-          }
+          return null;
         };
 
         let response: Response;
@@ -476,7 +401,7 @@ export function useMutationLane({
           response = await track(
             fetch(`/api/layers/${layerId}`, {
               method: "PATCH",
-              headers,
+              headers: sequence.headers(headers),
               body: JSON.stringify(body),
             }),
           );
@@ -498,33 +423,7 @@ export function useMutationLane({
         // change.
         clearFailure(lane);
         if (reloadEpochRef.current !== epoch) {
-          // A whole-map resync landed while this save was in flight — for
-          // this layer its truth may be newer than the echo. Re-read the
-          // layer rather than apply a possibly stale body over it (two
-          // writers converge).
-          try {
-            const fresh = await fetch(`/api/layers/${layerId}`, {
-              cache: "no-store",
-            });
-            if (fresh.ok) {
-              const recovered = (await fresh.json()) as Layer;
-              syncAuthoritativeLayer(recovered, true);
-              if (!opts.skipRefresh && changesRender) {
-                await refreshLayer(layerId);
-              }
-              return recovered;
-            }
-          } catch {
-            // Fall through to the unconfirmed surface below.
-          }
-          // Current truth could not be established: the write landed, but
-          // what is on screen may predate it. Say so and resync rather
-          // than reporting success over a stale snapshot.
-          fail(
-            lane,
-            "The layer save could not be confirmed. The re-read after a concurrent reload failed.",
-          );
-          reload();
+          // A response from an older editor lifetime cannot establish a basis.
           return null;
         }
         syncAuthoritativeLayer(updated, true);
@@ -536,20 +435,18 @@ export function useMutationLane({
         }
         return updated;
       });
-      layerPatchQueueRef.current[layerId] = result.then(
-        () => undefined,
-        () => undefined,
-      );
       return result;
     },
     [
+      map,
+      sequence,
+      authoritativeLayersRef,
       refreshLayer,
       syncAuthoritativeLayer,
       track,
       clearFailure,
       fail,
-      reload,
-      reloadEpochRef,
+          reloadEpochRef,
       rendersRef,
     ],
   );

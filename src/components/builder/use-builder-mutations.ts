@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { Layer, MapWithLayers } from "@/lib/metadata/maps";
 import type { HistoryAvailability } from "@/lib/metadata/history";
 import type { Bounds } from "@/lib/geo-bounds";
@@ -9,6 +9,9 @@ import type { LegendLiveText } from "./LegendTab";
 import { fetchLayerRender, renderBounds, type LayerRenderData } from "./render-data";
 import { useMutationLane } from "./use-mutation-lane";
 import { useMapHistory } from "./use-map-history";
+
+import { acceptedMapWrite } from "./builder-write-response";
+import { DocumentSequence } from "../document-sequence";
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -24,6 +27,7 @@ export function useBuilderMutations({
   setSelectedId: StateSetter<string | null>;
   refreshLayer: (layerId: string) => Promise<void>;
 }) {
+  const sequence = useMemo(() => new DocumentSequence(mapId), [mapId]);
   const [reloadKey, setReloadKey] = useState(0);
   // Undo/redo availability: seeded by the history read, then derived —
   // any successful edit enables undo and clears redo; undo/redo responses
@@ -108,6 +112,7 @@ export function useBuilderMutations({
     patchLayer,
   } = useMutationLane({
     mapId,
+    sequence,
     map,
     setMap,
     rendersRef,
@@ -120,15 +125,26 @@ export function useBuilderMutations({
     serverMapRef,
     reloadEpochRef,
     refreshLayer,
-    reload,
     edited,
     clearLegendLive,
   });
+
+  const request = useCallback<typeof fetch>((input, init) => sequence.enqueue(async () => {
+    const response = await fetch(input, { ...init, headers: sequence.headers(init?.headers) });
+    if (response.ok) {
+      const body: unknown = await response.clone().json().catch(() => null);
+      sequence.accept(body);
+      serverMapRef.current = acceptedMapWrite(serverMapRef.current, String(input), init?.method ?? "GET", body);
+      if (serverMapRef.current) authoritativeLayersRef.current = Object.fromEntries(serverMapRef.current.layers.map((layer) => [layer.id, layer]));
+    }
+    return response;
+  }), [sequence]);
 
   // Undo/redo — extracted to use-map-history.ts at the touch; the queue,
   // the generation fence and the keyboard binding live there unchanged.
   const { applyHistory } = useMapHistory({
     mapId,
+    sequence,
     track,
     applyMapResponse,
     reload,
@@ -141,7 +157,7 @@ export function useBuilderMutations({
   });
 
   return {
-    history, setHistory, edited, reloadKey, reload,
+    request, sequence, history, setHistory, edited, reloadKey, reload,
     authoritativeLayersRef, truthSeqRef, layerConfirmedAtRef, layerRemovedAtRef,
     mapFieldEditedAtRef, mapAppliedAtRef, serverMapRef, reloadEpochRef,
     legendLive, onLegendLive, failures, fail, clearFailure, pendingSaves,
@@ -163,14 +179,14 @@ export function useBuilderReload({
   setFitBounds: StateSetter<Bounds | null>;
 }) {
   const {
-    reloadKey, truthSeqRef, authoritativeLayersRef, layerConfirmedAtRef,
+    sequence, reloadKey, truthSeqRef, authoritativeLayersRef, layerConfirmedAtRef,
     layerRemovedAtRef, mapFieldEditedAtRef, reloadEpochRef, mapAppliedAtRef,
     serverMapRef, clearFailure, setHistory, fail,
   } = mutations;
   // Load the map and every layer's render data.
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    void sequence.enqueue(async () => {
       try {
         // Authority demands fresh truth: if a write confirms while the
         // read is on the wire, the body may predate it — re-read rather
@@ -200,6 +216,7 @@ export function useBuilderReload({
         truthSeqRef.current += 1;
         reloadEpochRef.current += 1;
         mapAppliedAtRef.current = truthSeqRef.current;
+        sequence.accept(body);
         serverMapRef.current = body;
         setMap(body);
         setMapProjectId(
@@ -235,10 +252,10 @@ export function useBuilderReload({
         if (!cancelled)
           fail("load", e instanceof Error ? e.message : "Failed to load map");
       }
-    })();
+    });
     return () => {
       cancelled = true;
     };
-  }, [mapId, reloadKey, clearFailure, fail, importFocusRef, truthSeqRef, authoritativeLayersRef, layerConfirmedAtRef, layerRemovedAtRef, mapFieldEditedAtRef, reloadEpochRef, mapAppliedAtRef, serverMapRef, setMap, setMapProjectId, setHistory, rendersRef, setRenders, setFitBounds]);
+  }, [sequence, mapId, reloadKey, clearFailure, fail, importFocusRef, truthSeqRef, authoritativeLayersRef, layerConfirmedAtRef, layerRemovedAtRef, mapFieldEditedAtRef, reloadEpochRef, mapAppliedAtRef, serverMapRef, setMap, setMapProjectId, setHistory, rendersRef, setRenders, setFitBounds]);
 
 }

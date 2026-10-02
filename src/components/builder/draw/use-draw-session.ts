@@ -41,6 +41,7 @@ export interface DrawSessionApi {
 }
 
 export function useDrawSession(opts: {
+  request?: typeof fetch;
   mapId: string;
   /** The map reload — a minted layer arrives like any other new layer,
    * and the minted id is selected. */
@@ -56,6 +57,7 @@ export function useDrawSession(opts: {
   onSelectionGone: () => void;
 }): DrawSessionApi {
   const {
+    request = fetch,
     mapId,
     onLayerMinted,
     refreshTable,
@@ -88,7 +90,7 @@ export function useDrawSession(opts: {
         const generation = generationRef.current;
         try {
           if (!current) {
-            const r = await fetch(`/api/maps/${mapId}/sketches`, {
+            const r = await request(`/api/maps/${mapId}/sketches`, {
               method: "POST",
               headers: { "content-type": "application/json" },
               body: JSON.stringify({ feature }),
@@ -145,7 +147,7 @@ export function useDrawSession(opts: {
           );
         }
       }),
-    [lane, mapId, announce, onLayerMinted, refreshTable, reloadSketches],
+    [request, lane, mapId, announce, onLayerMinted, refreshTable, reloadSketches],
   );
 
   const deleteFeature = useCallback(

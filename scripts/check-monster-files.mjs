@@ -19,7 +19,7 @@ const CEILINGS = {
   // Add layer catalog mount, the stage controls, the assistant wiring, the
   // helper composition, the effective-basemap derivation and the shared
   // map, legend and widget presentation.
-  "src/components/builder/MapBuilder.tsx": 1264,
+  "src/components/builder/MapBuilder.tsx": 1087,
   // The map canvas. Extractions so far: capture, the text sublayer, the
   // basemap content-group lifecycle, tiled-layer construction, pointer
   // interaction, camera constraints, the shared paint readout and overlay lifetime.

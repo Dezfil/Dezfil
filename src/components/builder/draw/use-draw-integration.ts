@@ -62,6 +62,7 @@ export interface DrawIntegration {
 }
 
 export function useDrawIntegration(opts: {
+  request?: typeof fetch;
   mapId: string;
   reloadKey: number;
   /** Reload the map; the minted layer id arrives selected. */
@@ -134,6 +135,7 @@ export function useDrawIntegration(opts: {
   );
 
   const session = useDrawSession({
+    request: opts.request,
     mapId,
     onLayerMinted: (layerId) => {
       reload();

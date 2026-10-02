@@ -19,12 +19,13 @@ import { readApiError } from "../api";
  * cannot re-enable a control the author unchecked.
  */
 export function usePublishedThemeSync({
-  mapId,
-  publishToken,
+  request = fetch,
+  mapId,  publishToken,
   theme,
   onFailure,
   onSuccess,
 }: {
+  request?: typeof fetch;
   mapId: string | null;
   publishToken: string | null | undefined;
   theme: "light" | "dark";
@@ -53,7 +54,7 @@ export function usePublishedThemeSync({
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch(`/api/maps/${mapId}/publish`, {
+        const response = await request(`/api/maps/${mapId}/publish`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ theme }),
@@ -72,5 +73,5 @@ export function usePublishedThemeSync({
     return () => {
       cancelled = true;
     };
-  }, [mapId, publishToken, theme]);
+  }, [mapId, publishToken, theme, request]);
 }

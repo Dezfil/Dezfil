@@ -1,4 +1,5 @@
 "use client";
+import { useEditorRequest } from "../../document-editor-context";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MapWithLayers } from "@/lib/metadata/maps";
@@ -65,6 +66,7 @@ function ReaderControls({
   publishedAt: string | null;
   onError: (message: string) => void;
 }) {
+  const request = useEditorRequest();
   const [state, setState] = useState<PublicationState | null>(null);
   const [busy, setBusy] = useState(false);
   // Publication writes are ordered, one at a time (the discipline). Each
@@ -97,7 +99,7 @@ function ReaderControls({
     setBusy(true);
     queue.current = queue.current.then(async () => {
       try {
-        const response = await fetch(`/api/maps/${mapId}/publish`, {
+        const response = await request(`/api/maps/${mapId}/publish`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -233,6 +235,7 @@ function SharedFields({
   heading: string;
   onLayerChange: () => void;
 }) {
+  const request = useEditorRequest();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -275,7 +278,7 @@ function SharedFields({
   const patch = async (layerId: string, publishedFields: string[] | null) => {
     setBusy(true);
     try {
-      const response = await fetch(`/api/layers/${layerId}`, {
+      const response = await request(`/api/layers/${layerId}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ publishedFields }),
@@ -520,6 +523,7 @@ export function PublishPopover({
   map: MapWithLayers;
   onChange: () => void;
 }) {
+  const request = useEditorRequest();
   const [busy, setBusy] = useState(false);
   const [copied, flagCopied] = useTransientFlag();
   const [error, setError] = useState<string | null>(null);
@@ -556,7 +560,7 @@ export function PublishPopover({
     setError(null);
     try {
       // The publication captures the mode being composed in.
-      const response = await fetch(`/api/maps/${map.id}/publish`, {
+      const response = await request(`/api/maps/${map.id}/publish`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ theme }),
@@ -578,7 +582,7 @@ export function PublishPopover({
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(`/api/maps/${map.id}/publish`, {
+      const response = await request(`/api/maps/${map.id}/publish`, {
         method: "DELETE",
       });
       if (!response.ok) {

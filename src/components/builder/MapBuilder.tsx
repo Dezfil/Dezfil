@@ -13,7 +13,6 @@ import type {
   Layer,
   Viewport,
 } from "@/lib/metadata/maps";
-import type { HistoryAvailability } from "@/lib/metadata/history";
 import type { FillPaint, LayerStyle } from "@/lib/style/style";
 import {
   isAggregated,
@@ -31,7 +30,6 @@ import { builderBasemap } from "./builder-basemap";
 import type { BasemapLayerGroup } from "@/lib/basemap-layers";
 import type { Corner } from "@/lib/corners";
 import { useTheme } from "@/components/theme";
-import { readApiError } from "../api";
 import type { Bounds } from "@/lib/geo-bounds";
 import type { HeatmapPreviewSetter } from "../map/MapCanvas";
 import type { CameraHandle } from "../map/camera-handle";
@@ -40,7 +38,8 @@ import {
   type HeatmapControlField,
 } from "@/lib/heatmap-quality";
 import { BuilderStageControls } from "./BuilderStageControls";
-import { drawState, setDrawSelection } from "./draw/draw-mode";
+import { useBuilderLayerActions } from "./use-builder-layer-actions";
+import { DocumentEditorContext } from "../document-editor-context";
 import { useDrawIntegration } from "./draw/use-draw-integration";
 import { usePublishedThemeSync } from "./use-published-theme-sync";
 import { SearchControl } from "./search/SearchControl";
@@ -181,8 +180,8 @@ export function MapBuilder({
     mapId, map, setMap, rendersRef, setRenders, setSelectedId, refreshLayer,
   });
   const {
-    history, setHistory, edited, reloadKey, reload, authoritativeLayersRef, truthSeqRef,
-    layerConfirmedAtRef, layerRemovedAtRef, mapFieldEditedAtRef, serverMapRef,
+    history, edited, reloadKey, reload, authoritativeLayersRef, truthSeqRef,
+    mapFieldEditedAtRef, serverMapRef,
     legendLive, onLegendLive, failures, fail, clearFailure, pendingSaves,
     track, patchMap, patchLayer, applyHistory,
   } = mutations;
@@ -193,6 +192,7 @@ export function MapBuilder({
   // A published map follows the mode its author composes in.
   usePublishedThemeSync({
     mapId,
+    request: mutations.request,
     publishToken: map?.publishToken,
     theme,
     onFailure: useCallback(
@@ -207,6 +207,7 @@ export function MapBuilder({
   // the raw-SQL create path — extracted beside MapBuilder.
   const layerSources = useLayerSourceCoordinator({
     mapId,
+    request: mutations.request,
     reload,
     edited,
     setSelectedId,
@@ -223,16 +224,12 @@ export function MapBuilder({
     Record<string, Partial<Record<HeatmapControlField, number>>>
   >({});
   const heatmapDraftVizRef = useRef<Record<string, HeatmapViz>>({});
-  const heatmapCommitQueueRef = useRef<Record<string, Promise<void>>>({});
   const aggregationPreviewVersionRef = useRef<Record<string, number>>({});
-  const aggregationCommitQueueRef = useRef<Record<string, Promise<void>>>({});
-  const filterCommitQueueRef = useRef<Record<string, Promise<void>>>({});
   const [appearanceDrafts, setAppearanceDrafts] = useState<
     Record<string, AppearanceDraft>
   >({});
   const appearanceDraftRef = useRef<Record<string, AppearanceDraft>>({});
   const appearancePreviewVersionRef = useRef<Record<string, number>>({});
-  const appearanceCommitQueueRef = useRef<Record<string, Promise<void>>>({});
   const { labelCounts, onLabelCounts } = useLabelCounts();
   // Which groups the loaded style yields — the panel marks the rest
   // "not in this style" while a custom style is active.
@@ -352,8 +349,7 @@ export function MapBuilder({
       if (viz.type !== "heatmap") return Promise.resolve(false);
       const version = heatmapPreviewVersionRef.current[layerId] ?? 0;
       const fieldVersion = heatmapFieldVersionRef.current[layerId]?.[field];
-      const before = heatmapCommitQueueRef.current[layerId] ?? Promise.resolve();
-      const result = before.catch(() => undefined).then(async () => {
+      const result = (async () => {
         const currentLayer = authoritativeLayersRef.current[layerId];
         const current = currentLayer?.viz;
         const nextViz =
@@ -363,7 +359,7 @@ export function MapBuilder({
         const updated =
           current?.type === "heatmap" && current[field] === nextViz[field]
             ? currentLayer
-            : await patchLayer(layerId, { viz: nextViz }, {
+            : await patchLayer(layerId, (accepted) => ({ viz: accepted.viz.type === "heatmap" ? mergeHeatmapControl(accepted.viz, viz, field) : nextViz }), {
                 skipRefresh: true,
                 separateHistoryStep: true,
               });
@@ -394,8 +390,7 @@ export function MapBuilder({
           });
         }
         return updated !== null;
-      });
-      heatmapCommitQueueRef.current[layerId] = result.then(() => undefined);
+      })();
       return result;
     },
     [authoritativeLayersRef, patchLayer],
@@ -413,9 +408,7 @@ export function MapBuilder({
   const commitAggregationViz = useCallback(
     (layerId: string, draft: AggregatedViz): Promise<boolean> => {
       const version = aggregationPreviewVersionRef.current[layerId] ?? 0;
-      const before =
-        aggregationCommitQueueRef.current[layerId] ?? Promise.resolve();
-      const result = before.catch(() => undefined).then(async () => {
+      const result = (async () => {
         const current = authoritativeLayersRef.current[layerId]?.viz;
         if (!current || current.type !== draft.type || !isAggregated(current)) {
           if (aggregationPreviewVersionRef.current[layerId] === version) {
@@ -449,8 +442,7 @@ export function MapBuilder({
           else endQuerySliderPreview(layerId);
         }
         return updated !== null;
-      });
-      aggregationCommitQueueRef.current[layerId] = result.then(() => undefined);
+      })();
       return result;
     },
     [authoritativeLayersRef, endQuerySliderPreview, patchLayer, settleQuerySliderPreview],
@@ -507,9 +499,7 @@ export function MapBuilder({
   const commitStyleAppearance = useCallback(
     (layerId: string, partial: Partial<LayerStyle>): Promise<boolean> => {
       const version = appearancePreviewVersionRef.current[layerId] ?? 0;
-      const before =
-        appearanceCommitQueueRef.current[layerId] ?? Promise.resolve();
-      const result = before.catch(() => undefined).then(async () => {
+      const result = (async () => {
         const current = authoritativeLayersRef.current[layerId];
         if (!current) {
           if (appearancePreviewVersionRef.current[layerId] === version) {
@@ -523,15 +513,14 @@ export function MapBuilder({
           ? current
           : await patchLayer(
               layerId,
-              { style: next },
+              (accepted) => ({ style: { ...accepted.style, ...partial } }),
               { separateHistoryStep: true },
             );
         if (appearancePreviewVersionRef.current[layerId] === version) {
           clearAppearanceDraft(layerId);
         }
         return updated !== null;
-      });
-      appearanceCommitQueueRef.current[layerId] = result.then(() => undefined);
+      })();
       return result;
     },
     [authoritativeLayersRef, clearAppearanceDraft, patchLayer],
@@ -558,9 +547,7 @@ export function MapBuilder({
   const commitAggregatedElevation = useCallback(
     (layerId: string, elevation: CellElevation): Promise<boolean> => {
       const version = appearancePreviewVersionRef.current[layerId] ?? 0;
-      const before =
-        appearanceCommitQueueRef.current[layerId] ?? Promise.resolve();
-      const result = before.catch(() => undefined).then(async () => {
+      const result = (async () => {
         const current = authoritativeLayersRef.current[layerId];
         if (!current || !isAggregated(current.viz)) {
           if (appearancePreviewVersionRef.current[layerId] === version) {
@@ -573,7 +560,7 @@ export function MapBuilder({
           JSON.stringify(next) === JSON.stringify(current.viz);
         const updated = unchanged
           ? current
-          : await patchLayer(layerId, { viz: next }, {
+          : await patchLayer(layerId, (accepted) => ({ viz: { ...accepted.viz, elevation } }), {
               skipRefresh: true,
               separateHistoryStep: true,
             });
@@ -581,8 +568,7 @@ export function MapBuilder({
           clearAppearanceDraft(layerId);
         }
         return updated !== null;
-      });
-      appearanceCommitQueueRef.current[layerId] = result.then(() => undefined);
+      })();
       return result;
     },
     [authoritativeLayersRef, clearAppearanceDraft, patchLayer],
@@ -591,9 +577,7 @@ export function MapBuilder({
   const commitAggregatedFill = useCallback(
     (layerId: string, fill: FillPaint): Promise<boolean> => {
       const version = appearancePreviewVersionRef.current[layerId] ?? 0;
-      const before =
-        appearanceCommitQueueRef.current[layerId] ?? Promise.resolve();
-      const result = before.catch(() => undefined).then(async () => {
+      const result = (async () => {
         const current = authoritativeLayersRef.current[layerId];
         if (!current || !isAggregated(current.viz)) {
           if (appearancePreviewVersionRef.current[layerId] === version) {
@@ -606,7 +590,7 @@ export function MapBuilder({
           JSON.stringify(next) === JSON.stringify(current.viz);
         const updated = unchanged
           ? current
-          : await patchLayer(layerId, { viz: next }, {
+          : await patchLayer(layerId, (accepted) => ({ viz: { ...accepted.viz, fill } }), {
               skipRefresh: true,
               separateHistoryStep: true,
             });
@@ -614,8 +598,7 @@ export function MapBuilder({
           clearAppearanceDraft(layerId);
         }
         return updated !== null;
-      });
-      appearanceCommitQueueRef.current[layerId] = result.then(() => undefined);
+      })();
       return result;
     },
     [authoritativeLayersRef, clearAppearanceDraft, patchLayer],
@@ -639,9 +622,7 @@ export function MapBuilder({
   const commitVizAppearance = useCallback(
     (layerId: string, viz: OdViz | ClusterViz): Promise<boolean> => {
       const version = appearancePreviewVersionRef.current[layerId] ?? 0;
-      const before =
-        appearanceCommitQueueRef.current[layerId] ?? Promise.resolve();
-      const result = before.catch(() => undefined).then(async () => {
+      const result = (async () => {
         const current = authoritativeLayersRef.current[layerId];
         if (!current || current.viz.type !== viz.type) {
           if (appearancePreviewVersionRef.current[layerId] === version) {
@@ -661,8 +642,7 @@ export function MapBuilder({
           clearAppearanceDraft(layerId);
         }
         return updated !== null;
-      });
-      appearanceCommitQueueRef.current[layerId] = result.then(() => undefined);
+      })();
       return result;
     },
     [authoritativeLayersRef, clearAppearanceDraft, patchLayer],
@@ -744,8 +724,7 @@ export function MapBuilder({
   const timelineDock = timeline.dock;
   const editFilters = useCallback(
     (layer: Layer, filters: LayerFilter[]): Promise<boolean> => {
-      const before = filterCommitQueueRef.current[layer.id] ?? Promise.resolve();
-      const result = before.catch(() => undefined).then(async () => {
+      const result = (async () => {
         const current = authoritativeLayersRef.current[layer.id] ?? layer;
         const had = new Set(
           current.filters
@@ -764,8 +743,7 @@ export function MapBuilder({
           timelineDock(layer.id, added.field);
         }
         return true;
-      });
-      filterCommitQueueRef.current[layer.id] = result.then(() => undefined);
+      })();
       return result;
     },
     [authoritativeLayersRef, patchLayer, live, timelineDock],
@@ -793,84 +771,11 @@ export function MapBuilder({
     setLegendFocus({ ...target, nonce: Date.now() });
   }, []);
 
-  const duplicateLayer = useCallback(
-    async (layerId: string) => {
-      // Structural changes reconcile by reload: after a network-level
-      // failure the copy may or may not exist — show the truth beside the
-      // banner rather than guessing.
-      const unconfirmed = (cause: unknown) => {
-        fail(
-          `layer:${layerId}`,
-          `The layer duplication could not be confirmed. ${
-            cause instanceof Error ? cause.message : "Network failure."
-          }`,
-        );
-        reload();
-      };
-      let response: Response;
-      try {
-        response = await track(
-          fetch(`/api/layers/${layerId}/duplicate`, { method: "POST" }),
-        );
-      } catch (cause) {
-        unconfirmed(cause);
-        return;
-      }
-      if (!response.ok) {
-        fail(`layer:${layerId}`, await readApiError(response));
-        return;
-      }
-      let copy: Layer;
-      try {
-        copy = (await response.json()) as Layer;
-      } catch (cause) {
-        unconfirmed(cause);
-        return;
-      }
-      clearFailure(`layer:${layerId}`);
-      // The copy takes a ticket: a map response sent before this
-      // confirmation embeds a layer set without it, and must not remove
-      // it on arrival.
-      authoritativeLayersRef.current[copy.id] = copy;
-      truthSeqRef.current += 1;
-      layerConfirmedAtRef.current[copy.id] = truthSeqRef.current;
-      serverMapRef.current = serverMapRef.current
-        ? {
-            ...serverMapRef.current,
-            layers: [...serverMapRef.current.layers, copy],
-          }
-        : serverMapRef.current;
-      setMap((m) => (m ? { ...m, layers: [...m.layers, copy] } : m));
-      setSelectedId(copy.id);
-      edited();
-      await refreshLayer(copy.id);
-    },
-    [clearFailure, authoritativeLayersRef, truthSeqRef, layerConfirmedAtRef, serverMapRef, edited, refreshLayer, fail, reload, track],
-  );
-
-  const reorderLayers = useCallback(
-    (bottomUpIds: string[]) => {
-      // The optimistic order takes a ticket: an earlier response's echo
-      // must not regress it while its write is queued.
-      truthSeqRef.current += 1;
-      mapFieldEditedAtRef.current.layerOrder = truthSeqRef.current;
-      // Apply the order locally first: the drop animation needs the list in
-      // its final order this frame, not after the server round-trip.
-      setMap((m) => {
-        if (!m) return m;
-        const byId = new Map(m.layers.map((l) => [l.id, l]));
-        const layers = bottomUpIds.flatMap((id) => byId.get(id) ?? []);
-        return layers.length === m.layers.length ? { ...m, layers } : m;
-      });
-      void patchMap({ layerOrder: bottomUpIds });
-    },
-    [mapFieldEditedAtRef, patchMap, truthSeqRef],
-  );
-
   // Draw on the map: the whole integration lives in
   // use-draw-integration; the builder carries wiring only. ----
   const draw = useDrawIntegration({
     mapId,
+    request: mutations.request,
     reloadKey,
     reload,
     selectLayer: setSelectedId,
@@ -880,93 +785,9 @@ export function MapBuilder({
     offerPickedLayer,
   });
 
-  const deleteLayer = useCallback(
-    async (layerId: string) => {
-      // the provenance-named owner cascades to its dataset through the
-      // sketch route; every other layer keeps the ordinary delete.
-      const sketchTable = draw.sketchTableFor(layerId);
-      let response: Response;
-      try {
-        response = await track(
-          fetch(
-            sketchTable
-              ? `/api/sketches/${sketchTable}`
-              : `/api/layers/${layerId}`,
-            { method: "DELETE" },
-          ),
-        );
-      } catch (cause) {
-        // The delete may or may not have applied — reload shows the truth
-        // beside the banner.
-        fail(
-          `layer:${layerId}`,
-          `The layer deletion could not be confirmed. ${
-            cause instanceof Error ? cause.message : "Network failure."
-          }`,
-        );
-        reload();
-        return;
-      }
-      if (!response.ok) {
-        fail(`layer:${layerId}`, await readApiError(response));
-        return;
-      }
-      clearFailure(`layer:${layerId}`);
-      if (selectedId === layerId) setSelectedId(null);
-      // The removal takes a ticket: a map response sent before this
-      // confirmation still embeds the layer, and must not resurrect it
-      // on arrival. The server cascaded bound widgets away in the same
-      // undoable step — mirror that here, with the widgets ticket, so a
-      // whole-array widget write can never re-introduce them.
-      truthSeqRef.current += 1;
-      layerRemovedAtRef.current[layerId] = truthSeqRef.current;
-      mapFieldEditedAtRef.current.widgets = truthSeqRef.current;
-      delete layerConfirmedAtRef.current[layerId];
-      delete authoritativeLayersRef.current[layerId];
-      serverMapRef.current = serverMapRef.current
-        ? {
-            ...serverMapRef.current,
-            layers: serverMapRef.current.layers.filter(
-              (l) => l.id !== layerId,
-            ),
-            widgets: serverMapRef.current.widgets.filter(
-              (w) => w.layerId !== layerId,
-            ),
-          }
-        : serverMapRef.current;
-      setMap((m) =>
-        m
-          ? {
-              ...m,
-              layers: m.layers.filter((l) => l.id !== layerId),
-              widgets: m.widgets.filter((w) => w.layerId !== layerId),
-            }
-          : m,
-      );
-      setRenders((r) => {
-        const next = { ...r };
-        delete next[layerId];
-        rendersRef.current = next;
-        return next;
-      });
-      if (sketchTable) {
-        if (drawState().selected?.layerId === layerId) setDrawSelection(null);
-        void draw.reloadSketches();
-        // The cascade writes no history step:
-        // edited()'s optimistic canUndo would expose a fake Undo, so the
-        // buttons resync from the server instead.
-        try {
-          const r = await fetch(`/api/maps/${mapId}/history`);
-          if (r.ok) setHistory((await r.json()) as HistoryAvailability);
-        } catch {
-          // Best-effort; the next edit or reload resyncs.
-        }
-        return;
-      }
-      edited();
-    },
-    [draw, clearFailure, selectedId, truthSeqRef, layerRemovedAtRef, mapFieldEditedAtRef, layerConfirmedAtRef, authoritativeLayersRef, serverMapRef, edited, track, fail, reload, mapId, setHistory],
-  );
+  const { duplicateLayer, reorderLayers, deleteLayer } = useBuilderLayerActions({
+    mutations, draw, mapId, selectedId, setSelectedId, setMap, setRenders, rendersRef, refreshLayer,
+  });
 
   if (failures.load && !map) {
     return (
@@ -989,6 +810,7 @@ export function MapBuilder({
 
 
   return (
+    <DocumentEditorContext.Provider value={mutations}>
     <div className={styles.builder}>
       <HeaderChrome
         map={map}
@@ -1260,5 +1082,6 @@ export function MapBuilder({
       />
 
     </div>
+    </DocumentEditorContext.Provider>
   );
 }
