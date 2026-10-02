@@ -215,9 +215,9 @@ export function createCascade(
   const startedAt = new Date().toISOString();
   db.transaction(() => {
     db.prepare(
-      `INSERT INTO cascade_runs (id, recipe_id, kind, outcome, cancelled, started_at, finished_at, initiator_id)
-       VALUES (?, ?, ?, NULL, 0, ?, NULL, ?)`,
-    ).run(id, recipeId, kind, startedAt, initiatorId);
+      `INSERT INTO cascade_runs (id, recipe_id, kind, outcome, cancelled, started_at, finished_at, initiator_id, admitted_executable_revision)
+       VALUES (?, ?, ?, NULL, 0, ?, NULL, ?, (SELECT executable_revision FROM recipes WHERE id = ?))`,
+    ).run(id, recipeId, kind, startedAt, initiatorId, recipeId);
     const stmt = db.prepare(
       `INSERT INTO cascade_members (cascade_id, step_id, ordinal, state, job_id, stopped_by, operation, node_name)
        VALUES (?, ?, ?, 'pending', NULL, NULL, ?, ?)`,
@@ -225,6 +225,14 @@ export function createCascade(
     for (const m of members) stmt.run(id, m.stepId, m.ordinal, m.operation ?? null, m.name ?? null);
   })();
   return getCascade(id, db)!;
+}
+
+/** Internal admission/publication evidence, never authority. A legacy run
+ * without a basis cannot resume against a definition it never admitted. */
+export function cascadeMatchesExecutable(id: string, recipeId: string, db: Database = metadataDb()): boolean {
+  return !!db.prepare(`SELECT c.id FROM cascade_runs c JOIN recipes r ON r.id = c.recipe_id
+    WHERE c.id = ? AND r.id = ? AND c.admitted_executable_revision = r.executable_revision`)
+    .get(id, recipeId);
 }
 
 export function getCascade(

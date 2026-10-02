@@ -1,4 +1,7 @@
 import { archiveCascadeAttempt } from "@/lib/metadata/cascades";
+import { readDocumentRevision } from "@/lib/metadata/revisions";
+import { metadataDb } from "@/lib/metadata/db";
+import { requireRunBasis } from "./run-basis";
 import { requireCascadeMember } from "@/lib/metadata/owned-cascades";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { deriveTableName } from "@/lib/ingest/naming";
@@ -62,8 +65,14 @@ export async function startStepRun(
   requireAccountScope(scope);
   // Admitted only for an account that may run the workflow now.
   requirePermitted(scope, "step", stepId, "run");
-  const plan = planPublication(scope, stepId);
-  if (options.cascadeId) requireCascadeMember(scope, options.cascadeId, stepId);
+  const db = metadataDb();
+  const { plan, executableRevision } = db.transaction(() => {
+    if (options.cascadeId) requireCascadeMember(scope, options.cascadeId, stepId, db);
+    const plan = planPublication(scope, stepId);
+    const executableRevision = readDocumentRevision({ kind: "workflow", id: plan.step.recipeId }, db)!.executableRevision!;
+    requireRunBasis(plan.step.recipeId, executableRevision, options.cascadeId, db);
+    return { plan, executableRevision };
+  })();
   // The step reads in its workflow's home, with this runner's reach and the
   // workflow's declared outputs as this runner has produced them.
   const evaluation = workflowEvaluation(scope, plan.step.recipeId);
@@ -80,8 +89,6 @@ export async function startStepRun(
     evaluation,
   );
 
-  if (options.cascadeId) requireCascadeMember(scope, options.cascadeId, stepId);
-
   // The registry's name, not the typed one — the same sanitization admission
   // checked against, so "is this the table we own" is asked of one string.
   const registered = deriveTableName(admitted.name, new Set());
@@ -90,29 +97,34 @@ export async function startStepRun(
       ? plan.replaceTable
       : undefined;
 
-  return submitRun(scope, {
-    operationId: admitted.operationId,
-    parameters: plan.running,
-    sql: admitted.sql,
-    name: admitted.name,
-    subject: plan.step.id,
-    // Not `client`: a caller may send any subject id, so a step's history is
-    // told apart by a kind nothing outside this path can mint.
-    subjectKind: "step",
-    ...(admitted.measurement ? { measurement: admitted.measurement } : {}),
-    ...(admitted.warnings ? { warnings: admitted.warnings } : {}),
-    ...(admitted.bindings ? { bindings: admitted.bindings } : {}),
-    evaluation,
-    // A step runs a prepared verb exactly as a one-off run does: the
-    // preparation is part of what was admitted, and dropping it here would
-    // publish a statement that does not exist.
-    ...(admitted.prepare ? { prepare: admitted.prepare } : {}),
-    ...(replaceTable ? { replaceTable } : {}),
-    ...(options.cascadeId ? { onSettled: (jobId: string) => archiveCascadeAttempt(options.cascadeId!, stepId, jobId) } : {}),
-    publisher: (jobFinished, jobId) =>
-      stepAuthorizer(scope, plan, jobFinished, options.cascadeId, jobId),
-    onPublished: stepOutputFiler(scope, plan.step.id),
-  });
+  return db.transaction(() => {
+    requirePermitted(scope, "step", stepId, "run", db);
+    if (options.cascadeId) requireCascadeMember(scope, options.cascadeId, stepId, db);
+    requireRunBasis(plan.step.recipeId, executableRevision, options.cascadeId, db);
+    return submitRun(scope, {
+      operationId: admitted.operationId,
+      parameters: plan.running,
+      sql: admitted.sql,
+      name: admitted.name,
+      subject: plan.step.id,
+      // Not `client`: a caller may send any subject id, so a step's history is
+      // told apart by a kind nothing outside this path can mint.
+      subjectKind: "step",
+      ...(admitted.measurement ? { measurement: admitted.measurement } : {}),
+      ...(admitted.warnings ? { warnings: admitted.warnings } : {}),
+      ...(admitted.bindings ? { bindings: admitted.bindings } : {}),
+      evaluation,
+      // A step runs a prepared verb exactly as a one-off run does: the
+      // preparation is part of what was admitted, and dropping it here would
+      // publish a statement that does not exist.
+      ...(admitted.prepare ? { prepare: admitted.prepare } : {}),
+      ...(replaceTable ? { replaceTable } : {}),
+      ...(options.cascadeId ? { onSettled: (jobId: string) => archiveCascadeAttempt(options.cascadeId!, stepId, jobId) } : {}),
+      publisher: (jobFinished, jobId) =>
+        stepAuthorizer(scope, plan, jobFinished, options.cascadeId, jobId),
+      onPublished: stepOutputFiler(scope, plan.step.id),
+    });
+  }).immediate();
 }
 
 /** The output follows the workflow's project as it is AT THE PUBLISHING
