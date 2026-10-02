@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
 const verbs = /^(GET|POST|PATCH|PUT|DELETE|HEAD|OPTIONS)$/;
-const services = new Set(['createMap', 'updateMap', 'deleteMap', 'createLayer', 'updateLayer', 'deleteLayer', 'duplicateLayer', 'publishMap', 'unpublishMap', 'undoMap', 'redoMap', 'createRecipe', 'updateRecipe', 'deleteRecipe', 'addRecipeStep', 'updateRecipeStep', 'deleteRecipeStep', 'setWorkflowLayout', 'changeMembers', 'transferMap', 'transferRecipe', 'commitDocumentChanges']);
+const services = new Set(['createMap', 'updateMap', 'deleteMap', 'createLayer', 'updateLayer', 'deleteLayer', 'duplicateLayer', 'publishMap', 'unpublishMap', 'undoMap', 'redoMap', 'createRecipe', 'updateRecipe', 'deleteRecipe', 'addRecipeStep', 'updateRecipeStep', 'deleteRecipeStep', 'setWorkflowLayout', 'changeMembers', 'transferMap', 'transferRecipe']);
 const literal = node => node && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) ? node.text : null;
 
 /** Syntax inventory, including dynamic helper routes. It reports candidates;

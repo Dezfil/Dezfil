@@ -14,7 +14,7 @@ it("finds inline browser fetches, request contexts, helper calls and direct serv
 it("audits the whole browser and service tree, including setup and non-core suites", async () => {
   const result = await auditCheckout(process.cwd());
   const files = new Set(result.calls.map((row: { file: string }) => row.file));
-  for (const file of ["e2e/workflow-results.spec.ts", "e2e/assistant-record.spec.ts", "e2e/grantee-world.spec.ts", "e2e/support.ts", "scripts/journey.mjs", "src/lib/metadata/revisions.test.ts"]) {
+  for (const file of ["e2e/workflow-results.spec.ts", "e2e/assistant-record.spec.ts", "e2e/grantee-world.spec.ts", "e2e/support.ts", "scripts/journey.mjs", "src/lib/map-preconditions.test.ts"]) {
     expect(files.has(file), file).toBe(true);
   }
   expect(result.scanned.browser).toBeGreaterThan(100);
