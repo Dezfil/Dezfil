@@ -1,9 +1,30 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Dialog, type Page } from "@playwright/test";
 import { routeHouse } from "./support";
 import { readThenWriteRequestSetup } from "./edit-basis";
 import { closeAll, createProject, invitePerson, runTag, share, type Person } from "./sharing-support";
 
 const STALE = "This item has changed. Reload it before trying again.";
+
+async function leaveBuilder(page: Page, accept: boolean) {
+  const originalURL = page.url();
+  const warnings: string[] = [];
+  const handle = async (dialog: Dialog) => {
+    warnings.push(dialog.type());
+    await (accept ? dialog.accept() : dialog.dismiss());
+  };
+  page.on("dialog", handle);
+  try {
+    await Promise.all([
+      page.waitForEvent("dialog"),
+      page.locator('a[href="/maps"]').first().click({ noWaitAfter: true }),
+    ]);
+    await expect(page).toHaveURL(accept ? new URL("/maps", originalURL).href : originalURL);
+    expect(warnings).toEqual(["beforeunload"]);
+  } finally {
+    page.off("dialog", handle);
+  }
+}
+
 for (const sameAccount of [true, false]) test(`builder keeps refused SQL and legend until explicit reload (${sameAccount ? "two tabs" : "two people"})`, async ({ browser, request, baseURL }) => {
   const people: Person[] = [];
   try {
@@ -57,10 +78,11 @@ for (const sameAccount of [true, false]) test(`builder keeps refused SQL and leg
     await test.info().attach("builder-stale", { body: await page.screenshot(), contentType: "image/png" });
     await page.unroute(`**${mapPath}`);
     // A cancelled departure leaves the refused draft in the same editor.
-    const dialog = page.waitForEvent("dialog");
-    await page.locator('a[href="/maps"]').first().click({ noWaitAfter: true });
-    const warning = await dialog; expect(warning.type()).toBe("beforeunload"); await warning.dismiss();
+    await leaveBuilder(page, false);
     await expect(notice).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Legend title, Berths" })).toHaveValue("Draft legend");
+    await notice.getByRole("button", { name: "Copy SQL" }).click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(sql);
     await notice.getByRole("button", { name: "Reload", exact: true }).click();
     await expect(notice).toHaveCount(0);
     await expect(page.locator("[data-unsaved]")).toHaveCount(0);
@@ -78,8 +100,24 @@ for (const sameAccount of [true, false]) test(`builder keeps refused SQL and leg
     await page.getByRole("textbox", { name: "Legend title, Berths" }).press("Tab");
     await expect.poll(async () => (await (await ada.api.get(mapPath)).json()).layers[0].legendTitle).toBe("Reapplied");
     expect(writes).toBe(2);
-    // Retirement clears this editor, including a second refused draft.
+    // Accepting departure discards a refused draft without saving it.
     await readThenWriteRequestSetup(bo.api, mapPath, () => ({ method: "PATCH", options: { data: { name: "Later" } } }));
+    await page.getByRole("textbox", { name: "Legend title, Berths" }).fill("Discard on departure");
+    await page.getByRole("textbox", { name: "Legend title, Berths" }).press("Tab");
+    await expect(notice).toBeVisible();
+    const beforeDeparture = writes;
+    await leaveBuilder(page, true);
+    await page.goto(`/maps/${map.id}`);
+    await expect(row.getByRole("button", { name: "Layer menu", exact: true })).toBeVisible();
+    await expect(notice).toHaveCount(0);
+    await expect(page.locator("[data-unsaved]")).toHaveCount(0);
+    await page.getByRole("tab", { name: "Legend", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "Legend title, Berths" })).toHaveValue("Reapplied");
+    const afterDeparture = await (await ada.api.get(mapPath)).json();
+    expect(afterDeparture.layers[0]).toMatchObject({ sql: layer.sql, legendTitle: "Reapplied" });
+    expect(writes).toBe(beforeDeparture);
+    // Retirement also clears a newly refused draft.
+    await readThenWriteRequestSetup(bo.api, mapPath, () => ({ method: "PATCH", options: { data: { name: "Changed again" } } }));
     await page.getByRole("textbox", { name: "Legend title, Berths" }).fill("Private draft");
     await page.getByRole("textbox", { name: "Legend title, Berths" }).press("Tab");
     await expect(notice).toBeVisible();
