@@ -7,6 +7,8 @@ export async function register() {
     const { ensureDataDir } = await import("@/lib/data-dir");
     const { dataDir } = await import("@/lib/config");
     await ensureDataDir(dataDir());
+    const { maintainCredentials } = await import("@/lib/auth/credential-maintenance");
+    maintainCredentials();
     // A crashed process can leave tile exports behind; sweep them. Served
     // archives without a tile record are never authoritative and would
     // otherwise keep serving deleted data — they go too.

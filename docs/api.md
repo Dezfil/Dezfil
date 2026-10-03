@@ -376,6 +376,22 @@ revoked or deactivated credentials return `401` on every account operation.
 These operations use the same private response and cookie-origin rules as
 settings. The Account and API / MCP tokens cards in Settings call these APIs.
 
+Credential maintenance starts at boot and on the first credential access at least
+one hour after a completed pass. Each trigger examines at most 500 rows per kind;
+unfinished passes continue on subsequent accesses without the hourly delay.
+Sessions and sign-in links, including revoked or consumed records, leave only
+one day past their stored expiry. Revoked tokens leave thirty days after
+revocation. Recent revocations retain their Revoked label; removed tokens vanish
+on refresh, and revoking their identifier returns `404 not_found`, "Token not
+found.", just like any unknown identifier. Live tokens have no new expiry.
+Deletion rechecks eligibility, preserving renewed sessions and live replacements.
+The inactive session backlog is bounded by the thirty-day lifetime times the
+sign-in rate, plus the one-day margin and sweep lag; continued credential access
+drains it. There is no live-session quota, timer service or database-file shrink
+promise. Sessions still roll for thirty days, ordinary links last seven days,
+and recovery links last fifteen minutes.
+
+
 **Users.** Admins use `GET`/`POST /api/users` to list or invite accounts,
 `PATCH /api/users/{id}` to change another account's admin flag or active status,
 and `POST /api/users/{id}/sign-in-link` to replace a sign-in link or reset a

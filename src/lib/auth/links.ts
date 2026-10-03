@@ -3,11 +3,13 @@ import { metadataDb } from "@/lib/metadata/db";
 import { getAccount } from "@/lib/metadata/accounts";
 import { linkByHash, revokeSessions } from "@/lib/metadata/auth-credentials";
 import { issueSession, secretHash } from "./credentials";
+import { maintainCredentials } from "./credential-maintenance";
 import { AuthError, requireAuthenticationWanted } from "./errors";
 import { hashPassword } from "./passwords";
 
 export async function redeemSignInLink(secret: string, password: string,
   db: Database = metadataDb(), now?: number, signal?: AbortSignal) {
+  maintainCredentials(db, now);
   const readLink = (at: number) => {
     const link = linkByHash(secretHash(secret), db);
     const account = link && getAccount(link.account_id, db);

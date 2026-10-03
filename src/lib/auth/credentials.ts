@@ -4,6 +4,7 @@ import { metadataDb } from "@/lib/metadata/db";
 import { getAccount, type Account } from "@/lib/metadata/accounts";
 import { insertSession, insertToken, listAccountTokens, revokeAccountToken, sessionByHash,
   sessionById, tokenByHash, tokenById } from "@/lib/metadata/auth-credentials";
+import { maintainCredentials } from "./credential-maintenance";
 import { AuthError } from "./errors";
 import { newSecret, secretHash } from "./link-issuance.mjs";
 export { newSecret, secretHash } from "./link-issuance.mjs";
@@ -27,6 +28,7 @@ export function issueSession(account: Account, db: Database, now: number) {
 
 export function authenticateSession(secret: string | null, db: Database = metadataDb(), now = Date.now()): AuthContext | null {
   if (!secret) return null;
+  maintainCredentials(db, now);
   return db.transaction(() => {
     const record = sessionByHash(secretHash(secret), db);
     const account = record && getAccount(record.account_id, db);
@@ -39,6 +41,7 @@ export function authenticateSession(secret: string | null, db: Database = metada
 
 export function authenticateToken(secret: string | null, db: Database = metadataDb(), now = Date.now()): AuthContext | null {
   if (!secret) return null;
+  maintainCredentials(db, now);
   return db.transaction(() => {
     const record = tokenByHash(secretHash(secret), db);
     const account = record && getAccount(record.account_id, db);
@@ -50,6 +53,7 @@ export function authenticateToken(secret: string | null, db: Database = metadata
 
 /** Services call this again under their write transaction; contexts are not authority. */
 export function requireCurrentActor(context: AuthContext | null, db: Database = metadataDb(), now = Date.now()): Account {
+  maintainCredentials(db, now);
   if (!context || (context.delegationExpiresAt !== undefined && context.delegationExpiresAt <= now)) throw new AuthError("authentication_required", "Sign in to continue.", 401);
   const record = context.credential.kind === "session"
     ? sessionById(context.credential.id, db) : tokenById(context.credential.id, db);
@@ -62,6 +66,7 @@ export function requireCurrentActor(context: AuthContext | null, db: Database = 
 }
 
 export function signOut(context: AuthContext, db: Database = metadataDb(), now = Date.now()): void {
+  maintainCredentials(db, now);
   db.transaction(() => {
     requireCurrentActor(context, db, now);
     if (context.credential.kind === "session") {
@@ -71,6 +76,7 @@ export function signOut(context: AuthContext, db: Database = metadataDb(), now =
 }
 
 export function createApiToken(context: AuthContext, name: string, db: Database = metadataDb(), now = Date.now()) {
+  maintainCredentials(db, now);
   return db.transaction(() => {
     const account = requireCurrentActor(context, db, now);
     if (!name.trim()) throw new AuthError("invalid_request", "Name the token.", 400);
@@ -82,10 +88,12 @@ export function createApiToken(context: AuthContext, name: string, db: Database 
 }
 
 export function listApiTokens(context: AuthContext, db: Database = metadataDb(), now = Date.now()) {
+  maintainCredentials(db, now);
   return db.transaction(() => listAccountTokens(requireCurrentActor(context, db, now).id, db)).immediate();
 }
 
 export function revokeApiToken(context: AuthContext, id: string, db: Database = metadataDb(), now = Date.now()): void {
+  maintainCredentials(db, now);
   db.transaction(() => {
     const account = requireCurrentActor(context, db, now);
     if (!revokeAccountToken(account.id, id, now, db)) throw new AuthError("not_found", "Token not found.", 404);

@@ -4,6 +4,7 @@ import { metadataDb } from "@/lib/metadata/db";
 import { accountCount, accountPasswordHash, getAccount, getAccountByEmail, insertAccount, markOriginalAccount,
   normalizeEmail } from "@/lib/metadata/accounts";
 import { revokeSessions } from "@/lib/metadata/auth-credentials";
+import { maintainCredentials } from "./credential-maintenance";
 import { AuthError, requireAuthenticationWanted } from "./errors";
 import { issueSession, requireCurrentActor, type AuthContext } from "./credentials";
 import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from "./passwords";
@@ -44,6 +45,7 @@ export function identityFields(name: string, email: string) {
 
 export async function createFirstAccount(input: { name: string; email: string; password: string },
   db: Database = metadataDb(), now?: number, signal?: AbortSignal) {
+  maintainCredentials(db, now);
   // The write transaction repeats this check after asynchronous password work.
   if (accountCount(db) !== 0) throw new AuthError("setup_complete", "This instance is already set up.", 409);
   const fields = identityFields(input.name, input.email);
@@ -62,6 +64,7 @@ export async function createFirstAccount(input: { name: string; email: string; p
 }
 
 export async function signIn(email: string, password: string, db: Database = metadataDb(), now?: number, signal?: AbortSignal) {
+  maintainCredentials(db, now);
   const account = getAccountByEmail(email, db);
   const hash = account && accountPasswordHash(account.id, db);
   const valid = await verifyPassword(password, hash ?? DUMMY_PASSWORD_HASH, { signal });
