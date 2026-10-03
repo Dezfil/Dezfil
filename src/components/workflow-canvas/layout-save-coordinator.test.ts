@@ -91,3 +91,24 @@ describe("the production layout save coordinator", () => {
     expect(states.at(-1)?.kind).toBe("saved");
   });
 });
+
+it("undoing a note removal restores the first note before the second", async () => {
+  const w = wire(); vi.stubGlobal("fetch", w.fetch);
+  const notes: LayoutNote[] = [
+    { id: "na_ly", x: 48, y: 280, w: 176, h: 96, color: "yellow", text: "first" },
+    { id: "nb_ly", x: 288, y: 280, w: 176, h: 96, color: "green", text: "second" },
+  ];
+  const layout = { ...EMPTY, notes, editRevision: "before" };
+  const document = new WorkflowDocument(W); document.accept(layout);
+  const coordinator = new LayoutSaveCoordinator(W, layout, { graph: { members: [], edges: [], presentSourceCount: 0 }, onState() {}, lockReason: () => null, say() {} }, document);
+  coordinator.save({ positions: {}, notes: notes.slice(1) });
+  w.pending("PUT", `/api/recipes/${W}/layout`)[0].ok({ layout: { ...layout, notes: notes.slice(1), editRevision: "removed" } });
+  await document.idle();
+  coordinator.restore({ positions: {}, notes }, { place: [], drop: [] });
+  const inverse = w.pending("PUT", `/api/recipes/${W}/layout`)[0];
+  expect((inverse.body as { notes: LayoutNote[] }).notes[0]).toEqual(notes[0]);
+  expect(inverse.headers.get("X-Edit-Revision")).toBe("removed");
+  inverse.ok({ layout: { ...layout, editRevision: "restored" } }); await document.idle();
+  expect(document.layout?.notes).toEqual(notes);
+  vi.unstubAllGlobals();
+});

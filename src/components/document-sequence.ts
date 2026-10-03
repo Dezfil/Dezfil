@@ -74,7 +74,16 @@ export function fieldIntent<T>(before: T, after: T): (accepted: T) => T {
       const current = Array.isArray(accepted) && identified(accepted) ? accepted : before;
       const byId = new Map(current.map((v) => [v.id, v]));
       const ids = reordered ? [...after.map((v) => v.id), ...current.filter((v) => !old.has(v.id) && !next.has(v.id)).map((v) => v.id)]
-        : [...current.filter((v) => !old.has(v.id) || next.has(v.id)).map((v) => v.id), ...after.filter((v) => !byId.has(v.id) && !old.has(v.id)).map((v) => v.id)];
+        : current.filter((v) => !old.has(v.id) || next.has(v.id)).map((v) => v.id);
+      if (!reordered) {
+        // New items retain their place relative to the next surviving item.
+        // Appending here changed note stacking when undo restored a removal.
+        after.forEach((item, index) => {
+          if (old.has(item.id) || byId.has(item.id)) return;
+          const anchor = after.slice(index + 1).find((v) => ids.includes(v.id));
+          ids.splice(anchor ? ids.indexOf(anchor.id) : ids.length, 0, item.id);
+        });
+      }
       return ids.flatMap((id) => {
         // An accepted deletion is not undone by an old widget snapshot.
         if (old.has(id) && !byId.has(id)) return [];
