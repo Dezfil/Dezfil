@@ -55,7 +55,7 @@ export function useRunConfirm(opts: {
       setRefusal({ message: guarded, retry: null });
       return;
     }
-    const plan = await runner.plan(from?.id);
+    const plan = await runner.plan(from?.id, true);
     if ("refused" in plan) {
       setRefusal({ message: plan.refused, retry: null });
       return;
@@ -64,6 +64,7 @@ export function useRunConfirm(opts: {
       const outcome = await runner.start({
         fromStepId: from?.id,
         members: plan.members,
+        preview: plan.preview,
         ...(plan.editRevision ? { editRevision: plan.editRevision } : {}),
       });
       if (outcome.kind === "refused")
@@ -88,6 +89,7 @@ export function useRunConfirm(opts: {
     const outcome = await runner.start({
       fromStepId: confirm.from?.id,
       members: confirm.plan.members,
+      preview: confirm.plan.preview,
       ...(confirm.plan.editRevision ? { editRevision: confirm.plan.editRevision } : {}),
     });
     setConfirming(false);

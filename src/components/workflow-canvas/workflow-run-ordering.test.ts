@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 vi.mock("react", async (original) => ({ ...await original<object>(), ...(await import("./hook-harness")).hookReact }));
 import { HookHarness } from "./hook-harness";
+import { useRunConfirm } from "./use-run-confirm";
 import { useWorkflowRun } from "./use-workflow-run";
 import { WorkflowDocument } from "./workflow-document";
 import { RecipeEditor } from "./use-recipe-edits";
@@ -36,4 +37,43 @@ it("plans after definition and layout settle, and keeps the displayed plan's bas
   start.refuse(409, "stale_revision", "This item has changed. Reload it before trying again.");
   expect(await starting).toMatchObject({ kind: "refused", code: "stale_revision", retryable: false });
   expect(w.calls.filter((call) => call.method === "POST")).toHaveLength(2);
+});
+
+it.each(["failed", "refused", "pending failure"])("Run all shows confirmation with a %s save, then refuses the start", async (kind) => {
+  const w = wire(); vi.stubGlobal("fetch", w.fetch);
+  const document = new WorkflowDocument("w"); document.accept({ editRevision: "accepted" });
+  const editor = new RecipeEditor("w", { onAccepted() {}, onState() {} }, { lockReason: () => null, say() {} }, document);
+  const h = new HookHarness(() => useWorkflowRun("w", { settle: editor.settled, onRecipeChanged: async () => true, onTablesChanged: async () => true, onRunSeen() {} }, document));
+  const flow = new HookHarness(() => useRunConfirm({ runner: h.value }));
+  cleanups.push(() => { flow.unmount(); h.unmount(); });
+  w.pending("GET", "/api/recipes/w/runs")[0].ok({ runs: [] });
+  const edit = editor.edit("a", { sql: "SELECT 99" });
+  const reject = () => w.pending("PATCH", "/api/recipes/w/steps/a")[0].refuse(kind === "refused" ? 422 : 500, "seeded_failure", "The seeded save failed.");
+  if (kind !== "pending failure") { reject(); await edit; }
+  const asking = flow.value.askRun(null); await w.settle();
+  expect(w.pending("POST", "/api/recipes/w/runs"), "the confirmation plan must not wait on a failed save").toHaveLength(1);
+  w.pending("POST", "/api/recipes/w/runs")[0].ok({ plan: { kind: "run_all", wide: true, members: ["a", "b"] }, editRevision: "accepted" });
+  await asking; flow.render();
+  expect(flow.value.confirm?.plan.members).toEqual(["a", "b"]);
+  const confirming = flow.value.confirmRun(); await w.settle();
+  if (kind === "pending failure") { reject(); await edit; }
+  await confirming; flow.render();
+  expect(flow.value.refusal?.message).toBe("Couldn't save the change, so nothing started. The seeded save failed.");
+  expect(w.calls.filter(call => call.method === "POST" && !(call.body as { plan?: boolean }).plan)).toHaveLength(0);
+});
+
+it("asks again when an accepted pending save changes a confirmation preview", async () => {
+  const w = wire(); vi.stubGlobal("fetch", w.fetch);
+  const document = new WorkflowDocument("w"); document.accept({ editRevision: "before" });
+  const editor = new RecipeEditor("w", { onAccepted() {}, onState() {} }, { lockReason: () => null, say() {} }, document);
+  const h = new HookHarness(() => useWorkflowRun("w", { settle: editor.settled, onRecipeChanged: async () => true, onTablesChanged: async () => true, onRunSeen() {} }, document));
+  cleanups.push(() => h.unmount());
+  w.pending("GET", "/api/recipes/w/runs")[0].ok({ runs: [] });
+  const edit = editor.edit("a", { sql: "SELECT 99" });
+  const starting = h.value.start({ members: ["a", "b"], editRevision: "before", preview: true }); await w.settle();
+  w.pending("PATCH", "/api/recipes/w/steps/a")[0].ok({ step: { id: "a", parameters: { sql: "SELECT 99" } }, editRevision: "after" });
+  await edit;
+  expect(await starting).toMatchObject({ kind: "refused", code: "plan_changed" });
+  expect(document.stale).toBe(false);
+  expect(w.pending("POST", "/api/recipes/w/runs")).toHaveLength(0);
 });

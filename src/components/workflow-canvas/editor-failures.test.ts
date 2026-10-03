@@ -344,6 +344,8 @@ it("unreadable edit failure reaches the Run all notice's existing reason suffix"
   const c = setup(); await c.w.settle(); const edit = c.editor.edit("a", { distance: 99 });
   c.w.pending("PATCH", patch)[0].truncated(); await c.w.settle(); c.w.pending("GET", patch)[0].ok({ step: stepOf("a", { distance: 10 }) }); await edit;
   const flow = new HookHarness(() => useRunConfirm({ runner: c.runner })); const asking = flow.value.askRun(null);
+  await c.w.settle();
+  c.w.pending("POST", "/api/recipes/w/runs")[0].ok({ plan: { wide: false, members: ["a"], kind: "run_all" } });
   await asking; flow.render();
   expect(c.w.pending("POST", "/api/recipes/w/runs")).toHaveLength(0);
   expect(flow.value.refusal?.message).toBe("Couldn't save the change, so nothing started. Couldn't confirm the change was saved.");

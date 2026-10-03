@@ -23,6 +23,8 @@ import { mergeRun, type WorkflowRun } from "./run-overlay";
 export type RunPhase = "idle" | "starting" | "running" | "cancelling" | "settling";
 
 export interface RunPlan {
+  /** A confirmation preview precedes the save barrier; a changed local basis must be planned again. */
+  preview?: boolean;
   editRevision?: string;
   kind: "run_all" | "from_step";
   wide: boolean;
@@ -52,8 +54,8 @@ export interface WorkflowRunState {
 
 export interface WorkflowRunner {
   state: WorkflowRunState;
-  plan: (fromStepId?: string) => Promise<RunPlan | { refused: string }>;
-  start: (request: { fromStepId?: string; members?: string[]; editRevision?: string }) => Promise<StartOutcome>;
+  plan: (fromStepId?: string, preview?: boolean) => Promise<RunPlan | { refused: string }>;
+  start: (request: { fromStepId?: string; members?: string[]; editRevision?: string; preview?: boolean }) => Promise<StartOutcome>;
   runNode: (stepId: string) => Promise<StartOutcome>;
   cancel: () => Promise<void>;
   /** Whether a member of the run in flight has not settled. */
@@ -277,17 +279,22 @@ class Runner implements WorkflowRunner {
     this.set({ runs: (result.body as { runs: WorkflowRun[] }).runs });
   }
 
-  plan = async (fromStepId?: string): Promise<RunPlan | { refused: string }> => {
-    const blocked = await this.barrier();
-    if (blocked && "message" in blocked) return { refused: blocked.kind === "save_failed" ? `Couldn't save the change, so nothing started. ${blocked.message}` : blocked.message };
-    return this.document.enqueue(async () => {
+  plan = async (fromStepId?: string, preview = false): Promise<RunPlan | { refused: string }> => {
+    if (!preview) {
+      const blocked = await this.barrier();
+      if (blocked && "message" in blocked) return { refused: blocked.kind === "save_failed" ? `Couldn't save the change, so nothing started. ${blocked.message}` : blocked.message };
+    }
+    const readPlan = async () => {
       if (this.document.stale) return { refused: STALE_MESSAGE };
       const result = await call(`/api/recipes/${this.id}/runs`,
         { method: "POST", body: JSON.stringify({ plan: true, ...(fromStepId ? { fromStepId } : {}) }) }, "plan the run");
       if (!result.ok) return { refused: "failed" in result ? result.failed : result.refused.message };
       const body = result.body as { plan: RunPlan; editRevision?: string };
-      return { ...body.plan, ...(body.editRevision ? { editRevision: body.editRevision } : {}) };
-    });
+      return { ...body.plan, ...(body.editRevision ? { editRevision: body.editRevision } : {}), ...(preview ? { preview: true } : {}) };
+    };
+    // The confirmation can be opened while a save waits or has failed.
+    // Only starting consumes the barrier and the displayed revision.
+    return preview ? readPlan() : this.document.enqueue(readPlan);
   };
 
   /** The pre-run barrier: what is typed lands, everything in flight is
@@ -342,14 +349,17 @@ class Runner implements WorkflowRunner {
     return { kind: "started", run };
   }
 
-  start = async (request: { fromStepId?: string; members?: string[]; editRevision?: string }): Promise<StartOutcome> => {
+  start = async (request: { fromStepId?: string; members?: string[]; editRevision?: string; preview?: boolean }): Promise<StartOutcome> => {
     const lifetime = this.lifetime;
     const blocked = await this.barrier();
     const closed = this.closedStart(lifetime);
     if (closed) return closed;
     if (blocked) return blocked;
+    const { editRevision, preview, ...input } = request;
+    if (preview && editRevision && this.document.revision && editRevision !== this.document.revision) {
+      return { kind: "refused", code: "plan_changed", message: "The workflow changed while saving. Check the run again.", retryable: false };
+    }
     this.set({ phase: "starting" });
-    const { editRevision, ...input } = request;
     const result = await this.document.enqueue(() => call(`/api/recipes/${this.id}/runs`, { method: "POST", headers: editRevision ? editHeaders({ editRevision }) : this.document.headers(), body: JSON.stringify(input) }, "start the run", (path, init) => this.document.stale ? Promise.resolve(this.document.refusal()) : fetch(path, init).then(response => this.document.observe(response))));
     return this.finishStart(result, lifetime);
   };
