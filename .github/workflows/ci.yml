@@ -152,12 +152,17 @@ jobs:
       # and no key material anywhere inside.
       - name: Runtime image inventory matches the allowlist
         run: node scripts/check-image-inventory.mjs dezfil:ci
-      - name: Whole-body transport, paced public refusals and file limits
+      - name: Provision the separate stock MCP probe client
+        run: |
+          mcp_client_version=$(node -p "require('./package-lock.json').packages['node_modules/@modelcontextprotocol/client'].version")
+          docker build -f scripts/mcp-probe-client.Dockerfile --build-arg MCP_CLIENT_VERSION="$mcp_client_version" -t dezfil-mcp-probe:ci .
+      - name: JSON and MCP bounds, whole uploads, paced public refusals and file limits
         run: |
           run_transport() {
             mode="$1"; port="$2"; cap="$3"
             docker run -d --rm --name dezfil-transport-ci --network=none \
               -e PORT="$port" -e DEZFIL_DATA_DIR=/data -e DEZFIL_UPLOAD_MAX_MB="$cap" \
+              -e DEZFIL_AI_PROVIDER=openai -e OPENAI_API_KEY=scripted-wire \
               -v "$PWD/scripts:/probes:ro" dezfil:ci \
               sh -c 'exec node --import=./scripts/ingress-preload.mjs server.js > /data/transport-server.log 2>&1'
             for i in $(seq 1 30); do
@@ -170,8 +175,11 @@ jobs:
               docker exec dezfil-transport-ci node /probes/transport-probe.mjs \
                 "http://127.0.0.1:$port" --server-log /data/transport-server.log --file-limit-only
             else
-              docker exec dezfil-transport-ci node /probes/transport-probe.mjs \
-                "http://127.0.0.1:$port" --server-log /data/transport-server.log
+              docker run --rm --network=container:dezfil-transport-ci \
+                --volumes-from dezfil-transport-ci -e DEZFIL_DATA_DIR=/data \
+                -v "$PWD/scripts:/probe/scripts:ro" dezfil-mcp-probe:ci \
+                node /probe/scripts/body-probe.mjs "http://127.0.0.1:$port" \
+                --server-log /data/transport-server.log
             fi
             docker stop dezfil-transport-ci
           }
@@ -234,10 +242,6 @@ jobs:
             sleep 1
           done
           docker exec dezfil-ci node /probes/durability.mjs verify http://127.0.0.1:3183 /data/durability-state.json
-      - name: Provision the separate stock MCP probe client
-        run: |
-          mcp_client_version=$(node -p "require('./package-lock.json').packages['node_modules/@modelcontextprotocol/client'].version")
-          docker build -f scripts/mcp-probe-client.Dockerfile --build-arg MCP_CLIENT_VERSION="$mcp_client_version" -t dezfil-mcp-probe:ci .
       # The account journeys, each on a fresh store of its own: what a person
       # owns stays theirs (an admin and two people), and a project shares
       # exactly what it files (an owner, a Viewer, an Editor and a stranger,
