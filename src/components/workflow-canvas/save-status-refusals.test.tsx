@@ -9,6 +9,10 @@ import { CanvasSaveStatus } from "./CanvasSaveStatus";
 import { readWorkflowPage, type PageRead } from "./workflow-read";
 import { wire } from "./fetch-wire";
 import { STALE_MESSAGE } from "../document-sequence";
+import { LayoutSaveCoordinator } from "./layout-save-coordinator";
+import { readRecipe, runInverse } from "./history-operation";
+import { EMPTY_HISTORY, type History, type RecipeStep } from "./canvas-history";
+import type { WorkflowStep } from "../workflow-model";
 
 let canvas: ComponentProps<typeof WorkflowCanvas>;
 vi.mock("next/navigation", () => ({ usePathname: () => "/workflows/w" }));
@@ -24,6 +28,88 @@ const cleanups: (() => void)[] = [];
 afterEach(() => {
   cleanups.splice(0).forEach(cleanup => cleanup());
   vi.useRealTimers(); vi.unstubAllGlobals();
+});
+
+it("saves after a lost restoration response and keeps a new failure's Retry past the accepted save's fade", async () => {
+  vi.useFakeTimers();
+  const host = installDomHost();
+  Object.assign(host.window, { setTimeout, clearTimeout });
+  const container = host.document.createElement("div"); host.document.body.appendChild(container);
+  const root = createRoot(container as unknown as Element);
+  cleanups.push(() => { act(() => root.unmount()); host.uninstall(); });
+  const node = { id: "buf", ordinal: 0, operation: "buffer", parameters: { name: "buffer", distance: 100 }, proposedParameters: null,
+    output: null, lastSuccessAt: null, conditions: ["never_run"], inputs: [], reads: [], missingInputs: [], causes: [] } as unknown as WorkflowStep;
+  const page: PageRead = {
+    recipe: { id: "w", name: "Workflow", editRevision: "seen", projectId: null, origin: "workflow", createdAt: "now", updatedAt: "now",
+      summary: { nodes: 1, sources: 0, liveOutputs: 0, status: "never_run", count: 1 }, steps: [node] },
+    layout: { steps: { buf: { x: 288, y: 40 } }, sources: {}, notes: [], updatedAt: null, editRevision: "seen" }, tables: [], operations: [],
+  };
+  vi.mocked(readWorkflowPage).mockResolvedValue(page);
+  let storedRecipe = page.recipe, storedLayout = page.layout;
+  let cutLayout = false;
+  const w = wire();
+  vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input), method = init?.method ?? "GET";
+    if (method === "GET") {
+      if (path === "/api/recipes/w") return Response.json({ recipe: storedRecipe });
+      if (path === "/api/recipes/w/layout") return Response.json({ layout: storedLayout });
+      if (path === "/api/recipes/w/runs") return Response.json({ runs: [] });
+    }
+    if (method === "PUT" && path === "/api/recipes/w/layout") {
+      if (cutLayout) throw new TypeError("Failed to fetch");
+      if (new Headers(init?.headers).get("X-Edit-Revision") !== storedRecipe.editRevision) {
+        return Response.json({ error: { code: "stale_revision", message: STALE_MESSAGE } }, { status: 409 });
+      }
+      const editRevision = `${storedRecipe.editRevision}-layout`;
+      storedRecipe = { ...storedRecipe, editRevision };
+      storedLayout = { ...JSON.parse(String(init?.body)), editRevision };
+      return Response.json({ layout: storedLayout, editRevision });
+    }
+    return w.fetch(input, init);
+  });
+  const flush = async (work: () => void) => act(async () => { work(); await setImmediate(); });
+  await flush(() => root.render(<WorkflowScreen id="w" />));
+  const saves = new LayoutSaveCoordinator("w", page.layout, { graph: canvas.graph, onState: state => canvas.onSaveState!(state), lockReason: () => null, say() {} }, canvas.edits.document);
+  const removed: RecipeStep = { kind: "recipe", nodeId: "old", watermarks: { old: null }, label: "SQL step removed",
+    op: { kind: "remove", operation: "sql", parameters: { name: "after", sql: "SELECT 1" }, ordinal: 1, dataset: "never", position: { x: 576, y: 40 } } };
+  let history: History = { ...EMPTY_HISTORY, past: [removed] };
+  let inverse!: Promise<void>;
+  await flush(() => {
+    inverse = runInverse(removed, "undo", {
+      edits: canvas.edits, read: () => readRecipe("w"), record: () => history, put: next => { history = next; }, labelOf: id => id,
+      answered() {}, forget() {}, enqueue: job => { inverse = job(); },
+      screen: () => ({ lockReason: null, say() {}, runWord: () => null, stored: () => storedLayout.steps, dropNode() {},
+        failed: (message, retry) => canvas.onEditState!({ kind: "failed", message, retry }), recovered: () => canvas.onEditState!({ kind: "saved" }),
+        placeNode: (id, position) => saves.save({ positions: { ...storedLayout.steps, [id]: position }, notes: [] }) }),
+    });
+  });
+  // The POST landed, but the browser did not get its revision. Retry must
+  // adopt this one node without leaving the next layout on an old basis.
+  storedRecipe = { ...storedRecipe, editRevision: "restored", steps: [node, { ...node, id: "new", ordinal: 1, operation: "sql", parameters: { name: "after", sql: "SELECT 1" } }] };
+  storedLayout = { ...storedLayout, editRevision: "restored" };
+  await flush(() => w.pending("POST", "/api/recipes/w/steps")[0].cut());
+  await inverse;
+  const line = () => host.document.querySelector('[data-save-status="whisper"]');
+  expect(line()?.textContent).toBe("Couldn’t saveRetry");
+  await flush(() => line()!.querySelector("button")!.click());
+  await act(async () => { await inverse; await canvas.edits.idle(); });
+  const start = { ...storedLayout.steps };
+  await flush(() => saves.save({ positions: { ...start, buf: { x: 328, y: 64 } }, notes: [] }));
+  expect(line()?.textContent).toBe("Saved");
+  expect(w.calls.filter(call => call.method === "POST")).toHaveLength(1);
+  expect(storedRecipe.steps.map(step => step.id)).toEqual(["buf", "new"]);
+  expect(canvas.edits.document!.stale).toBe(false);
+
+  cutLayout = true;
+  await flush(() => saves.save({ positions: start, notes: [] }));
+  expect(line()?.textContent).toBe("Couldn’t saveRetry");
+  await act(async () => { await vi.advanceTimersByTimeAsync(1800); });
+  expect(line()?.textContent).toBe("Couldn’t saveRetry");
+  expect(line()!.getAttribute("data-on")).toBe("true");
+  cutLayout = false;
+  await flush(() => line()!.querySelector("button")!.click());
+  expect(line()?.textContent).toBe("Saved");
+  expect(storedLayout.steps).toEqual(start);
 });
 function inputHandlers(element: HostElement) {
   const key = Object.keys(element).find(key => key.startsWith("__reactProps$"))!;

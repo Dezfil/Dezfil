@@ -7,6 +7,7 @@ import { EditDrafts, type EditRejection } from "./edit-drafts";
 import { WorkflowDocument } from "./workflow-document";
 import { fieldIntent, STALE_MESSAGE } from "../document-sequence";
 import type { SaveState } from "./use-layout-saves";
+import { additionRecovery } from "./addition-recovery";
 
 /**
  * The recipe-edit coordinator: every change is one documented call — add a
@@ -118,6 +119,7 @@ type ParameterIntent = (accepted: Record<string, unknown> | undefined) => Record
  * the screen makes it through `useRecipeEdits`. */
 export class RecipeEditor implements RecipeCoordinator {
   private uncertain: UncertainEdits;
+  private recoveredAdditions = new WeakMap<AddInput, WorkflowStep>();
   readonly drafts = new EditDrafts();
   private latest = new Map<string, { parameters: Record<string, unknown>; intents: Map<number, ParameterIntent> }>();
   /** Every mutation on the wire, with what it answered. */
@@ -257,12 +259,26 @@ export class RecipeEditor implements RecipeCoordinator {
   add = (input: AddInput): Promise<EditOutcome> => this.track(this.document.enqueue(() => this.addNow(input, null)));
 
   private addNow = async (input: AddInput, owner: (() => void) | null): Promise<EditOutcome> => {
+    const recovered = this.recoveredAdditions.get(input);
+    if (recovered) {
+      this.recoveredAdditions.delete(input);
+      this.publish({ kind: "saved" });
+      this.ports().onAccepted();
+      return { kind: "accepted", step: recovered };
+    }
     this.publish({ kind: "saving" });
+    const recover = additionRecovery(this.document, input);
     const result = await call(`/api/recipes/${this.id}/steps`, { method: "POST", body: JSON.stringify(input) }, "add the node", (path, init) => this.document.send(String(path), init ?? {}));
     if (result.ok) {
       this.publish({ kind: "saved" });
       this.ports().onAccepted();
       return { kind: "accepted", step: (result.body as { step: WorkflowStep }).step };
+    }
+    if ("failed" in result) {
+      const step = await recover();
+      // A caller-owned Retry may re-enter add instead of inspecting the
+      // recipe. Give it the confirmed node without submitting a second add.
+      if (step) this.recoveredAdditions.set(input, step);
     }
     return this.settle(result, owner ?? this.retry(() => void this.add(input)));
   };
