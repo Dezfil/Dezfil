@@ -8,11 +8,11 @@ export const AUTH_SECURITY_SCHEMES = {
   BearerToken: { type: "http", scheme: "bearer", description: "An account's API token. Its current account status and privileges are checked on every request." + accountPrecondition },
 };
 const body = (properties: Record<string, unknown>, required = Object.keys(properties)) => ({
-  required: true, content: { "application/json": { schema: { type: "object", additionalProperties: false, properties, required } } },
+  "x-byte-limit": 65_536, required: true, content: { "application/json": { schema: { type: "object", additionalProperties: false, properties, required } } },
 });
 const password = { type: "string", minLength: 8, writeOnly: true, description: "At least eight characters; very common passwords are refused. No character classes are required." };
 const email = { type: "string", description: "Local email identity, normalized for case and surrounding whitespace." };
-const success = { "200": jsonOk("#/components/schemas/AccountSession"), "400": ERROR_RESPONSE, "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "409": ERROR_RESPONSE, "503": ERROR_RESPONSE };
+const success = { "413": ERROR_RESPONSE, "200": jsonOk("#/components/schemas/AccountSession"), "400": ERROR_RESPONSE, "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "409": ERROR_RESPONSE, "503": ERROR_RESPONSE };
 const entry = "Cookie mutations and entry submissions require an Origin matching the trusted request origin. Explicit bearer authentication does not use cookies. Responses are private, no-store. ";
 const mutation = (summary: string, description: string, properties: Record<string, unknown>) => ({ ...op({ summary, description: entry + description, tag: "Accounts", tool: false,
   effects: writes(resource("accounts")), requestBody: body(properties), responses: success }), security: [] });

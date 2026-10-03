@@ -1459,3 +1459,7 @@ response message. Branch on the code.
 | `map_not_found` | No map exists with the given id. |
 | `internal` | An unexpected server error occurred. |
 <!-- error-catalogue:end -->
+
+Authentication entry, Account and Users JSON submissions accept at most 65,536
+wire bytes, including whitespace and escaping. Excess answers 413
+`request_body_too_large` before parsing and before any account change.

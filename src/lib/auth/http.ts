@@ -1,3 +1,4 @@
+import { smallJsonValue } from "@/lib/api/json-body";
 import { NextResponse } from "next/server";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
@@ -68,7 +69,7 @@ export async function authBody(request: Request, fields: readonly string[], requ
   if (request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json") {
     throw new AuthError("invalid_request", "Expected a JSON body.", 400);
   }
-  const value: unknown = await request.json().catch(() => null);
+  const value: unknown = await smallJsonValue(request, () => null);
   if (!value || typeof value !== "object" || Array.isArray(value) ||
       Object.entries(value).some(([key, item]) => !fields.includes(key) || typeof item !== "string") ||
       required.some(key => typeof (value as Record<string, unknown>)[key] !== "string")) {

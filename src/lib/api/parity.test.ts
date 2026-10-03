@@ -36,7 +36,12 @@ describe("API parity", () => {
   it("publishes the enforced workflow JSON byte ceiling on every governed operation", () => {
     const workflows = governedBodyRoutes();
     const selections = publishedBodyRoutes();
-    const operations = [...workflows, ...selections];
+    const small = [
+      ["/api/auth/setup", "post"], ["/api/auth/sign-in", "post"], ["/api/auth/redeem", "post"],
+      ["/api/account", "patch"], ["/api/account/password", "post"], ["/api/account/tokens", "post"],
+      ["/api/users", "post"], ["/api/users/{id}", "patch"],
+    ].map(([path, method]) => ({ path, method }));
+    const operations = [...workflows, ...selections, ...small];
     expect(selections).toHaveLength(3);
     // The derivation needs a floor: a renamed reader or a reshaped route
     // export would empty this list and the loop below would assert
@@ -59,7 +64,7 @@ describe("API parity", () => {
     };
 
     for (const { path, method } of operations) {
-      const limit = selections.some(row => row.path === path && row.method === method) ? SMALL_JSON_BODY_MAX_BYTES : WORKFLOW_JSON_BODY_MAX_BYTES;
+      const limit = [...selections, ...small].some(row => row.path === path && row.method === method) ? SMALL_JSON_BODY_MAX_BYTES : WORKFLOW_JSON_BODY_MAX_BYTES;
       const expected = limit.toLocaleString("en-US");
       const description = document.paths[path]?.[method]?.description;
       expect(description, `${method.toUpperCase()} ${path}`).toContain(

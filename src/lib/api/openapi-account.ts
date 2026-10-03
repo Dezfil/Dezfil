@@ -6,7 +6,7 @@ import { READ_ONLY, resource, writes } from "./operation-metadata";
 const privacy = "Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. ";
 const errors = { "400": ERROR_RESPONSE, "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "503": ERROR_RESPONSE };
 const body = (properties: Record<string, unknown>, required = Object.keys(properties), extra = {}) => ({
-  required: true, content: { "application/json": { schema: { type: "object", additionalProperties: false, properties, required, ...extra } } },
+  "x-byte-limit": 65_536, required: true, content: { "application/json": { schema: { type: "object", additionalProperties: false, properties, required, ...extra } } },
 });
 const currentPassword = { type: "string", writeOnly: true, description: "Your current password." };
 const ownSubject = { path: "/api/account", argument: "", name: "account.name" };

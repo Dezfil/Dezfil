@@ -133,3 +133,11 @@ it("cannot forge a clean source to escape an account limit after failures on the
   expect(response.headers.get("set-cookie")).toBeNull();
   expect(rows()).toEqual(before);
 });
+it.each(["setup", "sign-in", "redeem"] as const)("refuses oversized %s before credentials or accounts change", async mode => {
+  const before = rows();
+  const input = request(`/api/auth/${mode}`, { name: "Ada", email: "ada@example.test", password, secret: "unused" }, { "content-length": "65537" });
+  const get = vi.spyOn(input, "body", "get");
+  const response = await enter(input, mode);
+  expect(response.status).toBe(413); expect((await response.json()).error.code).toBe("request_body_too_large");
+  expect(get).not.toHaveBeenCalled(); expect(rows()).toEqual(before); expect(accountCount(db)).toBe(0);
+});
