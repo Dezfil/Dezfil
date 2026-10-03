@@ -131,7 +131,7 @@ export function publishedBodyRoutes(): Implemented[] {
 export function generalBodyRoutes(): Implemented[] {
   return walk(path.join(APP_DIR, "api")).filter(file => file.endsWith("route.ts")).flatMap(file => {
     const source = readFileSync(file, "utf8");
-    if (!/\b(?:largeJsonValue|largeBodyText|parsePublishBody)\s*\(/.test(source)) return [];
+    if (!/\b(?:largeJsonValue|largeBodyText|parsePublishBody|geometryRequest)\s*\(/.test(source)) return [];
     return routeExports(source).filter(row => !row.transport && ["post", "patch", "put"].includes(row.method)).map(row => ({ path: routePath(file), method: row.method }));
   });
 }

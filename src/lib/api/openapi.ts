@@ -213,6 +213,7 @@ export function buildOpenApiDocument() {
           display: {"verb": "Saved the palette {subject}", "subject": {"resource": "palettes", "result": "name", "name": ["name"]}},
           effects: writes(resource("palettes", "", "name")),
           requestBody: {
+            "x-byte-limit": 16_777_216,
             required: true,
             content: {
               "application/json": {
@@ -347,6 +348,7 @@ export function buildOpenApiDocument() {
           display: {"verb": "Ran a query"},
           effects: READ_ONLY,
           requestBody: {
+            "x-byte-limit": 16_777_216,
             required: true,
             content: {
               "application/json": {
@@ -405,6 +407,7 @@ export function buildOpenApiDocument() {
           relevance: ["sql"],
           effects: READ_ONLY,
           requestBody: {
+            "x-byte-limit": 16_777_216,
             required: true,
             content: {
               "application/json": {
@@ -530,6 +533,7 @@ export function buildOpenApiDocument() {
           relevance: [],
           effects: READ_ONLY,
           requestBody: {
+            "x-byte-limit": 16_777_216,
             required: true,
             content: {
               "application/json": {
@@ -562,6 +566,7 @@ export function buildOpenApiDocument() {
           relevance: [],
           effects: READ_ONLY,
           requestBody: {
+            "x-byte-limit": 16_777_216,
             required: true,
             content: {
               "application/json": {
@@ -638,6 +643,7 @@ export function buildOpenApiDocument() {
             pathParam("layerId", "Layer id within the publication."),
           ],
           requestBody: {
+            "x-byte-limit": 65_536,
             required: false,
             content: {
               "application/json": {
@@ -687,6 +693,7 @@ export function buildOpenApiDocument() {
             pathParam("token", `Publish token (${TOKEN_LENGTH} characters).`),
           ],
           requestBody: {
+            "x-byte-limit": 65_536,
             content: {
               "application/json": {
                 schema: {
@@ -727,6 +734,7 @@ export function buildOpenApiDocument() {
             pathParam("layerId", "Layer id within the published map."),
           ],
           requestBody: {
+            "x-byte-limit": 65_536,
             content: {
               "application/json": {
                 schema: {

@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
@@ -12,12 +13,13 @@ export async function POST(request: Request) {
     let geometry: unknown;
     let writtenIn: unknown;
     try {
-      ({ sql, geometry, writtenIn } = (await request.json()) as {
+      ({ sql, geometry, writtenIn } = (await largeJsonValue(request)) as {
         sql?: unknown;
         geometry?: unknown;
         writtenIn?: unknown;
       });
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
       throw new ApiError(
         "invalid_request",
         'Expected a JSON body like {"sql": "SELECT …"}.',

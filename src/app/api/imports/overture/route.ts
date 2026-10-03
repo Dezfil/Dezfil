@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { requireFilingDestination } from "@/lib/auth/reach";
 import { NextResponse } from "next/server";
@@ -9,7 +10,7 @@ import { importProjectId } from "@/lib/project-scope";
 export async function POST(request: Request) {
   try {
     const scope = requireRequestScope(request);
-    const body = (await request.json().catch(() => null)) as Record<
+    const body = (await largeJsonValue(request, () => null)) as Record<
       string,
       unknown
     > | null;

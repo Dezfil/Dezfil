@@ -2,8 +2,8 @@ import { ApiError } from "./errors";
 
 /** Admission counts wire bytes, independent of Content-Type or a low declared
  * length. An owned, growing buffer never retains the producer's backing storage. */
-export async function boundedBodyText(request: Request, limit: number): Promise<string> {
-  const tooLarge = () => new ApiError("request_body_too_large", `The request body exceeds the ${limit}-byte limit.`, 413);
+export async function boundedBodyText(request: Request, limit: number, options: { tooLarge?: () => ApiError; fatal?: boolean } = {}): Promise<string> {
+  const tooLarge = options.tooLarge ?? (() => new ApiError("request_body_too_large", `The request body exceeds the ${limit}-byte limit.`, 413));
   const declared = request.headers.get("content-length")?.trim();
   if (declared && /^\d+$/.test(declared) && (!Number.isSafeInteger(Number(declared)) || Number(declared) > limit)) throw tooLarge();
   if (!request.body) return "";
@@ -31,6 +31,6 @@ export async function boundedBodyText(request: Request, limit: number): Promise<
       buffer.set(chunk.value, bytes);
       bytes += chunk.value.byteLength;
     }
-    return new TextDecoder("utf-8", { fatal: true }).decode(buffer.subarray(0, bytes));
+    return new TextDecoder("utf-8", { fatal: options.fatal ?? true }).decode(buffer.subarray(0, bytes));
   } finally { reader.releaseLock(); }
 }

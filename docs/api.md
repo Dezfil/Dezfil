@@ -1477,3 +1477,10 @@ for those selections with timeline bounds. Sixteen render filters with 200
 The viewer's twelve selections of fifty 30-character CJK values with distinct
 three-digit suffixes measure 58,288 bytes and fit. Unbounded strings and JSON
 escaping still count toward the outer limit.
+
+All other JSON consumers, including query, import, connection, settings, table
+and helper operations, use the 16,777,216-byte tier. Workflow readers retain
+their existing 16 MiB bound, workflow-specific refusal sentence and required
+or optional empty-body behavior. Assistant messages retain 131,072 bytes and
+`assistant_submission_too_large`. Multipart uploads and binary thumbnails
+are separate body classes.

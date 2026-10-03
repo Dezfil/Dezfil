@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse, ApiError } from "@/lib/api/errors";
@@ -15,7 +16,7 @@ export async function POST(request: Request, { params }: Params) {
     // Refreshing is the owner's: another person's dataset is refused by the
     // permission shape, whichever address names it.
     const name = requireOwnDataset(scope, (await params).name).table.name;
-    const body = (await request.json().catch(() => null)) as {
+    const body = (await largeJsonValue(request, () => null)) as {
       release?: unknown;
     } | null;
     if (

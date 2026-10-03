@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { NextResponse } from "next/server";
 import { errorResponse, ApiError } from "@/lib/api/errors";
 import {
@@ -10,7 +11,7 @@ import {
  * truncation stated — so a selection can be seen before it is imported. */
 export async function POST(request: Request) {
   try {
-    const body = (await request.json().catch(() => null)) as Record<
+    const body = (await largeJsonValue(request, () => null)) as Record<
       string,
       unknown
     > | null;

@@ -94,6 +94,7 @@ export const TABLE_RESOURCE_PATHS = {
       effects: writes(resource("tables", "name"), resource("connections")),
       parameters: [pathParam("name", "Table name.")],
       requestBody: {
+            "x-byte-limit": 16_777_216,
         required: false,
         content: {
           "application/json": {

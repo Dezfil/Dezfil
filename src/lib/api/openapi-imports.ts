@@ -23,6 +23,7 @@ export const IMPORT_PATHS = {
       display: {"verb": "Imported a file from a URL"},
       effects: writes(resource("tables", "", ["id", "tables.*.id"]), resource("projects")),
       requestBody: {
+            "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -83,6 +84,7 @@ export const IMPORT_PATHS = {
       display: {"verb": "Imported Overture data as {subject}", "subject": {"resource": "tables", "result": "id", "name": ["name"]}},
       effects: writes(resource("tables", "", "id"), resource("projects")),
       requestBody: {
+            "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -171,6 +173,7 @@ export const IMPORT_PATHS = {
       display: {"verb": "Previewed an Overture import"},
       effects: READ_ONLY,
       requestBody: {
+            "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -253,6 +256,7 @@ export const IMPORT_PATHS = {
       display: {"verb": "Ran an Overture query"},
       effects: READ_ONLY,
       requestBody: {
+            "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -560,6 +564,7 @@ export const IMPORT_PATHS = {
       display: {"verb": "Imported OpenStreetMap data"},
       effects: writes(resource("tables", "", "tables.*.id"), resource("projects")),
       requestBody: {
+            "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -663,6 +668,7 @@ export const IMPORT_PATHS = {
       display: {"verb": "Ran an OpenStreetMap query"},
       effects: READ_ONLY,
       requestBody: {
+            "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {

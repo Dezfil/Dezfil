@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { ApiError } from "@/lib/api/errors";
 import { parseGeometryChoice } from "./choice";
 
@@ -6,7 +7,7 @@ export function requiredGeometryRevision(value: unknown): string {
   return value;
 }
 export async function geometryRequest(request: Request) {
-  const body: unknown = await request.json().catch(() => { throw new ApiError("invalid_request", "Send a JSON object with expectedRevision and choice.", 400); });
+  const body: unknown = await largeJsonValue(request, () => { throw new ApiError("invalid_request", "Send a JSON object with expectedRevision and choice.", 400); });
   if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).some(k => !["expectedRevision", "choice"].includes(k))) {
     throw new ApiError("invalid_request", "Send only expectedRevision and choice in a JSON object.", 400);
   }

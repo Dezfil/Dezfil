@@ -191,7 +191,7 @@ const TRANSFER_PATHS = {
         consequence: "Its deletion and transfer become theirs, and its SQL home and run history stay as they are. Only they can give it back.",
         subject: { path: "/api/recipes/{id}", argument: "id", name: "recipe.name" } },
       parameters: [editRevisionParam, pathParam("id", "Workflow id.")],
-      requestBody: transferBody,
+      requestBody: { ...transferBody, "x-byte-limit": 16_777_216 },
       responses: { ...editRevisionResponses, ...TRANSFERRED, "200": jsonOk("#/components/schemas/DocumentTransfer") },
     })),
   },

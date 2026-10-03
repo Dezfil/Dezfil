@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { requireFilingDestination } from "@/lib/auth/reach";
 import { NextResponse } from "next/server";
@@ -10,7 +11,7 @@ import { toIngestResponse } from "@/lib/ingest/gdal-formats";
 export async function POST(request: Request) {
   try {
     const scope = requireRequestScope(request);
-    const body = (await request.json().catch(() => null)) as {
+    const body = (await largeJsonValue(request, () => null)) as {
       url?: unknown;
       name?: unknown;
     } | null;

@@ -32,6 +32,7 @@ export const CONNECTION_PATHS = {
       display: {"verb": "Created the connection {subject}", "subject": {"resource": "connections", "result": "id", "name": ["name"]}},
       effects: writes(resource("connections", "", "id")),
       requestBody: {
+            "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -95,6 +96,7 @@ export const CONNECTION_PATHS = {
       effects: writes(resource("connections", "id")),
       parameters: [pathParam("id", "Connection id.")],
       requestBody: {
+            "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -268,6 +270,7 @@ export const CONNECTION_PATHS = {
       effects: READ_ONLY,
       parameters: [pathParam("id", "Connection id.")],
       requestBody: {
+            "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -374,6 +377,7 @@ export const CONNECTION_PATHS = {
       display: {"verb": "Imported a PostGIS table as {subject}", "subject": {"resource": "tables", "result": "id", "name": ["name"]}},
       effects: writes(resource("tables", "", "id"), resource("connections", "connectionId"), resource("projects")),
       requestBody: {
+            "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {

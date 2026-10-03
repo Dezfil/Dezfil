@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { NextResponse } from "next/server";
 import { errorResponse, ApiError } from "@/lib/api/errors";
 import {
@@ -12,7 +13,7 @@ import {
  * every level's scoped count in one call instead of a single number. */
 export async function POST(request: Request) {
   try {
-    const body = (await request.json().catch(() => null)) as Record<
+    const body = (await largeJsonValue(request, () => null)) as Record<
       string,
       unknown
     > | null;

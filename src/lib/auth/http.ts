@@ -66,10 +66,10 @@ export function authFailure(error: unknown): Response {
   return privateResponse(response);
 }
 export async function authBody(request: Request, fields: readonly string[], required = fields): Promise<Record<string, string>> {
+  const value: unknown = await smallJsonValue(request, () => null);
   if (request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json") {
     throw new AuthError("invalid_request", "Expected a JSON body.", 400);
   }
-  const value: unknown = await smallJsonValue(request, () => null);
   if (!value || typeof value !== "object" || Array.isArray(value) ||
       Object.entries(value).some(([key, item]) => !fields.includes(key) || typeof item !== "string") ||
       required.some(key => typeof (value as Record<string, unknown>)[key] !== "string")) {

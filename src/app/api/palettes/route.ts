@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { NextResponse } from "next/server";
 import { ApiError } from "@/lib/api/errors";
 import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     requireRequestAuth(request);
-    const body = (await request.json().catch(() => null)) as {
+    const body = (await largeJsonValue(request, () => null)) as {
       label?: unknown;
       stops?: unknown;
     } | null;

@@ -1,3 +1,4 @@
+import { boundedBodyText } from "@/lib/api/bounded-body";
 import { ApiError } from "@/lib/api/errors";
 import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 import type { RunReceipt } from "./runs";
@@ -59,17 +60,9 @@ export function compactReceipt(input: RunReceipt, maximum: number, terminal: boo
 /** Count bytes while reading, before materializing an oversized submission. */
 export async function readSubmission(request: Request): Promise<Record<string, unknown>> {
   const tooLarge = () => new ApiError("assistant_submission_too_large", ERROR_CATALOGUE.assistant_submission_too_large, 413);
-  if (Number(request.headers.get("content-length")) > RECOVERY_LIMITS.submissionBytes) throw tooLarge();
-  const reader = request.body?.getReader();
-  const chunks: Uint8Array[] = []; let bytes = 0;
-  if (reader) for (;;) {
-    const { value, done } = await reader.read(); if (done) break;
-    bytes += value.byteLength;
-    if (bytes > RECOVERY_LIMITS.submissionBytes) { await reader.cancel(); throw tooLarge(); }
-    chunks.push(value);
-  }
+  const text = await boundedBodyText(request, RECOVERY_LIMITS.submissionBytes, { tooLarge, fatal: false });
   try {
-    const value = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    const value = JSON.parse(text);
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("object required");
     return value;
   } catch { throw new ApiError("invalid_request", "Expected a JSON object body.", 400); }

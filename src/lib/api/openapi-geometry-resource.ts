@@ -8,7 +8,7 @@ export const GEOMETRY_REFRESH_DESCRIPTION =
 const eligibility = "For file uploads and URL imports only. SQL-save, workflow, PostGIS, OSM, Overture and sketch datasets refuse with 409 geometry_not_supported and a sentence. Unknown or reclaimed dataset identity answers 404 not_found; a stale artifact revision answers 409 input_changed. Column names are identifiers, never SQL expressions or file paths. ";
 const choiceRules = "Original values and rows remain. WKT/EWKT, GeoJSON geometry objects, WKB hex/EWKB, validated H3 boundaries and x/y pairs from numeric or text-typed columns are supported. Pair values are read tolerantly per row on preview, first set, change and replay. Declared CRS wins: an explicit differing EPSG refuses with conflicting_crs; mixed/unknown declarations refuse. H3 and GeoJSON have inherent WGS84 and take no projection. Undeclared WKT/WKB/pairs assume WGS84 unless EPSG is explicit. Transformation produces WGS84 longitude/latitude. Under WGS84, mixed out-of-range rows are unreadable; only when no decoded nonempty row fits degrees does projection_required block application. Missing inputs do not count as unreadable. All-bad/empty inputs otherwise retain a geometry identity with null class and extent. ";
 const errors = { "400": ERROR_RESPONSE, "404": ERROR_RESPONSE, "409": ERROR_RESPONSE, "422": ERROR_RESPONSE };
-const body = { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/GeometryRequest" } } } };
+const body = { "x-byte-limit": 16_777_216, required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/GeometryRequest" } } } };
 const table = [pathParam("name", "Stored dataset SQL name.")];
 export const GEOMETRY_RESOURCE_PATHS = {
   "/api/tables/{name}/geometry": {

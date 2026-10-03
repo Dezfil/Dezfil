@@ -76,6 +76,7 @@ export function settingsContract() {
           mcp: LOCAL_REPLACE,
           effects: writes(resource("settings"), resource("accounts")),
           requestBody: {
+            "x-byte-limit": 16_777_216,
             required: true,
             content: {
               "application/json": {
