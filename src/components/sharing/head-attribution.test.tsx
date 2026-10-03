@@ -1,6 +1,7 @@
 import { act } from "react";
 import { createPortal } from "react-dom";
 import { createRoot } from "react-dom/client";
+import { readFile } from "node:fs/promises";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { installDomHost } from "../testing/dom-host";
 import { SignedIn } from "./signed-in";
@@ -46,4 +47,10 @@ it.each(["builder", "canvas", "reader"].flatMap(surface => ["ada", "bo"].map(sql
   expect(fact?.querySelector("button")).toBeNull();
   expect(fact?.querySelector("svg")).toBeTruthy();
   expect(host.document.body.textContent.indexOf("Harbour")).toBeLessThan(host.document.body.textContent.indexOf("Ada ·"));
+});
+it("places the attribution after the start actions, where the builder's search stands, and before the action cluster", async () => {
+  const layout = await readFile(new URL("../../app/(workspace)/layout.tsx", import.meta.url), "utf8");
+  const order = ["header-actions-start", "header-attribution-slot", "header-actions-left"].map(id => layout.indexOf(`id="${id}"`));
+  expect(order.every(index => index >= 0)).toBe(true);
+  expect(order).toEqual([...order].sort((a, b) => a - b));
 });
