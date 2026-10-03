@@ -73,36 +73,6 @@ export function implementedRoutes(automatic = false): Implemented[] {
   return routes;
 }
 
-/** Operations whose route handler invokes one of the bounded body readers. */
-export function governedBodyRoutes(): Implemented[] {
-  const files = walk(path.join(APP_DIR, "api")).filter((f) =>
-    f.endsWith("route.ts"),
-  );
-  const routes: Implemented[] = [];
-  for (const file of files) {
-    const src = readFileSync(file, "utf8");
-    const exported = HTTP_METHODS.flatMap((method) => {
-      const re = new RegExp(
-        `export\\s+(?:async\\s+)?function\\s+${method}\\b`,
-        "g",
-      );
-      return [...src.matchAll(re)].map((match) => ({
-        method: method.toLowerCase(),
-        at: match.index,
-      }));
-    }).sort((a, b) => a.at - b.at);
-
-    for (const [index, candidate] of exported.entries()) {
-      const end = exported[index + 1]?.at ?? src.length;
-      const handler = src.slice(candidate.at, end);
-      if (/\b(?:jsonBody|optionalJsonBody)\s*\(/.test(handler)) {
-        routes.push({ path: routePath(file), method: candidate.method });
-      }
-    }
-  }
-  return routes;
-}
-
 export function documentedRoutes(): Implemented[] {
   const doc = buildOpenApiDocument();
   const out: Implemented[] = [];
@@ -121,17 +91,3 @@ export function resourceOperations<T>(operations: Record<string, T>): T[] {
   return Object.entries(operations).filter(([method]) => method !== "head" && method !== "options").map(([, operation]) => operation);
 }
 
-/** Published body readers currently live in the POST resource callback. */
-export function publishedBodyRoutes(): Implemented[] {
-  return walk(path.join(APP_DIR, "api")).filter(file => file.endsWith("route.ts") &&
-    /\bpublishedJsonBody\s*\(/.test(readFileSync(file, "utf8")))
-    .map(file => ({ path: routePath(file), method: "post" }));
-}
-
-export function generalBodyRoutes(): Implemented[] {
-  return walk(path.join(APP_DIR, "api")).filter(file => file.endsWith("route.ts")).flatMap(file => {
-    const source = readFileSync(file, "utf8");
-    if (!/\b(?:largeJsonValue|largeBodyText|parsePublishBody|geometryRequest)\s*\(/.test(source)) return [];
-    return routeExports(source).filter(row => !row.transport && ["post", "patch", "put"].includes(row.method)).map(row => ({ path: routePath(file), method: row.method }));
-  });
-}

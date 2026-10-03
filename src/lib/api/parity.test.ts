@@ -2,8 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { buildOpenApiDocument } from "./openapi";
-import { WORKFLOW_JSON_BODY_MAX_BYTES, SMALL_JSON_BODY_MAX_BYTES } from "./request-bounds";
-import { documentedRoutes, generalBodyRoutes, publishedBodyRoutes, governedBodyRoutes, implementedRoutes, key, walk } from "../../../test-support/api-route-inventory";
+import { documentedRoutes, implementedRoutes, key, walk } from "../../../test-support/api-route-inventory";
 
 /**
  * API parity (spec: every capability in the journey is documented; the diff
@@ -31,66 +30,6 @@ describe("API parity", () => {
       .map(key)
       .filter((k) => !implemented.has(k));
     expect(missing).toEqual([]);
-  });
-
-  it("publishes the enforced workflow JSON byte ceiling on every governed operation", () => {
-    const workflows = governedBodyRoutes();
-    const selections = publishedBodyRoutes();
-    const small = [
-      ["/api/auth/setup", "post"], ["/api/auth/sign-in", "post"], ["/api/auth/redeem", "post"],
-      ["/api/account", "patch"], ["/api/account/password", "post"], ["/api/account/tokens", "post"],
-      ["/api/users", "post"], ["/api/users/{id}", "patch"],
-    ].map(([path, method]) => ({ path, method }));
-    const general = generalBodyRoutes();
-    const operations = [...workflows, ...selections, ...small, ...general, { path: "/api/mcp", method: "post" }];
-    expect(selections).toHaveLength(3);
-    // The derivation needs a floor: a renamed reader or a reshaped route
-    // export would empty this list and the loop below would assert
-    // nothing while staying green. Seven
-    // governed operations exist today; fewer means the scan broke, not
-    // that the API shrank.
-    expect(operations.length).toBeGreaterThanOrEqual(7);
-    const document = buildOpenApiDocument() as unknown as {
-      paths: Record<string, Record<string, { description?: string }>>;
-      components: {
-        schemas: {
-          Error: {
-            properties: {
-              error: { properties: { code: { enum: string[] } } };
-            };
-          };
-        };
-      };
-      "x-error-codes": Record<string, string>;
-    };
-
-    for (const { path, method } of operations) {
-      const limit = [...selections, ...small].some(row => row.path === path && row.method === method) ? SMALL_JSON_BODY_MAX_BYTES : WORKFLOW_JSON_BODY_MAX_BYTES;
-      const expected = limit.toLocaleString("en-US");
-      const description = document.paths[path]?.[method]?.description;
-      expect(description, `${method.toUpperCase()} ${path}`).toContain(
-        `At most ${expected} wire bytes`,
-      );
-      expect(description, `${method.toUpperCase()} ${path}`).toContain(
-        "`request_body_too_large` before JSON parsing",
-      );
-    }
-    expect(
-      document.components.schemas.Error.properties.error.properties.code.enum,
-    ).toContain("request_body_too_large");
-    expect(document["x-error-codes"]).toHaveProperty("request_body_too_large");
-    // The reverse direction: nothing documents the ceiling without being
-    // governed by the readers the scan found.
-    const governed = new Set(
-      operations.map(({ path, method }) => `${method} ${path}`),
-    );
-    const documentedWithBound = Object.entries(document.paths).flatMap(
-      ([path, methods]) =>
-        Object.entries(methods)
-          .filter(([, op]) => op.description?.includes("wire bytes"))
-          .map(([method]) => `${method} ${path}`),
-    );
-    expect(new Set(documentedWithBound)).toEqual(governed);
   });
 
   it("documents the connection contract and tool names", () => {

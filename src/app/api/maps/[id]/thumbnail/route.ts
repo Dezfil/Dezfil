@@ -1,3 +1,4 @@
+import { thumbnailBody } from "@/lib/api/thumbnail-body";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
@@ -98,7 +99,7 @@ export async function PUT(request: Request, { params }: Params) {
         400,
       );
     }
-    const body = new Uint8Array(await request.arrayBuffer());
+    const body = await thumbnailBody(request);
     if (body.byteLength === 0 || body.byteLength > THUMBNAIL_MAX_BYTES) {
       throw new ApiError(
         "invalid_request",

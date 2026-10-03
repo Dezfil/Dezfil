@@ -47,7 +47,8 @@ export function op(config: {
   parameters?: unknown[];
 }) {
   const bound = (config.requestBody as { "x-byte-limit"?: number } | undefined)?.["x-byte-limit"];
-  const admission = bound ? `At most ${bound.toLocaleString("en-US")} wire bytes; a larger body is refused with \`request_body_too_large\` before JSON parsing. ` : "";
+  const code = (config.requestBody as { "x-byte-error"?: string } | undefined)?.["x-byte-error"] ?? "request_body_too_large";
+  const admission = bound && !config.description?.includes(`At most ${bound.toLocaleString("en-US")} wire bytes`) ? `At most ${bound.toLocaleString("en-US")} wire bytes; a larger body is refused with \`${code}\` before JSON parsing. ` : "";
   return {
     summary: config.summary,
     description: admission + (config.description ?? ""),

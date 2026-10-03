@@ -1484,3 +1484,14 @@ their existing 16 MiB bound, workflow-specific refusal sentence and required
 or optional empty-body behavior. Assistant messages retain 131,072 bytes and
 `assistant_submission_too_large`. Multipart uploads and binary thumbnails
 are separate body classes.
+
+Body policy coverage uses the TypeScript receiver type and resolved calls,
+including aliases and helper parameters. Raw Request body members are confined
+to `src/lib/api/bounded-body.ts` (JSON bytes),
+`src/lib/api/thumbnail-body.ts` (binary thumbnails), and
+`src/lib/ingest/receive.ts` (streaming multipart).
+`src/lib/api/bounded-handoff.ts` alone constructs the admitted Request for an
+external JSON parser. Workflow and assistant readers use the shared byte
+reader with their own refusal contracts. Response reads are a separate type.
+The coverage check matches enforced limits, error codes, descriptions and
+413 responses against OpenAPI in both directions.
