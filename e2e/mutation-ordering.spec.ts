@@ -177,8 +177,8 @@ test("mutations order, recover, and tell the truth", async ({
 
   await test.step("a map save never reverts a newer layer edit", async () => {
     // The map response embeds the whole layer set as the server read it.
-    // Hold one open, land a layer edit while it waits, then release: the
-    // layer edit must survive, in state and in the next commit's base.
+    // Hold one open, queue a layer edit, then release: the ordered layer
+    // write must land afterwards and survive in the next commit's base.
     await page.getByRole("tab", { name: "Layers" }).click();
     const opacity = await ensureLayerSelected(page, tableName);
     await opacity.scrollIntoViewIfNeeded();
@@ -204,14 +204,16 @@ test("mutations order, recover, and tell the truth", async ({
     await nameInput.blur();
     await expect.poll(() => held !== null).toBe(true);
 
-    // A layer edit lands and confirms while the map save is still open.
+    // The layer edit is visible now, but its write waits for the map save.
     await opacity.fill("0.5");
     await opacity.blur();
+    await expect(opacity).toHaveValue("0.5");
+    expect((await readMap(page)).layers[0].style.opacity).toBe(1);
+
+    held!();
     await expect
       .poll(async () => (await readMap(page)).layers[0].style.opacity)
       .toBe(0.5);
-
-    held!();
     await saveSettled(page);
     await page.unroute(/\/api\/maps\/[^/]+$/, holdMapPatch);
 

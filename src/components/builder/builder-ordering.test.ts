@@ -7,6 +7,56 @@ import { useBuilderMutations } from "./use-builder-mutations";
 import { useBuilderCamera } from "./use-builder-camera";
 
 afterEach(() => vi.unstubAllGlobals());
+it("keeps queued opacity through the preceding map save and accepted opacity through a late camera echo", async () => {
+  const w = wire();
+  vi.stubGlobal("fetch", w.fetch);
+  vi.stubGlobal("window", { addEventListener() {}, removeEventListener() {} });
+  const layer = { id: "a", sql: "SELECT 1", style: { opacity: 1 } } as unknown as Layer;
+  const initial = { id: "map", name: "Map", layers: [layer], widgets: [], editRevision: "initial" } as unknown as MapWithLayers;
+  let map = initial;
+  const shown: number[] = [];
+  const h = new HookHarness(() => {
+    const editor = useBuilderMutations({ mapId: "map", map, setMap: next => {
+      map = typeof next === "function" ? next(map)! : next!;
+      shown.push(map.layers[0].style.opacity);
+    }, rendersRef: { current: {} }, setRenders() {}, setSelectedId() {}, refreshLayer: async () => {} });
+    const camera = useBuilderCamera("map", { current: null }, editor.track);
+    return { editor, camera };
+  });
+  try {
+    const { editor, camera } = h.value;
+    editor.serverMapRef.current = initial;
+    editor.authoritativeLayersRef.current = { a: layer };
+    editor.sequence.accept(initial);
+    const rename = editor.patchMap({ name: "Renamed" });
+    const opacity = editor.patchLayer("a", { style: { opacity: 0.5 } });
+    const queuedAt = shown.length - 1;
+    await w.settle();
+    expect(map.layers[0].style.opacity).toBe(0.5);
+    expect(editor.serverMapRef.current.layers[0].style.opacity).toBe(1);
+    expect(w.calls.map(call => call.path)).toEqual(["/api/maps/map"]);
+    w.calls[0].ok({ ...initial, name: "Renamed", editRevision: "renamed" });
+    await rename; await w.settle();
+    expect(map.layers[0].style.opacity).toBe(0.5);
+    const write = w.pending("PATCH", "/api/layers/a")[0];
+    expect(write.headers.get("X-Edit-Revision")).toBe("renamed");
+    expect(write.body).toEqual({ style: { opacity: 0.5 } });
+    camera({ lng: 1, lat: 2, zoom: 3 });
+    const cameraWrite = w.pending("PATCH", "/api/maps/map")[0];
+    expect(cameraWrite.headers.has("X-Edit-Revision")).toBe(false);
+    write.ok({ ...layer, style: { opacity: 0.5 }, editRevision: "styled" });
+    await opacity;
+    expect(editor.serverMapRef.current.layers[0].style.opacity).toBe(0.5);
+    // This full-map body was captured before the layer save was accepted.
+    cameraWrite.ok({ ...initial, editRevision: "renamed" });
+    await w.settle();
+    expect(editor.sequence.revision).toBe("styled");
+    expect(editor.serverMapRef.current.layers[0].style.opacity).toBe(0.5);
+    expect(map.layers[0].style.opacity).toBe(0.5);
+    expect(shown.slice(queuedAt)).toEqual(shown.slice(queuedAt).map(() => 0.5));
+  } finally { h.unmount(); }
+});
+
 it("orders real layer, map and history hooks with accepted field intent and independent camera", async () => {
   const w = wire();
   vi.stubGlobal("fetch", w.fetch);
