@@ -88,7 +88,13 @@ async function openCanvas(page: Page, workflow: Workflow) {
   const definition = page.waitForResponse(response => new URL(response.url()).pathname === path && response.request().method() === "GET");
   const layout = page.waitForResponse(response => new URL(response.url()).pathname === `${path}/layout` && response.request().method() === "GET");
   await page.goto(`/workflows/${workflow.id}`);
-  const [shownDefinition, shownLayout] = await Promise.all([definition, layout]);
+  await Promise.all([definition, layout]);
+  // Read the two documents again through the page's own API context rather
+  // than from the captured responses: a body read after navigation can lose
+  // its buffer in the browser, and nothing changes them between the two reads.
+  const shownDefinition = await page.request.get(path);
+  const shownLayout = await page.request.get(`${path}/layout`);
+  expect(shownDefinition.status()).toBe(200);
   const basis = captureBasis(await shownDefinition.json());
   expect(captureBasis(await shownLayout.json())).toEqual(basis);
   await expect(page.locator("[data-workflow-canvas]")).toBeVisible();
