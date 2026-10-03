@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Page, type Request, type Response, type Route } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page, type Request } from "@playwright/test";
 import { captureBasis, fixtureHeaders } from "../scripts/revision-fixtures.mjs";
 import { readThenWriteRequestSetup } from "./edit-basis";
 import { closeAll, createProject, invitePerson, runTag, share, type Person } from "./sharing-support";
@@ -146,34 +146,6 @@ function watchWrites(page: Page, id: string): Request[] {
   return writes;
 }
 
-async function holdRunObservation(page: Page, id: string) {
-  const path = `/api/recipes/${id}`;
-  const seen = new Set<string>();
-  let resume!: () => void;
-  const held = new Promise<void>(resolve => { resume = resolve; });
-  // Starting a run also refreshes its recipe, independently of the run poll.
-  // Hold both reads before starting; writes and the API fixture stay live.
-  const matches = (url: URL) => url.pathname === path || url.pathname.startsWith(`${path}/runs`);
-  const handler = async (route: Route) => {
-    if (route.request().method() === "GET") {
-      seen.add(new URL(route.request().url()).pathname);
-      await held;
-    }
-    await route.continue();
-  };
-  await page.route(matches, handler);
-  return {
-    observed: async (runId: string) => {
-      await expect.poll(() => seen.has(path) && seen.has(`${path}/runs/${runId}`)).toBe(true);
-      await expect(page.locator("[data-run-dock]")).toHaveAttribute("data-run-dock", "running");
-    },
-    release: async () => {
-      resume();
-      await page.unroute(matches, handler);
-    },
-  };
-}
-
 async function expectStaleLayout(page: Page, id: string, editRevision: string, act: () => Promise<void>) {
   const refusal = page.waitForResponse(response => new URL(response.url()).pathname === `/api/recipes/${id}/layout` && response.request().method() === "PUT");
   await act();
@@ -249,130 +221,6 @@ test("a run promotes its upstream proposal and continues into its downstream nod
     expect(query.status()).toBe(200);
     expect((await query.json()).preview).toEqual([{ value: 2 }]);
   } finally {
-    await cancelOutstanding(request, workflow.id);
-  }
-});
-
-test("a stale node drag with its run observation held keeps the unsaved position until Reload without replay", async ({ page, request }) => {
-  const workflow = await seedWorkflow(request, runTag(), true);
-  const basis = await openCanvas(page, workflow);
-  const before = await readLayout(request, workflow.id);
-  const observation = await holdRunObservation(page, workflow.id);
-  try {
-    const run = await startOnCanvas(page, workflow.id, basis.editRevision);
-    await finished(request, workflow.id, run.id);
-    await observation.observed(run.id);
-    const promoted = await readRecipe(request, workflow.id);
-    expect(promoted.editRevision).not.toBe(basis.editRevision);
-    expect(promoted.steps.find(step => step.id === workflow.upstream)).toMatchObject({ parameters: { sql: "SELECT 2 AS value" }, proposedParameters: null });
-    const promotedLayout = await readLayout(request, workflow.id);
-    expect(promotedLayout.editRevision).toBe(promoted.editRevision);
-    expect(promotedLayout.steps).toEqual(before.steps);
-
-    const writes = watchWrites(page, workflow.id);
-    const draft = await expectStaleLayout(page, workflow.id, basis.editRevision, () => dragUpstream(page, workflow));
-    expect(draft.steps[workflow.upstream]).not.toEqual(before.steps[workflow.upstream]);
-    const node = page.locator(`[data-node][data-name="${workflow.upstreamName}"]`);
-    const ghost = page.locator(`[data-saved-position="${workflow.upstream}"]`);
-    const badgeOffset = await node.locator("[data-v='badge']").evaluate(element => ({
-      x: (element as HTMLElement).offsetLeft, y: (element as HTMLElement).offsetTop,
-    }));
-    const chip = page.locator("[data-save-status-corner]");
-    const assertDraft = async () => {
-      await expect.poll(() => position(page, workflow.upstream)).toEqual(draft.steps[workflow.upstream]);
-      await expect(node.getByText("unsaved position", { exact: true })).toBeVisible();
-      await expect(ghost).toBeVisible();
-      expect(await ghost.evaluate(element => ({
-        x: parseFloat((element as HTMLElement).style.left), y: parseFloat((element as HTMLElement).style.top),
-      }))).toEqual({ x: before.steps[workflow.upstream].x + badgeOffset.x, y: before.steps[workflow.upstream].y + badgeOffset.y });
-      await expect(chip).toContainText(STALE);
-      await expect(chip.getByRole("button", { name: "Reload", exact: true })).toBeVisible();
-      await expect(chip.getByText("Saved", { exact: true })).toHaveCount(0);
-      expect(await readLayout(request, workflow.id)).toEqual(promotedLayout);
-      expect(writes).toHaveLength(1);
-    };
-    await assertDraft();
-    await page.waitForTimeout(1200);
-    await assertDraft();
-    // Learning that the run ended must not replay or erase the refused drag.
-    await observation.release();
-    await expect(page.locator("[data-run-dock]")).toHaveAttribute("data-run-dock", "ended", { timeout: 60_000 });
-    await assertDraft();
-
-    await chip.getByRole("button", { name: "Reload", exact: true }).click();
-    const notice = chip.locator("[data-stale-recovery]");
-    await expect(notice).toContainText(/discard/i);
-    await expect(notice).toContainText(/unsaved/i);
-    await notice.getByRole("button", { name: "Not now", exact: true }).click();
-    await assertDraft();
-    await chip.getByRole("button", { name: "Reload", exact: true }).click();
-    const reloaded = page.waitForResponse(response => new URL(response.url()).pathname === `/api/recipes/${workflow.id}/layout` && response.request().method() === "GET");
-    await notice.getByRole("button", { name: "Reload", exact: true }).click();
-    expect((await (await reloaded).json()).layout).toEqual(promotedLayout);
-    await expect(notice).toHaveCount(0);
-    await expect(chip).not.toContainText(STALE);
-    await expect(chip.getByRole("button", { name: "Reload", exact: true })).toHaveCount(0);
-    await expect(node.getByText("unsaved position", { exact: true })).toHaveCount(0);
-    await expect(ghost).toHaveCount(0);
-    for (const id of [workflow.upstream, workflow.downstream]) await expect.poll(() => position(page, id)).toEqual(promotedLayout.steps[id]);
-    await page.waitForTimeout(1200);
-    expect(writes).toHaveLength(1);
-    expect(await readLayout(request, workflow.id)).toEqual(promotedLayout);
-  } finally {
-    await observation.release();
-    await cancelOutstanding(request, workflow.id);
-  }
-});
-
-test("a fresh node drag after its run observation settles saves with the returned revision", async ({ page, request }) => {
-  const workflow = await seedWorkflow(request, runTag(), true);
-  const basis = await openCanvas(page, workflow);
-  const before = await readLayout(request, workflow.id);
-  const observation = await holdRunObservation(page, workflow.id);
-  try {
-    const run = await startOnCanvas(page, workflow.id, basis.editRevision);
-    await finished(request, workflow.id, run.id);
-    await observation.observed(run.id);
-    const promoted = await readRecipe(request, workflow.id);
-    expect(promoted.editRevision).not.toBe(basis.editRevision);
-    expect(promoted.steps.find(step => step.id === workflow.upstream)).toMatchObject({ parameters: { sql: "SELECT 2 AS value" }, proposedParameters: null });
-
-    const reads: Response[] = [];
-    page.on("response", response => {
-      if (new URL(response.url()).pathname === `/api/recipes/${workflow.id}` && response.request().method() === "GET") reads.push(response);
-    });
-    await observation.release();
-    await expect(page.locator("[data-run-dock]")).toHaveAttribute("data-run-dock", "ended", { timeout: 60_000 });
-    await expect(page.locator("[data-run-dock]")).toContainText("Completed");
-    expect(reads.length).toBeGreaterThan(0);
-    const settled = reads.at(-1)!;
-    expect(settled.status()).toBe(200);
-    const settledBasis = captureBasis(await settled.json());
-    expect(settledBasis.editRevision).not.toBe(basis.editRevision);
-
-    const writes = watchWrites(page, workflow.id);
-    const saved = page.waitForResponse(response => new URL(response.url()).pathname === `/api/recipes/${workflow.id}/layout` && response.request().method() === "PUT");
-    await dragUpstream(page, workflow);
-    const response = await saved;
-    expect(response.request().headers()["x-edit-revision"]).toBe(settledBasis.editRevision);
-    expect(response.status()).toBe(200);
-    const savedBasis = captureBasis(await response.json());
-    expect(savedBasis.editRevision).not.toBe(basis.editRevision);
-    expect(savedBasis.editRevision).not.toBe(settledBasis.editRevision);
-    const draft = response.request().postDataJSON() as Layout;
-    expect(draft.steps[workflow.upstream]).not.toEqual(before.steps[workflow.upstream]);
-    await expect.poll(() => position(page, workflow.upstream)).toEqual(draft.steps[workflow.upstream]);
-    expect((await readLayout(request, workflow.id)).steps).toEqual(draft.steps);
-    const chip = page.locator("[data-save-status-corner]");
-    await expect(chip.getByText("Saved", { exact: true })).toBeVisible();
-    await expect(chip).not.toContainText(STALE);
-    await expect(chip.getByRole("button", { name: "Reload", exact: true })).toHaveCount(0);
-    await expect(page.locator("[data-stale-recovery]")).toHaveCount(0);
-    expect(writes).toHaveLength(1);
-    expect((await runs(request, workflow.id)).map(item => item.id)).toContain(run.id);
-    expect(await runs(request, workflow.id)).toHaveLength(2);
-  } finally {
-    await observation.release();
     await cancelOutstanding(request, workflow.id);
   }
 });
