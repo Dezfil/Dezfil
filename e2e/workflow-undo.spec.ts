@@ -342,7 +342,7 @@ test("the header: Undo and Redo beside the theme toggle, dimmed at rest, their h
   expect(unexpected).toEqual([]);
 });
 
-test("layout steps: Arrange, a drag, arrow runs, every note step, a source, Arrange with a node added and one removed headlessly, and what is no step", async ({ page, context }) => {
+test("layout steps: Arrange, a drag, arrow runs, every note step, a source, Arrange with a node added and a stale undo after headless removal, and what is no step", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   const consoleErrors = trackConsole(page);
   const w = await seedWorkflow(page, "ly");
@@ -630,7 +630,7 @@ test("layout steps: Arrange, a drag, arrow runs, every note step, a source, Arra
     await expect(member(page, flat)).toBeVisible();
   });
 
-  await test.step("Arrange, a node added, two undos: the node gone and every position back; Arrange, a node removed headlessly, one undo: not resurrected, the others return", async () => {
+  await test.step("Arrange, a node added, two undos: the node gone and every position back; Arrange, a node removed headlessly: undo stays unsaved until Reload", async () => {
     await page.keyboard.press("Escape");
     // Off the dependency arrangement first: every step above ended where
     // Arrange had already put the tiles, and an Arrange that moves
@@ -663,14 +663,26 @@ test("layout steps: Arrange, a drag, arrow runs, every note step, a source, Arra
     await expect.poll(async () => (await readLayout(page, w.id)).steps[w.buf]).not.toEqual(start.steps[w.buf]);
     await page.waitForTimeout(700);
     await readThenWriteBrowserSetup(page, `/api/recipes/${w.id}`, () => ({ method: "DELETE", path: `/api/recipes/${w.id}/steps/${w.filt}` })).then(result => result.json);
-    // Nothing pushes a headless recipe change to an open canvas, so the
-    // tile stands until a read: the undo writes the screen back, and the
-    // layout read, pruned to the recipe, holds no position for the node
-    // that is gone.
+    const accepted = await readLayout(page, w.id);
+    const staleResponse = page.waitForResponse(r => r.request().method() === "PUT" && r.url().endsWith(`/api/recipes/${w.id}/layout`) && r.status() === 409);
     await undo(page);
-    await expect(notice(page)).toContainText("Undone: Arrange");
-    await expect.poll(async () => (await readLayout(page, w.id)).steps[w.buf]).toEqual(start.steps[w.buf]);
+    expect((await (await staleResponse).json()).error.code).toBe("stale_revision");
+    const recovery = page.locator("[data-stale-recovery]");
+    await expect(recovery).toContainText("This item has changed. Reload it before trying again.");
+    await expect(recovery.getByRole("button", { name: "Retry" })).toHaveCount(0);
+    await expect(wrapper(page, w.buf).getByText("unsaved position", { exact: true })).toBeVisible();
+    expect(positionsOf(await readLayout(page, w.id))).toEqual(positionsOf(accepted));
+    const sent = writes.length;
+    await recovery.getByRole("button", { name: "Reload", exact: true }).click();
+    await expect(recovery).toContainText("Reload discards your unsaved values.");
+    await recovery.getByRole("button", { name: "Reload", exact: true }).click();
+    await expect(recovery).toHaveCount(0);
+    await expect(wrapper(page, w.filt)).toHaveCount(0);
+    await expect(undoBtn(page)).toBeDisabled();
+    await expect(redoBtn(page)).toBeDisabled();
+    expect(writes.length).toBe(sent);
     const after = await readLayout(page, w.id);
+    expect(positionsOf(after)).toEqual(positionsOf(accepted));
     expect(after.sources).toEqual(start.sources);
     expect(after.steps).not.toHaveProperty(w.filt);
     expect((await readRecipe(page, w.id)).steps.map((s) => s.id)).toEqual([w.buf]);
@@ -740,7 +752,7 @@ test("layout steps: Arrange, a drag, arrow runs, every note step, a source, Arra
     await expect.poll(() => mutations.filter((r) => r.method() === "PUT" && /\/layout$/.test(r.url())).length).toBeGreaterThan(0);
   });
 
-  const unexpected = consoleErrors.filter((e) => !isAllowedConsoleError(e.text, e.url));
+  const unexpected = consoleErrors.filter((e) => !isAllowedConsoleError(e.text, e.url) && !(/status of 409/.test(e.text) && e.url?.endsWith(`/api/recipes/${w.id}/layout`)));
   expect(unexpected).toEqual([]);
 });
 
