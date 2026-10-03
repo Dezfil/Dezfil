@@ -675,3 +675,63 @@ the repository's shipped copy and ships that copy with the instance. An
 instance override still wins for the same identity. Dezfil supplies no cron
 setup, refresh job or provider discovery. Effort levels remain manually
 maintained.
+
+## Request transport probe
+
+Run the whole-body probe on a production standalone built in an isolated checkout,
+with the native ingress preload and a fresh scratch store. The client must see the
+same data directory and server log; it observes upload scratch growth while still
+sending. Do not run it against a user's store. For example, from the isolated
+build checkout (ports 3391 and 3392 must be free):
+
+```sh
+transport_data=$(mktemp -d "$PWD/.tmp-transport-XXXXXX")
+DEZFIL_DATA_DIR="$transport_data" DEZFIL_UPLOAD_MAX_MB=257 HOSTNAME=127.0.0.1 PORT=3391 \
+  node --import=./scripts/ingress-preload.mjs .next/standalone/server.js \
+  > "$transport_data/server.log" 2>&1 &
+transport_pid=$!
+# Wait for GET http://127.0.0.1:3391/api/health to return 200.
+DEZFIL_DATA_DIR="$transport_data" DEZFIL_UPLOAD_MAX_MB=257 \
+  npm run probe:transport -- http://127.0.0.1:3391 --server-log "$transport_data/server.log"
+kill "$transport_pid"
+```
+
+Repeat with a **new** scratch directory, `DEZFIL_UPLOAD_MAX_MB=1`, `PORT=3392`,
+and the client command below to test the configured multipart file boundary:
+
+```sh
+DEZFIL_DATA_DIR="$transport_data" DEZFIL_UPLOAD_MAX_MB=1 \
+  npm run probe:transport -- http://127.0.0.1:3392 --server-log "$transport_data/server.log" --file-limit-only
+```
+
+For the container, run each arm in a fresh container. The image job uses these
+commands for the main arm, then repeats with port 3392, cap 1 and
+`--file-limit-only`. The preload is the same as the image's default command;
+redirection makes its log visible to the probe within the network namespace.
+
+```sh
+docker run -d --rm --name dezfil-transport --network=none \
+  -e PORT=3391 -e DEZFIL_DATA_DIR=/data -e DEZFIL_UPLOAD_MAX_MB=257 \
+  -v "$PWD/scripts:/probes:ro" dezfil:ci \
+  sh -c 'exec node --import=./scripts/ingress-preload.mjs server.js > /data/transport-server.log 2>&1'
+# Wait for health from inside this container.
+docker exec dezfil-transport node /probes/transport-probe.mjs \
+  http://127.0.0.1:3391 --server-log /data/transport-server.log
+docker stop dezfil-transport
+```
+
+Green prints JSON with `"label": "confirmed"`, elapsed seconds, exact file sizes
+and independently counted rows, growing scratch samples, workflow validation
+answers, public refusal byte counts, and empty TRACE answers. Declared public
+excess writes zero body bytes; a paced 4 MiB chunked sender must receive 413 by
+81,920 bytes (65,536 plus fixed 16,384-byte scheduling slack). Red prints
+`"label": "failed"` and the failing assertion, then exits 1. A missing response
+times out. Missing rows, scratch growth only after sending, and any framework
+truncation warning fail independently. The file-limit arm preserves the receiver's
+existing boundary: one byte below the configured cap succeeds; exact and above
+answer `upload_too_large` without a table or scratch file.
+
+Run `npm run probe:gate -- http://127.0.0.1:3391` separately against another fresh
+preloaded store for the unchanged complete native refusal matrix. These probes
+assert behavior, not an RSS or latency improvement; compare the image job's total
+duration separately when assessing its added cost.

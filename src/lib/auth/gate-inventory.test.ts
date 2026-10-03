@@ -157,3 +157,29 @@ it("preserves cookie origin checks and final rolling cookies on every excluded s
   expect(response.headers.get("set-cookie")).toContain(`dezfil_session=${signed.secret}`);
   expect(response.headers.get("cache-control")).toBe("private, no-store");
 });
+
+
+it("holds one closed exclusion inventory against the literal compiled matcher in development and production", () => {
+  const expected = "/((?!" + excluded.map(({ path }) => path.slice(1).replaceAll("fixture", "[^/]+") + "/?$").join("|") + ").*)";
+  expect(config.matcher).toEqual([expected]);
+  for (const environment of ["development", "production"]) {
+    vi.stubEnv("NODE_ENV", environment);
+    try {
+      for (const { path } of excluded) for (const suffix of ["", "/", "?query=1"]) {
+        expect(unstable_doesMiddlewareMatch({ config, nextConfig, url: path + suffix }), `${environment} ${path}${suffix}`).toBe(false);
+      }
+      for (const url of ["/api/%74ables", "/api/tables.json", "/api/tables/extra", "/api/tables-extra",
+        "/api/published/token", "/api/published/token/render", "/api/published/token/render/id/extra",
+        "/api/published/token/widget-values/extra", "/api/published/token/tiles/layer/0/0/0",
+        "/api/published/token/%72ender/id", "/api/auth/setup", "/api/auth/sign-in", "/api/auth/redeem"]) {
+        expect(unstable_doesMiddlewareMatch({ config, nextConfig, url }), `${environment} ${url}`).toBe(true);
+      }
+      for (const url of ["/api/published/t%2Foken/widget-values", "/api/published/%74oken/render/l%2Fayer", "/api/published/token/extent/%6cayer/"]) {
+        expect(unstable_doesMiddlewareMatch({ config, nextConfig, url }), url).toBe(false);
+      }
+      const seeded = { matcher: [expected.replace("(?!", "(?!api/maps/?$|")] };
+      expect(seeded.matcher).not.toEqual([expected]);
+      expect(unstable_doesMiddlewareMatch({ config: seeded, nextConfig, url: "/api/maps" })).toBe(false);
+    } finally { vi.unstubAllEnvs(); }
+  }
+});

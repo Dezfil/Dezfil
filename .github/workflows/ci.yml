@@ -152,6 +152,32 @@ jobs:
       # and no key material anywhere inside.
       - name: Runtime image inventory matches the allowlist
         run: node scripts/check-image-inventory.mjs dezfil:ci
+      - name: Whole-body transport, paced public refusals and file limits
+        run: |
+          run_transport() {
+            mode="$1"; port="$2"; cap="$3"
+            docker run -d --rm --name dezfil-transport-ci --network=none \
+              -e PORT="$port" -e DEZFIL_DATA_DIR=/data -e DEZFIL_UPLOAD_MAX_MB="$cap" \
+              -v "$PWD/scripts:/probes:ro" dezfil:ci \
+              sh -c 'exec node --import=./scripts/ingress-preload.mjs server.js > /data/transport-server.log 2>&1'
+            for i in $(seq 1 30); do
+              if docker exec dezfil-transport-ci node -e "fetch('http://127.0.0.1:$port/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
+                break
+              fi
+              sleep 1
+            done
+            if [ "$mode" = file-limit ]; then
+              docker exec dezfil-transport-ci node /probes/transport-probe.mjs \
+                "http://127.0.0.1:$port" --server-log /data/transport-server.log --file-limit-only
+            else
+              docker exec dezfil-transport-ci node /probes/transport-probe.mjs \
+                "http://127.0.0.1:$port" --server-log /data/transport-server.log
+            fi
+            docker stop dezfil-transport-ci
+          }
+          trap 'docker exec dezfil-transport-ci cat /data/transport-server.log 2>/dev/null || true; docker stop dezfil-transport-ci 2>/dev/null || true' EXIT
+          run_transport transport 3391 257
+          run_transport file-limit 3392 1
       - name: Packaged native socket provenance
         run: |
           docker run --rm --network=none -e DEZFIL_TRUSTED_PROXIES=127.0.0.1 \
