@@ -39,7 +39,7 @@ it.each(["widgets", "render", "extent"].flatMap(lane => ["owner", "admin"].map(a
   if (lane === "widgets") { const original = widgets.computeWidgetValues; vi.spyOn(widgets, "computeWidgetValues").mockImplementation(async (...args) => { const result = await original(...args); await hold.engage(); return result; }); }
   if (lane === "render") { const original = widgets.renderLayerWithSelections; vi.spyOn(widgets, "renderLayerWithSelections").mockImplementation(async (...args) => { const result = await original(...args); await hold.engage(); return result; }); }
   if (lane === "extent") { const original = extents.layerExtent; vi.spyOn(extents, "layerExtent").mockImplementation(async (...args) => { const result = await original(...args); await hold.engage(); return result; }); }
-  const call = (value: string) => (lane === "widgets" ? widgetValues : lane === "render" ? render : extent)(new Request(`http://instance.test/api/published/${value}/${lane}`, {
+  const call = (value: string) => (lane === "widgets" ? widgetValues : lane === "render" ? render : extent)(new Request(`http://instance.test/api/published/${value}/${lane === "widgets" ? "widget-values" : `${lane}/${layerId}`}`, {
     method: "POST", body: JSON.stringify({ selections: [] }),
   }), { params: Promise.resolve({ token: value, layerId }) });
   const pending = call(token);
@@ -56,4 +56,15 @@ it.each(["widgets", "render", "extent"].flatMap(lane => ["owner", "admin"].map(a
     const response = await pending, missing = await call("missing");
     expect(response.status).toBe(404); expect(await response.json()).toEqual(await missing.json());
   } finally { hold.release(); await pending; }
+});
+
+it.each(["widgets", "render", "extent"])("keeps a successful anonymous %s response private", async lane => {
+  if (lane === "render") await updateLayer(scope, layerId, { viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } } }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
+  const path = lane === "widgets" ? "widget-values" : `${lane}/${layerId}`;
+  const response = await (lane === "widgets" ? widgetValues : lane === "render" ? render : extent)(
+    new Request(`http://instance.test/api/published/${token}/${path}`, { method: "POST", body: "{}" }),
+    { params: Promise.resolve({ token, layerId }) },
+  );
+  expect(response.status).toBe(200);
+  expect(response.headers.get("cache-control")).toBe("private, no-store");
 });

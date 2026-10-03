@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { buildOpenApiDocument } from "./openapi";
-import { WORKFLOW_JSON_BODY_MAX_BYTES } from "./request-bounds";
-import { documentedRoutes, governedBodyRoutes, implementedRoutes, key, walk } from "../../../test-support/api-route-inventory";
+import { WORKFLOW_JSON_BODY_MAX_BYTES, SMALL_JSON_BODY_MAX_BYTES } from "./request-bounds";
+import { documentedRoutes, publishedBodyRoutes, governedBodyRoutes, implementedRoutes, key, walk } from "../../../test-support/api-route-inventory";
 
 /**
  * API parity (spec: every capability in the journey is documented; the diff
@@ -34,7 +34,10 @@ describe("API parity", () => {
   });
 
   it("publishes the enforced workflow JSON byte ceiling on every governed operation", () => {
-    const operations = governedBodyRoutes();
+    const workflows = governedBodyRoutes();
+    const selections = publishedBodyRoutes();
+    const operations = [...workflows, ...selections];
+    expect(selections).toHaveLength(3);
     // The derivation needs a floor: a renamed reader or a reshaped route
     // export would empty this list and the loop below would assert
     // nothing while staying green. Seven
@@ -54,8 +57,10 @@ describe("API parity", () => {
       };
       "x-error-codes": Record<string, string>;
     };
-    const expected = WORKFLOW_JSON_BODY_MAX_BYTES.toLocaleString("en-US");
+
     for (const { path, method } of operations) {
+      const limit = selections.some(row => row.path === path && row.method === method) ? SMALL_JSON_BODY_MAX_BYTES : WORKFLOW_JSON_BODY_MAX_BYTES;
+      const expected = limit.toLocaleString("en-US");
       const description = document.paths[path]?.[method]?.description;
       expect(description, `${method.toUpperCase()} ${path}`).toContain(
         `At most ${expected} wire bytes`,

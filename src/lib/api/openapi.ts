@@ -1,3 +1,4 @@
+import { SMALL_JSON_BODY_MAX_BYTES } from "./request-bounds";
 import { withAutomaticMethods } from "./openapi-methods";
 import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA, EDIT_REVISION_SCHEMA } from "./openapi-document-facts";
 import { SQL_POLICY, SQL_QUERY } from "./openapi-sql";
@@ -618,6 +619,8 @@ export function buildOpenApiDocument() {
         post: op(publicationAccess({
           summary: "A published layer's current data extent",
           description:
+            `At most ${SMALL_JSON_BODY_MAX_BYTES.toLocaleString("en-US")} wire bytes. Excess answers 413 ` +
+            "`request_body_too_large` before JSON parsing. Empty bodies keep their default selections. " +
             "The published half of the extent capability: the " +
             "bounding box of what the reader's current state leaves drawn. " +
             "The reader never names a field — widget selections are keyed " +
@@ -669,6 +672,8 @@ export function buildOpenApiDocument() {
         post: op(publicationAccess({
           summary: "Widget values for a published view",
           description:
+            `At most ${SMALL_JSON_BODY_MAX_BYTES.toLocaleString("en-US")} wire bytes. Excess answers 413 ` +
+            "`request_body_too_large` before JSON parsing. Empty bodies keep their default selections. " +
             "The live half of a published dashboard: the same " +
             "batched computation as the builder path, under the " +
             "published-view guarantees — the token must currently resolve, " +
@@ -702,6 +707,8 @@ export function buildOpenApiDocument() {
         post: op(publicationAccess({
           summary: "Re-render a published computed layer under selections",
           description:
+            `At most ${SMALL_JSON_BODY_MAX_BYTES.toLocaleString("en-US")} wire bytes. Excess answers 413 ` +
+            "`request_body_too_large` before JSON parsing. Empty bodies keep their default selections. " +
             "The published settle lane: re-render one hexbin, " +
             "grid, cluster, or heatmap layer under a reader's ephemeral " +
             "selections — cells re-bin and clusters recount, read-only, " +
@@ -711,7 +718,7 @@ export function buildOpenApiDocument() {
             "or a published widget's field; anything else " +
             "answers 400 field_not_published before evaluation. Responses " +
             "carry the effective set, and a hidden layer answers 404 like " +
-            "an absent one.",
+            "an absent one. Selection documents above 65,536 bytes are refused even when their filters meet the semantic count limits.",
           tag: "Publish",
           tool: false,
           effects: READ_ONLY,

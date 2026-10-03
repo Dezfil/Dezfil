@@ -1,3 +1,5 @@
+import { withRouteGate, gateOnly } from "@/lib/auth/route-gate";
+import { publishedJsonBody } from "@/lib/publish/published-body";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { publishedMessage } from "@/lib/api/error-catalogue";
@@ -19,7 +21,7 @@ type Params = { params: Promise<{ token: string }> };
  * the shared viewer rate limit applies. Unpublish cuts this off by
  * construction — the snapshot read is the authorization.
  */
-export async function POST(request: Request, { params }: Params) {
+async function read(request: Request, { params }: Params) {
   try {
     const { token } = await params;
 
@@ -34,13 +36,7 @@ export async function POST(request: Request, { params }: Params) {
       );
     }
 
-    let body: Record<string, unknown> = {};
-    try {
-      const text = await request.text();
-      if (text) body = JSON.parse(text) as Record<string, unknown>;
-    } catch {
-      throw new ApiError("invalid_request", "Expected a JSON body.", 400);
-    }
+    const body = await publishedJsonBody(request);
     const selections = body.selections ?? [];
     if (!isValidSelections(selections)) {
       throw new ApiError(
@@ -96,3 +92,11 @@ export async function POST(request: Request, { params }: Params) {
     return errorResponse(error);
   }
 }
+
+export async function POST(request: Request, context: Params) { return withRouteGate(request, () => read(request, context)); }
+export async function GET(request: Request) { return gateOnly(request); }
+export async function HEAD(request: Request) { return gateOnly(request); }
+export async function OPTIONS(request: Request) { return gateOnly(request); }
+export async function PUT(request: Request) { return gateOnly(request); }
+export async function DELETE(request: Request) { return gateOnly(request); }
+export async function PATCH(request: Request) { return gateOnly(request); }

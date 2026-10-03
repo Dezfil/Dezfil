@@ -10,3 +10,6 @@
  * outer byte bound complements rather than restates semantic bounds.
  */
 export const WORKFLOW_JSON_BODY_MAX_BYTES = 16 * 1024 * 1024;
+
+/** Authentication, account administration and anonymous selection envelopes. */
+export const SMALL_JSON_BODY_MAX_BYTES = 65_536;

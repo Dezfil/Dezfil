@@ -120,3 +120,10 @@ export const key = (r: Implemented) => `${r.method.toUpperCase()} ${r.path}`;
 export function resourceOperations<T>(operations: Record<string, T>): T[] {
   return Object.entries(operations).filter(([method]) => method !== "head" && method !== "options").map(([, operation]) => operation);
 }
+
+/** Published body readers currently live in the POST resource callback. */
+export function publishedBodyRoutes(): Implemented[] {
+  return walk(path.join(APP_DIR, "api")).filter(file => file.endsWith("route.ts") &&
+    /\bpublishedJsonBody\s*\(/.test(readFileSync(file, "utf8")))
+    .map(file => ({ path: routePath(file), method: "post" }));
+}

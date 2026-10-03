@@ -55,7 +55,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
     "Enter the password again when changing the host or port, or turning SSL off.",
   malformed_file: "The file could not be parsed as its declared format.",
   request_body_too_large:
-    "The workflow request body exceeds its documented byte limit.",
+    "The request body exceeds its documented byte limit.",
   mcp_read_failed: "The read could not be completed because its response could not be received.",
   mcp_transport_failed: "The operation's response could not be received. Its outcome is unknown.",
   mcp_response_invalid: "The instance returned a response that does not match this operation's documented result.",

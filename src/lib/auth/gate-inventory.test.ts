@@ -9,17 +9,25 @@ import { authenticateSession, createApiToken, revokeApiToken, signOut } from "./
 import { config } from "@/proxy";
 import nextConfig from "../../../next.config";
 import * as tables from "@/app/api/tables/route";
+import * as widgets from "@/app/api/published/[token]/widget-values/route";
+import * as render from "@/app/api/published/[token]/render/[layerId]/route";
+import * as extent from "@/app/api/published/[token]/extent/[layerId]/route";
 
 const origin = "http://instance.test";
 const methods = ["GET", "HEAD", "OPTIONS", "POST", "PUT", "DELETE", "PATCH"];
-const excluded = [{ path: "/api/tables", handlers: tables, allowed: ["GET", "HEAD", "OPTIONS", "POST"] }];
+const excluded = [
+  { path: "/api/tables", handlers: tables, allowed: ["GET", "HEAD", "OPTIONS", "POST"] },
+  { path: "/api/published/fixture/widget-values", handlers: widgets, allowed: ["OPTIONS", "POST"] },
+  { path: "/api/published/fixture/render/fixture", handlers: render, allowed: ["OPTIONS", "POST"] },
+  { path: "/api/published/fixture/extent/fixture", handlers: extent, allowed: ["OPTIONS", "POST"] },
+];
 let db: Database;
 beforeEach(() => { db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db); });
 afterEach(() => { vi.restoreAllMocks(); db.close(); });
 const input = (path: string, method: string, headers: Record<string, string> = {}) => socketRequest(new Request(origin + path, { method, headers: { origin, ...headers } }));
 
 it("excludes exactly the streaming upload path and admits the full workflow tier to dispatch", () => {
-  expect(unstable_doesMiddlewareMatch({ config, nextConfig, url: "/api/tables" })).toBe(false);
+  for (const { path: url } of excluded) expect(unstable_doesMiddlewareMatch({ config, nextConfig, url })).toBe(false);
   for (const url of ["/api/tables/id", "/api/tables-extra", "/api/auth/sign-in", "/api/recipes"]) {
     expect(unstable_doesMiddlewareMatch({ config, nextConfig, url }), url).toBe(true);
   }
@@ -40,9 +48,10 @@ it.each(["anonymous", "invalid", "revoked-token", "revoked-cookie"])("gates actu
   }
   const before = db.serialize();
   for (const { path, handlers } of excluded) for (const method of methods) {
+    if (path.startsWith("/api/published/") && method === "POST") continue;
     const request = input(path, method, headers);
     const body = vi.spyOn(request, "body", "get");
-    const handler = (handlers as Record<string, (request: Request) => Promise<Response>>)[method];
+    const handler = (handlers as unknown as Record<string, (request: Request) => Promise<Response>>)[method];
     expect(handler, `${method} ${path}`).toBeTypeOf("function");
     const response = await handler(request);
     expect(response.status, `${method} ${path}`).toBe(401);
@@ -74,7 +83,7 @@ it("keeps authenticated wrong-method answers and OPTIONS behind the gate", async
   const signed = await createFirstAccount({ name: "Admin", email: "admin@example.test", password: "field notebooks at dawn" }, db);
   for (const { path, handlers, allowed } of excluded) for (const method of methods.filter(method => !allowed.includes(method) || method === "OPTIONS")) {
     const request = input(path, method, { cookie: `dezfil_session=${signed.secret}` });
-    const response = await (handlers as Record<string, (request: Request) => Promise<Response>>)[method](request);
+    const response = await (handlers as unknown as Record<string, (request: Request) => Promise<Response>>)[method](request);
     expect(response.status).toBe(method === "OPTIONS" ? 204 : 405);
     expect(response.headers.get("allow")?.split(", ").sort()).toEqual(allowed);
     expect(response.headers.get("set-cookie")).toContain(`dezfil_session=${signed.secret}`);
@@ -121,4 +130,30 @@ it("detects a seeded missing handler gate on an otherwise authenticated resource
   await expect(check(() => work())).rejects.toThrow();
   work.mockClear();
   await check(request => withRouteGate(request, work));
+});
+
+it("retains public POST access with invalid credentials and cross-site origin, and private refusals", async () => {
+  for (const { path, handlers } of excluded.filter(row => row.path.startsWith("/api/published/"))) {
+    const request = input(path, "POST", { cookie: "dezfil_session=invalid", origin: "https://elsewhere.test" });
+    const response = await handlers.POST(request, { params: Promise.resolve({ token: "missing", layerId: "missing" }) });
+    expect(response.status).toBe(404);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("set-cookie")).toBeNull();
+  }
+});
+
+it("preserves cookie origin checks and final rolling cookies on every excluded shape", async () => {
+  const signed = await createFirstAccount({ name: "Admin", email: "admin@example.test", password: "field notebooks at dawn" }, db);
+  for (const { path, handlers } of excluded) {
+    for (const originValue of ["", "https://elsewhere.test"]) {
+      const response = await handlers.PUT(input(path, "PUT", { cookie: `dezfil_session=${signed.secret}`, origin: originValue }));
+      expect(response.status).toBe(403);
+      expect(response.headers.get("set-cookie")).toBeNull();
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+    }
+  }
+  const response = await tables.POST(input("/api/tables", "POST", { cookie: `dezfil_session=${signed.secret}` }));
+  expect(response.status).toBe(400);
+  expect(response.headers.get("set-cookie")).toContain(`dezfil_session=${signed.secret}`);
+  expect(response.headers.get("cache-control")).toBe("private, no-store");
 });

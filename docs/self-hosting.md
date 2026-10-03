@@ -146,6 +146,11 @@ often the instance will talk to an external service. The defaults are chosen to 
 safe on a small machine. Raise them deliberately, not because a limit annoyed you
 once.
 
+The anonymous published widget-values, render and extent POST paths bypass the
+framework proxy too. Their handlers admit at most 65,536 bytes and refuse excess
+before parsing; empty bodies retain their existing defaults. All dispatchable
+methods on excluded paths retain their method-specific request gate.
+
 Multipart uploads bypass the framework proxy and stream to scratch storage under
 the configured file and archive limits. Workflow JSON keeps its 16 MiB limit.
 The framework proxy copy limit is 17 MiB (previously 10 MiB), so complete workflow
