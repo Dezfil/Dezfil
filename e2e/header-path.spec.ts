@@ -234,12 +234,12 @@ test("the path, the titles, the instance name and the re-measure", async ({
     await page.goto("/settings");
     await title(page).toBe("Settings · Dezfil");
     await expect(
-      page.getByRole("heading", { name: "Workspace", exact: true }),
+      page.getByRole("heading", { name: "Instance", exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Account", exact: true }),
     ).toBeVisible();
-    // The coming-later list lives inside the Workspace card now.
+    // The coming-later list lives inside the Instance card.
     await expect(page.getByText("Default basemap")).toBeVisible();
     await expect(chip(page)).toHaveCount(0);
 
