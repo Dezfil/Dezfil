@@ -11,7 +11,8 @@ test("a terminal recovery link chooses a password, signs into the same admin and
   if (process.env.DEZFIL_E2E_FIRST_RUN !== "1" || !directory ||
       !path.basename(directory).startsWith("dezfil-admin-recovery-probe-") ||
       !baseURL || new URL(baseURL).hostname !== "127.0.0.1" || new URL(baseURL).port === "3000") {
-    throw new Error("Run this isolated browser proof with node scripts/admin-recovery-probe.mjs browser.");
+    test.skip(true, "Run this isolated browser proof with node scripts/admin-recovery-probe.mjs browser.");
+    return;
   }
   const password = "field notebooks before sunrise", replacement = "paper cranes after midnight";
   expect((await (await request.get("/api/auth/entry")).json()).setupRequired).toBe(true);
