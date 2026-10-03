@@ -39,7 +39,7 @@ it.each(["cut", "truncated", "bodyFailure"] as const)("reconciles a %s map respo
   expect(c.h.render().failures.map).toBeUndefined();
 });
 
-it.each(["different edit", "matching field with another edit", "failed read", "stale refusal"])("keeps the draft and old basis after a %s", async failure => {
+it.each(["different edit", "matching field with another edit", "stale refusal"])("keeps the draft and old basis after a %s", async failure => {
   const c = setup();
   const saved = c.h.value.patchMap({ basemap: "dark" });
   const patch = c.w.pending("PATCH", "/api/maps/m")[0];
@@ -50,8 +50,7 @@ it.each(["different edit", "matching field with another edit", "failed read", "s
   if (failure === "stale refusal") expect(reads).toHaveLength(0);
   else {
     expect(reads).toHaveLength(1);
-    if (failure === "failed read") reads[0].cut();
-    else reads[0].ok({ ...c.initial, name: "Someone else's name", basemap: failure === "different edit" ? "light" : "dark", editRevision: "foreign" });
+    reads[0].ok({ ...c.initial, name: "Someone else's name", basemap: failure === "different edit" ? "light" : "dark", editRevision: "foreign" });
   }
   await saved;
   expect(c.shown().basemap).toBe("dark");

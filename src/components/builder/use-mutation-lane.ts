@@ -255,6 +255,14 @@ export function useMutationLane({
         const epoch = reloadEpochRef.current;
         const revision = sequence.revision;
         const before = serverMapRef.current;
+        const rollback = () => {
+          if (sequence.stale || reloadEpochRef.current !== epoch) return;
+          // An outage is not a stale refusal. Retire only the failed gesture
+          // and rebuild from confirmed state with the remaining intent. Do not
+          // feed optimistic field tickets back through response application.
+          drafts.discard(ticket);
+          setMap(current => serverMapRef.current ? drafts.apply(serverMapRef.current) : current);
+        };
         const unconfirmed = async (cause: unknown) => {
           fail(
             "map",
@@ -267,7 +275,7 @@ export function useMutationLane({
           if (!revision) return;
           try {
             const read = await fetch(`/api/maps/${mapId}`, { cache: "no-store" });
-            if (!read.ok) return;
+            if (!read.ok) { rollback(); return; }
             const current = await read.json() as MapWithLayers;
             if (sequence.stale || reloadEpochRef.current !== epoch) return;
             const currentRevision = acceptedDocumentFacts(current).editRevision;
@@ -281,7 +289,7 @@ export function useMutationLane({
               drafts.discard(ticket);
               applyMapResponse(current, false, sentAt);
             }
-          } catch { /* The outcome could not be established; keep the draft. */ }
+          } catch { rollback(); }
         };
 
         let response: Response;
