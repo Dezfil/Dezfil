@@ -186,6 +186,30 @@ jobs:
           trap 'docker exec dezfil-transport-ci cat /data/transport-server.log 2>/dev/null || true; docker stop dezfil-transport-ci 2>/dev/null || true' EXIT
           run_transport transport 3391 257
           run_transport file-limit 3392 1
+      - name: Published source budgets on direct and separate proxy instances
+        run: |
+          run_publication() {
+            mode="$1"; port="$2"; trusted="$3"
+            if [ "$mode" = missing ]; then preload=""; else preload="--import=./scripts/ingress-preload.mjs"; fi
+            docker run -d --rm --name dezfil-publication-ci --network=none \
+              -e PORT="$port" -e DEZFIL_DATA_DIR=/data -e DEZFIL_TRUSTED_PROXIES="$trusted" \
+              -e DEZFIL_PUBLIC_RATE_LIMIT=4 -e DEZFIL_PUBLIC_TILE_RATE_LIMIT=2 \
+              -e DEZFIL_TEST_PUBLICATION_LOG=/data/publication.ndjson \
+              -v "$PWD/scripts:/probes:ro" dezfil:ci \
+              node $preload --import=/probes/publication-observer.mjs server.js
+            for i in $(seq 1 30); do
+              if docker exec dezfil-publication-ci node -e "fetch('http://127.0.0.1:$port/api/health').then(()=>process.exit(0)).catch(()=>process.exit(1))"; then break; fi
+              sleep 1
+            done
+            docker exec dezfil-publication-ci node /probes/publication-source-probe.mjs \
+              "http://127.0.0.1:$port" "$mode" --state-log /data/publication.ndjson
+            docker stop dezfil-publication-ci
+          }
+          trap 'docker logs dezfil-publication-ci 2>/dev/null || true; docker stop dezfil-publication-ci 2>/dev/null || true' EXIT
+          run_publication direct 3393 ""
+          run_publication trusted 3394 127.0.0.1
+          run_publication untrusted 3395 ""
+          run_publication missing 3396 ""
       - name: Packaged native socket provenance
         run: |
           docker run --rm --network=none -e DEZFIL_TRUSTED_PROXIES=127.0.0.1 \
