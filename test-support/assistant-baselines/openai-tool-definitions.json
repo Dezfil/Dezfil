@@ -1,6 +1,6 @@
 {
   "count": 136,
-  "overall": "44fb25f095246f5ed70adbf961592b4fd59627ca8d7e4742e36a4a32164a4490",
+  "overall": "45efee8bbbe83ffb87ed88c8aab8470205017b84f3c2abad5f6e47dd1a6ffbf6",
   "tools": {
     "get_account": "bd37f5c2eb19d2ede33cb10152a53d49e4029a871d9950f51d3671001efdfb66",
     "update_account": "3ad8444a58cdad3534c58b9a7d915598449c9b075a87aa32d07a446af36e4bbb",
@@ -137,6 +137,6 @@
     "revoke_inactive_publication": "d6827629d18d24e008a96dc803dd211864c770d61e43f5b5dba48e4171ff191d",
     "read_table_catalogue": "3c276a6ec7f3c1b9bd4fac8148eeff4fdc5922fc9b62840f6e4731fbb471c7d7",
     "view_published_map": "9583ad10341f76bc19756121fb40a8537681bec4e49aa8706344ef5b80c961a0",
-    "published_layer_extent": "7a581c08ff6ba3ba2be0f4300adaa7041407c8a0331761210f5a5d45df1230d7"
+    "published_layer_extent": "ae6670f548f060065ba12acb4010f0c614428f628dc46302d4645506107eea2a"
   }
 }

@@ -143,6 +143,16 @@ export function installIngress() {
           const raw = request.rawHeaders;
           request.rawHeaders = raw.flatMap((value, index) => index % 2 === 0 && !FORWARDING.includes(value.toLowerCase()) ? [value, raw[index + 1]] : []);
           for (const name of FORWARDING) request.rawHeaders.push(name, headers[name]);
+          // These POST bodies reach the handler without the framework's copy.
+          // Cancelling undici's default Node-stream iterator destroys the
+          // IncomingMessage and its response socket before a 413 can be sent.
+          // End only the iterator on refusal; Node owns draining/closing the
+          // connection after the response. No extra reader or body copy exists.
+          const pathname = new URL(request.url ?? "/", view.origin).pathname;
+          if (request.method === "POST" && typeof request.iterator === "function" &&
+              /^\/api\/(?:tables|published\/[^/]+\/(?:widget-values|(?:render|extent)\/[^/]+))\/?$/.test(pathname)) {
+            request[Symbol.asyncIterator] = function () { return this.iterator({ destroyOnReturn: false }); };
+          }
           request[STAMPED] = true;
         } catch {
           const response = args[1];

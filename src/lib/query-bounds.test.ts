@@ -300,7 +300,7 @@ describe("query bounds — published lanes", () => {
     const { token } = publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     timeoutNow();
     const response = await publishedRenderRoute(
-      new Request("http://localhost:3000/x", {
+      new Request(`http://localhost:3000/api/published/${token}/render/${gridded.id}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -343,7 +343,7 @@ describe("query bounds — published lanes", () => {
     const { token } = publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     timeoutNow();
     const response = await publishedWidgetValuesRoute(
-      new Request("http://localhost:3000/x", {
+      new Request(`http://localhost:3000/api/published/${token}/widget-values`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ selections: [] }),
