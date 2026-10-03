@@ -15,6 +15,7 @@ import { acceptedDocumentFacts } from "../accepted-document-facts";
 import { readApiError } from "../api";
 import type { LayerRenderData } from "./render-data";
 import { BuilderDrafts } from "./builder-drafts";
+import { confirmsMapPatch } from "./map-save-recovery";
 import { DocumentSequence, patchIntent } from "../document-sequence";
 
 /** Who raised a failure — and therefore who owns clearing it. */
@@ -253,6 +254,7 @@ export function useMutationLane({
         const sentAt = truthSeqRef.current;
         const epoch = reloadEpochRef.current;
         const revision = sequence.revision;
+        const before = serverMapRef.current;
         const unconfirmed = async (cause: unknown) => {
           fail(
             "map",
@@ -260,18 +262,24 @@ export function useMutationLane({
               cause instanceof Error ? cause.message : "Network failure."
             }`,
           );
-          // A lost reorder can be rolled back when a fresh read proves the
-          // attempted revision never changed. A changed or unreadable basis
-          // keeps the draft; no request is replayed and stale refusals never enter here.
-          if (!revision || Object.keys(body).length !== 1 || !Array.isArray(body.layerOrder)) return;
+          // Read once inside the ordered turn. Only a confirmed outcome
+          // supplies the next basis; stale refusals never enter this path.
+          if (!revision) return;
           try {
             const read = await fetch(`/api/maps/${mapId}`, { cache: "no-store" });
             if (!read.ok) return;
             const current = await read.json() as MapWithLayers;
-            if (sequence.stale || reloadEpochRef.current !== epoch || acceptedDocumentFacts(current).editRevision !== revision) return;
-            drafts.discard(ticket);
-            applyMapResponse(current, false, sentAt);
-          } catch { /* The unchanged-document proof was unavailable; keep the draft. */ }
+            if (sequence.stale || reloadEpochRef.current !== epoch) return;
+            const currentRevision = acceptedDocumentFacts(current).editRevision;
+            if (!currentRevision) return;
+            if (confirmsMapPatch(before, body, current)) {
+              drafts.accepted(ticket, before);
+              applyMapResponse(current, true, sentAt);
+            } else if (currentRevision === revision && Object.keys(body).length === 1 && Array.isArray(body.layerOrder)) {
+              drafts.discard(ticket);
+              applyMapResponse(current, false, sentAt);
+            }
+          } catch { /* The outcome could not be established; keep the draft. */ }
         };
 
         let response: Response;
