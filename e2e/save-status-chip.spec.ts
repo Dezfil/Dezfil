@@ -313,12 +313,26 @@ const expectNotInTheCard = async (page: Page, text: string) => {
   expect.soft(inCard.chipInside, "the chip stands on the stage, not in the header").toBe(false);
 };
 
+/** Wait for the camera-backed point preview before committing a shape. */
+async function drawPointOnStage(page: Page) {
+  await expect(page.locator('[data-save-status="saving"]')).not.toHaveAttribute("data-on", "true");
+  await expect(page.locator(".maplibregl-canvas")).toBeVisible();
+  await page.getByRole("button", { name: "Draw", exact: true }).click();
+  const dock = page.getByRole("toolbar", { name: "Draw tools" });
+  await dock.getByRole("button", { name: "Draw points" }).click();
+  const overlay = page.locator("svg[data-armed]");
+  const position = { x: 260, y: 240 };
+  await overlay.hover({ position });
+  await expect(overlay.locator("circle")).toBeVisible();
+  await overlay.click({ position });
+}
+
 test("the builder: both channels at the chip, live together and on their own lifetimes", async ({
   page,
   context,
 }) => {
   test.setTimeout(300_000);
-  await routeHouse(context);
+  await routeHouse(context, { basemapStyleStub: true });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   const mapId = (
@@ -334,19 +348,14 @@ test("the builder: both channels at the chip, live together and on their own lif
    * reach: the session's first shape cannot be saved and the channel
    * says so in its own words. */
   const drawWithTheSaveCut = async () => {
-    await page.route(`**/api/maps/${mapId}/sketches`, (route) =>
-      route.request().method() === "POST" ? route.abort() : route.continue(),
-    );
-    const failed = page.waitForEvent("requestfailed", (request) =>
-      request.method() === "POST" && request.url().endsWith(`/api/maps/${mapId}/sketches`),
-    );
-    await page.getByRole("button", { name: "Draw", exact: true }).click();
-    const dock = page.getByRole("toolbar", { name: "Draw tools" });
-    await expect(dock).toBeVisible();
-    // One click reaches the same save producer without a vertex draft.
-    await dock.getByRole("button", { name: "Draw points" }).click();
-    await page.mouse.click(700, 300);
-    await failed;
+    let intercepted = 0;
+    await page.route(`**/api/maps/${mapId}/sketches`, async route => {
+      if (route.request().method() !== "POST") return route.continue();
+      intercepted++;
+      await route.abort();
+    });
+    await drawPointOnStage(page);
+    await expect.poll(() => intercepted, { message: "the drawing save reaches the cut route" }).toBe(1);
   };
   const leaveDrawing = async () => {
     await page.unroute(`**/api/maps/${mapId}/sketches`);
@@ -1281,7 +1290,7 @@ test("the builder: a long notice keeps its tail and a fast save keeps its exit",
   context,
 }) => {
   test.setTimeout(300_000);
-  await routeHouse(context);
+  await routeHouse(context, { basemapStyleStub: true });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   const name = `Round one ${runId}`;
@@ -1293,26 +1302,14 @@ test("the builder: a long notice keeps its tail and a fast save keeps its exit",
   await expect(page.getByRole("button", { name: "Draw", exact: true })).toBeVisible({ timeout: 30_000 });
 
   await test.step("a notice too long for one line wraps inside the stage; nothing is lost off the edge", async () => {
-    await page.route(`**/api/maps/${mapId}/sketches`, (route) =>
-      route.request().method() === "POST"
-        ? route.fulfill({
-            status: 500,
-            contentType: "application/json",
-            body: JSON.stringify({
-              error: { code: "internal", message: LONG_NOTICE },
-            }),
-          })
-        : route.continue(),
-    );
-    const refused = page.waitForResponse((response) =>
-      response.request().method() === "POST" && response.url().endsWith(`/api/maps/${mapId}/sketches`),
-    );
-    await page.getByRole("button", { name: "Draw", exact: true }).click();
-    const dock = page.getByRole("toolbar", { name: "Draw tools" });
-    await expect(dock).toBeVisible();
-    await dock.getByRole("button", { name: "Draw points" }).click();
-    await page.mouse.click(700, 300);
-    expect((await refused).status()).toBe(500);
+    let intercepted = 0;
+    await page.route(`**/api/maps/${mapId}/sketches`, async route => {
+      if (route.request().method() !== "POST") return route.continue();
+      intercepted++;
+      await route.fulfill({ status: 500, json: { error: { code: "internal", message: LONG_NOTICE } } });
+    });
+    await drawPointOnStage(page);
+    await expect.poll(() => intercepted, { message: "the drawing save reaches the refusal route" }).toBe(1);
     await expectChipOn(page, "notice", "no spatial reference could be read");
 
     const read = await page.evaluate(() => {
