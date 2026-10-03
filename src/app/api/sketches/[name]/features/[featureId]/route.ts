@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
@@ -16,8 +17,9 @@ export async function PATCH(request: Request, { params }: Params) {
     const { name, featureId } = await params;
     let body: { vertexIndex?: unknown; position?: unknown };
     try {
-      body = (await request.json()) as typeof body;
-    } catch {
+      body = (await largeJsonValue(request)) as typeof body;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
       throw new ApiError("invalid_request", "Expected a JSON body.", 400);
     }
     if (typeof body.vertexIndex !== "number")

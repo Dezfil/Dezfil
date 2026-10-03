@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { assertMapLayerRefs } from "@/lib/map-layer-refs";
 import { listLayers } from "@/lib/metadata/maps";
 import { requireDocumentRevision } from "@/lib/metadata/revisions";
@@ -41,8 +42,9 @@ export async function PATCH(request: Request, { params }: Params) {
     const current = requireMapFor(scope, id, "edit");
     let body: Record<string, unknown>;
     try {
-      body = (await request.json()) as Record<string, unknown>;
-    } catch {
+      body = (await largeJsonValue(request)) as Record<string, unknown>;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
       throw new ApiError("invalid_request", "Expected a JSON body.", 400);
     }
     // A publication setting is refused before anything is inspected.

@@ -55,6 +55,7 @@ export const PROJECT_PATHS = {
       display: {"verb": "Created the project {subject}", "subject": {"resource": "projects", "result": "id", "name": ["name"]}},
       effects: writes(resource("projects", "", "id")),
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -103,6 +104,7 @@ export const PROJECT_PATHS = {
       effects: writes(resource("projects", "id")),
       parameters: [pathParam("id", "Project id.")],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -189,6 +191,7 @@ export const PROJECT_PATHS = {
       effects: writes(resource("projects", "id")),
       parameters: [pathParam("id", "Project id.")],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -240,6 +243,7 @@ export const PROJECT_PATHS = {
       effects: READ_ONLY,
       parameters: [pathParam("id", "Project id.")],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {

@@ -13,3 +13,6 @@ export const WORKFLOW_JSON_BODY_MAX_BYTES = 16 * 1024 * 1024;
 
 /** Authentication, account administration and anonymous selection envelopes. */
 export const SMALL_JSON_BODY_MAX_BYTES = 65_536;
+
+/** Maps, layers and other general JSON envelopes. */
+export const LARGE_JSON_BODY_MAX_BYTES = 16_777_216;

@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
     let name = "Untitled map";
     let projectId: string | null = null;
     try {
-      const body = (await request.json()) as {
+      const body = (await largeJsonValue(request)) as {
         name?: unknown;
         projectId?: unknown;
       };

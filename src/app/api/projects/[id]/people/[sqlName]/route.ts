@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { requireRequestScope } from "@/lib/auth/scope-http";
@@ -8,8 +9,9 @@ type Params = { params: Promise<{ id: string; sqlName: string }> };
 async function roleOf(request: Request): Promise<PersonRole> {
   let body: unknown;
   try {
-    body = await request.json();
-  } catch {
+    body = await largeJsonValue(request);
+  } catch (error) {
+      if (error instanceof ApiError) throw error;
     throw new ApiError("invalid_request", "Expected a JSON body.", 400);
   }
   const role = body !== null && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>).role : undefined;

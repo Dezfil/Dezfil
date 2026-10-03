@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import type { AccountScope } from "@/lib/auth/scope";
 import { openPrivateExport } from "@/lib/export/private-file";
 import { requireRequestScope } from "@/lib/auth/scope-http";
@@ -81,7 +82,7 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id } = await params;
-    const body = (await request.json().catch(() => {
+    const body = (await largeJsonValue(request, () => {
       throw new ApiError("invalid_request", "A JSON body is required.", 400);
     })) as Record<string, unknown>;
     const selection: ProjectExportSelection = {

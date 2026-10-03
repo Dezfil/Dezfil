@@ -1463,3 +1463,17 @@ response message. Branch on the code.
 Authentication entry, Account and Users JSON submissions accept at most 65,536
 wire bytes, including whitespace and escaping. Excess answers 413
 `request_body_too_large` before parsing and before any account change.
+
+Map, layer, widget, sketch, export and project JSON readers accept at most
+16,777,216 wire bytes. Optional bodies have the same outer bound: an oversized
+body never selects a default. The published render selection reader stays at
+65,536 bytes, including semantically valid filters whose strings exceed it.
+
+The finite-field controls measure 400,076 bytes for a 10,000-vertex sketch,
+262,201 for a maximal custom-icon patch, 1,500 for the fully populated
+4096-square export request, 21,976 for twelve widget selections, and 22,055
+for those selections with timeline bounds. Sixteen render filters with 200
+16-byte values measure 61,712 bytes; 18-byte values measure 68,112 and refuse.
+The viewer's twelve selections of fifty 30-character CJK values with distinct
+three-digit suffixes measure 58,288 bytes and fit. Unbounded strings and JSON
+escaping still count toward the outer limit.

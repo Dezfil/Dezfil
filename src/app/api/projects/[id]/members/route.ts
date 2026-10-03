@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { canReach } from "@/lib/auth/reach";
 import { NextResponse } from "next/server";
@@ -29,8 +30,9 @@ export async function PATCH(request: Request, { params }: Params) {
     const { id } = await params;
     let body: unknown;
     try {
-      body = await request.json();
-    } catch {
+      body = await largeJsonValue(request);
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
       throw new ApiError("invalid_request", "Expected a JSON body.", 400);
     }
     const change = memberChange(body);

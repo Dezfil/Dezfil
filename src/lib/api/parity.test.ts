@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { buildOpenApiDocument } from "./openapi";
 import { WORKFLOW_JSON_BODY_MAX_BYTES, SMALL_JSON_BODY_MAX_BYTES } from "./request-bounds";
-import { documentedRoutes, publishedBodyRoutes, governedBodyRoutes, implementedRoutes, key, walk } from "../../../test-support/api-route-inventory";
+import { documentedRoutes, generalBodyRoutes, publishedBodyRoutes, governedBodyRoutes, implementedRoutes, key, walk } from "../../../test-support/api-route-inventory";
 
 /**
  * API parity (spec: every capability in the journey is documented; the diff
@@ -41,7 +41,8 @@ describe("API parity", () => {
       ["/api/account", "patch"], ["/api/account/password", "post"], ["/api/account/tokens", "post"],
       ["/api/users", "post"], ["/api/users/{id}", "patch"],
     ].map(([path, method]) => ({ path, method }));
-    const operations = [...workflows, ...selections, ...small];
+    const general = generalBodyRoutes();
+    const operations = [...workflows, ...selections, ...small, ...general];
     expect(selections).toHaveLength(3);
     // The derivation needs a floor: a renamed reader or a reshaped route
     // export would empty this list and the loop below would assert

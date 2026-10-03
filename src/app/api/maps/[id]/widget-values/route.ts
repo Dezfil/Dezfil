@@ -1,3 +1,4 @@
+import { largeBodyText } from "@/lib/api/json-body";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
@@ -25,9 +26,10 @@ export async function POST(request: Request, { params }: Params) {
     const { id } = await params;
     let body: Record<string, unknown> = {};
     try {
-      const text = await request.text();
+      const text = await largeBodyText(request);
       if (text) body = JSON.parse(text) as Record<string, unknown>;
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
       throw new ApiError("invalid_request", "Expected a JSON body.", 400);
     }
     const selections = body.selections ?? [];

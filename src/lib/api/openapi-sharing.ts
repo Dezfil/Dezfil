@@ -95,6 +95,7 @@ const PEOPLE_PATHS = {
         subject: projectSubject },
       parameters: [pathParam("id", "Project id."), sqlNameParam],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -151,7 +152,7 @@ const TRANSFER_PATHS = {
         consequence: "They take over its people, sharing and deletion, and you stay on as an editor. Only they can give it back.",
         subject: projectSubject },
       parameters: [pathParam("id", "Project id.")],
-      requestBody: transferBody,
+      requestBody: { ...transferBody, "x-byte-limit": 16_777_216 },
       responses: TRANSFERRED,
     })),
   },
@@ -171,7 +172,7 @@ const TRANSFER_PATHS = {
         consequence: "Its publication, deletion and transfer become theirs, and its SQL home stays as it is. Only they can give it back.",
         subject: { path: "/api/maps/{id}", argument: "id", name: "name" } },
       parameters: [editRevisionParam, pathParam("id", "Map id.")],
-      requestBody: transferBody,
+      requestBody: { ...transferBody, "x-byte-limit": 16_777_216 },
       responses: { ...editRevisionResponses, ...TRANSFERRED, "200": jsonOk("#/components/schemas/DocumentTransfer") },
     })),
   },

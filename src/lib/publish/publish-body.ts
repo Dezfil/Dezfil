@@ -1,3 +1,4 @@
+import { largeBodyText } from "@/lib/api/json-body";
 import { ApiError } from "@/lib/api/errors";
 import type { PublishedTheme, ViewerControls } from "@/lib/metadata/maps";
 import type { PublishSettings } from "./publish-service";
@@ -24,12 +25,13 @@ function invalid(message: string): never {
 export async function parsePublishBody(
   request: Request,
 ): Promise<PublishSettings> {
-  const text = (await request.text()).trim();
+  const text = (await largeBodyText(request)).trim();
   if (!text) return {};
   let body: unknown;
   try {
     body = JSON.parse(text);
-  } catch {
+  } catch (error) {
+      if (error instanceof ApiError) throw error;
     invalid("The request body must be JSON.");
   }
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
