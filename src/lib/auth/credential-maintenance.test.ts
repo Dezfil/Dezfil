@@ -11,6 +11,7 @@ import { issueLink } from "./link-issuance.mjs";
 import { redeemSignInLink } from "./links";
 import { signIn } from "./accounts";
 import { hashPassword } from "./passwords";
+import { authenticateBearer, authenticateDelegation, delegateCredential } from "./delegation";
 
 const day = 86_400_000, now = Date.parse("2026-07-01T00:00:00Z");
 let db: Database;
@@ -172,7 +173,7 @@ it("credential accesses continue a shared incomplete pass", () => {
   authenticateToken("unknown", db, now); expect(ids("tokens")).toEqual([]);
 });
 
-it("credential activity measures the completed pass time when no test clock is supplied", async () => {
+it.each([authenticateToken, authenticateBearer])("%s measures the completed pass time without a supplied clock", async authenticate => {
   const repository = await import("@/lib/metadata/credential-maintenance");
   const remove = repository.removeExpiredCredentials;
   let time = now;
@@ -181,14 +182,26 @@ it("credential activity measures the completed pass time when no test clock is s
     const result = remove(...args); time += 1000; return result;
   });
   try {
-    authenticateToken("unknown", db);
+    authenticate("unknown", db);
     const completed = time;
     token("next");
     time = now + 3_600_000;
-    authenticateToken("unknown", db);
+    authenticate("unknown", db);
     expect(ids("tokens")).toEqual(["next"]);
     time = completed + 3_600_000;
-    authenticateToken("unknown", db);
+    authenticate("unknown", db);
     expect(ids("tokens")).toEqual([]);
   } finally { slowPage.mockRestore(); clock.mockRestore(); }
+});
+
+
+it("a delegated credential access continues unfinished maintenance", () => {
+  token("live", null);
+  const actor = authenticateToken("live", db, now)!;
+  db.transaction(() => { for (let i = 0; i < 1201; i++) session(String(i).padStart(4, "0")); })();
+  const later = now + 3_600_000;
+  const delegated = delegateCredential(actor, db, later);
+  expect(ids("sessions")).toHaveLength(701);
+  expect(authenticateDelegation(delegated, db, later)?.account.id).toBe("account");
+  expect(ids("sessions")).toHaveLength(201);
 });

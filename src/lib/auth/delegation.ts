@@ -3,6 +3,7 @@ import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
 import { getAccount } from "@/lib/metadata/accounts";
 import { sessionById, tokenById } from "@/lib/metadata/auth-credentials";
+import { maintainCredentials } from "./credential-maintenance";
 import { authenticateToken, requireCurrentActor, type AuthContext } from "./credentials";
 
 export const DELEGATION_LIFETIME_MS = 5 * 60 * 1000;
@@ -16,15 +17,18 @@ function key(): Buffer {
 }
 function sign(payload: string): Buffer { return createHmac("sha256", key()).update(payload).digest(); }
 
-export function delegateCredential(context: AuthContext, db: Database = metadataDb(), now = Date.now()): string {
+export function delegateCredential(context: AuthContext, db: Database = metadataDb(), now?: number): string {
   const account = requireCurrentActor(context, db, now);
+  now ??= Date.now();
   const expiresAt = Math.min(now + DELEGATION_LIFETIME_MS, context.delegationExpiresAt ?? Infinity);
   const payload = Buffer.from(JSON.stringify({ accountId: account.id, kind: context.credential.kind, credentialId: context.credential.id, expiresAt })).toString("base64url");
   return PREFIX + payload + "." + sign(payload).toString("hex");
 }
 
-export function authenticateDelegation(secret: string, db: Database = metadataDb(), now = Date.now()): AuthContext | null {
+export function authenticateDelegation(secret: string, db: Database = metadataDb(), now?: number): AuthContext | null {
   if (!secret.startsWith(PREFIX)) return null;
+  maintainCredentials(db, now);
+  now ??= Date.now();
   const [payload, signature, extra] = secret.slice(PREFIX.length).split(".");
   if (extra !== undefined || !payload || !/^[a-f0-9]{64}$/.test(signature ?? "")) return null;
   if (!timingSafeEqual(sign(payload), Buffer.from(signature, "hex"))) return null;
@@ -40,6 +44,6 @@ export function authenticateDelegation(secret: string, db: Database = metadataDb
   return { account, credential: { kind: value.kind, id: parent.id }, delegationExpiresAt: value.expiresAt };
 }
 
-export function authenticateBearer(secret: string, db: Database = metadataDb(), now = Date.now()): AuthContext | null {
+export function authenticateBearer(secret: string, db: Database = metadataDb(), now?: number): AuthContext | null {
   return secret.startsWith(PREFIX) ? authenticateDelegation(secret, db, now) : authenticateToken(secret, db, now);
 }
