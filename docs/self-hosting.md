@@ -146,6 +146,17 @@ often the instance will talk to an external service. The defaults are chosen to 
 safe on a small machine. Raise them deliberately, not because a limit annoyed you
 once.
 
+Multipart uploads bypass the framework proxy and stream to scratch storage under
+the configured file and archive limits. Workflow JSON keeps its 16 MiB limit.
+The framework proxy copy limit is 17 MiB (previously 10 MiB), so complete workflow
+requests, including their over-limit refusal boundary, reach their readers.
+On paths still matched by the proxy, the framework drains and copies the body
+before the request gate runs, including for anonymous callers. The 17 MiB copy
+is bounded storage, not early wire admission. Authentication entry POSTs remain
+on that path. Configure a fronting reverse proxy's own request-size limit to
+bound this pre-gate copy further, allowing the upload size you intend to serve
+on `/api/tables`.
+
 ## Upgrading
 
 Stop the container, start the new image against the same data directory. The metadata

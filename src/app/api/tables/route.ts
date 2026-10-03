@@ -1,3 +1,4 @@
+import { withRouteGate, gateOnly, gateHead } from "@/lib/auth/route-gate";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { requireFilingDestination } from "@/lib/auth/reach";
 import { NextResponse } from "next/server";
@@ -11,7 +12,7 @@ import { projectScope } from "@/lib/project-scope";
 /** List all tables, each with its artifact's size on disk.
  * `?project=<id>` narrows to that project's datasets, `?project=none` to
  * the unfiled; an unknown project answers not found. */
-export async function GET(request: Request) {
+async function list(request: Request) {
   try {
     const scope = requireRequestScope(request);
     return NextResponse.json(await listTablesWithSize(scope, projectScope(request)));
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
 
 /** Upload a file; it becomes one or more queryable tables (spec: Upload;
  * container formats land one table per spatial layer). */
-export async function POST(request: Request) {
+async function upload(request: Request) {
   try {
     const scope = requireRequestScope(request);
     // Preflight: an unknown project refuses before the upload is even
@@ -58,3 +59,12 @@ export async function POST(request: Request) {
     return errorResponse(error);
   }
 }
+
+// These named exports keep every framework-dispatchable method behind the gate.
+export async function GET(request: Request) { return withRouteGate(request, () => list(request)); }
+export async function POST(request: Request) { return withRouteGate(request, () => upload(request)); }
+export async function HEAD(request: Request) { return gateHead(request, GET); }
+export async function OPTIONS(request: Request) { return gateOnly(request); }
+export async function PUT(request: Request) { return gateOnly(request); }
+export async function DELETE(request: Request) { return gateOnly(request); }
+export async function PATCH(request: Request) { return gateOnly(request); }

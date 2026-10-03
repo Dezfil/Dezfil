@@ -1,125 +1,124 @@
-import path from "node:path";
+import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import type { Database } from "better-sqlite3";
-import { NextRequest } from "next/server";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { implementedRoutes, walk } from "../../../test-support/api-route-inventory";
+import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
+import { AppRouteRouteModule } from "next/dist/server/route-modules/app-route/module";
 import * as metadata from "@/lib/metadata/db";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
-import { buildOpenApiDocument } from "@/lib/api/openapi";
-import { AUTH_SECURITY } from "@/lib/api/openapi-auth";
 import { createFirstAccount } from "./accounts";
 import { authenticateSession, createApiToken, revokeApiToken, signOut } from "./credentials";
-import { gateRequest } from "./gate";
+import { config } from "@/proxy";
+import nextConfig from "../../../next.config";
+import * as tables from "@/app/api/tables/route";
 
-let db: Database;
 const origin = "http://instance.test";
-const publicOperations = new Set([
-  "GET /api/health", "GET /api/auth/entry", "POST /api/auth/setup", "POST /api/auth/sign-in", "POST /api/auth/redeem",
-  "GET /api/published/{token}", "POST /api/published/{token}/extent/{layerId}", "POST /api/published/{token}/widget-values",
-  "POST /api/published/{token}/render/{layerId}", "GET /api/published/{token}/tiles/{layerId}/{z}/{x}/{y}",
-]);
-const routes = implementedRoutes();
-const protectedRoutes = routes.filter(route => !publicOperations.has(`${route.method.toUpperCase()} ${route.path}`));
-const input = (pathname: string, method = "GET", headers: Record<string, string> = {}) => new NextRequest(socketRequest(new Request(origin + pathname, { method, headers: { origin, ...headers } })));
+const methods = ["GET", "HEAD", "OPTIONS", "POST", "PUT", "DELETE", "PATCH"];
+const excluded = [{ path: "/api/tables", handlers: tables, allowed: ["GET", "HEAD", "OPTIONS", "POST"] }];
+let db: Database;
 beforeEach(() => { db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db); });
 afterEach(() => { vi.restoreAllMocks(); db.close(); });
+const input = (path: string, method: string, headers: Record<string, string> = {}) => socketRequest(new Request(origin + path, { method, headers: { origin, ...headers } }));
 
-it.each(["anonymous", "invalid", "revoked-token", "revoked-cookie"])("refuses %s across the complete protected API inventory before dispatch", async mode => {
+it("excludes exactly the streaming upload path and admits the full workflow tier to dispatch", () => {
+  expect(unstable_doesMiddlewareMatch({ config, nextConfig, url: "/api/tables" })).toBe(false);
+  for (const url of ["/api/tables/id", "/api/tables-extra", "/api/auth/sign-in", "/api/recipes"]) {
+    expect(unstable_doesMiddlewareMatch({ config, nextConfig, url }), url).toBe(true);
+  }
+  expect(nextConfig.experimental?.proxyClientMaxBodySize).toBe(17 * 1024 * 1024);
+});
+
+it("exports all dispatchable methods on each excluded path", () => {
+  for (const { handlers } of excluded) expect(Object.keys(handlers).sort()).toEqual([...methods].sort());
+});
+
+it.each(["anonymous", "invalid", "revoked-token", "revoked-cookie"])("gates actual excluded handlers for %s without body work or writes", async mode => {
   const headers: Record<string, string> = {};
   if (mode !== "anonymous") {
     const signed = await createFirstAccount({ name: "Admin", email: "admin@example.test", password: "field notebooks at dawn" }, db);
     const context = authenticateSession(signed.secret, db)!;
     if (mode === "revoked-cookie") { signOut(context, db); headers.cookie = `dezfil_session=${signed.secret}`; }
-    else {
-      const token = createApiToken(context, "Fixture", db); revokeApiToken(context, token.id, db);
-      headers.authorization = `Bearer ${mode === "invalid" ? "invalid" : token.secret}`;
-    }
+    else { const token = createApiToken(context, "Fixture", db); revokeApiToken(context, token.id, db); headers.authorization = `Bearer ${mode === "invalid" ? "invalid" : token.secret}`; }
   }
   const before = db.serialize();
-  expect(protectedRoutes.length).toBeGreaterThan(100);
-  for (const route of protectedRoutes) {
-    const response = gateRequest(input(route.path.replaceAll(/\{[^}]+\}/g, "fixture"), route.method.toUpperCase(), headers));
-    expect.soft(response.status, `${route.method} ${route.path}`).toBe(401);
-    expect.soft(response.headers.get("x-middleware-next"), route.path).toBeNull();
-    expect.soft(response.headers.get("cache-control"), route.path).toBe("private, no-store");
+  for (const { path, handlers } of excluded) for (const method of methods) {
+    const request = input(path, method, headers);
+    const body = vi.spyOn(request, "body", "get");
+    const handler = (handlers as Record<string, (request: Request) => Promise<Response>>)[method];
+    expect(handler, `${method} ${path}`).toBeTypeOf("function");
+    const response = await handler(request);
+    expect(response.status, `${method} ${path}`).toBe(401);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(body).not.toHaveBeenCalled();
   }
   expect(db.serialize()).toEqual(before);
 });
 
-it("redirects every private application page before and after setup, including unknown future routes", async () => {
-  const pages = walk(path.join(process.cwd(), "src/app")).filter(file => file.endsWith("/page.tsx"))
-    .map(file => "/" + path.relative("src/app", path.dirname(file)).split(path.sep).filter(segment => !segment.startsWith("(")).map(segment => segment.startsWith("[") ? "fixture" : segment).join("/"))
-    .filter(page => !["/setup", "/sign-in", "/accept", "/v/fixture"].includes(page));
-  pages.push("/future-feature", "/private.json", "/_next/data/build/maps.json", "/_next/image?url=/api/maps");
-  for (const destination of ["/setup", "/sign-in"]) {
-    for (const pathname of pages) {
-      const response = gateRequest(input(pathname));
-      expect.soft(response.status, pathname).toBe(307);
-      expect.soft(response.headers.get("location"), pathname).toBe(origin + destination);
-      expect.soft(response.headers.get("cache-control"), pathname).toBe("private, no-store");
-    }
-    if (destination === "/setup") await createFirstAccount({ name: "Admin", email: "admin@example.test", password: "field notebooks at dawn" }, db);
-  }
-});
-
-it("refuses cross-site cookie mutations across the protected inventory without rolling or writing", async () => {
+it("preserves successful private answers, rolling cookies, origin and account checks on final responses", async () => {
   const signed = await createFirstAccount({ name: "Admin", email: "admin@example.test", password: "field notebooks at dawn" }, db);
-  const before = db.serialize();
-  for (const route of protectedRoutes.filter(route => route.method !== "get")) {
-    const response = gateRequest(input(route.path.replaceAll(/\{[^}]+\}/g, "fixture"), route.method.toUpperCase(), { cookie: `dezfil_session=${signed.secret}`, origin: "https://unrelated.test" }));
-    expect.soft(response.status, route.path).toBe(403);
-    expect.soft(response.headers.get("x-middleware-next"), route.path).toBeNull();
-  }
-  expect(db.serialize()).toEqual(before);
-});
-
-it("allows only explicit anonymous methods and data-free assets, even with an invalid cookie", () => {
-  const publicPaths = ["/api/health", "/api/auth/entry", "/accept", "/v/token", "/v/token?embed=1", "/_next/static/chunks/app.js", "/_next/static/media/font.woff2", "/icon.svg", "/shell-sheet-light.svg", "/maki/marker.svg", "/workers/maplibre-gl-6.11.2/maplibre-gl-worker.mjs", "/workers/loaders.gl-mvt-worker-4.4.5.js"];
-  for (const pathname of publicPaths) {
-    const response = gateRequest(input(pathname, "GET", { cookie: "dezfil_session=invalid" }));
-    expect.soft(response.headers.get("x-middleware-next"), pathname).toBe("1");
-    expect(response.headers.get("set-cookie"), pathname).toBeNull();
-  }
-  for (const key of publicOperations) {
-    const [method, template] = key.split(" ");
-    const pathname = template.replaceAll(/\{[^}]+\}/g, "fixture");
-    expect.soft(gateRequest(input(pathname, method)).headers.get("x-middleware-next"), key).toBe("1");
-  }
-  for (const pathname of ["/api/health", "/api/published/token", "/api/published/token/widget-values", "/v/token", "/_next/static/chunks/app.js", "/maki/marker.svg"]) {
-    const response = gateRequest(input(pathname, "DELETE"));
-    expect.soft(response.headers.get("x-middleware-next"), pathname).toBeNull();
-  }
-  for (const pathname of ["/api/published/token/authoring", "/api/published/token/widget-values/extra", "/api/unknown.svg", "/maki/private.svg", "/workers/private.js", "/_next/server/private.js", "/_next/hmr"]) {
-    expect.soft(gateRequest(input(pathname)).headers.get("x-middleware-next"), pathname).toBeNull();
+  const cookie = `dezfil_session=${signed.secret}`;
+  const response = await tables.GET(input("/api/tables", "GET", { cookie }));
+  expect(response.status).toBe(200);
+  expect(response.headers.get("cache-control")).toBe("private, no-store");
+  expect(response.headers.get("set-cookie")).toContain(cookie);
+  expect(await response.json()).toEqual([]);
+  for (const headers of [{ cookie, origin: "https://elsewhere.test" }, { cookie, "x-dezfil-account": "wrong" }] as Record<string, string>[]) {
+    const request = input("/api/tables", "POST", headers);
+    const body = vi.spyOn(request, "body", "get");
+    const result = await tables.POST(request);
+    expect(result.status).toBe(headers.origin ? 403 : 401);
+    expect(result.headers.get("cache-control")).toBe("private, no-store");
+    expect(body).not.toHaveBeenCalled();
   }
 });
 
-it("declares security and authentication refusal on every operation using the same public matrix", () => {
-  const doc = buildOpenApiDocument();
-  for (const [pathname, methods] of Object.entries(doc.paths)) for (const [method, value] of Object.entries(methods)) {
-    const operation = value as { security?: unknown; responses: Record<string, unknown> };
-    const anonymous = publicOperations.has(`${method === "head" ? "GET" : method.toUpperCase()} ${pathname}`);
-    expect.soft(operation.security, `${method} ${pathname}`).toEqual(anonymous ? [] : AUTH_SECURITY);
-    if (!anonymous) expect.soft(operation.responses, pathname).toHaveProperty("401");
-  }
-});
-
-it("permits the HMR endpoint only in development and never exempts arbitrary internal endpoints", async () => {
-  const { isAnonymousAsset } = await import("./public-assets");
-  expect(isAnonymousAsset("/_next/hmr", "GET", true)).toBe(true);
-  expect(isAnonymousAsset("/_next/hmr", "GET", false)).toBe(false);
-  for (const pathname of ["/_next/data/build/maps.json", "/_next/image", "/_next/server/chunk.js"]) {
-    expect(isAnonymousAsset(pathname, "GET", true)).toBe(false);
-  }
-});
-
-it.each(["cookie", "token"])("admits a current %s on every protected operation with private responses", async kind => {
+it("keeps authenticated wrong-method answers and OPTIONS behind the gate", async () => {
   const signed = await createFirstAccount({ name: "Admin", email: "admin@example.test", password: "field notebooks at dawn" }, db);
-  const token = createApiToken(authenticateSession(signed.secret, db)!, "Fixture", db);
-  const headers: Record<string, string> = kind === "cookie" ? { cookie: `dezfil_session=${signed.secret}` } : { authorization: `Bearer ${token.secret}` };
-  for (const route of protectedRoutes) {
-    const response = gateRequest(input(route.path.replaceAll(/\{[^}]+\}/g, "fixture"), route.method.toUpperCase(), headers));
-    expect(response.headers.get("x-middleware-next"), route.path).toBe("1");
-    expect(response.headers.get("cache-control"), route.path).toBe("private, no-store");
+  for (const { path, handlers, allowed } of excluded) for (const method of methods.filter(method => !allowed.includes(method) || method === "OPTIONS")) {
+    const request = input(path, method, { cookie: `dezfil_session=${signed.secret}` });
+    const response = await (handlers as Record<string, (request: Request) => Promise<Response>>)[method](request);
+    expect(response.status).toBe(method === "OPTIONS" ? 204 : 405);
+    expect(response.headers.get("allow")?.split(", ").sort()).toEqual(allowed);
+    expect(response.headers.get("set-cookie")).toContain(`dezfil_session=${signed.secret}`);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    if (method !== "OPTIONS" && method !== "HEAD") expect(await response.json()).toEqual({ error: { code: "method_not_allowed", message: "This method is not allowed for this path." } });
+    else expect(await response.text()).toBe("");
   }
+});
+
+it("leaves TRACE to the framework's empty 400 without a handler or body read", async () => {
+  for (const { handlers } of excluded) {
+    const read = vi.fn();
+    const userland = new Proxy(handlers, { get: read });
+    const response = await AppRouteRouteModule.prototype["resolveHandlerFromUserland"].call({} as AppRouteRouteModule, "TRACE", userland)(undefined!, undefined!);
+    expect(response.status).toBe(400);
+    expect(await response.text()).toBe("");
+    expect(read).not.toHaveBeenCalled();
+  }
+});
+
+it("detects a removed fallback and resource work disguised as a fallback", async () => {
+  const { routeExports } = await import("../../../test-support/api-route-inventory");
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync("src/app/api/tables/route.ts", "utf8");
+  const assertInventory = (text: string) => expect(routeExports(text).map(row => row.method.toUpperCase()).sort()).toEqual([...methods].sort());
+  assertInventory(source);
+  expect(() => assertInventory(source.replace(/export async function PUT[^\n]+/, ""))).toThrow();
+  const resources = (text: string) => routeExports(text).filter(row => !row.transport).map(row => row.method).sort();
+  expect(resources(source)).toEqual(["get", "post"]);
+  for (const seeded of [source.replace("return gateOnly(request);", "return upload(request);"),
+    source.replace("return gateOnly(request);", "await upload(request); return gateOnly(request);")]) {
+    expect(resources(seeded)).not.toEqual(["get", "post"]);
+  }
+});
+
+it("detects a seeded missing handler gate on an otherwise authenticated resource", async () => {
+  const { withRouteGate } = await import("./route-gate");
+  const work = vi.fn(async () => Response.json({ ok: true }));
+  const check = async (handler: (request: Request) => Promise<Response>) => {
+    const response = await handler(input("/api/tables", "GET"));
+    expect(response.status).toBe(401);
+    expect(work).not.toHaveBeenCalled();
+  };
+  await expect(check(() => work())).rejects.toThrow();
+  work.mockClear();
+  await check(request => withRouteGate(request, work));
 });
