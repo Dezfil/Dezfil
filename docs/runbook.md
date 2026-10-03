@@ -750,6 +750,10 @@ seconds. Keep the separate 1 MiB upload-limit arm.
 The server must preload ingress, use `DEZFIL_UPLOAD_MAX_MB=257`, and enable
 the assistant with `DEZFIL_AI_PROVIDER=openai OPENAI_API_KEY=scripted-wire`.
 The assistant controls refuse in validation, before any provider call. The
+workstation server also needs `DEZFIL_CHROMIUM_PATH` pointing to its headless
+browser and `DEZFIL_EGRESS_ALLOWLIST=127.0.0.1`, as in the journeys, for the
+export control. Without the browser it answers 503 and stops the probe. The
+container supplies the browser and needs no extra export configuration. The
 client's `DEZFIL_DATA_DIR` must point at the server's isolated data directory
 so it can observe upload scratch growth. Use port 3391 for the full arm and
 3392 for the 1 MiB arm. The client install needs the lockfile's stock MCP
