@@ -101,6 +101,7 @@ export const MCP_PATHS = {
           tool: false,
           effects: writes(resource("maps"), resource("layers"), resource("tables"), resource("publications"), resource("recipes"), resource("runs"), resource("projects"), resource("connections"), resource("palettes"), resource("settings"), resource("assistant")),
           requestBody: {
+            "x-byte-limit": 16_777_216,
             required: true,
             content: {
               "application/json": {

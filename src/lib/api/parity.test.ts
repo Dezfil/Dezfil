@@ -42,7 +42,7 @@ describe("API parity", () => {
       ["/api/users", "post"], ["/api/users/{id}", "patch"],
     ].map(([path, method]) => ({ path, method }));
     const general = generalBodyRoutes();
-    const operations = [...workflows, ...selections, ...small, ...general];
+    const operations = [...workflows, ...selections, ...small, ...general, { path: "/api/mcp", method: "post" }];
     expect(selections).toHaveLength(3);
     // The derivation needs a floor: a renamed reader or a reshaped route
     // export would empty this list and the loop below would assert

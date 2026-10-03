@@ -86,11 +86,11 @@ export function projectInput(operation: InputOperation, schemas: Record<string, 
     if (!multipart || typeof body === 'boolean') throw new Error(`${name}: undeclared multipart adaptation`);
     if (['allOf', 'anyOf', 'oneOf', 'if'].some(key => key in (body as Record<string, unknown>))) throw new Error(`${name}/requestBody: multipart composition has no declared adaptation`);
     const props = fields(body);
-    const file = props[multipart.field] as { type?: string; format?: string };
+    const file = props[multipart.field] as { type?: string; format?: string; description?: string };
     if (file?.type !== 'string' || file.format !== 'binary') throw new Error(`${name}: multipart file is not declared binary`);
     delete props[multipart.field];
     props[multipart.filename] = { type: 'string', description: 'The uploaded file name, including its extension.' };
-    props[multipart.content] = { type: 'string', description: 'The file bytes, encoded as base64.' };
+    props[multipart.content] = { type: 'string', description: 'The file bytes, encoded as base64.' + (file.description ? ' ' + file.description : '') };
     body = { ...body, properties: props, required: (body.required as string[] ?? []).flatMap(key => key === multipart.field ? [multipart.filename, multipart.content] : [key]) };
   }
   const bodyFields = fields(body);

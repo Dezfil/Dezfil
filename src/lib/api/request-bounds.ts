@@ -16,3 +16,5 @@ export const SMALL_JSON_BODY_MAX_BYTES = 65_536;
 
 /** Maps, layers and other general JSON envelopes. */
 export const LARGE_JSON_BODY_MAX_BYTES = 16_777_216;
+
+export const MCP_UPLOAD_BODY_GUIDANCE = "MCP accepts at most 16,777,216 bytes for the entire JSON envelope, including base64. The raw file must be below 12 MiB, reduced by envelope and metadata overhead and by the configured upload cap. For canonical base64, subtract the serialized empty-content envelope bytes from 16,777,216, round down to whole groups of four, and allow three file bytes per group.";

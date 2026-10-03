@@ -1,3 +1,4 @@
+import { boundedMcpRequest } from "@/lib/api/bounded-handoff";
 import { callMcpTool } from "./call";
 import {
   createMcpHandler,
@@ -17,7 +18,7 @@ import { selfBaseUrl } from "@/lib/self-url";
  */
 
 export function buildMcpFetchHandler(fetchImpl?: typeof fetch) {
-  return createMcpHandler(({ requestInfo }) => {
+  const handler = createMcpHandler(({ requestInfo }) => {
     const server = new McpServer({ name: "dezfil", version: "0.1.0" });
     const baseUrl = selfBaseUrl(requestInfo);
 
@@ -60,4 +61,7 @@ export function buildMcpFetchHandler(fetchImpl?: typeof fetch) {
     });
     return server;
   });
+  return { ...handler, async fetch(request: Request) {
+    return handler.fetch(await boundedMcpRequest(request));
+  } };
 }

@@ -316,3 +316,17 @@ let current = await call("get_map", { id: created.id });
 current = await call("update_map", { id: created.id, name: "Survey map" });
 current = await call("update_map", { id: created.id, basemap: "light" });
 ```
+
+MCP admits at most **16,777,216 wire bytes for the entire JSON envelope**,
+including base64. A raw upload must be **below 12 MiB**, reduced by envelope
+and metadata overhead and by the instance's configured upload cap. For
+canonical base64, subtract the serialized empty-content envelope size from
+16,777,216, round down to whole groups of four, and allow three file bytes
+per group. Longer filenames, project arguments, request ids and client
+metadata consume the same envelope budget. Excess returns HTTP 413
+`request_body_too_large` before the SDK reads the request.
+
+For a numeric id of 1, `upload_table`, filename `control.csv`, no project
+and no extra metadata, the empty-content envelope is 138 bytes. Its maximum
+file is 12,582,807 bytes; a 12,582,806-byte CSV uses 16,777,214 wire bytes.
+Direct multipart upload uses the separately configured upload limit.
