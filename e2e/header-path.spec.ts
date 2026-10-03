@@ -239,8 +239,7 @@ test("the path, the titles, the instance name and the re-measure", async ({
     await expect(
       page.getByRole("heading", { name: "Account", exact: true }),
     ).toBeVisible();
-    // The coming-later list lives inside the Instance card.
-    await expect(page.getByText("Default basemap")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Instance", exact: true }).getByLabel("Instance name")).toBeVisible();
     await expect(chip(page)).toHaveCount(0);
 
     const workspaceCard = page.locator("form", {
