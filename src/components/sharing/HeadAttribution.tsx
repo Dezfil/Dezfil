@@ -6,7 +6,8 @@ import { LastChanged, type LastChange } from "./LastChanged";
 
 const subscribeNever = () => () => {};
 
-/** Attribution follows the capped path card without enlarging its name budget. */
+/** Attribution stands after the start actions (the builder's search), outside
+ * the capped path card, so it never enlarges the card's name budget. */
 export function HeadAttribution({ value }: { value: LastChange }) {
   const mounted = useSyncExternalStore(subscribeNever, () => true, () => false);
   const slot = mounted ? document.getElementById("header-attribution-slot") : null;

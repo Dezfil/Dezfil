@@ -30,6 +30,10 @@ test("themed captures land through style changes and viewers see attribution wit
     });
     await page.goto(`/maps/${map.id}`);
     await expect(page.getByRole("button", { name: map.name, exact: true })).toBeVisible();
+    // The head's last-changed line stands to the right of the search field.
+    const search = await page.getByRole("combobox", { name: "Search this map and places" }).boundingBox();
+    const changed = await page.locator("header [data-last-changed]").boundingBox();
+    expect(changed!.x).toBeGreaterThanOrEqual(search!.x + search!.width);
     await expect.poll(() => captures.length, { timeout: 60_000 }).toBeGreaterThanOrEqual(2);
     expect(captures.slice(0, 2).map(c => c.status)).toEqual([202, 204]);
     expect(captures[0].cycle).toBe(captures[1].cycle);
