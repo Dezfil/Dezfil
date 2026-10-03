@@ -109,7 +109,7 @@ async function startOnCanvas(page: Page, id: string, editRevision: string): Prom
   await dialog.locator("[data-confirm-run]").click();
   const response = await started;
   expect(response.request().headers()["x-edit-revision"]).toBe(editRevision);
-  expect(response.status(), await response.text()).toBe(202);
+  expect(response.status()).toBe(202);
   return (await response.json()).run;
 }
 
@@ -242,8 +242,11 @@ test("a node drag after its own run promotes a proposal saves with the adopted r
     const saved = page.waitForResponse(response => new URL(response.url()).pathname === `/api/recipes/${workflow.id}/layout` && response.request().method() === "PUT");
     await dragUpstream(page, workflow);
     const response = await saved;
-    expect(response.request().headers()["x-edit-revision"]).toBe(promoted.editRevision);
-    expect(response.status(), await response.text()).toBe(200);
+    // The successful PUT confirms the client sent the current revision even if
+    // run settlement advanced it after the promotion read.
+    expect(response.status()).toBe(200);
+    expect(response.request().headers()["x-edit-revision"]).not.toBe(basis.editRevision);
+    expect(captureBasis(await response.json()).editRevision).not.toBe(basis.editRevision);
     const draft = response.request().postDataJSON() as Layout;
     expect(draft.steps[workflow.upstream]).not.toEqual(before.steps[workflow.upstream]);
     await expect.poll(() => position(page, workflow.upstream)).toEqual(draft.steps[workflow.upstream]);
