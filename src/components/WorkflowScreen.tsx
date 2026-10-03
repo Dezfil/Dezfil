@@ -42,7 +42,8 @@ import { ViewOnly } from "./workflow-canvas/view-only";
 import { usePathname } from "next/navigation";
 import { contributePath, releasePath } from "@/components/shell/path-model";
 import styles from "./WorkflowScreen.module.css";
-import { LastChanged, type LastChange } from "./sharing/LastChanged";
+import type { LastChange } from "./sharing/LastChanged";
+import { HeadAttribution } from "./sharing/HeadAttribution";
 import { acceptedDocumentFacts } from "./accepted-document-facts";
 import { PathOwnerMark } from "./sharing/PeopleMarks";
 import type { PersonLabel } from "./sharing/people";
@@ -96,7 +97,7 @@ export function CrumbName({
         <span className={styles.crumbSep}>/</span>
         <span className={styles.plainName}>{name}</span>
         <PathOwnerMark owner={owner} />
-      <LastChanged value={facts} head />
+      <HeadAttribution value={facts} />
       </span>
     );
   }
@@ -138,7 +139,7 @@ export function CrumbName({
         </button>
       )}
       <PathOwnerMark owner={owner} />
-      <LastChanged value={facts} head />
+      <HeadAttribution value={facts} />
     </span>
   );
 }

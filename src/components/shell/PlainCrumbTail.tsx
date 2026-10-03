@@ -1,6 +1,7 @@
 "use client";
 
-import { LastChanged, type LastChange } from "../sharing/LastChanged";
+import type { LastChange } from "../sharing/LastChanged";
+import { HeadAttribution } from "../sharing/HeadAttribution";
 import { useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import styles from "@/components/builder/MapBuilder.module.css";
@@ -38,7 +39,7 @@ export function PlainCrumbTail({
       <span className={styles.crumbSep}>/</span>
       <span className={styles.plainName}>{name}</span>
       <PathOwnerMark owner={owner} />
-      {facts && <LastChanged value={facts} head />}
+      {facts && <HeadAttribution value={facts} />}
     </span>,
     slot,
   );

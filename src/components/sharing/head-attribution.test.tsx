@@ -1,4 +1,5 @@
 import { act } from "react";
+import { createPortal } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { installDomHost } from "../testing/dom-host";
@@ -19,7 +20,7 @@ let root: ReturnType<typeof createRoot>;
 beforeEach(() => {
   vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-02T14:03:00Z"));
   host = installDomHost();
-  for (const id of ["header-crumb-slot", "header-actions-left", "header-actions-right"]) {
+  for (const id of ["header-crumb-slot", "header-attribution-slot", "header-actions-left", "header-actions-right"]) {
     const el = host.document.createElement("span"); el.setAttribute("id", id); host.document.body.appendChild(el);
   }
   const container = host.document.createElement("div"); host.document.body.appendChild(container);
@@ -31,8 +32,10 @@ it.each(["builder", "canvas", "reader"].flatMap(surface => ["ada", "bo"].map(sql
   const map = { id: "m", ...props, ...facts, layers: [], publishToken: null };
   await act(async () => root.render(<SignedIn account={{ name: sqlName, sqlName }}>{surface === "builder"
     ? <HeaderChrome map={map as never} projectId="p" history={{ canUndo: false, canRedo: false }} onUndo={() => {}} onRedo={() => {}} onRename={() => {}} assistant={{} as never} onPublishChange={() => {}} renders={{}} layerDataDownloads={{} as never} />
-    : surface === "canvas" ? <CrumbName {...props} /> : <PlainCrumbTail {...props} />}</SignedIn>));
+    : surface === "canvas" ? createPortal(<CrumbName {...props} />, host.document.getElementById("header-crumb-slot") as unknown as Element) : <PlainCrumbTail {...props} />}</SignedIn>));
   const fact = host.document.querySelector("[data-last-changed]");
+  expect(fact?.closest('[id="header-crumb-slot"]')).toBeNull();
+  expect(fact?.closest('[id="header-attribution-slot"]')).not.toBeNull();
   expect(fact?.textContent).toBe("Ada · 3 min ago");
   expect(fact?.getAttribute("title")).toContain("Ada Okafor (ada)");
   expect(fact?.hasAttribute("tabindex")).toBe(false);

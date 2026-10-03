@@ -41,6 +41,7 @@ export default async function WorkspaceLayout({
           <InstanceChip />
           <HeaderCrumbs />
         </HeadCard>
+        <span id="header-attribution-slot" className={styles.slot} />
         <span id="header-actions-start" className={styles.slot} />
         <div className={styles.actions}>
           <span id="header-actions-left" className={styles.slot} />
