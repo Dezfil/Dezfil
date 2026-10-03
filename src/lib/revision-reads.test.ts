@@ -85,3 +85,28 @@ it("pairs project entries and filing producers with each document's own revision
   expect(await readMapDependencies(scope, map.id)).toMatchObject({ editRevision: mapRevision, datasets: [] });
   expect(await readWorkflowDependencies(scope, recipe.id)).toMatchObject({ editRevision: workflowRevision, datasets: [] });
 });
+it.each(["step", "workflow"])("keeps a reached workflow readable when a %s disappears during presentation", async removed => {
+  const scope = testAccountScope(db), recipe = createRecipe(scope, "Workflow", db);
+  const step = addStep(scope, recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 1", name: "out" } }, db, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id }, db)?.editRevision });
+  const before = readDocumentRevision({ kind: "workflow", id: recipe.id }, db)!;
+  let release!: () => void, entered!: () => void;
+  const waiting = new Promise<void>(resolve => { entered = resolve; });
+  const barrier = new Promise<void>(resolve => { release = resolve; });
+  vi.spyOn(reads, "stepReads").mockImplementation(async () => { entered(); await barrier; return []; });
+  const { GET } = await import("@/app/api/recipes/[id]/route");
+  const get = () => GET(testAccountRequest(new Request(`http://instance.test/api/recipes/${recipe.id}`), db), { params: Promise.resolve({ id: recipe.id }) });
+  const pending = get();
+  await waiting;
+  const { removeStep, deleteRecipe } = await import("./metadata/owned-recipes");
+  if (removed === "step") removeStep(scope, step.id, db, { expectedRevision: before.editRevision });
+  else deleteRecipe(scope, recipe.id, db, { expectedRevision: before.editRevision });
+  release();
+  const response = await pending;
+  expect(response.status).toBe(removed === "step" ? 200 : 404);
+  if (removed === "step") {
+    expect(await response.json()).toMatchObject({ editRevision: before.editRevision, recipe: { editRevision: before.editRevision, steps: [{ id: step.id, editRevision: before.editRevision }] } });
+    const current = readDocumentRevision({ kind: "workflow", id: recipe.id }, db)!;
+    expect(await (await get()).json()).toMatchObject({ editRevision: current.editRevision, recipe: { editRevision: current.editRevision, steps: [] } });
+    expect(current.editRevision).not.toBe(before.editRevision);
+  }
+});
