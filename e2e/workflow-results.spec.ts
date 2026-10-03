@@ -336,10 +336,14 @@ test("the selection, the lead and facts, the grid, the map, the provenance, the 
   });
 
   await test.step("after a re-run succeeds the grid shows the new rows without a reload", async () => {
+    await propose(page, id, a, { sql: `SELECT * FROM ${stations} WHERE riders > 9500`, name: aName });
+    // The headless proposal is another writer. Open its revision before
+    // running, then require the mounted grid to renew without another reload.
+    await page.reload();
+    await settled(page);
     await selectNode(page, aName);
     await tab(page, "Data").click();
     await expect(page.locator("[data-band-data] table tbody tr")).toHaveCount(3);
-    await propose(page, id, a, { sql: `SELECT * FROM ${stations} WHERE riders > 9500`, name: aName });
     // The panel's own Run again lands the run through the canvas's runner, which renews the reads.
     await page.locator("[data-node-panel]").getByRole("button", { name: "Run again" }).click();
     await expect(page.locator("[data-band-data] table tbody tr")).toHaveCount(2, { timeout: 60_000 });
