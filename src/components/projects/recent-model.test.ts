@@ -43,10 +43,10 @@ const none = { maps: new Set<string>(), workflows: new Set<string>(), tables: ne
 const HOME = "home";
 
 describe("recent things across kinds", () => {
-  it("merges the kinds newest first by each kind's own time, six at most", () => {
+  it("merges the kinds newest first by general update or import time, six at most", () => {
     const items = recentItems({
-      maps: [map({ id: "m1", lastChangedAt: "2026-09-05T00:00:00Z" }), map({ id: "m2", lastChangedAt: "2026-09-01T00:00:00Z" })],
-      workflows: [wf({ id: "w1", lastChangedAt: "2026-09-04T00:00:00Z" })],
+      maps: [map({ id: "m1", updatedAt: "2026-09-05T00:00:00Z" }), map({ id: "m2", updatedAt: "2026-09-01T00:00:00Z" })],
+      workflows: [wf({ id: "w1", updatedAt: "2026-09-04T00:00:00Z" })],
       tables: [
         table({ id: "t1", importedAt: "2026-09-06T00:00:00Z" }),
         table({ id: "t2", importedAt: null, createdAt: "2026-09-03T00:00:00Z" }),
@@ -105,4 +105,14 @@ describe("recent things across kinds", () => {
     expect(recentHeading("Stadtwerke")).toBe("Recent in Stadtwerke");
     expect(recentHeading(null)).toBe("Recent");
   });
+});
+
+it("keeps Flow one in the six newest even when covered-change times are absent", () => {
+  const items = recentItems({
+    maps: [map({ id: "m1", name: "Map one", updatedAt: "2026-09-07", lastChangedAt: undefined }), map({ id: "m3", name: "Map three", updatedAt: "2026-09-02", lastChangedAt: undefined })],
+    workflows: [wf({ id: "w1", name: "Flow one", updatedAt: "2026-09-06", lastChangedAt: undefined })],
+    tables: ["one", "two", "three", "four"].map((word, index) => table({ id: word, name: `table_${word}`, importedAt: `2026-09-0${index === 3 ? 1 : 5 - index}` })),
+    projectId: HOME, exclude: none, names,
+  });
+  expect(items.map(item => item.name)).toEqual(["Map one", "Flow one", "table_one", "table_two", "table_three", "Map three"]);
 });

@@ -185,7 +185,7 @@ export function ProjectsScreen() {
         sizeBytes: 0,
         sizeComplete: true,
       };
-      mutate((w) => ({ ...w, projects: [fresh, ...w.projects] }));
+      mutate((w) => ({ ...w, projects: [fresh, ...w.projects.filter(project => project.id !== fresh.id)] }));
       invalidateProjects();
       setDraftName(null);
       setActionError(null);

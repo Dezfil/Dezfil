@@ -6,9 +6,8 @@ import { nodeWord, type WorkflowListing } from "../workflow-model";
 
 /**
  * The empty home's recent list: the six latest eligible objects across
- * the whole workspace, each kind timed by the fact its own page already
- * shows (a map's and a workflow's edited time, a dataset's imported or
- * created time), this project's members excluded, builder-origin
+ * the whole workspace, using general update time for maps and workflows
+ * and imported or created time for datasets, this project's members excluded, builder-origin
  * recipes never counted. Someone else's work carries its owner, and only
  * the reader's own work is theirs to move or add, as in the picker. Pure:
  * the component only presents.
@@ -72,7 +71,7 @@ export function recentItems(input: {
       kind: "map",
       id: m.id,
       name: m.name,
-      time: m.lastChangedAt ?? "",
+      time: m.updatedAt,
       where: whereNames([m.projectId], names),
       fact: layers(m.layerCount),
       owner: ownerOf(m),
@@ -85,7 +84,7 @@ export function recentItems(input: {
       kind: "workflow",
       id: w.id,
       name: w.name,
-      time: w.lastChangedAt ?? "",
+      time: w.updatedAt,
       where: whereNames([w.projectId], names),
       fact: `${w.summary.nodes} ${nodeWord(w.summary.nodes)}`,
       owner: ownerOf(w),
