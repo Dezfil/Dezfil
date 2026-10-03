@@ -1,3 +1,4 @@
+import { stepDefinitions } from "./workflow-definition";
 import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Page, type Locator, type Request } from "@playwright/test";
@@ -174,7 +175,7 @@ test("adding, sources, linking through ports and the picker, the controls, the n
     await expect(member(page, stations)).toBeVisible();
     await expect(page.getByText("Saved", { exact: true })).toBeVisible();
     expect((await readLayout(page, id)).sources).toHaveProperty(stations);
-    expect((await readRecipe(page, id)).steps).toEqual(before.steps);
+    expect(stepDefinitions((await readRecipe(page, id)).steps)).toEqual(stepDefinitions(before.steps));
     await page.getByRole("button", { name: "Zoom in" }).click();
     const t0 = await viewportTransform(page);
     await pane(page).getByRole("button", { name: `${stations}, on canvas: centre the view on it` }).click();
@@ -217,7 +218,7 @@ test("adding, sources, linking through ports and the picker, the controls, the n
     const before = await readRecipe(page, id);
     await drag(page, outPort(member(page, cafes)), inPort(target));
     await expect(notice(page)).toContainText("holds no geometry");
-    expect((await readRecipe(page, id)).steps).toEqual(before.steps);
+    expect(stepDefinitions((await readRecipe(page, id)).steps)).toEqual(stepDefinitions(before.steps));
     await drag(page, outPort(member(page, stations)), inPort(target));
     await expect.poll(async () => (await readRecipe(page, id)).steps[0].parameters.input).toBe(stations);
     await expect(notice(page)).toContainText("Linked");

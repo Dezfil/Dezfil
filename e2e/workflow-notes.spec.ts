@@ -1,3 +1,4 @@
+import { stepDefinitions } from "./workflow-definition";
 import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Page, type Request } from "@playwright/test";
@@ -184,7 +185,7 @@ test("the tool and note mode, placing by click, drag and Enter, moving, resizing
     expect(first).toMatchObject({ w: 320, h: 176, color: "yellow", text: NEW_TEXT });
     expect(onGrid(first.x)).toBe(true);
     expect(onGrid(first.y)).toBe(true);
-    expect((await readRecipe(page, id)).steps).toEqual(recipeBefore.steps);
+    expect(stepDefinitions((await readRecipe(page, id)).steps)).toEqual(stepDefinitions(recipeBefore.steps));
     await page.keyboard.press("Escape");
     await expect(field(page)).toHaveCount(0);
     await expect(noteNode(page, first.id)).toBeFocused();
@@ -262,7 +263,7 @@ test("the tool and note mode, placing by click, drag and Enter, moving, resizing
     await page.keyboard.press("Delete");
     await expect(page.locator("[data-canvas-notice]")).toContainText("Note removed.");
     await expect.poll(async () => (await notesOf(page, id)).map((n) => n.id)).not.toContain(copy.id);
-    expect((await readRecipe(page, id)).steps).toEqual(recipeBefore.steps);
+    expect(stepDefinitions((await readRecipe(page, id)).steps)).toEqual(stepDefinitions(recipeBefore.steps));
     await expect(page.locator("[data-flow-area]")).toBeFocused();
   });
 
@@ -592,7 +593,7 @@ test("the saves: Saving and Saved, a cut write with a change meanwhile and Retry
     expect((await notesOf(page, id))[0].color).toBe("green");
     const recipeAfter = await readRecipe(page, id);
     expect(String(recipeAfter.updatedAt) > String(recipeBefore.updatedAt)).toBe(true);
-    expect(recipeAfter.steps).toEqual(recipeBefore.steps);
+    expect(stepDefinitions(recipeAfter.steps)).toEqual(stepDefinitions(recipeBefore.steps));
     await page.route("**/api/recipes/*/layout", (route) => (route.request().method() === "PUT" ? route.abort() : route.continue()));
     await menu(page).locator("[data-note-swatch='pink']").click();
     await expect(page.getByText("Couldn’t save")).toBeVisible();

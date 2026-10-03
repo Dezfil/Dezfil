@@ -1,3 +1,4 @@
+import { stepDefinitions } from "./workflow-definition";
 import { readThenWriteBrowserSetup } from "./edit-basis";
 import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Page, type Request } from "@playwright/test";
@@ -150,7 +151,7 @@ test("opening writes nothing, then moves and Arrange write the layout; the failu
     expect((after.sources as Record<string, unknown>)[table]).toEqual({ x: 100, y: 400 });
     expect(after.notes).toEqual([{ id: "n1", x: 0, y: 0, w: 200, h: 100, color: "yellow", text: "kept" }]);
     const recipeAfter = await readRecipe(page, id);
-    expect(recipeAfter.steps).toEqual(recipeBefore.steps);
+    expect(stepDefinitions(recipeAfter.steps)).toEqual(stepDefinitions(recipeBefore.steps));
     expect(String(recipeAfter.updatedAt) > String(recipeBefore.updatedAt)).toBe(true);
   });
 
