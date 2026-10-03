@@ -68,5 +68,5 @@ export async function signInFromRequest(request: Request, email: string, passwor
   let source: string;
   try { source = requireIngress(request.headers).source; }
   catch { throw new AuthError("ingress_unavailable", "The instance cannot accept sign-ins yet.", 503); }
-  return withLoginLimit(email, source, () => signIn(email, password, db), db);
+  return withLoginLimit(email, source, () => signIn(email, password, db, undefined, request.signal), db);
 }

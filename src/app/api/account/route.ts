@@ -17,7 +17,7 @@ export async function PATCH(request: Request) {
     if ((body.name === undefined && body.email === undefined) || (body.name !== undefined && body.name.trim().length > 80)) {
       throw new AuthError("invalid_request", "Enter a name of at most 80 characters or an email address.", 400);
     }
-    const account = await updateOwnProfile(context, body);
+    const account = await updateOwnProfile(context, body, undefined, undefined, request.signal);
     return privateResponse(NextResponse.json({ account }));
   } catch (error) { return authFailure(error); }
 }

@@ -16,3 +16,7 @@ export class AuthError extends Error {
 export class AuthenticationCancelled extends Error {
   constructor() { super("Authentication was cancelled."); this.name = "AbortError"; }
 }
+
+export function requireAuthenticationWanted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new AuthenticationCancelled();
+}

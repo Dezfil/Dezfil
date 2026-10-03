@@ -6,7 +6,7 @@ export async function POST(request: Request) {
   try {
     const context = requireRequestAuth(request);
     const body = await authBody(request, ["currentPassword", "password"]);
-    await changeOwnPassword(context, body.currentPassword, body.password);
+    await changeOwnPassword(context, body.currentPassword, body.password, undefined, undefined, request.signal);
     return privateResponse(NextResponse.json({ changed: true }));
   } catch (error) { return authFailure(error); }
 }

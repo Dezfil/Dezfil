@@ -1,5 +1,5 @@
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
-import { AuthError } from "./errors";
+import { AuthError, requireAuthenticationWanted } from "./errors";
 import { withPasswordDerivation, type DerivationOptions } from "./derivation-admission";
 
 const COMMON_PASSWORDS = new Set([
@@ -34,6 +34,7 @@ function derive(password: string, salt: Buffer, options: DerivationOptions): Pro
 }
 
 export async function hashPassword(password: string, options: DerivationOptions = {}): Promise<string> {
+  requireAuthenticationWanted(options.signal);
   validatePassword(password);
   const salt = randomBytes(16);
   return `scrypt$${COST}$8$1$${salt.toString("hex")}$${(await derive(password, salt, options)).toString("hex")}`;
@@ -43,6 +44,7 @@ export async function hashPassword(password: string, options: DerivationOptions 
 export const DUMMY_PASSWORD_HASH = `scrypt$${COST}$8$1$${"00".repeat(16)}$${"00".repeat(32)}`;
 
 export async function verifyPassword(password: string, encoded: string, options: DerivationOptions = {}): Promise<boolean> {
+  requireAuthenticationWanted(options.signal);
   const parts = encoded.split("$");
   if (parts.length !== 6 || parts[0] !== "scrypt" || parts[1] !== String(COST) ||
       parts[2] !== "8" || parts[3] !== "1" || !/^[a-f0-9]{32}$/.test(parts[4]) ||

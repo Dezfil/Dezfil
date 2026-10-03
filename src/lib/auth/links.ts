@@ -3,11 +3,11 @@ import { metadataDb } from "@/lib/metadata/db";
 import { getAccount } from "@/lib/metadata/accounts";
 import { linkByHash, revokeSessions } from "@/lib/metadata/auth-credentials";
 import { issueSession, secretHash } from "./credentials";
-import { AuthError } from "./errors";
+import { AuthError, requireAuthenticationWanted } from "./errors";
 import { hashPassword } from "./passwords";
 
 export async function redeemSignInLink(secret: string, password: string,
-  db: Database = metadataDb(), now?: number) {
+  db: Database = metadataDb(), now?: number, signal?: AbortSignal) {
   const readLink = (at: number) => {
     const link = linkByHash(secretHash(secret), db);
     const account = link && getAccount(link.account_id, db);
@@ -18,8 +18,9 @@ export async function redeemSignInLink(secret: string, password: string,
     return link;
   };
   readLink(now ?? Date.now());
-  const passwordHash = await hashPassword(password);
+  const passwordHash = await hashPassword(password, { class: "protected", signal });
   return db.transaction(() => {
+    requireAuthenticationWanted(signal);
     const at = now ?? Date.now();
     const link = readLink(at);
     db.prepare("UPDATE auth_links SET consumed_at = ? WHERE id = ?").run(at, link.id);
