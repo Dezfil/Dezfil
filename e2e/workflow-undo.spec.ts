@@ -1292,6 +1292,10 @@ test("pending work, runs and refusals: an unsent value, an invalid one, a save o
   });
 
   await test.step("the layout route cut: the screen keeps the undone state, Couldn't save with Retry, Retry writes it; the step route cut: the step kept, Retry applies it; a removal's undo answered but lost: Retry leaves one node", async () => {
+    // The preceding headless edit advanced the revision. Open its accepted
+    // state before injecting transport failures into this independent case.
+    await page.reload();
+    await settled(page);
     await page.keyboard.press("Escape");
     const start = (await readLayout(page, id)).steps[buf];
     const placeBefore = await wrapper(page, buf).evaluate((el) => (el as HTMLElement).style.transform);
