@@ -149,7 +149,9 @@ once.
 The anonymous published widget-values, render and extent POST paths bypass the
 framework proxy too. Their handlers admit at most 65,536 bytes and refuse excess
 before parsing; empty bodies retain their existing defaults. All dispatchable
-methods on excluded paths retain their method-specific request gate.
+methods on excluded paths retain their method-specific request gate. `TRACE`,
+which no handler can receive, is answered with an empty 400 on every path before
+its body is read.
 
 Multipart uploads bypass the framework proxy and stream to scratch storage under
 the configured file and archive limits. Workflow JSON keeps its 16 MiB limit.
@@ -161,6 +163,12 @@ is bounded storage, not early wire admission. Authentication entry POSTs remain
 on that path. Configure a fronting reverse proxy's own request-size limit to
 bound this pre-gate copy further, allowing the upload size you intend to serve
 on `/api/tables`.
+
+When one of these four paths refuses a request part-way through its body, the
+answer is sent at once. The instance then receives and discards the rest of that
+request, storing nothing, so the connection stays usable; the server's request
+and keep-alive timeouts bound it. A fronting proxy's request-size limit stops
+such bytes before they reach the instance.
 
 ## Upgrading
 

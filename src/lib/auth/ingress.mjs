@@ -128,6 +128,12 @@ export function installIngress() {
     Server.prototype.emit = function (event, ...args) {
       const request = args[0];
       if (["request", "upgrade", "checkContinue", "checkExpectation"].includes(event) && !request[STAMPED]) {
+        // The platform Request cannot carry TRACE, so the framework fails with
+        // a logged 500 before any method dispatch. Answer it here, unread.
+        if (request.method === "TRACE" && event !== "upgrade") {
+          args[1].writeHead(400, { "cache-control": "private, no-store", "content-length": "0" }); args[1].end();
+          return true;
+        }
         try {
           const view = canonicalIngress(request, state.trusted);
           const payload = Buffer.from(JSON.stringify(view)).toString("base64url");
@@ -143,15 +149,20 @@ export function installIngress() {
           const raw = request.rawHeaders;
           request.rawHeaders = raw.flatMap((value, index) => index % 2 === 0 && !FORWARDING.includes(value.toLowerCase()) ? [value, raw[index + 1]] : []);
           for (const name of FORWARDING) request.rawHeaders.push(name, headers[name]);
-          // These POST bodies reach the handler without the framework's copy.
-          // Cancelling undici's default Node-stream iterator destroys the
-          // IncomingMessage and its response socket before a 413 can be sent.
-          // End only the iterator on refusal; Node owns draining/closing the
-          // connection after the response. No extra reader or body copy exists.
+          // These POST bodies reach the handler without the framework's copy,
+          // so a handler can refuse one it has only partly read. Node discards
+          // a body nobody touched, but not one a reader abandoned: the socket
+          // is then never read again, and the connection stalls until the
+          // keep-alive timeout resets it, losing any request queued behind.
+          // A request destroyed by the default iterator cannot be read on, so
+          // end only the iterator on refusal and, once the answer is written,
+          // let the remainder flow to nowhere. Nothing is copied or stored;
+          // the server's request and keep-alive timeouts still bound it.
           const pathname = new URL(request.url ?? "/", view.origin).pathname;
           if (request.method === "POST" && typeof request.iterator === "function" &&
               /^\/api\/(?:tables|published\/[^/]+\/(?:widget-values|(?:render|extent)\/[^/]+))\/?$/.test(pathname)) {
             request[Symbol.asyncIterator] = function () { return this.iterator({ destroyOnReturn: false }); };
+            if (event !== "upgrade") args[1].once("finish", () => { if (!request.readableEnded) request.resume(); });
           }
           request[STAMPED] = true;
         } catch {
