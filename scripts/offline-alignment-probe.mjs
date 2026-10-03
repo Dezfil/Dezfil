@@ -4,6 +4,7 @@ import { provisionJourney } from "./journey-auth.mjs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { alignmentPoint, alignmentPositionError, alignmentStats, startAlignmentBasemap } from "./map-alignment-fixture.mjs";
+import { captureBasis, fixtureHeaders } from "./revision-fixtures.mjs";
 
 const base = process.env.DEZFIL_BASE_URL ?? "http://127.0.0.1:3000";
 const authenticatedFetch = (await provisionJourney(base)).fetch;
@@ -13,9 +14,12 @@ const basemap = await startAlignmentBasemap();
 const evidence = [];
 await mkdir(output, { recursive: true });
 
-async function json(path, method = "GET", body) {
+// A covered write names the revision it was composed against (`basis`).
+async function json(path, method = "GET", body, basis) {
   const response = await authenticatedFetch(`${base}${path}`, {
-    method, ...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
+    method,
+    headers: fixtureHeaders(basis, body === undefined ? {} : { "content-type": "application/json" }),
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   if (!response.ok) throw new Error(`${method} ${path}: ${response.status} ${await response.text()}`);
   return response.status === 204 ? null : response.json();
@@ -32,21 +36,22 @@ try {
       const uploaded = await authenticatedFetch(`${base}/api/tables`, { method: "POST", body: form });
       if (!uploaded.ok) throw new Error(`Upload: ${uploaded.status} ${await uploaded.text()}`);
       table = (await uploaded.json()).name;
-      map = (await json("/api/maps", "POST", { name: `Pole alignment ${pole}` })).id;
+      const created = await json("/api/maps", "POST", { name: `Pole alignment ${pole}` });
+      map = created.id;
       const layer = await json(`/api/maps/${map}/layers`, "POST", {
         name: "landmark", sql: tiled ? `SELECT ST_Point(
           ST_X(p.geometry) + ((r.i % 49) - 24) * 0.000001,
           ST_Y(p.geometry) + (floor(r.i / 49) - 24) * 0.000001
         ) AS geometry FROM "${table}" p CROSS JOIN range(0, 2401) AS r(i)` : `SELECT * FROM "${table}"`,
-      });
-      await json(`/api/layers/${layer.id}`, "PATCH", { style: {
+      }, captureBasis(created));
+      const styled = await json(`/api/layers/${layer.id}`, "PATCH", { style: {
         fill: { type: "constant", color: { r: 26, g: 93, b: 74, a: 1 } },
         stroke: { r: 26, g: 93, b: 74, a: 1 },
         fillOpacity: 1, strokeOpacity: 0, strokeWidth: 0, pointRadius: 12, opacity: 1,
-      } });
+      } }, captureBasis(layer));
       await json(`/api/maps/${map}`, "PATCH", {
         customBasemap: { url: `${basemap.url}/${pole}-light.json`, name: "Local landmark", force: true },
-      });
+      }, captureBasis(styled));
       let render;
       const deadline = Date.now() + 120_000;
       do {
@@ -82,7 +87,7 @@ try {
       evidence.push({ pole, mode: render.mode, filename, definition, stats, positionError });
       console.log(JSON.stringify(evidence.at(-1)));
     } finally {
-      if (map) await json(`/api/maps/${map}`, "DELETE");
+      if (map) await json(`/api/maps/${map}`, "DELETE", undefined, captureBasis(await json(`/api/maps/${map}`)));
       if (table) await json(`/api/tables/${table}`, "DELETE");
     }
   }

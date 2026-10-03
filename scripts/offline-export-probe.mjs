@@ -12,6 +12,7 @@ import { provisionJourney } from "./journey-auth.mjs";
 //
 // Usage: node /probes/offline-export-probe.mjs [--tiled|--expect-unavailable]
 import { decodePng, countColored } from "./png-probe.mjs";
+import { captureBasis, fixtureHeaders } from "./revision-fixtures.mjs";
 
 const base = process.env.DEZFIL_BASE_URL ?? "http://127.0.0.1:3000";
 const authenticatedFetch = (await provisionJourney(base)).fetch;
@@ -50,11 +51,14 @@ const mapRes = await authenticatedFetch(`${base}/api/maps`, {
   body: JSON.stringify({ name: "Offline export probe" }),
 });
 if (!mapRes.ok) fail("map create failed", String(mapRes.status));
-const mapId = (await mapRes.json()).id;
+const map = await mapRes.json();
+const mapId = map.id;
 
+// A covered write names the revision it was composed against; the map
+// just created carries its first one.
 const layerRes = await authenticatedFetch(`${base}/api/maps/${mapId}/layers`, {
   method: "POST",
-  headers: { "content-type": "application/json" },
+  headers: fixtureHeaders(captureBasis(map), { "content-type": "application/json" }),
   body: JSON.stringify({
     name: "probe",
     sql: expectTiled
