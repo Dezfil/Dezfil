@@ -101,11 +101,10 @@ test("constant rows across builder, published, and both export roads — swatche
   const consoleErrors = trackConsole(page);
   const { mapId, fillColor, strokeColor } = await seedMap(page);
 
-  // Publish FIRST (the ruling's shape: an existing link, no republish
-  // after the feature's state exists — the token minted here is the one
-  // asserted at the end, with no second publish call anywhere).
-  await page.goto(`/maps/${mapId}`);
+  // Publish before opening the builder so its revision includes publication.
+  // Revisit this same link after the legend edits, without republishing.
   const token = await publishMap(page, mapId);
+  await page.goto(`/maps/${mapId}`);
 
   // Builder overlay: a legend card exists for a constant-only map, one
   // row per layer, each swatch the drawn colour.
