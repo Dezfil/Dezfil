@@ -28,7 +28,7 @@ import {
 } from "./canvas-history";
 import type { CanvasGraph } from "./graph";
 import { controlOwnsKey } from "./key-ownership";
-import { runInverse } from "./history-operation";
+import { readRecipe, runInverse } from "./history-operation";
 import { runPress } from "./history-press";
 import { definitionOf, effectiveOf, makeRecording, type RecordingEdits } from "./history-recording";
 import type { LayoutNote } from "./placement";
@@ -179,6 +179,7 @@ export interface CanvasHistory {
 }
 
 export function useCanvasHistory({
+  id,
   edits,
   graph,
   operations,
@@ -408,14 +409,12 @@ export function useCanvasHistory({
   /** One press at a time: each lands before the next is taken. */
   const queue = useRef<Promise<void>>(Promise.resolve());
 
-  /** The recipe as it stands, read by the operation before its first
-   * attempt and before every Retry. Read the committed graph through the
-   * live ref so progress cannot replace the header's press callback and
-   * trigger another screen render, graph and history publication. */
+  /** Read current run facts before deciding an inverse. This read never
+   * installs its revision: surviving inverses retain their accepted basis. */
   const readSteps = useCallback(async () => {
     await edits.idle();
-    return edits.document?.recipe?.steps ?? live.current.graph.members.flatMap((member) => member.kind === "node" ? [member.step] : []);
-  }, [edits]);
+    return readRecipe(id);
+  }, [edits, id]);
 
   /** A recipe step put back, through the operation that
    * reverses it: the history operation reads first, applies through the
