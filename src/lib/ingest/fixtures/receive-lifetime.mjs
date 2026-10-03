@@ -17,6 +17,8 @@ let recovering = false;
 let finishWrite;
 let secondaryCancellation = false;
 let destinationsCreated = 0;
+let writeHeld;
+const firstWriteHeld = new Promise((resolve) => { writeHeld = resolve; });
 const originalCreate = fs.createWriteStream;
 
 // The delayed destroy writes real bytes before acknowledging close, modelling
@@ -31,6 +33,9 @@ class ControlledFile extends Writable {
     this.chunks.push(Buffer.from(chunk));
     if (mode !== "delayed-success") fs.writeFileSync(this.target, Buffer.concat(this.chunks));
     if (mode === "write-error") finishWrite = () => callback(new Error("fixture disk failure"));
+    // A disk slower than the network: the first write stays unacknowledged, so
+    // the part is paused and keeps what the parser hands it next.
+    else if (mode === "size-limit-at-closing-boundary") writeHeld();
     else callback();
   }
   _final(callback) {
@@ -50,7 +55,7 @@ class ControlledFile extends Writable {
 }
 fs.createWriteStream = (target) => {
   destinationsCreated++;
-  const destination = !recovering && ["write-error", "flush-error", "delayed-success", "source-error-delayed-close", "abort-delayed-close", "source-error-then-abort-delayed-close"].includes(mode)
+  const destination = !recovering && ["write-error", "flush-error", "delayed-success", "source-error-delayed-close", "abort-delayed-close", "source-error-then-abort-delayed-close", "size-limit-at-closing-boundary"].includes(mode)
     ? new ControlledFile(target) : originalCreate(target);
   destinations.push(destination);
   return destination;
@@ -174,6 +179,12 @@ if (nodeBody) {
   source.enqueue(Buffer.from(part.replace('name="file"', 'name="data"') + contents + ending)); end();
 } else if (mode === "size-limit") {
   source.enqueue(Buffer.from(part + "x".repeat(2 * 1024 * 1024) + ending)); end();
+} else if (mode === "size-limit-at-closing-boundary") {
+  // A file of exactly the cap, streamed: the parser reaches the limit and ends
+  // the part in one turn, while the part still holds bytes the disk has not taken.
+  source.enqueue(Buffer.from(part + "x".repeat(512 * 1024)));
+  await firstWriteHeld;
+  source.enqueue(Buffer.from("x".repeat(512 * 1024) + ending)); end();
 } else {
   source.enqueue(Buffer.from(part + contents));
   if (["success", "delayed-success", "flush-error"].includes(mode)) {

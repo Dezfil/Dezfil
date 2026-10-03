@@ -88,6 +88,7 @@ for (const boundary of ["receiver", "route"] as const) {
       ["write-error", 500, "internal"],
       ["flush-error", 500, "internal"],
       ["size-limit", 413, "upload_too_large"],
+      ["size-limit-at-closing-boundary", 413, "upload_too_large"],
       ["wrong-field", 400, "invalid_request"],
       ["node-size-limit", 413, "upload_too_large"],
       ["node-wrong-field", 400, "invalid_request"],

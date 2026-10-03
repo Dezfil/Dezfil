@@ -40,8 +40,11 @@ export async function receiveUpload(request: Request): Promise<ReceivedUpload> {
     }
     // Busboy can be inside a file/limit callback. Let that parser turn
     // finish before destruction changes its active file stream.
+    // Destroy with the reason: the parser may already have ended a stream
+    // that still holds bytes, and a pipeline whose ended source closes
+    // without an error waits for an "end" that never comes.
     queueMicrotask(() => {
-      for (const stream of streams) stream.destroy();
+      for (const stream of streams) stream.destroy(failure);
     });
   };
   const observe = (pending: Promise<void>, classify: () => ApiError) => {
