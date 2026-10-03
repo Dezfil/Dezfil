@@ -225,6 +225,10 @@ jobs:
           docker exec dezfil-derivation-ci node /probes/derivation-probe.mjs \
             http://127.0.0.1:3397 --state-log /data/derivations.ndjson
           docker stop dezfil-derivation-ci
+      - name: Credential cleanup, live authentication and replacement containers
+        run: |
+          DEZFIL_DATA_DIR=$(mktemp -d "$RUNNER_TEMP/dezfil-cleanup-XXXXXX") \
+            node scripts/credential-cleanup-driver.mjs --container dezfil:ci --port 3398
       - name: Packaged native socket provenance
         run: |
           docker run --rm --network=none -e DEZFIL_TRUSTED_PROXIES=127.0.0.1 \

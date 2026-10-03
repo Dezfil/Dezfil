@@ -72,7 +72,8 @@
     "lint:contract-docs": "node scripts/check-contract-docs.mjs",
     "lint:reader-docs": "node scripts/check-reader-docs.mjs",
     "probe:publication-source": "node scripts/publication-source-probe.mjs",
-    "probe:derivation": "node scripts/derivation-probe.mjs"
+    "probe:derivation": "node scripts/derivation-probe.mjs",
+    "probe:credential-cleanup": "node scripts/credential-cleanup-driver.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
