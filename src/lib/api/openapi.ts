@@ -828,7 +828,7 @@ export function buildOpenApiDocument() {
               properties: {
                 code: { type: "string", enum: Object.keys(ERROR_CATALOGUE) },
                 message: { type: "string" },
-                retryAfter: { type: "integer", minimum: 1, description: "Seconds until a login limit permits another attempt." },
+                retryAfter: { type: "integer", minimum: 1, description: "Seconds before retry after a login limit or temporary authentication capacity refusal." },
                 retryAt: { type: "string", format: "date-time", description: "When a login limit permits another attempt." },
               issues: { type: "array", items: { $ref: "#/components/schemas/GeometryIssue" }, description: "Geometry-choice refusal reasons, when applicable." },
                 position: {

@@ -147,6 +147,17 @@ retain at most 10,000 entries, expiring on traffic then evicting least recently
 used entries at capacity. Eviction starts a fresh window. Readers behind an
 untrusted proxy share its socket budget; trusted chains use the nearest
 untrusted hop. See [self-hosting](docs/self-hosting.md) for provenance refusals and scope.
+Password derivation admission is shared across the server process: two active,
+six ordinary plus two reserved protected waiters, and a five-second maximum
+wait. FIFO applies within each class. Validated links and signed-in password
+checks are protected, with priority for the next slot and at most one active
+protected derivation. Ordinary sign-ins can use both slots. Full classes and
+deadlines answer private 503 `authentication_busy` with one-second retry advice,
+without adding login failures or a lasting lockout. Running work retains its
+slot until settlement. These fixed bounds introduce no configuration knob;
+actual derivation time depends on the host.
+
+
 
 ### The secret key
 

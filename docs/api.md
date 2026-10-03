@@ -329,6 +329,30 @@ preferences. A non-admin patch containing `instanceName` returns `403`, with
 all personal and instance fields unchanged. Identity-bearing responses and
 refusals use `Cache-Control: private, no-store`.
 
+Password derivations share two active slots across every credential entry point,
+with six ordinary and two reserved protected waiters. Each waiter has at most
+five seconds; FIFO holds within each class. Validated link redemptions and
+signed-in current-password checks are protected; a password change retains that
+class for the new-password derivation too. Protected work takes the next free
+slot ahead of ordinary work, but at most one protected derivation is active,
+even when the other slot is idle. Ordinary work may use both slots and running
+work is never pre-empted. Known and unknown sign-ins use the same ordinary class;
+there is no account-existence priority or guaranteed admission under continuous
+load. Recovery issuance derives nothing.
+
+Overflow or deadline answers 503 `authentication_busy`, “Authentication is busy.
+Try again shortly.”, with `Retry-After: 1`, `error.retryAfter: 1` and private,
+no-store. It issues no credential, consumes no link, changes no profile/password
+and adds no login failure. Busy or aborted sign-ins refund both reservations.
+A fourth simultaneous protected caller is refused at once and may retry
+immediately without a login lockout; the response retains its one-second retry
+advice. Cancellation removes waiting work; running native work owns its slot
+until settlement, even on failure. Password rules and work factor are unchanged.
+The clean-source correct-password exception keeps its ordinary FIFO turn.
+`error.retryAfter` means seconds before retry after a login limit or temporary
+authentication capacity refusal. Five seconds bounds waiting, not derivation
+runtime: measure the work on your image and host; slower hosts may time out.
+
 **Account.** `GET`/`PATCH /api/account` read and update only the caller's
 profile. A name change needs no password; changing email requires
 `currentPassword`, rejects normalized duplicates and changes the sign-in
@@ -639,7 +663,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **105** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **106** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -1365,6 +1389,7 @@ response message. Branch on the code.
 | `forbidden` | This request is not permitted for the current account or origin: an admin-only request, a cookie request from another origin, or a change to something the account can view but cannot make. A refused change has no effect. |
 | `invalid_link` | This sign-in link is unavailable, expired, replaced or already used. |
 | `current_password_required` | Enter your current password to make this change. |
+| `authentication_busy` | Authentication is busy. Try again shortly. |
 | `ingress_unavailable` | Trusted socket provenance is unavailable. Authentication entry and published reads cannot proceed. |
 | `geometry_not_supported` | Set geometry is available only for file uploads and URL imports. |
 | `geometry_choice_invalid` | The geometry choice cannot be applied. The message explains the projection, source or validator issue. |

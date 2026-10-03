@@ -189,6 +189,17 @@ yet.”, before reading a body or resolving a token. Malformed wire provenance
 still answers 400. The viewer page is outside these API budgets; IPv6 address
 rotation is not bounded by this policy.
 
+
+Password derivation admission is shared across the server process: two active,
+six ordinary plus two reserved protected waiters, and a five-second maximum
+wait. FIFO applies within each class. Validated links and signed-in password
+checks are protected, with priority for the next slot and at most one active
+protected derivation. Ordinary sign-ins can use both slots. Full classes and
+deadlines answer private 503 `authentication_busy` with one-second retry advice,
+without adding login failures or a lasting lockout. Running work retains its
+slot until settlement. These fixed bounds introduce no configuration knob;
+actual derivation time depends on the host.
+
 ## Upgrading
 
 Stop the container, start the new image against the same data directory. The metadata

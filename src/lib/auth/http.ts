@@ -6,7 +6,7 @@ import { errorResponse } from "@/lib/api/errors";
 import { authenticateSession, SESSION_LIFETIME_MS, type AuthContext } from "./credentials";
 import { authenticateBearer } from "./delegation";
 import { requireIngress, type Ingress } from "./ingress.mjs";
-import { AuthError } from "./errors";
+import { AuthError, AuthenticationCancelled } from "./errors";
 
 export const SESSION_COOKIE = "dezfil_session";
 export function privateResponse<T extends Response>(response: T): T {
@@ -60,9 +60,10 @@ export function sessionCookie(response: NextResponse, secret: string, ingress: I
     path: "/", maxAge: clear ? 0 : SESSION_LIFETIME_MS / 1000 });
 }
 export function authFailure(error: unknown): Response {
+  if (error instanceof AuthenticationCancelled) return privateResponse(new Response(null, { status: 499 }));
   if (!(error instanceof AuthError)) return privateResponse(errorResponse(error));
   const response = NextResponse.json({ error: { code: error.code, message: error.message, ...error.extra } }, { status: error.status });
-  if (error.code === "rate_limited") response.headers.set("retry-after", String(error.extra.retryAfter));
+  if (error.code === "rate_limited" || error.code === "authentication_busy") response.headers.set("retry-after", String(error.extra.retryAfter));
   return privateResponse(response);
 }
 export async function authBody(request: Request, fields: readonly string[], required = fields): Promise<Record<string, string>> {
