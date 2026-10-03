@@ -1106,7 +1106,7 @@ test("recipe steps, removals: a never-run node back in its place with its reader
   expect(unexpected).toEqual([]);
 });
 
-test("pending work, runs and refusals: an unsent value, an invalid one, a save on the wire; the run boundary member by member; an unsettled member; a node run since; the cut routes and Retry; last write wins", async ({ page }) => {
+test("pending work, runs and refusals: an unsent value, an invalid one, a save on the wire; the run boundary member by member; an unsettled member; a node run since; the cut routes and Retry; stale undo and Reload", async ({ page }) => {
   const consoleErrors = trackConsole(page);
   await page.goto("/workflows");
   await seedCsv(page, points, "name,lon,lat\nalex,13.41,52.52\nzoo,13.33,52.51\nhbf,13.37,52.53\n").catch(() => undefined);
@@ -1472,15 +1472,46 @@ test("pending work, runs and refusals: an unsent value, an invalid one, a save o
     expect(writes.at(-1)?.body.steps[buf]).toEqual((await readLayout(page, id)).steps[buf]);
   });
 
-  await test.step("a definition changed headlessly, then that edit's undo: the read is the undone definition, last write wins", async () => {
+  await test.step("a definition changed headlessly refuses the canvas edit's undo; Reload shows the headless definition and clears local undo", async () => {
     await selectTile(page, bufName);
-    const before = await distanceOf();
+    const requests: Request[] = [];
+    page.on("request", request => {
+      if (request.url().includes(`/api/recipes/${id}`)) requests.push(request);
+    });
     await panel(page).getByRole("spinbutton", { name: /^distance/ }).fill("300");
     await expect.poll(distanceOf).toBe(300);
+    // The watcher sees the accepted edit before it checks for silence.
+    await expect.poll(() => requests.filter(r => r.method() === "PATCH" && r.url().endsWith(`/steps/${buf}`)).length).toBeGreaterThan(0);
     await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "PATCH", path: `/api/recipes/${id}/steps/${buf}`, body: { parameters: { input: points, distance: 400, name: bufName } } })).then(result => result.json);
+    expect(await distanceOf()).toBe(400);
+    const staleResponse = page.waitForResponse(r => r.request().method() === "PATCH" && r.url().endsWith(`/api/recipes/${id}/steps/${buf}`) && r.status() === 409);
     await undo(page);
-    await expect(notice(page)).toContainText("Undone: Buffer edited");
-    await expect.poll(distanceOf).toBe(before);
+    expect((await (await staleResponse).json()).error.code).toBe("stale_revision");
+    await expect(notice(page)).toHaveText("Not undone: This item has changed. Reload it before trying again.");
+    const recovery = page.locator("[data-stale-recovery]");
+    await expect(recovery).toContainText("This item has changed. Reload it before trying again.");
+    await expect(recovery.getByRole("button", { name: "Reload", exact: true })).toBeVisible();
+    await expect(retryBtn(page)).toHaveCount(0);
+    expect(await distanceOf()).toBe(400);
+
+    const writesBeforeReload = requests.filter(r => r.method() !== "GET").length;
+    await recovery.getByRole("button", { name: "Reload", exact: true }).click();
+    await expect(recovery).toContainText("Reload discards your unsaved values.");
+    await recovery.getByRole("button", { name: "Reload", exact: true }).click();
+    await expect(recovery).toHaveCount(0);
+    await settled(page);
+    await selectTile(page, bufName);
+    await expect(panel(page).getByRole("spinbutton", { name: /^distance/ })).toHaveValue("400");
+    await expect(undoBtn(page)).toBeDisabled();
+    await expect(redoBtn(page)).toBeDisabled();
+    expect(requests.filter(r => r.method() !== "GET").length).toBe(writesBeforeReload);
+    requests.length = 0;
+    await flowArea(page).focus();
+    await page.keyboard.press("Meta+z");
+    await expect(notice(page)).toHaveText("Nothing to undo");
+    await page.waitForTimeout(500);
+    expect(requests).toEqual([]);
+    expect(await distanceOf()).toBe(400);
   });
 
   // The cut routes are the test's own, as is the failing statement's dry run and run.
