@@ -61,3 +61,29 @@ it.each([true, false])("reads the response while producing bytes and stops its s
   expect(produced).toBeLessThanOrEqual(written + 4096);
   expect(fake.destroyed).toBe(true);
 });
+
+it("keeps sending when the socket drains while the scratch observer is still awaited", async () => {
+  let written = 0, ended = false;
+  const fake = new EventEmitter() as EventEmitter & { destroyed: boolean; flushHeaders: () => void; write: (chunk: Buffer) => boolean; end: () => void; destroy: () => void };
+  fake.destroyed = false;
+  vi.spyOn(http, "request").mockImplementation(((_url: unknown, _options: unknown, callback: (response: EventEmitter) => void) => {
+    fake.flushHeaders = () => {};
+    // A full socket buffer that empties before the observer's file-system calls return.
+    fake.write = chunk => { written += chunk.length; queueMicrotask(() => fake.emit("drain")); return false; };
+    fake.end = () => {
+      ended = true;
+      const response = Object.assign(new EventEmitter(), { statusCode: 201, headers: { "cache-control": "private, no-store" } });
+      callback(response); fake.emit("response", response);
+      response.emit("data", Buffer.from(JSON.stringify({ rowCount: 3 }))); response.emit("end");
+    };
+    fake.destroy = () => { fake.destroyed = true; fake.emit("close"); };
+    return fake;
+  }) as typeof http.request);
+  const result = await exchange("http://instance.test/api/tables", {
+    chunks: [Buffer.alloc(4096), Buffer.alloc(4096), Buffer.alloc(4096)], timeoutMs: 1_000,
+    onWrite: () => new Promise<void>(resolve => setImmediate(resolve)),
+  });
+  expect(result.status).toBe(201);
+  expect(written).toBe(3 * 4096);
+  expect(ended).toBe(true);
+});

@@ -54,12 +54,15 @@ export async function exchange(url, { method = 'POST', headers = {}, chunks = []
     for await (const chunk of chunks) {
       if (received || request.destroyed) break;
       // Respect backpressure, but a response must also wake a blocked producer.
+      // Listen in the same turn as the refused write: a drain that fires while
+      // the observer is awaited would otherwise be missed and never repeated.
       const writable = request.write(chunk); written += chunk.length;
-      if (onWrite) await onWrite(written);
-      if (!writable && !received && !request.destroyed) await new Promise(resolve => {
+      const resumed = writable || received || request.destroyed ? null : new Promise(resolve => {
         const wake = () => { request.off('drain', wake); request.off('response', wake); request.off('close', wake); resolve(); };
         request.once('drain', wake); request.once('response', wake); request.once('close', wake);
       });
+      if (onWrite) await onWrite(written);
+      if (resumed) await resumed;
       if (paceMs && !received) await delay(paceMs);
     }
     if (!received && !request.destroyed) request.end();
