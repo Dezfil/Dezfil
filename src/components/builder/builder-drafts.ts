@@ -47,6 +47,7 @@ export class BuilderDrafts {
       }
     }
   }
+  discard(ticket: number) { this.edits.delete(ticket); }
   hasLayer(id: string) { return [...this.edits.values()].some(edit => edit.layerId === id); }
   apply = (map: MapWithLayers): MapWithLayers => [...this.edits.values()].reduce(apply, map);
 }

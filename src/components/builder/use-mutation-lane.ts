@@ -252,13 +252,27 @@ export function useMutationLane({
         // any layer confirmed after this point outranks what comes back.
         const sentAt = truthSeqRef.current;
         const epoch = reloadEpochRef.current;
-        const unconfirmed = (cause: unknown) =>
+        const revision = sequence.revision;
+        const unconfirmed = async (cause: unknown) => {
           fail(
             "map",
             `The map save could not be confirmed. ${
               cause instanceof Error ? cause.message : "Network failure."
             }`,
           );
+          // A lost reorder can be rolled back when a fresh read proves the
+          // attempted revision never changed. A changed or unreadable basis
+          // keeps the draft; no request is replayed and stale refusals never enter here.
+          if (!revision || Object.keys(body).length !== 1 || !Array.isArray(body.layerOrder)) return;
+          try {
+            const read = await fetch(`/api/maps/${mapId}`, { cache: "no-store" });
+            if (!read.ok) return;
+            const current = await read.json() as MapWithLayers;
+            if (sequence.stale || reloadEpochRef.current !== epoch || acceptedDocumentFacts(current).editRevision !== revision) return;
+            drafts.discard(ticket);
+            applyMapResponse(current, false, sentAt);
+          } catch { /* The unchanged-document proof was unavailable; keep the draft. */ }
+        };
 
         let response: Response;
         try {
@@ -275,7 +289,7 @@ export function useMutationLane({
             }),
           );
         } catch (cause) {
-          unconfirmed(cause);
+          await unconfirmed(cause);
           return false;
         }
         if (!response.ok) {
@@ -286,7 +300,7 @@ export function useMutationLane({
         try {
           updated = (await response.json()) as MapWithLayers;
         } catch (cause) {
-          unconfirmed(cause);
+          await unconfirmed(cause);
           return false;
         }
         // A clean save clears this lane's standing failure — and only
