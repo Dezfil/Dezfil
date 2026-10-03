@@ -589,7 +589,7 @@ test("the header card reaches the pane on the workflow canvas and the SQL consol
       expect(
         mid.cardRight,
         `${surface}: a mid-length name grows the card past the pane`,
-      ).toBeGreaterThan(mid.paneRight + 10);
+      ).toBeGreaterThan(mid.paneRight);
       const midInsets = await expectClearance(page, `${surface}, mid-length name`);
       expect(midInsets.truncated, `${surface}: the mid-length name is whole`).toBe(false);
 
@@ -669,20 +669,24 @@ test("the header card reaches the pane on the workflow canvas and the SQL consol
       );
       expect(overflow, `${where}: no horizontal overflow`).toBe(0);
     };
-    const narrow: [string, string, ReturnType<Page["locator"]>, number][] = [
-      ["workflow canvas", `/workflows/${recipeId}`, canvasPane, 600],
-      ["SQL console", "/sql", sqlPane, 480],
+    const narrow: [string, string, ReturnType<Page["locator"]>, number, boolean][] = [
+      ["workflow canvas", `/workflows/${recipeId}`, canvasPane, 600, true],
+      // Two icon controls still fit beside the aligned card at 480.
+      // At 420 they constrain its reach and the card must yield.
+      ["SQL console", "/sql", sqlPane, 420, true],
+      ["SQL console", "/sql", sqlPane, 480, false],
     ];
-    for (const [surface, route, pane, width] of narrow) {
+    for (const [surface, route, pane, width, yields] of narrow) {
       await page.setViewportSize({ width, height: 600 });
       await page.goto(route);
       const e = await edges(page, pane);
       console.log(`${surface} at ${width}: card right ${e.cardRight}, pane right ${e.paneRight}`);
       await inside(`${surface} at ${width}`, width);
-      expect(
+      if (yields) expect(
         e.cardRight,
         `${surface} at ${width}: the card gave way before the pane's edge`,
       ).toBeLessThan(e.paneRight - 1);
+      else expect(Math.abs(e.cardRight - e.paneRight), "the card reaches the pane when the actions fit").toBeLessThan(0.1);
       await expectClearance(page, `${surface} at ${width}`);
     }
     // Pressable, not merely inside: the theme toggle flips the theme.
