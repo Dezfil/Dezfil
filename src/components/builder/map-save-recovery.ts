@@ -24,3 +24,11 @@ export function confirmsMapPatch(before: MapWithLayers | null, patch: Record<str
   }
   return stable(contents({ ...before, ...fields, layers })) === stable(contents(read));
 }
+
+/** Layer saves share the map's revision, so recovery must also rule out
+ * unrelated changes elsewhere in the document. */
+export function confirmsLayerPatch(before: MapWithLayers | null, layerId: string, patch: Record<string, unknown>, read: MapWithLayers): boolean {
+  if (!before?.layers.some(layer => layer.id === layerId)) return false;
+  return confirmsMapPatch({ ...before, layers: before.layers.map(layer =>
+    layer.id === layerId ? { ...layer, ...patch } : layer) }, {}, read);
+}

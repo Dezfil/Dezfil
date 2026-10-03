@@ -15,7 +15,7 @@ import { acceptedDocumentFacts } from "../accepted-document-facts";
 import { readApiError } from "../api";
 import type { LayerRenderData } from "./render-data";
 import { BuilderDrafts } from "./builder-drafts";
-import { confirmsMapPatch } from "./map-save-recovery";
+import { confirmsLayerPatch, confirmsMapPatch } from "./map-save-recovery";
 import { DocumentSequence, patchIntent } from "../document-sequence";
 
 /** Who raised a failure — and therefore who owns clearing it. */
@@ -407,6 +407,9 @@ export function useMutationLane({
         if (!current) return null;
         const body = compose(current);
         const epoch = reloadEpochRef.current;
+        const revision = sequence.revision;
+        const before = serverMapRef.current;
+        const sentAt = truthSeqRef.current;
         // Failures are owned per layer lane: a save that fails on one
         // layer must keep its banner through another layer's success.
         const lane = `layer:${layerId}` as const;
@@ -442,9 +445,28 @@ export function useMutationLane({
               body.popup !== undefined ||
               body.publishedFields !== undefined ||
               body.style !== undefined));
-        const recover = (cause: unknown): null => {
+        const recover = async (cause: unknown): Promise<null> => {
           const detail = cause instanceof Error ? cause.message : "Network failure.";
           fail(lane, `The layer save could not be confirmed. ${detail}`);
+          if (!revision) return null;
+          try {
+            const read = await fetch(`/api/maps/${mapId}`, { cache: "no-store" });
+            if (!read.ok) return null;
+            const recovered = await read.json() as MapWithLayers;
+            if (sequence.stale || reloadEpochRef.current !== epoch) return null;
+            const currentRevision = acceptedDocumentFacts(recovered).editRevision;
+            if (!currentRevision) return null;
+            if (confirmsLayerPatch(before, layerId, body, recovered)) {
+              drafts.accepted(ticket, before);
+              applyMapResponse(recovered, true, sentAt);
+              if (!opts.skipRefresh && changesRender) await refreshLayer(layerId);
+            } else if (currentRevision === revision) {
+              // Only this failed gesture is gone. Other layers and later
+              // gestures still own their drafts and failure notices.
+              drafts.discard(ticket);
+              applyMapResponse(recovered, false, sentAt);
+            }
+          } catch { /* An unknown outcome keeps its draft and accepted basis. */ }
           return null;
         };
 
@@ -492,6 +514,9 @@ export function useMutationLane({
     },
     [
       map,
+      mapId,
+      applyMapResponse,
+      truthSeqRef,
       sequence,
       setMap,
       drafts,
