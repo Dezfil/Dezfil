@@ -70,7 +70,7 @@ test("the ruled surfaces answer with the bubble — hover, focus, edges, shortcu
 
   // Undo carries its shortcut.
   await page.getByRole("button", { name: "Undo" }).hover();
-  await expect(page.locator(BUBBLE)).toContainText("Undo (⌘Z");
+  await expect(page.locator(BUBBLE)).toHaveText(/^Undo\b.*\(⌘Z \/ Ctrl\+Z\)$/);
 
   // Top bar right edge: the theme toggle's bubble stays on screen.
   await page
