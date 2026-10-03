@@ -210,6 +210,21 @@ jobs:
           run_publication trusted 3394 127.0.0.1
           run_publication untrusted 3395 ""
           run_publication missing 3396 ""
+      - name: Shared derivation bounds, busy recovery and native timing
+        run: |
+          docker run -d --rm --name dezfil-derivation-ci --network=none \
+            -e PORT=3397 -e DEZFIL_DATA_DIR=/data -e DEZFIL_TRUSTED_PROXIES=127.0.0.1 \
+            -e DEZFIL_TEST_DERIVATION_LOG=/data/derivations.ndjson \
+            -v "$PWD/scripts:/probes:ro" dezfil:ci \
+            node --import=./scripts/ingress-preload.mjs --import=/probes/derivation-observer.mjs server.js
+          trap 'docker logs dezfil-derivation-ci 2>/dev/null || true; docker stop dezfil-derivation-ci 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            if docker exec dezfil-derivation-ci node -e "fetch('http://127.0.0.1:3397/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then break; fi
+            sleep 1
+          done
+          docker exec dezfil-derivation-ci node /probes/derivation-probe.mjs \
+            http://127.0.0.1:3397 --state-log /data/derivations.ndjson
+          docker stop dezfil-derivation-ci
       - name: Packaged native socket provenance
         run: |
           docker run --rm --network=none -e DEZFIL_TRUSTED_PROXIES=127.0.0.1 \

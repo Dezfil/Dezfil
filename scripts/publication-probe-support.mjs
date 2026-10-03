@@ -18,7 +18,11 @@ export function assertPublicationState(rows, minimum) {
 }
 
 /** Real IPv4 socket, with explicit local binding. Forwarding is supplied only
- * by the controlled proxy arm; it cannot choose the socket's address. */
+ * by the controlled proxy arm; it cannot choose the socket's address.
+ * @param {string} base
+ * @param {string} pathname
+ * @param {{method?: string, localAddress?: string, headers?: Record<string, string>, body?: string}} options
+ */
 export function publicationRequest(base, pathname, { method = 'GET', localAddress = '127.0.0.1', headers = {}, body } = {}) {
   return new Promise((resolve, reject) => {
     const request = http.request(new URL(pathname, base), { method, localAddress, headers }, response => {
