@@ -337,14 +337,16 @@ test("the builder: both channels at the chip, live together and on their own lif
     await page.route(`**/api/maps/${mapId}/sketches`, (route) =>
       route.request().method() === "POST" ? route.abort() : route.continue(),
     );
+    const failed = page.waitForEvent("requestfailed", (request) =>
+      request.method() === "POST" && request.url().endsWith(`/api/maps/${mapId}/sketches`),
+    );
     await page.getByRole("button", { name: "Draw", exact: true }).click();
     const dock = page.getByRole("toolbar", { name: "Draw tools" });
     await expect(dock).toBeVisible();
-    await dock.getByRole("button", { name: "Draw a polygon" }).click();
+    // One click reaches the same save producer without a vertex draft.
+    await dock.getByRole("button", { name: "Draw points" }).click();
     await page.mouse.click(700, 300);
-    await page.mouse.click(900, 300);
-    await page.mouse.click(800, 450);
-    await page.keyboard.press("Enter");
+    await failed;
   };
   const leaveDrawing = async () => {
     await page.unroute(`**/api/maps/${mapId}/sketches`);
@@ -370,6 +372,10 @@ test("the builder: both channels at the chip, live together and on their own lif
   });
 
   await test.step("both channels stand together, in their order, each expiring on its own", async () => {
+    // Settle the drawing failure first. A new sketch would otherwise wait
+    // behind the held rename in this document's ordered write sequence.
+    await drawWithTheSaveCut();
+    await expectChipOn(page, "notice", /could not be saved/);
     // A tracked write held open: the saving indication stands until it
     // settles, which is what lets a notice run its whole hold beside it.
     let release!: () => void;
@@ -391,7 +397,6 @@ test("the builder: both channels at the chip, live together and on their own lif
     await expectChipOn(page, "saving", "Saving…");
     await expectNotInTheCard(page, "Saving…");
 
-    await drawWithTheSaveCut();
     await expectChipOn(page, "notice", /could not be saved/);
     await expectChipOn(page, "saving", "Saving…");
     const order = await page.evaluate(() => {
@@ -811,15 +816,14 @@ test("the workflow: each owner rule holds at the chip, asserted one at a time", 
       .toBe(null);
   });
 
-  await test.step("a success preserves another owner's standing danger message", async () => {
-    // The success must arrive while the other owner's danger is on
-    // screen, which means starting the layout write first: a layout
-    // Saving… replaces a displayed failure (an existing asymmetry this
-    // piece preserves), so only its ANSWER can be judged against one.
+  await test.step("a queued rename shows its refusal after the preceding layout save settles", async () => {
+    // The rename waits for the layout response. Component coverage also
+    // holds the message against a late success notification from that owner.
     layoutMode = "hold";
     await page.keyboard.press("Escape");
     await arrange().click();
     await expectChipOn(page, "whisper", "Saving…");
+    await expect.poll(() => releaseLayout !== null).toBe(true);
     await page.route(nameRoute, (route) =>
       route.request().method() === "PATCH"
         ? route.fulfill({
@@ -832,14 +836,15 @@ test("the workflow: each owner rule holds at the chip, asserted one at a time", 
         : route.continue(),
     );
     await renameTo(page, name, `${name} four`);
-    await expectChipOn(page, "whisper", "The name could not be filed.");
-    await page.unroute(nameRoute);
+    await expectChipOn(page, "whisper", "Saving…");
     const wrote = page.waitForResponse(
       (r) => r.request().method() === "PUT" && r.url().includes(`/api/recipes/${id}/layout`),
     );
     releaseLayout?.();
     await wrote;
     layoutMode = "pass";
+    await expectChipOn(page, "whisper", "The name could not be filed.");
+    await page.unroute(nameRoute);
     console.log(`preserved: after the layout success the chip reads ${JSON.stringify(await whisperChip(page).textContent())}`);
     await expectChipOn(page, "whisper", "The name could not be filed.");
     expect
@@ -1299,14 +1304,15 @@ test("the builder: a long notice keeps its tail and a fast save keeps its exit",
           })
         : route.continue(),
     );
+    const refused = page.waitForResponse((response) =>
+      response.request().method() === "POST" && response.url().endsWith(`/api/maps/${mapId}/sketches`),
+    );
     await page.getByRole("button", { name: "Draw", exact: true }).click();
     const dock = page.getByRole("toolbar", { name: "Draw tools" });
     await expect(dock).toBeVisible();
-    await dock.getByRole("button", { name: "Draw a polygon" }).click();
+    await dock.getByRole("button", { name: "Draw points" }).click();
     await page.mouse.click(700, 300);
-    await page.mouse.click(900, 300);
-    await page.mouse.click(800, 450);
-    await page.keyboard.press("Enter");
+    expect((await refused).status()).toBe(500);
     await expectChipOn(page, "notice", "no spatial reference could be read");
 
     const read = await page.evaluate(() => {
