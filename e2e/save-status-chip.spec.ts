@@ -1,3 +1,5 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
+import type { EditBasis } from "../src/lib/edit-basis";
 // The save status leaves the path card for the stage.
 //
 // Two things are proven here that page-wide text assertions cannot: that
@@ -46,18 +48,18 @@ const RESERVATION_VIEWPORTS = [
  * overshoot. */
 const LONG_PATH = `Regional accessibility of primary care practices by public transport, weekday morning peak ${runId}`;
 
-const api = (page: Page, method: string, path: string, body?: unknown) =>
+const api = (page: Page, method: string, path: string, body?: unknown, basis?: EditBasis) =>
   page.evaluate(
-    async ({ method, path, body }) => {
+    async ({ method, path, body, basis }) => {
       const r = await fetch(path, {
         method,
-        headers: body ? { "content-type": "application/json" } : undefined,
+        headers: { ...(body ? { "content-type": "application/json" } : undefined), ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) },
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!r.ok && r.status !== 204) throw new Error(await r.text());
       return r.status === 204 ? null : ((await r.json()) as unknown);
     },
-    { method, path, body },
+    { method, path, body, basis },
   );
 
 const card = (page: Page) => page.locator("header > div").first();
@@ -311,12 +313,26 @@ const expectNotInTheCard = async (page: Page, text: string) => {
   expect.soft(inCard.chipInside, "the chip stands on the stage, not in the header").toBe(false);
 };
 
+/** Wait for the camera-backed point preview before committing a shape. */
+async function drawPointOnStage(page: Page) {
+  await expect(page.locator('[data-save-status="saving"]')).not.toHaveAttribute("data-on", "true");
+  await expect(page.locator(".maplibregl-canvas")).toBeVisible();
+  await page.getByRole("button", { name: "Draw", exact: true }).click();
+  const dock = page.getByRole("toolbar", { name: "Draw tools" });
+  await dock.getByRole("button", { name: "Draw points" }).click();
+  const overlay = page.locator("svg[data-armed]");
+  const position = { x: 260, y: 240 };
+  await overlay.hover({ position });
+  await expect(overlay.locator("circle")).toBeVisible();
+  await overlay.click({ position });
+}
+
 test("the builder: both channels at the chip, live together and on their own lifetimes", async ({
   page,
   context,
 }) => {
   test.setTimeout(300_000);
-  await routeHouse(context);
+  await routeHouse(context, { basemapStyleStub: true });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   const mapId = (
@@ -332,17 +348,14 @@ test("the builder: both channels at the chip, live together and on their own lif
    * reach: the session's first shape cannot be saved and the channel
    * says so in its own words. */
   const drawWithTheSaveCut = async () => {
-    await page.route(`**/api/maps/${mapId}/sketches`, (route) =>
-      route.request().method() === "POST" ? route.abort() : route.continue(),
-    );
-    await page.getByRole("button", { name: "Draw", exact: true }).click();
-    const dock = page.getByRole("toolbar", { name: "Draw tools" });
-    await expect(dock).toBeVisible();
-    await dock.getByRole("button", { name: "Draw a polygon" }).click();
-    await page.mouse.click(700, 300);
-    await page.mouse.click(900, 300);
-    await page.mouse.click(800, 450);
-    await page.keyboard.press("Enter");
+    let intercepted = 0;
+    await page.route(`**/api/maps/${mapId}/sketches`, async route => {
+      if (route.request().method() !== "POST") return route.continue();
+      intercepted++;
+      await route.abort();
+    });
+    await drawPointOnStage(page);
+    await expect.poll(() => intercepted, { message: "the drawing save reaches the cut route" }).toBe(1);
   };
   const leaveDrawing = async () => {
     await page.unroute(`**/api/maps/${mapId}/sketches`);
@@ -368,6 +381,10 @@ test("the builder: both channels at the chip, live together and on their own lif
   });
 
   await test.step("both channels stand together, in their order, each expiring on its own", async () => {
+    // Settle the drawing failure first. A new sketch would otherwise wait
+    // behind the held rename in this document's ordered write sequence.
+    await drawWithTheSaveCut();
+    await expectChipOn(page, "notice", /could not be saved/);
     // A tracked write held open: the saving indication stands until it
     // settles, which is what lets a notice run its whole hold beside it.
     let release!: () => void;
@@ -389,7 +406,6 @@ test("the builder: both channels at the chip, live together and on their own lif
     await expectChipOn(page, "saving", "Saving…");
     await expectNotInTheCard(page, "Saving…");
 
-    await drawWithTheSaveCut();
     await expectChipOn(page, "notice", /could not be saved/);
     await expectChipOn(page, "saving", "Saving…");
     const order = await page.evaluate(() => {
@@ -809,15 +825,14 @@ test("the workflow: each owner rule holds at the chip, asserted one at a time", 
       .toBe(null);
   });
 
-  await test.step("a success preserves another owner's standing danger message", async () => {
-    // The success must arrive while the other owner's danger is on
-    // screen, which means starting the layout write first: a layout
-    // Saving… replaces a displayed failure (an existing asymmetry this
-    // piece preserves), so only its ANSWER can be judged against one.
+  await test.step("a queued rename shows its refusal after the preceding layout save settles", async () => {
+    // The rename waits for the layout response. Component coverage also
+    // holds the message against a late success notification from that owner.
     layoutMode = "hold";
     await page.keyboard.press("Escape");
     await arrange().click();
     await expectChipOn(page, "whisper", "Saving…");
+    await expect.poll(() => releaseLayout !== null).toBe(true);
     await page.route(nameRoute, (route) =>
       route.request().method() === "PATCH"
         ? route.fulfill({
@@ -830,14 +845,15 @@ test("the workflow: each owner rule holds at the chip, asserted one at a time", 
         : route.continue(),
     );
     await renameTo(page, name, `${name} four`);
-    await expectChipOn(page, "whisper", "The name could not be filed.");
-    await page.unroute(nameRoute);
+    await expectChipOn(page, "whisper", "Saving…");
     const wrote = page.waitForResponse(
       (r) => r.request().method() === "PUT" && r.url().includes(`/api/recipes/${id}/layout`),
     );
     releaseLayout?.();
     await wrote;
     layoutMode = "pass";
+    await expectChipOn(page, "whisper", "The name could not be filed.");
+    await page.unroute(nameRoute);
     console.log(`preserved: after the layout success the chip reads ${JSON.stringify(await whisperChip(page).textContent())}`);
     await expectChipOn(page, "whisper", "The name could not be filed.");
     expect
@@ -1072,12 +1088,12 @@ test("the published view gains no chip and keeps its stack and legend", async ({
       id: string;
     }
   ).id;
-  await api(page, "POST", `/api/maps/${mapId}/layers`, {
+  await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/layers`, body: {
     name: "Ground",
     sql: "SELECT 1 AS n, ST_Point(13.4, 52.5) AS geom",
-  });
+  } }));
   const token = (
-    (await api(page, "POST", `/api/maps/${mapId}/publish`)) as { token: string }
+    (await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/publish` })).then(result => result.json)) as { token: string }
   ).token;
   await page.goto(`/v/${token}`);
   await expect(page.getByRole("button", { name: "Zoom in" })).toBeVisible({ timeout: 30_000 });
@@ -1274,7 +1290,7 @@ test("the builder: a long notice keeps its tail and a fast save keeps its exit",
   context,
 }) => {
   test.setTimeout(300_000);
-  await routeHouse(context);
+  await routeHouse(context, { basemapStyleStub: true });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   const name = `Round one ${runId}`;
@@ -1286,25 +1302,14 @@ test("the builder: a long notice keeps its tail and a fast save keeps its exit",
   await expect(page.getByRole("button", { name: "Draw", exact: true })).toBeVisible({ timeout: 30_000 });
 
   await test.step("a notice too long for one line wraps inside the stage; nothing is lost off the edge", async () => {
-    await page.route(`**/api/maps/${mapId}/sketches`, (route) =>
-      route.request().method() === "POST"
-        ? route.fulfill({
-            status: 500,
-            contentType: "application/json",
-            body: JSON.stringify({
-              error: { code: "internal", message: LONG_NOTICE },
-            }),
-          })
-        : route.continue(),
-    );
-    await page.getByRole("button", { name: "Draw", exact: true }).click();
-    const dock = page.getByRole("toolbar", { name: "Draw tools" });
-    await expect(dock).toBeVisible();
-    await dock.getByRole("button", { name: "Draw a polygon" }).click();
-    await page.mouse.click(700, 300);
-    await page.mouse.click(900, 300);
-    await page.mouse.click(800, 450);
-    await page.keyboard.press("Enter");
+    let intercepted = 0;
+    await page.route(`**/api/maps/${mapId}/sketches`, async route => {
+      if (route.request().method() !== "POST") return route.continue();
+      intercepted++;
+      await route.fulfill({ status: 500, json: { error: { code: "internal", message: LONG_NOTICE } } });
+    });
+    await drawPointOnStage(page);
+    await expect.poll(() => intercepted, { message: "the drawing save reaches the refusal route" }).toBe(1);
     await expectChipOn(page, "notice", "no spatial reference could be read");
 
     const read = await page.evaluate(() => {

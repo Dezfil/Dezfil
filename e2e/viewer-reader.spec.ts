@@ -1,3 +1,4 @@
+import { readThenWriteRequestSetup } from "./edit-basis";
 // A Viewer's map and workflow: the map opens in the reader inside the
 // workspace shell, with the map, legend and widgets and nothing that edits,
 // and no shortcut writes anything; a layer reading a dataset the Viewer
@@ -35,7 +36,7 @@ test("a Viewer reads the shared map and workflow and can change nothing", async 
       { name: "Parks", sql: `SELECT * FROM parks_${tag}` },
     ]);
     const recipe = (await (await ada.api.post("/api/recipes", { data: { name: `Staging ${tag}` } })).json()).recipe.id as string;
-    expect((await ada.api.post(`/api/recipes/${recipe}/steps`, { data: { operation: "sql_step", parameters: { name: `staged_${tag}`, sql: `SELECT * FROM roads_${tag}` } } })).status()).toBe(201);
+    expect((await readThenWriteRequestSetup(ada.api, `/api/recipes/${recipe}`, () => ({ method: "POST", path: `/api/recipes/${recipe}/steps`, options: { data: { operation: "sql_step", parameters: { name: `staged_${tag}`, sql: `SELECT * FROM roads_${tag}` } } } }))).status()).toBe(201);
     const projectId = await createProject(ada, `Survey ${tag}`, { addMaps: [map.id], addRecipes: [recipe], addTables: [roads.id] });
     await share(ada, projectId, vic, "viewer");
     await share(ada, projectId, eli, "editor");
@@ -44,7 +45,7 @@ test("a Viewer reads the shared map and workflow and can change nothing", async 
     await test.step("an Editor opens the map in the builder, with its undo and its name to edit", async () => {
       const page = await eli.context.newPage();
       await page.goto(`/maps/${map.id}`);
-      await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByRole("button", { name: /^Undo/ })).toBeVisible({ timeout: 30_000 });
       await expect(page.getByRole("button", { name: mapName, exact: true })).toBeVisible();
       await page.close();
     });
@@ -57,7 +58,7 @@ test("a Viewer reads the shared map and workflow and can change nothing", async 
       await page.goto(`/maps/${map.id}`);
       await expect(page.getByRole("button", { name: "Fit to data", exact: true })).toBeVisible({ timeout: 30_000 });
       await expect(page.getByRole("img", { name: `Shared by ${ada.name}`, exact: true })).toBeVisible();
-      for (const name of ["Undo", "Redo", "Preview", "Publish", "Published", mapName]) {
+      for (const name of [/^Undo/, /^Redo/, "Preview", "Publish", "Published", mapName]) {
         await expect(page.getByRole("button", { name, exact: true })).toHaveCount(0);
       }
       await expect(page.getByRole("textbox", { name: "Map name" })).toHaveCount(0);
@@ -113,7 +114,7 @@ test("a Viewer reads the shared map and workflow and can change nothing", async 
       await page.keyboard.press("Delete");
       await page.waitForTimeout(1_000);
       expect(writes.map((r) => `${r.method()} ${new URL(r.url()).pathname}`)).toEqual([]);
-      const refused = await vic.api.post(`/api/recipes/${recipe}/runs`, { data: {} });
+      const refused = await readThenWriteRequestSetup(vic.api, `/api/recipes/${recipe}`, () => ({ method: "POST", path: `/api/recipes/${recipe}/runs`, options: { data: {} } }));
       expect(refused.status()).toBe(403);
       expect(await refused.json()).toEqual(PERMISSION);
     });

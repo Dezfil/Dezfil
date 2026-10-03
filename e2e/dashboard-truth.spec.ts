@@ -212,11 +212,11 @@ test("dashboard answers are current, updating, or visibly failed — never silen
     layerId = await page.evaluate(async (mapId) => {
       const map = (await (
         await fetch(`/api/maps/${mapId}`, { cache: "no-store" })
-      ).json()) as { layers: { id: string }[] };
+      ).json()) as { editRevision: string; layers: { id: string }[] };
       const id = map.layers[0].id;
       const viz = await fetch(`/api/layers/${id}`, {
         method: "PATCH",
-        headers: { "content-type": "application/json" },
+        headers: { "X-Edit-Revision": map.editRevision, "content-type": "application/json" },
         body: JSON.stringify({
           viz: { type: "hexbin", cellKm: 5, aggregate: { fn: "count" } },
         }),
@@ -224,7 +224,7 @@ test("dashboard answers are current, updating, or visibly failed — never silen
       if (!viz.ok) throw new Error(await viz.text());
       const widgets = await fetch(`/api/maps/${mapId}`, {
         method: "PATCH",
-        headers: { "content-type": "application/json" },
+        headers: { "X-Edit-Revision": (await viz.json()).editRevision, "content-type": "application/json" },
         body: JSON.stringify({
           widgets: [
             {
@@ -319,7 +319,7 @@ test("dashboard answers are current, updating, or visibly failed — never silen
 
   await test.step("the map publishes", async () => {
     token = await page.evaluate(async (mapId) => {
-      const r = await fetch(`/api/maps/${mapId}/publish`, { method: "POST" });
+      const r = await (async function readThenWritePublicationSetup() { const basis = await (await fetch(`/api/maps/${mapId}`)).json(); return fetch(`/api/maps/${mapId}/publish`, { headers: { "X-Edit-Revision": basis.editRevision }, method: "POST" }); })();
       if (!r.ok) throw new Error(await r.text());
       return ((await r.json()) as { token: string }).token;
     }, mapIdOf(page));

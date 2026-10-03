@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -49,12 +50,12 @@ beforeEach(async () => {
   shareProject("bob", "P", [["ada", "viewer"]], [tables.bob.id]);
   const map = createMap(scopes.ada, "Survey");
   layers = {
-    mine: await createLayer(scopes.ada, map.id, { name: "Mine", sql: "SELECT * FROM roads" }),
-    theirs: await createLayer(scopes.ada, map.id, { name: "Theirs", sql: "SELECT * FROM bob.roads" }),
+    mine: await createLayer(scopes.ada, map.id, { name: "Mine", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
+    theirs: await createLayer(scopes.ada, map.id, { name: "Theirs", sql: "SELECT * FROM bob.roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
     listing: await createLayer(scopes.ada, map.id, {
       name: "Listing",
       sql: "SELECT r.* FROM roads r WHERE EXISTS (SELECT view_name FROM duckdb_views())",
-    }),
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
   };
 });
 afterEach(async () => {
@@ -128,7 +129,8 @@ describe("tile archives record what they drew", () => {
 describe("archives built before archives recorded their inputs", () => {
   it("are reclaimed when a dataset their owner's SQL names is deleted, on that owner's maps alone", async () => {
     // Bob's own map draws his `roads` by plain name.
-    const bobs = await createLayer(scopes.bob, createMap(scopes.bob, "Depot").id, { name: "His", sql: "SELECT * FROM roads" });
+    const depot = createMap(scopes.bob, "Depot");
+    const bobs = await createLayer(scopes.bob, depot.id, { name: "His", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: depot.id })?.editRevision });
     await buildAll();
     expect((await render(bobs, scopes.bob)).mode).toBe("tiled");
     await tileBuildsSettled();

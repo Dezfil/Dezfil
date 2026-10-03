@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { delegateCredential } from "@/lib/auth/delegation";
 import { requireRequestAuth } from "@/lib/auth/http";
@@ -105,13 +107,13 @@ describe.skipIf(!port)("the real bounded check renders the map", () => {
       viewport: { lng: LNG0, lat: LAT0, zoom: ZOOM, pitch: 0, bearing: 0 },
       customBasemap: { url: basemap.styleUrl, name: "Loopback", attribution: [{ label: "Loopback fixture" }] },
       legendCorner: "bottom-left",
-    });
-    kelp = (await createLayer(testAccountScope(), mapId, { name: "Kelp", sql: `SELECT * FROM ${table.name} WHERE kind = 'a'`, style: solid(KELP, 10) })).id;
-    amber = (await createLayer(testAccountScope(), mapId, { name: "Amber", sql: `SELECT * FROM ${table.name} WHERE kind = 'b'`, style: solid(AMBER, 10) })).id;
-    blue = (await createLayer(testAccountScope(), mapId, { name: "Blue", sql: `SELECT * FROM ${table.name} WHERE kind = 'c'`, style: solid(BLUE, 10) })).id;
-    await updateLayer(testAccountScope(), amber, { visible: false });
-    await updateLayer(testAccountScope(), blue, { filters: FILTER });
-    updateMap(testAccountScope(), mapId, { widgets: [{ id: "w-count", type: "formula", layerId: kelp, title: "Points", field: null, agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }] });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
+    kelp = (await createLayer(testAccountScope(), mapId, { name: "Kelp", sql: `SELECT * FROM ${table.name} WHERE kind = 'a'`, style: solid(KELP, 10) }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision })).id;
+    amber = (await createLayer(testAccountScope(), mapId, { name: "Amber", sql: `SELECT * FROM ${table.name} WHERE kind = 'b'`, style: solid(AMBER, 10) }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision })).id;
+    blue = (await createLayer(testAccountScope(), mapId, { name: "Blue", sql: `SELECT * FROM ${table.name} WHERE kind = 'c'`, style: solid(BLUE, 10) }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision })).id;
+    await updateLayer(testAccountScope(), amber, { visible: false }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(amber)?.mapId ?? "missing") })?.editRevision });
+    await updateLayer(testAccountScope(), blue, { filters: FILTER }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(blue)?.mapId ?? "missing") })?.editRevision });
+    updateMap(testAccountScope(), mapId, { widgets: [{ id: "w-count", type: "formula", layerId: kelp, title: "Points", field: null, agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }] }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     if (transportOnly) {
       const flat = encodePng({ width: 1024, height: 640, rgba: new Uint8Array(1024 * 640 * 4).fill(240) });
       const driver: RenderDriver = { launch: async () => ({ render: async () => ({ png: flat, consumed: JSON.stringify({ map: mapId, layers: [{ id: kelp, filters: [] }, { id: blue, filters: FILTER }], legend: { visible: true, corner: "bottom-left", order: [kelp, blue] }, widgets: ["w-count"], attribution: "Loopback fixture", failures: [] }) }), close: async () => {}, kill: () => {} }) };
@@ -140,14 +142,14 @@ describe.skipIf(!port)("the real bounded check renders the map", () => {
   it("the camera: the centred mark at the centre, and 200 pixels east once the stored view moves west", async () => {
     const { decoded } = await look();
     expect(count(decoded, around(512, 320), isColour(KELP))).toBeGreaterThan(120);
-    updateMap(testAccountScope(), mapId, { viewport: { lng: LNG0 - DLNG_200PX, lat: LAT0, zoom: ZOOM, pitch: 0, bearing: 0 } });
+    updateMap(testAccountScope(), mapId, { viewport: { lng: LNG0 - DLNG_200PX, lat: LAT0, zoom: ZOOM, pitch: 0, bearing: 0 } }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     try {
       const moved = await look();
       expect(moved.result.state.camera.lng).toBeCloseTo(LNG0 - DLNG_200PX, 6);
       expect(count(moved.decoded, around(712, 320), isColour(KELP))).toBeGreaterThan(120);
       expect(count(moved.decoded, around(512, 320), isColour(KELP))).toBe(0);
     } finally {
-      updateMap(testAccountScope(), mapId, { viewport: { lng: LNG0, lat: LAT0, zoom: ZOOM, pitch: 0, bearing: 0 } });
+      updateMap(testAccountScope(), mapId, { viewport: { lng: LNG0, lat: LAT0, zoom: ZOOM, pitch: 0, bearing: 0 } }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     }
   }, 120_000);
 
@@ -180,7 +182,7 @@ describe.skipIf(!port)("the real bounded check renders the map", () => {
     const shown = count(decoded, corner, isInk);
     expect(shown).toBeGreaterThan(50);
     expect(result.state.widgets).toEqual(["w-count"]);
-    updateMap(testAccountScope(), mapId, { widgets: [{ id: "w-count", type: "formula", layerId: kelp, title: "Points", field: null, agg: "count", aggField: null, unit: null, note: null, format: null, visible: false }] });
+    updateMap(testAccountScope(), mapId, { widgets: [{ id: "w-count", type: "formula", layerId: kelp, title: "Points", field: null, agg: "count", aggField: null, unit: null, note: null, format: null, visible: false }] }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     const hidden = await look();
     expect(hidden.result.state.widgets).toEqual([]);
     expect(count(hidden.decoded, corner, isInk)).toBeLessThan(shown / 4);

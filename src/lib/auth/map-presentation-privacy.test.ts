@@ -1,3 +1,5 @@
+import { withFixtureRevision } from "@/lib/test-support/edit-basis";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
@@ -34,10 +36,10 @@ const snapshot = () => ["maps", "layers", "map_history"].map(table => db.prepare
 it.each(["session", "token"])("keeps map basemaps and layer styles private to each %s owner, including admins", async kind => {
   for (const actor of actors) {
     const customBasemap = { url: `https://${actor}.test/private-style.json`, name: actor + " private basemap" };
-    const written = await writeMap(request(actor, `/api/maps/${maps[actor]}`, "PATCH", { basemap: "light", customBasemap }, kind), params(maps[actor]));
+    const written = await writeMap(withFixtureRevision(request(actor, `/api/maps/${maps[actor]}`, "PATCH", { basemap: "light", customBasemap }, kind), readEditRevision({ kind: "map", id: maps[actor] })?.editRevision), params(maps[actor]));
     expect(written.status).toBe(200); expect(await written.json()).toMatchObject({ customBasemap });
     const style = { ...defaultStyle(null), opacity: actor === "alice" ? 0.2 : actor === "bob" ? 0.4 : 0.6 };
-    expect((await writeLayer(request(actor, `/api/layers/layer-${actor}`, "PATCH", { style }, kind), params(`layer-${actor}`))).status).toBe(200);
+    expect((await writeLayer(withFixtureRevision(request(actor, `/api/layers/layer-${actor}`, "PATCH", { style }, kind), readEditRevision({ kind: "map", id: maps[actor] })!.editRevision!), params(`layer-${actor}`))).status).toBe(200);
     expect(await (await readLayer(request(actor, `/api/layers/layer-${actor}`, "GET", undefined, kind), params(`layer-${actor}`))).json()).toMatchObject({ style });
   }
   expect(inspection).toHaveBeenCalledTimes(3); inspection.mockClear();

@@ -1,3 +1,5 @@
+import { withFixtureRevision } from "@/lib/test-support/edit-basis";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { randomUUID } from "node:crypto";
@@ -131,18 +133,18 @@ for (const interleaved of [false, true]) it(`undo and redo preserve two confirma
     reply(tool("update_map", { id: mapId, name: "Before pause" }), tool("publish_map", { id: mapId })),
     reply(tool("update_map", { id: mapId, name: "Between pauses" }), tool("unpublish_map", { id: mapId })),
     reply(tool("update_map", { id: mapId, name: "After pauses" })), reply(),
-  ]);
+  ], { context: { page: "builder", mapId, selectedLayerId: null } });
   expect((await map(mapId)).name).toBe("Before pause");
-  if (interleaved) await dispatch(req(`/api/maps/${mapId}`, { name: "Manual edit" }, "PATCH"));
+  if (interleaved) await dispatch(withFixtureRevision(req(`/api/maps/${mapId}`, { name: "Manual edit" }, "PATCH"), readEditRevision({ kind: "map", id: mapId })?.editRevision));
   const first = await resolve(id); await events(first.response);
   expect((await map(mapId)).name).toBe("Between pauses");
   const second = await resolve(id); expect(second.action.id).not.toBe(first.action.id); await events(second.response);
   expect((await map(mapId)).name).toBe("After pauses"); expect((await read(id)).state).toBe("completed");
   expect(provider.recording.exchanges).toHaveLength(1);
   const undoNames = interleaved ? ["Manual edit", "Before pause", "Original"] : ["Original"];
-  for (const name of undoNames) { await dispatch(req(`/api/maps/${mapId}/undo`, {})); expect((await map(mapId)).name).toBe(name); }
+  for (const name of undoNames) { await dispatch(withFixtureRevision(req(`/api/maps/${mapId}/undo`, {}), readEditRevision({ kind: "map", id: mapId })!.editRevision!)); expect((await map(mapId)).name).toBe(name); }
   const redoNames = interleaved ? ["Before pause", "Manual edit", "After pauses"] : ["After pauses"];
-  for (const name of redoNames) { await dispatch(req(`/api/maps/${mapId}/redo`, {})); expect((await map(mapId)).name).toBe(name); }
+  for (const name of redoNames) { await dispatch(withFixtureRevision(req(`/api/maps/${mapId}/redo`, {}), readEditRevision({ kind: "map", id: mapId })!.editRevision!)); expect((await map(mapId)).name).toBe(name); }
 });
 
 it("the whole-turn budget spans two recovered pauses", async () => {
@@ -150,7 +152,7 @@ it("the whole-turn budget spans two recovered pauses", async () => {
   const mapId = await seedMap();
   const { id, provider } = await start([
     reply(tool("update_map", { id: mapId, name: "First" }), tool("publish_map", { id: mapId }), tool("unpublish_map", { id: mapId }), tool("update_map", { id: mapId, name: "Forbidden fourth" })),
-  ]);
+  ], { context: { page: "builder", mapId, selectedLayerId: null } });
   await events((await resolve(id)).response);
   expect(await read(id)).toMatchObject({ state: "awaiting_confirmation" });
   expect((await events((await resolve(id)).response)).at(-1)).toEqual({ type: "done", reason: "budget" });
@@ -188,7 +190,7 @@ it("real read-only POST and conditional plan events declare no mutation", async 
 it("a mutation returning 500 after its write stays uncertain and reconciles the builder", async () => {
   const mapId = await seedMap();
   failMapAfterWrite = true;
-  const { id } = await start([reply(tool("update_map", { id: mapId, name: "Written before 500" })), reply()]);
+  const { id } = await start([reply(tool("update_map", { id: mapId, name: "Written before 500" })), reply()], { context: { page: "builder", mapId, selectedLayerId: null } });
   const receipt = await read(id);
   expect((await map(mapId)).name).toBe("Written before 500");
   expect(receipt.actions).toEqual([expect.objectContaining({ tool: "update_map", status: "uncertain",

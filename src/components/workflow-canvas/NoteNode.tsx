@@ -7,6 +7,7 @@ import { useNoteActions } from "./note-actions";
 import { NOTE_MIN } from "./note-geometry";
 import { NOTE_TEXT_MAX, noteOpeningText, notePlaceholder, readNoteText } from "./note-text";
 import type { NoteFlowNode } from "./to-flow";
+import { UnsavedMark } from "../builder/UnsavedFields";
 import styles from "./NoteNode.module.css";
 
 /**
@@ -53,9 +54,9 @@ export function NoteNode({ id, data, selected, dragging }: NodeProps<NoteFlowNod
         lineClassName={styles.line}
         onResizeEnd={(_e, p) => actions.resized(note.id, { x: p.x, y: p.y, w: p.width, h: p.height })}
       />
-      {label ? (
+      {label || data.unsaved ? (
         <span className={styles.label} data-note-label>
-          {label}
+          {label}{data.unsaved && <UnsavedMark />}
         </span>
       ) : null}
       {editing ? (

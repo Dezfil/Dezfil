@@ -1,7 +1,7 @@
 import type { ToolDef } from './tools';
 
 /** Route arguments solely by their documented locations. Explicit owner
- * headers take precedence, so the assistant's turn stamp cannot be replaced.
+ * headers take precedence, so a loop-owned per-call basis cannot be replaced.
  */
 export function toolRequest(tool: ToolDef, args: Record<string, unknown>, baseUrl: string, headers?: Record<string, string>, signal?: AbortSignal) {
   let apiPath = tool.path;

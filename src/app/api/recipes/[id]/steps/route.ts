@@ -1,7 +1,10 @@
+import { EDIT_REVISION_HEADER } from "@/lib/edit-basis";
+import { requireDocumentRevision } from "@/lib/metadata/revisions";
+import { revisionEnvelope } from "@/lib/metadata/document-results";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { requireWorkflowEdit } from "@/lib/workflow-access";
 import { NextResponse } from "next/server";
-import { ApiError, errorResponse } from "@/lib/api/errors";
+import { errorResponse } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
 import {
   addStep,
@@ -44,6 +47,8 @@ export async function POST(request: Request, { params }: Params) {
     const scope = requireRequestScope(request);
     const { id } = await params;
     requireWorkflowEdit(scope, id);
+    const options = { expectedRevision: request.headers.get(EDIT_REVISION_HEADER) };
+    requireDocumentRevision(scope, { kind: "workflow", id, ...options });
     const body = await jsonBody(request);
     const operation = findOperation(requireString(body, "operation"));
     const parameters =
@@ -71,8 +76,6 @@ export async function POST(request: Request, { params }: Params) {
     if (refusal) throw refusal;
     if (typeof parameters.name === "string") parameters.name = registeredOutputName(parameters.name);
     const existing = listSteps(scope, id, db);
-    const stamp = (list: RecipeStep[]) => list.map((s) => `${s.id}:${s.ordinal}:${s.updatedAt}`).join("|");
-    const before = stamp(existing);
     // What the new step would read, resolved before anything is written:
     // the backward-only rule is enforced at the change, not at the run.
     const pending = {
@@ -97,19 +100,17 @@ export async function POST(request: Request, { params }: Params) {
     // Committed only if nothing moved under the checks — another edit may
     // have claimed the name or changed the order meanwhile.
     const step = db.transaction(() => {
-      if (stamp(listSteps(scope, id, db)) !== before) {
-        throw new ApiError("invalid_request", "This workflow changed while the node was being checked. Try again.", 409);
-      }
+      requireDocumentRevision(scope, { kind: "workflow", id, ...options }, db);
       const again = outputNameRefusal({ scope, db, recipeId: id, stepId: null, produced: null, typed: parameters.name });
       if (again) throw again;
       recheckSaved(scope, saved);
-      const added = addStep(scope, id, { operation: operation.id, parameters, origin }, db);
+      const added = addStep(scope, id, { operation: operation.id, parameters, origin }, db, options);
       // Accepted, so the recipe is edited.
       touchRecipe(scope, id, db);
       return added;
     })();
     return NextResponse.json(
-      { step: stepPayload(await readStep(scope, id, step.id)) },
+      revisionEnvelope("step", stepPayload(await readStep(scope, id, step.id))),
       {
         status: 201,
         headers: { Location: `/api/recipes/${id}/steps/${step.id}` },

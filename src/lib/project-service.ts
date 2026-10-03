@@ -34,7 +34,7 @@ export function memberChange(raw: unknown): MemberChange {
     "addTables",
     "removeTables",
   ] as const;
-  const change: MemberChange = {};
+  const change: MemberChange = { ...(body.expectedRevisions === undefined ? {} : { expectedRevisions: body.expectedRevisions }) };
   for (const key of keys) {
     const value = body[key];
     if (value === undefined) continue;

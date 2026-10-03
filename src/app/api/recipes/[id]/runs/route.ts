@@ -79,6 +79,7 @@ export async function POST(request: Request, { params }: Params) {
         ...(fromStepId ? { fromStepId } : {}),
       });
       return NextResponse.json({
+        editRevision: plan.editRevision,
         plan: {
           kind: plan.kind,
           wide: plan.wide,
@@ -89,11 +90,12 @@ export async function POST(request: Request, { params }: Params) {
 
     const cascade = await startCascade(scope, {
       recipeId: id,
+      expectedRevision: request.headers.get("X-Edit-Revision"),
       ...(fromStepId ? { fromStepId } : {}),
       ...(members ? { members } : {}),
     });
     return NextResponse.json(
-      { run: cascadePayload(readCascade(scope, cascade.id)) },
+      { run: cascadePayload(readCascade(scope, cascade.id)), editRevision: cascade.editRevision },
       {
         status: 202,
         headers: { Location: `/api/recipes/${id}/runs/${cascade.id}` },

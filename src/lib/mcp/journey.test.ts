@@ -68,11 +68,11 @@ it('a declined listed mutation makes zero mutation requests and approval makes e
   const journey = await journeyClient(client, readSubject);
   const map = await journey.call('create_map', { name: 'Boundary owner' });
   const before = mutations.length;
-  const decline = await journey.gate('delete_map', { id: map.id }, false);
+  const decline = await journey.gate('delete_map', { id: map.id }, false, { editRevision: map.editRevision });
   expect(decline.target).toBe('Delete Boundary owner?'); expect(decline.consequence).toBe('This deletes the map and its layers and stops its published link.');
   expect(mutations.length).toBe(before);
   expect((await journey.call('get_map', { id: map.id })).name).toBe('Boundary owner');
-  await journey.gate('delete_map', { id: map.id }, true);
+  await journey.gate('delete_map', { id: map.id }, true, { editRevision: map.editRevision });
   expect(mutations.slice(before)).toEqual([`DELETE /api/maps/${map.id}`]);
   await journey.call('get_map', { id: map.id }, 'not_found');
 });
@@ -105,7 +105,7 @@ it('local search makes no external request; the listed external branches contact
       expect((await pollRun(journey.call, 'get_operation_run', { id: accepted.run.id })).state).toBe('succeeded');
     } else {
       const recipe = (await journey.call('create_recipe', { name: 'External branch' })).recipe;
-      await journey.call('add_recipe_step', { id: recipe.id, operation: 'geocode_addresses', parameters });
+      await journey.call('add_recipe_step', { id: recipe.id, operation: 'geocode_addresses', parameters, expected_revision: recipe.editRevision });
       const accepted = await journey.gate('run_recipe', { id: recipe.id }, true);
       expect((await pollRun(journey.call, 'get_recipe_run', { id: recipe.id, runId: accepted.body.run.id })).outcome).toBe('completed');
     }

@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -40,7 +41,7 @@ const SQL = `
 
 async function layerOf(sql = SQL) {
   const map = createMap(testAccountScope(), "extent");
-  const created = await createLayer(testAccountScope(), map.id, { name: "l", sql });
+  const created = await createLayer(testAccountScope(), map.id, { name: "l", sql }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   return getLayer(created.id)!;
 }
 

@@ -1,3 +1,6 @@
+import { metadataDb } from "@/lib/metadata/db";
+import { memberDocuments } from "@/lib/metadata/filing-recording";
+import { documentResults } from "@/lib/metadata/document-results";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
@@ -34,12 +37,16 @@ export async function POST(request: Request) {
     } catch {
       throw new ApiError("invalid_request", "Expected a JSON body.", 400);
     }
-    const created = createProject(scope, {
-      name: body.name,
-      note: body.note,
-      members: body.members === undefined ? undefined : memberChange(body.members),
-    });
-    return NextResponse.json(await projectOverview(scope, created.id), {
+    const members = body.members === undefined ? undefined : memberChange(body.members);
+    const { created, revisions } = metadataDb().transaction(() => {
+      const created = createProject(scope, {
+        name: body.name,
+        note: body.note,
+        members,
+      });
+      return { created, revisions: documentResults(scope, memberDocuments(members ?? {})) };
+    })();
+    return NextResponse.json({ ...await projectOverview(scope, created.id), revisions }, {
       status: 201,
       headers: { Location: `/api/projects/${created.id}` },
     });

@@ -1,3 +1,4 @@
+import { EDIT_REVISION_HEADER } from "@/lib/edit-basis";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
@@ -36,7 +37,7 @@ export async function POST(request: Request, { params }: Params) {
     const scope = requireRequestScope(request);
     const { id } = await params;
     const settings = await parsePublishBody(request);
-    return NextResponse.json(publishMap(scope, id, settings), { status: 201 });
+    return NextResponse.json(publishMap(scope, id, settings, { expectedRevision: request.headers.get(EDIT_REVISION_HEADER) }), { status: 201 });
   } catch (error) {
     return errorResponse(error);
   }
@@ -47,8 +48,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id } = await params;
-    unpublishMap(scope, id);
-    return new NextResponse(null, { status: 204 });
+    return NextResponse.json(unpublishMap(scope, id, { expectedRevision: _request.headers.get(EDIT_REVISION_HEADER) }));
   } catch (error) {
     return errorResponse(error);
   }

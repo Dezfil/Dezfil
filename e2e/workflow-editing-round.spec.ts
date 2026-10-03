@@ -1,3 +1,5 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
+import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { isAllowedConsoleError } from "./console-allowlist";
 import { seedCsv, trackConsole } from "./support";
@@ -26,20 +28,20 @@ const LOCK = "Canvas locked. Unlock to edit.";
 type Json = Record<string, unknown>;
 type Step = Json & { id: string; operation: string; parameters: Json; proposedParameters: Json | null; output: Json | null; reads: string[]; ordinal: number };
 
-async function api(page: Page, method: string, path: string, body?: unknown): Promise<Json> {
+async function api(page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<Json> {
   return page.evaluate(
-    async ({ method, path, body }) => {
-      const r = await fetch(path, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+    async ({ method, path, body, basis }) => {
+      const r = await fetch(path, { method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
       const text = await r.text();
       if (!r.ok) throw new Error(`${method} ${path} → ${r.status}: ${text}`);
       return text ? (JSON.parse(text) as Json) : {};
     },
-    { method, path, body },
+    { method, path, body, basis },
   );
 }
 const newRecipe = async (page: Page, name: string) => ((await api(page, "POST", "/api/recipes", { name })).recipe as { id: string }).id;
 const addStep = async (page: Page, id: string, operation: string, parameters: Json) =>
-  ((await api(page, "POST", `/api/recipes/${id}/steps`, { operation, parameters })).step as { id: string }).id;
+  ((await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps`, body: { operation, parameters } })).then(result => result.json)).step as { id: string }).id;
 const readRecipe = async (page: Page, id: string) => (await api(page, "GET", `/api/recipes/${id}`)).recipe as Json & { steps: Step[] };
 const readLayout = async (page: Page, id: string) =>
   (await api(page, "GET", `/api/recipes/${id}/layout`)).layout as Json & { steps: Record<string, { x: number; y: number }>; sources: Json; notes: Json[] };
@@ -84,7 +86,7 @@ function watchMutations(page: Page): { method: string; url: string }[] {
 /** Run the named Buffer and what follows it (the unnamed Buffer and the one
  * reading a vanished table cannot run): the Buffer then holds a last run. */
 async function runOnce(page: Page, id: string, from: string) {
-  await api(page, "POST", `/api/recipes/${id}/runs`, { fromStepId: from });
+  await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/runs`, body: { fromStepId: from } })).then(result => result.json);
   await expect.poll(async () => (await readRecipe(page, id)).steps.find((s) => s.id === from)?.output ?? null, { timeout: 40_000 }).not.toBeNull();
   await page.waitForTimeout(400);
 }

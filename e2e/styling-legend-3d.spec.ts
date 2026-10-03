@@ -199,7 +199,7 @@ test("opacity, polygon extrusion, legend editing, and the external-refresh contr
     // optimism (`saveSettled` alone can pass before the write even
     // renders its whisper).
     const undone = historyArrived(page, "undo");
-    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await page.getByRole("button", { name: /^Undo/ }).click();
     await undone;
     await saveSettled(page);
     // The external change (undo) landed while the editor is open: the
@@ -216,7 +216,7 @@ test("opacity, polygon extrusion, legend editing, and the external-refresh contr
     // Redo is the same contract from the other side: the editor field
     // returns to the redone committed label.
     const redone = historyArrived(page, "redo");
-    await page.getByRole("button", { name: "Redo", exact: true }).click();
+    await page.getByRole("button", { name: /^Redo/ }).click();
     await redone;
     await saveSettled(page);
     await expect(firstEntry).toHaveValue("Central");

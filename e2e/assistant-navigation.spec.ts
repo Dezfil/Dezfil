@@ -1,3 +1,5 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
+import type { EditBasis } from "../src/lib/edit-basis";
 // The conversation across the three pages (answer to its: one shared
 // conversation in the tab, carried by a pane every closed) and the parked
 // builder action resolved elsewhere (item 9, 9d.iv; item 11, 11g): a
@@ -38,13 +40,13 @@ const pane = (page: Page) => page.locator(PANE);
 const paneOpen = (page: Page) => expect(pane(page)).toHaveAttribute("data-open", "true");
 const paneClosed = (page: Page) => expect(pane(page)).toHaveAttribute("data-open", "false");
 type Json = Record<string, unknown>;
-async function api(page: Page, method: string, path: string, body?: unknown): Promise<Json> {
-  return page.evaluate(async ({ method, path, body }) => {
-    const r = await fetch(path, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+async function api(page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<Json> {
+  return page.evaluate(async ({ method, path, body, basis }) => {
+    const r = await fetch(path, { method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
     const text = await r.text();
     if (!r.ok) throw new Error(`${method} ${path} -> ${r.status}: ${text}`);
     return text ? JSON.parse(text) : {};
-  }, { method, path, body });
+  }, { method, path, body, basis });
 }
 async function seed(page: Page) {
   await page.setViewportSize({ width: 1440, height: H });
@@ -55,7 +57,7 @@ async function seed(page: Page) {
   const layerId = await addLayer(page, mapId, table, `SELECT * FROM ${table}`);
   const made = await api(page, "POST", "/api/recipes", { name: `nav workflow ${runId}` });
   const recipeId = (made.recipe as { id: string }).id;
-  await api(page, "POST", `/api/recipes/${recipeId}/steps`, { operation: "sql_step", parameters: { sql: `SELECT name FROM ${table}`, name: `${table}_one` } });
+  await readThenWriteBrowserSetup(page, `/api/recipes/${recipeId}`, () => ({ method: "POST", path: `/api/recipes/${recipeId}/steps`, body: { operation: "sql_step", parameters: { sql: `SELECT name FROM ${table}`, name: `${table}_one` } } })).then(result => result.json);
   return { mapId, layerId, recipeId, table };
 }
 async function onBuilder(page: Page, mapId: string) {

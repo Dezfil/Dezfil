@@ -1,5 +1,8 @@
 "use client";
 
+import { useContext } from "react";
+import { DocumentEditorContext } from "../../document-editor-context";
+import { UnsavedMark } from "../UnsavedFields";
 import { useCallback, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { readApiError } from "../../api";
@@ -78,6 +81,7 @@ export function CatalogWorkbench({
   errorMirrored = false,
   onCommit,
 }: Props) {
+  const editor = useContext(DocumentEditorContext);
   const editorHandle = useRef<SqlEditorHandle | null>(null);
   // A click that lands before the lazy editor chunk arrives writes the
   // draft only; the debt (focus, caret at end) settles on editor mount
@@ -206,7 +210,7 @@ export function CatalogWorkbench({
                 : "Add layer"}
           </button>
           {mode === "edit" && dirty && !busy && (
-            <span className={styles.dirtyMark}>edited</span>
+            <span className={styles.dirtyMark}>{editor?.sequence.stale ? <UnsavedMark /> : "edited"}</span>
           )}
         </div>
         {error !== null && (

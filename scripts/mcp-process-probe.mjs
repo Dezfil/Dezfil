@@ -22,8 +22,8 @@ export async function seedRestart(base, file) {
   const j = await connect(base);
   try {
     const recipe = (await j.call('create_recipe', { name: 'MCP process recovery' })).recipe;
-    const first = (await j.call('add_recipe_step', { id: recipe.id, operation: 'sql_step', parameters: { sql: slowSql('member'), name: 'mcp_interrupted_member' } })).step;
-    const second = (await j.call('add_recipe_step', { id: recipe.id, operation: 'sql_step', parameters: { sql: 'SELECT * FROM mcp_interrupted_member', name: 'mcp_interrupted_downstream' } })).step;
+    const first = (await j.call('add_recipe_step', { id: recipe.id, expected_revision: recipe.editRevision, operation: 'sql_step', parameters: { sql: slowSql('member'), name: 'mcp_interrupted_member' } })).step;
+    const second = (await j.call('add_recipe_step', { id: recipe.id, expected_revision: first.editRevision, operation: 'sql_step', parameters: { sql: 'SELECT * FROM mcp_interrupted_member', name: 'mcp_interrupted_downstream' } })).step;
     const cascade = (await j.gate('run_recipe', { id: recipe.id }, true)).body.run;
     const standalone = (await j.call('run_operation', { operation: 'sql_step', parameters: { sql: slowSql('standalone'), name: 'mcp_interrupted_standalone' } })).run;
     await until(() => j.call('get_operation_run', { id: standalone.id }), body => body.run.state === 'running', 'standalone running');

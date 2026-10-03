@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
@@ -61,7 +63,7 @@ const bob = () => testAccountScope(db, "bob");
 describe("layer update admission order", () => {
   it("refuses a layer outside the acting scope before any SQL is inspected", async () => {
     await expect(
-      updateLayer(bob(), layerId, { sql: "SELECT 2", style: BAD_STYLE, tooltip: ["nope"] }),
+      updateLayer(bob(), layerId, { sql: "SELECT 2", style: BAD_STYLE, tooltip: ["nope"] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision }),
     ).rejects.toMatchObject({ code: "not_found" });
     expect(effects.geometry).not.toHaveBeenCalled();
     expect(effects.fields).not.toHaveBeenCalled();
@@ -70,14 +72,14 @@ describe("layer update admission order", () => {
   it("inspects changed SQL before it validates the style", async () => {
     effects.geometry.mockRejectedValueOnce(SQL_REFUSAL);
     await expect(
-      updateLayer(alice(), layerId, { sql: "SELECT 2", style: BAD_STYLE, tooltip: ["nope"] }),
+      updateLayer(alice(), layerId, { sql: "SELECT 2", style: BAD_STYLE, tooltip: ["nope"] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision }),
     ).rejects.toBe(SQL_REFUSAL);
     expect(effects.fields).not.toHaveBeenCalled();
   });
 
   it("leaves SQL that did not change uninspected and refuses the style by its problem", async () => {
     await expect(
-      updateLayer(alice(), layerId, { sql: STORED_SQL, style: BAD_STYLE, tooltip: ["nope"] }),
+      updateLayer(alice(), layerId, { sql: STORED_SQL, style: BAD_STYLE, tooltip: ["nope"] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision }),
     ).rejects.toMatchObject({
       code: "invalid_request",
       message: "The style is not valid: opacity must be between 0 and 1.",
@@ -87,7 +89,7 @@ describe("layer update admission order", () => {
   });
 
   it("resolves the references a request introduces last", async () => {
-    await expect(updateLayer(alice(), layerId, { tooltip: ["nope"] })).rejects.toMatchObject({
+    await expect(updateLayer(alice(), layerId, { tooltip: ["nope"] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision })).rejects.toMatchObject({
       code: "column_unavailable",
       message: 'The tooltip references column "nope", which the layer\'s result does not provide.',
     });
@@ -98,7 +100,7 @@ describe("layer update admission order", () => {
 describe("layer create admission order", () => {
   it("refuses a map outside the acting scope before any SQL is inspected", async () => {
     await expect(
-      createLayer(bob(), mapId, { name: "Mine", sql: "SELECT 2", style: BAD_STYLE }),
+      createLayer(bob(), mapId, { name: "Mine", sql: "SELECT 2", style: BAD_STYLE }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision }),
     ).rejects.toMatchObject({ code: "not_found" });
     expect(effects.geometry).not.toHaveBeenCalled();
   });
@@ -106,13 +108,13 @@ describe("layer create admission order", () => {
   it("inspects the SQL before it validates the style", async () => {
     effects.geometry.mockRejectedValueOnce(SQL_REFUSAL);
     await expect(
-      createLayer(alice(), mapId, { name: "Mine", sql: "SELECT 2", style: BAD_STYLE }),
+      createLayer(alice(), mapId, { name: "Mine", sql: "SELECT 2", style: BAD_STYLE }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision }),
     ).rejects.toBe(SQL_REFUSAL);
   });
 
   it("refuses an invalid style by its problem before resolving its references", async () => {
     await expect(
-      createLayer(alice(), mapId, { name: "Mine", sql: "SELECT 2", style: BAD_STYLE }),
+      createLayer(alice(), mapId, { name: "Mine", sql: "SELECT 2", style: BAD_STYLE }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision }),
     ).rejects.toMatchObject({
       code: "invalid_request",
       message: "The style is not valid: opacity must be between 0 and 1.",

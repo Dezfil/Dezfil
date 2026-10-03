@@ -3,14 +3,12 @@
 import "@xyflow/react/dist/base.css";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  ReactFlow,
   ReactFlowProvider,
   useReactFlow,
   useUpdateNodeInternals,
   useStore,
   useViewport,
 } from "@xyflow/react";
-import { BadgeNode } from "./BadgeNode";
 import { CanvasMinimap } from "./CanvasMinimap";
 import { CanvasNotices, type CanvasNotice } from "./CanvasNotices";
 import { readMinimapChoice, writeMinimapChoice } from "./minimap-store";
@@ -20,21 +18,17 @@ import { canvasHelperLayout, fitHelper } from "./assistant-layout";
 import type { WorkflowAssistant } from "./WorkflowAssistantHost";
 import { RemovalDialog } from "./RemovalDialog";
 import { removalPlan } from "./removal-model";
+import { WorkflowStage } from "./WorkflowStage";
 import { CanvasStage } from "./CanvasStage";
-import { CanvasSaveStatus } from "./CanvasSaveStatus";
 import type { Whisper } from "./save-whisper";
-import { ConnectionLine, ReadEdge } from "./ReadEdge";
-import { SourceNode } from "./SourceNode";
 import type { OperationDef } from "@/lib/operations/catalog";
 import type { TableListing } from "../api";
-import { GRID, type Positions } from "./arrange";
+import { type Positions } from "./arrange";
 import { EditsContext } from "./edits-context";
 import { RunContext } from "./run-context";
 import { RunActionsProvider } from "./RunActionsProvider";
 import { CanvasResults } from "./CanvasResults";
-import { NoteNode } from "./NoteNode";
 import { NoteMenu } from "./NoteMenu";
-import { NoteActionsContext } from "./note-actions";
 import { NOTE_TOOL_LIMIT } from "./use-canvas-notes";
 import { useCanvasEditing, type HistoryChrome } from "./use-canvas-editing";
 import { usePageSelection } from "./use-page-selection";
@@ -56,8 +50,7 @@ import {
   type ReadFlowEdge,
 } from "./to-flow";
 import type { SaveState } from "./use-layout-saves";
-import { FAR_ZOOM, MAX_ZOOM, MINIMAP_AT, MIN_ZOOM, fitOptions } from "./view";
-import { CanvasGrid } from "./CanvasGrid";
+import { FAR_ZOOM, MINIMAP_AT } from "./view";
 import styles from "./WorkflowCanvas.module.css";
 
 export type { HistoryChrome };
@@ -74,25 +67,6 @@ export type { HistoryChrome };
  * This module draws; the interaction and edit wiring lives beside it in
  * use-canvas-editing.ts, behind the one gate the editing flags read.
  */
-
-const NODE_TYPES = { badge: BadgeNode, source: SourceNode, note: NoteNode };
-const EDGE_TYPES = { read: ReadEdge };
-const ARIA = {
-  "node.a11yDescription.default":
-    "Press Enter or Space to select. The arrow keys move a selected node; Escape clears the selection.",
-  "node.a11yDescription.keyboardDisabled": "Press Enter or Space to select.",
-  "node.a11yDescription.ariaLiveMessage": ({
-    direction,
-    x,
-    y,
-  }: {
-    direction: string;
-    x: number;
-    y: number;
-  }) => `Moved ${direction} to ${Math.round(x)}, ${Math.round(y)}.`,
-  "edge.a11yDescription.default": "",
-  "handle.ariaLabel": "Port",
-} as const;
 
 export interface WorkflowCanvasProps {
   id: string;
@@ -469,45 +443,14 @@ function Canvas({
         }}
         {...notesCtl.pane}
       >
-        <NoteActionsContext.Provider value={notesCtl.actions}>
-        <ReactFlow<FlowNode, ReadFlowEdge>
-          className={styles.flow}
-          nodes={stacked}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          nodeTypes={NODE_TYPES}
-          edgeTypes={EDGE_TYPES}
-          connectionLineComponent={ConnectionLine}
-          fitView
-          fitViewOptions={fitOptions(view, fitPanel, reserve, helperRight)}
-          minZoom={MIN_ZOOM}
-          maxZoom={MAX_ZOOM}
-          snapToGrid
-          snapGrid={[GRID, GRID]}
-          nodesDraggable={!gate.locked}
-          nodesConnectable={!gate.locked}
-          edgesFocusable={false}
-          edgesReconnectable={!gate.locked}
-          isValidConnection={isValidConnection}
-          onConnect={onConnect}
-          onConnectEnd={onConnectEnd}
-          onReconnectStart={onReconnectStart}
-          onReconnect={onReconnect}
-          onReconnectEnd={onReconnectEnd}
-          connectionRadius={24}
-          reconnectRadius={24}
-          deleteKeyCode={null}
-          multiSelectionKeyCode={null}
-          selectionOnDrag={false}
-          panOnDrag={!notesCtl.mode.on}
-          zIndexMode="manual"
-          proOptions={{ hideAttribution: true }}
-          ariaLabelConfig={ARIA}
-          aria-label="Workflow canvas"
+        <WorkflowStage
+          nodes={stacked} edges={edges} onNodesChange={onNodesChange}
+          view={view} panel={fitPanel} reserve={reserve} helperRight={helperRight}
+          locked={gate.locked} noteMode={notesCtl.mode.on} noteActions={notesCtl.actions}
+          isValidConnection={isValidConnection} onConnect={onConnect} onConnectEnd={onConnectEnd}
+          onReconnectStart={onReconnectStart} onReconnect={onReconnect} onReconnectEnd={onReconnectEnd}
+          whisper={whisper}
         >
-          <CanvasGrid />
-        </ReactFlow>
-        </NoteActionsContext.Provider>
         {overlays}
         <CanvasFurniture
           selected={selectedMember}
@@ -541,7 +484,7 @@ function Canvas({
           locked={lock.locked}
           onLock={lock.toggle}
         />
-        <CanvasSaveStatus whisper={whisper} />
+        </WorkflowStage>
         <CanvasNotices notice={notice} locked={lock.locked} onUnlock={lock.unlock} />
         {minimapShown ? <CanvasMinimap edges={graph.edges} /> : null}
         {empty ? (

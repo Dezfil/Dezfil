@@ -6,6 +6,7 @@ import type { OperationDef } from "@/lib/operations/catalog";
 import type { TableListing } from "../api";
 import { formatCount } from "../api";
 import { IconTable } from "../gallery-icons";
+import { RunInitiator } from "../sharing/RunInitiator";
 import { Button } from "../ui/Button";
 import { ExternalIcon } from "../ui/icons";
 import { BAND_DEFAULT, BAND_GAP, BAND_MIN, BAR_HEIGHT, COLLAPSE_BELOW, clampHeight, readBand, writeBand } from "./band-store";
@@ -330,7 +331,7 @@ export function ResultsBand({
               <ol className={styles.list} data-band-entries>
                 {entries.map((e) => (
                   <li key={e.id} className={styles.entry} data-lv={e.level} data-run-id={e.runId} data-step-id={e.stepId ?? undefined}>
-                    <span className={styles.ts}>{fmt.format(new Date(e.time))}</span>
+                    <span className={styles.ts}>{fmt.format(new Date(e.time))}{e.id.endsWith(":start") && <> · <RunInitiator actor={e.runner} /></>}</span>
                     <span className={styles.lv}>{e.level}</span>
                     <span className={styles.tx}>
                       {e.stepId && e.node && nodeExists(e.stepId) ? (

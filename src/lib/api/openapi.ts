@@ -1,3 +1,5 @@
+import { withAutomaticMethods } from "./openapi-methods";
+import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA, EDIT_REVISION_SCHEMA } from "./openapi-document-facts";
 import { SQL_POLICY, SQL_QUERY } from "./openapi-sql";
 import { PUBLICATION_ADMIN_PATHS, publicationAccess } from "./openapi-publications";
 import { resultAccess } from "./openapi-result-access";
@@ -47,7 +49,7 @@ import { RECIPE_DEPENDENCY_SCHEMAS, RECIPE_SCHEMAS } from "./openapi-recipe-sche
 
 export function buildOpenApiDocument() {
   const settings = settingsContract();
-  return withRequestPolicy({
+  return withRequestPolicy(withAutomaticMethods({
     openapi: "3.1.0",
     info: {
       title: "Dezfil API",
@@ -66,7 +68,16 @@ export function buildOpenApiDocument() {
         "User SQL reads named datasets only; direct or indirect file reads and path discovery are refused. " +
         "Cookie mutations require the same trusted Origin. Identity-bearing responses, " +
         "including authentication refusals, are private, no-store. Only entry, readiness " +
-        "and the token-scoped read-only published projection permit anonymous access.",
+        "and the token-scoped read-only published projection permit anonymous access. " +
+        "Maps and workflows have one durable editRevision, paired with state on document, child and list reads. " +
+        "Covered writes require X-Edit-Revision (MCP expected_revision); order writes and chain the accepted JSON result. " +
+        "Missing or malformed revisions return 400 invalid_request. Stale revisions return 409 stale_revision: This item has changed. Reload it before trying again. " +
+        "Refusal changes nothing. Reload explicitly and compose a new edit, never replay an old payload under a fresh token. " +
+        "This breaks unversioned writers and clients expecting bodyless covered successes. Whole-document deletion has no surviving revision. " +
+        "Viewport-only saves, informational thumbnail revisions and run cancellation keep their documented exceptions. " +
+        "Attribution names the last accepted actor, not the owner; legacy authors can be unknown. Shared map undo retains original authors. " +
+        "Run starts use the plan revision; admitted runs track executable definitions, preserving concurrent layout and lifecycle changes. " +
+        "Unsupported methods on documented paths return 405 method_not_allowed with an exact Allow header after authentication. HEAD is bodyless and OPTIONS reports Allow.",
     },
     tags: [
       { name: "Accounts", description: "Local accounts and authentication." },
@@ -2353,6 +2364,7 @@ export function buildOpenApiDocument() {
             "Per-layer statement of the effective published field set" +
             ".",
           properties: {
+            ...DOCUMENT_FACT_PROPERTIES,
             layers: {
               type: "array",
               items: {
@@ -2582,7 +2594,9 @@ export function buildOpenApiDocument() {
             },
           },
         },
+        EditRevisionResult: EDIT_REVISION_SCHEMA,
         PublishState: {
+          allOf: [DOCUMENT_FACT_SCHEMA],
           type: "object",
           properties: {
             token: { type: "string" },
@@ -2620,6 +2634,7 @@ export function buildOpenApiDocument() {
           description:
             "An active publication's authored settings.",
           properties: {
+            ...DOCUMENT_FACT_PROPERTIES,
             token: {
               type: "string",
               description:
@@ -2750,5 +2765,5 @@ export function buildOpenApiDocument() {
       },
     },
     "x-error-codes": ERROR_CATALOGUE,
-  });
+  }));
 }

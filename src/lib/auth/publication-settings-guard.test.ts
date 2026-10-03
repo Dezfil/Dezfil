@@ -1,3 +1,6 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
+import { withFixtureRevision } from "@/lib/test-support/edit-basis";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
@@ -100,7 +103,7 @@ const replay = (direction: "undo" | "redo"): Pick<Case, "load" | "method" | "url
   ({ load: route[direction], method: "POST", url: id => `/api/maps/${id}/${direction}`, id: "M" });
 async function changeFields(fields: string[] | null) {
   const { updateLayer } = await import("@/lib/layer-service");
-  await updateLayer(scope("ada"), "L", { publishedFields: fields });
+  await updateLayer(scope("ada"), "L", { publishedFields: fields }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer("L")?.mapId ?? "missing") })?.editRevision });
 }
 const cases: Case[] = [
   { field: "token", path: "publish (mint)", load: route.publish, method: "POST", url: id => `/api/maps/${id}/publish`, id: "N",
@@ -115,21 +118,21 @@ const cases: Case[] = [
   { field: "widget publication", path: "widget write", ...mapPatch({ widgets: [{ ...widget, title: "Total" }], widgetsPublished: false }),
     owned: { widgets: 0 } },
   { field: "widget publication", path: "map write with a rename", ...mapPatch({ name: "Renamed", widgetsPublished: false }), owned: { widgets: 0 } },
-  { field: "widget publication", path: "undo", ...replay("undo"), setup: async () => { updateMap(scope("ada"), "M", { widgetsPublished: false }); },
+  { field: "widget publication", path: "undo", ...replay("undo"), setup: async () => { updateMap(scope("ada"), "M", { widgetsPublished: false }, { expectedRevision: readEditRevision({ kind: "map", id: "M" })?.editRevision }); },
     owned: { widgets: 1 } },
   { field: "widget publication", path: "redo", ...replay("redo"),
-    setup: async () => { updateMap(scope("ada"), "M", { widgetsPublished: false }); await undoChange(scope("ada"), "M"); }, owned: { widgets: 0 } },
+    setup: async () => { updateMap(scope("ada"), "M", { widgetsPublished: false }, { expectedRevision: readEditRevision({ kind: "map", id: "M" })?.editRevision }); await undoChange(scope("ada"), "M", { expectedRevision: readEditRevision({ kind: "map", id: "M" })?.editRevision }); }, owned: { widgets: 0 } },
   { field: "widget publication", path: "undo of a grouped rename", ...replay("undo"),
-    setup: async () => { updateMap(scope("ada"), "M", { name: "Renamed", widgetsPublished: false }); }, owned: { widgets: 1 } },
+    setup: async () => { updateMap(scope("ada"), "M", { name: "Renamed", widgetsPublished: false }, { expectedRevision: readEditRevision({ kind: "map", id: "M" })?.editRevision }); }, owned: { widgets: 1 } },
   { field: "published fields", path: "layer write", ...layerPatch({ publishedFields: null }), owned: { fields: null } },
   { field: "published fields", path: "layer write with a rename", ...layerPatch({ name: "Streets", publishedFields: [] }), owned: { fields: "[]" } },
   { field: "published fields", path: "undo", ...replay("undo"), setup: () => changeFields(null), owned: { fields: '["v"]' } },
   { field: "published fields", path: "redo", ...replay("redo"),
-    setup: async () => { await changeFields(null); await undoChange(scope("ada"), "M"); }, owned: { fields: null } },
+    setup: async () => { await changeFields(null); await undoChange(scope("ada"), "M", { expectedRevision: readEditRevision({ kind: "map", id: "M" })?.editRevision }); }, owned: { fields: null } },
 ];
-async function call(c: Case, account: string, kind = "session") {
+async function call(c: Case, account: string, kind = "session", basis?: string | null) {
   const handler = (await c.load())[c.method] as Handler;
-  const response = await handler(input(account, c.url(c.id), c.method, c.body, kind), { params: Promise.resolve({ id: c.id }) });
+  const response = await handler(withFixtureRevision(input(account, c.url(c.id), c.method, c.body, kind), basis), { params: Promise.resolve({ id: c.id }) });
   const text = await response.text();
   return { status: response.status, body: text ? JSON.parse(text) as unknown : null };
 }
@@ -150,7 +153,7 @@ describe.each(cases)("$field through $path", c => {
   }
   it("is the owner's to change", async () => {
     await c.setup?.();
-    const response = await call(c, "ada");
+    const response = await call(c, "ada", "session", readEditRevision({ kind: "map", id: c.id === "L" ? "M" : c.id })?.editRevision);
     expect(response.status, JSON.stringify(response.body)).toBeLessThan(300);
     expect(settings().get(c.id === "L" ? "M" : c.id)).toMatchObject(c.owned);
   });

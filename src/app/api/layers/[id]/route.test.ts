@@ -1,3 +1,5 @@
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -31,7 +33,7 @@ beforeEach(async () => {
   const layer = await createLayer(testAccountScope(), map.id, {
     name: "l",
     sql: "SELECT * FROM points",
-  });
+  }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   layerId = layer.id;
 });
 
@@ -42,11 +44,11 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-function patch(body: unknown) {
+function patch(body: unknown, basis: string) {
   return PATCH(
     testAccountRequest(new Request(`http://test/api/layers/${layerId}`, {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "X-Edit-Revision": basis },
       body: JSON.stringify(body),
     })),
     { params: Promise.resolve({ id: layerId }) },
@@ -58,7 +60,7 @@ describe("column-list caps", () => {
 
   for (const surface of ["tooltip", "popup", "publishedFields"] as const) {
     it(`${surface} refuses entries beyond the documented cap`, async () => {
-      const response = await patch({ [surface]: oversized });
+      const response = await patch({ [surface]: oversized }, readEditRevision({ kind: "map", id: readEditLayer(layerId)!.mapId })!.editRevision!);
       expect(response.status).toBe(400);
       const body = (await response.json()) as {
         error: { code: string; message: string };
@@ -70,7 +72,7 @@ describe("column-list caps", () => {
 
   it("a list at the cap passes the edge and resolves semantically", async () => {
     const atCap = Array.from({ length: MAX_FIELD_LIST }, () => "name");
-    const response = await patch({ tooltip: atCap });
+    const response = await patch({ tooltip: atCap }, readEditRevision({ kind: "map", id: readEditLayer(layerId)!.mapId })!.editRevision!);
     expect(response.status).toBe(200);
   });
 });
@@ -84,7 +86,7 @@ describe("custom icon markup at the layer gate", () => {
         customSvg:
           '<svg viewBox="0 0 4 4"><path d="M0 0h4" onclick="x()"/></svg>',
       },
-    });
+    }, readEditRevision({ kind: "map", id: readEditLayer(layerId)!.mapId })!.editRevision!);
     expect(res.status).toBe(200);
     const layer = (await res.json()) as {
       viz: { customSvg: string };
@@ -100,10 +102,10 @@ describe("custom icon markup at the layer gate", () => {
         glyph: "cafe",
         customSvg: '<svg viewBox="0 0 4 4"><path d="M0 0h4"/></svg>',
       },
-    });
+    }, readEditRevision({ kind: "map", id: readEditLayer(layerId)!.mapId })!.editRevision!);
     const cleared = await patch({
       viz: { type: "icon", glyph: "cafe", customSvg: null },
-    });
+    }, readEditRevision({ kind: "map", id: readEditLayer(layerId)!.mapId })!.editRevision!);
     const layer = (await cleared.json()) as {
       viz: { glyph: string; customSvg: null };
     };
@@ -116,7 +118,7 @@ describe("custom icon markup at the layer gate", () => {
         glyph: "cafe",
         customSvg: '<svg viewBox="0 0 1 1"><script>x</script></svg>',
       },
-    });
+    }, readEditRevision({ kind: "map", id: readEditLayer(layerId)!.mapId })!.editRevision!);
     expect(hostile.status).toBe(400);
   });
 });

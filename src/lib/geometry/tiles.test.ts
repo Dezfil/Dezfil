@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -24,8 +25,8 @@ it("actual running tiles cannot publish after a geometry change; unrelated tiles
   const first=await setGeometry(testAccountScope(), t.name,geometryRevision(t),{format:"wkt",columns:["payload"]});
   await setGeometry(testAccountScope(), other.name,geometryRevision(other),{format:"wkt",columns:["payload"]});
   const map=createMap(testAccountScope(), "Tiles"), sql="SELECT * FROM points", otherSql="SELECT * FROM points_extra";
-  const layer=await createLayer(testAccountScope(), map.id,{name:"changed",sql});
-  const unrelated=await createLayer(testAccountScope(), map.id,{name:"unchanged",sql:otherSql});
+  const layer=await createLayer(testAccountScope(), map.id,{name:"changed",sql}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+  const unrelated=await createLayer(testAccountScope(), map.id,{name:"unchanged",sql:otherSql}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   const input=(id:string,statement:string)=>({layerId:id,sql:statement,filters:[],geometryColumn:"geometry",columns:["payload"],projection:""});
   ensureTiles(privateTileAccess(testAccountScope(), (input(unrelated.id,otherSql)).layerId), input(unrelated.id,otherSql)); await tileBuildsSettled();
   expect(getTileRecord(unrelated.id)).toMatchObject({state:"ready",error:null});

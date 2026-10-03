@@ -1,5 +1,6 @@
 import { DATASET_CONNECTION_MIGRATIONS } from "./migrations-datasets-connections";
 import { OWNERSHIP_MIGRATION, CONNECTION_NAMES_MIGRATION, DATASET_NAMES_MIGRATION } from "./migrations-ownership";
+import { REVISIONS_MIGRATION } from "./migrations-revisions";
 import { SHARING_MIGRATION } from "./migrations-sharing";
 
 export const MIGRATIONS: string[] = [
@@ -483,4 +484,5 @@ export const MIGRATIONS: string[] = [
   // Project sharing: SQL names, project people, SQL homes, the transfer gate,
   // run initiators and per-runner step outputs. Nothing is shared by it.
   SHARING_MIGRATION,
+  REVISIONS_MIGRATION,
 ];

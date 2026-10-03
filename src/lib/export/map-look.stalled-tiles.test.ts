@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { delegateCredential } from "@/lib/auth/delegation";
 import { requireRequestAuth } from "@/lib/auth/http";
@@ -100,8 +101,8 @@ describe.skipIf(!port)("the check outlives a stalled tile host", () => {
     updateMap(testAccountScope(), mapId, {
       viewport: { lng: 13.4, lat: 52.5, zoom: 12, pitch: 0, bearing: 0 },
       customBasemap: { url: basemap.styleUrl, name: "Stalling tiles", attribution: [{ label: "Stall fixture" }] },
-    });
-    await createLayer(testAccountScope(), mapId, { name: "Point", sql: `SELECT * FROM ${table.name}`, style: { fill: { type: "constant", color: { r: 26, g: 93, b: 74, a: 1 } }, fillOpacity: 1, stroke: { r: 0, g: 0, b: 0, a: 1 }, strokeOpacity: 1, strokeWidth: 0, pointRadius: 10, opacity: 1 } });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
+    await createLayer(testAccountScope(), mapId, { name: "Point", sql: `SELECT * FROM ${table.name}`, style: { fill: { type: "constant", color: { r: 26, g: 93, b: 74, a: 1 } }, fillOpacity: 1, stroke: { r: 0, g: 0, b: 0, a: 1 }, strokeOpacity: 1, strokeWidth: 0, pointRadius: 10, opacity: 1 } }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
   }, 120_000);
 
   afterAll(async () => { await basemap?.close(); vi.unstubAllEnvs(); });

@@ -1,3 +1,5 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
+import type { EditBasis } from "../src/lib/edit-basis";
 // Workflow folders on the Data page: each workflow with a current output
 // is one folder among the tables, opening to its outputs. The fixtures
 // are the API's own: two uploads, a workflow run twice over with a
@@ -41,19 +43,19 @@ function loadIds() {
 
 type Json = Record<string, unknown>;
 
-async function api(page: Page, method: string, path: string, body?: unknown): Promise<Json> {
+async function api(page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<Json> {
   return page.evaluate(
-    async ({ method, path, body }) => {
+    async ({ method, path, body, basis }) => {
       const r = await fetch(path, {
         method,
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
       const text = await r.text();
       if (!r.ok) throw new Error(`${method} ${path} → ${r.status}: ${text}`);
       return text ? (JSON.parse(text) as Json) : {};
     },
-    { method, path, body },
+    { method, path, body, basis },
   );
 }
 
@@ -63,14 +65,14 @@ async function newRecipe(page: Page, name: string, origin?: "builder"): Promise<
 }
 
 async function addSql(page: Page, id: string, sql: string, name: string): Promise<string> {
-  const added = await api(page, "POST", `/api/recipes/${id}/steps`, { operation: "sql_step", parameters: { sql, name } });
+  const added = await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps`, body: { operation: "sql_step", parameters: { sql, name } } })).then(result => result.json);
   return (added.step as { id: string }).id;
 }
 
 /** Run everything and wait for the run to settle; then every step that
  * ran has an output. */
 async function runAll(page: Page, id: string) {
-  await api(page, "POST", `/api/recipes/${id}/runs`);
+  await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/runs` })).then(result => result.json);
   await expect
     .poll(
       async () => {
@@ -144,7 +146,7 @@ test("folders: the fold, the facts, opening, sorting, search, filters, identity"
     // A rerun on a used directory: the fixed-name fixtures go first.
     const recipes = (await api(page, "GET", "/api/recipes")).recipes as { id: string; name: string }[];
     const fixed = new Set([FOLDER_NAME, ...Object.values(NAMES)]);
-    for (const r of recipes.filter((r) => fixed.has(r.name))) await api(page, "DELETE", `/api/recipes/${r.id}`);
+    for (const r of recipes.filter((r) => fixed.has(r.name))) await readThenWriteBrowserSetup(page, `/api/recipes/${r.id}`, () => ({ method: "DELETE", path: `/api/recipes/${r.id}` })).then(result => result.json);
     const present = new Set(((await api(page, "GET", "/api/tables")) as unknown as { name: string }[]).map((t) => t.name));
     for (const name of [F("out_a"), F("out_b"), F("out_c"), F("base")].filter((n) => present.has(n))) {
       await api(page, "DELETE", `/api/tables/${name}`);
@@ -369,7 +371,7 @@ test("folders: the fold, the facts, opening, sorting, search, filters, identity"
     await expect(folderCard(page, ids.orphan)).toBeVisible();
     await api(page, "DELETE", `/api/tables/${T("ident")}`);
     await seedCsv(page, T("ident"), "name,value\nreused,1\n");
-    await api(page, "DELETE", `/api/recipes/${ids.orphan}/steps/${ids.orphanStep}`);
+    await readThenWriteBrowserSetup(page, `/api/recipes/${ids.orphan}`, () => ({ method: "DELETE", path: `/api/recipes/${ids.orphan}/steps/${ids.orphanStep}` })).then(result => result.json);
     await page.reload();
     await expect(tableCard(page, T("ident"))).toBeVisible();
     await expect(folderCard(page, ids.ident)).toHaveCount(0);

@@ -1,3 +1,6 @@
+import { stepDefinitions } from "./workflow-definition";
+import { readThenWriteBrowserSetup } from "./edit-basis";
+import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Page, type Locator, type Request } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
@@ -23,26 +26,26 @@ const districts = `ed_districts_${runId}`; // polygons
 type Json = Record<string, unknown>;
 type Step = { id: string; ordinal: number; operation: string; parameters: Json; proposedParameters: Json | null; output: Json | null; latestAttempt: Json | null; reads: string[] };
 
-async function api(page: Page, method: string, path: string, body?: unknown): Promise<Json> {
+async function api(page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<Json> {
   return page.evaluate(
-    async ({ method, path, body }) => {
-      const r = await fetch(path, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+    async ({ method, path, body, basis }) => {
+      const r = await fetch(path, { method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
       const text = await r.text();
       if (!r.ok) throw new Error(`${method} ${path} → ${r.status}: ${text}`);
       return text ? (JSON.parse(text) as Record<string, unknown>) : {};
     },
-    { method, path, body },
+    { method, path, body, basis },
   );
 }
 const newRecipe = async (page: Page, name: string) => ((await api(page, "POST", "/api/recipes", { name })).recipe as { id: string }).id;
 const addStep = async (page: Page, id: string, operation: string, parameters: Json) =>
-  ((await api(page, "POST", `/api/recipes/${id}/steps`, { operation, parameters })).step as { id: string }).id;
+  ((await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps`, body: { operation, parameters } })).then(result => result.json)).step as { id: string }).id;
 const readRecipe = async (page: Page, id: string) => (await api(page, "GET", `/api/recipes/${id}`)).recipe as Json & { steps: Step[] };
 const readLayout = async (page: Page, id: string) => (await api(page, "GET", `/api/recipes/${id}/layout`)).layout as Json & { steps: Json; sources: Json };
 const tableNames = async (page: Page) =>
   (await page.evaluate(async () => ((await (await fetch("/api/tables")).json()) as { name: string }[]).map((t) => t.name))).sort();
 async function runAndWait(page: Page, id: string, stepId: string) {
-  await api(page, "POST", `/api/recipes/${id}/steps/${stepId}/run`);
+  await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps/${stepId}/run` })).then(result => result.json);
   await expect.poll(async () => (await readRecipe(page, id)).steps.find((s) => s.id === stepId)?.output, { timeout: 30_000 }).not.toBeNull();
 }
 function watchWrites(page: Page): Request[] {
@@ -172,7 +175,7 @@ test("adding, sources, linking through ports and the picker, the controls, the n
     await expect(member(page, stations)).toBeVisible();
     await expect(page.getByText("Saved", { exact: true })).toBeVisible();
     expect((await readLayout(page, id)).sources).toHaveProperty(stations);
-    expect((await readRecipe(page, id)).steps).toEqual(before.steps);
+    expect(stepDefinitions((await readRecipe(page, id)).steps)).toEqual(stepDefinitions(before.steps));
     await page.getByRole("button", { name: "Zoom in" }).click();
     const t0 = await viewportTransform(page);
     await pane(page).getByRole("button", { name: `${stations}, on canvas: centre the view on it` }).click();
@@ -215,7 +218,7 @@ test("adding, sources, linking through ports and the picker, the controls, the n
     const before = await readRecipe(page, id);
     await drag(page, outPort(member(page, cafes)), inPort(target));
     await expect(notice(page)).toContainText("holds no geometry");
-    expect((await readRecipe(page, id)).steps).toEqual(before.steps);
+    expect(stepDefinitions((await readRecipe(page, id)).steps)).toEqual(stepDefinitions(before.steps));
     await drag(page, outPort(member(page, stations)), inPort(target));
     await expect.poll(async () => (await readRecipe(page, id)).steps[0].parameters.input).toBe(stations);
     await expect(notice(page)).toContainText("Linked");
@@ -336,7 +339,7 @@ test("adding, sources, linking through ports and the picker, the controls, the n
     for (const bad of ["", "!!!", stations, "Result Buffer"]) {
       const r = await page.evaluate(
         async ({ id, stepId, bad }) => {
-          const res = await fetch(`/api/recipes/${id}/steps/${stepId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ parameters: { input: "x", distance: 1, name: bad } }) });
+          const res = await (async function readThenWriteWorkflowSetup() { const basis = await (await fetch(`/api/recipes/${id}`)).json(); return fetch(`/api/recipes/${id}/steps/${stepId}`, { method: "PATCH", headers: { "X-Edit-Revision": basis.editRevision, "content-type": "application/json" }, body: JSON.stringify({ parameters: { input: "x", distance: 1, name: bad } }) }); })();
           return { status: res.status, text: await res.text() };
         },
         { id, stepId, bad },

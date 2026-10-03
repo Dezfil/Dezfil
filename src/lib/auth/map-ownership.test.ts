@@ -1,3 +1,5 @@
+import { withFixtureRevision } from "@/lib/test-support/edit-basis";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
@@ -124,7 +126,7 @@ it.each(["session", "token"])("preserves each %s owner's read, edit, duplicate, 
   for (const account of accounts) {
     const id = ids[account], context = { params: Promise.resolve({ id }) };
     expect((await GET(input(account, `/api/maps/${id}`, "GET", undefined, kind), context)).status).toBe(200);
-    const edited = await PATCH(input(account, `/api/maps/${id}`, "PATCH", { name: `Edited ${account}`, ownerId: "someone-else" }, kind), context);
+    const edited = await PATCH(withFixtureRevision(input(account, `/api/maps/${id}`, "PATCH", { name: `Edited ${account}`, ownerId: "someone-else" }, kind), readEditRevision({ kind: "map", id: id })?.editRevision), context);
     expect(edited.status).toBe(200);
     const copy = await duplicate(input(account, `/api/maps/${id}/duplicate`, "POST", {}, kind), context);
     expect(copy.status).toBe(201);
@@ -132,12 +134,12 @@ it.each(["session", "token"])("preserves each %s owner's read, edit, duplicate, 
     expect(copied.layers).toHaveLength(1);
     expect(copied.layers[0].id).not.toBe(`layer-${account}`);
     expect(db.prepare("SELECT owner_id FROM maps WHERE id = ?").get(copied.id)).toEqual({ owner_id: account });
-    expect((await publication.DELETE(input(account, `/api/maps/${id}/publish`, "DELETE", undefined, kind), context)).status).toBe(204);
-    const published = await publication.POST(input(account, `/api/maps/${id}/publish`, "POST", { theme: "light" }, kind), context);
+    expect((await publication.DELETE(withFixtureRevision(input(account, `/api/maps/${id}/publish`, "DELETE", undefined, kind), readEditRevision({ kind: "map", id })?.editRevision), context)).status).toBe(200);
+    const published = await publication.POST(withFixtureRevision(input(account, `/api/maps/${id}/publish`, "POST", { theme: "light" }, kind), readEditRevision({ kind: "map", id })?.editRevision), context);
     expect(published.status).toBe(201);
     expect((await published.json()).token).not.toBe(`token-${account}`);
     expect((await publication.GET(input(account, `/api/maps/${id}/publish`, "GET", undefined, kind), context)).status).toBe(200);
-    expect((await DELETE(input(account, `/api/maps/${id}`, "DELETE", undefined, kind), context)).status).toBe(204);
+    expect((await DELETE(withFixtureRevision(input(account, `/api/maps/${id}`, "DELETE", undefined, kind), readEditRevision({ kind: "map", id: id })?.editRevision), context)).status).toBe(204);
     expect(db.prepare("SELECT id FROM maps WHERE id = ?").get(id)).toBeUndefined();
     expect(db.prepare("SELECT owner_id FROM maps WHERE id = ?").get(copied.id)).toEqual({ owner_id: account });
   }
@@ -151,7 +153,7 @@ it("rechecks deactivation after an asynchronous basemap inspection and preserves
     db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'alice'").run();
     return { url: "https://styles.example.test/style.json", name: null, attribution: [] };
   });
-  const response = await PATCH(input("alice", `/api/maps/${id}`, "PATCH", { name: "Late", customBasemap: {} }), context);
+  const response = await PATCH(withFixtureRevision(input("alice", `/api/maps/${id}`, "PATCH", { name: "Late", customBasemap: {} }), readEditRevision({ kind: "map", id: id })?.editRevision), context);
   expect(response.status).toBe(401);
   expect(snapshot()).toEqual(before);
   expect((await GET(input("admin", `/api/maps/${id}`), context)).status).toBe(404);
@@ -177,14 +179,14 @@ it("requires explicit service scopes and refuses hidden map identities before an
     const invalid = scope as Scope;
     for (const action of [...actions(invalid, ids.alice), () => service.allMaps(invalid),
       () => service.mapsOverview(invalid), () => listOwnedMaps(invalid, db)]) {
-      await expect(Promise.resolve().then(action)).rejects.toMatchObject({ code: "authentication_required", status: 401 });
+      await expect(Promise.resolve().then<unknown>(action)).rejects.toMatchObject({ code: "authentication_required", status: 401 });
     }
   }
   for (const account of accounts) {
     const scope = testAccountScope(db, account);
     for (const other of accounts.filter(id => id !== account)) {
       for (const action of actions(scope, ids[other])) {
-        await expect(Promise.resolve().then(action)).rejects.toMatchObject({ code: "not_found", status: 404 });
+        await expect(Promise.resolve().then<unknown>(action)).rejects.toMatchObject({ code: "not_found", status: 404 });
       }
     }
   }

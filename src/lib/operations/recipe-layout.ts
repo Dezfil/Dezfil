@@ -1,3 +1,5 @@
+import { documentFacts, type DocumentFacts } from "@/lib/metadata/document-facts";
+import { recordDocumentChanges, requireDocumentRevision } from "@/lib/metadata/revisions";
 import type { AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
@@ -32,10 +34,12 @@ import { normalizeLayout, pruneLayout } from "./layout-document";
 const stepIdsOf = (scope: AccountScope, recipeId: string, db: Database) =>
   new Set(listSteps(scope, recipeId, db).map((s) => s.id));
 
-export function readLayout(scope: AccountScope, recipeId: string, db: Database = metadataDb()): StoredLayout {
+export function readLayout(scope: AccountScope, recipeId: string, db: Database = metadataDb()): StoredLayout & DocumentFacts {
+  return db.transaction(() => {
   requireRecipe(scope, recipeId, db);
   const stored = getLayout(recipeId, db);
-  return { ...stored, document: pruneLayout(stored.document, stepIdsOf(scope, recipeId, db)) };
+  return { ...documentFacts({ kind: "workflow", id: recipeId }, db), ...stored, document: pruneLayout(stored.document, stepIdsOf(scope, recipeId, db)) };
+  })();
 }
 
 export function writeLayout(
@@ -43,27 +47,31 @@ export function writeLayout(
   recipeId: string,
   body: unknown,
   db: Database = metadataDb(),
-): StoredLayout {
+  options: { expectedRevision?: unknown } = {},
+): StoredLayout & DocumentFacts {
   return db.transaction(() => {
     // An edit, answered with the raw document: the owner's, the project
     // owner's or an editor's.
     requirePermitted(scope, "workflow", recipeId, "edit", db);
+    requireDocumentRevision(scope, { kind: "workflow", id: recipeId, expectedRevision: options.expectedRevision }, db);
     const stepIds = new Set(listRecipeSteps(recipeId, db).map((s) => s.id));
     const document = normalizeLayout(body, stepIds);
     const current = getLayout(recipeId, db);
     const seen = pruneLayout(current.document, stepIds);
     if (canonicalLayout(seen) === canonicalLayout(document)) {
-      return { document, updatedAt: current.updatedAt };
+      return { ...documentFacts({ kind: "workflow", id: recipeId }, db), document, updatedAt: current.updatedAt };
     }
     const written = putLayout(recipeId, document, db);
     touchRecipe(scope, recipeId, db);
-    return { document, updatedAt: written.updatedAt };
+    recordDocumentChanges(scope, [{ kind: "workflow", id: recipeId }], db);
+    return { ...documentFacts({ kind: "workflow", id: recipeId }, db), document, updatedAt: written.updatedAt };
   })();
 }
 
 /** What the layout routes put on the wire: the document and its write time. */
-export function layoutPayload(stored: StoredLayout) {
+export function layoutPayload(stored: StoredLayout & DocumentFacts) {
   return {
+    editRevision: stored.editRevision, lastChangedAt: stored.lastChangedAt, lastChangedBy: stored.lastChangedBy,
     steps: stored.document.steps,
     sources: stored.document.sources,
     notes: stored.document.notes,

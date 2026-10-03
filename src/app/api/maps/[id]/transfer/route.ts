@@ -17,7 +17,7 @@ export async function POST(request: Request, { params }: Params) {
       throw new ApiError("invalid_request", "Expected a JSON body.", 400);
     }
     const to = body !== null && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>).to : undefined;
-    return NextResponse.json(transferMap(scope, id, to));
+    return NextResponse.json(transferMap(scope, id, to, undefined, { expectedRevision: request.headers.get("X-Edit-Revision") }));
   } catch (error) {
     return errorResponse(error);
   }

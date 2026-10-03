@@ -1,3 +1,5 @@
+import { documentFacts } from "@/lib/metadata/document-facts";
+import { recordDocumentChanges, requireDocumentRevision } from "@/lib/metadata/revisions";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
 import { getLayer, getMap } from "@/lib/metadata/map-queries";
 import { listOwnedTables, updateOwnedTableData, deleteOwnedTable, ownedDependentLayerIds } from "@/lib/metadata/owned-tables";
@@ -147,6 +149,7 @@ export interface CreatedSketch {
   table: DataTable;
   layerId: string;
   layerName: string;
+  editRevision: string;
   featureId: string;
 }
 
@@ -186,11 +189,13 @@ export async function createSketch(
   scope: AccountScope,
   mapId: string,
   feature: unknown,
+  opts: { expectedRevision?: unknown } = {},
 ): Promise<CreatedSketch> {
   requireAccountScope(scope);
+  requirePermitted(scope, "map", mapId, "sketch");
+  requireDocumentRevision(scope, { kind: "map", id: mapId, expectedRevision: opts.expectedRevision });
   const refusal = sketchFeatureError(feature);
   if (refusal) throw new ApiError("invalid_sketch_feature", refusal, 400);
-  requirePermitted(scope, "map", mapId, "sketch");
   const map = getMap(mapId)!;
 
   const stored: StoredSketchFeature = {
@@ -205,6 +210,7 @@ export async function createSketch(
     const db = metadataDb();
     const created = db.transaction(() => {
       requirePermitted(scope, "map", mapId, "sketch", db);
+      requireDocumentRevision(scope, { kind: "map", id: mapId, expectedRevision: opts.expectedRevision }, db);
       const table = registerTable(
         scope,
         {
@@ -253,12 +259,14 @@ export async function createSketch(
         updatedAt: now,
       };
       insertLayer(layer, db);
+      recordDocumentChanges(scope, [{ kind: "map", id: mapId }], db);
       const params = { mapId, mapName: map.name, layerId: layer.id };
       setSourceParams({ name: table.name, id: table.id }, params, db);
       return {
         table: { ...table, sourceParams: params },
         layerId: layer.id,
         layerName: layer.name,
+        editRevision: documentFacts({ kind: "map", id: mapId }, db).editRevision,
       };
     })();
     return { ...created, featureId: stored.id };
@@ -447,6 +455,7 @@ function ownsMap(scope: AccountScope, mapId: string, db = metadataDb()): boolean
 }
 
 export interface CascadeResult {
+  editRevision?: string;
   layerId: string | null;
   mapId: string | null;
 }
@@ -464,7 +473,7 @@ export interface CascadeResult {
  * map: on one's own map the cascade stands, on anyone else's the layer stays
  * and fails by name for whoever opens it.
  */
-export async function cascadeDeleteSketch(scope: AccountScope, name: string, from: "layer" | "dataset" = "dataset"): Promise<CascadeResult> {
+export async function cascadeDeleteSketch(scope: AccountScope, name: string, from: "layer" | "dataset" = "dataset", opts: { expectedRevision?: unknown } = {}): Promise<CascadeResult> {
   const keyed = requireSketch(scope, name);
   return serialize(keyed.id, async () => {
     const fresh = requireSketch(scope, name);
@@ -481,7 +490,7 @@ export async function cascadeDeleteSketch(scope: AccountScope, name: string, fro
     // state. Snapshot before the registry row disappears.
     const dependents = ownedDependentLayerIds(scope, fresh.name);
     const db = metadataDb();
-    const { mapId, layerId } = db.transaction(() => {
+    const { mapId, layerId, editRevision } = db.transaction(() => {
       requireOwnedResource(scope, "dataset", fresh.id, db);
       let { mapId, layerId } = recorded;
       if (mapId && layerId) {
@@ -492,7 +501,10 @@ export async function cascadeDeleteSketch(scope: AccountScope, name: string, fro
         } else {
           const layer = getLayer(layerId, db);
           if (!map || !layer || layer.mapId !== mapId) throw resourceAbsent();
-          if (from === "layer") requirePermitted(scope, "layer", layerId, "edit", db);
+          if (from === "layer") {
+            requirePermitted(scope, "layer", layerId, "edit", db);
+            requireDocumentRevision(scope, { kind: "map", id: mapId, expectedRevision: opts.expectedRevision }, db);
+          }
         }
       }
       if (mapId && layerId) {
@@ -516,13 +528,14 @@ export async function cascadeDeleteSketch(scope: AccountScope, name: string, fro
           purgeStepsReferencing(mapId, layerId, db);
         }
         deleteLayer(layerId, db);
+        recordDocumentChanges(scope, [{ kind: "map", id: mapId }], db);
       }
       // The set the sketch leaves must notice (found at review): the
       // cascade removes the membership row but cannot advance the
       // project's clock.
       touchProjectsOf({ tableId: fresh.id }, db);
       deleteOwnedTable(scope, fresh, db);
-      return { mapId, layerId };
+      return { mapId, layerId, ...(mapId ? { editRevision: documentFacts({ kind: "map", id: mapId }, db).editRevision } : {}) };
     })();
     for (const dependent of new Set([...(layerId ? [layerId] : []), ...dependents]))
       await removeTileArtifacts(dependent);
@@ -534,6 +547,6 @@ export async function cascadeDeleteSketch(scope: AccountScope, name: string, fro
       );
     });
     retireArtifact(absOf(fresh.file));
-    return { layerId, mapId };
+    return { layerId, mapId, ...(editRevision ? { editRevision } : {}) };
   });
 }

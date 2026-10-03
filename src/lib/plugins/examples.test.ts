@@ -82,10 +82,10 @@ it('3b measurement: exact local area aggregation and 3-4-5 length', async () => 
 it('3a quantitative: stored field, method, palette, breaks, units and legend labels agree', async () => {
   expect((await run('quantitative')).preview.map((r: { area_ha: number }) => r.area_ha)).toEqual([0, 10, 20, 30, 40]);
   const map = await journey.call('create_map', { name: 'Quantitative example' });
-  const layer = await journey.call('create_layer', { id: map.id, name: 'Areas', sql: examples.get('quantitative') });
+  const layer = await journey.call('create_layer', { id: map.id, name: 'Areas', expected_revision: map.editRevision, sql: examples.get('quantitative') });
   const fill = await journey.call('compute_fill', { id: layer.id, attribute: 'area_ha', method: 'equal', palette: 'viridis', classes: 2 });
   expect(fill).toMatchObject({ type: 'quantile', attribute: 'area_ha', method: 'equal', palette: 'viridis', breaks: [20] });
-  await journey.call('update_layer', { id: layer.id, style: { ...layer.style, fill }, inLegend: true, legendTitle: 'Park area', legendAttrs: { fill: 'Area (ha)' }, legendLabels: ['Below 20 ha', '20 ha and above'] });
+  await journey.call('update_layer', { id: layer.id, expected_revision: layer.editRevision, style: { ...layer.style, fill }, inLegend: true, legendTitle: 'Park area', legendAttrs: { fill: 'Area (ha)' }, legendLabels: ['Below 20 ha', '20 ha and above'] });
   const stored = await journey.call('get_layer', { id: layer.id });
   expect(stored).toMatchObject({ inLegend: true, legendTitle: 'Park area', legendAttrs: { fill: 'Area (ha)' }, legendLabels: ['Below 20 ha', '20 ha and above'] });
   expect(stored.style.fill).toEqual(fill);
@@ -96,20 +96,21 @@ it('3a quantitative: stored field, method, palette, breaks, units and legend lab
 it('3a categorical: ten classes, fallback, corresponding labels and visibility', async () => {
   expect((await run('categorical')).rowCount).toBe(66);
   const map = await journey.call('create_map', { name: 'Category example' });
-  const layer = await journey.call('create_layer', { id: map.id, name: 'Kinds', sql: examples.get('categorical') });
+  const layer = await journey.call('create_layer', { id: map.id, name: 'Kinds', expected_revision: map.editRevision, sql: examples.get('categorical') });
   const fill = await journey.call('compute_fill', { id: layer.id, attribute: 'kind', method: 'categorical', palette: 'tab10' });
   expect(fill.type).toBe('categorical'); expect(fill.palette).toBe('tab10'); expect(fill.attribute).toBe('kind');
   expect(fill.map.map((e: { value: string }) => e.value)).toEqual(Array.from({ length: 10 }, (_, i) => `kind_${i + 1}`));
   expect(fill.other).toEqual({ r: 120, g: 130, b: 150, a: 0.55 });
   const labels = [...Array.from({ length: 10 }, (_, i) => `Kind ${i + 1}`), 'Other kinds'];
-  await journey.call('update_layer', { id: layer.id, style: { ...layer.style, fill }, inLegend: true, legendLabels: labels });
+  await journey.call('update_layer', { id: layer.id, expected_revision: layer.editRevision, style: { ...layer.style, fill }, inLegend: true, legendLabels: labels });
   const stored = await journey.call('get_layer', { id: layer.id }); expect(stored.style.fill).toEqual(fill); expect(stored.legendLabels).toEqual(labels);
   const entries = legendFor(stored.style)!.paints[0].entries;
   expect(entries.map(e => e.label)).toEqual([...Array.from({ length: 10 }, (_, i) => `kind_${i + 1}`), 'other']);
   expect(entries.at(-1)!.color).toEqual(fill.other);
-  await journey.call('update_layer', { id: layer.id, inLegend: false });
+  await journey.call('update_layer', { id: layer.id, expected_revision: stored.editRevision, inLegend: false });
   expect((await journey.call('get_layer', { id: layer.id })).inLegend).toBe(false);
-  await journey.call('update_map', { id: map.id, legendCorner: 'top-right', legendOrder: [layer.id] });
+  const shown = await journey.call('get_map', { id: map.id });
+  await journey.call('update_map', { id: map.id, legendCorner: 'top-right', legendOrder: [layer.id], expected_revision: shown.editRevision });
   expect(await journey.call('get_map', { id: map.id })).toMatchObject({ legendCorner: 'top-right', legendOrder: [layer.id] });
 });
 it('3b provenance: record the actual engine and spatial extension versions', async () => {

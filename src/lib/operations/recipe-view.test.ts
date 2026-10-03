@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -44,7 +45,7 @@ const sql = (query: string, name: string) => ({
 });
 
 async function publish(recipeId: string, stepId: string) {
-  const run = await startSingleRun(testAccountScope(), recipeId, stepId);
+  const run = await startSingleRun(testAccountScope(), recipeId, stepId, { expectedRevision: readEditRevision({ kind: "workflow", id: recipeId })?.editRevision });
   await cascadeSettled(run.id);
   const step = (await readRecipe(testAccountScope(), recipeId)).steps.find((candidate) => candidate.step.id === stepId);
   expect(step?.step.outputTableId).not.toBeNull();

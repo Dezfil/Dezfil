@@ -38,9 +38,9 @@ export async function POST(_request: Request, { params }: Params) {
     // A node's own run is one of the recipe's runs: one member, the same
     // lock, the same driver. Ordinary refusal removes it before the request
     // answers; accepted cancellation retains the listable exception.
-    const run = await startSingleRun(scope, id, stepId);
+    const run = await startSingleRun(scope, id, stepId, { expectedRevision: _request.headers.get("X-Edit-Revision") });
     return NextResponse.json(
-      { run: cascadePayload(readCascade(scope, run.id)) },
+      { run: cascadePayload(readCascade(scope, run.id)), editRevision: run.editRevision },
       {
         status: 202,
         headers: { Location: `/api/recipes/${id}/runs/${run.id}` },

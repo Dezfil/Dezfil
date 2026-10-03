@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { testAccountScope } from "@/lib/test-support/accounts";
@@ -29,13 +30,13 @@ export async function singleUserPublication(directory: string): Promise<string> 
   }
   const map = createMap(scope, "Survey");
   const layers = [
-    await createLayer(scope, map.id, { name: "Roads", sql: "SELECT * FROM roads" }),
-    await createLayer(scope, map.id, { name: "Stats", sql: "SELECT name, value, ST_Point(value, value) AS geom FROM main.stats" }),
-    await createLayer(scope, map.id, { name: "Lanes", sql: "SELECT * FROM query_table('roads') WHERE sentinel = 'lane'" }),
+    await createLayer(scope, map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
+    await createLayer(scope, map.id, { name: "Stats", sql: "SELECT name, value, ST_Point(value, value) AS geom FROM main.stats" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
+    await createLayer(scope, map.id, { name: "Lanes", sql: "SELECT * FROM query_table('roads') WHERE sentinel = 'lane'" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
   ];
   updateMap(scope, map.id, { widgets: [{ id: "count", type: "formula", layerId: layers[0].id, title: "Count", field: null,
-    agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }] });
-  const { token } = publishMap(scope, map.id);
+    agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+  const { token } = publishMap(scope, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   const call = async (load: () => Promise<Record<string, unknown>>, method: string, url: string, params: Record<string, string>) => {
     const response = await ((await load())[method] as Handler)(new Request(`http://instance.test${url}`, { method,
       headers: { "content-type": "application/json" }, ...(method === "POST" ? { body: "{}" } : {}) }), { params: Promise.resolve(params) });

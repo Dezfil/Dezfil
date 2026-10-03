@@ -4,6 +4,8 @@ import { getAccount } from "@/lib/metadata/accounts";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { authenticateSession, createApiToken, issueSession } from "@/lib/auth/credentials";
 import { socketRequest } from "./socket-request";
+import type { EditBasis } from "@/lib/edit-basis";
+import { fixtureHeaders } from "../../../../scripts/revision-fixtures.mjs";
 
 export const TEST_ACCOUNT_ID = "test-account";
 const credentials = new WeakMap<Database, string>();
@@ -15,9 +17,9 @@ const credentials = new WeakMap<Database, string>();
 const dispatched = new WeakMap<Request, Request>();
 
 /** A real account credential for existing route fixtures. No auth service is mocked. */
-export function authenticatedRequest(request = new Request("http://127.0.0.1:3000/api/assistant/runs", { method: "POST" })): Request {
+export function authenticatedRequest(request = new Request("http://127.0.0.1:3000/api/assistant/runs", { method: "POST" }), basis?: EditBasis): Request {
   if (!process.env.DEZFIL_DATA_DIR) throw new Error("Authenticated fixtures require a scratch DEZFIL_DATA_DIR");
-  const headers = new Headers(request.headers);
+  const headers = new Headers(fixtureHeaders(basis, request.headers));
   if (!headers.has("authorization") && !headers.has("cookie")) {
     const db = metadataDb();
     let secret = credentials.get(db);

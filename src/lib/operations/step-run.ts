@@ -1,3 +1,7 @@
+import { recordStepEdit } from "@/lib/metadata/workflow-recording";
+import { readDocumentRevision } from "@/lib/metadata/revisions";
+import { advanceCascadeExecutable } from "@/lib/metadata/cascades";
+import { matchesRunBasis } from "./run-basis";
 import { getStep as getReachedStep } from "@/lib/metadata/owned-recipes";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
@@ -57,6 +61,7 @@ import type { BoundInput } from "./materialize";
 /** What a step run needs to know before it starts. */
 export interface StepPublication {
   step: RecipeStep;
+  executableRevision: string;
   /** The parameters this run is executing — the proposal when there is one. */
   running: Record<string, unknown>;
   /** True when those parameters are a proposal awaiting promotion (G3). */
@@ -85,12 +90,13 @@ export function planPublication(scope: AccountScope, stepId: string): StepPublic
 
   const running = step.proposedParameters ?? step.parameters;
   const isProposal = step.proposedParameters !== null;
+  const executableRevision = readDocumentRevision({ kind: "workflow", id: step.recipeId })!.executableRevision!;
 
   const recorded = runnerOutput(step.id, runner);
   if (recorded) {
     const live = getOwnedTableByName(scope, recorded.name);
     if (live && live.id === recorded.id) {
-      return { step, running, isProposal, replaceTable: { id: live.id, name: live.name } };
+      return { step, running, isProposal, executableRevision, replaceTable: { id: live.id, name: live.name } };
     }
     // The name is taken by a *different* table: the step cannot restore its
     // own output without overwriting a stranger, and choosing between those is
@@ -106,7 +112,7 @@ export function planPublication(scope: AccountScope, stepId: string): StepPublic
     }
   }
 
-  return { step, running, isProposal };
+  return { step, running, isProposal, executableRevision };
 }
 
 /**
@@ -129,7 +135,7 @@ export function stepAuthorizer(
     table: { id: string; name: string },
     db: Database,
     inputs: BoundInput[],
-  ): boolean => {
+  ): boolean => db.transaction(() => {
     // Still the live attempt? A step deleted, or its recipe deleted, while the
     // run worked has no row here — and E10's fence says a lost attempt may
     // finish computing but may not publish.
@@ -149,6 +155,13 @@ export function stepAuthorizer(
     const runningNow = current.proposedParameters ?? current.parameters;
     if (JSON.stringify(runningNow) !== JSON.stringify(plan.running)) return false;
 
+    const mayRecord = isPermitted(scope, "step", plan.step.id, "run", db);
+    // An admitted active definition can still publish under the per-step
+    // fence. A proposal also changes the workflow, so that promotion must
+    // still belong to the admitted executable generation. Private completion
+    // makes no definition change and keeps its existing permission rules.
+    if (plan.isProposal && mayRecord && !matchesRunBasis(current.recipeId, plan.executableRevision, cascadeId, db)) return false;
+
     // A replacement must still be exactly this runner's recorded output.
     if (
       plan.replaceTable &&
@@ -163,7 +176,7 @@ export function stepAuthorizer(
 
     // Whether the output joins the workflow's record is decided by the
     // runner's standing now, not when the run was admitted.
-    if (isPermitted(scope, "step", plan.step.id, "run", db)) {
+    if (mayRecord) {
       // The runner's own row and the step's latest association, written together.
       recordOutput(
         plan.step.id,
@@ -186,7 +199,11 @@ export function stepAuthorizer(
         db,
       );
       // A proposal becomes the step's meaning only now that a run of it worked.
-      if (plan.isProposal) promoteProposal(plan.step.id, db);
+      if (plan.isProposal) {
+        const previous = readDocumentRevision({ kind: "workflow", id: current.recipeId }, db)!.executableRevision!;
+        recordStepEdit(scope, plan.step.id, () => promoteProposal(plan.step.id, db), db);
+        if (cascadeId) advanceCascadeExecutable(cascadeId, current.recipeId, previous, db);
+      }
     }
 
     if (cascadeId) {
@@ -200,5 +217,5 @@ export function stepAuthorizer(
     }
 
     return true;
-  };
+  })();
 }

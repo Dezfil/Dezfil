@@ -49,6 +49,7 @@ function FieldsSection({
       <SwitchRow
         className={styles.checkRow}
         checked={auto}
+        disabled={fields.length === 0}
         onChange={(e) =>
           onChange(
             e.target.checked

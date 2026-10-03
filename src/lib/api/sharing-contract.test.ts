@@ -1,3 +1,4 @@
+import { resourceOperations } from "../../../test-support/api-route-inventory";
 import { expect, it } from "vitest";
 import { buildOpenApiDocument } from "./openapi";
 import { AUTH_SECURITY } from "./openapi-auth";
@@ -92,7 +93,7 @@ it("documents transfer for a project, a map and a workflow, each the owner's alo
     expect(operation.description).toContain("Transfer is the only change of ownership");
     for (const status of ["400", "403", "404"]) expect(operation.responses, `${path} ${status}`).toHaveProperty(status);
     const transfer = tool(name);
-    expect(Object.keys(transfer.inputSchema.properties as object).sort()).toEqual(["id", "to"]);
+    expect(Object.keys(transfer.inputSchema.properties as object).sort()).toEqual(name === "transfer_project" ? ["id", "to"] : ["expected_revision", "id", "to"]);
     expect(transfer.confirm).toBe(true);
     expect(transfer.effects).toEqual({ readOnly: false, writes: [{ resource: written, argument: "id", collection: true }] });
     expect(transfer.mcp).toEqual({ destructiveHint: true, idempotentHint: false, openWorldHint: false });
@@ -130,7 +131,7 @@ it("documents the directory search as the one minimal exception to admin-only ac
   expect(person.additionalProperties).toBe(false);
   expect(JSON.stringify(find.outputSchema)).not.toMatch(/"(email|isAdmin|id|status)":/);
   for (const [path, methods] of Object.entries(paths).filter(([path]) => path.startsWith("/api/users"))) {
-    for (const users of Object.values(methods)) expect(users.description, path).toContain("Requires a current admin account");
+    for (const users of resourceOperations(methods)) expect(users.description, path).toContain("Requires a current admin account");
   }
 });
 

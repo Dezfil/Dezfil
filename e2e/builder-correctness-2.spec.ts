@@ -219,7 +219,7 @@ test("builder correctness II — the browser regressions", async ({
     const seeded = await page.evaluate(async (mapId) => {
       const map = (await (
         await fetch(`/api/maps/${mapId}`, { cache: "no-store" })
-      ).json()) as { layers: { id: string; style: Record<string, unknown> }[] };
+      ).json()) as { editRevision: string; layers: { id: string; style: Record<string, unknown> }[] };
       const id = map.layers[0].id;
       // A categorical fill so the legend has entries and a channel.
       const style = {
@@ -237,7 +237,7 @@ test("builder correctness II — the browser regressions", async ({
       };
       let r = await fetch(`/api/layers/${id}`, {
         method: "PATCH",
-        headers: { "content-type": "application/json" },
+        headers: { "X-Edit-Revision": map.editRevision, "content-type": "application/json" },
         body: JSON.stringify({
           style,
           filters: [{ kind: "timerange", field: "ts", min: null, max: null }],
@@ -246,7 +246,7 @@ test("builder correctness II — the browser regressions", async ({
       if (!r.ok) throw new Error(await r.text());
       r = await fetch(`/api/maps/${mapId}`, {
         method: "PATCH",
-        headers: { "content-type": "application/json" },
+        headers: { "X-Edit-Revision": (await r.json()).editRevision, "content-type": "application/json" },
         body: JSON.stringify({
           timeline: { layerId: id, field: "ts", speed: 1 },
           widgets: [
@@ -280,7 +280,7 @@ test("builder correctness II — the browser regressions", async ({
         }),
       });
       if (!r.ok) throw new Error(await r.text());
-      const pub = await fetch(`/api/maps/${mapId}/publish`, { method: "POST" });
+      const pub = await (async function readThenWritePublicationSetup() { const basis = await (await fetch(`/api/maps/${mapId}`)).json(); return fetch(`/api/maps/${mapId}/publish`, { headers: { "X-Edit-Revision": basis.editRevision }, method: "POST" }); })();
       if (!pub.ok) throw new Error(await pub.text());
       const { token } = (await pub.json()) as { token: string };
       return { id, token };
@@ -382,11 +382,11 @@ test("builder correctness II — the browser regressions", async ({
 
   await test.step("compact header controls expose their full accessible names at 1024×600", async () => {
     await page.setViewportSize({ width: 1024, height: 600 });
-    // The exact names, resolved through real accname computation — the
-    // visible text label is display:none at this width.
-    for (const name of ["Undo", "Redo"]) {
+    // Accessible names retain the action prefix while disclosing the target.
+    // The visible text label is display:none at this width.
+    for (const name of [/^Undo/, /^Redo/]) {
       await expect(
-        page.getByRole("button", { name, exact: true }),
+        page.getByRole("button", { name }),
       ).toBeVisible();
     }
     await expect(
@@ -786,7 +786,7 @@ test("builder correctness II — the browser regressions", async ({
 
     // Undo restores the widget — the deletion was one durable step.
     await expect(page.getByText("Saving…", { exact: true })).toBeHidden();
-    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await page.getByRole("button", { name: /^Undo/ }).click();
     await expect(card).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Saving…", { exact: true })).toBeHidden();
   });

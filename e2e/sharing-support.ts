@@ -1,3 +1,4 @@
+import { captureBasis, fixtureHeaders } from "../scripts/revision-fixtures.mjs";
 // People and shared projects for the sharing specs, arranged through the API.
 // Each spec makes its own people, invited by the browser fixture's admin with
 // a tag no other spec uses, so specs share one scratch store without meeting.
@@ -52,18 +53,22 @@ export async function uploadSentinel(person: Person, name: string, sentinel: str
 export async function createMapWithLayer(person: Person, mapName: string, layers: { name: string; sql: string }[]): Promise<{ id: string; layers: string[] }> {
   const map = await person.api.post("/api/maps", { data: { name: mapName } });
   expect(map.status()).toBe(201);
-  const id = (await map.json()).id as string;
+  const createdMap = await map.json();
+  const id = createdMap.id as string;
+  let basis = captureBasis(createdMap);
   const ids: string[] = [];
   for (const layer of layers) {
-    const created = await person.api.post(`/api/maps/${id}/layers`, { data: layer });
+    const created = await person.api.post(`/api/maps/${id}/layers`, { data: layer, headers: fixtureHeaders(basis) });
     expect(created.status(), await created.text()).toBe(201);
-    ids.push((await created.json()).id);
+    const accepted = await created.json();
+    basis = captureBasis(accepted);
+    ids.push(accepted.id);
   }
   return { id, layers: ids };
 }
 
 export async function createProject(person: Person, name: string, members: { addMaps?: string[]; addRecipes?: string[]; addTables?: string[] } = {}): Promise<string> {
-  const response = await person.api.post("/api/projects", { data: { name, members } });
+  const response = await readThenCreateFiledProjectSetup(person, name, members);
   expect(response.status(), await response.text()).toBe(201);
   return (await response.json()).id;
 }
@@ -82,4 +87,17 @@ export async function expectAbsentAlike(api: APIRequestContext, hiddenUrl: strin
 
 export async function closeAll(people: (Person | undefined)[]): Promise<void> {
   for (const person of people) await person?.context.close();
+}
+
+/** API fixture setup: read the chosen documents before forming the filing. */
+async function readThenCreateFiledProjectSetup(person: Person, name: string, selection: { addMaps?: string[]; addRecipes?: string[]; addTables?: string[] }) {
+  const expectedRevisions: Record<string, string> = {};
+  for (const [kind, ids] of [["map", selection.addMaps], ["workflow", selection.addRecipes]] as const) {
+    for (const id of ids ?? []) {
+      const read = await person.api.get(`/api/${kind === "map" ? "maps" : "recipes"}/${id}`);
+      expect(read.status()).toBe(200);
+      expectedRevisions[`${kind}:${id}`] = captureBasis(await read.json()).editRevision;
+    }
+  }
+  return person.api.post("/api/projects", { data: { name, members: { ...selection, expectedRevisions } } });
 }

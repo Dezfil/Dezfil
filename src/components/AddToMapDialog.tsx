@@ -1,5 +1,6 @@
 "use client";
 
+import { editHeaders } from "@/lib/edit-basis";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { MapOverview } from "./api";
@@ -111,13 +112,14 @@ export function AddToMapDialog({ subject, onClose }: Props) {
   }, [open, attempt]);
 
   const addTo = useCallback(
-    async (mapId: string | null) => {
+    async (selected: MapOverview | null) => {
       if (!subject) return;
       setBusy(true);
       setError(null);
       let createdMapId: string | null = null;
       try {
-        let id = mapId;
+        let id = selected?.id ?? null;
+        let editRevision = selected?.editRevision;
         if (id === null) {
           const created = await fetch("/api/maps", {
             method: "POST",
@@ -125,14 +127,16 @@ export function AddToMapDialog({ subject, onClose }: Props) {
             body: JSON.stringify({ name: "Untitled map" }),
           });
           if (!created.ok) throw new Error(await readApiError(created));
-          id = ((await created.json()) as { id: string }).id;
+          const map = await created.json() as { id: string; editRevision: string };
+          id = map.id;
+          editRevision = map.editRevision;
           createdMapId = id;
         }
         let landed: { id: string };
         try {
           const layer = await fetch(`/api/maps/${id}/layers`, {
             method: "POST",
-            headers: { "content-type": "application/json" },
+            headers: editRevision ? editHeaders({ editRevision }, { "content-type": "application/json" }) : { "content-type": "application/json" },
             body: JSON.stringify(landingRequest(subject, layerName)),
           });
           if (!layer.ok) throw new Error(await readApiError(layer));
@@ -147,6 +151,7 @@ export function AddToMapDialog({ subject, onClose }: Props) {
             try {
               const gone = await fetch(`/api/maps/${createdMapId}`, {
                 method: "DELETE",
+                headers: editRevision ? editHeaders({ editRevision }) : undefined,
               });
               if (!gone.ok) throw new Error(`HTTP ${gone.status}`);
             } catch (cleanupError) {
@@ -230,7 +235,7 @@ export function AddToMapDialog({ subject, onClose }: Props) {
               key={m.id}
               className={styles.card}
               disabled={busy}
-              onClick={() => void addTo(m.id)}
+              onClick={() => void addTo(m)}
             >
               <span className={`${gallery.strip} ${styles.strip}`}>
                 <MapStrip map={m} />

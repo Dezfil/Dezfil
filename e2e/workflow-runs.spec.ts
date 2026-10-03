@@ -1,3 +1,5 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
+import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import { isAllowedConsoleError } from "./console-allowlist";
 import { seedCsv, trackConsole } from "./support";
@@ -22,18 +24,18 @@ type Run = { id: string; kind: string; outcome: string | null; members: Member[]
 // The engine's own endless statement (its cascade tests hold the lane with it).
 const ENDLESS = "SELECT count(*) AS n FROM range(200000) a, range(200000) b WHERE (a.range * b.range) % 7 = 3";
 
-async function api(page: Page, method: string, path: string, body?: unknown): Promise<{ status: number; json: Json }> {
+async function api(page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<{ status: number; json: Json }> {
   return page.evaluate(
-    async ({ method, path, body }) => {
-      const r = await fetch(path, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+    async ({ method, path, body, basis }) => {
+      const r = await fetch(path, { method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
       const text = await r.text();
       return { status: r.status, json: text ? (JSON.parse(text) as Record<string, unknown>) : {} };
     },
-    { method, path, body },
+    { method, path, body, basis },
   );
 }
-const ok = async (page: Page, method: string, path: string, body?: unknown): Promise<Json> => {
-  const r = await api(page, method, path, body);
+const ok = async (page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<Json> => {
+  const r = await api(page, method, path, body, basis);
   if (r.status >= 400) throw new Error(`${method} ${path} → ${r.status}: ${JSON.stringify(r.json)}`);
   return r.json;
 };
@@ -46,7 +48,7 @@ const newRecipe = async (page: Page, name: string) => {
   return id;
 };
 const addSql = async (page: Page, id: string, sql: string, name: string) =>
-  ((await ok(page, "POST", `/api/recipes/${id}/steps`, { operation: "sql_step", parameters: { sql, name } })).step as { id: string }).id;
+  ((await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps`, body: { operation: "sql_step", parameters: { sql, name } } })).then(result => result.json)).step as { id: string }).id;
 const readRecipe = async (page: Page, id: string) => (await ok(page, "GET", `/api/recipes/${id}`)).recipe as Json & { steps: (Json & { id: string; conditions: string[]; proposedParameters: Json | null; output: Json | null })[] };
 const listRuns = async (page: Page, id: string) => (await ok(page, "GET", `/api/recipes/${id}/runs`)).runs as Run[];
 const readRun = async (page: Page, id: string, run: string) => (await ok(page, "GET", `/api/recipes/${id}/runs/${run}`)).run as Run;
@@ -381,11 +383,11 @@ test("a slow statement: waiting and running across the tiles, the unsettled memb
 
   await test.step("a second start while the run is in flight is refused by the API naming the run; the action here is Cancel", async () => {
     const live = (await listRuns(page, id))[0];
-    const second = await api(page, "POST", `/api/recipes/${id}/runs`);
+    const second = await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/runs` }));
     expect(second.status).toBe(409);
     expect(String((second.json.error as Json).code)).toBe("run_in_flight");
     expect(String((second.json.error as Json).message)).toContain(live.id);
-    const single = await api(page, "POST", `/api/recipes/${id}/steps/${aside}/run`);
+    const single = await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps/${aside}/run` }));
     expect(single.status).toBe(409);
     expect((await listRuns(page, id)).length).toBe(1);
     await expect(runAll(page)).toHaveCount(0);
@@ -429,7 +431,7 @@ test("a slow statement: waiting and running across the tiles, the unsettled memb
   });
 
   await test.step("a run started headlessly is found on open, and the outcome line follows it", async () => {
-    const started = await ok(page, "POST", `/api/recipes/${id}/steps/${slow}/run`);
+    const started = await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps/${slow}/run` })).then(result => result.json);
     const headless = (started.run as Run).id;
     await page.goto(`/workflows/${id}`);
     await settled(page);

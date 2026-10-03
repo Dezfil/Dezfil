@@ -1,3 +1,6 @@
+import { metadataDb } from "@/lib/metadata/db";
+import { filedDocuments } from "@/lib/metadata/filing-recording";
+import { documentResults } from "@/lib/metadata/document-results";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
@@ -51,8 +54,13 @@ export async function DELETE(_request: Request, { params }: Params) {
     const scope = requireRequestScope(_request);
     const { id } = await params;
     requirePermitted(scope, "project", id, "dissolve");
-    deleteProject(scope, id);
+    const revisions = metadataDb().transaction(() => {
+      const documents = filedDocuments(id, metadataDb());
+      deleteProject(scope, id);
+      return documentResults(scope, documents);
+    })();
     return NextResponse.json({
+      revisions,
       deleted: true,
       contentsRemain: true,
       message:

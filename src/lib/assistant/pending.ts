@@ -1,3 +1,4 @@
+import { withoutWriteRevision } from "./edit-revisions";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { ResolvedConfirmation } from "./action-metadata";
 import { ApiError } from "@/lib/api/errors";
@@ -25,6 +26,8 @@ export interface ParkedRun {
   /** Account binding only; the resolving request supplies a fresh credential. */
   accountId: string;
   confirmation?: ResolvedConfirmation;
+  /** The approved run plan retains its basis through the confirmation wait. */
+  runPlanRevision?: string;
   /** The map the gated change belongs to, read with the subject before
    * the pause, for a change whose response names no map. */
   historyMapId?: string;
@@ -79,7 +82,7 @@ export class PendingActionStore {
     void exchange;
     if (parkedBytes(data) > RECOVERY_LIMITS.liveBytes) recoveryLimit();
     const id = randomUUID();
-    this.parked.set(id, Object.freeze({ ...run, accountId }));
+    this.parked.set(id, Object.freeze({ ...run, headers: withoutWriteRevision(run.headers), accountId }));
     return id;
   }
 

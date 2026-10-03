@@ -19,7 +19,7 @@ vi.mock("../WorkflowThumb", () => ({ WorkflowThumb: () => null }));
 const ada = { name: "Ada Okafor", sqlName: "ada" };
 const bo = { name: "Bo Lindqvist", sqlName: "bo" };
 const map = (id: string, name: string, owner: typeof ada, projectId: string, updatedAt: string) =>
-  ({ id, name, owner, projectId, layerCount: 1, updatedAt, home: owner.sqlName }) as unknown as MapOverview;
+  ({ id, name, owner, projectId, layerCount: 1, updatedAt, lastChangedAt: updatedAt, lastChangedBy: owner, home: owner.sqlName }) as unknown as MapOverview;
 const roads = (id: string, owner: typeof ada, projectIds: string[], importedAt: string) =>
   ({
     id, name: "roads", qualifiedName: owner === bo ? "roads" : `${owner.sqlName}.roads`, owner, projectIds,

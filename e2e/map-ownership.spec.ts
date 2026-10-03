@@ -1,3 +1,4 @@
+import { readThenWriteRequestSetup } from "./edit-basis";
 import { randomUUID } from "node:crypto";
 import { test, expect, type BrowserContext } from "@playwright/test";
 
@@ -30,9 +31,9 @@ test("two ordinary accounts and an admin keep map lists and copied map URLs priv
       const created = await context.request.post("/api/maps", { data: { name } });
       expect(created.status()).toBe(201);
       maps.push(await created.json());
-      const layer = await context.request.post(`/api/maps/${maps.at(-1)!.id}/layers`, {
+      const layer = await readThenWriteRequestSetup(context.request, `/api/maps/${maps.at(-1)!.id}`, () => ({ method: "POST", path: `/api/maps/${maps.at(-1)!.id}/layers`, options: {
         data: { name: `Private layer ${randomUUID()}`, sql: "SELECT 1 AS value, ST_Point(13, 52) AS geom" },
-      });
+      } }));
       expect(layer.status()).toBe(201);
       layers.push(await layer.json());
     }
@@ -84,7 +85,7 @@ test("two ordinary accounts and an admin keep map lists and copied map URLs priv
       await expect(page.getByRole("textbox", { name: "Map name", exact: true })).toHaveValue(maps[i].name);
     }
   } finally {
-    for (let i = 0; i < maps.length; i++) await contexts[i].request.delete(`/api/maps/${maps[i].id}`);
+    for (let i = 0; i < maps.length; i++) await readThenWriteRequestSetup(contexts[i].request, `/api/maps/${maps[i].id}`, () => ({ method: "DELETE" }));
     for (const context of contexts) await context.close();
   }
 });

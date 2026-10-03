@@ -57,10 +57,7 @@ async function ownerOf(page: Page, output: string) {
 /** Re-run one step through its own endpoint and wait for it to settle. */
 async function rerunViaApi(page: Page, owner: { recipe: string; step: string }) {
   return page.evaluate(async ({ recipe, step }) => {
-    const accepted = await fetch(
-      `/api/recipes/${recipe}/steps/${step}/run`,
-      { method: "POST" },
-    );
+    const accepted = await (async function readThenWriteWorkflowSetup() { const basis = await (await fetch(`/api/recipes/${recipe}`)).json(); return fetch(`/api/recipes/${recipe}/steps/${step}/run`, { headers: { "X-Edit-Revision": basis.editRevision }, method: "POST" }); })();
     if (!accepted.ok) return `refused ${accepted.status}: ${await accepted.text()}`;
     // A step's own run is one of the recipe's runs: its one member's
     // job is the attempt to follow.

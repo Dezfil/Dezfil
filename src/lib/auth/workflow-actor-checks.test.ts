@@ -1,3 +1,5 @@
+import { withFixtureRevision } from "@/lib/test-support/edit-basis";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
@@ -122,9 +124,9 @@ const cases: Case[] = [
 ];
 const unfiled = (p: Params): Params => ({ id: "V", stepId: p.stepId === "S" ? "VS" : "VS2", runId: "VR" });
 const missing = (p: Params): Params => ({ id: "missing", stepId: p.stepId, runId: p.runId });
-async function call(c: Case, account: string, p: Params, kind = "session") {
+async function call(c: Case, account: string, p: Params, kind = "session", basis?: string | null) {
   const handler = (await c.load())[c.method] as Handler;
-  return handler(input(account, c.path(p), c.method, c.body, kind), { params: Promise.resolve(p) });
+  return handler(withFixtureRevision(input(account, c.path(p), c.method, c.body, kind), basis), { params: Promise.resolve(p) });
 }
 async function refusal(c: Case, account: string, p: Params, absent: Params) {
   const before = snapshot();
@@ -164,7 +166,7 @@ describe.each(cases)("$label", c => {
     const permitted = c.kind === "content" ? ["ada", "pat", "ed"] : ["ada"];
     for (const account of permitted) {
       it(`lets ${account} make it, answered with the view as they read it`, async () => {
-        const response = await call(c, account, c.params);
+        const response = await call(c, account, c.params, "session", readEditRevision({ kind: "workflow", id: c.params.id })?.editRevision);
         const body = await response.clone().json().catch(() => null) as { recipe?: { owner: unknown; home: string; projectId: string | null }; step?: { recipeId: string } } | null;
         expect(response.status, JSON.stringify(body)).toBe(c.status);
         expect(c.effect?.()).toEqual(c.expected);

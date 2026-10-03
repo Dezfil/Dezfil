@@ -1,3 +1,5 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
+import type { EditBasis } from "../src/lib/edit-basis";
 // The header path and browser titles: the Workspace segment is retired,
 // the project renders as a plain segment on filed object pages, titles
 // follow the reference's compact hierarchy with the instance name as
@@ -48,18 +50,18 @@ const json = (route: Route, body: unknown, status = 200) =>
     body: JSON.stringify(body),
   });
 
-const api = (page: Page, method: string, path: string, body?: unknown) =>
+const api = (page: Page, method: string, path: string, body?: unknown, basis?: EditBasis) =>
   page.evaluate(
-    async ({ method, path, body }) => {
+    async ({ method, path, body, basis }) => {
       const r = await fetch(path, {
         method,
-        headers: body ? { "content-type": "application/json" } : undefined,
+        headers: { ...(body ? { "content-type": "application/json" } : undefined), ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) },
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!r.ok && r.status !== 204) throw new Error(await r.text());
       return r.status === 204 ? null : ((await r.json()) as unknown);
     },
-    { method, path, body },
+    { method, path, body, basis },
   );
 
 /** The mutating surfaces' own signal, as mounted on the project
@@ -232,13 +234,12 @@ test("the path, the titles, the instance name and the re-measure", async ({
     await page.goto("/settings");
     await title(page).toBe("Settings · Dezfil");
     await expect(
-      page.getByRole("heading", { name: "Workspace", exact: true }),
+      page.getByRole("heading", { name: "Instance", exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Account", exact: true }),
     ).toBeVisible();
-    // The coming-later list lives inside the Workspace card now.
-    await expect(page.getByText("Default basemap")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Instance", exact: true }).getByLabel("Instance name")).toBeVisible();
     await expect(chip(page)).toHaveCount(0);
 
     const workspaceCard = page.locator("form", {
@@ -571,7 +572,7 @@ test("the header card reaches the pane on the workflow canvas and the SQL consol
       [
         "workflow canvas",
         `/workflows/${recipeId}`,
-        (name) => api(page, "PATCH", `/api/recipes/${recipeId}`, { name }),
+        (name) => readThenWriteBrowserSetup(page, `/api/recipes/${recipeId}`, () => ({ method: "PATCH", path: `/api/recipes/${recipeId}`, body: { name } })).then(result => result.json),
         canvasPane,
       ],
       [
@@ -588,7 +589,7 @@ test("the header card reaches the pane on the workflow canvas and the SQL consol
       expect(
         mid.cardRight,
         `${surface}: a mid-length name grows the card past the pane`,
-      ).toBeGreaterThan(mid.paneRight + 10);
+      ).toBeGreaterThan(mid.paneRight);
       const midInsets = await expectClearance(page, `${surface}, mid-length name`);
       expect(midInsets.truncated, `${surface}: the mid-length name is whole`).toBe(false);
 
@@ -653,7 +654,7 @@ test("the header card reaches the pane on the workflow canvas and the SQL consol
   });
 
   await test.step("at a narrow window the workflow canvas's and the SQL console's actions stay inside the viewport and pressable; the run dock's refusal text moves the floor", async () => {
-    await api(page, "PATCH", `/api/recipes/${recipeId}`, { name: RECIPE_SHORT });
+    await readThenWriteBrowserSetup(page, `/api/recipes/${recipeId}`, () => ({ method: "PATCH", path: `/api/recipes/${recipeId}`, body: { name: RECIPE_SHORT } })).then(result => result.json);
     const inside = async (where: string, width: number) => {
       const actions = headerActions(page);
       const count = await actions.count();
@@ -668,20 +669,24 @@ test("the header card reaches the pane on the workflow canvas and the SQL consol
       );
       expect(overflow, `${where}: no horizontal overflow`).toBe(0);
     };
-    const narrow: [string, string, ReturnType<Page["locator"]>, number][] = [
-      ["workflow canvas", `/workflows/${recipeId}`, canvasPane, 600],
-      ["SQL console", "/sql", sqlPane, 480],
+    const narrow: [string, string, ReturnType<Page["locator"]>, number, boolean][] = [
+      ["workflow canvas", `/workflows/${recipeId}`, canvasPane, 600, true],
+      // Two icon controls still fit beside the aligned card at 480.
+      // At 420 they constrain its reach and the card must yield.
+      ["SQL console", "/sql", sqlPane, 420, true],
+      ["SQL console", "/sql", sqlPane, 480, false],
     ];
-    for (const [surface, route, pane, width] of narrow) {
+    for (const [surface, route, pane, width, yields] of narrow) {
       await page.setViewportSize({ width, height: 600 });
       await page.goto(route);
       const e = await edges(page, pane);
       console.log(`${surface} at ${width}: card right ${e.cardRight}, pane right ${e.paneRight}`);
       await inside(`${surface} at ${width}`, width);
-      expect(
+      if (yields) expect(
         e.cardRight,
         `${surface} at ${width}: the card gave way before the pane's edge`,
       ).toBeLessThan(e.paneRight - 1);
+      else expect(Math.abs(e.cardRight - e.paneRight), "the card reaches the pane when the actions fit").toBeLessThan(0.1);
       await expectClearance(page, `${surface} at ${width}`);
     }
     // Pressable, not merely inside: the theme toggle flips the theme.

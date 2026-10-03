@@ -1,3 +1,5 @@
+import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
+import { recordDocumentChanges, requireDocumentRevision } from "@/lib/metadata/revisions";
 import { randomUUID } from "node:crypto";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireMapFor } from "./map-access";
@@ -17,6 +19,7 @@ import { POINTS_VIZ } from "@/lib/viz";
  * and move when the panel does. Recorded in the add's own gesture, so
  * one undo removes layer and slot together. */
 function enterArrangement(
+  scope: AccountScope,
   mapId: string,
   layerId: string,
   arrangement: string[],
@@ -32,18 +35,19 @@ function enterArrangement(
     before: { legendOrder: arrangement },
     after: { legendOrder: next },
     groupId,
-  });
+  }, metadataDb(), scope);
 }
 
 export async function createLayer(
   scope: AccountScope,
   mapId: string,
   input: { name: string; sql: string; style?: LayerStyle },
-  opts: { groupId?: string | null; signal?: AbortSignal } = {},
-): Promise<Layer> {
+  opts: { groupId?: string | null; signal?: AbortSignal; expectedRevision?: unknown } = {},
+): Promise<Layer & DocumentFacts> {
   // Admission (layer-admission.ts): the map under the acting scope, SQL
   // that draws geometry, and a given style valid with references the
   // result can honor.
+  requireDocumentRevision(scope, { kind: "map", id: mapId, expectedRevision: opts.expectedRevision });
   const { geometryType, saved } = await admitLayerCreate(scope, mapId, input, opts.signal);
   const now = new Date().toISOString();
   const ordinal = nextOrdinal(mapId);
@@ -70,14 +74,16 @@ export async function createLayer(
     createdAt: now,
     updatedAt: now,
   };
-  metadataDb().transaction(() => {
+  return metadataDb().transaction(() => {
     const arrangement = requireMapFor(scope, mapId, "edit").legendOrder;
     recheckSaved(scope, saved);
+    requireDocumentRevision(scope, { kind: "map", id: mapId, expectedRevision: opts.expectedRevision });
     layer.ordinal = nextOrdinal(mapId);
     const groupId = arrangement
       ? (opts.groupId ?? randomUUID())
       : opts.groupId;
     insertLayer(layer);
+    recordDocumentChanges(scope, [{ kind: "map", id: mapId }]);
     recordStep({
       mapId,
       scope: "layer",
@@ -86,10 +92,10 @@ export async function createLayer(
       before: null,
       after: layerImage(layer),
       groupId,
-    });
-    if (arrangement) enterArrangement(mapId, layer.id, arrangement, groupId);
+    }, metadataDb(), scope);
+    if (arrangement) enterArrangement(scope, mapId, layer.id, arrangement, groupId);
+    return { ...layer, ...documentFacts({ kind: "map", id: mapId }) };
   })();
-  return layer;
 }
 
 /** Duplicate a layer in place: full copy — SQL, style, tooltip, legend flag —
@@ -97,10 +103,11 @@ export async function createLayer(
 export function duplicateLayer(
   scope: AccountScope,
   id: string,
-  opts: { groupId?: string | null } = {},
-): Layer {
+  opts: { groupId?: string | null; expectedRevision?: unknown } = {},
+): Layer & DocumentFacts {
   return metadataDb().transaction(() => {
     const source = requireLayerFor(scope, id, "edit");
+    requireDocumentRevision(scope, { kind: "map", id: source.mapId, expectedRevision: opts.expectedRevision });
     const now = new Date().toISOString();
     const copy: Layer = {
       ...source,
@@ -115,6 +122,7 @@ export function duplicateLayer(
       ? (opts.groupId ?? randomUUID())
       : opts.groupId;
     insertLayer(copy);
+    recordDocumentChanges(scope, [{ kind: "map", id: source.mapId }]);
     recordStep({
       mapId: source.mapId,
       scope: "layer",
@@ -123,9 +131,9 @@ export function duplicateLayer(
       before: null,
       after: layerImage(copy),
       groupId,
-    });
+    }, metadataDb(), scope);
     if (arrangement)
-      enterArrangement(source.mapId, copy.id, arrangement, groupId);
-    return copy;
+      enterArrangement(scope, source.mapId, copy.id, arrangement, groupId);
+    return { ...copy, ...documentFacts({ kind: "map", id: source.mapId }) };
   })();
 }

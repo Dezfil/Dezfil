@@ -17,7 +17,7 @@ it("exposes a narrow authenticated revocation with identity-only confirmation an
 it("documents owner and pending-adoption query scopes without widening the anonymous operation set", () => {
   const document = buildOpenApiDocument() as unknown as { paths: Record<string, Record<string, { description: string }>> };
   for (const [path, methods] of Object.entries(document.paths).filter(([path]) => path.startsWith("/api/published/"))) {
-    for (const [method, operation] of Object.entries(methods)) {
+    for (const [method, operation] of Object.entries(methods).filter(([method]) => method !== "head" && method !== "options")) {
       expect(operation.description).toContain("pending-adoption publication scope");
       expect(operation.description).toContain("including while the owner is deactivated");
       expect(operation.description).toContain("restricted to the datasets the map's own layers name: nothing else of the owner's space is mounted for the link");

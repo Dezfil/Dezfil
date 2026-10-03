@@ -1,3 +1,5 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
+import type { EditBasis } from "../src/lib/edit-basis";
 // The scoped add-layer catalog: the filter row above the shared browser's search
 // in the Tables view and the SQL workbench, the ruled defaults per filing state,
 // scoped rows in the shipped grouping with no membership tag on any row, pick
@@ -37,19 +39,19 @@ const T_OUT = `als_output_with_long_name_${runId}`;
 
 const CSV = "name,lng,lat\nBuoy,7.10,53.52\n";
 
-const api = (page: Page, method: string, pathName: string, body?: unknown) =>
+const api = (page: Page, method: string, pathName: string, body?: unknown, basis?: EditBasis) =>
   page.evaluate(
-    async ({ method, pathName, body }) => {
+    async ({ method, pathName, body, basis }) => {
       const r = await fetch(pathName, {
         method,
-        headers: body ? { "content-type": "application/json" } : undefined,
+        headers: { ...(body ? { "content-type": "application/json" } : undefined), ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) },
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!r.ok && r.status !== 204) throw new Error(await r.text());
       const text = r.status === 204 ? "" : await r.text();
       return text ? (JSON.parse(text) as unknown) : null;
     },
-    { method, pathName, body },
+    { method, pathName, body, basis },
   );
 
 const listing = async (page: Page) =>
@@ -585,9 +587,9 @@ test("the scoped catalog end to end", async ({ page, context }) => {
           parameters: { input, distance: 10, name },
         })) as { step: { id: string } };
         const { run } = (await (
-          await fetch(`/api/recipes/${recipe.id}/steps/${step.id}/run`, {
+          await (async function readThenWriteWorkflowSetup() { const basis = await (await fetch(`/api/recipes/${recipe.id}`)).json(); return fetch(`/api/recipes/${recipe.id}/steps/${step.id}/run`, { headers: { "X-Edit-Revision": basis.editRevision },
             method: "POST",
-          })
+          }); })()
         ).json()) as { run: { members: { jobId: string | null }[] } };
         const jobId = run.members[0]?.jobId;
         if (!jobId) return "accepted without an attempt";
@@ -613,7 +615,7 @@ test("the scoped catalog end to end", async ({ page, context }) => {
         () => (window as unknown as { __alsRecipe?: string }).__alsRecipe ?? "",
       );
       if (recipeId)
-        await api(page, "DELETE", `/api/recipes/${recipeId}`).catch(() => {});
+        await readThenWriteBrowserSetup(page, `/api/recipes/${recipeId}`, () => ({ method: "DELETE", path: `/api/recipes/${recipeId}` })).then(result => result.json).catch(() => {});
       await api(page, "DELETE", `/api/tables/${T_OUT}`).catch(() => {});
     };
     try {

@@ -1,3 +1,4 @@
+import { recordDocumentBatch, readDocumentRevision } from "@/lib/metadata/revisions";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { mayFileInto, requirePermitted } from "@/lib/auth/reach";
 import { ApiError } from "@/lib/api/errors";
@@ -168,7 +169,7 @@ export async function duplicateRecipe(scope: AccountScope, sourceId: string): Pr
 
   // 3. Write, after checking that nothing moved under the plan.
   const name = copyName(source.name);
-  return db.transaction(() => {
+  return recordDocumentBatch(scope, () => {
     requireRecipe(scope, sourceId, db);
     if (stamp(listSteps(scope, sourceId, db)) !== before) {
       throw new ApiError(
@@ -194,10 +195,10 @@ export async function duplicateRecipe(scope: AccountScope, sourceId: string): Pr
     // preparation files the copy where the source is NOW, and a
     // dissolved project reads null (found at review).
     const live = getRecipe(scope, sourceId, db);
-    if (live?.projectId && mayFileInto(scope, live.projectId, db)) fileRecipe(scope, copy.id, live.projectId, db);
+    if (live?.projectId && mayFileInto(scope, live.projectId, db)) fileRecipe(scope, copy.id, live.projectId, db, { expectedRevision: readDocumentRevision({ kind: "workflow", id: copy.id }, db)!.editRevision });
     const copiedIds = new Map<string, string>();
     planned.forEach((p, i) => {
-      copiedIds.set(steps[i].id, copyStep(scope, steps[i].id, copy.id, p.parameters, db).id);
+      copiedIds.set(steps[i].id, copyStep(scope, steps[i].id, copy.id, p.parameters, db, { expectedRevision: readDocumentRevision({ kind: "workflow", id: copy.id }, db)!.editRevision }).id);
     });
     // The layout goes with the copy: each node's position under the copy's
     // identity, sources and notes as they are. A never-written document
@@ -220,5 +221,5 @@ export async function duplicateRecipe(scope: AccountScope, sourceId: string): Pr
       );
     }
     return copy;
-  })();
+  }, db);
 }

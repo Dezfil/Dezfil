@@ -1,3 +1,5 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
+import type { EditBasis } from "../src/lib/edit-basis";
 // The retained record, its recovery and the confirmation card (3): the
 // record's lines and their inspection after a turn settles, entries
 // surviving navigation among the three pages and a reload during a live
@@ -34,13 +36,13 @@ const paneOpen = (page: Page) => expect(pane(page)).toHaveAttribute("data-open",
 const entries = (page: Page) => pane(page).locator("[data-record-entry]");
 const entryFor = (page: Page, tool: string) => pane(page).locator(`[data-record-entry][data-tool="${tool}"]`);
 type Json = Record<string, unknown>;
-async function api(page: Page, method: string, path: string, body?: unknown): Promise<Json> {
-  return page.evaluate(async ({ method, path, body }) => {
-    const r = await fetch(path, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+async function api(page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<Json> {
+  return page.evaluate(async ({ method, path, body, basis }) => {
+    const r = await fetch(path, { method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
     const text = await r.text();
     if (!r.ok) throw new Error(`${method} ${path} -> ${r.status}: ${text}`);
     return text ? JSON.parse(text) : {};
-  }, { method, path, body });
+  }, { method, path, body, basis });
 }
 async function seed(page: Page) {
   await page.setViewportSize({ width: 1440, height: H });
@@ -51,7 +53,7 @@ async function seed(page: Page) {
   const layerId = await addLayer(page, mapId, "Parks", `SELECT * FROM ${table}`);
   const made = await api(page, "POST", "/api/recipes", { name: `rec workflow ${runId}` });
   const recipeId = (made.recipe as { id: string }).id;
-  await api(page, "POST", `/api/recipes/${recipeId}/steps`, { operation: "sql_step", parameters: { sql: `SELECT name FROM ${table}`, name: `${table}_one` } });
+  await readThenWriteBrowserSetup(page, `/api/recipes/${recipeId}`, () => ({ method: "POST", path: `/api/recipes/${recipeId}/steps`, body: { operation: "sql_step", parameters: { sql: `SELECT name FROM ${table}`, name: `${table}_one` } } })).then(result => result.json);
   return { mapId, layerId, recipeId, table };
 }
 async function onBuilder(page: Page, mapId: string) {
@@ -265,7 +267,7 @@ test.describe("4: the confirmation card and the settled entries", () => {
     await expect(pane(page).getByRole("textbox", { name: "Ask the assistant" })).toBeDisabled();
     await expect(pane(page).getByRole("button", { name: "Stop", exact: true })).toHaveCount(1);
     await expect(pane(page).getByRole("button", { name: "Send", exact: true })).toHaveCount(0);
-    await api(page, "DELETE", `/api/layers/${layerId}`);
+    await readThenWriteBrowserSetup(page, `/api/layers/${layerId}`, () => ({ method: "DELETE", path: `/api/layers/${layerId}` }));
     await card(page).getByRole("button", { name: "Confirm", exact: true }).click();
     await expect(pane(page).getByText("It was already gone.", { exact: true })).toBeVisible();
     await expect(card(page)).toHaveCount(0);
@@ -362,7 +364,7 @@ test.describe("2 and 3: recovery cases, the interleaved edit, and the words the 
     await send(page, "Rename, publish, rename");
     await expect(card(page)).toBeVisible();
     // The manual edit while the gate waits, through the map's own route.
-    await api(page, "PATCH", `/api/maps/${mapId}`, { name: "Manual" });
+    await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "PATCH", path: `/api/maps/${mapId}`, body: { name: "Manual" } }));
     // The approval's response is lost after the server has it.
     await page.route("**/api/assistant/messages", async (route) => {
       const response = await route.fetch(); await response.body(); await route.abort("connectionreset");
@@ -381,9 +383,9 @@ test.describe("2 and 3: recovery cases, the interleaved edit, and the words the 
     expect(provider.captures).toHaveLength(3);
     // 3f: undo walks Second, Manual, First; the record's order is unchanged.
     const name = async () => (await api(page, "GET", `/api/maps/${mapId}`)).name;
-    await api(page, "POST", `/api/maps/${mapId}/undo`); expect(await name()).toBe("Manual");
-    await api(page, "POST", `/api/maps/${mapId}/undo`); expect(await name()).toBe("First");
-    await api(page, "POST", `/api/maps/${mapId}/redo`); expect(await name()).toBe("Manual");
+    await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/undo` })); expect(await name()).toBe("Manual");
+    await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/undo` })); expect(await name()).toBe("First");
+    await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/redo` })); expect(await name()).toBe("Manual");
     await expect(entriesNow.nth(0).getByRole("button")).toContainText("Updated the map First");
     // 2g: the tab's state is cleared after settlement, and a locator to a gone run clears on its 404.
     await expect.poll(() => page.evaluate(() => sessionStorage.getItem("dezfil.assistant.active"))).toBeNull();

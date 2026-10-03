@@ -1,3 +1,4 @@
+import type { EditBasis } from "../src/lib/edit-basis";
 // The set-geometry panel on the dataset page: the four drawn cases, the
 // projection rule, Apply's gate, the first correction through the
 // assumed chip and the second-change refusal, the panel's doors, the
@@ -101,15 +102,15 @@ const SHP_MOVED = [10.5113, 0.00046] as const;
 // explicitly select Map preview after asserting that door behavior.
 // ---- the readers ----
 
-const api = async <T,>(page: Page, method: string, pathName: string, body?: unknown): Promise<T> =>
+const api = async <T,>(page: Page, method: string, pathName: string, body?: unknown, basis?: EditBasis): Promise<T> =>
   page.evaluate(
-    async ({ method, pathName, body }) => {
-      const r = await fetch(pathName, { method, headers: body ? { "content-type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
+    async ({ method, pathName, body, basis }) => {
+      const r = await fetch(pathName, { method, headers: { ...(body ? { "content-type": "application/json" } : undefined), ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) }, body: body ? JSON.stringify(body) : undefined });
       const text = await r.text();
       if (!r.ok) throw new Error(`${r.status} ${text}`);
       return text ? (JSON.parse(text) as unknown) : null;
     },
-    { method, pathName, body },
+    { method, pathName, body, basis },
   ) as Promise<T>;
 
 const inspect = (page: Page, name: string) =>

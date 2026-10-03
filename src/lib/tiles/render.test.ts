@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -44,7 +46,7 @@ beforeEach(async () => {
   const layer = await createLayer(testAccountScope(), map.id, {
     name: "Points",
     sql: "SELECT id, kind, geometry FROM points",
-  });
+  }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   layerId = layer.id;
 });
 
@@ -105,13 +107,13 @@ describe("the render decision", () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "10";
     const filtered = await updateLayer(testAccountScope(), layerId, {
       filters: [{ field: "kind", kind: "values", values: ["k0"] }],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     const inline = await renderLayer(testAccountScope(), filtered, undefined, { tileAccess: privateTileAccess(testAccountScope(), (filtered).id) });
     expect(inline.mode).toBe("inline");
     expect(inline.featureCount).toBe(10);
     expect(inline.geometryType).toBe("POINT");
 
-    const unfiltered = await updateLayer(testAccountScope(), layerId, { filters: [] });
+    const unfiltered = await updateLayer(testAccountScope(), layerId, { filters: [] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     const tiled = await renderLayer(testAccountScope(), unfiltered, undefined, { tileAccess: privateTileAccess(testAccountScope(), (unfiltered).id) });
     expect(tiled.mode).toBe("tiled");
   });

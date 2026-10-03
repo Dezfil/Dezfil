@@ -1,3 +1,4 @@
+import { captureBasis, fixtureHeaders } from "./revision-fixtures.mjs";
 // Differentiator proof (spec success criteria): a dataset
 // beyond browser-memory scale uploads, queries, aggregates — and, since
 // renders whole as vector tiles and publishes — within the default
@@ -55,7 +56,7 @@ async function generate() {
 }
 
 async function api(method, pathname, opts = {}) {
-  const init = { method, headers: {} };
+  const init = { method, headers: fixtureHeaders(opts.basis) };
   if (opts.form) init.body = opts.form;
   else if (opts.body !== undefined) {
     init.headers["content-type"] = "application/json";
@@ -187,7 +188,7 @@ async function main() {
   );
 
   // Publish and pull one tile through the read-only path.
-  const pub = await api("POST", `/api/maps/${map.json.id}/publish`);
+  const pub = await api("POST", `/api/maps/${map.json.id}/publish`, { basis: captureBasis((await api('GET', `/api/maps/${map.json.id}`)).json) });
   if (pub.status !== 201) die("publish failed", JSON.stringify(pub.json));
   const view = await api("GET", `/api/published/${pub.json.token}`);
   const pubTiles = view.json?.layers?.find((l) => l.id === raw.json.id)?.render?.tiles;

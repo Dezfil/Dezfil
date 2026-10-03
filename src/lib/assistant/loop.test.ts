@@ -350,7 +350,7 @@ describe("a confirmation that depends on blast radius", () => {
 
   it("parks a run that would carry other steps", async () => {
     const h = harness(call({ id: "r1" }), {
-      "/api/recipes/r1/runs": { status: 200, body: { plan: { wide: true, members: ["first", "second"] } } },
+      "/api/recipes/r1/runs": { status: 200, body: { editRevision: "planned", plan: { wide: true, members: ["first", "second"] } } },
     });
     const events = await h.run("run it");
     expect(events.map((e) => e.type)).toContain("confirm_required");
@@ -362,7 +362,7 @@ describe("a confirmation that depends on blast radius", () => {
     // The spec's fourth case, and the one an unconditional gate gets wrong:
     // prompting here trains a user to dismiss the prompt that matters.
     const h = harness(call({ id: "r1", fromStepId: "leaf" }), {
-      "/api/recipes/r1/runs": { status: 200, body: { plan: { wide: false, members: ["leaf"] } } },
+      "/api/recipes/r1/runs": { status: 200, body: { editRevision: "planned", plan: { wide: false, members: ["leaf"] } } },
     });
     const events = await h.run("re-run just that one");
     expect(events.map((e) => e.type)).not.toContain("confirm_required");
@@ -382,7 +382,7 @@ describe("a confirmation that depends on blast radius", () => {
 
   it("lets the plan through ungated, because that is how a caller finds out", async () => {
     const h = harness(call({ id: "r1", plan: true }), {
-      "/api/recipes/r1/runs": { status: 200, body: { plan: { wide: true, members: ["first", "second"] } } },
+      "/api/recipes/r1/runs": { status: 200, body: { editRevision: "planned", plan: { wide: true, members: ["first", "second"] } } },
     });
     const events = await h.run("what would this carry?");
     expect(events.map((e) => e.type)).not.toContain("confirm_required");

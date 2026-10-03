@@ -1,3 +1,5 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
+import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Locator, type Page, type Request } from "@playwright/test";
 import { isAllowedConsoleError } from "./console-allowlist";
 import { seedCsv, trackConsole } from "./support";
@@ -34,15 +36,15 @@ type Layout = { steps: Record<string, Position>; sources: Record<string, Positio
 type Recipe = Json & { steps: Step[]; updatedAt: string };
 type Run = { id: string; outcome: string | null; members: { stepId: string; state: string }[] };
 
-async function api(page: Page, method: string, path: string, body?: unknown): Promise<Json> {
+async function api(page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<Json> {
   return page.evaluate(
-    async ({ method, path, body }) => {
-      const r = await fetch(path, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+    async ({ method, path, body, basis }) => {
+      const r = await fetch(path, { method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
       const text = await r.text();
       if (!r.ok) throw new Error(`${method} ${path} → ${r.status}: ${text}`);
       return text ? (JSON.parse(text) as Json) : {};
     },
-    { method, path, body },
+    { method, path, body, basis },
   );
 }
 const made: string[] = [];
@@ -52,10 +54,10 @@ const newRecipe = async (page: Page, name: string) => {
   return id;
 };
 const addStep = async (page: Page, id: string, operation: string, parameters: Json) =>
-  ((await api(page, "POST", `/api/recipes/${id}/steps`, { operation, parameters })).step as { id: string }).id;
+  ((await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps`, body: { operation, parameters } })).then(result => result.json)).step as { id: string }).id;
 const readRecipe = async (page: Page, id: string) => (await api(page, "GET", `/api/recipes/${id}`)).recipe as Recipe;
 const readLayout = async (page: Page, id: string) => (await api(page, "GET", `/api/recipes/${id}/layout`)).layout as Layout;
-const putLayout = (page: Page, id: string, layout: Partial<Layout>) => api(page, "PUT", `/api/recipes/${id}/layout`, { steps: {}, sources: {}, notes: [], ...layout });
+const putLayout = (page: Page, id: string, layout: Partial<Layout>) => readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "PUT", path: `/api/recipes/${id}/layout`, body: { steps: {}, sources: {}, notes: [], ...layout } })).then(result => result.json);
 const stepById = (r: Recipe, id: string) => r.steps.find((s) => s.id === id) ?? null;
 /** The positions of a read: what a layout undo restores, field for field. */
 const positionsOf = (l: Layout) => ({ steps: l.steps, sources: l.sources });
@@ -89,7 +91,7 @@ async function runSettled(page: Page, id: string, before: number) {
     .toBe(true);
 }
 async function runAndWait(page: Page, id: string, stepId: string) {
-  await api(page, "POST", `/api/recipes/${id}/steps/${stepId}/run`);
+  await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps/${stepId}/run` })).then(result => result.json);
   await expect.poll(async () => stepById(await readRecipe(page, id), stepId)?.output ?? null, { timeout: 40_000 }).not.toBeNull();
   await page.waitForTimeout(400);
 }
@@ -340,7 +342,7 @@ test("the header: Undo and Redo beside the theme toggle, dimmed at rest, their h
   expect(unexpected).toEqual([]);
 });
 
-test("layout steps: Arrange, a drag, arrow runs, every note step, a source, Arrange with a node added and one removed headlessly, and what is no step", async ({ page, context }) => {
+test("layout steps: Arrange, a drag, arrow runs, every note step, a source, Arrange with a node added and a stale undo after headless removal, and what is no step", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   const consoleErrors = trackConsole(page);
   const w = await seedWorkflow(page, "ly");
@@ -628,7 +630,7 @@ test("layout steps: Arrange, a drag, arrow runs, every note step, a source, Arra
     await expect(member(page, flat)).toBeVisible();
   });
 
-  await test.step("Arrange, a node added, two undos: the node gone and every position back; Arrange, a node removed headlessly, one undo: not resurrected, the others return", async () => {
+  await test.step("Arrange, a node added, two undos: the node gone and every position back; Arrange, a node removed headlessly: undo stays unsaved until Reload", async () => {
     await page.keyboard.press("Escape");
     // Off the dependency arrangement first: every step above ended where
     // Arrange had already put the tiles, and an Arrange that moves
@@ -660,15 +662,27 @@ test("layout steps: Arrange, a drag, arrow runs, every note step, a source, Arra
     await page.getByRole("button", { name: "Arrange by dependency" }).click();
     await expect.poll(async () => (await readLayout(page, w.id)).steps[w.buf]).not.toEqual(start.steps[w.buf]);
     await page.waitForTimeout(700);
-    await api(page, "DELETE", `/api/recipes/${w.id}/steps/${w.filt}`);
-    // Nothing pushes a headless recipe change to an open canvas, so the
-    // tile stands until a read: the undo writes the screen back, and the
-    // layout read, pruned to the recipe, holds no position for the node
-    // that is gone.
+    await readThenWriteBrowserSetup(page, `/api/recipes/${w.id}`, () => ({ method: "DELETE", path: `/api/recipes/${w.id}/steps/${w.filt}` })).then(result => result.json);
+    const accepted = await readLayout(page, w.id);
+    const staleResponse = page.waitForResponse(r => r.request().method() === "PUT" && r.url().endsWith(`/api/recipes/${w.id}/layout`) && r.status() === 409);
     await undo(page);
-    await expect(notice(page)).toContainText("Undone: Arrange");
-    await expect.poll(async () => (await readLayout(page, w.id)).steps[w.buf]).toEqual(start.steps[w.buf]);
+    expect((await (await staleResponse).json()).error.code).toBe("stale_revision");
+    const recovery = page.locator("[data-stale-recovery]");
+    await expect(recovery).toContainText("This item has changed. Reload it before trying again.");
+    await expect(recovery.getByRole("button", { name: "Retry" })).toHaveCount(0);
+    await expect(wrapper(page, w.buf).getByText("unsaved position", { exact: true })).toBeVisible();
+    expect(positionsOf(await readLayout(page, w.id))).toEqual(positionsOf(accepted));
+    const sent = writes.length;
+    await recovery.getByRole("button", { name: "Reload", exact: true }).click();
+    await expect(recovery).toContainText("Reload discards your unsaved values.");
+    await recovery.getByRole("button", { name: "Reload", exact: true }).click();
+    await expect(recovery).toHaveCount(0);
+    await expect(wrapper(page, w.filt)).toHaveCount(0);
+    await expect(undoBtn(page)).toBeDisabled();
+    await expect(redoBtn(page)).toBeDisabled();
+    expect(writes.length).toBe(sent);
     const after = await readLayout(page, w.id);
+    expect(positionsOf(after)).toEqual(positionsOf(accepted));
     expect(after.sources).toEqual(start.sources);
     expect(after.steps).not.toHaveProperty(w.filt);
     expect((await readRecipe(page, w.id)).steps.map((s) => s.id)).toEqual([w.buf]);
@@ -738,7 +752,7 @@ test("layout steps: Arrange, a drag, arrow runs, every note step, a source, Arra
     await expect.poll(() => mutations.filter((r) => r.method() === "PUT" && /\/layout$/.test(r.url())).length).toBeGreaterThan(0);
   });
 
-  const unexpected = consoleErrors.filter((e) => !isAllowedConsoleError(e.text, e.url));
+  const unexpected = consoleErrors.filter((e) => !isAllowedConsoleError(e.text, e.url) && !(/status of 409/.test(e.text) && e.url?.endsWith(`/api/recipes/${w.id}/layout`)));
   expect(unexpected).toEqual([]);
 });
 
@@ -1040,7 +1054,7 @@ test("recipe steps, removals: a never-run node back in its place with its reader
 
   await test.step("a node whose dataset was deleted, removed then undone: back, never run, the notice saying it must run again", async () => {
     const restored = await addStep(page, w.id, "buffer", { input: points, distance: 100, name: `${w.bufName}_again` });
-    await api(page, "POST", `/api/recipes/${w.id}/steps/${restored}/move`, { ordinal: 0 });
+    await readThenWriteBrowserSetup(page, `/api/recipes/${w.id}`, () => ({ method: "POST", path: `/api/recipes/${w.id}/steps/${restored}/move`, body: { ordinal: 0 } })).then(result => result.json);
     await runAndWait(page, w.id, restored);
     await api(page, "DELETE", `/api/tables/${w.bufName}_again`);
     await page.reload();
@@ -1092,7 +1106,7 @@ test("recipe steps, removals: a never-run node back in its place with its reader
   expect(unexpected).toEqual([]);
 });
 
-test("pending work, runs and refusals: an unsent value, an invalid one, a save on the wire; the run boundary member by member; an unsettled member; a node run since; the cut routes and Retry; last write wins", async ({ page }) => {
+test("pending work, runs and refusals: an unsent value, an invalid one, a save on the wire; the run boundary member by member; an unsettled member; a node run since; the cut routes and Retry; stale undo and Reload", async ({ page }) => {
   const consoleErrors = trackConsole(page);
   await page.goto("/workflows");
   await seedCsv(page, points, "name,lon,lat\nalex,13.41,52.52\nzoo,13.33,52.51\nhbf,13.37,52.53\n").catch(() => undefined);
@@ -1267,7 +1281,7 @@ test("pending work, runs and refusals: an unsent value, an invalid one, a save o
     // The tool's own distance is empty until the panel fills it, and an
     // empty one refuses the run: it is set headlessly, so the add stays
     // the record's newest step.
-    await api(page, "PATCH", `/api/recipes/${id}/steps/${added.id}`, { parameters: { ...added.parameters, distance: 100 } });
+    await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "PATCH", path: `/api/recipes/${id}/steps/${added.id}`, body: { parameters: { ...added.parameters, distance: 100 } } })).then(result => result.json);
     await runAndWait(page, id, added.id);
     await undo(page);
     await expect(notice(page)).toContainText("Not undone");
@@ -1278,6 +1292,10 @@ test("pending work, runs and refusals: an unsent value, an invalid one, a save o
   });
 
   await test.step("the layout route cut: the screen keeps the undone state, Couldn't save with Retry, Retry writes it; the step route cut: the step kept, Retry applies it; a removal's undo answered but lost: Retry leaves one node", async () => {
+    // The preceding headless edit advanced the revision. Open its accepted
+    // state before injecting transport failures into this independent case.
+    await page.reload();
+    await settled(page);
     await page.keyboard.press("Escape");
     const start = (await readLayout(page, id)).steps[buf];
     const placeBefore = await wrapper(page, buf).evaluate((el) => (el as HTMLElement).style.transform);
@@ -1454,15 +1472,46 @@ test("pending work, runs and refusals: an unsent value, an invalid one, a save o
     expect(writes.at(-1)?.body.steps[buf]).toEqual((await readLayout(page, id)).steps[buf]);
   });
 
-  await test.step("a definition changed headlessly, then that edit's undo: the read is the undone definition, last write wins", async () => {
+  await test.step("a definition changed headlessly refuses the canvas edit's undo; Reload shows the headless definition and clears local undo", async () => {
     await selectTile(page, bufName);
-    const before = await distanceOf();
+    const requests: Request[] = [];
+    page.on("request", request => {
+      if (request.url().includes(`/api/recipes/${id}`)) requests.push(request);
+    });
     await panel(page).getByRole("spinbutton", { name: /^distance/ }).fill("300");
     await expect.poll(distanceOf).toBe(300);
-    await api(page, "PATCH", `/api/recipes/${id}/steps/${buf}`, { parameters: { input: points, distance: 400, name: bufName } });
+    // The watcher sees the accepted edit before it checks for silence.
+    await expect.poll(() => requests.filter(r => r.method() === "PATCH" && r.url().endsWith(`/steps/${buf}`)).length).toBeGreaterThan(0);
+    await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "PATCH", path: `/api/recipes/${id}/steps/${buf}`, body: { parameters: { input: points, distance: 400, name: bufName } } })).then(result => result.json);
+    expect(await distanceOf()).toBe(400);
+    const staleResponse = page.waitForResponse(r => r.request().method() === "PATCH" && r.url().endsWith(`/api/recipes/${id}/steps/${buf}`) && r.status() === 409);
     await undo(page);
-    await expect(notice(page)).toContainText("Undone: Buffer edited");
-    await expect.poll(distanceOf).toBe(before);
+    expect((await (await staleResponse).json()).error.code).toBe("stale_revision");
+    await expect(notice(page)).toHaveText("Not undone: This item has changed. Reload it before trying again.");
+    const recovery = page.locator("[data-stale-recovery]");
+    await expect(recovery).toContainText("This item has changed. Reload it before trying again.");
+    await expect(recovery.getByRole("button", { name: "Reload", exact: true })).toBeVisible();
+    await expect(retryBtn(page)).toHaveCount(0);
+    expect(await distanceOf()).toBe(400);
+
+    const writesBeforeReload = requests.filter(r => r.method() !== "GET").length;
+    await recovery.getByRole("button", { name: "Reload", exact: true }).click();
+    await expect(recovery).toContainText("Reload discards your unsaved values.");
+    await recovery.getByRole("button", { name: "Reload", exact: true }).click();
+    await expect(recovery).toHaveCount(0);
+    await settled(page);
+    await selectTile(page, bufName);
+    await expect(panel(page).getByRole("spinbutton", { name: /^distance/ })).toHaveValue("400");
+    await expect(undoBtn(page)).toBeDisabled();
+    await expect(redoBtn(page)).toBeDisabled();
+    expect(requests.filter(r => r.method() !== "GET").length).toBe(writesBeforeReload);
+    requests.length = 0;
+    await flowArea(page).focus();
+    await page.keyboard.press("Meta+z");
+    await expect(notice(page)).toHaveText("Nothing to undo");
+    await page.waitForTimeout(500);
+    expect(requests).toEqual([]);
+    expect(await distanceOf()).toBe(400);
   });
 
   // The cut routes are the test's own, as is the failing statement's dry run and run.

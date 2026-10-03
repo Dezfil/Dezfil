@@ -24,8 +24,10 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **124 paths, 163 operations, 156 named
-component schemas.**
+Measured from the current source: **124 paths, 355 operations, 162 named
+component schemas.** Operations include supported automatic HEAD and OPTIONS.
+`npm run lint:contract-docs` measures these numbers and checks the catalogue below
+against the contract; changing only the reader-facing text fails the gate.
 
 ## Base path and access
 
@@ -54,6 +56,12 @@ The published surface remains anonymous. `GET /api/published/{token}`
 and its siblings are the read-only, anonymous face of a map someone chose to
 publish. The token is 22 random characters (`src/lib/publish/token.ts`), it
 is the entire credential, and revoking a publication invalidates it.
+
+The error catalogue includes `409 stale_revision` for a refused document
+basis: “This item has changed. Reload it before trying again.” This refusal
+changes nothing. A new attempt starts with a deliberate read and a new edit;
+clients must not silently retry an old payload with a newer token. Revision
+preconditions are declared on the operations that require them.
 
 ## Ownership and sharing
 
@@ -608,7 +616,8 @@ response. `GET /api/assistant/pending` recovers open confirmations, and
 
 ## How errors are shaped
 
-Every failure answers the same envelope:
+API failures use this envelope, except bodyless HEAD, abandoned requests and
+unmatched framework 404 responses:
 
 ```json
 { "error": { "code": "query_timeout", "message": "..." } }
@@ -630,7 +639,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **103** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **105** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -849,6 +858,47 @@ replacing the former `invalid_request` (400), a breaking change. Malformed
 input still answers `invalid_request`. An unchanged orphan widget already
 stored in history remains readable and can be echoed unchanged.
 
+**Document revisions and attribution.** Reached map and workflow reads,
+their child definitions, list/project entries, history, layout, publication
+settings and filing dependency reads carry `editRevision`, `lastChangedAt`
+and `lastChangedBy`. Producer workflows in dependency lists carry their own
+facts. `lastChangedBy` is `{ name, sqlName }` or explicit null for unknown
+authorship, including legacy records. Departure and deactivation do not
+erase a recorded actor. Anonymous published views carry none of these facts.
+Workflow steps and their revision are captured together before presentation;
+separately read definition and layout belong together only when revisions match.
+Camera, thumbnails, dataset contents and run bookkeeping do not advance these
+facts. Covered writes require the paired revision as described below.
+
+Covered JSON successes return the resulting `editRevision`, including map,
+layer, sketch attachment, publication, history, workflow definition, step,
+layout, direct filing and map/workflow transfer responses. Workflow envelopes
+carry it at the top level as well as on the enclosed definition or layout.
+Project creation with members, membership changes and dissolution return
+`revisions: [{ kind, id, editRevision }]` for each affected surviving map or
+workflow the caller still reaches, including withdrawn filings. Project
+member workflows are an array of ordinary workflow entries.
+
+This is a breaking change to the success contract for layer deletion, sketch deletion and
+unpublication from `204` to `200` with JSON. Sketch deletion returns
+`{ mapId, layerId, editRevision? }`; when it changes no map, both IDs are null
+and no revision is returned. Complete-document deletion has no resulting
+revision; a transfer ending the caller's reach also omits it. Administrative
+publication revocation retains its narrow bodyless
+response without disclosing map facts, and cancellation keeps its documented
+conditional bodyless response. Generated tool schemas describe these JSON
+results; the executor, MCP structured/text output and assistant context retain
+their revisions.
+
+**Shared history attribution.** `GET /api/maps/{id}/history` returns
+`canUndo`, `canRedo`, `undoTarget` and `redoTarget`. Each target is null or
+contains `steps`, `eligible` and `reason`. Steps name their original author
+as `{ name, sqlName }`, or null for unknown historical authors. A target
+covers one contiguous group by one actor; coalescing never combines actors.
+Eligibility applies to the whole group under the caller's current edit,
+SQL admission and publication permissions. Undo and redo record the acting
+account as last changer while preserving each step's original author.
+
 **History and card images.** History follows the map: everyone who reaches it
 reads its availability, and undo and redo are content changes, open to whoever
 may change the map's content. Undo and redo validate the whole recorded
@@ -1045,3 +1095,367 @@ links carry a publication-only pending-adoption scope; setup atomically
 replaces it with the original account's scope. Token revocation is rechecked
 after asynchronous widget, render and extent work, and retires cached or
 in-flight assembled views.
+
+### Map edit preconditions
+
+Breaking change for unversioned clients: `PATCH /api/maps/{id}` requires
+`X-Edit-Revision` for every content field, including widgets, layer order,
+publication settings and unchanged values. A viewport-only PATCH needs none;
+a mixed viewport/content PATCH is atomic under the content revision. Map
+DELETE also requires the revision from the displayed or read map. Creation
+and copying to a new map need no destination revision. There remains one map
+PATCH operation. Its MCP `expected_revision` argument is conditionally required;
+`delete_map` requires it unconditionally.
+
+Read the map first, retain its `editRevision`, and send that exact value in
+`X-Edit-Revision` (MCP: `expected_revision`). Each accepted JSON result supplies
+the next revision. Deletion returns 204 with no surviving revision. Missing or
+malformed values return `400 invalid_request`: “Read this item first, then send
+its editRevision in X-Edit-Revision.” A stale value returns `409 stale_revision`:
+“This item has changed. Reload it before trying again.” Permission checks come
+first. Refusal changes no content, history, actor, publication or artifacts,
+including when validation races another edit. Reload explicitly before making
+a new edit; never attach a refreshed token to a refused payload.
+
+### Layer edit preconditions
+
+Layer creation, PATCH, in-map duplication and DELETE require the parent map's
+`X-Edit-Revision`. The generated `create_layer`, `update_layer`, `duplicate_layer`
+and `delete_layer` tools require `expected_revision`. Read the map or layer and
+retain that paired revision, then chain each accepted result. These operations
+return JSON with the resulting map `editRevision`; unchanged values still
+require the current revision and advance neither revision nor attribution.
+Missing or malformed bases return `400 invalid_request`; stale bases return
+`409 stale_revision` with the sentence above. A save racing SQL validation or
+style derivation is refused whole and is never re-derived on the newer state.
+Layer deletion includes an owned sketch's dataset and artifacts: a refused
+deletion leaves them intact. Dataset deletion itself remains outside the edit
+precondition contract, including its existing map-changing cascades.
+
+### Sketch attachment preconditions
+
+Starting a sketch (`POST /api/maps/{id}/sketches`, `create_sketch`) requires
+that map's current revision. Removing its layer uses the same precondition
+as other layer deletions. This is a breaking change for callers that omitted
+`X-Edit-Revision` (or MCP `expected_revision`). Missing or malformed values
+answer `400 invalid_request`; stale values answer `409 stale_revision` with
+“This item has changed. Reload it before trying again.”
+
+Attachment checks the revision before artifact creation and again in the
+registry transaction. A refused attachment removes its staged file and
+registers no dataset or layer. A refused layer removal changes neither the
+sketch dataset nor its artifacts, map content, history or publication.
+Feature edits and dataset-side sketch deletion remain dataset operations
+without a revision precondition; a deletion that changes a map definition
+advances that map's revision.
+
+### Shared undo and redo preconditions
+
+`POST /api/maps/{id}/undo` and `/redo` (`undo_change`, `redo_change`) require
+`X-Edit-Revision` (MCP `expected_revision`) from the map or history state the
+caller saw. This is a breaking change for callers that omitted it. Missing
+or malformed revisions answer `400 invalid_request`; stale ones answer
+`409 stale_revision`: “This item has changed. Reload it before trying again.”
+The check is repeated after SQL admission, before changing any row or cursor.
+A current request with no eligible timeline position still answers
+`409 invalid_request` with “Nothing to undo.” or “Nothing to redo.”
+
+Undo targets the latest applied step or contiguous group, whoever authored
+it; redo targets the next undone one. Groups and coalescing never cross actor
+boundaries. There is no selective personal undo and no skipping an ineligible
+group. Publication restrictions, SQL admission and reference checks refuse
+the whole group, without changing content, history, attribution or artifacts.
+Accepted replay returns a fresh revision and attributes the action to the
+replayer while keeping the original step authors. Restoring identical values
+or a deleted layer never revives an old token. A new edit discards redo.
+
+
+Publication writes require the read map's `X-Edit-Revision` (MCP
+`expected_revision`): creating the link, changing its theme or controls, and
+revoking it all compare the same document token. Missing or malformed values
+answer `400 invalid_request`; stale values answer `409 stale_revision` with
+“This item has changed. Reload it before trying again.” Refusal changes no
+publication, history or attribution. Chain the resulting JSON `editRevision`
+into the next write. A current no-op retains the revision. This is a breaking
+change for unversioned publication clients. The separate admin operation
+`DELETE /api/publications/{token}` still needs no revision: it can revoke only
+a deactivated owner's known token, advances the map revision and returns no
+private document facts.
+
+
+Workflow definition and layout writes require `X-Edit-Revision` (MCP
+`expected_revision`): rename/delete, add/edit/remove/move a step, discard a
+proposal and replace the layout. Read the workflow, step or layout and retain
+its paired token. All share one revision, including notes and positions; chain
+each accepted JSON result. Missing or malformed revisions return
+`400 invalid_request`; stale revisions return `409 stale_revision` with
+“This item has changed. Reload it before trying again.” Validation races are
+refused without changing definition, layout, attribution or outputs. A current
+no-op keeps its revision. Creation and duplication into a new workflow need no
+destination revision. This breaks unversioned workflow editing clients.
+
+Direct map and workflow filing and transfer require the revision paired with
+that document's read. Transfers send `X-Edit-Revision` (`expected_revision` in
+MCP). Compound filing, including initial members when creating a project, puts
+`expectedRevisions` inside the member-change object. Its keys are `map:<id>` and
+`workflow:<id>`, with the respective `editRevision` values. Every map and workflow
+named in an add or removal needs a basis, including unchanged memberships;
+datasets need none. Missing or malformed bases answer `400 invalid_request`;
+one stale basis answers `409 stale_revision` and rolls back the entire change,
+including project creation and dataset membership. The result's `revisions`
+contains each still-reachable document's resulting token. These are breaking
+request-contract changes. Project dissolution and project transfer remain
+exempt, and dissolution still advances each affected document's revision.
+
+Workflow start requests now require `X-Edit-Revision` (`expected_revision` in
+MCP), for both a whole/dependent workflow and a single step. `plan: true`
+remains a read with no revision input; its response includes the `editRevision`
+paired with the planned definition. Carry that token into the start after
+pending saves settle. Missing or malformed tokens answer `400 invalid_request`;
+a stale token, including a change during asynchronous planning, answers
+`409 stale_revision` before any run, job or output is created. Starts never
+silently replan against a newer revision. Assistant confirmations retain the
+planning revision with their approved members. Approval after a definition edit
+is refused even when membership is unchanged or fresh grounding has read the edit.
+An accepted start returns its
+`editRevision` with `run` and does not itself advance the document revision.
+This is a breaking request-contract change. The existing confirmed-membership
+check and single-run lock still apply.
+
+## Unsupported methods
+
+After authentication, an unsupported method on a documented API path returns
+`405 method_not_allowed` with the standard error envelope. `Allow` lists exactly
+the methods documented for that path, including automatic HEAD and OPTIONS.
+HEAD is bodyless; OPTIONS returns 204 with the same Allow header. Unknown API
+paths retain 404 after authentication. Anonymous entry boundaries are unchanged.
+The catalogue message is “This method is not allowed for this path.”
+
+## Editing with revisions
+
+A map has one opaque `editRevision` for its content, and a workflow has one for its
+whole definition and layout. Document, child, list, project-content, dependency
+and producer reads pair the visible state with that revision. Use the revision
+from the item you actually displayed or read. Two separate workflow definition
+and layout reads may be combined only if their revisions match.
+
+Send `X-Edit-Revision` on every covered write, including a no-op. Within a client,
+order all covered writes to one document: wait for the accepted JSON result, take
+its `editRevision` and compose the next edit from that accepted state. Child
+writes use the parent revision. Do not refresh a token behind a queued old payload.
+Compound filing sends each selected document's revision in its documented body
+and returns `revisions` for the affected documents still reachable to the caller.
+A revision grants no access; authentication, reach and roles are checked first.
+
+This is a breaking change for clients that wrote without revisions or expected
+bodyless covered successes. Layer deletion and unpublication now return JSON with
+the parent revision. Whole-document deletion has no surviving revision. Whole
+creation and copying to a new identity need no destination revision. Consult each
+operation's success schema rather than assuming every success is 204.
+
+On `409 stale_revision`, preserve unsaved work and stop that document's covered
+writes. The message is exactly “This item has changed. Reload it before trying
+again.” Refusal is atomic, including changes racing asynchronous validation.
+Missing or malformed revisions return `400 invalid_request`. An explicit reload
+reads current state; the browser offers text copying before discarding unsaved
+values, queued edits and workflow-local undo. Failed reload keeps the draft. A
+new attempt is a deliberate new edit, never silent replay or automatic merge.
+Accepted prior saves stay accepted. Revision tokens never revive after undo or
+edit-and-restore, including changes in the same clock tick or another same-account
+tab. There is no editing lock or durable draft after a successful reload.
+
+### Exceptions and attribution
+
+A viewport-only map PATCH needs no revision and remains last-write-wins without
+changing revision, history or last changer. Mixing viewport and content puts the
+whole PATCH under the content precondition. Thumbnail captures may carry a
+revision for information only: missing or stale revisions do not prevent landing
+or decide attribution. Existing SQL and input evidence does. Missing or stale SQL
+evidence can still land an owner-only image. Rendering and caches do not advance
+edit revisions or attribution, and anonymous published views expose neither.
+
+Dataset contents, geometry and sketch features, connections, account preferences,
+project names/notes/membership and run bookkeeping have no document revision
+precondition. A dataset cascade that changes a map definition advances that map's
+revision. Project dissolution needs no member revision but advances indirectly
+unfiled documents. An admin revoking a deactivated owner's known publication token
+needs no map revision and gets no private map facts; the map still records the
+change. Direct filing and map/workflow transfer do require revisions.
+
+Reached map/workflow responses carry `lastChangedBy` (display `name` and fixed
+`sqlName`, or null for Unknown) and `lastChangedAt`, separately from ownership
+and general update time. Actors come from credentials, including token and
+assistant work. Legacy ownership adoption does not invent an author. No-ops,
+refusals, camera saves and derived writes do not change attribution. Actor identities remain visible to those who still reach the record after an
+actor leaves or is deactivated.
+
+Map undo uses one shared timeline: it reverts the latest applied contiguous group
+by one actor, whoever that actor was. Read `undoTarget`/`redoTarget`, their authors,
+`eligible` and `reason` before offering replay. There is no selective personal undo
+or skipping another person's step. A new edit discards redo; an ineligible group
+is refused whole. The undoing person becomes last changer without replacing the
+original authors. Workflow undo is local, and its inverse requires the revision
+against which it was made. Reload discards that local history.
+
+### Run starts and continuing runs
+
+Read the plan after pending saves settle and send its workflow revision when
+starting a workflow or single step. A stale start creates no run or output.
+After admission the run tracks a durable executable-definition basis: ordered
+steps, active/proposed parameters and origins. A foreign definition change stops
+further admissions and promotions, even if values are restored or the clock is
+unchanged. An admitted step settles under current permission, input reach and
+supersession rules; committed outputs survive. A run cannot overwrite a newer
+proposal. Its own successful promotion advances its basis so later steps continue.
+
+Renaming, layout, notes, filing, dissolution and transfer advance edit revisions
+but do not alone stop a running definition. Promotions preserve those changes.
+Current permissions still control work; loss of Editor standing can make already
+admitted outputs land privately. Outputs belong to the runner and filing follows
+the project at commit. Runs report their stored initiator. Cancellation requires
+no revision and retains its documented conditional bodyless 204 success.
+
+### Executable read and successive writes
+
+In Node.js 24 or later, set `base` to your instance origin and `token` to your
+account API token before running this snippet. It leaves one private map called
+Survey map with a light basemap. Every error stops the sequence.
+
+<!-- revision-example -->
+```js
+async function request(method, path, body) {
+  const response = await fetch(base + path, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...(method === "PATCH" ? { "X-Edit-Revision": current.editRevision } : {}),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(`${result.error.code}: ${result.error.message}`);
+  return result;
+}
+const created = await request("POST", "/api/maps", { name: "Field notes" });
+const path = `/api/maps/${created.id}`;
+let current = await request("GET", path);
+current = await request("PATCH", path, { name: "Survey map" });
+current = await request("PATCH", path, { basemap: "light" });
+```
+
+## Error catalogue
+
+The table is checked against `x-error-codes` and the Error schema. Codes are stable;
+messages below describe the meaning, and operation-specific details may refine the
+response message. Branch on the code.
+
+<!-- error-catalogue:start -->
+| Code | Meaning |
+|---|---|
+| `method_not_allowed` | This method is not allowed for this path. |
+| `authentication_required` | Sign in with a valid session or account token to continue. |
+| `invalid_credentials` | Email or password is incorrect. |
+| `account_deactivated` | This account is deactivated. Contact an admin. |
+| `setup_complete` | This instance already has an account. First-account creation is unavailable. |
+| `weak_password` | Use at least eight characters and avoid very common passwords. |
+| `email_taken` | An account already uses this normalized email address. |
+| `self_change_refused` | Another admin must change your admin flag or deactivate your account. |
+| `last_admin` | Keep at least one active admin. |
+| `forbidden` | This request is not permitted for the current account or origin: an admin-only request, a cookie request from another origin, or a change to something the account can view but cannot make. A refused change has no effect. |
+| `invalid_link` | This sign-in link is unavailable, expired, replaced or already used. |
+| `current_password_required` | Enter your current password to make this change. |
+| `ingress_unavailable` | Trusted socket provenance is unavailable. Authentication entry cannot proceed. |
+| `geometry_not_supported` | Set geometry is available only for file uploads and URL imports. |
+| `geometry_choice_invalid` | The geometry choice cannot be applied. The message explains the projection, source or validator issue. |
+| `geometry_in_flight` | A geometry edit or refresh is already running for this dataset or URL import group. |
+| `unsupported_format` | The uploaded file type is not one of the supported formats. |
+| `upload_too_large` | The upload exceeds the configured size cap. |
+| `archive_too_large` | The archive's unpacked content exceeds the configured upload size cap. |
+| `remote_fetch_failed` | The remote file could not be fetched (unreachable, denied, or missing). |
+| `remote_fetch_abandoned` | The outbound request was abandoned before it finished, because whoever asked for it stopped waiting. |
+| `remote_too_large` | The remote file exceeds the configured remote size cap. |
+| `remote_timeout` | The remote fetch exceeded the configured remote time bound. |
+| `egress_blocked` | The destination address is blocked by the egress policy (loopback, private, link-local, or metadata space); the configured allowlist admits exceptions. |
+| `area_too_large` | The selected area exceeds the import budget for the chosen theme. |
+| `name_taken` | A table of that name already exists. Operations never replace or rename around an existing table. Choose another name. |
+| `not_refreshable` | The table has no re-runnable remote source, so it cannot be refreshed. |
+| `dependencies_unresolved` | A layer's statement could not be analyzed, so the map's datasets cannot be listed completely. Fix the layer's SQL and try again. |
+| `export_failed` | The project archive could not be assembled; nothing was delivered. Retry, and check the server's disk space if it recurs. |
+| `refresh_in_flight` | A refresh of this table (or its OSM import group) is already running; retry when it completes. |
+| `connection_failed` | The database connection failed (unreachable, authentication, or missing extension). |
+| `connection_password_required` | Enter the password again when changing the host or port, or turning SSL off. |
+| `malformed_file` | The file could not be parsed as its declared format. |
+| `request_body_too_large` | The workflow request body exceeds its documented byte limit. |
+| `mcp_read_failed` | The read could not be completed because its response could not be received. |
+| `mcp_transport_failed` | The operation's response could not be received. Its outcome is unknown. |
+| `mcp_response_invalid` | The instance returned a response that does not match this operation's documented result. |
+| `stale_revision` | This item has changed. Reload it before trying again. |
+| `invalid_request` | The request was malformed or failed validation, including a missing or malformed required edit revision. Read the item before a covered write. |
+| `not_found` | The requested resource was not found. |
+| `sql_rejected` | The SQL was not an accepted read-only query. |
+| `sql_error` | The SQL failed to parse or execute. |
+| `query_timeout` | The query exceeded the configured timeout. |
+| `query_memory_exceeded` | The query exceeded the configured engine memory budget for user SQL. |
+| `tile_build_timeout` | A tile-build stage exceeded the configured tile-build timeout. |
+| `render_cap_exceeded` | The layer's result exceeds the inline render cap; tiled rendering is unavailable for this geometry or configuration. |
+| `tiler_unavailable` | The result is too large for inline rendering and no tile builder is installed on this instance. |
+| `tile_build_failed` | The layer's tile archive could not be built. |
+| `render_unavailable` | The image renderer's browser is not available on this instance, so image export cannot run. |
+| `render_timeout` | The image render exceeded the configured export render budget (queue wait included). |
+| `render_failed` | The image could not be rendered. Retry; if it persists, the instance's renderer needs attention. |
+| `look_target_missing` | No map was named for the check and none is in context, so there is nothing to render. |
+| `look_image_too_large` | No image of the map fits inside the check's byte bound at any documented size, so none was returned. |
+| `look_image_unavailable` | The image of this check is no longer kept on this instance: it was evicted under the retention bounds or did not survive a restart. It is never rendered again. |
+| `attachment_too_large` | The tool attachment exceeds the configured cap; narrow the export or raise the cap. |
+| `operation_timeout` | The operation exceeded the configured execution budget for a run. Time spent waiting for the lane is not counted against it. |
+| `operation_queue_full` | Too many operations are already queued; the run was refused rather than accepted into a queue that would not drain. Retry once some complete. |
+| `run_in_flight` | This workflow already has a run in flight; a workflow runs one at a time. Wait for it, or cancel it, then run again. |
+| `plan_changed` | The workflow changed since the run was confirmed, so the nodes it would run are not the ones confirmed. Nothing started; look at the plan again. |
+| `operation_interrupted` | The server stopped while this run was in the lane, so it did not finish. Nothing partial was kept; run it again. |
+| `input_changed` | An input was replaced while the run was waiting, so the answers it had prepared belong to data that is no longer there. Nothing was written; run it again against the current data. |
+| `geocoder_unconfigured` | No geocoding endpoint is configured on this instance (DEZFIL_GEOCODER_URL), so an operation that asks a provider for addresses cannot run. |
+| `geocoder_failed` | The configured geocoding endpoint did not answer, twice in a row. The run published nothing rather than recording an absent answer as an address that does not exist. |
+| `isochrone_unconfigured` | No routing endpoint is configured on this instance (DEZFIL_ISOCHRONE_URL), so an operation that asks a provider for travel-time areas cannot run. |
+| `isochrone_failed` | The configured routing endpoint did not answer, twice in a row. The run published nothing rather than recording an absent answer as an unreachable origin. |
+| `measurement_crs_unavailable` | The data spans more of the earth than any local projection covers, so a distance measured over it would not be in ground metres. Split it by region and measure each part; an area over the same data succeeds and records the global projection it used. |
+| `operation_superseded` | The step this run belonged to was changed or removed while it was working, so the run lost its authority to publish and wrote nothing. What it would have produced is no longer what the step means. |
+| `widget_layer_missing` | The widget references a layer that no longer exists, so its value cannot be computed. |
+| `column_unavailable` | The write introduces a reference to a column the layer's result does not provide, or provides with a type the channel cannot use, so it was refused; stored references are never retro-refused. |
+| `field_not_published` | The selection references a field the published surface does not declare: outside the layer's effective published field set and not a published widget's field. |
+| `catalogue_not_published` | A published layer or widget whose SQL reads the instance's catalogue does not evaluate on the link while its owner holds datasets the map does not name: a published map reaches only the datasets its own layers name, and the link would otherwise disclose the others. |
+| `selection_incompatible` | The selection's values cannot be evaluated against its field's type (for example a time range on a non-time field); it was refused before evaluation. |
+| `rate_limited` | Too many requests or sign-in attempts; retry after the indicated delay. |
+| `catalogue_too_large` | The schema page exceeds 96 KiB. Request fewer tables or columns. |
+| `assistant_reservation_required` | Reserve a run with POST /api/assistant/runs, then send its id as runId. |
+| `assistant_run_unavailable` | This run identity is unavailable and cannot execute. |
+| `assistant_run_conflict` | This run identity is already bound to different input. |
+| `assistant_capacity` | Eight assistant runs occupy capacity. Read GET /api/assistant/pending; release an unused reservation or abandon a pending turn with DELETE /api/assistant/runs/{id}. |
+| `assistant_run_state` | This operation is not available in the current run state. |
+| `assistant_submission_too_large` | The assistant submission exceeds 128 KiB. |
+| `assistant_recovery_limit` | Further work stopped before the live recovery bound could be exceeded. |
+| `assistant_plan_unavailable` | The current workflow membership could not be established. No run was approved or started. |
+| `assistant_action_uncertain` | The action outcome could not be established. Its declared resources may have changed. |
+| `assistant_action_interrupted` | The read was interrupted before completion. |
+| `assistant_action_not_admitted` | The run's page context does not admit this operation; nothing was performed. Runs under a /sql or workflow context admit only operations that declare themselves read-only. |
+| `assistant_choice_invalid` | The submitted model choice is malformed: it must be an object whose optional model and effort are strings. |
+| `assistant_model_not_offered` | The requested model is not one this instance offers. GET /api/assistant lists the models it offers. |
+| `assistant_effort_not_offered` | The requested effort is not one the selected model offers. GET /api/assistant lists each model's own efforts. |
+| `assistant_effort_not_supported` | The selected model has no effort levels of its own, so it takes only the provider default. Send the effort "default", or no effort at all, or choose a model that offers levels. GET /api/assistant lists each model's own efforts. |
+| `assistant_context_invalid` | The submitted page context is malformed or refers to an incompatible object. |
+| `assistant_context_too_large` | Page context exceeds 64 KiB of UTF-8 JSON. |
+| `assistant_context_unavailable` | The page context could not be read from this instance. |
+| `assistant_disabled` | The assistant is not enabled; no model credential is configured. |
+| `assistant_auth` | The configured model credential was rejected by the provider. |
+| `assistant_provider` | The model provider request failed (outage, quota, or network). |
+| `pending_unknown` | The referenced pending action is unknown; it may have expired with the server's working state. |
+| `pending_resolved` | The referenced pending action was already resolved; it will not run again. |
+| `pending_superseded` | A newer message superseded the referenced pending action, declining it. |
+| `invalid_sketch_feature` | The submitted sketch feature failed the structural gate: kind, geometry family, coordinate ranges, ring closure or the published vertex ceiling. |
+| `not_a_sketch` | The named table is not a sketch dataset; sketch operations apply only to tables drawn on a map. |
+| `feature_not_found` | No drawn feature with the given id exists in the sketch dataset. |
+| `vertex_move_refused` | The vertex move was refused: only drawn polygons and freehand shapes offer vertex handles, and the index must name an existing vertex. |
+| `sketch_gone` | The sketch dataset was deleted or replaced while the change was in flight; nothing was written. |
+| `map_not_found` | No map exists with the given id. |
+| `internal` | An unexpected server error occurred. |
+<!-- error-catalogue:end -->

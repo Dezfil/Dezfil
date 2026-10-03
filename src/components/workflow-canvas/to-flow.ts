@@ -11,10 +11,10 @@ import { noteName } from "./note-text";
  * recipe is read, not edited. Members drag.
  */
 
-export type BadgeFlowNode = Node<{ member: NodeMember }, "badge">;
-export type SourceFlowNode = Node<{ member: SourceMember }, "source">;
+export type BadgeFlowNode = Node<{ member: NodeMember; unsavedPosition?: boolean }, "badge">;
+export type SourceFlowNode = Node<{ member: SourceMember; unsavedPosition?: boolean }, "source">;
 /** A note: the layout's note, and whether it is open for editing. */
-export type NoteFlowNode = Node<{ note: LayoutNote; editing: boolean; locked: boolean }, "note">;
+export type NoteFlowNode = Node<{ note: LayoutNote; editing: boolean; locked: boolean; unsaved?: boolean }, "note">;
 export type MemberFlowNode = BadgeFlowNode | SourceFlowNode;
 export type FlowNode = MemberFlowNode | NoteFlowNode;
 export type ReadFlowEdge = Edge<{ edge: CanvasEdge; lifted?: boolean }, "read">;

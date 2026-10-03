@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdtemp, rm, writeFile, readFile, copyFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
@@ -51,8 +52,8 @@ it("keeps simultaneous same-name reads independent and leaves no shared dataset 
 });
 it("uses the publisher's data after deactivation rather than another account's same-named table", async () => {
   for (const owner of owners) {
-    const map = createMap(scopes[owner], "Public projection"), layer = await createLayer(scopes[owner], map.id, { name: "Roads", sql: "SELECT * FROM roads" });
-    const { token } = publishMap(scopes[owner], map.id);
+    const map = createMap(scopes[owner], "Public projection"), layer = await createLayer(scopes[owner], map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    const { token } = publishMap(scopes[owner], map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     metadataDb().prepare("UPDATE accounts SET status = 'deactivated' WHERE id = ?").run(owner);
     const view = await getPublishedView(token, Date.now()); expect(view?.layers[0].id).toBe(layer.id);
     expect(view?.layers[0].render.geojson).toMatchObject({ features: [{ properties: { sentinel: owner } }] });
@@ -78,7 +79,7 @@ it("carries account scope through classification, fields, extent, preview, searc
   const { exportLayerResult, exportQueryResult } = await import("@/lib/export/layer-export");
   for (const owner of owners) {
     const scope = scopes[owner], sql = "SELECT * FROM query('SELECT * FROM memory.main.roads')";
-    const map = createMap(scope, "Local consumers"), layer = await createLayer(scope, map.id, { name: "Roads", sql });
+    const map = createMap(scope, "Local consumers"), layer = await createLayer(scope, map.id, { name: "Roads", sql }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect((await classifyFill(scope, sql, "sentinel", "categorical"))).toMatchObject({ map: [{ value: owner }] });
     expect((await baseFields(scope, layer)).some(field => field.name === "sentinel")).toBe(true);
     expect(await layerFieldStats(scope, layer, "sentinel")).toMatchObject({ values: [owner] });
@@ -178,8 +179,8 @@ it("preserves exact large numeric literals while translating qualified names", a
 
 it("keeps pending-adoption publications on their named dataset through first-account setup", async () => {
   const map = createMap(scopes.alice, "Pending publication");
-  await createLayer(scopes.alice, map.id, { name: "Roads", sql: "SELECT * FROM query_table('memory.main.roads')" });
-  const { token } = publishMap(scopes.alice, map.id);
+  await createLayer(scopes.alice, map.id, { name: "Roads", sql: "SELECT * FROM query_table('memory.main.roads')" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+  const { token } = publishMap(scopes.alice, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   // Recreate a pre-account installation through inserts. Ownership immutability
   // deliberately refuses turning existing owned rows back into legacy rows.
   let db = metadataDb();
@@ -194,6 +195,7 @@ it("keeps pending-adoption publications on their named dataset through first-acc
   for (const [table, saved] of rows) for (const row of saved) {
     if ("owner_id" in row) row.owner_id = null;
     if ("home_account_id" in row) row.home_account_id = null;
+    if ("last_changed_by" in row) row.last_changed_by = null;
     db.prepare(`INSERT INTO ${table} (${Object.keys(row).join(",")}) VALUES (${Object.keys(row).map(() => "?").join(",")})`).run(...Object.values(row));
   }
   resetPublishCache();

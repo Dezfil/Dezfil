@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { readDocumentRevision } from "@/lib/metadata/revisions";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import type { Database } from "better-sqlite3";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
@@ -14,7 +16,7 @@ let db: Database, scopes: Record<string, AccountScope>, maps: Record<string, str
 beforeEach(() => {
   db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db);
   scopes = {}; maps = {}; tokens = {}; resetPublishCache();
-  for (const id of ["alice", "bob", "admin"]) { scopes[id] = testAccountScope(db, id); maps[id] = createMap(scopes[id], `Secret ${id}`).id; tokens[id] = publishMap(scopes[id], maps[id]).token; }
+  for (const id of ["alice", "bob", "admin"]) { scopes[id] = testAccountScope(db, id); maps[id] = createMap(scopes[id], `Secret ${id}`).id; tokens[id] = publishMap(scopes[id], maps[id], {}, { expectedRevision: readEditRevision({ kind: "map", id: maps[id] })?.editRevision }).token; }
   db.prepare("UPDATE accounts SET is_admin = 1 WHERE id = 'admin'").run();
 });
 afterEach(() => { resetPublishCache(); vi.restoreAllMocks(); db.close(); });
@@ -29,17 +31,21 @@ it.each(["session", "token"])("allows an admin %s to revoke only a known deactiv
   const before = state(); const warmed = await getPublishedView(tokens.alice, Date.now()); expect(warmed?.name).toBe("Secret alice");
   db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'alice'").run();
   expect((await getPublishedView(tokens.alice, Date.now()))?.name).toBe("Secret alice");
+  const previous = readDocumentRevision({ kind: "map", id: maps.alice }, db)!;
   const response = await revoke("admin", tokens.alice, kind); expect(response.status).toBe(204); expect(await response.text()).toBe("");
   expect(response.headers.get("cache-control")).toContain("no-store");
   expect(await getPublishedView(tokens.alice, Date.now())).toBeNull();
+  const changed = readDocumentRevision({ kind: "map", id: maps.alice }, db)!;
+  expect(changed.editRevision).not.toBe(previous.editRevision);
+  expect(changed.lastChangedBy).toBe("admin");
   const after = state() as Record<string, unknown>[];
   for (let i = 0; i < after.length; i++) {
     if (after[i].id !== maps.alice) expect(after[i]).toEqual(before[i]);
-    else expect(after[i]).toMatchObject({ ...(before[i] as object), publish_token: null, published_at: null, published_theme: null, viewer_controls: null, updated_at: after[i].updated_at });
+    else expect(after[i]).toMatchObject({ ...(before[i] as object), publish_token: null, published_at: null, published_theme: null, viewer_controls: null, updated_at: after[i].updated_at, edit_revision: changed.editRevision, last_changed_by: "admin", last_changed_at: changed.lastChangedAt });
   }
   expect(() => getPublicationState(scopes.admin, maps.alice)).toThrow(expect.objectContaining({ code: "not_found" }));
   db.prepare("UPDATE accounts SET status = 'active' WHERE id = 'alice'").run();
-  expect(getPublicationState(scopes.alice, maps.alice)).toBeNull(); expect(publishMap(scopes.alice, maps.alice).token).not.toBe(tokens.alice);
+  expect(getPublicationState(scopes.alice, maps.alice)).toBeNull(); expect(publishMap(scopes.alice, maps.alice, {}, { expectedRevision: readEditRevision({ kind: "map", id: maps.alice })?.editRevision }).token).not.toBe(tokens.alice);
 });
 it("keeps active owners, the admin's own active map and unknown tokens indistinguishable with no write", async () => {
   const before = state(); const missing = await revoke("admin", "missing"), control = await missing.json(); expect(missing.status).toBe(404);

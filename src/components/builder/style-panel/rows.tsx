@@ -6,6 +6,7 @@ import { toHex, fromHex } from "@/lib/style/color";
 import { formatBreak } from "@/lib/style/legend";
 import { useSliderInteraction } from "./use-slider-interaction";
 import { sliderClass } from "../../ui/Slider";
+import { UnsavedField } from "../UnsavedFields";
 import styles from "../StylePanel.module.css";
 
 /** Boundaries read exactly like the legend does — the break formatter,
@@ -94,7 +95,7 @@ export function SelectRow({
 }) {
   return (
     <div className={styles.row}>
-      <span className={styles.rowLabel}>{label}</span>
+      <span className={styles.rowLabel}>{label}{typeof label === "string" && <UnsavedField label={label} />}</span>
       <select
         className={styles.select}
         aria-label={name}
@@ -123,7 +124,7 @@ export function ColorRow({
 }) {
   return (
     <div className={styles.row}>
-      <span className={styles.rowLabel}>{label}</span>
+      <span className={styles.rowLabel}>{label}{typeof label === "string" && <UnsavedField label={label} />}</span>
       <input
         type="color"
         className={styles.color}
@@ -164,7 +165,7 @@ export function SliderRow({
   });
   return (
     <div className={styles.row}>
-      <span className={styles.rowLabel}>{label}</span>
+      <span className={styles.rowLabel}>{label}{typeof label === "string" && <UnsavedField label={label} />}</span>
       <input
         type="range"
         className={sliderClass}

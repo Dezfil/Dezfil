@@ -8,6 +8,7 @@ import { createFirstAccount } from "@/lib/auth/accounts";
 const owned = ["maps", "data_tables", "recipes", "pg_connections", "projects", "operation_jobs"];
 const now = "2026-01-01T00:00:00.000Z";
 let directory: string, file: string, db: Database.Database;
+let priorColumns: Record<string, string[]>;
 
 beforeEach(() => {
   directory = mkdtempSync(path.join(process.env.DEZFIL_DATA_DIR!, "ownership-"));
@@ -16,6 +17,10 @@ beforeEach(() => {
   db.pragma("foreign_keys = ON");
   for (const migration of MIGRATIONS.slice(0, 41)) db.exec(migration);
   db.pragma("user_version = 41");
+  priorColumns = Object.fromEntries(
+    (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[])
+      .map(({ name }) => [name, (db.pragma(`table_info("${name}")`) as { name: string }[]).map(c => c.name)]),
+  );
   db.exec(`INSERT INTO projects VALUES ('project', 'Survey', 'Keep this', '${now}', '${now}');
     INSERT INTO maps (id, name, publish_token, published_at, created_at, updated_at, project_id)
       VALUES ('map', 'Legacy map', 'legacy-publication', '${now}', '${now}', '${now}', 'project');
@@ -53,13 +58,12 @@ function reopen() { db.close(); db = open(file); }
 // Later entries add their own stamps derived from ownership (SQL names and
 // homes, run initiators, lineage runners) and their own tables; their test
 // holds those. This one holds everything the ownership entry received.
-const laterStamps = new Set(["owner_id", "sql_name", "home_account_id", "initiator_id", "runner_id"]);
 const laterTables = new Set(["project_people", "ownership_transfer_gate", "step_runner_outputs"]);
 function snapshot() {
   const names = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all() as { name: string }[])
     .map(row => row.name).filter(name => !laterTables.has(name));
   return Object.fromEntries(names.map(name => [name, db.prepare(`SELECT * FROM "${name}"`).all()
-    .map(row => Object.fromEntries(Object.entries(row as object).filter(([key]) => !laterStamps.has(key))))]));
+    .map(row => Object.fromEntries(Object.entries(row as object).filter(([key]) => priorColumns[name].includes(key))))]));
 }
 function expectOwners(id: string | null) {
   for (const table of owned) expect(db.prepare(`SELECT DISTINCT owner_id FROM ${table}`).all(), table).toEqual([{ owner_id: id }]);

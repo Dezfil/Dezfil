@@ -1,3 +1,5 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
+import type { EditBasis } from "../src/lib/edit-basis";
 // The project filter on the three lists (which takes the count off the
 // All projects row and its face and leaves every other row's number
 // where it was): the popover's truth (zero-count projects included; the
@@ -30,19 +32,19 @@ const T_UP = `lf_up_${runId}`;
 const T_LOOSE = `lf_loose_${runId}`;
 const OUT = `lf_out_${runId}`;
 
-const api = (page: Page, method: string, pathName: string, body?: unknown) =>
+const api = (page: Page, method: string, pathName: string, body?: unknown, basis?: EditBasis) =>
   page.evaluate(
-    async ({ method, pathName, body }) => {
+    async ({ method, pathName, body, basis }) => {
       const r = await fetch(pathName, {
         method,
-        headers: body ? { "content-type": "application/json" } : undefined,
+        headers: { ...(body ? { "content-type": "application/json" } : undefined), ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) },
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!r.ok && r.status !== 204) throw new Error(await r.text());
       const text = r.status === 204 ? "" : await r.text();
       return text ? (JSON.parse(text) as unknown) : null;
     },
-    { method, pathName, body },
+    { method, pathName, body, basis },
   );
 
 const apiResult = (
@@ -50,12 +52,13 @@ const apiResult = (
   method: string,
   pathName: string,
   body?: unknown,
+  basis?: EditBasis,
 ) =>
   page.evaluate(
-    async ({ method, pathName, body }) => {
+    async ({ method, pathName, body, basis }) => {
       const response = await fetch(pathName, {
         method,
-        headers: body ? { "content-type": "application/json" } : undefined,
+        headers: { ...(body ? { "content-type": "application/json" } : undefined), ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) },
         body: body ? JSON.stringify(body) : undefined,
       });
       const text = response.status === 204 ? "" : await response.text();
@@ -64,7 +67,7 @@ const apiResult = (
         body: text ? (JSON.parse(text) as unknown) : null,
       };
     },
-    { method, pathName, body },
+    { method, pathName, body, basis },
   );
 
 const filterButton = (page: Page) =>
@@ -153,7 +156,7 @@ test("the list filter across Maps, Workflows and Data", async ({
       page,
       "PATCH",
       `/api/projects/${pa}/members`,
-      { addRecipes: [builder] },
+      { addRecipes: [builder], expectedRevisions: { [`workflow:${builder}`]: ((await api(page, "GET", `/api/recipes/${builder}`)) as { recipe: { editRevision: string } }).recipe.editRevision } },
     );
     expect(refused.status).toBe(400);
     expect(refused.body).toMatchObject({
@@ -188,12 +191,12 @@ test("the list filter across Maps, Workflows and Data", async ({
     // A run output joins its workflow's project with source "operation",
     // giving the scope a second source kind for the chip fallback.
     const step = (
-      (await api(page, "POST", `/api/recipes/${w1}/steps`, {
+      (await readThenWriteBrowserSetup(page, `/api/recipes/${w1}`, () => ({ method: "POST", path: `/api/recipes/${w1}/steps`, body: {
         operation: "sql_step",
         parameters: { sql: `SELECT * FROM ${T_UP}`, name: OUT },
-      })) as { step: { id: string } }
+      } })).then(result => result.json)) as { step: { id: string } }
     ).step.id;
-    await api(page, "POST", `/api/recipes/${w1}/runs`, { members: [step] });
+    await readThenWriteBrowserSetup(page, `/api/recipes/${w1}`, () => ({ method: "POST", path: `/api/recipes/${w1}/runs`, body: { members: [step] } })).then(result => result.json);
     await expect
       .poll(
         async () => {
@@ -282,7 +285,7 @@ test("the list filter across Maps, Workflows and Data", async ({
       projectId: string | null;
     };
     expect(created.projectId).toBe(pa);
-    await api(page, "DELETE", `/api/maps/${createdId}`);
+    await readThenWriteBrowserSetup(page, `/api/maps/${createdId}`, () => ({ method: "DELETE", path: `/api/maps/${createdId}` }));
     await page.goto("/maps?project=none");
     // The unfiled scope's face on Maps, where this step already stands
     // under it. Its value is residue-bound on a shared instance, so the
@@ -304,7 +307,7 @@ test("the list filter across Maps, Workflows and Data", async ({
       projectId: string | null;
     };
     expect(loose.projectId).toBeNull();
-    await api(page, "DELETE", `/api/maps/${looseId}`);
+    await readThenWriteBrowserSetup(page, `/api/maps/${looseId}`, () => ({ method: "DELETE", path: `/api/maps/${looseId}` }));
   });
 
   await test.step("Maps: the scope survives a reload; unknown, empty and deleted scopes refuse", async () => {
@@ -395,7 +398,7 @@ test("the list filter across Maps, Workflows and Data", async ({
       recipe: { projectId: string | null };
     };
     expect(made.recipe.projectId).toBe(pa);
-    await api(page, "DELETE", `/api/recipes/${wfId}`);
+    await readThenWriteBrowserSetup(page, `/api/recipes/${wfId}`, () => ({ method: "DELETE", path: `/api/recipes/${wfId}` })).then(result => result.json);
   });
 
   await test.step("Data: the unset scope's face and its All row", async () => {

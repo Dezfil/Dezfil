@@ -45,6 +45,8 @@ export type ErrorCode =
   | "mcp_read_failed"
   | "mcp_transport_failed"
   | "mcp_response_invalid"
+  | "method_not_allowed"
+  | "stale_revision"
   | "invalid_request"
   | "not_found"
   | "sql_rejected"

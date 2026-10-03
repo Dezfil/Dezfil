@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { DuckDBConnection } from "@duckdb/node-api";
@@ -127,13 +128,13 @@ async function heldRun(start: () => Promise<CascadeRun>, change: () => void | Pr
 
 describe("authority lost while a run is in flight", () => {
   it("completes a demoted editor's admitted step privately and admits nothing further", async () => {
-    const first = await startCascade(scopes.ada, { recipeId: W });
+    const first = await startCascade(scopes.ada, { expectedRevision: readEditRevision({ kind: "workflow", id: W })?.editRevision, recipeId: W });
     await cascadeSettled(first.id); await laneSettled();
     const adaStaged = owned("ada", "staged")!;
     expect(editStep(S, { sql: "SELECT sentinel, 'held_marker' AS mark, 2 AS v FROM roads", name: "staged" })).toBe("proposed");
     const before = record(S);
 
-    const run = await heldRun(() => startCascade(scopes.bob, { recipeId: W }),
+    const run = await heldRun(() => startCascade(scopes.bob, { expectedRevision: readEditRevision({ kind: "workflow", id: W })?.editRevision, recipeId: W }),
       () => { db().prepare("UPDATE project_people SET role = 'viewer' WHERE project_id = 'P' AND account_id = 'bob'").run(); });
 
     const after = readCascade(scopes.bob, run.id);
@@ -159,7 +160,7 @@ describe("authority lost while a run is in flight", () => {
     ["the runner removed from the project", () => { db().prepare("DELETE FROM project_people WHERE project_id = 'Q' AND account_id = 'bob'").run(); }],
     ["the project dissolved", () => { deleteProject("Q"); }],
   ])("completes privately when %s leaves the runner without the workflow", async (_label, change) => {
-    const run = await heldRun(() => startSingleRun(scopes.bob, V, VS), change);
+    const run = await heldRun(() => startSingleRun(scopes.bob, V, VS, { expectedRevision: readEditRevision({ kind: "workflow", id: V })?.editRevision }), change);
     expect(read(run.id).outcome).toBe("completed");
     const output = owned("bob", "copied")!;
     expect(filedIn(output.id)).toEqual([]);
@@ -171,7 +172,7 @@ describe("authority lost while a run is in flight", () => {
 
 describe("a workflow changed while it runs", () => {
   it("files into the project it was moved to", async () => {
-    await heldRun(() => startSingleRun(scopes.bob, W, S), () => { fileRecipe(W, "R"); });
+    await heldRun(() => startSingleRun(scopes.bob, W, S, { expectedRevision: readEditRevision({ kind: "workflow", id: W })?.editRevision }), () => { fileRecipe(W, "R"); });
     const output = owned("bob", "staged")!;
     expect(filedIn(output.id)).toEqual(["R"]);
     expect(runnerOutput(S, "bob")).toMatchObject({ id: output.id });
@@ -179,7 +180,7 @@ describe("a workflow changed while it runs", () => {
   }, 60_000);
 
   it("files into its project after a transfer, the run still its runner's", async () => {
-    await heldRun(() => startSingleRun(scopes.bob, W, S), () => {
+    await heldRun(() => startSingleRun(scopes.bob, W, S, { expectedRevision: readEditRevision({ kind: "workflow", id: W })?.editRevision }), () => {
       db().prepare("INSERT INTO ownership_transfer_gate VALUES (1, 'workflow', ?, 'ada', 'pat')").run(W);
       db().prepare("UPDATE recipes SET owner_id = 'pat' WHERE id = ?").run(W);
       db().prepare("DELETE FROM ownership_transfer_gate").run();
@@ -196,7 +197,7 @@ describe("an input withdrawn before the output commits", () => {
     ["deleted by its owner", () => removeTable(scopes.ada, "roads")],
     ["out of reach once the runner leaves the project", () => { db().prepare("DELETE FROM project_people WHERE project_id = 'P' AND account_id = 'bob'").run(); }],
   ])("refuses the output when %s, though the step already read it", async (_label, change) => {
-    const run = await heldRun(() => startSingleRun(scopes.bob, W, S), change);
+    const run = await heldRun(() => startSingleRun(scopes.bob, W, S, { expectedRevision: readEditRevision({ kind: "workflow", id: W })?.editRevision }), change);
     const job = getJob(member(readCascade(scopes.ada, run.id), S).jobId!)!;
     expect(job).toMatchObject({ state: "failed", errorCode: "sql_error", errorMessage: 'The dataset "roads" is not available to you.' });
     expect(owned("bob", "staged")).toBeUndefined();
@@ -214,7 +215,7 @@ describe("an input withdrawn before the output commits", () => {
   }, 60_000);
 
   it("keeps publishing when the runner deletes an input of their own", async () => {
-    const run = await heldRun(() => startSingleRun(scopes.bob, V, VS), () => removeTable(scopes.bob, "mine"));
+    const run = await heldRun(() => startSingleRun(scopes.bob, V, VS, { expectedRevision: readEditRevision({ kind: "workflow", id: V })?.editRevision }), () => removeTable(scopes.bob, "mine"));
     expect(read(run.id).outcome).toBe("completed");
     const output = owned("bob", "copied")!;
     expect(filedIn(output.id)).toEqual(["Q"]);
@@ -226,7 +227,7 @@ describe("cancelling a run after its initiator stops reaching the workflow", () 
   it("is still the initiator's, by the run's identifier, answered without the run", async () => {
     db().prepare("UPDATE recipe_steps SET parameters = json_set(parameters, '$.sql', ?) WHERE id = ?")
       .run("SELECT count(*) AS n FROM range(200000) a, range(200000) b, bob.mine WHERE (a.range * b.range) % 7 = 3", VS);
-    const run = await startSingleRun(scopes.bob, V, VS);
+    const run = await startSingleRun(scopes.bob, V, VS, { expectedRevision: readEditRevision({ kind: "workflow", id: V })?.editRevision });
     const jobId = member(run, VS).jobId!;
     try {
     db().prepare("DELETE FROM project_people WHERE project_id = 'Q' AND account_id = 'bob'").run();

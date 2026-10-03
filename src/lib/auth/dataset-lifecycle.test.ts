@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { DuckDBConnection } from "@duckdb/node-api";
 import { mkdtemp, writeFile, readdir, rm, readFile, access } from "node:fs/promises";
 import path from "node:path";
@@ -90,7 +91,7 @@ it("keeps same-name sketch mutations and cascades in their owning account", asyn
   const maps = Object.fromEntries(accounts.map(id => [id, createMap(scopes[id], "Survey")]));
   const sketches = [];
   for (const id of accounts) {
-    const sketch = await createSketch(scopes[id], maps[id].id, point);
+    const sketch = await createSketch(scopes[id], maps[id].id, point, { expectedRevision: readEditRevision({ kind: "map", id: maps[id].id })?.editRevision });
     expect(sketch.table.name).toBe("survey_sketch"); expect(owner(sketch.table.id)).toBe(id); sketches.push(sketch);
     expect((await mapSketches(scopes[id], maps[id].id))[0].tableId).toBe(sketch.table.id);
   }
@@ -171,7 +172,7 @@ it.each(["upload", "sketch", "geometry"])("refuses deactivation after %s artifac
     return result;
   });
   const work = kind === "upload" ? () => ingestFile(scopes.alice, source, "new.csv")
-    : kind === "sketch" ? () => createSketch(scopes.alice, map.id, point)
+    : kind === "sketch" ? () => createSketch(scopes.alice, map.id, point, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision })
     : () => setGeometry(scopes.alice, table.name, revision, { format: "pair", columns: ["lon", "lat"] });
   await expect(Promise.resolve().then(async () => work())).rejects.toMatchObject({ code: "authentication_required", status: 401 });
   expect(held).toBe(true); expect(await namesOnDisk()).toEqual(before);

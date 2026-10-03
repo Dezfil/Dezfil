@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
@@ -19,7 +20,7 @@ function table(owner: string | null, id: string) {
 it("selects each publisher's durable datasets regardless of visitor or owner activity", () => {
   for (const owner of ["alice", "bob", "admin"]) {
     const scope = testAccountScope(db, owner), map = createMap(scope, `Map ${owner}`); table(owner, owner);
-    const publication = resolvePublication(publishMap(scope, map.id).token)!;
+    const publication = resolvePublication(publishMap(scope, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }).token)!;
     expect(scopedDatasets(publication.scope).map(t => t.id)).toEqual([owner]);
     db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = ?").run(owner);
     expect(() => requireAccountScope(scope)).toThrow(); expect(requirePublicationScope(publication.scope)).toBe(owner);
@@ -44,11 +45,23 @@ it("keeps pending-adoption publication-only access and retires it atomically at 
 });
 it("rejects missing, forged, copied and revoked scope identities without widening private authority", () => {
   const account = testAccountScope(db, "alice"), map = createMap(account, "Map");
-  const { token } = publishMap(account, map.id), scope = resolvePublication(token)!.scope;
+  const { token } = publishMap(account, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }), scope = resolvePublication(token)!.scope;
   expect(Object.isFrozen(scope)).toBe(true);
   for (const bad of [undefined, { token, mapId: map.id, ownerId: "alice" }, { ...scope, ownerId: "bob" }, { ...scope, mapId: "other" }]) {
     expect(() => requirePublicationScope(bad as PublicationScope)).toThrow(expect.objectContaining({ code: "not_found" }));
   }
-  unpublishMap(account, map.id); expect(() => scopedDatasets(scope)).toThrow(expect.objectContaining({ code: "not_found" }));
+  unpublishMap(account, map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }); expect(() => scopedDatasets(scope)).toThrow(expect.objectContaining({ code: "not_found" }));
   expect(resolvePublication(token)).toBeNull(); expect(resolvePublication("missing")).toBeNull();
+});
+
+it("anonymous projections contain neither document revisions nor recorded people", async () => {
+  const account = testAccountScope(db, "author"), map = createMap(account, "Public");
+  const { token } = publishMap(account, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+  const privateRevision = readEditRevision({ kind: "map", id: map.id })!.editRevision;
+  const view = await getPublishedView(token, Date.now());
+  expect(view?.name).toBe("Public");
+  const json = JSON.stringify(view);
+  expect(json).not.toMatch(/editRevision|lastChangedAt|lastChangedBy|sqlName|accountId|ownerId/);
+  expect(json).not.toContain(privateRevision);
+  expect(json).not.toContain("author");
 });

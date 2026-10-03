@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import type { HistoryAvailability } from "@/lib/metadata/history";
+import type { SharedHistory as HistoryAvailability } from "./shared-history";
+import { editHeaders } from "@/lib/edit-basis";
+import type { DocumentSequence } from "../document-sequence";
 import { readApiError } from "../api";
 import type { MapWithLayers } from "@/lib/metadata/maps";
 import type { FailureKey } from "./use-mutation-lane";
@@ -21,6 +23,7 @@ import { fetchLayerRender, type LayerRenderData } from "./render-data";
  */
 export function useMapHistory(opts: {
   mapId: string;
+  sequence: DocumentSequence;
   track: <T>(promise: Promise<T>) => Promise<T>;
   applyMapResponse: (
     body: MapWithLayers,
@@ -30,6 +33,7 @@ export function useMapHistory(opts: {
   reload: () => void;
   fail: (key: FailureKey, message: string) => void;
   clearFailure: (key: FailureKey) => void;
+  target: (direction: "undo" | "redo") => string | null;
   setHistory: Dispatch<SetStateAction<HistoryAvailability>>;
   setSelectedId: Dispatch<SetStateAction<string | null>>;
   rendersRef: MutableRefObject<Record<string, LayerRenderData>>;
@@ -37,17 +41,16 @@ export function useMapHistory(opts: {
 }): { applyHistory: (direction: "undo" | "redo") => Promise<void> } {
   const {
     mapId,
-    track,
+    sequence,    track,
     applyMapResponse,
     reload,
     fail,
     clearFailure,
-    setHistory,
+    setHistory, target,
     setSelectedId,
     rendersRef,
     setRenders,
   } = opts;
-  const historyQueueRef = useRef<Promise<void>>(Promise.resolve());
   const historyGenerationRef = useRef(0);
 
   // Undo/redo: the response is the refreshed map plus fresh availability
@@ -60,7 +63,10 @@ export function useMapHistory(opts: {
       // are never in flight together and their responses cannot land out
       // of order. The repaint carries a generation, so a superseded
       // batch never overwrites a newer one's result.
-      const result = historyQueueRef.current.then(async () => {
+      const editRevision = target(direction);
+      if (!editRevision) return Promise.resolve();
+      const result = sequence.enqueue(async () => {
+        if (sequence.stale) return;
         const generation = (historyGenerationRef.current += 1);
         // Literal paths (not an interpolated verb) so the parity suite can
         // match each call to its documented operation.
@@ -70,7 +76,7 @@ export function useMapHistory(opts: {
             : `/api/maps/${mapId}/redo`;
         let response: Response;
         try {
-          response = await track(fetch(url, { method: "POST" }));
+          response = await track(fetch(url, { method: "POST", headers: editHeaders({ editRevision }) }).then(response => sequence.observe(response)));
         } catch (cause) {
           fail(
             "history",
@@ -81,6 +87,7 @@ export function useMapHistory(opts: {
           reload();
           return;
         }
+        if (sequence.stale) { fail("history", await readApiError(response)); return; }
         if (!response.ok) {
           // 409 = nothing to apply — the optimistic flag overshot (a no-op
           // edit); resync the buttons instead of surfacing an error.
@@ -131,20 +138,17 @@ export function useMapHistory(opts: {
         rendersRef.current = nextRenders;
         setRenders(nextRenders);
       });
-      historyQueueRef.current = result.then(
-        () => undefined,
-        () => undefined,
-      );
       return result;
     },
     [
       mapId,
+      sequence,
       track,
       applyMapResponse,
       reload,
       clearFailure,
       fail,
-      setHistory,
+      setHistory, target,
       setSelectedId,
       rendersRef,
       setRenders,

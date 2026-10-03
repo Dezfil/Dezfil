@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -23,7 +25,7 @@ beforeEach(async () => {
   await ingestFile(testAccountScope(), src, "w.csv");
   const map = createMap(testAccountScope(), "m");
   mapId = map.id;
-  const layer = await createLayer(testAccountScope(), map.id, { name: "l", sql: "SELECT * FROM w" });
+  const layer = await createLayer(testAccountScope(), map.id, { name: "l", sql: "SELECT * FROM w" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   layerId = layer.id;
 });
 
@@ -42,7 +44,7 @@ function statement() {
 
 describe("published-fields statement route", () => {
   it("states the effective set per layer, matching what the wire carries", async () => {
-    await updateLayer(testAccountScope(), layerId, { tooltip: ["name"], popup: [] });
+    await updateLayer(testAccountScope(), layerId, { tooltip: ["name"], popup: [] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     const res = await statement();
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
@@ -60,7 +62,7 @@ describe("published-fields statement route", () => {
   });
 
   it("states list mode under an override", async () => {
-    await updateLayer(testAccountScope(), layerId, { publishedFields: ["riders"] });
+    await updateLayer(testAccountScope(), layerId, { publishedFields: ["riders"] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     const res = await statement();
     const body = await res.json();
     expect(body.layers[0].mode).toBe("list");
@@ -68,7 +70,7 @@ describe("published-fields statement route", () => {
   });
 
   it("states that a hidden layer shares nothing (round one)", async () => {
-    await updateLayer(testAccountScope(), layerId, { visible: false });
+    await updateLayer(testAccountScope(), layerId, { visible: false }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     const res = await statement();
     const body = await res.json();
     expect(body.layers[0]).toMatchObject({
@@ -80,7 +82,7 @@ describe("published-fields statement route", () => {
   });
 
   it("degrades per layer when a layer's SQL cannot resolve", async () => {
-    await createLayer(testAccountScope(), mapId, { name: "ok", sql: "SELECT * FROM w" });
+    await createLayer(testAccountScope(), mapId, { name: "ok", sql: "SELECT * FROM w" }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     // Break the first layer underneath (bypassing validation) by pointing
     // it at a name that no longer resolves.
     const { updateLayerFields } = await import("@/lib/metadata/maps");

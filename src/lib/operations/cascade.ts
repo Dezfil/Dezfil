@@ -1,3 +1,4 @@
+import { readDocumentRevision, requireDocumentRevision } from "@/lib/metadata/revisions";
 import type { DatasetScope } from "@/lib/query/access";
 import { settleInactiveCascade } from "./cascade-inactive";
 import { resourceAbsent } from "@/lib/auth/owned-resource";
@@ -107,6 +108,7 @@ function dependentsOf(graph: Graph, fromStepId: string): Set<string> {
 
 export interface CascadeRequest {
   recipeId: string;
+  expectedRevision?: unknown;
   /** Absent runs the whole recipe from the beginning. */
   fromStepId?: string;
   /** The members a confirmation named, in order: the run starts
@@ -122,6 +124,7 @@ export interface CascadeRequest {
  * be able to ask which it is before it commits to one.
  */
 export interface CascadePlan {
+  editRevision: string;
   kind: CascadeKind;
   members: MemberIdentity[];
   graph: Graph;
@@ -142,18 +145,23 @@ function identityOf(step: RecipeStep): MemberIdentity {
   };
 }
 
-export async function planCascade(scope: AccountScope, request: CascadeRequest): Promise<CascadePlan> {
-  // Whoever may run the workflow plans it: anyone else is refused before
-  // anything is read.
+/** Resolve every referenced child before comparing the parent revision. */
+function authorizedSteps(scope: AccountScope, request: CascadeRequest): RecipeStep[] {
   requirePermitted(scope, "workflow", request.recipeId, "run");
-  const recipe = getRecipe(scope, request.recipeId);
-  if (!recipe) {
-    throw resourceAbsent();
-  }
   const steps = listSteps(scope, request.recipeId);
   for (const id of [...(request.fromStepId ? [request.fromStepId] : []), ...(request.members ?? [])]) {
     if (!steps.some(step => step.id === id)) throw resourceAbsent();
   }
+  return steps;
+}
+
+export async function planCascade(scope: AccountScope, request: CascadeRequest): Promise<CascadePlan> {
+  // Whoever may run the workflow plans it: anyone else is refused before
+  // anything is read.
+  const { steps, editRevision } = metadataDb().transaction(() => {
+    const steps = authorizedSteps(scope, request);
+    return { steps, editRevision: readDocumentRevision({ kind: "workflow", id: request.recipeId })!.editRevision! };
+  })();
   if (steps.length === 0) {
     throw new ApiError("invalid_request", "This recipe has no steps to run.", 400);
   }
@@ -162,6 +170,7 @@ export async function planCascade(scope: AccountScope, request: CascadeRequest):
 
   if (!request.fromStepId) {
     return {
+      editRevision,
       kind: "run_all",
       members: steps.map(identityOf),
       graph,
@@ -179,6 +188,7 @@ export async function planCascade(scope: AccountScope, request: CascadeRequest):
   }
   const chosen = dependentsOf(graph, from.id);
   return {
+    editRevision,
     kind: "from_step",
     members: steps.filter((s) => chosen.has(s.id)).map(identityOf),
     graph,
@@ -192,9 +202,13 @@ export async function planCascade(scope: AccountScope, request: CascadeRequest):
  * record of the new one are one transaction, so two starts that race yield
  * one run and one refusal naming it.
  */
-export function recordUnderLock(scope: AccountScope, recipeId: string, kind: CascadeKind, members: MemberIdentity[]): CascadeRun {
+export interface StartedRun extends CascadeRun { editRevision: string }
+
+export function recordUnderLock(scope: AccountScope, recipeId: string, kind: CascadeKind, members: MemberIdentity[], expectedRevision: unknown): StartedRun {
   const db = metadataDb();
   return db.transaction(() => {
+    authorizedSteps(scope, { recipeId, members: members.map(member => member.stepId) });
+    requireDocumentRevision(scope, { kind: "workflow", id: recipeId, action: "run", expectedRevision }, db);
     const active = activeCascade(scope, recipeId, db);
     if (active) {
       throw new ApiError(
@@ -203,50 +217,28 @@ export function recordUnderLock(scope: AccountScope, recipeId: string, kind: Cas
         409,
       );
     }
-    return createCascade(scope, recipeId, kind, members, db);
+    return { ...createCascade(scope, recipeId, kind, members, db), editRevision: readDocumentRevision({ kind: "workflow", id: recipeId }, db)!.editRevision! };
   })();
 }
 
-/** The workflow's last-edited mark: what a plan was made from. */
-function basisOf(scope: AccountScope, recipeId: string): string | null {
-  return getRecipe(scope, recipeId)?.updatedAt ?? null;
-}
-
-export async function startCascade(scope: AccountScope, request: CascadeRequest): Promise<CascadeRun> {
-  requireAccountScope(scope);
-  // Planning waits on the parser, so the workflow may change while the
-  // server plans; the record is made only from a plan of the workflow as
-  // it stands, re-planned when the mark moved (a bounded number of times).
-  let plan: CascadePlan | null = null;
-  let cascade: CascadeRun | null = null;
-  for (let attempt = 0; attempt < 3 && cascade === null; attempt += 1) {
-    const basis = basisOf(scope, request.recipeId);
-    plan = await planCascade(scope, request);
-    const planned = plan.members.map((m) => m.stepId);
-    // The confirmation binds the membership and the order, nothing else: a
-    // plan that differs at start refuses whole.
-    if (request.members) {
-      const same = planned.length === request.members.length && planned.every((id, i) => id === request.members![i]);
-      if (!same) throw new ApiError("plan_changed", publishedMessage("plan_changed"), 409);
+export async function startCascade(scope: AccountScope, request: CascadeRequest): Promise<StartedRun> {
+  // The caller's read is the sole start basis. Planning may await the parser,
+  // but a changed document refuses rather than recomposing that intent.
+  metadataDb().transaction(() => {
+    authorizedSteps(scope, request);
+    requireDocumentRevision(scope, { kind: "workflow", id: request.recipeId, action: "run", expectedRevision: request.expectedRevision });
+  })();
+  const plan = await planCascade(scope, request);
+  const cascade = metadataDb().transaction(() => {
+    authorizedSteps(scope, request);
+    requireDocumentRevision(scope, { kind: "workflow", id: request.recipeId, action: "run", expectedRevision: request.expectedRevision });
+    const planned = plan.members.map(member => member.stepId);
+    if (request.members && (planned.length !== request.members.length || planned.some((id, i) => id !== request.members![i]))) {
+      throw new ApiError("plan_changed", publishedMessage("plan_changed"), 409);
     }
-    const members = plan.members;
-    const db = metadataDb();
-    cascade = db.transaction((): CascadeRun | null => {
-      if (basisOf(scope, request.recipeId) !== basis) return null; // moved under the plan: plan again
-      const active = activeCascade(scope, request.recipeId, db);
-      if (active) {
-        throw new ApiError(
-          "run_in_flight",
-          `${publishedMessage("run_in_flight")} The run in flight is ${active.id}.`,
-          409,
-        );
-      }
-      return createCascade(scope, request.recipeId, plan!.kind, members, db);
-    })();
-  }
-  if (!cascade || !plan) throw new ApiError("plan_changed", publishedMessage("plan_changed"), 409);
-  const { kind, members, graph } = plan;
-  void kind;
+    return recordUnderLock(scope, request.recipeId, plan.kind, plan.members, request.expectedRevision);
+  }).immediate();
+  const { members, graph } = plan;
 
   const drive = driveCascade(scope, cascade.id, members, graph).finally(() => {
     driving.delete(cascade.id);
@@ -256,7 +248,7 @@ export async function startCascade(scope: AccountScope, request: CascadeRequest)
   // exactly as a run does. An unhandled rejection here would kill the process,
   // so the drive itself never throws.
   void drive;
-  return getCascade(scope, cascade.id)!;
+  return { ...getCascade(scope, cascade.id)!, editRevision: cascade.editRevision };
 }
 
 /** What blocks a member: the nearest member it depends on that did not succeed. */
@@ -268,7 +260,7 @@ export async function startCascade(scope: AccountScope, request: CascadeRequest)
  * refusal still removes that row and leaves no attempt; accepted
  * cancellation retains the row and its refusal member.
  */
-export async function startSingleRun(scope: AccountScope, recipeId: string, stepId: string): Promise<CascadeRun> {
+export async function startSingleRun(scope: AccountScope, recipeId: string, stepId: string, options: { expectedRevision?: unknown } = {}): Promise<StartedRun> {
   requireAccountScope(scope);
   requirePermitted(scope, "workflow", recipeId, "run");
   const recipe = getRecipe(scope, recipeId);
@@ -280,10 +272,10 @@ export async function startSingleRun(scope: AccountScope, recipeId: string, step
     throw resourceAbsent();
   }
   const identity = identityOf(step);
-  const cascade = recordUnderLock(scope, recipeId, "single", [identity]);
-  let resolveStarted!: (run: CascadeRun) => void;
+  const cascade = recordUnderLock(scope, recipeId, "single", [identity], options.expectedRevision);
+  let resolveStarted!: (run: StartedRun) => void;
   let rejectStarted!: (error: unknown) => void;
-  const started = new Promise<CascadeRun>((resolve, reject) => {
+  const started = new Promise<StartedRun>((resolve, reject) => {
     resolveStarted = resolve;
     rejectStarted = reject;
   });
@@ -333,12 +325,12 @@ export async function startSingleRun(scope: AccountScope, recipeId: string, step
           stoppedBy: "cancelled",
         });
         finishCascade(scope, cascade.id, "cancelled", new Date().toISOString());
-        resolveStarted(getCascade(scope, cascade.id)!);
+        resolveStarted({ ...getCascade(scope, cascade.id)!, editRevision: cascade.editRevision });
         return;
       }
 
       setMember(scope, cascade.id, stepId, { state: "running", jobId: job.id });
-      resolveStarted(getCascade(scope, cascade.id)!);
+      resolveStarted({ ...getCascade(scope, cascade.id)!, editRevision: cascade.editRevision });
       const graph: Graph = new Map([[stepId, []]]);
       await driveCascade(scope, cascade.id, [identity], graph, { stepId, jobId: job.id });
     })

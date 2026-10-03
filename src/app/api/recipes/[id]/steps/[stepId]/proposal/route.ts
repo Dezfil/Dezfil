@@ -1,3 +1,6 @@
+import { EDIT_REVISION_HEADER } from "@/lib/edit-basis";
+import { requireDocumentRevision } from "@/lib/metadata/revisions";
+import { revisionEnvelope } from "@/lib/metadata/document-results";
 import { resourceAbsent } from "@/lib/auth/owned-resource";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { requireWorkflowEdit } from "@/lib/workflow-access";
@@ -20,14 +23,16 @@ export async function DELETE(_request: Request, { params }: Params) {
     const scope = requireRequestScope(_request);
     const { id, stepId } = await params;
     requireWorkflowEdit(scope, id, stepId);
+    const options = { expectedRevision: _request.headers.get(EDIT_REVISION_HEADER) };
+    requireDocumentRevision(scope, { kind: "workflow", id, ...options });
     const step = getStep(scope, stepId);
     if (!step || step.recipeId !== id) {
       throw resourceAbsent();
     }
     const discarded = step.proposedParameters !== null;
-    if (discarded) discardProposal(scope, stepId);
+    discardProposal(scope, stepId, undefined, options);
     return NextResponse.json({
-      step: stepPayload(await readStep(scope, id, stepId)),
+      ...revisionEnvelope("step", stepPayload(await readStep(scope, id, stepId))),
       discarded,
     });
   } catch (error) {

@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -50,7 +52,7 @@ async function seedThree() {
     const layer = await createLayer(testAccountScope(), map.id, {
       name,
       sql: "SELECT * FROM stations",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     ids.push(layer.id);
   }
   return { map, ids };
@@ -98,17 +100,17 @@ describe("legendOrder — the stored arrangement", () => {
     expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toBeNull();
 
     const arrangement = [ids[1], ids[2], ids[0]];
-    updateMap(testAccountScope(), map.id, { legendOrder: arrangement });
+    updateMap(testAccountScope(), map.id, { legendOrder: arrangement }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toEqual(arrangement);
 
-    updateMap(testAccountScope(), map.id, { legendOrder: null });
+    updateMap(testAccountScope(), map.id, { legendOrder: null }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toBeNull();
   });
 
   it("rejects misses, strangers, doubles and junk — leaving the map unchanged", async () => {
     const { map, ids } = await seedThree();
     const stored = [ids[2], ids[0], ids[1]];
-    updateMap(testAccountScope(), map.id, { legendOrder: stored });
+    updateMap(testAccountScope(), map.id, { legendOrder: stored }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     const rejects: unknown[] = [
       [ids[0], ids[1]], // incomplete
@@ -120,7 +122,7 @@ describe("legendOrder — the stored arrangement", () => {
     ];
     for (const bad of rejects) {
       expect(() =>
-        updateMap(testAccountScope(), map.id, { legendOrder: bad }),
+        updateMap(testAccountScope(), map.id, { legendOrder: bad }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
       ).toThrowError(Array.isArray(bad) && bad.includes("not-a-layer")
         ? expect.objectContaining({ code: "not_found", status: 404 }) : /legendOrder/);
       expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toEqual(stored);
@@ -129,15 +131,15 @@ describe("legendOrder — the stored arrangement", () => {
 
   it("prunes a deleted layer's slot in the same undo gesture", async () => {
     const { map, ids } = await seedThree();
-    updateMap(testAccountScope(), map.id, { legendOrder: [ids[1], ids[0], ids[2]] });
+    updateMap(testAccountScope(), map.id, { legendOrder: [ids[1], ids[0], ids[2]] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
-    await removeLayer(testAccountScope(), ids[0]);
+    await removeLayer(testAccountScope(), ids[0], { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(ids[0])?.mapId ?? "missing") })?.editRevision });
     const after = mapWithLayers(testAccountScope(), map.id);
     expect(after.layers.map((l) => l.id)).toEqual([ids[1], ids[2]]);
     expect(after.legendOrder).toEqual([ids[1], ids[2]]);
 
     // One undo restores the layer and its slot together (one group).
-    await undoChange(testAccountScope(), map.id);
+    await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const restored = mapWithLayers(testAccountScope(), map.id);
     expect(restored.layers).toHaveLength(3);
     expect(restored.legendOrder).toEqual([ids[1], ids[0], ids[2]]);
@@ -148,9 +150,9 @@ describe("legendOrder — the stored arrangement", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "Only",
       sql: "SELECT * FROM stations",
-    });
-    updateMap(testAccountScope(), map.id, { legendOrder: [layer.id] });
-    await removeLayer(testAccountScope(), layer.id);
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    updateMap(testAccountScope(), map.id, { legendOrder: [layer.id] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await removeLayer(testAccountScope(), layer.id, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toBeNull();
   });
 
@@ -158,18 +160,18 @@ describe("legendOrder — the stored arrangement", () => {
     const { map, ids } = await seedThree();
     // ids: [Alpha, Beta, Gamma] in creation order.
     const manual = [ids[1], ids[0], ids[2]];
-    updateMap(testAccountScope(), map.id, { legendOrder: manual });
+    updateMap(testAccountScope(), map.id, { legendOrder: manual }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     // Created: stored at the front — the slot is durable, not derived
     // from the panel on each render.
     const delta = await createLayer(testAccountScope(), map.id, {
       name: "Delta",
       sql: "SELECT * FROM stations",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toEqual([delta.id, ...manual]);
 
     // Duplicated: same entry rule.
-    const copy = duplicateLayer(testAccountScope(), delta.id);
+    const copy = duplicateLayer(testAccountScope(), delta.id, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(delta.id)?.mapId ?? "missing") })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toEqual([
       copy.id,
       delta.id,
@@ -177,7 +179,7 @@ describe("legendOrder — the stored arrangement", () => {
     ]);
 
     // One undo removes the duplicate and its slot together.
-    await undoChange(testAccountScope(), map.id);
+    await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const after = mapWithLayers(testAccountScope(), map.id);
     expect(after.layers.some((l) => l.id === copy.id)).toBe(false);
     expect(after.legendOrder).toEqual([delta.id, ...manual]);
@@ -185,7 +187,7 @@ describe("legendOrder — the stored arrangement", () => {
 
   it("a duplicate carries the arrangement under its copied layer ids", async () => {
     const { map, ids } = await seedThree();
-    updateMap(testAccountScope(), map.id, { legendOrder: [ids[2], ids[0], ids[1]] });
+    updateMap(testAccountScope(), map.id, { legendOrder: [ids[2], ids[0], ids[1]] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     const copy = duplicateMap(testAccountScope(), map.id);
     const copied = mapWithLayers(testAccountScope(), copy.id);
@@ -202,15 +204,15 @@ describe("legendOrder — the stored arrangement", () => {
     const arrangement = [ids[2], ids[1], ids[0]];
     // Distinct groups make distinct gestures: within one group (or the
     // 3s coalesce window) rapid same-shape writes merge by design.
-    updateMap(testAccountScope(), map.id, { legendOrder: arrangement }, { groupId: "move" });
+    updateMap(testAccountScope(), map.id, { legendOrder: arrangement }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision, groupId: "move" });
 
-    await undoChange(testAccountScope(), map.id);
+    await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toBeNull();
-    await redoChange(testAccountScope(), map.id);
+    await redoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toEqual(arrangement);
 
-    updateMap(testAccountScope(), map.id, { legendOrder: null }, { groupId: "reset" });
-    await undoChange(testAccountScope(), map.id);
+    updateMap(testAccountScope(), map.id, { legendOrder: null }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision, groupId: "reset" });
+    await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).legendOrder).toEqual(arrangement);
   });
 });

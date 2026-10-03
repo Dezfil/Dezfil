@@ -19,25 +19,25 @@ const CEILINGS = {
   // Add layer catalog mount, the stage controls, the assistant wiring, the
   // helper composition, the effective-basemap derivation and the shared
   // map, legend and widget presentation.
-  "src/components/builder/MapBuilder.tsx": 1486,
+  "src/components/builder/MapBuilder.tsx": 1076,
   // The map canvas. Extractions so far: capture, the text sublayer, the
   // basemap content-group lifecycle, tiled-layer construction, pointer
   // interaction, camera constraints, the shared paint readout and overlay lifetime.
-  "src/components/map/MapCanvas.tsx": 1366,
+  "src/components/map/MapCanvas.tsx": 1260,
   // Layer service. Extractions so far: layer geometry inspection, the
   // deletion cascade, field/schema/statistics queries, creation, access, rendering and slider previews,
   // and the write admission.
-  "src/lib/layer-service.ts": 480,
+  "src/lib/layer-service.ts": 10,
   // The style panel. Extractions so far: the icon picker, the Label
   // section and the hover-field sections.
-  "src/components/builder/StylePanel.tsx": 1191,
+  "src/components/builder/StylePanel.tsx": 943,
   // The parameter form, after the catalog-driven parameter controls left
   // for parameter-controls so the workflow canvas composes the same rows.
   "src/components/builder/drawer/ParameterForm.tsx": 449,
   // The workflow canvas, after its right-side furniture left for
   // CanvasFurniture and its interaction and edit wiring for
   // use-canvas-editing beside the lock.
-  "src/components/workflow-canvas/WorkflowCanvas.tsx": 588,
+  "src/components/workflow-canvas/WorkflowCanvas.tsx": 531,
 };
 
 let failed = false;

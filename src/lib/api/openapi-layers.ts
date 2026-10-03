@@ -1,3 +1,4 @@
+import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA, editRevisionParam, editRevisionResponses } from "./openapi-document-facts";
 import { SQL_QUERY } from "./openapi-sql";
 import { CARRY_RULE, WRITTEN_IN_REF } from "./openapi-written-in";
 import { resultAccess } from "./openapi-result-access";
@@ -30,7 +31,7 @@ export const LAYER_RESOURCE_PATHS = {
       tool: "create_layer", mcp: LOCAL_ADD,
       display: {"verb": "Created the layer {subject}", "subject": {"resource": "layers", "result": "id", "name": ["name"]}},
       effects: recorded(writes(resource("layers", "", "id"), resource("maps"))),
-      parameters: [pathParam("id", "Map id."), changeGroupParam],
+      parameters: [pathParam("id", "Map id."), changeGroupParam, editRevisionParam],
       requestBody: {
         required: true,
         content: {
@@ -43,7 +44,7 @@ export const LAYER_RESOURCE_PATHS = {
           },
         },
       },
-      responses: { "201": jsonOk("#/components/schemas/Layer", "Created.") },
+      responses: { ...editRevisionResponses, "201": jsonOk("#/components/schemas/Layer", "Created.") },
     })),
   },
   "/api/layers/{id}": {
@@ -73,7 +74,7 @@ export const LAYER_RESOURCE_PATHS = {
       tool: "update_layer", mcp: LOCAL_REPLACE,
       display: {"verb": "Updated the layer {subject}", "subject": {"resource": "layers", "argument": "id", "name": ["name"]}},
       effects: recorded(writes(resource("layers", "id"))),
-      parameters: [pathParam("id", "Layer id."), changeGroupParam],
+      parameters: [pathParam("id", "Layer id."), changeGroupParam, editRevisionParam],
       requestBody: {
         content: {
           "application/json": {
@@ -81,7 +82,7 @@ export const LAYER_RESOURCE_PATHS = {
           },
         },
       },
-      responses: { "200": jsonOk("#/components/schemas/Layer") },
+      responses: { ...editRevisionResponses, "200": jsonOk("#/components/schemas/Layer") },
     })),
     delete: op(layerAccess({
       summary: "Delete a layer",
@@ -96,8 +97,8 @@ export const LAYER_RESOURCE_PATHS = {
       effects: recorded(writes(resource("layers", "id"), resource("maps"), resource("tables"))),
       confirmation: {"target": "Delete {target}?", "consequence": "This removes the layer and its bound widgets. Your own sketch layer also deletes its sketch dataset.", "subject": {"path": "/api/layers/{id}", "argument": "id", "name": "name"}},
       confirm: true,
-      parameters: [pathParam("id", "Layer id."), changeGroupParam],
-      responses: { "204": { description: "Deleted." } },
+      parameters: [pathParam("id", "Layer id."), changeGroupParam, editRevisionParam],
+      responses: { ...editRevisionResponses, "200": jsonOk("#/components/schemas/EditRevisionResult", "Deleted. The surviving map revision.") },
     })),
   },
   "/api/layers/{id}/duplicate": {
@@ -110,8 +111,8 @@ export const LAYER_RESOURCE_PATHS = {
       tool: "duplicate_layer", mcp: LOCAL_ADD,
       display: {"verb": "Duplicated a layer as {subject}", "subject": {"resource": "layers", "result": "id", "name": ["name"]}},
       effects: recorded(writes(resource("layers", "", "id"), resource("maps"))),
-      parameters: [pathParam("id", "Layer id."), changeGroupParam],
-      responses: { "201": jsonOk("#/components/schemas/Layer", "Created.") },
+      parameters: [pathParam("id", "Layer id."), changeGroupParam, editRevisionParam],
+      responses: { ...editRevisionResponses, "201": jsonOk("#/components/schemas/Layer", "Created.") },
     })),
   },
   "/api/layers/{id}/extent": {
@@ -467,8 +468,10 @@ export const LAYER_QUERY_PATHS = {
 
 export const LAYER_SCHEMAS = {
   Layer: {
+    allOf: [DOCUMENT_FACT_SCHEMA],
     type: "object",
     properties: {
+      ...DOCUMENT_FACT_PROPERTIES,
       id: { type: "string" },
       mapId: { type: "string" },
       name: { type: "string" },

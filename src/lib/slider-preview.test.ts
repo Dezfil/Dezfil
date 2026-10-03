@@ -1,3 +1,6 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
+import { readLayer } from "@/lib/layer-access";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -57,7 +60,7 @@ async function previewLayer() {
   const layer = await createLayer(testAccountScope(), map.id, {
     name: "Preview",
     sql: "SELECT name, category, seen, riders, geometry FROM preview",
-  });
+  }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   return updateLayer(testAccountScope(), layer.id, {
     viz: {
       type: "grid",
@@ -74,7 +77,7 @@ async function previewLayer() {
         max: "2021-03-02",
       },
     ],
-  });
+  }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
 }
 
 describe("responsive slider preview input", () => {
@@ -100,12 +103,12 @@ describe("responsive slider preview input", () => {
       "riders",
       "seen",
     ]);
-    expect(requireLayer(testAccountScope(), layer.id)).toEqual(layer);
+    expect(readLayer(testAccountScope(), layer.id)).toEqual(layer);
   });
 
   it("returns the same bounded subset and reports its source size", async () => {
     const layer = await previewLayer();
-    await updateLayer(testAccountScope(), layer.id, { filters: [] });
+    await updateLayer(testAccountScope(), layer.id, { filters: [] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     process.env.DEZFIL_SLIDER_PREVIEW_ROWS = "2";
     const first = await sliderPreviewData(testAccountScope(), requireLayer(testAccountScope(), layer.id));
     const second = await sliderPreviewData(testAccountScope(), requireLayer(testAccountScope(), layer.id));
@@ -134,7 +137,7 @@ describe("responsive slider preview input", () => {
                 cellKm: 1.22,
                 aggregate: { fn: "avg", attribute: "riders" },
               },
-      });
+      }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
       const source = await sliderPreviewData(testAccountScope(), layer);
       const local = aggregateSliderPreview(
         source,
@@ -148,7 +151,7 @@ describe("responsive slider preview input", () => {
 
   it("matches all aggregate functions and preserves SQL NULL filter rules", async () => {
     let layer = await previewLayer();
-    layer = await updateLayer(testAccountScope(), layer.id, { filters: [] });
+    layer = await updateLayer(testAccountScope(), layer.id, { filters: [] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const aggregates: AggregatedViz["aggregate"][] = [
       { fn: "count" },
       { fn: "sum", attribute: "riders" },
@@ -159,7 +162,7 @@ describe("responsive slider preview input", () => {
     for (const aggregate of aggregates) {
       layer = await updateLayer(testAccountScope(), layer.id, {
         viz: { type: "grid", cellKm: 1000, aggregate },
-      });
+      }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
       const local = aggregateSliderPreview(
         await sliderPreviewData(testAccountScope(), layer),
         layer.viz as AggregatedViz,
@@ -234,7 +237,7 @@ describe("responsive slider preview input", () => {
           height: 3000,
         },
       },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const source = await sliderPreviewData(testAccountScope(), layer);
     const local = aggregateSliderPreview(
       source,
@@ -258,12 +261,12 @@ describe("responsive slider preview input", () => {
       sql: `SELECT riders,
               ST_GeomFromText('LINESTRING (13.4 52.5, 13.5 52.6)') AS geometry
             FROM preview`,
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     layer = await updateLayer(testAccountScope(), layer.id, {
       filters: [
         { field: "riders", kind: "range", min: 600, max: null },
       ],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const source = await sliderPreviewData(testAccountScope(), layer);
     const result = filterSliderPreview(source, layer.filters);
     expect(source.sourceCount).toBe(4);

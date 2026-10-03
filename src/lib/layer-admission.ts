@@ -1,8 +1,8 @@
+import { requireDocumentRevision } from "./metadata/revisions";
 import type { AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
 import { inspectLayerGeometry } from "@/lib/layer-geometry";
 import type { Layer } from "@/lib/metadata/maps";
-import { stableJson } from "@/lib/metadata/history";
 import {
   normalizeStyle,
   styleProblem,
@@ -121,8 +121,10 @@ export async function admitLayerUpdate(
   id: string,
   fields: UpdateLayerFields,
   signal?: AbortSignal,
+  expectedRevision?: unknown,
 ): Promise<{ layer: Layer; fields: UpdateLayerFields }> {
   const layer = permittedLayer(scope, id, fields);
+  requireDocumentRevision(scope, { kind: "map", id: layer.mapId, expectedRevision });
   if (fields.sql !== undefined && fields.sql !== layer.sql) {
     updateAdmissions.set(layer, await admitMapSql(scope, layer.mapId, fields.sql, signal));
     // Editing SQL revalidates geometry, but the layer is not recreated.
@@ -189,16 +191,17 @@ export async function admitLayerUpdate(
 
 /** The update's check at commit, inside its transaction: the permission is
  * asked again and the layer read again, and the write proceeds only while it
- * still stands exactly as admission read it. Returns that before-image,
- * or null when a concurrent write landed since, so the caller derives
- * again against the fresh state instead of overwriting it. */
+ * the map still has the revision admission read. A concurrent change refuses
+ * the request whole; no derivation is repeated on a newer basis. */
 export function admitLayerCommit(
   scope: AccountScope,
   id: string,
   entry: Layer,
   fields: UpdateLayerFields,
-): Layer | null {
+  expectedRevision?: unknown,
+): Layer {
   const prior = permittedLayer(scope, id, fields);
   recheckSaved(scope, updateAdmissions.get(entry));
-  return stableJson(prior) === stableJson(entry) ? prior : null;
+  requireDocumentRevision(scope, { kind: "map", id: entry.mapId, expectedRevision });
+  return prior;
 }

@@ -1,3 +1,5 @@
+import { editRevisionParam, editRevisionResponses } from "./openapi-document-facts";
+import { DOCUMENT_FACT_PROPERTIES } from "./openapi-document-facts";
 import { projectAccess } from "./openapi-project-access";
 import { mapAccess } from "./openapi-map-access";
 import { workflowAccess } from "./openapi-workflow-access";
@@ -168,9 +170,9 @@ const TRANSFER_PATHS = {
       confirmation: { target: "Make someone else the owner of {target}?",
         consequence: "Its publication, deletion and transfer become theirs, and its SQL home stays as it is. Only they can give it back.",
         subject: { path: "/api/maps/{id}", argument: "id", name: "name" } },
-      parameters: [pathParam("id", "Map id.")],
+      parameters: [editRevisionParam, pathParam("id", "Map id.")],
       requestBody: transferBody,
-      responses: TRANSFERRED,
+      responses: { ...editRevisionResponses, ...TRANSFERRED, "200": jsonOk("#/components/schemas/DocumentTransfer") },
     })),
   },
   "/api/recipes/{id}/transfer": {
@@ -187,9 +189,9 @@ const TRANSFER_PATHS = {
       confirmation: { target: "Make someone else the owner of {target}?",
         consequence: "Its deletion and transfer become theirs, and its SQL home and run history stay as they are. Only they can give it back.",
         subject: { path: "/api/recipes/{id}", argument: "id", name: "recipe.name" } },
-      parameters: [pathParam("id", "Workflow id.")],
+      parameters: [editRevisionParam, pathParam("id", "Workflow id.")],
       requestBody: transferBody,
-      responses: TRANSFERRED,
+      responses: { ...editRevisionResponses, ...TRANSFERRED, "200": jsonOk("#/components/schemas/DocumentTransfer") },
     })),
   },
 };
@@ -261,6 +263,8 @@ export const SHARING_SCHEMAS = {
     },
     required: ["accounts"],
   },
+  DocumentTransfer: { allOf: [{ $ref: "#/components/schemas/Transfer" }], type: "object",
+    properties: { editRevision: { ...DOCUMENT_FACT_PROPERTIES.editRevision, description: "Resulting revision, present only while the caller still reaches the transferred document." } } },
   Transfer: {
     type: "object",
     description: "A completed transfer: the resource's identity and its new owner.",

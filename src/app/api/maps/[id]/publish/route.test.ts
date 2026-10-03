@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { withFixtureRevision } from "@/lib/test-support/edit-basis";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -27,10 +29,10 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-function post(id: string, body?: string) {
+function post(id: string, body: string | undefined, revision: string | null | undefined) {
   return POST(
     testAccountRequest(new Request(`http://localhost/api/maps/${id}/publish`, {
-      method: "POST",
+      method: "POST", headers: revision ? { "X-Edit-Revision": revision } : {},
       ...(body === undefined ? {} : { body }),
     })),
     { params: Promise.resolve({ id }) },
@@ -40,21 +42,21 @@ function post(id: string, body?: string) {
 describe("publish route theme body", () => {
   it("a bodyless publish stays valid and records dark", async () => {
     const map = createMap(testAccountScope(), "m");
-    const res = await post(map.id);
+    const res = await post(map.id, undefined, readEditRevision({ kind: "map", id: map.id })?.editRevision);
     expect(res.status).toBe(201);
     expect(getPublishedTheme(map.id)).toBe("dark");
   });
 
   it("a stated theme is captured", async () => {
     const map = createMap(testAccountScope(), "m");
-    const res = await post(map.id, JSON.stringify({ theme: "light" }));
+    const res = await post(map.id, JSON.stringify({ theme: "light" }), readEditRevision({ kind: "map", id: map.id })?.editRevision);
     expect(res.status).toBe(201);
     expect(getPublishedTheme(map.id)).toBe("light");
   });
 
   it("an invalid theme answers the documented invalid_request code", async () => {
     const map = createMap(testAccountScope(), "m");
-    const res = await post(map.id, JSON.stringify({ theme: "sepia" }));
+    const res = await post(map.id, JSON.stringify({ theme: "sepia" }), readEditRevision({ kind: "map", id: map.id })?.editRevision);
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("invalid_request");
@@ -63,7 +65,7 @@ describe("publish route theme body", () => {
 
   it("a malformed body answers invalid_request, not a 500", async () => {
     const map = createMap(testAccountScope(), "m");
-    const res = await post(map.id, "{not json");
+    const res = await post(map.id, "{not json", readEditRevision({ kind: "map", id: map.id })?.editRevision);
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("invalid_request");
@@ -73,7 +75,7 @@ describe("publish route theme body", () => {
 describe("publish route body strictness", () => {
   it("JSON null answers invalid_request, not a 500", async () => {
     const map = createMap(testAccountScope(), "m");
-    const res = await post(map.id, "null");
+    const res = await post(map.id, "null", readEditRevision({ kind: "map", id: map.id })?.editRevision);
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("invalid_request");
@@ -82,14 +84,14 @@ describe("publish route body strictness", () => {
 
   it("a primitive body answers invalid_request rather than silently publishing", async () => {
     const map = createMap(testAccountScope(), "m");
-    const res = await post(map.id, JSON.stringify("light"));
+    const res = await post(map.id, JSON.stringify("light"), readEditRevision({ kind: "map", id: map.id })?.editRevision);
     expect(res.status).toBe(400);
     expect(getPublishedTheme(map.id)).toBeNull();
   });
 
   it("an explicit null theme answers invalid_request", async () => {
     const map = createMap(testAccountScope(), "m");
-    const res = await post(map.id, JSON.stringify({ theme: null }));
+    const res = await post(map.id, JSON.stringify({ theme: null }), readEditRevision({ kind: "map", id: map.id })?.editRevision);
     expect(res.status).toBe(400);
     expect(getPublishedTheme(map.id)).toBeNull();
   });
@@ -116,7 +118,7 @@ describe("publish route viewer controls", () => {
 
   it("a publication that states no set reports every control on", async () => {
     const map = createMap(testAccountScope(), "m");
-    await post(map.id);
+    await post(map.id, undefined, readEditRevision({ kind: "map", id: map.id })?.editRevision);
     expect((await state(map.id))!.viewerControls).toEqual({
       tilt: true,
       fit: true,
@@ -131,7 +133,7 @@ describe("publish route viewer controls", () => {
     await post(
       map.id,
       JSON.stringify({ viewerControls: { basemap: false, tilt: false } }),
-    );
+     readEditRevision({ kind: "map", id: map.id })?.editRevision);
     expect((await state(map.id))!.viewerControls).toEqual({
       tilt: false,
       fit: true,
@@ -143,7 +145,7 @@ describe("publish route viewer controls", () => {
 
   it("the coordinate readout can be unchecked and stays unchecked", async () => {
     const map = createMap(testAccountScope(), "m");
-    await post(map.id, JSON.stringify({ viewerControls: { coords: false } }));
+    await post(map.id, JSON.stringify({ viewerControls: { coords: false } }), readEditRevision({ kind: "map", id: map.id })?.editRevision);
     const after = (await state(map.id))!.viewerControls;
     expect(after.coords).toBe(false);
     expect(after.basemap).toBe(true);
@@ -151,11 +153,11 @@ describe("publish route viewer controls", () => {
 
   it("updates in place on an active publication without moving the token", async () => {
     const map = createMap(testAccountScope(), "m");
-    const first = (await (await post(map.id)).json()) as { token: string };
+    const first = (await (await post(map.id, undefined, readEditRevision({ kind: "map", id: map.id })?.editRevision)).json()) as { token: string };
     const res = await post(
       map.id,
       JSON.stringify({ viewerControls: { fit: false } }),
-    );
+     readEditRevision({ kind: "map", id: map.id })?.editRevision);
     expect(((await res.json()) as { token: string }).token).toBe(first.token);
     expect((await state(map.id))!.viewerControls.fit).toBe(false);
   });
@@ -167,8 +169,8 @@ describe("publish route viewer controls", () => {
     await post(
       map.id,
       JSON.stringify({ theme: "light", viewerControls: { theme: false } }),
-    );
-    await post(map.id, JSON.stringify({ theme: "dark" }));
+     readEditRevision({ kind: "map", id: map.id })?.editRevision);
+    await post(map.id, JSON.stringify({ theme: "dark" }), readEditRevision({ kind: "map", id: map.id })?.editRevision);
     const after = (await state(map.id))!;
     expect(after.theme).toBe("dark");
     expect(after.viewerControls.theme).toBe(false);
@@ -176,8 +178,8 @@ describe("publish route viewer controls", () => {
 
   it("a controls-only update leaves the authored theme alone", async () => {
     const map = createMap(testAccountScope(), "m");
-    await post(map.id, JSON.stringify({ theme: "light" }));
-    await post(map.id, JSON.stringify({ viewerControls: { tilt: false } }));
+    await post(map.id, JSON.stringify({ theme: "light" }), readEditRevision({ kind: "map", id: map.id })?.editRevision);
+    await post(map.id, JSON.stringify({ viewerControls: { tilt: false } }), readEditRevision({ kind: "map", id: map.id })?.editRevision);
     const after = (await state(map.id))!;
     expect(after.theme).toBe("light");
     expect(after.viewerControls.tilt).toBe(false);
@@ -185,12 +187,12 @@ describe("publish route viewer controls", () => {
 
   it("unpublishing clears the set with the token", async () => {
     const map = createMap(testAccountScope(), "m");
-    await post(map.id, JSON.stringify({ viewerControls: { fit: false } }));
-    await DELETE(testAccountRequest(new Request("http://localhost/x", { method: "DELETE" })), {
+    await post(map.id, JSON.stringify({ viewerControls: { fit: false } }), readEditRevision({ kind: "map", id: map.id })?.editRevision);
+    await DELETE(withFixtureRevision(testAccountRequest(new Request("http://localhost/x", { method: "DELETE" })), readEditRevision({ kind: "map", id: map.id })?.editRevision), {
       params: Promise.resolve({ id: map.id }),
     });
     expect(await state(map.id)).toBeNull();
-    await post(map.id);
+    await post(map.id, undefined, readEditRevision({ kind: "map", id: map.id })?.editRevision);
     expect((await state(map.id))!.viewerControls.fit).toBe(true);
   });
 
@@ -199,7 +201,7 @@ describe("publish route viewer controls", () => {
     const res = await post(
       map.id,
       JSON.stringify({ viewerControls: { fit: "yes" } }),
-    );
+     readEditRevision({ kind: "map", id: map.id })?.editRevision);
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("invalid_request");
@@ -211,13 +213,13 @@ describe("publish route viewer controls", () => {
     const res = await post(
       map.id,
       JSON.stringify({ viewerControls: { zoom: false } }),
-    );
+     readEditRevision({ kind: "map", id: map.id })?.editRevision);
     expect(res.status).toBe(400);
   });
 
   it("a non-object controls field answers invalid_request", async () => {
     const map = createMap(testAccountScope(), "m");
-    const res = await post(map.id, JSON.stringify({ viewerControls: true }));
+    const res = await post(map.id, JSON.stringify({ viewerControls: true }), readEditRevision({ kind: "map", id: map.id })?.editRevision);
     expect(res.status).toBe(400);
   });
 });

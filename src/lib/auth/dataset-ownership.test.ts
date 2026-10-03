@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
@@ -115,7 +116,7 @@ it("refuses hidden project contexts before upload reception or remote fetch", as
 });
 it("requires ownership for sketch creation at the service boundary", async () => {
   const { createSketch } = await import("@/lib/sketch/store");
-  for (const id of [maps.bob, "missing"]) await expect(createSketch(testAccountScope(db, "alice"), id, point))
+  for (const id of [maps.bob, "missing"]) await expect(createSketch(testAccountScope(db, "alice"), id, point, { expectedRevision: readEditRevision({ kind: "map", id: id })?.editRevision }))
     .rejects.toMatchObject({ code: "not_found", status: 404 });
   expect(effects.engine).not.toHaveBeenCalled();
 });

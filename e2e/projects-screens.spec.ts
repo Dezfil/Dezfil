@@ -1,3 +1,6 @@
+import { readThenWriteFilingBrowserSetup } from "./edit-basis";
+import { readThenWriteBrowserSetup } from "./edit-basis";
+import type { EditBasis } from "../src/lib/edit-basis";
 // The Projects screens: the list per page 05 (creation through both
 // affordances under the name contract, search and the three sorts, both
 // views, rename and dissolution from cards and rows, the unfiled
@@ -27,19 +30,19 @@ const P2 = `Flood atlas ${runId}`;
 const P3 = `Coast survey ${runId}`;
 const RENAMED = `Depot study ${runId}`;
 
-const api = (page: Page, method: string, pathName: string, body?: unknown) =>
+const api = (page: Page, method: string, pathName: string, body?: unknown, basis?: EditBasis) =>
   page.evaluate(
-    async ({ method, pathName, body }) => {
+    async ({ method, pathName, body, basis }) => {
       const r = await fetch(pathName, {
         method,
-        headers: body ? { "content-type": "application/json" } : undefined,
+        headers: { ...(body ? { "content-type": "application/json" } : undefined), ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) },
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!r.ok && r.status !== 204) throw new Error(await r.text());
       const text = r.status === 204 ? "" : await r.text();
       return text ? (JSON.parse(text) as unknown) : null;
     },
-    { method, pathName, body },
+    { method, pathName, body, basis },
   );
 
 const cardNamed = (page: Page, name: string) =>
@@ -166,7 +169,7 @@ test("departed project-home continuations keep project B clean", async ({ page, 
     });
 
     await test.step("a held recent Add settles after departure without a notice, stale banner or redirect in B", async () => {
-      await api(page, "PATCH", `/api/projects/${a}/members`, { removeMaps: [mapId] });
+      await readThenWriteFilingBrowserSetup(page, { removeMaps: [mapId] }, expectedRevisions => ({ method: "PATCH", path: `/api/projects/${a}/members`, body: { ...{ removeMaps: [mapId] }, expectedRevisions } })).then(result => result.json);
       // Keep this fixture first in Recent even on a residue-bearing instance;
       // the membership PATCH and all scoped reads still reach the server.
       const recent = async (route: Route) => {
@@ -179,7 +182,7 @@ test("departed project-home continuations keep project B clean", async ({ page, 
       try {
         await crumb.getByRole("link", { name: renamed, exact: true }).click();
         await expect(page.locator("[data-empty-plate]")).toBeVisible();
-        await heldMutation(`/api/projects/${a}/members`, { addMaps: [mapId] }, async () => {
+        await heldMutation(`/api/projects/${a}/members`, { addMaps: [mapId], expectedRevisions: { [`map:${mapId}`]: ((await api(page, "GET", `/api/maps/${mapId}`)) as { editRevision: string }).editRevision } }, async () => {
           await page.getByRole("button", { name: `Add ${mapName}`, exact: true }).click();
         });
         const saved = (await api(page, "GET", `/api/maps/${mapId}`)) as { projectId: string };
@@ -210,7 +213,7 @@ test("departed project-home continuations keep project B clean", async ({ page, 
       expect(saved.name).toBe(renamed);
     });
   } finally {
-    if (mapId) await api(page, "DELETE", `/api/maps/${mapId}`).catch(() => {});
+    if (mapId) await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "DELETE", path: `/api/maps/${mapId}` })).catch(() => {});
     for (const id of made) await api(page, "DELETE", `/api/projects/${id}`).catch(() => {});
   }
 });
@@ -332,11 +335,11 @@ test("the Projects list and the project home", async ({
         projectId: p1,
       })) as { id: string }
     ).id;
-    await api(page, "POST", `/api/maps/${mapId}/layers`, {
+    await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/layers`, body: {
       name: T1,
       sql: `SELECT * FROM ${T1}`,
-    });
-    await api(page, "POST", `/api/maps/${mapId}/publish`);
+    } }));
+    await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/publish` })).then(result => result.json);
     wfId = (
       (await api(page, "POST", "/api/recipes", {
         name: `Lane density ${runId}`,
@@ -344,10 +347,10 @@ test("the Projects list and the project home", async ({
       })) as { recipe: { id: string } }
     ).recipe.id;
     stepId = (
-      (await api(page, "POST", `/api/recipes/${wfId}/steps`, {
+      (await readThenWriteBrowserSetup(page, `/api/recipes/${wfId}`, () => ({ method: "POST", path: `/api/recipes/${wfId}/steps`, body: {
         operation: "sql_step",
         parameters: { sql: `SELECT * FROM ${T1}`, name: `pj_out_${runId}` },
-      })) as { step: { id: string } }
+      } })).then(result => result.json)) as { step: { id: string } }
     ).step.id;
   });
 
@@ -574,9 +577,9 @@ test("the Projects list and the project home", async ({
     await expect(page.locator("[data-attention]")).toHaveCount(0);
     // Run the node once, then edit it: the pending edit classifies the
     // workflow to-run-again with its truthful cause.
-    await api(page, "POST", `/api/recipes/${wfId}/runs`, {
+    await readThenWriteBrowserSetup(page, `/api/recipes/${wfId}`, () => ({ method: "POST", path: `/api/recipes/${wfId}/runs`, body: {
       members: [stepId],
-    });
+    } })).then(result => result.json);
     await expect
       .poll(
         async () => {
@@ -588,9 +591,9 @@ test("the Projects list and the project home", async ({
         { timeout: 60_000 },
       )
       .toBe("succeeded");
-    await api(page, "PATCH", `/api/recipes/${wfId}/steps/${stepId}`, {
+    await readThenWriteBrowserSetup(page, `/api/recipes/${wfId}`, () => ({ method: "PATCH", path: `/api/recipes/${wfId}/steps/${stepId}`, body: {
       parameters: { sql: `SELECT name FROM ${T1}`, name: `pj_out_${runId}` },
-    });
+    } })).then(result => result.json);
     // A second affected workflow: every affected member gets its own
     // row, and each Run targets its own workflow.
     const wf2 = (
@@ -600,12 +603,12 @@ test("the Projects list and the project home", async ({
       })) as { recipe: { id: string } }
     ).recipe.id;
     const step2 = (
-      (await api(page, "POST", `/api/recipes/${wf2}/steps`, {
+      (await readThenWriteBrowserSetup(page, `/api/recipes/${wf2}`, () => ({ method: "POST", path: `/api/recipes/${wf2}/steps`, body: {
         operation: "sql_step",
         parameters: { sql: `SELECT * FROM ${T2}`, name: `pj_hex_${runId}` },
-      })) as { step: { id: string } }
+      } })).then(result => result.json)) as { step: { id: string } }
     ).step.id;
-    await api(page, "POST", `/api/recipes/${wf2}/runs`, { members: [step2] });
+    await readThenWriteBrowserSetup(page, `/api/recipes/${wf2}`, () => ({ method: "POST", path: `/api/recipes/${wf2}/runs`, body: { members: [step2] } })).then(result => result.json);
     await expect
       .poll(
         async () => {
@@ -617,9 +620,9 @@ test("the Projects list and the project home", async ({
         { timeout: 60_000 },
       )
       .toBe("succeeded");
-    await api(page, "PATCH", `/api/recipes/${wf2}/steps/${step2}`, {
+    await readThenWriteBrowserSetup(page, `/api/recipes/${wf2}`, () => ({ method: "PATCH", path: `/api/recipes/${wf2}/steps/${step2}`, body: {
       parameters: { sql: `SELECT name FROM ${T2}`, name: `pj_hex_${runId}` },
-    });
+    } })).then(result => result.json);
     await page.reload();
     const callout = page.locator(`[data-attention="${wfId}"]`);
     const callout2 = page.locator(`[data-attention="${wf2}"]`);
@@ -860,7 +863,7 @@ test("the Projects page: the picture by count and the counts that drop zeros", a
       // Maps only: three maps, one published, no note.
       for (const n of ["Alpha", "Beta", "Gamma"]) {
         const m = (await api(page, "POST", "/api/maps", { name: P(`Map ${n}`), projectId: mapsOnly })) as { id: string };
-        if (n === "Alpha") await api(page, "POST", `/api/maps/${m.id}/publish`);
+        if (n === "Alpha") await readThenWriteBrowserSetup(page, `/api/maps/${m.id}`, () => ({ method: "POST", path: `/api/maps/${m.id}/publish` })).then(result => result.json);
       }
       // Five things last, so it and the maps-only project are the two
       // newest and share the first grid row with the New-project tile.
@@ -871,7 +874,7 @@ test("the Projects page: the picture by count and the counts that drop zeros", a
       // then A), not the timestamps.
       const mapA = (await api(page, "POST", "/api/maps", { name: P("Map A"), projectId: five })) as { id: string };
       await api(page, "POST", "/api/maps", { name: P("Map B"), projectId: five });
-      await api(page, "PATCH", `/api/maps/${mapA.id}`, { name: P("Map A edited") });
+      await readThenWriteBrowserSetup(page, `/api/maps/${mapA.id}`, () => ({ method: "PATCH", path: `/api/maps/${mapA.id}`, body: { name: P("Map A edited") } }));
       await api(page, "POST", "/api/recipes", { name: P("Flow five"), projectId: five });
       await api(page, "POST", "/api/recipes", { name: P("Flow five b"), projectId: five });
       await api(page, "PATCH", `/api/projects/${five}/members`, { addTables: [ta, tb] });
@@ -1037,7 +1040,7 @@ test("the project home: facts that drop zeros, only the sections with something,
       await expect(page.locator("[data-picture]")).toHaveCount(0);
       // Publish a map: the published fact appears, after datasets.
       const maps = (await api(page, "GET", `/api/maps?project=${two}`)) as { id: string }[];
-      await api(page, "POST", `/api/maps/${maps[0].id}/publish`);
+      await readThenWriteBrowserSetup(page, `/api/maps/${maps[0].id}`, () => ({ method: "POST", path: `/api/maps/${maps[0].id}/publish` })).then(result => result.json);
       await page.reload();
       await expect.poll(async () =>
         page.locator("[data-facts] [data-fact]").evaluateAll((els) => els.map((e) => e.getAttribute("data-fact"))),
@@ -1141,7 +1144,7 @@ test("the project home: facts that drop zeros, only the sections with something,
           await expect.soft(main.getByRole("link", { name, exact: true })).toHaveCount(0);
         }
       } finally {
-        await api(page, "DELETE", `/api/recipes/${wf.id}`).catch(() => {});
+        await readThenWriteBrowserSetup(page, `/api/recipes/${wf.id}`, () => ({ method: "DELETE", path: `/api/recipes/${wf.id}` })).then(result => result.json).catch(() => {});
       }
       await page.reload();
       await expect(page.locator("[data-section]")).toHaveCount(2);
@@ -1531,11 +1534,11 @@ test("the project-first picker: three tabs, one atomic change with what it bring
       await api(page, "PATCH", `/api/projects/${other}/members`, { addTables: [tShared] });
       // A workflow reading the shared dataset and writing an output.
       wfId = ((await api(page, "POST", "/api/recipes", { name: P("Producer") })) as { recipe: { id: string } }).recipe.id;
-      await api(page, "POST", `/api/recipes/${wfId}/steps`, {
+      await readThenWriteBrowserSetup(page, `/api/recipes/${wfId}`, () => ({ method: "POST", path: `/api/recipes/${wfId}/steps`, body: {
         operation: "sql_step",
         parameters: { sql: `SELECT * FROM pk_src_${run}`, name: `pk_out_${run}` },
-      });
-      const run1 = (await api(page, "POST", `/api/recipes/${wfId}/runs`, {})) as { id: string };
+      } })).then(result => result.json);
+      const run1 = (await readThenWriteBrowserSetup(page, `/api/recipes/${wfId}`, () => ({ method: "POST", path: `/api/recipes/${wfId}/runs`, body: {} })).then(result => result.json)) as { id: string };
       await expect
         .poll(
           async () => {
@@ -1549,8 +1552,8 @@ test("the project-first picker: three tabs, one atomic change with what it bring
       tOut = (await tables()).find((t) => t.name === `pk_out_${run}`)!.id;
       // A map in Elsewhere drawing the output and the map-only dataset.
       mapId = ((await api(page, "POST", "/api/maps", { name: P("Layered map"), projectId: other })) as { id: string }).id;
-      await api(page, "POST", `/api/maps/${mapId}/layers`, { name: `pk_out_${run}`, sql: `SELECT * FROM pk_out_${run}` });
-      await api(page, "POST", `/api/maps/${mapId}/layers`, { name: `pk_map_${run}`, sql: `SELECT * FROM pk_map_${run}` });
+      await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/layers`, body: { name: `pk_out_${run}`, sql: `SELECT * FROM pk_out_${run}` } }));
+      await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/layers`, body: { name: `pk_map_${run}`, sql: `SELECT * FROM pk_map_${run}` } }));
       // The map-only dataset is already in the home: the picker must
       // neither count it as brought nor send it again.
       await api(page, "PATCH", `/api/projects/${home}/members`, { addTables: [tMapOnly] });
@@ -1672,6 +1675,6 @@ test("the project-first picker: three tabs, one atomic change with what it bring
     });
   } finally {
     for (const id of made) await api(page, "DELETE", `/api/projects/${id}`).catch(() => {});
-    if (wfId) await api(page, "DELETE", `/api/recipes/${wfId}`).catch(() => {});
+    if (wfId) await readThenWriteBrowserSetup(page, `/api/recipes/${wfId}`, () => ({ method: "DELETE", path: `/api/recipes/${wfId}` })).then(result => result.json).catch(() => {});
   }
 });

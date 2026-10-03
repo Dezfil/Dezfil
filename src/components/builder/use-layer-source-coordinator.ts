@@ -180,6 +180,7 @@ export type CatalogRequest =
   | { kind: "edit"; layerId: string; layerName: string; sql: string };
 
 interface Deps {
+  request?: typeof fetch;
   mapId: string;
   reload: () => void;
   edited: () => void;
@@ -204,6 +205,7 @@ interface Deps {
  * reconciling save lane.
  */
 export function useLayerSourceCoordinator({
+  request = fetch,
   mapId,
   reload,
   edited,
@@ -255,7 +257,7 @@ export function useLayerSourceCoordinator({
     async (name: string, sql: string, writtenIn?: { kind: "console" }): Promise<CreateLayerOutcome> => {
       try {
         const trimmed = name.trim();
-        const response = await fetch(`/api/maps/${mapId}/layers`, {
+        const response = await request(`/api/maps/${mapId}/layers`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
@@ -279,7 +281,7 @@ export function useLayerSourceCoordinator({
         };
       }
     },
-    [mapId, onLayerAdded, reload],
+    [mapId, onLayerAdded, reload, request],
   );
 
   // The catalog's import completion: per-table
@@ -300,7 +302,7 @@ export function useLayerSourceCoordinator({
       for (const table of batch) {
         if (table.geometryColumn === null) continue; // no attempt — reported later
         try {
-          const response = await fetch(`/api/maps/${mapId}/layers`, {
+          const response = await request(`/api/maps/${mapId}/layers`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
@@ -324,7 +326,7 @@ export function useLayerSourceCoordinator({
       }
       return { created, failed, unconfirmed };
     },
-    [mapId],
+    [mapId, request],
   );
   const processBatch = useCallback(
     async (batch: DataTable[]) => {
@@ -489,7 +491,7 @@ export function useLayerSourceCoordinator({
       // The snapshot is already durable. Refresh the catalog's table truth
       // independently of whether its layer succeeds.
       setCatalogListingStamp((n) => n + 1);
-      const outcome = await createPostgisLayerFromTable(mapId, table);
+      const outcome = await createPostgisLayerFromTable(mapId, table, request);
       if (outcome.kind === "created") {
         setSelectedId(outcome.layer.id);
         edited();
@@ -516,7 +518,7 @@ export function useLayerSourceCoordinator({
       }
       return outcome;
     },
-    [edited, mapId, reload, setFitBounds, setSelectedId, showImportNotice],
+    [request, edited, mapId, reload, setFitBounds, setSelectedId, showImportNotice],
   );
 
   const settleUploadBatch = useCallback(

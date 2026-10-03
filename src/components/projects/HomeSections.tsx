@@ -1,5 +1,6 @@
 "use client";
 
+import { LastChanged } from "../sharing/LastChanged";
 import { useRouter } from "next/navigation";
 import type { MapOverview, TableListing } from "../api";
 import { formatBytes, formatCompactCount, formatRelativeTime } from "../api";
@@ -121,7 +122,7 @@ function MapCard({ map: m, owner }: { map: MapOverview; owner: PersonLabel | nul
               {m.name}
             </span>
             <span className={gallery.cardWhen}>
-              {formatRelativeTime(m.updatedAt)}
+              <LastChanged value={m} />
             </span>
           </div>
           <div className={gallery.cardChips}>
@@ -196,8 +197,12 @@ function WorkflowCard({
             <span className={gallery.cardName} title={w.name}>
               {w.name}
             </span>
+            <span className={gallery.cardWhen}><LastChanged value={w} /></span>
+          </div>
+          <div className={gallery.cardChips}>
+            <WorkflowStatusChip summary={w.summary} />
             <span
-              className={gallery.cardWhen}
+              className={gallery.chip}
               title={
                 lastRun === "unreadable"
                   ? "The run history couldn't be read"
@@ -206,9 +211,6 @@ function WorkflowCard({
             >
               {lastRunLabel(lastRun, formatRelativeTime)}
             </span>
-          </div>
-          <div className={gallery.cardChips}>
-            <WorkflowStatusChip summary={w.summary} />
           </div>
         </div>
       </CardLink>
@@ -344,7 +346,7 @@ export function HomeSections({
                       </span>
                     </span>
                     <span className={gallery.colWhen}>
-                      {formatRelativeTime(m.updatedAt)}
+                      <LastChanged value={m} />
                     </span>
                     <span className={styles.colAct} />
                   </button>
@@ -382,6 +384,7 @@ export function HomeSections({
                 <span className={gallery.colName}>Name</span>
                 <span className={gallery.colMeta}>Nodes</span>
                 <span className={gallery.colState}>Status</span>
+                <span className={gallery.colWhen}>Last edited</span>
                 <span className={gallery.colWhen}>Last run</span>
                 <span className={styles.colAct} />
               </div>
@@ -409,6 +412,7 @@ export function HomeSections({
                     <span className={gallery.colState}>
                       <WorkflowStatusChip summary={w.summary} />
                     </span>
+                    <span className={gallery.colWhen}><LastChanged value={w} /></span>
                     <span className={gallery.colWhen} title={cell.title} data-last-run>
                       {cell.text}
                     </span>

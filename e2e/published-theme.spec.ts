@@ -165,11 +165,11 @@ test("the publisher's light mode reaches readers; the toggle is live and load-lo
     await reader.getByRole("button", { name: "Switch to dark theme" }).click();
     expect(await wrapperTheme(reader)).toBe("dark");
     await page.evaluate(async (id) => {
-      const r = await fetch(`/api/maps/${id}/publish`, {
+      const r = await (async function readThenWritePublicationSetup() { const basis = await (await fetch(`/api/maps/${id}`)).json(); return fetch(`/api/maps/${id}/publish`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "X-Edit-Revision": basis.editRevision, "content-type": "application/json" },
         body: JSON.stringify({ theme: "dark" }),
-      });
+      }); })();
       if (!r.ok) throw new Error(await r.text());
     }, mapId);
     await reader.reload();
@@ -178,11 +178,11 @@ test("the publisher's light mode reaches readers; the toggle is live and load-lo
     // And back again, to prove the reload follows the author rather than
     // simply keeping what the reader picked.
     await page.evaluate(async (id) => {
-      await fetch(`/api/maps/${id}/publish`, {
+      await (async function readThenWritePublicationSetup() { const basis = await (await fetch(`/api/maps/${id}`)).json(); return fetch(`/api/maps/${id}/publish`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "X-Edit-Revision": basis.editRevision, "content-type": "application/json" },
         body: JSON.stringify({ theme: "light" }),
-      });
+      }); })();
     }, mapId);
     await reader.reload();
     await expect(reader.locator(".maplibregl-canvas")).toBeVisible();
@@ -192,11 +192,11 @@ test("the publisher's light mode reaches readers; the toggle is live and load-lo
   await test.step("a stated mode updates the active publication in place", async () => {
     const before = token;
     const after = await page.evaluate(async (id) => {
-      const r = await fetch(`/api/maps/${id}/publish`, {
+      const r = await (async function readThenWritePublicationSetup() { const basis = await (await fetch(`/api/maps/${id}`)).json(); return fetch(`/api/maps/${id}/publish`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "X-Edit-Revision": basis.editRevision, "content-type": "application/json" },
         body: JSON.stringify({ theme: "dark" }),
-      });
+      }); })();
       if (!r.ok) throw new Error(await r.text());
       return ((await r.json()) as { token: string }).token;
     }, mapId);
@@ -298,7 +298,7 @@ test("the published stack is one cluster the author gates", async ({
   const mapId = await createMap(page, `stack ${runId}`);
   await addLayer(page, mapId, `${tableName}_s`, `SELECT * FROM ${tableName}_s`);
   const token = await page.evaluate(async (id) => {
-    const r = await fetch(`/api/maps/${id}/publish`, { method: "POST" });
+    const r = await (async function readThenWritePublicationSetup() { const basis = await (await fetch(`/api/maps/${id}`)).json(); return fetch(`/api/maps/${id}/publish`, { headers: { "X-Edit-Revision": basis.editRevision }, method: "POST" }); })();
     if (!r.ok) throw new Error(await r.text());
     return ((await r.json()) as { token: string }).token;
   }, mapId);
@@ -382,13 +382,13 @@ test("the published stack is one cluster the author gates", async ({
 
   await test.step("unchecking a control removes it from the next load", async () => {
     await page.evaluate(async (id) => {
-      const r = await fetch(`/api/maps/${id}/publish`, {
+      const r = await (async function readThenWritePublicationSetup() { const basis = await (await fetch(`/api/maps/${id}`)).json(); return fetch(`/api/maps/${id}/publish`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "X-Edit-Revision": basis.editRevision, "content-type": "application/json" },
         body: JSON.stringify({
           viewerControls: { basemap: false, theme: false },
         }),
-      });
+      }); })();
       if (!r.ok) throw new Error(await r.text());
     }, mapId);
     await reader.goto(`/v/${token}`);
@@ -469,13 +469,13 @@ test("the published stack is one cluster the author gates", async ({
     // The previous step left two controls unchecked; this one is about
     // the full-height column, so put them back first.
     await page.evaluate(async (id) => {
-      await fetch(`/api/maps/${id}/publish`, {
+      await (async function readThenWritePublicationSetup() { const basis = await (await fetch(`/api/maps/${id}`)).json(); return fetch(`/api/maps/${id}/publish`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "X-Edit-Revision": basis.editRevision, "content-type": "application/json" },
         body: JSON.stringify({
           viewerControls: { basemap: true, theme: true, tilt: true, fit: true },
         }),
-      });
+      }); })();
     }, mapId);
     await reader.setViewportSize({ width: 1024, height: 600 });
     await reader.goto(`/v/${token}`);
@@ -514,9 +514,9 @@ test("the published stack is one cluster the author gates", async ({
     // Re-enable everything first, so the embed's reduction is the embed's
     // doing and not a leftover checklist.
     await page.evaluate(async (id) => {
-      await fetch(`/api/maps/${id}/publish`, {
+      await (async function readThenWritePublicationSetup() { const basis = await (await fetch(`/api/maps/${id}`)).json(); return fetch(`/api/maps/${id}/publish`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "X-Edit-Revision": basis.editRevision, "content-type": "application/json" },
         body: JSON.stringify({
           viewerControls: {
             basemap: true,
@@ -526,7 +526,7 @@ test("the published stack is one cluster the author gates", async ({
             coords: true,
           },
         }),
-      });
+      }); })();
     }, mapId);
     // Prove the positive arm on the same publication and fine-pointer
     // browser before asserting the embed omits it. Otherwise a missing

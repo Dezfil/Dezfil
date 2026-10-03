@@ -1,3 +1,5 @@
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -56,7 +58,7 @@ beforeEach(async () => {
   const layer = await createLayer(testAccountScope(), map.id, {
     name: "l",
     sql: "SELECT * FROM assets",
-  });
+  }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   layerId = layer.id;
 
   const handler = buildMcpFetchHandler();
@@ -96,7 +98,7 @@ describe("column refusal parity", () => {
     );
     const result = await client.callTool({
       name: "update_layer",
-      arguments: { id: layerId, style: BAD_STYLE },
+      arguments: { id: layerId, style: BAD_STYLE, expected_revision: readEditRevision({ kind: "map", id: readEditLayer(layerId)!.mapId })!.editRevision! },
     });
     const text = (result.content as { type: string; text: string }[])
       .filter((c) => c.type === "text")
@@ -112,7 +114,7 @@ describe("column refusal parity", () => {
     const direct = await layerRoute(
       testAccountRequest(new Request(`http://localhost:3000/api/layers/${layerId}`, {
         method: "PATCH",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", "X-Edit-Revision": readEditRevision({ kind: "map", id: readEditLayer(layerId)!.mapId })!.editRevision! },
         body: JSON.stringify({ style: BAD_STYLE }),
       })),
       { params: Promise.resolve({ id: layerId }) },

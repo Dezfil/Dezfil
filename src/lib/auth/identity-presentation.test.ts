@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { documentFacts } from "@/lib/metadata/document-facts";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -56,7 +58,7 @@ beforeEach(async () => {
 afterEach(async () => { await laneSettled(); resetLane(); closeMetadataDb(); resetQueryInstance(); vi.unstubAllEnvs(); await rm(directory, { recursive: true, force: true }); });
 
 async function run(account: string) {
-  const cascade = await startSingleRun(scopes[account], ids.W, ids.S);
+  const cascade = await startSingleRun(scopes[account], ids.W, ids.S, { expectedRevision: readEditRevision({ kind: "workflow", id: ids.W })?.editRevision });
   await cascadeSettled(cascade.id); await laneSettled();
   return cascade.id;
 }
@@ -67,8 +69,8 @@ const facts = (dependencies: { id: string; qualifiedName: string; owned: boolean
 
 describe("dependencies by identity", () => {
   it("lists a map's qualified external reads resolved to identities, whose each is, and nothing unreached", async () => {
-    await createLayer(scopes.ada, ids.map, { name: "Roads", sql: "SELECT r.* FROM roads r JOIN bob.stations s ON r.sentinel <> s.sentinel" });
-    await createLayer(scopes.bob, ids.map, { name: "His", sql: "SELECT * FROM bob.roads" });
+    await createLayer(scopes.ada, ids.map, { name: "Roads", sql: "SELECT r.* FROM roads r JOIN bob.stations s ON r.sentinel <> s.sentinel" }, { expectedRevision: readEditRevision({ kind: "map", id: ids.map })?.editRevision });
+    await createLayer(scopes.bob, ids.map, { name: "His", sql: "SELECT * FROM bob.roads" }, { expectedRevision: readEditRevision({ kind: "map", id: ids.map })?.editRevision });
     expect(facts(await mapDependencies(scopes.bob, ids.map))).toEqual([
       { id: tables["ada.roads"].id, qualifiedName: "ada.roads", owned: false, producer: null },
       { id: tables["bob.roads"].id, qualifiedName: "roads", owned: true, producer: null },
@@ -83,7 +85,7 @@ describe("dependencies by identity", () => {
 
   it("names each runner's output with its producing workflow, which only its owner may file", async () => {
     await run("ada"); await run("bob");
-    const W = { id: ids.W, name: "Staging" };
+    const W = { id: ids.W, name: "Staging", ...documentFacts({ kind: "workflow", id: ids.W }) };
     expect(facts(await workflowDependencies(scopes.bob, ids.W))).toEqual([
       { id: tables["ada.roads"].id, qualifiedName: "ada.roads", owned: false, producer: null },
       { id: staged("ada"), qualifiedName: "ada.staged", owned: false, producer: { ...W, owned: false } },
@@ -94,7 +96,7 @@ describe("dependencies by identity", () => {
       { id: tables["ada.roads"].id, qualifiedName: "roads", owned: true, producer: null },
       { id: staged("ada"), qualifiedName: "staged", owned: true, producer: { ...W, owned: true } },
     ]);
-    await createLayer(scopes.bob, ids.map, { name: "Staged", sql: "SELECT * FROM bob.staged" });
+    await createLayer(scopes.bob, ids.map, { name: "Staged", sql: "SELECT * FROM bob.staged" }, { expectedRevision: readEditRevision({ kind: "map", id: ids.map })?.editRevision });
     expect(facts(await mapDependencies(scopes.ada, ids.map))).toEqual([
       { id: staged("bob"), qualifiedName: "bob.staged", owned: false, producer: { ...W, owned: true } },
     ]);

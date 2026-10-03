@@ -1,3 +1,5 @@
+import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
+import { recordDocumentChanges, recordDocumentBatch, requireDocumentRevision } from "@/lib/metadata/revisions";
 import { fileMap } from "@/lib/metadata/owned-projects";
 import { assertMapLayerRefs } from "./map-layer-refs";
 import { requireMapFor, mapWithLayersFor, ownMapWithLayers } from "./map-access";
@@ -279,7 +281,7 @@ export async function validateMapWriteRefs(
   }
 }
 
-export function createMap(scope: AccountScope, name: string, projectId: string | null = null): MapRecord {
+export function createMap(scope: AccountScope, name: string, projectId: string | null = null): MapRecord & DocumentFacts {
   requireAccountScope(scope);
   if (projectId) requireFilingDestination(scope, projectId);
   const now = new Date().toISOString();
@@ -302,12 +304,14 @@ export function createMap(scope: AccountScope, name: string, projectId: string |
     createdAt: now,
     updatedAt: now,
   };
-  metadataDb().transaction(() => {
+  return metadataDb().transaction(() => {
+  recordDocumentBatch(scope, () => {
     if (projectId) requireFilingDestination(scope, projectId);
     insertMap(scope, map);
-    if (projectId) fileMap(scope, map.id, projectId);
+    if (projectId) fileMap(scope, map.id, projectId, undefined, { expectedRevision: documentFacts({ kind: "map", id: map.id }).editRevision });
+  });
+  return { ...map, ...documentFacts({ kind: "map", id: map.id }) };
   })();
-  return map;
 }
 
 /** Every map the acting account reaches. */
@@ -320,7 +324,7 @@ export function allMaps(scope: AccountScope): MapRecord[] {
  * project it is in (null = not in one), its owner and its SQL home. The
  * reference is deliberately not on MapRecord, so the published snapshot's
  * revision never observes a membership change. */
-export interface MapOverview extends MapRecord, Presence {
+export interface MapOverview extends MapRecord, Presence, DocumentFacts {
   layerCount: number;
   layerColors: string[];
 }
@@ -339,6 +343,7 @@ function cssColor(c: { r: number; g: number; b: number; a: number }): string {
 export function mapsOverview(scope: AccountScope, project?: string | "none"): MapOverview[] {
   // An unknown or unreachable project refuses — a silently empty list
   // would read as an empty project.
+  return metadataDb().transaction(() => {
   requireAccountScope(scope);
   if (project && project !== "none") requireReachable(scope, "project", project);
   const entries = listReachableMaps(scope);
@@ -348,6 +353,7 @@ export function mapsOverview(scope: AccountScope, project?: string | "none"): Ma
       const layers = listLayers(entry.map.id);
       return {
         ...entry.map,
+        ...documentFacts({ kind: "map", id: entry.map.id }),
         ...presences[i],
         layerCount: layers.length,
         layerColors: layers.map((l) => cssColor(representativeColor(l.style))),
@@ -360,6 +366,7 @@ export function mapsOverview(scope: AccountScope, project?: string | "none"): Ma
           ? m.projectId === null && entries[i].ownerId === scope.accountId
           : m.projectId === project,
     );
+  })();
 }
 
 export function updateMap(
@@ -379,13 +386,16 @@ export function updateMap(
     widgetsPublished: unknown;
     layerOrder: string[];
   }>,
-  opts: { groupId?: string | null } = {},
-): MapWithLayers {
+  opts: { groupId?: string | null; expectedRevision?: unknown } = {},
+): MapWithLayers & DocumentFacts {
   // Content is the editors' to change; the widget publication toggle is a
   // publication setting, the owner's alone.
   const prior = requireMapFor(scope, id, "edit");
   if (mapWriteChangesPublication(prior, fields)) requireMapFor(scope, id, "publish");
+  const covered = Object.entries(fields).some(([key, value]) => key !== "viewport" && value !== undefined);
+  const checkRevision = () => { if (covered) requireDocumentRevision(scope, { kind: "map", id, expectedRevision: opts.expectedRevision }); };
   assertMapLayerRefs(prior, listLayers(id), fields);
+  checkRevision();
   // Validate everything before writing anything — no partial writes.
   const basemapLayers =
     fields.basemapLayers === undefined
@@ -473,6 +483,7 @@ export function updateMap(
   metadataDb().transaction(() => {
     const current = requireMapFor(scope, id, "edit");
     if (mapWriteChangesPublication(current, fields)) requireMapFor(scope, id, "publish");
+    checkRevision();
     if (
       fields.name !== undefined ||
       fields.viewport !== undefined ||
@@ -520,6 +531,7 @@ export function updateMap(
       after.layerOrder = fields.layerOrder;
     }
     if (Object.keys(before).length) {
+      recordDocumentChanges(scope, [{ kind: "map", id }]);
       recordStep({
         mapId: id,
         scope: "map",
@@ -528,7 +540,7 @@ export function updateMap(
         before,
         after,
         groupId: opts.groupId,
-      });
+      }, metadataDb(), scope);
     }
   })();
   return mapWithLayersFor(scope, id, "edit");
@@ -551,13 +563,13 @@ function requireDuplicable(scope: AccountScope, id: string): MapRecord {
   return getMap(id)!;
 }
 
-export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
+export function duplicateMap(scope: AccountScope, id: string): MapWithLayers & DocumentFacts {
   requireAccountScope(scope);
   const source = requireDuplicable(scope, id);
   const layers = listLayers(id);
   const now = new Date().toISOString();
   const newId = randomUUID();
-  metadataDb().transaction(() => {
+  recordDocumentBatch(scope, () => {
     requireDuplicable(scope, id);
     const layerIds = new Map<string, string>();
     // The copy keeps its source's SQL home, whoever makes it.
@@ -626,14 +638,15 @@ export function duplicateMap(scope: AccountScope, id: string): MapWithLayers {
     // transaction, so a move racing the copy cannot file it where the
     // source no longer is (found at review).
     const sourceProject = mapProjectId(id);
-    if (sourceProject && mayFileInto(scope, sourceProject)) fileMap(scope, newId, sourceProject);
-  })();
+    if (sourceProject && mayFileInto(scope, sourceProject)) fileMap(scope, newId, sourceProject, undefined, { expectedRevision: documentFacts({ kind: "map", id: newId }).editRevision });
+  });
   return ownMapWithLayers(scope, newId);
 }
 
-export async function removeMap(scope: AccountScope, id: string): Promise<void> {
+export async function removeMap(scope: AccountScope, id: string, opts: { expectedRevision?: unknown } = {}): Promise<void> {
   const { map, layerIds, removeImages } = metadataDb().transaction(() => {
     const map = requireMapFor(scope, id, "delete");
+    requireDocumentRevision(scope, { kind: "map", id, action: "delete", expectedRevision: opts.expectedRevision });
     const layerIds = listLayers(id).map((l) => l.id);
     // The set the map leaves must notice: the cascade removes nothing
     // here (the reference nulls), but the project's own clock advances.

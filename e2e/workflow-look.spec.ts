@@ -1,3 +1,5 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
+import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { isAllowedConsoleError } from "./console-allowlist";
 import { addLayer, createMap, seedCsv, trackConsole } from "./support";
@@ -25,19 +27,19 @@ const RAIL_TOP = 62;
 
 type Json = Record<string, unknown>;
 
-async function api(page: Page, method: string, path: string, body?: unknown): Promise<Json> {
+async function api(page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<Json> {
   return page.evaluate(
-    async ({ method, path, body }) => {
+    async ({ method, path, body, basis }) => {
       const r = await fetch(path, {
         method,
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
       const text = await r.text();
       if (!r.ok) throw new Error(`${method} ${path} → ${r.status}: ${text}`);
       return text ? (JSON.parse(text) as Json) : {};
     },
-    { method, path, body },
+    { method, path, body, basis },
   );
 }
 
@@ -50,10 +52,10 @@ async function seed(page: Page, tag: string): Promise<string> {
   await seedCsv(page, longTable, "name,lon,lat\nmitte,13.40,52.52\n");
   const made = await api(page, "POST", "/api/recipes", { name: `Look ${runId}` });
   const id = (made.recipe as { id: string }).id;
-  await api(page, "POST", `/api/recipes/${id}/steps`, {
+  await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps`, body: {
     operation: "buffer",
     parameters: { input: table, distance: 100, name: `${table}_rings` },
-  });
+  } })).then(result => result.json);
   return id;
 }
 
@@ -280,11 +282,11 @@ async function expectBlur(loc: Locator, value: string, surface: string) {
  * no step, so the record would stay empty. */
 async function offArrangement(page: Page, id: string) {
   const recipe = (await api(page, "GET", `/api/recipes/${id}`)).recipe as { steps: { id: string }[] };
-  await api(page, "PUT", `/api/recipes/${id}/layout`, {
+  await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "PUT", path: `/api/recipes/${id}/layout`, body: {
     steps: { [recipe.steps[0].id]: { x: 288, y: 200 } },
     sources: { [table]: { x: 48, y: 40 } },
     notes: [],
-  });
+  } })).then(result => result.json);
 }
 
 for (const theme of ["light", "dark"] as const) {
@@ -446,7 +448,7 @@ for (const theme of ["light", "dark"] as const) {
     await test.step("the panel's callout wraps: no sideways scroll after an edit with long names", async () => {
       const panel = page.locator("[data-node-panel]");
       // The callout shows for a node whose output holds a last run: run it once.
-      await api(page, "POST", `/api/recipes/${id}/runs`);
+      await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/runs` })).then(result => result.json);
       await expect
         .poll(async () => ((await api(page, "GET", `/api/recipes/${id}`)).recipe as { steps: { output: unknown }[] }).steps[0]?.output ?? null, { timeout: 30000 })
         .not.toBeNull();
@@ -543,7 +545,7 @@ test("the glass surfaces compute their declared blur", async ({ page }) => {
   await expectBlur(page.locator('header [class*="headCard"]'), "blur(18px)", "the workspace header");
   await expectBlur(pane(page), "blur(18px)", "the canvas pane");
 
-  await api(page, "POST", `/api/recipes/${id}/runs`);
+  await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/runs` })).then(result => result.json);
   await expect
     .poll(async () => ((await api(page, "GET", `/api/recipes/${id}`)).recipe as { steps: { output: unknown }[] }).steps[0]?.output ?? null, { timeout: 30_000 })
     .not.toBeNull();

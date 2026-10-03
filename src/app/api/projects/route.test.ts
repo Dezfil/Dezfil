@@ -1,3 +1,4 @@
+import { readFilingRevisions } from "@/lib/test-support/edit-basis";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -95,10 +96,13 @@ describe("project CRUD over the API", () => {
     const map = createMap(testAccountScope(), "Stations map");
     const table = getTableByName("stations")!;
     const patched = await patchMembersRoute(
-      testAccountRequest(jsonReq(`/api/projects/${p.id}/members`, "PATCH", {
+      testAccountRequest(jsonReq(`/api/projects/${p.id}/members`, "PATCH", { ...{
         addMaps: [map.id],
         addTables: [table.id],
-      })),
+      }, expectedRevisions: readFilingRevisions({
+        addMaps: [map.id],
+        addTables: [table.id],
+      }, undefined) })),
       params(p.id as string),
     );
     expect(patched.status).toBe(200);
@@ -130,7 +134,7 @@ describe("project CRUD over the API", () => {
     const response = await createProjectRoute(
       testAccountRequest(jsonReq("/api/projects", "POST", {
         name: "Doomed",
-        members: { addMaps: [map.id], addTables: ["t-none"] },
+        members: { ...{ addMaps: [map.id], addTables: ["t-none"] }, expectedRevisions: readFilingRevisions({ addMaps: [map.id], addTables: ["t-none"] }, undefined) },
       })),
     );
     expect(response.status).toBe(404);
@@ -143,7 +147,7 @@ describe("project CRUD over the API", () => {
     const map = createMap(testAccountScope(), "Stations map");
     const p = await newProject();
     await patchMembersRoute(
-      testAccountRequest(jsonReq(`/api/projects/${p.id}/members`, "PATCH", { addMaps: [map.id] })),
+      testAccountRequest(jsonReq(`/api/projects/${p.id}/members`, "PATCH", { ...{ addMaps: [map.id] }, expectedRevisions: readFilingRevisions({ addMaps: [map.id] }, undefined) })),
       params(p.id as string),
     );
     const deleted = await body(
@@ -166,13 +170,13 @@ describe("the members surface", () => {
     const b = await newProject("B");
 
     await patchMembersRoute(
-      testAccountRequest(jsonReq(`/api/projects/${a.id}/members`, "PATCH", { addMaps: [map.id], addTables: [table.id] })),
+      testAccountRequest(jsonReq(`/api/projects/${a.id}/members`, "PATCH", { ...{ addMaps: [map.id], addTables: [table.id] }, expectedRevisions: readFilingRevisions({ addMaps: [map.id], addTables: [table.id] }, undefined) })),
       params(a.id as string),
     );
     // The move: B takes the map; the dataset joins B while staying in A.
     const moved = await body(
       await patchMembersRoute(
-        testAccountRequest(jsonReq(`/api/projects/${b.id}/members`, "PATCH", { addMaps: [map.id], addTables: [table.id] })),
+        testAccountRequest(jsonReq(`/api/projects/${b.id}/members`, "PATCH", { ...{ addMaps: [map.id], addTables: [table.id] }, expectedRevisions: readFilingRevisions({ addMaps: [map.id], addTables: [table.id] }, undefined) })),
         params(b.id as string),
       ),
     );
@@ -192,7 +196,7 @@ describe("the members surface", () => {
 
     // One unknown member changes nothing.
     const refused = await patchMembersRoute(
-      testAccountRequest(jsonReq(`/api/projects/${a.id}/members`, "PATCH", { addMaps: [map.id], addTables: ["t-none"] })),
+      testAccountRequest(jsonReq(`/api/projects/${a.id}/members`, "PATCH", { ...{ addMaps: [map.id], addTables: ["t-none"] }, expectedRevisions: readFilingRevisions({ addMaps: [map.id], addTables: ["t-none"] }, undefined) })),
       params(a.id as string),
     );
     expect(refused.status).toBe(404);
@@ -207,9 +211,11 @@ describe("workflow-origin project membership", () => {
     const builder = createRecipeRecord(testAccountScope(), "Builder tool", undefined, "builder");
 
     const refused = await patchMembersRoute(
-      testAccountRequest(jsonReq(`/api/projects/${p.id}/members`, "PATCH", {
+      testAccountRequest(jsonReq(`/api/projects/${p.id}/members`, "PATCH", { ...{
         addRecipes: [workflow.id, builder.id],
-      })),
+      }, expectedRevisions: readFilingRevisions({
+        addRecipes: [workflow.id, builder.id],
+      }, undefined) })),
       params(p.id as string),
     );
     expect(refused.status).toBe(400);
@@ -224,9 +230,11 @@ describe("workflow-origin project membership", () => {
     expect(getRecipe(builder.id)?.projectId).toBeNull();
 
     const accepted = await patchMembersRoute(
-      testAccountRequest(jsonReq(`/api/projects/${p.id}/members`, "PATCH", {
+      testAccountRequest(jsonReq(`/api/projects/${p.id}/members`, "PATCH", { ...{
         addRecipes: [workflow.id],
-      })),
+      }, expectedRevisions: readFilingRevisions({
+        addRecipes: [workflow.id],
+      }, undefined) })),
       params(p.id as string),
     );
     expect(accepted.status).toBe(200);
@@ -240,7 +248,7 @@ describe("workflow-origin project membership", () => {
     const refused = await createProjectRoute(
       testAccountRequest(jsonReq("/api/projects", "POST", {
         name: "Doomed",
-        members: { addRecipes: [workflow.id, builder.id] },
+        members: { ...{ addRecipes: [workflow.id, builder.id] }, expectedRevisions: readFilingRevisions({ addRecipes: [workflow.id, builder.id] }, undefined) },
       })),
     );
     expect(refused.status).toBe(400);
@@ -258,7 +266,7 @@ describe("workflow-origin project membership", () => {
     const accepted = await createProjectRoute(
       testAccountRequest(jsonReq("/api/projects", "POST", {
         name: "Workflow shelf",
-        members: { addRecipes: [workflow.id] },
+        members: { ...{ addRecipes: [workflow.id] }, expectedRevisions: readFilingRevisions({ addRecipes: [workflow.id] }, undefined) },
       })),
     );
     expect(accepted.status).toBe(201);
@@ -354,7 +362,7 @@ describe("scoped listings", () => {
     const table = getTableByName("stations")!;
     const p = await newProject();
     await patchMembersRoute(
-      testAccountRequest(jsonReq(`/api/projects/${p.id}/members`, "PATCH", { addMaps: [filed.id], addTables: [table.id] })),
+      testAccountRequest(jsonReq(`/api/projects/${p.id}/members`, "PATCH", { ...{ addMaps: [filed.id], addTables: [table.id] }, expectedRevisions: readFilingRevisions({ addMaps: [filed.id], addTables: [table.id] }, undefined) })),
       params(p.id as string),
     );
 
@@ -438,7 +446,7 @@ describe("project ids on detail reads", () => {
     );
     // Move the source, then duplicate: the copy belongs to B.
     await patchMembersRoute(
-      testAccountRequest(jsonReq(`/api/projects/${b.id}/members`, "PATCH", { addMaps: [created.id as string] })),
+      testAccountRequest(jsonReq(`/api/projects/${b.id}/members`, "PATCH", { ...{ addMaps: [created.id as string] }, expectedRevisions: readFilingRevisions({ addMaps: [created.id as string] }, undefined) })),
       params(b.id as string),
     );
     const copy = duplicateMap(testAccountScope(), created.id as string);

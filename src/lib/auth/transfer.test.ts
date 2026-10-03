@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
@@ -75,8 +76,9 @@ const routes = {
   people: { load: () => import("@/app/api/projects/[id]/people/route"), path: (id: string) => `/api/projects/${id}/people` },
 };
 async function call(route: keyof typeof routes, account: string, id: string, body?: unknown,
-  kind: "session" | "token" = "session", method = "POST") {
+  kind: "session" | "token" = "session", method = "POST", revision?: string | null) {
   const headers = new Headers({ "content-type": "application/json", origin });
+  if (revision) headers.set("X-Edit-Revision", revision);
   if (kind === "token") headers.set("authorization", `Bearer ${tokens.get(account)}`);
   else headers.set("cookie", `dezfil_session=${sessions.get(account)}`);
   const request = socketRequest(new Request(`${origin}${routes[route].path(id)}`, { method, headers,
@@ -163,23 +165,24 @@ describe("transferring a map or a workflow", () => {
     it("goes to the project's owner or a member, keeping its home and everything in it", async () => {
       const before = snapshot();
       const record = row(table, filed);
-      const response = await call(route, "ada", filed, to("ed"), "token");
-      expect(response).toEqual({ status: 200, body: { id: filed, owner: { name: "ed", sqlName: sqlName("ed") } } });
-      expect(row(table, filed)).toEqual({ ...record, owner_id: "ed" });
+      const response = await call(route, "ada", filed, to("ed"), "token", undefined, readEditRevision({ kind: route, id: filed }, db)?.editRevision);
+      expect(response).toEqual({ status: 200, body: { id: filed, editRevision: row(table, filed).edit_revision, owner: { name: "ed", sqlName: sqlName("ed") } } });
+      expect(row(table, filed)).toEqual({ ...record, owner_id: "ed", edit_revision: expect.any(String), last_changed_at: expect.any(String), last_changed_by: "ada" });
+      expect(row(table, filed).edit_revision).not.toBe(record.edit_revision);
       expect(row(table, filed).home_account_id).toBe("ada");
       const after = snapshot();
       const ownerless = (tables: unknown[][]) => tables.map(rows => (rows as Record<string, unknown>[]).map(entry =>
-        entry.id === filed && "owner_id" in entry ? without(entry, "owner_id") : entry));
+        entry.id === filed && "owner_id" in entry ? without(without(without(without(entry, "owner_id"), "edit_revision"), "last_changed_at"), "last_changed_by") : entry));
       expect(ownerless(after)).toEqual(ownerless(before));
       expect(gate()).toEqual([]);
       // And on to the project's owner from there.
-      expect((await call(route, "ed", filed, to("pat"))).status).toBe(200);
-      expect(row(table, filed)).toEqual({ ...record, owner_id: "pat" });
+      expect((await call(route, "ed", filed, to("pat"), undefined, undefined, readEditRevision({ kind: route, id: filed }, db)?.editRevision)).status).toBe(200);
+      expect(row(table, filed)).toEqual({ ...record, owner_id: "pat", edit_revision: expect.any(String), last_changed_at: expect.any(String), last_changed_by: "ed" });
     });
 
     it(`refuses an unfiled ${noun} with the one reason, file it first`, async () => {
       const before = snapshot();
-      expect(await call(route, "ada", unfiled, to("ed"))).toEqual(
+      expect(await call(route, "ada", unfiled, to("ed"), undefined, undefined, readEditRevision({ kind: route, id: unfiled }, db)?.editRevision)).toEqual(
         refusal(`File the ${noun} in a project first: only someone who already reaches it can receive it.`));
       expect(snapshot()).toEqual(before);
     });
@@ -188,23 +191,23 @@ describe("transferring a map or a workflow", () => {
       const before = snapshot();
       const unreachable = refusal(`Transfer a ${noun} only to another active person who already reaches it.`);
       for (const account of ["dee", "ivy", "bo", "out", "ada"]) {
-        expect(await call(route, "ada", filed, to(account)), account).toEqual(unreachable);
+        expect(await call(route, "ada", filed, to(account), undefined, undefined, readEditRevision({ kind: route, id: filed }, db)?.editRevision), account).toEqual(unreachable);
       }
-      expect(await call(route, "ada", filed, { to: "nobody_here" })).toEqual(unreachable);
+      expect(await call(route, "ada", filed, { to: "nobody_here" }, undefined, undefined, readEditRevision({ kind: route, id: filed }, db)?.editRevision)).toEqual(unreachable);
       expect(snapshot()).toEqual(before);
     });
 
     it("refuses everyone but its owner: reachers by the permission shape, outsiders and admins as absent", async () => {
       const before = snapshot();
       for (const account of ["pat", "ed", "vi"]) {
-        expect(await call(route, account, filed, to("ed")), account).toEqual(forbidden);
-        expect(await call(route, account, filed, to("ed"), "token"), account).toEqual(forbidden);
+        expect(await call(route, account, filed, to("ed"), undefined, undefined, readEditRevision({ kind: route, id: filed }, db)?.editRevision), account).toEqual(forbidden);
+        expect(await call(route, account, filed, to("ed"), "token", undefined, readEditRevision({ kind: route, id: filed }, db)?.editRevision), account).toEqual(forbidden);
       }
       for (const account of ["bo", "out"]) {
-        const missing = await call(route, account, "never", to("ed"));
+        const missing = await call(route, account, "never", to("ed"), undefined, undefined, readEditRevision({ kind: route, id: "never" }, db)?.editRevision);
         expect(missing.status).toBe(404);
-        expect(await call(route, account, filed, to("ed")), account).toEqual(missing);
-        expect(await call(route, account, unfiled, to("ed"), "token"), account).toEqual(missing);
+        expect(await call(route, account, filed, to("ed"), undefined, undefined, readEditRevision({ kind: route, id: filed }, db)?.editRevision), account).toEqual(missing);
+        expect(await call(route, account, unfiled, to("ed"), "token", undefined, readEditRevision({ kind: route, id: unfiled }, db)?.editRevision), account).toEqual(missing);
       }
       expect(snapshot()).toEqual(before);
     });
@@ -212,8 +215,8 @@ describe("transferring a map or a workflow", () => {
     it("is unavailable while its owner is deactivated, to the project's owner and the deactivated owner alike", async () => {
       db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'ada'").run();
       const before = snapshot();
-      expect(await call(route, "pat", filed, to("ed"))).toEqual(forbidden);
-      expect((await call(route, "ada", filed, to("ed"))).status).toBe(401);
+      expect(await call(route, "pat", filed, to("ed"), undefined, undefined, readEditRevision({ kind: route, id: filed }, db)?.editRevision)).toEqual(forbidden);
+      expect((await call(route, "ada", filed, to("ed"), undefined, undefined, readEditRevision({ kind: route, id: filed }, db)?.editRevision)).status).toBe(401);
       expect(snapshot()).toEqual(before);
     });
   });
@@ -229,7 +232,7 @@ describe("the gate", () => {
     db.exec(`CREATE TEMP TRIGGER wrong_resource AFTER UPDATE OF owner_id ON maps WHEN NEW.id = 'M'
       BEGIN UPDATE maps SET owner_id = NEW.owner_id WHERE id = 'N'; END;`);
     const before = snapshot();
-    expect((await call("map", "ada", "M", to("ed"))).status).toBe(500);
+    expect((await call("map", "ada", "M", to("ed"), undefined, undefined, readEditRevision({ kind: "map", id: "M" }, db)?.editRevision)).status).toBe(500);
     failedWith("Ownership cannot change");
     expect(snapshot()).toEqual(before);
     expect(gate()).toEqual([]);
@@ -258,15 +261,15 @@ describe("the gate", () => {
       db.exec(`CREATE TEMP TRIGGER failing_close BEFORE DELETE ON ownership_transfer_gate
         BEGIN SELECT RAISE(ABORT, 'injected failure after the update'); END;`);
       const before = snapshot();
-      expect((await call(route, owner, id, to("ed"))).status).toBe(500);
+      expect((await call(route, owner, id, to("ed"), undefined, undefined, route === "project" ? undefined : readEditRevision({ kind: route, id: id }, db)?.editRevision)).status).toBe(500);
       failedWith("injected failure after the update");
       expect(snapshot()).toEqual(before);
       expect(gate()).toEqual([]);
     });
 
   it("leaves no gate behind after a success or a refusal, and admits no further change once closed", async () => {
-    expect((await call("map", "ada", "M", to("ed"))).status).toBe(200);
-    expect(await call("map", "ada", "N", to("bo"))).toMatchObject({ status: 400 });
+    expect((await call("map", "ada", "M", to("ed"), undefined, undefined, readEditRevision({ kind: "map", id: "M" }, db)?.editRevision)).status).toBe(200);
+    expect(await call("map", "ada", "N", to("bo"), undefined, undefined, readEditRevision({ kind: "map", id: "N" }, db)?.editRevision)).toMatchObject({ status: 400 });
     expect(gate()).toEqual([]);
     expect(() => db.prepare("UPDATE maps SET owner_id = 'ada' WHERE id = 'M'").run()).toThrow("Ownership cannot change");
     expect(() => db.prepare("UPDATE projects SET owner_id = 'ed' WHERE id = 'P'").run()).toThrow("Ownership cannot change");

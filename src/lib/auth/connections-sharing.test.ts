@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import JSZip from "jszip";
@@ -48,7 +49,7 @@ beforeEach(async () => {
     .run(JSON.stringify({ connectionId: CONNECTION.id, connectionName: CONNECTION.name, schema: "secret_schema", table: "secret_table" }), parcels);
   shareProject("ada", "P", [["bob", "editor"], ["vic", "viewer"]], [parcels]);
   const map = createMap(scopes.ada, "Survey", "P");
-  await createLayer(scopes.ada, map.id, { name: "Parcels", sql: "SELECT * FROM parcels" });
+  await createLayer(scopes.ada, map.id, { name: "Parcels", sql: "SELECT * FROM parcels" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   mapId = map.id;
 });
 afterEach(async () => { closeMetadataDb(); resetQueryInstance(); resetSecretKeyCache(); vi.unstubAllEnvs(); await rm(directory, { recursive: true, force: true }); });
@@ -91,7 +92,8 @@ describe("connection-bearing operations under a project grant", () => {
     const before = stored();
     let driven = 0;
     for (const [route, load] of Object.entries(routes)) {
-      for (const method of Object.keys(document.paths[route]).map((m) => m.toUpperCase())) {
+      // Automatic methods are exercised through the gate, not direct handler exports.
+      for (const method of Object.keys(document.paths[route]).filter(m => m !== "head" && m !== "options").map((m) => m.toUpperCase())) {
         // Creating and listing name no connection; listing is searched below.
         if (route === "/api/connections/postgis") continue;
         for (const account of ["bob", "vic", "cyd"]) {

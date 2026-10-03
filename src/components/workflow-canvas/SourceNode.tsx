@@ -7,6 +7,7 @@ import { GeometryGlyph } from "../ui/operation-icons";
 import type { SourceFlowNode } from "./to-flow";
 import { OUT_HANDLE } from "./to-flow";
 import { NODE_W } from "./arrange";
+import { UnsavedMark } from "../builder/UnsavedFields";
 import styles from "./WorkflowCanvas.module.css";
 
 /**
@@ -42,6 +43,7 @@ export function SourceNode({ data, selected, dragging, isConnectable }: NodeProp
       <span className={styles.tLabel} style={{ top: BOX.y + BOX.h + 7 }}>
         <span className={styles.srcName}>{m.name}</span>
         <span className={styles.tOut}>{m.missing ? "missing" : m.table ? `${formatCount(m.table.rowCount)} rows` : ""}</span>
+        {data.unsavedPosition && <UnsavedMark>unsaved position</UnsavedMark>}
       </span>
       <Handle
         type="source"

@@ -1,6 +1,8 @@
+import { documentFacts } from "./document-facts";
+import { recordDocumentChanges, requireDocumentRevision } from "./revisions";
 import type { Database } from "better-sqlite3";
 import { ApiError } from "@/lib/api/errors";
-import { requirePermitted } from "@/lib/auth/reach";
+import { canReach, requirePermitted } from "@/lib/auth/reach";
 import type { AccountScope } from "@/lib/auth/scope";
 import { accountLabels, type AccountLabel } from "./accounts";
 import { metadataDb } from "./db";
@@ -23,6 +25,7 @@ import { throughTransferGate } from "./ownership-transfer";
 
 export interface TransferResult {
   id: string;
+  editRevision?: string;
   /** The new owner. */
   owner: AccountLabel;
 }
@@ -64,7 +67,7 @@ const FILED = {
 
 /** Hand a map or workflow to another active person who already reaches it
  * through its project: that project's owner or one of its people. */
-function transferFiled(kind: keyof typeof FILED, scope: AccountScope, id: string, to: unknown, db: Database): TransferResult {
+function transferFiled(kind: keyof typeof FILED, scope: AccountScope, id: string, to: unknown, db: Database, expectedRevision: unknown): TransferResult {
   const name = recipientName(to);
   const { table, noun } = FILED[kind];
   return db.transaction(() => {
@@ -78,17 +81,21 @@ function transferFiled(kind: keyof typeof FILED, scope: AccountScope, id: string
           OR EXISTS (SELECT 1 FROM project_people pp WHERE pp.project_id = @project AND pp.account_id = a.id))`)
       .get({ name, owner: resource.ownerId, project: resource.projectId }) as { id: string } | undefined;
     if (!recipient) throw new ApiError("invalid_request", `Transfer a ${noun} only to another active person who already reaches it.`, 400);
+    requireDocumentRevision(scope, { kind, id, action: "transfer", expectedRevision }, db);
     throughTransferGate({ kind, id: resource.parentId, from: resource.ownerId, to: recipient.id }, db, () => {
       db.prepare(`UPDATE ${table} SET owner_id = ? WHERE id = ?`).run(recipient.id, resource.parentId);
     });
-    return result(resource.parentId, recipient.id, db);
+    recordDocumentChanges(scope, [{ kind, id: resource.parentId }], db);
+    return { ...result(resource.parentId, recipient.id, db),
+      ...(canReach(scope, kind, resource.parentId, db)
+        ? { editRevision: documentFacts({ kind, id: resource.parentId }, db).editRevision } : {}) };
   }).immediate();
 }
 
-export function transferMap(scope: AccountScope, id: string, to: unknown, db: Database = metadataDb()): TransferResult {
-  return transferFiled("map", scope, id, to, db);
+export function transferMap(scope: AccountScope, id: string, to: unknown, db: Database = metadataDb(), options: { expectedRevision?: unknown } = {}): TransferResult {
+  return transferFiled("map", scope, id, to, db, options.expectedRevision);
 }
 
-export function transferWorkflow(scope: AccountScope, id: string, to: unknown, db: Database = metadataDb()): TransferResult {
-  return transferFiled("workflow", scope, id, to, db);
+export function transferWorkflow(scope: AccountScope, id: string, to: unknown, db: Database = metadataDb(), options: { expectedRevision?: unknown } = {}): TransferResult {
+  return transferFiled("workflow", scope, id, to, db, options.expectedRevision);
 }

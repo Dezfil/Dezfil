@@ -12,7 +12,7 @@ export async function POST(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id } = await params;
-    return NextResponse.json({ ...(await undoChange(scope, id)), ...mapPresence(scope, id) });
+    return NextResponse.json({ ...(await undoChange(scope, id, { expectedRevision: _request.headers.get("X-Edit-Revision") })), ...mapPresence(scope, id) });
   } catch (error) {
     return errorResponse(error);
   }

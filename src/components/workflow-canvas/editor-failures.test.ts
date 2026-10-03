@@ -106,8 +106,10 @@ describe("review: structural rejections belong to the settle window", () => {
 
   it.each(["draft", "structure"])("settle reports the newest rejection when %s lands last", async (last) => {
     const c = setup(); await c.w.settle();
-    const draft = c.editor.edit("a", { distance: 99 });
-    const add = structural[0].start(c.editor);
+    const first = last === "draft" ? structural[0].start(c.editor) : c.editor.edit("a", { distance: 99 });
+    const second = last === "draft" ? c.editor.edit("a", { distance: 99 }) : structural[0].start(c.editor);
+    const draft = last === "draft" ? second : first;
+    const add = last === "draft" ? first : second;
     const waiting = c.editor.settled();
     const rejectDraft = async () => { c.w.pending("PATCH", patch)[0].refuse(422, "invalid", "Draft refused"); await draft; };
     const rejectAdd = async () => { c.w.pending("POST", "/api/recipes/w/steps")[0].refuse(409, "conflict", "Add refused"); await add; };
@@ -342,7 +344,10 @@ it("unreadable edit failure reaches the Run all notice's existing reason suffix"
   const c = setup(); await c.w.settle(); const edit = c.editor.edit("a", { distance: 99 });
   c.w.pending("PATCH", patch)[0].truncated(); await c.w.settle(); c.w.pending("GET", patch)[0].ok({ step: stepOf("a", { distance: 10 }) }); await edit;
   const flow = new HookHarness(() => useRunConfirm({ runner: c.runner })); const asking = flow.value.askRun(null);
-  await c.w.settle(); c.w.pending("POST", "/api/recipes/w/runs")[0].ok({ plan: { kind: "run_all", wide: false, members: ["a"] } }); await asking; flow.render();
+  await c.w.settle();
+  c.w.pending("POST", "/api/recipes/w/runs")[0].ok({ plan: { wide: false, members: ["a"], kind: "run_all" } });
+  await asking; flow.render();
+  expect(c.w.pending("POST", "/api/recipes/w/runs")).toHaveLength(0);
   expect(flow.value.refusal?.message).toBe("Couldn't save the change, so nothing started. Couldn't confirm the change was saved.");
   expect(c.w.calls.filter((x) => x.method === "POST" && !(x.body as { plan?: boolean })?.plan)).toHaveLength(0);
 });

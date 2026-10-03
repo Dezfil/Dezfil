@@ -10,7 +10,7 @@ import { createFirstAccount } from "@/lib/auth/accounts";
 const ENTRY = MIGRATIONS.findIndex(sql => sql.includes("CREATE TABLE project_people"));
 const FINAL_STATEMENT = "CREATE INDEX idx_lineage_edges_runner ON lineage_edges(step_id, runner_id);";
 /** Columns the entry adds, each a stamp derived from existing rows. */
-const ADDED_COLUMNS = new Set(["sql_name", "home_account_id", "initiator_id", "runner_id"]);
+let priorColumns: Record<string, string[]>;
 const ADDED_TABLES = new Set(["project_people", "ownership_transfer_gate", "step_runner_outputs"]);
 const now = "2026-01-01T00:00:00.000Z";
 let directory: string, file: string, db: Database.Database;
@@ -22,6 +22,10 @@ beforeEach(() => {
   db.pragma("foreign_keys = ON");
   for (const migration of MIGRATIONS.slice(0, ENTRY)) db.exec(migration);
   db.pragma(`user_version = ${ENTRY}`);
+  priorColumns = Object.fromEntries(
+    (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[])
+      .map(({ name }) => [name, (db.pragma(`table_info("${name}")`) as { name: string }[]).map(c => c.name)]),
+  );
 });
 afterEach(() => {
   if (db?.open) db.close();
@@ -75,7 +79,7 @@ function rows() {
   const names = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all() as { name: string }[])
     .map(row => row.name).filter(name => !ADDED_TABLES.has(name));
   return Object.fromEntries(names.map(name => [name, db.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).all()
-    .map(row => Object.fromEntries(Object.entries(row as object).filter(([key]) => !ADDED_COLUMNS.has(key))))]));
+    .map(row => Object.fromEntries(Object.entries(row as object).filter(([key]) => priorColumns[name].includes(key))))]));
 }
 /** The whole store: schema objects (tables, indexes, triggers with their
  * SQL), every row and the migration version. */
@@ -92,7 +96,7 @@ const column = (sql: string) => db.prepare(sql).all();
 describe("the project-sharing migration entry", () => {
   it("is one entry after every earlier entry, whose serialized SQL is unchanged", () => {
     expect(ENTRY).toBe(44);
-    expect(MIGRATIONS).toHaveLength(ENTRY + 1);
+    expect(MIGRATIONS.length).toBeGreaterThanOrEqual(ENTRY + 1);
     expect(createHash("sha256").update(JSON.stringify(MIGRATIONS.slice(0, ENTRY))).digest("hex"))
       .toBe("ba07b3d7f99babecaf5872074eb87ed7206a8a6aced8154251a3a0de6a301089");
     expect(MIGRATIONS[ENTRY].trim().endsWith(FINAL_STATEMENT)).toBe(true);

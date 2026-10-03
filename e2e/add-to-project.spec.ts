@@ -1,3 +1,5 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
+import type { EditBasis } from "../src/lib/edit-basis";
 // The 14-A dialog: the Maps action in both presentations and filing
 // states, the picker's ruled semantics, the checklist's truth from the
 // documented dependencies read, both confirm roads with the after-state
@@ -24,19 +26,19 @@ const T_PLAIN = `atp_plain_${runId}`;
 const OUT1 = `atp_out1_${runId}`;
 const OUT2 = `atp_out2_${runId}`;
 
-const api = (page: Page, method: string, pathName: string, body?: unknown) =>
+const api = (page: Page, method: string, pathName: string, body?: unknown, basis?: EditBasis) =>
   page.evaluate(
-    async ({ method, pathName, body }) => {
+    async ({ method, pathName, body, basis }) => {
       const r = await fetch(pathName, {
         method,
-        headers: body ? { "content-type": "application/json" } : undefined,
+        headers: { ...(body ? { "content-type": "application/json" } : undefined), ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) },
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!r.ok && r.status !== 204) throw new Error(await r.text());
       const text = r.status === 204 ? "" : await r.text();
       return text ? (JSON.parse(text) as unknown) : null;
     },
-    { method, pathName, body },
+    { method, pathName, body, basis },
   );
 
 /** The head: the dialog is reachable by its accessible
@@ -217,13 +219,13 @@ test("the add-to-project dialog end to end", async ({
       [OUT1, T_SHARED],
       [OUT2, T_PLAIN],
     ] as const) {
-      await api(page, "POST", `/api/recipes/${wfId}/steps`, {
+      await readThenWriteBrowserSetup(page, `/api/recipes/${wfId}`, () => ({ method: "POST", path: `/api/recipes/${wfId}/steps`, body: {
         operation: "sql_step",
         parameters: { sql: `SELECT * FROM ${src}`, name },
-      });
+      } })).then(result => result.json);
     }
     // One run-all produces both outputs.
-    await api(page, "POST", `/api/recipes/${wfId}/runs`);
+    await readThenWriteBrowserSetup(page, `/api/recipes/${wfId}`, () => ({ method: "POST", path: `/api/recipes/${wfId}/runs` })).then(result => result.json);
     await expect
       .poll(
         async () => {
@@ -243,25 +245,25 @@ test("the add-to-project dialog end to end", async ({
         id: string;
       }
     ).id;
-    await api(page, "POST", `/api/maps/${mapId}/layers`, {
+    await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/layers`, body: {
       name: "shared",
       sql: `SELECT * FROM ${T_SHARED}`,
-    });
-    await api(page, "POST", `/api/maps/${mapId}/layers`, {
+    } }));
+    await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/layers`, body: {
       name: "derived",
       sql: `SELECT * FROM ${OUT1}`,
-    });
-    await api(page, "POST", `/api/maps/${mapId}/layers`, {
+    } }));
+    await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "POST", path: `/api/maps/${mapId}/layers`, body: {
       name: "plain",
       sql: `SELECT * FROM ${T_PLAIN}`,
-    });
+    } }));
     map2Id = (
       (await api(page, "POST", "/api/maps", { name: MAP2 })) as { id: string }
     ).id;
-    await api(page, "POST", `/api/maps/${map2Id}/layers`, {
+    await readThenWriteBrowserSetup(page, `/api/maps/${map2Id}`, () => ({ method: "POST", path: `/api/maps/${map2Id}/layers`, body: {
       name: "plain",
       sql: `SELECT * FROM ${T_PLAIN}`,
-    });
+    } }));
   });
 
   await test.step("the filed map's action reads as moving; the dialog asks and identifies the current project", async () => {
@@ -482,17 +484,17 @@ test("the add-to-project dialog end to end", async ({
     ).id;
     for (const name of Object.values(names)) {
       if (name === names.none) continue;
-      await api(page, "POST", `/api/maps/${map3Id}/layers`, {
+      await readThenWriteBrowserSetup(page, `/api/maps/${map3Id}`, () => ({ method: "POST", path: `/api/maps/${map3Id}/layers`, body: {
         name,
         sql: `SELECT * FROM ${name}`,
-      }).catch(() => null);
+      } })).catch(() => null);
     }
     // A layer cannot sit on a table without geometry; a join reads it,
     // so the dependencies read lists it — and the no-geometry tile shows.
-    await api(page, "POST", `/api/maps/${map3Id}/layers`, {
+    await readThenWriteBrowserSetup(page, `/api/maps/${map3Id}`, () => ({ method: "POST", path: `/api/maps/${map3Id}/layers`, body: {
       name: "joined",
       sql: `SELECT p.* FROM ${names.point} p JOIN ${names.none} r ON true`,
-    });
+    } }));
     await page.goto("/maps");
     const card = page.locator("article").filter({ hasText: map3 }).first();
     await card.hover();
@@ -784,7 +786,7 @@ test("a workflow's card offers the add-to-project action", async ({
     await expect(page.getByRole("dialog")).not.toContainText("move together");
     await page.keyboard.press("Escape");
   } finally {
-    await api(page, "DELETE", `/api/recipes/${id}`).catch(() => {});
+    await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "DELETE", path: `/api/recipes/${id}` })).then(result => result.json).catch(() => {});
   }
 });
 

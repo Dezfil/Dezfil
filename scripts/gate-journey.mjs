@@ -1,6 +1,8 @@
 // Native HTTP refusal/public matrix. Run only against an isolated scratch store.
 // No browser or image export is launched by this probe.
 import assert from 'node:assert/strict';
+import { probeGateMethods } from './gate-methods-probe.mjs';
+import { captureBasis } from './revision-fixtures.mjs';
 import { provisionJourney, journeyAccount } from './journey-auth.mjs';
 import { journeyApi } from './journey-http.mjs';
 
@@ -28,13 +30,15 @@ export async function gateJourney(base) {
     'GET /api/published/{token}', 'POST /api/published/{token}/extent/{layerId}', 'POST /api/published/{token}/widget-values',
     'POST /api/published/{token}/render/{layerId}', 'GET /api/published/{token}/tiles/{layerId}/{z}/{x}/{y}']);
   const routes = Object.entries(document.json.paths).flatMap(([path, methods]) => Object.keys(methods).map(method => ({ path, method: method.toUpperCase() })))
-    .filter(route => !publicKeys.has(`${route.method} ${route.path}`));
+    .filter(route => !publicKeys.has(`${route.method === "HEAD" ? "GET" : route.method} ${route.path}`));
   assert.ok(routes.length > 100);
   const resourceState = async () => Promise.all(['/api/maps', '/api/tables', '/api/projects', '/api/recipes', '/api/users', '/api/settings'].map(path => api('GET', path)));
   const before = JSON.stringify(await resourceState());
+  checks += await probeGateMethods(base, credentials.token, document.json);
+  check(JSON.stringify(await resourceState()) === before, 'wrong methods do no resource work');
   for (const [kind, headers] of Object.entries({ anonymous: {}, invalid: { authorization: 'Bearer invalid' }, revokedToken: { authorization: `Bearer ${revoked.json.secret}` }, revokedCookie: { cookie: signedOut.cookie } })) {
     for (const { method, path } of routes) {
-      const response = await fetch(base + path.replaceAll(/\{[^}]+\}/g, 'fixture'), { method, redirect: 'manual', headers: { ...headers, origin: base, 'content-type': 'application/json' }, ...(method === 'GET' ? {} : { body: '{}' }) });
+      const response = await fetch(base + path.replaceAll(/\{[^}]+\}/g, 'fixture'), { method, redirect: 'manual', headers: { ...headers, origin: base, 'content-type': 'application/json' }, ...(['GET', 'HEAD'].includes(method) ? {} : { body: '{}' }) });
       check(response.status === 401 && response.headers.get('cache-control') === 'private, no-store', `${kind} ${method} ${path}: ${response.status}`);
       await response.body?.cancel();
     }
@@ -74,10 +78,10 @@ export async function gateJourney(base) {
   const publicMap = await api('POST', '/api/maps', { body: { name: 'Anonymous projection fixture' } }); assert.equal(publicMap.status, 201);
   const form = new FormData(); form.append('file', new Blob(['name,lon,lat,value\na,10,20,1\nb,11,21,2\n']), 'gate_points.csv');
   const table = await api('POST', '/api/tables', { form }); assert.equal(table.status, 201);
-  const layer = await api('POST', `/api/maps/${publicMap.json.id}/layers`, { body: { name: 'Public points', sql: `SELECT * FROM ${table.json.name}` } }); assert.equal(layer.status, 201);
-  assert.equal((await api('PATCH', `/api/maps/${publicMap.json.id}`, { body: { widgetsPublished: true } })).status, 200);
-  assert.equal((await api('PATCH', `/api/layers/${layer.json.id}`, { body: { viz: { type: 'cluster', radiusPx: 64, color: 'fixed', showCounts: true } } })).status, 200);
-  const publication = await api('POST', `/api/maps/${publicMap.json.id}/publish`); assert.equal(publication.status, 201);
+  const layer = await api('POST', `/api/maps/${publicMap.json.id}/layers`, { basis: captureBasis(publicMap.json), body: { name: 'Public points', sql: `SELECT * FROM ${table.json.name}` } }); assert.equal(layer.status, 201);
+  const widgets = await api('PATCH', `/api/maps/${publicMap.json.id}`, { basis: captureBasis(layer.json), body: { widgetsPublished: true } }); assert.equal(widgets.status, 200);
+  const styled = await api('PATCH', `/api/layers/${layer.json.id}`, { basis: captureBasis(widgets.json), body: { viz: { type: 'cluster', radiusPx: 64, color: 'fixed', showCounts: true } } }); assert.equal(styled.status, 200);
+  const publication = await api('POST', `/api/maps/${publicMap.json.id}/publish`, { basis: captureBasis(styled.json) }); assert.equal(publication.status, 201);
   const token = publication.json.token;
   const view = await anonymous('GET', `/api/published/${token}`);
   check(view.status === 200 && view.json.layers.length === 1 && !JSON.stringify(view.json).includes(journeyAccount.email), 'anonymous publication projection');
@@ -92,7 +96,7 @@ export async function gateJourney(base) {
   for (const [method, pathname] of [['DELETE', `/api/published/${token}`], ['GET', `/api/published/${token}/authoring`], ['GET', '/api/config'], ['GET', '/api/future.svg'], ['GET', '/api/maps'], ['OPTIONS', '/api/maps']]) {
     const response = await anonymous(method, pathname, { raw: true }); check(response.status === 401, `no expanded exception ${method} ${pathname}: ${response.status}`); await response.body?.cancel();
   }
-  assert.equal((await api('DELETE', `/api/maps/${publicMap.json.id}/publish`, { raw: true })).status, 204);
+  assert.equal((await api('DELETE', `/api/maps/${publicMap.json.id}/publish`, { raw: true, basis: captureBasis(publication.json) })).status, 200);
   for (const suffix of ['', `/extent/${layer.json.id}`, '/widget-values', `/render/${layer.json.id}`]) {
     const response = await anonymous(suffix ? 'POST' : 'GET', `/api/published/${token}${suffix}`, suffix ? { body: {} } : {});
     check(response.status === 404, `revoked publication ${suffix}: ${response.status}`);

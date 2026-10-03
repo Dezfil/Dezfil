@@ -268,7 +268,7 @@ test.describe("card images by theme", () => {
           const r = await fetch(`/api/projects/${project}/members`, {
             method: "PATCH",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ addMaps: [mapId] }),
+            body: JSON.stringify({ addMaps: [mapId], expectedRevisions: { [`map:${mapId}`]: (await (await fetch(`/api/maps/${mapId}`)).json()).editRevision } }),
           });
           if (!r.ok) throw new Error(await r.text());
         },

@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -66,9 +68,9 @@ beforeEach(async () => {
   pointsId = (await ingestFile(testAccountScope(), source, "points.csv")).id;
   const map = createMap(testAccountScope(), "m");
   mapId = map.id;
-  const layer = await createLayer(testAccountScope(), map.id, { name: "l", sql });
+  const layer = await createLayer(testAccountScope(), map.id, { name: "l", sql }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   layerId = layer.id;
-  token = publishMap(testAccountScope(), map.id).token;
+  token = publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }).token;
   ensureTileDirs();
   await writeFile(tileArchivePath(layerId), "artifact");
   seedRecord(40);
@@ -90,7 +92,7 @@ describe("current published tile eligibility", () => {
     // already part of the projection the fingerprint saw.
     await updateLayer(testAccountScope(), layerId, {
       filters: [{ field: "score", kind: "range", min: 10, max: 20 }],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     seedRecord(40);
     const version = String(Date.parse(builtAt));
     const before = currentPublishedTile(token, layerId, version);
@@ -102,7 +104,7 @@ describe("current published tile eligibility", () => {
     await updateLayer(testAccountScope(), layerId, {
       style: { ...layer.style, opacity: 0.5 },
       filters: [{ field: "score", kind: "range", min: 12, max: 18 }],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     expect(currentPublishedTile(token, layerId, version)).toEqual(before);
   });
 
@@ -111,7 +113,7 @@ describe("current published tile eligibility", () => {
     expect(currentPublishedTile(token, layerId, version)).not.toBeNull();
     await updateLayer(testAccountScope(), layerId, {
       filters: [{ field: "score", kind: "range", min: 10, max: 20 }],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     expect(currentPublishedTile(token, layerId, version)).toBeNull();
   });
 
@@ -121,35 +123,35 @@ describe("current published tile eligibility", () => {
 
     await updateLayer(testAccountScope(), layerId, {
       filters: [{ field: "kind", kind: "values", values: ["a"] }],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     expect(currentPublishedTile(token, layerId, version)).toBeNull();
     closeMetadataDb();
     expect(currentPublishedTile(token, layerId, version)).toBeNull();
 
-    await updateLayer(testAccountScope(), layerId, { filters: [] });
+    await updateLayer(testAccountScope(), layerId, { filters: [] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     seedRecord(10);
     expect(currentPublishedTile(token, layerId, version)).toBeNull();
   });
 
   it("uses current publication ownership on every check", () => {
     expect(currentPublishedTile(token, layerId, null)).not.toBeNull();
-    unpublishMap(testAccountScope(), mapId);
+    unpublishMap(testAccountScope(), mapId, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     expect(currentPublishedTile(token, layerId, null)).toBeNull();
   });
 
   it("denies a hidden layer's tiles; visibility restores them", async () => {
     expect(currentPublishedTile(token, layerId, null)).not.toBeNull();
-    await updateLayer(testAccountScope(), layerId, { visible: false });
+    await updateLayer(testAccountScope(), layerId, { visible: false }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     // The artifact is retained — the builder may still use it — but the
     // published surface stops serving it.
     expect(currentPublishedTile(token, layerId, null)).toBeNull();
-    await updateLayer(testAccountScope(), layerId, { visible: true });
+    await updateLayer(testAccountScope(), layerId, { visible: true }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     expect(currentPublishedTile(token, layerId, null)).not.toBeNull();
   });
 
   it("a built archive carries exactly the effective set and the gate authorizes it — the decoded-tile check", async () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "1";
-    const layer = await updateLayer(testAccountScope(), layerId, { tooltip: ["kind"], popup: [] });
+    const layer = await updateLayer(testAccountScope(), layerId, { tooltip: ["kind"], popup: [] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
 
     // A real build through the builder lane: the shared archive is minted
     // by the same path both audiences use.
@@ -183,7 +185,7 @@ describe("current published tile eligibility", () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "1";
     const edited = await updateLayer(testAccountScope(), layerId, {
       sql: `${sql} WHERE id >= 1`,
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
 
     expect(currentPublishedTile(token, layerId, null)).toBeNull();
     const replacement = await renderLayer(testAccountScope(), edited, undefined, { tileAccess: privateTileAccess(testAccountScope(), (edited).id) });

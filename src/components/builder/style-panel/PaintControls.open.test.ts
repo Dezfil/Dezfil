@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -44,7 +46,7 @@ describe("opening a stored data-driven Fill panel", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "Values",
       sql: "SELECT name, value, geometry FROM values",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const fill: QuantileFill = {
       type: "quantile",
       attribute: "value",
@@ -59,7 +61,7 @@ describe("opening a stored data-driven Fill panel", () => {
     };
     await updateLayer(testAccountScope(), layer.id, {
       style: { ...layer.style, fill },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const stored = requireLayer(testAccountScope(), layer.id);
     const before = JSON.stringify(stored.style);
 

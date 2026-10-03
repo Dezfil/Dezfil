@@ -1,3 +1,4 @@
+import { captureBasis } from './revision-fixtures.mjs';
 // Checks the anonymous projection with real data and tiles, without a browser.
 import assert from 'node:assert/strict';
 import { provisionJourney } from './journey-auth.mjs';
@@ -7,14 +8,15 @@ export async function publishedAuthProbe(base) {
   const credential = await provisionJourney(base), api = journeyApi(base, { token: credential.token });
   const anonymous = journeyApi(base);
   const map = await api('POST', '/api/maps', { body: { name: 'Anonymous data and tiles' } }); assert.equal(map.status, 201);
-  const layer = await api('POST', `/api/maps/${map.json.id}/layers`, { body: { name: 'Filtered points', sql: "SELECT * FROM (VALUES ('a', 10, 20), ('b', 11, 21)) p(name, x, y) CROSS JOIN LATERAL (SELECT ST_Point(x, y) AS geometry)" } }); assert.equal(layer.status, 201);
-  assert.equal((await api('PATCH', `/api/layers/${layer.json.id}`, { body: { viz: { type: 'cluster', radiusPx: 64, color: 'fixed', showCounts: true } } })).status, 200);
+  const layer = await api('POST', `/api/maps/${map.json.id}/layers`, { basis: captureBasis((await api('GET', `/api/maps/${map.json.id}`)).json), body: { name: 'Filtered points', sql: "SELECT * FROM (VALUES ('a', 10, 20), ('b', 11, 21)) p(name, x, y) CROSS JOIN LATERAL (SELECT ST_Point(x, y) AS geometry)" } }); assert.equal(layer.status, 201);
+  assert.equal((await api('PATCH', `/api/layers/${layer.json.id}`, { basis: captureBasis((await api('GET', `/api/layers/${layer.json.id}`)).json), body: { viz: { type: 'cluster', radiusPx: 64, color: 'fixed', showCounts: true } } })).status, 200);
   const defaults = { layerId: layer.json.id, agg: 'count', aggField: null, unit: null, note: null, format: null, visible: true };
-  assert.equal((await api('PATCH', `/api/maps/${map.json.id}`, { body: { widgetsPublished: true, widgets: [
+  const shown = await api('GET', `/api/maps/${map.json.id}`);
+  assert.equal((await api('PATCH', `/api/maps/${map.json.id}`, { basis: captureBasis(shown.json), body: { widgetsPublished: true, widgets: [
     { ...defaults, id: 'category', type: 'category', title: 'Names', field: 'name' },
     { ...defaults, id: 'count', type: 'formula', title: 'Count', field: null },
   ] } })).status, 200);
-  const tiled = await api('POST', `/api/maps/${map.json.id}/layers`, { body: { name: 'Tiled points', sql: 'SELECT i, ST_Point(10 + (i % 49) * 0.001, 20 + floor(i / 49) * 0.001) AS geometry FROM range(2401) AS p(i)' } }); assert.equal(tiled.status, 201);
+  const tiled = await api('POST', `/api/maps/${map.json.id}/layers`, { basis: captureBasis((await api('GET', `/api/maps/${map.json.id}`)).json), body: { name: 'Tiled points', sql: 'SELECT i, ST_Point(10 + (i % 49) * 0.001, 20 + floor(i / 49) * 0.001) AS geometry FROM range(2401) AS p(i)' } }); assert.equal(tiled.status, 201);
   let render;
   const deadline = Date.now() + 120_000;
   do {
@@ -25,7 +27,7 @@ export async function publishedAuthProbe(base) {
   } while (true);
   assert.equal(render.json.mode, 'tiled', 'use DEZFIL_RENDER_CAP_FEATURES=2000');
   assert.equal(render.json.tiles.state, 'ready');
-  const publication = await api('POST', `/api/maps/${map.json.id}/publish`); assert.equal(publication.status, 201);
+  const publication = await api('POST', `/api/maps/${map.json.id}/publish`, { basis: captureBasis((await api('GET', `/api/maps/${map.json.id}`)).json) }); assert.equal(publication.status, 201);
   const token = publication.json.token;
   const view = await anonymous('GET', `/api/published/${token}`); assert.equal(view.status, 200);
   assert.equal(view.json.widgets.length, 2);
@@ -44,7 +46,7 @@ export async function publishedAuthProbe(base) {
   const ownTile = await api('GET', render.json.tiles.url.replace('{z}', '0').replace('{x}', '0').replace('{y}', '0'), { raw: true });
   assert.equal(ownTile.status, 200); assert.equal(ownTile.headers.get('cache-control'), 'private, no-store'); await ownTile.body?.cancel();
   const privateTile = await anonymous('GET', render.json.tiles.url.replace('{z}', '0').replace('{x}', '0').replace('{y}', '0'), { raw: true }); assert.equal(privateTile.status, 401); await privateTile.body?.cancel();
-  assert.equal((await api('DELETE', `/api/maps/${map.json.id}/publish`, { raw: true })).status, 204);
+  assert.equal((await api('DELETE', `/api/maps/${map.json.id}/publish`, { basis: captureBasis((await api('GET', `/api/maps/${map.json.id}`)).json), raw: true })).status, 200);
   assert.equal((await anonymous('GET', url, { raw: true })).status, 404);
   assert.equal((await api('GET', `/api/maps/${map.json.id}`)).json.widgets.length, 2, 'reader selections did not rewrite the map');
   console.log('confirmed: anonymous configured basemap projection, widgets, selection extent, filtered data, real MVT bytes; private tiles and revoked published tiles refused');

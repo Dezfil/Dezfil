@@ -409,9 +409,12 @@ export function useCanvasHistory({
   /** One press at a time: each lands before the next is taken. */
   const queue = useRef<Promise<void>>(Promise.resolve());
 
-  /** The recipe as it stands, read by the operation before its first
-   * attempt and before every Retry. */
-  const readSteps = useCallback(() => readRecipe(id), [id]);
+  /** Read current run facts before deciding an inverse. This read never
+   * installs its revision: surviving inverses retain their accepted basis. */
+  const readSteps = useCallback(async () => {
+    await edits.idle();
+    return readRecipe(id);
+  }, [edits, id]);
 
   /** A recipe step put back, through the operation that
    * reverses it: the history operation reads first, applies through the
@@ -466,9 +469,9 @@ export function useCanvasHistory({
 
   const press = useCallback(
     (direction: Direction) => {
-      queue.current = queue.current.then(() => take(direction)).catch(() => undefined);
+      queue.current = queue.current.then(() => edits.document?.stale || edits.document?.disposed ? undefined : take(direction)).catch(() => undefined);
     },
-    [take],
+    [take, edits.document],
   );
 
   // The chord, at the document while the canvas is mounted: the whole workflow page counts, the

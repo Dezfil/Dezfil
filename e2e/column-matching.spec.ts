@@ -1,3 +1,4 @@
+import type { EditBasis } from "../src/lib/edit-basis";
 // Column matching inside Add data: the step for a CSV with no strong
 // match, on the upload road and the URL road, for one file and for a
 // batch that waits file by file, over controls and API.
@@ -40,15 +41,15 @@ const ATTRIBUTES = "column-matching-attributes.csv";
 
 const csv = (name: string, file: string) => ({ name: `${name}.csv`, mimeType: "text/csv", buffer: fixture(file) });
 
-const api = async <T,>(page: Page, method: string, pathName: string, body?: unknown): Promise<T> =>
+const api = async <T,>(page: Page, method: string, pathName: string, body?: unknown, basis?: EditBasis): Promise<T> =>
   page.evaluate(
-    async ({ method, pathName, body }) => {
-      const r = await fetch(pathName, { method, headers: body ? { "content-type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
+    async ({ method, pathName, body, basis }) => {
+      const r = await fetch(pathName, { method, headers: { ...(body ? { "content-type": "application/json" } : undefined), ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) }, body: body ? JSON.stringify(body) : undefined });
       const text = await r.text();
       if (!r.ok) throw new Error(`${r.status} ${text}`);
       return text ? (JSON.parse(text) as unknown) : null;
     },
-    { method, pathName, body },
+    { method, pathName, body, basis },
   ) as Promise<T>;
 type Inspection = { geometryColumn: string | null; currentChoice: { format: string; columns: string[]; epsg?: number } | null; mode: string; candidates: { format: string; columns: string[]; orientations?: { lon: string; lat: string }[] }[] };
 const inspect = (page: Page, name: string) => api<Inspection>(page, "GET", `/api/tables/${encodeURIComponent(name)}/geometry`);

@@ -1,3 +1,6 @@
+import { withFixtureRevision } from "@/lib/test-support/edit-basis";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { documentFacts } from "@/lib/metadata/document-facts";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
@@ -158,10 +161,10 @@ describe("a publication's token", () => {
   });
 
   it("stays out of what an editor's own changes answer", async () => {
-    const renamed = await call(route.map, "PATCH", input("edd", "/api/maps/M", "PATCH", { name: "Renamed" }), { id: "M" });
+    const renamed = await call(route.map, "PATCH", withFixtureRevision(input("edd", "/api/maps/M", "PATCH", { name: "Renamed" }), readEditRevision({ kind: "map", id: "M" })?.editRevision), { id: "M" });
     expect(renamed.status).toBe(200);
     expect(renamed.body).toMatchObject({ name: "Renamed", publishToken: null, published: true });
-    const undone = await call(route.undo, "POST", input("edd", "/api/maps/M/undo", "POST"), { id: "M" });
+    const undone = await call(route.undo, "POST", withFixtureRevision(input("edd", "/api/maps/M/undo", "POST"), readEditRevision({ kind: "map", id: "M" })!.editRevision!), { id: "M" });
     expect(undone.status).toBe(200);
     expect(undone.body).toMatchObject({ name: "Shared map", publishToken: null, published: true });
     for (const answer of [renamed, undone]) expect(answer.text).not.toContain(TOKEN);
@@ -184,7 +187,7 @@ describe("reading a reached map", () => {
     for (const account of ["pat", "edd", "viv"]) {
       expect((await call(route.layers, "GET", input(account, "/api/maps/M/layers"), { id: "M" })).body).toMatchObject([{ id: "L" }]);
       expect((await call(route.layer, "GET", input(account, "/api/layers/L"), { id: "L" })).body).toMatchObject({ id: "L", mapId: "M" });
-      expect((await call(route.history, "GET", input(account, "/api/maps/M/history"), { id: "M" })).body).toEqual({ canUndo: false, canRedo: false });
+      expect((await call(route.history, "GET", input(account, "/api/maps/M/history"), { id: "M" })).body).toEqual({ canUndo: false, canRedo: false, undoTarget: null, redoTarget: null, ...documentFacts({ kind: "map", id: "M" }, db) });
       const state = (await call(route.publish, "GET", input(account, "/api/maps/M/publish"), { id: "M" })).body;
       expect(state, account).toMatchObject({ publishedAt: "2026-01-01T00:00:00.000Z", theme: "dark" });
       expect(state, account).not.toHaveProperty("token");
@@ -227,10 +230,10 @@ describe("reading a reached map", () => {
 
 describe("writes answer with the map as its writer sees it", () => {
   it("answers an editor's change and undo with the map's owner, SQL home and project", async () => {
-    const renamed = await call(route.map, "PATCH", input("edd", "/api/maps/M", "PATCH", { name: "Edited" }), { id: "M" });
+    const renamed = await call(route.map, "PATCH", withFixtureRevision(input("edd", "/api/maps/M", "PATCH", { name: "Edited" }), readEditRevision({ kind: "map", id: "M" })?.editRevision), { id: "M" });
     expect(renamed.status).toBe(200);
     expect(renamed.body).toMatchObject({ id: "M", name: "Edited", owner: ADA, home: "ada", projectId: "P" });
-    const undone = await call(route.undo, "POST", input("edd", "/api/maps/M/undo", "POST"), { id: "M" });
+    const undone = await call(route.undo, "POST", withFixtureRevision(input("edd", "/api/maps/M/undo", "POST"), readEditRevision({ kind: "map", id: "M" })!.editRevision!), { id: "M" });
     expect(undone.status).toBe(200);
     expect(undone.body).toMatchObject({ id: "M", name: "Shared map", owner: ADA, home: "ada", projectId: "P", history: { canRedo: true } });
   });

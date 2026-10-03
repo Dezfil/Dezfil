@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -57,7 +59,7 @@ beforeEach(async () => {
   const layer = await createLayer(testAccountScope(), mapId, {
     name: "Trips",
     sql: "SELECT name, cat, val, seen, geometry FROM trips",
-  });
+  }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
   layerId = layer.id;
 });
 
@@ -68,11 +70,11 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-async function patch(body: unknown) {
+async function patch(body: unknown, basis: string) {
   const response = await PATCH(
     testAccountRequest(new Request(`http://test/api/maps/${mapId}`, {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "X-Edit-Revision": basis },
       body: JSON.stringify(body),
     })),
     { params: Promise.resolve({ id: mapId }) },
@@ -88,14 +90,14 @@ async function patch(body: unknown) {
 
 describe("basemap writes", () => {
   it("names every accepted choice on refusal and accepts satellite", async () => {
-    const invalid = await patch({ basemap: "terrain" });
+    const invalid = await patch({ basemap: "terrain" }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(invalid.status).toBe(400);
     expect(invalid.body.error?.code).toBe("invalid_request");
     expect(invalid.body.error?.message).toBe(
       "basemap must be one of dark, light, streets, satellite, or null for the deployment default.",
     );
 
-    const satellite = await patch({ basemap: "satellite" });
+    const satellite = await patch({ basemap: "satellite" }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(satellite.status).toBe(200);
     expect(satellite.body.basemap).toBe("satellite");
   });
@@ -105,20 +107,20 @@ describe("widget writes", () => {
   it("refuses widget fields the layer's result cannot honor", async () => {
     const missing = await patch({
       widgets: [widget({ layerId, type: "category", field: "typo" })],
-    });
+    }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(missing.status).toBe(400);
     expect(missing.body.error?.code).toBe("column_unavailable");
     expect(missing.body.error?.message).toContain('"typo"');
 
     const histogramOnText = await patch({
       widgets: [widget({ layerId, type: "histogram", field: "cat" })],
-    });
+    }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(histogramOnText.status).toBe(400);
     expect(histogramOnText.body.error?.code).toBe("column_unavailable");
 
     const avgOnText = await patch({
       widgets: [widget({ layerId, field: "cat", agg: "avg" })],
-    });
+    }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(avgOnText.status).toBe(400);
 
     const rankingOnText = await patch({
@@ -131,7 +133,7 @@ describe("widget writes", () => {
           aggField: "name",
         }),
       ],
-    });
+    }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(rankingOnText.status).toBe(400);
     expect(rankingOnText.body.error?.message).toContain("ranking field");
   });
@@ -156,18 +158,18 @@ describe("widget writes", () => {
           note: "hello",
         }),
       ],
-    });
+    }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(ok.status).toBe(200);
   });
 
   it("a stranded widget echoes through — retitles included — while a new reader of the same column refuses", async () => {
     const seeded = await patch({
       widgets: [widget({ id: "wh", layerId, type: "histogram", field: "val" })],
-    });
+    }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(seeded.status).toBe(200);
     await updateLayer(testAccountScope(), layerId, {
       sql: "SELECT name, cat, seen, geometry FROM trips",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     const retitled = await patch({
       widgets: [
         widget({
@@ -178,7 +180,7 @@ describe("widget writes", () => {
           title: "Renamed",
         }),
       ],
-    });
+    }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(retitled.status).toBe(200);
     const fresh = await patch({
       widgets: [
@@ -191,7 +193,7 @@ describe("widget writes", () => {
         }),
         widget({ id: "w2", layerId, type: "histogram", field: "val" }),
       ],
-    });
+    }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(fresh.status).toBe(400);
     expect(fresh.body.error?.code).toBe("column_unavailable");
   });
@@ -201,24 +203,24 @@ describe("the echo compares what a widget reads, not how", () => {
   it("avg→sum on a stranded field echoes; count→avg introduces the read and refuses", async () => {
     const seeded = await patch({
       widgets: [widget({ id: "wf", layerId, field: "val", agg: "avg" })],
-    });
+    }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(seeded.status).toBe(200);
     await updateLayer(testAccountScope(), layerId, {
       sql: "SELECT name, cat, seen, geometry FROM trips",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     // Same field, same numeric requirement — nothing new is read.
     const summed = await patch({
       widgets: [widget({ id: "wf", layerId, field: "val", agg: "sum" })],
-    });
+    }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(summed.status).toBe(200);
     // count reads nothing; moving to avg introduces the field read.
     const counted = await patch({
       widgets: [widget({ id: "wf", layerId, field: null, agg: "count" })],
-    });
+    }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(counted.status).toBe(200);
     const reintroduced = await patch({
       widgets: [widget({ id: "wf", layerId, field: "val", agg: "avg" })],
-    });
+    }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(reintroduced.status).toBe(400);
     expect(reintroduced.body.error?.code).toBe("column_unavailable");
   });
@@ -228,18 +230,18 @@ describe("timeline writes", () => {
   it("a timeline field must be a time column of its layer's result", async () => {
     await updateLayer(testAccountScope(), layerId, {
       filters: [{ field: "seen", kind: "timerange", min: null, max: null }],
-    });
-    const ok = await patch({ timeline: { layerId, field: "seen" } });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
+    const ok = await patch({ timeline: { layerId, field: "seen" } }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(ok.status).toBe(200);
     // Strand the filter's column: the SQL edit and the filter echo stay
     // legal, but re-docking the timeline on the stranded field is a new
     // reference against a schema that no longer provides it.
     await updateLayer(testAccountScope(), layerId, {
       sql: "SELECT name, cat, val, geometry FROM trips",
-    });
-    await patch({ timeline: null });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
+    await patch({ timeline: null }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(requireLayer(testAccountScope(), layerId).filters).toHaveLength(1);
-    const redock = await patch({ timeline: { layerId, field: "seen" } });
+    const redock = await patch({ timeline: { layerId, field: "seen" } }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(redock.status).toBe(400);
     expect(redock.body.error?.code).toBe("column_unavailable");
   });
@@ -247,16 +249,16 @@ describe("timeline writes", () => {
   it("an unchanged docked timeline echoes through a widgets write", async () => {
     await updateLayer(testAccountScope(), layerId, {
       filters: [{ field: "seen", kind: "timerange", min: null, max: null }],
-    });
-    await patch({ timeline: { layerId, field: "seen" } });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
+    await patch({ timeline: { layerId, field: "seen" } }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     await updateLayer(testAccountScope(), layerId, {
       sql: "SELECT name, cat, val, geometry FROM trips",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     // Re-sending the identical dock alongside other fields is an echo.
     const echoed = await patch({
       timeline: { layerId, field: "seen" },
       widgets: [],
-    });
+    }, readEditRevision({ kind: "map", id: mapId })!.editRevision!);
     expect(echoed.status).toBe(200);
   });
 });

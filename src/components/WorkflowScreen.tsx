@@ -1,4 +1,11 @@
 "use client";
+import { readWorkflowPage, type PageRead } from "./workflow-canvas/workflow-read";
+import { CanvasRecoveryContext, withWorkflowRecovery, type WorkflowRecoveryProps } from "./workflow-canvas/WorkflowRecovery";
+import { STALE_MESSAGE } from "./document-sequence";
+import { useRecipeRefresh } from "./workflow-canvas/use-recipe-refresh";
+import { useWorkflowEditorPort } from "./workflow-canvas/use-workflow-editor-port";
+import { WorkflowDocument } from "./workflow-canvas/workflow-document";
+import { DocumentEditorContext } from "./document-editor-context";
 
 import dynamic from "next/dynamic";
 import {
@@ -10,8 +17,7 @@ import {
   useEffect,
 } from "react";
 import { createPortal } from "react-dom";
-import { readApiError, readOperations, readTables } from "./api";
-import { serverUnreachable } from "./failure-copy";
+import { readApiError, readTables } from "./api";
 import { AddDataDialog } from "./AddDataDialog";
 import { AsyncState, useAsync } from "./ui/AsyncState";
 import type { HistoryChrome } from "./workflow-canvas/WorkflowCanvas";
@@ -33,10 +39,12 @@ import { useRunConfirm } from "./workflow-canvas/use-run-confirm";
 import { useWorkflowAssistant } from "./workflow-canvas/WorkflowAssistantHost";
 import { HeaderHistory } from "./workflow-canvas/HeaderHistory";
 import { ViewOnly } from "./workflow-canvas/view-only";
-import type { WorkflowListing } from "./workflow-model";
 import { usePathname } from "next/navigation";
 import { contributePath, releasePath } from "@/components/shell/path-model";
 import styles from "./WorkflowScreen.module.css";
+import type { LastChange } from "./sharing/LastChanged";
+import { HeadAttribution } from "./sharing/HeadAttribution";
+import { acceptedDocumentFacts } from "./accepted-document-facts";
 import { PathOwnerMark } from "./sharing/PeopleMarks";
 import type { PersonLabel } from "./sharing/people";
 
@@ -58,35 +66,6 @@ const WorkflowCanvas = dynamic(
 const subscribeNever = () => () => {};
 const NAME_MAX = 120;
 
-async function fetchWorkflow(id: string): Promise<WorkflowListing> {
-  let response: Response;
-  try {
-    response = await fetch(`/api/recipes/${id}`, { cache: "no-store" });
-  } catch {
-    throw new Error(serverUnreachable("load the workflow"));
-  }
-  if (!response.ok) throw new Error(await readApiError(response));
-  return ((await response.json()) as { recipe: WorkflowListing }).recipe;
-}
-
-async function fetchLayout(id: string): Promise<LayoutRead> {
-  let response: Response;
-  try {
-    response = await fetch(`/api/recipes/${id}/layout`, { cache: "no-store" });
-  } catch {
-    throw new Error(serverUnreachable("load the workflow's layout"));
-  }
-  if (!response.ok) throw new Error(await readApiError(response));
-  return ((await response.json()) as { layout: LayoutRead }).layout;
-}
-
-interface PageRead {
-  recipe: WorkflowListing;
-  layout: LayoutRead;
-  tables: Awaited<ReturnType<typeof readTables>>;
-  operations: Awaited<ReturnType<typeof readOperations>>;
-}
-
 /** The crumb tail carries the path and nothing else: the
  * whisper, owned by whoever last spoke — a rename, a layout or recipe
  * save, a stopped import — is drawn on the canvas's own stage, and the
@@ -95,12 +74,14 @@ interface PageRead {
 export function CrumbName({
   name,
   owner,
+  facts = {},
   onRename,
   readOnly = false,
 }: {
   name: string;
   /** The workflow's owner: named beside it when it is someone else's. */
   owner?: PersonLabel | null;
+  facts?: LastChange;
   onRename: (next: string) => void;
   /** A Viewer's page: the name, no rename. */
   readOnly?: boolean;
@@ -116,6 +97,7 @@ export function CrumbName({
         <span className={styles.crumbSep}>/</span>
         <span className={styles.plainName}>{name}</span>
         <PathOwnerMark owner={owner} />
+      <HeadAttribution value={facts} />
       </span>
     );
   }
@@ -157,15 +139,17 @@ export function CrumbName({
         </button>
       )}
       <PathOwnerMark owner={owner} />
+      <HeadAttribution value={facts} />
     </span>
   );
 }
 
-export function WorkflowScreen({
+function WorkflowEditor({
+  recoverySeed, onRecovered,
   id,
   viewOnly = false,
   runs = !viewOnly,
-}: {
+}: WorkflowRecoveryProps & {
   id: string;
   /** The page of whoever may not change the workflow, decided by the page
    * from their standing: the canvas is view-only and nothing on it edits. */
@@ -174,15 +158,12 @@ export function WorkflowScreen({
    * workflow still allows to its Editors. */
   runs?: boolean;
 }) {
+  const editorDocument = useMemo(() => new WorkflowDocument(id), [id]);
   const load = useCallback(async (): Promise<PageRead> => {
-    const [recipe, layout, tables, operations] = await Promise.all([
-      fetchWorkflow(id),
-      fetchLayout(id),
-      readTables(),
-      readOperations(),
-    ]);
-    return { recipe, layout, tables, operations };
-  }, [id]);
+    const page = recoverySeed ?? await readWorkflowPage(id);
+    editorDocument.install(page.recipe, page.layout);
+    return page;
+  }, [id, editorDocument, recoverySeed]);
   const { state, retry } = useAsync<PageRead>(load, `workflow:${id}`);
   // The live state: the first read seeds it; every accepted change
   // re-reads the recipe, an import re-reads the tables, a layout write
@@ -200,32 +181,10 @@ export function WorkflowScreen({
     if (state.status === "ready") setLive(state.value);
     else if (state.status === "failed") setLive(null);
   }
-  // Every accepted change re-reads the recipe; only the newest read lands,
-  // so two edits' refreshes cannot put an older snapshot on screen last.
-  const refreshSeq = useRef(0);
-  const latestRecipeRead = useRef<Promise<boolean> | null>(null);
-  const refreshRecipe = useCallback(async (): Promise<boolean> => {
-    const mine = ++refreshSeq.current;
-    const read = (async () => {
-      try {
-        const recipe = await fetchWorkflow(id);
-        if (mine !== refreshSeq.current) return false;
-        setLive((l) => (l ? { ...l, recipe } : l));
-        return true;
-      } catch {
-        // The next accepted change re-reads again; the canvas keeps what it has.
-        return false;
-      }
-    })();
-    latestRecipeRead.current = read;
-    const landed = await read;
-    // Superseded by a newer read: its landing is the answer.
-    if (!landed && mine !== refreshSeq.current && latestRecipeRead.current) return latestRecipeRead.current;
-    return landed;
-  }, [id]);
+  const refreshRecipe = useRecipeRefresh(id, editorDocument, setLive);
   const onLayoutWritten = useCallback((layout: LayoutRead) => {
-    setLive((l) => (l ? { ...l, layout } : l));
-  }, []);
+    setLive((l) => (l ? { ...l, layout, recipe: { ...l.recipe, ...acceptedDocumentFacts(editorDocument.recipe) } } : l));
+  }, [editorDocument]);
   // Add data: the workspace's dialog, its upload queue owned here so a
   // closed dialog never orphans a file on the way; a table it brings in
   // joins the pane and lands on the canvas as a loose source, the recipe
@@ -350,7 +309,7 @@ export function WorkflowScreen({
     async (next: string) => {
       setWhisper({ owner: "rename", text: "Saving…" });
       try {
-        const response = await fetch(`/api/recipes/${id}`, {
+        const response = await editorDocument.request(`/api/recipes/${id}`, {
           method: "PATCH",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ name: next }),
@@ -368,13 +327,16 @@ export function WorkflowScreen({
         clearLater("rename", 4000);
       }
     },
-    [clearLater, id],
+    [clearLater, id, editorDocument],
   );
 
   const recipeFailure = useRef<() => SaveState | null>(() => null);
   const whisperFor = useCallback(
     (owner: "layout" | "recipe") => (next: SaveState) => {
-      if (next.kind === "saving") {
+      if (next.kind === "stale") {
+        stopClear(owner);
+        setWhisper({ owner, text: STALE_MESSAGE, tone: "bad" });
+      } else if (next.kind === "saving") {
         stopClear(owner);
         setWhisper({ owner, text: "Saving…" });
       } else if (next.kind === "saved") {
@@ -399,6 +361,7 @@ export function WorkflowScreen({
   const onSaveState = useMemo(() => whisperFor("layout"), [whisperFor]);
   const onEditState = useMemo(() => whisperFor("recipe"), [whisperFor]);
   const edits = useRecipeEdits({
+    document: editorDocument,
     id,
     onState: onEditState,
     onAccepted: refreshRecipe,
@@ -415,7 +378,8 @@ export function WorkflowScreen({
     }),
     [edits, refreshRecipe, refreshTables],
   );
-  const runner = useWorkflowRun(id, runPorts);
+  const runner = useWorkflowRun(id, runPorts, editorDocument);
+  const editorPort = useWorkflowEditorPort(id, editorDocument, runner, refreshTables, setLive);
   // The assistant's door and open state: the door follows Undo and Redo in the header's left
   // group; the pane is the canvas's to mount, closed on every page open. A run resolved from
   // the pane that declared writes re-reads the recipe, the tables and the runs: a builder
@@ -489,12 +453,19 @@ export function WorkflowScreen({
   );
 
   return (
+    <DocumentEditorContext.Provider value={editorPort}>
+    <CanvasRecoveryContext.Provider value={{ document: editorDocument, recover: async () => {
+      await editorDocument.idle();
+      const seed = await readWorkflowPage(id);
+      editorDocument.dispose();
+      onRecovered?.(seed);
+    } }}>
     <ViewOnly value={viewOnly} runs={runs}>
     <div className={styles.screen} data-workflow-frame data-view-only={viewOnly || undefined}>
       {crumbSlot &&
         page &&
         createPortal(
-          <CrumbName name={name} owner={page.recipe.owner} onRename={(n) => void rename(n)} readOnly={viewOnly} />,
+          <CrumbName name={name} owner={page.recipe.owner} facts={page.recipe} onRename={(n) => void rename(n)} readOnly={viewOnly} />,
           crumbSlot,
         )}
       {historySlot &&
@@ -573,5 +544,9 @@ export function WorkflowScreen({
       />
     </div>
     </ViewOnly>
+    </CanvasRecoveryContext.Provider>
+    </DocumentEditorContext.Provider>
   );
 }
+
+export const WorkflowScreen = withWorkflowRecovery(WorkflowEditor);

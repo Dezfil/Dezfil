@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -60,8 +62,8 @@ afterEach(async () => { await laneSettled(); resetLane(); closeMetadataDb(); res
 
 type Handler = (request: Request, context: { params: Promise<Record<string, string>> }) => Promise<Response>;
 async function call(account: string, load: () => Promise<Record<string, unknown>>, url: string, params: Record<string, string>,
-  method: string, body?: unknown) {
-  const request = testAccountRequest(new Request(`http://instance.test${url}`, { method, headers: { "content-type": "application/json" },
+  method: string, body?: unknown, basis?: string | null) {
+  const request = testAccountRequest(new Request(`http://instance.test${url}`, { method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": basis } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }) }), undefined, account);
   const response = await ((await load())[method] as Handler)(request, { params: Promise.resolve(params) });
   const text = await response.text();
@@ -82,8 +84,8 @@ function snapshot() {
     .map((name) => db().prepare(`SELECT * FROM ${name} ORDER BY 1`).all());
 }
 const unavailable = (name: string) => ({ status: 400, body: { error: { code: "sql_error", message: `The dataset "${name}" is not available to you.` } } });
-const addLayer = (account: string, sql: string) =>
-  call(account, route.layers, `/api/maps/${map.id}/layers`, { id: map.id }, "POST", { name: "Layer", sql });
+const addLayer = (account: string, sql: string, basis: string) =>
+  call(account, route.layers, `/api/maps/${map.id}/layers`, { id: map.id }, "POST", { name: "Layer", sql }, basis);
 async function drawn(account: string, layerId: string): Promise<string[]> {
   const render = await call(account, route.render, `/api/layers/${layerId}/render`, { id: layerId }, "GET");
   const features = (render.body as { geojson: { features: { properties: { sentinel: string } }[] } }).geojson.features;
@@ -97,57 +99,57 @@ async function refused(run: () => Promise<{ status: number; body: unknown }>, na
 
 describe("a layer saved by someone other than the map's owner", () => {
   it("admits a qualified name within the editor's reach, and draws that person's dataset", async () => {
-    const saved = await addLayer("bob", "SELECT * FROM ada.roads");
+    const saved = await addLayer("bob", "SELECT * FROM ada.roads", readEditRevision({ kind: "map", id: map.id })!.editRevision!);
     expect(saved.status).toBe(201);
     expect(await drawn("ada", (saved.body as { id: string }).id)).toEqual(["ada roads"]);
   });
 
   it("refuses the owner's unfiled dataset by its plain name, naming it, with nothing written", async () => {
-    await refused(() => addLayer("bob", "SELECT * FROM secret"), "secret");
-    await refused(() => addLayer("pat", "SELECT * FROM secret"), "secret");
-    await refused(() => addLayer("bob", "SELECT * FROM ada.secret"), "ada.secret");
-    await refused(() => addLayer("bob", "SELECT * FROM query_table('sec' || 'ret')"), "secret");
+    await refused(() => addLayer("bob", "SELECT * FROM secret", readEditRevision({ kind: "map", id: map.id })!.editRevision!), "secret");
+    await refused(() => addLayer("pat", "SELECT * FROM secret", readEditRevision({ kind: "map", id: map.id })!.editRevision!), "secret");
+    await refused(() => addLayer("bob", "SELECT * FROM ada.secret", readEditRevision({ kind: "map", id: map.id })!.editRevision!), "ada.secret");
+    await refused(() => addLayer("bob", "SELECT * FROM query_table('sec' || 'ret')", readEditRevision({ kind: "map", id: map.id })!.editRevision!), "secret");
   });
 
   it("reads a plain name as the home's dataset, admitted only while the editor reaches it, never the editor's own", async () => {
-    const saved = await addLayer("bob", "SELECT * FROM roads");
+    const saved = await addLayer("bob", "SELECT * FROM roads", readEditRevision({ kind: "map", id: map.id })!.editRevision!);
     expect(saved.status).toBe(201);
     expect(await drawn("bob", (saved.body as { id: string }).id)).toEqual(["ada roads"]);
     unfileDataset("P", tables["ada.roads"].id);
-    await refused(() => addLayer("bob", "SELECT * FROM roads"), "roads");
+    await refused(() => addLayer("bob", "SELECT * FROM roads", readEditRevision({ kind: "map", id: map.id })!.editRevision!), "roads");
   });
 
   it("admits a dataset the editor owns and filed, and one of their own the project's owner keeps", async () => {
-    expect((await addLayer("bob", "SELECT * FROM bob.stations")).status).toBe(201);
-    expect((await addLayer("pat", "SELECT * FROM pat.parks")).status).toBe(201);
+    expect((await addLayer("bob", "SELECT * FROM bob.stations", readEditRevision({ kind: "map", id: map.id })!.editRevision!)).status).toBe(201);
+    expect((await addLayer("pat", "SELECT * FROM pat.parks", readEditRevision({ kind: "map", id: map.id })!.editRevision!)).status).toBe(201);
     // Bob's own unfiled `roads` is within his own reach, qualified.
-    expect((await addLayer("bob", "SELECT * FROM bob.roads")).status).toBe(201);
+    expect((await addLayer("bob", "SELECT * FROM bob.roads", readEditRevision({ kind: "map", id: map.id })!.editRevision!)).status).toBe(201);
   });
 
   it("binds another person's quoted mount name in a local spelling like its qualified name", async () => {
     for (const sql of ['SELECT * FROM main."ada.roads"', 'SELECT * FROM memory.main."ada.roads"']) {
-      const saved = await addLayer("bob", sql);
+      const saved = await addLayer("bob", sql, readEditRevision({ kind: "map", id: map.id })!.editRevision!);
       expect(saved.status, sql).toBe(201);
       expect(await drawn("ada", (saved.body as { id: string }).id), sql).toEqual(["ada roads"]);
     }
     const before = snapshot();
-    expect((await addLayer("bob", 'SELECT * FROM main."ada.secret"')).status).toBe(400);
+    expect((await addLayer("bob", 'SELECT * FROM main."ada.secret"', readEditRevision({ kind: "map", id: map.id })!.editRevision!)).status).toBe(400);
     expect(snapshot()).toEqual(before);
   });
 
   it("admits the engine's own relations, which name no dataset", async () => {
-    expect((await addLayer("bob", "SELECT ST_Point(0, 0) AS geom FROM range(1)")).status).toBe(201);
+    expect((await addLayer("bob", "SELECT ST_Point(0, 0) AS geom FROM range(1)", readEditRevision({ kind: "map", id: map.id })!.editRevision!)).status).toBe(201);
   });
 
   it("refuses an edit of the layer's SQL the same way, leaving the layer as it was", async () => {
-    const layer = await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" });
-    await refused(() => call("bob", route.layer, `/api/layers/${layer.id}`, { id: layer.id }, "PATCH", { sql: "SELECT * FROM secret" }), "secret");
-    const edited = await call("bob", route.layer, `/api/layers/${layer.id}`, { id: layer.id }, "PATCH", { sql: "SELECT * FROM bob.stations" });
+    const layer = await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await refused(() => call("bob", route.layer, `/api/layers/${layer.id}`, { id: layer.id }, "PATCH", { sql: "SELECT * FROM secret" }, readEditRevision({ kind: "map", id: map.id })!.editRevision!), "secret");
+    const edited = await call("bob", route.layer, `/api/layers/${layer.id}`, { id: layer.id }, "PATCH", { sql: "SELECT * FROM bob.stations" }, readEditRevision({ kind: "map", id: map.id })!.editRevision!);
     expect(edited.status).toBe(200);
   });
 
   it("keeps the owner's own saves as they were", async () => {
-    const own = await addLayer("ada", "SELECT * FROM secret");
+    const own = await addLayer("ada", "SELECT * FROM secret", readEditRevision({ kind: "map", id: map.id })!.editRevision!);
     expect(own.status).toBe(201);
     expect(await drawn("ada", (own.body as { id: string }).id)).toEqual(["ada secret"]);
   });
@@ -155,30 +157,30 @@ describe("a layer saved by someone other than the map's owner", () => {
 
 describe("undo and redo by someone other than the map's owner", () => {
   it("refuses a replay that would restore SQL the editor cannot evaluate, whole, with nothing restored", async () => {
-    const layer = await createLayer(scopes.ada, map.id, { name: "Hidden", sql: "SELECT * FROM secret" });
-    await updateLayer(scopes.ada, layer.id, { sql: "SELECT * FROM roads" });
-    await refused(() => call("bob", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST"), "secret");
-    await refused(() => call("pat", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST"), "secret");
-    expect((await call("ada", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST")).status).toBe(200);
+    const layer = await createLayer(scopes.ada, map.id, { name: "Hidden", sql: "SELECT * FROM secret" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await updateLayer(scopes.ada, layer.id, { sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
+    await refused(() => call("bob", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST", undefined, readEditRevision({ kind: "map", id: map.id })!.editRevision!), "secret");
+    await refused(() => call("pat", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST", undefined, readEditRevision({ kind: "map", id: map.id })!.editRevision!), "secret");
+    expect((await call("ada", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST", undefined, readEditRevision({ kind: "map", id: map.id })!.editRevision!)).status).toBe(200);
   });
 
   it("refuses a redo the same way", async () => {
-    const layer = await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" });
-    await updateLayer(scopes.ada, layer.id, { sql: "SELECT * FROM secret" });
-    await undoChange(scopes.ada, map.id);
-    await refused(() => call("bob", route.redo, `/api/maps/${map.id}/redo`, { id: map.id }, "POST"), "secret");
+    const layer = await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await updateLayer(scopes.ada, layer.id, { sql: "SELECT * FROM secret" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
+    await undoChange(scopes.ada, map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await refused(() => call("bob", route.redo, `/api/maps/${map.id}/redo`, { id: map.id }, "POST", undefined, readEditRevision({ kind: "map", id: map.id })!.editRevision!), "secret");
   });
 
   it("refuses putting back a removed layer whose SQL the editor cannot evaluate", async () => {
-    const layer = await createLayer(scopes.ada, map.id, { name: "Hidden", sql: "SELECT * FROM secret" });
-    expect((await call("bob", route.layer, `/api/layers/${layer.id}`, { id: layer.id }, "DELETE")).status).toBe(204);
-    await refused(() => call("bob", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST"), "secret");
+    const layer = await createLayer(scopes.ada, map.id, { name: "Hidden", sql: "SELECT * FROM secret" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    expect((await call("bob", route.layer, `/api/layers/${layer.id}`, { id: layer.id }, "DELETE", undefined, readEditRevision({ kind: "map", id: map.id })!.editRevision!)).status).toBe(200);
+    await refused(() => call("bob", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST", undefined, readEditRevision({ kind: "map", id: map.id })!.editRevision!), "secret");
   });
 
   it("restores SQL the editor reaches", async () => {
-    const layer = await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM ada.roads" });
-    await updateLayer(scopes.ada, layer.id, { sql: "SELECT * FROM bob.stations" });
-    const undone = await call("bob", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST");
+    const layer = await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM ada.roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await updateLayer(scopes.ada, layer.id, { sql: "SELECT * FROM bob.stations" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
+    const undone = await call("bob", route.undo, `/api/maps/${map.id}/undo`, { id: map.id }, "POST", undefined, readEditRevision({ kind: "map", id: map.id })!.editRevision!);
     expect(undone.status).toBe(200);
     expect(db().prepare("SELECT sql FROM layers WHERE id = ?").get(layer.id)).toEqual({ sql: "SELECT * FROM ada.roads" });
   });
@@ -186,7 +188,7 @@ describe("undo and redo by someone other than the map's owner", () => {
 
 describe("a workflow step saved by someone other than the workflow's owner", () => {
   const addStepAs = (account: string, operation: string, parameters: Record<string, unknown>) =>
-    call(account, route.steps, `/api/recipes/${recipeId}/steps`, { id: recipeId }, "POST", { operation, parameters });
+    call(account, route.steps, `/api/recipes/${recipeId}/steps`, { id: recipeId }, "POST", { operation, parameters }, readEditRevision({ kind: "workflow", id: recipeId })?.editRevision);
 
   it("refuses SQL naming a dataset out of the editor's reach, with nothing written", async () => {
     await refused(() => addStepAs("bob", "sql_step", { sql: "SELECT * FROM secret", name: "leak" }), "secret");
@@ -206,10 +208,10 @@ describe("a workflow step saved by someone other than the workflow's owner", () 
   it("refuses an edit of a step the same way, whether it would land or wait as a proposal", async () => {
     const step = (db().prepare("SELECT id FROM recipe_steps WHERE recipe_id = ?").get(recipeId) as { id: string }).id;
     await refused(() => call("bob", route.step, `/api/recipes/${recipeId}/steps/${step}`, { id: recipeId, stepId: step }, "PATCH",
-      { parameters: { sql: "SELECT * FROM secret", name: "staged" } }), "secret");
+      { parameters: { sql: "SELECT * FROM secret", name: "staged" } }, readEditRevision({ kind: "workflow", id: recipeId })?.editRevision), "secret");
     db().prepare("UPDATE recipe_steps SET output_table_id = ?, output_table_name = 'staged' WHERE id = ?").run(tables["ada.roads"].id, step);
     await refused(() => call("bob", route.step, `/api/recipes/${recipeId}/steps/${step}`, { id: recipeId, stepId: step }, "PATCH",
-      { parameters: { sql: "SELECT * FROM secret", name: "staged" } }), "secret");
+      { parameters: { sql: "SELECT * FROM secret", name: "staged" } }, readEditRevision({ kind: "workflow", id: recipeId })?.editRevision), "secret");
   });
 
   it("keeps the owner's own saves as they were", async () => {

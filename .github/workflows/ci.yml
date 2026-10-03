@@ -96,8 +96,10 @@ jobs:
       # never hand-synced. This fails when a shipped token, kit stylesheet or
       # palette changes without regenerating the page.
       - run: npm run lint:specimen
-      # The shipped plugin manifests stay well-formed and match the packaging
-      # script's generated marketplace entry.
+      # Reader counts, catalogue and examples stay aligned with the contract.
+      - run: npm run lint:contract-docs
+      - run: npm run lint:reader-docs
+      # The shipped plugin guidance stays current.
       - run: npm run lint:plugin
       - run: npm test
         env:

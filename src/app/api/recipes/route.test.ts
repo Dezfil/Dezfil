@@ -1,3 +1,5 @@
+import { withFixtureRevision } from "@/lib/test-support/edit-basis";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -84,7 +86,7 @@ async function newStep(
   name: string,
 ): Promise<Json> {
   const response = await addStep(
-    testAccountRequest(post({ operation: "sql_step", parameters: { sql, name } })),
+    withFixtureRevision(testAccountRequest(post({ operation: "sql_step", parameters: { sql, name } })), readEditRevision({ kind: "workflow", id: recipeId })?.editRevision),
     { params: Promise.resolve({ id: recipeId }) },
   );
   expect(response.status).toBe(201);
@@ -105,16 +107,16 @@ describe("a recipe round-trips", () => {
     expect((await createRecipeRoute(testAccountRequest(post({ name: "" })))).status).toBe(400);
     expect((await createRecipeRoute(testAccountRequest(post({ name: "   " })))).status).toBe(400);
     expect(
-      (await renameRecipe(testAccountRequest(post({ name: " " })), { params: Promise.resolve({ id }) })).status,
+      (await renameRecipe(withFixtureRevision(testAccountRequest(post({ name: " " })), readEditRevision({ kind: "workflow", id: id })?.editRevision), { params: Promise.resolve({ id }) })).status,
     ).toBe(400);
     // One past the limit is refused; the limit itself passes.
     const long = "x".repeat(121);
     expect((await createRecipeRoute(testAccountRequest(post({ name: long })))).status).toBe(400);
     expect(
-      (await renameRecipe(testAccountRequest(post({ name: long })), { params: Promise.resolve({ id }) })).status,
+      (await renameRecipe(withFixtureRevision(testAccountRequest(post({ name: long })), readEditRevision({ kind: "workflow", id: id })?.editRevision), { params: Promise.resolve({ id }) })).status,
     ).toBe(400);
     expect(
-      (await renameRecipe(testAccountRequest(post({ name: "y".repeat(120) })), { params: Promise.resolve({ id }) })).status,
+      (await renameRecipe(withFixtureRevision(testAccountRequest(post({ name: "y".repeat(120) })), readEditRevision({ kind: "workflow", id: id })?.editRevision), { params: Promise.resolve({ id }) })).status,
     ).toBe(200);
     // A name another recipe already has is fine, as it is for maps.
     const twin = await createRecipeRoute(testAccountRequest(post({ name: "y".repeat(120) })));
@@ -131,7 +133,7 @@ describe("a recipe round-trips", () => {
     expect((await createRecipeRoute(testAccountRequest(post({ name: "x", origin: "canvas" })))).status).toBe(400);
     // Listed with it, and a rename leaves it alone.
     const renamed = (await body(
-      await renameRecipe(testAccountRequest(post({ name: "Still the builder's" })), {
+      await renameRecipe(withFixtureRevision(testAccountRequest(post({ name: "Still the builder's" })), readEditRevision({ kind: "workflow", id: built.id as string })?.editRevision), {
         params: Promise.resolve({ id: built.id as string }),
       }),
     )).recipe as Json;
@@ -184,7 +186,7 @@ describe("a recipe round-trips", () => {
     const before = await at();
     // Reads its own output: refused at the change, and a refusal is not an edit.
     const refused = await addStep(
-      testAccountRequest(post({ operation: "sql_step", parameters: { sql: "SELECT * FROM self_out", name: "self_out" } })),
+      withFixtureRevision(testAccountRequest(post({ operation: "sql_step", parameters: { sql: "SELECT * FROM self_out", name: "self_out" } })), readEditRevision({ kind: "workflow", id: id })?.editRevision),
       { params: Promise.resolve({ id }) },
     );
     expect(refused.status).toBe(400);
@@ -232,14 +234,14 @@ describe("a recipe round-trips", () => {
     expect((read.steps as Json[])[0].condition).toBe("never_run");
 
     const renamed = (await body(
-      await renameRecipe(testAccountRequest(post({ name: "Renamed" })), {
+      await renameRecipe(withFixtureRevision(testAccountRequest(post({ name: "Renamed" })), readEditRevision({ kind: "workflow", id: id })?.editRevision), {
         params: Promise.resolve({ id }),
       }),
     )).recipe as Json;
     expect(renamed.name).toBe("Renamed");
 
     const deleted = await body(
-      await deleteRecipeRoute(testAccountRequest(post({})), { params: Promise.resolve({ id }) }),
+      await deleteRecipeRoute(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), { params: Promise.resolve({ id }) }),
     );
     expect(deleted.outputsRemain).toBe(true);
     expect(deleted.message).toMatch(/remain in the workspace/i);
@@ -255,7 +257,7 @@ describe("a recipe round-trips", () => {
     const three = await newStep(id, "SELECT 3 AS n", "ord_three");
 
     const moved = (await body(
-      await moveStep(testAccountRequest(post({ ordinal: 0 })), {
+      await moveStep(withFixtureRevision(testAccountRequest(post({ ordinal: 0 })), readEditRevision({ kind: "workflow", id: id })?.editRevision), {
         params: Promise.resolve({ id, stepId: three.id as string }),
       }),
     )).recipe as Json;
@@ -276,10 +278,10 @@ describe("the backward-only rule is refused at the change", () => {
   it("refuses a step that would read its own output", async () => {
     const id = await newRecipe();
     const response = await addStep(
-      testAccountRequest(post({
+      withFixtureRevision(testAccountRequest(post({
         operation: "sql_step",
         parameters: { sql: "SELECT * FROM self_out", name: "self_out" },
-      })),
+      })), readEditRevision({ kind: "workflow", id: id })?.editRevision),
       { params: Promise.resolve({ id }) },
     );
     expect(response.status).toBe(400);
@@ -299,7 +301,7 @@ describe("the backward-only rule is refused at the change", () => {
     // The rule stands — a step reads earlier steps only — and the edit is
     // what moves: the reader goes after its producer, together with the edit.
     const response = await editStep(
-      testAccountRequest(post({ parameters: { sql: "SELECT * FROM back_two", name: "back_one" } })),
+      withFixtureRevision(testAccountRequest(post({ parameters: { sql: "SELECT * FROM back_two", name: "back_one" } })), readEditRevision({ kind: "workflow", id: id })?.editRevision),
       { params: Promise.resolve({ id, stepId: first.id as string }) },
     );
     expect(response.status).toBe(200);
@@ -317,7 +319,7 @@ describe("the backward-only rule is refused at the change", () => {
 
     // Dragging the producer to the end breaks its consumer, not itself — the
     // case a check on only the moved step would pass.
-    const response = await moveStep(testAccountRequest(post({ ordinal: 1 })), {
+    const response = await moveStep(withFixtureRevision(testAccountRequest(post({ ordinal: 1 })), readEditRevision({ kind: "workflow", id: id })?.editRevision), {
       params: Promise.resolve({ id, stepId: producer.id as string }),
     });
     expect(response.status).toBe(400);
@@ -366,11 +368,11 @@ describe("authoring a step from a layer", () => {
 
     const step = (await body(
       await addStep(
-        testAccountRequest(post({
+        withFixtureRevision(testAccountRequest(post({
           operation: "sql_step",
           parameters: { name: "from_layer" },
           fromLayerId: layer.id,
-        })),
+        })), readEditRevision({ kind: "workflow", id: id })?.editRevision),
         { params: Promise.resolve({ id }) },
       ),
     )).step as Json;
@@ -379,7 +381,7 @@ describe("authoring a step from a layer", () => {
     expect(sql).toContain("stations");
     // The filter is folded in — the row count changes, which is the proof the
     // criterion asks for.
-    await runStep(testAccountRequest(post({})), {
+    await runStep(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), {
       params: Promise.resolve({ id, stepId: step.id as string }),
     });
     await laneSettled();
@@ -418,11 +420,11 @@ describe("authoring a step from a layer", () => {
       const layer = layerOn(map.id, { viz });
       const step = (await body(
         await addStep(
-          testAccountRequest(post({
+          withFixtureRevision(testAccountRequest(post({
             operation: "sql_step",
             parameters: { name },
             fromLayerId: layer.id,
-          })),
+          })), readEditRevision({ kind: "workflow", id: id })?.editRevision),
           { params: Promise.resolve({ id }) },
         ),
       )).step as Json;
@@ -432,7 +434,7 @@ describe("authoring a step from a layer", () => {
       // Said in as many words, rather than left to be discovered.
       expect(String(origin.substitutionNote)).toMatch(/rows behind/i);
 
-      await runStep(testAccountRequest(post({})), {
+      await runStep(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), {
         params: Promise.resolve({ id, stepId: step.id as string }),
       });
       await laneSettled();
@@ -447,7 +449,7 @@ describe("running through the surface", () => {
     const id = await newRecipe();
     const step = await newStep(id, "SELECT count(*) AS n FROM stations", "api_run_out");
 
-    const response = await runStep(testAccountRequest(post({})), {
+    const response = await runStep(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), {
       params: Promise.resolve({ id, stepId: step.id as string }),
     });
     expect(response.status).toBe(202);
@@ -477,8 +479,8 @@ describe("running through the surface", () => {
     const id = await newRecipe();
     await newStep(id, "SELECT count(*) AS n FROM stations", "lock_one");
     const [a, b] = await Promise.all([
-      runRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) }),
-      runRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) }),
+      runRecipe(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), { params: Promise.resolve({ id }) }),
+      runRecipe(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), { params: Promise.resolve({ id }) }),
     ]);
     const statuses = [a.status, b.status].sort();
     expect(statuses).toEqual([202, 409]);
@@ -489,13 +491,13 @@ describe("running through the surface", () => {
     expect(error.code).toBe("run_in_flight");
     expect(String(error.message)).toContain(run.id as string);
     // A later start while it is in flight is refused the same way; only one run exists.
-    const later = await runRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) });
+    const later = await runRecipe(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), { params: Promise.resolve({ id }) });
     expect(later.status).toBe(409);
     await cascadeSettled(run.id as string);
     const listed = (await body(await listRuns(testAccountRequest(post({})), { params: Promise.resolve({ id }) }))).runs as Json[];
     expect(listed).toHaveLength(1);
     // Settled, the next start is accepted.
-    const next = await runRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) });
+    const next = await runRecipe(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), { params: Promise.resolve({ id }) });
     expect(next.status).toBe(202);
     await cascadeSettled(((await body(next)).run as Json).id as string);
   }, 120_000);
@@ -504,7 +506,7 @@ describe("running through the surface", () => {
     const id = await newRecipe();
     const one = await newStep(id, "SELECT count(*) AS n FROM stations", "race_one");
     const two = await newStep(id, "SELECT count(*) AS m FROM stations", "race_two");
-    const step = (stepId: string) => runStep(testAccountRequest(post({})), { params: Promise.resolve({ id, stepId }) });
+    const step = (stepId: string) => runStep(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), { params: Promise.resolve({ id, stepId }) });
     const settleAll = async () => {
       for (const r of (await body(await listRuns(testAccountRequest(post({})), { params: Promise.resolve({ id }) }))).runs as Json[]) {
         await cascadeSettled(r.id as string);
@@ -519,7 +521,7 @@ describe("running through the surface", () => {
     expect(runs).toHaveLength(1);
     expect(jobsOf(one.id as string) + jobsOf(two.id as string)).toBe(1);
     // Node and cascade.
-    const [s1, c1] = await Promise.all([step(one.id as string), runRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) })]);
+    const [s1, c1] = await Promise.all([step(one.id as string), runRecipe(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), { params: Promise.resolve({ id }) })]);
     expect([s1.status, c1.status].sort()).toEqual([202, 409]);
     await settleAll();
     runs = (await body(await listRuns(testAccountRequest(post({})), { params: Promise.resolve({ id }) }))).runs as Json[];
@@ -532,20 +534,22 @@ describe("running through the surface", () => {
     const id = await newRecipe();
     const one = await newStep(id, "SELECT count(*) AS n FROM stations", "conf_one");
     const two = await newStep(id, "SELECT n FROM conf_one", "conf_two");
-    const plan = (await body(await runRecipe(testAccountRequest(post({ plan: true })), { params: Promise.resolve({ id }) }))).plan as Json;
+    const planned = await body(await runRecipe(testAccountRequest(post({ plan: true })), { params: Promise.resolve({ id }) }));
+    const plan = planned.plan as Json;
     expect(plan.members).toEqual([one.id, two.id]);
     // The order alone differs: refused, nothing started.
-    const reversed = await runRecipe(testAccountRequest(post({ members: [two.id, one.id] })), { params: Promise.resolve({ id }) });
+    const reversed = await runRecipe(withFixtureRevision(testAccountRequest(post({ members: [two.id, one.id] })), planned.editRevision as string), { params: Promise.resolve({ id }) });
     expect(reversed.status).toBe(409);
     expect(((await body(reversed)).error as Json).code).toBe("plan_changed");
     // The membership differs (a node added since the confirmation): refused.
     const three = await newStep(id, "SELECT 1 AS k", "conf_three");
-    const stale = await runRecipe(testAccountRequest(post({ members: [one.id, two.id] })), { params: Promise.resolve({ id }) });
+    const stale = await runRecipe(withFixtureRevision(testAccountRequest(post({ members: [one.id, two.id] })), planned.editRevision as string), { params: Promise.resolve({ id }) });
     expect(stale.status).toBe(409);
-    expect(((await body(stale)).error as Json).code).toBe("plan_changed");
+    expect(((await body(stale)).error as Json).code).toBe("stale_revision");
     expect(((await body(await listRuns(testAccountRequest(post({})), { params: Promise.resolve({ id }) }))).runs as Json[])).toHaveLength(0);
     // The plan as it stands now: accepted, exactly those members in that order.
-    const ok = await runRecipe(testAccountRequest(post({ members: [one.id, two.id, three.id] })), { params: Promise.resolve({ id }) });
+    const current = await body(await runRecipe(testAccountRequest(post({ plan: true })), { params: Promise.resolve({ id }) }));
+    const ok = await runRecipe(withFixtureRevision(testAccountRequest(post({ members: (current.plan as Json).members })), current.editRevision as string), { params: Promise.resolve({ id }) });
     expect(ok.status).toBe(202);
     const run = (await body(ok)).run as Json;
     expect((run.members as Json[]).map((m) => m.stepId)).toEqual([one.id, two.id, three.id]);
@@ -558,7 +562,7 @@ describe("running through the surface", () => {
     const leaf = await newStep(id, "SELECT n FROM plan_one", "plan_two");
 
     const wide = (await body(
-      await runRecipe(testAccountRequest(post({ plan: true, fromStepId: producer.id })), {
+      await runRecipe(withFixtureRevision(testAccountRequest(post({ plan: true, fromStepId: producer.id })), readEditRevision({ kind: "workflow", id: id })?.editRevision), {
         params: Promise.resolve({ id }),
       }),
     )).plan as Json;
@@ -566,7 +570,7 @@ describe("running through the surface", () => {
     expect(wide.members).toHaveLength(2);
 
     const narrow = (await body(
-      await runRecipe(testAccountRequest(post({ plan: true, fromStepId: leaf.id })), {
+      await runRecipe(withFixtureRevision(testAccountRequest(post({ plan: true, fromStepId: leaf.id })), readEditRevision({ kind: "workflow", id: id })?.editRevision), {
         params: Promise.resolve({ id }),
       }),
     )).plan as Json;
@@ -579,7 +583,7 @@ describe("running through the surface", () => {
     await newStep(id, "SELECT count(*) AS n FROM stations", "whole_one");
     await newStep(id, "SELECT n * 2 AS n FROM whole_one", "whole_two");
 
-    const accepted = await runRecipe(testAccountRequest(post({})), {
+    const accepted = await runRecipe(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), {
       params: Promise.resolve({ id }),
     });
     expect(accepted.status).toBe(202);
@@ -618,7 +622,7 @@ describe("editing and removing through the surface", () => {
     expect(bySql.inputs).toEqual([]);
     const byInput = await body(
       await addStep(
-        testAccountRequest(post({ operation: "filter_rows", parameters: { input: "stations", name: "reads_input" } })),
+        withFixtureRevision(testAccountRequest(post({ operation: "filter_rows", parameters: { input: "stations", name: "reads_input" } })), readEditRevision({ kind: "workflow", id: id })?.editRevision),
         { params: Promise.resolve({ id }) },
       ),
     );
@@ -631,7 +635,7 @@ describe("editing and removing through the surface", () => {
   it("present reads follow an edit while the recorded lineage stays what ran", async () => {
     const id = await newRecipe("Reads move");
     const step = await newStep(id, "SELECT name FROM stations", "reads_moved");
-    await runStep(testAccountRequest(post({})), {
+    await runStep(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), {
       params: Promise.resolve({ id, stepId: step.id as string }),
     });
     await laneSettled();
@@ -642,7 +646,7 @@ describe("editing and removing through the surface", () => {
     expect(ran.reads).toEqual(["stations"]);
     const edited = (await body(
       await editStep(
-        testAccountRequest(post({ parameters: { sql: "SELECT 1 AS n", name: "reads_moved" } })),
+        withFixtureRevision(testAccountRequest(post({ parameters: { sql: "SELECT 1 AS n", name: "reads_moved" } })), readEditRevision({ kind: "workflow", id: id })?.editRevision),
         { params: Promise.resolve({ id, stepId: step.id as string }) },
       ),
     )).step as Json;
@@ -655,7 +659,7 @@ describe("editing and removing through the surface", () => {
     const one = await newStep(id, "SELECT name FROM stations", "dup_one");
     const two = await body(
       await addStep(
-        testAccountRequest(post({ operation: "filter_rows", parameters: { input: "dup_one", field: "name", comparison: "equals", value: "alex", name: "dup_two" } })),
+        withFixtureRevision(testAccountRequest(post({ operation: "filter_rows", parameters: { input: "dup_one", field: "name", comparison: "equals", value: "alex", name: "dup_two" } })), readEditRevision({ kind: "workflow", id: id })?.editRevision),
         { params: Promise.resolve({ id }) },
       ),
     );
@@ -665,7 +669,7 @@ describe("editing and removing through the surface", () => {
     // The dynamic form the engine reads as a table.
     const four = await newStep(id, "SELECT count(*) AS c FROM query_table('dup_one')", "dup_four");
     expect(four.reads).toEqual(["dup_one"]);
-    const started = await runRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) });
+    const started = await runRecipe(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), { params: Promise.resolve({ id }) });
     expect(started.status).toBe(202);
     const startedRun = (await body(started)).run as Json;
     await cascadeSettled(startedRun.id as string);
@@ -674,7 +678,7 @@ describe("editing and removing through the surface", () => {
     )).run as Json;
     expect(settled.outcome, JSON.stringify(settled.members)).toBe("completed");
     // A pending edit on the first node, which the copy must not carry.
-    await editStep(testAccountRequest(post({ parameters: { sql: "SELECT name, lon FROM stations", name: "dup_one" } })), {
+    await editStep(withFixtureRevision(testAccountRequest(post({ parameters: { sql: "SELECT name, lon FROM stations", name: "dup_one" } })), readEditRevision({ kind: "workflow", id: id })?.editRevision), {
       params: Promise.resolve({ id, stepId: one.id as string }),
     });
     const originalBefore = (await body(await readRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id }) }))).recipe as Json;
@@ -707,7 +711,7 @@ describe("editing and removing through the surface", () => {
     expect((originalAfter.steps as Json[]).map((s) => (s.output as Json).name)).toEqual(["dup_one", "dup_two", "dup_three", "dup_four"]);
 
     // The copy runs end to end and writes its own datasets; the original's stand.
-    const copyRun = await runRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id: copy.id as string }) });
+    const copyRun = await runRecipe(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: copy.id as string })?.editRevision), { params: Promise.resolve({ id: copy.id as string }) });
     expect(copyRun.status).toBe(202);
     await cascadeSettled(((await body(copyRun)).run as Json).id as string);
     const ranCopy = (await body(await readRecipe(testAccountRequest(post({})), { params: Promise.resolve({ id: copy.id as string }) }))).recipe as Json;
@@ -733,14 +737,14 @@ describe("editing and removing through the surface", () => {
   it("holds an edit as a proposal once the step has produced something", async () => {
     const id = await newRecipe();
     const step = await newStep(id, "SELECT 1 AS n", "prop_out");
-    await runStep(testAccountRequest(post({})), {
+    await runStep(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), {
       params: Promise.resolve({ id, stepId: step.id as string }),
     });
     await laneSettled();
 
     const edited = await body(
       await editStep(
-        testAccountRequest(post({ parameters: { sql: "SELECT 2 AS n", name: "prop_out" } })),
+        withFixtureRevision(testAccountRequest(post({ parameters: { sql: "SELECT 2 AS n", name: "prop_out" } })), readEditRevision({ kind: "workflow", id: id })?.editRevision),
         { params: Promise.resolve({ id, stepId: step.id as string }) },
       ),
     );
@@ -754,13 +758,13 @@ describe("editing and removing through the surface", () => {
   it("removes a step and says its output remains", async () => {
     const id = await newRecipe();
     const step = await newStep(id, "SELECT 1 AS n", "gone_step_out");
-    await runStep(testAccountRequest(post({})), {
+    await runStep(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), {
       params: Promise.resolve({ id, stepId: step.id as string }),
     });
     await laneSettled();
 
     const removed = await body(
-      await removeStep(testAccountRequest(post({})), {
+      await removeStep(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), {
         params: Promise.resolve({ id, stepId: step.id as string }),
       }),
     );
@@ -783,7 +787,7 @@ describe("a malformed run body never widens into run-all", () => {
     await newStep(id, "SELECT 1 AS n", "mal_one");
     await newStep(id, "SELECT 2 AS n", "mal_two");
 
-    const response = await runRecipe(testAccountRequest(raw('{"fromStepId":')), {
+    const response = await runRecipe(withFixtureRevision(testAccountRequest(raw('{"fromStepId":')), readEditRevision({ kind: "workflow", id: id })?.editRevision), {
       params: Promise.resolve({ id }),
     });
     expect(response.status).toBe(400);
@@ -798,7 +802,7 @@ describe("a malformed run body never widens into run-all", () => {
   it("refuses a fromStepId of the wrong type", async () => {
     const id = await newRecipe();
     await newStep(id, "SELECT 1 AS n", "mal_three");
-    const response = await runRecipe(testAccountRequest(raw('{"fromStepId": 7}')), {
+    const response = await runRecipe(withFixtureRevision(testAccountRequest(raw('{"fromStepId": 7}')), readEditRevision({ kind: "workflow", id: id })?.editRevision), {
       params: Promise.resolve({ id }),
     });
     expect(response.status).toBe(400);
@@ -808,7 +812,7 @@ describe("a malformed run body never widens into run-all", () => {
     const id = await newRecipe();
     await newStep(id, "SELECT 1 AS n", "mal_four");
     const response = await runRecipe(
-      testAccountRequest(new Request("http://test/api/recipes/x/runs", { method: "POST" })),
+      withFixtureRevision(testAccountRequest(new Request("http://test/api/recipes/x/runs", { method: "POST" })), readEditRevision({ kind: "workflow", id: id })?.editRevision),
       { params: Promise.resolve({ id }) },
     );
     expect(response.status).toBe(202);
@@ -824,7 +828,7 @@ describe("the workflow's project context", () => {
     changeMembers(a.id, { addRecipes: [id] });
 
     const step = await newStep(id, "SELECT * FROM stations", "filed_out");
-    await runStep(testAccountRequest(post({})), {
+    await runStep(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), {
       params: Promise.resolve({ id, stepId: step.id as string }),
     });
     await laneSettled();
@@ -837,7 +841,7 @@ describe("the workflow's project context", () => {
 
     // A re-run rewrites the same dataset (the replace path) and preserves
     // its memberships unchanged.
-    await runStep(testAccountRequest(post({})), {
+    await runStep(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), {
       params: Promise.resolve({ id, stepId: step.id as string }),
     });
     await laneSettled();
@@ -848,7 +852,7 @@ describe("the workflow's project context", () => {
     // A NEW output written after the move files where the workflow is at
     // that commit — not where it was when earlier outputs were made.
     const later = await newStep(id, "SELECT * FROM stations", "later_out");
-    await runStep(testAccountRequest(post({})), {
+    await runStep(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), {
       params: Promise.resolve({ id, stepId: later.id as string }),
     });
     await laneSettled();
@@ -860,7 +864,7 @@ describe("the workflow's project context", () => {
   it("an unfiled workflow writes unfiled outputs", async () => {
     const id = await newRecipe("Loose");
     const step = await newStep(id, "SELECT * FROM stations", "loose_out");
-    await runStep(testAccountRequest(post({})), {
+    await runStep(withFixtureRevision(testAccountRequest(post({})), readEditRevision({ kind: "workflow", id: id })?.editRevision), {
       params: Promise.resolve({ id, stepId: step.id as string }),
     });
     await laneSettled();

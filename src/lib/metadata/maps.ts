@@ -1,3 +1,4 @@
+import { recordDocumentCreation } from "./revisions";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "./db";
@@ -178,6 +179,7 @@ export interface MapWithLayers extends MapRecord {
  * space unless `home` names another: a copy keeps its source's home. */
 export function insertMap(scope: AccountScope, m: MapRecord, db: Database = metadataDb(), home?: string): void {
   const ownerId = requireAccountScope(scope, db);
+  db.transaction(() => {
   db.prepare(
     `INSERT INTO maps
        (owner_id, home_account_id, id, name, view_lng, view_lat, view_zoom, view_pitch, view_bearing, basemap, custom_basemap, basemap_layers, note, legend_corner, legend_order, timeline, widgets, widgets_published, publish_token, published_at, created_at, updated_at)
@@ -206,6 +208,8 @@ export function insertMap(scope: AccountScope, m: MapRecord, db: Database = meta
     m.createdAt,
     m.updatedAt,
   );
+  recordDocumentCreation(scope, { kind: "map", id: m.id }, db);
+  })();
 }
 
 /** The account whose space a map's SQL is evaluated in; null only for a

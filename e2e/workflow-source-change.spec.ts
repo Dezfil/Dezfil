@@ -1,3 +1,5 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
+import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Page } from "@playwright/test";
 import { isAllowedConsoleError } from "./console-allowlist";
 import {
@@ -79,12 +81,13 @@ async function api<T>(
   method: string,
   path: string,
   body?: unknown,
+  basis?: EditBasis,
 ): Promise<T> {
   return page.evaluate(
-    async ({ method, path, body }) => {
+    async ({ method, path, body, basis }) => {
       const response = await fetch(path, {
         method,
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) },
         body: body === undefined ? undefined : JSON.stringify(body),
         cache: "no-store",
       });
@@ -94,7 +97,7 @@ async function api<T>(
       }
       return (text ? JSON.parse(text) : {}) as T;
     },
-    { method, path, body },
+    { method, path, body, basis },
   );
 }
 
@@ -142,12 +145,7 @@ async function runWorkflow(
   recipeId: string,
   stepId: string,
 ): Promise<RunRecord> {
-  const started = await api<{ run: RunRecord }>(
-    page,
-    "POST",
-    `/api/recipes/${recipeId}/runs`,
-    {},
-  );
+  const started = await readThenWriteBrowserSetup(page, `/api/recipes/${recipeId}`, () => ({ method: "POST", path: `/api/recipes/${recipeId}/runs`, body: {} })).then(result => result.json as { run: RunRecord });
   await expect
     .poll(async () => (await readRun(page, recipeId, started.run.id)).outcome, {
       timeout: 60_000,
@@ -211,18 +209,13 @@ test("a source refresh makes its node stale; a re-run replaces the output and th
         })
       ).recipe.id;
       stepId = (
-        await api<{ step: { id: string } }>(
-          page,
-          "POST",
-          `/api/recipes/${recipeId}/steps`,
-          {
+        await readThenWriteBrowserSetup(page, `/api/recipes/${recipeId}`, () => ({ method: "POST", path: `/api/recipes/${recipeId}/steps`, body: {
             operation: "sql_step",
             parameters: {
               sql: `SELECT * FROM ${sourceName}`,
               name: outputName,
             },
-          },
-        )
+          } })).then(result => result.json as { step: { id: string } })
       ).step.id;
       const firstRun = await runWorkflow(page, recipeId, stepId);
       expect(firstRun.outcome).toBe("completed");

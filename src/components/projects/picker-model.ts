@@ -3,6 +3,7 @@ import { geometryChipLabel } from "../table-chips";
 import { nodeWord, type WorkflowListing } from "../workflow-model";
 import { addable, distinctProducers, type DependencyWire } from "./add-model";
 import { whereNames } from "./recent-model";
+import type { FilingBases } from "./filing-intent";
 
 /**
  * The project-first picker's pure model (the ruled): what is eligible
@@ -114,6 +115,7 @@ export type DepsRead =
   | { status: "ready"; deps: DependencyWire[] };
 
 export interface Composed {
+  bases: FilingBases;
   members: { addMaps?: string[]; addRecipes?: string[]; addTables?: string[] };
   summary: { maps: number; workflows: number; datasets: number; brought: number };
   /** Selected maps and workflows whose bring-along set is not known:
@@ -135,7 +137,11 @@ export function composeChange(
   sel: Selection,
   reads: Map<string, DepsRead>,
   held: Members = NO_MEMBERS,
+  displayed: FilingBases = {},
 ): Composed {
+  const bases: FilingBases = {};
+  for (const id of sel.maps) if (displayed[`map:${id}`]) bases[`map:${id}`] = displayed[`map:${id}`];
+  for (const id of sel.workflows) if (displayed[`workflow:${id}`]) bases[`workflow:${id}`] = displayed[`workflow:${id}`];
   const recipes = new Set<string>(sel.workflows);
   const tables = new Set<string>(sel.datasets);
   const blocked: string[] = [];
@@ -151,7 +157,10 @@ export function composeChange(
     const mine = read.deps.filter(addable);
     for (const d of mine) addTable(d.id);
     for (const p of distinctProducers(mine, new Set(mine.map((d) => d.id)))) {
-      if (p.owned !== false && !held.workflows.has(p.id)) recipes.add(p.id);
+      if (p.owned !== false && !held.workflows.has(p.id)) {
+        recipes.add(p.id);
+        if (p.editRevision && !bases[`workflow:${p.id}`]) bases[`workflow:${p.id}`] = p.editRevision;
+      }
     }
   }
   for (const id of sel.workflows) {
@@ -170,6 +179,7 @@ export function composeChange(
   if (recipes.size) members.addRecipes = [...recipes];
   if (tables.size) members.addTables = [...tables];
   return {
+    bases,
     members,
     summary: {
       maps: sel.maps.size,

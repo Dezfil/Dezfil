@@ -3,10 +3,12 @@ import { serverUnreachable } from "../failure-copy";
 import type { Positions } from "./arrange";
 import type { CanvasGraph } from "./graph";
 import type { LayoutNote, LayoutRead } from "./placement";
-import { SaveQueue } from "./save-queue";
+import { WorkflowDocument } from "./workflow-document";
+import { fieldIntent } from "../document-sequence";
 
 /** What the frame shows while the layout or recipe is being stored. */
 export type SaveState =
+  | { kind: "stale" }
   | { kind: "saving" }
   | { kind: "saved" }
   | { kind: "failed"; message: string; retry: () => void };
@@ -63,7 +65,9 @@ export class LayoutSaveCoordinator implements LayoutSaves {
   private base: LayoutRead;
   private current: LayoutSavePorts;
   private latest: LayoutSnapshot | null = null;
-  private queue = new SaveQueue<LayoutSnapshot>();
+  private nextTicket = 0;
+  private intents = new Map<number, (accepted: LayoutSnapshot) => LayoutSnapshot>();
+  private pendingCount = 0;
   private dropped = new Set<string>();
   private droppedSteps = new Set<string>();
   private named = new Map<string, string>();
@@ -72,14 +76,16 @@ export class LayoutSaveCoordinator implements LayoutSaves {
     private readonly id: string,
     layout: LayoutRead,
     ports: LayoutSavePorts,
+    private document = new WorkflowDocument(id),
   ) {
     this.base = layout;
     this.current = ports;
+    this.document.layout ??= layout;
   }
 
   /** The latest document successfully read by the screen. */
   setLayout(layout: LayoutRead): void {
-    this.base = layout;
+    if (!this.document.stale && this.pendingCount === 0 && (!this.document.revision || layout.editRevision === this.document.revision)) this.base = layout;
   }
 
   /** The screen's latest graph and callbacks. */
@@ -87,10 +93,9 @@ export class LayoutSaveCoordinator implements LayoutSaves {
     this.current = ports;
   }
 
-  private send = async (first: LayoutSnapshot): Promise<void> => {
-    let snapshot: LayoutSnapshot | null = first;
-    while (snapshot) {
-      const doc = this.base;
+  private send = async (snapshot: LayoutSnapshot, ticket: number): Promise<void> => {
+      if (this.document.stale || this.document.disposed) { this.current.onState({ kind: "stale" }); return; }
+      const doc = this.document.layout ?? this.base;
       const steps: Record<string, { x: number; y: number }> = {};
       const sources: Record<string, { x: number; y: number }> = { ...doc.sources };
       for (const name of this.dropped) delete sources[name];
@@ -112,7 +117,7 @@ export class LayoutSaveCoordinator implements LayoutSaves {
       try {
         let response: Response;
         try {
-          response = await fetch(`/api/recipes/${this.id}/layout`, {
+          response = await this.document.send(`/api/recipes/${this.id}/layout`, {
             method: "PUT",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ steps, sources, notes: snapshot.notes }),
@@ -122,14 +127,13 @@ export class LayoutSaveCoordinator implements LayoutSaves {
         }
         if (!response.ok) throw new Error(await readApiError(response));
         this.base = ((await response.json()) as { layout: LayoutRead }).layout;
+        for (const pending of this.intents.keys()) if (pending <= ticket) this.intents.delete(pending);
         for (const name of this.dropped) if (!(name in this.base.sources)) this.dropped.delete(name);
         for (const sid of this.droppedSteps) if (!(sid in this.base.steps)) this.droppedSteps.delete(sid);
         this.current.onWritten?.(this.base);
-        snapshot = this.queue.landed();
-        if (!snapshot) this.current.onState({ kind: "saved" });
+        if (this.pendingCount === 1) this.current.onState({ kind: "saved" });
       } catch (e) {
-        snapshot = this.queue.landed();
-        if (snapshot) continue;
+        if (this.document.stale) { this.current.onState({ kind: "stale" }); return; }
         this.current.onState({
           kind: "failed",
           message: e instanceof Error ? e.message : "Couldn’t save",
@@ -143,13 +147,27 @@ export class LayoutSaveCoordinator implements LayoutSaves {
           },
         });
       }
-    }
   };
 
+  private snapshotOf(layout: LayoutRead): LayoutSnapshot {
+    return { positions: { ...layout.steps, ...Object.fromEntries(Object.entries(layout.sources).map(([name, position]) => [`src:${name}`, position])) }, notes: layout.notes };
+  }
   private write = (snapshot: LayoutSnapshot): void => {
+    if (this.document.disposed) return;
+    const before = this.latest ?? this.snapshotOf(this.base);
+    const ticket = ++this.nextTicket;
+    this.intents.set(ticket, fieldIntent(before, snapshot));
     this.latest = snapshot;
-    const now = this.queue.offer(snapshot);
-    if (now) void this.send(now);
+    this.document.draftLayout = snapshot;
+    this.pendingCount++;
+    void this.document.enqueue(async () => {
+      let next = this.snapshotOf(this.document.layout ?? this.base);
+      // Include unresolved predecessors; accepted changes have already
+      // retired and must not overwrite the server's returned layout.
+      for (const [pending, compose] of this.intents) if (pending <= ticket) next = compose(next);
+      try { await this.send(next, ticket); }
+      finally { this.pendingCount--; }
+    });
   };
 
   save = (snapshot: LayoutSnapshot): void => this.write(snapshot);
@@ -178,5 +196,5 @@ export class LayoutSaveCoordinator implements LayoutSaves {
     this.write(snapshot);
   };
 
-  pending = (): boolean => this.queue.busy;
+  pending = (): boolean => this.document.stale || this.pendingCount > 0;
 }

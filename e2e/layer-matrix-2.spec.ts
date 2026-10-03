@@ -160,11 +160,16 @@ test("icon and cluster: create → style → publish → read-back through the r
             { type: "grid", cellKm: 5, aggregate: { fn: "count" } },
           ],
         ] as const) {
-          const r = await fetch(`/api/layers/${id}`, {
+          const r = await (async function readThenWriteSetup() {
+const read = await fetch(`/api/layers/${id}`, { cache: "no-store" });
+if (!read.ok) throw new Error(await read.text());
+const shown = await read.json();
+return fetch(`/api/layers/${id}`, {
             method: "PATCH",
-            headers: { "content-type": "application/json" },
+            headers: { "X-Edit-Revision": shown.editRevision, "content-type": "application/json" },
             body: JSON.stringify({ viz }),
           });
+})();
           if (!r.ok) throw new Error(await r.text());
         }
       },

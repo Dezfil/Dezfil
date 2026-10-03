@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { AssistantRevisions } from "./edit-revisions";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { requireRequestAuth } from "@/lib/auth/http";
 import { instanceFetch } from "@/lib/auth/instance-fetch";
@@ -53,7 +55,7 @@ beforeEach(async () => {
   await writeFile(file, JSON.stringify({ type: "FeatureCollection", features: [{ type: "Feature", properties: { n: 1 }, geometry: { type: "Point", coordinates: [13.4, 52.5] } }] }));
   table = (await ingestFile(testAccountScope(), file, "pts.geojson")).name;
   mapId = createMap(testAccountScope(), "Auto").id;
-  layerId = (await createLayer(testAccountScope(), mapId, { name: "Points", sql: `SELECT * FROM ${table}` })).id;
+  layerId = (await createLayer(testAccountScope(), mapId, { name: "Points", sql: `SELECT * FROM ${table}` }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision })).id;
   const driver: RenderDriver = { launch: async () => ({ render: async (input) => {
     counts.renders += 1; counts.appearances.push(input.definition.appearance); counts.namesAtRender.push(mapWithLayers(testAccountScope(), mapId).name);
     return { png: FIXTURE, consumed: JSON.stringify({ map: mapId, layers: [{ id: layerId, filters: [] }], legend: { visible: true, corner: "bottom-left", order: [layerId] }, widgets: [], attribution: "", failures: [] }) };
@@ -79,7 +81,9 @@ const done = (events: AssistantEvent[]) => events.find((e): e is Extract<Assista
 function run(script: ScriptEntry[], context: AssistantContext | undefined, deps: Partial<LoopDeps> = {}) {
   const stub = stubProvider(script);
   const store = new PendingActionStore();
-  const loop: LoopDeps = { scope: testAccountScope(), baseUrl: origin, fetchImpl: instanceFetch(origin, requireRequestAuth(authenticatedRequest())), pending: store, stepBudget: 8, ...deps };
+  const revisions = new AssistantRevisions();
+  revisions.observe(`/api/maps/${mapId}`, mapWithLayers(testAccountScope(), mapId));
+  const loop: LoopDeps = { revisions, scope: testAccountScope(), baseUrl: origin, fetchImpl: instanceFetch(origin, requireRequestAuth(authenticatedRequest())), pending: store, stepBudget: 8, ...deps };
   return { stub, store, loop, start: (message = "go") => collect(runAssistant(stub, { message, history: [], context }, loop)) };
 }
 
@@ -327,8 +331,8 @@ describe("scheduling facts are the contextual map's", () => {
   });
   it("a layer change on another map schedules no picture of the unchanged contextual map", async () => {
     const other = createMap(testAccountScope(), "Other").id;
-    const otherLayer = (await createLayer(testAccountScope(), other, { name: "Elsewhere", sql: `SELECT * FROM ${table}` })).id;
-    const { start } = run([reply("", call("update_layer", { id: otherLayer, name: "Renamed elsewhere" })), reply("Renamed the other map's layer.")], builder());
+    const otherLayer = (await createLayer(testAccountScope(), other, { name: "Elsewhere", sql: `SELECT * FROM ${table}` }, { expectedRevision: readEditRevision({ kind: "map", id: other })?.editRevision })).id;
+    const { start } = run([reply("", call("get_layer", { id: otherLayer })), reply("", call("update_layer", { id: otherLayer, name: "Renamed elsewhere" })), reply("Renamed the other map's layer.")], builder());
     const { events } = await start();
     expect(events.some((e) => e.type === "tool_result" && e.tool === "update_layer" && e.ok)).toBe(true);
     expect(automatic(events)).toHaveLength(0);

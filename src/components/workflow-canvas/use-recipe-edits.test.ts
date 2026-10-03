@@ -7,6 +7,7 @@ import { readRecipe, runInverse, type OperationScreen } from "./history-operatio
 import { makeRecording } from "./history-recording";
 import type { SaveState } from "./use-layout-saves";
 import { RecipeEditor } from "./use-recipe-edits";
+import type { WorkflowListing } from "../workflow-model";
 
 /**
  * The continuation a failed change hands the frame's whisper, measured
@@ -126,15 +127,15 @@ describe("a change's Retry travels with the call (behaviours 5 and 7)", () => {
     const added = c.recording.edits.add({ operation: "buffer", parameters: { input: "points", distance: 50, name: "fresh" } });
     await c.w.settle();
     expect(c.w.pending("POST", `/api/recipes/${W}/steps`)).toHaveLength(1);
-    // The read answers: the inverse's PATCH goes out with the add still on the wire.
+    // The inverse waits for the accepted add on the same document.
     c.w.pending("GET", `/api/recipes/${W}`)[0].ok({ recipe: { steps: [reading("n1", { input: "points", distance: 200, name: "n1" })] } });
     await c.w.settle();
+    expect(c.w.pending("PATCH", `/api/recipes/${W}/steps/n1`)).toHaveLength(0);
+    c.w.pending("POST", `/api/recipes/${W}/steps`)[0].ok({ step: stepOf("fresh", { input: "points", distance: 50, name: "fresh" }, 1) });
+    await added; await c.w.settle();
     const inversePatch = c.w.pending("PATCH", `/api/recipes/${W}/steps/n1`);
     expect(inversePatch).toHaveLength(1);
     expect(inversePatch[0].body).toEqual({ parameters: { input: "points", distance: 100, name: "n1" } });
-    // The add lands, and is a step.
-    c.w.pending("POST", `/api/recipes/${W}/steps`)[0].ok({ step: stepOf("fresh", { input: "points", distance: 50, name: "fresh" }, 1) });
-    await added;
     expect(c.history().past.map((s) => s.label)).toEqual(["n1 edited", "buffer added"]);
     // The inverse's PATCH fails: the whisper offers Retry.
     inversePatch[0].cut();
@@ -282,5 +283,59 @@ describe("ordinary recipe Retry meets the canvas lock", () => {
     await c.w.settle();
     expect(c.said).toEqual([]);
     expect(c.history().past).toHaveLength(2);
+  });
+});
+
+
+describe("retrying a retained parameter intent", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it.each([false, true])("carries failed SQL through a later name edit (recorded: %s)", async (recorded) => {
+    const c = canvas();
+    const parameters = { sql: "SELECT 1", name: "n1" };
+    c.editor.document.install({ id: W, editRevision: "before", steps: [stepOf("n1", parameters)] } as unknown as WorkflowListing,
+      { steps: {}, sources: {}, notes: [], updatedAt: null, editRevision: "before" });
+    const edits = recorded ? c.recording.edits : c.editor;
+    const failed = edits.edit("n1", { ...parameters, sql: "SELECT 2" });
+    await c.w.settle();
+    c.w.pending("PATCH", `/api/recipes/${W}/steps/n1`)[0].cut();
+    expect((await failed).kind).toBe("failed");
+    expect(c.editor.drafts.get("n1")?.parameters.sql).toBe("SELECT 2");
+    expect(c.whispers.at(-1)?.kind).toBe("failed");
+
+    const next = { sql: "SELECT 2", name: "renamed" };
+    const renamed = edits.edit("n1", next);
+    await c.w.settle();
+    const save = c.w.pending("PATCH", `/api/recipes/${W}/steps/n1`)[0];
+    expect(save.body).toEqual({ parameters: next });
+    expect(save.headers.get("X-Edit-Revision")).toBe("before");
+    save.ok({ step: stepOf("n1", next), applied: "active", editRevision: "after" });
+    expect((await renamed).kind).toBe("accepted");
+    expect(c.editor.document.step("n1")?.parameters).toEqual(next);
+    expect(c.editor.document.revision).toBe("after");
+    expect(c.editor.drafts.get("n1")).toBeNull();
+    expect(c.whispers.at(-1)?.kind).toBe("saved");
+  });
+
+  it.each([false, true])("resends the failed SQL with an accepted predecessor (recorded: %s)", async (recorded) => {
+    const c = canvas();
+    const parameters = { sql: "SELECT 1", name: "n1" };
+    c.editor.document.install({ id: W, editRevision: "before", steps: [stepOf("n1", parameters)] } as unknown as WorkflowListing,
+      { steps: {}, sources: {}, notes: [], updatedAt: null, editRevision: "before" });
+    const edits = recorded ? c.recording.edits : c.editor;
+    const failed = edits.edit("n1", { ...parameters, sql: "SELECT 2" });
+    await c.w.settle();
+    c.w.pending("PATCH", `/api/recipes/${W}/steps/n1`)[0].cut();
+    expect((await failed).kind).toBe("failed");
+    expect(c.editor.drafts.get("n1")?.parameters.sql).toBe("SELECT 2");
+    c.retryOffered()!();
+    await c.w.settle();
+    const retry = c.w.pending("PATCH", `/api/recipes/${W}/steps/n1`)[0];
+    expect(retry.body).toEqual({ parameters: { ...parameters, sql: "SELECT 2" } });
+    expect(retry.headers.get("X-Edit-Revision")).toBe("before");
+    retry.ok({ step: stepOf("n1", { ...parameters, sql: "SELECT 2" }), applied: "active", editRevision: "after" });
+    await c.editor.idle();
+    expect(c.editor.document.step("n1")?.parameters.sql).toBe("SELECT 2");
+    expect(c.editor.drafts.get("n1")).toBeNull();
+    expect(c.whispers.at(-1)?.kind).toBe("saved");
   });
 });

@@ -1,3 +1,5 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
+import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Page } from "@playwright/test";
 import { isAllowedConsoleError } from "./console-allowlist";
 import { seedCsv, trackConsole } from "./support";
@@ -25,18 +27,18 @@ type Run = { id: string; outcome: string | null; members: { stepId: string; stat
 // The engine's own endless statement (its cascade tests hold the lane with it).
 const ENDLESS = "SELECT count(*) AS n FROM range(200000) a, range(200000) b WHERE (a.range * b.range) % 7 = 3";
 
-async function api(page: Page, method: string, path: string, body?: unknown): Promise<{ status: number; json: Json }> {
+async function api(page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<{ status: number; json: Json }> {
   return page.evaluate(
-    async ({ method, path, body }) => {
-      const r = await fetch(path, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+    async ({ method, path, body, basis }) => {
+      const r = await fetch(path, { method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
       const text = await r.text();
       return { status: r.status, json: text ? (JSON.parse(text) as Record<string, unknown>) : {} };
     },
-    { method, path, body },
+    { method, path, body, basis },
   );
 }
-const ok = async (page: Page, method: string, path: string, body?: unknown): Promise<Json> => {
-  const r = await api(page, method, path, body);
+const ok = async (page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<Json> => {
+  const r = await api(page, method, path, body, basis);
   if (r.status >= 400) throw new Error(`${method} ${path} → ${r.status}: ${JSON.stringify(r.json)}`);
   return r.json;
 };
@@ -47,21 +49,21 @@ const newRecipe = async (page: Page, name: string) => {
   return id;
 };
 const addSql = async (page: Page, id: string, sql: string, name: string) =>
-  ((await ok(page, "POST", `/api/recipes/${id}/steps`, { operation: "sql_step", parameters: { sql, name } })).step as { id: string }).id;
+  ((await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps`, body: { operation: "sql_step", parameters: { sql, name } } })).then(result => result.json)).step as { id: string }).id;
 const inspect = async (page: Page, name: string) => (await ok(page, "GET", `/api/tables/${encodeURIComponent(name)}`)) as unknown as Inspection;
 const features = async (page: Page, name: string) => (await ok(page, "GET", `/api/tables/${encodeURIComponent(name)}/features?sample=1`)) as unknown as Features;
 const listRuns = async (page: Page, id: string) => (await ok(page, "GET", `/api/recipes/${id}/runs`)).runs as Run[];
 const runAll = async (page: Page, id: string) => {
-  const run = (await ok(page, "POST", `/api/recipes/${id}/runs`, {})).run as Run;
+  const run = (await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/runs`, body: {} })).then(result => result.json)).run as Run;
   await expect.poll(async () => (await listRuns(page, id)).find((r) => r.id === run.id)?.outcome, { timeout: 60_000 }).not.toBeNull();
   return run.id;
 };
 const runOne = async (page: Page, id: string, stepId: string) => {
-  const run = (await ok(page, "POST", `/api/recipes/${id}/steps/${stepId}/run`, {})).run as Run;
+  const run = (await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps/${stepId}/run`, body: {} })).then(result => result.json)).run as Run;
   await expect.poll(async () => (await listRuns(page, id)).find((r) => r.id === run.id)?.outcome, { timeout: 60_000 }).not.toBeNull();
   return run.id;
 };
-const propose = async (page: Page, id: string, stepId: string, parameters: Json) => ok(page, "PATCH", `/api/recipes/${id}/steps/${stepId}`, { parameters });
+const propose = async (page: Page, id: string, stepId: string, parameters: Json) => readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "PATCH", path: `/api/recipes/${id}/steps/${stepId}`, body: { parameters } })).then(result => result.json);
 
 async function settled(page: Page) {
   await expect(page.locator("[data-workflow-canvas]")).toBeVisible();
@@ -334,10 +336,14 @@ test("the selection, the lead and facts, the grid, the map, the provenance, the 
   });
 
   await test.step("after a re-run succeeds the grid shows the new rows without a reload", async () => {
+    await propose(page, id, a, { sql: `SELECT * FROM ${stations} WHERE riders > 9500`, name: aName });
+    // The headless proposal is another writer. Open its revision before
+    // running, then require the mounted grid to renew without another reload.
+    await page.reload();
+    await settled(page);
     await selectNode(page, aName);
     await tab(page, "Data").click();
     await expect(page.locator("[data-band-data] table tbody tr")).toHaveCount(3);
-    await propose(page, id, a, { sql: `SELECT * FROM ${stations} WHERE riders > 9500`, name: aName });
     // The panel's own Run again lands the run through the canvas's runner, which renews the reads.
     await page.locator("[data-node-panel]").getByRole("button", { name: "Run again" }).click();
     await expect(page.locator("[data-band-data] table tbody tr")).toHaveCount(2, { timeout: 60_000 });

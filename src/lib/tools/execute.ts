@@ -52,6 +52,7 @@ export function elideAttachment(body: unknown): unknown {
   const { content_base64, ...meta } = body.attachment;
   void content_base64;
   return {
+    ...body,
     attachment: {
       ...meta,
       content_base64:
@@ -89,6 +90,8 @@ export async function executeTool(
   const { url, init } = request;
 
   const res = await fetchImpl(url, init);
+  // Only operations documented as bodyless use 204. Covered write results
+  // carry their revision in JSON, preserved below for every tool consumer.
   if (res.status === 204) return { status: 204, ok: true, body: null };
   const contentType = res.headers.get("content-type") ?? "";
   const disposition = res.headers.get("content-disposition") ?? "";

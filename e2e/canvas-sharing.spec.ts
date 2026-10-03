@@ -1,3 +1,4 @@
+import { readThenWriteRequestSetup } from "./edit-basis";
 // An Editor's own dataset on the owner's workflow: Ada's workflow reads her
 // `roads` by its plain name; Bo, an Editor of the project, owns a `roads` of
 // his own. On her canvas the pane lists both apart, marks only hers as on
@@ -23,7 +24,7 @@ test("an Editor's own same-named dataset lands on the owner's workflow as theirs
     } } });
     expect(uploaded.status()).toBe(201);
     const recipe = (await (await ada.api.post("/api/recipes", { data: { name: `Staging ${tag}` } })).json()).recipe.id as string;
-    const step = await ada.api.post(`/api/recipes/${recipe}/steps`, { data: { operation: "sql_step", parameters: { name: `staged_${tag}`, sql: `SELECT * FROM ${roads}` } } });
+    const step = await readThenWriteRequestSetup(ada.api, `/api/recipes/${recipe}`, () => ({ method: "POST", path: `/api/recipes/${recipe}/steps`, options: { data: { operation: "sql_step", parameters: { name: `staged_${tag}`, sql: `SELECT * FROM ${roads}` } } } }));
     expect(step.status()).toBe(201);
     const projectId = await createProject(ada, `Staging ${tag}`, { addRecipes: [recipe], addTables: [hers.id] });
     await share(ada, projectId, bo, "editor");

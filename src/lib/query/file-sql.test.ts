@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -100,10 +101,10 @@ it("keeps safe name discovery, expressions, CTEs and dynamic dataset SQL", async
 it("refuses saved file SQL without changing its persisted text or publication", async () => {
  const { createMap } = await import("@/lib/map-service"); const { createLayer } = await import("@/lib/layer-service");
  const { publishMap, getPublishedView, resetPublishCache } = await import("@/lib/publish/publish-service");
- const map = createMap(scope(), "Saved file query"), layer = await createLayer(scope(), map.id, { name: "Roads", sql: "SELECT * FROM roads" });
+ const map = createMap(scope(), "Saved file query"), layer = await createLayer(scope(), map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
  const sql = `SELECT * FROM read_parquet(${lit(path.join(directory, scopedDatasets(scope())[0].file))})`;
  metadataDb().prepare("UPDATE layers SET sql = ? WHERE id = ?").run(sql, layer.id);
- const { token } = publishMap(scope(), map.id); resetPublishCache();
+ const { token } = publishMap(scope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }); resetPublishCache();
  const view = await getPublishedView(token, Date.now());
  expect(view?.layers[0]).toMatchObject({ render: { error: { code: "sql_rejected" } } });
  expect(metadataDb().prepare("SELECT sql FROM layers WHERE id = ?").get(layer.id)).toEqual({ sql });
@@ -129,7 +130,7 @@ it.each(["reader", "projection"])("refuses %s file SQL through every private SQL
  const { searchValues } = await import("@/lib/search/value-search");
  const { exportLayerResult, exportQueryResult } = await import("@/lib/export/layer-export");
  const { materialize } = await import("@/lib/operations/materialize");
- const map = createMap(scope(), "Consumers"), layer = await createLayer(scope(), map.id, { name: "Roads", sql: "SELECT * FROM roads" });
+ const map = createMap(scope(), "Consumers"), layer = await createLayer(scope(), map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
  const sql = `SELECT * FROM read_parquet(${lit(path.join(directory, scopedDatasets(scope())[0].file))})`;
  const consumerSql = kind === "projection" ? "SELECT ST_Transform(geometry, '+init=private-projection:local +type=crs', 'EPSG:4326', true) AS geometry, sentinel FROM roads" : sql;
  const saved = { ...layer, sql: consumerSql };
@@ -138,7 +139,7 @@ it.each(["reader", "projection"])("refuses %s file SQL through every private SQL
   () => sliderPreviewData(scope(), saved), () => classifyFill(scope(), consumerSql, "sentinel", "categorical"),
   () => exportLayerResult(scope(), saved, "csv"), () => exportQueryResult(scope(), consumerSql, "csv"),
   () => materialize(scope(), { name: "denied", sql: consumerSql, operation: "sql_step" }),
-  () => createLayer(scope(), map.id, { name: "File query", sql: consumerSql }),
+  () => createLayer(scope(), map.id, { name: "File query", sql: consumerSql }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
  ]) await expect(result()).rejects.toMatchObject({ code: "sql_rejected" });
  expect(await renderLayer(scope(), saved)).toMatchObject({ ok: false, error: { code: "sql_rejected" } });
  await expect(layerExtent(scope(), saved)).rejects.toMatchObject({ code: "sql_rejected" });

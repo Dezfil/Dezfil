@@ -1,3 +1,4 @@
+import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
 import type { DatasetScope } from "@/lib/query/access";
 import type { AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
@@ -55,12 +56,14 @@ async function strictReads(scope: DatasetScope, step: StepDefinition): Promise<s
   return [...inputs.tables.map((name) => [name]), ...(inputs.external ?? []).map((written) => qualifiedNameParts(written) ?? [written])];
 }
 
-export async function workflowDependencies(
+export async function readWorkflowDependencies(
   scope: AccountScope,
   recipeId: string,
-): Promise<WorkflowDependency[]> {
-  requireRecipe(scope, recipeId);
-  const steps = listSteps(scope, recipeId);
+): Promise<DocumentFacts & { datasets: WorkflowDependency[] }> {
+  const { steps, facts } = metadataDb().transaction(() => {
+    requireRecipe(scope, recipeId);
+    return { steps: listSteps(scope, recipeId), facts: documentFacts({ kind: "workflow", id: recipeId }) };
+  })();
 
   // Every name binds in the workflow's home within the reader's reach, the
   // workflow's own outputs as the reader would run them: never a same-named
@@ -102,5 +105,9 @@ export async function workflowDependencies(
     }
   }
   requireRecipe(scope, recipeId);
-  return [...found.values()].sort((a, b) => a.qualifiedName.localeCompare(b.qualifiedName));
+  return { ...facts, datasets: [...found.values()].sort((a, b) => a.qualifiedName.localeCompare(b.qualifiedName)) };
+}
+
+export async function workflowDependencies(scope: AccountScope, recipeId: string): Promise<WorkflowDependency[]> {
+  return (await readWorkflowDependencies(scope, recipeId)).datasets;
 }

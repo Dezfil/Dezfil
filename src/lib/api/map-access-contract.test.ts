@@ -1,3 +1,4 @@
+import { resourceOperations } from "../../../test-support/api-route-inventory";
 import { expect, it } from "vitest";
 import { buildOpenApiDocument } from "./openapi";
 import { buildTools } from "@/lib/tools/tools";
@@ -6,7 +7,7 @@ it("documents the map reach boundary on map operations and generated tools", () 
   const document = buildOpenApiDocument() as unknown as { paths: Record<string, Record<string, { description: string; responses: Record<string, unknown> }>> };
   for (const path of ["/api/maps", "/api/maps/{id}", "/api/maps/{id}/duplicate", "/api/maps/{id}/publish",
     "/api/maps/{id}/dependencies", "/api/maps/{id}/history", "/api/maps/{id}/undo", "/api/maps/{id}/redo", "/api/maps/look", "/api/maps/{id}/export/image"]) {
-    for (const operation of Object.values(document.paths[path])) {
+    for (const operation of resourceOperations(document.paths[path])) {
       expect(operation.description, path).toContain("A map is reached by its owner and, while it is filed in a project, by that project's owner and people.");
       expect(operation.description, path).toContain("name each map's owner and SQL home");
       expect(operation.description, path).toContain("SQL anyone but the owner saves, directly or by undo and redo, must name only datasets within their own reach in the map's home");

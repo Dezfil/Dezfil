@@ -110,6 +110,7 @@ export function DrawerContents({
     void authoring
       .author({
         recipeId: recipe?.id ?? target,
+        recipe,
         recipeName: originLayer ? `Analysis of ${originLayer.name}` : "Recipe",
         step,
         // Bound as soon as it exists, so a failure and a retry join the same

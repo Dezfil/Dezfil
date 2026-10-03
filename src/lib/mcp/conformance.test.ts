@@ -31,9 +31,9 @@ it('real publication, sketch and prepared/binary export branches conform to the 
   const project = await call('create_project', { name: 'Conformance' });
   const map = await call('create_map', { name: 'Conformance', projectId: project.id });
   expect(await call('get_publication_state', { id: map.id })).toBeNull();
-  const publication = await call('publish_map', { id: map.id });
+  const publication = await call('publish_map', { id: map.id, expected_revision: map.editRevision });
   expect(await call('get_publication_state', { id: map.id })).toMatchObject({ token: publication.token });
-  const sketch = await call('create_sketch', { id: map.id, feature: {
+  const sketch = await call('create_sketch', { id: map.id, expected_revision: publication.editRevision, feature: {
     kind: 'polygon', geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] },
   } });
   expect(await call('move_sketch_vertex', { name: sketch.table, featureId: sketch.featureId, vertexIndex: 1, position: [0.5, 0] })).toEqual({ rowCount: 1 });

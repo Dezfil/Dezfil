@@ -54,7 +54,10 @@ describe("tool parity", () => {
     // endpoint. The settle-lane renders and published widget values are viewer
     // mechanics: agents read widget values through read_widget_values on the
     // map.
-    const excluded = documentedOperations()
+    const automatic = documentedOperations().filter(o => ["head", "options"].includes(o.method));
+    expect(automatic.length).toBeGreaterThan(0);
+    for (const operation of automatic) expect(operation.tool).toBe(false);
+    const excluded = documentedOperations().filter(o => !["head", "options"].includes(o.method))
       .filter((o) => o.tool === false)
       .map((o) => `${o.method.toUpperCase()} ${o.path}`)
       .sort();
@@ -469,7 +472,7 @@ describe("executeTool", () => {
       new Response(null, { status: 204 })) as typeof fetch;
     const result = await executeTool(
       tools.get("delete_map")!,
-      { id: "m1" },
+      { id: "m1", expected_revision: "0".repeat(32) },
       "http://localhost:3000",
       noContent,
     );

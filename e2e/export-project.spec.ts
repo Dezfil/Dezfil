@@ -1,3 +1,5 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
+import type { EditBasis } from "../src/lib/edit-basis";
 // The 16-C project export: the three openers, the two steps' exact
 // forms, the review tree with its display-only truncation, the
 // prepare-then-redeem download, and the archive's truth re-proven end
@@ -28,19 +30,19 @@ const OUT = `ep_out_${runId}`;
 
 const CSV = "name,lng,lat\nBuoy,7.10,53.52\n";
 
-const api = (page: Page, method: string, pathName: string, body?: unknown) =>
+const api = (page: Page, method: string, pathName: string, body?: unknown, basis?: EditBasis) =>
   page.evaluate(
-    async ({ method, pathName, body }) => {
+    async ({ method, pathName, body, basis }) => {
       const r = await fetch(pathName, {
         method,
-        headers: body ? { "content-type": "application/json" } : undefined,
+        headers: { ...(body ? { "content-type": "application/json" } : undefined), ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) },
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!r.ok && r.status !== 204) throw new Error(await r.text());
       const text = r.status === 204 ? "" : await r.text();
       return text ? (JSON.parse(text) as unknown) : null;
     },
-    { method, pathName, body },
+    { method, pathName, body, basis },
   );
 
 /** Six spatial identities, seeded independently of any classifier: the
@@ -193,12 +195,12 @@ test("the 16-C export end to end", async ({ page, context }) => {
       ["alpha", T_A],
       ["beta", T_SHARED],
     ] as const) {
-      await api(page, "POST", `/api/maps/${m1}/layers`, {
+      await readThenWriteBrowserSetup(page, `/api/maps/${m1}`, () => ({ method: "POST", path: `/api/maps/${m1}/layers`, body: {
         name: layer,
         sql: `SELECT * FROM ${src}`,
-      });
+      } }));
     }
-    await api(page, "POST", `/api/maps/${m1}/publish`);
+    await readThenWriteBrowserSetup(page, `/api/maps/${m1}`, () => ({ method: "POST", path: `/api/maps/${m1}/publish` })).then(result => result.json);
     // The same-named second map: the collision case.
     await api(page, "POST", "/api/maps", { name: MAP1, projectId: pe });
     // The workflow, filed in PE; its run's output joins PE at commit.
@@ -208,11 +210,11 @@ test("the 16-C export end to end", async ({ page, context }) => {
         projectId: pe,
       })) as { recipe: { id: string } }
     ).recipe.id;
-    await api(page, "POST", `/api/recipes/${wf}/steps`, {
+    await readThenWriteBrowserSetup(page, `/api/recipes/${wf}`, () => ({ method: "POST", path: `/api/recipes/${wf}/steps`, body: {
       operation: "sql_step",
       parameters: { sql: `SELECT * FROM ${T_A}`, name: OUT },
-    });
-    await api(page, "POST", `/api/recipes/${wf}/runs`);
+    } })).then(result => result.json);
+    await readThenWriteBrowserSetup(page, `/api/recipes/${wf}`, () => ({ method: "POST", path: `/api/recipes/${wf}/runs` })).then(result => result.json);
     await expect
       .poll(
         async () =>

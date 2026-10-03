@@ -1,3 +1,4 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
 // The note in the transcript (of inside turn presentation): one line among
 // the turn's action lines, live and settled, with the 44 px thumbnail read
 // from the retained image and the observation's displayed sentence
@@ -201,7 +202,7 @@ test.describe("a failed check", () => {
     const { mapId, layerId } = await seed(page);
     await onBuilder(page, mapId);
     // The stub's failure sentinel is a map whose name carries "[render-fails]".
-    await api(page, "PATCH", `/api/maps/${mapId}`, { name: `turn ${runId} [render-fails]` });
+    await readThenWriteBrowserSetup(page, `/api/maps/${mapId}`, () => ({ method: "PATCH", path: `/api/maps/${mapId}`, body: { name: `turn ${runId} [render-fails]` } }));
     scriptCheckedTurn(layerId, "Failed", { text: "This would have been the observation." });
     const run = await sendAndIdentify(page, "Rename the layer");
     await settled(page, run);

@@ -317,10 +317,10 @@ test("reset reveals only while manual, returns the follow, and the move undoes",
   await expect(reset).toBeVisible();
 
   // One undo takes the move back; one redo restores it.
-  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await page.getByRole("button", { name: /^Undo/ }).click();
   await expect.poll(() => storedOrder(page, mapId)).toBeNull();
   await expect(reset).toHaveCount(0);
-  await page.getByRole("button", { name: "Redo", exact: true }).click();
+  await page.getByRole("button", { name: /^Redo/ }).click();
   await expect
     .poll(() => storedOrder(page, mapId))
     .toEqual([ids.Beta, ids.Gamma, ids.Alpha]);
@@ -337,7 +337,7 @@ test("reset reveals only while manual, returns the follow, and the move undoes",
   // reset is its own history gesture — ungrouped, the two
   // writes above would coalesce into one null→null step and this undo
   // would restore nothing.
-  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await page.getByRole("button", { name: /^Undo/ }).click();
   await expect
     .poll(() => storedOrder(page, mapId))
     .toEqual([ids.Beta, ids.Gamma, ids.Alpha]);

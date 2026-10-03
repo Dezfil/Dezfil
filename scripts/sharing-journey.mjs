@@ -6,6 +6,7 @@
 // instance must have been started with OPENAI_API_KEY set to any value,
 // DEZFIL_AI_PROVIDER=openai and OPENAI_BASE_URL=http://127.0.0.1:<port>/v1.
 import assert from 'node:assert/strict';
+import { captureBasis } from './revision-fixtures.mjs';
 import { randomUUID } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -88,8 +89,8 @@ async function settle(api, recipeId, runId) {
   }
 }
 
-async function runWorkflow(api, recipeId) {
-  const started = expectStatus(await api('POST', `/api/recipes/${recipeId}/runs`, { body: {} }), 202, 'run the workflow').run;
+async function runWorkflow(api, recipeId, basis) {
+  const started = expectStatus(await api('POST', `/api/recipes/${recipeId}/runs`, { body: {}, basis }), 202, 'run the workflow').run;
   const run = await settle(api, recipeId, started.id);
   assert.equal(run.outcome, 'completed', JSON.stringify(run));
   return run;
@@ -196,25 +197,31 @@ export async function seedSharing(base) {
     'nia.roads': await upload(nia, 'roads', 'nia_roads'),
   };
   const recipe = expectStatus(await ada('POST', '/api/recipes', { body: { name: 'Staging' } }), 201).recipe;
-  expectStatus(await ada('POST', `/api/recipes/${recipe.id}/steps`, { body: {
+  const staged = expectStatus(await ada('POST', `/api/recipes/${recipe.id}/steps`, { basis: captureBasis(recipe), body: {
     operation: 'sql_step', parameters: { name: 'roads_out', sql: 'SELECT * FROM roads' },
   } }), 201);
-  await runWorkflow(ada, recipe.id);
+  await runWorkflow(ada, recipe.id, captureBasis(staged));
   tables['ada.roads_out'] = expectStatus(await ada('GET', '/api/tables/roads_out'), 200);
   const map = expectStatus(await ada('POST', '/api/maps', { body: { name: 'Survey' } }), 201);
-  const layer = async (api, name, sql) => expectStatus(await api('POST', `/api/maps/${map.id}/layers`, { body: { name, sql } }), 201, `layer ${name}`);
+  let layerBasis = captureBasis(map);
+  const layer = async (api, name, sql) => {
+    const created = expectStatus(await api('POST', `/api/maps/${map.id}/layers`, { body: { name, sql }, basis: layerBasis }), 201, `layer ${name}`);
+    layerBasis = captureBasis(created);
+    return created;
+  };
   const layers = {
     roads: (await layer(ada, 'Roads', 'SELECT * FROM roads')).id,
     rivers: (await layer(ada, 'Rivers', 'SELECT * FROM rivers')).id,
     output: (await layer(ada, 'Output', 'SELECT * FROM roads_out')).id,
   };
   const hiddenMap = expectStatus(await ada('POST', '/api/maps', { body: { name: 'Private' } }), 201);
-  expectStatus(await ada('POST', `/api/maps/${hiddenMap.id}/layers`, { body: { name: 'Parks', sql: 'SELECT * FROM parks' } }), 201);
+  expectStatus(await ada('POST', `/api/maps/${hiddenMap.id}/layers`, { basis: captureBasis((await ada('GET', `/api/maps/${hiddenMap.id}`)).json), body: { name: 'Parks', sql: 'SELECT * FROM parks' } }), 201);
   const project = expectStatus(await ada('POST', '/api/projects', { body: { name: 'Survey', members: {
+    expectedRevisions: { [`map:${map.id}`]: captureBasis((await ada('GET', `/api/maps/${map.id}`)).json).editRevision, [`workflow:${recipe.id}`]: captureBasis((await ada('GET', `/api/recipes/${recipe.id}`)).json).editRevision },
     addMaps: [map.id], addRecipes: [recipe.id],
     addTables: [tables['ada.roads'].id, tables['ada.rivers'].id, tables['ada.roads_out'].id],
   } } }), 201);
-  const publication = expectStatus(await ada('POST', `/api/maps/${map.id}/publish`), 201).token;
+  const publication = expectStatus(await ada('POST', `/api/maps/${map.id}/publish`, { basis: captureBasis((await ada('GET', `/api/maps/${map.id}`)).json) }), 201).token;
 
   // Sharing: the person picker finds by name and by exact email, name and SQL name only.
   const byName = expectStatus(await ada('GET', '/api/accounts/search?q=VI'), 200).accounts;
@@ -258,9 +265,10 @@ export async function seedSharing(base) {
   assert.equal(await snapshot(), before, 'every refused viewer write left the store as it was');
 
   // The Editor edits the map, runs the workflow and files and draws their own dataset.
-  expectStatus(await eli('PATCH', `/api/maps/${map.id}`, { body: { name: 'Survey, edited' } }), 200, 'editor renames the map');
+  const renameBasis = captureBasis(expectStatus(await eli('GET', `/api/maps/${map.id}`), 200));
+  expectStatus(await eli('PATCH', `/api/maps/${map.id}`, { basis: renameBasis, body: { name: 'Survey, edited' } }), 200, 'editor renames the map');
   const ownerOutput = expectStatus(await ada('GET', `/api/tables/${tables['ada.roads_out'].id}`), 200);
-  await runWorkflow(eli, recipe.id);
+  await runWorkflow(eli, recipe.id, captureBasis((await eli('GET', `/api/recipes/${recipe.id}`)).json));
   const editorOutput = expectStatus(await eli('GET', '/api/tables/roads_out'), 200);
   assert.equal(editorOutput.owner.sqlName, 'eli', 'the Editor\'s run output is the Editor\'s own dataset');
   assert.notEqual(editorOutput.id, ownerOutput.id);
@@ -275,11 +283,18 @@ export async function seedSharing(base) {
     'the owner\'s map still draws the owner\'s output, never the Editor\'s');
   assert.deepEqual(await drawn(ada, layers.output), ['ada_roads']);
   expectStatus(await eli('PATCH', `/api/projects/${project.id}/members`, { body: { addTables: [tables['eli.roads'].id] } }), 200, 'editor files own dataset');
+  // The Editor opens the map after filing, publication and the rename.
+  const editorMap = expectStatus(await eli('GET', `/api/maps/${map.id}`), 200);
+  const ownerMap = expectStatus(await ada('GET', `/api/maps/${map.id}`), 200);
+  assert.equal(editorMap.editRevision, ownerMap.editRevision, 'owner and Editor read the same document revision');
+  assert.equal(expectStatus(await eli('GET', '/api/maps'), 200).find(item => item.id === map.id).editRevision,
+    editorMap.editRevision, 'the listing and document carry the same revision');
+  layerBasis = captureBasis(editorMap);
   layers.editor = (await layer(eli, 'Eli roads', 'SELECT * FROM eli.roads')).id;
   for (const api of [eli, ada, vic]) assert.deepEqual(await drawn(api, layers.editor), ['eli_roads']);
   const layersBefore = expectStatus(await ada('GET', `/api/maps/${map.id}`), 200).layers.map(l => l.id);
-  book.refused('editor: save SQL naming the owner\'s unfiled dataset', await eli('POST', `/api/maps/${map.id}/layers`, { body: { name: 'Parks', sql: 'SELECT * FROM parks' } }), 400, unavailable('parks'));
-  book.refused('editor: save SQL naming a dataset that never existed', await eli('POST', `/api/maps/${map.id}/layers`, { body: { name: 'Nothing', sql: 'SELECT * FROM never_imported' } }), 400, unavailable('never_imported'));
+  book.refused('editor: save SQL naming the owner\'s unfiled dataset', await eli('POST', `/api/maps/${map.id}/layers`, { basis: captureBasis((await eli('GET', `/api/maps/${map.id}`)).json), body: { name: 'Parks', sql: 'SELECT * FROM parks' } }), 400, unavailable('parks'));
+  book.refused('editor: save SQL naming a dataset that never existed', await eli('POST', `/api/maps/${map.id}/layers`, { basis: captureBasis((await eli('GET', `/api/maps/${map.id}`)).json), body: { name: 'Nothing', sql: 'SELECT * FROM never_imported' } }), 400, unavailable('never_imported'));
   assert.deepEqual(expectStatus(await ada('GET', `/api/maps/${map.id}`), 200).layers.map(l => l.id), layersBefore, 'refused saves added nothing');
   const publicationWrites = [
     ['change the published fields', 'PATCH', `/api/layers/${layers.roads}`, { publishedFields: [] }],
@@ -306,7 +321,7 @@ export async function seedSharing(base) {
   await linkHolds(base, state, 'before the transfer');
 
   // Transfers: the map to the Editor, then the project; nothing rebinds.
-  const handedMap = expectStatus(await ada('POST', `/api/maps/${map.id}/transfer`, { body: { to: 'eli' } }), 200, 'transfer the map');
+  const handedMap = expectStatus(await ada('POST', `/api/maps/${map.id}/transfer`, { basis: captureBasis((await ada('GET', `/api/maps/${map.id}`)).json), body: { to: 'eli' } }), 200, 'transfer the map');
   assert.equal(handedMap.owner.sqlName ?? handedMap.owner, 'eli');
   await linkHolds(base, state, 'after the map\'s transfer');
   expectStatus(await ada('POST', `/api/projects/${project.id}/transfer`, { body: { to: 'eli' } }), 200, 'transfer the project');
@@ -340,7 +355,8 @@ export async function seedSharing(base) {
   book.absent('admin: membership of a frozen project', await adminApi('PUT', `/api/projects/${project.id}/people/vic`, { body: { role: 'editor' } }),
     await adminApi('PUT', `/api/projects/${missing}/people/vic`, { body: { role: 'editor' } }));
   await setStatus('eli', 'active');
-  expectStatus(await ada('PATCH', `/api/maps/${map.id}`, { body: { name: 'Survey, edited' } }), 200, 'reactivation restores the editor\'s edit');
+  const reactivatedBasis = captureBasis(expectStatus(await ada('GET', `/api/maps/${map.id}`), 200));
+  expectStatus(await ada('PATCH', `/api/maps/${map.id}`, { basis: reactivatedBasis, body: { name: 'Survey, edited' } }), 200, 'reactivation restores the editor\'s edit');
   // Deactivation ended their sessions: everyone signs in afresh for the verify run.
   for (const name of ['eli', 'vic']) people[name] = await signIn(base, name);
   return { ...state, seedRefusals: book.refusals };

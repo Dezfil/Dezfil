@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -57,9 +59,9 @@ describe("maps", () => {
     const map = createMap(testAccountScope(), "Transit");
     expect(allMaps(testAccountScope()).map((m) => m.id)).toContain(map.id);
     expect(mapWithLayers(testAccountScope(), map.id).name).toBe("Transit");
-    updateMap(testAccountScope(), map.id, { name: "Transit v2" });
+    updateMap(testAccountScope(), map.id, { name: "Transit v2" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).name).toBe("Transit v2");
-    await removeMap(testAccountScope(), map.id);
+    await removeMap(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(allMaps(testAccountScope())).toEqual([]);
   });
 
@@ -68,7 +70,7 @@ describe("maps", () => {
     await createLayer(testAccountScope(), map.id, {
       name: "Stations",
       sql: "SELECT * FROM stations",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const overview = mapsOverview(testAccountScope()).find((m) => m.id === map.id);
     expect(overview?.layerCount).toBe(1);
     expect(overview?.layerColors).toHaveLength(1);
@@ -85,12 +87,12 @@ describe("maps", () => {
         pitch: 0,
         bearing: 0,
       },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "Stations",
       sql: "SELECT * FROM stations",
-    });
-    publishMap(testAccountScope(), map.id);
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     // The custom icon markup rides the copied viz whole.
     await updateLayer(testAccountScope(), layer.id, {
@@ -100,7 +102,7 @@ describe("maps", () => {
         customSvg:
           '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 4"><path d="M0 0h4"/></svg>',
       },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
 
     const copy = duplicateMap(testAccountScope(), map.id);
     expect(copy.name).toBe("Original copy");
@@ -133,7 +135,7 @@ describe("maps", () => {
     const map = createMap(testAccountScope(), "m");
     updateMap(testAccountScope(), map.id, {
       viewport: { lng: 13.4, lat: 52.5, zoom: 11, pitch: 45, bearing: -15 },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).viewport).toEqual({
       lng: 13.4,
       lat: 52.5,
@@ -146,9 +148,9 @@ describe("maps", () => {
   it("persists the basemap choice; null means deployment default", () => {
     const map = createMap(testAccountScope(), "m");
     expect(mapWithLayers(testAccountScope(), map.id).basemap).toBeNull();
-    updateMap(testAccountScope(), map.id, { basemap: "light" });
+    updateMap(testAccountScope(), map.id, { basemap: "light" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).basemap).toBe("light");
-    updateMap(testAccountScope(), map.id, { basemap: null });
+    updateMap(testAccountScope(), map.id, { basemap: null }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(mapWithLayers(testAccountScope(), map.id).basemap).toBeNull();
   });
 });
@@ -159,7 +161,7 @@ describe("layers as source of truth", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "stations",
       sql: "SELECT * FROM stations",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(layer.style.fill.type).toBe("constant");
     expect(layer.visible).toBe(true);
     expect(layer.tooltip).toBeNull();
@@ -170,8 +172,8 @@ describe("layers as source of truth", () => {
   it("cycles default layer colors by creation order (kepler cycle)", async () => {
     const map = createMap(testAccountScope(), "m");
     const sql = "SELECT * FROM stations";
-    const first = await createLayer(testAccountScope(), map.id, { name: "a", sql });
-    const second = await createLayer(testAccountScope(), map.id, { name: "b", sql });
+    const first = await createLayer(testAccountScope(), map.id, { name: "a", sql }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    const second = await createLayer(testAccountScope(), map.id, { name: "b", sql }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const fill = (l: typeof first) =>
       l.style.fill.type === "constant" ? l.style.fill.color : null;
     expect(fill(first)).toMatchObject(
@@ -187,15 +189,15 @@ describe("layers as source of truth", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "stations",
       sql: "SELECT * FROM stations",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await updateLayer(testAccountScope(), layer.id, {
       tooltip: ["name", "riders"],
       inLegend: false,
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const read = requireLayer(testAccountScope(), layer.id);
     expect(read.tooltip).toEqual(["name", "riders"]);
     expect(read.inLegend).toBe(false);
-    await updateLayer(testAccountScope(), layer.id, { tooltip: null });
+    await updateLayer(testAccountScope(), layer.id, { tooltip: null }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(requireLayer(testAccountScope(), layer.id).tooltip).toBeNull();
   });
 
@@ -204,20 +206,20 @@ describe("layers as source of truth", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "stations",
       sql: "SELECT * FROM stations",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(layer.publishedFields).toBeNull();
 
     const set = await updateLayer(testAccountScope(), layer.id, {
       publishedFields: ["riders", "name"],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(set.publishedFields).toEqual(["riders", "name"]);
     expect(getLayer(layer.id)?.publishedFields).toEqual(["riders", "name"]);
 
     // The empty list is a real override — the functional core only —
     // distinct from null, which restores the derived projection.
-    await updateLayer(testAccountScope(), layer.id, { publishedFields: [] });
+    await updateLayer(testAccountScope(), layer.id, { publishedFields: [] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(getLayer(layer.id)?.publishedFields).toEqual([]);
-    await updateLayer(testAccountScope(), layer.id, { publishedFields: null });
+    await updateLayer(testAccountScope(), layer.id, { publishedFields: null }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(getLayer(layer.id)?.publishedFields).toBeNull();
   });
 
@@ -226,22 +228,23 @@ describe("layers as source of truth", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "stations",
       sql: "SELECT * FROM stations",
-    });
-    const patch = (body: unknown) =>
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    const patch = (body: unknown, basis: string) =>
       patchLayerRoute(
         testAccountRequest(new Request(`http://localhost/api/layers/${layer.id}`, {
           method: "PATCH",
+          headers: { "content-type": "application/json", "X-Edit-Revision": basis },
           body: JSON.stringify(body),
         })),
         { params: Promise.resolve({ id: layer.id }) },
       );
 
-    const ok = await patch({ publishedFields: ["riders"] });
+    const ok = await patch({ publishedFields: ["riders"] }, readEditRevision({ kind: "map", id: map.id })!.editRevision!);
     expect(ok.status).toBe(200);
     expect((await ok.json()).publishedFields).toEqual(["riders"]);
     expect(getLayer(layer.id)?.publishedFields).toEqual(["riders"]);
 
-    const bad = await patch({ publishedFields: [1] });
+    const bad = await patch({ publishedFields: [1] }, readEditRevision({ kind: "map", id: map.id })!.editRevision!);
     expect(bad.status).toBe(400);
     expect((await bad.json()).error.code).toBe("invalid_request");
     expect(getLayer(layer.id)?.publishedFields).toEqual(["riders"]);
@@ -252,9 +255,9 @@ describe("layers as source of truth", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "stations",
       sql: "SELECT * FROM stations",
-    });
-    await updateLayer(testAccountScope(), layer.id, { tooltip: ["name"], inLegend: false });
-    await updateLayer(testAccountScope(), layer.id, { publishedFields: ["riders"] });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await updateLayer(testAccountScope(), layer.id, { tooltip: ["name"], inLegend: false }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
+    await updateLayer(testAccountScope(), layer.id, { publishedFields: ["riders"] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     await updateLayer(testAccountScope(), layer.id, {
       viz: {
         type: "icon",
@@ -262,8 +265,8 @@ describe("layers as source of truth", () => {
         customSvg:
           '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 4"><path d="M0 0h4"/></svg>',
       },
-    });
-    const copy = duplicateLayer(testAccountScope(), layer.id);
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
+    const copy = duplicateLayer(testAccountScope(), layer.id, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(copy.id).not.toBe(layer.id);
     expect(copy.name).toBe("stations copy");
     expect(copy.sql).toBe(layer.sql);
@@ -281,14 +284,14 @@ describe("layers as source of truth", () => {
   it("rejects zero-geometry results; multiple geometries render the first", async () => {
     const map = createMap(testAccountScope(), "m");
     await expect(
-      createLayer(testAccountScope(), map.id, { name: "x", sql: "SELECT name FROM stations" }),
+      createLayer(testAccountScope(), map.id, { name: "x", sql: "SELECT name FROM stations" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
     ).rejects.toMatchObject({ code: "invalid_request" });
     // O→D results carry two geometry columns: allowed, the first is the
     // layer's primary geometry, the rest stay out of props.
     const twin = await createLayer(testAccountScope(), map.id, {
       name: "twin",
       sql: "SELECT geometry, ST_Centroid(geometry) AS g2, name FROM stations",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const render = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), twin.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), twin.id)).id) });
     expect(render.ok).toBe(true);
     expect(render.featureCount).toBe(3);
@@ -306,13 +309,13 @@ describe("layers as source of truth", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "all",
       sql: "SELECT * FROM stations",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const before = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(before.featureCount).toBe(3);
 
     await updateLayer(testAccountScope(), layer.id, {
       sql: "SELECT * FROM stations WHERE riders > 400",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     // same layer id, same created_at
     expect(getLayer(layer.id)!.createdAt).toBe(layer.createdAt);
     const after = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
@@ -327,7 +330,7 @@ describe("layers as source of truth", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "none",
       sql: "SELECT * FROM stations WHERE riders > 100000",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const render = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(render.ok).toBe(true);
     expect(render.featureCount).toBe(0);
@@ -338,7 +341,7 @@ describe("layers as source of truth", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "s",
       sql: "SELECT name, riders, geometry FROM stations ORDER BY riders",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const render = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     const fc = render.geojson as {
       features: { geometry: unknown; properties: Record<string, unknown> }[];
@@ -358,7 +361,7 @@ describe("layers as source of truth", () => {
       name: "L",
       sql: `SELECT 'L' AS name, ST_GeomFromText(
               'POLYGON((0 0, 4 0, 4 1, 1 1, 1 4, 0 4, 0 0))') AS geometry`,
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const render = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     const fc = render.geojson as {
       features: { properties: Record<string, unknown> }[];
@@ -378,11 +381,11 @@ describe("deleted table leaves an errored layer", () => {
     const dependent = await createLayer(testAccountScope(), map.id, {
       name: "dependent",
       sql: "SELECT * FROM stations",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const independent = await createLayer(testAccountScope(), map.id, {
       name: "independent",
       sql: "SELECT ST_Point(0, 0) AS geometry",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     await removeTable(testAccountScope(), "stations");
 
@@ -428,16 +431,16 @@ describe("legend attribute overrides", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "L",
       sql: "SELECT * FROM stations",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(layer.legendAttrs).toBeNull();
-    await updateLayer(testAccountScope(), layer.id, { style: ramp("riders") });
+    await updateLayer(testAccountScope(), layer.id, { style: ramp("riders") }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const withAttrs = await updateLayer(testAccountScope(), layer.id, {
       legendAttrs: { fill: "Riders (daily)" },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(withAttrs.legendAttrs).toEqual({ fill: "Riders (daily)" });
-    const renamed = await updateLayer(testAccountScope(), layer.id, { name: "L2" });
+    const renamed = await updateLayer(testAccountScope(), layer.id, { name: "L2" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(renamed.legendAttrs).toEqual({ fill: "Riders (daily)" });
-    const copy = duplicateLayer(testAccountScope(), layer.id);
+    const copy = duplicateLayer(testAccountScope(), layer.id, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(copy.legendAttrs).toEqual({ fill: "Riders (daily)" });
   });
 
@@ -446,14 +449,14 @@ describe("legend attribute overrides", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "L",
       sql: "SELECT * FROM stations",
-    });
-    await updateLayer(testAccountScope(), layer.id, { style: ramp("riders") });
-    await updateLayer(testAccountScope(), layer.id, { legendAttrs: { fill: "Riders" } });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await updateLayer(testAccountScope(), layer.id, { style: ramp("riders") }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
+    await updateLayer(testAccountScope(), layer.id, { legendAttrs: { fill: "Riders" } }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     // Same attribute, new breaks: the override still names the right variable.
-    const rebucketed = await updateLayer(testAccountScope(), layer.id, { style: ramp("riders") });
+    const rebucketed = await updateLayer(testAccountScope(), layer.id, { style: ramp("riders") }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(rebucketed.legendAttrs).toEqual({ fill: "Riders" });
     // Different attribute: the override would lie — dropped to automatic.
-    const switched = await updateLayer(testAccountScope(), layer.id, { style: ramp("lat") });
+    const switched = await updateLayer(testAccountScope(), layer.id, { style: ramp("lat") }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(switched.legendAttrs).toBeNull();
   });
 
@@ -462,22 +465,22 @@ describe("legend attribute overrides", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "L",
       sql: "SELECT * FROM stations",
-    });
-    await updateLayer(testAccountScope(), layer.id, { style: ramp("riders") });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    await updateLayer(testAccountScope(), layer.id, { style: ramp("riders") }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
 
     // Hidden is an explicit per-channel state and persists.
     const hidden = await updateLayer(testAccountScope(), layer.id, {
       legendAttrs: { fill: null },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(hidden.legendAttrs).toEqual({ fill: null });
 
     // Clearing the whole field returns to automatic — never to hidden.
-    const cleared = await updateLayer(testAccountScope(), layer.id, { legendAttrs: null });
+    const cleared = await updateLayer(testAccountScope(), layer.id, { legendAttrs: null }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(cleared.legendAttrs).toBeNull();
 
     // A hidden marker drops with its channel like any override.
-    await updateLayer(testAccountScope(), layer.id, { legendAttrs: { fill: null } });
-    const switched = await updateLayer(testAccountScope(), layer.id, { style: ramp("lat") });
+    await updateLayer(testAccountScope(), layer.id, { legendAttrs: { fill: null } }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
+    const switched = await updateLayer(testAccountScope(), layer.id, { style: ramp("lat") }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(switched.legendAttrs).toBeNull();
   });
 });

@@ -45,6 +45,7 @@ export function TokensCard() {
   }
   return <section className={styles.card} aria-labelledby="tokens-heading">
     <h2 id="tokens-heading">API / MCP tokens</h2>
+    <p className={styles.note}>Tokens use your current access, including shared projects.</p>
     {error && !revoking && <ErrorNote message={error} onRetry={tokens === null ? () => setAttempt(value => value + 1) : undefined}
       onDismiss={tokens === null ? undefined : () => setError(null)} />}
     {secret ? <div className={styles.cardForm}>

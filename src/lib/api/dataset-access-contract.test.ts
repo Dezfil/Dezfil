@@ -1,3 +1,4 @@
+import { resourceOperations } from "../../../test-support/api-route-inventory";
 import { expect, it } from "vitest";
 import { buildOpenApiDocument } from "./openapi";
 import { buildTools } from "@/lib/tools/tools";
@@ -9,7 +10,7 @@ it("publishes dataset reach, the reader's name for a dataset and the absent-reso
     "/api/maps/{id}/sketches", "/api/sketches/{name}", "/api/sketches/{name}/features", "/api/sketches/{name}/features/{featureId}",
     "/api/imports/url", "/api/imports/osm", "/api/imports/overture", "/api/imports/postgis"];
   let count = 0;
-  for (const path of paths) for (const operation of Object.values(document.paths[path])) {
+  for (const path of paths) for (const operation of resourceOperations(document.paths[path])) {
     expect(operation.description, path).toContain("A dataset is reached by its owner and by the owner and people of every project it is filed in.");
     expect(operation.description, path).toContain("<sql name>.<name> for another owner's");
     expect(operation.description, path).toContain("Datasets change, refresh and go only by their owner");

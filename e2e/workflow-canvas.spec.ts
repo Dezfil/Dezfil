@@ -1,3 +1,6 @@
+import { stepDefinitions } from "./workflow-definition";
+import { readThenWriteBrowserSetup } from "./edit-basis";
+import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Page, type Request } from "@playwright/test";
 import { isAllowedConsoleError } from "./console-allowlist";
 import { seedCsv, trackConsole } from "./support";
@@ -17,19 +20,19 @@ const other = `cv_cafes_${runId}`;
 
 type Json = Record<string, unknown>;
 
-async function api(page: Page, method: string, path: string, body?: unknown): Promise<Json> {
+async function api(page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<Json> {
   return page.evaluate(
-    async ({ method, path, body }) => {
+    async ({ method, path, body, basis }) => {
       const r = await fetch(path, {
         method,
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
       const text = await r.text();
       if (!r.ok) throw new Error(`${method} ${path} → ${r.status}: ${text}`);
       return text ? (JSON.parse(text) as Record<string, unknown>) : {};
     },
-    { method, path, body },
+    { method, path, body, basis },
   );
 }
 
@@ -39,7 +42,7 @@ async function newRecipe(page: Page, name: string, origin?: "builder"): Promise<
 }
 
 async function addSql(page: Page, id: string, sql: string, name: string): Promise<string> {
-  const added = await api(page, "POST", `/api/recipes/${id}/steps`, { operation: "sql_step", parameters: { sql, name } });
+  const added = await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps`, body: { operation: "sql_step", parameters: { sql, name } } })).then(result => result.json);
   return (added.step as { id: string }).id;
 }
 
@@ -120,11 +123,11 @@ test("opening writes nothing, then moves and Arrange write the layout; the failu
   });
 
   await test.step("a written layout places what it names; the rest goes beside the graph, without a write", async () => {
-    await api(page, "PUT", `/api/recipes/${id}/layout`, {
+    await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "PUT", path: `/api/recipes/${id}/layout`, body: {
       steps: { [one]: { x: 600, y: 400 } },
       sources: { [table]: { x: 100, y: 400 } },
       notes: [{ id: "n1", x: 0, y: 0, w: 200, h: 100, color: "yellow", text: "kept" }],
-    });
+    } })).then(result => result.json);
     const before = await readLayout(page, id);
     const seen = writes.length;
     await page.goto(`/workflows/${id}`);
@@ -148,7 +151,7 @@ test("opening writes nothing, then moves and Arrange write the layout; the failu
     expect((after.sources as Record<string, unknown>)[table]).toEqual({ x: 100, y: 400 });
     expect(after.notes).toEqual([{ id: "n1", x: 0, y: 0, w: 200, h: 100, color: "yellow", text: "kept" }]);
     const recipeAfter = await readRecipe(page, id);
-    expect(recipeAfter.steps).toEqual(recipeBefore.steps);
+    expect(stepDefinitions(recipeAfter.steps)).toEqual(stepDefinitions(recipeBefore.steps));
     expect(String(recipeAfter.updatedAt) > String(recipeBefore.updatedAt)).toBe(true);
   });
 
@@ -214,10 +217,10 @@ test("edges, states, the stage, the minimap, the pane, failures, emptiness and f
 
   await test.step("a named-input node's edges enter labelled ports, two ports from one table are two edges; the SQL node has none (b, c)", async () => {
     const id = await newRecipe(page, `Ports ${runId}`);
-    await api(page, "POST", `/api/recipes/${id}/steps`, {
+    await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps`, body: {
       operation: "join_by_key",
       parameters: { left: table, right: table, left_key: "name", right_key: "name", name: `${table}_self` },
-    });
+    } })).then(result => result.json);
     await addSql(page, id, `SELECT * FROM ${table}_self`, `${table}_sql`);
     await page.goto(`/workflows/${id}`);
     await settled(page);
@@ -240,7 +243,7 @@ test("edges, states, the stage, the minimap, the pane, failures, emptiness and f
     // The tables route is keyed by name.
     await api(page, "DELETE", `/api/tables/${gone}`);
     // The failing node runs and fails; the reader cannot run.
-    await api(page, "POST", `/api/recipes/${id}/steps/${failing}/run`);
+    await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps/${failing}/run` })).then(result => result.json);
     await expect
       .poll(async () => ((await readRecipe(page, id)).steps as Json[])[1].latestAttempt, { timeout: 30_000 })
       .toMatchObject({ state: "failed" });
@@ -374,10 +377,10 @@ test("edges, states, the stage, the minimap, the pane, failures, emptiness and f
     // live output is not listed at all.
     const elsewhere = await newRecipe(page, `Elsewhere ${runId}`);
     const theirs = await addSql(page, elsewhere, `SELECT name FROM ${table}`, `${table}_theirs`);
-    await api(page, "POST", `/api/recipes/${elsewhere}/steps/${theirs}/run`);
+    await readThenWriteBrowserSetup(page, `/api/recipes/${elsewhere}`, () => ({ method: "POST", path: `/api/recipes/${elsewhere}/steps/${theirs}/run` })).then(result => result.json);
     const id = await newRecipe(page, `Pane ${runId}`);
     const step = await addSql(page, id, `SELECT name FROM ${table}`, `${table}_pane`);
-    await api(page, "POST", `/api/recipes/${id}/steps/${step}/run`);
+    await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps/${step}/run` })).then(result => result.json);
     for (const r of [elsewhere, id]) {
       await expect
         .poll(async () => ((await readRecipe(page, r)).steps as Json[])[0].output, { timeout: 30_000 })
@@ -439,7 +442,7 @@ test("edges, states, the stage, the minimap, the pane, failures, emptiness and f
     await settled(page);
     await expect(page.getByText("No nodes yet")).toBeVisible();
     await expect(nodes(page)).toHaveCount(0);
-    await api(page, "PUT", `/api/recipes/${bare}/layout`, { sources: { [other]: { x: 40, y: 40 } } });
+    await readThenWriteBrowserSetup(page, `/api/recipes/${bare}`, () => ({ method: "PUT", path: `/api/recipes/${bare}/layout`, body: { sources: { [other]: { x: 40, y: 40 } } } })).then(result => result.json);
     await page.reload();
     await settled(page);
     await expect(page.getByText("No nodes yet")).toHaveCount(0);
@@ -453,11 +456,11 @@ test("edges, states, the stage, the minimap, the pane, failures, emptiness and f
         let prev = table;
         for (let i = 0; i < 40; i++) {
           const name = `${table}_n${i}`;
-          const r = await fetch(`/api/recipes/${big}/steps`, {
+          const r = await (async function readThenWriteWorkflowSetup() { const basis = await (await fetch(`/api/recipes/${big}`)).json(); return fetch(`/api/recipes/${big}/steps`, {
             method: "POST",
-            headers: { "content-type": "application/json" },
+            headers: { "X-Edit-Revision": basis.editRevision, "content-type": "application/json" },
             body: JSON.stringify({ operation: "sql_step", parameters: { sql: `SELECT * FROM ${prev}`, name } }),
-          });
+          }); })();
           if (!r.ok) throw new Error(await r.text());
           prev = i % 5 === 4 ? table : name;
         }

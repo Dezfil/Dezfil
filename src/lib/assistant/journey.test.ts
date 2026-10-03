@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -749,11 +750,12 @@ describe("assistant journey (exit gate)", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "Stations",
       sql: "SELECT name, geometry FROM stations",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     // One turn, two edits — the loop stamps both with one group marker.
     await drive(
       [
+        { text: "", toolCalls: [call("get_map", { id: map.id }, "read-basis")] },
         {
           text: "Hiding the layer and darkening the basemap.",
           toolCalls: [
@@ -771,6 +773,7 @@ describe("assistant journey (exit gate)", () => {
     // "undo that" — one undo call reverts the whole turn.
     const { events } = await drive(
       [
+        { text: "", toolCalls: [call("get_map", { id: map.id }, "read-basis")] },
         {
           text: "Undoing that change.",
           toolCalls: [call("undo_change", { id: map.id }, "t3")],
@@ -807,12 +810,13 @@ describe("assistant journey (exit gate)", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "Pings",
       sql: "SELECT name, seen, geometry FROM pings",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     // "animate this by seen": ensure the time filter, then dock the
     // timeline — two documented calls, one turn.
     await drive(
       [
+        { text: "", toolCalls: [call("get_map", { id: map.id }, "read-basis")] },
         {
           text: "Adding a time filter on seen and docking the timeline.",
           toolCalls: [
@@ -998,10 +1002,11 @@ describe("confirmation contract", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "Stations",
       sql: "SELECT name, geometry FROM stations",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     const h = await drive(
       [
+        { text: "", toolCalls: [call("get_map", { id: map.id }, "read-basis")] },
         {
           text: "Renaming the layer first.",
           toolCalls: [
@@ -1027,6 +1032,7 @@ describe("confirmation contract", () => {
     // "undo that" — one undo reverts the edits before and after the pause.
     await drive(
       [
+        { text: "", toolCalls: [call("get_map", { id: map.id }, "read-basis")] },
         {
           text: "Undoing that turn.",
           toolCalls: [call("undo_change", { id: map.id }, "u4")],
@@ -1041,6 +1047,7 @@ describe("confirmation contract", () => {
     // …and one redo restores the whole turn.
     await drive(
       [
+        { text: "", toolCalls: [call("get_map", { id: map.id }, "read-basis")] },
         {
           text: "Redoing it.",
           toolCalls: [call("redo_change", { id: map.id }, "u5")],

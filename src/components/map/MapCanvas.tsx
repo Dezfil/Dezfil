@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
-  clampToView,
   type FeaturePickHandler,
   type HoverInfo,
   type PinnedPopup,
@@ -79,6 +78,7 @@ import styles from "./MapCanvas.module.css";
 import { cameraHandle, type CameraHandle } from "./camera-handle";
 import { attemptInitialWebGLMap } from "./initial-webgl-failure";
 import { createTiledLayer } from "./tiled-layer";
+import { attachCanvasMotion, attachCanvasNotifications } from "./canvas-notifications";
 import { attachCanvasCamera, CANVAS_CAMERA_OPTIONS } from "./canvas-camera";
 import { BasemapOfflineNotice } from "./BasemapOfflineNotice";
 
@@ -920,41 +920,13 @@ export function MapCanvas({
 
     attachBasemapContent(instance);
 
-    // deck's own cursor handling is inert under MapLibreOverlay (its container
-    // takes no pointer events), so clickability is signaled on the MapLibre
-    // canvas instead: pointer over a picked feature, stock grab/grabbing
-    // otherwise. Hover picks can fire mid-pan (the overlay forwards mouse
-    // moves without button state), so a drag flag keeps the grabbing hand
-    // authoritative while panning.
-    let dragging = false;
-    instance.on("dragstart", () => {
-      dragging = true;
-      instance.getCanvas().style.cursor = "";
-    });
-    instance.on("dragend", () => {
-      dragging = false;
-    });
-
-    // Cluster layers re-form at integer zoom steps, at the logical
-    // zoom.
-    const syncClusterZoom = () => {
-      const z = Math.max(
-        0,
-        Math.floor(instance.getZoom() - Math.log2(markScaleRef.current)),
-      );
-      if (clusterZoomRef.current !== z) {
-        clusterZoomRef.current = z;
-        setClusterZoom(z);
-      }
-    };
-    syncClusterZoom();
-    resyncClusterZoom.current = syncClusterZoom;
-    instance.on("zoom", syncClusterZoom);
+    const motion = attachCanvasMotion(instance, markScaleRef, clusterZoomRef, setClusterZoom);
+    resyncClusterZoom.current = motion.syncClusterZoom;
 
     const mountedOverlay = attachCanvasOverlay({
       instance,
       interactive,
-      isDragging: () => dragging,
+      isDragging: motion.isDragging,
       pinnedRef,
       layersRef,
       markScaleRef,
@@ -978,92 +950,14 @@ export function MapCanvas({
     // tilt motion carries its own guard.
     onZoomHandle?.(cameraHandle(instance, () => liveRangesRef.current));
 
-    // Compass needle: integer degrees, emitted only on change, so a rotate
-    // drag costs at most one React update per visible degree.
-    let lastBearing = Math.round(instance.getBearing());
-    onBearingChangeRef.current?.(lastBearing);
-    instance.on("rotate", () => {
-      const b = Math.round(instance.getBearing());
-      if (b !== lastBearing) {
-        lastBearing = b;
-        onBearingChangeRef.current?.(b);
-      }
+    const disposeNotifications = attachCanvasNotifications({
+      instance, onBearingChangeRef, onPitchChangeRef, onViewportChange,
+      pinnedRef, setPinned, onStatusRef,
     });
-
-    // Tilt state: integer degrees, emitted only on change.
-    let lastPitch = Math.round(instance.getPitch());
-    onPitchChangeRef.current?.(lastPitch);
-    instance.on("pitch", () => {
-      const p = Math.round(instance.getPitch());
-      if (p !== lastPitch) {
-        lastPitch = p;
-        onPitchChangeRef.current?.(p);
-      }
-    });
-
-    if (onViewportChange) {
-      instance.on("moveend", () => {
-        const c = instance.getCenter();
-        onViewportChange({
-          lng: c.lng,
-          lat: c.lat,
-          zoom: instance.getZoom(),
-          pitch: Math.round(instance.getPitch()),
-          bearing: Math.round(instance.getBearing() * 10) / 10,
-        });
-      });
-    }
-
-    // The pinned pop-up is anchored to a map coordinate: reproject it to
-    // screen space as the view moves so it rides with its feature. Clamped
-    // here (not at render) so small viewports keep the card reachable.
-    instance.on("move", () => {
-      const p = pinnedRef.current;
-      if (!p) return;
-      const pt = instance.project([p.lng, p.lat]);
-      const [x, y] = clampToView(instance, pt.x, pt.y);
-      setPinned((cur) => (cur ? { ...cur, x, y } : cur));
-    });
-
-    // Live status for the builder's status bar. Emissions are coalesced to
-    // animation frames so a continuous pan plus pointer motion costs one
-    // update per frame. Published views pass no sink, so nothing is bound
-    // there.
-    let statusFrame = 0;
-    if (onStatusRef.current) {
-      let cursor: { lng: number; lat: number } | null = null;
-      const push = () => {
-        statusFrame = 0;
-        const sink = onStatusRef.current;
-        if (!sink) return;
-        const b = instance.getBounds();
-        sink({
-          cursor,
-          zoom: instance.getZoom(),
-          pitch: Math.round(instance.getPitch()),
-          bounds: [
-            [b.getWest(), b.getSouth()],
-            [b.getEast(), b.getNorth()],
-          ],
-        });
-      };
-      const schedule = () => {
-        if (!statusFrame) statusFrame = requestAnimationFrame(push);
-      };
-      instance.on("mousemove", (e) => {
-        cursor = { lng: e.lngLat.lng, lat: e.lngLat.lat };
-        schedule();
-      });
-      instance.on("mouseout", () => {
-        cursor = null;
-        schedule();
-      });
-      instance.on("move", schedule);
-      schedule();
-    }
 
     return () => {
-      if (statusFrame) cancelAnimationFrame(statusFrame);
+      disposeNotifications();
+      motion.dispose();
       onZoomHandle?.(null);
       mountedOverlay.dispose();
       disposeCamera();

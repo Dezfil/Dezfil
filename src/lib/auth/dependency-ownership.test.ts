@@ -1,3 +1,4 @@
+import { documentFacts } from "@/lib/metadata/document-facts";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
@@ -69,7 +70,7 @@ it("does not expose a foreign workflow claiming an owned dataset as its output",
   db.prepare("UPDATE recipe_steps SET output_table_id = ? WHERE id = ?").run(table("alice").id, steps.bob);
   db.prepare("UPDATE step_runner_outputs SET output_table_id = ? WHERE step_id = ?").run(table("alice").id, steps.bob);
   db.prepare("UPDATE recipe_steps SET output_table_id = NULL WHERE id = ?").run(steps.alice);
-  const own = { id: recipes.alice, name: "alice", owned: true };
+  const own = { id: recipes.alice, name: "alice", owned: true, ...documentFacts({ kind: "workflow", id: recipes.alice }, db) };
   expect((await mapDependencies(scopes.alice, maps.alice))[0].producer).toEqual(own);
   expect((await workflowDependencies(scopes.alice, recipes.alice))[0].producer).toEqual(own);
   db.prepare("DELETE FROM step_runner_outputs WHERE step_id = ?").run(steps.alice);

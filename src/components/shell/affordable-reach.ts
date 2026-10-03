@@ -29,7 +29,7 @@ export function roomForCard(g: RowGeometry): number {
 
 /** The card's minimum width: the pane's reach, no wider than the room. */
 export function affordableReach(paneRight: number, g: RowGeometry): number {
-  return Math.max(0, Math.round(Math.min(paneRight - g.cardLeft, roomForCard(g))));
+  return Math.max(0, Math.min(paneRight - g.cardLeft, roomForCard(g)));
 }
 
 /** The row's flex items, looking through `display: contents` slots the

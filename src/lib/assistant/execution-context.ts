@@ -7,10 +7,12 @@ import type { OfferMode } from "./offer";
 import { pendingActions, type PendingActionStore } from "./pending";
 import { admittedTools, type AssistantPolicy } from "./policy";
 import type { ProviderExchange } from "./provider";
+import { AssistantRevisions, withoutWriteRevision } from "./edit-revisions";
 import { assistantTools } from "./tool-surface";
 
 export interface LoopDeps {
   scope: AccountScope;
+  revisions?: AssistantRevisions;
   runId?: string;
   grounding?: string;
   tools?: ToolDef[];
@@ -70,7 +72,8 @@ export function makeExecutionContext(
     baseUrl: deps.baseUrl,
     fetchImpl: deps.fetchImpl,
     signal: deps.signal,
-    headers,
+    headers: withoutWriteRevision(headers),
+    revisions: deps.revisions ?? new AssistantRevisions(),
     store: deps.pending ?? pendingActions,
     exchange,
   };

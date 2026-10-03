@@ -30,7 +30,7 @@ interface Implemented {
   method: string;
 }
 
-export function implementedRoutes(): Implemented[] {
+export function implementedRoutes(automatic = false): Implemented[] {
   const files = walk(path.join(APP_DIR, "api")).filter((f) =>
     f.endsWith("route.ts"),
   );
@@ -42,6 +42,10 @@ export function implementedRoutes(): Implemented[] {
       const re = new RegExp(`export\\s+(?:async\\s+)?function\\s+${method}\\b`);
       if (re.test(src)) routes.push({ path: p, method: method.toLowerCase() });
     }
+  }
+  if (automatic) for (const p of new Set(routes.map(route => route.path))) {
+    routes.push({ path: p, method: "options" });
+    if (routes.some(route => route.path === p && route.method === "get")) routes.push({ path: p, method: "head" });
   }
   return routes;
 }
@@ -89,3 +93,7 @@ export function documentedRoutes(): Implemented[] {
 
 export const key = (r: Implemented) => `${r.method.toUpperCase()} ${r.path}`;
 
+/** Resource semantics exclude automatic transport methods, which have their own gate inventory. */
+export function resourceOperations<T>(operations: Record<string, T>): T[] {
+  return Object.entries(operations).filter(([method]) => method !== "head" && method !== "options").map(([, operation]) => operation);
+}

@@ -79,8 +79,10 @@ source), `lint:readme` (the configuration table covers the real environment
 surface, both directions), `lint:size` (the oversized modules below),
 `lint:stage-edge` (the builder stage's left edge stays one custom
 property), `lint:wheelhouse`, `lint:tokens` and `lint:icons` (the design
-language), `lint:specimen` (the specimen still matches its sources)
-and `lint:plugin` (the generated plugin guidance is current). Run the ones a
+language), `lint:specimen` (the specimen still matches its sources),
+`lint:plugin` (the generated plugin guidance is current), `lint:contract-docs`
+(reader counts and error catalogue match the contract) and `lint:reader-docs`
+(no superseded guidance or missing revision examples). Run the ones a
 change can plausibly break, and all of them before calling it done.
 
 [The pipeline](.github/workflows/ci.yml) is the definition of green: it runs
@@ -153,7 +155,14 @@ finding dropped for being merely plausible is a finding someone relearns.
 
 ## Out of scope for now
 
-- **Organizations.** Local accounts and sign-in exist; fuller account documentation follows.
+Local accounts, private ownership and project sharing are shipped. Maps and
+workflows use edit revisions: stale saves are refused, unsaved work stays visible,
+and Reload offers text copying before discarding it. There is no automatic merge.
+
+- **Organizations, SSO, audit logs and finer grants.** Sharing is through a
+  project's Viewer or Editor role. Administration does not grant private content
+  access. Individual resource grants and organization-wide permissions are outside
+  this model.
 - **Warehouse connectors.** The engine is DuckDB over files, plus the
   PostGIS connections the ingest path already documents.
 

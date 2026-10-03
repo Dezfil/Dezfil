@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -56,16 +58,16 @@ beforeEach(async () => {
   const layer = await createLayer(testAccountScope(), map.id, {
     name: "l",
     sql: "SELECT * FROM points",
-  });
+  }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   layerId = layer.id;
   mapId = map.id;
   await updateLayer(testAccountScope(), layerId, {
     viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
-  });
+  }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
   updateMap(testAccountScope(), map.id, {
     widgets: [{ ...CATEGORY_WIDGET, layerId: layer.id }],
-  });
-  token = publishMap(testAccountScope(), map.id).token;
+  }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+  token = publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }).token;
 });
 
 afterEach(async () => {
@@ -155,7 +157,7 @@ describe("published settle route", () => {
           layerId,
         },
       ],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     const res = await settle([
       { field: "score", kind: "range", min: 15, max: null },
     ]);
@@ -164,7 +166,7 @@ describe("published settle route", () => {
   });
 
   it("a declared field the result no longer provides refuses cleanly, not with engine text", async () => {
-    await updateLayer(testAccountScope(), layerId, { sql: "SELECT id, score, geometry FROM points" });
+    await updateLayer(testAccountScope(), layerId, { sql: "SELECT id, score, geometry FROM points" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     const res = await settle([{ field: "kind", kind: "values", values: ["a"] }]);
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { code: string; message: string } };
@@ -229,7 +231,7 @@ describe("published settle route", () => {
   });
 
   it("answers a hidden layer exactly like an absent one", async () => {
-    await updateLayer(testAccountScope(), layerId, { visible: false });
+    await updateLayer(testAccountScope(), layerId, { visible: false }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     const hidden = await settle([]);
     expect(hidden.status).toBe(404);
     expect((await hidden.json()).error.code).toBe("not_found");

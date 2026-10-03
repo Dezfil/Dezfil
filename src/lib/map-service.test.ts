@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -24,13 +25,13 @@ describe("map basemap choice (Auto is expressible)", () => {
     const map = createMap(testAccountScope(), "m");
     expect(map.basemap).toBeNull(); // new maps start on Auto
 
-    updateMap(testAccountScope(), map.id, { basemap: "streets" });
+    updateMap(testAccountScope(), map.id, { basemap: "streets" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireMap(testAccountScope(), map.id).basemap).toBe("streets");
 
     // Explicit null clears the choice — "absent" must leave it untouched.
-    updateMap(testAccountScope(), map.id, { name: "renamed" });
+    updateMap(testAccountScope(), map.id, { name: "renamed" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireMap(testAccountScope(), map.id).basemap).toBe("streets");
-    updateMap(testAccountScope(), map.id, { basemap: null });
+    updateMap(testAccountScope(), map.id, { basemap: null }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireMap(testAccountScope(), map.id).basemap).toBeNull();
   });
 
@@ -38,8 +39,8 @@ describe("map basemap choice (Auto is expressible)", () => {
     const map = createMap(testAccountScope(), "m");
     // Toggles saved on a vector style survive a switch to imagery — the
     // canvas skips them there, but nothing is erased.
-    updateMap(testAccountScope(), map.id, { basemapLayers: { land: false } });
-    updateMap(testAccountScope(), map.id, { basemap: "satellite" });
+    updateMap(testAccountScope(), map.id, { basemapLayers: { land: false } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    updateMap(testAccountScope(), map.id, { basemap: "satellite" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const after = requireMap(testAccountScope(), map.id);
     expect(after.basemap).toBe("satellite");
     expect(after.basemapLayers).toEqual({ land: false });
@@ -54,31 +55,31 @@ describe("basemap layer toggles", () => {
     // Visible entries normalize away — only hidden groups are stored.
     updateMap(testAccountScope(), map.id, {
       basemapLayers: { labels: false, roads: false, water: true },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireMap(testAccountScope(), map.id).basemapLayers).toEqual({
       labels: false,
       roads: false,
     });
 
     // Unrelated updates leave the toggles untouched.
-    updateMap(testAccountScope(), map.id, { name: "renamed" });
+    updateMap(testAccountScope(), map.id, { name: "renamed" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireMap(testAccountScope(), map.id).basemapLayers).toEqual({
       labels: false,
       roads: false,
     });
 
     // Everything visible is the same as null.
-    updateMap(testAccountScope(), map.id, { basemapLayers: { labels: true } });
+    updateMap(testAccountScope(), map.id, { basemapLayers: { labels: true } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireMap(testAccountScope(), map.id).basemapLayers).toBeNull();
 
-    updateMap(testAccountScope(), map.id, { basemapLayers: { buildings: false } });
-    updateMap(testAccountScope(), map.id, { basemapLayers: null });
+    updateMap(testAccountScope(), map.id, { basemapLayers: { buildings: false } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    updateMap(testAccountScope(), map.id, { basemapLayers: null }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireMap(testAccountScope(), map.id).basemapLayers).toBeNull();
   });
 
   it("rejects unknown groups and non-boolean values with no partial write", () => {
     const map = createMap(testAccountScope(), "m");
-    updateMap(testAccountScope(), map.id, { basemapLayers: { labels: false } });
+    updateMap(testAccountScope(), map.id, { basemapLayers: { labels: false } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     const attempts: unknown[] = [
       { threeDee: false }, // unknown group
@@ -87,7 +88,7 @@ describe("basemap layer toggles", () => {
       "labels", // not an object
     ];
     for (const basemapLayers of attempts) {
-      expect(() => updateMap(testAccountScope(), map.id, { basemapLayers })).toThrowError(
+      expect(() => updateMap(testAccountScope(), map.id, { basemapLayers }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision })).toThrowError(
         expect.objectContaining({ code: "invalid_request" }),
       );
       expect(requireMap(testAccountScope(), map.id).basemapLayers).toEqual({ labels: false });
@@ -100,22 +101,22 @@ describe("legend corner", () => {
     const map = createMap(testAccountScope(), "m");
     expect(map.legendCorner).toBeNull(); // earlier semantics: bottom-left
 
-    updateMap(testAccountScope(), map.id, { legendCorner: "top-right" });
+    updateMap(testAccountScope(), map.id, { legendCorner: "top-right" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireMap(testAccountScope(), map.id).legendCorner).toBe("top-right");
 
-    updateMap(testAccountScope(), map.id, { name: "renamed" });
+    updateMap(testAccountScope(), map.id, { name: "renamed" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireMap(testAccountScope(), map.id).legendCorner).toBe("top-right");
 
-    updateMap(testAccountScope(), map.id, { legendCorner: null });
+    updateMap(testAccountScope(), map.id, { legendCorner: null }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(requireMap(testAccountScope(), map.id).legendCorner).toBeNull();
   });
 
   it("rejects unknown corners with no partial write", () => {
     const map = createMap(testAccountScope(), "m");
-    updateMap(testAccountScope(), map.id, { legendCorner: "top-left" });
+    updateMap(testAccountScope(), map.id, { legendCorner: "top-left" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     for (const legendCorner of ["center", "top", 3, {}]) {
       expect(() =>
-        updateMap(testAccountScope(), map.id, { legendCorner, name: "should not land" }),
+        updateMap(testAccountScope(), map.id, { legendCorner, name: "should not land" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
       ).toThrowError(expect.objectContaining({ code: "invalid_request" }));
       expect(requireMap(testAccountScope(), map.id).legendCorner).toBe("top-left");
       expect(requireMap(testAccountScope(), map.id).name).toBe("m");
@@ -145,7 +146,7 @@ describe("map note (retired into note widgets)", () => {
           visible: true,
         },
       ],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(withNote.note).toBeNull();
     expect(withNote.widgets[0]).toMatchObject({
       type: "note",
@@ -161,7 +162,7 @@ describe("map note (retired into note widgets)", () => {
       expect(() =>
         updateMap(testAccountScope(), map.id, {
           widgets: [{ ...withNote.widgets[0], ...bad }],
-        }),
+        }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
       ).toThrowError(expect.objectContaining({ code: "invalid_request" }));
     }
   });

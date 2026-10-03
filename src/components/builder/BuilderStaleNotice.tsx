@@ -1,0 +1,40 @@
+"use client";
+import { useState } from "react";
+import { ErrorNote } from "../ui/ErrorNote";
+import { Button } from "../ui/Button";
+import { DISCARD_MESSAGE, STALE_MESSAGE } from "../document-sequence";
+import { useUnsavedNavigation } from "../use-unsaved-navigation";
+import type { useBuilderMutations } from "./use-builder-mutations";
+import { readBuilderRecovery, type BuilderRecoveryProps } from "./BuilderRecovery";
+import styles from "./BuilderStaleNotice.module.css";
+
+export function BuilderStaleNotice({ mutations, onRecovered }: { mutations: ReturnType<typeof useBuilderMutations> } & BuilderRecoveryProps) {
+  const [confirm, setConfirm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useUnsavedNavigation(mutations.stale);
+  if (!mutations.stale) return null;
+  const map = mutations.savedMap;
+  const draft = map ? mutations.drafts.apply(map) : null;
+  const sql = draft?.layers.filter(layer => mutations.drafts.hasLayer(layer.id)).map(layer => layer.sql).join("\n\n") ?? "";
+  const legend = draft?.layers.filter(layer => mutations.drafts.hasLayer(layer.id) || mutations.legendLive[layer.id]).map(layer => mutations.legendLive[layer.id]?.legendTitle ?? layer.legendTitle ?? "").join("\n") ?? "";
+  async function reload() {
+    if (!map) return;
+    setBusy(true); setError(null);
+    try { const seed = await readBuilderRecovery(map.id); mutations.sequence.dispose(); onRecovered?.(seed); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : STALE_MESSAGE); }
+    finally { setBusy(false); }
+  }
+  return <ErrorNote message={STALE_MESSAGE} data-stale-recovery>
+    <div className={styles.content}>
+      {confirm && <><p>{DISCARD_MESSAGE}</p><div className={styles.actions}>
+        {sql && <Button onClick={() => void navigator.clipboard.writeText(sql)}>Copy SQL</Button>}
+        {legend && <Button onClick={() => void navigator.clipboard.writeText(legend)}>Copy legend title</Button>}
+      </div></>}
+      {error && <p role="alert">{error}</p>}
+      <div className={styles.actions}><Button variant={confirm ? "primary" : "secondary"} busy={busy}
+        onClick={() => confirm ? void reload() : setConfirm(true)}>Reload</Button>
+        {confirm && <Button variant="quiet" disabled={busy} onClick={() => setConfirm(false)}>Not now</Button>}</div>
+    </div>
+  </ErrorNote>;
+}

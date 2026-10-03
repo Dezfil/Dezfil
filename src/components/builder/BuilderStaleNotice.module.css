@@ -1,0 +1,3 @@
+.content { display: grid; gap: 8px; }
+.content p { margin: 0; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }

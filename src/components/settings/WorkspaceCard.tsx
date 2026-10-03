@@ -20,8 +20,8 @@ export function WorkspaceCard({ name, admin }: { name: string | null; admin: boo
     } catch (error) { setError(failureMessage(error)); }
     finally { setBusy(false); }
   }
-  return <section className={styles.card} aria-labelledby="workspace-heading">
-    <h2 id="workspace-heading">Workspace</h2>
+  return <section className={styles.card} aria-labelledby="instance-heading">
+    <h2 id="instance-heading">Instance</h2>
     <form className={styles.cardForm} onSubmit={submit}>
       <label className={styles.field}><span>Instance name</span><TextInput value={instance} disabled={!admin || busy} maxLength={80}
         onChange={event => { setInstance(event.target.value); setSaved(false); }} /></label>
@@ -32,10 +32,5 @@ export function WorkspaceCard({ name, admin }: { name: string | null; admin: boo
         {saved && <span className={styles.savedNote} role="status">Saved</span>}
       </div>}
     </form>
-    <ul className={styles.laterList}>
-      {["Appearance", "Default basemap", "Members & sharing"].map(item => <li key={item} className={styles.laterRow}>
-        <span>{item}</span><span className={styles.soon}>coming soon</span>
-      </li>)}
-    </ul>
   </section>;
 }

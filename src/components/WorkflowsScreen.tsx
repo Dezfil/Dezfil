@@ -1,8 +1,10 @@
 "use client";
 
+import { LastChanged } from "./sharing/LastChanged";
+import { editHeaders } from "@/lib/edit-basis";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { formatRelativeTime, readApiError, readRecipes } from "./api";
+import { readApiError, readRecipes } from "./api";
 import { serverUnreachable } from "./failure-copy";
 import { useOperations } from "./builder/drawer/use-operations";
 import {
@@ -160,12 +162,14 @@ export function WorkflowsScreen() {
   );
 
   const deleteWorkflow = useCallback(
-    async (id: string) => {
+    async (item: WorkflowListing) => {
+      const { id } = item;
       setBusyId(id);
       setConfirmId(null);
       try {
         const response = await fetch(`/api/recipes/${id}`, {
           method: "DELETE",
+          headers: item.editRevision ? editHeaders({ editRevision: item.editRevision }) : undefined,
         });
         if (!response.ok) throw new Error(await readApiError(response));
         await reload();
@@ -264,7 +268,7 @@ export function WorkflowsScreen() {
             aria-label={armed ? `Confirm deleting ${w.name}` : `Delete ${w.name}`}
             onClick={(e) => {
               e.stopPropagation();
-              if (armed) void deleteWorkflow(w.id);
+              if (armed) void deleteWorkflow(w);
               else setConfirmId(w.id);
             }}
             onBlur={() => setConfirmId(null)}
@@ -336,6 +340,7 @@ export function WorkflowsScreen() {
             id: filing.id,
             name: filing.name,
             projectId: filing.projectId,
+            editRevision: filing.editRevision,
           }}
           onClose={() => setFiling(null)}
           onWithdrawn={({ projectIds, refusal }) => {
@@ -534,7 +539,7 @@ export function WorkflowsScreen() {
                           <div className={gallery.cardTop}>
                             <span className={gallery.cardName}>{w.name}</span>
                             <span className={gallery.cardWhen}>
-                              {formatRelativeTime(w.updatedAt)}
+                              <LastChanged value={w} />
                             </span>
                           </div>
                           <div className={gallery.cardChips}>
@@ -595,7 +600,7 @@ export function WorkflowsScreen() {
                           <WorkflowStatusChip summary={w.summary} />
                         </span>
                         <span className={`${gallery.colWhen} ${gallery.num}`}>
-                          {formatRelativeTime(w.updatedAt)}
+                          <LastChanged value={w} />
                         </span>
                         <span className={gallery.colActs} />
                       </button>

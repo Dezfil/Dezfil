@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { MapOverview, TableListing } from "../api";
 import { readApiError, readRecipes } from "../api";
 import { serverUnreachable } from "../failure-copy";
@@ -61,8 +61,8 @@ export function useProjectsWorld(): {
     "projects-world",
   );
   const [edits, setEdits] = useState<{
-    base: ProjectsWorld;
-    value: ProjectsWorld;
+    base: ProjectsWorld | null;
+    transforms: ((world: ProjectsWorld) => ProjectsWorld)[];
   } | null>(null);
   // Every mutation bumps the generation; a quiet refresh that started
   // before a newer mutation never overwrites it (the review's catch: a
@@ -71,19 +71,28 @@ export function useProjectsWorld(): {
   const generation = useRef(0);
 
   const base = loadState.status === "ready" ? loadState.value : null;
-  const value = base ? (edits && edits.base === base ? edits.value : base) : null;
+  const baseRef = useRef(base);
+  useEffect(() => { baseRef.current = base; }, [base]);
+  // A create can finish before the initial composite read. Hold its transform
+  // until there is a world to apply it to, and let old async handlers use the
+  // current world instead of the pending state they captured.
+  const value = base
+    ? edits && (edits.base === null || edits.base === base)
+      ? edits.transforms.reduce((world, transform) => transform(world), base)
+      : base
+    : null;
 
   const mutate = useCallback(
     (transform: (world: ProjectsWorld) => ProjectsWorld) => {
       generation.current += 1;
       setEdits((current) => {
-        const from =
-          current && base && current.base === base ? current.value : base;
-        if (!from || !base) return current;
-        return { base, value: transform(from) };
+        const basis = baseRef.current;
+        const previous = current && (current.base === null || current.base === basis)
+          ? current.transforms : [];
+        return { base: basis, transforms: [...previous, transform] };
       });
     },
-    [base],
+    [],
   );
 
   const refresh = useCallback(async () => {
@@ -96,8 +105,13 @@ export function useProjectsWorld(): {
     const started = generation.current;
     const fresh = await loadProjectsWorld();
     if (generation.current !== started) return;
-    setEdits(base ? { base, value: fresh } : null);
-  }, [base]);
+    setEdits({ base: baseRef.current, transforms: [() => fresh] });
+  }, []);
 
-  return { state: value ? { status: "ready", value } : loadState, retry, mutate, refresh };
+  const reload = useCallback(() => {
+    generation.current += 1;
+    setEdits(null);
+    retry();
+  }, [retry]);
+  return { state: value ? { status: "ready", value } : loadState, retry: reload, mutate, refresh };
 }

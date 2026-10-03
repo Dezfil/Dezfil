@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -137,12 +139,12 @@ async function dashboard() {
   const layer = await createLayer(testAccountScope(), map.id, {
     name: "Trips",
     sql: "SELECT name, cat, val, geometry FROM trips",
-  });
+  }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   const widgets = WIDGETS.map((w) => ({
     ...w,
     layerId: w.type === "note" ? null : layer.id,
   }));
-  const withWidgets = updateMap(testAccountScope(), map.id, { widgets });
+  const withWidgets = updateMap(testAccountScope(), map.id, { widgets }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   return { map: withWidgets, layer };
 }
 
@@ -284,21 +286,21 @@ describe("widget authoring", () => {
     expect(() =>
       updateMap(testAccountScope(), map.id, {
         widgets: [{ ...WIDGETS[0], layerId: "not-a-layer" }],
-      }),
+      }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
     ).toThrow(ApiError);
-    expect(() => updateMap(testAccountScope(), map.id, { widgets: [{ bad: true }] })).toThrow(
+    expect(() => updateMap(testAccountScope(), map.id, { widgets: [{ bad: true }] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision })).toThrow(
       ApiError,
     );
-    expect(() => updateMap(testAccountScope(), map.id, { widgetsPublished: "yes" })).toThrow(
+    expect(() => updateMap(testAccountScope(), map.id, { widgetsPublished: "yes" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision })).toThrow(
       ApiError,
     );
   });
 
   it("records history — undo removes the widget step, redo restores it", async () => {
     const { map } = await dashboard();
-    const undone = await undoChange(testAccountScope(), map.id);
+    const undone = await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(undone.widgets).toEqual([]);
-    const redone = await redoChange(testAccountScope(), map.id);
+    const redone = await redoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(redone.widgets.map((w) => w.id)).toEqual(["wf", "wc", "wh", "wn"]);
   });
 
@@ -315,15 +317,15 @@ describe("widget authoring", () => {
 
   it("deleting a layer removes its widgets in the same undoable step", async () => {
     const { map, layer } = await dashboard();
-    await removeLayer(testAccountScope(), layer.id);
+    await removeLayer(testAccountScope(), layer.id, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     // The bound data widgets went with the layer; the note stays.
     expect(getMap(map.id)!.widgets.map((w) => w.id)).toEqual(["wn"]);
     // One undo gesture restores layer and widgets together.
-    const undone = await undoChange(testAccountScope(), map.id);
+    const undone = await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(undone.layers.map((l) => l.id)).toContain(layer.id);
     expect(undone.widgets.map((w) => w.id)).toEqual(["wf", "wc", "wh", "wn"]);
     // Redo removes both again — never an orphan in the stored row.
-    const redone = await redoChange(testAccountScope(), map.id);
+    const redone = await redoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(redone.layers.map((l) => l.id)).not.toContain(layer.id);
     expect(redone.widgets.map((w) => w.id)).toEqual(["wn"]);
   });
@@ -343,11 +345,11 @@ describe("widget authoring", () => {
       before: { ...layer }, // the whole-layer image an earlier delete wrote
       after: null,
     });
-    const restored = await undoChange(testAccountScope(), map.id);
+    const restored = await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(restored.layers.map((l) => l.id)).toContain(layer.id);
     expect(restored.widgets).toHaveLength(4);
 
-    const redone = await redoChange(testAccountScope(), map.id);
+    const redone = await redoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(redone.layers.map((l) => l.id)).not.toContain(layer.id);
     // The widgets are KEPT, not swept: undoing again must restore the
     // author's configuration whole, so the replay never destroys it. They are inert on every read
@@ -358,7 +360,7 @@ describe("widget authoring", () => {
     // list back succeeds, while INTRODUCING a foreign reference is still
     // refused — the distinction that keeps the validator useful.
     expect(() =>
-      updateMap(testAccountScope(), map.id, { widgets: redone.widgets }),
+      updateMap(testAccountScope(), map.id, { widgets: redone.widgets }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
     ).not.toThrow();
     expect(() =>
       updateMap(testAccountScope(), map.id, {
@@ -366,12 +368,12 @@ describe("widget authoring", () => {
           ...redone.widgets,
           { ...WIDGETS[1], id: "wnew", layerId: "another-dead-layer" },
         ],
-      }),
+      }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
     ).toThrow(ApiError);
 
     // Undoing the replay restores the layer, and every widget resolves
     // again — nothing was lost on the way through.
-    const restoredAgain = await undoChange(testAccountScope(), map.id);
+    const restoredAgain = await undoChange(testAccountScope(), map.id, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(restoredAgain.layers.map((l) => l.id)).toContain(layer.id);
     expect(restoredAgain.widgets).toHaveLength(4);
   });
@@ -400,7 +402,7 @@ describe("the settle lane", () => {
     const { map, layer } = await dashboard();
     const hexLayer = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const full = await renderLayerWithSelections(testAccountScope(), hexLayer, []);
     const constrained = await renderLayerWithSelections(testAccountScope(), hexLayer, [
       { field: "cat", kind: "values", values: ["A"] },
@@ -436,7 +438,7 @@ describe("published selection bounding", () => {
     const { map, layer } = await dashboard();
     const hexLayer = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const published = {
       timeline: map.timeline,
       widgets: map.widgets,
@@ -457,7 +459,7 @@ describe("published selection bounding", () => {
     const { map, layer } = await dashboard();
     const hexLayer = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const published = {
       timeline: map.timeline,
       widgets: map.widgets,
@@ -481,7 +483,7 @@ describe("published selection bounding", () => {
     const { map, layer } = await dashboard();
     const hexLayer = await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const published = {
       timeline: map.timeline,
       widgets: map.widgets,
@@ -508,7 +510,7 @@ describe("published selection bounding", () => {
       tooltip: ["name"],
       popup: [],
       viz: { type: "cluster", radiusPx: 64, color: "fixed", showCounts: true },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const published = {
       timeline: map.timeline,
       widgets: [],
@@ -564,14 +566,14 @@ describe("published dashboards", () => {
       widgets: map.widgets.map((w) =>
         w.id === "wh" ? { ...w, visible: false } : w,
       ),
-    });
-    const { token } = publishMap(testAccountScope(), map.id);
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    const { token } = publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 
     const view = await getPublishedView(token, Date.now());
     // The note ships like any visible widget.
     expect(view?.widgets.map((w) => w.id)).toEqual(["wf", "wc", "wn"]);
 
-    updateMap(testAccountScope(), map.id, { widgetsPublished: false });
+    updateMap(testAccountScope(), map.id, { widgetsPublished: false }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const hidden = await getPublishedView(token, Date.now());
     expect(hidden?.widgets).toEqual([]);
   });

@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -48,9 +49,9 @@ beforeEach(async () => {
 afterEach(async () => { closeMetadataDb(); resetQueryInstance(); vi.unstubAllEnvs(); await rm(directory, { recursive: true, force: true }); });
 
 type Handler = (request: Request, context: { params: Promise<Record<string, string>> }) => Promise<Response>;
-async function call(account: string, load: () => Promise<Record<string, unknown>>, url: string, params: Record<string, string>, body: unknown) {
+async function call(account: string, load: () => Promise<Record<string, unknown>>, url: string, params: Record<string, string>, body: unknown, basis?: string) {
   const request = testAccountRequest(new Request(`http://instance.test${url}`, {
-    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+    method: "POST", headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": basis } : {}) }, body: JSON.stringify(body),
   }), undefined, account);
   const response = await ((await load()).POST as Handler)(request, { params: Promise.resolve(params) });
   const text = await response.text();
@@ -58,8 +59,8 @@ async function call(account: string, load: () => Promise<Record<string, unknown>
 }
 const layers = () => import("@/app/api/maps/[id]/layers/route");
 const query = () => import("@/app/api/query/route");
-const addLayer = (account: string, body: Record<string, unknown>, mapId = map.id) =>
-  call(account, layers, `/api/maps/${mapId}/layers`, { id: mapId }, body);
+const addLayer = (account: string, body: Record<string, unknown>, mapId: string, basis: string) =>
+  call(account, layers, `/api/maps/${mapId}/layers`, { id: mapId }, body, basis);
 const layerCount = (mapId = map.id) =>
   (metadataDb().prepare("SELECT COUNT(*) AS n FROM layers WHERE map_id = ?").get(mapId) as { n: number }).n;
 /** What the map draws for a reader: the stored SQL in the map's home. */
@@ -69,7 +70,7 @@ const drawn = async (account: string, sql: string, mapId = map.id) =>
 describe("console SQL added to a map", () => {
   it("is carried into the map's home, so Bob's map layer draws his roads and Ada's, as his console did", async () => {
     const sql = "-- both roads\nSELECT * FROM roads UNION ALL SELECT * FROM ada.roads ORDER BY sentinel DESC";
-    const created = await addLayer("bob", { name: "Both", sql, writtenIn: { kind: "console" } });
+    const created = await addLayer("bob", { name: "Both", sql, writtenIn: { kind: "console" } }, map.id, readEditRevision({ kind: "map", id: map.id })!.editRevision!);
     expect(created.status).toBe(201);
     expect(created.body?.sql).toBe("-- both roads\nSELECT * FROM bob.roads UNION ALL SELECT * FROM ada.roads ORDER BY sentinel DESC");
     expect(await drawn("bob", String(created.body?.sql))).toEqual(["bob roads", "ada roads"]);
@@ -80,25 +81,25 @@ describe("console SQL added to a map", () => {
   it("is stored exactly as written when the map's home is the caller's own", async () => {
     const own = createMap(scopes.bob, "Bob's");
     const sql = "select *  from roads -- mine\n";
-    const created = await addLayer("bob", { name: "Mine", sql, writtenIn: { kind: "console" } }, own.id);
+    const created = await addLayer("bob", { name: "Mine", sql, writtenIn: { kind: "console" } }, own.id, readEditRevision({ kind: "map", id: own.id })!.editRevision!);
     expect(created.status).toBe(201);
     expect(created.body?.sql).toBe(sql);
   });
 
   it("refuses, naming the reference and writing nothing, what cannot be carried", async () => {
     const before = layerCount();
-    const refused = await addLayer("bob", { name: "Gone", sql: "SELECT * FROM roads, missing_table", writtenIn: { kind: "console" } });
+    const refused = await addLayer("bob", { name: "Gone", sql: "SELECT * FROM roads, missing_table", writtenIn: { kind: "console" } }, map.id, readEditRevision({ kind: "map", id: map.id })!.editRevision!);
     expect(refused).toEqual({ status: 400, body: { error: { code: "sql_error", message: 'The dataset "missing_table" is not available to you.' } } });
     expect(layerCount()).toBe(before);
   });
 
   it("refuses a malformed context, and a map or workflow it does not reach as a missing one", async () => {
     for (const writtenIn of ["console", { kind: "desk" }, { kind: "map" }, { kind: "console", id: "x" }]) {
-      expect((await addLayer("bob", { sql: "SELECT * FROM roads", writtenIn })).body).toMatchObject({ error: { code: "invalid_request" } });
+      expect((await addLayer("bob", { sql: "SELECT * FROM roads", writtenIn }, map.id, readEditRevision({ kind: "map", id: map.id })!.editRevision!)).body).toMatchObject({ error: { code: "invalid_request" } });
     }
     const hidden = createMap(scopes.cyd, "Cyd's");
-    const absent = await addLayer("bob", { sql: "SELECT * FROM roads", writtenIn: { kind: "map", id: hidden.id } });
-    const never = await addLayer("bob", { sql: "SELECT * FROM roads", writtenIn: { kind: "map", id: "never-existed" } });
+    const absent = await addLayer("bob", { sql: "SELECT * FROM roads", writtenIn: { kind: "map", id: hidden.id } }, map.id, readEditRevision({ kind: "map", id: map.id })!.editRevision!);
+    const never = await addLayer("bob", { sql: "SELECT * FROM roads", writtenIn: { kind: "map", id: "never-existed" } }, map.id, readEditRevision({ kind: "map", id: map.id })!.editRevision!);
     expect(absent.status).toBe(404);
     expect(absent).toEqual(never);
     expect(layerCount()).toBe(0);
@@ -112,13 +113,13 @@ describe("a dataset's \"Add to a map\"", () => {
     // Bob opened Ada's shared roads: its qualified name is what he types.
     const subject = tableSubject("ada.roads")!;
     for (const target of [own.id, map.id]) {
-      const created = await addLayer("bob", landingRequest(subject, ""), target);
+      const created = await addLayer("bob", landingRequest(subject, ""), target, readEditRevision({ kind: "map", id: target })!.editRevision!);
       expect(created.status).toBe(201);
       expect(created.body).toMatchObject({ name: "roads", sql: "SELECT * FROM ada.roads" });
       expect(await drawn("bob", String(created.body?.sql), target)).toEqual(["ada roads"]);
     }
     // His own roads, opened from his own page, lands as his in Ada's map.
-    const mine = await addLayer("bob", landingRequest(tableSubject("roads")!, ""));
+    const mine = await addLayer("bob", landingRequest(tableSubject("roads")!, ""), map.id, readEditRevision({ kind: "map", id: map.id })!.editRevision!);
     expect(mine.body).toMatchObject({ name: "roads", sql: "SELECT * FROM bob.roads" });
     expect(await drawn("bob", String(mine.body?.sql))).toEqual(["bob roads"]);
   });
@@ -134,7 +135,7 @@ describe("the add-layer workbench", () => {
     // The console would have shown Bob's own.
     const console = await call("bob", query, "/api/query", {}, previewRequest(sql));
     expect((console.body?.preview as { sentinel: string }[]).map((row) => row.sentinel)).toEqual(["bob roads"]);
-    const saved = await addLayer("bob", { name: "Previewed", sql: "SELECT * FROM roads" });
+    const saved = await addLayer("bob", { name: "Previewed", sql: "SELECT * FROM roads" }, map.id, readEditRevision({ kind: "map", id: map.id })!.editRevision!);
     expect(await drawn("bob", String(saved.body?.sql))).toEqual(["ada roads"]);
   });
 

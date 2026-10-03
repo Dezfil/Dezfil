@@ -1,3 +1,5 @@
+import { getStep as readEditStep } from "@/lib/metadata/recipes";
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import path from "node:path";
@@ -45,9 +47,9 @@ it("completes and replaces same-named outputs independently for all workflow own
   const outputs = new Set<string>();
   for (const [n, account] of accounts.entries()) {
     const { recipe, step } = workflow(account, "same_output", n);
-    const run = await startSingleRun(scopes[account], recipe.id, step.id); await cascadeSettled(run.id);
+    const run = await startSingleRun(scopes[account], recipe.id, step.id, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id })?.editRevision }); await cascadeSettled(run.id);
     expect(getCascade(run.id)?.outcome).toBe("completed"); const output = getOwnedTableByName(scopes[account], "same_output")!; expect(output).not.toBeNull(); outputs.add(output.id);
-    const again = await startSingleRun(scopes[account], recipe.id, step.id); await cascadeSettled(again.id);
+    const again = await startSingleRun(scopes[account], recipe.id, step.id, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id })?.editRevision }); await cascadeSettled(again.id);
     expect(getCascade(again.id)?.outcome).toBe("completed"); expect(getOwnedTableByName(scopes[account], "same_output")?.id).toBe(output.id);
     expect((await inspectTable(scopes[account], "same_output")).preview).toEqual([{ value: n }]);
   }
@@ -59,7 +61,7 @@ it("drains a deactivated cascade and preserves only outputs committed before dea
   addStep(recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 2 AS value", name: "second" } });
   addStep(recipe.id, { operation: "sql_step", parameters: { sql: "SELECT 3 AS value FROM second", name: "dependent" } });
   let artifacts = 0; measure.after = () => { if (++artifacts === 2) metadataDb().prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'alice'").run(); };
-  const run = await startCascade(scopes.alice, { recipeId: recipe.id }); await cascadeSettled(run.id); await laneSettled();
+  const run = await startCascade(scopes.alice, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id })?.editRevision, recipeId: recipe.id }); await cascadeSettled(run.id); await laneSettled();
   const done = getCascade(run.id)!; expect(done.outcome).toBe("partly_completed"); expect(done.members.map(m => m.state)).toEqual(["succeeded", "failed", "not_run"]);
   expect(done.members[1].attempt).toMatchObject({ state: "failed", error: { code: "authentication_required" } });
   expect(done.members[2].stoppedBy).toBe("authentication_required"); expect(done.members[2].jobId).toBeNull();
@@ -79,7 +81,7 @@ it("recovers inactive workflows without attaching another owner's job attempt", 
 it("withholds a cancellation answer when the owner is deactivated during the drain", async () => {
   const { recipe, step } = workflow("alice"); const gate = deferred();
   const blocker = submitRun(scopes.bob, { operationId: "sql_step", name: "blocker", parameters: {}, sql: "", prepare: async () => { await gate.promise; return { sql: "SELECT 1", disclosure: {}, cleanup: async () => {} }; } });
-  const run = await startSingleRun(scopes.alice, recipe.id, step.id);
+  const run = await startSingleRun(scopes.alice, recipe.id, step.id, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id })?.editRevision });
   const cancelling = cancelCascade(scopes.alice, run.id); const refused = expect(cancelling).rejects.toMatchObject({ code: "authentication_required" });
   metadataDb().prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'alice'").run(); gate.release(); await refused; await cascadeSettled(run.id); await laneSettled();
   expect(getCascade(run.id)?.outcome).toBe("cancelled"); expect(getJob(blocker.id)?.state).toBe("succeeded");
@@ -87,20 +89,20 @@ it("withholds a cancellation answer when the owner is deactivated during the dra
 it("keeps a deactivated attempt after depth-one history prunes its job", async () => {
   process.env.DEZFIL_OPERATION_HISTORY_PER_SUBJECT = "1";
   const { recipe, step } = workflow("alice");
-  const first = await startSingleRun(scopes.alice, recipe.id, step.id); await cascadeSettled(first.id);
+  const first = await startSingleRun(scopes.alice, recipe.id, step.id, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id })?.editRevision }); await cascadeSettled(first.id);
   const original = getOwnedTableByName(scopes.alice, "same_output")!;
   measure.after = () => metadataDb().prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'alice'").run();
-  const second = await startSingleRun(scopes.alice, recipe.id, step.id); await cascadeSettled(second.id);
+  const second = await startSingleRun(scopes.alice, recipe.id, step.id, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id })?.editRevision }); await cascadeSettled(second.id);
   const member = getCascade(second.id)!.members[0];
   expect(getJob(member.jobId!)).toBeNull(); expect(member.attempt).toMatchObject({ state: "failed", error: { code: "authentication_required" } });
   metadataDb().prepare("UPDATE accounts SET status = 'active' WHERE id = 'alice'").run(); expect(getOwnedTableByName(scopes.alice, "same_output")?.file).toBe(original.file);
 });
 it("keeps result identity private after both its step and output are deleted", async () => {
   const { recipe, step } = workflow("alice");
-  const run = await startSingleRun(scopes.alice, recipe.id, step.id); await cascadeSettled(run.id);
+  const run = await startSingleRun(scopes.alice, recipe.id, step.id, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id })?.editRevision }); await cascadeSettled(run.id);
   const { readCascade } = await import("@/lib/operations/cascade"), before = readCascade(scopes.alice, run.id);
   const { removeTable } = await import("@/lib/table-service"); const { removeStep } = await import("@/lib/metadata/owned-recipes");
-  await removeTable(scopes.alice, "same_output"); removeStep(scopes.alice, step.id);
+  await removeTable(scopes.alice, "same_output"); removeStep(scopes.alice, step.id, undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: (readEditStep(step.id, undefined)?.recipeId ?? "missing") }, undefined)?.editRevision });
   expect(readCascade(scopes.alice, run.id)).toEqual(before);
   for (const account of ["bob", "admin"]) {
     expect(() => readCascade(scopes[account], run.id)).toThrow(expect.objectContaining({ status: 404 }));
@@ -125,12 +127,12 @@ it("drains a single admitted job when its workflow disappears before the member 
   vi.spyOn(runApi, "waitForRunCancellation").mockImplementation(async (...args) => {
     await cancellation.engage(); return wait(...args);
   });
-  const started = startSingleRun(scopes.alice, recipe.id, step.id); const refused = expect(started).rejects.toMatchObject({ status: 404 });
+  const started = startSingleRun(scopes.alice, recipe.id, step.id, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id })?.editRevision }); const refused = expect(started).rejects.toMatchObject({ status: 404 });
   try {
     await admission.beforeMutation();
     expect(getJob(jobId)?.state).toBe("running");
     expect(getCascade(cascadeId)?.members[0]).toMatchObject({ state: "pending", jobId: null });
-    deleteRecipe(scopes.alice, recipe.id); admission.release();
+    deleteRecipe(scopes.alice, recipe.id, undefined, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe.id }, undefined)?.editRevision }); admission.release();
     await cancellation.beforeMutation();
     // The cancellation is durable while preparation still holds the lane.
     expect(getJob(jobId)?.state).toBe("cancelled");

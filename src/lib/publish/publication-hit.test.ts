@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -49,8 +50,8 @@ type View = { layers: { render: { ok: boolean; geojson?: { features: { propertie
 describe("a held published view on a hit", () => {
   it("is not served once the owner no longer reaches what it drew", async () => {
     const map = createMap(scopes.ada, "Survey");
-    await createLayer(scopes.ada, map.id, { name: "Bob's", sql: "SELECT * FROM bob.roads" });
-    const { token } = publishMap(scopes.ada, map.id);
+    await createLayer(scopes.ada, map.id, { name: "Bob's", sql: "SELECT * FROM bob.roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+    const { token } = publishMap(scopes.ada, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     const first = await getPublishedView(token, Date.now()) as unknown as View;
     expect(first.layers[0].render.geojson?.features.map((f) => f.properties.sentinel)).toEqual(["bob's road"]);
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { membershipBody, type FilingBases } from "./filing-intent";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { readApiError } from "../api";
 import { GeometryIcon, geometryKind } from "../gallery-icons";
@@ -125,7 +126,10 @@ export function AddItemsDialog({
       });
   }, []);
 
+  const [displayed, setDisplayed] = useState<FilingBases>({});
   const toggle = (item: PickItem) => {
+    const revision = item.kind === "map" ? item.map.editRevision : item.kind === "workflow" ? item.workflow.editRevision : null;
+    if (revision) setDisplayed((current) => ({ ...current, [`${item.kind}:${item.id}`]: revision }));
     setRefusal(null);
     setSelection((current) => {
       const next: Selection = {
@@ -161,8 +165,8 @@ export function AddItemsDialog({
     return byId;
   }, [reads, selection]);
   const composed = useMemo(
-    () => composeChange(selection, readsById, members),
-    [selection, readsById, members],
+    () => composeChange(selection, readsById, members, displayed),
+    [selection, readsById, members, displayed],
   );
   const picked =
     selection.maps.size + selection.workflows.size + selection.datasets.size;
@@ -182,7 +186,7 @@ export function AddItemsDialog({
       const response = await fetch(`/api/projects/${projectId}/members`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(composed.members),
+        body: JSON.stringify(membershipBody(composed)),
       });
       if (!response.ok) throw new Error(await readApiError(response));
       const total =

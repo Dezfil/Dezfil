@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { factsOf, type DocumentFacts } from "@/lib/metadata/document-facts";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { appendFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -148,7 +150,7 @@ async function seedF1() {
   const squares = F1_VALUES.map((area_m2, i) => ({ properties: { square: `Q${i + 1}`, area_m2 }, geometry: rect(13.3 + (i % 8) * 0.002, 13.3 + (i % 8) * 0.002 + 0.001, 52.3 + Math.floor(i / 8) * 0.002, 52.3 + Math.floor(i / 8) * 0.002 + 0.001) }));
   const table = await seedTable("squares_f1", collection(squares));
   const map = createMap(testAccountScope(), "F1");
-  const created = await createLayer(testAccountScope(), map.id, { name: "Squares", sql: `SELECT * FROM ${table.name}` });
+  const created = await createLayer(testAccountScope(), map.id, { name: "Squares", sql: `SELECT * FROM ${table.name}` }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   return { map, layerId: created.id, style: created.style as unknown as Record<string, unknown>, context: { page: "builder", mapId: map.id, selectedLayerId: created.id } as AssistantContext };
 }
 /** The compliant analyst computes the fill and merges it into the layer's
@@ -193,7 +195,7 @@ async function assertF2(mapId: string) {
 async function seedF3() {
   const table = await seedTable("area_f3", collection([{ properties: { area: "A" }, geometry: rect(F3_BOX.west, F3_BOX.east, F3_BOX.south, F3_BOX.north) }]));
   const map = createMap(testAccountScope(), "F3");
-  const created = await createLayer(testAccountScope(), map.id, { name: "Area", sql: `SELECT * FROM ${table.name}` });
+  const created = await createLayer(testAccountScope(), map.id, { name: "Area", sql: `SELECT * FROM ${table.name}` }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   return { table, map, layerId: created.id, context: { page: "builder", mapId: map.id, selectedLayerId: created.id } as AssistantContext };
 }
 const f3Script = (layerId: string, table: { name: string; geometry: string }, planarAsMetres: boolean): ScriptEntry[] => [
@@ -215,9 +217,9 @@ async function assertF3(layerId: string) {
 // ---- F4: refinement ----
 async function seedF4(parks: { name: string }, stations: { name: string }) {
   const map = createMap(testAccountScope(), "F4");
-  const l1 = await createLayer(testAccountScope(), map.id, { name: "Parks", sql: `SELECT * FROM ${parks.name}` });
-  const l2 = await createLayer(testAccountScope(), map.id, { name: "Stations", sql: `SELECT * FROM ${stations.name}` });
-  const l3 = await createLayer(testAccountScope(), map.id, { name: "Large parks", sql: `SELECT * FROM ${parks.name} WHERE area_ha > 3` });
+  const l1 = await createLayer(testAccountScope(), map.id, { name: "Parks", sql: `SELECT * FROM ${parks.name}` }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+  const l2 = await createLayer(testAccountScope(), map.id, { name: "Stations", sql: `SELECT * FROM ${stations.name}` }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+  const l3 = await createLayer(testAccountScope(), map.id, { name: "Large parks", sql: `SELECT * FROM ${parks.name} WHERE area_ha > 3` }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   const snapshot = async () => ({ l2: await layer(l2.id), l2ids: await features(l2.id), l3: await layer(l3.id), l3ids: await parkIds(l3.id) });
   return { map, l1: l1.id, l2: l2.id, l3: l3.id, before: await snapshot(), snapshot, context: { page: "builder", mapId: map.id, selectedLayerId: l1.id } as AssistantContext };
 }
@@ -228,12 +230,13 @@ const f4Script = (target: string, mapId: string, seed: "none" | "fourth" | "wron
   { text: "This layer now shows parks over one hectare.", toolCalls: [] },
 ];
 async function assertF4(f4: Awaited<ReturnType<typeof seedF4>>) {
-  const map = await json<{ layers: { id: string }[] }>(`/api/maps/${f4.map.id}`);
+  const map = await json<{ layers: { id: string }[] } & DocumentFacts>(`/api/maps/${f4.map.id}`);
   expect(map.layers, "the map still holds exactly three layers").toHaveLength(3);
   expect(map.layers.map((l) => l.id)).toContain(f4.l1);
   expect(await parkIds(f4.l1), "the selected layer's effective ids").toEqual(F4_EXPECTED);
   const after = await f4.snapshot();
-  expect(after, "the two untouched layers").toEqual(f4.before);
+  expect(after, "the two untouched layers").toEqual({ ...f4.before,
+    l2: { ...f4.before.l2, ...factsOf(map) }, l3: { ...f4.before.l3, ...factsOf(map) } });
 }
 
 describe("F1: classification", () => {

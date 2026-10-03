@@ -182,11 +182,11 @@ async function seedOffArrangement(page: Page, id: string): Promise<void> {
     const read = await fetch(`/api/recipes/${id}`);
     if (!read.ok) throw new Error(await read.text());
     const { recipe } = (await read.json()) as { recipe: { steps: { id: string }[] } };
-    const put = await fetch(`/api/recipes/${id}/layout`, {
+    const put = await (async function readThenWriteWorkflowSetup() { const basis = await (await fetch(`/api/recipes/${id}`)).json(); return fetch(`/api/recipes/${id}/layout`, {
       method: "PUT",
-      headers,
+      headers: { ...headers, "X-Edit-Revision": basis.editRevision },
       body: JSON.stringify({ steps: { [recipe.steps[0].id]: { x: 480, y: 320 } }, sources: {}, notes: [] }),
-    });
+    }); })();
     if (!put.ok) throw new Error(await put.text());
   }, id);
 }
@@ -200,11 +200,11 @@ async function seedWorkflow(page: Page): Promise<string> {
     const made = await fetch("/api/recipes", { method: "POST", headers, body: JSON.stringify({ name: "Census workflow" }) });
     if (!made.ok) throw new Error(await made.text());
     const { recipe } = (await made.json()) as { recipe: { id: string } };
-    const added = await fetch(`/api/recipes/${recipe.id}/steps`, {
+    const added = await (async function readThenWriteWorkflowSetup() { const basis = await (await fetch(`/api/recipes/${recipe.id}`)).json(); return fetch(`/api/recipes/${recipe.id}/steps`, {
       method: "POST",
-      headers,
+      headers: { ...headers, "X-Edit-Revision": basis.editRevision },
       body: JSON.stringify({ operation: "sql_step", parameters: { sql: `SELECT name FROM ${table}`, name: `${table}_one` } }),
-    });
+    }); })();
     if (!added.ok) throw new Error(await added.text());
     return recipe.id;
   }, { table });
@@ -349,7 +349,7 @@ test.describe("census checks", () => {
       await page.goto(`/workflows/${id}`);
       await expect(page.locator("[data-workflow-canvas]")).toBeVisible();
       // Undo and Redo: the stack's seventh and eighth buttons, named while dimmed.
-      for (const name of ["Zoom in", "Zoom out", "Fit to view", "Framed view", "Arrange by dependency", "Undo", "Redo"]) {
+      for (const name of ["Zoom in", "Zoom out", "Fit to view", "Framed view", "Arrange by dependency", /^Undo/, /^Redo/]) {
         await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
       }
       await expect(page.getByRole("tab", { name: /^Sources/ })).toBeVisible();
@@ -643,13 +643,13 @@ test.describe("census checks", () => {
         // holds the hit floor.
         await page.getByRole("button", { name: "Arrange by dependency" }).click();
         await page.waitForTimeout(700);
-        const undoBtn = page.getByRole("button", { name: "Undo", exact: true });
+        const undoBtn = page.getByRole("button", { name: /^Undo/ });
         await expect(undoBtn).toBeEnabled();
         await expectRing(page, undoBtn, "the stage's Undo");
         await expectHitFloor(undoBtn, "the stage's Undo");
         await page.keyboard.press("Enter");
         await page.waitForTimeout(700);
-        const redoBtn = page.getByRole("button", { name: "Redo", exact: true });
+        const redoBtn = page.getByRole("button", { name: /^Redo/ });
         await expect(redoBtn).toBeEnabled();
         await expectRing(page, redoBtn, "the stage's Redo");
         await expectHitFloor(redoBtn, "the stage's Redo");

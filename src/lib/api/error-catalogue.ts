@@ -4,6 +4,7 @@ import type { ErrorCode } from "./errors";
  * error's code appears in the API documentation). Single source, rendered
  * into the docs and the OpenAPI description. */
 export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
+  method_not_allowed: "This method is not allowed for this path.",
   authentication_required: "Sign in with a valid session or account token to continue.",
   invalid_credentials: "Email or password is incorrect.",
   account_deactivated: "This account is deactivated. Contact an admin.",
@@ -58,7 +59,8 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   mcp_read_failed: "The read could not be completed because its response could not be received.",
   mcp_transport_failed: "The operation's response could not be received. Its outcome is unknown.",
   mcp_response_invalid: "The instance returned a response that does not match this operation's documented result.",
-  invalid_request: "The request was malformed or failed validation.",
+  stale_revision: "This item has changed. Reload it before trying again.",
+  invalid_request: "The request was malformed or failed validation, including a missing or malformed required edit revision. Read the item before a covered write.",
   not_found: "The requested resource was not found.",
   sql_rejected: "The SQL was not an accepted read-only query.",
   sql_error: "The SQL failed to parse or execute.",

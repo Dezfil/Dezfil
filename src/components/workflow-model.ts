@@ -83,6 +83,9 @@ export function nodeState(step: WorkflowStep): { label: string; tone: ChipTone }
 }
 
 export interface WorkflowListing {
+  lastChangedAt?: string | null;
+  lastChangedBy?: { name: string; sqlName: string } | null;
+  editRevision?: string;
   id: string;
   name: string;
   origin: RecipeOrigin;
@@ -135,7 +138,7 @@ export function sortWorkflows(list: WorkflowListing[], sort: WorkflowsSort): Wor
   const out = [...list];
   if (sort === "name") out.sort((a, b) => a.name.localeCompare(b.name));
   else if (sort === "created") out.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  else out.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  else out.sort((a, b) => (b.lastChangedAt ?? "").localeCompare(a.lastChangedAt ?? ""));
   return out;
 }
 

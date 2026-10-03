@@ -26,7 +26,10 @@ describe("the reach the header card can afford", () => {
     expect(affordableReach(424, impossible)).toBe(0);
   });
 
-  it("rounds to a whole pixel", () => {
-    expect(affordableReach(424.4, { ...row, cardLeft: 14.1 })).toBe(410);
+  it("preserves fractional pane edges and never rounds beyond the available room", () => {
+    expect(affordableReach(424.375, { ...row, cardLeft: 14.125 })).toBe(410.25);
+    const narrow = { cardLeft: 14, contentRight: 464, gap: 14, siblingWidths: [123.375] };
+    expect(affordableReach(424, narrow)).toBe(312.625);
+    expect(affordableReach(424, narrow)).toBeLessThanOrEqual(roomForCard(narrow));
   });
 });

@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { wire } from "./fetch-wire";
 import { LayoutSaveCoordinator, type LayoutSnapshot, type SaveState } from "./layout-save-coordinator";
-import type { LayoutRead } from "./placement";
+import type { LayoutNote, LayoutRead } from "./placement";
+import { WorkflowDocument } from "./workflow-document";
 
 const W = "w1";
 const LOCK = "Canvas locked. Unlock to edit.";
@@ -9,6 +10,44 @@ const EMPTY: LayoutRead = { steps: {}, sources: {}, notes: [], updatedAt: null }
 
 describe("the production layout save coordinator", () => {
   afterEach(() => vi.unstubAllGlobals());
+
+  it.each([false, true])("carries failed note text through a node move (queued: %s)", async (queued) => {
+    const w = wire();
+    vi.stubGlobal("fetch", w.fetch);
+    const states: SaveState[] = [];
+    const note: LayoutNote = { id: "note", text: "saved note", x: 0, y: 0, w: 240, h: 160, color: "yellow" };
+    const layout = { ...EMPTY, steps: { n1: { x: 0, y: 0 } }, notes: [note], editRevision: "before" };
+    const document = new WorkflowDocument(W);
+    document.accept(layout);
+    const coordinator = new LayoutSaveCoordinator(W, layout, {
+      graph: { members: [], edges: [], presentSourceCount: 0 },
+      onState: (state) => states.push(state),
+      lockReason: () => null,
+      say: () => {},
+    }, document);
+    const notes = [{ ...note, text: "keep this unsaved note" }];
+    coordinator.save({ positions: layout.steps, notes });
+    await w.settle();
+    const moved = { positions: { n1: { x: 48, y: 40 } }, notes };
+    if (queued) coordinator.save(moved);
+    w.pending("PUT", `/api/recipes/${W}/layout`)[0].cut();
+    await w.settle();
+    if (!queued) {
+      expect(states.at(-1)?.kind).toBe("failed");
+      coordinator.save(moved);
+      await w.settle();
+    }
+    const save = w.pending("PUT", `/api/recipes/${W}/layout`)[0];
+    expect(save.body).toEqual({ steps: moved.positions, sources: {}, notes });
+    expect(save.headers.get("X-Edit-Revision")).toBe("before");
+    save.ok({ layout: { ...layout, steps: moved.positions, notes, editRevision: "after" } });
+    await document.idle();
+    expect(document.layout?.notes).toEqual(notes);
+    expect(document.layout?.steps).toEqual(moved.positions);
+    expect(document.revision).toBe("after");
+    expect(states.at(-1)?.kind).toBe("saved");
+    expect(coordinator.pending()).toBe(false);
+  });
 
   it("keeps a failed snapshot recoverable but sends no Retry while the canvas is locked", async () => {
     const w = wire();
@@ -51,4 +90,25 @@ describe("the production layout save coordinator", () => {
     await w.settle();
     expect(states.at(-1)?.kind).toBe("saved");
   });
+});
+
+it("undoing a note removal restores the first note before the second", async () => {
+  const w = wire(); vi.stubGlobal("fetch", w.fetch);
+  const notes: LayoutNote[] = [
+    { id: "na_ly", x: 48, y: 280, w: 176, h: 96, color: "yellow", text: "first" },
+    { id: "nb_ly", x: 288, y: 280, w: 176, h: 96, color: "green", text: "second" },
+  ];
+  const layout = { ...EMPTY, notes, editRevision: "before" };
+  const document = new WorkflowDocument(W); document.accept(layout);
+  const coordinator = new LayoutSaveCoordinator(W, layout, { graph: { members: [], edges: [], presentSourceCount: 0 }, onState() {}, lockReason: () => null, say() {} }, document);
+  coordinator.save({ positions: {}, notes: notes.slice(1) });
+  w.pending("PUT", `/api/recipes/${W}/layout`)[0].ok({ layout: { ...layout, notes: notes.slice(1), editRevision: "removed" } });
+  await document.idle();
+  coordinator.restore({ positions: {}, notes }, { place: [], drop: [] });
+  const inverse = w.pending("PUT", `/api/recipes/${W}/layout`)[0];
+  expect((inverse.body as { notes: LayoutNote[] }).notes[0]).toEqual(notes[0]);
+  expect(inverse.headers.get("X-Edit-Revision")).toBe("removed");
+  inverse.ok({ layout: { ...layout, editRevision: "restored" } }); await document.idle();
+  expect(document.layout?.notes).toEqual(notes);
+  vi.unstubAllGlobals();
 });

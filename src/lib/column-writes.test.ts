@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -80,7 +82,7 @@ async function makeLayer() {
   return createLayer(testAccountScope(), map.id, {
     name: "Trips",
     sql: "SELECT name, cat, val, geometry FROM trips",
-  });
+  }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
 }
 
 async function refused(promise: Promise<unknown>): Promise<ApiError> {
@@ -97,7 +99,7 @@ describe("layer style writes", () => {
   it("refuses a fill on a nonexistent column and persists nothing", async () => {
     const layer = await makeLayer();
     const style = { ...constantStyle, fill: quantileOn("typo") };
-    const error = await refused(updateLayer(testAccountScope(), layer.id, { style, name: "x" }));
+    const error = await refused(updateLayer(testAccountScope(), layer.id, { style, name: "x" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision }));
     expect(error.code).toBe("column_unavailable");
     expect(error.status).toBe(400);
     expect(error.message).toContain('"typo"');
@@ -109,7 +111,7 @@ describe("layer style writes", () => {
   it("refuses a numeric channel on a text column, naming both kinds", async () => {
     const layer = await makeLayer();
     const style = { ...constantStyle, fill: quantileOn("cat") };
-    const error = await refused(updateLayer(testAccountScope(), layer.id, { style }));
+    const error = await refused(updateLayer(testAccountScope(), layer.id, { style }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision }));
     expect(error.code).toBe("column_unavailable");
     expect(error.message).toContain('"cat" is text');
   });
@@ -126,7 +128,7 @@ describe("layer style writes", () => {
       },
       label: { attribute: "name", size: 12, color: rgba, haloWidth: 1, haloColor: { r: 12, g: 16, b: 24, a: 0.8 } },
     };
-    const updated = await updateLayer(testAccountScope(), layer.id, { style });
+    const updated = await updateLayer(testAccountScope(), layer.id, { style }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(updated.style.fill.type).toBe("quantile");
   });
 
@@ -134,18 +136,18 @@ describe("layer style writes", () => {
     const layer = await makeLayer();
     await updateLayer(testAccountScope(), layer.id, {
       style: { ...constantStyle, fill: quantileOn("val") },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     // The edit drops `val`; the stored fill now references a stranded
     // column. Refusing the edit (or the later echo) would brick the
     // surface — read-time degradation owns this class.
     const narrowed = await updateLayer(testAccountScope(), layer.id, {
       sql: "SELECT name, cat, geometry FROM trips",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(narrowed.sql).toContain("name, cat, geometry");
     const echoed = await updateLayer(testAccountScope(), layer.id, {
       style: { ...requireLayer(testAccountScope(), layer.id).style },
       name: "still here",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(echoed.name).toBe("still here");
     expect((echoed.style.fill as QuantileFill).attribute).toBe("val");
   });
@@ -154,11 +156,11 @@ describe("layer style writes", () => {
     const layer = await makeLayer();
     await updateLayer(testAccountScope(), layer.id, {
       sql: "SELECT name, cat, geometry FROM trips",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const error = await refused(
       updateLayer(testAccountScope(), layer.id, {
         style: { ...constantStyle, fill: quantileOn("val") },
-      }),
+      }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision }),
     );
     expect(error.code).toBe("column_unavailable");
   });
@@ -169,7 +171,7 @@ describe("layer style writes", () => {
     const combined = await updateLayer(testAccountScope(), layer.id, {
       sql: "SELECT name, val * 2 AS total, geometry FROM trips",
       style: { ...constantStyle, fill: quantileOn("total") },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect((combined.style.fill as QuantileFill).attribute).toBe("total");
     // The inverse: a reference introduced by the same request that
     // removes its column refuses — the post-request schema decides.
@@ -178,7 +180,7 @@ describe("layer style writes", () => {
       updateLayer(testAccountScope(), fresh.id, {
         sql: "SELECT name, geometry FROM trips",
         style: { ...constantStyle, fill: quantileOn("val") },
-      }),
+      }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(fresh.id)?.mapId ?? "missing") })?.editRevision }),
     );
     expect(error.code).toBe("column_unavailable");
   });
@@ -191,16 +193,16 @@ describe("layer style writes", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "Doomed",
       sql: "SELECT name, val, geometry FROM doomed",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     await removeTable(testAccountScope(), "doomed");
     const error = await refused(
       updateLayer(testAccountScope(), layer.id, {
         style: { ...constantStyle, fill: quantileOn("val") },
-      }),
+      }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision }),
     );
     expect(error.code).toBe("column_unavailable");
     expect(error.message).toContain("could not be resolved");
-    const renamed = await updateLayer(testAccountScope(), layer.id, { name: "still editable" });
+    const renamed = await updateLayer(testAccountScope(), layer.id, { name: "still editable" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(renamed.name).toBe("still editable");
   });
 
@@ -211,14 +213,14 @@ describe("layer style writes", () => {
         name: "bad",
         sql: "SELECT name, val, geometry FROM trips",
         style: { ...constantStyle, fill: quantileOn("typo") },
-      }),
+      }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }),
     );
     expect(error.code).toBe("column_unavailable");
     const ok = await createLayer(testAccountScope(), map.id, {
       name: "good",
       sql: "SELECT name, val, geometry FROM trips",
       style: { ...constantStyle, fill: quantileOn("val") },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(ok.style.fill.type).toBe("quantile");
   });
 
@@ -230,7 +232,7 @@ describe("layer style writes", () => {
         ...constantStyle,
         label: { attribute: "name", size: 12, color: rgba, haloWidth: 1, haloColor: { r: 12, g: 16, b: 24, a: 0.8 } },
       },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(updated.style.label?.attribute).toBeUndefined();
   });
 });
@@ -241,20 +243,20 @@ describe("filter writes", () => {
     const timeOnNumeric = await refused(
       updateLayer(testAccountScope(), layer.id, {
         filters: [{ field: "val", kind: "timerange", min: null, max: null }],
-      }),
+      }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision }),
     );
     expect(timeOnNumeric.code).toBe("column_unavailable");
     expect(timeOnNumeric.message).toContain("needs a time column");
     const rangeOnText = await refused(
       updateLayer(testAccountScope(), layer.id, {
         filters: [{ field: "cat", kind: "range", min: 0, max: 1 }],
-      }),
+      }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision }),
     );
     expect(rangeOnText.code).toBe("column_unavailable");
     const valuesOnMissing = await refused(
       updateLayer(testAccountScope(), layer.id, {
         filters: [{ field: "typo", kind: "values", values: ["A"] }],
-      }),
+      }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision }),
     );
     expect(valuesOnMissing.code).toBe("column_unavailable");
     const ok = await updateLayer(testAccountScope(), layer.id, {
@@ -262,7 +264,7 @@ describe("filter writes", () => {
         { field: "val", kind: "range", min: 10, max: 30 },
         { field: "cat", kind: "values", values: ["A"] },
       ],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(ok.filters).toHaveLength(2);
   });
 
@@ -270,15 +272,15 @@ describe("filter writes", () => {
     const layer = await makeLayer();
     await updateLayer(testAccountScope(), layer.id, {
       filters: [{ field: "val", kind: "range", min: 10, max: 30 }],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     await updateLayer(testAccountScope(), layer.id, {
       sql: "SELECT name, cat, geometry FROM trips",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const stored = requireLayer(testAccountScope(), layer.id);
     const echoed = await updateLayer(testAccountScope(), layer.id, {
       filters: stored.filters,
       name: "still filtered",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(echoed.name).toBe("still filtered");
     const error = await refused(
       updateLayer(testAccountScope(), layer.id, {
@@ -286,7 +288,7 @@ describe("filter writes", () => {
           ...stored.filters,
           { field: "val", kind: "values", values: ["10"] },
         ],
-      }),
+      }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision }),
     );
     expect(error.code).toBe("column_unavailable");
   });
@@ -298,7 +300,7 @@ describe("read lanes stay degradation, never retro-refusal", () => {
     const layer = await createLayer(testAccountScope(), map.id, {
       name: "Trips",
       sql: "SELECT name, cat, val, geometry FROM trips",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     // An aggregated layer folds its references into server SQL — the read
     // lane that visibly errors on drift (points delegate filters to the
     // GPU and keep rendering).
@@ -308,7 +310,7 @@ describe("read lanes stay degradation, never retro-refusal", () => {
         cellKm: 1,
         aggregate: { fn: "sum", attribute: "val" },
       },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     updateMap(testAccountScope(), map.id, {
       widgets: [
         {
@@ -325,12 +327,12 @@ describe("read lanes stay degradation, never retro-refusal", () => {
           visible: true,
         },
       ],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     // Drift: the column vanishes under stored references (the mechanism a
     // refresh shares — the read path cannot tell why it is gone).
     await updateLayer(testAccountScope(), layer.id, {
       sql: "SELECT name, cat, geometry FROM trips",
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const render = await renderLayer(testAccountScope(), requireLayer(testAccountScope(), layer.id), undefined, { tileAccess: privateTileAccess(testAccountScope(), (requireLayer(testAccountScope(), layer.id)).id) });
     expect(render.ok).toBe(false);
     if (!render.ok) expect(render.error?.code).toBe("sql_error");
@@ -341,7 +343,7 @@ describe("read lanes stay degradation, never retro-refusal", () => {
     );
     expect(values.widgets).toHaveLength(1);
     expect("error" in values.widgets[0]).toBe(true);
-    const renamed = await updateLayer(testAccountScope(), layer.id, { name: "still working" });
+    const renamed = await updateLayer(testAccountScope(), layer.id, { name: "still working" }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(renamed.name).toBe("still working");
   });
 });
@@ -356,7 +358,7 @@ describe("viz writes", () => {
           cellKm: 1,
           aggregate: { fn: "sum", attribute: "cat" },
         },
-      }),
+      }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision }),
     );
     expect(onText.code).toBe("column_unavailable");
     expect(onText.message).toContain("aggregation needs a numeric column");
@@ -368,7 +370,7 @@ describe("viz writes", () => {
           intensity: 1,
           weight: "typo",
         },
-      }),
+      }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision }),
     );
     expect(onMissing.code).toBe("column_unavailable");
     const ok = await updateLayer(testAccountScope(), layer.id, {
@@ -377,7 +379,7 @@ describe("viz writes", () => {
         cellKm: 1,
         aggregate: { fn: "sum", attribute: "val" },
       },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(ok.viz.type).toBe("hexbin");
   });
 
@@ -394,7 +396,7 @@ describe("viz writes", () => {
             height: 500,
           },
         },
-      }),
+      }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision }),
     );
     expect(error.code).toBe("column_unavailable");
     expect(error.message).toContain("elevation aggregation");
@@ -410,7 +412,7 @@ describe("viz writes", () => {
           dest: null,
           height: 0.6,
         },
-      }),
+      }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision }),
     );
     expect(notGeometry.code).toBe("column_unavailable");
     expect(notGeometry.message).toContain("not a geometry column");
@@ -422,7 +424,7 @@ describe("viz writes", () => {
           dest: { kind: "lonlat", lon: "cat", lat: "val" },
           height: 0.6,
         },
-      }),
+      }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision }),
     );
     expect(badCoord.code).toBe("column_unavailable");
     const ok = await updateLayer(testAccountScope(), layer.id, {
@@ -432,7 +434,7 @@ describe("viz writes", () => {
         dest: null,
         height: 0.6,
       },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(ok.viz.type).toBe("arc");
   });
 
@@ -446,7 +448,7 @@ describe("viz writes", () => {
           color: { fn: "max", attribute: "cat" },
           showCounts: true,
         },
-      }),
+      }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision }),
     );
     expect(error.code).toBe("column_unavailable");
     const ok = await updateLayer(testAccountScope(), layer.id, {
@@ -456,7 +458,7 @@ describe("viz writes", () => {
         color: { fn: "max", attribute: "val" },
         showCounts: true,
       },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(ok.viz.type).toBe("cluster");
   });
 });
@@ -465,14 +467,14 @@ describe("column-list writes", () => {
   it("tooltip and pop-up names must exist in the result", async () => {
     const layer = await makeLayer();
     const error = await refused(
-      updateLayer(testAccountScope(), layer.id, { tooltip: ["name", "typo"] }),
+      updateLayer(testAccountScope(), layer.id, { tooltip: ["name", "typo"] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision }),
     );
     expect(error.code).toBe("column_unavailable");
     expect(error.message).toContain('"typo"');
     const ok = await updateLayer(testAccountScope(), layer.id, {
       tooltip: ["name", "val"],
       popup: ["cat"],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(ok.tooltip).toEqual(["name", "val"]);
   });
 
@@ -480,21 +482,21 @@ describe("column-list writes", () => {
     const layer = await makeLayer();
     await updateLayer(testAccountScope(), layer.id, {
       viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } },
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     const baseRef = await refused(
-      updateLayer(testAccountScope(), layer.id, { tooltip: ["name"] }),
+      updateLayer(testAccountScope(), layer.id, { tooltip: ["name"] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision }),
     );
     expect(baseRef.code).toBe("column_unavailable");
-    const derived = await updateLayer(testAccountScope(), layer.id, { tooltip: ["value", "count"] });
+    const derived = await updateLayer(testAccountScope(), layer.id, { tooltip: ["value", "count"] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(derived.tooltip).toEqual(["value", "count"]);
     // The published-field list names base columns even on an aggregated
     // layer — projection intersects the base result.
     const published = await updateLayer(testAccountScope(), layer.id, {
       publishedFields: ["name", "val"],
-    });
+    }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision });
     expect(published.publishedFields).toEqual(["name", "val"]);
     const bogus = await refused(
-      updateLayer(testAccountScope(), layer.id, { publishedFields: ["typo"] }),
+      updateLayer(testAccountScope(), layer.id, { publishedFields: ["typo"] }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layer.id)?.mapId ?? "missing") })?.editRevision }),
     );
     expect(bogus.code).toBe("column_unavailable");
   });

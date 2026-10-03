@@ -27,6 +27,8 @@ import { usePanelDraft, type Draft } from "./use-panel-draft";
 import { GeometryGlyph } from "../ui/operation-icons";
 import { RunSection } from "./RunSection";
 import { OutputFacts } from "./OutputFacts";
+import { useCanvasRecovery } from "./WorkflowRecovery";
+import { UnsavedMark } from "../builder/UnsavedFields";
 import styles from "./WorkflowCanvas.module.css";
 
 /**
@@ -62,6 +64,7 @@ export function NodePanel({
   /** The canvas lock's reason while locked: the definition reads, nothing edits. */
   lockReason?: string | null;
 }) {
+  const { stale } = useCanvasRecovery();
   const step = member.step;
   const operation = operations.find((o) => o.id === step.operation) ?? null;
   const effective = useMemo(() => effectiveParameters(step), [step]);
@@ -206,7 +209,7 @@ export function NodePanel({
               return (
                 <div key={input.name} className={styles.sec}>
                   <label className={styles.secLabel} htmlFor={`input-${input.name}`} style={{ fontWeight: 500 }}>
-                    {input.label}
+                    {input.label}{stale && values[input.name] !== effective[input.name] && <UnsavedMark />}
                   </label>
                   <div className={styles.inputPick}>
                     <InputPicker
@@ -279,6 +282,7 @@ export function NodePanel({
               .filter((p) => p.name !== "name" && parameterRelevant(p, values))
               .map((parameter) => (
                 <div key={parameter.name}>
+                  {stale && JSON.stringify(values[parameter.name]) !== JSON.stringify(effective[parameter.name]) && <UnsavedMark />}
                   <ParameterRow
                     parameter={parameter}
                     value={values[parameter.name]}
@@ -306,7 +310,7 @@ export function NodePanel({
           <fieldset className={styles.inert} disabled={inert} data-inert={inert || undefined} aria-describedby={lockReason ? "panel-lock-reason" : undefined}>
           <div className={styles.sec}>
             <label className={styles.secLabel} htmlFor="output-name" style={{ fontWeight: 500 }}>
-              Dataset name
+              Dataset name{stale && values.name !== effective.name && <UnsavedMark />}
             </label>
             <input
               id="output-name"

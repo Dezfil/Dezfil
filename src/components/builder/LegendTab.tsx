@@ -12,6 +12,7 @@ import { Checkbox } from "../ui/Field";
 import { CornerPicker } from "../ui/CornerPicker";
 import { SortableCards } from "../widgets/SortableCards";
 import { orderForLegend } from "@/lib/style/legend-order";
+import { UnsavedLayer } from "./UnsavedFields";
 import panel from "./panel.module.css";
 import styles from "./LegendTab.module.css";
 
@@ -480,6 +481,7 @@ function LegendEditor({
 
   return (
     <div className={styles.editor}>
+      <UnsavedLayer layer={layer} field="legendTitle" />
       <input
         ref={titleRef}
         className={styles.titleInput}

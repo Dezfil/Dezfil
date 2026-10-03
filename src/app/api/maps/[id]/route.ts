@@ -1,3 +1,6 @@
+import { assertMapLayerRefs } from "@/lib/map-layer-refs";
+import { listLayers } from "@/lib/metadata/maps";
+import { requireDocumentRevision } from "@/lib/metadata/revisions";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { cameraBoundsProblem } from "@/lib/camera-bounds";
 import { NextResponse } from "next/server";
@@ -44,6 +47,10 @@ export async function PATCH(request: Request, { params }: Params) {
     }
     // A publication setting is refused before anything is inspected.
     if (mapWriteChangesPublication(current, body)) requireMapFor(scope, id, "publish");
+    assertMapLayerRefs(current, listLayers(id), body);
+    if (["name", "basemap", "customBasemap", "basemapLayers", "legendCorner", "legendOrder", "timeline", "widgets", "widgetsPublished", "layerOrder"].some(key => body[key] !== undefined)) {
+      requireDocumentRevision(scope, { kind: "map", id, expectedRevision: request.headers.get("X-Edit-Revision") });
+    }
     const fields: {
       name?: string;
       viewport?: Viewport;
@@ -168,7 +175,7 @@ export async function PATCH(request: Request, { params }: Params) {
     // synchronous write runs.
     await validateMapWriteRefs(scope, id, fields, request.signal);
     return NextResponse.json({
-      ...(await updateMap(scope, id, fields, { groupId: changeGroupOf(request) })),
+      ...(await updateMap(scope, id, fields, { groupId: changeGroupOf(request), expectedRevision: request.headers.get("X-Edit-Revision") })),
       ...mapPresence(scope, id),
     });
   } catch (error) {
@@ -181,7 +188,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id } = await params;
-    await removeMap(scope, id);
+    await removeMap(scope, id, { expectedRevision: _request.headers.get("X-Edit-Revision") });
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return errorResponse(error);

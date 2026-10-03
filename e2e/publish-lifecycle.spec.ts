@@ -425,11 +425,16 @@ test("tile_build_failed: a REAL failed build crosses the published wire (gated o
       // joins the published map immediately.
       doomedId = await page.evaluate(
         async ({ mapId, sql, name }) => {
-          const r = await fetch(`/api/maps/${mapId}/layers`, {
+          const r = await (async function readThenWriteSetup() {
+const read = await fetch(`/api/maps/${mapId}`, { cache: "no-store" });
+if (!read.ok) throw new Error(await read.text());
+const shown = await read.json();
+return fetch(`/api/maps/${mapId}/layers`, {
             method: "POST",
-            headers: { "content-type": "application/json" },
+            headers: { "X-Edit-Revision": shown.editRevision, "content-type": "application/json" },
             body: JSON.stringify({ name, sql }),
           });
+})();
           if (!r.ok) throw new Error(await r.text());
           return ((await r.json()) as { id: string }).id;
         },

@@ -1,7 +1,9 @@
+import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA, EDIT_REVISION_SCHEMA } from "./openapi-document-facts";
 export const RECIPE_DEPENDENCY_SCHEMAS = {
   WorkflowDependencies: {
     type: "object",
     properties: {
+      ...DOCUMENT_FACT_PROPERTIES,
       datasets: {
         type: "array",
         description:
@@ -38,8 +40,10 @@ export const RECIPE_SCHEMAS = {
     },
   },
   RecipeStep: {
+    allOf: [DOCUMENT_FACT_SCHEMA],
     type: "object",
     properties: {
+      ...DOCUMENT_FACT_PROPERTIES,
       id: { type: "string" },
       recipeId: { type: "string" },
       ordinal: { type: "integer" },
@@ -180,8 +184,10 @@ export const RECIPE_SCHEMAS = {
     },
   },
   Recipe: {
+    allOf: [DOCUMENT_FACT_SCHEMA],
     type: "object",
     properties: {
+      ...DOCUMENT_FACT_PROPERTIES,
       id: { type: "string" },
       name: { type: "string" },
       origin: {
@@ -274,6 +280,7 @@ export const RECIPE_SCHEMAS = {
     },
   },
   RecipeEnvelope: {
+    allOf: [EDIT_REVISION_SCHEMA],
     type: "object",
     properties: { recipe: { $ref: "#/components/schemas/Recipe" } },
   },
@@ -287,10 +294,12 @@ export const RECIPE_SCHEMAS = {
     },
   },
   RecipeStepEnvelope: {
+    allOf: [EDIT_REVISION_SCHEMA],
     type: "object",
     properties: { step: { $ref: "#/components/schemas/RecipeStep" } },
   },
   RecipeStepEdited: {
+    allOf: [EDIT_REVISION_SCHEMA],
     type: "object",
     properties: {
       step: { $ref: "#/components/schemas/RecipeStep" },
@@ -304,6 +313,7 @@ export const RECIPE_SCHEMAS = {
     },
   },
   RecipeStepRemoved: {
+    allOf: [EDIT_REVISION_SCHEMA],
     type: "object",
     properties: {
       removed: { type: "string" },
@@ -338,6 +348,7 @@ export const RECIPE_SCHEMAS = {
     },
   },
   RecipeStepDiscarded: {
+    allOf: [EDIT_REVISION_SCHEMA],
     type: "object",
     properties: {
       step: { $ref: "#/components/schemas/RecipeStep" },
@@ -412,6 +423,7 @@ export const RECIPE_SCHEMAS = {
   },
   RecipeLayout: {
     allOf: [
+      DOCUMENT_FACT_SCHEMA,
       { $ref: "#/components/schemas/RecipeLayoutInput" },
       {
         type: "object",
@@ -427,6 +439,7 @@ export const RECIPE_SCHEMAS = {
     ],
   },
   RecipeLayoutEnvelope: {
+    allOf: [EDIT_REVISION_SCHEMA],
     type: "object",
     properties: { layout: { $ref: "#/components/schemas/RecipeLayout" } },
   },
@@ -591,9 +604,15 @@ export const RECIPE_SCHEMAS = {
       },
     },
   },
+  RecipeRunStarted: {
+    type: "object", required: ["run", "editRevision"],
+    properties: { run: { $ref: "#/components/schemas/RecipeRun" }, editRevision: DOCUMENT_FACT_PROPERTIES.editRevision },
+  },
   RecipeRunPlan: {
     type: "object",
+    required: ["plan", "editRevision"],
     properties: {
+      editRevision: DOCUMENT_FACT_PROPERTIES.editRevision,
       plan: {
         type: "object",
         properties: {

@@ -26,7 +26,7 @@ describe("API parity", () => {
   });
 
   it("every documented operation is implemented", () => {
-    const implemented = new Set(implementedRoutes().map(key));
+    const implemented = new Set(implementedRoutes(true).map(key));
     const missing = documentedRoutes()
       .map(key)
       .filter((k) => !implemented.has(k));
@@ -338,6 +338,11 @@ describe("API parity", () => {
     expect(Object.keys(history.properties ?? {}).sort()).toEqual([
       "canRedo",
       "canUndo",
+      "editRevision",
+      "lastChangedAt",
+      "lastChangedBy",
+      "redoTarget",
+      "undoTarget",
     ]);
     expect(doc.components.schemas.MapWithHistory).toBeDefined();
   });

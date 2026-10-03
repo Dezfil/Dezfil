@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -56,7 +58,7 @@ beforeEach(async () => {
   // Tile records reference real layers (FK) — build against one.
   const map = createMap(testAccountScope(), "m");
   mapId = map.id;
-  const layer = await createLayer(testAccountScope(), map.id, { name: "Stations", sql: SQL });
+  const layer = await createLayer(testAccountScope(), map.id, { name: "Stations", sql: SQL }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   layerId = layer.id;
 });
 
@@ -276,14 +278,14 @@ describe("tile builds", () => {
     ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
     await vi.waitFor(() => expect(existsSync(gate.started)).toBe(true));
 
-    await removeLayer(testAccountScope(), layerId);
+    await removeLayer(testAccountScope(), layerId, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
     await gate.release();
     await tileBuildsSettled();
 
     expect(existsSync(tileArchivePath(layerId))).toBe(false);
     expect(getTileRecord(layerId)).toBeNull();
 
-    const unrelated = await createLayer(testAccountScope(), mapId, { name: "later", sql: SQL });
+    const unrelated = await createLayer(testAccountScope(), mapId, { name: "later", sql: SQL }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     ensureTiles(privateTileAccess(testAccountScope(), (inputFor(unrelated.id)).layerId), inputFor(unrelated.id));
     await tileBuildsSettled();
     expect(getTileRecord(unrelated.id)?.state).toBe("ready");
@@ -291,13 +293,13 @@ describe("tile builds", () => {
   });
 
   it("fences every queued and active layer when a map is deleted", async () => {
-    const other = await createLayer(testAccountScope(), mapId, { name: "other", sql: SQL });
+    const other = await createLayer(testAccountScope(), mapId, { name: "other", sql: SQL }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     const gate = await gatedTiler();
     ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
     ensureTiles(privateTileAccess(testAccountScope(), (inputFor(other.id)).layerId), inputFor(other.id));
     await vi.waitFor(() => expect(existsSync(gate.started)).toBe(true));
 
-    await removeMap(testAccountScope(), mapId);
+    await removeMap(testAccountScope(), mapId, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     await gate.release();
     await tileBuildsSettled();
 
@@ -384,8 +386,8 @@ describe("tile builds", () => {
     ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input());
     await vi.waitFor(() => expect(existsSync(gate.started)).toBe(true));
 
-    await removeLayer(testAccountScope(), layerId);
-    await undoChange(testAccountScope(), mapId);
+    await removeLayer(testAccountScope(), layerId, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
+    await undoChange(testAccountScope(), mapId, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     expect(ensureTiles(privateTileAccess(testAccountScope(), (input()).layerId), input()).state).toBe("building");
 
     await gate.release();

@@ -1,3 +1,4 @@
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { randomUUID } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "./db";
@@ -17,6 +18,7 @@ export type HistoryOp = "update" | "add" | "delete";
 export type HistoryImage = Record<string, unknown>;
 
 export interface HistoryStep {
+  authorId: string | null;
   id: string;
   mapId: string;
   seq: number;
@@ -46,6 +48,7 @@ export const HISTORY_CAP = 100;
 export const COALESCE_MS = 3000;
 
 interface StepRow {
+  author_id: string | null;
   id: string;
   map_id: string;
   seq: number;
@@ -60,6 +63,7 @@ interface StepRow {
 
 function stepFromRow(r: StepRow): HistoryStep {
   return {
+    authorId: r.author_id,
     id: r.id,
     mapId: r.map_id,
     seq: r.seq,
@@ -149,7 +153,9 @@ export function recordStep(
     at?: number;
   },
   db: Database = metadataDb(),
+  actor?: AccountScope,
 ): void {
+  const authorId = actor ? requireAccountScope(actor, db) : null;
   const now = input.at ?? Date.now();
   const groupId = input.groupId ?? null;
   db.transaction(() => {
@@ -178,6 +184,7 @@ export function recordStep(
       top.scope === input.scope &&
       top.target_id === input.targetId &&
       top.group_id === groupId &&
+      top.author_id === authorId &&
       sameKeys(
         top.before ? (JSON.parse(top.before) as HistoryImage) : null,
         input.before,
@@ -197,8 +204,8 @@ export function recordStep(
     const seq = cursor + 1;
     db.prepare(
       `INSERT INTO map_history
-         (id, map_id, seq, scope, target_id, op, before, after, group_id, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, map_id, seq, scope, target_id, op, before, after, group_id, created_at, author_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       randomUUID(),
       input.mapId,
@@ -210,6 +217,7 @@ export function recordStep(
       input.after ? JSON.stringify(input.after) : null,
       groupId,
       new Date(now).toISOString(),
+      authorId,
     );
     db.prepare(`UPDATE maps SET history_cursor = ? WHERE id = ?`).run(
       seq,
@@ -263,7 +271,8 @@ function takeGroup(rows: StepRow[]): HistoryStep[] {
   const steps = [rows[0]];
   if (rows[0].group_id) {
     for (let i = 1; i < rows.length; i++) {
-      if (rows[i].group_id !== rows[0].group_id) break;
+      if (rows[i].group_id !== rows[0].group_id || rows[i].author_id !== rows[0].author_id ||
+        Math.abs(rows[i].seq - rows[i - 1].seq) !== 1) break;
       steps.push(rows[i]);
     }
   }

@@ -1067,9 +1067,13 @@ test("the core loop through the real UI", async ({ page, context }) => {
     const largeName = `bounded_${runId}`;
     const largeLayer = await page.evaluate(
       async ({ mapId, largeName, tableName }) => {
-        const response = await fetch(`/api/maps/${mapId}/layers`, {
+        const response = await (async function readThenWriteSetup() {
+const read = await fetch(`/api/maps/${mapId}`, { cache: "no-store" });
+if (!read.ok) throw new Error(await read.text());
+const shown = await read.json();
+return fetch(`/api/maps/${mapId}/layers`, {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: { "X-Edit-Revision": shown.editRevision, "content-type": "application/json" },
           body: JSON.stringify({
             name: largeName,
             sql: `SELECT
@@ -1081,6 +1085,7 @@ test("the core loop through the real UI", async ({ page, context }) => {
                   CROSS JOIN range(0, 52001) AS r(i)`,
           }),
         });
+})();
         if (!response.ok) throw new Error(await response.text());
         return (await response.json()) as { id: string; sql: string };
       },
@@ -1221,9 +1226,14 @@ test("the core loop through the real UI", async ({ page, context }) => {
     // Preview data is builder-only and ephemeral; remove the stress layer so
     // the published-view beat below proves only the intended layer survives.
     await page.evaluate(async (layerId) => {
-      const response = await fetch(`/api/layers/${layerId}`, {
+      const response = await (async function readThenWriteSetup() {
+const read = await fetch(`/api/layers/${layerId}`, { cache: "no-store" });
+if (!read.ok) throw new Error(await read.text());
+const shown = await read.json();
+return fetch(`/api/layers/${layerId}`, { headers: { "X-Edit-Revision": shown.editRevision },
         method: "DELETE",
       });
+})();
       if (!response.ok) throw new Error(await response.text());
     }, largeLayer.id);
     await page.reload();
@@ -1639,14 +1649,19 @@ test("the core loop through the real UI", async ({ page, context }) => {
     const threeDName = `threed_${runId}`;
     const threeDLayer = await page.evaluate(
       async ({ mapId, threeDName, tableName }) => {
-        const response = await fetch(`/api/maps/${mapId}/layers`, {
+        const response = await (async function readThenWriteSetup() {
+const read = await fetch(`/api/maps/${mapId}`, { cache: "no-store" });
+if (!read.ok) throw new Error(await read.text());
+const shown = await read.json();
+return fetch(`/api/maps/${mapId}/layers`, {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: { "X-Edit-Revision": shown.editRevision, "content-type": "application/json" },
           body: JSON.stringify({
             name: threeDName,
             sql: `SELECT geometry FROM ${tableName}`,
           }),
         });
+})();
         if (!response.ok) throw new Error(await response.text());
         return (await response.json()) as { id: string };
       },
@@ -1685,9 +1700,14 @@ test("the core loop through the real UI", async ({ page, context }) => {
     // disappears — a trailing fetch against a deleted id logs a 404.
     await saveSettled(page);
     await page.evaluate(async (layerId) => {
-      const response = await fetch(`/api/layers/${layerId}`, {
+      const response = await (async function readThenWriteSetup() {
+const read = await fetch(`/api/layers/${layerId}`, { cache: "no-store" });
+if (!read.ok) throw new Error(await read.text());
+const shown = await read.json();
+return fetch(`/api/layers/${layerId}`, { headers: { "X-Edit-Revision": shown.editRevision },
         method: "DELETE",
       });
+})();
       if (!response.ok) throw new Error(await response.text());
     }, threeDLayer.id);
     await page.reload();

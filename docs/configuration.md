@@ -1,12 +1,20 @@
 # Configuration
 
-Dezfil is configured entirely through environment variables. There is no
-configuration file, nothing is stored in the database, and nothing can be
-changed at runtime: set the variables when the process or the container
-starts, and restart to change them.
+Deployment settings come from environment variables read when the process or
+container starts. Change those values and restart to apply them. Their defaults
+allow a local instance to start without deployment configuration.
 
-Every setting is optional. The defaults are the ones the code falls back to,
-and they are production-sane for a single instance.
+Other settings persist at runtime. Settings saves **account preferences** such as
+the display name and view choices, and **instance preferences** such as the
+admin-managed instance name, in SQLite. Accounts, sessions and API token records
+also persist there. Saved palettes are shared instance data. These are not
+environment variables.
+
+The optional `assistant-models.json` in the data directory supplies the model
+catalogue; environment model lists narrow its offer. It is a file, not an account
+preference. Its reload and validation rules are in
+[the runbook](runbook.md#the-model-catalogue-file). Edit revisions and stale-save
+recovery need no deployment switch.
 
 Two conventions run through the whole surface:
 
@@ -20,7 +28,7 @@ Two conventions run through the whole surface:
 ## What the README already documents
 
 The table in the **Configuration** section of [README.md](../README.md) is the
-pinned settings surface: 59 variables at the time of writing. It is checked in
+checked environment surface. It is checked in
 both directions by `scripts/check-readme-config.mjs` (run as `npm run
 lint:readme`), which scans `src/` for names and compares the set with the
 table's rows. Undocumented and stale rows both fail the check.
@@ -39,7 +47,7 @@ end of this page.
 
 | Variable | Default | Effect |
 |---|---|---|
-| `DEZFIL_DATA_DIR` | `./data`, `/data` in the container | The single durable directory. Everything persisted lives under it, so backup is a copy. `src/lib/config.ts` falls back to `data` under the working directory; the image sets `/data` and declares it a volume. |
+| `DEZFIL_DATA_DIR` | `./data`, `/data` in the container | The single durable directory. Back up the complete stopped directory and any external encryption key. `src/lib/config.ts` falls back to `data` under the working directory; the image sets `/data` and declares it a volume. |
 | `DEZFIL_SECRET_KEY` | generated | 64 hex characters (32 bytes), the at-rest encryption key for stored connection credentials. Unset, a key is generated into the data directory as `secret.key` on first boot and reused from there (`src/lib/secrets.ts`). A wrong or lost key makes stored credentials unreadable. |
 
 ## Trusted proxies

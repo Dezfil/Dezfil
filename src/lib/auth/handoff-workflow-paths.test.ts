@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -51,7 +52,7 @@ beforeEach(async () => {
   }
   shareProject("ada", "P", [["bob", "editor"]], [tables["ada.roads"].id]);
   const map = createMap(scopes.ada, "Survey", "P");
-  const layer = await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" });
+  const layer = await createLayer(scopes.ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   ids = { map: map.id, layer: layer.id };
   for (const name of ["W1", "W2", "W3"]) {
     ids[name] = createRecipe(scopes.ada, name).id;
@@ -65,9 +66,9 @@ beforeEach(async () => {
 afterEach(async () => { await laneSettled(); resetLane(); closeMetadataDb(); resetQueryInstance(); vi.unstubAllEnvs(); await rm(directory, { recursive: true, force: true }); });
 
 type Handler = (request: Request, context: { params: Promise<Record<string, string>> }) => Promise<Response>;
-async function call(account: string, load: () => Promise<Record<string, unknown>>, url: string, params: Record<string, string>, method: string, body: unknown) {
+async function call(account: string, load: () => Promise<Record<string, unknown>>, url: string, params: Record<string, string>, method: string, body: unknown, basis?: string | null) {
   const request = testAccountRequest(new Request(`http://instance.test${url}`, {
-    method, headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+    method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": basis } : {}) }, body: JSON.stringify(body),
   }), undefined, account);
   const response = await ((await load())[method] as Handler)(request, { params: Promise.resolve(params) });
   const text = await response.text();
@@ -77,7 +78,7 @@ const stepsRoute = () => import("@/app/api/recipes/[id]/steps/route");
 const stepRoute = () => import("@/app/api/recipes/[id]/steps/[stepId]/route");
 const runRoute = () => import("@/app/api/operations/run/route");
 const addTo = (account: string, recipe: string, body: Record<string, unknown>) =>
-  call(account, stepsRoute, `/api/recipes/${recipe}/steps`, { id: recipe }, "POST", body);
+  call(account, stepsRoute, `/api/recipes/${recipe}/steps`, { id: recipe }, "POST", body, readEditRevision({ kind: "workflow", id: recipe })?.editRevision);
 const storedSql = (body: Record<string, unknown> | null) =>
   ((body?.step as { parameters: { sql: string } }).parameters.sql);
 const stepCount = (recipe: string) =>
@@ -112,7 +113,7 @@ describe("a layer captured into a workflow", () => {
 
 describe("a node moved between workflows", () => {
   it("carries a departing output as the mover's own dataset and the source home's datasets qualified", async () => {
-    const run = await startSingleRun(scopes.bob, ids.W1, ids.staged);
+    const run = await startSingleRun(scopes.bob, ids.W1, ids.staged, { expectedRevision: readEditRevision({ kind: "workflow", id: ids.W1 })?.editRevision });
     await cascadeSettled(run.id); await laneSettled();
     const values = { sql: "SELECT * FROM staged UNION ALL SELECT * FROM roads", name: "pasted" };
     const added = await addTo("bob", ids.B, { operation: "sql_step", parameters: values, writtenIn: { kind: "workflow", id: ids.W1 } });
@@ -148,7 +149,7 @@ describe("a node moved between workflows", () => {
     expect((added.body?.step as { parameters: { input: string } }).parameters.input).toBe("bob.roads");
     const stepId = (added.body?.step as { id: string }).id;
     const edited = await call("bob", stepRoute, `/api/recipes/${ids.W3}/steps/${stepId}`, { id: ids.W3, stepId }, "PATCH",
-      { parameters: { input: "roads", distance: 20, name: "buffered" }, writtenIn: { kind: "console" } });
+      { parameters: { input: "roads", distance: 20, name: "buffered" }, writtenIn: { kind: "console" } }, readEditRevision({ kind: "workflow", id: ids.W3 })?.editRevision);
     expect(edited.status).toBe(200);
     expect((edited.body?.step as { parameters: { input: string; distance: number } }).parameters).toMatchObject({ input: "bob.roads", distance: 20 });
   });

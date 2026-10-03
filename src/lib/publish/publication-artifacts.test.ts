@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -35,8 +36,8 @@ beforeEach(async () => {
   await writeFile(file, "sentinel,lon,lat\nbefore,1,2\n");
   roads = await ingestFile(ada, file, "roads.csv");
   const map = createMap(ada, "Survey");
-  await createLayer(ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" });
-  token = publishMap(ada, map.id).token;
+  await createLayer(ada, map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+  token = publishMap(ada, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }).token;
 });
 afterEach(async () => {
   closeMetadataDb(); resetQueryInstance(); resetPublishCache(); vi.unstubAllEnvs();

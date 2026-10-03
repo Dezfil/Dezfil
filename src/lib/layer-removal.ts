@@ -1,3 +1,5 @@
+import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
+import { recordDocumentChanges, requireDocumentRevision } from "@/lib/metadata/revisions";
 import { randomUUID } from "node:crypto";
 import { metadataDb } from "@/lib/metadata/db";
 import {
@@ -26,10 +28,11 @@ import type { AccountScope } from "@/lib/auth/scope";
 export async function removeLayer(
   scope: AccountScope,
   id: string,
-  opts: { groupId?: string | null } = {},
-): Promise<void> {
-  metadataDb().transaction(() => {
+  opts: { groupId?: string | null; expectedRevision?: unknown } = {},
+): Promise<DocumentFacts> {
+  const facts = metadataDb().transaction(() => {
     const layer = requireLayerFor(scope, id, "edit");
+    requireDocumentRevision(scope, { kind: "map", id: layer.mapId, expectedRevision: opts.expectedRevision });
     const map = getMap(layer.mapId);
     const widgets = map?.widgets ?? [];
     const bound = widgets.filter((w) => w.layerId === id);
@@ -51,7 +54,7 @@ export async function removeLayer(
         before: { widgets },
         after: { widgets: remaining },
         groupId,
-      });
+      }, metadataDb(), scope);
     }
     if (arrangement && arranged) {
       const pruned = arrangement.filter((lid) => lid !== id);
@@ -66,9 +69,10 @@ export async function removeLayer(
         before: { legendOrder: arrangement },
         after: { legendOrder: pruned.length ? pruned : null },
         groupId,
-      });
+      }, metadataDb(), scope);
     }
     deleteLayer(id);
+    recordDocumentChanges(scope, [{ kind: "map", id: layer.mapId }]);
     recordStep({
       mapId: layer.mapId,
       scope: "layer",
@@ -77,7 +81,9 @@ export async function removeLayer(
       before: layerImage(layer),
       after: null,
       groupId,
-    });
+    }, metadataDb(), scope);
+    return documentFacts({ kind: "map", id: layer.mapId });
   })();
   await removeTileArtifacts(id);
+  return facts;
 }

@@ -1,3 +1,4 @@
+import { documentFacts, type DocumentFacts } from "@/lib/metadata/document-facts";
 import type { DatasetScope } from "@/lib/query/access";
 import type { AccountScope } from "@/lib/auth/scope";
 import { canReach } from "@/lib/auth/reach";
@@ -84,6 +85,7 @@ export interface StepView {
 }
 
 export interface RecipeView {
+  facts: DocumentFacts;
   recipe: Recipe;
   steps: StepView[];
   /** The workflow's one-line state and counts. */
@@ -209,18 +211,24 @@ function describedOutput(scope: AccountScope, step: RecipeStep, described: { acc
 }
 
 export async function readRecipe(scope: AccountScope, recipeId: string): Promise<RecipeView> {
-  const recipe = requireRecipe(scope, recipeId);
-  const standing = recipeStanding(recipeId)!;
-  const { steps, runs } = describedSteps(scope, listSteps(scope, recipeId), standing.ownerId);
-  const evaluation = workflowEvaluation(scope, recipeId);
-  const namespace = namespaceFor(evaluation);
+  const { recipe, standing, steps, runs, facts, evaluation, namespace, edgesByStep, attempts } = metadataDb().transaction(() => {
+    const recipe = requireRecipe(scope, recipeId), standing = recipeStanding(recipeId)!;
+    const { steps, runs } = describedSteps(scope, listSteps(scope, recipeId), standing.ownerId);
+    const evaluation = workflowEvaluation(scope, recipeId);
+    const namespace = namespaceFor(evaluation);
+    const reachable = new Set(namespace.datasets.map((dataset) => dataset.id));
+    // Child reach checks belong to the captured definition. A node can be
+    // removed while SQL presentation awaits; that does not remove its workflow.
+    const edgesByStep = new Map<string, ConditionEdge[]>(steps.map((step) =>
+      [step.id, reachedEdgesForStep(scope, step.id, reachable, undefined, runs.get(step.id)?.accountId ?? null)]));
+    const attempts = new Map(steps.map((step) => [step.id, latestStepAttempt(scope, step.id)]));
+    return { recipe, standing, steps, runs, evaluation, namespace, edgesByStep, attempts,
+      facts: documentFacts({ kind: "workflow", id: recipeId }) };
+  })();
   // A reader whose own space is the workflow's home reads its names as their
   // own; anyone else reads every name in someone else's space.
   const home = namespace.home.id === scope.accountId;
-  const reachable = new Set(namespace.datasets.map((dataset) => dataset.id));
   const reads = await presentReads(evaluation, steps);
-  const edgesByStep = new Map<string, ConditionEdge[]>(steps.map((s) =>
-    [s.id, reachedEdgesForStep(scope, s.id, reachable, undefined, runs.get(s.id)?.accountId ?? null)]));
   for (const edge of prospectiveEdges(namespace, steps, reads, edgesByStep)) {
     edgesByStep.get(edge.stepId)?.push(edge);
   }
@@ -246,13 +254,14 @@ export async function readRecipe(scope: AccountScope, recipeId: string): Promise
     // is told to whoever recorded it, the workflow's owner or its runner.
     output: describedOutput(scope, step, runs.get(step.id) ?? null, standing.ownerId),
     condition: conditions.get(step.id)!,
-    latestAttempt: latestStepAttempt(scope, step.id),
+    latestAttempt: attempts.get(step.id) ?? null,
     edges: edgesByStep.get(step.id) ?? [],
     reads: reads.get(step.id) ?? [],
   }));
   requireRecipe(scope, recipeId);
   return {
     recipe,
+    facts,
     steps: views,
     summary: summarizeRecipe(views, artifacts),
     presence: presencesOf(scope, [standing])[0],
@@ -268,8 +277,8 @@ export async function readStep(
   scope: AccountScope,
   recipeId: string,
   stepId: string,
-): Promise<StepView & { context: ReaderContext }> {
+): Promise<StepView & { context: ReaderContext; facts: DocumentFacts }> {
   requireStep(scope, recipeId, stepId);
   const recipe = await readRecipe(scope, recipeId);
-  return { ...recipe.steps.find((s) => s.step.id === stepId)!, context: recipe.context };
+  return { ...recipe.steps.find((s) => s.step.id === stepId)!, context: recipe.context, facts: recipe.facts };
 }

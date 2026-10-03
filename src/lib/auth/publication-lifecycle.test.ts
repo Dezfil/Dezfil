@@ -1,3 +1,5 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
+import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { revokeInactivePublication } from "@/lib/publish/admin-revocation";
 import { testAccountRequest } from "@/lib/test-support/accounts";
 import { requireRequestAuth } from "./http";
@@ -25,14 +27,14 @@ beforeEach(async () => {
   directory = await mkdtemp(path.join(initialDir, "publication-")); process.env.DEZFIL_DATA_DIR = directory;
   closeMetadataDb(); resetQueryInstance(); resetPublishCache(); resetRateLimits(); scope = testAccountScope(undefined, "alice");
   mapId = createMap(scope, "Published sentinel").id;
-  layerId = (await createLayer(scope, mapId, { name: "Private SQL", sql: "SELECT 10 score, ST_Point(1, 2) geometry" })).id;
+  layerId = (await createLayer(scope, mapId, { name: "Private SQL", sql: "SELECT 10 score, ST_Point(1, 2) geometry" }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision })).id;
   updateMap(scope, mapId, { widgets: [{ id: "w", type: "histogram", layerId, title: "Score", field: "score", agg: "count", aggField: null,
-    unit: null, note: null, format: null, visible: true }] });
-  token = publishMap(scope, mapId).token;
+    unit: null, note: null, format: null, visible: true }] }, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
+  token = publishMap(scope, mapId, {}, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision }).token;
 });
 afterEach(async () => { vi.restoreAllMocks(); closeMetadataDb(); resetQueryInstance(); resetPublishCache(); process.env.DEZFIL_DATA_DIR = initialDir; await rm(directory, { recursive: true, force: true }); });
 it.each(["widgets", "render", "extent"].flatMap(lane => ["owner", "admin"].map(authority => ({ lane, authority }))))("does not return a $lane result after $authority revocation during assembly", async ({ lane, authority }) => {
-  if (lane === "render") await updateLayer(scope, layerId, { viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } } });
+  if (lane === "render") await updateLayer(scope, layerId, { viz: { type: "hexbin", cellKm: 1, aggregate: { fn: "count" } } }, { expectedRevision: readEditRevision({ kind: "map", id: (readEditLayer(layerId)?.mapId ?? "missing") })?.editRevision });
   const hold = readHold("published assembly");
   if (lane === "widgets") { const original = widgets.computeWidgetValues; vi.spyOn(widgets, "computeWidgetValues").mockImplementation(async (...args) => { const result = await original(...args); await hold.engage(); return result; }); }
   if (lane === "render") { const original = widgets.renderLayerWithSelections; vi.spyOn(widgets, "renderLayerWithSelections").mockImplementation(async (...args) => { const result = await original(...args); await hold.engage(); return result; }); }
@@ -43,7 +45,7 @@ it.each(["widgets", "render", "extent"].flatMap(lane => ["owner", "admin"].map(a
   const pending = call(token);
   try {
     await hold.beforeMutation();
-    if (authority === "owner") unpublishMap(scope, mapId);
+    if (authority === "owner") unpublishMap(scope, mapId, { expectedRevision: readEditRevision({ kind: "map", id: mapId })?.editRevision });
     else {
       const req = testAccountRequest(new Request("http://instance.test"), undefined, "admin");
       metadataDb().prepare("UPDATE accounts SET is_admin = 1 WHERE id = 'admin'").run();

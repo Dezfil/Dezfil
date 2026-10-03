@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DuckDBConnection } from "@duckdb/node-api";
@@ -9,6 +10,7 @@ import * as tables from "@/lib/metadata/owned-tables";
 import * as inflight from "@/lib/query/inflight";
 import { retirementsSettled } from "@/lib/ingest/retire";
 import { createMap } from "@/lib/map-service";
+import { documentFacts } from "@/lib/metadata/document-facts";
 import { readHold } from "@/lib/test-support/read-hold";
 import { GET as summariesGET } from "@/app/api/maps/[id]/sketches/route";
 import { GET as featuresGET } from "@/app/api/sketches/[name]/features/route";
@@ -42,9 +44,9 @@ const exists = (file: string) => access(file).then(() => true, () => false);
 
 async function seed() {
   const map = createMap(testAccountScope(), "Retained sketch");
-  const sketch = await createSketch(testAccountScope(), map.id, polygon);
-  const other = await createSketch(testAccountScope(), map.id, point);
-  return { map, sketch, other };
+  const sketch = await createSketch(testAccountScope(), map.id, polygon, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+  const other = await createSketch(testAccountScope(), map.id, point, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
+  return { map, sketch, other, facts: documentFacts({ kind: "map", id: map.id }) };
 }
 
 function request(reader: Reader, mapId: string, name: string) {
@@ -125,9 +127,9 @@ async function assertCaptured(response: Response, reader: Reader, seeded: Awaite
   } else {
     expect(body).toHaveLength(2);
     expect(body).toEqual(expect.arrayContaining([
-      { table: seeded.sketch.table.name, tableId: seeded.sketch.table.id, mapId: seeded.map.id,
+      { ...seeded.facts, table: seeded.sketch.table.name, tableId: seeded.sketch.table.id, mapId: seeded.map.id,
         layerId: seeded.sketch.layerId, rowCount: 1, counts: { polygon: 1 } },
-      { table: seeded.other.table.name, tableId: seeded.other.table.id, mapId: seeded.map.id,
+      { ...seeded.facts, table: seeded.other.table.name, tableId: seeded.other.table.id, mapId: seeded.map.id,
         layerId: seeded.other.layerId, rowCount: 1, counts: { point: 1 } },
     ]));
   }

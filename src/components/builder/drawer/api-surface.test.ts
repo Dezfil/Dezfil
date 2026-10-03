@@ -74,7 +74,7 @@ function drawerCalls(): Call[] {
     const src = readFileSync(full, "utf8");
     // The call and the options object that follows it, so the method is read
     // rather than assumed: a POST counted as a GET would let a write in.
-    const re = /fetch\(\s*[`"']([^`"']*\/api\/[^`"']*)[`"']\s*(?:,\s*\{([\s\S]{0,200}?)\})?/g;
+    const re = /(?:fetch|request)\(\s*[`"']([^`"']*\/api\/[^`"']*)[`"']\s*(?:,\s*\{([\s\S]{0,200}?)\})?/g;
     let match: RegExpExecArray | null;
     while ((match = re.exec(src)) !== null) {
       const route = match[1].replace(/\$\{[^}]+\}/g, "X").split("?")[0];

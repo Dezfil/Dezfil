@@ -6,9 +6,8 @@ import { nodeWord, type WorkflowListing } from "../workflow-model";
 
 /**
  * The empty home's recent list: the six latest eligible objects across
- * the whole workspace, each kind timed by the fact its own page already
- * shows (a map's and a workflow's edited time, a dataset's imported or
- * created time), this project's members excluded, builder-origin
+ * the whole workspace, using general update time for maps and workflows
+ * and imported or created time for datasets, this project's members excluded, builder-origin
  * recipes never counted. Someone else's work carries its owner, and only
  * the reader's own work is theirs to move or add, as in the picker. Pure:
  * the component only presents.

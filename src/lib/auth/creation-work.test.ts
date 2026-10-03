@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -42,7 +43,7 @@ it("carries each creator through uploads, sketches, duplication and background o
     expect(owner("data_tables", table.id)).toBe(id);
     const map = createMap(scope, id);
     expect(owner("maps", duplicateMap(scope, map.id).id)).toBe(id);
-    const sketch = await createSketch(scope, map.id, { kind: "point", geometry: { type: "Point", coordinates: [13.4, 52.5] } });
+    const sketch = await createSketch(scope, map.id, { kind: "point", geometry: { type: "Point", coordinates: [13.4, 52.5] } }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     expect(owner("data_tables", sketch.table.id)).toBe(id);
 
     const recipe = createRecipe(scope, id, undefined, "builder");

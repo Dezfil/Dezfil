@@ -52,7 +52,7 @@ export function McpSection() {
         <span role="status" className={styles.status} data-failed={check.failed || undefined}>{check.message}</span>
       </div>
       <p>This checks your browser session. Other clients use their own API token.</p>
-      <p><a href="/api/openapi.json">Documented limits and history contract</a></p>
+      <p><a href="/api/openapi.json">API contract and edit revisions</a></p>
     </section>
   );
 }

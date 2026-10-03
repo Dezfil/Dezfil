@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -71,7 +72,7 @@ const token = async (scope: AccountScope, sql: string) => String((await executeQ
 const member = (run: CascadeRun, stepId: string) => run.members.find((m) => m.stepId === stepId)!;
 
 async function runAll(account: string) {
-  const run = await startCascade(scopes[account], { recipeId: recipe });
+  const run = await startCascade(scopes[account], { expectedRevision: readEditRevision({ kind: "workflow", id: recipe })?.editRevision, recipeId: recipe });
   await cascadeSettled(run.id); await laneSettled();
   return readCascade(scopes[account], run.id);
 }
@@ -141,15 +142,15 @@ describe("runs under reach", () => {
     expect((await runAll("ada")).outcome).toBe("completed");
     // Bo has never staged: his count of `staged` fails by the diagnostic, and
     // neither Ada's staging nor anything else stands in.
-    const missing = await startSingleRun(scopes.bo, recipe, tally);
+    const missing = await startSingleRun(scopes.bo, recipe, tally, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe })?.editRevision });
     await cascadeSettled(missing.id); await laneSettled();
     const failed = member(readCascade(scopes.bo, missing.id), tally);
     expect(failed).toMatchObject({ state: "failed", attempt: { state: "failed" } });
     expect(failed.attempt!.error!.message).toContain('"staged" is not available to you');
     expect(owned("bo", "tally")).toBeUndefined();
-    const own = await startSingleRun(scopes.bo, recipe, staged);
+    const own = await startSingleRun(scopes.bo, recipe, staged, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe })?.editRevision });
     await cascadeSettled(own.id); await laneSettled();
-    const alone = await startSingleRun(scopes.bo, recipe, tally);
+    const alone = await startSingleRun(scopes.bo, recipe, tally, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe })?.editRevision });
     await cascadeSettled(alone.id); await laneSettled();
     expect(readCascade(scopes.bo, alone.id).outcome).toBe("completed");
     expect(await token(scopes.bo, "SELECT token FROM tally")).toBe(await token(scopes.bo, "SELECT token FROM staged"));
@@ -184,7 +185,7 @@ describe("runs under reach", () => {
 
   it("lets the workflow's owner cancel a run someone else started, interrupting it in the engine", async () => {
     db().prepare("UPDATE recipe_steps SET parameters = json_set(parameters, '$.sql', ?) WHERE id = ?").run(ENDLESS, staged);
-    const run = await startCascade(scopes.bo, { recipeId: recipe });
+    const run = await startCascade(scopes.bo, { expectedRevision: readEditRevision({ kind: "workflow", id: recipe })?.editRevision, recipeId: recipe });
     let jobId: string | null = null;
     for (let i = 0; i < 200 && !jobId; i += 1) {
       jobId = member(readCascade(scopes.bo, run.id), staged).jobId;

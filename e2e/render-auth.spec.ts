@@ -1,3 +1,4 @@
+import { readThenWriteRequestSetup } from "./edit-basis";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { test, expect } from "@playwright/test";
@@ -34,7 +35,7 @@ test("cookie and token renders survive redirects without sending credentials to 
   try {
     const created = await api.post("/api/maps", { headers, data: { name: "Authenticated render" } }); expect(created.status()).toBe(201);
     const map = await created.json(); mapId = map.id;
-    expect((await api.patch(`/api/maps/${mapId}`, { headers, data: { customBasemap: { url: firstOrigin + "/entry.json", name: "Redirect fixture", attribution: [{ label: "Fixture" }] } } })).status()).toBe(200);
+    expect((await readThenWriteRequestSetup(api, `/api/maps/${mapId}`, () => ({ method: "PATCH", options: { headers, data: { customBasemap: { url: firstOrigin + "/entry.json", name: "Redirect fixture", attribution: [{ label: "Fixture" }] } } } }))).status()).toBe(200);
     const issued = await api.post("/api/account/tokens", { headers, data: { name: "Render browser proof" } }); expect(issued.status()).toBe(201);
     const token = await issued.json(); tokenId = token.id;
     const bearer = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { authorization: `Bearer ${token.secret}` }, storageState: { cookies: [], origins: [] } });
@@ -65,7 +66,7 @@ test("cookie and token renders survive redirects without sending credentials to 
     } finally { await bearer.dispose(); }
   } finally {
     if (tokenId) await api.delete(`/api/account/tokens/${tokenId}`, { headers });
-    if (mapId) await api.delete(`/api/maps/${mapId}`, { headers });
+    if (mapId) await readThenWriteRequestSetup(api, `/api/maps/${mapId}`, () => ({ method: "DELETE", options: { headers } }));
     await anonymous.dispose(); await Promise.all([close(first), close(second)]);
   }
 });

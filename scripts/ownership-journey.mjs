@@ -1,6 +1,7 @@
 // Run only against an isolated store. Seed once, replace the server, then verify
 // the saved credentials again. The state file contains synthetic credentials.
 import assert from 'node:assert/strict';
+import { captureBasis } from './revision-fixtures.mjs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { provisionJourney } from './journey-auth.mjs';
 import { journeyApi } from './journey-http.mjs';
@@ -40,12 +41,12 @@ export async function seedOwnership(base) {
     const table = await upload(api, 'roads', sentinel);
     const hidden = await upload(api, `only_${index}`, sentinel);
     const map = expectStatus(await api('POST', '/api/maps', { body: { name: sentinel } }), 201);
-    const layer = expectStatus(await api('POST', `/api/maps/${map.id}/layers`, { body: { name: 'Roads', sql: 'SELECT * FROM roads' } }), 201);
+    const layer = expectStatus(await api('POST', `/api/maps/${map.id}/layers`, { basis: captureBasis(map), body: { name: 'Roads', sql: 'SELECT * FROM roads' } }), 201);
     const recipe = expectStatus(await api('POST', '/api/recipes', { body: { name: sentinel } }), 201).recipe;
-    const step = expectStatus(await api('POST', `/api/recipes/${recipe.id}/steps`, { body: {
+    const step = expectStatus(await api('POST', `/api/recipes/${recipe.id}/steps`, { basis: captureBasis(recipe), body: {
       operation: 'sql_step', parameters: { name: 'roads_copy', sql: 'SELECT * FROM roads' },
     } }), 201).step;
-    const run = expectStatus(await api('POST', `/api/recipes/${recipe.id}/steps/${step.id}/run`), 202).run;
+    const run = expectStatus(await api('POST', `/api/recipes/${recipe.id}/steps/${step.id}/run`, { basis: captureBasis((await api('GET', `/api/recipes/${recipe.id}`)).json) }), 202).run;
     const deadline = Date.now() + 30_000;
     for (;;) {
       const current = expectStatus(await api('GET', `/api/recipes/${recipe.id}/runs/${run.id}`), 200).run;
@@ -54,8 +55,8 @@ export async function seedOwnership(base) {
       await new Promise(resolve => setTimeout(resolve, 50));
     }
     const project = expectStatus(await api('POST', '/api/projects', { body: { name: sentinel,
-      members: { addMaps: [map.id], addRecipes: [recipe.id], addTables: [table.id] } } }), 201);
-    const publication = expectStatus(await api('POST', `/api/maps/${map.id}/publish`), 201);
+      members: { addMaps: [map.id], addRecipes: [recipe.id], addTables: [table.id], expectedRevisions: { [`map:${map.id}`]: captureBasis((await api('GET', `/api/maps/${map.id}`)).json).editRevision, [`workflow:${recipe.id}`]: captureBasis((await api('GET', `/api/recipes/${recipe.id}`)).json).editRevision } } } }), 201);
+    const publication = expectStatus(await api('POST', `/api/maps/${map.id}/publish`, { basis: captureBasis((await api('GET', `/api/maps/${map.id}`)).json) }), 201);
     owners.push({ accountId: credential.account.id, token: credential.token, cookie: credential.cookie,
       sentinel, tableId: table.id, hidden: hidden.name, mapId: map.id, layerId: layer.id,
       recipeId: recipe.id, stepId: step.id, runId: run.id, projectId: project.id, publication: publication.token });
@@ -127,7 +128,7 @@ export async function verifyOwnership(base, { owners }) {
         ['get_recipe', { id: foreign.recipeId }, { id: missing }],
         ['get_recipe_run', { id: foreign.recipeId, runId: foreign.runId }, { id: foreign.recipeId, runId: missing }],
         ['inspect_table', { name: foreign.hidden }, { name: missing }],
-        ['delete_map', { id: foreign.mapId }, { id: missing }],
+        ['delete_map', { id: foreign.mapId, expected_revision: '0'.repeat(32) }, { id: missing, expected_revision: '0'.repeat(32) }],
       ]) {
         assert.deepEqual(await mcp.call(tool, hiddenArgs, 'not_found'), await mcp.call(tool, absentArgs, 'not_found')); comparisons++;
       }

@@ -9,6 +9,7 @@
 
 export interface WireCall {
   method: string;
+  headers: Headers;
   path: string;
   /** The JSON body sent, or null. */
   body: unknown;
@@ -45,6 +46,7 @@ export function wire(): Wire {
     new Promise((resolve, reject) => {
       const call: WireCall = {
         method: init?.method ?? "GET",
+        headers: new Headers(init?.headers),
         path: typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url,
         body: typeof init?.body === "string" ? JSON.parse(init.body) : null,
         answered: false,

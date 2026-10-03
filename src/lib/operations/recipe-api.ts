@@ -1,3 +1,4 @@
+import type { DocumentFacts } from "@/lib/metadata/document-facts";
 import type { AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
 import { WORKFLOW_JSON_BODY_MAX_BYTES } from "@/lib/api/request-bounds";
@@ -52,7 +53,7 @@ function originFor(origin: Record<string, unknown> | null, context: ReaderContex
 /** Everything is the reader's to see when no reader context is given. */
 const AS_STORED: ReaderContext = { link: (link) => link, reachesMap: () => true };
 
-export function stepPayload(view: StepView & { context?: ReaderContext }, context: ReaderContext = view.context ?? AS_STORED) {
+export function stepPayload(view: StepView & { context?: ReaderContext; facts?: DocumentFacts }, context: ReaderContext = view.context ?? AS_STORED) {
   const { step, condition, latestAttempt, edges, reads } = view;
   const attempt = latestAttempt ? jobView(latestAttempt) : null;
   if (attempt) {
@@ -61,6 +62,7 @@ export function stepPayload(view: StepView & { context?: ReaderContext }, contex
     else { delete attempt.output; delete attempt.disclosure; }
   }
   return {
+    ...view.facts,
     id: step.id,
     recipeId: step.recipeId,
     ordinal: step.ordinal,
@@ -90,6 +92,7 @@ export function stepPayload(view: StepView & { context?: ReaderContext }, contex
 
 export function recipePayload(view: RecipeView) {
   return {
+    ...view.facts,
     id: view.recipe.id,
     name: view.recipe.name,
     origin: view.recipe.origin,
@@ -100,7 +103,7 @@ export function recipePayload(view: RecipeView) {
     createdAt: view.recipe.createdAt,
     updatedAt: view.recipe.updatedAt,
     summary: view.summary,
-    steps: view.steps.map((step) => stepPayload(step, view.context)),
+    steps: view.steps.map((step) => stepPayload({ ...step, facts: view.facts }, view.context)),
   };
 }
 

@@ -3,7 +3,7 @@ import { authenticatedRequest } from "@/lib/assistant/testing/account";
 import { GET as tablesGet } from "@/app/api/tables/route";
 import { POST as queryPost } from "@/app/api/query/route";
 import { GET as mapsGet, POST as mapsPost } from "@/app/api/maps/route";
-import { PATCH as mapPatch } from "@/app/api/maps/[id]/route";
+import { GET as mapGet, PATCH as mapPatch } from "@/app/api/maps/[id]/route";
 import { POST as mapUndoPost } from "@/app/api/maps/[id]/undo/route";
 import { POST as mapRedoPost } from "@/app/api/maps/[id]/redo/route";
 import { POST as layersPost } from "@/app/api/maps/[id]/layers/route";
@@ -25,6 +25,9 @@ export async function dispatchAssistantJourney(req: Request): Promise<Response> 
   if (pathname === "/api/query" && method === "POST") return queryPost(req);
   if (pathname === "/api/maps" && method === "GET") return mapsGet(req);
   if (pathname === "/api/maps" && method === "POST") return mapsPost(req);
+  if ((m = pathname.match(/^\/api\/maps\/([^/]+)$/)) && method === "GET") {
+    return mapGet(req, { params: Promise.resolve({ id: m[1] }) });
+  }
   if ((m = pathname.match(/^\/api\/maps\/([^/]+)$/)) && method === "PATCH") {
     return mapPatch(req, { params: Promise.resolve({ id: m[1] }) });
   }

@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { POST as sqlQuery } from "@/app/api/query/route";
 import { DELETE as revokePublication } from "@/app/api/publications/[token]/route";
 import { publishMap, getPublishedView } from "@/lib/publish/publish-service";
@@ -665,7 +666,7 @@ it.each(["cookie", "token"])("MCP and assistant %s calls cannot retrieve another
 
 it.each(["cookie", "token"])("MCP and assistant %s can revoke a deactivated owner's known token without reading content", async mode => {
   const seen = actualApi(), map = createMap(memberScope, "Private revoked content");
-  const first = publishMap(memberScope, map.id).token;
+  const first = publishMap(memberScope, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }).token;
   const adminToken = createApiToken(authenticateSession(admin.secret, db)!, "Moderation", db);
   const headers = mode === "cookie" ? cookie() : { authorization: `Bearer ${adminToken.secret}` };
   const active = await rpc("revoke_inactive_publication", { token: first }, headers);
@@ -674,7 +675,7 @@ it.each(["cookie", "token"])("MCP and assistant %s can revoke a deactivated owne
   expect(await rpc("revoke_inactive_publication", { token: first }, headers)).toMatchObject({ isError: false });
   expect(await getPublishedView(first, Date.now())).toBeNull();
   db.prepare("UPDATE accounts SET status = 'active' WHERE id = ?").run(member.account.id);
-  const second = publishMap(memberScope, map.id).token;
+  const second = publishMap(memberScope, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision }).token;
   db.prepare("UPDATE accounts SET status = 'deactivated' WHERE id = ?").run(member.account.id);
   factory.provider = stubProvider([{ text: "", toolCalls: [{ id: "revoke", name: "revoke_inactive_publication", args: { token: second } }] }, { text: "Done", toolCalls: [] }]);
   const events = await send({ runId: await ownReservation(headers), message: "Revoke this known public link" }, headers);

@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
@@ -81,6 +82,6 @@ it("keeps layer references inside the exact parent even for two maps of one owne
   const other = createMap(testAccountScope(db, "alice"), "Other");
   recordStep({ mapId: other.id, scope: "layer", targetId: "layer-alice", op: "update", before: { name: "Changed" }, after: { name: "After" } });
   const before = snapshot();
-  await expect(undoChange(testAccountScope(db, "alice"), other.id)).rejects.toMatchObject({ code: "not_found", status: 404 });
+  await expect(undoChange(testAccountScope(db, "alice"), other.id, { expectedRevision: readEditRevision({ kind: "map", id: other.id })?.editRevision })).rejects.toMatchObject({ code: "not_found", status: 404 });
   expect(snapshot()).toEqual(before);
 });

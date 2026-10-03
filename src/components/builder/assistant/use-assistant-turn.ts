@@ -1,5 +1,6 @@
 "use client";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { DocumentEditorContext } from "../../document-editor-context";
 import type { AssistantContext } from "@/lib/assistant/context";
 import type { AssistantEvent } from "@/lib/assistant/loop";
 import type { PendingReceipt, RunReceipt } from "@/lib/assistant/runs";
@@ -28,6 +29,8 @@ import { CONTINUING, TURN_STARTED, eventAnnouncements } from "./turn-announcemen
  * not done; the person then writes a new message. The pane no longer sends while
  * a card waits, so supersession stays the API's for headless clients. */
 export function useAssistantTurn(context: AssistantContext | undefined, onMutate: () => void) {
+  const editor = useContext(DocumentEditorContext);
+  const refreshAfterRecovery = useCallback(() => { if (!editor) onMutate(); }, [editor, onMutate]);
   const store = conversation;
   const state = useSyncExternalStore(store.subscribe, store.get, store.get);
   const { turns, input, live, busy, reading, announcements, recoveryId, error, availablePending } = state;
@@ -52,7 +55,11 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
     return () => { cancelled = true; };
   }, [statusAttempt]);
 
-  const { applyReceipt, readOutcome, recover } = useAssistantRecovery({ recoveryId, onMutate, replace, pendingList });
+  const { applyReceipt, readOutcome, recover: recoverUnordered } = useAssistantRecovery({ recoveryId, onMutate: refreshAfterRecovery, replace, pendingList });
+  const recover = useCallback((id?: string) => {
+    const work = () => recoverUnordered(id);
+    return editor ? editor.turn(work) : work();
+  }, [editor, recoverUnordered]);
   /** Read through a ref by the mount effect, whose dependencies stay the
    * mount's: re-running it would abort the flight it cleans up. */
   const recoverRef = useRef(recover);
@@ -74,7 +81,7 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
     return () => { store.flight?.abort(); };
   }, [pendingList, store]);
 
-  const stream = useCallback(async (payload: Record<string, unknown>, fresh: boolean) => {
+  const streamUnordered = useCallback(async (payload: Record<string, unknown>, fresh: boolean) => {
     const current = store.active!;
     store.set({ recoveryId: current.id });
     const controller = new AbortController(); store.flight = controller;
@@ -88,6 +95,7 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
       });
       if (!response.ok) {
         const failure = await readApiFailure(response);
+        if (failure.code === "stale_revision") editor?.sequence.halt();
         reported = true;
         throw new RequestError(failure.code, failure.message, response.status);
       }
@@ -114,6 +122,8 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
           const line = buffer.slice(0, boundary).trim(); buffer = buffer.slice(boundary + 1);
           if (!line) continue;
           const event = JSON.parse(line) as AssistantEvent;
+          if ((event.type === "error" && event.code === "stale_revision") ||
+              (event.type === "tool_result" && (event.body as { error?: { code?: string } } | null)?.error?.code === "stale_revision")) editor?.sequence.halt();
           const next = receiveEvent(store.get().live, event, current.id);
           replace(next);
           // The region hears each event as it is applied, whatever the render cadence.
@@ -130,10 +140,33 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
     // server-owned receipt, including a stream lost before its first event.
     try { await readOutcome(current.id, reported); }
     catch (e) { store.set({ error: failed(e, "Check the request outcome to recover this turn.") }); }
-  }, [applyReceipt, readOutcome, replace, store]);
+  }, [applyReceipt, readOutcome, replace, store, editor]);
 
   /** The flight's end, read through a ref: it is defined with Stop below. */
   const afterFlightRef = useRef<() => void>(() => { store.locked = false; store.set({ busy: false }); });
+  const stream = useCallback(async (payload: Record<string, unknown>, fresh: boolean) => {
+    let settled: ReturnType<typeof store.get> | undefined;
+    const work = async () => {
+      try { await streamUnordered(payload, fresh); }
+      finally {
+        // The receipt owns the conversation's end. Document adoption still
+        // holds the editor queue, but must not keep Clear or the composer inert.
+        afterFlightRef.current();
+        settled = store.get();
+      }
+    };
+    try { await (editor ? editor.turn(work) : work()); }
+    catch (e) {
+      // A later editor failure cannot restore a cleared conversation or
+      // overwrite a new turn.
+      if (!settled || store.get() === settled) store.set({ error: failed(e,
+        settled ? "The updated document couldn't be read." : "The request couldn't be reserved.") });
+    } finally {
+      // The editor may refuse queued work before invoking it. Otherwise the
+      // flight already ended; ending it twice could unlock a newer turn.
+      if (!settled) afterFlightRef.current();
+    }
+  }, [editor, streamUnordered, store]);
   /** Send these words as the person's message; the input's are the
    * default, an entry chip's the other way in. */
   const submitText = useCallback(async (text: string) => {
@@ -159,11 +192,13 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
     replace({ ...emptyTurn(), message, origin, ...(bound ? { choice: bound } : {}) });
     store.set({ input: "" });
     const reserving = new AbortController(); store.flight = reserving;
+    let handedOff = false;
     try {
       const reservation = await json<RunReceipt>("/api/assistant/runs", { method: "POST", signal: reserving.signal });
       store.active = { id: reservation.id, message, origin };
       replace({ ...store.get().live, runId: reservation.id });
       const history = store.get().turns.map(({ role, text }) => ({ role, text }));
+      handedOff = true;
       await stream({ runId: reservation.id, message, history, ...(context ? { context } : {}), ...choicePayload(remembered) }, true);
     } catch (e) {
       // No run was reserved: the provisional message goes back to the
@@ -171,7 +206,7 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
       if (messageAfterFailure(store.active, message) === "draft") { replace(emptyTurn()); store.set({ input: message }); }
       store.set({ error: failed(e, "The request couldn't be reserved.") });
     }
-    finally { if (store.flight === reserving) store.flight = null; afterFlightRef.current(); }
+    finally { if (store.flight === reserving) store.flight = null; if (!handedOff) afterFlightRef.current(); }
   }, [context, replace, status, store, stream]);
   const submit = useCallback(() => submitText(input), [input, submitText]);
   const resolve = useCallback(async (approved: boolean) => {
@@ -180,8 +215,7 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
     store.locked = true; store.set({ busy: true, error: null });
     store.announce(CONTINUING);
     store.active = { id: pending.runId, message: store.pendingMessage, origin: store.pendingOrigin };
-    try { await stream({ resolution: { pending: pending.id, approved } }, false); }
-    finally { afterFlightRef.current(); }
+    await stream({ resolution: { pending: pending.id, approved } }, false);
   }, [store, stream]);
   /** Stop. While a card waits: the documented abandonment settles the run
    * with the parked action not done, and the pane words that line for a

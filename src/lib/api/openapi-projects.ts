@@ -1,3 +1,5 @@
+import { editRevisionResponses } from "./openapi-document-facts";
+import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_RESULTS_SCHEMA } from "./openapi-document-facts";
 import { resultAccess } from "./openapi-result-access";
 import { projectAccess } from "./openapi-project-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
@@ -71,8 +73,8 @@ export const PROJECT_PATHS = {
           },
         },
       },
-      responses: {
-        "201": jsonOk("#/components/schemas/Project", "Created."),
+      responses: { ...editRevisionResponses,
+        "201": jsonOk("#/components/schemas/ProjectCreated", "Created."),
       },
     })),
   },
@@ -137,6 +139,7 @@ export const PROJECT_PATHS = {
             "application/json": {
               schema: {
                 type: "object",
+                allOf: [DOCUMENT_RESULTS_SCHEMA],
                 properties: {
                   deleted: { type: "boolean" },
                   contentsRemain: { type: "boolean" },
@@ -192,12 +195,13 @@ export const PROJECT_PATHS = {
             schema: { $ref: "#/components/schemas/ProjectMemberChange" },
             example: {
               addMaps: ["map-id"],
+              expectedRevisions: { "map:map-id": "0123456789abcdef0123456789abcdef" },
               addTables: ["table-id-1", "table-id-2"],
             },
           },
         },
       },
-      responses: { "200": jsonOk("#/components/schemas/ProjectMembers") },
+      responses: { ...editRevisionResponses, "200": jsonOk("#/components/schemas/ProjectMembersChanged") },
     })),
   },
   "/api/projects/{id}/export": {
@@ -400,6 +404,7 @@ export const PROJECT_DEPENDENCY_SCHEMAS = {
           "dataset as its output, when the caller reaches that " +
           "workflow; null otherwise.",
         properties: {
+          ...DOCUMENT_FACT_PROPERTIES,
           id: { type: "string" },
           name: { type: "string" },
           owned: {
@@ -496,6 +501,8 @@ export const PROJECT_SCHEMAS = {
     type: "array",
     items: { $ref: "#/components/schemas/Project" },
   },
+  ProjectCreated: { allOf: [{ $ref: "#/components/schemas/Project" }, DOCUMENT_RESULTS_SCHEMA] },
+  ProjectMembersChanged: { allOf: [{ $ref: "#/components/schemas/ProjectMembers" }, DOCUMENT_RESULTS_SCHEMA] },
   ProjectMembers: {
     type: "object",
     description:
@@ -504,7 +511,8 @@ export const PROJECT_SCHEMAS = {
     properties: {
       maps: { $ref: "#/components/schemas/MapList" },
       recipes: {
-        $ref: "#/components/schemas/RecipeList",
+        type: "array",
+        items: { $ref: "#/components/schemas/Recipe" },
         description:
           "The project's workflow-origin recipes; the field name stays " +
           "`recipes` for wire compatibility.",
@@ -521,6 +529,10 @@ export const PROJECT_SCHEMAS = {
       "id changes nothing. Only workflows can be project " +
       "members.",
     properties: {
+      expectedRevisions: {
+        type: "object", additionalProperties: { type: "string", pattern: "^[0-9a-f]{32}$" },
+        description: "Required for every named map and workflow, including no-op adds or removals. Keys are map:<id> or workflow:<id>; values are the editRevision paired with the caller’s read. Missing or malformed values answer 400; any stale value refuses the whole change with 409 stale_revision. Datasets need no revision.",
+      },
       addMaps: { type: "array", items: { type: "string" } },
       removeMaps: { type: "array", items: { type: "string" } },
       addRecipes: {

@@ -223,10 +223,13 @@ test.describe("draw on the map", () => {
     const mapId = await createMap(page, `Draw publish ${runId}`);
     // A sketch through the documented API — the published side renders
     // the layer like any other, and offers no drawing.
-    await page.evaluate(async (id) => {
+    await page.evaluate(async function readThenWriteSetup(id) {
+      const read = await fetch(`/api/maps/${id}`, { cache: "no-store" });
+      if (!read.ok) throw new Error(await read.text());
+      const shown = await read.json();
       const r = await fetch(`/api/maps/${id}/sketches`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", "X-Edit-Revision": shown.editRevision },
         body: JSON.stringify({
           feature: {
             kind: "polygon",

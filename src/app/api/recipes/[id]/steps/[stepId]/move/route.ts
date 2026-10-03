@@ -1,3 +1,6 @@
+import { EDIT_REVISION_HEADER } from "@/lib/edit-basis";
+import { requireDocumentRevision } from "@/lib/metadata/revisions";
+import { revisionEnvelope } from "@/lib/metadata/document-results";
 import { resourceAbsent } from "@/lib/auth/owned-resource";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { requireWorkflowEdit } from "@/lib/workflow-access";
@@ -28,6 +31,8 @@ export async function POST(request: Request, { params }: Params) {
     const scope = requireRequestScope(request);
     const { id, stepId } = await params;
     requireWorkflowEdit(scope, id, stepId);
+    const options = { expectedRevision: request.headers.get(EDIT_REVISION_HEADER) };
+    requireDocumentRevision(scope, { kind: "workflow", id, ...options });
     const step = getStep(scope, stepId);
     if (!step || step.recipeId !== id) {
       throw resourceAbsent();
@@ -46,9 +51,6 @@ export async function POST(request: Request, { params }: Params) {
     // asynchronous — so the arrangement this validates is a snapshot, and a
     // concurrent edit can make it stale before the move lands. The move
     // therefore commits only if nothing changed underneath it.
-    const stamp = (list: typeof steps) =>
-      list.map((s) => `${s.id}:${s.ordinal}:${s.updatedAt}`).join("|");
-    const before = stamp(steps);
     const reads = await readsByStep(scope, steps);
     const target = Math.max(0, Math.min(body.ordinal, steps.length - 1));
     const proposed = steps.filter((s) => s.id !== stepId);
@@ -59,18 +61,11 @@ export async function POST(request: Request, { params }: Params) {
     db.transaction(() => {
       // Re-read inside the commit. Without this the promised refusal is
       // only true of an arrangement nobody may still be in.
-      if (stamp(listSteps(scope, id, db)) !== before) {
-        throw new ApiError(
-          "invalid_request",
-          `This recipe changed while the move was being checked. Read it ` +
-            `again and retry.`,
-          409,
-        );
-      }
-      moveStep(scope, stepId, target, db);
+      requireDocumentRevision(scope, { kind: "workflow", id, ...options }, db);
+      moveStep(scope, stepId, target, db, options);
     })();
 
-    return NextResponse.json({ recipe: recipePayload(await readRecipe(scope, id)) });
+    return NextResponse.json(revisionEnvelope("recipe", recipePayload(await readRecipe(scope, id))));
   } catch (error) {
     return errorResponse(error);
   }

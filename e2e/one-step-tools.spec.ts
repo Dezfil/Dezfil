@@ -188,19 +188,16 @@ test("a refused run is corrected in place, and the recipe still holds one step",
         })
       ).json()) as { recipe: { id: string } };
       const step = (await (
-        await fetch(`/api/recipes/${recipe.recipe.id}/steps`, {
+        await (async function readThenWriteWorkflowSetup() { const basis = await (await fetch(`/api/recipes/${recipe.recipe.id}`)).json(); return fetch(`/api/recipes/${recipe.recipe.id}/steps`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "X-Edit-Revision": basis.editRevision, "Content-Type": "application/json" },
           body: JSON.stringify({
             operation: "buffer",
             parameters: { input, distance: 10, name },
           }),
-        })
+        }); })()
       ).json()) as { step: { id: string } };
-      const accepted = await fetch(
-        `/api/recipes/${recipe.recipe.id}/steps/${step.step.id}/run`,
-        { method: "POST" },
-      );
+      const accepted = await (async function readThenWriteWorkflowSetup() { const basis = await (await fetch(`/api/recipes/${recipe.recipe.id}`)).json(); return fetch(`/api/recipes/${recipe.recipe.id}/steps/${step.step.id}/run`, { headers: { "X-Edit-Revision": basis.editRevision }, method: "POST" }); })();
       // A step's own run is one of the recipe's runs: its one member's
       // job is the attempt to follow.
       const { run } = (await accepted.json()) as { run: { id: string; members: { jobId: string | null }[] } };

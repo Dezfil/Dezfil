@@ -183,6 +183,8 @@ export async function* resumeAssistant(
   const call = batch.calls[batch.index];
   const tool = ctx.byName.get(call.name);
   if (approved && tool) {
+    try { await ctx.revisions.readOnResume(tool, call.args, ctx.baseUrl, ctx.fetchImpl ?? fetch, ctx.signal, parked.runPlanRevision); }
+    catch (error) { yield ctx.signal?.aborted ? { type: "done", reason: "interrupted" } : errorEvent(error); return; }
     yield* observed(ctx, execAndRecord(ctx, tool, call, batch, { decision: "approved", historyMapId: parked.historyMapId }));
   } else {
     const body = JSON.stringify(
@@ -357,7 +359,7 @@ async function* processCalls(
     // operation that was singled out as needing it. Asking the operation for
     // its own plan is never gated — that is how a caller finds out which case
     // it is in.
-    let confirmation: { words: ResolvedConfirmation; subject?: unknown } | undefined;
+    let confirmation: Awaited<ReturnType<typeof prepareConfirmation>>;
     try { confirmation = await prepareConfirmation(tool, call, ctx); }
     catch (error) { yield ctx.signal?.aborted ? { type: "done", reason: "interrupted" } : errorEvent(error); return true; }
     if (ctx.signal?.aborted) { yield { type: "done", reason: "interrupted" }; return true; }
@@ -365,6 +367,7 @@ async function* processCalls(
     if (confirmation) {
       const parked = {
         confirmation: confirmation.words,
+        runPlanRevision: confirmation.runPlanRevision,
         historyMapId: subjectFacts(confirmation.subject)?.mapId,
         runId: ctx.runId,
         context: ctx.context,
@@ -373,7 +376,7 @@ async function* processCalls(
         discovery: ctx.discovery,
         turn: ctx.turn,
         exchange: ctx.exchange,
-        calls: batch.calls,
+        calls: batch.calls.map((candidate) => assistantCall(candidate, ctx.byName.get(candidate.name))),
         index: batch.index,
         outcomes: batch.outcomes,
         steps: batch.steps,

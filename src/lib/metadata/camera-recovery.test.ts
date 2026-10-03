@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import { authenticatedRoute } from "@/lib/assistant/testing/account";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -23,8 +24,8 @@ function seed(viewport: typeof ordinary) {
   metadataDb().prepare("UPDATE maps SET view_lng = ?, view_lat = ?, view_zoom = ?, view_pitch = ?, view_bearing = ?, updated_at = '2000-01-01T00:00:00.000Z' WHERE id = ?")
     .run(viewport.lng, viewport.lat, viewport.zoom, viewport.pitch, viewport.bearing, id);
 }
-async function patch(body: unknown) {
-  return PATCH(testAccountRequest(new Request("http://test", { method: "PATCH", body: JSON.stringify(body) })), { params: Promise.resolve({ id }) });
+async function patch(body: unknown, basis: string) {
+  return PATCH(testAccountRequest(new Request("http://test", { method: "PATCH", headers: { "X-Edit-Revision": basis }, body: JSON.stringify(body) })), { params: Promise.resolve({ id }) });
 }
 beforeEach(async () => {
   dir = await mkdtemp(path.join(process.cwd(), ".tmp-camera-recovery-"));
@@ -32,7 +33,7 @@ beforeEach(async () => {
   closeMetadataDb();
   resetPublishCache();
   id = createMap(testAccountScope(), "Legacy camera").id;
-  token = publishMap(testAccountScope(), id).token;
+  token = publishMap(testAccountScope(), id, {}, { expectedRevision: readEditRevision({ kind: "map", id: id })?.editRevision }).token;
   vi.mocked(renderMapImage).mockReset().mockResolvedValue({ png: new Uint8Array([137, 80, 78, 71]), abandoned: [] });
 });
 afterEach(async () => {
@@ -71,11 +72,11 @@ describe("legacy camera recovery", () => {
   it("preserves legacy storage on name-only edits, then persists an explicit effective camera and reopens", async () => {
     seed({ ...ordinary, pitch: 85, lat: -91, zoom: 26 });
     const effective = { ...ordinary, pitch: 60, lat: -85.051129, zoom: 24 };
-    const rename = await patch({ name: "Renamed" });
+    const rename = await patch({ name: "Renamed" }, readEditRevision({ kind: "map", id: id })!.editRevision!);
     expect(rename.status).toBe(200);
     expect((await rename.json()).viewport).toEqual(effective);
     expect(raw()).toMatchObject({ name: "Renamed", view_lng: ordinary.lng, view_lat: -91, view_zoom: 26, view_pitch: 85, view_bearing: ordinary.bearing });
-    const saved = await patch({ viewport: effective });
+    const saved = await patch({ viewport: effective }, readEditRevision({ kind: "map", id: id })!.editRevision!);
     expect(saved.status).toBe(200);
     expect(raw()).toMatchObject({ view_pitch: 60, view_lat: -85.051129, view_zoom: 24 });
     closeMetadataDb();

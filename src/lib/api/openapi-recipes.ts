@@ -1,3 +1,4 @@
+import { editRevisionParam, editRevisionResponses } from "./openapi-document-facts";
 import { CARRY_RULE, WRITTEN_IN_REF } from "./openapi-written-in";
 import { FILING_DESTINATION } from "./openapi-project-access";
 import { cascadeAccess } from "./openapi-cascade-access";
@@ -118,7 +119,7 @@ export const RECIPE_PATHS = {
       tool: "update_recipe", mcp: LOCAL_REPLACE,
       display: {"verb": "Updated the workflow {subject}", "subject": {"resource": "recipes", "argument": "id", "name": ["recipe.name", "name"]}},
       effects: writes(resource("recipes", "id")),
-      parameters: [pathParam("id", "Recipe id.")],
+      parameters: [editRevisionParam, pathParam("id", "Recipe id.")],
       requestBody: {
         required: true,
         content: {
@@ -131,7 +132,7 @@ export const RECIPE_PATHS = {
           },
         },
       },
-      responses: { "200": jsonOk("#/components/schemas/RecipeEnvelope") },
+      responses: { ...editRevisionResponses, "200": jsonOk("#/components/schemas/RecipeEnvelope") },
     })),
     delete: op(workflowAccess({
       summary: "Delete a recipe",
@@ -146,8 +147,8 @@ export const RECIPE_PATHS = {
       effects: writes(resource("recipes", "id"), resource("projects")),
       confirmation: {"target": "Delete {target}?", "consequence": "This deletes the workflow. Its output datasets remain in the workspace.", "subject": {"path": "/api/recipes/{id}", "argument": "id", "name": "recipe.name"}},
       confirm: true,
-      parameters: [pathParam("id", "Recipe id.")],
-      responses: {
+      parameters: [editRevisionParam, pathParam("id", "Recipe id.")],
+      responses: { ...editRevisionResponses,
         "200": jsonOk("#/components/schemas/RecipeDeleted"),
       },
     })),
@@ -239,7 +240,7 @@ export const RECIPE_PATHS = {
       tool: "set_recipe_layout", mcp: LOCAL_REPLACE,
       display: {"verb": "Arranged the workflow {subject}", "subject": {"resource": "recipes", "argument": "id"}},
       effects: writes(resource("recipes", "id")),
-      parameters: [pathParam("id", "Recipe id.")],
+      parameters: [editRevisionParam, pathParam("id", "Recipe id.")],
       requestBody: {
         required: true,
         content: {
@@ -248,7 +249,7 @@ export const RECIPE_PATHS = {
           },
         },
       },
-      responses: { "200": jsonOk("#/components/schemas/RecipeLayoutEnvelope") },
+      responses: { ...editRevisionResponses, "200": jsonOk("#/components/schemas/RecipeLayoutEnvelope") },
     })),
   },
   "/api/recipes/{id}/steps": {
@@ -287,7 +288,7 @@ export const RECIPE_PATHS = {
       tool: "add_recipe_step", mcp: LOCAL_ADD,
       display: {"verb": "Added a step to the workflow {subject}", "subject": {"resource": "recipes", "argument": "id", "name": ["recipe.name", "name"]}},
       effects: writes(resource("recipes", "id")),
-      parameters: [pathParam("id", "Recipe id.")],
+      parameters: [editRevisionParam, pathParam("id", "Recipe id.")],
       requestBody: {
         required: true,
         content: {
@@ -335,7 +336,7 @@ export const RECIPE_PATHS = {
           },
         },
       },
-      responses: {
+      responses: { ...editRevisionResponses,
         "201": jsonOk("#/components/schemas/RecipeStepEnvelope", "Created."),
       },
     })),
@@ -382,7 +383,7 @@ export const RECIPE_PATHS = {
       tool: "update_recipe_step", mcp: LOCAL_REPLACE,
       display: {"verb": "Edited a step of the workflow {subject}", "subject": {"resource": "recipes", "argument": "id", "name": ["recipe.name", "name"]}},
       effects: writes(resource("recipes", "id")),
-      parameters: [
+      parameters: [editRevisionParam,
         pathParam("id", "Recipe id."),
         pathParam("stepId", "Step id."),
       ],
@@ -412,7 +413,7 @@ export const RECIPE_PATHS = {
           },
         },
       },
-      responses: {
+      responses: { ...editRevisionResponses,
         "200": jsonOk("#/components/schemas/RecipeStepEdited"),
       },
     })),
@@ -430,11 +431,11 @@ export const RECIPE_PATHS = {
       effects: writes(resource("recipes", "id")),
       confirmation: {"target": "Remove {target}?", "consequence": "This removes the node from its workflow. Existing output datasets and run history remain.", "subject": {"path": "/api/recipes/{id}/steps/{stepId}", "argument": "stepId", "name": "step.parameters.name"}},
       confirm: true,
-      parameters: [
+      parameters: [editRevisionParam,
         pathParam("id", "Recipe id."),
         pathParam("stepId", "Step id."),
       ],
-      responses: {
+      responses: { ...editRevisionResponses,
         "200": jsonOk("#/components/schemas/RecipeStepRemoved"),
       },
     })),
@@ -450,11 +451,11 @@ export const RECIPE_PATHS = {
       tool: "discard_recipe_step_edit", mcp: LOCAL_REPLACE,
       display: {"verb": "Discarded a step's pending edit on the workflow {subject}", "subject": {"resource": "recipes", "argument": "id", "name": ["recipe.name", "name"]}},
       effects: writes(resource("recipes", "id")),
-      parameters: [
+      parameters: [editRevisionParam,
         pathParam("id", "Recipe id."),
         pathParam("stepId", "Step id."),
       ],
-      responses: {
+      responses: { ...editRevisionResponses,
         "200": jsonOk("#/components/schemas/RecipeStepDiscarded"),
       },
     })),
@@ -473,7 +474,7 @@ export const RECIPE_PATHS = {
       tool: "move_recipe_step", mcp: LOCAL_REPLACE,
       display: {"verb": "Moved a step of the workflow {subject}", "subject": {"resource": "recipes", "argument": "id", "name": ["recipe.name", "name"]}},
       effects: writes(resource("recipes", "id")),
-      parameters: [
+      parameters: [editRevisionParam,
         pathParam("id", "Recipe id."),
         pathParam("stepId", "Step id."),
       ],
@@ -494,7 +495,7 @@ export const RECIPE_PATHS = {
           },
         },
       },
-      responses: { "200": jsonOk("#/components/schemas/RecipeEnvelope") },
+      responses: { ...editRevisionResponses, "200": jsonOk("#/components/schemas/RecipeEnvelope") },
     })),
   },
   "/api/recipes/{id}/steps/{stepId}/run": {
@@ -524,17 +525,17 @@ export const RECIPE_PATHS = {
       tool: "run_recipe_step", mcp: WORKFLOW_RUN,
       display: {"verb": "Ran a step of the workflow {subject}", "subject": {"resource": "recipes", "argument": "id", "name": ["recipe.name", "name"]}},
       effects: writes(resource("recipes", "id"), resource("runs", "", "run.id"), resource("tables")),
-      parameters: [
+      parameters: [editRevisionParam,
         pathParam("id", "Recipe id."),
         pathParam("stepId", "Step id."),
       ],
-      responses: {
+      responses: { ...editRevisionResponses,
         "202": jsonOk(
-          "#/components/schemas/RecipeRunEnvelope",
+          "#/components/schemas/RecipeRunStarted",
           "Accepted; poll the recipe run for its outcome.",
         ),
         "409": {
-          description: "A run is already in flight (`run_in_flight`, naming it); nothing started.",
+          description: "The revision is stale (`stale_revision`), or a run is already in flight (`run_in_flight`, naming it); nothing started.",
         },
       },
     })),
@@ -564,7 +565,7 @@ export const RECIPE_PATHS = {
         "the failure that stopped it named. Steps that do not depend on " +
         "the failure still run.\n\n" +
         "**Ask first with `plan: true`.** It answers what the request " +
-        "would carry without starting anything: `wide` is true for a run " +
+        "would carry and the editRevision paired with that definition, without starting anything. Starting requires that revision in X-Edit-Revision, including when planning awaits asynchronous work. A changed basis refuses with stale_revision before any run or output exists. `wide` is true for a run " +
         "of the whole recipe and for a re-run that carries dependents, " +
         "and false for the same request aimed at a step nothing reads. " +
         "That is what the `when_wide` confirmation on this operation " +
@@ -579,9 +580,8 @@ export const RECIPE_PATHS = {
         "A start that names `members` — the step ids a confirmation " +
         "listed, in order — starts exactly when the plan at start is " +
         "that set in that order, and answers **409 `plan_changed`** " +
-        "otherwise, nothing started; the binding is membership and " +
-        "order only, never a member's definition, which is read when " +
-        "the member is admitted. Each attempted member's record carries " +
+        "otherwise, nothing started. This membership check accompanies the " +
+        "start revision check. Each member is read when admitted. Each attempted member's record carries " +
         "its attempt — state, error, times, output — kept with the run " +
         "after the step's own history is pruned; a member never " +
         "attempted has none; every member keeps its step's operation " +
@@ -592,7 +592,7 @@ export const RECIPE_PATHS = {
       effects: planning("plan", writes(resource("recipes", "id"), resource("runs", "", "run.id"), resource("tables"))),
       confirmation: {"target": "Run {target}?", "consequence": "This runs the listed nodes in order and creates or replaces their output datasets.", "subject": {"path": "/api/recipes/{id}", "argument": "id", "name": "recipe.name"}},
       confirm: "when_wide",
-      parameters: [pathParam("id", "Recipe id.")],
+      parameters: [{ ...editRevisionParam, required: false, description: editRevisionParam.description + " Required to start; plan: true is a read and requires none." },pathParam("id", "Recipe id.")],
       requestBody: {
         required: false,
         content: {
@@ -625,18 +625,18 @@ export const RECIPE_PATHS = {
           },
         },
       },
-      responses: {
+      responses: { ...editRevisionResponses,
         "200": jsonOk(
           "#/components/schemas/RecipeRunPlan",
           "What this would carry; nothing started.",
         ),
         "202": jsonOk(
-          "#/components/schemas/RecipeRunEnvelope",
+          "#/components/schemas/RecipeRunStarted",
           "Accepted; poll the recipe run for its outcome.",
         ),
         "409": {
           description:
-            "A run is already in flight (`run_in_flight`, naming it), or " +
+            "The revision is stale (`stale_revision`), a run is already in flight (`run_in_flight`, naming it), or " +
             "the plan no longer matches the confirmed `members` " +
             "(`plan_changed`); nothing started.",
         },

@@ -25,7 +25,7 @@ export interface DependencyWire {
   /** The dataset's spatial identity, for the tile. */
   geometryColumn: string | null;
   geometryType: string | null;
-  producer: { id: string; name: string; owned?: boolean } | null;
+  producer: { id: string; name: string; owned?: boolean; editRevision?: string } | null;
 }
 
 /** Whether the reader may file this dependency: their own. */
@@ -43,6 +43,7 @@ export interface ProducerRow {
   id: string;
   name: string;
   owned: boolean;
+  editRevision?: string;
 }
 
 export type Destination =
@@ -57,6 +58,7 @@ export type FilingSubject =
       id: string;
       name: string;
       projectId: string | null;
+      editRevision?: string;
     }
   | { kind: "dataset"; id: string; name: string; projectIds: string[] };
 
@@ -130,7 +132,7 @@ export function producersOf(subject: FilingSubject, deps: DependencyWire[]): Pro
   for (const d of deps) {
     const p = d.producer;
     if (!p || p.id === subject.id || seen.has(p.id)) continue;
-    seen.set(p.id, { id: p.id, name: p.name, owned: p.owned !== false });
+    seen.set(p.id, { ...p, owned: p.owned !== false });
   }
   return [...seen.values()];
 }

@@ -1,3 +1,4 @@
+import { DOCUMENT_FACT_PROPERTIES, EDIT_REVISION_SCHEMA, editRevisionParam, editRevisionResponses } from "./openapi-document-facts";
 import { datasetAccess } from "./openapi-dataset-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { SKETCH_ROW_COUNT_RESPONSE } from "./openapi-tool-responses";
@@ -28,6 +29,7 @@ export const SKETCH_PATHS = {
                 items: {
                   type: "object",
                   properties: {
+                    ...DOCUMENT_FACT_PROPERTIES,
                     table: { type: "string" },
                     tableId: { type: "string" },
                     mapId: { type: "string" },
@@ -66,7 +68,7 @@ export const SKETCH_PATHS = {
       tool: "create_sketch", mcp: LOCAL_ADD,
       display: {"verb": "Started a sketch on the map {subject}", "subject": {"resource": "maps", "argument": "id"}},
       effects: writes(resource("tables", "", "tableId"), resource("layers", "", "layerId"), resource("maps", "id")),
-      parameters: [pathParam("id", "Map id.")],
+      parameters: [pathParam("id", "Map id."), editRevisionParam],
       requestBody: {
         required: true,
         content: {
@@ -105,11 +107,12 @@ export const SKETCH_PATHS = {
       },
       responses: {
         "201": {
-          description: "The minted sketch.",
+          description: "The minted sketch and resulting map editRevision.",
           content: {
             "application/json": {
               schema: {
                 type: "object",
+                allOf: [EDIT_REVISION_SCHEMA],
                 properties: {
                   table: { type: "string" },
                   tableId: { type: "string" },
@@ -122,7 +125,7 @@ export const SKETCH_PATHS = {
             },
           },
         },
-        "400": { description: "The feature failed the structural gate." },
+        ...editRevisionResponses,
       },
     })),
   },
@@ -288,7 +291,10 @@ export const SKETCH_PATHS = {
       effects: writes(resource("tables", "name"), resource("layers"), resource("maps")),
       parameters: [pathParam("name", "Sketch table name.")],
       responses: {
-        "204": { description: "Layer and dataset are gone." },
+        "200": { description: "Layer and dataset are gone. A changed surviving map carries its resulting editRevision.", content: { "application/json": { schema: {
+          type: "object", properties: { mapId: { type: ["string", "null"] }, layerId: { type: ["string", "null"] }, editRevision: DOCUMENT_FACT_PROPERTIES.editRevision }, required: ["mapId", "layerId"],
+          anyOf: [{ properties: { mapId: { type: "string" } }, required: ["editRevision"] }, { properties: { mapId: { type: "null" } } }],
+        } } } },
         "404": { description: "Not a sketch dataset." },
       },
     })),

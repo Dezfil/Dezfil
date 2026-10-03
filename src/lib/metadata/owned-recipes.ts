@@ -1,3 +1,5 @@
+import { requireDocumentRevision } from "./revisions";
+import { recordWorkflowEdit, recordStepEdit } from "./workflow-recording";
 import type { Database } from "better-sqlite3";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
@@ -7,6 +9,12 @@ import * as recipes from "./recipes";
 export { fileRecipe } from "./owned-projects";
 export { createRecipe } from "./recipes";
 export type { Recipe, RecipeStep, NewStep, RecipeOrigin } from "./recipes";
+
+type WriteBasis = { expectedRevision?: unknown };
+function requireStepRevision(scope: AccountScope, id: string, options: WriteBasis, db: Database) {
+  const step = recipes.getStep(id, db)!;
+  requireDocumentRevision(scope, { kind: "workflow", id: step.recipeId, expectedRevision: options.expectedRevision }, db);
+}
 
 /**
  * Workflow reads: a workflow is reached by its owner and by the owner and
@@ -83,51 +91,54 @@ function checkOrigin(scope: AccountScope, origin: Record<string, unknown> | null
     if (typeof origin.mapId === "string" && !db.prepare("SELECT id FROM layers WHERE id = ? AND map_id = ?").get(origin.layerId, origin.mapId)) throw resourceAbsent();
   }
 }
-export function addStep(scope: AccountScope, recipeId: string, step: recipes.NewStep, db: Database = metadataDb()) {
+export function addStep(scope: AccountScope, recipeId: string, step: recipes.NewStep, db: Database = metadataDb(), options: WriteBasis = {}) {
   return db.transaction(() => {
     requirePermitted(scope, "workflow", recipeId, "edit", db); checkOrigin(scope, step.origin, db);
-    return recipes.addStep(recipeId, step, db);
+    requireDocumentRevision(scope, { kind: "workflow", id: recipeId, expectedRevision: options.expectedRevision }, db);
+    return recordWorkflowEdit(scope, recipeId, () => recipes.addStep(recipeId, step, db), db);
   })();
 }
-export function editStep(scope: AccountScope, id: string, parameters: Record<string, unknown>, db: Database = metadataDb(), origin?: Record<string, unknown> | null) {
+export function editStep(scope: AccountScope, id: string, parameters: Record<string, unknown>, db: Database = metadataDb(), origin?: Record<string, unknown> | null, options: WriteBasis = {}) {
   return db.transaction(() => {
     requirePermitted(scope, "step", id, "edit", db); checkOrigin(scope, origin, db);
-    return recipes.editStep(id, parameters, db, origin);
+    requireStepRevision(scope, id, options, db);
+    return recordStepEdit(scope, id, () => recipes.editStep(id, parameters, db, origin), db);
   })();
 }
 export function touchRecipe(scope: AccountScope, id: string, db: Database = metadataDb()) {
   return db.transaction(() => { requirePermitted(scope, "workflow", id, "edit", db); return recipes.touchRecipe(id, db); })();
 }
-export function renameRecipe(scope: AccountScope, id: string, name: string, db: Database = metadataDb()) {
-  return db.transaction(() => { requirePermitted(scope, "workflow", id, "edit", db); return recipes.renameRecipe(id, name, db); })();
+export function renameRecipe(scope: AccountScope, id: string, name: string, db: Database = metadataDb(), options: WriteBasis = {}) {
+  return db.transaction(() => { requirePermitted(scope, "workflow", id, "edit", db); requireDocumentRevision(scope, { kind: "workflow", id: id, action: "edit", expectedRevision: options.expectedRevision }, db); if (recipes.getRecipe(id, db)!.name === name) return true; return recordWorkflowEdit(scope, id, () => recipes.renameRecipe(id, name, db), db); })();
 }
-export function deleteRecipe(scope: AccountScope, id: string, db: Database = metadataDb()) {
-  return db.transaction(() => { requirePermitted(scope, "workflow", id, "delete", db); return recipes.deleteRecipe(id, db); })();
+export function deleteRecipe(scope: AccountScope, id: string, db: Database = metadataDb(), options: WriteBasis = {}) {
+  return db.transaction(() => { requirePermitted(scope, "workflow", id, "delete", db); requireDocumentRevision(scope, { kind: "workflow", id: id, action: "delete", expectedRevision: options.expectedRevision }, db); return recipes.deleteRecipe(id, db); })();
 }
-export function discardProposal(scope: AccountScope, id: string, db: Database = metadataDb()) {
-  return db.transaction(() => { requirePermitted(scope, "step", id, "edit", db); return recipes.discardProposal(id, db); })();
+export function discardProposal(scope: AccountScope, id: string, db: Database = metadataDb(), options: WriteBasis = {}) {
+  return db.transaction(() => { requirePermitted(scope, "step", id, "edit", db); requireStepRevision(scope, id, options, db); if (recipes.getStep(id, db)!.proposedParameters === null) return; return recordStepEdit(scope, id, () => recipes.discardProposal(id, db), db); })();
 }
-export function removeStep(scope: AccountScope, id: string, db: Database = metadataDb(), options: { edited?: boolean } = {}) {
-  return db.transaction(() => { requirePermitted(scope, "step", id, "edit", db); return recipes.removeStep(id, db, options); })();
+export function removeStep(scope: AccountScope, id: string, db: Database = metadataDb(), options: { edited?: boolean; expectedRevision?: unknown } = {}) {
+  return db.transaction(() => { requirePermitted(scope, "step", id, "edit", db); requireStepRevision(scope, id, options, db); return recordStepEdit(scope, id, () => recipes.removeStep(id, db, options), db); })();
 }
-export function reorderSteps(scope: AccountScope, recipeId: string, ids: string[], db: Database = metadataDb()) {
+export function reorderSteps(scope: AccountScope, recipeId: string, ids: string[], db: Database = metadataDb(), options: WriteBasis = {}) {
   return db.transaction(() => {
-    requirePermitted(scope, "workflow", recipeId, "edit", db);
+    requirePermitted(scope, "workflow", recipeId, "edit", db); requireDocumentRevision(scope, { kind: "workflow", id: recipeId, action: "edit", expectedRevision: options.expectedRevision }, db);
     for (const id of ids) if (recipes.getStep(id, db)?.recipeId !== recipeId) throw resourceAbsent();
-    return recipes.reorderSteps(recipeId, ids, db);
+    return recordWorkflowEdit(scope, recipeId, () => recipes.reorderSteps(recipeId, ids, db), db);
   })();
 }
-export function moveStep(scope: AccountScope, id: string, ordinal: number, db: Database = metadataDb()) {
-  return db.transaction(() => { requirePermitted(scope, "step", id, "edit", db); return recipes.moveStep(id, ordinal, db); })();
+export function moveStep(scope: AccountScope, id: string, ordinal: number, db: Database = metadataDb(), options: WriteBasis = {}) {
+  return db.transaction(() => { requirePermitted(scope, "step", id, "edit", db); requireStepRevision(scope, id, options, db); return recordStepEdit(scope, id, () => recipes.moveStep(id, ordinal, db), db); })();
 }
 /** A copied definition keeps the owned source step's historical origin.
  * Captured SQL remains a snapshot after the original layer is deleted. */
-export function copyStep(scope: AccountScope, sourceId: string, targetRecipeId: string, parameters: Record<string, unknown>, db: Database = metadataDb()) {
+export function copyStep(scope: AccountScope, sourceId: string, targetRecipeId: string, parameters: Record<string, unknown>, db: Database = metadataDb(), options: WriteBasis = {}) {
   return db.transaction(() => {
     requirePermitted(scope, "workflow", targetRecipeId, "edit", db);
     // A step is copied from any workflow its copier reaches.
     const source = getStep(scope, sourceId, db);
     if (!source) throw resourceAbsent();
-    return recipes.addStep(targetRecipeId, { operation: source.operation, parameters, origin: source.origin }, db);
+    requireDocumentRevision(scope, { kind: "workflow", id: targetRecipeId, expectedRevision: options.expectedRevision }, db);
+    return recordWorkflowEdit(scope, targetRecipeId, () => recipes.addStep(targetRecipeId, { operation: source.operation, parameters, origin: source.origin }, db), db);
   })();
 }

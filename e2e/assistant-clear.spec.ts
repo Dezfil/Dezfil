@@ -203,7 +203,7 @@ test.describe("what clearing leaves alone", () => {
     const chipBefore = picked ? await chip.textContent() : null;
 
     // A map edit, so the undo history has a step to lose.
-    const undo = page.getByRole("button", { name: "Undo", exact: true });
+    const undo = page.getByRole("button", { name: /^Undo/ });
     await page.getByRole("button", { name: "Zoom in", exact: true }).click();
     await oneTurn(page, "Say something", "Something.");
     await mapQuiet(page, mapId);

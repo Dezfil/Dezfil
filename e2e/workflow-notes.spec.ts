@@ -1,3 +1,6 @@
+import { stepDefinitions } from "./workflow-definition";
+import { readThenWriteBrowserSetup } from "./edit-basis";
+import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Page, type Request } from "@playwright/test";
 import { isAllowedConsoleError } from "./console-allowlist";
 import { seedCsv, trackConsole } from "./support";
@@ -24,18 +27,18 @@ type Run = { id: string; outcome: string | null; members: { stepId: string; stat
 const ENDLESS = "SELECT count(*) AS n FROM range(200000) a, range(200000) b WHERE (a.range * b.range) % 7 = 3";
 const NEW_TEXT = "---\nlabel: note\n---\n";
 
-async function api(page: Page, method: string, path: string, body?: unknown): Promise<{ status: number; json: Json }> {
+async function api(page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<{ status: number; json: Json }> {
   return page.evaluate(
-    async ({ method, path, body }) => {
-      const r = await fetch(path, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+    async ({ method, path, body, basis }) => {
+      const r = await fetch(path, { method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
       const text = await r.text();
       return { status: r.status, json: text ? (JSON.parse(text) as Record<string, unknown>) : {} };
     },
-    { method, path, body },
+    { method, path, body, basis },
   );
 }
-const ok = async (page: Page, method: string, path: string, body?: unknown): Promise<Json> => {
-  const r = await api(page, method, path, body);
+const ok = async (page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<Json> => {
+  const r = await api(page, method, path, body, basis);
   if (r.status >= 400) throw new Error(`${method} ${path} → ${r.status}: ${JSON.stringify(r.json)}`);
   return r.json;
 };
@@ -46,10 +49,10 @@ const newRecipe = async (page: Page, name: string) => {
   return id;
 };
 const addSql = async (page: Page, id: string, sql: string, name: string) =>
-  ((await ok(page, "POST", `/api/recipes/${id}/steps`, { operation: "sql_step", parameters: { sql, name } })).step as { id: string }).id;
+  ((await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps`, body: { operation: "sql_step", parameters: { sql, name } } })).then(result => result.json)).step as { id: string }).id;
 const readLayout = async (page: Page, id: string) => (await ok(page, "GET", `/api/recipes/${id}/layout`)).layout as Layout;
 const readRecipe = async (page: Page, id: string) => (await ok(page, "GET", `/api/recipes/${id}`)).recipe as Json & { steps: Json[]; updatedAt: string };
-const putLayout = (page: Page, id: string, layout: Partial<Layout>) => ok(page, "PUT", `/api/recipes/${id}/layout`, { steps: {}, sources: {}, notes: [], ...layout });
+const putLayout = (page: Page, id: string, layout: Partial<Layout>) => readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "PUT", path: `/api/recipes/${id}/layout`, body: { steps: {}, sources: {}, notes: [], ...layout } })).then(result => result.json);
 const listRuns = async (page: Page, id: string) => (await ok(page, "GET", `/api/recipes/${id}/runs`)).runs as Run[];
 
 /** Every layout write the page makes. */
@@ -182,7 +185,7 @@ test("the tool and note mode, placing by click, drag and Enter, moving, resizing
     expect(first).toMatchObject({ w: 320, h: 176, color: "yellow", text: NEW_TEXT });
     expect(onGrid(first.x)).toBe(true);
     expect(onGrid(first.y)).toBe(true);
-    expect((await readRecipe(page, id)).steps).toEqual(recipeBefore.steps);
+    expect(stepDefinitions((await readRecipe(page, id)).steps)).toEqual(stepDefinitions(recipeBefore.steps));
     await page.keyboard.press("Escape");
     await expect(field(page)).toHaveCount(0);
     await expect(noteNode(page, first.id)).toBeFocused();
@@ -260,7 +263,7 @@ test("the tool and note mode, placing by click, drag and Enter, moving, resizing
     await page.keyboard.press("Delete");
     await expect(page.locator("[data-canvas-notice]")).toContainText("Note removed.");
     await expect.poll(async () => (await notesOf(page, id)).map((n) => n.id)).not.toContain(copy.id);
-    expect((await readRecipe(page, id)).steps).toEqual(recipeBefore.steps);
+    expect(stepDefinitions((await readRecipe(page, id)).steps)).toEqual(stepDefinitions(recipeBefore.steps));
     await expect(page.locator("[data-flow-area]")).toBeFocused();
   });
 
@@ -522,7 +525,7 @@ test("headless notes: stacking under the graph and among themselves, the label b
     await expect(page.locator("[data-note]")).toHaveCount(1);
     await expect(page.getByText("No nodes yet")).toHaveCount(0);
     const gone = await addSql(page, lone, "SELECT 1 AS x", `nh_gone_${runId}`);
-    await ok(page, "DELETE", `/api/recipes/${lone}/steps/${gone}`);
+    await readThenWriteBrowserSetup(page, `/api/recipes/${lone}`, () => ({ method: "DELETE", path: `/api/recipes/${lone}/steps/${gone}` })).then(result => result.json);
     expect((await notesOf(page, lone)).map((n) => n.id)).toEqual(["only"]);
     const copy = (await ok(page, "POST", `/api/recipes/${lone}/duplicate`, {})).recipe as { id: string };
     made.push(copy.id);
@@ -531,7 +534,7 @@ test("headless notes: stacking under the graph and among themselves, the label b
     await settled(page);
     await expect(noteEl(page, "only")).toBeVisible();
     const layoutBefore = await readLayout(page, lone);
-    const refused = await api(page, "PUT", `/api/recipes/${lone}/layout`, { steps: {}, sources: {}, notes: [{ ...layoutBefore.notes[0], color: "red" }] });
+    const refused = await readThenWriteBrowserSetup(page, `/api/recipes/${lone}`, () => ({ method: "PUT", path: `/api/recipes/${lone}/layout`, body: { steps: {}, sources: {}, notes: [{ ...layoutBefore.notes[0], color: "red" }] } }));
     expect(refused.status).toBe(400);
     expect(await readLayout(page, lone)).toEqual(layoutBefore);
   });
@@ -572,7 +575,7 @@ test("headless notes: stacking under the graph and among themselves, the label b
   expect(unexpected).toEqual([]);
 });
 
-test("the saves: Saving and Saved, a cut write with a change meanwhile and Retry, last-edited, the run in flight, the framed view, the limit under last write wins", async ({ page }) => {
+test("the saves: Saving and Saved, a cut write with a change meanwhile and Retry, last-edited, the run in flight, the framed view, the limit across a stale retry and Reload", async ({ page }) => {
   const consoleErrors = trackConsole(page);
   await page.goto("/workflows");
   await seedCsv(page, stations, "name,riders,lon,lat\nalex,10450,13.4133,52.5219\n");
@@ -590,7 +593,7 @@ test("the saves: Saving and Saved, a cut write with a change meanwhile and Retry
     expect((await notesOf(page, id))[0].color).toBe("green");
     const recipeAfter = await readRecipe(page, id);
     expect(String(recipeAfter.updatedAt) > String(recipeBefore.updatedAt)).toBe(true);
-    expect(recipeAfter.steps).toEqual(recipeBefore.steps);
+    expect(stepDefinitions(recipeAfter.steps)).toEqual(stepDefinitions(recipeBefore.steps));
     await page.route("**/api/recipes/*/layout", (route) => (route.request().method() === "PUT" ? route.abort() : route.continue()));
     await menu(page).locator("[data-note-swatch='pink']").click();
     await expect(page.getByText("Couldn’t save")).toBeVisible();
@@ -657,7 +660,7 @@ test("the saves: Saving and Saved, a cut write with a change meanwhile and Retry
     await page.unroute("**/api/recipes/*/layout");
   });
 
-  await test.step("ninety-nine notes stored, one made with the write cut, a headless hundred landing in between: the canvas's hundred wins, the tool unavailable", async () => {
+  await test.step("ninety-nine notes stored, one made with the write cut, a headless hundred landing in between: Retry is stale, Reload keeps the accepted hundred", async () => {
     const other = await newRecipe(page, `Notes limit ${runId}`);
     const ninetyNine = Array.from({ length: 99 }, (_, i) => ({ id: `l${i}`, x: 4000 + (i % 10) * 340, y: 4000 + Math.floor(i / 10) * 200, w: 320, h: 176, color: "yellow", text: `l ${i}` }));
     await putLayout(page, other, { notes: ninetyNine });
@@ -675,12 +678,28 @@ test("the saves: Saving and Saved, a cut write with a change meanwhile and Retry
     await page.unroute("**/api/recipes/*/layout");
     const hundredOthers = Array.from({ length: 100 }, (_, i) => ({ id: `o${i}`, x: (i % 10) * 340, y: Math.floor(i / 10) * 200, w: 320, h: 176, color: "grey", text: `o ${i}` }));
     await putLayout(page, other, { notes: hundredOthers });
+    const refusal = page.waitForResponse(r => r.request().method() === "PUT" && r.url().endsWith(`/api/recipes/${other}/layout`) && r.status() === 409);
     await page.getByRole("button", { name: "Retry" }).click();
-    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
-    const notes = await notesOf(page, other);
-    expect(notes.length).toBe(100);
-    expect(notes.filter((n) => n.id.startsWith("l")).length).toBe(99);
-    expect(notes.some((n) => n.id.startsWith("o"))).toBe(false);
+    expect((await (await refusal).json()).error.code).toBe("stale_revision");
+    const recovery = page.locator("[data-stale-recovery]");
+    await expect(recovery).toContainText("This item has changed. Reload it before trying again.");
+    await expect(page.getByRole("button", { name: "Retry" })).toHaveCount(0);
+    await expect(page.getByText("Saved", { exact: true })).toHaveCount(0);
+    await expect(page.locator("[data-note]")).toHaveCount(100);
+    await expect(noteEl(page, "l0")).toHaveCount(1);
+    await expect(tool(page)).toBeDisabled();
+    expect(await notesOf(page, other)).toEqual(hundredOthers);
+    const writes = watchWrites(page);
+    await recovery.getByRole("button", { name: "Reload", exact: true }).click();
+    await expect(recovery.getByRole("button", { name: "Copy note text" })).toBeVisible();
+    await recovery.getByRole("button", { name: "Reload", exact: true }).click();
+    await expect(recovery).toHaveCount(0);
+    await expect(page.locator("[data-note]")).toHaveCount(100);
+    await expect(noteEl(page, "o0")).toHaveCount(1);
+    await expect(noteEl(page, "l0")).toHaveCount(0);
+    await expect(tool(page)).toBeDisabled();
+    expect(await notesOf(page, other)).toEqual(hundredOthers);
+    expect(writes).toHaveLength(0);
   });
 
   const unexpected = consoleErrors.filter((e) => !isAllowedConsoleError(e.text, e.url) && !/\/layout$/.test(e.url ?? ""));

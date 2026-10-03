@@ -1,9 +1,11 @@
+import { readDocumentRevision } from "@/lib/metadata/revisions";
+import { revisionEnvelope } from "@/lib/metadata/document-results";
+import { recordDocumentBatch } from "@/lib/metadata/revisions";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { requireFilingDestination } from "@/lib/auth/reach";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { createRecipe, listRecipes } from "@/lib/metadata/owned-recipes";
-import { metadataDb } from "@/lib/metadata/db";
 import { fileRecipe } from "@/lib/metadata/owned-recipes";
 import { importProjectId, projectScope } from "@/lib/project-scope";
 import { readRecipe } from "@/lib/operations/recipe-view";
@@ -58,13 +60,13 @@ export async function POST(request: Request) {
     // nothing.
     const projectId = importProjectId(body.projectId);
     if (projectId) requireFilingDestination(scope, projectId);
-    const recipe = metadataDb().transaction(() => {
+    const recipe = recordDocumentBatch(scope, () => {
       const created = createRecipe(scope, recipeName(body), undefined, recipeOrigin(body));
-      if (projectId) fileRecipe(scope, created.id, projectId);
+      if (projectId) fileRecipe(scope, created.id, projectId, undefined, { expectedRevision: readDocumentRevision({ kind: "workflow", id: created.id })!.editRevision });
       return created;
-    })();
+    });
     return NextResponse.json(
-      { recipe: recipePayload(await readRecipe(scope, recipe.id)) },
+      revisionEnvelope("recipe", recipePayload(await readRecipe(scope, recipe.id))),
       { status: 201, headers: { Location: `/api/recipes/${recipe.id}` } },
     );
   } catch (error) {

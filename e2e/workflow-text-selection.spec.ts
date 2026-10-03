@@ -1,3 +1,5 @@
+import { readThenWriteBrowserSetup } from "./edit-basis";
+import type { EditBasis } from "../src/lib/edit-basis";
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { isAllowedConsoleError } from "./console-allowlist";
 import { seedCsv, trackConsole } from "./support";
@@ -26,15 +28,15 @@ const table = `ts_points_${runId}`;
 
 type Json = Record<string, unknown>;
 
-async function api(page: Page, method: string, path: string, body?: unknown): Promise<Json> {
+async function api(page: Page, method: string, path: string, body?: unknown, basis?: EditBasis): Promise<Json> {
   return page.evaluate(
-    async ({ method, path, body }) => {
-      const r = await fetch(path, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+    async ({ method, path, body, basis }) => {
+      const r = await fetch(path, { method, headers: { "content-type": "application/json", ...(basis ? { "X-Edit-Revision": String(basis.editRevision) } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
       const text = await r.text();
       if (!r.ok) throw new Error(`${method} ${path} → ${r.status}: ${text}`);
       return text ? (JSON.parse(text) as Json) : {};
     },
-    { method, path, body },
+    { method, path, body, basis },
   );
 }
 
@@ -45,9 +47,9 @@ async function seed(page: Page): Promise<{ id: string; node: string }> {
   await page.goto("/workflows");
   await seedCsv(page, table, "name,lon,lat\nalex,13.41,52.52\nzoo,13.33,52.51\n");
   const id = ((await api(page, "POST", "/api/recipes", { name: `Selection ${runId}` })).recipe as { id: string }).id;
-  const node = ((await api(page, "POST", `/api/recipes/${id}/steps`, { operation: "buffer", parameters: { input: table, distance: 100, name: `${table}_rings` } })).step as { id: string }).id;
-  await api(page, "PUT", `/api/recipes/${id}/layout`, { steps: { [node]: { x: 288, y: 40 } }, sources: { [table]: { x: 48, y: 40 } }, notes: [] });
-  await api(page, "POST", `/api/recipes/${id}/steps/${node}/run`);
+  const node = ((await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps`, body: { operation: "buffer", parameters: { input: table, distance: 100, name: `${table}_rings` } } })).then(result => result.json)).step as { id: string }).id;
+  await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "PUT", path: `/api/recipes/${id}/layout`, body: { steps: { [node]: { x: 288, y: 40 } }, sources: { [table]: { x: 48, y: 40 } }, notes: [] } })).then(result => result.json);
+  await readThenWriteBrowserSetup(page, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/steps/${node}/run` })).then(result => result.json);
   await expect
     .poll(async () => ((await api(page, "GET", `/api/recipes/${id}`)).recipe as { steps: { output: unknown }[] }).steps[0].output ?? null, { timeout: 40_000 })
     .not.toBeNull();

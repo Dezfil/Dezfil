@@ -1,3 +1,4 @@
+import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -63,7 +64,7 @@ it("uses the same safe refusal in query consumers and their degraded envelopes",
  const { materialize } = await import("@/lib/operations/materialize");
  const { classifyFill, computeSizeScale } = await import("@/lib/style/classify");
  const { computeWidgetValues } = await import("@/lib/widget-service");
- const map = createMap(scope(), "Refusals"), layer = await createLayer(scope(), map.id, { name: "Roads", sql: "SELECT * FROM roads" });
+ const map = createMap(scope(), "Refusals"), layer = await createLayer(scope(), map.id, { name: "Roads", sql: "SELECT * FROM roads" }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
  const sql = "SELECT * FROM hidden_roads", saved = { ...layer, sql };
  for (const run of [() => executeQuery(scope(), sql), () => classifyFill(scope(), sql, "lon", "continuous"), () => classifyFill(scope(), sql, "lon", "quantile"), () => computeSizeScale(scope(), sql, "lon", [1, 10]), () => baseFields(scope(), saved), () => layerFieldStats(scope(), saved, "name"), () => exportQueryResult(scope(), sql, "csv"), () => materialize(scope(), { name: "denied", sql, operation: "sql_step" })]) {
   expect(await failure(run)).toMatchObject({ code: "sql_error", status: 400, message: "The query refers to an unknown table." });

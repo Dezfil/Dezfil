@@ -1,3 +1,6 @@
+import { documentFacts, type DocumentFacts } from "@/lib/metadata/document-facts";
+import { stableJson } from "@/lib/metadata/history";
+import { recordDocumentChanges, requireDocumentRevision } from "@/lib/metadata/revisions";
 import type { AccountScope } from "@/lib/auth/scope";
 import { ownsMap, requireMap, requireMapFor } from "@/lib/map-access";
 import { ApiError } from "@/lib/api/errors";
@@ -37,15 +40,18 @@ export interface PublishSettings {
  * published. Normalizing here — not at each surface — is what keeps a
  * earlier publication, an unstated setting and an omitted member all
  * reading as every control on. */
-export function getPublicationState(scope: AccountScope, id: string): PublicationState | null {
+export function getPublicationState(scope: AccountScope, id: string): (PublicationState & DocumentFacts) | null {
+  return metadataDb().transaction(() => {
   const map = requireMap(scope, id);
   if (!map.publishToken || !map.publishedAt) return null;
   return {
     ...(ownsMap(scope, id) ? { token: map.publishToken } : {}),
+    ...documentFacts({ kind: "map", id }),
     publishedAt: map.publishedAt,
     theme: getPublishedTheme(id) ?? "dark",
     viewerControls: normalizeViewerControls(getViewerControls(id)),
   };
+  })();
 }
 
 /** Minting, changing and revoking a publication are the map owner's acts. */
@@ -66,16 +72,21 @@ export function publishMap(
   scope: AccountScope,
   id: string,
   settings: PublishSettings = {},
-): PublishState {
+  options: { expectedRevision?: unknown } = {},
+): PublishState & DocumentFacts {
   return metadataDb().transaction(() => {
     const map = requirePublishedMapOwner(scope, id);
+    requireDocumentRevision(scope, { kind: "map", id, action: "publish", expectedRevision: options.expectedRevision });
     const { theme, viewerControls } = settings;
     if (map.publishToken && map.publishedAt) {
-      if (theme) setPublishedTheme(id, theme);
-      if (viewerControls) {
+      const changed = (theme !== undefined && theme !== (getPublishedTheme(id) ?? "dark")) ||
+        (viewerControls !== undefined && stableJson(normalizeViewerControls(viewerControls)) !== stableJson(normalizeViewerControls(getViewerControls(id))));
+      if (changed && theme) setPublishedTheme(id, theme);
+      if (changed && viewerControls) {
         setViewerControls(id, normalizeViewerControls(viewerControls));
       }
-      return { token: map.publishToken, publishedAt: map.publishedAt };
+      if (changed) recordDocumentChanges(scope, [{ kind: "map", id }]);
+      return { token: map.publishToken, publishedAt: map.publishedAt, ...documentFacts({ kind: "map", id }) };
     }
     const token = generateToken();
     const publishedAt = new Date().toISOString();
@@ -88,24 +99,29 @@ export function publishMap(
       id,
       viewerControls ? normalizeViewerControls(viewerControls) : null,
     );
-    return { token, publishedAt };
-  })();
+    recordDocumentChanges(scope, [{ kind: "map", id }]);
+    return { token, publishedAt, ...documentFacts({ kind: "map", id }) };
+  }).immediate();
 }
 
 /** Unpublish: the link stops resolving immediately; a later republish mints a
  * fresh, unrelated token (spec: rotation is the revocation story). */
-export function unpublishMap(scope: AccountScope, id: string): void {
-  const token = metadataDb().transaction(() => {
+export function unpublishMap(scope: AccountScope, id: string, options: { expectedRevision?: unknown } = {}): DocumentFacts {
+  const { token, facts } = metadataDb().transaction(() => {
     const map = requirePublishedMapOwner(scope, id);
+    requireDocumentRevision(scope, { kind: "map", id, action: "publish", expectedRevision: options.expectedRevision });
+    if (!map.publishToken) return { token: null, facts: documentFacts({ kind: "map", id }) };
     updateMapFields(id, { publishToken: null, publishedAt: null });
     // The authored theme is publication state: it leaves with the token,
     // so the next publication captures fresh. The viewer controls are
     // publication state too and leave with it.
     setPublishedTheme(id, null);
     setViewerControls(id, null);
-    return map.publishToken;
-  })();
+    if (map.publishToken) recordDocumentChanges(scope, [{ kind: "map", id }]);
+    return { token: map.publishToken, facts: documentFacts({ kind: "map", id }) };
+  }).immediate();
   if (token) invalidatePublishedToken(token);
+  return facts;
 }
 
 /** Guard used by mutation endpoints: a published token never authorizes a

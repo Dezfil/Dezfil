@@ -285,7 +285,7 @@ test.describe("server-side image export", () => {
         const layer = maps.layers[0];
         await fetch(`/api/layers/${layer.id}`, {
           method: "PATCH",
-          headers: { "content-type": "application/json" },
+          headers: { "X-Edit-Revision": maps.editRevision, "content-type": "application/json" },
           body: JSON.stringify({ publishedFields: ["name"] }),
         });
       }, mapId);
@@ -305,7 +305,7 @@ test.describe("server-side image export", () => {
         const layer = maps.layers[0];
         await fetch(`/api/layers/${layer.id}`, {
           method: "PATCH",
-          headers: { "content-type": "application/json" },
+          headers: { "X-Edit-Revision": maps.editRevision, "content-type": "application/json" },
           body: JSON.stringify({
             filters: [
               { field: "riders", kind: "range", min: 10000, max: null },
@@ -325,7 +325,7 @@ test.describe("server-side image export", () => {
         const layer = maps.layers[0];
         await fetch(`/api/layers/${layer.id}`, {
           method: "PATCH",
-          headers: { "content-type": "application/json" },
+          headers: { "X-Edit-Revision": maps.editRevision, "content-type": "application/json" },
           body: JSON.stringify({ visible: false, filters: [] }),
         });
       }, mapId);
@@ -348,7 +348,7 @@ test.describe("server-side image export", () => {
         const layer = maps.layers[0];
         await fetch(`/api/layers/${layer.id}`, {
           method: "PATCH",
-          headers: { "content-type": "application/json" },
+          headers: { "X-Edit-Revision": maps.editRevision, "content-type": "application/json" },
           body: JSON.stringify({ visible: true, publishedFields: null }),
         });
       }, mapId);

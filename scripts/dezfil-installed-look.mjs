@@ -1,3 +1,4 @@
+import { captureBasis } from './revision-fixtures.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { startLoopbackBasemap, assertBasemapTraffic } from './loopback-basemap.mjs';
@@ -7,12 +8,14 @@ export async function installedLook(client, { call, gate }, renderLog) {
   assert.ok(renderLog, 'Real rendering requires the process launch observation file');
   const count = async () => (await readFile(renderLog, 'utf8')).trim().split('\n').filter(Boolean).map(line => JSON.parse(line)).filter(event => event.phase === 'launch').length;
   const fixture = await startLoopbackBasemap();
-  let map;
+  let map, basis;
   try {
     map = await call('create_map', { name: 'Installed map check' });
-    const layer = await call('create_layer', { id: map.id, name: 'Observed point', sql: "SELECT ST_Point(0, 0) AS geometry, 'point' AS name" });
+    basis = captureBasis(map);
+    const layer = await call('create_layer', { id: map.id, name: 'Observed point', sql: "SELECT ST_Point(0, 0) AS geometry, 'point' AS name" }, undefined, null, basis);
+    basis = captureBasis(layer);
     const viewport = { lng: 0, lat: 0, zoom: 10, pitch: 0, bearing: 0 };
-    await call('update_map', { id: map.id, viewport, customBasemap: { name: 'Loopback', url: fixture.styleUrl, force: true } });
+    basis = captureBasis(await call('update_map', { id: map.id, viewport, customBasemap: { name: 'Loopback', url: fixture.styleUrl, force: true } }, undefined, null, basis));
     const trafficBefore = fixture.snapshot(10); const before = await count();
     // Image-result adaptation differs from ordinary JSON; inspect the actual wire.
     const result = await client.callTool({ name: 'look_at_map', arguments: { mapId: map.id, appearance: 'light' } });
@@ -29,7 +32,7 @@ export async function installedLook(client, { call, gate }, renderLog) {
     assert.deepEqual(result.structuredContent.result.image.content, { index: 0, type: 'text', jsonPointer: '/image/content_base64' });
     assert.equal(await count(), before + 1, 'exactly one real renderer launch');
     assertBasemapTraffic(fixture.delta(trafficBefore, 10));
-    await call('update_map', { id: map.id, name: 'Changed after rendering' });
+    basis = captureBasis(await call('update_map', { id: map.id, name: 'Changed after rendering' }, undefined, null, basis));
     for (const variant of ['full', 'thumbnail']) {
       const read = await client.callTool({ name: 'read_map_look_image', arguments: { renderId: body.render.id, variant } });
       assert.equal(read.isError === true, false, JSON.stringify(read.structuredContent));
@@ -40,5 +43,5 @@ export async function installedLook(client, { call, gate }, renderLog) {
       assert.equal(await count(), before + 1, 'retained image read starts no second render');
     }
     return { renderId: body.render.id, state: body.render.state.digest, width: image.width, height: image.height, bytes: bytes.length, launches: 1 };
-  } finally { if (map) await gate('delete_map', { id: map.id }, true); await fixture.close(); }
+  } finally { if (map) await gate('delete_map', { id: map.id }, true, basis); await fixture.close(); }
 }

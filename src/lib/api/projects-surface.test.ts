@@ -184,11 +184,9 @@ describe("the projects surface", () => {
       };
     }).components.schemas;
     expect(Object.keys(schemas.Project.properties ?? {})).toContain("recipeCount");
-    // The shapes, not only the names: the members read still
-    // points at the recipe list and the count is still an integer.
-    expect(
-      (schemas.ProjectMembers.properties?.recipes as unknown as { $ref?: string } | undefined)?.$ref,
-    ).toBe("#/components/schemas/RecipeList");
+    expect(schemas.ProjectMembers.properties?.recipes).toMatchObject({
+      type: "array", items: { $ref: "#/components/schemas/Recipe" },
+    });
     expect(
       (schemas.Project.properties?.recipeCount as unknown as { type?: string } | undefined)?.type,
     ).toBe("integer");
@@ -198,6 +196,7 @@ describe("the projects surface", () => {
       "tables",
     ]);
     expect(Object.keys(schemas.ProjectMemberChange.properties ?? {})).toEqual([
+      "expectedRevisions",
       "addMaps",
       "removeMaps",
       "addRecipes",

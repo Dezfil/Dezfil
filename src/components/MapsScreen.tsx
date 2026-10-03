@@ -1,9 +1,11 @@
 "use client";
 
+import { LastChanged } from "./sharing/LastChanged";
+import { editHeaders } from "@/lib/edit-basis";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { MapOverview } from "./api";
-import { formatRelativeTime, readApiError } from "./api";
+import { readApiError } from "./api";
 import {
   IconDuplicate,
   IconFolderPlus,
@@ -192,10 +194,11 @@ export function MapsScreen() {
     }
   }, [router, scope]);
 
-  const deleteMap = useCallback(async (id: string) => {
+  const deleteMap = useCallback(async (item: MapOverview) => {
+    const { id } = item;
     setDeletingId(id);
     try {
-      const response = await fetch(`/api/maps/${id}`, { method: "DELETE" });
+      const response = await fetch(`/api/maps/${id}`, { method: "DELETE", headers: editHeaders(item) });
       if (!response.ok) throw new Error(await readApiError(response));
       mutate((w) => ({
         ...w,
@@ -214,23 +217,25 @@ export function MapsScreen() {
   }, [mutate]);
 
   const publishMap = useCallback(
-    async (id: string) => {
+    async (item: MapOverview) => {
+    const { id } = item;
     setBusyId(id);
     try {
       // The publication captures the current workspace mode.
       const response = await fetch(`/api/maps/${id}/publish`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: editHeaders(item, { "Content-Type": "application/json" }),
         body: JSON.stringify({ theme }),
       });
       if (!response.ok) throw new Error(await readApiError(response));
       const body = (await response.json()) as {
         token: string;
         publishedAt: string;
+        editRevision: string;
       };
       const publish = (m: MapOverview) =>
         m.id === id
-          ? { ...m, publishToken: body.token, publishedAt: body.publishedAt, published: true }
+          ? { ...m, publishToken: body.token, publishedAt: body.publishedAt, published: true, editRevision: body.editRevision }
           : m;
       mutate((w) => ({ ...w, all: w.all.map(publish), scoped: w.scoped.map(publish) }));
       setActionError(null);
@@ -292,7 +297,7 @@ export function MapsScreen() {
     return [...filtered].sort((a, b) => {
       if (sort === "name") return a.name.localeCompare(b.name);
       if (sort === "created") return b.createdAt.localeCompare(a.createdAt);
-      return b.updatedAt.localeCompare(a.updatedAt);
+      return (b.lastChangedAt ?? "").localeCompare(a.lastChangedAt ?? "");
     });
   }, [maps, query, filter, sort]);
 
@@ -368,7 +373,7 @@ export function MapsScreen() {
           disabled={busyId === m.id}
           onClick={(e) => {
             e.stopPropagation();
-            void publishMap(m.id);
+            void publishMap(m);
           }}
         >
           <IconPublish />
@@ -389,7 +394,7 @@ export function MapsScreen() {
           }
           onClick={(e) => {
             e.stopPropagation();
-            if (confirmId === m.id) void deleteMap(m.id);
+            if (confirmId === m.id) void deleteMap(m);
             else setConfirmId(m.id);
           }}
           onBlur={() => setConfirmId(null)}
@@ -612,7 +617,7 @@ export function MapsScreen() {
                   <div className={gallery.cardTop}>
                     <span className={gallery.cardName}>{m.name}</span>
                     <span className={gallery.cardWhen}>
-                      {formatRelativeTime(m.updatedAt)}
+                      <LastChanged value={m} />
                     </span>
                   </div>
                   <div className={gallery.cardChips}>
@@ -668,7 +673,7 @@ export function MapsScreen() {
                   <StateChip live={m.published} />
                 </span>
                 <span className={`${gallery.colWhen} ${gallery.num}`}>
-                  {formatRelativeTime(m.updatedAt)}
+                  <LastChanged value={m} />
                 </span>
                 <span className={gallery.colActs} />
               </button>
@@ -721,6 +726,7 @@ export function MapsScreen() {
             id: filing.id,
             name: filing.name,
             projectId: filing.projectId,
+            editRevision: filing.editRevision,
           }}
           onClose={() => setFiling(null)}
           onWithdrawn={({ projectIds, refusal }) => {

@@ -1,3 +1,4 @@
+import { readThenWriteRequestSetup } from "./edit-basis";
 import { expect, test, type Locator } from "@playwright/test";
 import { createMap, patchMap, routeHouse, seedFile } from "./support";
 
@@ -87,7 +88,7 @@ test("MiniMap picks the original polygon across overscaled tile edges and an in-
     }
     await testInfo.attach("selected-original-geometries", { body: JSON.stringify(requests), contentType: "application/json" });
   } finally {
-    expect((await page.request.delete(`/api/maps/${mapId}`)).status()).toBe(204);
+    expect((await readThenWriteRequestSetup(page.request, `/api/maps/${mapId}`, () => ({ method: "DELETE" }))).status()).toBe(204);
     expect((await page.request.delete(`/api/tables/${name}`)).status()).toBe(204);
   }
 });
