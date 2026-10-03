@@ -171,3 +171,24 @@ it("credential accesses continue a shared incomplete pass", () => {
   authenticateSession("unknown", db, now); expect(ids("tokens")).toHaveLength(1);
   authenticateToken("unknown", db, now); expect(ids("tokens")).toEqual([]);
 });
+
+it("credential activity measures the completed pass time when no test clock is supplied", async () => {
+  const repository = await import("@/lib/metadata/credential-maintenance");
+  const remove = repository.removeExpiredCredentials;
+  let time = now;
+  const clock = vi.spyOn(Date, "now").mockImplementation(() => time);
+  const slowPage = vi.spyOn(repository, "removeExpiredCredentials").mockImplementation((...args) => {
+    const result = remove(...args); time += 1000; return result;
+  });
+  try {
+    authenticateToken("unknown", db);
+    const completed = time;
+    token("next");
+    time = now + 3_600_000;
+    authenticateToken("unknown", db);
+    expect(ids("tokens")).toEqual(["next"]);
+    time = completed + 3_600_000;
+    authenticateToken("unknown", db);
+    expect(ids("tokens")).toEqual([]);
+  } finally { slowPage.mockRestore(); clock.mockRestore(); }
+});

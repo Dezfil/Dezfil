@@ -26,9 +26,10 @@ export function issueSession(account: Account, db: Database, now: number) {
   return { account, secret, expiresAt: now + SESSION_LIFETIME_MS };
 }
 
-export function authenticateSession(secret: string | null, db: Database = metadataDb(), now = Date.now()): AuthContext | null {
+export function authenticateSession(secret: string | null, db: Database = metadataDb(), now?: number): AuthContext | null {
   if (!secret) return null;
   maintainCredentials(db, now);
+  now ??= Date.now();
   return db.transaction(() => {
     const record = sessionByHash(secretHash(secret), db);
     const account = record && getAccount(record.account_id, db);
@@ -39,9 +40,10 @@ export function authenticateSession(secret: string | null, db: Database = metada
   }).immediate();
 }
 
-export function authenticateToken(secret: string | null, db: Database = metadataDb(), now = Date.now()): AuthContext | null {
+export function authenticateToken(secret: string | null, db: Database = metadataDb(), now?: number): AuthContext | null {
   if (!secret) return null;
   maintainCredentials(db, now);
+  now ??= Date.now();
   return db.transaction(() => {
     const record = tokenByHash(secretHash(secret), db);
     const account = record && getAccount(record.account_id, db);
@@ -52,8 +54,9 @@ export function authenticateToken(secret: string | null, db: Database = metadata
 }
 
 /** Services call this again under their write transaction; contexts are not authority. */
-export function requireCurrentActor(context: AuthContext | null, db: Database = metadataDb(), now = Date.now()): Account {
+export function requireCurrentActor(context: AuthContext | null, db: Database = metadataDb(), now?: number): Account {
   maintainCredentials(db, now);
+  now ??= Date.now();
   if (!context || (context.delegationExpiresAt !== undefined && context.delegationExpiresAt <= now)) throw new AuthError("authentication_required", "Sign in to continue.", 401);
   const record = context.credential.kind === "session"
     ? sessionById(context.credential.id, db) : tokenById(context.credential.id, db);
@@ -65,8 +68,9 @@ export function requireCurrentActor(context: AuthContext | null, db: Database = 
   return account;
 }
 
-export function signOut(context: AuthContext, db: Database = metadataDb(), now = Date.now()): void {
+export function signOut(context: AuthContext, db: Database = metadataDb(), now?: number): void {
   maintainCredentials(db, now);
+  now ??= Date.now();
   db.transaction(() => {
     requireCurrentActor(context, db, now);
     if (context.credential.kind === "session") {
@@ -75,8 +79,9 @@ export function signOut(context: AuthContext, db: Database = metadataDb(), now =
   }).immediate();
 }
 
-export function createApiToken(context: AuthContext, name: string, db: Database = metadataDb(), now = Date.now()) {
+export function createApiToken(context: AuthContext, name: string, db: Database = metadataDb(), now?: number) {
   maintainCredentials(db, now);
+  now ??= Date.now();
   return db.transaction(() => {
     const account = requireCurrentActor(context, db, now);
     if (!name.trim()) throw new AuthError("invalid_request", "Name the token.", 400);
@@ -87,13 +92,15 @@ export function createApiToken(context: AuthContext, name: string, db: Database 
   }).immediate();
 }
 
-export function listApiTokens(context: AuthContext, db: Database = metadataDb(), now = Date.now()) {
+export function listApiTokens(context: AuthContext, db: Database = metadataDb(), now?: number) {
   maintainCredentials(db, now);
+  now ??= Date.now();
   return db.transaction(() => listAccountTokens(requireCurrentActor(context, db, now).id, db)).immediate();
 }
 
-export function revokeApiToken(context: AuthContext, id: string, db: Database = metadataDb(), now = Date.now()): void {
+export function revokeApiToken(context: AuthContext, id: string, db: Database = metadataDb(), now?: number): void {
   maintainCredentials(db, now);
+  now ??= Date.now();
   db.transaction(() => {
     const account = requireCurrentActor(context, db, now);
     if (!revokeAccountToken(account.id, id, now, db)) throw new AuthError("not_found", "Token not found.", 404);
