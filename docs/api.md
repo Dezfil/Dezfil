@@ -63,6 +63,93 @@ changes nothing. A new attempt starts with a deliberate read and a new edit;
 clients must not silently retry an old payload with a newer token. Revision
 preconditions are declared on the operations that require them.
 
+## Request bounds
+
+Measured JSON reader operations: **63**. These counts include optional bodies,
+helper readers and MCP's external parser handoff, and exclude multipart uploads
+and binary thumbnails. The contract gate measures them; type-aware body-policy
+coverage independently checks the implementation against the contract.
+
+<!-- body-tiers:start -->
+| JSON wire-byte tier | Operations |
+|---|---|
+| 65,536 | 11 |
+| 131,072 | 1 |
+| 16,777,216 | 51 |
+<!-- body-tiers:end -->
+
+Authentication entry, Account, Users and the anonymous widget-values, render
+and extent POSTs accept at most 65,536 wire bytes. This includes whitespace,
+escaping and multi-byte UTF-8, regardless of Content-Type. Excess answers 413
+before JSON parsing. Access and origin checks precede protected work; refusal
+never becomes a parse error, an optional default or a write.
+
+Outside the two workflow readers and the assistant reader, the exact envelopes
+are `{"error":{"code":"request_body_too_large","message":"The request body exceeds the 65536-byte limit."}}`
+and `{"error":{"code":"request_body_too_large","message":"The request body exceeds the 16777216-byte limit."}}`.
+At the handler, declared excess refuses without reading, and a crossing chunk
+is cancelled without retaining it or pulling again. On framework-matched paths
+this is a handler guarantee: the framework may already have drained and copied
+up to its 17 MiB limit before the gate, including anonymous callers. The three
+excluded public POSTs additionally refuse before a large wire body completes.
+Multipart uploads stream to disk without the framework copy, under their file
+and archive limits. A reverse proxy's own request-size limit bounds the matched
+paths' residual copy further; see [self-hosting](self-hosting.md).
+`TRACE` returns an empty 400 at the native door before body work.
+
+Map, layer, widget, sketch, export and project JSON readers accept at most
+16,777,216 wire bytes. Optional bodies have the same outer bound: an oversized
+body never selects a default. The published render selection reader stays at
+65,536 bytes, including semantically valid filters whose strings exceed it.
+
+The finite-field controls measure 400,076 bytes for a 10,000-vertex sketch,
+262,201 for a maximal custom-icon patch, 1,500 for the fully populated
+4096-square export request, 21,976 for twelve widget selections, and 22,055
+for those selections with timeline bounds. Sixteen render filters with 200
+16-byte values measure 61,712 bytes; 18-byte values measure 68,112 and refuse.
+The viewer's twelve selections of fifty 30-character CJK values with distinct
+three-digit suffixes measure 58,288 bytes and fit. Unbounded strings and JSON
+escaping still count toward the outer limit.
+
+All other JSON consumers, including query, import, connection, settings, table
+and helper operations, use the 16,777,216-byte tier. Workflow readers retain
+their existing 16 MiB bound, required or optional empty-body behavior and
+`request_body_too_large` with the message "The workflow request body exceeds the
+16777216-byte limit." Assistant messages retain 131,072 bytes and
+`assistant_submission_too_large`. Multipart uploads and binary thumbnails
+are separate body classes.
+
+Body policy coverage uses the TypeScript receiver type and resolved calls,
+including aliases and helper parameters. Raw Request body members are confined
+to `src/lib/api/bounded-body.ts` (JSON bytes),
+`src/lib/api/thumbnail-body.ts` (binary thumbnails), and
+`src/lib/ingest/receive.ts` (streaming multipart).
+`src/lib/api/bounded-handoff.ts` alone constructs the admitted Request for an
+external JSON parser. Workflow and assistant readers use the shared byte
+reader with their own refusal contracts. Response reads are a separate type.
+The coverage check matches enforced limits, error codes, descriptions and
+413 responses against OpenAPI in both directions.
+
+## Anonymous published budgets
+
+Anonymous published API reads use verified ingress sources. View, widget-values,
+render and extent share 60 requests per ten seconds across tokens; tiles have
+600 in their separate bucket, with the existing configuration overrides.
+Unknown tokens are charged before resolution. Across both buckets, at most
+10,000 source entries are retained: traffic removes expired windows, then
+capacity evicts the least recently used entry. Eviction grants a fresh window.
+Window expiry permits retry; a refusal remains 429 `rate_limited`, “Too many
+requests. Please slow down.” No new retry-header guarantee applies.
+
+Direct socket sources have independent budgets; equivalent IPv4 and mapped
+IPv4 addresses share one. A trusted proxy chain uses the nearest untrusted hop.
+Behind an untrusted proxy, readers share its socket budget by design; forwarded
+headers cannot separate it. Missing or forged provenance answers private,
+no-store 503 `ingress_unavailable`, “The instance cannot serve published maps
+yet.”, before reading a body or resolving a token. Malformed wire provenance
+still answers 400. The viewer page is outside these API budgets; IPv6 address
+rotation is not bounded by this policy.
+
 ## Ownership and sharing
 
 The rules for who sees and changes what are the same on every client: the
@@ -390,7 +477,6 @@ sign-in rate, plus the one-day margin and sweep lag; continued credential access
 drains it. There is no live-session quota, timer service or database-file shrink
 promise. Sessions still roll for thirty days, ordinary links last seven days,
 and recovery links last fifteen minutes.
-
 
 **Users.** Admins use `GET`/`POST /api/users` to list or invite accounts,
 `PATCH /api/users/{id}` to change another account's admin flag or active status,
@@ -1500,58 +1586,3 @@ response message. Branch on the code.
 | `map_not_found` | No map exists with the given id. |
 | `internal` | An unexpected server error occurred. |
 <!-- error-catalogue:end -->
-
-Authentication entry, Account and Users JSON submissions accept at most 65,536
-wire bytes, including whitespace and escaping. Excess answers 413
-`request_body_too_large` before parsing and before any account change.
-
-Map, layer, widget, sketch, export and project JSON readers accept at most
-16,777,216 wire bytes. Optional bodies have the same outer bound: an oversized
-body never selects a default. The published render selection reader stays at
-65,536 bytes, including semantically valid filters whose strings exceed it.
-
-The finite-field controls measure 400,076 bytes for a 10,000-vertex sketch,
-262,201 for a maximal custom-icon patch, 1,500 for the fully populated
-4096-square export request, 21,976 for twelve widget selections, and 22,055
-for those selections with timeline bounds. Sixteen render filters with 200
-16-byte values measure 61,712 bytes; 18-byte values measure 68,112 and refuse.
-The viewer's twelve selections of fifty 30-character CJK values with distinct
-three-digit suffixes measure 58,288 bytes and fit. Unbounded strings and JSON
-escaping still count toward the outer limit.
-
-All other JSON consumers, including query, import, connection, settings, table
-and helper operations, use the 16,777,216-byte tier. Workflow readers retain
-their existing 16 MiB bound, workflow-specific refusal sentence and required
-or optional empty-body behavior. Assistant messages retain 131,072 bytes and
-`assistant_submission_too_large`. Multipart uploads and binary thumbnails
-are separate body classes.
-
-Body policy coverage uses the TypeScript receiver type and resolved calls,
-including aliases and helper parameters. Raw Request body members are confined
-to `src/lib/api/bounded-body.ts` (JSON bytes),
-`src/lib/api/thumbnail-body.ts` (binary thumbnails), and
-`src/lib/ingest/receive.ts` (streaming multipart).
-`src/lib/api/bounded-handoff.ts` alone constructs the admitted Request for an
-external JSON parser. Workflow and assistant readers use the shared byte
-reader with their own refusal contracts. Response reads are a separate type.
-The coverage check matches enforced limits, error codes, descriptions and
-413 responses against OpenAPI in both directions.
-
-
-Anonymous published API reads use verified ingress sources. View, widget-values,
-render and extent share 60 requests per ten seconds across tokens; tiles have
-600 in their separate bucket, with the existing configuration overrides.
-Unknown tokens are charged before resolution. Across both buckets, at most
-10,000 source entries are retained: traffic removes expired windows, then
-capacity evicts the least recently used entry. Eviction grants a fresh window.
-Window expiry permits retry; a refusal remains 429 `rate_limited`, “Too many
-requests. Please slow down.” No new retry-header guarantee applies.
-
-Direct socket sources have independent budgets; equivalent IPv4 and mapped
-IPv4 addresses share one. A trusted proxy chain uses the nearest untrusted hop.
-Behind an untrusted proxy, readers share its socket budget by design; forwarded
-headers cannot separate it. Missing or forged provenance answers private,
-no-store 503 `ingress_unavailable`, “The instance cannot serve published maps
-yet.”, before reading a body or resolving a token. Malformed wire provenance
-still answers 400. The viewer page is outside these API budgets; IPv6 address
-rotation is not bounded by this policy.

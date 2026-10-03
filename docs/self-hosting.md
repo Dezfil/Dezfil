@@ -146,8 +146,19 @@ often the instance will talk to an external service. The defaults are chosen to 
 safe on a small machine. Raise them deliberately, not because a limit annoyed you
 once.
 
+Authentication entry, Account, Users and all three anonymous published POSTs
+admit at most 65,536 wire bytes of JSON. Other JSON, including MCP and workflows,
+admits 16,777,216; assistant messages keep 131,072 and their own refusal code.
+These limits include UTF-8, escaping and whitespace regardless of Content-Type.
+Optional bodies obey the same bound. Excess returns 413 before parsing, never
+a default or a write. Workflow and assistant refusal wording stays unchanged;
+[the API guide](api.md#request-bounds) gives the exact envelopes.
+MCP base64 uploads must be below 12 MiB after envelope and metadata overhead.
+Published render selections remain at 65,536 bytes even within their semantic
+filter counts; the viewer's twelve selections of fifty long values fit.
+
 The anonymous published widget-values, render and extent POST paths bypass the
-framework proxy too. Their handlers admit at most 65,536 bytes and refuse excess
+framework proxy. Their handlers admit at most 65,536 bytes and refuse excess
 before parsing; empty bodies retain their existing defaults. All dispatchable
 methods on excluded paths retain their method-specific request gate. `TRACE`,
 which no handler can receive, is answered with an empty 400 on every path before
@@ -170,7 +181,6 @@ request, storing nothing, so the connection stays usable; the server's request
 and keep-alive timeouts bound it. A fronting proxy's request-size limit stops
 such bytes before they reach the instance.
 
-
 Anonymous published API reads use verified ingress sources. View, widget-values,
 render and extent share 60 requests per ten seconds across tokens; tiles have
 600 in their separate bucket, with the existing configuration overrides.
@@ -188,7 +198,6 @@ no-store 503 `ingress_unavailable`, “The instance cannot serve published maps
 yet.”, before reading a body or resolving a token. Malformed wire provenance
 still answers 400. The viewer page is outside these API budgets; IPv6 address
 rotation is not bounded by this policy.
-
 
 Password derivation admission is shared across the server process: two active,
 six ordinary plus two reserved protected waiters, and a five-second maximum

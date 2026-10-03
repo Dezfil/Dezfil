@@ -30,16 +30,17 @@ Two conventions run through the whole surface:
 The table in the **Configuration** section of [README.md](../README.md) is the
 checked environment surface. It is checked in
 both directions by `scripts/check-readme-config.mjs` (run as `npm run
-lint:readme`), which scans `src/` for names and compares the set with the
-table's rows. Undocumented and stale rows both fail the check.
+lint:readme`), which scans production `src/` names and `DEZFIL_TEST_*` reads
+in `scripts/`, then compares the set with the table's rows. The script test
+settings must also match this page's table. Undocumented and stale rows fail.
 
 The checker pins the row format: a line starting with `` | `NAME` `` followed
 by the default and the effect. Anything added to that table has to match it,
 and anything the server starts reading has to be added. This page groups and
 expands on the same variables; the table stays the source the check reads.
 
-Two classes are deliberately outside the check: test wiring (`DEZFIL_TEST_*`
-and `DEZFIL_BASE_URL`) and platform plumbing (`NODE_ENV`, `PORT`, `HOSTNAME`,
+Two classes are deliberately outside the check: source-local test seams
+(`DEZFIL_TEST_*` in `src/` and `DEZFIL_BASE_URL`) and platform plumbing (`NODE_ENV`, `PORT`, `HOSTNAME`,
 `NEXT_RUNTIME`, `TZ`, `CI`, `DUCKDB_EXTENSION_DIR`). Both are listed at the
 end of this page.
 
@@ -55,6 +56,26 @@ end of this page.
 | Variable | Default | Effect |
 |---|---|---|
 | `DEZFIL_TRUSTED_PROXIES` | unset | Comma-separated IP addresses or CIDRs of reverse proxy socket peers. Only these peers may supply forwarding information. Configure proxies to replace host/protocol/port forwarding fields and append the actual client address; direct clients' forwarding headers are discarded. |
+
+## Request body admission
+
+JSON admission has fixed outer byte tiers: 65,536 bytes for authentication
+entry, Account, Users and the three anonymous published POSTs; 16,777,216 for
+other JSON, including MCP and workflows; assistant messages retain 131,072.
+Excess returns 413 with the operation's documented error. Optional bodies,
+escaping and UTF-8 bytes count too. Render selections remain in the small tier
+even when their filters satisfy the semantic limits. MCP's base64 envelope
+makes a raw upload smaller than 12 MiB; see [the MCP guide](mcp.md).
+Multipart uploads stream to disk under the separate file/archive caps.
+
+The fixed `experimental.proxyClientMaxBodySize` in `next.config.ts` is
+17 MiB (17,825,792 bytes), allowing the 16 MiB JSON boundary to reach its reader.
+Matched paths still drain and copy up to that limit before the gate, including
+anonymous callers. A fronting reverse proxy's own request-size limit bounds
+that residual copy further. Uploads and the three public POST shapes bypass
+the copy and preserve their handler-side gates. The native door returns an
+empty 400 for `TRACE`. See [self-hosting](self-hosting.md) for the wire
+behavior and [the API guide](api.md#request-bounds) for exact refusals.
 
 ## Upload and remote import
 
@@ -103,8 +124,8 @@ end of this page.
 | Variable | Default | Effect |
 |---|---|---|
 | `DEZFIL_PUBLISH_FRESHNESS_S` | `30` | How stale a published view may be, which is its cache window. |
-| `DEZFIL_PUBLIC_RATE_LIMIT` | `60` | Anonymous published-view requests per ten-second window, per client. |
-| `DEZFIL_PUBLIC_TILE_RATE_LIMIT` | `600` | Anonymous tile requests per ten-second window, per client. One pan is dozens of tiles, so tiles get their own, larger bucket (`src/lib/publish/rate-limit.ts`). |
+| `DEZFIL_PUBLIC_RATE_LIMIT` | `60` | Anonymous published-view requests per ten-second window, per verified source. |
+| `DEZFIL_PUBLIC_TILE_RATE_LIMIT` | `600` | Anonymous tile requests per ten-second window, per verified source. One pan is dozens of tiles, so tiles get their own, larger bucket (`src/lib/publish/rate-limit.ts`). |
 
 Published API budgets use verified ingress sources, shared across tokens, including
 unknown tokens. View reads share one budget; tiles have another. Both together
@@ -112,6 +133,7 @@ retain at most 10,000 entries, expiring on traffic then evicting least recently
 used entries at capacity. Eviction starts a fresh window. Readers behind an
 untrusted proxy share its socket budget; trusted chains use the nearest
 untrusted hop. See [self-hosting](self-hosting.md) for provenance refusals and scope.
+
 Password derivation admission is shared across the server process: two active,
 six ordinary plus two reserved protected waiters, and a five-second maximum
 wait. FIFO applies within each class. Validated links and signed-in password
@@ -121,8 +143,6 @@ deadlines answer private 503 `authentication_busy` with one-second retry advice,
 without adding login failures or a lasting lockout. Running work retains its
 slot until settlement. These fixed bounds introduce no configuration knob;
 actual derivation time depends on the host.
-
-
 
 ## Image export
 
@@ -210,7 +230,12 @@ self-hoster, and the README check excludes them by name.
 
 Read by test files, end-to-end specs, and helper scripts, never by the
 server as a setting. They are listed here so nobody mistakes one
-for a tunable.
+for a tunable. The two image-observer settings are checked in both guides:
+
+| Variable | Default | Effect |
+|---|---|---|
+| `DEZFIL_TEST_PUBLICATION_LOG` | unset | Test preload only: NDJSON destination for per-admission published-source state. Required by `scripts/publication-observer.mjs`; no effect without that preload. |
+| `DEZFIL_TEST_DERIVATION_LOG` | unset | Test preload only: NDJSON destination for native derivation starts, completions and admission occupancy. Required by `scripts/derivation-observer.mjs`; no effect without that preload. |
 
 - `DEZFIL_BASE_URL`: the target address for the browser test runner and the
   headless journey scripts.
@@ -233,4 +258,5 @@ A handful of further `DEZFIL_`-prefixed names appear inside individual test
 files and inside the performance harness under `scripts/perf/`, where they
 select an optional arm or name an output file. They are local to the file
 that reads them and are not part of the settings surface. The README check
-does not see them, because it scans only non-test source files under `src`.
+does not see them, because it scans non-test source files under `src` and only `DEZFIL_TEST_*`
+reads in helper scripts.

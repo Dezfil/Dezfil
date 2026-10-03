@@ -89,3 +89,30 @@ describe("README config coverage", () => {
     expect(stale).toEqual([]);
   });
 });
+
+it("includes the image observers' test settings in both configuration guides", () => {
+  const root = fileURLToPath(new URL("../..", import.meta.url));
+  const actual = serverVariables(join(root, "src"));
+  const names = ["DEZFIL_TEST_PUBLICATION_LOG", "DEZFIL_TEST_DERIVATION_LOG"];
+  for (const name of names) {
+    expect(actual.has(name), name).toBe(true);
+    for (const guide of ["README.md", "docs/configuration.md"]) expect(documentedVariables(join(root, guide)).has(name), `${guide}: ${name}`).toBe(true);
+  }
+  for (const name of names) {
+    const dropped = documentedVariables(join(root, "README.md")); dropped.delete(name);
+    expect(judge(actual, dropped).undocumented).toContain(name);
+    const stopped = new Set(actual); stopped.delete(name);
+    expect(judge(stopped, documentedVariables(join(root, "README.md"))).stale).toContain(name);
+  }
+});
+
+
+it("discovers new script test wiring and its removal without counting mentions", () => {
+  const scripts = join(dir, "scripts"); mkdirSync(scripts);
+  const file = join(scripts, "observer.mjs");
+  writeFileSync(file, 'const a = process.env.DEZFIL_TEST_NEW_OBSERVER; const b = process.env["DEZFIL_TEST_QUOTED"];');
+  const src = join(dir, "empty-src"); mkdirSync(src);
+  expect([...serverVariables(src, scripts)].sort()).toEqual(["DEZFIL_TEST_NEW_OBSERVER", "DEZFIL_TEST_QUOTED"]);
+  writeFileSync(file, 'const message = "DEZFIL_TEST_NEW_OBSERVER is no longer read";');
+  expect([...serverVariables(src, scripts)]).toEqual([]);
+});
