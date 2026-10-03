@@ -6,6 +6,18 @@ import { provisionJourney } from './journey-auth.mjs';
 import { journeyApi } from './journey-http.mjs';
 import { assertPublishedStatus, assertPublicationState, publicationRequest } from './publication-probe-support.mjs';
 
+export async function provisionPublications(api) {
+  const tokens = [];
+  for (let i = 0; i < 2; i++) {
+    const map = await api('POST', '/api/maps', { body: { name: `Source control ${i}` } }); assert.equal(map.status, 201);
+    const layer = await api('POST', `/api/maps/${map.json.id}/layers`, { body: { name: 'Point', sql: 'SELECT ST_Point(1, 2) AS geometry' }, basis: { editRevision: map.json.editRevision } }); assert.equal(layer.status, 201);
+    const current = await api('GET', `/api/maps/${map.json.id}`);
+    const published = await api('POST', `/api/maps/${map.json.id}/publish`, { basis: { editRevision: current.json.editRevision } }); assert.equal(published.status, 201);
+    tokens.push(published.json.token);
+  }
+  return tokens;
+}
+
 export async function publicationSourceProbe(base, mode, stateLog) {
   assert.ok(process.env.DEZFIL_DATA_DIR, 'Use an isolated DEZFIL_DATA_DIR');
   assert.ok(['direct', 'trusted', 'untrusted', 'missing'].includes(mode), 'Unknown publication probe mode');
@@ -25,14 +37,7 @@ export async function publicationSourceProbe(base, mode, stateLog) {
   } else {
     assert.ok(stateLog, '--state-log is required'); await readFile(stateLog);
     const credentials = await provisionJourney(base), api = journeyApi(base, { token: credentials.token });
-    const tokens = [];
-    for (let i = 0; i < 2; i++) {
-      const map = await api('POST', '/api/maps', { body: { name: `Source control ${i}` } }); assert.equal(map.status, 201);
-      const layer = await api('POST', `/api/maps/${map.json.id}/layers`, { body: { name: 'Point', sql: 'SELECT ST_Point(1, 2) AS geometry' }, basis: { editRevision: map.json.editRevision } }); assert.equal(layer.status, 201);
-      const current = await api('GET', `/api/maps/${map.json.id}`);
-      const published = await api('POST', `/api/maps/${map.json.id}/publish`, { basis: { editRevision: current.json.editRevision } }); assert.equal(published.status, 200);
-      tokens.push(published.json.token);
-    }
+    const tokens = await provisionPublications(api);
     // Four view requests across two valid tokens and two unknown-token routes.
     for (const token of tokens) assertPublishedStatus(await send('', { token }), 200);
     for (const suffix of paths.slice(1, 3)) assertPublishedStatus(await send(suffix), 404);

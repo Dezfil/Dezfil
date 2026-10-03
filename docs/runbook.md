@@ -795,7 +795,9 @@ Every server uses `DEZFIL_DATA_DIR` pointing to its own empty scratch directory,
 sets `DEZFIL_TRUSTED_PROXIES=127.0.0.1`; all other arms explicitly leave it empty.
 These are controlled proxy requests over a real loopback socket. Direct traffic
 binds the client's local address to 127.0.0.1 and 127.0.0.2; the workstation must
-have both available. The IPv4-only image uses these same two addresses.
+have both available. On macOS, the direct arm needs a loopback alias for
+127.0.0.2 or must run in the container. Linux routes the whole loopback network;
+the IPv4-only image uses these same two addresses.
 
 Start the standalone from its isolated build directory (substitute the checkout's
 absolute `scripts` path for `$PROBES` and a fresh directory for `$SCRATCH`):
