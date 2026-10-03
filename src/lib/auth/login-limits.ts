@@ -4,7 +4,7 @@ import { normalizeEmail } from "@/lib/metadata/accounts";
 import { signIn } from "./accounts";
 import { normalizeAddress, requireIngress } from "./ingress.mjs";
 import { secretHash } from "./credentials";
-import { AuthError } from "./errors";
+import { AuthError, AuthenticationCancelled } from "./errors";
 
 export const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 export const LOGIN_ACCOUNT_LIMIT = 5;
@@ -44,18 +44,19 @@ export async function withLoginLimit<T>(email: string, source: string, operation
     }
     return rows.map(({ row }) => row);
   }).immediate();
-  const finish = (outcome: "success" | "failure" | "refund") => db.transaction(() => {
+  const finish = (outcome: "success" | "failure" | "source-failure" | "refund") => db.transaction(() => {
     for (const row of reservations) {
       db.prepare(`UPDATE auth_login_limits SET pending = MAX(0, pending - 1),
         failures = CASE WHEN ? THEN 0 ELSE failures + ? END
         WHERE bucket = ? AND window_started_at = ?`)
-        .run(Number(outcome === "success" && row.bucket === accountKey), Number(outcome === "failure"), row.bucket, row.window_started_at);
+        .run(Number(outcome === "success" && row.bucket === accountKey), Number(outcome === "failure" || (outcome === "source-failure" && row.bucket === sourceKey)), row.bucket, row.window_started_at);
     }
   }).immediate();
   let result: T;
   try { result = await operation(); }
   catch (error) {
-    finish(error instanceof AuthError && ["invalid_credentials", "account_deactivated"].includes(error.code) ? "failure" : "refund");
+    finish(error instanceof AuthError && ["invalid_credentials", "account_deactivated"].includes(error.code) ? "failure"
+      : error instanceof AuthenticationCancelled && error.derivationStarted ? "source-failure" : "refund");
     throw error;
   }
   finish("success");

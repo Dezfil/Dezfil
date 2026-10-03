@@ -12,11 +12,11 @@ export class AuthError extends Error {
   }
 }
 
-/** The departed caller receives no credential or persistent mutation. */
+/** The departed caller receives no credential or account mutation. */
 export class AuthenticationCancelled extends Error {
-  constructor() { super("Authentication was cancelled."); this.name = "AbortError"; }
+  constructor(public readonly derivationStarted = false) { super("Authentication was cancelled."); this.name = "AbortError"; }
 }
 
-export function requireAuthenticationWanted(signal?: AbortSignal): void {
-  if (signal?.aborted) throw new AuthenticationCancelled();
+export function requireAuthenticationWanted(signal?: AbortSignal, derivationStarted = false): void {
+  if (signal?.aborted) throw new AuthenticationCancelled(derivationStarted);
 }

@@ -9,7 +9,7 @@ import { issueSession, secretHash } from "./credentials";
 import { issueLink } from "./link-issuance.mjs";
 import { recoverAdmin } from "./recovery.mjs";
 import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from "./passwords";
-import { createFirstAccount } from "./accounts";
+import { createFirstAccount, signIn } from "./accounts";
 import { withLoginLimit } from "./login-limits";
 import { AuthError } from "./errors";
 import { enter } from "./entry";
@@ -80,7 +80,8 @@ it.each(entries.flatMap(kind => ["queued", "running"].map(phase => ({ kind, phas
   abort.abort(); await flush();
   expect((await result).status).toBe(499);
   expect(rows(store)).toEqual(before);
-  expect(budgets().every(row => (row as { failures: number; pending: number }).failures === 0 && (row as { pending: number }).pending === 0)).toBe(true);
+  expect(budgets()).toEqual(kind === "known" || kind === "dummy"
+    ? [{ failures: 0, pending: 0 }, { failures: phase === "running" ? 1 : 0, pending: 0 }] : []);
   // Native cancellation never releases a running slot or admits extra work.
   expect(state().active).toBe(phase === "queued" ? 2 : 1);
   expect(state().ordinary).toHaveLength(0); expect(state().protected).toHaveLength(0);
@@ -120,11 +121,11 @@ it.each(["overflow", "deadline"])("refunds known and dummy sign-in reservations 
   expect((await retry).status).toBe(200); expect(budgets().every(row => (row as { pending: number }).pending === 0)).toBe(true);
 });
 
-it("holds a running aborted sign-in's native slot until settlement while refunding reservations immediately", async () => {
+it("holds a running aborted sign-in's native slot until settlement while charging only its source immediately", async () => {
   const abort = control(), first = login("person@example.test", "192.0.2.1", abort);
   const second = login("recipient@example.test", "192.0.2.2"), third = login("missing@example.test", "192.0.2.3"); await flush();
   expect(native.calls).toHaveLength(2); abort.abort(); expect((await first).status).toBe(499);
-  expect(db.prepare("SELECT failures, pending FROM auth_login_limits WHERE bucket IN (?, ?)").all(`account:${secretHash("person@example.test")}`, `source:${secretHash("192.0.2.1")}`)).toEqual([{ failures: 0, pending: 0 }, { failures: 0, pending: 0 }]);
+  expect(db.prepare("SELECT failures, pending FROM auth_login_limits WHERE bucket IN (?, ?)").all(`account:${secretHash("person@example.test")}`, `source:${secretHash("192.0.2.1")}`)).toEqual([{ failures: 0, pending: 0 }, { failures: 1, pending: 0 }]);
   expect(native.calls).toHaveLength(2); await finish(0); expect(native.calls).toHaveLength(3);
   await finish(1); await finish(2); expect((await second).status).toBe(200); expect((await third).status).toBe(401);
   expect(db.prepare("SELECT count(*) n FROM auth_sessions WHERE account_id = 'person'").get()).toEqual({ n: 1 });
@@ -187,4 +188,47 @@ it("refunds a native sign-in failure without adding a login failure", async () =
   expect((await failed).status).toBe(500); expect(rows()).toEqual(before);
   expect(budgets()).toEqual([{ failures: 0, pending: 0 }, { failures: 0, pending: 0 }]);
   expect(state().active).toBe(0);
+});
+
+
+it("cuts off repeated started cancellations from one source without charging any account", async () => {
+  for (let wave = 0; wave < 10; wave++) {
+    const size = Math.min(8, 20 - wave * 2);
+    const aborts = Array.from({ length: size }, control);
+    const attempts = aborts.map((abort, i) => login(`abandoned${wave}-${i}@example.test`, "192.0.2.1", abort));
+    await flush();
+    expect(native.calls).toHaveLength((wave + 1) * 2);
+    expect(state().ordinary).toHaveLength(size - 2);
+    for (const abort of aborts) abort.abort();
+    for (const attempt of attempts) expect((await attempt).status).toBe(499);
+    expect(db.prepare("SELECT failures, pending FROM auth_login_limits WHERE bucket = ?").get(`source:${secretHash("192.0.2.1")}`)).toEqual({ failures: (wave + 1) * 2, pending: 0 });
+    await finish(wave * 2); await finish(wave * 2 + 1, new Error("abandoned native failure"));
+  }
+  expect((await login("another@example.test")).status).toBe(429);
+  expect(native.calls).toHaveLength(20);
+  expect(db.prepare("SELECT failures, pending FROM auth_login_limits WHERE bucket LIKE 'account:%'").all().every(row => (row as { failures: number; pending: number }).failures === 0 && (row as { pending: number }).pending === 0)).toBe(true);
+  const clean = login("person@example.test", "192.0.2.2"); await flush(); await finish(20);
+  expect((await clean).status).toBe(200);
+});
+
+it("charges only the source when cancellation follows native settlement but precedes sign-in completion", async () => {
+  const abort = control(), attempt = login("person@example.test", "192.0.2.1", abort);
+  await flush();
+  native.calls[0].done = true; native.calls[0].callback(null, Buffer.alloc(32));
+  await Promise.resolve();
+  expect(state().active).toBe(0);
+  abort.abort();
+  expect((await attempt).status).toBe(499);
+  expect(budgets()).toEqual([{ failures: 0, pending: 0 }, { failures: 1, pending: 0 }]);
+});
+
+
+it("refunds cancellation before an invalid stored hash can start native work", async () => {
+  db.prepare("UPDATE accounts SET password_hash = 'invalid' WHERE id = 'person'").run();
+  const abort = control();
+  const attempt = track(withLoginLimit("person@example.test", "192.0.2.1", () => signIn("person@example.test", "correct", db, undefined, abort.signal), db));
+  abort.abort();
+  await expect(attempt).rejects.toMatchObject({ name: "AbortError" });
+  expect(native.calls).toHaveLength(0);
+  expect(budgets()).toEqual([{ failures: 0, pending: 0 }, { failures: 0, pending: 0 }]);
 });

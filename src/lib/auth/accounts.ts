@@ -67,12 +67,13 @@ export async function signIn(email: string, password: string, db: Database = met
   maintainCredentials(db, now);
   const account = getAccountByEmail(email, db);
   const hash = account && accountPasswordHash(account.id, db);
-  const valid = await verifyPassword(password, hash ?? DUMMY_PASSWORD_HASH, { signal });
-  requireAuthenticationWanted(signal);
+  let derivationStarted = false;
+  const valid = await verifyPassword(password, hash ?? DUMMY_PASSWORD_HASH, { signal, onStart: () => { derivationStarted = true; } });
+  requireAuthenticationWanted(signal, derivationStarted);
   const invalid = () => new AuthError("invalid_credentials", "Email or password is incorrect.", 401);
   if (!account || !hash || !valid) throw invalid();
   return db.transaction(() => {
-    requireAuthenticationWanted(signal);
+    requireAuthenticationWanted(signal, derivationStarted);
     const current = getAccount(account.id, db);
     // A reset or email change that won during password work invalidates this attempt.
     if (!current || current.email !== normalizeEmail(email) || accountPasswordHash(account.id, db) !== hash) throw invalid();

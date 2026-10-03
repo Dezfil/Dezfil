@@ -1,7 +1,7 @@
 import { AuthError, AuthenticationCancelled } from "./errors";
 
 export type DerivationClass = "ordinary" | "protected";
-export type DerivationOptions = { class?: DerivationClass; signal?: AbortSignal };
+export type DerivationOptions = { class?: DerivationClass; signal?: AbortSignal; onStart?: () => void };
 type Waiting = { kind: DerivationClass; deadline: number; start: () => void; busy: () => void };
 type Admission = { active: number; activeProtected: number; ordinary: Waiting[]; protected: Waiting[] };
 const fresh = (): Admission => ({ active: 0, activeProtected: 0, ordinary: [], protected: [] });
@@ -35,7 +35,7 @@ function schedule<T>(state: Admission, work: () => Promise<T>, options: Derivati
     };
     const cleanup = () => { remove(); signal?.removeEventListener("abort", abort); };
     const abort = () => {
-      cleanup(); reject(new AuthenticationCancelled());
+      cleanup(); reject(new AuthenticationCancelled(started));
       // Native work cannot be cancelled. It retains its slot until settlement.
       if (!started) drain(state);
     };
@@ -47,11 +47,11 @@ function schedule<T>(state: Admission, work: () => Promise<T>, options: Derivati
         const finish = (error: unknown, value?: T) => {
           cleanup(); state.active--; if (kind === "protected") state.activeProtected--;
           drain(state);
-          if (signal?.aborted) reject(new AuthenticationCancelled());
+          if (signal?.aborted) reject(new AuthenticationCancelled(true));
           else if (error !== undefined) reject(error);
           else resolve(value as T);
         };
-        try { work().then(value => finish(undefined, value), error => finish(error)); }
+        try { options.onStart?.(); work().then(value => finish(undefined, value), error => finish(error)); }
         catch (error) { finish(error); }
       },
     };

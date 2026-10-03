@@ -430,7 +430,9 @@ load. Recovery issuance derives nothing.
 Overflow or deadline answers 503 `authentication_busy`, “Authentication is busy.
 Try again shortly.”, with `Retry-After: 1`, `error.retryAfter: 1` and private,
 no-store. It issues no credential, consumes no link, changes no profile/password
-and adds no login failure. Busy or aborted sign-ins refund both reservations.
+and adds no login failure. Busy sign-ins and sign-ins cancelled before derivation
+starts refund both reservations; cancellation after derivation starts charges one source failure
+and refunds the account reservation, never adding an account failure.
 A fourth simultaneous protected caller is refused at once and may retry
 immediately without a login lockout; the response retains its one-second retry
 advice. Cancellation removes waiting work; running native work owns its slot
