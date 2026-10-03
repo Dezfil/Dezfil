@@ -351,12 +351,16 @@ class Runner implements WorkflowRunner {
 
   start = async (request: { fromStepId?: string; members?: string[]; editRevision?: string; preview?: boolean }): Promise<StartOutcome> => {
     const lifetime = this.lifetime;
+    const beforeSaving = this.document.revision;
     const blocked = await this.barrier();
     const closed = this.closedStart(lifetime);
     if (closed) return closed;
     if (blocked) return blocked;
     const { editRevision, preview, ...input } = request;
-    if (preview && editRevision && this.document.revision && editRevision !== this.document.revision) {
+    // A plan may already include a run's promotion while local inverses
+    // still retain their old basis. Only a save during this barrier can
+    // invalidate that preview locally; the server checks the planned basis.
+    if (preview && editRevision && this.document.revision !== beforeSaving && editRevision !== this.document.revision) {
       return { kind: "refused", code: "plan_changed", message: "The workflow changed while saving. Check the run again.", retryable: false };
     }
     this.set({ phase: "starting" });

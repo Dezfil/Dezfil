@@ -10,6 +10,28 @@ import { wire } from "./fetch-wire";
 
 const cleanups: (() => void)[] = [];
 afterEach(() => { for (const cleanup of cleanups.splice(0)) cleanup(); vi.unstubAllGlobals(); });
+it("starts the confirmed middle-node plan after a promotion without rebasing local edits", async () => {
+  const w = wire(); vi.stubGlobal("fetch", w.fetch);
+  const document = new WorkflowDocument("w"); document.accept({ editRevision: "before-promotion" });
+  const h = new HookHarness(() => useWorkflowRun("w", { settle: async () => null, onRecipeChanged: async () => true, onTablesChanged: async () => true, onRunSeen() {} }, document));
+  const flow = new HookHarness(() => useRunConfirm({ runner: h.value }));
+  cleanups.push(() => { flow.unmount(); h.unmount(); });
+  w.pending("GET", "/api/recipes/w/runs")[0].ok({ runs: [] });
+  const asking = flow.value.askRun({ id: "b", label: "Middle" }); await w.settle();
+  w.pending("POST", "/api/recipes/w/runs")[0].ok({ plan: { kind: "from_step", wide: true, members: ["b", "c"] }, editRevision: "promoted" });
+  await asking; flow.render();
+  const confirming = flow.value.confirmRun(); await w.settle();
+  const starts = w.pending("POST", "/api/recipes/w/runs");
+  expect(starts).toHaveLength(1);
+  expect(starts[0].headers.get("X-Edit-Revision")).toBe("promoted");
+  expect(starts[0].body).toEqual({ fromStepId: "b", members: ["b", "c"] });
+  starts[0].ok({ run: { id: "r", recipeId: "w", kind: "from_step", outcome: null, members: [] } });
+  await confirming; flow.render();
+  expect(flow.value.confirm).toBeNull();
+  expect(flow.value.refusal).toBeNull();
+  expect(document.revision).toBe("before-promotion");
+});
+
 it("plans after definition and layout settle, and keeps the displayed plan's basis through start", async () => {
   const w = wire(); vi.stubGlobal("fetch", w.fetch);
   const document = new WorkflowDocument("w"); document.accept({ editRevision: "initial" });
