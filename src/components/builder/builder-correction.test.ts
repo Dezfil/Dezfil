@@ -16,6 +16,9 @@ it("keeps failed opacity visible after fill saves and retires it only after an o
   editor.serverMapRef.current = map; editor.authoritativeLayersRef.current = { a: map.layers[0] }; editor.sequence.accept(map);
   const opacity = editor.patchLayer("a", { style: { opacity: 0.5, fill: "red" } });
   await w.settle(); w.pending("PATCH", "/api/layers/a")[0].cut();
+  // Neither leg can establish the outcome. The draft must survive the
+  // outage until its own field is corrected, even if a fill save lands.
+  await w.settle(); w.pending("GET", "/api/maps/m")[0].cut();
   expect(await opacity).toBeNull(); h.render();
   expect(editor.drafts.hasLayer("a")).toBe(true);
 
