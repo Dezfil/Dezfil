@@ -59,3 +59,44 @@ it.each(["different edit", "matching field with another edit", "failed read", "s
   expect(c.h.value.sequence.revision).toBe("seen");
   expect(c.w.calls.filter(call => call.method === "PATCH")).toHaveLength(1);
 });
+
+it("rolls a lost group toggle back, keeps a queued group edit and lets a clean retry land", async () => {
+  const c = setup();
+  const toggle = (group: string, visible: boolean) => c.h.value.patchMap(current => ({
+    basemapLayers: { ...current?.basemapLayers, [group]: visible },
+  }));
+  const lost = toggle("labels", false);
+  const queued = toggle("roads", false);
+  c.w.pending("PATCH", "/api/maps/m")[0].cut(); await c.w.settle();
+  c.w.pending("GET", "/api/maps/m")[0].ok(c.initial);
+  await lost; await c.w.settle();
+  expect(c.shown().basemapLayers?.labels).not.toBe(false);
+  expect(c.shown().basemapLayers?.roads).toBe(false);
+  expect(c.h.render().failures.map).toContain("could not be confirmed");
+  const roads = c.w.pending("PATCH", "/api/maps/m")[0];
+  expect(roads.headers.get("X-Edit-Revision")).toBe("seen");
+  expect(roads.body).toEqual({ basemapLayers: { roads: false } });
+  roads.ok({ ...c.initial, basemapLayers: { roads: false }, editRevision: "roads" });
+  await queued; c.h.render();
+  const retry = toggle("labels", false);
+  await c.w.settle();
+  const labels = c.w.pending("PATCH", "/api/maps/m")[0];
+  expect(labels.headers.get("X-Edit-Revision")).toBe("roads");
+  expect(labels.body).toEqual({ basemapLayers: { roads: false, labels: false } });
+  labels.ok({ ...c.initial, basemapLayers: { roads: false, labels: false }, editRevision: "labels" });
+  await retry;
+  expect(c.shown().basemapLayers).toEqual({ roads: false, labels: false });
+  expect(c.h.render().failures.map).toBeUndefined();
+  expect(c.h.value.sequence.revision).toBe("labels");
+});
+
+it("restores the basemap after a lost request so the same picker choice can be made again", async () => {
+  const c = setup();
+  const lost = c.h.value.patchMap({ basemap: "dark" });
+  c.w.pending("PATCH", "/api/maps/m")[0].cut(); await c.w.settle();
+  c.w.pending("GET", "/api/maps/m")[0].ok(c.initial);
+  await lost;
+  expect(c.shown().basemap).toBe("light");
+  expect(c.h.value.sequence.revision).toBe("seen");
+  expect(c.h.render().failures.map).toContain("could not be confirmed");
+});

@@ -275,7 +275,9 @@ export function useMutationLane({
             if (confirmsMapPatch(before, body, current)) {
               drafts.accepted(ticket, before);
               applyMapResponse(current, true, sentAt);
-            } else if (currentRevision === revision && Object.keys(body).length === 1 && Array.isArray(body.layerOrder)) {
+            } else if (currentRevision === revision) {
+              // The unchanged basis proves this request never landed.
+              // Drop only its optimistic intent; later gestures remain.
               drafts.discard(ticket);
               applyMapResponse(current, false, sentAt);
             }
