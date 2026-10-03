@@ -575,7 +575,7 @@ test("headless notes: stacking under the graph and among themselves, the label b
   expect(unexpected).toEqual([]);
 });
 
-test("the saves: Saving and Saved, a cut write with a change meanwhile and Retry, last-edited, the run in flight, the framed view, the limit under last write wins", async ({ page }) => {
+test("the saves: Saving and Saved, a cut write with a change meanwhile and Retry, last-edited, the run in flight, the framed view, the limit across a stale retry and Reload", async ({ page }) => {
   const consoleErrors = trackConsole(page);
   await page.goto("/workflows");
   await seedCsv(page, stations, "name,riders,lon,lat\nalex,10450,13.4133,52.5219\n");
@@ -660,7 +660,7 @@ test("the saves: Saving and Saved, a cut write with a change meanwhile and Retry
     await page.unroute("**/api/recipes/*/layout");
   });
 
-  await test.step("ninety-nine notes stored, one made with the write cut, a headless hundred landing in between: the canvas's hundred wins, the tool unavailable", async () => {
+  await test.step("ninety-nine notes stored, one made with the write cut, a headless hundred landing in between: Retry is stale, Reload keeps the accepted hundred", async () => {
     const other = await newRecipe(page, `Notes limit ${runId}`);
     const ninetyNine = Array.from({ length: 99 }, (_, i) => ({ id: `l${i}`, x: 4000 + (i % 10) * 340, y: 4000 + Math.floor(i / 10) * 200, w: 320, h: 176, color: "yellow", text: `l ${i}` }));
     await putLayout(page, other, { notes: ninetyNine });
@@ -678,12 +678,28 @@ test("the saves: Saving and Saved, a cut write with a change meanwhile and Retry
     await page.unroute("**/api/recipes/*/layout");
     const hundredOthers = Array.from({ length: 100 }, (_, i) => ({ id: `o${i}`, x: (i % 10) * 340, y: Math.floor(i / 10) * 200, w: 320, h: 176, color: "grey", text: `o ${i}` }));
     await putLayout(page, other, { notes: hundredOthers });
+    const refusal = page.waitForResponse(r => r.request().method() === "PUT" && r.url().endsWith(`/api/recipes/${other}/layout`) && r.status() === 409);
     await page.getByRole("button", { name: "Retry" }).click();
-    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
-    const notes = await notesOf(page, other);
-    expect(notes.length).toBe(100);
-    expect(notes.filter((n) => n.id.startsWith("l")).length).toBe(99);
-    expect(notes.some((n) => n.id.startsWith("o"))).toBe(false);
+    expect((await (await refusal).json()).error.code).toBe("stale_revision");
+    const recovery = page.locator("[data-stale-recovery]");
+    await expect(recovery).toContainText("This item has changed. Reload it before trying again.");
+    await expect(page.getByRole("button", { name: "Retry" })).toHaveCount(0);
+    await expect(page.getByText("Saved", { exact: true })).toHaveCount(0);
+    await expect(page.locator("[data-note]")).toHaveCount(100);
+    await expect(noteEl(page, "l0")).toHaveCount(1);
+    await expect(tool(page)).toBeDisabled();
+    expect(await notesOf(page, other)).toEqual(hundredOthers);
+    const writes = watchWrites(page);
+    await recovery.getByRole("button", { name: "Reload", exact: true }).click();
+    await expect(recovery.getByRole("button", { name: "Copy note text" })).toBeVisible();
+    await recovery.getByRole("button", { name: "Reload", exact: true }).click();
+    await expect(recovery).toHaveCount(0);
+    await expect(page.locator("[data-note]")).toHaveCount(100);
+    await expect(noteEl(page, "o0")).toHaveCount(1);
+    await expect(noteEl(page, "l0")).toHaveCount(0);
+    await expect(tool(page)).toBeDisabled();
+    expect(await notesOf(page, other)).toEqual(hundredOthers);
+    expect(writes).toHaveLength(0);
   });
 
   const unexpected = consoleErrors.filter((e) => !isAllowedConsoleError(e.text, e.url) && !/\/layout$/.test(e.url ?? ""));
