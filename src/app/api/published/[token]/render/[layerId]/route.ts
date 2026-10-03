@@ -6,7 +6,7 @@ import { resolvePublication, requirePublicationScope } from "@/lib/publish/publi
 import { sanitizePublishedRender } from "@/lib/publish/publish-service";
 import { renderLayerWithSelections } from "@/lib/widget-service";
 import { isValidFilters } from "@/lib/viz";
-import { rateLimit } from "@/lib/publish/rate-limit";
+import { admitPublishedRequest } from "@/lib/publish/source-admission";
 
 type Params = { params: Promise<{ token: string; layerId: string }> };
 
@@ -21,16 +21,7 @@ async function read(request: Request, { params }: Params) {
   try {
     const { token, layerId } = await params;
 
-    const ip =
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      "anonymous";
-    if (!rateLimit(`pub:${ip}`, Date.now())) {
-      throw new ApiError(
-        "rate_limited",
-        "Too many requests. Please slow down.",
-        429,
-      );
-    }
+    admitPublishedRequest(request);
 
     const body = await publishedJsonBody(request);
     const selections = body.selections ?? [];

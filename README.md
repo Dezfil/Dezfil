@@ -141,6 +141,13 @@ catalogue is a file there. See [configuration](docs/configuration.md).
 | `DEZFIL_OPERATION_QUEUE_MAX` | `20` | Runs that may wait for the lane. A run arriving at a full queue is refused with a coded error instead of joining a queue that will not drain. |
 | `DEZFIL_OPERATION_HISTORY_PER_SUBJECT` | `20` | Runs kept per subject. The subject's most recent success is preserved inside this depth, so a failed re-run never erases the last good one. |
 
+Published API budgets use verified ingress sources, shared across tokens, including
+unknown tokens. View reads share one budget; tiles have another. Both together
+retain at most 10,000 entries, expiring on traffic then evicting least recently
+used entries at capacity. Eviction starts a fresh window. Readers behind an
+untrusted proxy share its socket budget; trusted chains use the nearest
+untrusted hop. See [self-hosting](docs/self-hosting.md) for provenance refusals and scope.
+
 ### The secret key
 
 Stored connection credentials (for example PostGIS passwords) are encrypted

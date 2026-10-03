@@ -1,3 +1,4 @@
+import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { afterEach, expect, it, vi } from "vitest";
 import * as publication from "./publication-scope";
 import { POST as widgets } from "@/app/api/published/[token]/widget-values/route";
@@ -9,9 +10,9 @@ const handlers = [widgets, render, extent];
 afterEach(() => vi.restoreAllMocks());
 
 it.each(handlers)("refuses declared excess without acquiring or reading the body", async handler => {
-  const request = new Request("http://instance.test/api/published/fixture/" + (handler === widgets ? "widget-values" : handler === render ? "render/fixture" : "extent/fixture"), {
+  const request = socketRequest(new Request("http://instance.test/api/published/fixture/" + (handler === widgets ? "widget-values" : handler === render ? "render/fixture" : "extent/fixture"), {
     method: "POST", headers: { "content-length": String(limit + 1) }, body: "{}",
-  });
+  }));
   const body = vi.spyOn(request, "body", "get");
   const resolve = vi.spyOn(publication, "resolvePublication");
   const response = await handler(request, { params: Promise.resolve({ token: "fixture", layerId: "fixture" }) });

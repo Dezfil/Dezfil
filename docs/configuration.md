@@ -106,6 +106,13 @@ end of this page.
 | `DEZFIL_PUBLIC_RATE_LIMIT` | `60` | Anonymous published-view requests per ten-second window, per client. |
 | `DEZFIL_PUBLIC_TILE_RATE_LIMIT` | `600` | Anonymous tile requests per ten-second window, per client. One pan is dozens of tiles, so tiles get their own, larger bucket (`src/lib/publish/rate-limit.ts`). |
 
+Published API budgets use verified ingress sources, shared across tokens, including
+unknown tokens. View reads share one budget; tiles have another. Both together
+retain at most 10,000 entries, expiring on traffic then evicting least recently
+used entries at capacity. Eviction starts a fresh window. Readers behind an
+untrusted proxy share its socket budget; trusted chains use the nearest
+untrusted hop. See [self-hosting](self-hosting.md) for provenance refusals and scope.
+
 ## Image export
 
 Server-side image export drives the application's own client bundle in a

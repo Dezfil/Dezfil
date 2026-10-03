@@ -1,3 +1,4 @@
+import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { privateTileAccess } from "@/lib/tiles/access";
@@ -300,13 +301,13 @@ describe("query bounds — published lanes", () => {
     const { token } = publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     timeoutNow();
     const response = await publishedRenderRoute(
-      new Request(`http://localhost:3000/api/published/${token}/render/${gridded.id}`, {
+      socketRequest(new Request(`http://localhost:3000/api/published/${token}/render/${gridded.id}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           selections: [{ field: "v", kind: "values", values: ["1"] }],
         }),
-      }),
+      })),
       { params: Promise.resolve({ token, layerId: gridded.id }) },
     );
     expect(response.status).toBe(200);
@@ -343,11 +344,11 @@ describe("query bounds — published lanes", () => {
     const { token } = publishMap(testAccountScope(), map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
     timeoutNow();
     const response = await publishedWidgetValuesRoute(
-      new Request(`http://localhost:3000/api/published/${token}/widget-values`, {
+      socketRequest(new Request(`http://localhost:3000/api/published/${token}/widget-values`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ selections: [] }),
-      }),
+      })),
       { params: Promise.resolve({ token }) },
     );
     expect(response.status).toBe(408);

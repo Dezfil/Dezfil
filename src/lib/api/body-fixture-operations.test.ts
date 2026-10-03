@@ -1,3 +1,4 @@
+import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
@@ -47,7 +48,7 @@ it("accepts maximal sketch, icon, export and viewer selections through real oper
   expect(exported.status, await exported.clone().text()).toBe(200); expect(exported.headers.get("content-type")).toBe("image/png");
   const { token } = publishMap(scope, map.id, {}, { expectedRevision: revision() });
   const { POST: render } = await import("@/app/api/published/[token]/render/[layerId]/route");
-  const publicInput = (suffix: string, value: unknown) => new Request(`http://instance.test/api/published/${token}/${suffix}`, { method: "POST", body: JSON.stringify(value) });
+  const publicInput = (suffix: string, value: unknown) => socketRequest(new Request(`http://instance.test/api/published/${token}/${suffix}`, { method: "POST", body: JSON.stringify(value) }));
   for (const fixture of [viewerFixture, renderFixture(16), renderFixture(18)]) {
     const response = await render(publicInput(`render/${selected.id}`, fixture), { params: Promise.resolve({ token, layerId: selected.id }) });
     expect(response.status, await response.clone().text()).toBe(fixtureBytes(fixture) > 65_536 ? 413 : 200);

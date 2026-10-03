@@ -3,7 +3,7 @@ import { installIngress } from "@/lib/auth/ingress.mjs";
 
 /** In-memory route fixtures still cross the real native dispatch sanitizer.
  * The fixture owns this loopback peer; caller forwarding cannot confer trust. */
-export function socketRequest(request: Request): Request {
+export function socketRequest(request: Request, peer = "127.0.0.1"): Request {
   installIngress();
   const url = new URL(request.url);
   const headers = Object.fromEntries(request.headers);
@@ -11,7 +11,7 @@ export function socketRequest(request: Request): Request {
   const incoming = {
     headers,
     rawHeaders: Object.entries(headers).flat(),
-    socket: { remoteAddress: "127.0.0.1", encrypted: url.protocol === "https:" },
+    socket: { remoteAddress: peer, encrypted: url.protocol === "https:" },
   };
   let stamped: Request | undefined;
   const server = createServer(() => { stamped = new Request(request, { headers: incoming.headers }); });

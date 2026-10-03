@@ -1,3 +1,4 @@
+import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { testAccountScope } from "@/lib/test-support/accounts";
@@ -80,10 +81,10 @@ afterEach(async () => {
 
 function settle(selections: unknown, layer = layerId) {
   return POST(
-    new Request(`http://localhost/api/published/${token}/render/${layer}`, {
+    socketRequest(new Request(`http://localhost/api/published/${token}/render/${layer}`, {
       method: "POST",
       body: JSON.stringify({ selections }),
-    }),
+    })),
     { params: Promise.resolve({ token, layerId: layer }) },
   );
 }
@@ -181,10 +182,10 @@ describe("published settle route", () => {
     // coded refusals carry the documented message they were authored
     // with (the contract keeps refusal specifics reader-facing).
     const malformed = await POST(
-      new Request(`http://localhost/api/published/${token}/render/${layerId}`, {
+      socketRequest(new Request(`http://localhost/api/published/${token}/render/${layerId}`, {
         method: "POST",
         body: "{not json",
-      }),
+      })),
       { params: Promise.resolve({ token, layerId }) },
     );
     expect(malformed.status).toBe(400);

@@ -170,6 +170,25 @@ request, storing nothing, so the connection stays usable; the server's request
 and keep-alive timeouts bound it. A fronting proxy's request-size limit stops
 such bytes before they reach the instance.
 
+
+Anonymous published API reads use verified ingress sources. View, widget-values,
+render and extent share 60 requests per ten seconds across tokens; tiles have
+600 in their separate bucket, with the existing configuration overrides.
+Unknown tokens are charged before resolution. Across both buckets, at most
+10,000 source entries are retained: traffic removes expired windows, then
+capacity evicts the least recently used entry. Eviction grants a fresh window.
+Window expiry permits retry; a refusal remains 429 `rate_limited`, “Too many
+requests. Please slow down.” No new retry-header guarantee applies.
+
+Direct socket sources have independent budgets; equivalent IPv4 and mapped
+IPv4 addresses share one. A trusted proxy chain uses the nearest untrusted hop.
+Behind an untrusted proxy, readers share its socket budget by design; forwarded
+headers cannot separate it. Missing or forged provenance answers private,
+no-store 503 `ingress_unavailable`, “The instance cannot serve published maps
+yet.”, before reading a body or resolving a token. Malformed wire provenance
+still answers 400. The viewer page is outside these API budgets; IPv6 address
+rotation is not bounded by this policy.
+
 ## Upgrading
 
 Stop the container, start the new image against the same data directory. The metadata

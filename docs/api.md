@@ -1365,7 +1365,7 @@ response message. Branch on the code.
 | `forbidden` | This request is not permitted for the current account or origin: an admin-only request, a cookie request from another origin, or a change to something the account can view but cannot make. A refused change has no effect. |
 | `invalid_link` | This sign-in link is unavailable, expired, replaced or already used. |
 | `current_password_required` | Enter your current password to make this change. |
-| `ingress_unavailable` | Trusted socket provenance is unavailable. Authentication entry cannot proceed. |
+| `ingress_unavailable` | Trusted socket provenance is unavailable. Authentication entry and published reads cannot proceed. |
 | `geometry_not_supported` | Set geometry is available only for file uploads and URL imports. |
 | `geometry_choice_invalid` | The geometry choice cannot be applied. The message explains the projection, source or validator issue. |
 | `geometry_in_flight` | A geometry edit or refresh is already running for this dataset or URL import group. |
@@ -1495,3 +1495,22 @@ external JSON parser. Workflow and assistant readers use the shared byte
 reader with their own refusal contracts. Response reads are a separate type.
 The coverage check matches enforced limits, error codes, descriptions and
 413 responses against OpenAPI in both directions.
+
+
+Anonymous published API reads use verified ingress sources. View, widget-values,
+render and extent share 60 requests per ten seconds across tokens; tiles have
+600 in their separate bucket, with the existing configuration overrides.
+Unknown tokens are charged before resolution. Across both buckets, at most
+10,000 source entries are retained: traffic removes expired windows, then
+capacity evicts the least recently used entry. Eviction grants a fresh window.
+Window expiry permits retry; a refusal remains 429 `rate_limited`, “Too many
+requests. Please slow down.” No new retry-header guarantee applies.
+
+Direct socket sources have independent budgets; equivalent IPv4 and mapped
+IPv4 addresses share one. A trusted proxy chain uses the nearest untrusted hop.
+Behind an untrusted proxy, readers share its socket budget by design; forwarded
+headers cannot separate it. Missing or forged provenance answers private,
+no-store 503 `ingress_unavailable`, “The instance cannot serve published maps
+yet.”, before reading a body or resolving a token. Malformed wire provenance
+still answers 400. The viewer page is outside these API budgets; IPv6 address
+rotation is not bounded by this policy.

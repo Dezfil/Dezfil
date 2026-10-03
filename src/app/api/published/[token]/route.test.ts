@@ -1,3 +1,4 @@
+import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { GET } from "./route";
 import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
@@ -34,7 +35,7 @@ describe("published route unexpected failure", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const token = "t".repeat(22);
     const res = await GET(
-      new Request(`http://localhost/api/published/${token}`),
+      socketRequest(new Request(`http://localhost/api/published/${token}`)),
       { params: Promise.resolve({ token }) },
     );
     expect(res.status).toBe(500);

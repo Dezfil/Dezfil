@@ -16,7 +16,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   forbidden: "This request is not permitted for the current account or origin: an admin-only request, a cookie request from another origin, or a change to something the account can view but cannot make. A refused change has no effect.",
   invalid_link: "This sign-in link is unavailable, expired, replaced or already used.",
   current_password_required: "Enter your current password to make this change.",
-  ingress_unavailable: "Trusted socket provenance is unavailable. Authentication entry cannot proceed.",
+  ingress_unavailable: "Trusted socket provenance is unavailable. Authentication entry and published reads cannot proceed.",
   geometry_not_supported: "Set geometry is available only for file uploads and URL imports.",
   geometry_choice_invalid: "The geometry choice cannot be applied. The message explains the projection, source or validator issue.",
   geometry_in_flight: "A geometry edit or refresh is already running for this dataset or URL import group.",

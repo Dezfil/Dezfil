@@ -1,3 +1,4 @@
+import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -78,10 +79,10 @@ afterEach(async () => {
 });
 
 function request(headers?: HeadersInit, requestedVersion = version) {
-  return new Request(
+  return socketRequest(new Request(
     `http://localhost/api/published/${token}/tiles/${layerId}/0/0/0?v=${requestedVersion}`,
     { headers },
-  );
+  ));
 }
 
 function context() {
@@ -94,7 +95,7 @@ describe("published tile route", () => {
   it("marks the published JSON response private and non-storable", async () => {
     process.env.DEZFIL_RENDER_CAP_FEATURES = "10";
     const response = await getPublishedViewRoute(
-      new Request(`http://localhost/api/published/${token}`),
+      socketRequest(new Request(`http://localhost/api/published/${token}`)),
       { params: Promise.resolve({ token }) },
     );
     expect(response.status).toBe(200);

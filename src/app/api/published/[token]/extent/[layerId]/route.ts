@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { resolvePublication, requirePublicationScope } from "@/lib/publish/publication-scope";
 import { layerExtent } from "@/lib/extent-service";
-import { rateLimit } from "@/lib/publish/rate-limit";
+import { admitPublishedRequest } from "@/lib/publish/source-admission";
 import { isValidSelections, selectionFilter } from "@/lib/widgets";
 import { assertPublishedSelections } from "@/lib/widget-service";
 import { timeToMs } from "@/lib/time";
@@ -30,16 +30,7 @@ async function read(request: Request, { params }: Params) {
   try {
     const { token, layerId } = await params;
 
-    const ip =
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      "anonymous";
-    if (!rateLimit(`pub:${ip}`, Date.now())) {
-      throw new ApiError(
-        "rate_limited",
-        "Too many requests. Please slow down.",
-        429,
-      );
-    }
+    admitPublishedRequest(request);
 
     const body = await publishedJsonBody(request);
 
