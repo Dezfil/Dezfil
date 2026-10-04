@@ -35,10 +35,21 @@ docker run -d --name "$source" --network="container:$normal" \
   postgis/postgis:16-3.4
 ready=0
 for attempt in $(seq 1 60); do
-  if docker exec "$source" pg_isready -U budget -d budget; then ready=1; break; fi
+  # The initialization server accepts sockets only. Require stable TCP on
+  # the same address used by the app, including across an initialization restart.
+  if docker exec "$source" pg_isready -h 127.0.0.1 -p 5432 -U budget -d budget; then
+    ready=$((ready + 1))
+    if test "$ready" = 3; then break; fi
+  else
+    ready=0
+  fi
   sleep 1
 done
-test "$ready" = 1
+if test "$ready" != 3; then
+  docker logs "$source" >&2 || true
+  echo 'PostGIS source did not become ready over TCP at 127.0.0.1:5432' >&2
+  exit 1
+fi
 docker exec -e DEZFIL_TEST_PG_URL=postgresql://budget:budget-fixture-only@127.0.0.1:5432/budget \
   "$normal" node /probes/query-result-budget-probe.mjs http://127.0.0.1:3402 container --full
 docker exec "$normal" node /probes/query-result-budget-probe.mjs http://127.0.0.1:3402 container --admitted

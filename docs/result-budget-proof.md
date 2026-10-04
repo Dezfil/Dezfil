@@ -124,6 +124,9 @@ normal instance's network namespace. Names belong to this invocation; an
 unconditional trap removes containers and anonymous volumes. Expect **300-600
 added seconds**, excluding the build and a cold PostGIS image pull. The
 same red/green assertions apply. The script does not sample memory.
+Source readiness requires three consecutive TCP successes at 127.0.0.1:5432,
+the address used by the app. The socket-only initialization server cannot
+satisfy it; a failed TCP check resets the streak, and exhaustion fails the run.
 
 ## Delegated browser flow
 
