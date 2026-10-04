@@ -20,4 +20,5 @@ Database.prototype.prepare = function(sql) {
   }
   return statement;
 };
-process.on('message', message => { if (message === 'replay-cached-admission') { replay = true; process.send?.('cache-replay-ready'); } });
+export function replayCachedAdmission() { replay = true; }
+process.on('message', message => { if (message === 'replay-cached-admission') { replayCachedAdmission(); process.send?.('cache-replay-ready'); } });

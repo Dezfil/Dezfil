@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 const defects = {
+  'row-only': ['src/lib/metadata/account-compaction.mjs', 'db.exec("VACUUM");', '/* Seed: checkpoint alone leaves historical free pages. */'],
+  'foreign-card': ['src/lib/auth/account-erasure-derivatives.ts', 'eraseThumbnailArtifacts(captured.maps, datasets)', 'eraseThumbnailArtifacts(captured.maps, [])'],
   'original-setup': ['src/lib/metadata/accounts.ts', 'SELECT 1 FROM original_account UNION ALL SELECT 1 FROM accounts LIMIT 1', "SELECT 1 FROM original_account o JOIN accounts a ON a.id=o.account_id WHERE a.status='active'"],
   'original-recovery': ['src/lib/auth/recovery-store.mjs', 'WHERE o.singleton = 1', "WHERE o.singleton = 1 AND a.status = 'active'"],
   'actor-unknown': ['src/components/sharing/LastChanged.tsx', 'deleted ? "Deleted account"', 'deleted ? "Unknown"'],

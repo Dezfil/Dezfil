@@ -1058,6 +1058,10 @@ inventory check; it is a test client, not a shipped service.
 | 14 | `offline-export-probe.mjs --expect-unavailable` | One `dezfil-nobrowser` server from the image with Chromium removed. |
 | 15 | `dezfil-plugin-container.mjs --render --render-log ...` | The retained `dezfil-plugin-ci` server and a stock MCP client. |
 
+The [account-deletion image journey](testing/account-deletion-image.md) also runs
+after the account-journey cleanup and before MCP restart. Its guide is the canonical
+checkout/image mirror and seeded-red recipe.
+
 Cleanup steps stop remaining journey/plugin containers. The separate native gate,
 account-upgrade, login-window and admin-recovery recipes remain outside this
 image job; run them as described above when preparing a release.
