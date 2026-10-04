@@ -29,7 +29,7 @@ export interface PreparedLayerDownload extends LayerExportFile {
 }
 
 interface TicketEntry {
-  scope: AccountScope;
+  assertActive: () => void;
   accountId: string;
   binding: LayerDownloadBinding;
   file: PreparedLayerDownload;
@@ -108,14 +108,15 @@ interface StoreOptions {
   createToken?: () => string;
 }
 
+export interface TicketStoreState { entries: Map<string, TicketEntry>; pending: Set<TicketEntry> }
 export class LayerDownloadTicketStore {
-  private readonly entries = new Map<string, TicketEntry>();
-  private readonly pending = new Set<TicketEntry>();
+  private get entries() { return this.state.entries; }
+  private get pending() { return this.state.pending; }
   private readonly preparedTtlMs: number;
   private readonly tombstoneTtlMs: number;
   private readonly createToken: () => string;
 
-  constructor(options: StoreOptions = {}) {
+  constructor(options: StoreOptions = {}, private readonly state: TicketStoreState = { entries: new Map(), pending: new Set() }) {
     this.preparedTtlMs =
       options.preparedTtlMs ?? LAYER_DOWNLOAD_PREPARED_TTL_MS;
     this.tombstoneTtlMs =
@@ -138,7 +139,7 @@ export class LayerDownloadTicketStore {
     } while (this.entries.has(ticket));
 
     const entry: TicketEntry = {
-      scope, accountId,
+      assertActive: () => { requireAccountScope(scope); }, accountId,
       binding: { ...binding },
       file,
       servable: servable ?? null,
@@ -200,7 +201,7 @@ export class LayerDownloadTicketStore {
       contentType: entry.file.contentType,
       size: entry.file.size,
       registerAbort: (abort) => {
-        try { requireAccountScope(entry.scope); } catch { this.settle(ticket, entry, "failed"); abort(); return false; }
+        try { entry.assertActive(); } catch { this.settle(ticket, entry, "failed"); abort(); return false; }
         if (!stillStreaming()) {
           abort();
           return false;
@@ -211,7 +212,7 @@ export class LayerDownloadTicketStore {
       holdUntilClosed: closed => { entry.streamClosed = closed; },
       complete: () => {
         if (!stillStreaming()) return;
-        try { requireAccountScope(entry.scope); } catch { this.settle(ticket, entry, "failed"); return; }
+        try { entry.assertActive(); } catch { this.settle(ticket, entry, "failed"); return; }
         this.settle(ticket, entry, "complete");
       },
       fail: () => {
@@ -375,8 +376,10 @@ export class LayerDownloadTicketStore {
 }
 
 const layerDownloadTicketsKey = Symbol.for("dezfil.layerDownloadTickets");
-const layerDownloadTicketsHost = globalThis as typeof globalThis & { [layerDownloadTicketsKey]?: LayerDownloadTicketStore };
-export const layerDownloadTickets = layerDownloadTicketsHost[layerDownloadTicketsKey] ??= new LayerDownloadTicketStore();
+const layerDownloadTicketsHost = globalThis as typeof globalThis & { [layerDownloadTicketsKey]?: TicketStoreState };
+const layerTicketState: TicketStoreState = layerDownloadTicketsHost[layerDownloadTicketsKey] ??= { entries: new Map(), pending: new Set<TicketEntry>() };
+export const layerDownloadTickets = new LayerDownloadTicketStore({}, layerTicketState);
 const queryDownloadTicketsKey = Symbol.for("dezfil.queryDownloadTickets");
-const queryDownloadTicketsHost = globalThis as typeof globalThis & { [queryDownloadTicketsKey]?: LayerDownloadTicketStore };
-export const queryDownloadTickets = queryDownloadTicketsHost[queryDownloadTicketsKey] ??= new LayerDownloadTicketStore();
+const queryDownloadTicketsHost = globalThis as typeof globalThis & { [queryDownloadTicketsKey]?: TicketStoreState };
+const queryTicketState: TicketStoreState = queryDownloadTicketsHost[queryDownloadTicketsKey] ??= { entries: new Map(), pending: new Set<TicketEntry>() };
+export const queryDownloadTickets = new LayerDownloadTicketStore({}, queryTicketState);

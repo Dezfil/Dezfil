@@ -115,3 +115,21 @@ it("drains held render buffers and browser closure across module graphs, preserv
     });
   } finally { buffers.resolve({ png: new Uint8Array() }); closing.resolve(); controlClose.resolve(); await outcome; (await import("@/lib/metadata/db")).closeMetadataDb(); }
 });
+
+it("keeps ordinary copy reads and claims usable with scopes minted in another compiled graph", async () => {
+  const scope = testAccountScope(undefined, "control"); lookRetention.retain(scope, render("cross-graph"));
+  const layer = layerDownloadTickets.prepare(scope, binding, await file("cross-layer"));
+  const query = queryDownloadTickets.prepare(scope, binding, await file("cross-query"));
+  const project = createProjectExportTicket(scope, "project", await file("cross-project"));
+  vi.resetModules();
+  const fresh = (await import("@/lib/test-support/accounts")).testAccountScope(undefined, "control");
+  const copies = await import("./layer-download-tickets"), projectCopies = await import("./project-export-tickets");
+  expect((await import("./look-retention")).lookRetention.read(fresh, "cross-graph", "full")).toEqual(new Uint8Array([1,2,3,4]));
+  for (const [store, ticket] of [[copies.layerDownloadTickets, layer], [copies.queryDownloadTickets, query]] as const) {
+    const claim = store.claim(fresh, ticket, binding)!; expect(claim.registerAbort(() => {})).toBe(true); claim.complete();
+    expect(store.status(fresh, ticket, binding)).toBe("complete");
+  }
+  const claimed = projectCopies.claimProjectExportTicket(fresh, "project", project.ticket, project.key); expect(claimed).not.toBeNull(); claimed!.settle();
+  await Promise.all([copies.layerDownloadTickets.settlePrepared(), copies.queryDownloadTickets.settlePrepared(), projectCopies.projectExportTickets.settlePrepared()]);
+  (await import("@/lib/metadata/db")).closeMetadataDb();
+});

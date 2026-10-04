@@ -1,12 +1,13 @@
 import { removeAccountFile } from "@/lib/ingest/file-ownership";
 import type { AccountScope } from "@/lib/auth/scope";
 import { randomBytes } from "node:crypto";
-import { LayerDownloadTicketStore } from "./layer-download-tickets";
+import { LayerDownloadTicketStore, type TicketStoreState } from "./layer-download-tickets";
 
 export const PROJECT_EXPORT_TICKET_TTL_MS = 60_000;
 const projectExportTicketsKey = Symbol.for("dezfil.projectExportTickets");
-const projectExportTicketsHost = globalThis as typeof globalThis & { [projectExportTicketsKey]?: LayerDownloadTicketStore };
-export const projectExportTickets = projectExportTicketsHost[projectExportTicketsKey] ??= new LayerDownloadTicketStore({ preparedTtlMs: PROJECT_EXPORT_TICKET_TTL_MS });
+const projectExportTicketsHost = globalThis as typeof globalThis & { [projectExportTicketsKey]?: TicketStoreState };
+const projectTicketState: TicketStoreState = projectExportTicketsHost[projectExportTicketsKey] ??= { entries: new Map(), pending: new Set() };
+export const projectExportTickets = new LayerDownloadTicketStore({ preparedTtlMs: PROJECT_EXPORT_TICKET_TTL_MS }, projectTicketState);
 const binding = (projectId: string, key: string) => ({ layerId: `${projectId}:${key}`, format: "geoparquet" as const });
 
 /** A private copy keeps its preparation lifetime and its claimed stream's

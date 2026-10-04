@@ -1,3 +1,4 @@
+import { retainAssistantCleanup } from "./retained-work";
 import type { AccountScope } from "@/lib/auth/scope";
 import { assistantRuns } from "./runs";
 
@@ -8,5 +9,6 @@ export function executionControl(scope: AccountScope, id: string, requestSignal:
   const depart = () => { if (!assistantRuns.settleInactive(id)) assistantRuns.cancel(scope, id); };
   if (requestSignal.aborted) depart();
   else requestSignal.addEventListener("abort", depart, { once: true });
-  return { signal, depart, detach() { requestSignal.removeEventListener("abort", depart); } };
+  const detach = retainAssistantCleanup(scope.accountId, () => requestSignal.removeEventListener("abort", depart));
+  return { signal, depart, detach };
 }

@@ -239,9 +239,8 @@
       "fixture": "memory:src/lib/assistant/pending.ts#PendingActionStore.trace"
     },
     "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.client": {
-      "action": "erase",
-      "rule": "Erase target conversations, receipts, confirmations, turn buffers, provider exchanges and revision trackers after in-flight work settles. Preserve other accounts retained work.",
-      "fixture": "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.client"
+      "action": "retain",
+      "rule": "Keep the stateless provider transport and instance API key/configuration. Per-request bodies are drained; native conversation, tool and grounding buffers are separately erased on their exchanges."
     },
     "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.exchange.grounding": {
       "action": "erase",
@@ -264,9 +263,8 @@
       "fixture": "memory:src/lib/assistant/providers/openai-responses.ts#responsesExchange.tools"
     },
     "memory:src/lib/assistant/providers/openai.ts#openaiProvider.client": {
-      "action": "erase",
-      "rule": "Erase target conversations, receipts, confirmations, turn buffers, provider exchanges and revision trackers after in-flight work settles. Preserve other accounts retained work.",
-      "fixture": "memory:src/lib/assistant/providers/openai.ts#openaiProvider.client"
+      "action": "retain",
+      "rule": "Keep the stateless provider transport and instance API key/configuration. Per-request bodies are drained; native conversation, tool and grounding buffers are separately erased on their exchanges."
     },
     "memory:src/lib/assistant/providers/openai.ts#openaiProvider.exchange.exchange": {
       "action": "erase",
@@ -709,6 +707,34 @@
     "memory:query-store-registry": {
       "action": "retain",
       "rule": "Keep registration callbacks and a non-content monotonic purge generation across compiled module copies; the registered data stores have their own purge obligations."
+    },
+    "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.exchange.messages": {
+      "action": "erase",
+      "rule": "Dispose the target native conversation after actual provider settlement; preserve other initiators parked exchanges.",
+      "fixture": "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.exchange.messages"
+    },
+    "memory:src/lib/assistant/providers/openai-responses.ts#responsesExchange.input": {
+      "action": "erase",
+      "rule": "Dispose the target native conversation after actual provider settlement; preserve other initiators parked exchanges.",
+      "fixture": "memory:src/lib/assistant/providers/openai-responses.ts#responsesExchange.input"
+    },
+    "memory:exchange-disposal-flags": {
+      "action": "retain",
+      "rule": "Keep non-content disposed flags on released exchanges so a stale internal handle cannot write conversation state again."
+    },
+    "memory:assistant-work": {
+      "action": "erase",
+      "rule": "Abort target assistant work and await its actual promises and generator cleanup; preserve other accounts active segments.",
+      "fixture": "memory:assistant-work"
+    },
+    "memory:assistant-cleanups": {
+      "action": "erase",
+      "rule": "Detach target request listeners and release their closures after settlement, including abandoned controls; preserve other accounts listeners.",
+      "fixture": "memory:assistant-cleanups"
+    },
+    "memory:assistant-store-registry": {
+      "action": "retain",
+      "rule": "Keep per-bundle store cleanup callbacks. Each registered store erases its own account entries and retains its module-local scope validator."
     }
   },
   "tables": {
@@ -2745,16 +2771,6 @@
         "memory:src/lib/assistant/pending.ts#pendingActions"
       ]
     },
-    "memory:src/lib/assistant/pending.ts#PendingActionStore.parked": {
-      "stores": [
-        "memory:src/lib/assistant/pending.ts#PendingActionStore.parked"
-      ]
-    },
-    "memory:src/lib/assistant/pending.ts#PendingActionStore.trace": {
-      "stores": [
-        "memory:src/lib/assistant/pending.ts#PendingActionStore.trace"
-      ]
-    },
     "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.client": {
       "stores": [
         "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.client"
@@ -2818,16 +2834,6 @@
     "memory:src/lib/assistant/runs.ts#assistantRuns": {
       "stores": [
         "memory:src/lib/assistant/runs.ts#assistantRuns"
-      ]
-    },
-    "memory:src/lib/assistant/runs.ts#AssistantRunStore.entries": {
-      "stores": [
-        "memory:src/lib/assistant/runs.ts#AssistantRunStore.entries"
-      ]
-    },
-    "memory:src/lib/assistant/runs.ts#AssistantRunStore.terminals": {
-      "stores": [
-        "memory:src/lib/assistant/runs.ts#AssistantRunStore.terminals"
       ]
     },
     "memory:src/lib/auth/api-methods.ts#apiMethodTable": {
@@ -2935,11 +2941,6 @@
         "memory:immutable-configuration"
       ]
     },
-    "memory:src/lib/export/layer-download-tickets.ts#LayerDownloadTicketStore.entries": {
-      "stores": [
-        "memory:src/lib/export/layer-download-tickets.ts#LayerDownloadTicketStore.entries"
-      ]
-    },
     "memory:src/lib/export/layer-download-tickets.ts#LayerDownloadTicketStore.preparedTtlMs": {
       "stores": [
         "memory:immutable-configuration"
@@ -2963,16 +2964,6 @@
     "memory:src/lib/export/look-retention.ts#lookRetention": {
       "stores": [
         "memory:src/lib/export/look-retention.ts#lookRetention"
-      ]
-    },
-    "memory:src/lib/export/look-retention.ts#LookRetention.entries": {
-      "stores": [
-        "memory:src/lib/export/look-retention.ts#LookRetention.entries"
-      ]
-    },
-    "memory:src/lib/export/look-retention.ts#LookRetention.total": {
-      "stores": [
-        "memory:src/lib/export/look-retention.ts#LookRetention.total"
       ]
     },
     "memory:src/lib/export/map-look.ts#testDriver": {
@@ -3193,21 +3184,6 @@
     "memory:src/lib/operations/compile-isochrone.ts#compileIsochrone.table": {
       "stores": [
         "memory:request-closures"
-      ]
-    },
-    "memory:src/lib/operations/lane.ts#inFlight": {
-      "stores": [
-        "memory:src/lib/operations/lane.ts#inFlight"
-      ]
-    },
-    "memory:src/lib/operations/lane.ts#known": {
-      "stores": [
-        "memory:src/lib/operations/lane.ts#known"
-      ]
-    },
-    "memory:src/lib/operations/lane.ts#waiting": {
-      "stores": [
-        "memory:src/lib/operations/lane.ts#waiting"
       ]
     },
     "memory:src/lib/operations/recipe-api.ts#AS_STORED": {
@@ -3886,11 +3862,6 @@
         "tiles/scratch"
       ]
     },
-    "memory:src/lib/export/layer-download-tickets.ts#LayerDownloadTicketStore.pending": {
-      "stores": [
-        "memory:src/lib/export/layer-download-tickets.ts#LayerDownloadTicketStore.pending"
-      ]
-    },
     "memory:src/lib/export/layer-download-tickets.ts#queryDownloadTickets": {
       "stores": [
         "memory:src/lib/export/layer-download-tickets.ts#queryDownloadTickets"
@@ -4470,6 +4441,162 @@
       ],
       "roots": [
         "."
+      ]
+    },
+    "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.exchange.messages": {
+      "stores": [
+        "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.exchange.messages"
+      ]
+    },
+    "memory:src/lib/assistant/providers/openai-responses.ts#responsesExchange.input": {
+      "stores": [
+        "memory:src/lib/assistant/providers/openai-responses.ts#responsesExchange.input"
+      ]
+    },
+    "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.exchange.disposed": {
+      "stores": [
+        "memory:exchange-disposal-flags"
+      ]
+    },
+    "memory:src/lib/assistant/providers/openai-responses.ts#responsesExchange.disposed": {
+      "stores": [
+        "memory:exchange-disposal-flags"
+      ]
+    },
+    "memory:src/lib/assistant/retained-work.ts#holder.work": {
+      "stores": [
+        "memory:assistant-work"
+      ]
+    },
+    "memory:src/lib/assistant/retained-work.ts#holder.cleanups": {
+      "stores": [
+        "memory:assistant-cleanups"
+      ]
+    },
+    "memory:src/lib/assistant/retained-work.ts#holder": {
+      "stores": [
+        "memory:assistant-store-registry",
+        "memory:assistant-work",
+        "memory:assistant-cleanups"
+      ]
+    },
+    "memory:src/lib/assistant/retained-work.ts#holder.stores": {
+      "stores": [
+        "memory:assistant-store-registry"
+      ]
+    },
+    "memory:src/lib/assistant/retained-work.ts#retainAssistantCleanup": {
+      "stores": [
+        "memory:assistant-cleanups"
+      ]
+    },
+    "memory:src/lib/assistant/retained-work.ts#retainAssistantCleanup.entries": {
+      "stores": [
+        "memory:assistant-cleanups"
+      ]
+    },
+    "memory:src/lib/assistant/execution-control.ts#executionControl.detach": {
+      "stores": [
+        "memory:assistant-cleanups"
+      ]
+    },
+    "memory:src/lib/operations/lane.ts#holder": {
+      "stores": [
+        "memory:src/lib/operations/lane.ts#waiting"
+      ]
+    },
+    "memory:src/lib/operations/lane.ts#holder.inFlight": {
+      "stores": [
+        "memory:src/lib/operations/lane.ts#inFlight"
+      ]
+    },
+    "memory:src/lib/operations/lane.ts#holder.known": {
+      "stores": [
+        "memory:src/lib/operations/lane.ts#known"
+      ]
+    },
+    "memory:src/lib/assistant/pending.ts#pendingState": {
+      "stores": [
+        "memory:src/lib/assistant/pending.ts#PendingActionStore.parked",
+        "memory:src/lib/assistant/pending.ts#PendingActionStore.trace"
+      ]
+    },
+    "memory:src/lib/assistant/pending.ts#pendingState.parked": {
+      "stores": [
+        "memory:src/lib/assistant/pending.ts#PendingActionStore.parked"
+      ]
+    },
+    "memory:src/lib/assistant/pending.ts#pendingState.trace": {
+      "stores": [
+        "memory:src/lib/assistant/pending.ts#PendingActionStore.trace"
+      ]
+    },
+    "memory:src/lib/assistant/runs.ts#runsState": {
+      "stores": [
+        "memory:src/lib/assistant/runs.ts#AssistantRunStore.entries",
+        "memory:src/lib/assistant/runs.ts#AssistantRunStore.terminals"
+      ]
+    },
+    "memory:src/lib/assistant/runs.ts#runsState.entries": {
+      "stores": [
+        "memory:src/lib/assistant/runs.ts#AssistantRunStore.entries"
+      ]
+    },
+    "memory:src/lib/export/look-retention.ts#lookState": {
+      "stores": [
+        "memory:src/lib/export/look-retention.ts#LookRetention.entries",
+        "memory:src/lib/export/look-retention.ts#LookRetention.total"
+      ]
+    },
+    "memory:src/lib/export/look-retention.ts#lookState.entries": {
+      "stores": [
+        "memory:src/lib/export/look-retention.ts#LookRetention.entries"
+      ]
+    },
+    "memory:src/lib/export/layer-download-tickets.ts#layerTicketState": {
+      "stores": [
+        "memory:src/lib/export/layer-download-tickets.ts#LayerDownloadTicketStore.entries",
+        "memory:src/lib/export/layer-download-tickets.ts#LayerDownloadTicketStore.pending"
+      ]
+    },
+    "memory:src/lib/export/layer-download-tickets.ts#layerTicketState.entries": {
+      "stores": [
+        "memory:src/lib/export/layer-download-tickets.ts#LayerDownloadTicketStore.entries"
+      ]
+    },
+    "memory:src/lib/export/layer-download-tickets.ts#layerTicketState.pending": {
+      "stores": [
+        "memory:src/lib/export/layer-download-tickets.ts#LayerDownloadTicketStore.pending"
+      ]
+    },
+    "memory:src/lib/export/layer-download-tickets.ts#queryTicketState": {
+      "stores": [
+        "memory:src/lib/export/layer-download-tickets.ts#queryDownloadTickets"
+      ]
+    },
+    "memory:src/lib/export/layer-download-tickets.ts#queryTicketState.entries": {
+      "stores": [
+        "memory:src/lib/export/layer-download-tickets.ts#queryDownloadTickets"
+      ]
+    },
+    "memory:src/lib/export/layer-download-tickets.ts#queryTicketState.pending": {
+      "stores": [
+        "memory:src/lib/export/layer-download-tickets.ts#queryDownloadTickets"
+      ]
+    },
+    "memory:src/lib/export/project-export-tickets.ts#projectTicketState": {
+      "stores": [
+        "memory:src/lib/export/project-export-tickets.ts#projectExportTickets"
+      ]
+    },
+    "memory:src/lib/export/project-export-tickets.ts#projectTicketState.entries": {
+      "stores": [
+        "memory:src/lib/export/project-export-tickets.ts#projectExportTickets"
+      ]
+    },
+    "memory:src/lib/export/project-export-tickets.ts#projectTicketState.pending": {
+      "stores": [
+        "memory:src/lib/export/project-export-tickets.ts#projectExportTickets"
       ]
     }
   },

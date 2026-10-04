@@ -28,6 +28,7 @@ export async function* streamReply(
     (value) => { reply = value; },
     (error) => { failure = error; },
   ).finally(() => { settled = true; wake?.(); });
+  try {
   while (!settled || chunks.length) {
     while (chunks.length) { requireAccountScope(scope); yield { type: "text_delta", messageId, text: chunks.shift()! }; }
     if (!settled) await new Promise<void>((resolve) => { wake = resolve; });
@@ -41,4 +42,5 @@ export async function* streamReply(
   requireAccountScope(scope);
   if (runId) assistantRuns.reported(scope, runId, reply.model);
   return { ...reply, messageId };
+  } finally { await work; chunks.length = 0; reply = undefined; failure = undefined; wake = undefined; }
 }

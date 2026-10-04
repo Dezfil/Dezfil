@@ -67,7 +67,9 @@ import { readsByStep } from "./step-reads";
  */
 
 /** Drives in flight, so a caller — or a test — can await one. */
-const driving = new Map<string, Promise<void>>();
+const drivingKey = Symbol.for("dezfil.cascade-drivers");
+const drivingHost = globalThis as typeof globalThis & { [drivingKey]?: Map<string, Promise<void>> };
+const driving = drivingHost[drivingKey] ??= new Map<string, Promise<void>>();
 
 export function cascadeSettled(id: string): Promise<void> {
   return driving.get(id) ?? Promise.resolve();
@@ -454,3 +456,5 @@ export async function cancelCascade(scope: AccountScope, id: string): Promise<Ca
   requireAccountScope(scope);
   return cascades.getCascade(id) ?? cascade;
 }
+
+export function cascadeDriversForTests(): string[] { return [...driving.keys()]; }

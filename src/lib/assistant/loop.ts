@@ -1,3 +1,4 @@
+import { beginAssistantWork } from "./retained-work";
 import { AuthError } from "@/lib/auth/errors";
 import { requireAccountScope } from "@/lib/auth/scope";
 import { assistantTools, assistantCall } from "./tool-surface";
@@ -29,7 +30,7 @@ import {
   type ProviderReply,
 } from "./provider";
 import type { ParkedRun } from "./pending";
-import { makeExecutionContext, type ExecutionContext, type LoopDeps } from "./execution-context";
+import { makeExecutionContext, disposeExecutionContext, type ExecutionContext, type LoopDeps } from "./execution-context";
 export type { LoopDeps } from "./execution-context";
 
 /**
@@ -118,7 +119,7 @@ export interface RunInput {
 
 const CONFIRM_DENIED = "The user did not confirm this action, so it was not performed.";
 
-export async function* runAssistant(
+async function* runAssistantWork(
   provider: ModelProvider,
   input: RunInput,
   deps: LoopDeps,
@@ -146,6 +147,7 @@ export async function* runAssistant(
   const ctx = makeExecutionContext(deps, { [CHANGE_GROUP_HEADER]: randomUUID() }, exchange, policy, offer.map((t) => t.name), discovery);
   ctx.context = input.context;
 
+  try {
   let reply;
   try {
     reply = yield* streamReply(ctx.scope, (options) => exchange.send(input.message, options), ctx.signal, ctx.runId);
@@ -154,12 +156,13 @@ export async function* runAssistant(
     return;
   }
   yield* runFromReply(ctx, reply, 0);
+  } finally { disposeExecutionContext(ctx); }
 }
 
 /** Re-enter a parked run with its confirmation resolved. The caller has
  * already claimed the run from the store; a decline still resumes — the
  * model hears the documented note and finishes its turn. */
-export async function* resumeAssistant(
+async function* resumeAssistantWork(
   parked: ParkedRun,
   approved: boolean,
   deps: LoopDeps,
@@ -168,6 +171,7 @@ export async function* resumeAssistant(
   // The parked run's own policy, never the resolving request's: a
   // continuation admits what the original submission admitted.
   const ctx = makeExecutionContext(deps, parked.headers, parked.exchange, parked.policy, parked.offered ?? [], parked.discovery ?? false, parked.turn ?? emptyTurnFacts());
+  try {
   if (ctx.signal?.aborted) { yield { type: "done", reason: "interrupted" }; return; }
   ctx.context = parked.context;
   if (deps.grounding !== undefined) ctx.exchange.setGrounding?.(deps.grounding);
@@ -221,6 +225,7 @@ export async function* resumeAssistant(
     return;
   }
   yield* runFromReply(ctx, reply, batch.steps);
+  } finally { disposeExecutionContext(ctx); }
 }
 
 /** The reply loop: emit text, work the batch, feed outcomes back, repeat
@@ -443,4 +448,15 @@ function errorEvent(error: unknown): AssistantEvent {
     code: "internal",
     message: ERROR_CATALOGUE.internal,
   };
+}
+
+export async function* runAssistant(provider: ModelProvider, input: RunInput, deps: LoopDeps): AsyncGenerator<AssistantEvent> {
+  const work = beginAssistantWork(deps.scope);
+  try { yield* runAssistantWork(provider, input, { ...deps, signal: deps.signal ? AbortSignal.any([deps.signal, work.signal]) : work.signal }); }
+  finally { work.finish(); }
+}
+export async function* resumeAssistant(parked: ParkedRun, approved: boolean, deps: LoopDeps): AsyncGenerator<AssistantEvent> {
+  const work = beginAssistantWork(deps.scope);
+  try { yield* resumeAssistantWork(parked, approved, { ...deps, signal: deps.signal ? AbortSignal.any([deps.signal, work.signal]) : work.signal }); }
+  finally { work.finish(); }
 }

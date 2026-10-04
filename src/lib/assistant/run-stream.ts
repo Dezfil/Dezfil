@@ -1,3 +1,4 @@
+import { beginAssistantWork } from "./retained-work";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { AuthError } from "@/lib/auth/errors";
 import type { ExecutionControl } from "./execution-control";
@@ -13,6 +14,10 @@ export function runStream(scope: AccountScope, events: AsyncGenerator<AssistantE
   let closed = false;
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      const work = beginAssistantWork(scope, () => {
+        if (!closed) { closed = true; controller.error(new AuthError("authentication_required", "Sign in to continue.", 401)); }
+        control?.depart();
+      });
       const emit = (event: AssistantEvent) => {
         requireAccountScope(scope);
         if (runId) assistantRuns.record(scope, runId, event);
@@ -32,6 +37,7 @@ export function runStream(scope: AccountScope, events: AsyncGenerator<AssistantE
         if (runId && !assistantRuns.settleInactive(runId)) assistantRuns.finish(scope, runId);
         control?.detach();
         if (!closed) { closed = true; controller.close(); }
+        work.finish();
       }
     },
     cancel() { closed = true; control?.depart(); },

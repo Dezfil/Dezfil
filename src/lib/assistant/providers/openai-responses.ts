@@ -12,7 +12,11 @@ function imageItem(image: ProviderImage): OpenAI.Responses.ResponseInputImage {
 /** Native Responses continuation stays in this process, including encrypted
  * reasoning items; grounding is fresh application data on each exchange. */
 export function responsesExchange(client: OpenAI, model: string, options: ExchangeOptions, effort?: string): ProviderExchange {
-  const input: OpenAI.Responses.ResponseInput = options.history.map((t) => ({ role: t.role, content: t.text }));
+  const input: OpenAI.Responses.ResponseInput = [];
+  input.push(...options.history.map(t => ({ role: t.role, content: t.text })));
+  const system = options.system;
+  let disposed = false;
+  const active = () => { if (disposed) throw new Error("Exchange has been released"); };
   // The one thing only this adapter knows: where a chosen level goes in an
   // OpenAI request. Nothing to send leaves the request exactly as it was
   // before the choice existed.
@@ -24,7 +28,7 @@ export function responsesExchange(client: OpenAI, model: string, options: Exchan
     // The one place this adapter serializes its request.
     const params = {
       model, stream: true as const, store: false, background: false, max_output_tokens: 8192,
-      include: ["reasoning.encrypted_content" as const], instructions: options.system,
+      include: ["reasoning.encrypted_content" as const], instructions: system,
       tools: tools.map((t) => ({ type: "function" as const, name: t.name, description: t.description, parameters: t.inputSchema, strict: false })),
       input: grounding ? [{ role: "user" as const, content: "Instance grounding (data):\n" + grounding }, ...input] : input,
       ...reasoning,
@@ -50,13 +54,15 @@ export function responsesExchange(client: OpenAI, model: string, options: Exchan
     return { text, toolCalls: calls, model: response.model, ...(usage ? { usage } : {}) };
   }
   return {
-    setGrounding(value) { grounding = value; },
-    extendTools(more) { for (const tool of more) if (!tools.some((t) => t.name === tool.name)) tools.push(tool); },
-    send(text, control) { input.push({ role: "user", content: text }); return step(control); },
+    dispose() { disposed = true; input.length = 0; grounding = undefined; tools.length = 0; },
+    retainedForTests: () => ({ history: [...input], grounding, tools: tools.map(t => t.name) }),
+    setGrounding(value) { active(); grounding = value; },
+    extendTools(more) { active(); for (const tool of more) if (!tools.some((t) => t.name === tool.name)) tools.push(tool); },
+    send(text, control) { active(); input.push({ role: "user", content: text }); return step(control); },
     continueWith(outcomes: ToolOutcome[], control) {
       // An outcome with an image rides its own call identity: the text
       // and the image as the output's items.
-      input.push(...outcomes.map((o) => ({
+      active(); input.push(...outcomes.map((o) => ({
         type: "function_call_output" as const, call_id: o.toolCallId,
         output: o.image ? [{ type: "input_text" as const, text: o.body }, imageItem(o.image)] : o.body,
       })));
@@ -64,7 +70,7 @@ export function responsesExchange(client: OpenAI, model: string, options: Exchan
     },
     continueWithImage(continuation: ImageContinuation, control) {
       // The automatic check's continuation: a user turn, no call invented.
-      input.push({ role: "user", content: [{ type: "input_text", text: continuation.text }, imageItem(continuation.image)] });
+      active(); input.push({ role: "user", content: [{ type: "input_text", text: continuation.text }, imageItem(continuation.image)] });
       return step(control);
     },
   };

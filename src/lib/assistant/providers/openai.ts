@@ -24,6 +24,8 @@ export function openaiProvider(apiKey: string, model: string, fetchImpl?: typeof
   return { id: "openai", model, effort, exchange(options) {
     const exchange = responsesExchange(client, model, options, effort);
     return {
+      dispose() { exchange.dispose?.(); },
+      retainedForTests: () => exchange.retainedForTests!(),
       setGrounding(value) { exchange.setGrounding?.(value); },
       extendTools(tools) { exchange.extendTools?.(tools); },
       async send(text, control) { try { return await exchange.send(text, control); } catch (error) { mapError(error); } },
