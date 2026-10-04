@@ -136,6 +136,23 @@ for (const [form, string] of Object.entries(forms)) {
         }
       }
       it.each(["require", "prefer"])("refuses supplied trust with sslmode=%s", (mode) => refuses([["sslmode", mode], ["sslrootcert", "/private/root.pem"]], "sslrootcert"));
+      it.each([
+        ["Channel_Binding", "require", "channel_binding"],
+        ["SSLROOTCERT", "/distinctive/root.pem", "sslrootcert"],
+        ["ChAnNeL_BiNdInG", "PREFER", "channel_binding"],
+      ])("refuses mixed-case protection name %s with canonical copy", (key, value, canonical) => refuses([[key, value]], canonical, overrides));
+      it.each([false, true])("cannot hide a mixed-case occurrence with a permissive repeat, reverse=%s", (reverse) => {
+        const entries: Entries = [["Channel_Binding", "require"], ["channel_binding", "prefer"]];
+        if (reverse) entries.reverse();
+        return refuses(entries, "channel_binding");
+      });
+      it("names the first mixed-case refusal", () => refuses([["GssEncMode", "require"], ["CHANNEL_BINDING", "require"]], "gssencmode"));
+      it("retains empty and permissive values with mixed-case names", async () => {
+        const { response } = await send(string([["SSLROOTCERT", ""], ["Channel_Binding", "prefer"]]));
+        expect(response.status).toBe(operation === "create" ? 201 : 200);
+        expect(io.resolve).toHaveBeenCalledWith("new.example.org");
+        expect(io.read).toHaveBeenCalledTimes(2);
+      });
       it.each([false, true])("preserves SSL refusal priority, reverse=%s", async (reverse) => {
         const entries: Entries = [["channel_binding", "require"], ["sslmode", "verify-full"]];
         if (reverse) entries.reverse();

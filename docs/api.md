@@ -772,7 +772,9 @@ including strings previously accepted with these options silently omitted:
 Empty values, including OAuth scope, are absent. Ignored values are neither
 forwarded nor stored and make no mandatory protection promise. All supplied
 occurrences count, after URI decoding or key-value quoting/escaping: a later
-empty or permissive value cannot hide a refused value. The existing SSL-mode
+empty or permissive value cannot hide a refused value. Names in this protection
+inventory are case-insensitive in both forms; values keep their exact spelling.
+The existing SSL-mode
 refusal takes precedence; otherwise the first refused parameter in input
 order is named, using its canonical name and never its value.
 

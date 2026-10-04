@@ -34,7 +34,8 @@ const IGNORED_VALUES: Record<string, readonly string[]> = {
  * requirepeer is deliberately absent: its peer-user check applies only to
  * Unix sockets, whereas the app always uses a guarded TCP address. */
 export function unsupportedProtection(entries: Iterable<[string, string]>): string | undefined {
-  for (const [name, value] of entries) {
+  for (const [key, value] of entries) {
+    const name = key.toLowerCase();
     if (value !== "" && Object.hasOwn(IGNORED_VALUES, name) && !IGNORED_VALUES[name].includes(value)) {
       return name;
     }
