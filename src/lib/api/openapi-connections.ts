@@ -13,7 +13,8 @@ const PROTECTION_INPUT_CONTRACT =
   "This connection string uses the unsupported protection parameter channel_binding; " +
   "Dezfil supports connection fields and SSL required or not required. The first refused " +
   "parameter's canonical name replaces channel_binding; the existing SSL-mode refusal wins. " +
-  "See docs/api.md (Connections) for parameter dispositions and the stored-connection limitation.";
+  "Saved connections are not rechecked because their original string was never stored. " +
+  "See docs/api.md (Connections) for parameter dispositions.";
 
 export const CONNECTION_PATHS = {
   "/api/connections/postgis": {

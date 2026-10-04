@@ -9,5 +9,6 @@ it.each(["create_postgis_connection", "update_postgis_connection"])("keeps %s UR
   expect(description).toContain("before source contact or explicit-field overrides");
   expect(description).toContain("HTTP 400 invalid_request");
   expect(description).toContain("This connection string uses the unsupported protection parameter channel_binding; Dezfil supports connection fields and SSL required or not required.");
+  expect(description).toContain("Saved connections are not rechecked because their original string was never stored.");
   expect(description).toContain("docs/api.md");
 });
