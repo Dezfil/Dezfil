@@ -1,6 +1,6 @@
 {
-  "count": 137,
-  "overall": "95b9b47eadc2c818fb79540bcfeecc6f24e2f3900b9986b6a0443914ce81dcf4",
+  "count": 141,
+  "overall": "a1bab79831ff21df4eba10dd4751190e47ae053e00044ff97447b3a3ad00f684",
   "tools": {
     "get_account": "bd37f5c2eb19d2ede33cb10152a53d49e4029a871d9950f51d3671001efdfb66",
     "update_account": "b86cdb20349d6871c516c495b13864a85908d41cb61203f76a3f7ea95c26ebbb",
@@ -8,9 +8,13 @@
     "list_api_tokens": "eabf882e220625f2efba42edb2a6bc1e7217bc95bd953bf88ebec00cd6bf771b",
     "create_api_token": "60f28ef6d359efcfca1e388324730df351e653b0fd9753854760169a413221be",
     "revoke_api_token": "837d1a0d69b9e58b39d6e5519ae2ce2481880b4e5d14557f076bd9fc850e3074",
-    "list_users": "39f71873a54798506f90df1c3a250235ad6c6f28ee1d9a0bea55d5371b24ab61",
+    "preview_user_deletion": "369cff5325edd9c1b2050e32039ced7e0a5afc4c17a88ede62f3e46659f48d0d",
+    "get_user_deletion": "a0ad34e2aae7a69cb275b0aacac8393364be92949939770de7200e88c55e8b33",
+    "finish_user_deletion": "3e14315b6b90d25405ae531624300ff84c4af04aae9b77212396ea2722501646",
+    "list_users": "52bb89b78a1f2d83097b3930804ad21578a1530950e383115752a7e081dff14b",
     "invite_user": "41ffe637142434cf63ac074909814e5615667ee21523693649e6196fd35f2729",
     "update_user_access": "822b5de734d8a658e84399ccc55d57cb4f26405a04052c16e79216eefbb21da4",
+    "delete_user": "44e5bafbd121c63901cf6f91d9eb85f3c2ff21f92f50111b08feb894d6914c34",
     "issue_user_sign_in_link": "593f3027932a41ffa22b97b16369cf1bcd42584b289d9b2ae16a0b846766a2b8",
     "inspect_table_geometry": "9b703f1792882448a28b9ad4bc3763231bf11e66e8e69c651fe676e605e17ce1",
     "set_table_geometry": "f576d8819c6ae5e9ee371594b63c74d53b7c24dd626153cc3880390669c53383",

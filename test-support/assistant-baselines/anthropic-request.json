@@ -104,8 +104,56 @@
       }
     },
     {
+      "name": "preview_user_deletion",
+      "description": "Preview user deletion. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Returns only the account identity already visible in Users, totals per owned kind and distinct other active people whose present reach shrinks. Never returns private names, project references, rosters or content. The opaque confirmation is bound to the target, requesting admin, eligibility generation, inventory identities, publication links, grants and filings. Same-count swaps, publication changes and a reactivate/deactivate cycle invalidate it; unrelated surviving-document edits do not. A pending deletion returns its identifier and unfinished state instead. Self and active-target refusals are identical to deletion. This read erases nothing.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The other account to preview."
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "get_user_deletion",
+      "description": "Read user deletion status. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Returns pending or needs-retry for unfinished deletion. No stage, failure detail or content is exposed. Completed identifiers return 404 not_found because their temporary records have been removed; after an accepted response, clients may refresh list_users to reconcile a missing identifier. A missing identifier without prior acceptance is not proof that an account was deleted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The accepted deletion identifier, not an account id."
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "finish_user_deletion",
+      "description": "Finish deleting a user. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Deletion is permanent erasure of the account and everything it owns, wherever filed; shared reach and published links end. Owned projects dissolve and surviving members' work becomes unfiled. No handover occurs. Deactivation keeps shared reads, copies, runs and links. Except for never-redeemed invitations, deletion purges all geocode, isochrone and Overpass answer caches; later requests contact providers again. The identifying SQL name stays reserved forever for an ever-active account; completion frees its email. Others' derived datasets and stored SQL, lineage and run text remain theirs and can retain names or personal text. Issued private copies keep their shipped lifetime. Host snapshots, backups, logs, providers, browser-local SQL/conversations and exports are outside erasure; restoring a backup can revive data and credentials. This is neither disk-remanence erasure nor anonymization. Pending or needs-retry is unfinished, never completed success: use status or Finish deleting with the same identifier; the account and its work stay inaccessible. An outside database reader or insufficient temporary space can prevent compaction; release the reader or restore space, then Finish deleting. Resumes the accepted deletion, including after restart, without changing its identifier or repeating completed dissolution. Concurrent requests join the same work. Completed identifiers return 404 not_found.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The accepted deletion identifier, not an account id."
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
       "name": "list_users",
-      "description": "List users. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Lists invited, active and deactivated accounts, their role and last sign-in. isOriginal permanently identifies the first account. Passwords, credential hashes and sign-in links are never returned.",
+      "description": "List users. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Lists invited, active and deactivated accounts, their role and last sign-in. isOriginal permanently identifies the first account. The separate deletions array lists unfinished reservations with their deletion id, pending or needs-retry state and the existing Users identity; it remains available after profile erasure and disappears on completion. Deleted accounts are absent from users. Passwords, credential hashes and sign-in links are never returned.",
       "input_schema": {
         "type": "object",
         "properties": {}
@@ -160,6 +208,38 @@
         },
         "required": [
           "id"
+        ]
+      }
+    },
+    {
+      "name": "delete_user",
+      "description": "Delete a user. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Deletion is permanent erasure of the account and everything it owns, wherever filed; shared reach and published links end. Owned projects dissolve and surviving members' work becomes unfiled. No handover occurs. Deactivation keeps shared reads, copies, runs and links. Except for never-redeemed invitations, deletion purges all geocode, isochrone and Overpass answer caches; later requests contact providers again. The identifying SQL name stays reserved forever for an ever-active account; completion frees its email. Others' derived datasets and stored SQL, lineage and run text remain theirs and can retain names or personal text. Issued private copies keep their shipped lifetime. Host snapshots, backups, logs, providers, browser-local SQL/conversations and exports are outside erasure; restoring a backup can revive data and credentials. This is neither disk-remanence erasure nor anonymization. Pending or needs-retry is unfinished, never completed success: use status or Finish deleting with the same identifier; the account and its work stay inaccessible. An outside database reader or insufficient temporary space can prevent compaction; release the reader or restore space, then Finish deleting. First deactivate an ever-active target separately and call preview_user_deletion. Submit confirm: true, the opaque confirmation and the exact current email for an ever-active account. A never-redeemed invitation requires explicit confirmation but no email; it is removed wholly and frees its SQL name. No private content read is granted. Missing confirmation returns invalid_request; self_change_refused takes precedence over account_not_deactivated. Acceptance rechecks eligibility and the owned inventory in the same transaction; a stale eligible preview returns deletion_changed without effects. A repeated acceptance returns the same unfinished identifier and state without restarting cleanup. After completion, this target and the completed deletion identifier return not_found.",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The other account to delete."
+          },
+          "confirm": {
+            "type": "boolean",
+            "const": true
+          },
+          "confirmation": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "Opaque value from this admin's current deletion preview."
+          },
+          "email": {
+            "type": "string",
+            "description": "Exact account email, required when the account has ever signed in."
+          }
+        },
+        "required": [
+          "id",
+          "confirm",
+          "confirmation"
         ]
       }
     },
