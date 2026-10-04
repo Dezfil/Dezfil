@@ -227,3 +227,22 @@ it("documents the roster as the owner's to read whole, a member reading the owne
   }
   expect(tool("list_project_people").description).toContain(sentence);
 });
+
+
+it("generates credential-derived Leave with reach-loss confirmation and no roster", () => {
+  const operation = document().paths["/api/projects/{id}/leave"]?.post;
+  expect(operation).toBeDefined();
+  expect(operation.security).toEqual(AUTH_SECURITY);
+  expect(operation.responses).toHaveProperty("409");
+  expect(operation.description).toContain("project_owner_cannot_leave");
+  const leave = tool("leave_project");
+  expect(Object.keys(leave.inputSchema.properties as object)).toEqual(["id"]);
+  expect(leave).toMatchObject({ method: "post", confirm: true,
+    effects: { readOnly: false, writes: [{ resource: "projects", argument: "id", collection: true }] },
+    mcp: { destructiveHint: true, openWorldHint: false, idempotentHint: true },
+    confirmation: { target: "Leave {target}?", subject: { path: "/api/projects/{id}", argument: "id", name: "name" } } });
+  expect(leave.confirmation?.consequence).toContain("next request");
+  expect(leave.confirmation?.consequence).toContain("stays in the project");
+  expect(JSON.stringify(leave.outputSchema)).toContain('"left"');
+  expect(JSON.stringify(leave.outputSchema)).not.toMatch(/people|sqlName|email|accountId/);
+});

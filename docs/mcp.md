@@ -84,7 +84,13 @@ links are disclosed once, expire after seven days and are shared by the admin.
 A project's people generate `list_project_people`, `set_project_person` and
 `remove_project_person`. Anyone who reaches the project reads them; the two
 changes are the project owner's and declare confirmation, since each changes
-who reaches the project. Transfer generates `transfer_project`,
+who reaches the project. `leave_project` ends the credential holder's own grant,
+including in a frozen project, after confirmation of reach loss. It takes only
+`id` and returns `{"left":true}`, never a roster. Owners receive
+`project_owner_cannot_leave`; missing and non-member projects receive `not_found`.
+Owned work stays filed and shared, other grants remain, and membership changes
+no edit revisions. The assistant uses the same operation and confirmation.
+Transfer generates `transfer_project`,
 `transfer_map` and `transfer_workflow`, each the owner's and each behind
 confirmation, since only the new owner can give it back. `find_accounts`
 is the directory search any signed-in account may call to find someone to
@@ -113,9 +119,9 @@ Direct multipart upload uses the separately configured upload limit.
 
 | | |
 |---|---|
-| Documented operations | 355 |
-| Operations that become tools | 136 |
-| Deliberately excluded | 219 |
+| Documented operations | 357 |
+| Operations that become tools | 137 |
+| Deliberately excluded | 220 |
 
 Measured by building the OpenAPI document and the tool set from
 `src/lib/api/openapi.ts` and `src/lib/tools/tools.ts` and counting the

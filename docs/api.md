@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **124 paths, 355 operations, 162 named
+Measured from the current source: **125 paths, 357 operations, 163 named
 component schemas.** Operations include supported automatic HEAD and OPTIONS.
 `npm run lint:contract-docs` measures these numbers and checks the catalogue below
 against the contract; changing only the reader-facing text fails the gate.
@@ -710,6 +710,18 @@ not yet redeemed and an unknown name are refused alike with
 nothing a removed person owns is deleted, unfiled or reassigned. A change
 governs the person's reach on their next request, with no sign-out.
 
+`POST /api/projects/{id}/leave` ends only the credential holder's grant. It takes
+no body and answers `{"left":true}`, never a roster. Active Viewers and Editors
+may leave, including frozen projects. Absent and non-member projects both answer
+`404 not_found`; owners answer `409 project_owner_cannot_leave` and can transfer
+or delete instead. On the next read the project leaves lists and filters;
+exclusive reach ends on the next request, exactly as after owner removal.
+Other grants and ownership remain, and owned work stays filed and shared, with
+its project identity still available for withdrawal. Historical attribution
+keeps its name. Already admitted reads finish once; outputs recheck permission
+and input reach at commit. No edit revision changes. The owner can add a departed
+person again under ordinary membership rules; a repeated Leave answers 404.
+
 Transfer is the only change of ownership, always the current owner's own
 act, with the new owner named by their SQL name as `{"to": "<sql name>"}`.
 `POST /api/projects/{id}/transfer` makes one of the project's active
@@ -771,7 +783,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **106** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **107** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -1525,6 +1537,7 @@ response message. Branch on the code.
 | `mcp_response_invalid` | The instance returned a response that does not match this operation's documented result. |
 | `stale_revision` | This item has changed. Reload it before trying again. |
 | `invalid_request` | The request was malformed or failed validation, including a missing or malformed required edit revision. Read the item before a covered write. |
+| `project_owner_cannot_leave` | The project's owner cannot leave. Transfer or delete the project instead. |
 | `not_found` | The requested resource was not found. |
 | `sql_rejected` | The SQL was not an accepted read-only query. |
 | `sql_error` | The SQL failed to parse or execute. |
