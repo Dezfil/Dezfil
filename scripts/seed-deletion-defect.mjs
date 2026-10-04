@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 const defects = {
+  'actor-unknown': ['src/components/sharing/LastChanged.tsx', 'deleted ? "Deleted account"', 'deleted ? "Unknown"'],
+  'actor-tooltip': ['src/components/sharing/LastChanged.tsx', 'by an account that was deleted`', 'by Erased Person (erased_sql)`'],
+  'actor-run-tooltip': ['src/components/sharing/RunInitiator.tsx', ': undefined}', ': deleted ? "Erased Person (erased_sql)" : undefined}'],
+  'actor-redo': ['src/components/builder/shared-history.ts', 'const descriptions = target?.steps.map', 'const descriptions = (direction === "redo" && target?.steps.some(step => isDeletedActor(step.author)) ? undefined : target)?.steps.map'],
   'ui-placement': ['src/components/users/UserRow.tsx', 'account.status === "invited" &&', 'account.status !== "invited" &&'],
   'ui-arming': ['src/components/users/DeleteAccountDialog.tsx', '(preview.invited || email === preview.account.email)', '(preview.invited || email !== preview.account.email)'],
   'ui-completion': ['src/components/users/UsersScreen.tsx', 'if (status.state === "completed") show', 'if (status.id) show'],

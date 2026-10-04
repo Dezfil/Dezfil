@@ -4,7 +4,7 @@ import path from "node:path";
 import { expect, type APIRequestContext } from "@playwright/test";
 
 /** Scratch-only file handshake with deletion-proof-host, outside product HTTP. */
-export async function deletionControl(message: { command: "hold" | "release"; accountId: string } | { command: "compaction"; fail: boolean }) {
+export async function deletionControl(message: { command: "hold" | "release"; accountId: string } | { command: "compaction"; fail: boolean } | { command: "unknown-attribution"; mapId: string; recipeId: string; runId: string }) {
   const directory = process.env.DEZFIL_PROOF_CONTROL_DIR;
   if (!directory || !path.isAbsolute(directory)) throw new Error("Set DEZFIL_PROOF_CONTROL_DIR to the proof host's absolute control directory");
   const requestId = randomUUID(), file = path.join(directory, "request.json"), candidate = `${file}.${requestId}`;
@@ -21,10 +21,12 @@ export async function erasePerson(admin: APIRequestContext, id: string, email: s
   expect((await admin.patch(`/api/users/${id}`, { data: { status: "deactivated" } })).status()).toBe(200);
   const preview = await admin.get(`/api/users/${id}/deletion-preview`); expect(preview.status()).toBe(200);
   const response = await admin.delete(`/api/users/${id}`, { data: { confirm: true, email, confirmation: (await preview.json()).confirmation } });
-  expect([200, 202]).toContain(response.status()); let status = await response.json();
+  expect([200, 202]).toContain(response.status()); const status = await response.json();
   if (status.state !== "completed") await expect.poll(async () => {
-    const finished = await admin.post(`/api/users/deletions/${status.id}/finish`); expect([200, 202]).toContain(finished.status());
-    status = await finished.json(); return status.state;
+    const read = await admin.get(`/api/users/deletions/${status.id}`);
+    if (read.status() === 404) return "completed";
+    expect(read.status()).toBe(200); const pending = await read.json();
+    expect(pending.state).toBe("pending"); return pending.state;
   }).toBe("completed");
   return status;
 }

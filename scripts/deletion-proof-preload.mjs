@@ -1,5 +1,6 @@
 // Test-only admission and compaction holds. No HTTP endpoint exposes controls.
 import fs from 'node:fs';
+import { clearFixtureAttribution } from './deletion-attribution-fixture.mjs';
 import path from 'node:path';
 import { syncBuiltinESMExports } from 'node:module';
 import { productLoader } from './account-deletion-source-loader.mjs';
@@ -19,6 +20,7 @@ async function control(message) {
     if (!leases.has(message.accountId)) throw new Error('No held lease');
     leases.get(message.accountId).release(); leases.delete(message.accountId);
   } else if (message.command === 'compaction') failCompaction = message.fail === true;
+  else if (message.command === 'unknown-attribution') clearFixtureAttribution(load('lib/metadata/db.ts').metadataDb(), message);
   else throw new Error('Unknown proof control');
   return { ok: true };
 }

@@ -95,3 +95,36 @@ These four defects also have observed unit reds, including an inertness check
 for focus. Browser runs remain unobserved until an outside browser agent records
 them as agent-verified flows. Stop the host and remove the scratch directory
 after retaining its log; each fixture is small and needs no retained database.
+
+The attribution journey uses the same host, environment and port:
+
+```sh
+DEZFIL_DATA_DIR="$SCRATCH" DEZFIL_PROOF_CONTROL_DIR="$SCRATCH/control" DEZFIL_BASE_URL=http://127.0.0.1:3399 npx playwright test e2e/deleted-attribution.spec.ts
+```
+
+Green is one passing journey with screenshots of map/workflow cards, both
+history hints and workflow heads/runs. The fixture creates a surviving owner,
+a departing editor and a named editor through the API. It records real edits
+and runs, deletes the departing editor through the real confirmation route,
+then checks retained times/revisions, italic deleted/Unknown facts, plain run
+labels, and the absence of erased display/SQL names in tooltips. The scratch
+preload alone supplies legacy Unknown attribution; it restores the run's
+immutability trigger in the same transaction and changes no times. All reads
+and history presses use production pages/routes. It adds no product endpoint.
+
+Use the same detached-checkout seed/rebuild/restart procedure for these reds:
+
+```sh
+DEZFIL_DATA_DIR="$(mktemp -d "$PWD/.proof-seed-XXXXXX")" node scripts/seed-deletion-defect.mjs actor-unknown
+DEZFIL_DATA_DIR="$(mktemp -d "$PWD/.proof-seed-XXXXXX")" node scripts/seed-deletion-defect.mjs actor-tooltip
+DEZFIL_DATA_DIR="$(mktemp -d "$PWD/.proof-seed-XXXXXX")" node scripts/seed-deletion-defect.mjs actor-run-tooltip
+DEZFIL_DATA_DIR="$(mktemp -d "$PWD/.proof-seed-XXXXXX")" node scripts/seed-deletion-defect.mjs actor-redo
+```
+
+Expected failures: the deleted card says Unknown; its title names an erased
+profile/SQL name; a run has an erased-profile title; Redo omits its original
+author. Restore `src/components/sharing/LastChanged.tsx` for the first two,
+`src/components/sharing/RunInitiator.tsx` for the third, and
+`src/components/builder/shared-history.ts` for the fourth before rebuilding.
+All four must exit nonzero. Unit reds do not substitute for observing these
+browser failures; record browser screenshots and agent-verified flows outside.
