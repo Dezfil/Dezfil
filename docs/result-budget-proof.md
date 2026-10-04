@@ -13,7 +13,8 @@ DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) npx vitest run \
   src/lib/geometry/result-budget.test.ts src/lib/postgis/result-budget.test.ts \
   src/lib/postgis/preview-owner.test.ts src/lib/query/result-budget-scope.test.ts \
   src/lib/query/result-budget-probe.test.ts src/lib/mcp/result-budget-parity.test.ts \
-  src/lib/api/result-budget-contract.test.ts
+  src/lib/api/result-budget-contract.test.ts src/lib/query/result-budget-image.test.ts \
+  src/lib/query/result-budget-quick.test.ts
 ```
 
 Expect roughly 15-45 seconds. These run the real route and native client
@@ -36,6 +37,11 @@ exempted, swallowed PostGIS code, and bypassed prepare/stream/chunk ownership.
 Relay controls must go red for a lost MCP error flag or structured code, a
 changed refusal sentence, or recounting both MCP copies. Contract controls
 must go red for a missing code, a stale ceiling or an omitted reader.
+Driver tests substitute commands to exercise socket-only startup, a TCP
+restart, readiness exhaustion, mode selection and cleanup on probe failure.
+Removing owned cleanup must fail its control. The quick probe also runs through
+real routes in-process; omitting a reader must fail its coverage assertions.
+Neither test establishes container readiness or the image job's elapsed time.
 
 ## Served standalone probe
 
@@ -113,20 +119,55 @@ interval, image/commit and engine configuration. Label each result a
 
 ## Built image
 
+The image must already be built. Run from the checkout root. The pipeline form
+is also the driver's default when no mode is supplied:
+
 ```sh
 DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-image-XXXXXX) \
-  sh scripts/result-budget-image.sh dezfil:ci
+  sh scripts/result-budget-image.sh dezfil:ci --quick
 ```
 
-The image must already be built. This is the exact image-job step. It runs
-32 MB and normal-budget instances plus a disposable PostGIS fixture in the
-normal instance's network namespace. Names belong to this invocation; an
-unconditional trap removes containers and anonymous volumes. Expect **300-600
-added seconds**, excluding the build and a cold PostGIS image pull. The
-same red/green assertions apply. The script does not sample memory.
+Expect **20-45 added seconds**, including both app starts, excluding the build.
+The workflow gives this step a one-minute timeout. It starts isolated 32 MB and
+512 MB app instances, with no outside source or database image pull, and runs:
+
+- The refused forty-row case under the 32 MB engine budget.
+- Non-geometry cell minus-one/exact/plus-one boundaries for SQL in both geometry
+  encodings, dataset inspection and geometry-choice preview.
+- A successful SQL answer of exactly 33,554,432 bytes, fitted from measured
+  response bytes, with re-fitting when runtime metadata changes size.
+
+The complete result-boundary matrix, every PostGIS arm, the large
+native geometry and representation controls, and complete exports remain the
+outside proof. The supervising session runs that complete matrix explicitly:
+
+```sh
+DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-image-XXXXXX) \
+  sh scripts/result-budget-image.sh dezfil:ci --full
+```
+
+Expect **300-600 added seconds**, excluding the build and a cold PostGIS image
+pull. This runs the forty-row refusal, the complete four-reader matrix and
+exports, then the separately labelled at-ceiling admission observation. It
+adds a disposable PostGIS fixture in the normal app's network namespace.
 Source readiness requires three consecutive TCP successes at 127.0.0.1:5432,
 the address used by the app. The socket-only initialization server cannot
 satisfy it; a failed TCP check resets the streak, and exhaustion fails the run.
+
+Both forms own their container names. An unconditional trap removes containers
+and anonymous volumes on success, readiness failure or assertion failure. Both
+print actual elapsed seconds before container cleanup; time the whole command
+as well when recording pipeline cost. Durations above are expectations, not
+container measurements. The script does not sample memory.
+
+Green: exit zero, a forty-row 422 with the exact catalogue refusal below 1 KiB,
+and a 200 answer at exactly 33,554,432 bytes. Quick mode also reports all cell
+boundaries; full mode reports every reader's result boundaries at minus-one,
+equality and plus-one, complete controls and all three complete exports.
+The driver finishes with a `confirmed: result-budget image` line and elapsed
+seconds. Red: any wrong status, size, code or sentence, an unlandable boundary,
+or failed TCP readiness exits nonzero. A quick run exceeding one minute also
+fails the workflow allowance. Cleanup still runs; neither form skips a missing arm.
 
 ## Delegated browser flow
 

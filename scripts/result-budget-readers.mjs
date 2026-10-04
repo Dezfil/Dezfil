@@ -19,44 +19,78 @@ export function countriesSQL(postgres = false) {
 const point = 'ST_Point(1,2) AS geometry';
 const select = value => `SELECT ${value}, ${point}`;
 
+function localReaders(client) {
+  return [
+    { name: 'SQL GeoJSON', limit: 1000, rows: b => b.preview, geometry: r => r.geometry, read: sql => client.read('/api/query', { sql, geometry: 'geojson' }, 'SQL GeoJSON') },
+    { name: 'SQL WKT', limit: 1000, rows: b => b.preview, geometry: r => r.geometry, read: sql => client.read('/api/query', { sql }, 'SQL WKT') },
+    ...['inspection', 'geometry-choice'].map(name => ({ name, limit: 50,
+      rows: b => name === 'inspection' ? b.preview : b.sample.features.features,
+      geometry: r => r.geometry,
+      read: async sql => {
+        const table = await client.upload(`SELECT * REPLACE (ST_AsWKB(geometry) AS geometry) FROM (${sql}) q`);
+        const path = `/api/tables/${encodeURIComponent(table.name)}`;
+        try {
+          if (name === 'inspection') return await client.read(path, undefined, name);
+          const inspection = client.fitting(await client.read(`${path}/geometry`, undefined, 'geometry revision'));
+          return await client.read(`${path}/geometry/preview`, { expectedRevision: inspection.revision, choice: { format: 'wkb', columns: ['geometry'], epsg: 4326 } }, name);
+        } finally {
+          const removed = await client.request(path, undefined, 'DELETE');
+          assert.equal(removed.status, 204); await removed.body?.cancel();
+          client.owned.splice(client.owned.indexOf(path), 1);
+        }
+      },
+    })),
+  ];
+}
+
+async function cellBoundaries(client, reader) {
+  // Arrays keep geometry-choice's scalar excerpts out of the boundary oracle.
+  // The cell's independently measured JSON includes its brackets and quotes.
+  for (const delta of [-1, 0, 1]) {
+    const answer = await reader.read(select(`ARRAY[repeat('x', ${cellBytes - 4 + delta})] AS v`));
+    if (delta > 0) client.refused(answer);
+    else {
+      const body = client.fitting(answer);
+      const row = reader.name === 'geometry-choice' ? body.sample.rows[0].values : reader.rows(body)[0];
+      assert.equal(bytesOf(row.v), cellBytes + delta);
+    }
+  }
+  console.log(`confirmed: ${reader.name} served cell boundaries`);
+}
+
+/** Source-free image gate: small cell boundaries plus exact SQL admission.
+ * The complete geometry, export and four-reader result matrix stays outside. */
+export async function quickReaders(client) {
+  for (const reader of localReaders(client)) await cellBoundaries(client, reader);
+  await quickAdmission(client);
+  console.log('confirmed: source-free cell boundaries and SQL admission at exactly 33554432 bytes');
+}
+
+export async function quickAdmission(client) {
+  const sql = tail => `SELECT repeat('x', CASE range WHEN 32 THEN ${tail} ELSE 1000000 END) AS v FROM range(33)`;
+  // Fit only the requested admission here. Runtime metadata can change size
+  // between requests; each candidate must stand on its own measured bytes.
+  let tail = 1, landed = false;
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const answer = await client.read('/api/query', { sql: sql(tail) }, 'SQL admission');
+    if (answer.status === 422) { client.refused(answer); tail -= 16; continue; }
+    client.fitting(answer);
+    if (answer.bytes === 33554432) { landed = true; break; }
+    tail += 33554432 - answer.bytes;
+  }
+  assert.ok(landed, 'SQL admission: could not land on exactly 33554432 bytes');
+}
+
 export async function fourReaders(client) {
   const source = await sourceFixture(client);
   try {
     const readers = [
-      { name: 'SQL GeoJSON', limit: 1000, rows: b => b.preview, geometry: r => r.geometry, read: sql => client.read('/api/query', { sql, geometry: 'geojson' }, 'SQL GeoJSON') },
-      { name: 'SQL WKT', limit: 1000, rows: b => b.preview, geometry: r => r.geometry, read: sql => client.read('/api/query', { sql }, 'SQL WKT') },
-      ...['inspection', 'geometry-choice'].map(name => ({ name, limit: 50,
-        rows: b => name === 'inspection' ? b.preview : b.sample.features.features,
-        geometry: r => r.geometry,
-        read: async sql => {
-          const table = await client.upload(`SELECT * REPLACE (ST_AsWKB(geometry) AS geometry) FROM (${sql}) q`);
-          const path = `/api/tables/${encodeURIComponent(table.name)}`;
-          try {
-            if (name === 'inspection') return await client.read(path, undefined, name);
-            const inspection = client.fitting(await client.read(`${path}/geometry`, undefined, 'geometry revision'));
-            return await client.read(`${path}/geometry/preview`, { expectedRevision: inspection.revision, choice: { format: 'wkb', columns: ['geometry'], epsg: 4326 } }, name);
-          } finally {
-            const removed = await client.request(path, undefined, 'DELETE');
-            assert.equal(removed.status, 204); await removed.body?.cancel();
-            client.owned.splice(client.owned.indexOf(path), 1);
-          }
-        },
-      })),
+      ...localReaders(client),
       { name: 'PostGIS', limit: 5, rows: b => b.rows, geometry: r => r.geometry, read: sql => source.preview(sql), postgres: true },
     ];
     for (const reader of readers) {
       const read = reader.read;
-      // These are arrays to keep geometry-choice's existing scalar excerpts
-      // out of the boundary oracle. The one cell includes brackets and quotes.
-      for (const delta of [-1, 0, 1]) {
-        const answer = await read(select(`ARRAY[repeat('x', ${cellBytes - 4 + delta})] AS v`));
-        if (delta > 0) client.refused(answer);
-        else {
-          const body = client.fitting(answer);
-          const row = reader.name === 'geometry-choice' ? body.sample.rows[0].values : reader.rows(body)[0];
-          assert.equal(bytesOf(row.v), cellBytes + delta);
-        }
-      }
+      await cellBoundaries(client, reader);
       const wide = tail => select(Array.from({ length: 17 }, (_, i) => `ARRAY[repeat('x', ${i === 16 ? tail : 2000000})] AS v${i}`).join(', '));
       await boundary(tail => read(wide(tail)), client, 1, reader.name);
       // Multi-byte, escaped, null, JSON, list and struct/object controls. JSON

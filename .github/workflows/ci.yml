@@ -156,11 +156,16 @@ jobs:
         run: |
           mcp_client_version=$(node -p "require('./package-lock.json').packages['node_modules/@modelcontextprotocol/client'].version")
           docker build -f scripts/mcp-probe-client.Dockerfile --build-arg MCP_CLIENT_VERSION="$mcp_client_version" -t dezfil-mcp-probe:ci .
-      # Expected added time: 300-600 seconds, excluding the image build.
-      # The driver owns unique app/source names and always removes containers
-      # and their anonymous volumes, including on an assertion failure.
-      - name: Four-reader result-byte boundaries and complete exports
-        run: sh scripts/result-budget-image.sh dezfil:ci
+      # Expected added time: 20-45 seconds after the build, with no source image
+      # pull. Runs the forty-row refusal, exact SQL result admission,
+      # and SQL, inspection and geometry-choice cell boundaries. The one-minute
+      # timeout holds the image-job allowance; elapsed time is printed by the driver.
+      # PostGIS and the full four-reader result/geometry/export matrix remain the
+      # outside --full proof in docs/result-budget-proof.md (300-600 seconds).
+      # Invocation-owned containers and anonymous volumes are always removed.
+      - name: Source-free result-byte boundaries
+        timeout-minutes: 1
+        run: sh scripts/result-budget-image.sh dezfil:ci --quick
       - name: JSON and MCP bounds, whole uploads, paced public refusals and file limits
         run: |
           run_transport() {

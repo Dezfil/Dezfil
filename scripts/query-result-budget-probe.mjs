@@ -52,7 +52,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const [base, label = 'standalone', mode = '--refused'] = process.argv.slice(2);
     assert.ok(base && /^https?:\/\//.test(base), 'Usage: query-result-budget-probe.mjs ORIGIN [standalone|container]');
     assert.ok(['standalone', 'container'].includes(label), 'label must be standalone or container');
-    assert.ok(['--refused', '--admitted', '--full'].includes(mode), 'mode must be --refused, --admitted or --full');
+    assert.ok(['--refused', '--admitted', '--quick', '--full'].includes(mode), 'mode must be --refused, --admitted, --quick or --full');
     if (mode === '--refused') await queryResultBudgetProbe(base, label);
     else {
       const client = await probeClient(new URL(base).origin, label);
@@ -62,6 +62,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
           await queryResultBudgetProbe(base, label, client, 'normal');
           const { fourReaders } = await import('./result-budget-readers.mjs');
           await fourReaders(client);
+        } else if (mode === '--quick') {
+          const { quickReaders } = await import('./result-budget-readers.mjs');
+          await quickReaders(client);
         } else {
           const sql = tail => `SELECT repeat('x', CASE range WHEN 32 THEN ${tail} ELSE 1000000 END) AS v FROM range(33)`;
           const fitted = await boundary(tail => client.read('/api/query', { sql: sql(tail) }), client, 1, 'admitted observation calibration');

@@ -17,4 +17,4 @@ if (args.includes('pg_isready')) {
   const sequence = JSON.parse(process.env.BUDGET_DRIVER_READINESS);
   process.exit(sequence[Math.min(attempt, sequence.length - 1)]);
 }
-if (args.includes('--full') && process.env.BUDGET_DRIVER_FAIL_FULL === '1') process.exit(9);
+if (args.includes(process.env.BUDGET_DRIVER_FAIL_MODE)) process.exit(9);

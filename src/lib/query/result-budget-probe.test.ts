@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { setupGeometryTest, cleanupGeometryTest } from "@/lib/test-support/geometry";
 import { dispatchAssistantTestRoute } from "@/lib/assistant/testing/route-dispatch";
 import { boundary, probeClient } from "../../../scripts/result-budget-client.mjs";
-import { geometrySQL, countriesSQL } from "../../../scripts/result-budget-readers.mjs";
+import { geometrySQL, countriesSQL, quickAdmission } from "../../../scripts/result-budget-readers.mjs";
 import { withConnection } from "@/lib/duckdb";
 let dir: string;
 beforeEach(async () => { dir = await setupGeometryTest(); });
@@ -22,6 +22,24 @@ it("fails when its fitting oracle cannot land on a boundary", async () => {
   const client = { fitting: () => {}, refused: () => {} };
   vi.spyOn(console, "log").mockImplementation(() => {});
   await expect(boundary(async () => ({ status: 200, bytes: 100 }), client, 1, "impossible")).rejects.toThrow("could not land");
+});
+it("refits quick admission across overflow and changing response metadata", async () => {
+  const read = vi.fn()
+    .mockResolvedValueOnce({ status: 200, bytes: 32000500 })
+    .mockResolvedValueOnce({ status: 422, bytes: 205 })
+    .mockResolvedValueOnce({ status: 200, bytes: 33554431 })
+    .mockResolvedValueOnce({ status: 200, bytes: 33554432 });
+  const fitting = vi.fn(), refused = vi.fn();
+  await quickAdmission({ read, fitting, refused });
+  expect(read).toHaveBeenCalledTimes(4);
+  expect(refused).toHaveBeenCalledWith({ status: 422, bytes: 205 });
+  expect(fitting).toHaveBeenLastCalledWith({ status: 200, bytes: 33554432 });
+  expect(read.mock.calls.map(call => call[1].sql.match(/WHEN 32 THEN (\d+)/)[1])).toEqual(["1", "1553933", "1553917", "1553918"]);
+});
+it("fails quick admission when no observed response lands at the ceiling", async () => {
+  const read = vi.fn().mockResolvedValue({ status: 200, bytes: 100 });
+  await expect(quickAdmission({ read, fitting: () => {}, refused: () => {} })).rejects.toThrow("could not land on exactly 33554432 bytes");
+  expect(read).toHaveBeenCalledTimes(30);
 });
 it("uploads a native WKB fixture and previews it through the actual geometry route", async () => {
   vi.stubEnv("DEZFIL_PROBE_TOKEN", "fixture");
