@@ -971,6 +971,17 @@ the driver does. Exact retention boundaries, 500 examined rows (including
 live rows), hourly cadence and renewal races remain deterministic unit proofs.
 
 
+### Provider cancellation and caller recovery
+
+The [provider cancellation recipe](provider-cancellation.md) runs place search
+and advisory custom-basemap checks against an owned held provider and a separate
+production instance on port 3217. It includes route disconnects, queued and
+pre-aborted calls, unchanged timeouts, completed-call controls, browser
+supersession/departure and named defects with restoration instructions. Run it
+outside environments that forbid listeners or browsers. It creates no container
+or network and adds no image-job step; record its observations separately from
+renderer proofs.
+
 ### Image job probe order
 
 After building and recording the `dezfil:ci` image, the image job runs these

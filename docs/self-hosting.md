@@ -120,6 +120,13 @@ Notes worth having before you switch any of them on:
   receiving your addresses, and the public instance of the common one asks that you
   not send personal or confidential data through it. Run your own if the addresses
   are not yours to share.
+  Submitted place searches carry client cancellation through the shared
+  geocoder queue and exchange. Superseding a search or leaving the builder
+  aborts it; an independent request does not cancel another caller's work.
+  Advisory custom-basemap checks similarly abort on replacement, URL edit,
+  Cancel or panel departure. See the [provider cancellation
+  recipe](provider-cancellation.md) for the route and browser probes, timeouts
+  and retained save behavior.
 - **The AI assistant** is off until a provider key is set. Once it is on, the
   conversation, the grounding about your instance, the results of the tools it calls
   and images of your maps are sent to that provider. Which model, and whose service,
