@@ -38,8 +38,9 @@ function parseIp(text: string): Uint8Array | null {
     return Uint8Array.from(parts);
   }
   if (version === 6) {
-    // Expand :: and any trailing dotted-quad into 16 bytes.
-    let body = text;
+    // The validated zone identifies an interface, not address bytes. Remove
+    // it before expanding :: and detecting a trailing dotted-quad.
+    let body = text.split("%", 1)[0];
     let v4Tail: number[] = [];
     const dotted = body.match(/:(\d+\.\d+\.\d+\.\d+)$/);
     if (dotted) {

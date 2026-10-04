@@ -139,3 +139,21 @@ it.each([{ host: "2001:4860:4860::8844" }, { port: 5433 }, { ssl: false }])("ret
   expect(io.lookup).not.toHaveBeenCalled();
   expect(io.run).not.toHaveBeenCalled();
 });
+
+for (const form of ["libpq", "fields"] as const) {
+  for (const operation of ["create", "edit"] as const) {
+    it.each(["::ffff:127.0.0.1%1", "::ffff:10.0.0.5%1", "::ffff:169.254.169.254%1", "64:ff9b::127.0.0.1%1"])(`${form} ${operation} blocks scoped address %s before attachment`, async (host) => {
+      if (operation === "edit") insertConnection(testAccountScope(), { ...target, id: "saved", name: "Prior", host: "prior.example.org" });
+      const before = metadataDb().prepare("SELECT * FROM pg_connections ORDER BY id").all();
+      const req = request({ name: "Candidate", ...forms[form](host) });
+      const response = operation === "create" ? await POST(req) : await PATCH(req, params);
+      expect.soft(response.status).toBe(403);
+      expect.soft(await response.json()).toEqual({ error: { code: "egress_blocked", message: blocked } });
+      expect.soft(io.lookup).not.toHaveBeenCalled();
+      expect.soft(io.run).not.toHaveBeenCalled();
+      expect.soft(io.read).not.toHaveBeenCalled();
+      expect.soft(io.resolved).toEqual([]);
+      expect.soft(metadataDb().prepare("SELECT * FROM pg_connections ORDER BY id").all()).toEqual(before);
+    });
+  }
+}
