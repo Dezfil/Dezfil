@@ -9,16 +9,14 @@
  * against the same private-range denial the egress policy encodes
  * (semantics — the allowlist names exceptions).
  *
- * Honest residual, recorded not claimed away: admission resolves DNS in
- * Node while Chromium resolves again for the connection, so a rebinding
- * window exists between the two lookups. The connect-path validation the
- * server's own fetches get has no in-process equivalent inside Chromium;
- * closing it fully would take a local egress proxy.
+ * This function alone checks only admission, not the browser's eventual
+ * connection. The real driver also routes external TCP through the
+ * per-render relay, which resolves again and dials only admitted literals.
+ * Socket and browser probes exercise that separate connection boundary;
+ * these page-admission tests cannot establish it.
  */
 
-import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
-import { isAddressAllowed } from "@/lib/net/egress";
+import { admitRenderHost, type RenderResolver } from "./render-address";
 
 /**
  * Three verdicts, deliberately: "deny" is a POLICY
@@ -35,8 +33,7 @@ export type GuardVerdict = "allow" | "deny" | "unresolvable";
 export async function admitRenderRequest(
   requestUrl: string,
   appOrigin: string,
-  resolve: (host: string) => Promise<string[]> = async (host) =>
-    (await lookup(host, { all: true })).map((a) => a.address),
+  resolve?: RenderResolver,
 ): Promise<GuardVerdict> {
   let parsed: URL;
   try {
@@ -54,17 +51,5 @@ export async function admitRenderRequest(
     return "deny";
   }
   const host = parsed.hostname.replace(/^\[|\]$/g, "");
-  if (isIP(host)) {
-    return isAddressAllowed(host, host) ? "allow" : "deny";
-  }
-  let addresses: string[];
-  try {
-    addresses = await resolve(host);
-  } catch {
-    return "unresolvable";
-  }
-  if (addresses.length === 0) return "unresolvable";
-  return addresses.every((address) => isAddressAllowed(host, address))
-    ? "allow"
-    : "deny";
+  return (await admitRenderHost(host, resolve)).verdict;
 }

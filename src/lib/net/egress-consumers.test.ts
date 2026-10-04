@@ -57,7 +57,7 @@ for (const [kind, cases] of [["ordinary", ordinary], ["scoped", scoped]] as cons
       else await expect(resolveAllowed(address)).resolves.toEqual([address]);
       expect(io.lookup).not.toHaveBeenCalled();
       expect(await admitRenderRequest("https://tiles.example/tile", "http://app.example")).toBe(blocked ? "deny" : "allow");
-      expect(io.lookup).toHaveBeenCalledWith("tiles.example", { all: true });
+      expect(io.lookup).toHaveBeenCalledWith("tiles.example", { all: true, verbatim: true });
     });
     it.each(cases)("keeps connect-time lookup and HTTP admission for %s, blocked=%s", async (address, blocked) => {
       io.lookup.mockResolvedValue([{ address, family: address.includes(":") ? 6 : 4 }]);

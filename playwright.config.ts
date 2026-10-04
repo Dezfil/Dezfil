@@ -7,6 +7,8 @@ const baseURL = process.env.DEZFIL_BASE_URL ?? "http://localhost:3000";
 export default defineConfig({
   globalSetup: "./e2e/auth.setup.ts",
   testDir: "./e2e",
+  // This journey owns a provider and a separately configured app instance.
+  testIgnore: "provider-cancellation.spec.ts",
   workers: 1,
   retries: 0,
   // The whole journey must fit the pipeline's budget; individual expect

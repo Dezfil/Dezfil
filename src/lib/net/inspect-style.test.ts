@@ -5,7 +5,6 @@ import { ApiError } from "@/lib/api/errors";
 import {
   inspectStyle,
   normalizeAttribution,
-  STYLE_BYTE_CAP,
 } from "./inspect-style";
 import type { RemoteResponse } from "./remote-fetch";
 
@@ -128,10 +127,9 @@ describe("style inspection", () => {
   });
 
   it("caps the body and calls the overrun not a style", async () => {
-    const huge = Buffer.alloc(STYLE_BYTE_CAP + 1, 0x7b);
+    const huge = Buffer.alloc(2 * 1024 * 1024 + 1, 0x7b);
     const result = await inspectStyle("https://x.test/s", respond(huge));
-    expect(result.verdict).toBe("not_style");
-    expect((result as { detail: string }).detail).toMatch(/MB/);
+    expect(result).toEqual({ verdict: "not_style", detail: "The style is larger than 2 MB." });
   });
 });
 
@@ -162,4 +160,16 @@ describe("attribution normalization", () => {
       normalizeAttribution(['<a href="javascript:alert(1)">Click</a>']),
     ).toEqual([{ label: "Click" }]);
   });
+});
+
+it("passes advisory cancellation to the exchange while retaining the eight-second budget", async () => {
+  const controller = new AbortController();
+  let seen: Parameters<typeof import("./remote-fetch").openRemote>[1];
+  const open = async (_url: string, options: typeof seen) => {
+    seen = options;
+    return respond(STYLE)();
+  };
+  await Reflect.apply(inspectStyle, null, ["https://x.test/s", open, controller.signal]);
+  expect(seen?.signal).toBe(controller.signal);
+  expect(seen?.timeoutMs).toBe(8_000);
 });

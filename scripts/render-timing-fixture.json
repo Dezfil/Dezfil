@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "style": {
+    "version": 8,
+    "sources": {
+      "tiles": {
+        "type": "raster",
+        "tiles": [
+          "http://timing.render.test:8080/tiles/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "minzoom": 0,
+        "maxzoom": 14,
+        "attribution": "Fixture tiles"
+      }
+    },
+    "layers": [
+      {
+        "id": "tiles",
+        "type": "raster",
+        "source": "tiles",
+        "paint": {
+          "raster-fade-duration": 0
+        }
+      }
+    ]
+  },
+  "definition": {
+    "viewport": {
+      "lng": 13.37,
+      "lat": 52.5,
+      "zoom": 5,
+      "pitch": 0,
+      "bearing": 0
+    },
+    "size": {
+      "width": 2048,
+      "height": 2048
+    },
+    "legend": {
+      "visible": false,
+      "corner": "bottom-left",
+      "size": "m"
+    },
+    "widgets": [],
+    "title": null,
+    "appearance": "light",
+    "mapScale": 1
+  },
+  "tilePng": "iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAYAAABccqhmAAACYElEQVR42u3UMQEAAAjDsPlXhgTcgAEckCMGejSpHuApEcAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwADAAEcAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwADAAEcAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwADAAEcAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwADAAwAAAAwAMADAAwAAAAwAMADAAwAAAAwAMADAAwAAAAwAMADAAwAAAAwAMADAAwAAAAwAMADAAwAAAAwAMADAAwAAAAwAMADAAwAAAAwAMADAAMADAAAADAAwAMADAAAADAAwAMADAAAADAAwAMADAAAADAAwAMADAAAADAAwAMADAAAADAAwAMADAAAADAAwAMADAAAADAAwAMADAAAADAAwAMAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAMAAAAMADAAwAOCyr7knUvDw1qgAAAAASUVORK5CYII=",
+  "sha256": {
+    "style": "da07c6b59da606d3bcb33900cbd5aede6036a0251e6a7dd2eca31f13d73172f1",
+    "definition": "2ca406018f44da56596555bec63bf18e8fc76869e251784d7b26f1027896c762",
+    "tile": "0c108f1e4d0487d5c1264efe969623337893d655cde5ea88197d876dfe744ef5"
+  },
+  "resources": {
+    "cpus": 2,
+    "memory": "4g"
+  },
+  "warmups": 2,
+  "samples": 10,
+  "minimumTiles": 64
+}
