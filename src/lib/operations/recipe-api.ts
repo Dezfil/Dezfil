@@ -1,3 +1,4 @@
+import { boundedBodyText as readBoundedBodyText } from "@/lib/api/bounded-body";
 import type { DocumentFacts } from "@/lib/metadata/document-facts";
 import type { AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
@@ -159,41 +160,8 @@ const bodyTooLarge = (): ApiError =>
     413,
   );
 
-async function boundedBodyText(request: Request): Promise<string> {
-  const declared = request.headers.get("content-length")?.trim();
-  if (declared && /^\d+$/.test(declared)) {
-    const bytes = Number(declared);
-    if (!Number.isSafeInteger(bytes) || bytes > WORKFLOW_JSON_BODY_MAX_BYTES) {
-      throw bodyTooLarge();
-    }
-  }
-
-  if (!request.body) return "";
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let bytes = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    bytes += value.byteLength;
-    if (bytes > WORKFLOW_JSON_BODY_MAX_BYTES) {
-      try {
-        await reader.cancel();
-      } catch {
-        // The refusal is authoritative even if the producer cannot be cancelled.
-      }
-      throw bodyTooLarge();
-    }
-    chunks.push(value);
-  }
-
-  const body = new Uint8Array(bytes);
-  let offset = 0;
-  for (const chunk of chunks) {
-    body.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return new TextDecoder("utf-8", { fatal: true }).decode(body);
+function boundedBodyText(request: Request): Promise<string> {
+  return readBoundedBodyText(request, WORKFLOW_JSON_BODY_MAX_BYTES, { tooLarge: bodyTooLarge });
 }
 
 /** Read a JSON object body, refusing anything else with the documented code. */

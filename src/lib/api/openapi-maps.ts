@@ -45,6 +45,7 @@ export const MAP_COLLECTION_PATHS = {
       display: {"verb": "Created the map {subject}", "subject": {"resource": "maps", "result": "id", "name": ["name"]}},
       effects: writes(resource("maps", "", "id"), resource("projects")),
       requestBody: {
+        "x-byte-limit": 16_777_216,
         content: {
           "application/json": {
             schema: {
@@ -103,6 +104,7 @@ export const MAP_RESOURCE_PATHS = {
       effects: recorded(writes(resource("maps", "id"))),
       parameters: [pathParam("id", "Map id."), changeGroupParam, conditionalMapRevisionParam],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         content: {
           "application/json": {
             schema: { $ref: "#/components/schemas/MapUpdate" },
@@ -234,6 +236,7 @@ export const MAP_RESOURCE_PATHS = {
       effects: READ_ONLY,
       parameters: [pathParam("id", "Map id.")],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         content: {
           "application/json": {
             schema: {
@@ -376,6 +379,7 @@ export const MAP_RENDER_PATHS = {
       display: {"verb": "Checked the map"},
       effects: READ_ONLY,
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: false,
         content: {
           "application/json": {
@@ -457,6 +461,7 @@ export const MAP_RENDER_PATHS = {
       effects: READ_ONLY,
       parameters: [pathParam("id", "Map id.")],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -544,6 +549,7 @@ export const MAP_PUBLISH_PATHS = {
       confirm: true,
       parameters: [pathParam("id", "Map id."), editRevisionParam],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: false,
         content: {
           "application/json": {

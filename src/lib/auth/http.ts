@@ -1,3 +1,4 @@
+import { smallJsonValue } from "@/lib/api/json-body";
 import { NextResponse } from "next/server";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
@@ -5,7 +6,7 @@ import { errorResponse } from "@/lib/api/errors";
 import { authenticateSession, SESSION_LIFETIME_MS, type AuthContext } from "./credentials";
 import { authenticateBearer } from "./delegation";
 import { requireIngress, type Ingress } from "./ingress.mjs";
-import { AuthError } from "./errors";
+import { AuthError, AuthenticationCancelled } from "./errors";
 
 export const SESSION_COOKIE = "dezfil_session";
 export function privateResponse<T extends Response>(response: T): T {
@@ -59,16 +60,17 @@ export function sessionCookie(response: NextResponse, secret: string, ingress: I
     path: "/", maxAge: clear ? 0 : SESSION_LIFETIME_MS / 1000 });
 }
 export function authFailure(error: unknown): Response {
+  if (error instanceof AuthenticationCancelled) return privateResponse(new Response(null, { status: 499 }));
   if (!(error instanceof AuthError)) return privateResponse(errorResponse(error));
   const response = NextResponse.json({ error: { code: error.code, message: error.message, ...error.extra } }, { status: error.status });
-  if (error.code === "rate_limited") response.headers.set("retry-after", String(error.extra.retryAfter));
+  if (error.code === "rate_limited" || error.code === "authentication_busy") response.headers.set("retry-after", String(error.extra.retryAfter));
   return privateResponse(response);
 }
 export async function authBody(request: Request, fields: readonly string[], required = fields): Promise<Record<string, string>> {
+  const value: unknown = await smallJsonValue(request, () => null);
   if (request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json") {
     throw new AuthError("invalid_request", "Expected a JSON body.", 400);
   }
-  const value: unknown = await request.json().catch(() => null);
   if (!value || typeof value !== "object" || Array.isArray(value) ||
       Object.entries(value).some(([key, item]) => !fields.includes(key) || typeof item !== "string") ||
       required.some(key => typeof (value as Record<string, unknown>)[key] !== "string")) {

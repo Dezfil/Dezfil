@@ -46,6 +46,8 @@
     "journey:browser": "playwright test",
     "admin:recover": "node scripts/admin-recover.mjs",
     "journey:recovery": "node scripts/recovery-journey.mjs",
+    "probe:body": "node scripts/body-probe.mjs",
+    "probe:transport": "node scripts/transport-probe.mjs",
     "probe:gate": "node scripts/gate-journey.mjs",
     "probe:login": "node scripts/login-http-probe.mjs",
     "probe:published-auth": "node scripts/published-auth-probe.mjs",
@@ -68,7 +70,10 @@
     "e2e:smoke": "DEZFIL_E2E_ASSISTANT=1 playwright test e2e/assistant-confirmation-smoke.spec.ts",
     "lint:plugin": "node scripts/generate-dezfil-guidance.mjs --check",
     "lint:contract-docs": "node scripts/check-contract-docs.mjs",
-    "lint:reader-docs": "node scripts/check-reader-docs.mjs"
+    "lint:reader-docs": "node scripts/check-reader-docs.mjs",
+    "probe:publication-source": "node scripts/publication-source-probe.mjs",
+    "probe:derivation": "node scripts/derivation-probe.mjs",
+    "probe:credential-cleanup": "node scripts/credential-cleanup-driver.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",

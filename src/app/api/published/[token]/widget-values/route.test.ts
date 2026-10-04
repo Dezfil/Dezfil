@@ -1,3 +1,4 @@
+import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { testAccountScope } from "@/lib/test-support/accounts";
@@ -89,10 +90,10 @@ afterEach(async () => {
 
 async function values(selections: unknown) {
   const response = await POST(
-    new Request(`http://localhost/api/published/${token}/widget-values`, {
+    socketRequest(new Request(`http://localhost/api/published/${token}/widget-values`, {
       method: "POST",
       body: JSON.stringify({ selections }),
-    }),
+    })),
     { params: Promise.resolve({ token }) },
   );
   return { status: response.status, body: await response.json() };
@@ -179,10 +180,10 @@ describe("published widget-values reader gate", () => {
 
   it("a coded pre-batch refusal keeps its documented authored copy", async () => {
     const malformed = await POST(
-      new Request(`http://localhost/api/published/${token}/widget-values`, {
+      socketRequest(new Request(`http://localhost/api/published/${token}/widget-values`, {
         method: "POST",
         body: "{not json",
-      }),
+      })),
       { params: Promise.resolve({ token }) },
     );
     expect(malformed.status).toBe(400);

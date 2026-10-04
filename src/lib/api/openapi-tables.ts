@@ -1,3 +1,4 @@
+import { MCP_UPLOAD_BODY_GUIDANCE } from "./request-bounds";
 import { FILING_DESTINATION } from "./openapi-project-access";
 import { datasetAccess } from "./openapi-dataset-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
@@ -32,7 +33,7 @@ export const TABLE_COLLECTION_PATHS = {
         "GeoParquet, GeoJSON, CSV, Shapefile (as .zip), GeoPackage, " +
         "and KML/KMZ. A container holding several spatial layers " +
         "creates one table per layer; the answer enumerates them. " +
-        CSV_GEOMETRY_DESCRIPTION,
+        CSV_GEOMETRY_DESCRIPTION + " " + MCP_UPLOAD_BODY_GUIDANCE,
       tag: "Tables",
       tool: "upload_table", mcp: LOCAL_ADD,
       toolInput: { multipart: { field: "file", filename: "filename", content: "content_base64" } },
@@ -56,7 +57,7 @@ export const TABLE_COLLECTION_PATHS = {
           "multipart/form-data": {
             schema: {
               type: "object",
-              properties: { file: { type: "string", format: "binary" } },
+              properties: { file: { type: "string", format: "binary", description: MCP_UPLOAD_BODY_GUIDANCE } },
               required: ["file"],
             },
           },
@@ -94,6 +95,7 @@ export const TABLE_RESOURCE_PATHS = {
       effects: writes(resource("tables", "name"), resource("connections")),
       parameters: [pathParam("name", "Table name.")],
       requestBody: {
+            "x-byte-limit": 16_777_216,
         required: false,
         content: {
           "application/json": {

@@ -170,9 +170,10 @@ it.each([{ name: "New", email: "new@example.test", isAdmin: "yes" }, { name: "Ne
 it("does not let a stale admin check survive demotion during body parsing", async () => {
   changeAccountAccess(authenticateSession(admin.secret, db)!, member.account.id, { isAdmin: true }, db);
   const req = request("/api/users", "POST", { name: "New", email: "new@example.test" });
-  vi.spyOn(req, "json").mockImplementation(async () => {
+  const stream = req.body;
+  vi.spyOn(req, "body", "get").mockImplementation(() => {
     changeAccountAccess(authenticateSession(member.secret, db)!, admin.account.id, { isAdmin: false }, db);
-    return { name: "New", email: "new@example.test" };
+    return stream;
   });
   const response = await invite(req); expect(response.status).toBe(403);
   expect(listAccounts(db)).toHaveLength(2); expect(db.prepare("SELECT count(*) AS count FROM auth_links").get()).toEqual({ count: 1 });
@@ -182,4 +183,10 @@ it.each(["access", "reset"])("refuses unknown account %s without writes", async 
   const response = operation === "access" ? await access(request("/api/users/missing", "PATCH", { isAdmin: true }), params("missing"))
     : await reset(request("/api/users/missing/sign-in-link", "POST"), params("missing"));
   await refusal(response, 404, "not_found", before);
+});
+it.each(["invite", "access"] as const)("refuses oversized %s before a user or link change", async operation => {
+  const before = state(), req = input(operation, cookie()); req.headers.set("content-length", "65537");
+  const get = vi.spyOn(req, "body", "get");
+  await refusal(await invoke(operation, req), 413, "request_body_too_large", before);
+  expect(get).not.toHaveBeenCalled();
 });

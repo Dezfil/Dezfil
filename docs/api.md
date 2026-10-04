@@ -63,6 +63,95 @@ changes nothing. A new attempt starts with a deliberate read and a new edit;
 clients must not silently retry an old payload with a newer token. Revision
 preconditions are declared on the operations that require them.
 
+## Request bounds
+
+Measured JSON reader operations: **63**. These counts include optional bodies,
+helper readers and MCP's external parser handoff, and exclude multipart uploads
+and binary thumbnails. The contract gate measures them; type-aware body-policy
+coverage independently checks the implementation against the contract.
+
+<!-- body-tiers:start -->
+| JSON wire-byte tier | Operations |
+|---|---|
+| 65,536 | 11 |
+| 131,072 | 1 |
+| 16,777,216 | 51 |
+<!-- body-tiers:end -->
+
+Authentication entry, Account, Users and the anonymous widget-values, render
+and extent POSTs accept at most 65,536 wire bytes. This includes whitespace,
+escaping and multi-byte UTF-8, regardless of Content-Type. Excess answers 413
+before JSON parsing. Access and origin checks precede protected work; refusal
+never becomes a parse error, an optional default or a write.
+
+Outside the two workflow readers and the assistant reader, the exact envelopes
+are `{"error":{"code":"request_body_too_large","message":"The request body exceeds the 65536-byte limit."}}`
+and `{"error":{"code":"request_body_too_large","message":"The request body exceeds the 16777216-byte limit."}}`.
+At the handler, declared excess refuses without reading, and a crossing chunk
+is cancelled without retaining it or pulling again. On framework-matched paths
+this is a handler guarantee: the framework may already have drained and copied
+up to its 17 MiB limit before the gate, including anonymous callers. Canonical
+spellings of the excluded public widget-values, render and extent POST paths
+additionally refuse before a large wire body completes. Multipart uploads at the
+canonical `/api/tables` path stream to disk without the framework copy, under
+their file and archive limits. A reverse proxy's own request-size limit bounds the matched
+paths' residual copy further; see [self-hosting](self-hosting.md).
+`TRACE` returns an empty 400 at the native door before body work.
+
+Map, layer, widget, sketch, export and project JSON readers accept at most
+16,777,216 wire bytes. Optional bodies have the same outer bound: an oversized
+body never selects a default. The published render selection reader stays at
+65,536 bytes, including semantically valid filters whose strings exceed it.
+
+The finite-field controls measure 400,076 bytes for a 10,000-vertex sketch,
+262,201 for a maximal custom-icon patch, 1,500 for the fully populated
+4096-square export request, 21,976 for twelve widget selections, and 22,055
+for those selections with timeline bounds. Sixteen render filters with 200
+16-byte values measure 61,712 bytes; 18-byte values measure 68,112 and refuse.
+The viewer's twelve selections of fifty 30-character CJK values with distinct
+three-digit suffixes measure 58,288 bytes and fit. Unbounded strings and JSON
+escaping still count toward the outer limit.
+
+All other JSON consumers, including query, import, connection, settings, table
+and helper operations, use the 16,777,216-byte tier. Workflow readers retain
+their existing 16 MiB bound, required or optional empty-body behavior and
+`request_body_too_large` with the message "The workflow request body exceeds the
+16777216-byte limit." Assistant messages retain 131,072 bytes and
+`assistant_submission_too_large`. Multipart uploads and binary thumbnails
+are separate body classes.
+
+Body policy coverage uses the TypeScript receiver type and resolved calls,
+including aliases and helper parameters. Raw Request body members are confined
+to `src/lib/api/bounded-body.ts` (JSON bytes),
+`src/lib/api/thumbnail-body.ts` (binary thumbnails), and
+`src/lib/ingest/receive.ts` (streaming multipart).
+`src/lib/api/bounded-handoff.ts` alone constructs the admitted Request for an
+external JSON parser. Workflow and assistant readers use the shared byte
+reader with their own refusal contracts. Response reads are a separate type.
+The coverage check matches enforced limits, error codes, descriptions and
+413 responses against OpenAPI in both directions.
+
+## Anonymous published budgets
+
+Anonymous published API reads use verified ingress sources. View, widget-values,
+render and extent share 60 requests per ten seconds across tokens; tiles have
+600 in their separate bucket, with the existing configuration overrides.
+Unknown tokens are charged before resolution. Across both buckets, at most
+10,000 source entries are retained. Traffic sweeps expired windows at most once
+per second; between sweeps, a new source at capacity evicts the least recently
+used entry. The bound holds either way. Eviction grants a fresh window.
+Window expiry permits retry; a refusal remains 429 `rate_limited`, “Too many
+requests. Please slow down.” No new retry-header guarantee applies.
+
+Direct socket sources have independent budgets; equivalent IPv4 and mapped
+IPv4 addresses share one. A trusted proxy chain uses the nearest untrusted hop.
+Behind an untrusted proxy, readers share its socket budget by design; forwarded
+headers cannot separate it. Missing or forged provenance answers private,
+no-store 503 `ingress_unavailable`, “The instance cannot serve published maps
+yet.”, before reading a body or resolving a token. Malformed wire provenance
+still answers 400. The viewer page is outside these API budgets; IPv6 address
+rotation is not bounded by this policy.
+
 ## Ownership and sharing
 
 The rules for who sees and changes what are the same on every client: the
@@ -329,6 +418,34 @@ preferences. A non-admin patch containing `instanceName` returns `403`, with
 all personal and instance fields unchanged. Identity-bearing responses and
 refusals use `Cache-Control: private, no-store`.
 
+Password derivations share two active slots across every credential entry point,
+with six ordinary and two reserved protected waiters. Each waiter has at most
+five seconds; FIFO holds within each class. Validated link redemptions and
+signed-in current-password checks are protected; a password change retains that
+class for the new-password derivation too. Protected work takes the next free
+slot ahead of ordinary work, but at most one protected derivation is active,
+even when the other slot is idle. Ordinary work may use both slots and running
+work is never pre-empted. Known and unknown sign-ins use the same ordinary class;
+there is no account-existence priority or guaranteed admission under continuous
+load. Recovery issuance derives nothing.
+
+Overflow or deadline answers 503 `authentication_busy`, “Authentication is busy.
+Try again shortly.”, with `Retry-After: 1`, `error.retryAfter: 1` and private,
+no-store. It issues no credential, consumes no link, changes no profile/password
+and adds no login failure. Busy sign-ins and sign-ins cancelled before derivation
+starts refund both reservations. Cancellation after derivation starts retains the
+source reservation against its twenty-attempt budget until the fifteen-minute
+window expires, refunds the account reservation and adds no failures, preserving
+the clean-source exception.
+A fourth simultaneous protected caller is refused at once and may retry
+immediately without a login lockout; the response retains its one-second retry
+advice. Cancellation removes waiting work; running native work owns its slot
+until settlement, even on failure. Password rules and work factor are unchanged.
+The clean-source correct-password exception keeps its ordinary FIFO turn.
+`error.retryAfter` means seconds before retry after a login limit or temporary
+authentication capacity refusal. Five seconds bounds waiting, not derivation
+runtime: measure the work on your image and host; slower hosts may time out.
+
 **Account.** `GET`/`PATCH /api/account` read and update only the caller's
 profile. A name change needs no password; changing email requires
 `currentPassword`, rejects normalized duplicates and changes the sign-in
@@ -351,6 +468,21 @@ account's token ID returns `404` without changing it. Missing, invalid,
 revoked or deactivated credentials return `401` on every account operation.
 These operations use the same private response and cookie-origin rules as
 settings. The Account and API / MCP tokens cards in Settings call these APIs.
+
+Credential maintenance starts at boot and on the first credential access at least
+one hour after a completed pass. Each trigger examines at most 500 rows per kind;
+unfinished passes continue on subsequent accesses without the hourly delay.
+Sessions and sign-in links, including revoked or consumed records, leave only
+one day past their stored expiry. Revoked tokens leave thirty days after
+revocation. Recent revocations retain their Revoked label; removed tokens vanish
+on refresh, and revoking their identifier returns `404 not_found`, "Token not
+found.", just like any unknown identifier. Live tokens have no new expiry.
+Deletion rechecks eligibility, preserving renewed sessions and live replacements.
+The inactive session backlog is bounded by the thirty-day lifetime times the
+sign-in rate, plus the one-day margin and sweep lag; continued credential access
+drains it. There is no live-session quota, timer service or database-file shrink
+promise. Sessions still roll for thirty days, ordinary links last seven days,
+and recovery links last fifteen minutes.
 
 **Users.** Admins use `GET`/`POST /api/users` to list or invite accounts,
 `PATCH /api/users/{id}` to change another account's admin flag or active status,
@@ -639,7 +771,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **105** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **106** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -1365,7 +1497,8 @@ response message. Branch on the code.
 | `forbidden` | This request is not permitted for the current account or origin: an admin-only request, a cookie request from another origin, or a change to something the account can view but cannot make. A refused change has no effect. |
 | `invalid_link` | This sign-in link is unavailable, expired, replaced or already used. |
 | `current_password_required` | Enter your current password to make this change. |
-| `ingress_unavailable` | Trusted socket provenance is unavailable. Authentication entry cannot proceed. |
+| `authentication_busy` | Authentication is busy. Try again shortly. |
+| `ingress_unavailable` | Trusted socket provenance is unavailable. Authentication entry and published reads cannot proceed. |
 | `geometry_not_supported` | Set geometry is available only for file uploads and URL imports. |
 | `geometry_choice_invalid` | The geometry choice cannot be applied. The message explains the projection, source or validator issue. |
 | `geometry_in_flight` | A geometry edit or refresh is already running for this dataset or URL import group. |
@@ -1386,7 +1519,7 @@ response message. Branch on the code.
 | `connection_failed` | The database connection failed (unreachable, authentication, or missing extension). |
 | `connection_password_required` | Enter the password again when changing the host or port, or turning SSL off. |
 | `malformed_file` | The file could not be parsed as its declared format. |
-| `request_body_too_large` | The workflow request body exceeds its documented byte limit. |
+| `request_body_too_large` | The request body exceeds its documented byte limit. |
 | `mcp_read_failed` | The read could not be completed because its response could not be received. |
 | `mcp_transport_failed` | The operation's response could not be received. Its outcome is unknown. |
 | `mcp_response_invalid` | The instance returned a response that does not match this operation's documented result. |

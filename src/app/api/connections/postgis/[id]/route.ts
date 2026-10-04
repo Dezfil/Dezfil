@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
@@ -8,7 +9,7 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(request);
     const { id } = await params;
-    return NextResponse.json(await editConnection(scope, id, await request.json().catch(() => null)));
+    return NextResponse.json(await editConnection(scope, id, await largeJsonValue(request, () => null)));
   } catch (error) { return errorResponse(error); }
 }
 /** Imported snapshots retain their owner and data after connection deletion. */

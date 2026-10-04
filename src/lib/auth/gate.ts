@@ -1,6 +1,6 @@
 import { apiMethodResponse } from "./api-methods";
 import { isAnonymousAsset } from "./public-assets";
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { accountCount } from "@/lib/metadata/accounts";
 import { AuthError } from "./errors";
 import { isAdminRequest, isAnonymousOperation, isEntryRequest } from "./request-policy";
@@ -9,8 +9,8 @@ import { metadataDb } from "@/lib/metadata/db";
 import { assertRequestOrigin, authFailure, privateResponse, requestAuth, requestIngress, requireRequestAuth, sessionCookie, sessionSecret } from "./http";
 
 /** Early refusal only. Handlers needing identity reauthenticate the credential. */
-export function gateRequest(request: NextRequest): Response {
-  const pathname = request.nextUrl.pathname;
+export function gateRequest(request: Request): Response {
+  const pathname = new URL(request.url).pathname;
   if (isAnonymousAsset(pathname, request.method, process.env.NODE_ENV === "development") ||
       (isAnonymousOperation(pathname, request.method) && !isEntryRequest(pathname, request.method))) return NextResponse.next();
   try {

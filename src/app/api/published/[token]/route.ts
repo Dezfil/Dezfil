@@ -1,7 +1,8 @@
+import { privateResponse } from "@/lib/auth/http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { getPublishedView } from "@/lib/publish/publish-service";
-import { rateLimit } from "@/lib/publish/rate-limit";
+import { admitPublishedRequest } from "@/lib/publish/source-admission";
 
 type Params = { params: Promise<{ token: string }> };
 
@@ -14,16 +15,7 @@ export async function GET(request: Request, { params }: Params) {
   try {
     const { token } = await params;
 
-    const ip =
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      "anonymous";
-    if (!rateLimit(`pub:${ip}`, Date.now())) {
-      throw new ApiError(
-        "rate_limited",
-        "Too many requests. Please slow down.",
-        429,
-      );
-    }
+    admitPublishedRequest(request);
 
     const view = await getPublishedView(token, Date.now(), request.signal);
     if (!view) {
@@ -37,6 +29,6 @@ export async function GET(request: Request, { params }: Params) {
       },
     });
   } catch (error) {
-    return errorResponse(error);
+    return privateResponse(errorResponse(error));
   }
 }

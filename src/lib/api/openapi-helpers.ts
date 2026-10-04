@@ -46,9 +46,12 @@ export function op(config: {
   responses: Record<string, unknown>;
   parameters?: unknown[];
 }) {
+  const bound = (config.requestBody as { "x-byte-limit"?: number } | undefined)?.["x-byte-limit"];
+  const code = (config.requestBody as { "x-byte-error"?: string } | undefined)?.["x-byte-error"] ?? "request_body_too_large";
+  const admission = bound && !config.description?.includes(`At most ${bound.toLocaleString("en-US")} wire bytes`) ? `At most ${bound.toLocaleString("en-US")} wire bytes; a larger body is refused with \`${code}\` before JSON parsing. ` : "";
   return {
     summary: config.summary,
-    description: config.description,
+    description: admission + (config.description ?? ""),
     tags: [config.tag],
     "x-tool": config.tool,
     ...(config.toolInput ? { "x-tool-input": config.toolInput } : {}),
@@ -61,7 +64,7 @@ export function op(config: {
     ...(config.confirm ? { "x-confirm": config.confirm } : {}),
     ...(config.parameters ? { parameters: config.parameters } : {}),
     ...(config.requestBody ? { requestBody: config.requestBody } : {}),
-    responses: { ...config.responses, default: ERROR_RESPONSE },
+    responses: { ...config.responses, ...(bound ? { "413": ERROR_RESPONSE } : {}), default: ERROR_RESPONSE },
   };
 }
 

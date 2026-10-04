@@ -675,3 +675,326 @@ the repository's shipped copy and ships that copy with the instance. An
 instance override still wins for the same identity. Dezfil supplies no cron
 setup, refresh job or provider discovery. Effort levels remain manually
 maintained.
+
+## Request transport probe
+
+Run the whole-body probe on a production standalone built in an isolated checkout,
+with the native ingress preload and a fresh scratch store. The client must see the
+same data directory and server log; it observes upload scratch growth while still
+sending. Do not run it against a user's store. For example, from the isolated
+build checkout (ports 3391 and 3392 must be free):
+
+```sh
+transport_data=$(mktemp -d "$PWD/.tmp-transport-XXXXXX")
+DEZFIL_DATA_DIR="$transport_data" DEZFIL_UPLOAD_MAX_MB=257 HOSTNAME=127.0.0.1 PORT=3391 \
+  node --import=./scripts/ingress-preload.mjs .next/standalone/server.js \
+  > "$transport_data/server.log" 2>&1 &
+transport_pid=$!
+# Wait for GET http://127.0.0.1:3391/api/health to return 200.
+DEZFIL_DATA_DIR="$transport_data" DEZFIL_UPLOAD_MAX_MB=257 \
+  npm run probe:transport -- http://127.0.0.1:3391 --server-log "$transport_data/server.log"
+kill "$transport_pid"
+```
+
+Repeat with a **new** scratch directory, `DEZFIL_UPLOAD_MAX_MB=1`, `PORT=3392`,
+and the client command below to test the configured multipart file boundary:
+
+```sh
+DEZFIL_DATA_DIR="$transport_data" DEZFIL_UPLOAD_MAX_MB=1 \
+  npm run probe:transport -- http://127.0.0.1:3392 --server-log "$transport_data/server.log" --file-limit-only
+```
+
+For the container, run each arm in a fresh container. The image job uses these
+commands for the main arm, then repeats with port 3392, cap 1 and
+`--file-limit-only`. The preload is the same as the image's default command;
+redirection makes its log visible to the probe within the network namespace.
+
+```sh
+docker run -d --rm --name dezfil-transport --network=none \
+  -e PORT=3391 -e DEZFIL_DATA_DIR=/data -e DEZFIL_UPLOAD_MAX_MB=257 \
+  -v "$PWD/scripts:/probes:ro" dezfil:ci \
+  sh -c 'exec node --import=./scripts/ingress-preload.mjs server.js > /data/transport-server.log 2>&1'
+# Wait for health from inside this container.
+docker exec dezfil-transport node /probes/transport-probe.mjs \
+  http://127.0.0.1:3391 --server-log /data/transport-server.log
+docker stop dezfil-transport
+```
+
+Green prints JSON with `"label": "confirmed"`, elapsed seconds, exact file sizes
+and independently counted rows, growing scratch samples, workflow validation
+answers, public refusal byte counts, and empty TRACE answers. Declared public
+excess writes zero body bytes; a paced 4 MiB chunked sender must receive 413 by
+81,920 bytes (65,536 plus fixed 16,384-byte scheduling slack). Red prints
+`"label": "failed"` and the failing assertion, then exits 1. A missing response
+times out. Missing rows, scratch growth only after sending, and any framework
+truncation warning fail independently. The file-limit arm preserves the receiver's
+existing boundary: one byte below the configured cap succeeds; exact and above
+answer `upload_too_large` without a table or scratch file.
+
+Run `npm run probe:gate -- http://127.0.0.1:3391` separately against another fresh
+preloaded store for the unchanged complete native refusal matrix. These probes
+assert behavior, not an RSS or latency improvement; compare the image job's total
+duration separately when assessing its added cost.
+
+### JSON body and MCP admission probe
+
+Use an isolated production standalone or container, never a working data store.
+The full probe includes the large-upload and paced anonymous transport arms,
+then drives every documented JSON reader at minus-one, exact and plus-one
+bytes with declared and chunked UTF-8 and escaped input. It exercises maximal
+sketch, icon, export and viewer fixtures, compares resource state after
+refusals, and counts all rows in the stock MCP client's near-ceiling upload.
+It prints each fixture's bytes, MCP envelope overhead, check counts and elapsed
+seconds. Keep the separate 1 MiB upload-limit arm.
+
+The server must preload ingress, use `DEZFIL_UPLOAD_MAX_MB=257`, and enable
+the assistant with `DEZFIL_AI_PROVIDER=openai OPENAI_API_KEY=scripted-wire`.
+The assistant controls refuse in validation, before any provider call. The
+workstation server also needs `DEZFIL_CHROMIUM_PATH` pointing to its headless
+browser and `DEZFIL_EGRESS_ALLOWLIST=127.0.0.1`, as in the journeys, for the
+export control. Without the browser it answers 503 and stops the probe. The
+container supplies the browser and needs no extra export configuration. The
+client's `DEZFIL_DATA_DIR` must point at the server's isolated data directory
+so it can observe upload scratch growth. Use port 3391 for the full arm and
+3392 for the 1 MiB arm. The client install needs the lockfile's stock MCP
+client; the separate probe image supplies it without adding it to production.
+
+Against an already running production standalone on port 3391:
+
+```sh
+DEZFIL_DATA_DIR="$PWD/.claude/test-data/body-server" npm run probe:body -- http://127.0.0.1:3391 --server-log "$PWD/.claude/logs/body-server.log"
+```
+
+Against a container named `dezfil-body`, with its log at
+`/data/body-server.log`, use the separately built `dezfil-mcp-probe:ci` image:
+
+```sh
+docker run --rm --network=container:dezfil-body --volumes-from dezfil-body -e DEZFIL_DATA_DIR=/data -v "$PWD/scripts:/probe/scripts:ro" dezfil-mcp-probe:ci node /probe/scripts/body-probe.mjs http://127.0.0.1:3391 --server-log /data/body-server.log
+```
+
+On a separate instance configured with `DEZFIL_UPLOAD_MAX_MB=1`:
+
+```sh
+DEZFIL_DATA_DIR="$PWD/.claude/test-data/file-limit-server" DEZFIL_UPLOAD_MAX_MB=1 npm run probe:transport -- http://127.0.0.1:3392 --server-log "$PWD/.claude/logs/file-limit-server.log" --file-limit-only
+```
+
+Green exits zero with `"label":"confirmed"`, 63 JSON operations and 756
+boundary checks, the measured fixture bytes, and a counted MCP upload. A red
+exits nonzero with `"label":"failed"` and the failed assertion. Truncation, a
+swallowed refusal, an unbounded MCP handoff, changed resource state, missing
+rows, an unavailable renderer, or missing evidence all fail the probe. The
+route-level unit uses the same probe with an injected transport and image
+renderer; it does not establish real-socket or framework-copy behavior.
+
+### Publication source and state probe
+
+Use four fresh standalone processes or four sequential containers, one per arm:
+`direct` on 3393, `trusted` on 3394, `untrusted` on 3395, and `missing` on 3396.
+Every server uses `DEZFIL_DATA_DIR` pointing to its own empty scratch directory,
+`DEZFIL_PUBLIC_RATE_LIMIT=4` and `DEZFIL_PUBLIC_TILE_RATE_LIMIT=2`. Only `trusted`
+sets `DEZFIL_TRUSTED_PROXIES=127.0.0.1`; all other arms explicitly leave it empty.
+These are controlled proxy requests over a real loopback socket. Direct traffic
+binds the client's local address to 127.0.0.1 and 127.0.0.2; the workstation must
+have both available. On macOS, the direct arm needs a loopback alias for
+127.0.0.2 or must run in the container. Linux routes the whole loopback network;
+the IPv4-only image uses these same two addresses.
+
+Start the standalone from its isolated build directory (substitute the checkout's
+absolute `scripts` path for `$PROBES` and a fresh directory for `$SCRATCH`):
+
+```sh
+PORT=3393 HOSTNAME=127.0.0.1 DEZFIL_DATA_DIR="$SCRATCH" DEZFIL_PUBLIC_RATE_LIMIT=4 DEZFIL_PUBLIC_TILE_RATE_LIMIT=2 DEZFIL_TRUSTED_PROXIES='' DEZFIL_TEST_PUBLICATION_LOG="$SCRATCH/publication.ndjson" node --import=./scripts/ingress-preload.mjs --import="$PROBES/publication-observer.mjs" server.js
+```
+
+For each other arm change the port, store and proxy setting above. `missing`
+omits the ingress preload. The observer is test-process-only and records every
+limiter insertion; it adds no diagnostic HTTP endpoint or production setting.
+Against each already running standalone, run (change mode and port together):
+
+```sh
+DEZFIL_DATA_DIR="$SCRATCH" node "$PROBES/publication-source-probe.mjs" http://127.0.0.1:3393 direct --state-log "$SCRATCH/publication.ndjson"
+```
+
+On the fresh trusted standalone, explicitly include the served capacity proof:
+
+```sh
+DEZFIL_DATA_DIR="$SCRATCH" node "$PROBES/publication-source-probe.mjs" http://127.0.0.1:3394 trusted --state-log "$SCRATCH/publication.ndjson" --capacity
+```
+
+For a container, the direct arm is exactly:
+
+```sh
+docker run -d --rm --name dezfil-publication --network=none -e PORT=3393 -e DEZFIL_DATA_DIR=/data -e DEZFIL_PUBLIC_RATE_LIMIT=4 -e DEZFIL_PUBLIC_TILE_RATE_LIMIT=2 -e DEZFIL_TRUSTED_PROXIES='' -e DEZFIL_TEST_PUBLICATION_LOG=/data/publication.ndjson -v "$PWD/scripts:/probes:ro" dezfil:ci node --import=./scripts/ingress-preload.mjs --import=/probes/publication-observer.mjs server.js
+docker exec dezfil-publication node /probes/publication-source-probe.mjs http://127.0.0.1:3393 direct --state-log /data/publication.ndjson
+docker stop dezfil-publication
+```
+
+Repeat on fresh containers for `trusted`/3394 with proxies `127.0.0.1`,
+`untrusted`/3395 with empty proxies, and `missing`/3396 with empty proxies and
+no ingress preload. Four server containers total, no sidecars or published ports.
+For the local trusted container, replace the probe command with:
+
+```sh
+docker exec dezfil-publication node /probes/publication-source-probe.mjs http://127.0.0.1:3394 trusted --state-log /data/publication.ndjson --capacity
+```
+
+The image job runs all four modes without `--capacity`: hosted runners cannot
+fill the state inside one ten-second window. It proves direct/proxy source
+separation and sharing, refusals, expiry and the missing-ingress answer, and
+makes no capacity claim. The missing arm accepts an unready health response as
+evidence that the deliberately unpreloaded server is listening.
+
+Green exits zero with `label: confirmed` and per-arm check counts: independent
+direct sockets, shared view budgets across valid/unknown tokens, separate tiles,
+trusted-chain separation and mapped equivalence, untrusted sharing despite
+forged headers, ten-second recovery and expiry on ordinary reads. The missing arm pins
+the exact private 503 on all five operations, with and without forged provenance.
+Red exits nonzero with `label: failed`: a shared direct key, accepted forged
+provenance, changed refusal or absent expiry observation fails.
+
+Only `trusted --capacity` sends the additional 10,050 distinct sources across
+both buckets and asserts every observed size stays at most 10,000, reaches
+10,000, and retains that size after further admissions. This requires 10,050
+requests inside ten seconds, about 1,005 requests per second through the served
+stack with the observer attached. `capacity arm never reached the bound; expiry
+may have hidden eviction` means the probe did not fill the state before entries
+could expire; it cannot prove eviction and fails. It is not a capacity pass on
+a slower host. This explicit arm is the served proof of the bound on a machine
+that can reach it. Without the flag, there are no capacity assertions or capacity
+evidence. Deterministic unit tests with a controlled clock prove the exact bound,
+expiry before eviction and renewal at capacity independently of host throughput.
+`--capacity` is refused for other modes. No IPv6
+rotation, throughput, latency or memory improvement is claimed.
+
+### Derivation admission and timing probe
+
+Use one fresh production standalone or one fresh container on port 3397. Set
+`DEZFIL_TRUSTED_PROXIES=127.0.0.1` for this isolated test instance: the probe
+sends distinct controlled forwarded sources over loopback, so the twenty-attempt
+source budget cannot masquerade as derivation capacity. Do not disable login
+limits, change work factors or increase admission capacity. The only observer
+setting below belongs to the test preload, not to the production configuration.
+
+Start from the isolated standalone directory, with `$PROBES` the checkout's
+absolute `scripts` directory and `$SCRATCH` a fresh data directory:
+
+```sh
+PORT=3397 HOSTNAME=127.0.0.1 DEZFIL_DATA_DIR="$SCRATCH" DEZFIL_TRUSTED_PROXIES=127.0.0.1 DEZFIL_TEST_DERIVATION_LOG="$SCRATCH/derivations.ndjson" node --import=./scripts/ingress-preload.mjs --import="$PROBES/derivation-observer.mjs" server.js
+```
+
+From the checkout, against that running standalone:
+
+```sh
+DEZFIL_DATA_DIR="$SCRATCH" node scripts/derivation-probe.mjs http://127.0.0.1:3397 --state-log "$SCRATCH/derivations.ndjson"
+```
+
+The server's standalone tree needs the packaged `src/lib/auth/ingress.mjs` and
+preload scripts, as in the transport recipe. The client uses the checkout's
+recovery implementation; the container client uses the packaged implementation.
+For the image, one server container and no sidecar or published port:
+
+```sh
+docker run -d --rm --name dezfil-derivation --network=none -e PORT=3397 -e DEZFIL_DATA_DIR=/data -e DEZFIL_TRUSTED_PROXIES=127.0.0.1 -e DEZFIL_TEST_DERIVATION_LOG=/data/derivations.ndjson -v "$PWD/scripts:/probes:ro" dezfil:ci node --import=./scripts/ingress-preload.mjs --import=/probes/derivation-observer.mjs server.js
+docker exec dezfil-derivation node /probes/derivation-probe.mjs http://127.0.0.1:3397 --state-log /data/derivations.ndjson
+docker stop dezfil-derivation
+```
+
+Green exits zero with `label: confirmed`, measured single and paired native
+scrypt durations, observed peaks, busy count, and successful post-drain retries.
+It covers setup contention, known and dummy sign-ins, signed-in checks, link
+redemption, both password-change derivations and packaged recovery redemption.
+The assertions require at most two actual native jobs, at most one protected
+active job, at most six ordinary and two protected waiters, exact private busy
+answers, and recovery after drain. Saturation never asserts an exact served
+count. Busy sign-ins retry from their original sources without a fifteen-minute
+wait; busy links remain redeemable. The observer wraps native callbacks and
+records shared queue state; it neither holds work nor adds a production endpoint.
+
+The timing report compares three ordinary queue waves and up to six waves under
+protected competition against the five-second waiting deadline. Those wave
+figures extrapolate the measured paired duration; they are not measured queue
+latency or a promise that all waiters succeed on slower hosts. The isolated
+`derivation-timing.test.ts` records local native timing in its scratch directory
+when run alone; full-suite timings include contention from other tests.
+
+Red exits nonzero with `label: failed` for a cross-route admission bypass, excess
+native or protected concurrency, queue overflow, a missing or malformed busy
+answer, login-limit interference, missing observations, or failed recovery.
+The route-level probe test substitutes short native work and transport; it
+confirms fixture and assertion coverage, not delivery or performance. Measure
+these five additional server runs (four publication arms plus this arm) with the
+existing 256 MiB and body probes when recording the image job's added minutes.
+The earlier roughly six-minute image duration is a historical reference; no
+candidate image duration is inferred from unit runs.
+
+
+### Credential cleanup and restart probe
+
+Run from the checkout against an already built isolated standalone, with its
+native dependencies and ingress preload present. The driver owns port 3398;
+choose another unused port with `--port` if needed. Never use the operator's
+store or its development build. Each invocation requires an empty, absolute
+scratch `DEZFIL_DATA_DIR` and creates no production setting:
+
+```sh
+DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/test-data/cleanup-XXXXXX") node scripts/credential-cleanup-driver.mjs --standalone /absolute/isolated-build/.next/standalone --port 3398
+DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/test-data/cleanup-XXXXXX") node scripts/credential-cleanup-driver.mjs --container dezfil:ci --port 3398
+```
+
+The container command is the image job's command. It needs the built `dezfil:ci`
+image and Docker, no client image or sidecar. It creates one fresh named volume
+and three successive server containers, each with `--network=none`,
+`DEZFIL_DATA_DIR=/data`, `PORT=3398` and empty `DEZFIL_TRUSTED_PROXIES`. Clients
+run inside each server's namespace with `docker exec`. The standalone likewise
+uses three replacement processes over the same scratch store. The driver removes
+its containers and volume even after failure; it leaves `cleanup-evidence.json`
+and `cleanup-server.log` in the host scratch directory. Standalone mode also
+leaves the isolated fixture store and its private credential manifest there.
+
+The first launch provisions the fixture through HTTP, counts six repeated
+sign-ins, and seeds 1,201 expired rows per credential kind alongside live and
+retained controls. The second launch snapshots rows before credential traffic:
+boot must remove between one and 500 old rows per kind. Continued cookie/token
+access must drain the rest without an hourly wait. Every retained row survives,
+recent revoked-token history stays visible, removed identifiers answer with the
+exact unknown-token refusal, and live ordinary/recovery links redeem. Eleven
+more old rows per kind are seeded for the third launch, which proves cleanup
+runs again after replacement and live and redeemed credentials still work.
+
+Green exits zero with `label: confirmed`, three launches, per-phase row counts
+and checks. Red exits nonzero with `label: failed`: absent cleanup, a batch above
+500 deletions, premature removal, stale history, changed refusals, failed live
+use or a reused process/container identity fails. Unit fixtures seed missing
+cleanup and premature removal independently and run the same probe through real
+handlers. Those units do not establish socket, packaged boot or image behavior;
+the driver does. Exact retention boundaries, 500 examined rows (including
+live rows), hourly cadence and renewal races remain deterministic unit proofs.
+
+
+### Image job probe order
+
+After building and recording the `dezfil:ci` image, the image job runs these
+checks in order. The stock `dezfil-mcp-probe:ci` client image is built after the
+inventory check; it is a test client, not a shipped service.
+
+| Order | Check | Containers required |
+|---|---|---|
+| 1 | `check-image-inventory.mjs` | Disposable `dezfil:ci` inspection containers. |
+| 2 | `body-probe.mjs` (includes transport, 11/256 MiB uploads, 12 MiB workflow and paced public POSTs), then `transport-probe.mjs --file-limit-only` | Two fresh `dezfil-transport-ci` servers in sequence, 257 MiB then 1 MiB upload caps; stock MCP client beside the first server. |
+| 3 | `publication-source-probe.mjs`: direct, trusted, untrusted, missing, without `--capacity` | Four fresh `dezfil-publication-ci` servers in sequence; only the trusted arm trusts loopback and only the missing arm omits ingress. |
+| 4 | `derivation-probe.mjs` | One `dezfil-derivation-ci` server with trusted loopback and the test observer. |
+| 5 | `credential-cleanup-driver.mjs` | Three replacement `dezfil:ci` servers over one fresh named volume, no sidecar. |
+| 6 | `ingress-probe.mjs`, then `--expect-missing` | Two disposable `dezfil:ci` containers, with and without ingress preload. |
+| 7 | `check-duckdb-extensions-offline.mjs` | One disposable `dezfil:ci` container without networking. |
+| 8 | Thirty-second cold start, `journey.mjs`, then `durability.mjs seed` and `verify` | `dezfil-ci`, then its replacement on `dezfil-ci-data`. |
+| 9 | `ownership-journey.mjs seed` and `verify` | Two successive `dezfil-ownership-ci` servers on their own volume, each driven by the stock MCP client. |
+| 10 | `sharing-journey.mjs seed` and `verify` | Two successive `dezfil-sharing-ci` servers on their own volume, each driven by the stock MCP client and its scripted assistant wire. |
+| 11 | `mcp-process-driver.mjs` | Two replacement `dezfil:ci` servers over a fresh volume plus stock MCP clients. |
+| 12 | `dezfil-plugin-container.mjs` HTTP journey | One `dezfil-plugin-ci` server plus stock MCP client with mounted plugin files. Keep this server for the final check. |
+| 13 | `offline-export-probe.mjs --tiled` | One `dezfil-offline` server without networking. |
+| 14 | `offline-export-probe.mjs --expect-unavailable` | One `dezfil-nobrowser` server from the image with Chromium removed. |
+| 15 | `dezfil-plugin-container.mjs --render --render-log ...` | The retained `dezfil-plugin-ci` server and a stock MCP client. |
+
+Cleanup steps stop remaining journey/plugin containers. The separate native gate,
+account-upgrade, login-window and admin-recovery recipes remain outside this
+image job; run them as described above when preparing a release.

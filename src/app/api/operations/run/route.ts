@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
@@ -39,12 +40,13 @@ export async function POST(request: Request) {
       writtenIn?: unknown;
     };
     try {
-      const parsed: unknown = await request.json();
+      const parsed: unknown = await largeJsonValue(request);
       if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
         throw new Error("not an object");
       }
       body = parsed as typeof body;
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
       throw new ApiError(
         "invalid_request",
         "The request body must be a JSON object describing the operation to run.",

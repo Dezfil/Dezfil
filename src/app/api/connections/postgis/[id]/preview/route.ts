@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
@@ -12,7 +13,7 @@ export async function POST(request: Request, { params }: Params) {
     const scope = requireRequestScope(request);
     assertPreviewActive(request.signal);
     const { id } = await params;
-    const body = await request.json().catch(() => null);
+    const body = await largeJsonValue(request, () => null);
     return NextResponse.json(await previewPostgis(scope, id, body, undefined, request.signal));
   } catch (error) {
     return errorResponse(error);

@@ -4,7 +4,7 @@ import { LOCAL_ADD, LOCAL_READ, LOCAL_REPLACE } from "./operation-mcp";
 import { READ_ONLY, resource, writes } from "./operation-metadata";
 const privacy = "Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. ";
 const errors = { "400": ERROR_RESPONSE, "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "409": ERROR_RESPONSE, "503": ERROR_RESPONSE };
-const body = (properties: Record<string, unknown>, required: string[], extra = {}) => ({ required: true,
+const body = (properties: Record<string, unknown>, required: string[], extra = {}) => ({ "x-byte-limit": 65_536, required: true,
   content: { "application/json": { schema: { type: "object", additionalProperties: false, properties, required, ...extra } } } });
 const subject = { path: "/api/users", argument: "id", name: "name", collection: "users", identity: "id" };
 export const USERS_PATHS = {

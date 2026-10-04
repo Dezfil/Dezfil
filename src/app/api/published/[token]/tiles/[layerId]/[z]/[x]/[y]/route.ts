@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
-import { rateLimit, tileMaxPerWindow } from "@/lib/publish/rate-limit";
+import { admitPublishedRequest } from "@/lib/publish/source-admission";
 import { readTile } from "@/lib/tiles/serve";
 import {
   currentPublishedTile,
@@ -32,16 +32,7 @@ export async function GET(request: Request, { params }: Params) {
   try {
     const { token, layerId, z, x, y } = await params;
 
-    const ip =
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      "anonymous";
-    if (!rateLimit(`tile:${ip}`, Date.now(), tileMaxPerWindow())) {
-      throw new ApiError(
-        "rate_limited",
-        "Too many requests. Please slow down.",
-        429,
-      );
-    }
+    admitPublishedRequest(request, "tile");
 
     const requestedVersion = new URL(request.url).searchParams.get("v");
     const artifact = currentPublishedTile(token, layerId, requestedVersion);

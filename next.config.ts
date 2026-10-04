@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Standalone output keeps the Docker image to the app plus its used deps.
   output: "standalone",
+  // Leave the complete 16 MiB JSON tier and its refusal boundary intact.
+  // Multipart uploads bypass the proxy copy and stream in their handler.
+  experimental: { proxyClientMaxBodySize: 17 * 1024 * 1024 },
   outputFileTracingIncludes: { "/*": ["./src/lib/assistant/model-catalogue.json"] },
   // The container omits test fixtures; npm run typecheck checks the full tree.
   typescript: { tsconfigPath: "tsconfig.build.json" },

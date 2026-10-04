@@ -1,8 +1,10 @@
+import { withRouteGate, gateOnly } from "@/lib/auth/route-gate";
+import { publishedJsonBody } from "@/lib/publish/published-body";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { resolvePublication, requirePublicationScope } from "@/lib/publish/publication-scope";
 import { layerExtent } from "@/lib/extent-service";
-import { rateLimit } from "@/lib/publish/rate-limit";
+import { admitPublishedRequest } from "@/lib/publish/source-admission";
 import { isValidSelections, selectionFilter } from "@/lib/widgets";
 import { assertPublishedSelections } from "@/lib/widget-service";
 import { timeToMs } from "@/lib/time";
@@ -24,28 +26,13 @@ type Params = { params: Promise<{ token: string; layerId: string }> };
  * Empty is a distinct outcome from a failure: filtering everything away is
  * a normal thing for a reader to do.
  */
-export async function POST(request: Request, { params }: Params) {
+async function read(request: Request, { params }: Params) {
   try {
     const { token, layerId } = await params;
 
-    const ip =
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      "anonymous";
-    if (!rateLimit(`pub:${ip}`, Date.now())) {
-      throw new ApiError(
-        "rate_limited",
-        "Too many requests. Please slow down.",
-        429,
-      );
-    }
+    admitPublishedRequest(request);
 
-    let body: Record<string, unknown> = {};
-    try {
-      const text = await request.text();
-      if (text) body = JSON.parse(text) as Record<string, unknown>;
-    } catch {
-      throw new ApiError("invalid_request", "Expected a JSON body.", 400);
-    }
+    const body = await publishedJsonBody(request);
 
     const snapshot = resolvePublication(token);
     if (!snapshot) {
@@ -118,3 +105,11 @@ export async function POST(request: Request, { params }: Params) {
     return errorResponse(error);
   }
 }
+
+export async function POST(request: Request, context: Params) { return withRouteGate(request, () => read(request, context)); }
+export async function GET(request: Request) { return gateOnly(request); }
+export async function HEAD(request: Request) { return gateOnly(request); }
+export async function OPTIONS(request: Request) { return gateOnly(request); }
+export async function PUT(request: Request) { return gateOnly(request); }
+export async function DELETE(request: Request) { return gateOnly(request); }
+export async function PATCH(request: Request) { return gateOnly(request); }

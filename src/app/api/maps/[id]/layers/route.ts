@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { requireDocumentRevision } from "@/lib/metadata/revisions";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
@@ -31,8 +32,9 @@ export async function POST(request: Request, { params }: Params) {
     requireDocumentRevision(scope, { kind: "map", id, expectedRevision: request.headers.get("X-Edit-Revision") });
     let body: { name?: unknown; sql?: unknown; style?: unknown; writtenIn?: unknown };
     try {
-      body = (await request.json()) as typeof body;
-    } catch {
+      body = (await largeJsonValue(request)) as typeof body;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
       throw new ApiError("invalid_request", "Expected a JSON body.", 400);
     }
     if (typeof body.sql !== "string" || body.sql.trim() === "") {

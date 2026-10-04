@@ -100,8 +100,8 @@ catalogue is a file there. See [configuration](docs/configuration.md).
 | `DEZFIL_SLIDER_PREVIEW_ROWS` | `50000` | Max source points transferred for an interactive slider preview. |
 | `DEZFIL_PUBLISH_FRESHNESS_S` | `30` | How stale a published view may be — its cache window. |
 | `DEZFIL_TILE_BUILD_TIMEOUT_S` | `600` | Timeout for each stage of a background tile build. |
-| `DEZFIL_PUBLIC_RATE_LIMIT` | `60` | Anonymous published-view requests per 10s window, per client. |
-| `DEZFIL_PUBLIC_TILE_RATE_LIMIT` | `600` | Anonymous tile requests per 10s window, per client (one map pan is dozens of tiles). |
+| `DEZFIL_PUBLIC_RATE_LIMIT` | `60` | Anonymous published-view requests per 10s window, per verified source. |
+| `DEZFIL_PUBLIC_TILE_RATE_LIMIT` | `600` | Anonymous tile requests per 10s window, per verified source (one map pan is dozens of tiles). |
 | `DEZFIL_TIPPECANOE` | `tippecanoe` | Path to the tippecanoe binary used for tile builds. |
 | `DEZFIL_BASEMAP_URL` | OpenFreeMap dark | MapLibre style URL for the basemap. |
 | `DEZFIL_BASEMAP_ATTRIBUTION` | — | Credit line shown on maps that use `DEZFIL_BASEMAP_URL`. Unset, no credit is shown for the override: the built-in credit would name a provider that is not serving the tiles. |
@@ -140,6 +140,47 @@ catalogue is a file there. See [configuration](docs/configuration.md).
 | `DEZFIL_OPERATION_CONCURRENCY` | `1` | Operations executing at once. Runs are heavy work on the query engine, whose memory budget is shared, so work beyond the cap queues rather than competing. |
 | `DEZFIL_OPERATION_QUEUE_MAX` | `20` | Runs that may wait for the lane. A run arriving at a full queue is refused with a coded error instead of joining a queue that will not drain. |
 | `DEZFIL_OPERATION_HISTORY_PER_SUBJECT` | `20` | Runs kept per subject. The subject's most recent success is preserved inside this depth, so a failed re-run never erases the last good one. |
+| `DEZFIL_TEST_PUBLICATION_LOG` | unset | Test preload only: NDJSON destination for per-admission published-source state. Required by `scripts/publication-observer.mjs`; no effect without that preload. |
+| `DEZFIL_TEST_DERIVATION_LOG` | unset | Test preload only: NDJSON destination for native derivation starts, completions and admission occupancy. Required by `scripts/derivation-observer.mjs`; no effect without that preload. |
+
+JSON admission has fixed outer byte tiers: 65,536 bytes for authentication
+entry, Account, Users and the three anonymous published POSTs; 16,777,216 for
+other JSON, including MCP and workflows; assistant messages retain 131,072.
+Excess returns 413 with the operation's documented error. Optional bodies,
+escaping and UTF-8 bytes count too. Render selections remain in the small tier
+even when their filters satisfy the semantic limits. MCP's base64 envelope
+makes a raw upload smaller than 12 MiB; see [the MCP guide](docs/mcp.md).
+Multipart uploads stream to disk under the separate file/archive caps.
+
+The fixed `experimental.proxyClientMaxBodySize` in `next.config.ts` is
+17 MiB (17,825,792 bytes), allowing the 16 MiB JSON boundary to reach its reader.
+Matched paths still drain and copy up to that limit before the gate, including
+anonymous callers. A fronting reverse proxy's own request-size limit bounds
+that residual copy further. Canonical spellings of `/api/tables` and the public
+widget-values, render and extent POST paths bypass the copy and preserve their
+handler-side gates. The native door returns an
+empty 400 for `TRACE`. See [self-hosting](docs/self-hosting.md) for the wire
+behavior and [the API guide](docs/api.md#request-bounds) for exact refusals.
+
+Published API budgets use verified ingress sources, shared across tokens, including
+unknown tokens. View reads share one budget; tiles have another. Both together
+retain at most 10,000 entries. Traffic sweeps expired windows at most once per
+second; between sweeps, a new source at capacity evicts the least recently used
+entry. The bound holds either way. Eviction starts a fresh window. Readers behind an
+untrusted proxy share its socket budget; trusted chains use the nearest
+untrusted hop. Missing or forged provenance refuses with private, no-store
+503 `ingress_unavailable` before body work or token resolution. See
+[self-hosting](docs/self-hosting.md) for provenance refusals and scope.
+
+Password derivation admission is shared across the server process: two active,
+six ordinary plus two reserved protected waiters, and a five-second maximum
+wait. FIFO applies within each class. Validated links and signed-in password
+checks are protected, with priority for the next slot and at most one active
+protected derivation. Ordinary sign-ins can use both slots. Full classes and
+deadlines answer private 503 `authentication_busy` with one-second retry advice,
+without adding login failures or a lasting lockout. Running work retains its
+slot until settlement. These fixed bounds introduce no configuration knob;
+actual derivation time depends on the host.
 
 ### The secret key
 

@@ -60,6 +60,7 @@ export const JOB_PATHS = {
       relevance: ["builder", "workflow"],
       effects: planning("dryRun", writes(resource("runs", "", "run.id"), resource("tables"))),
       requestBody: {
+            "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {

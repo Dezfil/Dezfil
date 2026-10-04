@@ -20,6 +20,8 @@ beforeAll(async () => {
     "src/lib/project-scope.ts", "src/app/api/tables/route.ts",
   ];
   const mocks = new Map([
+    // This fixture isolates receiver lifetime; the gate has its own real-route inventory.
+    ["src/lib/auth/route-gate.ts", "exports.withRouteGate = (_request, work) => work();"],
     ["src/lib/ingest/gdal-formats.ts", `
       const fs = require("node:fs/promises");
       exports.calls = [];
@@ -86,6 +88,7 @@ for (const boundary of ["receiver", "route"] as const) {
       ["write-error", 500, "internal"],
       ["flush-error", 500, "internal"],
       ["size-limit", 413, "upload_too_large"],
+      ["size-limit-at-closing-boundary", 413, "upload_too_large"],
       ["wrong-field", 400, "invalid_request"],
       ["node-size-limit", 413, "upload_too_large"],
       ["node-wrong-field", 400, "invalid_request"],

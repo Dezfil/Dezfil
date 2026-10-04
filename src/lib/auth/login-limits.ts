@@ -4,7 +4,7 @@ import { normalizeEmail } from "@/lib/metadata/accounts";
 import { signIn } from "./accounts";
 import { normalizeAddress, requireIngress } from "./ingress.mjs";
 import { secretHash } from "./credentials";
-import { AuthError } from "./errors";
+import { AuthError, AuthenticationCancelled } from "./errors";
 
 export const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 export const LOGIN_ACCOUNT_LIMIT = 5;
@@ -44,8 +44,10 @@ export async function withLoginLimit<T>(email: string, source: string, operation
     }
     return rows.map(({ row }) => row);
   }).immediate();
-  const finish = (outcome: "success" | "failure" | "refund") => db.transaction(() => {
+  const finish = (outcome: "success" | "failure" | "started-cancellation" | "refund") => db.transaction(() => {
     for (const row of reservations) {
+      // Started cancellations keep source capacity reserved until its window expires.
+      if (outcome === "started-cancellation" && row.bucket === sourceKey) continue;
       db.prepare(`UPDATE auth_login_limits SET pending = MAX(0, pending - 1),
         failures = CASE WHEN ? THEN 0 ELSE failures + ? END
         WHERE bucket = ? AND window_started_at = ?`)
@@ -55,7 +57,8 @@ export async function withLoginLimit<T>(email: string, source: string, operation
   let result: T;
   try { result = await operation(); }
   catch (error) {
-    finish(error instanceof AuthError && ["invalid_credentials", "account_deactivated"].includes(error.code) ? "failure" : "refund");
+    finish(error instanceof AuthError && ["invalid_credentials", "account_deactivated"].includes(error.code) ? "failure"
+      : error instanceof AuthenticationCancelled && error.derivationStarted ? "started-cancellation" : "refund");
     throw error;
   }
   finish("success");
@@ -68,5 +71,5 @@ export async function signInFromRequest(request: Request, email: string, passwor
   let source: string;
   try { source = requireIngress(request.headers).source; }
   catch { throw new AuthError("ingress_unavailable", "The instance cannot accept sign-ins yet.", 503); }
-  return withLoginLimit(email, source, () => signIn(email, password, db), db);
+  return withLoginLimit(email, source, () => signIn(email, password, db, undefined, request.signal), db);
 }

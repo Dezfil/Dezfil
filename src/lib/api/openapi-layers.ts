@@ -33,6 +33,7 @@ export const LAYER_RESOURCE_PATHS = {
       effects: recorded(writes(resource("layers", "", "id"), resource("maps"))),
       parameters: [pathParam("id", "Map id."), changeGroupParam, editRevisionParam],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -76,6 +77,7 @@ export const LAYER_RESOURCE_PATHS = {
       effects: recorded(writes(resource("layers", "id"))),
       parameters: [pathParam("id", "Layer id."), changeGroupParam, editRevisionParam],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         content: {
           "application/json": {
             schema: { $ref: "#/components/schemas/LayerUpdate" },
@@ -135,6 +137,7 @@ export const LAYER_RESOURCE_PATHS = {
       effects: READ_ONLY,
       parameters: [pathParam("id", "Layer id.")],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: false,
         content: {
           "application/json": {
@@ -249,6 +252,7 @@ export const LAYER_QUERY_PATHS = {
       effects: READ_ONLY,
       parameters: [pathParam("id", "Layer id.")],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         content: {
           "application/json": {
             schema: {
@@ -374,6 +378,7 @@ export const LAYER_QUERY_PATHS = {
       effects: READ_ONLY,
       parameters: [pathParam("id", "Layer id.")],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -431,6 +436,7 @@ export const LAYER_QUERY_PATHS = {
       effects: READ_ONLY,
       parameters: [pathParam("id", "Layer id.")],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {

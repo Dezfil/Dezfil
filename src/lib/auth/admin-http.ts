@@ -1,3 +1,4 @@
+import { smallJsonValue } from "@/lib/api/json-body";
 import { metadataDb } from "@/lib/metadata/db";
 import { requireAdmin } from "./admin";
 import { AuthError } from "./errors";
@@ -10,7 +11,7 @@ export function requireRequestAdmin(request: Request) {
 }
 
 async function objectBody(request: Request, allowed: string[]) {
-  const body: unknown = await request.json().catch(() => null);
+  const body: unknown = await smallJsonValue(request, () => null);
   if (request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json" ||
       !body || typeof body !== "object" || Array.isArray(body) ||
       Object.keys(body).some(key => !allowed.includes(key))) {

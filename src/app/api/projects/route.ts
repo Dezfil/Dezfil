@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { metadataDb } from "@/lib/metadata/db";
 import { memberDocuments } from "@/lib/metadata/filing-recording";
 import { documentResults } from "@/lib/metadata/document-results";
@@ -33,8 +34,9 @@ export async function POST(request: Request) {
     const scope = requireRequestScope(request);
     let body: Record<string, unknown>;
     try {
-      body = (await request.json()) as Record<string, unknown>;
-    } catch {
+      body = (await largeJsonValue(request)) as Record<string, unknown>;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
       throw new ApiError("invalid_request", "Expected a JSON body.", 400);
     }
     const members = body.members === undefined ? undefined : memberChange(body.members);

@@ -4,7 +4,8 @@ import { metadataDb } from "@/lib/metadata/db";
 import { accountCount, accountPasswordHash, getAccount, getAccountByEmail, insertAccount, markOriginalAccount,
   normalizeEmail } from "@/lib/metadata/accounts";
 import { revokeSessions } from "@/lib/metadata/auth-credentials";
-import { AuthError } from "./errors";
+import { maintainCredentials } from "./credential-maintenance";
+import { AuthError, requireAuthenticationWanted } from "./errors";
 import { issueSession, requireCurrentActor, type AuthContext } from "./credentials";
 import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from "./passwords";
 import { adoptLegacyPreferences } from "./adoption";
@@ -20,9 +21,10 @@ export function requireAvailableEmail(email: string, exceptId: string | null, db
   }
 }
 
-async function checkCurrentPassword(accountId: string, password: string | undefined, db: Database) {
+async function checkCurrentPassword(accountId: string, password: string | undefined, db: Database, signal?: AbortSignal) {
   const hash = accountPasswordHash(accountId, db);
-  const valid = await verifyPassword(password ?? "", hash ?? DUMMY_PASSWORD_HASH);
+  const valid = await verifyPassword(password ?? "", hash ?? DUMMY_PASSWORD_HASH, { class: "protected", signal });
+  requireAuthenticationWanted(signal);
   if (!hash || !valid) throw new AuthError("current_password_required", "Enter your current password.", 403);
   return hash;
 }
@@ -42,12 +44,14 @@ export function identityFields(name: string, email: string) {
 }
 
 export async function createFirstAccount(input: { name: string; email: string; password: string },
-  db: Database = metadataDb(), now?: number) {
+  db: Database = metadataDb(), now?: number, signal?: AbortSignal) {
+  maintainCredentials(db, now);
   // The write transaction repeats this check after asynchronous password work.
   if (accountCount(db) !== 0) throw new AuthError("setup_complete", "This instance is already set up.", 409);
   const fields = identityFields(input.name, input.email);
-  const passwordHash = await hashPassword(input.password);
+  const passwordHash = await hashPassword(input.password, { signal });
   return db.transaction(() => {
+    requireAuthenticationWanted(signal);
     if (accountCount(db) !== 0) throw new AuthError("setup_complete", "This instance is already set up.", 409);
     const at = now ?? Date.now();
     const account = insertAccount({ id: randomUUID(), ...fields, passwordHash, isAdmin: true,
@@ -59,13 +63,17 @@ export async function createFirstAccount(input: { name: string; email: string; p
   }).immediate();
 }
 
-export async function signIn(email: string, password: string, db: Database = metadataDb(), now?: number) {
+export async function signIn(email: string, password: string, db: Database = metadataDb(), now?: number, signal?: AbortSignal) {
+  maintainCredentials(db, now);
   const account = getAccountByEmail(email, db);
   const hash = account && accountPasswordHash(account.id, db);
-  const valid = await verifyPassword(password, hash ?? DUMMY_PASSWORD_HASH);
+  let derivationStarted = false;
+  const valid = await verifyPassword(password, hash ?? DUMMY_PASSWORD_HASH, { signal, onStart: () => { derivationStarted = true; } });
+  requireAuthenticationWanted(signal, derivationStarted);
   const invalid = () => new AuthError("invalid_credentials", "Email or password is incorrect.", 401);
   if (!account || !hash || !valid) throw invalid();
   return db.transaction(() => {
+    requireAuthenticationWanted(signal, derivationStarted);
     const current = getAccount(account.id, db);
     // A reset or email change that won during password work invalidates this attempt.
     if (!current || current.email !== normalizeEmail(email) || accountPasswordHash(account.id, db) !== hash) throw invalid();
@@ -79,11 +87,12 @@ export async function signIn(email: string, password: string, db: Database = met
 }
 
 export async function changeOwnPassword(context: AuthContext, currentPassword: string, password: string,
-  db: Database = metadataDb(), now?: number): Promise<void> {
+  db: Database = metadataDb(), now?: number, signal?: AbortSignal): Promise<void> {
   const account = requireCurrentActor(context, db, now ?? Date.now());
-  const oldHash = await checkCurrentPassword(account.id, currentPassword, db);
-  const passwordHash = await hashPassword(password);
+  const oldHash = await checkCurrentPassword(account.id, currentPassword, db, signal);
+  const passwordHash = await hashPassword(password, { class: "protected", signal });
   db.transaction(() => {
+    requireAuthenticationWanted(signal);
     const at = now ?? Date.now();
     requireCurrentActor(context, db, at);
     requireUnchangedPassword(account.id, oldHash, db);
@@ -94,10 +103,11 @@ export async function changeOwnPassword(context: AuthContext, currentPassword: s
 }
 
 export async function updateOwnProfile(context: AuthContext, patch: { name?: string; email?: string; currentPassword?: string },
-  db: Database = metadataDb(), now?: number) {
+  db: Database = metadataDb(), now?: number, signal?: AbortSignal) {
   const account = requireCurrentActor(context, db, now ?? Date.now());
-  const oldHash = patch.email === undefined ? null : await checkCurrentPassword(account.id, patch.currentPassword, db);
+  const oldHash = patch.email === undefined ? null : await checkCurrentPassword(account.id, patch.currentPassword, db, signal);
   return db.transaction(() => {
+    requireAuthenticationWanted(signal);
     const at = now ?? Date.now();
     const current = requireCurrentActor(context, db, at);
     if (oldHash) requireUnchangedPassword(account.id, oldHash, db);

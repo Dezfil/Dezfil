@@ -9,7 +9,13 @@ const equal = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 export function measureContract(document, tools) {
   const operations = Object.entries(document.paths).flatMap(([path, item]) => Object.entries(item)
     .filter(([method]) => HTTP_METHODS.has(method)).map(([method, operation]) => ({ path, method, operation })));
+  const jsonTiers = {};
+  for (const { operation } of operations) {
+    const limit = operation.requestBody?.['x-byte-limit'];
+    if (limit !== undefined) jsonTiers[limit] = (jsonTiers[limit] ?? 0) + 1;
+  }
   return {
+    jsonTiers, jsonReaders: Object.values(jsonTiers).reduce((sum, count) => sum + count, 0),
     paths: Object.keys(document.paths).length, operations: operations.length,
     schemas: Object.keys(document.components.schemas).length, errors: Object.keys(document['x-error-codes']).length,
     tools: tools.length, exclusions: operations.filter(({ operation }) => operation['x-tool'] === false).length,
@@ -30,6 +36,11 @@ export function checkContractDocs(document, tools, docs) {
   for (const [label, expected] of [['Documented operations', measured.operations], ['Operations that become tools', measured.tools], ['Deliberately excluded', measured.exclusions]]) {
     count(`MCP ${label}`, docs.mcp.match(new RegExp(`\\| ${label} \\| (\\d+) \\|`))?.[1], expected);
   }
+  const tierBlock = docs.api.match(/<!-- body-tiers:start -->([\s\S]*?)<!-- body-tiers:end -->/)?.[1] ?? '';
+  const tiers = [...tierBlock.matchAll(/^\| ([\d,]+) \| (\d+) \|$/gm)].map(([, tier, count]) => [tier.replaceAll(',', ''), Number(count)]);
+  if (!equal(tiers.map(([tier]) => tier).sort(), Object.keys(measured.jsonTiers).sort())) problems.push('Reader JSON tier inventory differs from contract');
+  for (const [tier, expected] of Object.entries(measured.jsonTiers)) count(`JSON tier ${tier} readers`, new Map(tiers).get(tier), expected);
+  count('JSON readers', docs.api.match(/Measured JSON reader operations: \*\*(\d+)\*\*/)?.[1], measured.jsonReaders);
   const catalogue = document['x-error-codes'];
   const enumCodes = document.components.schemas.Error.properties.error.properties.code.enum;
   if (!equal([...enumCodes].sort(), Object.keys(catalogue).sort())) problems.push('Error schema and source catalogue disagree');

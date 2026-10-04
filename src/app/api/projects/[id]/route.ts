@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { metadataDb } from "@/lib/metadata/db";
 import { filedDocuments } from "@/lib/metadata/filing-recording";
 import { documentResults } from "@/lib/metadata/document-results";
@@ -31,8 +32,9 @@ export async function PATCH(request: Request, { params }: Params) {
     const { id } = await params;
     let parsed: unknown;
     try {
-      parsed = await request.json();
-    } catch {
+      parsed = await largeJsonValue(request);
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
       throw new ApiError("invalid_request", "Expected a JSON body.", 400);
     }
     if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {

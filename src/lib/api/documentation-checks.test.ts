@@ -15,6 +15,7 @@ const countSeeds: [string, "api" | "mcp", RegExp][] = [
   ["MCP operations", "mcp", /Documented operations \| \d+/],
   ["tools", "mcp", /Operations that become tools \| \d+/],
   ["exclusions", "mcp", /Deliberately excluded \| \d+/],
+  ["JSON readers", "api", /Measured JSON reader operations: \*\*\d+\*\*/],
 ];
 it("checks actual reader-facing counts and catalogue against the served contract and tools", () => {
   expect(checkContractDocs(document, tools, docs)).toEqual([]);
@@ -63,4 +64,13 @@ it("keeps repeated contract builds stable and automatic Allow schemas exact", ()
     expect(automatic.options.responses["204"].headers?.Allow.schema.const).toBe(allowed);
     if (automatic.get) expect(automatic.head["x-tool"]).toBe(false);
   }
+});
+
+it("measures JSON reader counts and rejects a stale tier independently", () => {
+  const changed = structuredClone(document);
+  const body = changed.paths["/api/maps"].post.requestBody as Record<string, unknown>;
+  body["x-byte-limit"] = 65_536;
+  expect(checkContractDocs(changed, tools, docs)).toContain("JSON tier 65536 readers: reader says 11, contract requires 12");
+  const missingBusy = { ...docs, api: docs.api.replace(/^\| `authentication_busy` \|.*\n/m, "") };
+  expect(checkContractDocs(document, tools, missingBusy)).toContain("Reader error catalogue has missing or extra codes");
 });

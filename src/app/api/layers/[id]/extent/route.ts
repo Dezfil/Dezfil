@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { dimsToFilters } from "@/lib/extent-dims";
@@ -74,7 +75,7 @@ export async function POST(request: Request, { params }: Params) {
     const scope = requireRequestScope(request);
     const { id } = await params;
     const layer = requireLayer(scope, id);
-    const body = (await request.json().catch(() => ({}))) as {
+    const body = (await largeJsonValue(request, () => ({}))) as {
       dims?: unknown;
     };
     const dims = parseDims(body.dims);

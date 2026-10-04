@@ -1,3 +1,4 @@
+import { largeBodyText } from "@/lib/api/json-body";
 import { accountScope } from "@/lib/auth/scope";
 import { delegateCredential } from "@/lib/auth/delegation";
 import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
@@ -25,9 +26,10 @@ export async function POST(request: Request) {
     const actor = requireRequestAuth(request);
     const scope = accountScope(actor);
     let body: RequestBody = {};
-    const text = await request.text();
+    const text = await largeBodyText(request);
     if (text.trim()) {
-      try { body = JSON.parse(text) as RequestBody; } catch { throw new ApiError("invalid_request", "Expected a JSON object body.", 400); }
+      try { body = JSON.parse(text) as RequestBody; } catch (error) {
+      if (error instanceof ApiError) throw error; throw new ApiError("invalid_request", "Expected a JSON object body.", 400); }
       if (!body || typeof body !== "object" || Array.isArray(body)) throw new ApiError("invalid_request", "Expected a JSON object body.", 400);
     }
     if (body.mapId === undefined || body.mapId === null) throw new ApiError("look_target_missing", ERROR_CATALOGUE.look_target_missing, 400);

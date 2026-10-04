@@ -146,6 +146,72 @@ often the instance will talk to an external service. The defaults are chosen to 
 safe on a small machine. Raise them deliberately, not because a limit annoyed you
 once.
 
+Authentication entry, Account, Users and all three anonymous published POSTs
+admit at most 65,536 wire bytes of JSON. Other JSON, including MCP and workflows,
+admits 16,777,216; assistant messages keep 131,072 and their own refusal code.
+These limits include UTF-8, escaping and whitespace regardless of Content-Type.
+Optional bodies obey the same bound. Excess returns 413 before parsing, never
+a default or a write. Workflow and assistant refusal wording stays unchanged;
+[the API guide](api.md#request-bounds) gives the exact envelopes.
+MCP base64 uploads must be below 12 MiB after envelope and metadata overhead.
+Published render selections remain at 65,536 bytes even within their semantic
+filter counts; the viewer's twelve selections of fifty long values fit.
+
+The canonical spellings of the anonymous published widget-values, render and
+extent POST paths bypass the framework proxy. Encoded-slash spellings can still
+match the proxy and incur its body copy. Their handlers admit at most 65,536 bytes and refuse excess
+before parsing; empty bodies retain their existing defaults. All dispatchable
+methods on excluded paths retain their method-specific request gate. `TRACE`,
+which no handler can receive, is answered with an empty 400 on every path before
+its body is read.
+
+Multipart uploads at the canonical `/api/tables` path bypass the framework proxy
+and stream to scratch storage under the configured file and archive limits.
+Workflow JSON keeps its 16 MiB limit.
+The framework proxy copy limit is 17 MiB (previously 10 MiB), so complete workflow
+requests, including their over-limit refusal boundary, reach their readers.
+On paths still matched by the proxy, the framework drains and copies the body
+before the request gate runs, including for anonymous callers. The 17 MiB copy
+is bounded storage, not early wire admission. Authentication entry POSTs remain
+on that path. Configure a fronting reverse proxy's own request-size limit to
+bound this pre-gate copy further, allowing the upload size you intend to serve
+on `/api/tables`.
+
+When one of these four paths refuses a request part-way through its body, the
+answer is sent at once. The instance then receives and discards the rest of that
+request, storing nothing, so the connection stays usable; the server's request
+and keep-alive timeouts bound it. A fronting proxy's request-size limit stops
+such bytes before they reach the instance.
+
+Anonymous published API reads use verified ingress sources. View, widget-values,
+render and extent share 60 requests per ten seconds across tokens; tiles have
+600 in their separate bucket, with the existing configuration overrides.
+Unknown tokens are charged before resolution. Across both buckets, at most
+10,000 source entries are retained. Traffic sweeps expired windows at most once
+per second; between sweeps, a new source at capacity evicts the least recently
+used entry. The bound holds either way. Eviction grants a fresh window.
+Window expiry permits retry; a refusal remains 429 `rate_limited`, “Too many
+requests. Please slow down.” No new retry-header guarantee applies.
+
+Direct socket sources have independent budgets; equivalent IPv4 and mapped
+IPv4 addresses share one. A trusted proxy chain uses the nearest untrusted hop.
+Behind an untrusted proxy, readers share its socket budget by design; forwarded
+headers cannot separate it. Missing or forged provenance answers private,
+no-store 503 `ingress_unavailable`, “The instance cannot serve published maps
+yet.”, before reading a body or resolving a token. Malformed wire provenance
+still answers 400. The viewer page is outside these API budgets; IPv6 address
+rotation is not bounded by this policy.
+
+Password derivation admission is shared across the server process: two active,
+six ordinary plus two reserved protected waiters, and a five-second maximum
+wait. FIFO applies within each class. Validated links and signed-in password
+checks are protected, with priority for the next slot and at most one active
+protected derivation. Ordinary sign-ins can use both slots. Full classes and
+deadlines answer private 503 `authentication_busy` with one-second retry advice,
+without adding login failures or a lasting lockout. Running work retains its
+slot until settlement. These fixed bounds introduce no configuration knob;
+actual derivation time depends on the host.
+
 ## Upgrading
 
 Stop the container, start the new image against the same data directory. The metadata

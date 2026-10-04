@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { openPrivateExport } from "@/lib/export/private-file";
@@ -69,8 +70,9 @@ interface Body {
 async function readBody(request: Request): Promise<Body> {
   let raw: Record<string, unknown>;
   try {
-    raw = (await request.json()) as Record<string, unknown>;
-  } catch {
+    raw = (await largeJsonValue(request)) as Record<string, unknown>;
+  } catch (error) {
+      if (error instanceof ApiError) throw error;
     throw new ApiError(
       "invalid_request",
       'Expected a JSON body like {"sql": "SELECT …", "format": "csv"}.',

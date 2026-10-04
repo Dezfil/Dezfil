@@ -160,3 +160,10 @@ it("rejects malformed token creation without adding a credential", async () => {
     await refusal(await createToken(request("/api/account/tokens", "POST", body, cookie())), 400, "invalid_request", before);
   }
 });
+it.each(["update-profile", "password", "create-token"] as const)("refuses an oversized %s without account or credential changes", async operation => {
+  const before = state(), req = input(operation, cookie());
+  req.headers.set("content-length", "65537");
+  const get = vi.spyOn(req, "body", "get");
+  await refusal(await invoke(operation, req), 413, "request_body_too_large", before);
+  expect(get).not.toHaveBeenCalled();
+});

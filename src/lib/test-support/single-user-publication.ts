@@ -1,3 +1,4 @@
+import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -38,8 +39,8 @@ export async function singleUserPublication(directory: string): Promise<string> 
     agg: "count", aggField: null, unit: null, note: null, format: null, visible: true }] }, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   const { token } = publishMap(scope, map.id, {}, { expectedRevision: readEditRevision({ kind: "map", id: map.id })?.editRevision });
   const call = async (load: () => Promise<Record<string, unknown>>, method: string, url: string, params: Record<string, string>) => {
-    const response = await ((await load())[method] as Handler)(new Request(`http://instance.test${url}`, { method,
-      headers: { "content-type": "application/json" }, ...(method === "POST" ? { body: "{}" } : {}) }), { params: Promise.resolve(params) });
+    const response = await ((await load())[method] as Handler)(socketRequest(new Request(`http://instance.test${url}`, { method,
+      headers: { "content-type": "application/json" }, ...(method === "POST" ? { body: "{}" } : {}) })), { params: Promise.resolve(params) });
     return { status: response.status, body: await response.json() as unknown };
   };
   const captured = {

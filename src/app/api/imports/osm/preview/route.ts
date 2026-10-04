@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { NextResponse } from "next/server";
 import { errorResponse, ApiError } from "@/lib/api/errors";
 import { previewOsm } from "@/lib/osm/import";
@@ -7,7 +8,7 @@ import { previewOsm } from "@/lib/osm/import";
  * and within filter — as GeoJSON capped by the render cap. */
 export async function POST(request: Request) {
   try {
-    const body = (await request.json().catch(() => null)) as Record<
+    const body = (await largeJsonValue(request, () => null)) as Record<
       string,
       unknown
     > | null;

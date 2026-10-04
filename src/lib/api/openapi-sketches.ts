@@ -70,6 +70,7 @@ export const SKETCH_PATHS = {
       effects: writes(resource("tables", "", "tableId"), resource("layers", "", "layerId"), resource("maps", "id")),
       parameters: [pathParam("id", "Map id."), editRevisionParam],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -171,6 +172,7 @@ export const SKETCH_PATHS = {
       effects: writes(resource("tables", "name")),
       parameters: [pathParam("name", "Sketch table name.")],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -223,6 +225,7 @@ export const SKETCH_PATHS = {
         pathParam("featureId", "Drawn feature id."),
       ],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {

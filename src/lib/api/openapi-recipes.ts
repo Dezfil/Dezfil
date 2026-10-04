@@ -62,6 +62,7 @@ export const RECIPE_PATHS = {
       display: {"verb": "Created the workflow {subject}", "subject": {"resource": "recipes", "result": "recipe.id", "name": ["recipe.name", "name"]}},
       effects: writes(resource("recipes", "", "recipe.id"), resource("projects")),
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -121,6 +122,7 @@ export const RECIPE_PATHS = {
       effects: writes(resource("recipes", "id")),
       parameters: [editRevisionParam, pathParam("id", "Recipe id.")],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -242,6 +244,7 @@ export const RECIPE_PATHS = {
       effects: writes(resource("recipes", "id")),
       parameters: [editRevisionParam, pathParam("id", "Recipe id.")],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -290,6 +293,7 @@ export const RECIPE_PATHS = {
       effects: writes(resource("recipes", "id")),
       parameters: [editRevisionParam, pathParam("id", "Recipe id.")],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -388,6 +392,7 @@ export const RECIPE_PATHS = {
         pathParam("stepId", "Step id."),
       ],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -479,6 +484,7 @@ export const RECIPE_PATHS = {
         pathParam("stepId", "Step id."),
       ],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: true,
         content: {
           "application/json": {
@@ -594,6 +600,7 @@ export const RECIPE_PATHS = {
       confirm: "when_wide",
       parameters: [{ ...editRevisionParam, required: false, description: editRevisionParam.description + " Required to start; plan: true is a read and requires none." },pathParam("id", "Recipe id.")],
       requestBody: {
+        "x-byte-limit": 16_777_216,
         required: false,
         content: {
           "application/json": {

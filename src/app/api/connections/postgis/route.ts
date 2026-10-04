@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api/errors";
@@ -14,6 +15,6 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const scope = requireRequestScope(request);
-    return NextResponse.json(await createConnection(scope, await request.json().catch(() => null)), { status: 201 });
+    return NextResponse.json(await createConnection(scope, await largeJsonValue(request, () => null)), { status: 201 });
   } catch (error) { return errorResponse(error); }
 }

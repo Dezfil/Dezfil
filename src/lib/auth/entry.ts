@@ -22,9 +22,9 @@ export async function enter(request: Request, action: "setup" | "sign-in" | "red
     assertRequestOrigin(request);
     const fields = action === "setup" ? ["name", "email", "password"] : action === "sign-in" ? ["email", "password"] : ["secret", "password"];
     const body = await authBody(request, fields);
-    const result = action === "setup" ? await createFirstAccount({ name: body.name, email: body.email, password: body.password })
+    const result = action === "setup" ? await createFirstAccount({ name: body.name, email: body.email, password: body.password }, undefined, undefined, request.signal)
       : action === "sign-in" ? await signInFromRequest(request, body.email, body.password)
-        : await redeemSignInLink(body.secret, body.password);
+        : await redeemSignInLink(body.secret, body.password, undefined, undefined, request.signal);
     const response = privateResponse(NextResponse.json({ account: result.account }));
     sessionCookie(response, result.secret, ingress);
     return response;

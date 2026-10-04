@@ -1,3 +1,4 @@
+import { largeJsonValue } from "@/lib/api/json-body";
 import { delegateCredential } from "@/lib/auth/delegation";
 import { accountScope } from "@/lib/auth/scope";
 import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
@@ -40,8 +41,9 @@ export async function POST(request: Request, { params }: Params) {
     const map = requireMap(scope, id);
     let body: unknown;
     try {
-      body = await request.json();
-    } catch {
+      body = await largeJsonValue(request);
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
       throw new ApiError("invalid_request", "Expected a JSON body.", 400);
     }
     const definition = (body as { definition?: unknown })?.definition;
