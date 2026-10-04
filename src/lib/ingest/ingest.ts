@@ -206,7 +206,7 @@ export async function ingestFile(
   provenance: IngestProvenance = { source: "upload", sourceParams: null },
   requestedName?: string,
 ): Promise<DataTable> {
-  const deletionWork = admitAccountWork([scope.accountId]);
+  const deletionWork = admitAccountWork([requireAccountScope(scope)]);
   try {
   requireAccountScope(scope);
   if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);

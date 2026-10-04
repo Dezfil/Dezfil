@@ -1,4 +1,4 @@
-import { admitResourceWork, bindDeletionDatasets, inDeletionWork } from "@/lib/auth/account-deletion-work";
+import { admitResourceWork, bindDeletionDatasets, inDeletionWork, observeDeletionCleanup } from "@/lib/auth/account-deletion-work";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireMap, requireOwnMap } from "./map-access";
 import { servableTo } from "./artifact-access";
@@ -127,7 +127,7 @@ async function writeAtomically(target: string, bytes: Uint8Array | string, autho
     authorize();
     renameSync(temp, target);
   } catch (error) {
-    await rm(temp, { force: true });
+    await observeDeletionCleanup(() => rm(temp, { force: true }));
     throw error;
   }
 }

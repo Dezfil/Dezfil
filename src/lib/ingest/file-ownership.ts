@@ -1,3 +1,4 @@
+import { observeDeletionCleanup } from "@/lib/auth/account-deletion-work";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, rmSync } from "node:fs";
 import { rm } from "node:fs/promises";
@@ -35,10 +36,12 @@ export function ownedFileRecords(): OwnedFile[] {
 export function accountFiles(accountId: string): string[] { return ownedFileRecords().filter(r => r.accountId === accountId).map(r => r.file).sort(); }
 /** The ledger is forgotten only after the operating system confirms removal. */
 export async function removeAccountFile(file: string, options: { recursive?: boolean; force?: boolean } = {}): Promise<void> {
+  return observeDeletionCleanup(async () => {
   await rm(file, { ...options, force: true });
   let rel: string;
   try { rel = relative(file); } catch { return; }
   rmSync(recordPath(rel), { force: true });
+  });
 }
 
 export function fileAccountId(file: string): string | undefined {

@@ -1,4 +1,4 @@
-import { copyFileWork, bindDeletionInputs } from "@/lib/auth/account-deletion-work";
+import { copyFileWork, bindDeletionInputs, observeDeletionCleanup } from "@/lib/auth/account-deletion-work";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { AuthError } from "@/lib/auth/errors";
 import type { AccountScope } from "@/lib/auth/scope";
@@ -246,9 +246,9 @@ async function assembleProjectExportWork(
   // staging sweep never covers them.
   const conversions: { cleanup: () => Promise<void> }[] = [];
   const cleanConversions = async () => {
-    await Promise.all(
-      conversions.splice(0).map((c) => c.cleanup().catch(() => {})),
-    );
+    const settled = await Promise.allSettled(conversions.splice(0).map(c => observeDeletionCleanup(() => c.cleanup())));
+    const failed = settled.find(result => result.status === "rejected");
+    if (failed?.status === "rejected") throw failed.reason;
   };
   try {
     for (const t of chosenTables) {
@@ -302,8 +302,10 @@ async function assembleProjectExportWork(
     ]);
     return { path: staged, filename: `${base}.zip`, size };
   } catch (e) {
-    await removeAccountFile(staged, { force: true });
-    await cleanConversions();
+    await observeDeletionCleanup(async () => {
+      await removeAccountFile(staged, { force: true });
+      await cleanConversions();
+    });
     if (e instanceof ApiError || e instanceof AuthError) throw e;
     throw new ApiError(
       "export_failed",

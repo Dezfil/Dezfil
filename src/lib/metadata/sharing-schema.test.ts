@@ -62,7 +62,7 @@ describe("project people", () => {
     expect(all("SELECT * FROM project_people")).toEqual([]);
   });
 
-  it("goes with an account's deletion, a path the product does not have", () => {
+  it("goes with invitation removal through the private accepted-deletion coordinator", () => {
     const ada = testAccountScope(db, "ada");
     testAccountScope(db, "bo");
     const project = createProject(ada, { name: "Survey" }, db);
@@ -70,7 +70,7 @@ describe("project people", () => {
     db.prepare("DELETE FROM auth_sessions WHERE account_id = 'bo'").run();
     db.prepare("DELETE FROM accounts WHERE id = 'bo'").run();
     expect(all("SELECT * FROM project_people")).toEqual([]);
-    // No source file deletes an account: accounts are deactivated, never removed.
+    // Only the internal coordinator removes never-redeemed invitations.
     const sources: string[] = [];
     const walk = (dir: string) => {
       for (const entry of readdirSync(dir)) {
@@ -81,7 +81,7 @@ describe("project people", () => {
     };
     walk(path.join(process.cwd(), "src"));
     expect(sources.length).toBeGreaterThan(100);
-    expect(sources.filter(file => /DELETE\s+FROM\s+["`]?accounts\b/i.test(readFileSync(file, "utf8")))).toEqual([]);
+    expect(sources.filter(file => /DELETE\s+FROM\s+["`]?accounts\b/i.test(readFileSync(file, "utf8")))).toEqual([path.join(process.cwd(), "src/lib/auth/account-deletion.ts")]);
   });
 });
 

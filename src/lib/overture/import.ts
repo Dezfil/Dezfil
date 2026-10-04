@@ -527,7 +527,7 @@ export async function importOverture(
   request: OvertureImportRequest,
   build: typeof buildOvertureArtifact = buildOvertureArtifact,
 ): Promise<DataTable> {
-  const deletionWork = admitAccountWork([scope.accountId]);
+  const deletionWork = admitAccountWork([requireAccountScope(scope)]);
   try {
   requireAccountScope(scope);
   const projectId = importProjectId(request.projectId);

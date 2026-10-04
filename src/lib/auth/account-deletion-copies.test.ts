@@ -79,3 +79,30 @@ it("holds a direct artifact stream until close and observed cleanup", async () =
   finally { cleanup.resolve(); }
   await drained;
 });
+it("keeps failed foreign-input candidate cleanup unfinished and retries the removal before completion", async () => {
+  const files = await import("@/lib/ingest/file-ownership");
+  const { authenticateSession, issueSession } = await import("./credentials");
+  const { getAccount } = await import("@/lib/metadata/accounts");
+  const { acceptAccountDeletion, finishAccountDeletion } = await import("./account-deletion");
+  const target = testAccountScope(undefined, "target"), member = testAccountScope(undefined, "member");
+  testAccountScope(undefined, "admin"); const db = metadataDb(); db.exec("UPDATE accounts SET is_admin=1 WHERE id='admin'; UPDATE accounts SET last_sign_in_at='time'");
+  const admin = authenticateSession(issueSession(getAccount("admin")!, db, Date.now()).secret)!;
+  const source = path.join(folder, "data.csv"); await writeFile(source, "value\n42\n");
+  const data = await ingestFile(target, source, "data.csv"), control = await ingestFile(member, source, "control.csv");
+  shareProject("member", "p", [["target", "editor"]], [data.id]);
+  const ready = Promise.withResolvers<void>(), release = Promise.withResolvers<void>();
+  const run = DuckDBConnection.prototype.run;
+  vi.spyOn(DuckDBConnection.prototype, "run").mockImplementation(async function(this: DuckDBConnection, sql, ...args) {
+    const result = await run.call(this, sql, ...args); if (sql.startsWith("COPY (") && sql.includes("export-")) { ready.resolve(); await release.promise; } return result;
+  });
+  const remove = files.removeAccountFile;
+  const fault = vi.spyOn(files, "removeAccountFile").mockImplementation(async (...args) => { if (args[0].includes("export-")) throw new Error("injected unlink failure"); return remove(...args); });
+  const output = exportTable(member, data.id, "csv").catch(error => error);
+  await ready.promise; db.exec("UPDATE accounts SET status='deactivated' WHERE id='target'");
+  const accepted = acceptAccountDeletion(admin, "target", () => {}); release.resolve(); expect(await output).toBeInstanceOf(Error);
+  expect(await finishAccountDeletion(admin, accepted.id)).toMatchObject({ state: "needs-retry" });
+  expect((await readdir(path.join(folder, "tmp"))).length).toBeGreaterThan(0);
+  fault.mockRestore(); expect(await finishAccountDeletion(admin, accepted.id)).toMatchObject({ state: "completed" });
+  expect(await readdir(path.join(folder, "tmp"))).toEqual([]);
+  expect(await readdir(path.join(folder, "tables"))).toContain(path.basename(control.file));
+});

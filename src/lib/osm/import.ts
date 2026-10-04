@@ -346,7 +346,7 @@ export async function importOsm(
   scope: AccountScope,
   request: OsmImportRequest,
 ): Promise<DataTable[]> {
-  const deletionWork = admitAccountWork([scope.accountId]);
+  const deletionWork = admitAccountWork([requireAccountScope(scope)]);
   try {
   requireAccountScope(scope);
   const projectId = importProjectId(request.projectId);

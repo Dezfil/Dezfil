@@ -4890,6 +4890,75 @@
         ".",
         "account-deletions"
       ]
+    },
+    "location:src/lib/auth/account-deletion-candidate-recovery.ts#cleanAbandonedDeletionCandidates:dataDir": {
+      "stores": [
+        "file:exports",
+        "file:thumbnails",
+        "file:thumbnail-inputs"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/auth/account-deletion-candidate-recovery.ts#cleanAbandonedDeletionCandidates:path.join": {
+      "stores": [
+        "file:exports",
+        "file:thumbnails",
+        "file:thumbnail-inputs"
+      ],
+      "roots": [
+        "*",
+        "exports/*"
+      ]
+    },
+    "location:src/lib/auth/account-deletion-candidate-recovery.ts#cleanAbandonedDeletionCandidates.evidence:dataDir": {
+      "stores": [
+        "file:thumbnail-inputs"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/auth/account-deletion-candidate-recovery.ts#cleanAbandonedDeletionCandidates.evidence:path.join": {
+      "stores": [
+        "file:thumbnail-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/thumbnails"
+      ]
+    },
+    "location:src/lib/auth/account-deletion-candidate-recovery.ts#cleanAbandonedDeletionCandidates.exports:dataDir": {
+      "stores": [
+        "file:exports"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/auth/account-deletion-candidate-recovery.ts#cleanAbandonedDeletionCandidates.exports:path.join": {
+      "stores": [
+        "file:exports"
+      ],
+      "roots": [
+        "exports"
+      ]
+    },
+    "location:src/lib/auth/account-deletion-candidate-recovery.ts#cleanAbandonedDeletionCandidates.images:dataDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/auth/account-deletion-candidate-recovery.ts#cleanAbandonedDeletionCandidates.images:path.join": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails"
+      ]
     }
   },
   "files": {

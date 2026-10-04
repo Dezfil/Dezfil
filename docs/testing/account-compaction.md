@@ -3,7 +3,7 @@
 Account erasure's internal metadata stages have no public deletion route yet.
 The compaction primitive performs in-place VACUUM and checks both the truncating
 checkpoint result and the live WAL length. It throws if it cannot finish; it
-never declares an account deletion complete. The eventual coordinator must drain
+never declares an account deletion complete. The private coordinator drains
 admitted work before entering this synchronous maintenance interval.
 
 The proof uses the current migrated schema, a real open SQLite store and the

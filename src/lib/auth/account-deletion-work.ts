@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash } from "node:crypto";
 import { admitAccountWork, type AccountWorkLease } from "./account-deletion-admission";
-import type { AccountScope } from "./scope";
+import { requireAccountScope, type AccountScope } from "./scope";
 import { metadataDb } from "@/lib/metadata/db";
 
 // Only live work is attributed here. Issued private copies keep no new
@@ -13,6 +13,12 @@ const host = process as typeof process & { [key]?: {
 } };
 const holder = host[key] ??= { context: new AsyncLocalStorage<readonly AccountWorkLease[]>(), renderers: new Map<string, Set<AccountWorkLease>>() };
 export const delegatedWorkKey = (credential: string): string => createHash("sha256").update(credential).digest("hex");
+/** Keep failed cleanup attached to every live work lease that consumed the
+ * candidate. The callbacks are forgotten only after a successful retry. */
+export async function observeDeletionCleanup(cleanup: () => Promise<void>): Promise<void> {
+  try { await cleanup(); }
+  catch (error) { for (const lease of holder.context.getStore() ?? []) lease.retainCleanup(cleanup); throw error; }
+}
 export function bindDeletionInputs(owners: readonly (string | null)[]): void {
   for (const lease of holder.context.getStore() ?? []) lease.bind(owners);
 }
@@ -28,7 +34,7 @@ export function inDetachedDeletionWork<T>(lease: AccountWorkLease, work: () => T
   return holder.context.run([lease], work);
 }
 export function inDelegatedDeletionWork<T>(scope: object, work: () => T): T {
-  const workKey = "workKey" in scope && typeof scope.workKey === "string" ? scope.workKey : undefined;
+  const workKey = scope && typeof scope === "object" && "workKey" in scope && typeof scope.workKey === "string" ? scope.workKey : undefined;
   const leases = workKey ? holder.renderers.get(workKey) : undefined;
   return leases ? holder.context.run([...(holder.context.getStore() ?? []), ...leases], work) : work();
 }
@@ -41,7 +47,7 @@ export function registerRenderDeletionWork(credential: string, lease: AccountWor
 }
 export function admitResourceWork(scope: AccountScope, resources: readonly { table: "maps" | "recipes" | "projects" | "data_tables"; id: string }[]) {
   const db = metadataDb();
-  return admitAccountWork([scope.accountId, ...resources.map(resource =>
+  return admitAccountWork([requireAccountScope(scope, db), ...resources.map(resource =>
     (db.prepare(`SELECT owner_id FROM ${resource.table} WHERE id = ?`).get(resource.id) as { owner_id: string } | undefined)?.owner_id ?? null)], db);
 }
 export function assertDeletionCommit(): void {
@@ -54,6 +60,9 @@ export async function copyFileWork<T extends { cleanup(): Promise<void> }>(scope
   try {
     result = await inDeletionWork(lease, work);
     lease.assertCommit(); return result;
-  } catch (error) { await result?.cleanup(); throw error; }
+  } catch (error) {
+    if (result) await inDeletionWork(lease, () => observeDeletionCleanup(() => result!.cleanup()));
+    throw error;
+  }
   finally { lease.release(); }
 }

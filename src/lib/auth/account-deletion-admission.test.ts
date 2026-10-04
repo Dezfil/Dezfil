@@ -22,3 +22,16 @@ it("shares held leases and populated retained stores across two loaded module gr
   expect(retained).toBeUndefined(); expect(cleared).toBe(1);
   independent.release(); db.close();
 });
+it("retains failed cleanup across module copies until a successful retry while independent work continues", async () => {
+  const store = open(":memory:"); testAccountScope(store, "cleanup-target"); testAccountScope(store, "cleanup-control");
+  const failed = admitAccountWork(["cleanup-target"], store), control = admitAccountWork(["cleanup-control"], store);
+  let blocked = true, candidate = "private candidate";
+  failed.retainCleanup(async () => { if (blocked) throw new Error("unlink refused"); candidate = ""; });
+  failed.release(); store.exec("UPDATE accounts SET status='deleting' WHERE id='cleanup-target'");
+  vi.resetModules(); const other = await import("./account-deletion-admission");
+  try {
+    await expect(other.drainAccountWork("cleanup-target", store)).rejects.toThrow("unlink refused");
+    expect(candidate).toBe("private candidate"); expect(() => control.assertCommit()).not.toThrow();
+    blocked = false; await other.drainAccountWork("cleanup-target", store); expect(candidate).toBe("");
+  } finally { blocked = false; await other.drainAccountWork("cleanup-target", store); control.release(); store.close(); }
+});

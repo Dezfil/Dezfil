@@ -389,7 +389,7 @@ export async function importFromUrl(
   requestedName?: string,
   projectId?: string | null,
 ): Promise<IngestResult> {
-  const deletionWork = admitAccountWork([scope.accountId]);
+  const deletionWork = admitAccountWork([requireAccountScope(scope)]);
   try {
   requireAccountScope(scope);
   if (projectId) requireFilingDestination(scope, projectId);

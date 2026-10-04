@@ -1,3 +1,4 @@
+import { observeDeletionCleanup } from "@/lib/auth/account-deletion-work";
 import { createHash, randomBytes } from "node:crypto";
 import { renameSync } from "node:fs";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
@@ -52,7 +53,7 @@ export async function writeImageEvidence(image: string, bytes: Uint8Array, input
     authorize();
     renameSync(temp, target);
   } catch (error) {
-    await rm(temp, { force: true });
+    await observeDeletionCleanup(() => rm(temp, { force: true }));
     throw error;
   }
 }
@@ -70,7 +71,7 @@ export async function imageInputs(image: string, bytes: Uint8Array): Promise<Art
 }
 
 export async function removeImageEvidence(image: string): Promise<void> {
-  await rm(evidencePath(image), { force: true });
+  await observeDeletionCleanup(() => rm(evidencePath(image), { force: true }));
 }
 
 /** The images of one map that have evidence, by image file name. */

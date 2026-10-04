@@ -3,7 +3,7 @@ import { metadataDb } from "@/lib/metadata/db";
 import { resourceAbsent } from "./owned-resource";
 
 export interface RetainedStore { drain(): Promise<void>; busy(): boolean; clear(): void }
-interface Work { database: string; accounts: Set<string>; settled: Promise<void> }
+interface Work { database: string; accounts: Set<string>; settled: Promise<void>; cleanups: Set<() => Promise<void>>; released: boolean; retrying?: Promise<void> }
 interface Holder { work: Set<Work>; stores: Set<RetainedStore>; generation: number }
 const key = Symbol.for("dezfil.account-deletion-admission");
 const host = process as typeof process & { [key]?: Holder };
@@ -24,12 +24,13 @@ export interface AccountWorkLease {
   /** Check immediately before a synchronous commit, without an intervening await. */
   assertCommit(): void;
   /** Release after evaluation/stream settlement and candidate cleanup. */
+  retainCleanup(cleanup: () => Promise<void>): void;
   release(error?: unknown): void;
 }
 export function admitAccountWork(accounts: readonly (string | null)[], db: Database = metadataDb()): AccountWorkLease {
   const done = Promise.withResolvers<void>();
   void done.promise.catch(() => {});
-  const work: Work = { database: db.name, accounts: new Set<string>(), settled: done.promise };
+  const work: Work = { database: db.name, accounts: new Set<string>(), settled: done.promise, cleanups: new Set(), released: false };
   let released = false;
   const check = (id: string) => { if (!accountMaterialAvailable(id, db)) throw resourceAbsent(); };
   const lease: AccountWorkLease = {
@@ -40,7 +41,14 @@ export function admitAccountWork(accounts: readonly (string | null)[], db: Datab
       for (const id of ids) if (id !== null) work.accounts.add(id);
     },
     assertCommit() { if (released) throw new Error("Work has already settled."); for (const id of work.accounts) check(id); },
-    release(error) { if (!released) { released = true; holder.work.delete(work); work.accounts.clear(); if (error === undefined) done.resolve(); else done.reject(error); } },
+    retainCleanup(cleanup) { if (!released) work.cleanups.add(cleanup); },
+    release(error) {
+      if (released) return;
+      released = true; work.released = true;
+      if (work.cleanups.size) { done.reject(error ?? new Error("Account work cleanup is unfinished.")); return; }
+      holder.work.delete(work); work.accounts.clear();
+      if (error === undefined) done.resolve(); else done.reject(error);
+    },
   };
   lease.bind(accounts); holder.work.add(work);
   return lease;
@@ -50,7 +58,17 @@ export async function drainAccountWork(accountId: string, db: Database = metadat
   for (;;) {
     const work = [...holder.work].filter(w => w.database === db.name && w.accounts.has(accountId));
     if (!work.length) return;
-    await Promise.all(work.map(w => w.settled));
+    await Promise.all(work.map(w => {
+      if (!w.released || !w.cleanups.size) return w.settled;
+      // A refused output still owns its failed removal. Later continuation
+      // retries that exact cleanup; dropping its lookup is never settlement.
+      return w.retrying ??= (async () => {
+        const results = await Promise.allSettled([...w.cleanups].map(cleanup => cleanup()));
+        const failed = results.find(result => result.status === "rejected");
+        if (failed?.status === "rejected") throw failed.reason;
+        w.cleanups.clear(); w.accounts.clear(); holder.work.delete(w);
+      })().finally(() => { w.retrying = undefined; });
+    }));
   }
 }
 export function registerRetainedStore(store: RetainedStore): void { holder.stores.add(store); }

@@ -1,4 +1,4 @@
-import { inDelegatedDeletionWork } from "@/lib/auth/account-deletion-work";
+import { inDelegatedDeletionWork, inDeletionWork } from "@/lib/auth/account-deletion-work";
 import { authorityOf } from "./context";
 import { admitEvaluationWork } from "./work-admission";
 import { normalizeEngineError } from "./engine-message";
@@ -246,7 +246,7 @@ async function runBoundedEvaluation<T>(
     try {
       requireDatasetScope(scope, undefined, admission);
       staging.assertLive();
-      const result = await fn(conn, bounds);
+      const result = await inDeletionWork(admission, () => fn(conn, bounds));
       staging.assertLive();
       requireDatasetScope(scope, undefined, admission);
       // The bound is wall-clock, not statements-only: a callback whose

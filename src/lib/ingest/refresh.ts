@@ -1,6 +1,6 @@
 import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
-import type { AccountScope } from "@/lib/auth/scope";
+import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { getOwnedTableByName, updateOwnedTableData, ownedDependentLayerIds } from "@/lib/metadata/owned-tables";
 import { requireTable } from "@/lib/table-service";
@@ -224,7 +224,7 @@ export async function refreshTable(
   name: string,
   options: RefreshOptions = {},
 ): Promise<DataTable> {
-  const deletionWork = admitAccountWork([scope.accountId]);
+  const deletionWork = admitAccountWork([requireAccountScope(scope)]);
   try {
   const table = requireTable(scope, name);
   // Single-flight per provenance unit: the claim happens before the first

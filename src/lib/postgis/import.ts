@@ -188,7 +188,7 @@ export async function importPostgis(
   request: PostgisImportRequest,
   build: typeof buildPostgisArtifact = buildPostgisArtifact,
 ): Promise<DataTable> {
-  const deletionWork = admitAccountWork([scope.accountId]);
+  const deletionWork = admitAccountWork([requireAccountScope(scope)]);
   try {
   requireAccountScope(scope);
   const projectId = importProjectId(request.projectId);

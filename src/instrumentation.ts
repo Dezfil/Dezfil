@@ -22,6 +22,8 @@ export async function register() {
     // durable Overpass cache is deliberately not touched.
     const { cleanIngestScratch } = await import("@/lib/ingest/scratch");
     await cleanIngestScratch();
+    const { cleanAbandonedDeletionCandidates } = await import("@/lib/auth/account-deletion-candidate-recovery");
+    await cleanAbandonedDeletionCandidates();
     // Artifact files no registered table references — stranded by a crash
     // or an abandoned retirement — are permanent without this.
     const { sweepTableArtifacts } = await import("@/lib/ingest/sweep");

@@ -1,5 +1,5 @@
 import { admitAccountWork, type AccountWorkLease } from "@/lib/auth/account-deletion-admission";
-import { bindDeletionDatasets, inDetachedDeletionWork } from "@/lib/auth/account-deletion-work";
+import { bindDeletionDatasets, inDetachedDeletionWork, observeDeletionCleanup } from "@/lib/auth/account-deletion-work";
 import { closeTileArchives } from "./serve";
 import { metadataDb } from "@/lib/metadata/db";
 import { archiveServable, tileQueryScope, tileReachKey, requireTileAccess, tileAccessAvailable, type TileAccess } from "./access";
@@ -282,7 +282,7 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
     // Deletion can cross the asynchronous rename. Recheck on its far side
     // before making the archive authoritative in metadata.
     if (!attemptCanCommit(attempt)) {
-      await rm(tileArchivePath(input.layerId), { force: true });
+      await observeDeletionCleanup(() => rm(tileArchivePath(input.layerId), { force: true }));
       removeTileEvidence(input.layerId);
       finalArchiveNeedsRemoval = false;
       return;
@@ -301,7 +301,7 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
     finalArchiveNeedsRemoval = false;
   } catch (error) {
     if (finalArchiveNeedsRemoval) {
-      await rm(tileArchivePath(input.layerId), { force: true }).catch(
+      await observeDeletionCleanup(() => rm(tileArchivePath(input.layerId), { force: true })).catch(
         () => undefined,
       );
     }
@@ -324,8 +324,8 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
   } finally {
     untrackBuildInputs(attempt.id);
     await Promise.allSettled([
-      rm(exportFile, { force: true }),
-      rm(archiveFile, { force: true }),
+      observeDeletionCleanup(() => rm(exportFile, { force: true })),
+      observeDeletionCleanup(() => rm(archiveFile, { force: true })),
     ]);
     if (active.get(attempt.key) === attempt) {
       // A withdrawn capability leaves no stuck build status. Retrying after

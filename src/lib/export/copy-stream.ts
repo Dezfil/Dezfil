@@ -1,7 +1,7 @@
 import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
 import type { AccountScope } from "@/lib/auth/scope";
-import { admitResourceWork, inDeletionWork } from "@/lib/auth/account-deletion-work";
+import { admitResourceWork, inDeletionWork, observeDeletionCleanup } from "@/lib/auth/account-deletion-work";
 import { trackInflight } from "@/lib/query/inflight";
 import { openPrivateExport } from "./private-file";
 interface Copy { path: string; filename: string; contentType: string; cleanup(): Promise<void> }
@@ -20,7 +20,7 @@ export async function streamPrivateCopy(scope: AccountScope, resources: Paramete
     const settled = new Promise<void>((resolve, reject) => {
       stream.once("close", () => {
         signal?.removeEventListener("abort", abort);
-        copy.cleanup().then(() => { lease.release(); resolve(); }, error => { lease.release(error); reject(error); });
+        inDeletionWork(lease, () => observeDeletionCleanup(() => copy.cleanup())).then(() => { lease.release(); resolve(); }, error => { lease.release(error); reject(error); });
       });
     });
     void trackInflight(settled).catch(error => console.error("[export] stream cleanup failed:", error));
@@ -31,7 +31,7 @@ export async function streamPrivateCopy(scope: AccountScope, resources: Paramete
       "content-disposition": `attachment; filename="${file.filename}"`,
     } });
   } catch (error) {
-    try { await handle?.close(); await file?.cleanup(); }
+    try { await handle?.close(); if (file) await inDeletionWork(lease, () => observeDeletionCleanup(() => file!.cleanup())); }
     finally { lease.release(); }
     throw error;
   }
