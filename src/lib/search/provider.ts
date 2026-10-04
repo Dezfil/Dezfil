@@ -106,7 +106,10 @@ function normalizeEntry(entry: WireEntry): PlaceRow | null {
   return row;
 }
 
-export async function searchPlaces(query: string): Promise<PlacesAnswer> {
+export async function searchPlaces(
+  query: string,
+  signal?: AbortSignal,
+): Promise<PlacesAnswer> {
   const url = searchUrl(query);
   if (!url) {
     return geocoderConfigured()
@@ -121,19 +124,21 @@ export async function searchPlaces(query: string): Promise<PlacesAnswer> {
   const release = await takeSlot(
     endpointKey(configuredEndpoint() ?? ""),
     "interactive",
+    signal,
   );
   try {
-    return await exchange(url);
+    return await exchange(url, signal);
   } finally {
     release();
   }
 }
 
-async function exchange(url: URL): Promise<PlacesAnswer> {
+async function exchange(url: URL, signal?: AbortSignal): Promise<PlacesAnswer> {
   let response;
   try {
     response = await openRemote(url.toString(), {
       timeoutMs: limits.geocodeRequestTimeoutMs,
+      signal,
       headers: { "user-agent": USER_AGENT, accept: "application/json" },
     });
   } catch (error) {

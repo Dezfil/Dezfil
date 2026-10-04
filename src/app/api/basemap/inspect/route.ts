@@ -44,7 +44,7 @@ export async function POST(request: Request) {
         400,
       );
     }
-    return NextResponse.json(await inspectStyle(url));
+    return NextResponse.json(await inspectStyle(url, undefined, request.signal));
   } catch (error) {
     return errorResponse(error);
   }

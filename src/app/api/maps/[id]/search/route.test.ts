@@ -9,6 +9,17 @@ const HEXBIN_VIZ = { type: "hexbin" } as unknown as LayerViz;
 /** The route's composition, over mocked seams: the metadata read and the
  * engine-backed value scan (itself engine-tested in value-search.test). */
 
+const searchPlaces = vi.hoisted(() => vi.fn());
+const providerState = vi.hoisted(() => ({ answer: null as Promise<unknown> | null }));
+vi.mock("@/lib/search/provider", () => ({
+  searchPlaces: (...args: unknown[]) => {
+    searchPlaces(...args);
+    // Keep the promise out of the mock's own settlement tracking: only the
+    // route may install the rejection handler this test observes.
+    return providerState.answer ?? Promise.resolve({ state: "unconfigured" });
+  },
+}));
+
 const searchValues = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/search/value-search", () => ({ searchValues }));
 
@@ -28,6 +39,7 @@ const layer = (over: Record<string, unknown>) => ({
 beforeEach(() => {
   vi.clearAllMocks();
   searchValues.mockResolvedValue([]);
+  providerState.answer = null;
   mapWithLayers.mockReturnValue({
     id: "m1",
     layers: [
@@ -100,4 +112,28 @@ describe("GET /api/maps/[id]/search", () => {
     });
     expect(missing.status).toBe(400);
   });
+});
+
+it("carries caller cancellation to both concurrent searches", async () => {
+  const request = testAccountRequest(new Request("http://test/api/maps/m1/search?q=x&places=1", { signal: new AbortController().signal }));
+  await GET(request, { params: Promise.resolve({ id: "m1" }) });
+  expect(searchPlaces).toHaveBeenCalledWith("x", request.signal);
+  expect(searchValues.mock.calls[0][3].signal).toBe(request.signal);
+});
+
+it("observes a provider rejection even if value search exits first", async () => {
+  let rejectProvider!: (error: Error) => void;
+  const provider = new Promise((_, reject) => { rejectProvider = reject; });
+  const then = vi.spyOn(provider, "then");
+  providerState.answer = provider;
+  searchValues.mockRejectedValue(new Error("value scan left first"));
+  try {
+    expect((await get("q=x&places=1")).status).toBe(500);
+    expect(then.mock.calls.some(call => typeof call[1] === "function")).toBe(true);
+  } finally {
+    // Test cleanup observes the rejection even when the route's red omits it.
+    const observed = provider.catch(() => {});
+    rejectProvider(new Error("provider left later"));
+    await observed;
+  }
 });

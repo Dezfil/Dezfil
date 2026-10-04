@@ -40,23 +40,26 @@ export async function GET(request: Request, { params }: Params) {
     // Places join only when asked for — a submitted search (S3a): the
     // provider is never contacted per keystroke, and its failures resolve
     // inside the places group rather than costing the local answers.
-    const places =
-      url.searchParams.get("places") === "1" ? searchPlaces(q) : null;
-
-    const values = await searchValues(mapEvaluation(scope, id),
-      visible
-        .filter((l) => !isAggregated(l.viz))
-        .map((l) => ({
-          layerId: l.id,
-          layerName: l.name,
-          sql: effectiveSql(
-            { sql: l.sql, filters: l.filters, viz: l.viz },
-            null,
-          ),
-        })),
-      q,
-      { signal: request.signal },
-    );
+    // Observe both outcomes immediately: a value-scan failure must not leave
+    // a later provider rejection without a handler.
+    const [values, places] = await Promise.all([
+      searchValues(
+        mapEvaluation(scope, id),
+        visible
+          .filter((l) => !isAggregated(l.viz))
+          .map((l) => ({
+            layerId: l.id,
+            layerName: l.name,
+            sql: effectiveSql(
+              { sql: l.sql, filters: l.filters, viz: l.viz },
+              null,
+            ),
+          })),
+        q,
+        { signal: request.signal },
+      ),
+      url.searchParams.get("places") === "1" ? searchPlaces(q, request.signal) : null,
+    ]);
 
     const response: SearchResponse = {
       layers: visible
@@ -64,7 +67,7 @@ export async function GET(request: Request, { params }: Params) {
         .map((l) => ({ layerId: l.id, name: l.name, viz: l.viz.type })),
       values,
       coordinates: parseCoordinates(q),
-      ...(places ? { places: await places } : {}),
+      ...(places ? { places } : {}),
     };
     return NextResponse.json(response);
   } catch (error) {
