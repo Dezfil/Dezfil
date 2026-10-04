@@ -66,19 +66,34 @@ and must fail `recorded foreign card removed before restart`. The unit fixture's
 same seed fails `recorded derivative or owned file remains`. Both probes take at
 most the green journey's approximate time; neither changes the compaction proof.
 
-The module-local admission red uses a scratch preload that replays the built
-page bundle's previously read metadata after acceptance. It is separate from
-row-only erasure and needs no changed product build:
+The module-local admission protection is proven by the separate
+[built-page proof and its seed](account-deletion-admission.md). Run both against
+the same standalone; no changed product build is needed:
 
 ```sh
-DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/test-data/deletion-page-red-XXXXXX") node scripts/account-deletion-driver.mjs --standalone "$PWD/.next/standalone" --port 3403 --wire-port 3404 --seed module-local
-DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/test-data/deletion-image-page-red-XXXXXX") sh scripts/account-deletion-image.sh dezfil:ci module-local
+DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/test-data/deletion-pages-XXXXXX") node scripts/account-deletion-pages-proof.mjs --standalone "$PWD/.next/standalone" --port 3395
+DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/test-data/deletion-page-red-XXXXXX") node scripts/account-deletion-pages-proof.mjs --standalone "$PWD/.next/standalone" --port 3395 --seed module-local
 ```
 
-Both must exit nonzero at `accepted owner must be absent from built page`, usually
-within a minute. Missing controls, packages, boot failure or timeout is a harness
-failure, never the intended red. The filesystem handshake and injected lease are
-proof-only preloads; no application endpoint exposes them. Before the first hold,
+The unseeded proof must exit zero; the seed must exit nonzero at
+`accepted owner must be absent from built page`, usually within a minute.
+Missing controls, packages, boot failure or timeout is a harness failure, never
+the intended red.
+
+The checkout driver and image journey no longer accept a module-local seed.
+Their warm-up reads map identity, project standing and owner status before
+deactivation. After acceptance, the first cleanup stage calls
+`requireDeletingAccount` before waiting for the held work. Its
+`SELECT status FROM accounts WHERE id = ?` is exactly the read used by page
+admission, so the preload replaces the warm value with `deleting` before replay
+starts. Replaying that value still refuses the page. Warming after deactivation
+would not prevent that overwrite; replaying before acceptance would instead fail
+the cleanup guard. The built-page proof changes status directly in its scratch
+store and starts replay without the intervening cleanup read, so its seed retains
+the pre-acceptance value and tests the intended page assertion.
+
+The journey's filesystem handshake and injected lease are proof-only preloads;
+no application endpoint exposes them. Before the first hold,
 the journey runs a read-only query through the session API to load admission.
 The control waits up
 to five seconds for the application to create its process-wide admission holder;

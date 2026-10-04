@@ -1,9 +1,8 @@
 #!/bin/sh
 # The image-job mirror. All containers, named/anonymous volumes and scratch are owned here.
 set -eu
+if [ "$#" -gt 1 ]; then echo 'Usage: account-deletion-image.sh [image]' >&2; exit 2; fi
 image=${1:-dezfil:ci}
-seed=${2:-none}
-case "$seed" in none|module-local) ;; *) echo 'Expected none or module-local' >&2; exit 2 ;; esac
 : "${DEZFIL_DATA_DIR:?Set a fresh scratch root}"
 mkdir -p "$DEZFIL_DATA_DIR"
 test -z "$(ls -A "$DEZFIL_DATA_DIR")"
@@ -33,7 +32,7 @@ start() {
   docker run --pull=never -d --rm --name "$name" --network=none \
     -e PORT=3403 -e DEZFIL_DATA_DIR=/data -e DEZFIL_EGRESS_ALLOWLIST=127.0.0.1 \
     -e DEZFIL_AI_PROVIDER=openai -e OPENAI_API_KEY=proof-only -e OPENAI_BASE_URL=http://127.0.0.1:3404/v1 \
-    -e DEZFIL_PROOF_CONTROL_DIR=/proof/control -e DEZFIL_PROOF_SEED="$seed" \
+    -e DEZFIL_PROOF_CONTROL_DIR=/proof/control \
     -e NODE_OPTIONS=--import=/probes/account-deletion-journey-preload.mjs \
     -v "$PWD/scripts:/probes:ro" -v "$proof:/proof" -v "$volume:/data" "$image" >/dev/null
   for i in $(seq 1 60); do

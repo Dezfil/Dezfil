@@ -11,7 +11,6 @@ let changed: () => Promise<void>;
 beforeEach(async () => {
   vi.useFakeTimers(); vi.clearAllMocks(); vi.resetModules();
   vi.stubEnv("DEZFIL_PROOF_CONTROL_DIR", path.join(process.env.DEZFIL_DATA_DIR!, "control"));
-  vi.stubEnv("DEZFIL_PROOF_SEED", "none");
   delete host[key];
   await import("../../../scripts/account-deletion-journey-preload.mjs");
   changed = files.watchFile.mock.calls[0][2];
@@ -59,4 +58,9 @@ it("processes a repeated file notification only once while awaiting the holder",
   await vi.advanceTimersByTimeAsync(25); await pending;
   expect(holder.work.size).toBe(1); expect(files.writeFileSync).toHaveBeenCalledTimes(1);
   expect(reply()).toEqual({ id: "same", ok: true });
+});
+it("rejects the removed replay command instead of acknowledging an ineffective seed", async () => {
+  host[key] = { work: new Set<Work>() };
+  await request("replay", "replay");
+  expect(reply()).toEqual({ id: "replay", error: "Unknown proof control" });
 });

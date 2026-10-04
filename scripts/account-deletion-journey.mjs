@@ -47,7 +47,7 @@ try {
     assert.equal(accepted.state, 'pending', 'held work prevents completion');
     assert.equal(db.prepare('SELECT status FROM accounts WHERE id=?').get(fixture.target.id).status, 'deleting');
     assert.ok(db.prepare('SELECT id FROM maps WHERE id=?').get(fixture.targetMap.id), 'page refusal is checked before rows are erased');
-    await control('replay'); await pages(fixture, true);
+    await pages(fixture, true);
     for (const route of ['/api/published/deletion-target-page', `/api/maps/${fixture.targetMap.id}`]) assert.equal((await journeyApi(base, fixture.control)('GET', route)).status, 404);
     // A second connection pins genuine old WAL frames through the compaction stage.
     db.exec('BEGIN'); db.prepare('SELECT name FROM accounts WHERE id=?').get(fixture.target.id);

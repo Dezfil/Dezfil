@@ -6,8 +6,7 @@ import { mkdirSync, readdirSync, writeFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { recoveryCommandLink } from './account-identity-recovery.mjs';
-const { values } = parseArgs({ options: { standalone: { type: 'string', default: '.next/standalone' }, port: { type: 'string', default: '3403' }, 'wire-port': { type: 'string', default: '3404' }, seed: { type: 'string' } } });
-assert.ok(!values.seed || values.seed === 'module-local');
+const { values } = parseArgs({ options: { standalone: { type: 'string', default: '.next/standalone' }, port: { type: 'string', default: '3403' }, 'wire-port': { type: 'string', default: '3404' } } });
 const root = process.cwd(), standalone = path.resolve(values.standalone), scratch = process.env.DEZFIL_DATA_DIR;
 assert.ok(scratch && path.isAbsolute(scratch)); mkdirSync(scratch, { recursive: true }); assert.deepEqual(readdirSync(scratch), []);
 const directory = path.join(scratch, 'store'), controls = path.join(scratch, 'control'), state = path.join(scratch, 'state.json');
@@ -23,7 +22,7 @@ async function stop() {
 }
 async function boot() {
   server = spawn(process.execPath, [`--import=${root}/scripts/ingress-preload.mjs`, `--import=${root}/scripts/account-deletion-journey-preload.mjs`, 'server.js'], {
-    cwd: standalone, env: { ...process.env, DEZFIL_DATA_DIR: directory, DEZFIL_PROOF_CONTROL_DIR: controls, DEZFIL_PROOF_SEED: values.seed ?? 'none', PORT: String(port), HOSTNAME: '127.0.0.1',
+    cwd: standalone, env: { ...process.env, DEZFIL_DATA_DIR: directory, DEZFIL_PROOF_CONTROL_DIR: controls, PORT: String(port), HOSTNAME: '127.0.0.1',
       DEZFIL_EGRESS_ALLOWLIST: '127.0.0.1', DEZFIL_AI_PROVIDER: 'openai', OPENAI_API_KEY: 'proof-only', OPENAI_BASE_URL: `http://127.0.0.1:${wirePort}/v1` }, stdio: ['ignore', 'pipe', 'pipe'],
   });
   ended = once(server, 'exit'); server.stdout.on('data', b => { log += b; }); server.stderr.on('data', b => { log += b; });
