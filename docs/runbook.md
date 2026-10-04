@@ -1037,14 +1037,23 @@ mode selection and cleanup on probe failure. The quick probe also runs through
 real routes in-process and checks every included reader. These tests do not
 establish container readiness or the image job's elapsed time.
 
-The decimal geometry latency control compares a large LineString exactly with
-`JSON.parse(ST_AsGeoJSON)`, then prints the elapsed query time and geometry bytes:
+The decimal geometry latency control reads a stored LineString with varying
+coordinates and compares it exactly with `JSON.parse(ST_AsGeoJSON)`. After one
+full-query warm-up, it prints elapsed query time, geometry bytes and engine
+memory budget. Fixture creation and expected-value conversion are outside the
+timed query:
 
 ```sh
-DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) npx vitest run src/lib/query/geometry-latency.test.ts
+DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) DEZFIL_QUERY_MEMORY_MB=512 \
+  npx vitest run src/lib/query/geometry-latency.test.ts --maxWorkers=1
 ```
 
 Use the same self-contained test source and native dependencies for comparisons.
+It imports no result-budget helpers and can be copied unchanged to the baseline
+checkout. Alternate quiet baseline and candidate runs on the same host, with
+the same engine budget, at least three times each, and retain every printed
+value. This measures the complete query path, including table access and engine
+projection, rather than the JavaScript decoder in isolation.
 
 ### Served standalone probe
 
