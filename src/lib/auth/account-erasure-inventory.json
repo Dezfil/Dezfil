@@ -1,0 +1,3949 @@
+{
+  "stores": {
+    "table:account_preferences": {
+      "action": "erase",
+      "rule": "Erase the target account preferences.",
+      "fixture": "table:account_preferences"
+    },
+    "table:accounts": {
+      "action": "erase",
+      "rule": "Erase every profile field and all account dates. Ever-active identities retain only id, deleted status and the fixed SQL name. Never-used invitations leave no row.",
+      "fixture": "table:accounts"
+    },
+    "table:auth_links": {
+      "action": "erase",
+      "rule": "Erase every target link, including expired, revoked and consumed invitation/reset/recovery hashes.",
+      "fixture": "table:auth_links"
+    },
+    "table:auth_login_limits": {
+      "action": "erase",
+      "rule": "Remove the target current-email bucket and every unbound email bucket, including former emails. Keep other current-account buckets and source budgets. Held reservations cannot recreate removed rows.",
+      "fixture": "table:auth_login_limits"
+    },
+    "table:auth_sessions": {
+      "action": "erase",
+      "rule": "Erase every target session, including live, expired and revoked hashes.",
+      "fixture": "table:auth_sessions"
+    },
+    "table:auth_tokens": {
+      "action": "erase",
+      "rule": "Erase every target API token, including expired or revoked entries.",
+      "fixture": "table:auth_tokens"
+    },
+    "table:cascade_members": {
+      "action": "erase",
+      "rule": "Erase members of erased workflow runs; retain surviving workflow history.",
+      "fixture": "table:cascade_members"
+    },
+    "table:cascade_runs": {
+      "action": "erase",
+      "rule": "Erase children of erased workflows. Preserve runs in surviving workflows, including their initiator identities and stored text.",
+      "fixture": "table:cascade_runs"
+    },
+    "table:custom_palettes": {
+      "action": "retain",
+      "rule": "Keep instance palettes."
+    },
+    "table:data_tables": {
+      "action": "erase",
+      "rule": "Erase target-owned datasets and generations by opaque owner identity. Independent outputs of other owners survive.",
+      "fixture": "table:data_tables"
+    },
+    "table:layer_tiles": {
+      "action": "erase",
+      "rule": "Erase tiles of erased maps and tiles with erased input evidence, regardless of map owner.",
+      "fixture": "table:layer_tiles"
+    },
+    "table:layers": {
+      "action": "erase",
+      "rule": "Erase children of erased maps.",
+      "fixture": "table:layers"
+    },
+    "table:lineage_edges": {
+      "action": "erase",
+      "rule": "Erase children of erased workflows and target-owned outputs; preserve independent other-owner output lineage and retained actor identity.",
+      "fixture": "table:lineage_edges"
+    },
+    "table:map_history": {
+      "action": "erase",
+      "rule": "Erase children of erased maps; preserve original authors and times on surviving maps.",
+      "fixture": "table:map_history"
+    },
+    "table:maps": {
+      "action": "erase",
+      "rule": "Erase maps owned by the target. Keep other owners maps, definitions, SQL homes and actor facts except recorded unfiling and evidenced derivative invalidation.",
+      "fixture": "table:maps"
+    },
+    "table:operation_jobs": {
+      "action": "erase",
+      "rule": "Erase target-owned jobs and children of erased workflows. Preserve other owners contained histories even when the erased person initiated or authored them.",
+      "fixture": "table:operation_jobs"
+    },
+    "table:original_account": {
+      "action": "retain",
+      "rule": "Keep the immutable original adoption marker and its opaque identity reference. Setup remains complete."
+    },
+    "table:ownership_transfer_gate": {
+      "action": "erase",
+      "rule": "Drain transfer transactions; no target from/to reservation may survive completion.",
+      "fixture": "table:ownership_transfer_gate"
+    },
+    "table:pg_connections": {
+      "action": "erase",
+      "rule": "Erase target-owned connections including encrypted credential envelopes.",
+      "fixture": "table:pg_connections"
+    },
+    "table:project_datasets": {
+      "action": "erase",
+      "rule": "Remove filings of erased datasets and dissolved projects. Preserve every other filing.",
+      "fixture": "table:project_datasets"
+    },
+    "table:project_people": {
+      "action": "erase",
+      "rule": "Remove memberships of the target and all grants on dissolved owned projects.",
+      "fixture": "table:project_people"
+    },
+    "table:projects": {
+      "action": "erase",
+      "rule": "Dissolve owned projects, remove grants and unfile surviving member-owned contents with exactly one recorded acting-admin revision.",
+      "fixture": "table:projects"
+    },
+    "table:recipe_layouts": {
+      "action": "erase",
+      "rule": "Erase children of erased workflows.",
+      "fixture": "table:recipe_layouts"
+    },
+    "table:recipe_steps": {
+      "action": "erase",
+      "rule": "Erase children of erased workflows.",
+      "fixture": "table:recipe_steps"
+    },
+    "table:recipes": {
+      "action": "erase",
+      "rule": "Erase workflows owned by the target. Keep other owners definitions, fixed homes, actor facts and independently owned outputs.",
+      "fixture": "table:recipes"
+    },
+    "table:step_runner_outputs": {
+      "action": "erase",
+      "rule": "Erase target runner output associations and children of erased workflows. Preserve independent outputs owned by other runners.",
+      "fixture": "table:step_runner_outputs"
+    },
+    "table:workspace_settings": {
+      "action": "retain",
+      "rule": "Keep instance settings. Personal legacy settings were adopted into account_preferences."
+    },
+    "file:metadata": {
+      "action": "compact",
+      "rule": "Compact live SQLite and truncate WAL after row erasure. Former values must be absent while control bytes survive.",
+      "fixture": "file:metadata"
+    },
+    "file:tables": {
+      "action": "erase",
+      "rule": "Remove target generations, retired files, sketches and staging. Preserve other owners artifacts; await readers and failed unlinks.",
+      "fixture": "file:tables"
+    },
+    "file:tmp": {
+      "action": "erase",
+      "rule": "Remove target query/export/import scratch after work and stream settlement. Preserve unrelated work.",
+      "fixture": "file:tmp"
+    },
+    "file:exports": {
+      "action": "erase",
+      "rule": "Remove target prepared project archives after claims or expiry settle. Preserve other initiators issued private copies for their lifetime.",
+      "fixture": "file:exports"
+    },
+    "file:tiles": {
+      "action": "erase",
+      "rule": "Remove owned and erased-input archives across owners, close open handles, and preserve unrelated archives.",
+      "fixture": "file:tiles"
+    },
+    "file:tile-scratch": {
+      "action": "erase",
+      "rule": "Drain and remove target tile/query export candidates; preserve independent work.",
+      "fixture": "file:tile-scratch"
+    },
+    "file:thumbnails": {
+      "action": "erase",
+      "rule": "Remove target images and every image with erased dataset evidence across owners, including both themes and manifests. Unattributed other-owner images retain the documented residual.",
+      "fixture": "file:thumbnails"
+    },
+    "file:thumbnail-inputs": {
+      "action": "erase",
+      "rule": "Remove evidence for erased thumbnails; preserve unrelated evidence.",
+      "fixture": "file:thumbnail-inputs"
+    },
+    "file:tile-inputs": {
+      "action": "erase",
+      "rule": "Remove evidence for erased tiles; preserve unrelated evidence.",
+      "fixture": "file:tile-inputs"
+    },
+    "file:geocode": {
+      "action": "purge",
+      "rule": "Purge the whole answer cache for ever-active deletion. Fence late writes by generation. Invitations do not purge.",
+      "fixture": "file:geocode"
+    },
+    "file:isochrone": {
+      "action": "purge",
+      "rule": "Purge the whole answer cache for ever-active deletion. Fence late writes by generation. Invitations do not purge.",
+      "fixture": "file:isochrone"
+    },
+    "file:overpass": {
+      "action": "purge",
+      "rule": "Purge the whole answer cache for ever-active deletion. Fence late writes by generation. Invitations do not purge.",
+      "fixture": "file:overpass"
+    },
+    "file:secret-key": {
+      "action": "retain",
+      "rule": "Keep the instance encryption key."
+    },
+    "file:assistant-models": {
+      "action": "retain",
+      "rule": "Keep instance model configuration."
+    },
+    "data-directory": {
+      "action": "retain",
+      "rule": "Keep the directory container; children are classified individually. Health and startup only ensure it exists."
+    },
+    "memory:src/app/api/query/export/route.ts#queryDownloadTickets": {
+      "action": "erase",
+      "rule": "Erase target tickets, retained renders and prepared copies by existing account identity; release timers and buffers after settlement/expiry. Preserve other initiators issued copies for their lifetime.",
+      "fixture": "memory:src/app/api/query/export/route.ts#queryDownloadTickets"
+    },
+    "memory:immutable-configuration": {
+      "action": "retain",
+      "rule": "Keep immutable schema, policy, format and presentation configuration; no account-derived entries."
+    },
+    "memory:src/lib/assistant/edit-revisions.ts#AssistantRevisions.parents": {
+      "action": "erase",
+      "rule": "Erase target conversations, receipts, confirmations, turn buffers, provider exchanges and revision trackers after in-flight work settles. Preserve other accounts retained work.",
+      "fixture": "memory:src/lib/assistant/edit-revisions.ts#AssistantRevisions.parents"
+    },
+    "memory:src/lib/assistant/edit-revisions.ts#AssistantRevisions.revisions": {
+      "action": "erase",
+      "rule": "Erase target conversations, receipts, confirmations, turn buffers, provider exchanges and revision trackers after in-flight work settles. Preserve other accounts retained work.",
+      "fixture": "memory:src/lib/assistant/edit-revisions.ts#AssistantRevisions.revisions"
+    },
+    "memory:src/lib/assistant/execution-control.ts#executionControl.signal": {
+      "action": "erase",
+      "rule": "Erase target conversations, receipts, confirmations, turn buffers, provider exchanges and revision trackers after in-flight work settles. Preserve other accounts retained work.",
+      "fixture": "memory:src/lib/assistant/execution-control.ts#executionControl.signal"
+    },
+    "memory:src/lib/assistant/pending.ts#pendingActions": {
+      "action": "erase",
+      "rule": "Erase target conversations, receipts, confirmations, turn buffers, provider exchanges and revision trackers after in-flight work settles. Preserve other accounts retained work.",
+      "fixture": "memory:src/lib/assistant/pending.ts#pendingActions"
+    },
+    "memory:src/lib/assistant/pending.ts#PendingActionStore.parked": {
+      "action": "erase",
+      "rule": "Erase target conversations, receipts, confirmations, turn buffers, provider exchanges and revision trackers after in-flight work settles. Preserve other accounts retained work.",
+      "fixture": "memory:src/lib/assistant/pending.ts#PendingActionStore.parked"
+    },
+    "memory:src/lib/assistant/pending.ts#PendingActionStore.trace": {
+      "action": "erase",
+      "rule": "Erase target conversations, receipts, confirmations, turn buffers, provider exchanges and revision trackers after in-flight work settles. Preserve other accounts retained work.",
+      "fixture": "memory:src/lib/assistant/pending.ts#PendingActionStore.trace"
+    },
+    "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.client": {
+      "action": "erase",
+      "rule": "Erase target conversations, receipts, confirmations, turn buffers, provider exchanges and revision trackers after in-flight work settles. Preserve other accounts retained work.",
+      "fixture": "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.client"
+    },
+    "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.exchange.grounding": {
+      "action": "erase",
+      "rule": "Erase target conversations, receipts, confirmations, turn buffers, provider exchanges and revision trackers after in-flight work settles. Preserve other accounts retained work.",
+      "fixture": "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.exchange.grounding"
+    },
+    "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.exchange.tools": {
+      "action": "erase",
+      "rule": "Erase target conversations, receipts, confirmations, turn buffers, provider exchanges and revision trackers after in-flight work settles. Preserve other accounts retained work.",
+      "fixture": "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.exchange.tools"
+    },
+    "memory:src/lib/assistant/providers/openai-responses.ts#responsesExchange.grounding": {
+      "action": "erase",
+      "rule": "Erase target conversations, receipts, confirmations, turn buffers, provider exchanges and revision trackers after in-flight work settles. Preserve other accounts retained work.",
+      "fixture": "memory:src/lib/assistant/providers/openai-responses.ts#responsesExchange.grounding"
+    },
+    "memory:src/lib/assistant/providers/openai-responses.ts#responsesExchange.tools": {
+      "action": "erase",
+      "rule": "Erase target conversations, receipts, confirmations, turn buffers, provider exchanges and revision trackers after in-flight work settles. Preserve other accounts retained work.",
+      "fixture": "memory:src/lib/assistant/providers/openai-responses.ts#responsesExchange.tools"
+    },
+    "memory:src/lib/assistant/providers/openai.ts#openaiProvider.client": {
+      "action": "erase",
+      "rule": "Erase target conversations, receipts, confirmations, turn buffers, provider exchanges and revision trackers after in-flight work settles. Preserve other accounts retained work.",
+      "fixture": "memory:src/lib/assistant/providers/openai.ts#openaiProvider.client"
+    },
+    "memory:src/lib/assistant/providers/openai.ts#openaiProvider.exchange.exchange": {
+      "action": "erase",
+      "rule": "Erase target conversations, receipts, confirmations, turn buffers, provider exchanges and revision trackers after in-flight work settles. Preserve other accounts retained work.",
+      "fixture": "memory:src/lib/assistant/providers/openai.ts#openaiProvider.exchange.exchange"
+    },
+    "memory:test-seams": {
+      "action": "retain",
+      "rule": "Test-only fixture state, never populated on the product path."
+    },
+    "memory:src/lib/assistant/runs.ts#assistantRuns": {
+      "action": "erase",
+      "rule": "Erase target conversations, receipts, confirmations, turn buffers, provider exchanges and revision trackers after in-flight work settles. Preserve other accounts retained work.",
+      "fixture": "memory:src/lib/assistant/runs.ts#assistantRuns"
+    },
+    "memory:src/lib/assistant/runs.ts#AssistantRunStore.entries": {
+      "action": "erase",
+      "rule": "Erase target conversations, receipts, confirmations, turn buffers, provider exchanges and revision trackers after in-flight work settles. Preserve other accounts retained work.",
+      "fixture": "memory:src/lib/assistant/runs.ts#AssistantRunStore.entries"
+    },
+    "memory:src/lib/assistant/runs.ts#AssistantRunStore.terminals": {
+      "action": "erase",
+      "rule": "Erase target conversations, receipts, confirmations, turn buffers, provider exchanges and revision trackers after in-flight work settles. Preserve other accounts retained work.",
+      "fixture": "memory:src/lib/assistant/runs.ts#AssistantRunStore.terminals"
+    },
+    "memory:src/lib/auth/credential-maintenance.ts#credentialMaintenance.completedAt": {
+      "action": "purge",
+      "rule": "Discard sweep cursors and weak/database holders after credential erasure; restart from durable rows. Other account credential rows remain.",
+      "fixture": "memory:src/lib/auth/credential-maintenance.ts#credentialMaintenance.completedAt"
+    },
+    "memory:src/lib/auth/credential-maintenance.ts#credentialMaintenance.cursors": {
+      "action": "purge",
+      "rule": "Discard sweep cursors and weak/database holders after credential erasure; restart from durable rows. Other account credential rows remain.",
+      "fixture": "memory:src/lib/auth/credential-maintenance.ts#credentialMaintenance.cursors"
+    },
+    "memory:src/lib/auth/credential-maintenance.ts#state": {
+      "action": "purge",
+      "rule": "Discard sweep cursors and weak/database holders after credential erasure; restart from durable rows. Other account credential rows remain.",
+      "fixture": "memory:src/lib/auth/credential-maintenance.ts#state"
+    },
+    "memory:src/lib/auth/credential-maintenance.ts#state.files": {
+      "action": "purge",
+      "rule": "Discard sweep cursors and weak/database holders after credential erasure; restart from durable rows. Other account credential rows remain.",
+      "fixture": "memory:src/lib/auth/credential-maintenance.ts#state.files"
+    },
+    "memory:src/lib/auth/credential-maintenance.ts#state.memory": {
+      "action": "purge",
+      "rule": "Discard sweep cursors and weak/database holders after credential erasure; restart from durable rows. Other account credential rows remain.",
+      "fixture": "memory:src/lib/auth/credential-maintenance.ts#state.memory"
+    },
+    "memory:password-admission": {
+      "action": "retain",
+      "rule": "Retain non-content capacity accounting only after target password work, queued closures and native derivations settle."
+    },
+    "memory:trusted-peer-policy": {
+      "action": "retain",
+      "rule": "Keep the process ingress signature key and trusted-proxy configuration, including their installed closures. No per-request material is retained by this policy."
+    },
+    "memory:src/lib/duckdb.ts#connectionGenerations": {
+      "action": "purge",
+      "rule": "Drain evaluations and leased connections, clear retained mounts, catalog views and instance namespaces before completion.",
+      "fixture": "memory:src/lib/duckdb.ts#connectionGenerations"
+    },
+    "memory:engine-extensions": {
+      "action": "retain",
+      "rule": "Keep engine extension loading attempts; no account input is retained."
+    },
+    "memory:src/lib/duckdb.ts#instancePromise": {
+      "action": "purge",
+      "rule": "Drain evaluations and leased connections, clear retained mounts, catalog views and instance namespaces before completion.",
+      "fixture": "memory:src/lib/duckdb.ts#instancePromise"
+    },
+    "memory:src/lib/duckdb.ts#queryCatalogGeneration": {
+      "action": "purge",
+      "rule": "Drain evaluations and leased connections, clear retained mounts, catalog views and instance namespaces before completion.",
+      "fixture": "memory:src/lib/duckdb.ts#queryCatalogGeneration"
+    },
+    "memory:src/lib/duckdb.ts#queryInstancePromise": {
+      "action": "purge",
+      "rule": "Drain evaluations and leased connections, clear retained mounts, catalog views and instance namespaces before completion.",
+      "fixture": "memory:src/lib/duckdb.ts#queryInstancePromise"
+    },
+    "memory:src/lib/export/layer-download-tickets.ts#layerDownloadTickets": {
+      "action": "erase",
+      "rule": "Erase target tickets, retained renders and prepared copies by existing account identity; release timers and buffers after settlement/expiry. Preserve other initiators issued copies for their lifetime.",
+      "fixture": "memory:src/lib/export/layer-download-tickets.ts#layerDownloadTickets"
+    },
+    "memory:src/lib/export/layer-download-tickets.ts#LayerDownloadTicketStore.entries": {
+      "action": "erase",
+      "rule": "Erase target tickets, retained renders and prepared copies by existing account identity; release timers and buffers after settlement/expiry. Preserve other initiators issued copies for their lifetime.",
+      "fixture": "memory:src/lib/export/layer-download-tickets.ts#LayerDownloadTicketStore.entries"
+    },
+    "memory:request-closures": {
+      "action": "retain",
+      "rule": "Request-local closure or stream state. It is not a module singleton; deletion admission/draining must settle target work before completion."
+    },
+    "memory:src/lib/export/look-retention.ts#lookRetention": {
+      "action": "erase",
+      "rule": "Erase target tickets, retained renders and prepared copies by existing account identity; release timers and buffers after settlement/expiry. Preserve other initiators issued copies for their lifetime.",
+      "fixture": "memory:src/lib/export/look-retention.ts#lookRetention"
+    },
+    "memory:src/lib/export/look-retention.ts#LookRetention.entries": {
+      "action": "erase",
+      "rule": "Erase target tickets, retained renders and prepared copies by existing account identity; release timers and buffers after settlement/expiry. Preserve other initiators issued copies for their lifetime.",
+      "fixture": "memory:src/lib/export/look-retention.ts#LookRetention.entries"
+    },
+    "memory:src/lib/export/look-retention.ts#LookRetention.total": {
+      "action": "erase",
+      "rule": "Erase target tickets, retained renders and prepared copies by existing account identity; release timers and buffers after settlement/expiry. Preserve other initiators issued copies for their lifetime.",
+      "fixture": "memory:src/lib/export/look-retention.ts#LookRetention.total"
+    },
+    "memory:src/lib/export/project-export-tickets.ts#claimProjectExportTicket.accountId": {
+      "action": "erase",
+      "rule": "Erase target tickets, retained renders and prepared copies by existing account identity; release timers and buffers after settlement/expiry. Preserve other initiators issued copies for their lifetime.",
+      "fixture": "memory:src/lib/export/project-export-tickets.ts#claimProjectExportTicket.accountId"
+    },
+    "memory:src/lib/export/project-export-tickets.ts#entries": {
+      "action": "erase",
+      "rule": "Erase target tickets, retained renders and prepared copies by existing account identity; release timers and buffers after settlement/expiry. Preserve other initiators issued copies for their lifetime.",
+      "fixture": "memory:src/lib/export/project-export-tickets.ts#entries"
+    },
+    "memory:src/lib/export/render-image.ts#active": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-image.ts#active"
+    },
+    "memory:src/lib/export/render-image.ts#launches": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-image.ts#launches"
+    },
+    "memory:src/lib/export/render-image.ts#renderMapImage.browser": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-image.ts#renderMapImage.browser"
+    },
+    "memory:src/lib/export/render-image.ts#renderMapImage.error": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-image.ts#renderMapImage.error"
+    },
+    "memory:src/lib/export/render-image.ts#renderMapImage.outcome": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-image.ts#renderMapImage.outcome"
+    },
+    "memory:src/lib/export/render-image.ts#renderMapImage.settled": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-image.ts#renderMapImage.settled"
+    },
+    "memory:src/lib/export/render-image.ts#renderMapImage.timedOut": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-image.ts#renderMapImage.timedOut"
+    },
+    "memory:src/lib/export/render-image.ts#waiters": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-image.ts#waiters"
+    },
+    "memory:provider-scheduling": {
+      "action": "retain",
+      "rule": "Keep non-content endpoint scheduling or source rate budgets. Target work closures must settle before completion."
+    },
+    "memory:src/lib/geometry/inspection-cache.ts#inspectionCache.entries": {
+      "action": "purge",
+      "rule": "Clear retained inspection promises and results after readers settle; fence late repopulation.",
+      "fixture": "memory:src/lib/geometry/inspection-cache.ts#inspectionCache.entries"
+    },
+    "memory:src/lib/geometry/service.ts#cachedInspection": {
+      "action": "purge",
+      "rule": "Clear retained inspection promises and results after readers settle; fence late repopulation.",
+      "fixture": "memory:src/lib/geometry/service.ts#cachedInspection"
+    },
+    "memory:browser-presentation": {
+      "action": "retain",
+      "rule": "Browser-local presentation closure. It is not a server-held account store."
+    },
+    "memory:src/lib/history-admission-cache.ts#caches": {
+      "action": "purge",
+      "rule": "Invalidate history and layer admission caches, including weak holders of saved input bindings.",
+      "fixture": "memory:src/lib/history-admission-cache.ts#caches"
+    },
+    "memory:icon-configuration": {
+      "action": "retain",
+      "rule": "Keep XML parser/builder configuration and immutable allowed element/attribute sets; no retained parsed user documents."
+    },
+    "memory:src/lib/ingest/fence.ts#active": {
+      "action": "erase",
+      "rule": "Drain target ingest/sketch/operation/cascade work, pending retirements and lane promises before removing their holders; preserve independent owners work.",
+      "fixture": "memory:src/lib/ingest/fence.ts#active"
+    },
+    "memory:src/lib/ingest/retire.ts#pending": {
+      "action": "erase",
+      "rule": "Drain target ingest/sketch/operation/cascade work, pending retirements and lane promises before removing their holders; preserve independent owners work.",
+      "fixture": "memory:src/lib/ingest/retire.ts#pending"
+    },
+    "memory:src/lib/layer-admission.ts#updateAdmissions": {
+      "action": "purge",
+      "rule": "Invalidate history and layer admission caches, including weak holders of saved input bindings.",
+      "fixture": "memory:src/lib/layer-admission.ts#updateAdmissions"
+    },
+    "memory:src/lib/map-thumbnails.ts#turns": {
+      "action": "erase",
+      "rule": "Drain owned and erased-input thumbnail writes across owners before removing images and evidence.",
+      "fixture": "memory:src/lib/map-thumbnails.ts#turns"
+    },
+    "memory:tool-schema-cache": {
+      "action": "retain",
+      "rule": "Keep generated schemas and validators; they contain contract configuration, not tool arguments or results."
+    },
+    "memory:open-metadata-handle": {
+      "action": "retain",
+      "rule": "Keep the metadata connection open through shared-store compaction; row erasure and live byte checks cover its store."
+    },
+    "memory:src/lib/metadata/revisions.ts#recordings": {
+      "action": "erase",
+      "rule": "Settle covered-write transactions and remove target recording holders; preserve unrelated active transactions.",
+      "fixture": "memory:src/lib/metadata/revisions.ts#recordings"
+    },
+    "memory:src/lib/operations/cascade.ts#driving": {
+      "action": "erase",
+      "rule": "Drain target ingest/sketch/operation/cascade work, pending retirements and lane promises before removing their holders; preserve independent owners work.",
+      "fixture": "memory:src/lib/operations/cascade.ts#driving"
+    },
+    "memory:src/lib/operations/lane.ts#inFlight": {
+      "action": "erase",
+      "rule": "Drain target ingest/sketch/operation/cascade work, pending retirements and lane promises before removing their holders; preserve independent owners work.",
+      "fixture": "memory:src/lib/operations/lane.ts#inFlight"
+    },
+    "memory:src/lib/operations/lane.ts#known": {
+      "action": "erase",
+      "rule": "Drain target ingest/sketch/operation/cascade work, pending retirements and lane promises before removing their holders; preserve independent owners work.",
+      "fixture": "memory:src/lib/operations/lane.ts#known"
+    },
+    "memory:src/lib/operations/lane.ts#waiting": {
+      "action": "erase",
+      "rule": "Drain target ingest/sketch/operation/cascade work, pending retirements and lane promises before removing their holders; preserve independent owners work.",
+      "fixture": "memory:src/lib/operations/lane.ts#waiting"
+    },
+    "memory:public-geography-catalogues": {
+      "action": "retain",
+      "rule": "Keep public release/division metadata and geometry catalogues; no account-supplied query or content is stored."
+    },
+    "memory:src/lib/publish/publication-resolution.ts#cache": {
+      "action": "purge",
+      "rule": "Invalidate assembled publication views and namespaces, preventing late cache repopulation from erased inputs.",
+      "fixture": "memory:src/lib/publish/publication-resolution.ts#cache"
+    },
+    "memory:publication-source-budgets": {
+      "action": "retain",
+      "rule": "Keep non-content endpoint scheduling or source rate budgets. Target work closures must settle before completion."
+    },
+    "memory:src/lib/query/catalog-state.ts#artifactRelations": {
+      "action": "purge",
+      "rule": "Drain evaluations and leased connections, clear retained mounts, catalog views and input state before completion.",
+      "fixture": "memory:src/lib/query/catalog-state.ts#artifactRelations"
+    },
+    "memory:src/lib/query/catalog-state.ts#generation": {
+      "action": "purge",
+      "rule": "Drain evaluations and leased connections, clear retained mounts, catalog views and input state before completion.",
+      "fixture": "memory:src/lib/query/catalog-state.ts#generation"
+    },
+    "memory:src/lib/query/catalog-state.ts#relations": {
+      "action": "purge",
+      "rule": "Drain evaluations and leased connections, clear retained mounts, catalog views and input state before completion.",
+      "fixture": "memory:src/lib/query/catalog-state.ts#relations"
+    },
+    "memory:src/lib/query/evaluation-inputs.ts#collecting": {
+      "action": "purge",
+      "rule": "Drain evaluations and leased connections, clear retained mounts, catalog views and input state before completion.",
+      "fixture": "memory:src/lib/query/evaluation-inputs.ts#collecting"
+    },
+    "memory:src/lib/query/evaluation-inputs.ts#recorders": {
+      "action": "purge",
+      "rule": "Drain evaluations and leased connections, clear retained mounts, catalog views and input state before completion.",
+      "fixture": "memory:src/lib/query/evaluation-inputs.ts#recorders"
+    },
+    "memory:src/lib/query/inflight.ts#inflight": {
+      "action": "purge",
+      "rule": "Drain evaluations and leased connections, clear retained mounts, catalog views and input state before completion.",
+      "fixture": "memory:src/lib/query/inflight.ts#inflight"
+    },
+    "memory:src/lib/query/mount-plan.ts#plans": {
+      "action": "purge",
+      "rule": "Drain evaluations and leased connections, clear retained mounts, catalog views and input state before completion.",
+      "fixture": "memory:src/lib/query/mount-plan.ts#plans"
+    },
+    "memory:src/lib/query/publication-namespace.ts#remembered": {
+      "action": "purge",
+      "rule": "Invalidate assembled publication views and namespaces, preventing late cache repopulation from erased inputs.",
+      "fixture": "memory:src/lib/query/publication-namespace.ts#remembered"
+    },
+    "memory:src/lib/query/staging.ts#leaseStagingInputs": {
+      "action": "erase",
+      "rule": "Dispose target staging capabilities and weak entries after leases release and unlink succeeds; preserve unrelated capabilities.",
+      "fixture": "memory:src/lib/query/staging.ts#leaseStagingInputs"
+    },
+    "memory:src/lib/query/staging.ts#leaseStagingInputs.released": {
+      "action": "erase",
+      "rule": "Dispose target staging capabilities and weak entries after leases release and unlink succeeds; preserve unrelated capabilities.",
+      "fixture": "memory:src/lib/query/staging.ts#leaseStagingInputs.released"
+    },
+    "memory:src/lib/query/staging.ts#stages": {
+      "action": "erase",
+      "rule": "Dispose target staging capabilities and weak entries after leases release and unlink succeeds; preserve unrelated capabilities.",
+      "fixture": "memory:src/lib/query/staging.ts#stages"
+    },
+    "memory:src/lib/query/views.ts#mounted": {
+      "action": "purge",
+      "rule": "Drain evaluations and leased connections, clear retained mounts, catalog views and input state before completion.",
+      "fixture": "memory:src/lib/query/views.ts#mounted"
+    },
+    "memory:cached-secret-key": {
+      "action": "retain",
+      "rule": "Keep the cached instance key."
+    },
+    "memory:src/lib/sketch/store.ts#lanes": {
+      "action": "erase",
+      "rule": "Drain target ingest/sketch/operation/cascade work, pending retirements and lane promises before removing their holders; preserve independent owners work.",
+      "fixture": "memory:src/lib/sketch/store.ts#lanes"
+    },
+    "memory:src/lib/tiles/build.ts#active": {
+      "action": "erase",
+      "rule": "Drain affected builds, queued attempts, failures and generation state; close affected archive handles; fence late publication and preserve unrelated tiles.",
+      "fixture": "memory:src/lib/tiles/build.ts#active"
+    },
+    "memory:src/lib/tiles/build.ts#chain": {
+      "action": "erase",
+      "rule": "Drain affected builds, queued attempts, failures and generation state; close affected archive handles; fence late publication and preserve unrelated tiles.",
+      "fixture": "memory:src/lib/tiles/build.ts#chain"
+    },
+    "memory:src/lib/tiles/build.ts#failures": {
+      "action": "erase",
+      "rule": "Drain affected builds, queued attempts, failures and generation state; close affected archive handles; fence late publication and preserve unrelated tiles.",
+      "fixture": "memory:src/lib/tiles/build.ts#failures"
+    },
+    "memory:src/lib/tiles/build.ts#generations": {
+      "action": "erase",
+      "rule": "Drain affected builds, queued attempts, failures and generation state; close affected archive handles; fence late publication and preserve unrelated tiles.",
+      "fixture": "memory:src/lib/tiles/build.ts#generations"
+    },
+    "memory:src/lib/tiles/build.ts#pending": {
+      "action": "erase",
+      "rule": "Drain affected builds, queued attempts, failures and generation state; close affected archive handles; fence late publication and preserve unrelated tiles.",
+      "fixture": "memory:src/lib/tiles/build.ts#pending"
+    },
+    "memory:src/lib/tiles/build.ts#start.attempt": {
+      "action": "erase",
+      "rule": "Drain affected builds, queued attempts, failures and generation state; close affected archive handles; fence late publication and preserve unrelated tiles.",
+      "fixture": "memory:src/lib/tiles/build.ts#start.attempt"
+    },
+    "memory:src/lib/tiles/evidence.ts#running": {
+      "action": "erase",
+      "rule": "Drain affected builds, queued attempts, failures and generation state; close affected archive handles; fence late publication and preserve unrelated tiles.",
+      "fixture": "memory:src/lib/tiles/evidence.ts#running"
+    },
+    "memory:src/lib/tiles/serve.ts#archives": {
+      "action": "erase",
+      "rule": "Drain affected builds, queued attempts, failures and generation state; close affected archive handles; fence late publication and preserve unrelated tiles.",
+      "fixture": "memory:src/lib/tiles/serve.ts#archives"
+    },
+    "memory:tiler-probe": {
+      "action": "retain",
+      "rule": "Keep the resolved tiler executable path and capability probe."
+    }
+  },
+  "tables": {
+    "account_preferences": "table:account_preferences",
+    "accounts": "table:accounts",
+    "auth_links": "table:auth_links",
+    "auth_login_limits": "table:auth_login_limits",
+    "auth_sessions": "table:auth_sessions",
+    "auth_tokens": "table:auth_tokens",
+    "cascade_members": "table:cascade_members",
+    "cascade_runs": "table:cascade_runs",
+    "custom_palettes": "table:custom_palettes",
+    "data_tables": "table:data_tables",
+    "layer_tiles": "table:layer_tiles",
+    "layers": "table:layers",
+    "lineage_edges": "table:lineage_edges",
+    "map_history": "table:map_history",
+    "maps": "table:maps",
+    "operation_jobs": "table:operation_jobs",
+    "original_account": "table:original_account",
+    "ownership_transfer_gate": "table:ownership_transfer_gate",
+    "pg_connections": "table:pg_connections",
+    "project_datasets": "table:project_datasets",
+    "project_people": "table:project_people",
+    "projects": "table:projects",
+    "recipe_layouts": "table:recipe_layouts",
+    "recipe_steps": "table:recipe_steps",
+    "recipes": "table:recipes",
+    "step_runner_outputs": "table:step_runner_outputs",
+    "workspace_settings": "table:workspace_settings"
+  },
+  "sources": {
+    "location:src/app/api/health/route.ts#GET:dataDir": {
+      "stores": [
+        "data-directory"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/instrumentation.ts#register:dataDir": {
+      "stores": [
+        "data-directory"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/assistant/model-catalogue.ts#readModelCatalogue:dataDir": {
+      "stores": [
+        "file:assistant-models"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/assistant/model-catalogue.ts#readModelCatalogue:path.join": {
+      "stores": [
+        "file:assistant-models"
+      ],
+      "roots": [
+        "assistant-models.json"
+      ]
+    },
+    "location:src/lib/duckdb.ts#createHardenedInstance.fence:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/duckdb.ts#createHardenedInstance.fence:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables"
+      ]
+    },
+    "location:src/lib/duckdb.ts#createHardenedInstance.fence:tileScratchDir": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch"
+      ]
+    },
+    "location:src/lib/export/layer-export.ts#exportLayerResult.outFile:path.join": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch/export-*.*"
+      ]
+    },
+    "location:src/lib/export/layer-export.ts#exportLayerResult.outFile:tileScratchDir": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch"
+      ]
+    },
+    "location:src/lib/export/layer-export.ts#exportQueryResult.outFile:path.join": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch/export-*.*"
+      ]
+    },
+    "location:src/lib/export/layer-export.ts#exportQueryResult.outFile:tileScratchDir": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch"
+      ]
+    },
+    "location:src/lib/export/project-export.ts#assembleProjectExport:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/export/project-export.ts#assembleProjectExport:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/export/project-export.ts#assembleProjectExport.p:path.join": {
+      "stores": [
+        "file:exports"
+      ],
+      "roots": [
+        "exports/*"
+      ]
+    },
+    "location:src/lib/export/project-export.ts#assembleProjectExport.staged:path.join": {
+      "stores": [
+        "file:exports"
+      ],
+      "roots": [
+        "exports/*.zip"
+      ]
+    },
+    "location:src/lib/export/project-export.ts#assembleProjectExport.stagingDir:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/export/project-export.ts#assembleProjectExport.stagingDir:path.join": {
+      "stores": [
+        "file:exports"
+      ],
+      "roots": [
+        "exports"
+      ]
+    },
+    "location:src/lib/geocode/cache.ts#cacheDir:dataDir": {
+      "stores": [
+        "file:geocode"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/geocode/cache.ts#cacheDir:path.join": {
+      "stores": [
+        "file:geocode"
+      ],
+      "roots": [
+        "cache/geocode"
+      ]
+    },
+    "location:src/lib/geocode/cache.ts#maintain.dir:cacheDir": {
+      "stores": [
+        "file:geocode"
+      ],
+      "roots": [
+        "cache/geocode"
+      ]
+    },
+    "location:src/lib/geocode/cache.ts#maintain.file:path.join": {
+      "stores": [
+        "file:geocode"
+      ],
+      "roots": [
+        "cache/geocode/*"
+      ]
+    },
+    "location:src/lib/geocode/cache.ts#readAnswer.file:cacheDir": {
+      "stores": [
+        "file:geocode"
+      ],
+      "roots": [
+        "cache/geocode"
+      ]
+    },
+    "location:src/lib/geocode/cache.ts#readAnswer.file:path.join": {
+      "stores": [
+        "file:geocode"
+      ],
+      "roots": [
+        "cache/geocode/*.json"
+      ]
+    },
+    "location:src/lib/geocode/cache.ts#writeAnswer.dir:cacheDir": {
+      "stores": [
+        "file:geocode"
+      ],
+      "roots": [
+        "cache/geocode"
+      ]
+    },
+    "location:src/lib/geocode/cache.ts#writeAnswer.file:path.join": {
+      "stores": [
+        "file:geocode"
+      ],
+      "roots": [
+        "cache/geocode/*.json"
+      ]
+    },
+    "location:src/lib/geocode/cache.ts#writeAnswer.staging:path.join": {
+      "stores": [
+        "file:geocode"
+      ],
+      "roots": [
+        "cache/geocode/.*.*.tmp"
+      ]
+    },
+    "location:src/lib/geometry/clear.ts#clearGeometry.artifact:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/geometry/clear.ts#clearGeometry.artifact:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "location:src/lib/geometry/inspection-cache.ts#inspectionCache.key:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/geometry/mutate.ts#publishGeometry:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/geometry/mutate.ts#publishGeometry:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/geometry/mutate.ts#setGeometry.artifact:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/geometry/mutate.ts#setGeometry.artifact:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "location:src/lib/geometry/read.ts#readGeometry.{ from }:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/geometry/read.ts#readGeometry.{ from }:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/geometry/stage.ts#stageGeometry.dir:ingestScratchDir": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp"
+      ]
+    },
+    "location:src/lib/geometry/stage.ts#stageGeometry.file:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/*.parquet"
+      ]
+    },
+    "location:src/lib/ingest/gdal-formats.ts#ingestSpatialFile.artifact:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/ingest/gdal-formats.ts#ingestSpatialFile.artifact:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "location:src/lib/ingest/gdal-formats.ts#prepareSource.datasets:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/*/*"
+      ]
+    },
+    "location:src/lib/ingest/gdal-formats.ts#prepareSource.scratchDir:ingestScratchDir": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp"
+      ]
+    },
+    "location:src/lib/ingest/gdal-formats.ts#prepareSource.scratchDir:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/*"
+      ]
+    },
+    "location:src/lib/ingest/ingest.ts#ingestFile.artifact:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/ingest/ingest.ts#ingestFile.artifact:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "location:src/lib/ingest/receive.ts#receiveUpload:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/*"
+      ]
+    },
+    "location:src/lib/ingest/receive.ts#receiveUpload.tmpDir:dataDir": {
+      "stores": [
+        "file:tables",
+        "file:tmp"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/ingest/receive.ts#receiveUpload.tmpDir:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp"
+      ]
+    },
+    "location:src/lib/ingest/refresh-spatial.ts#refreshUrlSpatial:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/ingest/refresh-spatial.ts#refreshUrlSpatial:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/ingest/refresh-spatial.ts#refreshUrlSpatial.artifact:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/ingest/refresh-spatial.ts#refreshUrlSpatial.artifact:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "location:src/lib/ingest/refresh.ts#performRefresh:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/ingest/refresh.ts#performRefresh:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/ingest/refresh.ts#performRefresh.artifact:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/ingest/refresh.ts#performRefresh.artifact:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "location:src/lib/ingest/refresh.ts#refreshOsmGroup:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/ingest/refresh.ts#refreshOsmGroup:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/ingest/refresh.ts#refreshOsmGroup.artifact:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/ingest/refresh.ts#refreshOsmGroup.artifact:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "location:src/lib/ingest/remote.ts#downloadToScratch.tmpDir:dataDir": {
+      "stores": [
+        "file:tables",
+        "file:tmp"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/ingest/remote.ts#downloadToScratch.tmpDir:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp"
+      ]
+    },
+    "location:src/lib/ingest/remote.ts#downloadToScratch.tmpPath:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/**"
+      ]
+    },
+    "location:src/lib/ingest/remote.ts#resolveCredentialedObjectSource.tmpDir:dataDir": {
+      "stores": [
+        "file:tables",
+        "file:tmp"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/ingest/remote.ts#resolveCredentialedObjectSource.tmpDir:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp"
+      ]
+    },
+    "location:src/lib/ingest/remote.ts#resolveCredentialedObjectSource.tmpPath:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/**"
+      ]
+    },
+    "location:src/lib/ingest/scratch.ts#cleanIngestScratch:ingestScratchDir": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp"
+      ]
+    },
+    "location:src/lib/ingest/scratch.ts#ingestScratchDir:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/ingest/scratch.ts#ingestScratchDir:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp"
+      ]
+    },
+    "location:src/lib/ingest/sweep.ts#sweepTableArtifacts:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*"
+      ]
+    },
+    "location:src/lib/ingest/sweep.ts#sweepTableArtifacts.dir:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/ingest/sweep.ts#sweepTableArtifacts.dir:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables"
+      ]
+    },
+    "location:src/lib/isochrone/cache.ts#cacheDir:dataDir": {
+      "stores": [
+        "file:isochrone"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/isochrone/cache.ts#cacheDir:path.join": {
+      "stores": [
+        "file:isochrone"
+      ],
+      "roots": [
+        "cache/isochrone"
+      ]
+    },
+    "location:src/lib/isochrone/cache.ts#maintainIsochroneCache.dir:cacheDir": {
+      "stores": [
+        "file:isochrone"
+      ],
+      "roots": [
+        "cache/isochrone"
+      ]
+    },
+    "location:src/lib/isochrone/cache.ts#maintainIsochroneCache.file:path.join": {
+      "stores": [
+        "file:isochrone"
+      ],
+      "roots": [
+        "cache/isochrone/*"
+      ]
+    },
+    "location:src/lib/isochrone/cache.ts#readIsochrone.file:cacheDir": {
+      "stores": [
+        "file:isochrone"
+      ],
+      "roots": [
+        "cache/isochrone"
+      ]
+    },
+    "location:src/lib/isochrone/cache.ts#readIsochrone.file:path.join": {
+      "stores": [
+        "file:isochrone"
+      ],
+      "roots": [
+        "cache/isochrone/*.json"
+      ]
+    },
+    "location:src/lib/isochrone/cache.ts#writeIsochrone.dir:cacheDir": {
+      "stores": [
+        "file:isochrone"
+      ],
+      "roots": [
+        "cache/isochrone"
+      ]
+    },
+    "location:src/lib/isochrone/cache.ts#writeIsochrone.file:path.join": {
+      "stores": [
+        "file:isochrone"
+      ],
+      "roots": [
+        "cache/isochrone/*.json"
+      ]
+    },
+    "location:src/lib/isochrone/cache.ts#writeIsochrone.staging:path.join": {
+      "stores": [
+        "file:isochrone"
+      ],
+      "roots": [
+        "cache/isochrone/.*.*.tmp"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#copyThumbnail:inDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#copyThumbnail:thumbnailManifestPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.json"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#copyThumbnail:thumbnailPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.png"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#copyThumbnail.dark:inDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#copyThumbnail.light:inDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#copyThumbnail.singleInputs:thumbnailPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.png"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#expireHeld.{ mtimeMs }:inDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#inDir:path.join": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#inDir:thumbnailsDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#readSet.parsed:thumbnailManifestPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.json"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#readThumbnail.order:inDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#readThumbnail.single:thumbnailPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.png"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#removeImage:inDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#removeThumbnailFiles:thumbnailManifestPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.json"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#removeThumbnailFiles:thumbnailPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.png"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#retireUnreferenced:thumbnailPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.png"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#saveThemedThumbnail:inDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#saveThemedThumbnail:thumbnailManifestPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.json"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#saveThemedThumbnail:thumbnailPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.png"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#saveThemedThumbnail.paired:inDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#saveThumbnail:thumbnailManifestPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.json"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#saveThumbnail:thumbnailPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.png"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#saveThumbnail.single:thumbnailPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.png"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#themedFiles:thumbnailsDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#thumbnailManifestPath:path.join": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.json"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#thumbnailManifestPath:thumbnailsDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#thumbnailPath:path.join": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.png"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#thumbnailPath:thumbnailsDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#thumbnailsDir:dataDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#thumbnailsDir:path.join": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails"
+      ]
+    },
+    "location:src/lib/metadata/db.ts#metadataDb:path.join": {
+      "stores": [
+        "file:metadata"
+      ],
+      "roots": [
+        "metadata.sqlite"
+      ]
+    },
+    "location:src/lib/metadata/db.ts#metadataDb.dir:dataDir": {
+      "stores": [
+        "file:metadata"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/operations/materialize.ts#artifactPaths.abs:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/operations/materialize.ts#artifactPaths.abs:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "location:src/lib/operations/materialize.ts#materialize:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/operations/materialize.ts#materialize:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/osm/import.ts#buildClassArtifact.tmp:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/*.geojson"
+      ]
+    },
+    "location:src/lib/osm/import.ts#buildClassArtifact.tmpDir:dataDir": {
+      "stores": [
+        "file:tables",
+        "file:tmp"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/osm/import.ts#buildClassArtifact.tmpDir:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp"
+      ]
+    },
+    "location:src/lib/osm/import.ts#importOsm:dataDir": {
+      "stores": [
+        "file:tables",
+        "file:tmp"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/osm/import.ts#importOsm:path.join": {
+      "stores": [
+        "file:tables",
+        "file:tmp"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/osm/import.ts#importOsm.artifact:dataDir": {
+      "stores": [
+        "file:tables",
+        "file:tmp"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/osm/import.ts#importOsm.artifact:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "location:src/lib/osm/overpass.ts#cacheDir:dataDir": {
+      "stores": [
+        "file:overpass"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/osm/overpass.ts#cacheDir:path.join": {
+      "stores": [
+        "file:overpass"
+      ],
+      "roots": [
+        "cache/overpass"
+      ]
+    },
+    "location:src/lib/osm/overpass.ts#maintainOverpassCache.dir:cacheDir": {
+      "stores": [
+        "file:overpass"
+      ],
+      "roots": [
+        "cache/overpass"
+      ]
+    },
+    "location:src/lib/osm/overpass.ts#maintainOverpassCache.file:path.join": {
+      "stores": [
+        "file:overpass"
+      ],
+      "roots": [
+        "cache/overpass/*"
+      ]
+    },
+    "location:src/lib/osm/overpass.ts#readCache.file:cacheDir": {
+      "stores": [
+        "file:overpass"
+      ],
+      "roots": [
+        "cache/overpass"
+      ]
+    },
+    "location:src/lib/osm/overpass.ts#readCache.file:path.join": {
+      "stores": [
+        "file:overpass"
+      ],
+      "roots": [
+        "cache/overpass/*.json"
+      ]
+    },
+    "location:src/lib/osm/overpass.ts#writeCache:cacheDir": {
+      "stores": [
+        "file:overpass"
+      ],
+      "roots": [
+        "cache/overpass"
+      ]
+    },
+    "location:src/lib/osm/overpass.ts#writeCache:path.join": {
+      "stores": [
+        "file:overpass"
+      ],
+      "roots": [
+        "cache/overpass/*.json"
+      ]
+    },
+    "location:src/lib/overture/import.ts#importOverture.artifact:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/overture/import.ts#importOverture.artifact:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "location:src/lib/postgis/import.ts#importPostgis.artifact:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/postgis/import.ts#importPostgis.artifact:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "location:src/lib/query/staging.ts#prepareStagingInput.file:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/query/staging.ts#prepareStagingInput.file:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*-stage-*.parquet"
+      ]
+    },
+    "location:src/lib/query/views.ts#registerTableViews.relationOf:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/query/views.ts#registerTableViews.relationOf:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/secrets.ts#keyFilePath:dataDir": {
+      "stores": [
+        "file:secret-key"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/secrets.ts#keyFilePath:path.join": {
+      "stores": [
+        "file:secret-key"
+      ],
+      "roots": [
+        "secret.key"
+      ]
+    },
+    "location:src/lib/secrets.ts#secretKey.file:keyFilePath": {
+      "stores": [
+        "file:secret-key"
+      ],
+      "roots": [
+        "secret.key"
+      ]
+    },
+    "location:src/lib/sketch/read.ts#absOf:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/sketch/read.ts#absOf:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/sketch/read.ts#listFeatures:absOf": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/sketch/read.ts#mapSketches.rows:absOf": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/sketch/store.ts#absOf:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/sketch/store.ts#absOf:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/sketch/store.ts#cascadeDeleteSketch:absOf": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/sketch/store.ts#mutate:absOf": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/sketch/store.ts#mutate.features:absOf": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/sketch/store.ts#writeArtifact.abs:absOf": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/table-catalogue.ts#readTableCatalogue.artifact:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/table-catalogue.ts#readTableCatalogue.artifact:path.join": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/table-service.ts#artifactSize:dataDir": {
+      "stores": [
+        "file:tables",
+        "file:tmp"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/table-service.ts#artifactSize:path.join": {
+      "stores": [
+        "file:tables",
+        "file:tmp"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/table-service.ts#exportTable.artifact:dataDir": {
+      "stores": [
+        "file:tables",
+        "file:tmp"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/table-service.ts#exportTable.artifact:path.join": {
+      "stores": [
+        "file:tables",
+        "file:tmp"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/table-service.ts#exportTable.tmp:dataDir": {
+      "stores": [
+        "file:tables",
+        "file:tmp"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/table-service.ts#exportTable.tmp:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/export-*.*"
+      ]
+    },
+    "location:src/lib/table-service.ts#inspectDataset.artifact:dataDir": {
+      "stores": [
+        "file:tables",
+        "file:tmp"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/table-service.ts#inspectDataset.artifact:path.join": {
+      "stores": [
+        "file:tables",
+        "file:tmp"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/table-service.ts#removeTable:dataDir": {
+      "stores": [
+        "file:tables",
+        "file:tmp"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/table-service.ts#removeTable:path.join": {
+      "stores": [
+        "file:tables",
+        "file:tmp"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/table-service.ts#tableFeatures.artifact:dataDir": {
+      "stores": [
+        "file:tables",
+        "file:tmp"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/table-service.ts#tableFeatures.artifact:path.join": {
+      "stores": [
+        "file:tables",
+        "file:tmp"
+      ],
+      "roots": [
+        "*"
+      ]
+    },
+    "location:src/lib/thumbnail-evidence.ts#evidencedImages:evidenceDir": {
+      "stores": [
+        "file:thumbnail-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/thumbnails"
+      ]
+    },
+    "location:src/lib/thumbnail-evidence.ts#evidenceDir:dataDir": {
+      "stores": [
+        "file:thumbnail-inputs"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/thumbnail-evidence.ts#evidenceDir:path.join": {
+      "stores": [
+        "file:thumbnail-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/thumbnails"
+      ]
+    },
+    "location:src/lib/thumbnail-evidence.ts#evidencePath:evidenceDir": {
+      "stores": [
+        "file:thumbnail-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/thumbnails"
+      ]
+    },
+    "location:src/lib/thumbnail-evidence.ts#evidencePath:path.join": {
+      "stores": [
+        "file:thumbnail-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/thumbnails/*.json"
+      ]
+    },
+    "location:src/lib/thumbnail-evidence.ts#imageInputs.parsed:evidencePath": {
+      "stores": [
+        "file:thumbnail-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/thumbnails/*.json"
+      ]
+    },
+    "location:src/lib/thumbnail-evidence.ts#removeImageEvidence:evidencePath": {
+      "stores": [
+        "file:thumbnail-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/thumbnails/*.json"
+      ]
+    },
+    "location:src/lib/thumbnail-evidence.ts#writeImageEvidence:evidenceDir": {
+      "stores": [
+        "file:thumbnail-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/thumbnails"
+      ]
+    },
+    "location:src/lib/thumbnail-evidence.ts#writeImageEvidence.target:evidencePath": {
+      "stores": [
+        "file:thumbnail-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/thumbnails/*.json"
+      ]
+    },
+    "location:src/lib/tiles/build.ts#cleanTileScratch:tileScratchDir": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch"
+      ]
+    },
+    "location:src/lib/tiles/build.ts#ensureTiles:tileArchivePath": {
+      "stores": [
+        "file:tiles"
+      ],
+      "roots": [
+        "tiles/*.pmtiles"
+      ]
+    },
+    "location:src/lib/tiles/build.ts#removeTileArtifacts:tileArchivePath": {
+      "stores": [
+        "file:tiles"
+      ],
+      "roots": [
+        "tiles/*.pmtiles"
+      ]
+    },
+    "location:src/lib/tiles/build.ts#runBuild:tileArchivePath": {
+      "stores": [
+        "file:tiles"
+      ],
+      "roots": [
+        "tiles/*.pmtiles"
+      ]
+    },
+    "location:src/lib/tiles/build.ts#runBuild.scratchBase:path.join": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch/*.*"
+      ]
+    },
+    "location:src/lib/tiles/build.ts#runBuild.scratchBase:tileScratchDir": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch"
+      ]
+    },
+    "location:src/lib/tiles/build.ts#sweepTileArchives:path.join": {
+      "stores": [
+        "file:tiles"
+      ],
+      "roots": [
+        "tiles/*"
+      ]
+    },
+    "location:src/lib/tiles/build.ts#sweepTileArchives:tilesDir": {
+      "stores": [
+        "file:tiles"
+      ],
+      "roots": [
+        "tiles"
+      ]
+    },
+    "location:src/lib/tiles/evidence.ts#archiveWithoutEvidence:tileArchivePath": {
+      "stores": [
+        "file:tiles"
+      ],
+      "roots": [
+        "tiles/*.pmtiles"
+      ]
+    },
+    "location:src/lib/tiles/evidence.ts#archiveWithoutEvidence:tileEvidencePath": {
+      "stores": [
+        "file:tile-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/tiles/*.json"
+      ]
+    },
+    "location:src/lib/tiles/evidence.ts#evidenceDir:dataDir": {
+      "stores": [
+        "file:tile-inputs"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/tiles/evidence.ts#evidenceDir:path.join": {
+      "stores": [
+        "file:tile-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/tiles"
+      ]
+    },
+    "location:src/lib/tiles/evidence.ts#evidencedLayerIds:evidenceDir": {
+      "stores": [
+        "file:tile-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/tiles"
+      ]
+    },
+    "location:src/lib/tiles/evidence.ts#layersWithEvidenceOf:evidenceDir": {
+      "stores": [
+        "file:tile-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/tiles"
+      ]
+    },
+    "location:src/lib/tiles/evidence.ts#layersWithEvidenceOf.evidence:evidenceDir": {
+      "stores": [
+        "file:tile-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/tiles"
+      ]
+    },
+    "location:src/lib/tiles/evidence.ts#layersWithEvidenceOf.evidence:path.join": {
+      "stores": [
+        "file:tile-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/tiles/*"
+      ]
+    },
+    "location:src/lib/tiles/evidence.ts#removeTileEvidence:tileEvidencePath": {
+      "stores": [
+        "file:tile-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/tiles/*.json"
+      ]
+    },
+    "location:src/lib/tiles/evidence.ts#tileArchiveAttribution.file:tileEvidencePath": {
+      "stores": [
+        "file:tile-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/tiles/*.json"
+      ]
+    },
+    "location:src/lib/tiles/evidence.ts#tileEvidencePath:evidenceDir": {
+      "stores": [
+        "file:tile-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/tiles"
+      ]
+    },
+    "location:src/lib/tiles/evidence.ts#tileEvidencePath:path.join": {
+      "stores": [
+        "file:tile-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/tiles/*.json"
+      ]
+    },
+    "location:src/lib/tiles/evidence.ts#writeTileEvidence:evidenceDir": {
+      "stores": [
+        "file:tile-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/tiles"
+      ]
+    },
+    "location:src/lib/tiles/evidence.ts#writeTileEvidence.target:tileEvidencePath": {
+      "stores": [
+        "file:tile-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/tiles/*.json"
+      ]
+    },
+    "location:src/lib/tiles/paths.ts#ensureTileDirs:tileScratchDir": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch"
+      ]
+    },
+    "location:src/lib/tiles/paths.ts#tileArchivePath:path.join": {
+      "stores": [
+        "file:tiles"
+      ],
+      "roots": [
+        "tiles/*.pmtiles"
+      ]
+    },
+    "location:src/lib/tiles/paths.ts#tileArchivePath:tilesDir": {
+      "stores": [
+        "file:tiles"
+      ],
+      "roots": [
+        "tiles"
+      ]
+    },
+    "location:src/lib/tiles/paths.ts#tileScratchDir:path.join": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch"
+      ]
+    },
+    "location:src/lib/tiles/paths.ts#tileScratchDir:tilesDir": {
+      "stores": [
+        "file:tiles"
+      ],
+      "roots": [
+        "tiles"
+      ]
+    },
+    "location:src/lib/tiles/paths.ts#tilesDir:dataDir": {
+      "stores": [
+        "file:tiles",
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/tiles/paths.ts#tilesDir:path.join": {
+      "stores": [
+        "file:tiles"
+      ],
+      "roots": [
+        "tiles"
+      ]
+    },
+    "location:src/lib/tiles/published.ts#currentPublishedTile:tileArchivePath": {
+      "stores": [
+        "file:tiles"
+      ],
+      "roots": [
+        "tiles/*.pmtiles"
+      ]
+    },
+    "location:src/lib/tiles/serve.ts#openArchive.file:tileArchivePath": {
+      "stores": [
+        "file:tiles"
+      ],
+      "roots": [
+        "tiles/*.pmtiles"
+      ]
+    },
+    "memory:src/app/api/query/export/route.ts#queryDownloadTickets": {
+      "stores": [
+        "memory:src/app/api/query/export/route.ts#queryDownloadTickets"
+      ]
+    },
+    "memory:src/lib/api/openapi-account.ts#ACCOUNT_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-account.ts#ACCOUNT_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-account.ts#errors": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-assistant-context.ts#ASSISTANT_CONTEXT_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-assistant-events.ts#ASSISTANT_EVENT_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-assistant-runs.ts#ASSISTANT_RUN_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-assistant-schemas.ts#ASSISTANT_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-assistant.ts#ASSISTANT_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-auth.ts#AUTH_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-auth.ts#AUTH_SECURITY": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-auth.ts#AUTHENTICATION_BUSY_RESPONSE": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-auth.ts#success": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-connections.ts#CONNECTION_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-document-facts.ts#conditionalMapRevisionParam": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-document-facts.ts#DOCUMENT_FACT_PROPERTIES": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-document-facts.ts#DOCUMENT_FACT_SCHEMA": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-document-facts.ts#editRevisionResponses": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-geometry-resource.ts#errors": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-geometry-resource.ts#GEOMETRY_RESOURCE_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-geometry-resource.ts#table": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-geometry-schemas.ts#columnList": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-geometry-schemas.ts#feature": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-geometry-schemas.ts#GEOMETRY_RESOURCE_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-geometry-schemas.ts#row": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-geometry.ts#GEOMETRY_EVIDENCE_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-imports.ts#IMPORT_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-jobs.ts#JOB_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-layers.ts#LAYER_QUERY_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-layers.ts#LAYER_RESOURCE_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-layers.ts#LAYER_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-map-look.ts#MAP_LOOK_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-map-look.ts#RECORDED_LOOK_RENDER": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-map-look.ts#RECORDED_LOOK_STATE": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-maps.ts#MAP_COLLECTION_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-maps.ts#MAP_DEPENDENCY_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-maps.ts#MAP_PUBLISH_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-maps.ts#MAP_RENDER_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-maps.ts#MAP_RESOURCE_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-maps.ts#MAP_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-mcp.ts#HISTORY_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-mcp.ts#HISTORY_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-mcp.ts#MCP_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-projects.ts#PROJECT_DEPENDENCY_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-projects.ts#PROJECT_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-publications.ts#PUBLICATION_ADMIN_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-recipe-schemas.ts#RECIPE_DEPENDENCY_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-recipe-schemas.ts#RECIPE_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-recipes.ts#RECIPE_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-sharing.ts#DIRECTORY_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-sharing.ts#PEOPLE_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-sharing.ts#SHARING_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-sharing.ts#SHARING_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-sharing.ts#sqlNameParam": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-sharing.ts#TRANSFER_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-sharing.ts#TRANSFERRED": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-sketches.ts#SKETCH_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-sql.ts#SQL_QUERY": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-table-catalogue.ts#TABLE_CATALOGUE_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-tables.ts#TABLE_COLLECTION_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-tables.ts#TABLE_RESOURCE_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-users.ts#errors": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-users.ts#USERS_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/operation-metadata.ts#READ_ONLY": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/assistant/action-metadata.ts#noEffects": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/assistant/edit-revisions.ts#AssistantRevisions.parents": {
+      "stores": [
+        "memory:src/lib/assistant/edit-revisions.ts#AssistantRevisions.parents"
+      ]
+    },
+    "memory:src/lib/assistant/edit-revisions.ts#AssistantRevisions.revisions": {
+      "stores": [
+        "memory:src/lib/assistant/edit-revisions.ts#AssistantRevisions.revisions"
+      ]
+    },
+    "memory:src/lib/assistant/execution-control.ts#executionControl.signal": {
+      "stores": [
+        "memory:src/lib/assistant/execution-control.ts#executionControl.signal"
+      ]
+    },
+    "memory:src/lib/assistant/guidance.ts#GUIDANCE_SECTIONS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/assistant/pending.ts#pendingActions": {
+      "stores": [
+        "memory:src/lib/assistant/pending.ts#pendingActions"
+      ]
+    },
+    "memory:src/lib/assistant/pending.ts#PendingActionStore.parked": {
+      "stores": [
+        "memory:src/lib/assistant/pending.ts#PendingActionStore.parked"
+      ]
+    },
+    "memory:src/lib/assistant/pending.ts#PendingActionStore.trace": {
+      "stores": [
+        "memory:src/lib/assistant/pending.ts#PendingActionStore.trace"
+      ]
+    },
+    "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.client": {
+      "stores": [
+        "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.client"
+      ]
+    },
+    "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.exchange.grounding": {
+      "stores": [
+        "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.exchange.grounding"
+      ]
+    },
+    "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.exchange.tools": {
+      "stores": [
+        "memory:src/lib/assistant/providers/anthropic.ts#anthropicProvider.exchange.tools"
+      ]
+    },
+    "memory:src/lib/assistant/providers/openai-responses.ts#responsesExchange.grounding": {
+      "stores": [
+        "memory:src/lib/assistant/providers/openai-responses.ts#responsesExchange.grounding"
+      ]
+    },
+    "memory:src/lib/assistant/providers/openai-responses.ts#responsesExchange.tools": {
+      "stores": [
+        "memory:src/lib/assistant/providers/openai-responses.ts#responsesExchange.tools"
+      ]
+    },
+    "memory:src/lib/assistant/providers/openai.ts#openaiProvider.client": {
+      "stores": [
+        "memory:src/lib/assistant/providers/openai.ts#openaiProvider.client"
+      ]
+    },
+    "memory:src/lib/assistant/providers/openai.ts#openaiProvider.exchange.exchange": {
+      "stores": [
+        "memory:src/lib/assistant/providers/openai.ts#openaiProvider.exchange.exchange"
+      ]
+    },
+    "memory:src/lib/assistant/providers/stub.ts#stubProvider.cursor": {
+      "stores": [
+        "memory:test-seams"
+      ]
+    },
+    "memory:src/lib/assistant/providers/stub.ts#stubProvider.exchange.grounding": {
+      "stores": [
+        "memory:test-seams"
+      ]
+    },
+    "memory:src/lib/assistant/providers/stub.ts#stubProvider.exchange.record": {
+      "stores": [
+        "memory:test-seams"
+      ]
+    },
+    "memory:src/lib/assistant/providers/stub.ts#stubProvider.exchange.tools": {
+      "stores": [
+        "memory:test-seams"
+      ]
+    },
+    "memory:src/lib/assistant/providers/stub.ts#stubProvider.issued": {
+      "stores": [
+        "memory:test-seams"
+      ]
+    },
+    "memory:src/lib/assistant/runs.ts#assistantRuns": {
+      "stores": [
+        "memory:src/lib/assistant/runs.ts#assistantRuns"
+      ]
+    },
+    "memory:src/lib/assistant/runs.ts#AssistantRunStore.entries": {
+      "stores": [
+        "memory:src/lib/assistant/runs.ts#AssistantRunStore.entries"
+      ]
+    },
+    "memory:src/lib/assistant/runs.ts#AssistantRunStore.terminals": {
+      "stores": [
+        "memory:src/lib/assistant/runs.ts#AssistantRunStore.terminals"
+      ]
+    },
+    "memory:src/lib/auth/api-methods.ts#apiMethodTable": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/auth/credential-maintenance.ts#credentialMaintenance.completedAt": {
+      "stores": [
+        "memory:src/lib/auth/credential-maintenance.ts#credentialMaintenance.completedAt"
+      ]
+    },
+    "memory:src/lib/auth/credential-maintenance.ts#credentialMaintenance.cursors": {
+      "stores": [
+        "memory:src/lib/auth/credential-maintenance.ts#credentialMaintenance.cursors"
+      ]
+    },
+    "memory:src/lib/auth/credential-maintenance.ts#state": {
+      "stores": [
+        "memory:src/lib/auth/credential-maintenance.ts#state"
+      ]
+    },
+    "memory:src/lib/auth/credential-maintenance.ts#state.files": {
+      "stores": [
+        "memory:src/lib/auth/credential-maintenance.ts#state.files"
+      ]
+    },
+    "memory:src/lib/auth/credential-maintenance.ts#state.memory": {
+      "stores": [
+        "memory:src/lib/auth/credential-maintenance.ts#state.memory"
+      ]
+    },
+    "memory:src/lib/auth/derivation-admission.ts#createDerivationAdmission.state": {
+      "stores": [
+        "memory:test-seams"
+      ]
+    },
+    "memory:src/lib/auth/derivation-admission.ts#shared": {
+      "stores": [
+        "memory:password-admission"
+      ]
+    },
+    "memory:src/lib/auth/ingress.mjs#installIngress.state": {
+      "stores": [
+        "memory:trusted-peer-policy"
+      ]
+    },
+    "memory:src/lib/auth/ingress.mjs#trustedPeers.address": {
+      "stores": [
+        "memory:trusted-peer-policy"
+      ]
+    },
+    "memory:src/lib/auth/ingress.mjs#trustedPeers.block": {
+      "stores": [
+        "memory:trusted-peer-policy"
+      ]
+    },
+    "memory:src/lib/auth/public-assets.ts#PUBLIC_ASSETS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/basemap.ts#BASEMAPS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/duckdb.ts#connectionGenerations": {
+      "stores": [
+        "memory:src/lib/duckdb.ts#connectionGenerations"
+      ]
+    },
+    "memory:src/lib/duckdb.ts#h3Loaded": {
+      "stores": [
+        "memory:engine-extensions"
+      ]
+    },
+    "memory:src/lib/duckdb.ts#instancePromise": {
+      "stores": [
+        "memory:src/lib/duckdb.ts#instancePromise"
+      ]
+    },
+    "memory:src/lib/duckdb.ts#queryCatalogGeneration": {
+      "stores": [
+        "memory:src/lib/duckdb.ts#queryCatalogGeneration"
+      ]
+    },
+    "memory:src/lib/duckdb.ts#queryInstancePromise": {
+      "stores": [
+        "memory:src/lib/duckdb.ts#queryInstancePromise"
+      ]
+    },
+    "memory:src/lib/export/image-definition.ts#EXPORT_IMAGE_DEFINITION_SCHEMA": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/export/layer-download-tickets.ts#layerDownloadTickets": {
+      "stores": [
+        "memory:src/lib/export/layer-download-tickets.ts#layerDownloadTickets"
+      ]
+    },
+    "memory:src/lib/export/layer-download-tickets.ts#LayerDownloadTicketStore.createToken": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/export/layer-download-tickets.ts#LayerDownloadTicketStore.entries": {
+      "stores": [
+        "memory:src/lib/export/layer-download-tickets.ts#LayerDownloadTicketStore.entries"
+      ]
+    },
+    "memory:src/lib/export/layer-download-tickets.ts#LayerDownloadTicketStore.preparedTtlMs": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/export/layer-download-tickets.ts#LayerDownloadTicketStore.tombstoneTtlMs": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/export/layer-export.ts#exportLayerResult.error": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/layer-export.ts#exportQueryResult.error": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/look-retention.ts#lookRetention": {
+      "stores": [
+        "memory:src/lib/export/look-retention.ts#lookRetention"
+      ]
+    },
+    "memory:src/lib/export/look-retention.ts#LookRetention.entries": {
+      "stores": [
+        "memory:src/lib/export/look-retention.ts#LookRetention.entries"
+      ]
+    },
+    "memory:src/lib/export/look-retention.ts#LookRetention.total": {
+      "stores": [
+        "memory:src/lib/export/look-retention.ts#LookRetention.total"
+      ]
+    },
+    "memory:src/lib/export/map-look.ts#testDriver": {
+      "stores": [
+        "memory:test-seams"
+      ]
+    },
+    "memory:src/lib/export/png-codec.ts#CRC_TABLE": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/export/project-export-tickets.ts#claimProjectExportTicket.accountId": {
+      "stores": [
+        "memory:src/lib/export/project-export-tickets.ts#claimProjectExportTicket.accountId"
+      ]
+    },
+    "memory:src/lib/export/project-export-tickets.ts#entries": {
+      "stores": [
+        "memory:src/lib/export/project-export-tickets.ts#entries"
+      ]
+    },
+    "memory:src/lib/export/render-image.ts#active": {
+      "stores": [
+        "memory:src/lib/export/render-image.ts#active"
+      ]
+    },
+    "memory:src/lib/export/render-image.ts#launches": {
+      "stores": [
+        "memory:src/lib/export/render-image.ts#launches"
+      ]
+    },
+    "memory:src/lib/export/render-image.ts#renderMapImage.browser": {
+      "stores": [
+        "memory:src/lib/export/render-image.ts#renderMapImage.browser"
+      ]
+    },
+    "memory:src/lib/export/render-image.ts#renderMapImage.error": {
+      "stores": [
+        "memory:src/lib/export/render-image.ts#renderMapImage.error"
+      ]
+    },
+    "memory:src/lib/export/render-image.ts#renderMapImage.outcome": {
+      "stores": [
+        "memory:src/lib/export/render-image.ts#renderMapImage.outcome"
+      ]
+    },
+    "memory:src/lib/export/render-image.ts#renderMapImage.settled": {
+      "stores": [
+        "memory:src/lib/export/render-image.ts#renderMapImage.settled"
+      ]
+    },
+    "memory:src/lib/export/render-image.ts#renderMapImage.timedOut": {
+      "stores": [
+        "memory:src/lib/export/render-image.ts#renderMapImage.timedOut"
+      ]
+    },
+    "memory:src/lib/export/render-image.ts#waiters": {
+      "stores": [
+        "memory:src/lib/export/render-image.ts#waiters"
+      ]
+    },
+    "memory:src/lib/geocode/limiter.ts#endpoints": {
+      "stores": [
+        "memory:provider-scheduling"
+      ]
+    },
+    "memory:src/lib/geometry/inspection-cache.ts#inspectionCache.entries": {
+      "stores": [
+        "memory:src/lib/geometry/inspection-cache.ts#inspectionCache.entries"
+      ]
+    },
+    "memory:src/lib/geometry/service.ts#cachedInspection": {
+      "stores": [
+        "memory:src/lib/geometry/service.ts#cachedInspection"
+      ]
+    },
+    "memory:src/lib/geometry/stage.ts#stageGeometry.error": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/held-cursor.ts#createHeldCursor.channelUnsubscribe": {
+      "stores": [
+        "memory:browser-presentation"
+      ]
+    },
+    "memory:src/lib/held-cursor.ts#createHeldCursor.held": {
+      "stores": [
+        "memory:browser-presentation"
+      ]
+    },
+    "memory:src/lib/held-cursor.ts#createHeldCursor.hovered": {
+      "stores": [
+        "memory:browser-presentation"
+      ]
+    },
+    "memory:src/lib/held-cursor.ts#createHeldCursor.listeners": {
+      "stores": [
+        "memory:browser-presentation"
+      ]
+    },
+    "memory:src/lib/held-cursor.ts#createHeldCursor.timer": {
+      "stores": [
+        "memory:browser-presentation"
+      ]
+    },
+    "memory:src/lib/history-admission-cache.ts#caches": {
+      "stores": [
+        "memory:src/lib/history-admission-cache.ts#caches"
+      ]
+    },
+    "memory:src/lib/icon-sanitize.ts#builder": {
+      "stores": [
+        "memory:icon-configuration"
+      ]
+    },
+    "memory:src/lib/icon-sanitize.ts#parser": {
+      "stores": [
+        "memory:icon-configuration"
+      ]
+    },
+    "memory:src/lib/ingest/csv-source.ts#EXACT_COORDINATE_MEMBER_NAMES": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/ingest/fence.ts#active": {
+      "stores": [
+        "memory:src/lib/ingest/fence.ts#active"
+      ]
+    },
+    "memory:src/lib/ingest/remote.ts#downloadToScratch.error": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/ingest/remote.ts#resolveCredentialedObjectSource.error": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/ingest/remote.ts#resolveCredentialedObjectSource.probed": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/ingest/retire.ts#pending": {
+      "stores": [
+        "memory:src/lib/ingest/retire.ts#pending"
+      ]
+    },
+    "memory:src/lib/isochrone/limiter.ts#endpoints": {
+      "stores": [
+        "memory:provider-scheduling"
+      ]
+    },
+    "memory:src/lib/layer-admission.ts#updateAdmissions": {
+      "stores": [
+        "memory:src/lib/layer-admission.ts#updateAdmissions"
+      ]
+    },
+    "memory:src/lib/limits.ts#limits": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/map-runtime-limits.ts#CAMERA_BOUNDS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/map-status.ts#createStatusChannel.current": {
+      "stores": [
+        "memory:browser-presentation"
+      ]
+    },
+    "memory:src/lib/map-status.ts#createStatusChannel.listeners": {
+      "stores": [
+        "memory:browser-presentation"
+      ]
+    },
+    "memory:src/lib/map-thumbnails.ts#turns": {
+      "stores": [
+        "memory:src/lib/map-thumbnails.ts#turns"
+      ]
+    },
+    "memory:src/lib/maplibre.ts#MAP_RENDERER_OPTIONS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/mcp/call.ts#validators": {
+      "stores": [
+        "memory:tool-schema-cache"
+      ]
+    },
+    "memory:src/lib/metadata/db.ts#instance": {
+      "stores": [
+        "memory:open-metadata-handle"
+      ]
+    },
+    "memory:src/lib/metadata/revisions.ts#recordings": {
+      "stores": [
+        "memory:src/lib/metadata/revisions.ts#recordings"
+      ]
+    },
+    "memory:src/lib/operations/capability.ts#CAPABILITIES": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/operations/cascade.ts#driving": {
+      "stores": [
+        "memory:src/lib/operations/cascade.ts#driving"
+      ]
+    },
+    "memory:src/lib/operations/catalog.ts#OPERATIONS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/operations/compile-geocode.ts#compileGeocode.column": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/operations/compile-geocode.ts#compileGeocode.prepare.staged": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/operations/compile-geocode.ts#compileGeocode.table": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/operations/compile-isochrone.ts#compileIsochrone.bands": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/operations/compile-isochrone.ts#compileIsochrone.mode": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/operations/compile-isochrone.ts#compileIsochrone.prepare.staged": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/operations/compile-isochrone.ts#compileIsochrone.table": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/operations/lane.ts#inFlight": {
+      "stores": [
+        "memory:src/lib/operations/lane.ts#inFlight"
+      ]
+    },
+    "memory:src/lib/operations/lane.ts#known": {
+      "stores": [
+        "memory:src/lib/operations/lane.ts#known"
+      ]
+    },
+    "memory:src/lib/operations/lane.ts#waiting": {
+      "stores": [
+        "memory:src/lib/operations/lane.ts#waiting"
+      ]
+    },
+    "memory:src/lib/operations/recipe-api.ts#AS_STORED": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/operations/recipe-view.ts#readRecipe.artifacts": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/operations/recipe-view.ts#readRecipe.conditions": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/operations/recipe-view.ts#readRecipe.reads": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/operations/table-verbs.ts#AGGREGATE_SQL": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/overture/divisions.ts#CITY_SEARCH_SUBTYPES": {
+      "stores": [
+        "memory:public-geography-catalogues"
+      ]
+    },
+    "memory:src/lib/overture/divisions.ts#countryCache": {
+      "stores": [
+        "memory:public-geography-catalogues"
+      ]
+    },
+    "memory:src/lib/overture/divisions.ts#geometryCache": {
+      "stores": [
+        "memory:public-geography-catalogues"
+      ]
+    },
+    "memory:src/lib/overture/divisions.ts#indexCache": {
+      "stores": [
+        "memory:public-geography-catalogues"
+      ]
+    },
+    "memory:src/lib/overture/divisions.ts#PromiseCache.map": {
+      "stores": [
+        "memory:public-geography-catalogues"
+      ]
+    },
+    "memory:src/lib/overture/releases.ts#cache": {
+      "stores": [
+        "memory:public-geography-catalogues"
+      ]
+    },
+    "memory:src/lib/postgis/preview-owner.ts#PgPreviewOwner.stopInterrupting": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/publish/publication-resolution.ts#cache": {
+      "stores": [
+        "memory:src/lib/publish/publication-resolution.ts#cache"
+      ]
+    },
+    "memory:src/lib/publish/published-fields.ts#AUTO_STRIPPED": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/publish/rate-limit.ts#windows": {
+      "stores": [
+        "memory:publication-source-budgets"
+      ]
+    },
+    "memory:src/lib/query/binding-snapshot.ts#pinBindings.byId": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/query/binding-snapshot.ts#pinBindings.byName": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/query/catalog-state.ts#artifactRelations": {
+      "stores": [
+        "memory:src/lib/query/catalog-state.ts#artifactRelations"
+      ]
+    },
+    "memory:src/lib/query/catalog-state.ts#generation": {
+      "stores": [
+        "memory:src/lib/query/catalog-state.ts#generation"
+      ]
+    },
+    "memory:src/lib/query/catalog-state.ts#relations": {
+      "stores": [
+        "memory:src/lib/query/catalog-state.ts#relations"
+      ]
+    },
+    "memory:src/lib/query/evaluation-inputs.ts#collecting": {
+      "stores": [
+        "memory:src/lib/query/evaluation-inputs.ts#collecting"
+      ]
+    },
+    "memory:src/lib/query/evaluation-inputs.ts#recorders": {
+      "stores": [
+        "memory:src/lib/query/evaluation-inputs.ts#recorders"
+      ]
+    },
+    "memory:src/lib/query/inflight.ts#inflight": {
+      "stores": [
+        "memory:src/lib/query/inflight.ts#inflight"
+      ]
+    },
+    "memory:src/lib/query/mount-plan.ts#plans": {
+      "stores": [
+        "memory:src/lib/query/mount-plan.ts#plans"
+      ]
+    },
+    "memory:src/lib/query/publication-namespace.ts#remembered": {
+      "stores": [
+        "memory:src/lib/query/publication-namespace.ts#remembered"
+      ]
+    },
+    "memory:src/lib/query/reference-forms.ts#ENGINE": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/query/staging.ts#leaseStagingInputs": {
+      "stores": [
+        "memory:src/lib/query/staging.ts#leaseStagingInputs"
+      ]
+    },
+    "memory:src/lib/query/staging.ts#leaseStagingInputs.released": {
+      "stores": [
+        "memory:src/lib/query/staging.ts#leaseStagingInputs.released"
+      ]
+    },
+    "memory:src/lib/query/staging.ts#stages": {
+      "stores": [
+        "memory:src/lib/query/staging.ts#stages"
+      ]
+    },
+    "memory:src/lib/query/views.ts#mounted": {
+      "stores": [
+        "memory:src/lib/query/views.ts#mounted"
+      ]
+    },
+    "memory:src/lib/search/provider.ts#INVALID": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/search/provider.ts#UNREACHABLE": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/secrets.ts#cachedKey": {
+      "stores": [
+        "memory:cached-secret-key"
+      ]
+    },
+    "memory:src/lib/sketch/store.ts#lanes": {
+      "stores": [
+        "memory:src/lib/sketch/store.ts#lanes"
+      ]
+    },
+    "memory:src/lib/style/deck-style.ts#continuousAccessor.position": {
+      "stores": [
+        "memory:browser-presentation"
+      ]
+    },
+    "memory:src/lib/style/deck-style.ts#continuousPosition.tc": {
+      "stores": [
+        "memory:browser-presentation"
+      ]
+    },
+    "memory:src/lib/style/deck-style.ts#deckLabelProps.text": {
+      "stores": [
+        "memory:browser-presentation"
+      ]
+    },
+    "memory:src/lib/style/deck-style.ts#fillAccessor.lookup": {
+      "stores": [
+        "memory:browser-presentation"
+      ]
+    },
+    "memory:src/lib/style/natural-breaks.ts#buildCost.i": {
+      "stores": [
+        "memory:browser-presentation"
+      ]
+    },
+    "memory:src/lib/style/natural-breaks.ts#buildCost.sum": {
+      "stores": [
+        "memory:browser-presentation"
+      ]
+    },
+    "memory:src/lib/style/natural-breaks.ts#buildCost.sumSq": {
+      "stores": [
+        "memory:browser-presentation"
+      ]
+    },
+    "memory:src/lib/style/palettes.ts#DEFAULT_FILL": {
+      "stores": [
+        "memory:browser-presentation"
+      ]
+    },
+    "memory:src/lib/style/palettes.ts#PALETTES": {
+      "stores": [
+        "memory:browser-presentation"
+      ]
+    },
+    "memory:src/lib/table-service.ts#exportTable.e": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/tiles/build.ts#active": {
+      "stores": [
+        "memory:src/lib/tiles/build.ts#active"
+      ]
+    },
+    "memory:src/lib/tiles/build.ts#chain": {
+      "stores": [
+        "memory:src/lib/tiles/build.ts#chain"
+      ]
+    },
+    "memory:src/lib/tiles/build.ts#failures": {
+      "stores": [
+        "memory:src/lib/tiles/build.ts#failures"
+      ]
+    },
+    "memory:src/lib/tiles/build.ts#generations": {
+      "stores": [
+        "memory:src/lib/tiles/build.ts#generations"
+      ]
+    },
+    "memory:src/lib/tiles/build.ts#pending": {
+      "stores": [
+        "memory:src/lib/tiles/build.ts#pending"
+      ]
+    },
+    "memory:src/lib/tiles/build.ts#start.attempt": {
+      "stores": [
+        "memory:src/lib/tiles/build.ts#start.attempt"
+      ]
+    },
+    "memory:src/lib/tiles/evidence.ts#running": {
+      "stores": [
+        "memory:src/lib/tiles/evidence.ts#running"
+      ]
+    },
+    "memory:src/lib/tiles/serve.ts#archives": {
+      "stores": [
+        "memory:src/lib/tiles/serve.ts#archives"
+      ]
+    },
+    "memory:src/lib/tiles/tiler.ts#probe": {
+      "stores": [
+        "memory:tiler-probe"
+      ]
+    },
+    "memory:src/lib/tiles/tiler.ts#probedPath": {
+      "stores": [
+        "memory:tiler-probe"
+      ]
+    },
+    "memory:src/lib/tools/tools.ts#cachedTools": {
+      "stores": [
+        "memory:tool-schema-cache"
+      ]
+    },
+    "memory:src/lib/tools/validate.ts#validators": {
+      "stores": [
+        "memory:tool-schema-cache"
+      ]
+    },
+    "memory:src/lib/trusted-h3.ts#attempts": {
+      "stores": [
+        "memory:engine-extensions"
+      ]
+    },
+    "writer:src/app/api/health/route.ts#GET:ensureDataDir": {
+      "stores": [
+        "data-directory"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "writer:src/lib/assistant/model-catalogue.ts#readModelCatalogue:readFile": {
+      "stores": [
+        "file:assistant-models"
+      ],
+      "roots": [
+        "assistant-models.json"
+      ]
+    },
+    "writer:src/lib/export/project-export.ts#assembleProjectExport:mkdir": {
+      "stores": [
+        "file:exports"
+      ],
+      "roots": [
+        "exports"
+      ]
+    },
+    "writer:src/lib/export/project-export.ts#assembleProjectExport.out:createWriteStream": {
+      "stores": [
+        "file:exports"
+      ],
+      "roots": [
+        "exports/*.zip"
+      ]
+    },
+    "writer:src/lib/geocode/cache.ts#writeAnswer:mkdir": {
+      "stores": [
+        "file:geocode"
+      ],
+      "roots": [
+        "cache/geocode"
+      ]
+    },
+    "writer:src/lib/geocode/cache.ts#writeAnswer:rename": {
+      "stores": [
+        "file:geocode"
+      ],
+      "roots": [
+        "cache/geocode/*.json",
+        "cache/geocode/.*.*.tmp"
+      ]
+    },
+    "writer:src/lib/geocode/cache.ts#writeAnswer:writeFile": {
+      "stores": [
+        "file:geocode"
+      ],
+      "roots": [
+        "cache/geocode/.*.*.tmp"
+      ]
+    },
+    "writer:src/lib/geometry/mutate.ts#setGeometry.meta:buildGeometryArtifact": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "writer:src/lib/geometry/stage.ts#stageGeometry:mkdir": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp"
+      ]
+    },
+    "writer:src/lib/ingest/gdal-formats.ts#ingestSpatialFile.meta:buildLayerArtifact": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "writer:src/lib/ingest/gdal-formats.ts#prepareSource:mkdir": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/*"
+      ]
+    },
+    "writer:src/lib/ingest/gdal-formats.ts#prepareSource.{ files }:extractArchive": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/*"
+      ]
+    },
+    "writer:src/lib/ingest/ingest.ts#ingestFile.meta:buildArtifact": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "writer:src/lib/ingest/receive.ts#receiveUpload:mkdir": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp"
+      ]
+    },
+    "writer:src/lib/ingest/refresh-spatial.ts#refreshUrlSpatial:buildLayerArtifact": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "writer:src/lib/ingest/refresh.ts#performRefresh:buildOvertureArtifact": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "writer:src/lib/ingest/refresh.ts#performRefresh:rebuildFromUrl": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "writer:src/lib/ingest/refresh.ts#performRefresh.built:buildPostgisArtifact": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "writer:src/lib/ingest/refresh.ts#refreshOsmGroup:buildClassArtifact": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "writer:src/lib/ingest/remote.ts#downloadToScratch:downloadHttp": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/**"
+      ]
+    },
+    "writer:src/lib/ingest/remote.ts#downloadToScratch:mkdir": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp"
+      ]
+    },
+    "writer:src/lib/ingest/remote.ts#resolveCredentialedObjectSource:mkdir": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp"
+      ]
+    },
+    "writer:src/lib/ingest/remote.ts#resolveCredentialedObjectSource:writeFile": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/**"
+      ]
+    },
+    "writer:src/lib/ingest/scratch.ts#cleanIngestScratch:mkdir": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp"
+      ]
+    },
+    "writer:src/lib/isochrone/cache.ts#writeIsochrone:mkdir": {
+      "stores": [
+        "file:isochrone"
+      ],
+      "roots": [
+        "cache/isochrone"
+      ]
+    },
+    "writer:src/lib/isochrone/cache.ts#writeIsochrone:rename": {
+      "stores": [
+        "file:isochrone"
+      ],
+      "roots": [
+        "cache/isochrone/*.json",
+        "cache/isochrone/.*.*.tmp"
+      ]
+    },
+    "writer:src/lib/isochrone/cache.ts#writeIsochrone:writeFile": {
+      "stores": [
+        "file:isochrone"
+      ],
+      "roots": [
+        "cache/isochrone/.*.*.tmp"
+      ]
+    },
+    "writer:src/lib/map-thumbnails.ts#copyThumbnail:writeAtomically": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*",
+        "thumbnails/*.json",
+        "thumbnails/*.png"
+      ]
+    },
+    "writer:src/lib/map-thumbnails.ts#saveThemedThumbnail:writeAtomically": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*",
+        "thumbnails/*.json"
+      ]
+    },
+    "writer:src/lib/map-thumbnails.ts#saveThumbnail:writeAtomically": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.png"
+      ]
+    },
+    "writer:src/lib/metadata/db.ts#metadataDb:mkdirSync": {
+      "stores": [
+        "file:metadata"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "writer:src/lib/metadata/db.ts#metadataDb:open": {
+      "stores": [
+        "file:metadata"
+      ],
+      "roots": [
+        "metadata.sqlite"
+      ]
+    },
+    "writer:src/lib/osm/import.ts#buildClassArtifact:buildArtifact": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/*.geojson"
+      ]
+    },
+    "writer:src/lib/osm/import.ts#buildClassArtifact:mkdir": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp"
+      ]
+    },
+    "writer:src/lib/osm/import.ts#buildClassArtifact:writeFile": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/*.geojson"
+      ]
+    },
+    "writer:src/lib/osm/import.ts#importOsm.meta:buildClassArtifact": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "tables/*.parquet"
+      ]
+    },
+    "writer:src/lib/osm/overpass.ts#writeCache:mkdir": {
+      "stores": [
+        "file:overpass"
+      ],
+      "roots": [
+        "cache/overpass"
+      ]
+    },
+    "writer:src/lib/osm/overpass.ts#writeCache:writeFile": {
+      "stores": [
+        "file:overpass"
+      ],
+      "roots": [
+        "cache/overpass/*.json"
+      ]
+    },
+    "writer:src/lib/secrets.ts#secretKey:writeFileSync": {
+      "stores": [
+        "file:secret-key"
+      ],
+      "roots": [
+        "secret.key"
+      ]
+    },
+    "writer:src/lib/thumbnail-evidence.ts#writeImageEvidence:mkdir": {
+      "stores": [
+        "file:thumbnail-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/thumbnails"
+      ]
+    },
+    "writer:src/lib/thumbnail-evidence.ts#writeImageEvidence:rename": {
+      "stores": [
+        "file:thumbnail-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/thumbnails/*.json"
+      ]
+    },
+    "writer:src/lib/thumbnail-evidence.ts#writeImageEvidence:writeFile": {
+      "stores": [
+        "file:thumbnail-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/thumbnails/*.json"
+      ]
+    },
+    "writer:src/lib/tiles/build.ts#runBuild:rename": {
+      "stores": [
+        "file:tile-scratch",
+        "file:tiles"
+      ],
+      "roots": [
+        "tiles/*.pmtiles",
+        "tiles/scratch/*.*"
+      ]
+    },
+    "writer:src/lib/tiles/build.ts#runBuild.{ value: featureCount, inputs }:exportGeoJsonSeq": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch/*.*"
+      ]
+    },
+    "writer:src/lib/tiles/evidence.ts#writeTileEvidence:mkdirSync": {
+      "stores": [
+        "file:tile-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/tiles"
+      ]
+    },
+    "writer:src/lib/tiles/evidence.ts#writeTileEvidence:renameSync": {
+      "stores": [
+        "file:tile-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/tiles/*.json"
+      ]
+    },
+    "writer:src/lib/tiles/evidence.ts#writeTileEvidence:writeFileSync": {
+      "stores": [
+        "file:tile-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/tiles/*.json"
+      ]
+    },
+    "writer:src/lib/tiles/paths.ts#ensureTileDirs:mkdirSync": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch"
+      ]
+    }
+  },
+  "files": {
+    "file:metadata": [
+      "metadata.sqlite",
+      "metadata.sqlite-wal",
+      "metadata.sqlite-shm"
+    ],
+    "file:tables": [
+      "tables/**"
+    ],
+    "file:tmp": [
+      "tmp/**"
+    ],
+    "file:exports": [
+      "exports/**"
+    ],
+    "file:tiles": [
+      "tiles/*.pmtiles"
+    ],
+    "file:tile-scratch": [
+      "tiles/scratch/**"
+    ],
+    "file:thumbnails": [
+      "thumbnails/**"
+    ],
+    "file:thumbnail-inputs": [
+      "artifact-inputs/thumbnails/**"
+    ],
+    "file:tile-inputs": [
+      "artifact-inputs/tiles/**"
+    ],
+    "file:geocode": [
+      "cache/geocode/**"
+    ],
+    "file:isochrone": [
+      "cache/isochrone/**"
+    ],
+    "file:overpass": [
+      "cache/overpass/**"
+    ],
+    "file:secret-key": [
+      "secret.key"
+    ],
+    "file:assistant-models": [
+      "assistant-models.json"
+    ]
+  },
+  "accountReferences": {
+    "account_preferences.account_id": "owner",
+    "auth_links.account_id": "owner",
+    "auth_sessions.account_id": "owner",
+    "auth_tokens.account_id": "owner",
+    "cascade_runs.initiator_id": "actor",
+    "data_tables.owner_id": "owner",
+    "lineage_edges.runner_id": "actor",
+    "map_history.author_id": "actor",
+    "maps.home_account_id": "sql-home",
+    "maps.last_changed_by": "actor",
+    "maps.owner_id": "owner",
+    "operation_jobs.owner_id": "owner",
+    "original_account.account_id": "adoption",
+    "ownership_transfer_gate.from_owner_id": "owner",
+    "ownership_transfer_gate.to_owner_id": "owner",
+    "pg_connections.owner_id": "owner",
+    "project_people.account_id": "member",
+    "projects.owner_id": "owner",
+    "recipes.home_account_id": "sql-home",
+    "recipes.last_changed_by": "actor",
+    "recipes.owner_id": "owner",
+    "step_runner_outputs.runner_id": "owner"
+  },
+  "identityColumns": {
+    "created_at": "erase",
+    "email": "erase",
+    "id": "retain",
+    "is_admin": "erase",
+    "last_sign_in_at": "erase",
+    "name": "erase",
+    "password_hash": "erase",
+    "sql_name": "retain",
+    "status": "retain",
+    "updated_at": "erase"
+  }
+}
