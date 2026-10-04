@@ -804,6 +804,15 @@ rather than on the page:
   bound refuses the whole answer with HTTP 422 `query_result_too_large`,
   the catalogue sentence below and no partial rows or details. These limits
   have no setting; row limits, engine budgets and complete file exports are unchanged.
+- Dataset inspection (`GET /api/tables/{name}`) uses the same fixed 32 MiB
+  complete-answer and 2 MiB non-geometry-cell ceilings for its fifty-row
+  preview. Its registered native geometry column is emitted as WKT and counts
+  toward the result ceiling only. All metadata, schema, ownership, project
+  memberships and resolved inputs count in the same answer. An oversized
+  inspection returns the same 422 catalogue refusal with no partial data.
+  The dataset detail and its docked set-geometry panel cannot open after that
+  refusal; otherwise valid layer use, dataset map features, complete API file
+  exports and owner deletion from Data remain separate and available.
 - Timeouts, memory budgets, configured size caps, area budgets, render caps, queue
   depths and anonymous rate limits are all configuration; see
   [configuration.md](configuration.md). When one is hit the answer is a

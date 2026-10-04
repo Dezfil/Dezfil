@@ -4,7 +4,7 @@ import { datasetAccess } from "./openapi-dataset-access";
 import { ownedCreationOp } from "./openapi-owned-creation";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, REMOTE_REPLACE } from "./operation-mcp";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
-import { op, jsonOk, pathParam } from "./openapi-helpers";
+import { ERROR_RESPONSE, op, jsonOk, pathParam } from "./openapi-helpers";
 import { GEOMETRY_REFRESH_DESCRIPTION } from "./openapi-geometry-resource";
 import { CSV_GEOMETRY_DESCRIPTION } from "./openapi-geometry";
 import { PROJECT_SCOPE_PARAM } from "./openapi-projects";
@@ -232,7 +232,7 @@ export const TABLE_RESOURCE_PATHS = {
   "/api/tables/{name}": {
     get: op(datasetAccess({
       summary: "Inspect a table",
-      description: "Schema, row count, and a row preview.",
+      description: "Schema, row count, and a fifty-row preview. The complete uncompressed UTF-8 JSON answer, including metadata, schema and envelope, is limited to 33,554,432 bytes (32 MiB); a non-geometry column value, including nested values and escaping, to 2,097,152 bytes (2 MiB). Equality is admitted. Only the registered native geometry column, emitted as WKT, is exempt from the cell ceiling. Exceeding either bound refuses the whole inspection with HTTP 422 query_result_too_large, without partial data. The limits have no setting and do not apply to layer reads, dataset map features, file exports or owner deletion. A refused inspection leaves the dataset detail and its set-geometry panel unavailable.",
       tag: "Tables",
       tool: "inspect_table", mcp: LOCAL_READ,
       display: {"verb": "Inspected the dataset {subject}", "subject": {"resource": "tables", "argument": "name"}},
@@ -241,6 +241,7 @@ export const TABLE_RESOURCE_PATHS = {
       parameters: [pathParam("name", "Table name.")],
       responses: {
         "200": jsonOk("#/components/schemas/TableInspection"),
+        "422": ERROR_RESPONSE,
       },
     })),
     delete: op(datasetAccess({
