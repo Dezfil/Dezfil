@@ -197,6 +197,31 @@ describe.each(["grid", "list"] as const)("sharing from the Projects page (%s)", 
     expect(spies.refresh).toHaveBeenCalled();
   });
 
+  it("moves focus to search after a departure, only once the confirmation has released the page", async () => {
+    await mount();
+    const search = q('input[aria-label="Search projects"]')!;
+    // The node host focuses whatever it is asked to; a browser ignores a
+    // focus call on an element that is still inert behind a dialog.
+    const inertWhenAsked: boolean[] = [];
+    const focus = search.focus.bind(search);
+    search.focus = () => { inertWhenAsked.push(search.closest("[inert]") !== null); focus(); };
+    button("Leave Berlin housing study")!.focus();
+    await click(button("Leave Berlin housing study"));
+    expect(search.closest("[inert]")).not.toBeNull();
+    // Two turns of the timer queue inside one act, so anything the departure
+    // defers by a timer runs before React commits the closing render: the
+    // order a browser produces.
+    await act(async () => {
+      host.document.querySelectorAll("button").find(b => b.textContent === "Leave project")!.click();
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(q('[role="dialog"]')).toBeNull();
+    expect(search.closest("[inert]")).toBeNull();
+    expect(inertWhenAsked).toEqual([false]);
+    expect(host.document.activeElement).toBe(search);
+  });
+
   it("opens the share dialog on that project from its Share action, without opening the project", async () => {
     await mount();
     expect(q("[data-share-dialog]")).toBeNull();

@@ -100,6 +100,15 @@ export function ProjectsScreen() {
     null,
   );
   const searchRef = useRef<HTMLInputElement>(null);
+  // A departure removes the card whose action opened the confirmation, so
+  // focus goes to search instead. It moves in an effect of the render that
+  // closes the dialog: by then the dialog's own cleanup has released the
+  // page behind it and tried its opener. Asked any earlier, the search box
+  // is still inert and a browser ignores the call.
+  const [departures, setDepartures] = useState(0);
+  useEffect(() => {
+    if (departures > 0) searchRef.current?.focus();
+  }, [departures]);
 
   // "/" focuses search — unless the user is already typing somewhere.
   useEffect(() => {
@@ -591,7 +600,7 @@ export function ProjectsScreen() {
             mutate((current) => ({ ...current, projects: current.projects.filter(p => p.id !== leaving.id) }));
             setLeaving(null);
             setExportNote(notice);
-            setTimeout(() => searchRef.current?.focus(), 0);
+            setDepartures((n) => n + 1);
             refresh().catch(() => retry());
           }}
         />
