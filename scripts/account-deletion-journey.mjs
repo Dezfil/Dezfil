@@ -11,6 +11,7 @@ import { deletionFixture } from './deletion-journey-fixture.mjs';
 import { assertErased, storeFiles } from './deletion-journey-store.mjs';
 import { good, deletionRoads } from './deletion-journey-roads.mjs';
 import { assertDeletionPage } from './deletion-journey-pages.mjs';
+import { recoverRemainingAdmin } from './deletion-journey-recovery.mjs';
 const [mode, base, stateFile, directory, controlDirectory, wirePort = '3404'] = process.argv.slice(2);
 assert.ok(['seed', 'verify', 'recover'].includes(mode));
 assert.ok(directory && path.isAbsolute(directory) && stateFile && path.isAbsolute(stateFile));
@@ -63,11 +64,7 @@ try {
     const state = JSON.parse(readFileSync(stateFile, 'utf8')), { admin, fixture, accepted, foreignRow } = state;
     const api = journeyApi(base, { token: admin.token }), keep = journeyApi(base, fixture.control);
     if (mode === 'recover') {
-      const secret = new URLSearchParams(new URL(readFileSync(path.join(controlDirectory, 'recovery-link'), 'utf8').trim()).hash.slice(1)).get('secret');
-      const recovered = good(await journeyApi(base)('POST', '/api/auth/redeem', { body: { secret, password: 'recovered paper cranes before sunrise' } }));
-      assert.equal(recovered.account.id, admin.account.id); assert.equal(recovered.account.isAdmin, true);
-      assert.equal((await journeyApi(base, { cookie: admin.cookie })('GET', '/api/maps')).status, 401);
-      assert.equal((await keep('GET', `/api/maps/${fixture.controlMap.id}`)).status, 200);
+      await recoverRemainingAdmin(base, state, readFileSync(path.join(controlDirectory, 'recovery-link'), 'utf8'));
       console.log('PASS: confirmed packaged remaining-admin recovery after deletion');
     } else {
       assert.equal(good(await api('GET', `/api/users/deletions/${accepted.id}`)).state, 'needs-retry', 'replacement keeps same unfinished deletion');
