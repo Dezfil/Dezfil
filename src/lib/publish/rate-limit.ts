@@ -9,7 +9,8 @@ interface Window {
 }
 
 const STATE = Symbol.for("dezfil.publication-windows");
-const shared = process as typeof process & { [STATE]?: Map<string, Window> };
+const SWEEP = Symbol.for("dezfil.publication-sweep");
+const shared = process as typeof process & { [STATE]?: Map<string, Window>; [SWEEP]?: number };
 const windows = shared[STATE] ??= new Map<string, Window>();
 const MAX_ENTRIES = 10_000;
 
@@ -25,11 +26,15 @@ export function tileMaxPerWindow(): number {
 }
 
 export function rateLimit(key: string, now: number, max?: number): boolean {
-  // Expire on every request, including hits and refusals, before LRU eviction.
-  for (const [source, window] of windows) if (now >= window.resetAt) windows.delete(source);
+  // Route bundles share the sweep deadline as well as the source windows.
+  if (now >= (shared[SWEEP] ?? -Infinity) + 1000) {
+    shared[SWEEP] = now;
+    for (const [source, window] of windows) if (now >= window.resetAt) windows.delete(source);
+  }
   const limit = max ?? maxPerWindow();
   const existing = windows.get(key);
   if (!existing || now >= existing.resetAt) {
+    if (existing) windows.delete(key);
     if (windows.size >= MAX_ENTRIES) windows.delete(windows.keys().next().value!);
     windows.set(key, { count: 1, resetAt: now + WINDOW_MS });
     return true;
@@ -43,6 +48,7 @@ export function rateLimit(key: string, now: number, max?: number): boolean {
 /** Tests reset shared state. */
 export function resetRateLimits(): void {
   windows.clear();
+  delete shared[SWEEP];
 }
 
 /** In-process evidence only; never exposed by an HTTP operation. */

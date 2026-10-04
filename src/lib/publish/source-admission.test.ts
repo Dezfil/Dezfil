@@ -115,3 +115,36 @@ it("documents provenance refusal on every anonymous published operation", async 
     expect(description.responses["503"].description).toContain("The instance cannot serve published maps yet.");
   }
 });
+
+it("sweeps at most once per second across route bundles while expiring the requested key", async () => {
+  const windows = (process as unknown as Record<symbol, Map<string, unknown>>)[Symbol.for("dezfil.publication-windows")];
+  const sweep = vi.spyOn(windows, Symbol.iterator);
+  rateLimit("pub:one", 0, 1);
+  rateLimit("pub:two", 1, 1);
+  expect(rateLimit("pub:one", 999, 1)).toBe(false);
+  expect(sweep).toHaveBeenCalledTimes(1);
+  vi.resetModules();
+  const other = await import("./rate-limit");
+  other.rateLimit("tile:three", 999, 1);
+  expect(sweep).toHaveBeenCalledTimes(1);
+  other.rateLimit("tile:three", 1000, 1);
+  expect(sweep).toHaveBeenCalledTimes(2);
+  rateLimit("pub:one", 10_000, 1);
+  expect(sweep).toHaveBeenCalledTimes(3);
+  // This key expires inside the sweep interval, so its own lookup must renew it.
+  expect(rateLimit("pub:two", 10_001, 1)).toBe(true);
+  expect(rateLimit("pub:two", 10_002, 1)).toBe(false);
+  expect(sweep).toHaveBeenCalledTimes(3);
+  rateLimit("pub:one", 11_000, 1);
+  expect(sweep).toHaveBeenCalledTimes(4);
+});
+
+it("renews an expired key between sweeps at capacity without evicting another live key", () => {
+  rateLimit("pub:expired", 1, 1);
+  for (let i = 0; i < 9999; i++) rateLimit(`tile:${i}`, 2, 1);
+  expect(rateLimit("pub:expired", 3, 1)).toBe(false); // Expired key is newest in the LRU.
+  expect(rateLimit("tile:9998", 10_000, 1)).toBe(false); // Sweep before any expiry.
+  expect(rateLimit("pub:expired", 10_001, 1)).toBe(true);
+  expect(rateLimitEntryCount()).toBe(10_000);
+  expect(rateLimit("tile:0", 10_001, 1)).toBe(false);
+});
