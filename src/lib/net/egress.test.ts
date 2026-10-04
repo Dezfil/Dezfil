@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/errors";
 import {
   egressBlockedError,
@@ -145,3 +145,30 @@ describe("validatingLookup", () => {
     expect(["127.0.0.1", "::1"]).toContain(address);
   });
 });
+
+for (const arm of ["failure", "answer"] as const) {
+  describe(`IPv6 resolver with lookup ${arm}`, () => {
+    for (const literal of ["::1", "fd00::1", "2001:4860:4860::8888"]) {
+      for (const host of [literal, `[${literal}]`]) {
+        it(`${host} never consults lookup`, async () => {
+          const lookup = vi.fn(async () => {
+            if (arm === "failure") throw new Error("injected lookup failure");
+            return [{ address: "2001:4860:4860::8844", family: 6 }];
+          });
+          let returned: string[] | null = null;
+          const error = await resolveAllowed(host, lookup as unknown as Parameters<typeof resolveAllowed>[1])
+            .then((addresses) => { returned = addresses; return null; }, (e) => e);
+          console.info(JSON.stringify({ arm, host, lookups: lookup.mock.calls, returned, error: error?.code ?? error?.message ?? null }));
+          expect.soft(lookup).not.toHaveBeenCalled();
+          if (literal === "2001:4860:4860::8888") {
+            expect.soft(error).toBeNull();
+            expect.soft(returned).toEqual(["2001:4860:4860::8888"]);
+          } else {
+            expect.soft(returned).toBeNull();
+            expect.soft(error).toMatchObject({ code: "egress_blocked", status: 403 });
+          }
+        });
+      }
+    }
+  });
+}
