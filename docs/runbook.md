@@ -982,29 +982,47 @@ outside environments that forbid listeners or browsers. It creates no container
 or network and adds no image-job step; record its observations separately from
 renderer proofs.
 
+### Render destination gate and outside comparison
+
+Run the [three-arm destination gate](render-egress-probes.md#image-job-step)
+against the named built image. It runs both victim variants with three helpers,
+two internal networks and no host ports, fails on missing evidence, and removes
+its owned containers/networks on every ordinary exit. Expect about 30 added
+image-job seconds against the outside 27–29 second measurements; record the
+actual elapsed time. The same guide gives the wider dependency/compatibility
+matrix, socket/lifetime proofs and cleanup recipes.
+
+The [TLS and paired comparison guide](render-comparison-probes.md) gives exact
+host OpenSSL/NSS prerequisites and trust mounts, positive and negative certificate
+arms, per-claim supplementary browser labels, two warmups then ten interleaved
+exports per version, independent guarded tile counts, retained voids, medians,
+delta/ratio and each named seed. Those probes stay outside CI. Do not interpret a
+configuration flag or an unpaired baseline as a browser or performance result.
+
 ### Image job probe order
 
 After building and recording the `dezfil:ci` image, the image job runs these
 checks in order. The stock `dezfil-mcp-probe:ci` client image is built after the
-inventory check; it is a test client, not a shipped service.
+inventory and render destination checks; it is a test client, not a shipped service.
 
 | Order | Check | Containers required |
 |---|---|---|
 | 1 | `check-image-inventory.mjs` | Disposable `dezfil:ci` inspection containers. |
-| 2 | `body-probe.mjs` (includes transport, 11/256 MiB uploads, 12 MiB workflow and paced public POSTs), then `transport-probe.mjs --file-limit-only` | Two fresh `dezfil-transport-ci` servers in sequence, 257 MiB then 1 MiB upload caps; stock MCP client beside the first server. |
-| 3 | `publication-source-probe.mjs`: direct, trusted, untrusted, missing, without `--capacity` | Four fresh `dezfil-publication-ci` servers in sequence; only the trusted arm trusts loopback and only the missing arm omits ingress. |
-| 4 | `derivation-probe.mjs` | One `dezfil-derivation-ci` server with trusted loopback and the test observer. |
-| 5 | `credential-cleanup-driver.mjs` | Three replacement `dezfil:ci` servers over one fresh named volume, no sidecar. |
-| 6 | `ingress-probe.mjs`, then `--expect-missing` | Two disposable `dezfil:ci` containers, with and without ingress preload. |
-| 7 | `check-duckdb-extensions-offline.mjs` | One disposable `dezfil:ci` container without networking. |
-| 8 | Thirty-second cold start, `journey.mjs`, then `durability.mjs seed` and `verify` | `dezfil-ci`, then its replacement on `dezfil-ci-data`. |
-| 9 | `ownership-journey.mjs seed` and `verify` | Two successive `dezfil-ownership-ci` servers on their own volume, each driven by the stock MCP client. |
-| 10 | `sharing-journey.mjs seed` and `verify` | Two successive `dezfil-sharing-ci` servers on their own volume, each driven by the stock MCP client and its scripted assistant wire. |
-| 11 | `mcp-process-driver.mjs` | Two replacement `dezfil:ci` servers over a fresh volume plus stock MCP clients. |
-| 12 | `dezfil-plugin-container.mjs` HTTP journey | One `dezfil-plugin-ci` server plus stock MCP client with mounted plugin files. Keep this server for the final check. |
-| 13 | `offline-export-probe.mjs --tiled` | One `dezfil-offline` server without networking. |
-| 14 | `offline-export-probe.mjs --expect-unavailable` | One `dezfil-nobrowser` server from the image with Chromium removed. |
-| 15 | `dezfil-plugin-container.mjs --render --render-log ...` | The retained `dezfil-plugin-ci` server and a stock MCP client. |
+| 2 | `render-egress-driver.mjs --image dezfil:ci` | One app and three helpers using the built image, recreated per arm; two internal networks, unconditional owned cleanup. |
+| 3 | `body-probe.mjs` (includes transport, 11/256 MiB uploads, 12 MiB workflow and paced public POSTs), then `transport-probe.mjs --file-limit-only` | Two fresh `dezfil-transport-ci` servers in sequence, 257 MiB then 1 MiB upload caps; stock MCP client beside the first server. |
+| 4 | `publication-source-probe.mjs`: direct, trusted, untrusted, missing, without `--capacity` | Four fresh `dezfil-publication-ci` servers in sequence; only the trusted arm trusts loopback and only the missing arm omits ingress. |
+| 5 | `derivation-probe.mjs` | One `dezfil-derivation-ci` server with trusted loopback and the test observer. |
+| 6 | `credential-cleanup-driver.mjs` | Three replacement `dezfil:ci` servers over one fresh named volume, no sidecar. |
+| 7 | `ingress-probe.mjs`, then `--expect-missing` | Two disposable `dezfil:ci` containers, with and without ingress preload. |
+| 8 | `check-duckdb-extensions-offline.mjs` | One disposable `dezfil:ci` container without networking. |
+| 9 | Thirty-second cold start, `journey.mjs`, then `durability.mjs seed` and `verify` | `dezfil-ci`, then its replacement on `dezfil-ci-data`. |
+| 10 | `ownership-journey.mjs seed` and `verify` | Two successive `dezfil-ownership-ci` servers on their own volume, each driven by the stock MCP client. |
+| 11 | `sharing-journey.mjs seed` and `verify` | Two successive `dezfil-sharing-ci` servers on their own volume, each driven by the stock MCP client and its scripted assistant wire. |
+| 12 | `mcp-process-driver.mjs` | Two replacement `dezfil:ci` servers over a fresh volume plus stock MCP clients. |
+| 13 | `dezfil-plugin-container.mjs` HTTP journey | One `dezfil-plugin-ci` server plus stock MCP client with mounted plugin files. Keep this server for the final check. |
+| 14 | `offline-export-probe.mjs --tiled` | One `dezfil-offline` server without networking. |
+| 15 | `offline-export-probe.mjs --expect-unavailable` | One `dezfil-nobrowser` server from the image with Chromium removed. |
+| 16 | `dezfil-plugin-container.mjs --render --render-log ...` | The retained `dezfil-plugin-ci` server and a stock MCP client. |
 
 Cleanup steps stop remaining journey/plugin containers. The separate native gate,
 account-upgrade, login-window and admin-recovery recipes remain outside this

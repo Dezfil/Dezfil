@@ -2,7 +2,8 @@
 
 These are assertion-bearing probes for the built image and the relay. Their
 socket/browser outcomes require an outside run. Pure parser, admission and
-evidence-checker tests make no connection claim. No pipeline step is added here.
+evidence-checker tests make no connection claim. The original gate is one step
+of the image job; the matrix and wider evidence remain outside it.
 
 ## Original gate
 
@@ -15,8 +16,9 @@ DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) node scripts/render-egress-
 Use the baseline image built from `2aded21`, then repeat with the repaired image
 tag. `--victim style` or `--victim blind` runs one three-arm variant; the default
 runs both and reports every arm even when earlier assertions fail. The observed
-baseline took 27 seconds for both variants (exit 1). Measure the candidate
-separately; this is an observation, not a response-time promise.
+baseline took 27 seconds for both variants (exit 1). The relay image gate was
+observed outside at 29 seconds, exit 0, with all 42 assertions passing. These
+observations are not a response-time promise; repeat against each new image.
 
 Each invocation owns a random `dezfil-egress-<pid>-<nonce>` prefix. It creates two
 internal networks (`-public`, `203.0.113.0/24`; `-private`, `192.168.99.0/24`) and
@@ -201,13 +203,11 @@ both tile counts and URL sets, browser versions, fixture identity and the
 baseline median. `inventory.json` records the exact image and resource limits.
 The saved images must contain the fixture pixels, not merely an offline PNG.
 
-This is a baseline fixture/counting run, not a paired performance comparison.
-It makes no guarded-road claim. The later comparison must use these exact
-resources, an independent observer of the candidate's guarded connections,
-two warmups and ten interleaved samples per version on the same idle host, and
-record both medians, delta, ratio and every void. The direct-bypass and delay
-mutants wait for that observer and comparison; the observer unit seed here
-only weakens the 64-tile minimum and is restored before commit.
+This command remains a baseline fixture/counting run and makes no paired or
+guarded-road claim. Use the [paired timing driver](render-comparison-probes.md#paired-timing-and-guarded-response-counts)
+for the comparison, independent guarded response counts, both medians, delta,
+ratio and retained voids. Its direct-bypass and delay seeds are documented beside
+the TLS and supplementary probes.
 
 
 ## Relay framing, connections and local clients
@@ -346,12 +346,30 @@ fixture; the runner removes the standalone and scratch store. Green is a complet
 image naming the abandoned host inside the existing check budget. Neither control
 starts an application, container or network for the runner.
 
-All currently failing gate assertions are expected to pass on the candidate:
-public/rebinding browser-DNS absence, rebinding listener silence and exact policy
-answers for both victim variants. All 23 matrix failures are likewise expected
-to pass; the tile refusal and all compatibility controls must stay green. None of
-those existing assertions is deferred. Trusted TLS/hostname/chain proofs,
-supplementary browser traffic and independently observed guarded-tile counts with
-the paired performance comparison still require their separate probes. The flags
-configure QUIC/UDP/speculative-DNS suppression; they alone demonstrate no traffic
-claim. No TLS positive or paired timing result is claimed here.
+The outside-observed relay gate passed all 42 assertions: public/rebinding
+browser-DNS absence, rebinding listener silence and exact policy answers for both
+victim variants. The wider matrix must still be repeated against the delivery
+image; none of its 23 baseline failures is deferred or replaced with a flag check.
+TLS, individual supplementary claims and the paired guarded timing comparison
+have [their own recipes and named seeds](render-comparison-probes.md). Their
+outcomes remain separate from the style-driven destination boundary.
+
+## Image job step
+
+The job reuses its already-built `dezfil:ci` image for the app and three helpers.
+Mirror its single step outside with:
+
+```sh
+DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) node scripts/render-egress-driver.mjs --image dezfil:ci
+```
+
+Both three-arm variants run, with no attack allowlist or host port. The expected
+added time is about **30 seconds**, based on the outside 27–29 second gate
+measurements; record the actual hosted-runner seconds. No new response-time
+contract or CI timing threshold is introduced. Missing readiness, logs, DNS
+sequence, listener liveness/silence, pixel control or exact refusal exits nonzero.
+Cleanup tries every exact owned name in `finally`, including failures and handled
+signals. The resource inventory, internal ports/subnets, cleanup and retained
+scratch are described above. There is no global prune and no reuse of another
+step's live app. The dependency matrix, TLS, supplementary and paired timing
+probes stay outside the image job.

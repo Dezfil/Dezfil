@@ -78,6 +78,43 @@ after the backup is not in the restore. Test the restore on an isolated port and
 copy, never with two servers writing the same directory. The
 [runbook](runbook.md#full-backup-and-restore) gives checkout and volume commands.
 
+## Server-side render destinations
+
+Image exports and map checks launch a fresh Chromium browser. Page requests
+are admitted against the instance's egress policy, and external TCP connections
+use an ephemeral SOCKS5 relay in the app process. The relay resolves each new
+connection, requires every returned address to be admitted, and dials only those
+literal addresses. A changed DNS answer cannot move an admitted request onto a
+denied private destination. An unreachable admitted address can fall back to
+another admitted address from the same lookup. Private literals, mixed answer
+sets, redirects and style dependencies receive the same checks.
+
+Only the app's exact scheme, literal host and port bypass the relay. App render
+credentials stay on that exact origin. `DEZFIL_EGRESS_ALLOWLIST` retains its
+existing hostname, IP and CIDR exceptions: an allowlisted hostname remains
+trusted whatever it resolves to. Ordinary public destinations remain available.
+A policy denial returns the shipped `render_failed` refusal without a PNG;
+ordinary DNS or transport failure retains the data-only dead-basemap state.
+Relay startup failure returns the generic render failure and never launches a
+direct browser as a fallback. Queue-inclusive budgets and cancellation still
+apply, and relay sockets/listeners are owned by the render's cleanup.
+
+The listener binds only to loopback, once per render, and uses no authentication.
+Another local process can use it under that same destination policy; it promises
+neither local-client authentication nor exclusivity. HTTPS stays between Chromium
+and the destination: the relay tunnels bytes without terminating TLS or changing
+certificate validation. Trusted-HTTPS compatibility needs its own observed
+browser proof; the HTTP destination gate does not supply that evidence.
+
+This boundary concerns server-side style-driven rendering. It is not a statement
+about a viewer's browser, service workers, WebSocket, browser-owned background
+requests, or UDP/QUIC suppression. The launch flags configure suppression, but
+those supplementary claims are reported individually. The
+[destination probes](render-egress-probes.md) and
+[TLS/timing recipes](render-comparison-probes.md) separate connection assertions,
+scripted browser stimuli and unobserved claims. The latter probes stay outside
+the image job; no additional production service or setting is required.
+
 ## The encryption key
 
 Stored credentials, such as the password for a database connection, are encrypted at
