@@ -8,8 +8,7 @@ export async function boundedBodyText(request: Request, limit: number, options: 
   if (declared && /^\d+$/.test(declared) && (!Number.isSafeInteger(Number(declared)) || Number(declared) > limit)) throw tooLarge();
   if (!request.body) return "";
   const reader = request.body.getReader();
-  const length = declared && /^\d+$/.test(declared) ? Number(declared) : 0;
-  let buffer = new Uint8Array(length);
+  let buffer = new Uint8Array(0);
   let bytes = 0;
   try {
     while (true) {

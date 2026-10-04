@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { boundedBodyText } from "./bounded-body";
 afterEach(() => vi.restoreAllMocks());
-it.each([undefined, "2", "1"])("allocates for arriving bytes, not the large ceiling (length %s)", async declared => {
+it.each([undefined, "2", "1", "16777216"])("allocates for arriving bytes, not the large ceiling (length %s)", async declared => {
   const request = new Request("http://instance.test", { method: "POST", headers: declared ? { "content-length": declared } : {}, body: "{}" });
   const allocations: number[] = [], Native = Uint8Array;
   vi.stubGlobal("Uint8Array", new Proxy(Native, { construct(target, args) {
@@ -31,4 +31,28 @@ it("counts UTF-8 and escape bytes at all general-tier boundaries regardless of d
     if (bytes > 16_777_216) await expect(boundedBodyText(request, 16_777_216)).rejects.toMatchObject({ status: 413 });
     else expect(JSON.parse(await boundedBodyText(request, 16_777_216))).toEqual({ value: "雪" });
   }
+});
+
+
+it.each([65_536, 16_777_216])("allocates no payload storage while a declared %s-byte body has sent nothing", async limit => {
+  const request = new Request("http://instance.test", { method: "POST", headers: { "content-length": String(limit) } });
+  let finish!: (chunk: ReadableStreamReadResult<Uint8Array>) => void;
+  const read = vi.fn(() => new Promise<ReadableStreamReadResult<Uint8Array>>(resolve => { finish = resolve; }));
+  const releaseLock = vi.fn();
+  vi.spyOn(request, "body", "get").mockReturnValue({ getReader: () => ({ read, releaseLock }) } as unknown as ReadableStream<Uint8Array<ArrayBuffer>>);
+  const allocations: number[] = [], Native = Uint8Array;
+  vi.stubGlobal("Uint8Array", new Proxy(Native, { construct(target, args) {
+    if (typeof args[0] === "number") allocations.push(args[0]);
+    return Reflect.construct(target, args);
+  } }));
+  const reading = boundedBodyText(request, limit);
+  try {
+    expect(read).toHaveBeenCalledOnce();
+    expect(allocations.filter(bytes => bytes > 0)).toEqual([]);
+  } finally {
+    finish({ done: true, value: undefined });
+    expect(await reading).toBe("");
+    vi.unstubAllGlobals();
+  }
+  expect(releaseLock).toHaveBeenCalledOnce();
 });
