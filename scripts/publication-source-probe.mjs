@@ -18,9 +18,10 @@ export async function provisionPublications(api) {
   return tokens;
 }
 
-export async function publicationSourceProbe(base, mode, stateLog) {
+export async function publicationSourceProbe(base, mode, stateLog, { capacity = false } = {}) {
   assert.ok(process.env.DEZFIL_DATA_DIR, 'Use an isolated DEZFIL_DATA_DIR');
   assert.ok(['direct', 'trusted', 'untrusted', 'missing'].includes(mode), 'Unknown publication probe mode');
+  assert.ok(!capacity || mode === 'trusted', '--capacity requires trusted mode');
   const started = Date.now(), evidence = [];
   const paths = ['', '/widget-values', '/render/layer', '/extent/layer', '/tiles/layer/0/0/0'];
   const send = async (suffix, { token = 'missing', source = '192.0.2.1', second = false, forged = false } = {}) => {
@@ -62,7 +63,7 @@ export async function publicationSourceProbe(base, mode, stateLog) {
     assertPublishedStatus(await send('', { token: tokens[0] }), 200);
     const afterExpiry = (await readFile(stateLog, 'utf8')).trim().split('\n').map(line => JSON.parse(line)).filter(row => row.phase === 'publication').at(-1);
     assert.equal(afterExpiry?.size, 1, 'ordinary read expires both buckets');
-    if (mode === 'trusted') {
+    if (capacity) {
       const beforeCapacity = (await readFile(stateLog, 'utf8')).trim().split('\n').length;
       let next = 0;
       await Promise.all(Array.from({ length: 24 }, async () => {
@@ -72,18 +73,20 @@ export async function publicationSourceProbe(base, mode, stateLog) {
         }
       }));
       assertPublicationState((await readFile(stateLog, 'utf8')).trim().split('\n').slice(beforeCapacity).map(line => JSON.parse(line)), 10_050, true);
+      const rows = (await readFile(stateLog, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+      const peak = assertPublicationState(rows, 1);
+      evidence.push({ statePeak: peak, cap: 10_000 });
     }
-    const rows = (await readFile(stateLog, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
-    const peak = assertPublicationState(rows, 1);
-    evidence.push({ statePeak: peak, cap: 10_000 });
   }
   const result = { label: 'confirmed', mode, checks: evidence.length, elapsedSeconds: (Date.now() - started) / 1000, evidence };
   console.log(JSON.stringify(result)); return result;
 }
+export async function runPublicationSourceProbe(argv) {
+  const [base, mode, ...args] = argv, index = args.indexOf('--state-log');
+  assert.ok(base?.startsWith('http://'), 'Usage: publication-source-probe.mjs ORIGIN direct|trusted|untrusted|missing [--state-log PATH] [--capacity (trusted only)]');
+  return publicationSourceProbe(base, mode, index < 0 ? undefined : args[index + 1], { capacity: args.includes('--capacity') });
+}
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  try {
-    const [base, mode, ...args] = process.argv.slice(2), index = args.indexOf('--state-log');
-    assert.ok(base?.startsWith('http://'), 'Usage: publication-source-probe.mjs ORIGIN direct|trusted|untrusted|missing [--state-log PATH]');
-    await publicationSourceProbe(base, mode, index < 0 ? undefined : args[index + 1]);
-  } catch (error) { console.error(JSON.stringify({ label: 'failed', message: error.message })); process.exitCode = 1; }
+  try { await runPublicationSourceProbe(process.argv.slice(2)); }
+  catch (error) { console.error(JSON.stringify({ label: 'failed', message: error.message })); process.exitCode = 1; }
 }

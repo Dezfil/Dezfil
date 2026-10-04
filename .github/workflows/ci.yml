@@ -186,7 +186,10 @@ jobs:
           trap 'docker exec dezfil-transport-ci cat /data/transport-server.log 2>/dev/null || true; docker stop dezfil-transport-ci 2>/dev/null || true' EXIT
           run_transport transport 3391 257
           run_transport file-limit 3392 1
-      - name: Published source budgets on direct and separate proxy instances
+      # Direct/proxy source separation and sharing, refusals, expiry and missing ingress.
+      # No capacity burst: a hosted runner cannot fill 10,000 entries inside one
+      # ten-second window. Run the explicit --capacity arm locally for that proof.
+      - name: Published direct/proxy source separation, refusals, expiry and missing ingress
         run: |
           run_publication() {
             mode="$1"; port="$2"; trusted="$3"
