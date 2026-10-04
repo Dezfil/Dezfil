@@ -1,6 +1,6 @@
 {
   "count": 136,
-  "overall": "f2dd21489396f8cee9e36448cf4568d44204a3791679094fa36c2fe9079d51fd",
+  "overall": "53eb7ac4c628bc3ea588f7944106ed9876d57ab33bebeee906ec5e76bcfdf94c",
   "tools": {
     "get_account": "1d39e185a29991c180c5357ee693fb43d368491d0c799a0e52600ca88d32baa8",
     "update_account": "1d58af3260a6581ebaf68dbd67d94671d696509451d7ac08c21462b333f88ac2",
@@ -15,7 +15,7 @@
     "inspect_table_geometry": "50b44ed9b748ce58124e837fb33b380ff8056cf1f966c51e782ea269e426ec84",
     "set_table_geometry": "1791ea30cfc316c1ea499ca7147e6efbb91088d11a5d5a0a59183240ccf0b567",
     "clear_table_geometry": "cd3f4635161f8383f69d0c8e9dded73d0b2d52a364e600ef2041c89d874b5f5b",
-    "preview_table_geometry": "6abd30021072ec131def98c2d9749dcdc0b0e26eee62f0aec16fccccc2d48a9f",
+    "preview_table_geometry": "6884507fa51b0989d86bcdd2534c96043fee4413e4597786e88fceb0c9bf267b",
     "list_geometry_projections": "cdf11f09286d9af09753a8dc36588275c8f3475412ba4aeddd98227a909ccd25",
     "check_health": "143cf09e50ae87d361d89e50b34593f4701afca5672926579e0cca1cee2b56c3",
     "get_config": "6cf68cfec90a5569a3de8599061c6a60557955a1869b439e6cc4d58512e716a9",
@@ -44,7 +44,7 @@
     "delete_postgis_connection": "323a02f7e6f2eada1c64df4651515a3579bc37723569a70e589bb2ef49aff3a6",
     "test_postgis_connection": "adc2c2437ae93fae8f9adad874a804ed5815c7db455dad90bd23fb987718c4bf",
     "list_postgis_tables": "954dda36157fa6015b5a4b708e5bcc8c994256c45629483428f220ed855c1f7b",
-    "preview_postgis_relation": "a5ea7a42cf50e4338ebf647f4d38038b957b7551c807150412dd06647a6ea52c",
+    "preview_postgis_relation": "a4c2e97fff6516f355765b129f161c3f9dad6e433617f903fb212b931b6657b6",
     "list_postgis_snapshots": "c0efa2ce92d754923c9c8cf1f5a28adb1ef6b75790017f70a6bcde21301fa818",
     "import_table_from_postgis": "b4d4cdabb7f8239f3992c4f106fceef78220322ea8e6f95c0b19419ed6e50720",
     "refresh_table": "1e6537d2968d09e3d29d4fc1fe992cebd66d05e1a5550ebd30e0be9fe0f72591",
