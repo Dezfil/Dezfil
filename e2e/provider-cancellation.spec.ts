@@ -25,7 +25,7 @@ test("caller-driven provider closure and current UI", async ({ page, context, ba
       await expect(page.getByRole("combobox", { name: "Search this map and places" })).toBeVisible();
     };
     const noStaleError = async () => {
-      await expect(page.getByText("The check request itself failed.", { exact: true })).toHaveCount(0);
+      await expect(page.getByText("The check request itself failed.")).toHaveCount(0);
       await expect(page.getByText("Place search could not run.", { exact: true })).toHaveCount(0);
     };
     type Arm = ReturnType<typeof fixture.arm>;
@@ -68,7 +68,7 @@ test("caller-driven provider closure and current UI", async ({ page, context, ba
     }
     for (const action of ["replacement", "edit", "Cancel", "panel departure"]) {
       await page.getByRole("tab", { name: "Basemap", exact: true }).click();
-      await page.getByRole("button", { name: "Custom…", exact: true }).click();
+      await page.getByRole("button", { name: "Custom…" }).click();
       const url = page.getByRole("textbox", { name: "Style URL" });
       const held = fixture.arm("inspect", "body", `browser-inspect-${action.replaceAll(" ", "-")}`);
       await url.fill(held.url); await page.getByRole("button", { name: "Check", exact: true }).click();
@@ -90,7 +90,7 @@ test("caller-driven provider closure and current UI", async ({ page, context, ba
         await page.getByRole("tab", { name: "Basemap", exact: true }).click();
       }
       const normal = fixture.arm("inspect", "normal", `browser-inspect-recovery-${action.replaceAll(" ", "-")}`);
-      await page.getByRole("button", { name: "Custom…", exact: true }).click();
+      await page.getByRole("button", { name: "Custom…" }).click();
       await url.fill(normal.url); await page.getByRole("button", { name: "Check", exact: true }).click();
       await expect(page.getByText("Fixture style · 1 layer · 1 source", { exact: true })).toBeVisible();
       await expect(page.getByRole("button", { name: "Use this style", exact: true })).toBeVisible();
