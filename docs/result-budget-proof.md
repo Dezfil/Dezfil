@@ -126,6 +126,15 @@ and during each labelled request, baseline, peak and delta, sampling method,
 interval, image/commit and engine configuration. Label each result a
 **single observation**. Do not infer a capacity bound from either run.
 
+For an explicit pause around each labelled request, append
+`--observation-dir /tmp/budget-markers-new` to `--refused` or `--admitted`.
+Calibration creates no markers. Each request creates a fresh subdirectory,
+prints its path and writes `ready.json`; create its `release` file within two
+minutes to proceed. `started.json` and `done.json` bracket the request, with
+status and bytes in the latter. Re-fitting an admitted request creates a new
+numbered subdirectory; only the attempt with 200 and 33,554,432 bytes is the
+at-ceiling result. Existing marker subdirectories cause failure.
+
 ## Built image
 
 The image must already be built. Run from the checkout root. The pipeline form
