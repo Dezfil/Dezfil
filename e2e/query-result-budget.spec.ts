@@ -53,11 +53,16 @@ test("refused dataset inspection shows the sentence and cannot open its geometry
   const uploaded = await page.request.post("/api/tables", { multipart: { file: { name: `${name}.parquet`, mimeType: "application/octet-stream", buffer: await file.body() } } });
   expect(uploaded.status()).toBe(201); const table = await uploaded.json();
   try {
-    const response = page.waitForResponse(r => new URL(r.url()).pathname === `/api/tables/${table.name}` && r.request().method() === "GET");
-    await page.goto(`/data/${table.name}`); expect((await response).status()).toBe(422);
-    await expect(page.getByRole("alert")).toContainText(sentence);
-    await expect(page.locator("[data-set-geometry-panel]")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /Set geometry/ })).toHaveCount(0);
+    // Inspection gates both the dataset page and its open-with-panel address.
+    for (const suffix of ["", "?geometry=set"]) {
+      const response = page.waitForResponse(r => new URL(r.url()).pathname === `/api/tables/${encodeURIComponent(table.name)}` && r.request().method() === "GET");
+      await page.goto(`/tables/${encodeURIComponent(table.name)}${suffix}`); expect((await response).status()).toBe(422);
+      const note = page.getByRole("main").getByRole("alert");
+      await expect(note.getByText(sentence, { exact: true })).toBeVisible();
+      await expect(note.getByRole("button", { name: "Try again", exact: true })).toBeEnabled();
+      await expect(page.locator("[data-set-geometry-panel]")).toHaveCount(0);
+      await expect(page.locator("[data-set-geometry-door]")).toHaveCount(0);
+    }
   } finally { expect((await page.request.delete(`/api/tables/${table.name}`)).status()).toBe(204); }
 });
 test("Add data displays the same refusal in its existing geometry preview error place", async ({ page, context }) => {
