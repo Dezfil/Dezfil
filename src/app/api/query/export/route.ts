@@ -12,7 +12,7 @@ import {
   errorResponse,
 } from "@/lib/api/errors";
 import {
-  LayerDownloadTicketStore,
+  queryDownloadTickets,
   observeLayerDownloadStream,
   type LayerDownloadBinding,
 } from "@/lib/export/layer-download-tickets";
@@ -43,8 +43,6 @@ import { trackInflight } from "@/lib/query/inflight";
  *    keyed by the SQL's digest rather than a layer id; expiry, single use
  *    and cleanup are the store's.
  */
-
-const queryDownloadTickets = new LayerDownloadTicketStore();
 
 function bindingFor(sql: string, format: LayerExportFormat): LayerDownloadBinding {
   return { layerId: keyOf(sql), format };

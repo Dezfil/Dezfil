@@ -52,6 +52,11 @@ export class LookRetention {
     const accountId = requireAccountScope(scope), entry = this.entries.get(id);
     return entry?.accountId === accountId ? structuredClone(entry.facts) : null;
   }
+  eraseAccount(accountId: string): void {
+    for (const [id, entry] of this.entries) if (entry.accountId === accountId) {
+      this.entries.delete(id); this.total -= entry.full.byteLength + entry.thumbnail.byteLength;
+    }
+  }
   sizeForTests(): { count: number; bytes: number } { return { count: this.entries.size, bytes: this.total }; }
   /** Oldest first. */
   idsForTests(): string[] { return [...this.entries.keys()]; }
@@ -60,4 +65,6 @@ export class LookRetention {
   resetForTests() { this.entries.clear(); this.total = 0; }
 }
 
-export const lookRetention = new LookRetention(() => ({ count: limits.assistantLookRetention, bytes: limits.assistantLookRetentionMb * 1024 * 1024 }));
+const lookRetentionKey = Symbol.for("dezfil.lookRetention");
+const lookRetentionHost = globalThis as typeof globalThis & { [lookRetentionKey]?: LookRetention };
+export const lookRetention = lookRetentionHost[lookRetentionKey] ??= new LookRetention(() => ({ count: limits.assistantLookRetention, bytes: limits.assistantLookRetentionMb * 1024 * 1024 }));

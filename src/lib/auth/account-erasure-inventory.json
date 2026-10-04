@@ -204,11 +204,6 @@
       "action": "retain",
       "rule": "Keep the directory container; children are classified individually. Health and startup only ensure it exists."
     },
-    "memory:src/app/api/query/export/route.ts#queryDownloadTickets": {
-      "action": "erase",
-      "rule": "Erase target tickets, retained renders and prepared copies by existing account identity; release timers and buffers after settlement/expiry. Preserve other initiators issued copies for their lifetime.",
-      "fixture": "memory:src/app/api/query/export/route.ts#queryDownloadTickets"
-    },
     "memory:immutable-configuration": {
       "action": "retain",
       "rule": "Keep immutable schema, policy, format and presentation configuration; no account-derived entries."
@@ -383,50 +378,14 @@
       "rule": "Erase target tickets, retained renders and prepared copies by existing account identity; release timers and buffers after settlement/expiry. Preserve other initiators issued copies for their lifetime.",
       "fixture": "memory:src/lib/export/look-retention.ts#LookRetention.total"
     },
-    "memory:src/lib/export/project-export-tickets.ts#claimProjectExportTicket.accountId": {
-      "action": "erase",
-      "rule": "Erase target tickets, retained renders and prepared copies by existing account identity; release timers and buffers after settlement/expiry. Preserve other initiators issued copies for their lifetime.",
-      "fixture": "memory:src/lib/export/project-export-tickets.ts#claimProjectExportTicket.accountId"
-    },
-    "memory:src/lib/export/project-export-tickets.ts#entries": {
-      "action": "erase",
-      "rule": "Erase target tickets, retained renders and prepared copies by existing account identity; release timers and buffers after settlement/expiry. Preserve other initiators issued copies for their lifetime.",
-      "fixture": "memory:src/lib/export/project-export-tickets.ts#entries"
-    },
     "memory:src/lib/export/render-image.ts#active": {
       "action": "erase",
       "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
       "fixture": "memory:src/lib/export/render-image.ts#active"
     },
     "memory:src/lib/export/render-image.ts#launches": {
-      "action": "erase",
-      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
-      "fixture": "memory:src/lib/export/render-image.ts#launches"
-    },
-    "memory:src/lib/export/render-image.ts#renderMapImage.browser": {
-      "action": "erase",
-      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
-      "fixture": "memory:src/lib/export/render-image.ts#renderMapImage.browser"
-    },
-    "memory:src/lib/export/render-image.ts#renderMapImage.error": {
-      "action": "erase",
-      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
-      "fixture": "memory:src/lib/export/render-image.ts#renderMapImage.error"
-    },
-    "memory:src/lib/export/render-image.ts#renderMapImage.outcome": {
-      "action": "erase",
-      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
-      "fixture": "memory:src/lib/export/render-image.ts#renderMapImage.outcome"
-    },
-    "memory:src/lib/export/render-image.ts#renderMapImage.settled": {
-      "action": "erase",
-      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
-      "fixture": "memory:src/lib/export/render-image.ts#renderMapImage.settled"
-    },
-    "memory:src/lib/export/render-image.ts#renderMapImage.timedOut": {
-      "action": "erase",
-      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
-      "fixture": "memory:src/lib/export/render-image.ts#renderMapImage.timedOut"
+      "action": "retain",
+      "rule": "Keep the process-wide count of physical launch attempts. It contains no account identity or content."
     },
     "memory:src/lib/export/render-image.ts#waiters": {
       "action": "erase",
@@ -638,6 +597,61 @@
     "memory:tiler-probe": {
       "action": "retain",
       "rule": "Keep the resolved tiler executable path and capability probe."
+    },
+    "memory:src/lib/export/layer-download-tickets.ts#LayerDownloadTicketStore.pending": {
+      "action": "erase",
+      "rule": "Erase target tickets, retained renders and prepared copies by existing account identity; release timers and buffers after settlement/expiry. Preserve other initiators issued copies for their lifetime.",
+      "fixture": "memory:src/lib/export/layer-download-tickets.ts#LayerDownloadTicketStore.pending"
+    },
+    "memory:src/lib/export/layer-download-tickets.ts#queryDownloadTickets": {
+      "action": "erase",
+      "rule": "Erase target tickets, retained renders and prepared copies by existing account identity; release timers and buffers after settlement/expiry. Preserve other initiators issued copies for their lifetime.",
+      "fixture": "memory:src/lib/export/layer-download-tickets.ts#queryDownloadTickets"
+    },
+    "memory:src/lib/export/project-export-tickets.ts#projectExportTickets": {
+      "action": "erase",
+      "rule": "Erase target tickets, retained renders and prepared copies by existing account identity; release timers and buffers after settlement/expiry. Preserve other initiators issued copies for their lifetime.",
+      "fixture": "memory:src/lib/export/project-export-tickets.ts#projectExportTickets"
+    },
+    "memory:src/lib/export/render-image.ts#performRenderMapImage.browser": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-image.ts#performRenderMapImage.browser"
+    },
+    "memory:src/lib/export/render-image.ts#performRenderMapImage.closing": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-image.ts#performRenderMapImage.closing"
+    },
+    "memory:src/lib/export/render-image.ts#performRenderMapImage.error": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-image.ts#performRenderMapImage.error"
+    },
+    "memory:src/lib/export/render-image.ts#performRenderMapImage.launching": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-image.ts#performRenderMapImage.launching"
+    },
+    "memory:src/lib/export/render-image.ts#performRenderMapImage.outcome": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-image.ts#performRenderMapImage.outcome"
+    },
+    "memory:src/lib/export/render-image.ts#performRenderMapImage.settled": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-image.ts#performRenderMapImage.settled"
+    },
+    "memory:src/lib/export/render-image.ts#performRenderMapImage.timedOut": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-image.ts#performRenderMapImage.timedOut"
+    },
+    "memory:src/lib/export/render-work.ts#work": {
+      "action": "erase",
+      "rule": "Drain target render waiters and active launches; preserve other accounts work and non-content capacity counters.",
+      "fixture": "memory:src/lib/export/render-work.ts#work"
     }
   },
   "tables": {
@@ -2337,11 +2351,6 @@
         "tiles/*.pmtiles"
       ]
     },
-    "memory:src/app/api/query/export/route.ts#queryDownloadTickets": {
-      "stores": [
-        "memory:src/app/api/query/export/route.ts#queryDownloadTickets"
-      ]
-    },
     "memory:src/lib/api/openapi-account.ts#ACCOUNT_PATHS": {
       "stores": [
         "memory:immutable-configuration"
@@ -2927,16 +2936,6 @@
         "memory:immutable-configuration"
       ]
     },
-    "memory:src/lib/export/project-export-tickets.ts#claimProjectExportTicket.accountId": {
-      "stores": [
-        "memory:src/lib/export/project-export-tickets.ts#claimProjectExportTicket.accountId"
-      ]
-    },
-    "memory:src/lib/export/project-export-tickets.ts#entries": {
-      "stores": [
-        "memory:src/lib/export/project-export-tickets.ts#entries"
-      ]
-    },
     "memory:src/lib/export/render-image.ts#active": {
       "stores": [
         "memory:src/lib/export/render-image.ts#active"
@@ -2945,31 +2944,6 @@
     "memory:src/lib/export/render-image.ts#launches": {
       "stores": [
         "memory:src/lib/export/render-image.ts#launches"
-      ]
-    },
-    "memory:src/lib/export/render-image.ts#renderMapImage.browser": {
-      "stores": [
-        "memory:src/lib/export/render-image.ts#renderMapImage.browser"
-      ]
-    },
-    "memory:src/lib/export/render-image.ts#renderMapImage.error": {
-      "stores": [
-        "memory:src/lib/export/render-image.ts#renderMapImage.error"
-      ]
-    },
-    "memory:src/lib/export/render-image.ts#renderMapImage.outcome": {
-      "stores": [
-        "memory:src/lib/export/render-image.ts#renderMapImage.outcome"
-      ]
-    },
-    "memory:src/lib/export/render-image.ts#renderMapImage.settled": {
-      "stores": [
-        "memory:src/lib/export/render-image.ts#renderMapImage.settled"
-      ]
-    },
-    "memory:src/lib/export/render-image.ts#renderMapImage.timedOut": {
-      "stores": [
-        "memory:src/lib/export/render-image.ts#renderMapImage.timedOut"
       ]
     },
     "memory:src/lib/export/render-image.ts#waiters": {
@@ -3861,6 +3835,61 @@
       ],
       "roots": [
         "tiles/scratch"
+      ]
+    },
+    "memory:src/lib/export/layer-download-tickets.ts#LayerDownloadTicketStore.pending": {
+      "stores": [
+        "memory:src/lib/export/layer-download-tickets.ts#LayerDownloadTicketStore.pending"
+      ]
+    },
+    "memory:src/lib/export/layer-download-tickets.ts#queryDownloadTickets": {
+      "stores": [
+        "memory:src/lib/export/layer-download-tickets.ts#queryDownloadTickets"
+      ]
+    },
+    "memory:src/lib/export/project-export-tickets.ts#projectExportTickets": {
+      "stores": [
+        "memory:src/lib/export/project-export-tickets.ts#projectExportTickets"
+      ]
+    },
+    "memory:src/lib/export/render-image.ts#performRenderMapImage.browser": {
+      "stores": [
+        "memory:src/lib/export/render-image.ts#performRenderMapImage.browser"
+      ]
+    },
+    "memory:src/lib/export/render-image.ts#performRenderMapImage.closing": {
+      "stores": [
+        "memory:src/lib/export/render-image.ts#performRenderMapImage.closing"
+      ]
+    },
+    "memory:src/lib/export/render-image.ts#performRenderMapImage.error": {
+      "stores": [
+        "memory:src/lib/export/render-image.ts#performRenderMapImage.error"
+      ]
+    },
+    "memory:src/lib/export/render-image.ts#performRenderMapImage.launching": {
+      "stores": [
+        "memory:src/lib/export/render-image.ts#performRenderMapImage.launching"
+      ]
+    },
+    "memory:src/lib/export/render-image.ts#performRenderMapImage.outcome": {
+      "stores": [
+        "memory:src/lib/export/render-image.ts#performRenderMapImage.outcome"
+      ]
+    },
+    "memory:src/lib/export/render-image.ts#performRenderMapImage.settled": {
+      "stores": [
+        "memory:src/lib/export/render-image.ts#performRenderMapImage.settled"
+      ]
+    },
+    "memory:src/lib/export/render-image.ts#performRenderMapImage.timedOut": {
+      "stores": [
+        "memory:src/lib/export/render-image.ts#performRenderMapImage.timedOut"
+      ]
+    },
+    "memory:src/lib/export/render-work.ts#work": {
+      "stores": [
+        "memory:src/lib/export/render-work.ts#work"
       ]
     }
   },
