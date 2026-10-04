@@ -38,6 +38,10 @@ export type Boundary = keyof typeof AUTHORIZATION_BOUNDARIES;
 export const OWNER_QUERY_MODULES: Record<string, readonly Boundary[]> = {
   "src/lib/auth/owned-resource.ts": ["projectReachable", "ownerOnly", "initiatorPrivate"],
   "src/lib/auth/reach.ts": ["projectReachable"],
+  // Accepted erasure selects these resource families by ownership under the
+  // stored deleting-state guard. It grants no private-content read authority.
+  "src/lib/metadata/account-erasure-content.ts": ["projectReachable", "ownerOnly", "initiatorPrivate"],
+  "src/lib/metadata/account-erasure-projects.ts": ["projectReachable"],
   "src/lib/metadata/cascades.ts": ["projectReachable", "initiatorPrivate"],
   "src/lib/metadata/connections.ts": ["ownerOnly"],
   "src/lib/metadata/jobs.ts": ["initiatorPrivate"],

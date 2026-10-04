@@ -19,6 +19,7 @@ proof, not to a product server. No existing store is accepted.
 
 ```sh
 IMAGE=dezfil:account-departures
+mkdir -p .claude/test-data
 DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/test-data/compaction-XXXXXX") \
   node scripts/account-compaction-proof.mjs --container "$IMAGE" --port 3394
 ```
