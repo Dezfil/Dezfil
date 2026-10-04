@@ -40,6 +40,7 @@ it("populates the outside journey's real stores and detects erased bytes and for
   });
   const base = "http://127.0.0.1:3403", admin = await provisionJourney(base), api = journeyApi(base, admin);
   const fixture = await deletionFixture(base, admin, directory, metadataDb());
+  expect((await journeyApi(base, { cookie: admin.cookie })("POST", "/api/query", { body: { sql: "SELECT 1" } })).status).toBe(200);
   await deleteOriginal((method: string, route: string, body?: object) => api(method, route, { body }), { id: fixture.target.id, email: fixture.email });
   expect(() => assertErased(directory, fixture.ledger)).not.toThrow();
   expect(metadataDb().prepare("SELECT * FROM maps WHERE id=?").get(fixture.controlMap.id)).toEqual(fixture.controlRow);

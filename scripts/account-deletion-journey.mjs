@@ -40,6 +40,8 @@ try {
     const preview = good(await api('GET', `/api/users/${fixture.target.id}/deletion-preview`));
     assert.deepEqual(preview.totals, { datasets: fixture.owned.data_tables.length, maps: fixture.owned.maps.length, workflows: fixture.owned.recipes.length, projects: fixture.owned.projects.length, connections: fixture.owned.pg_connections.length, publishedLinks: 1 });
     assert.equal(preview.people, 1); assert.ok(!JSON.stringify(preview.totals).includes(fixture.targetName));
+    // A real admitted read loads the application's holder before the preload uses it.
+    good(await api('POST', '/api/query', { body: { sql: 'SELECT 1' } }));
     await control('hold', fixture.target.id);
     const accepted = good(await api('DELETE', `/api/users/${fixture.target.id}`, { body: { confirm: true, confirmation: preview.confirmation, email: fixture.email } }));
     assert.equal(accepted.state, 'pending', 'held work prevents completion');

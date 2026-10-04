@@ -78,7 +78,12 @@ DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/test-data/deletion-image-page-red-XXXX
 Both must exit nonzero at `accepted owner must be absent from built page`, usually
 within a minute. Missing controls, packages, boot failure or timeout is a harness
 failure, never the intended red. The filesystem handshake and injected lease are
-proof-only preloads; no application endpoint exposes them. Outside green and reds
+proof-only preloads; no application endpoint exposes them. Before the first hold,
+the journey runs a read-only query through the session API to load admission.
+The control waits up
+to five seconds for the application to create its process-wide admission holder;
+it never creates that holder itself. A missing holder reports a bounded failure
+to the journey, within its ten-second control deadline. Outside green and reds
 are unconfirmed until actually observed. Keep the separate [restart boundary
 proofs](account-deletion-admission.md), [operation/browser proofs](account-deletion-surfaces.md)
 and [compaction measurements](account-compaction.md) in the wider mirror.
