@@ -1,9 +1,8 @@
 # Account deletion operations and surfaces
 
-These proofs use synthetic accounts in an isolated production build. The
-implementing sandbox does not run a server, browser or build; the supervising
-session observes each corrected and seeded arm. A successful unit run is not
-evidence about these external arms.
+These proofs use synthetic accounts in an isolated production build. Run them
+from a built checkout outside the editing environment, observing each corrected
+and seeded arm. A successful unit run is not evidence about these external arms.
 
 In a detached scratch checkout at the candidate commit, install the lockfile
 dependencies, set an empty scratch store, build, and copy the production assets:
@@ -92,9 +91,9 @@ all under `src/components/users`. Expected failures are respectively Delete on
 an active row, enabled Delete for an empty/wrong email, a completed notice while
 work is held, and focus missing from Search users after confirmation closes.
 These four defects also have observed unit reds, including an inertness check
-for focus. Browser runs remain unobserved until an outside browser agent records
-them as agent-verified flows. Stop the host and remove the scratch directory
-after retaining its log; each fixture is small and needs no retained database.
+for focus. A browser result counts only from an observed run. Stop the host and
+remove the scratch directory after retaining its log; each fixture is small and
+needs no retained database.
 
 The attribution journey uses the same host, environment and port:
 
@@ -127,4 +126,4 @@ author. Restore `src/components/sharing/LastChanged.tsx` for the first two,
 `src/components/sharing/RunInitiator.tsx` for the third, and
 `src/components/builder/shared-history.ts` for the fourth before rebuilding.
 All four must exit nonzero. Unit reds do not substitute for observing these
-browser failures; record browser screenshots and agent-verified flows outside.
+browser failures; record results and screenshots only from observed browser runs.

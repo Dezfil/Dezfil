@@ -1,4 +1,4 @@
-// Run outside the implementing sandbox. Owns only fresh scratch stores,
+// Run outside the editing environment. Owns only fresh scratch stores,
 // proof processes, containers and volumes; no product endpoint is added.
 import assert from 'node:assert/strict';
 import { spawn, execFileSync } from 'node:child_process';

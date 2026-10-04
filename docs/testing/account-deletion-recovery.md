@@ -1,7 +1,7 @@
 # Upgrade and recovery after deleting the original account
 
-Run outside the sandbox, in a detached linked candidate checkout with the locked
-dependencies and a production build. Container arms use an image built from that
+Run outside the editing environment, from a built, detached linked candidate
+checkout with the locked dependencies. Container arms use an image built from that
 same candidate. Never use a live store. Each invocation below gets a fresh scratch
 root; the probes own and remove their stores, servers and containers. The upgrade
 probe retains only its evidence and server log under the printed directory.

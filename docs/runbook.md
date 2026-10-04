@@ -1154,8 +1154,8 @@ DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/test-data/leave-browser-XXXXXX") \
 ```
 
 The four cases exercise Viewer/Editor and live/frozen owners, each across grid,
-list and home. The browser agent records these as **agent-verified flows**
-only after observing the actual run, retaining `test-results` screenshots:
+list and home. Record browser results only from an observed run, retaining
+`test-results` screenshots:
 
 1. In Projects, reveal the member's card bundle: Export then the exit glyph,
    with the Leave project hint. In list view both appear at rest. Check the

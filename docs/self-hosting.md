@@ -113,6 +113,8 @@ Deletion has these copy and attribution limits:
   evidence removes affected card images, tiles, retained renders and prepared files,
   even when another person owns them. Existing unattributed card images belonging to
   other people remain because their source datasets cannot be identified.
+- A retired dataset generation that failed to unlink before file ownership was
+  tracked is removed by the startup sweep, not by deletion's completion.
 - Copies outside the instance are not reached: backups, snapshots, exports,
   downloaded files, host-collected logs, provider-held data and a database a
   connection wrote to. Browser-local SQL and conversations also remain. Restoring

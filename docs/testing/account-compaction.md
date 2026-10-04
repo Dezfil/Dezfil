@@ -1,6 +1,7 @@
 # Account store compaction proof
 
-Account erasure's internal metadata stages have no public deletion route yet.
+The compaction primitive is internal; the public deletion routes drive it through
+the deletion coordinator.
 The compaction primitive performs in-place VACUUM and checks both the truncating
 checkpoint result and the live WAL length. It throws if it cannot finish; it
 never declares an account deletion complete. The private coordinator drains

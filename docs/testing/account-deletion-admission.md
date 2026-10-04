@@ -1,8 +1,8 @@
 # Accepted deletion admission proofs
 
-Run these only outside the implementing sandbox, from a detached candidate
-checkout after its production build. Every command supplies a new empty scratch
-store. No deletion operation is exposed by these proofs.
+Run these from a built, detached candidate checkout outside the editing
+environment. Every command supplies a new empty scratch store. No deletion
+operation is exposed by these proofs.
 
 ```sh
 mkdir -p .claude/test-data

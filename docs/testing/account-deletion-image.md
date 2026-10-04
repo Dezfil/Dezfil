@@ -1,7 +1,7 @@
 # Account deletion on the built application
 
-Use a detached linked candidate checkout and its matching production standalone
-or image. Build and provision those artifacts outside the implementing sandbox.
+Run these from a built, detached linked candidate checkout outside the editing
+environment, using its matching production standalone or image.
 The probes use small disposable stores, own their processes, remove stores on
 exit and retain server logs. The image arm uses only the built application image,
 with no database image pull or browser. The inherited image-job steps keep their
