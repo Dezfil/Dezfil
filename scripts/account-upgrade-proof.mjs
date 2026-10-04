@@ -4,7 +4,7 @@ import { captureBasis } from "./revision-fixtures.mjs";
 import assert from 'node:assert/strict';
 import { spawn, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, cp, writeFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, cp, readFile, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { parseArgs } from 'node:util';
@@ -14,6 +14,7 @@ import { assertEvidenceWorktree } from './dezfil-plugin-safety.mjs';
 import { createLegacyStore, legacy, legacyFiles, legacyRows, readLegacyPassword, assertLegacyOwners } from './legacy-store-fixture.mjs';
 import { provisionJourney, journeyAccount } from './journey-auth.mjs';
 import { journeyApi } from './journey-http.mjs';
+import { withUpgradeStore } from './account-upgrade-store.mjs';
 
 const root = process.cwd(); assertEvidenceWorktree(root);
 const { values, positionals } = parseArgs({ allowPositionals: true, options: { container: { type: 'string' }, port: { type: 'string' } } });
@@ -29,6 +30,7 @@ const original = new Database(path.join(source, 'metadata.sqlite'), { readonly: 
 const originalRows = legacyRows(original); assert.equal(original.pragma('user_version', { simple: true }), legacy.version); original.close();
 await cp(source, copy, { recursive: true }); await mkdir(path.join(copy, 'tmp'));
 const base = `http://127.0.0.1:${port}`, anonymous = journeyApi(base, { origin: new URL(base).origin });
+const inspectStore = inspect => withUpgradeStore({ directory: copy, scratch: directory, container: image ? container : undefined, docker }, inspect);
 let server, serverOutput = '', boots = 0;
 async function boot() {
   const env = { ...process.env, DEZFIL_DATA_DIR: copy, TMPDIR: path.join(copy, 'tmp'), NEXT_TELEMETRY_DISABLED: '1', DEZFIL_TRUSTED_PROXIES: '' };
@@ -69,25 +71,26 @@ try {
   assert.deepEqual(entry.json, { instanceName: legacy.instance, setupRequired: true, prefillName: legacy.name });
   assert.equal((await anonymous('GET', `/api/published/${legacy.token}`)).status, 200, 'old publication remains anonymous before adoption');
   assert.equal((await anonymous('GET', '/api/maps')).status, 401);
-  let db = new Database(path.join(copy, 'metadata.sqlite'));
-  assert.deepEqual(legacyRows(db), originalRows, 'startup migration preserves every legacy resource row');
-  assertLegacyOwners(db, null); db.close();
+  await inspectStore(db => {
+    assert.deepEqual(legacyRows(db), originalRows, 'startup migration preserves every legacy resource row');
+    assertLegacyOwners(db, null);
+  });
   const first = await provisionJourney(base, { ...journeyAccount, name: legacy.name });
   assert.equal(first.setupRequired, true); assert.equal(first.account.isOriginal, true);
   const api = journeyApi(base, { token: first.token });
   const settings = await api('GET', '/api/settings');
   assert.equal(settings.json.displayName, legacy.name); assert.equal(settings.json.instanceName, legacy.instance); assert.deepEqual(settings.json.viewPrefs, legacy.preferences);
-  db = new Database(path.join(copy, 'metadata.sqlite'));
-  assert.deepEqual(legacyRows(db), originalRows, 'adoption does not rewrite resources or credentials');
-  assertLegacyOwners(db, first.account.id);
-  assert.equal(db.prepare("SELECT count(*) AS n FROM workspace_settings WHERE key IN ('display_name', 'view_prefs')").get().n, 0);
-  assert.equal(await readLegacyPassword(copy, db), legacy.password, 'copied key decrypts the original connection envelope');
-  for (const [table, column, secret] of [['auth_sessions', 'secret_hash', first.cookie.split('=')[1]], ['auth_tokens', 'secret_hash', first.token]]) {
-    const digest = createHash('sha256').update(secret).digest('hex');
-    assert.ok(db.prepare(`SELECT 1 FROM ${table} WHERE ${column} = ?`).get(digest));
-    assert.ok(!JSON.stringify(db.prepare(`SELECT * FROM ${table}`).all()).includes(secret), 'credential rows contain digests only');
-  }
-  db.close();
+  await inspectStore(async db => {
+    assert.deepEqual(legacyRows(db), originalRows, 'adoption does not rewrite resources or credentials');
+    assertLegacyOwners(db, first.account.id);
+    assert.equal(db.prepare("SELECT count(*) AS n FROM workspace_settings WHERE key IN ('display_name', 'view_prefs')").get().n, 0);
+    assert.equal(await readLegacyPassword(copy, db), legacy.password, 'copied key decrypts the original connection envelope');
+    for (const [table, column, secret] of [['auth_sessions', 'secret_hash', first.cookie.split('=')[1]], ['auth_tokens', 'secret_hash', first.token]]) {
+      const digest = createHash('sha256').update(secret).digest('hex');
+      assert.ok(db.prepare(`SELECT 1 FROM ${table} WHERE ${column} = ?`).get(digest));
+      assert.ok(!JSON.stringify(db.prepare(`SELECT * FROM ${table}`).all()).includes(secret), 'credential rows contain digests only');
+    }
+  });
   assert.equal((await api('GET', `/api/maps/${legacy.map}`)).json.layers[0].id, legacy.layer);
   assert.equal((await api('GET', `/api/tables/${legacy.table}`)).status, 200);
   const query = await api('POST', '/api/query', { body: { sql: `SELECT name, value, ST_X(geometry) AS x FROM ${legacy.table}` } });
@@ -97,7 +100,7 @@ try {
   assert.equal(connectionRead.status, 200); assert.ok(connectionRead.json.some(connection => connection.id === legacy.connection));
   assert.ok(!JSON.stringify(connectionRead.json).includes(legacy.password));
   const publication = await anonymous('GET', `/api/published/${legacy.token}`); assert.equal(publication.status, 200); assert.equal(publication.json.layers[0].render.geojson.features.length, 1);
-  assert.equal((await legacyFiles(copy))['tables/legacy.parquet'], originalFiles['tables/legacy.parquet']);
+  assert.equal(createHash('sha256').update(await readFile(path.join(copy, 'tables/legacy.parquet'))).digest('hex'), originalFiles['tables/legacy.parquet']);
   console.log('confirmed: seeded old-store COPY enters setup; old publication works before/after; name/preferences adopted, legacy keys retired; every resource row and GeoParquet bytes preserved, SQL/project/workflow/connection APIs usable, original credential decrypts, session/token storage is hashed');
 
   const secondSession = await provisionJourney(base);
@@ -118,9 +121,10 @@ try {
   assert.deepEqual(hiddenSql, await admin('POST', '/api/query', { body: { sql: 'SELECT * FROM never_imported' } }));
   assert.equal((await admin('PATCH', `/api/users/${first.account.id}`, { body: { isAdmin: false } })).status, 200);
   await stop(); assert.notEqual(await boot(), firstPid);
-  db = new Database(path.join(copy, 'metadata.sqlite'));
-  assertLegacyOwners(db, first.account.id);
-  assert.deepEqual(legacyRows(db), originalRows, 'restart preserves identities, SQL, histories, memberships and lineage'); db.close();
+  await inspectStore(db => {
+    assertLegacyOwners(db, first.account.id);
+    assert.deepEqual(legacyRows(db), originalRows, 'restart preserves identities, SQL, histories, memberships and lineage');
+  });
   for (const credential of [{ cookie: first.cookie }, { token: first.token }]) {
     const response = await journeyApi(base, credential)('GET', '/api/account');
     assert.equal(response.status, 200); assert.equal(response.json.account.id, first.account.id); assert.equal(response.json.account.isOriginal, true); assert.equal(response.json.account.isAdmin, false);
@@ -154,7 +158,7 @@ try {
   await deleteOriginal((method, route, body) => admin(method, route, { body }), first.account);
   await assertSetupClosed((method, route, body) => anonymous(method, route, { body }));
   const homes = [['maps', legacy.map, second.account.id], ['recipes', legacy.workflow, second.account.id]];
-  db = new Database(path.join(copy, 'metadata.sqlite')); assertOriginalIdentity(db, first.account.id, homes); db.close();
+  await inspectStore(db => assertOriginalIdentity(db, first.account.id, homes));
   await stop(); await boot();
   await assertSetupClosed((method, route, body) => anonymous(method, route, { body }));
   let recoveryLink;
@@ -167,7 +171,7 @@ try {
   const recovered = await anonymous('POST', '/api/auth/redeem', { body: { secret: recoverySecret, password: 'recovered paper cranes at sunrise' } });
   assert.equal(recovered.status, 200, 'remaining admin recovery redeems after original deletion');
   assert.equal(recovered.json.account.id, second.account.id);
-  db = new Database(path.join(copy, 'metadata.sqlite')); assertOriginalIdentity(db, first.account.id, homes); db.close();
+  await inspectStore(db => assertOriginalIdentity(db, first.account.id, homes));
   console.log('confirmed: original-profile deletion keeps setup closed, adoption and transferred homes fixed; matching remaining-admin recovery redeems after restart');
   await stop();
   await cp(source, restored, { recursive: true });

@@ -23,6 +23,10 @@ redeems for the remaining admin. A separate scratch restoration checks the old
 schema, every fixture file hash and the encryption key. Green exits zero with the
 original-profile preservation line and the final `result: confirmed` JSON. The
 pre-account source is never opened by the new application.
+Container-mode metadata checks take a fresh SQLite backup through `docker exec`
+at each checkpoint, then inspect that closed copy on the host. The host never
+opens the container's live SQLite store across its bind mount. Preservation,
+credential and retained-identity assertions run against each snapshot unchanged.
 
 The recovery arms allocate their own loopback port (never 3000), typically taking
 30–90 seconds each. They delete the original profile before testing live issuance,
