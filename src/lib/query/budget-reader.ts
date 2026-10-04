@@ -67,7 +67,7 @@ export async function readBudgetedRows(conn: DuckDBConnection, sql: string, budg
       ? { sql: geojsonProjection(quoteIdent(name)), kind: "geojson" }
       : budgetProjection(quoteIdent(name), prepared.columnType(i)));
   } finally { prepared.destroySync(); }
-  const query = `WITH __budget_values AS ${geometryJSON || shape?.geometryJSONColumns.size ? "" : "NOT "}MATERIALIZED (${sql}) SELECT ${projections.map((p, i) => `${p.sql} AS ${quoteIdent(names[i])}`).join(", ")} FROM __budget_values`;
+  const query = `WITH __dezfil_budget_values AS ${geometryJSON || shape?.geometryJSONColumns.size ? "" : "NOT "}MATERIALIZED (${sql}) SELECT ${projections.map((p, i) => `${p.sql} AS ${quoteIdent(names[i])}`).join(", ")} FROM __dezfil_budget_values`;
   const rows: Record<string, unknown>[] = [];
   try {
     const result = await conn.stream(query);

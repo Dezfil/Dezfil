@@ -16,7 +16,7 @@ export function budgetProjection(expression: string, type: DuckDBType, depth = 0
     if (type.typeId === DuckDBTypeId.STRUCT) expression = `CAST(${expression} AS STRUCT(${type.entryNames.map((name, i) => `${quoteIdent(name)} ${type.entryTypes[i]}`).join(", ")}))`;
     if (type.typeId === DuckDBTypeId.LIST || type.typeId === DuckDBTypeId.ARRAY) expression = `CAST(${expression} AS ${type.valueType}[])`;
   }
-  const child = `__budget_item_${depth}`;
+  const child = `__dezfil_budget_item_${depth}`;
   const nullable = (sql: string) => `CASE WHEN ${expression} IS NULL THEN NULL ELSE ${sql} END`;
   switch (type.typeId) {
     case DuckDBTypeId.VARIANT: return { sql: variantProjection(expression), kind: "variant" };

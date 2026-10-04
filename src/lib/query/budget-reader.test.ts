@@ -2,8 +2,23 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { DuckDBBigIntVector, DuckDBDoubleVector, DuckDBInstance, DuckDBListVector, DuckDBStructVector } from "@duckdb/node-api";
 import { readBudgetedRows } from "./budget-reader";
 import { ResultBudget, jsonBytes } from "./result-budget";
+import { safeEngineMessage } from "./engine-message";
 
 afterEach(() => vi.restoreAllMocks());
+
+it("keeps generated budget identifiers inside the diagnostic sanitizer's namespace", async () => {
+  const db = await DuckDBInstance.create(":memory:");
+  const conn = await db.connect();
+  try {
+    const stream = vi.spyOn(conn, "stream");
+    expect(await readBudgetedRows(conn, "SELECT [1] AS v", new ResultBudget())).toEqual([{ v: [1] }]);
+    const names = new Set(stream.mock.calls[0][0].match(/__\w+/g));
+    expect(names.size).toBeGreaterThanOrEqual(2);
+    for (const name of names) {
+      expect(safeEngineMessage(`Binder Error: invalid reference to "${name}"`)).toBe("The query could not be completed.");
+    }
+  } finally { conn.disconnectSync(); db.closeSync(); }
+});
 
 it.each([
   ["SELECT range(2200000) AS v", false],
