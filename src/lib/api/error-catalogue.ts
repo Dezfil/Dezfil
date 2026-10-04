@@ -15,6 +15,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   self_change_refused: "Another admin must change your admin flag, deactivate your account or delete it.",
   account_not_deactivated: "Deactivate this account before deleting it.",
   deletion_in_progress: "This account is being deleted and cannot be reactivated.",
+  deletion_changed: "This account or its work has changed. Review a fresh deletion preview before confirming.",
   last_admin: "Keep at least one active admin.",
   forbidden: "This request is not permitted for the current account or origin: an admin-only request, a cookie request from another origin, or a change to something the account can view but cannot make. A refused change has no effect.",
   invalid_link: "This sign-in link is unavailable, expired, replaced or already used.",

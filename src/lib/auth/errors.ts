@@ -1,7 +1,7 @@
 export type AuthErrorCode =
   | "authentication_busy" | "authentication_required" | "invalid_credentials" | "account_deactivated"
   | "setup_complete" | "weak_password" | "email_taken" | "self_change_refused"
-  | "account_not_deactivated" | "deletion_in_progress"
+  | "account_not_deactivated" | "deletion_in_progress" | "deletion_changed"
   | "last_admin" | "forbidden" | "invalid_link" | "current_password_required"
   | "invalid_request" | "not_found" | "ingress_unavailable" | "rate_limited";
 

@@ -63,7 +63,8 @@ export function changeAccountAccess(context: AuthContext, accountId: string,
     const status = patch.status === "active" && account.lastSignInAt === null
       ? "invited" : patch.status ?? account.status;
     db.prepare("UPDATE accounts SET is_admin = ?, status = ?, updated_at = ? WHERE id = ?")
-      .run(Number(patch.isAdmin ?? account.isAdmin), status, new Date(now).toISOString(), accountId);
+      .run(Number(patch.isAdmin ?? account.isAdmin), status,
+        new Date(Math.max(now, Date.parse(account.updatedAt) + 1)).toISOString(), accountId);
     const remaining = db.prepare("SELECT count(*) AS count FROM accounts WHERE is_admin = 1 AND status = 'active'").get() as { count: number };
     if (remaining.count === 0) throw new AuthError("last_admin", "Keep at least one active admin.", 409);
     if (status === "deactivated") revokeSessions(accountId, now, null, db);

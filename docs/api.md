@@ -785,7 +785,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **109** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **110** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -1514,6 +1514,7 @@ response message. Branch on the code.
 | `self_change_refused` | Another admin must change your admin flag, deactivate your account or delete it. |
 | `account_not_deactivated` | Deactivate this account before deleting it. |
 | `deletion_in_progress` | This account is being deleted and cannot be reactivated. |
+| `deletion_changed` | This account or its work has changed. Review a fresh deletion preview before confirming. |
 | `last_admin` | Keep at least one active admin. |
 | `forbidden` | This request is not permitted for the current account or origin: an admin-only request, a cookie request from another origin, or a change to something the account can view but cannot make. A refused change has no effect. |
 | `invalid_link` | This sign-in link is unavailable, expired, replaced or already used. |

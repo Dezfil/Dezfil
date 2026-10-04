@@ -40,6 +40,7 @@ export const OWNER_QUERY_MODULES: Record<string, readonly Boundary[]> = {
   "src/lib/auth/owned-resource.ts": ["projectReachable", "ownerOnly", "initiatorPrivate"],
   "src/lib/auth/reach.ts": ["projectReachable"],
   "src/lib/auth/account-deletion-work.ts": ["projectReachable"],
+  "src/lib/auth/account-deletion-preview.ts": ["projectReachable", "ownerOnly"],
   // Accepted erasure selects these resource families by ownership under the
   // stored deleting-state guard. It grants no private-content read authority.
   "src/lib/metadata/account-erasure-content.ts": ["projectReachable", "ownerOnly", "initiatorPrivate"],
