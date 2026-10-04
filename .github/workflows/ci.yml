@@ -161,7 +161,7 @@ jobs:
       # and SQL, inspection and geometry-choice cell boundaries. The one-minute
       # timeout holds the image-job allowance; elapsed time is printed by the driver.
       # PostGIS and the full four-reader result/geometry/export matrix remain the
-      # outside --full proof in docs/result-budget-proof.md (300-600 seconds).
+      # outside --full proof in docs/runbook.md, section "SQL result byte budget".
       # Invocation-owned containers and anonymous volumes are always removed.
       - name: Source-free result-byte boundaries
         timeout-minutes: 1
