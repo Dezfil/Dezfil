@@ -44,19 +44,21 @@ export async function withLoginLimit<T>(email: string, source: string, operation
     }
     return rows.map(({ row }) => row);
   }).immediate();
-  const finish = (outcome: "success" | "failure" | "source-failure" | "refund") => db.transaction(() => {
+  const finish = (outcome: "success" | "failure" | "started-cancellation" | "refund") => db.transaction(() => {
     for (const row of reservations) {
+      // Started cancellations keep source capacity reserved until its window expires.
+      if (outcome === "started-cancellation" && row.bucket === sourceKey) continue;
       db.prepare(`UPDATE auth_login_limits SET pending = MAX(0, pending - 1),
         failures = CASE WHEN ? THEN 0 ELSE failures + ? END
         WHERE bucket = ? AND window_started_at = ?`)
-        .run(Number(outcome === "success" && row.bucket === accountKey), Number(outcome === "failure" || (outcome === "source-failure" && row.bucket === sourceKey)), row.bucket, row.window_started_at);
+        .run(Number(outcome === "success" && row.bucket === accountKey), Number(outcome === "failure"), row.bucket, row.window_started_at);
     }
   }).immediate();
   let result: T;
   try { result = await operation(); }
   catch (error) {
     finish(error instanceof AuthError && ["invalid_credentials", "account_deactivated"].includes(error.code) ? "failure"
-      : error instanceof AuthenticationCancelled && error.derivationStarted ? "source-failure" : "refund");
+      : error instanceof AuthenticationCancelled && error.derivationStarted ? "started-cancellation" : "refund");
     throw error;
   }
   finish("success");

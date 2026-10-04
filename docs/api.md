@@ -431,8 +431,10 @@ Overflow or deadline answers 503 `authentication_busy`, “Authentication is bus
 Try again shortly.”, with `Retry-After: 1`, `error.retryAfter: 1` and private,
 no-store. It issues no credential, consumes no link, changes no profile/password
 and adds no login failure. Busy sign-ins and sign-ins cancelled before derivation
-starts refund both reservations; cancellation after derivation starts charges one source failure
-and refunds the account reservation, never adding an account failure.
+starts refund both reservations. Cancellation after derivation starts retains the
+source reservation against its twenty-attempt budget until the fifteen-minute
+window expires, refunds the account reservation and adds no failures, preserving
+the clean-source exception.
 A fourth simultaneous protected caller is refused at once and may retry
 immediately without a login lockout; the response retains its one-second retry
 advice. Cancellation removes waiting work; running native work owns its slot

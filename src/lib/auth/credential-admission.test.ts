@@ -81,7 +81,7 @@ it.each(entries.flatMap(kind => ["queued", "running"].map(phase => ({ kind, phas
   expect((await result).status).toBe(499);
   expect(rows(store)).toEqual(before);
   expect(budgets()).toEqual(kind === "known" || kind === "dummy"
-    ? [{ failures: 0, pending: 0 }, { failures: phase === "running" ? 1 : 0, pending: 0 }] : []);
+    ? [{ failures: 0, pending: 0 }, { failures: 0, pending: phase === "running" ? 1 : 0 }] : []);
   // Native cancellation never releases a running slot or admits extra work.
   expect(state().active).toBe(phase === "queued" ? 2 : 1);
   expect(state().ordinary).toHaveLength(0); expect(state().protected).toHaveLength(0);
@@ -125,7 +125,7 @@ it("holds a running aborted sign-in's native slot until settlement while chargin
   const abort = control(), first = login("person@example.test", "192.0.2.1", abort);
   const second = login("recipient@example.test", "192.0.2.2"), third = login("missing@example.test", "192.0.2.3"); await flush();
   expect(native.calls).toHaveLength(2); abort.abort(); expect((await first).status).toBe(499);
-  expect(db.prepare("SELECT failures, pending FROM auth_login_limits WHERE bucket IN (?, ?)").all(`account:${secretHash("person@example.test")}`, `source:${secretHash("192.0.2.1")}`)).toEqual([{ failures: 0, pending: 0 }, { failures: 1, pending: 0 }]);
+  expect(db.prepare("SELECT failures, pending FROM auth_login_limits WHERE bucket IN (?, ?)").all(`account:${secretHash("person@example.test")}`, `source:${secretHash("192.0.2.1")}`)).toEqual([{ failures: 0, pending: 0 }, { failures: 0, pending: 1 }]);
   expect(native.calls).toHaveLength(2); await finish(0); expect(native.calls).toHaveLength(3);
   await finish(1); await finish(2); expect((await second).status).toBe(200); expect((await third).status).toBe(401);
   expect(db.prepare("SELECT count(*) n FROM auth_sessions WHERE account_id = 'person'").get()).toEqual({ n: 1 });
@@ -145,6 +145,22 @@ it("keeps a clean-source correct-password attempt's ordinary turn after the acco
   expect(native.calls[4].password).toBe("later ordinary");
   await finish(2); await finish(4); await Promise.all(predecessors); expect((await protectedWork).status).toBe(200); expect((await later).status).toBe(401);
   expect(budgets().every(row => (row as { pending: number }).pending === 0)).toBe(true);
+});
+
+it("admits a correct-password retry from a source that abandoned started work after the account budget was tripped", async () => {
+  for (let i = 0; i < 5; i++) await withLoginLimit("person@example.test", `198.51.100.${i + 1}`, async () => { throw new AuthError("invalid_credentials", "Email or password is incorrect.", 401); }, db).catch(() => {});
+  const accountKey = `account:${secretHash("person@example.test")}`, source = "192.0.2.10";
+  const abort = control(), abandoned = login("person@example.test", source, abort);
+  await flush(); expect(native.calls).toHaveLength(1);
+  abort.abort(); expect((await abandoned).status).toBe(499);
+  await finish(0);
+  expect(db.prepare("SELECT failures, pending FROM auth_login_limits WHERE bucket = ?").get(accountKey)).toEqual({ failures: 5, pending: 0 });
+  const retry = login("person@example.test", source);
+  await flush(); await finish(1);
+  expect((await retry).status).toBe(200);
+  expect(native.calls).toHaveLength(2);
+  expect(db.prepare("SELECT failures, pending FROM auth_login_limits WHERE bucket = ?").get(`source:${secretHash(source)}`)).toEqual({ failures: 0, pending: 1 });
+  expect(db.prepare("SELECT failures, pending FROM auth_login_limits WHERE bucket = ?").get(accountKey)).toEqual({ failures: 0, pending: 0 });
 });
 
 it("mixes setup, known and dummy sign-ins, validated links and signed-in checks under one native bound", async () => {
@@ -201,7 +217,7 @@ it("cuts off repeated started cancellations from one source without charging any
     expect(state().ordinary).toHaveLength(size - 2);
     for (const abort of aborts) abort.abort();
     for (const attempt of attempts) expect((await attempt).status).toBe(499);
-    expect(db.prepare("SELECT failures, pending FROM auth_login_limits WHERE bucket = ?").get(`source:${secretHash("192.0.2.1")}`)).toEqual({ failures: (wave + 1) * 2, pending: 0 });
+    expect(db.prepare("SELECT failures, pending FROM auth_login_limits WHERE bucket = ?").get(`source:${secretHash("192.0.2.1")}`)).toEqual({ failures: 0, pending: (wave + 1) * 2 });
     await finish(wave * 2); await finish(wave * 2 + 1, new Error("abandoned native failure"));
   }
   expect((await login("another@example.test")).status).toBe(429);
@@ -219,7 +235,7 @@ it("charges only the source when cancellation follows native settlement but prec
   expect(state().active).toBe(0);
   abort.abort();
   expect((await attempt).status).toBe(499);
-  expect(budgets()).toEqual([{ failures: 0, pending: 0 }, { failures: 1, pending: 0 }]);
+  expect(budgets()).toEqual([{ failures: 0, pending: 0 }, { failures: 0, pending: 1 }]);
 });
 
 
