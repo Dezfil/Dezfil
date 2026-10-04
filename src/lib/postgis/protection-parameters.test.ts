@@ -182,6 +182,15 @@ for (const [form, string] of Object.entries(forms)) {
         expect(attachment).toContain("host=''override.example.org''");
         expect(attachment).toContain("sslmode=require ");
       });
+      if (form === "libpq") {
+        it("refuses an unquoted protection value before contact", async () => {
+          const { response, before } = await send("host=new.example.org dbname=next user=new password=distinctive-password channel_binding=require", overrides);
+          noContact();
+          expect(response.status).toBe(400);
+          expect(await response.json()).toEqual({ error: { code: "invalid_request", message: refusal("channel_binding") } });
+          expect(rows()).toEqual(before);
+        });
+      }
       if (form === "uri") {
         it.each([
           ["/next?application_name=a#b&channel_binding=require", "channel_binding"],

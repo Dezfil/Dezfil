@@ -198,7 +198,7 @@ describe("PostGIS literal normalization and administrator exceptions", () => {
     }
     expect(lookup).not.toHaveBeenCalled();
   });
-  it.each(["[db.example.org]", "[not:ipv6]", "[::1", "::1]", "[fe80::1%eth0]", "[::ffff:127.0.0.1%1]"])("retains the lookup path for malformed host %s", async (host) => {
+  it.each(["[db.example.org]", "[not:ipv6]", "[", "[]", "[::1", "::1]", "[::1]x", "[127.0.0.1]", "[fe80::1%eth0]", "[::ffff:127.0.0.1%1]"])("retains the lookup path for malformed host %s", async (host) => {
     const lookup = vi.fn().mockResolvedValue([{ address: "8.8.8.8", family: 4 }]);
     await expect(resolveAllowed(host, lookup)).resolves.toEqual(["8.8.8.8"]);
     expect(lookup).toHaveBeenCalledWith(host, { all: true, verbatim: true });
