@@ -12,6 +12,7 @@ import { createLegacyStore, legacy, legacyFiles } from './legacy-store-fixture.m
 import { provisionJourney } from './journey-auth.mjs';
 import { journeyApi } from './journey-http.mjs';
 import { captureBasis } from './revision-fixtures.mjs';
+import { recoveryCommandLink } from './account-identity-recovery.mjs';
 
 const { values } = parseArgs({ options: { 'old-root': { type: 'string' }, port: { type: 'string', default: '3391' }, seed: { type: 'string' } } });
 const root = process.cwd(); assertEvidenceWorktree(root);
@@ -54,13 +55,8 @@ function snapshot(store) {
   } finally { db.close(); }
 }
 async function recover(store) {
-  const args = [process.execPath, path.join(root, 'scripts/admin-recover.mjs'), '--data-dir', store, '--origin', base, '--email', 'remaining@example.test'];
-  const quote = s => `'${s.replaceAll("'", "'\\''")}'`;
-  const terminal = execFileSync('script', process.platform === 'darwin' ? ['-q', '/dev/null', ...args] : ['-q', '-e', '-c', args.map(quote).join(' '), '/dev/null'],
-    { cwd: root, encoding: 'utf8', env: { ...process.env, DEZFIL_DATA_DIR: store } });
-  const links = terminal.match(/https?:\/\/[^\s]+\/accept#secret=dz_link_[\w-]+/g) ?? [];
-  assert.equal(links.length, 1, 'matching recovery command issues exactly one link');
-  const secret = new URLSearchParams(new URL(links[0]).hash.slice(1)).get('secret');
+  const link = recoveryCommandLink(root, store, base, 'remaining@example.test');
+  const secret = new URLSearchParams(new URL(link).hash.slice(1)).get('secret');
   const response = await fetch(base + '/api/auth/redeem', { method: 'POST', headers: { origin: base, 'content-type': 'application/json' },
     body: JSON.stringify({ secret, password: 'recovered paper cranes at dawn' }) });
   assert.equal(response.status, 200, 'matching recovery link redeems');
