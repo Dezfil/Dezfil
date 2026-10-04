@@ -22,6 +22,9 @@ beforeAll(async () => {
   const mocks = new Map([
     // This fixture isolates receiver lifetime; the gate has its own real-route inventory.
     ["src/lib/auth/route-gate.ts", "exports.withRouteGate = (_request, work) => work();"],
+    // No account work is admitted in this receiver fixture. Still run and await
+    // the real ownership cleanup; deletion-lease retention is proven separately.
+    ["src/lib/auth/account-deletion-work.ts", "exports.observeDeletionCleanup = (cleanup) => cleanup();"],
     ["src/lib/ingest/gdal-formats.ts", `
       const fs = require("node:fs/promises");
       exports.calls = [];
