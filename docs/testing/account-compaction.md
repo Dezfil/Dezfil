@@ -30,7 +30,11 @@ allows whole-page rounding). It prints actual size, reclaimable pages, outside
 health latency/gap, in-process interval, maximum pause and sampled peak free-space
 use on the data and temporary filesystems for every trial. It records candidate,
 image identity, host, SQLite options and mount/filesystem information. It fails
-on **any** pause above **5.0 seconds**, without averaging. A breach prints
+on **any** pause above **5.0 seconds**, without averaging. Failed or timed-out health connections count toward the uninterrupted gap. The
+compaction result travels over an already-connected process channel, so the pause
+cannot lose its own result to a connection timeout. Every trial is reported; a
+host failure does not skip either container arm. Every exit reaps the worker.
+A breach prints
 `DECISION REQUIRED` and must be resolved before shipping this approach.
 
 The live-byte arm plants current and former profile/hash values, stored encrypted

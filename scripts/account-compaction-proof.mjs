@@ -10,6 +10,7 @@ import os from 'node:os';
 import { parseArgs } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+import { sampleCompaction, runProofArms } from './account-compaction-prober.mjs';
 import { sizedFixture } from './account-compaction-fixture.mjs';
 
 const { values } = parseArgs({ options: {
@@ -27,7 +28,16 @@ assert.ok(!values.seed || ['row-only', 'former-missing', 'busy-success', 'space-
 const temporary = values.inside ? '/sqlite-vacuum-tmp' : path.join(directory, 'sqlite-temporary');
 mkdirSync(temporary, { recursive: true });
 const base = `http://127.0.0.1:${port}`, boundMs = 5000;
-let child, ended, output = '', ready, volume;
+let child, ended, output = '', ready, volume, containerName;
+const breaches = [];
+let interrupted = false;
+for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
+  interrupted = true; process.exitCode = 1;
+  void stop().finally(() => {
+    if (containerName) { try { docker('rm', '-f', containerName); } catch {} }
+    if (volume) { try { docker('volume', 'rm', volume); } catch {} }
+  });
+});
 const docker = (...args) => execFileSync('docker', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 const free = folder => { const s = statfsSync(folder); return Number(s.bavail) * Number(s.bsize); };
 async function stop() {
@@ -39,8 +49,9 @@ async function stop() {
 }
 async function start(mode, folder, seed = values.seed) {
   await stop();
+  if (interrupted) throw new Error('Proof interrupted');
   child = spawn(process.execPath, [path.join(root, 'scripts/account-compaction-worker.mjs'), mode, folder, String(port), seed ?? ''], {
-    cwd: root, env: { ...process.env, DEZFIL_DATA_DIR: folder, SQLITE_TMPDIR: temporary }, stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: root, env: { ...process.env, DEZFIL_DATA_DIR: folder, SQLITE_TMPDIR: temporary }, stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
   });
   ended = once(child, 'exit');
   child.stderr.on('data', bytes => { output += bytes; });
@@ -52,14 +63,13 @@ async function start(mode, folder, seed = values.seed) {
   ]);
   assert.equal((await request('/health')).healthy, true);
 }
-async function request(route) {
-  const response = await fetch(base + route, { signal: AbortSignal.timeout(30000) });
+async function request(route, timeout = 30000) {
+  const response = await fetch(base + route, { signal: AbortSignal.timeout(timeout) });
   assert.equal(response.status, 200); return response.json();
 }
 async function measure(folder, observeTemporary = false) {
   const initial = { data: free(folder), temporary: free(temporary) }, minimum = { ...initial };
-  const health = [], pending = [];
-  let lastHealthy = performance.now(), maxGapMs = 0, observedTemporary = false, temporaryFileBytes = 0;
+  let observedTemporary = false, temporaryFileBytes = 0;
   function spaceSample() {
     for (const [key, location] of [['data', folder], ['temporary', temporary]]) minimum[key] = Math.min(minimum[key], free(location));
     if (observeTemporary) {
@@ -75,22 +85,25 @@ async function measure(folder, observeTemporary = false) {
       } catch { /* The child may exit while a sample is pending. */ }
     }
   }
-  const pulse = () => {
-    const started = performance.now();
-    pending.push(request('/health').then(() => {
-      const now = performance.now(); health.push(now - started); maxGapMs = Math.max(maxGapMs, now - lastHealthy); lastHealthy = now;
-    }));
-  };
-  pulse();
-  const timer = setInterval(pulse, 100), spaces = setInterval(spaceSample, observeTemporary ? 2 : 100);
-  let result;
-  try { result = await request('/compact'); }
-  finally { clearInterval(timer); clearInterval(spaces); spaceSample(); await Promise.all(pending); }
-  // The before/after pulses bracket even a maintenance interval shorter than
-  // the 100 ms probe period. Both outside observations and internal time count.
-  await request('/health'); maxGapMs = Math.max(maxGapMs, performance.now() - lastHealthy);
-  return { result, healthSamples: health.length, maxHealthLatencyMs: Math.max(0, ...health), maxGapMs,
-    pauseMs: Math.max(result.intervalMs ?? 0, maxGapMs, ...health), initialFreeBytes: initial,
+  const measured = await sampleCompaction({
+    health: () => request('/health', 500), sampleSpace: spaceSample,
+    spaceInterval: observeTemporary ? 2 : 100,
+    // IPC is already connected before maintenance starts. Health connections
+    // may time out without losing the one compaction result or retrying VACUUM.
+    compact: () => new Promise((resolve, reject) => {
+      const worker = child;
+      const timeout = setTimeout(() => finish(new Error('Compaction worker did not settle within 10 minutes')), 600000);
+      const onExit = () => finish(new Error('Compaction worker exited during measurement'));
+      const onMessage = message => { if (message.compaction) finish(null, message.compaction); };
+      function finish(error, result) {
+        clearTimeout(timeout); worker.off('exit', onExit); worker.off('message', onMessage);
+        if (error) reject(error); else resolve(result);
+      }
+      worker.once('exit', onExit); worker.on('message', onMessage);
+      worker.send({ compact: true }, error => { if (error) finish(error); });
+    }),
+  });
+  return { ...measured, initialFreeBytes: initial,
     peakSpaceUseBytes: { data: initial.data - minimum.data, temporary: initial.temporary - minimum.temporary },
     observedTemporary, temporaryFileBytes };
 }
@@ -127,7 +140,10 @@ async function sizes() {
       assert.equal(measured.result.open, true); assert.equal((await request('/integrity')).integrity, 'ok');
       const row = { mode: values.inside ? 'container' : 'host', mib, trial, ...fixture, ...measured };
       record(row);
-      assert.ok(measured.pauseMs <= boundMs, `DECISION REQUIRED: ${mib} MiB trial ${trial} pause ${(measured.pauseMs / 1000).toFixed(3)} s exceeds 5.0 s; do not ship around this breach`);
+      if (measured.pauseMs > boundMs) {
+        const breach = `DECISION REQUIRED: ${mib} MiB trial ${trial} pause ${(measured.pauseMs / 1000).toFixed(3)} s exceeds 5.0 s; do not ship around this breach`;
+        breaches.push(breach); console.error(breach);
+      }
       await stop(); rmSync(folder, { recursive: true });
     }
     rmSync(baselineDir, { recursive: true });
@@ -159,7 +175,8 @@ async function exhaustion() {
 async function containerRun(space) {
   volume = `dezfil-compaction-${process.pid}-${Date.now()}`; docker('volume', 'create', volume);
   try {
-    const args = ['run', '--rm', '--network=none', '--mount', `type=volume,src=${volume},dst=/data`,
+    containerName = `${volume}-worker`;
+    const args = ['run', '--name', containerName, '--rm', '--network=none', '--mount', `type=volume,src=${volume},dst=/data`,
       '--mount', `type=bind,src=${root}/scripts,dst=/app/scripts,readonly`, '--mount', `type=bind,src=${root}/src,dst=/app/src,readonly`,
       '--tmpfs', `/sqlite-vacuum-tmp:rw,size=${space ? '64m' : '2g'},mode=1777`,
       '-e', 'DEZFIL_DATA_DIR=/data/proof', '-e', 'SQLITE_TMPDIR=/sqlite-vacuum-tmp', '-e', `COMPACTION_CANDIDATE=${process.env.COMPACTION_CANDIDATE ?? ''}`,
@@ -170,21 +187,29 @@ async function containerRun(space) {
     const [code] = await once(processRun, 'exit');
     writeFileSync(path.join(directory, space ? 'container-space.log' : 'container-measurements.log'), log);
     assert.equal(code, 0, `container ${space ? 'temporary exhaustion' : 'measurement'} proof failed`);
-  } finally { docker('volume', 'rm', volume); volume = undefined; }
+  } finally {
+    try { docker('rm', '-f', containerName); } catch {}
+    containerName = undefined; docker('volume', 'rm', volume); volume = undefined;
+  }
 }
 try {
   record({ environment: { candidate: process.env.COMPACTION_CANDIDATE ?? execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
     platform: process.platform, release: os.release(), arch: process.arch, cpu: os.cpus()[0]?.model, cpus: os.cpus().length,
     node: process.version, data: directory, temporary, dataFilesystem: statfsSync(directory), temporaryFilesystem: statfsSync(temporary),
     image: values.container ? docker('image', 'inspect', '--format', '{{.Id}}', values.container).trim() : null } });
-  if (values.space) await exhaustion();
-  else if (values.seed !== 'space-success' && !values['container-only']) { await byteProof(); await sizes(); }
+  const arms = [];
+  if (values.space) arms.push(exhaustion);
+  else if (values.seed !== 'space-success' && !values['container-only']) arms.push(async () => { await byteProof(); await sizes(); });
   else assert.ok(values.container, 'space-success requires --container IMAGE');
   if (values.container) {
     process.env.COMPACTION_CANDIDATE = reports[0].environment.candidate;
-    if (values.seed !== 'space-success') await containerRun(false);
-    await containerRun(true);
+    if (values.seed !== 'space-success') arms.push(() => containerRun(false));
+    arms.push(() => containerRun(true));
   }
+  const failures = await runProofArms(arms, stop);
+  if (breaches.length || failures.length || interrupted) throw new Error([
+    ...breaches, ...failures.map(error => error.message), ...(interrupted ? ['Proof interrupted'] : []),
+  ].join('\n'));
   console.log(`PASS: all requested live-byte, reader, pause and temporary-space checks in ${((performance.now() - started) / 1000).toFixed(1)} s. Unrequested container arms remain unobserved.`);
 } catch (error) { console.error(`FAIL: ${error.message}`); process.exitCode = 1; }
 finally { await stop(); writeFileSync(path.join(directory, 'compaction-report.json'), JSON.stringify(reports, null, 2)); writeFileSync(path.join(directory, 'worker.log'), output); }

@@ -10,6 +10,26 @@ const fixture = mode === 'bytes' ? liveFixture(directory, seed) : null;
 const db = fixture?.db ?? new Database(`${directory}/metadata.sqlite`);
 db.pragma('foreign_keys = ON');
 let reader;
+function compact() {
+      const started = performance.now();
+      if (seed === 'pause') { const until = performance.now() + 5100; while (performance.now() < until) { /* Seed an uninterrupted pause. */ } }
+      let measured;
+      if (seed !== 'row-only') measured = compactMetadataStore(db);
+      return { ok: true, measured, intervalMs: performance.now() - started, open: db.open,
+        journal: db.pragma('journal_mode', { simple: true }), tempStore: db.pragma('temp_store', { simple: true }),
+        compileOptions: db.pragma('compile_options') };
+
+}
+process.on('message', message => {
+  if (!message.compact) return;
+  let result;
+  try { result = compact(); }
+  catch (error) {
+    result = seed === 'busy-success' || seed === 'space-success' ? { ok: true, swallowed: error.message } : { ok: false, code: error.code, message: error.message };
+  }
+  process.send({ compaction: result });
+});
+process.on('disconnect', () => { reader?.close(); db.close(); process.exit(1); });
 const server = createServer((request, response) => {
   let result;
   try {
@@ -21,13 +41,7 @@ const server = createServer((request, response) => {
     else if (request.url === '/erase') { fixture.erase(); result = fixture.scan(); }
     else if (request.url === '/scan') result = fixture.scan();
     else if (request.url === '/compact') {
-      const started = performance.now();
-      if (seed === 'pause') { const until = performance.now() + 5100; while (performance.now() < until) { /* Seed an uninterrupted pause. */ } }
-      let measured;
-      if (seed !== 'row-only') measured = compactMetadataStore(db);
-      result = { ok: true, measured, intervalMs: performance.now() - started, open: db.open,
-        journal: db.pragma('journal_mode', { simple: true }), tempStore: db.pragma('temp_store', { simple: true }),
-        compileOptions: db.pragma('compile_options') };
+      result = compact();
     } else { response.writeHead(404); response.end(); return; }
     response.setHeader('content-type', 'application/json'); response.end(JSON.stringify(result));
   } catch (error) {
