@@ -46,6 +46,7 @@
     "journey:browser": "playwright test",
     "admin:recover": "node scripts/admin-recover.mjs",
     "journey:recovery": "node scripts/recovery-journey.mjs",
+    "probe:query-result-budget": "node scripts/query-result-budget-probe.mjs",
     "probe:body": "node scripts/body-probe.mjs",
     "probe:transport": "node scripts/transport-probe.mjs",
     "probe:gate": "node scripts/gate-journey.mjs",
@@ -73,7 +74,8 @@
     "lint:reader-docs": "node scripts/check-reader-docs.mjs",
     "probe:publication-source": "node scripts/publication-source-probe.mjs",
     "probe:derivation": "node scripts/derivation-probe.mjs",
-    "probe:credential-cleanup": "node scripts/credential-cleanup-driver.mjs"
+    "probe:credential-cleanup": "node scripts/credential-cleanup-driver.mjs",
+    "e2e:result-budget": "playwright test e2e/query-result-budget.spec.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",

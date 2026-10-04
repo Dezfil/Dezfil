@@ -140,6 +140,7 @@ catalogue is a file there. See [configuration](docs/configuration.md).
 | `DEZFIL_OPERATION_CONCURRENCY` | `1` | Operations executing at once. Runs are heavy work on the query engine, whose memory budget is shared, so work beyond the cap queues rather than competing. |
 | `DEZFIL_OPERATION_QUEUE_MAX` | `20` | Runs that may wait for the lane. A run arriving at a full queue is refused with a coded error instead of joining a queue that will not drain. |
 | `DEZFIL_OPERATION_HISTORY_PER_SUBJECT` | `20` | Runs kept per subject. The subject's most recent success is preserved inside this depth, so a failed re-run never erases the last good one. |
+| `DEZFIL_TEST_PG_URL` | unset | Test/probe process only: disposable PostGIS fixture URL for live source tests and the full result-budget probe. Never read by the product server. |
 | `DEZFIL_TEST_PUBLICATION_LOG` | unset | Test preload only: NDJSON destination for per-admission published-source state. Required by `scripts/publication-observer.mjs`; no effect without that preload. |
 | `DEZFIL_TEST_DERIVATION_LOG` | unset | Test preload only: NDJSON destination for native derivation starts, completions and admission occupancy. Required by `scripts/derivation-observer.mjs`; no effect without that preload. |
 
@@ -255,6 +256,35 @@ in-memory working state; the API documents expiry, release and capacity refusal.
 that page admits and is offered at the start, and whether it can discover the
 rest; the same modules decide for the message route.
 
+
+## SQL result limits
+
+SQL console/SQL previews, dataset inspection, geometry-choice preview and the
+PostGIS five-row preview have fixed result limits: **33,554,432 bytes (32 MiB)**
+for the complete uncompressed UTF-8 JSON answer and **2,097,152 bytes (2 MiB)**
+for one non-geometry column value. Equality is admitted. Quotes, escaping,
+nested values, schema, repeated keys and metadata count after existing display
+conversions and excerpts. Native geometry, identified by type or registered
+provenance before conversion, counts only toward the result ceiling; coordinate
+text and JSON remain non-geometry. Exceeding either bound refuses the whole
+answer with HTTP 422 `query_result_too_large`, without partial data or details:
+
+> The result is too large to return: more than 32 MB in total, or one non-geometry value over 2 MB. Select fewer rows or columns, or shorten the value.
+
+These ceilings have no setting. Row and engine-memory limits still apply;
+a result below both byte ceilings can fail the engine-memory limit during
+query execution or result projection, including geometry decoding. Layer
+renders, dataset map features, slider and Overture previews,
+published views, statistics, classification, widgets and value search retain
+their existing limits. SQL, table and layer file exports still stream complete
+results above both ceilings. A refused dataset inspection prevents its detail and docked set-geometry
+panel from opening. It also blocks tool column pickers, SQL schema inventory
+and completion, workflow dataset reads and facts, and automatic layer addition
+after a tool run. The tool run can report failure even though the dataset has
+already been written. Existing layer rendering, dataset map features, complete
+API file exports and owner deletion from Data use separate reads and remain
+available. This bounds serialized data on the covered reads,
+not native chunks, JavaScript object overhead, heap or RSS.
 
 ## Develop
 

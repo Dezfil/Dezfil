@@ -258,6 +258,12 @@ export const CONNECTION_PATHS = {
       summary: "Preview a PostGIS relation",
       description:
         "Reads at most five rows from one saved connection and relation. " +
+        "The complete uncompressed UTF-8 JSON answer (columns and rows, excluding internal health) " +
+        "has a fixed 33,554,432-byte (32 MiB) ceiling; each non-geometry column value, including " +
+        "nested values and escaping, has a 2,097,152-byte (2 MiB) ceiling. Equality is admitted. " +
+        "Only source geometry/geography columns identified by source type, returned as WKT, " +
+        "are exempt from the cell ceiling. Text/JSON coordinates remain non-geometry. " +
+        "Excess refuses the whole answer with HTTP 422 query_result_too_large, without partial rows. " +
         "The optional WHERE expression passes through the import guard and " +
         "is applied to the preview. The caller cannot supply credentials, " +
         "source SQL, or a row limit. Caller departure prevents later stages " +
