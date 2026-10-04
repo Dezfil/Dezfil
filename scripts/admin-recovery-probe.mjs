@@ -5,8 +5,10 @@
 //   node scripts/admin-recovery-probe.mjs container dezfil:admin-recovery
 //   node scripts/admin-recovery-probe.mjs browser
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdtempSync, rmSync, mkdirSync, readdirSync } from "node:fs";
+import assert from "node:assert/strict";
+import Database from "better-sqlite3";
+import { deleteOriginal, assertSetupClosed, assertOriginalIdentity } from "./deletion-recovery-checks.mjs";
 import path from "node:path";
 import { createServer } from "node:net";
 import { once } from "node:events";
@@ -17,7 +19,10 @@ const mode = process.argv[2], image = process.argv[3];
 if (!["checkout", "container", "browser"].includes(mode) || (mode === "container" && !image)) {
   throw new Error("Usage: node scripts/admin-recovery-probe.mjs checkout | container IMAGE | browser");
 }
-const scratch = mkdtempSync(path.join(tmpdir(), "dezfil-admin-recovery-probe-"));
+const scratchRoot = process.env.DEZFIL_DATA_DIR;
+assert.ok(scratchRoot && path.isAbsolute(scratchRoot), "set a fresh scratch DEZFIL_DATA_DIR");
+mkdirSync(scratchRoot, { recursive: true }); assert.deepEqual(readdirSync(scratchRoot), [], "empty scratch only");
+const scratch = mkdtempSync(path.join(scratchRoot, "recovery-"));
 const name = `dezfil-admin-recovery-${randomUUID()}`, volume = `${name}-data`;
 let server, base, output = "", stage = "start", checks = 0;
 const secrets = [];
@@ -40,7 +45,7 @@ async function start() {
     if (!base) {
       docker(["volume", "create", volume]);
       const hostPort = await port();
-      docker(["run", "-d", "--name", name, "--mount", `type=volume,src=${volume},dst=/data`, "-p", `127.0.0.1:${hostPort}:3000`, image]);
+      docker(["run", "-d", "--name", name, "--mount", `type=volume,src=${volume},dst=/data`, "-p", `127.0.0.1:${hostPort}:3000`, "-v", `${process.cwd()}/scripts:/probes:ro`, image]);
       base = `http://127.0.0.1:${hostPort}`;
     } else docker(["start", name]);
   } else {
@@ -55,9 +60,9 @@ async function stop() {
   if (mode === "container") docker(["stop", name]);
   else if (server && server.exitCode === null) { server.kill("SIGTERM"); await once(server, "exit"); }
 }
-async function api(method, route, body, credential) {
+async function api(method, route, body, credential, revision) {
   const response = await fetch(base + route, { method, redirect: "manual", headers: {
-    origin: base, "content-type": "application/json", ...(credential ?? {}),
+    origin: base, "content-type": "application/json", ...(credential ?? {}), ...(revision ? { "X-Edit-Revision": revision } : {}),
   }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   const json = await response.json().catch(() => null);
   return { status: response.status, json, cookie: response.headers.getSetCookie().find(value => value.startsWith("dezfil_session="))?.split(";")[0] };
@@ -95,13 +100,38 @@ try {
     check(!output.includes("dz_link_"), "no recovery secret in server logs");
   } else {
   check((await api("GET", "/api/auth/entry")).json.setupRequired, "fresh probe store");
-  const admin = await api("POST", "/api/auth/setup", { name: "Recovery probe", email: "recovery@example.test", password });
-  check(admin.status === 200 && admin.cookie, "setup");
+  const original = await api("POST", "/api/auth/setup", { name: "Original probe", email: "original@example.test", password });
+  check(original.status === 200 && original.cookie, "setup");
+  const originalCookie = { cookie: original.cookie };
+  const remainingInvitation = await api("POST", "/api/users", { name: "Recovery probe", email: "recovery@example.test", isAdmin: true }, originalCookie);
+  check(remainingInvitation.status === 201, "remaining admin invitation");
+  const remainingSecret = new URLSearchParams(new URL(remainingInvitation.json.signInUrl).hash.slice(1)).get("secret");
+  const admin = await api("POST", "/api/auth/redeem", { secret: remainingSecret, password });
+  check(admin.status === 200 && admin.cookie, "remaining admin redemption");
+  const originalProject = await api("POST", "/api/projects", { name: "Adopted homes" }, originalCookie);
+  check(originalProject.status === 201, "original project");
+  check((await api("PUT", `/api/projects/${originalProject.json.id}/people/${admin.json.account.sqlName}`, { role: "editor" }, originalCookie)).status === 200, "remaining admin reaches homes");
+  const transferredMap = await api("POST", "/api/maps", { name: "Retained recovery content", projectId: originalProject.json.id }, originalCookie);
+  const transferredWorkflow = await api("POST", "/api/recipes", { name: "Retained recovery workflow", projectId: originalProject.json.id }, originalCookie);
+  check(transferredMap.status === 201 && transferredWorkflow.status === 201, "original documents");
+  for (const [kind, doc] of [["maps", transferredMap.json], ["recipes", transferredWorkflow.json.recipe]]) {
+    check((await api("POST", `/api/${kind}/${doc.id}/transfer`, { to: admin.json.account.sqlName }, originalCookie, doc.editRevision)).status === 200, "transfer before deletion");
+  }
+  const homes = [["maps", transferredMap.json.id, admin.json.account.id], ["recipes", transferredWorkflow.json.recipe.id, admin.json.account.id]];
+  stage = "original-profile deletion";
+  await deleteOriginal((method, route, body) => api(method, route, body, { cookie: admin.cookie }), original.json.account);
+  await assertSetupClosed(api);
+  function retainedIdentity() {
+    if (mode === "container") docker(["exec", name, "node", "--input-type=module", "-e", `import {createRequire} from 'node:module'; import {assertOriginalIdentity} from '/probes/deletion-recovery-checks.mjs'; const Database=createRequire('/app/server.js')('better-sqlite3'); const db=new Database('/data/metadata.sqlite'); try { assertOriginalIdentity(db,${JSON.stringify(original.json.account.id)},${JSON.stringify(homes)}); } finally { db.close(); }`]);
+    else { const db = new Database(path.join(scratch, "metadata.sqlite")); try { assertOriginalIdentity(db, original.json.account.id, homes); } finally { db.close(); } }
+  }
+  retainedIdentity(); await stop(); await start(); await assertSetupClosed(api); retainedIdentity();
+  check((await api("GET", "/api/account", undefined, originalCookie)).status === 401, "original credential revoked");
   const oldSession = { cookie: admin.cookie };
   const token = await api("POST", "/api/account/tokens", { name: "API and MCP" }, oldSession);
   check(token.status === 201, "token creation"); const bearer = { authorization: `Bearer ${token.json.secret}` };
-  const map = await api("POST", "/api/maps", { name: "Retained recovery content" }, oldSession);
-  check(map.status === 201, "owned content");
+  const map = transferredMap;
+  check((await api("GET", `/api/maps/${map.json.id}`, undefined, oldSession)).status === 200, "transferred content retained");
   const invitation = await api("POST", "/api/users", { name: "Other account", email: "other@example.test" }, oldSession);
   check(invitation.status === 201, "other account invitation");
   const invitedSecret = new URLSearchParams(new URL(invitation.json.signInUrl).hash.slice(1)).get("secret");
@@ -127,6 +157,7 @@ try {
   stage = "stopped issuance and restart"; await stop(); const stopped = recover(true); await start();
   check((await api("POST", "/api/auth/redeem", { secret: stopped, password: replacement })).status === 200, "stopped issuance survives restart");
   check((await api("POST", "/api/auth/sign-in", { email: "recovery@example.test", password: replacement })).status === 200, "new password signs in");
+  retainedIdentity(); await assertSetupClosed(api);
   stage = "server disclosure";
   if (mode === "container") {
     const logs = spawnSync("docker", ["logs", name], { encoding: "utf8" });

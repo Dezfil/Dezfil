@@ -423,15 +423,9 @@ The authentication probes run against an already running scratch instance:
   widgets and real tiles. Set `DEZFIL_RENDER_CAP_FEATURES=2000` on the server and
   keep `tippecanoe` on its `PATH`.
 
-`node scripts/account-upgrade-proof.mjs [port]` runs only in a detached linked
-worktree after a production build. It creates a synthetic old-schema store
-under `.claude/`, upgrades a copy, exercises the old data through authenticated
-HTTP, restarts the server, and restores a separate copy from the unchanged
-seed. Its evidence records file hashes and distinguishes copied credential
-usability from an unexecuted live external PostGIS connection. It never takes
-an operator data-directory argument. Owner stamps, histories, memberships,
-lineage and standalone jobs must survive adoption and restart; another admin
-must still receive the same refusal as for missing private work.
+The [upgrade and packaged recovery proofs](testing/account-deletion-recovery.md)
+cover pre-account adoption, original-account deletion, fixed homes, remaining-admin
+redemption and scratch restoration in checkout and container modes.
 
 `node scripts/ownership-journey.mjs seed <base-url> <scratch-state-file>`
 provisions an admin and two ordinary accounts on an empty scratch instance.

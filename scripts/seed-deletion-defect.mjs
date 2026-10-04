@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 const defects = {
+  'original-setup': ['src/lib/metadata/accounts.ts', 'SELECT 1 FROM original_account UNION ALL SELECT 1 FROM accounts LIMIT 1', "SELECT 1 FROM original_account o JOIN accounts a ON a.id=o.account_id WHERE a.status='active'"],
+  'original-recovery': ['src/lib/auth/recovery-store.mjs', 'WHERE o.singleton = 1', "WHERE o.singleton = 1 AND a.status = 'active'"],
   'actor-unknown': ['src/components/sharing/LastChanged.tsx', 'deleted ? "Deleted account"', 'deleted ? "Unknown"'],
   'actor-tooltip': ['src/components/sharing/LastChanged.tsx', 'by an account that was deleted`', 'by Erased Person (erased_sql)`'],
   'actor-run-tooltip': ['src/components/sharing/RunInitiator.tsx', ': undefined}', ': deleted ? "Erased Person (erased_sql)" : undefined}'],
