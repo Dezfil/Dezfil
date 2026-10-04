@@ -1103,10 +1103,11 @@ DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-probe-XXXXXX) \
 ```
 
 The default mode is `--refused`, for compatibility with the baseline probe.
-Expect 1-10 seconds for refusal, 300-600 seconds for the full control set,
-and 10-60 seconds for admitted calibration. These are expectations, not
-measurements. Each run prints its actual sizes; full/admitted runs print
-elapsed seconds. A missing PostGIS URL in `--full` fails, never skips.
+Expect 1-10 seconds for refusal and 10-60 seconds for admitted calibration.
+For the full control set, the built-image run below measured 47 seconds;
+standalone runtimes also depend on the host and source. Each run prints its
+actual sizes; full/admitted runs print elapsed seconds. A missing PostGIS URL
+in `--full` fails, never skips.
 
 The full probe checks both ceilings at minus one, equality and plus one on
 all four reader families. SQL runs both WKT and GeoJSON. Boundary payloads
@@ -1162,8 +1163,8 @@ DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-image-XXXXXX) \
   sh scripts/result-budget-image.sh dezfil:ci --quick
 ```
 
-Expect **20-45 added seconds**, including both app starts, excluding the build.
-The workflow gives this step a one-minute timeout. It starts isolated 32 MB and
+Measured driver time was **7 seconds**, including both app starts, excluding the build.
+The workflow gives this step a three-minute timeout. It starts isolated 32 MB and
 512 MB app instances, with no outside source or database image pull, and runs:
 
 - The refused forty-row case under the 32 MB engine budget.
@@ -1181,7 +1182,7 @@ DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-image-XXXXXX) \
   sh scripts/result-budget-image.sh dezfil:ci --full
 ```
 
-Expect **300-600 added seconds**, excluding the build and a cold PostGIS image
+Measured driver time was **47 seconds**, excluding the build and a cold PostGIS image
 pull. This runs the forty-row refusal, the complete four-reader matrix and
 exports, then the separately labelled at-ceiling admission observation. It
 adds a disposable PostGIS fixture in the normal app's network namespace.
@@ -1192,8 +1193,8 @@ satisfy it; a failed TCP check resets the streak, and exhaustion fails the run.
 Both forms own their container names. An unconditional trap removes containers
 and anonymous volumes on success, readiness failure or assertion failure. Both
 print actual elapsed seconds before container cleanup; time the whole command
-as well when recording pipeline cost. Durations above are expectations, not
-container measurements. The script does not sample memory.
+as well when recording pipeline cost. The 7-second and 47-second measurements
+are host-specific observations, not runtime guarantees. The script does not sample memory.
 
 Green: exit zero, a forty-row 422 with the exact catalogue refusal below 1 KiB,
 and a 200 answer at exactly 33,554,432 bytes. Quick mode also reports all cell
@@ -1201,7 +1202,7 @@ boundaries; full mode reports every reader's result boundaries at minus-one,
 equality and plus-one, complete controls and all three complete exports.
 The driver finishes with a `confirmed: result-budget image` line and elapsed
 seconds. Red: any wrong status, size, code or sentence, an unlandable boundary,
-or failed TCP readiness exits nonzero. A quick run exceeding one minute also
+or failed TCP readiness exits nonzero. A quick run exceeding three minutes also
 fails the workflow allowance. Cleanup still runs; neither form skips a missing arm.
 
 ### Browser flow
@@ -1239,7 +1240,7 @@ server or source files. Unset the seed and rerun for green.
 
 The complete battery also runs `npm test` without socket exclusions,
 the production build, all lint gates and the API/durability/ownership/sharing
-and MCP journeys in [the runbook](runbook.md). The result probe supplements
+and MCP journeys described above. The result probe supplements
 those existing gates; it does not replace them.
 
 ### Companion commands
