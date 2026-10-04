@@ -75,15 +75,14 @@ test("deleted actors keep times on map and workflow cards, heads, both history h
           await redo.hover(); await page.screenshot({ path: info.outputPath(`${fixture.kind}-redo.png`) });
           if (fixture.kind === "deleted") expect(await redo.getAttribute("data-hint")).not.toMatch(new RegExp(`${departing.name}|${departing.sqlName}`));
         } else {
-          await page.getByRole("tab", { name: "Messages", exact: true }).click();
-          const runners = page.locator("[data-band-entries] [data-run-initiator]");
-          await expect(runners.first()).toBeVisible();
-          for (const runner of await runners.all()) {
-            await expect(runner).toHaveText(fixture.kind === "deleted" ? "Deleted account" : fixture.kind === "unknown" ? "Unknown" : "Named");
-            await expect(runner).toHaveCSS("font-style", "normal");
-            if (fixture.kind === "named") await expect(runner).toHaveAttribute("title", `${named.name} (${named.sqlName})`);
-            else { await expect(runner).not.toHaveAttribute("title"); await expect(runner).not.toHaveAttribute("data-hint"); }
-          }
+          const messages = page.getByRole("tab", { name: /^Messages/ });
+          await messages.click(); await expect(messages).toHaveAttribute("aria-selected", "true");
+          const runner = page.locator(`[data-band-entries] [data-run-id="${fixture.runId}"]:not([data-step-id]) [data-run-initiator]`);
+          await expect(runner).toHaveCount(1); await expect(runner).toBeVisible();
+          await expect(runner).toHaveText(fixture.kind === "deleted" ? "Deleted account" : fixture.kind === "unknown" ? "Unknown" : "Named");
+          await expect(runner).toHaveCSS("font-style", "normal");
+          if (fixture.kind === "named") await expect(runner).toHaveAttribute("title", `${named.name} (${named.sqlName})`);
+          else { await expect(runner).not.toHaveAttribute("title"); await expect(runner).not.toHaveAttribute("data-hint"); }
           await page.screenshot({ path: info.outputPath(`${fixture.kind}-workflow-head-and-runs.png`) });
         }
       }
