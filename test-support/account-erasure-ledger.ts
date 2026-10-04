@@ -75,7 +75,8 @@ export function erasureLedger() {
   function expected(before: ReturnType<typeof snapshot>, groups: Record<string, number[]>[]) {
     return Object.fromEntries(Object.entries(before).map(([table, values]) => [table, values.filter(r => !groups.some(g => g[table]?.includes(r._row)))]));
   }
-  return { db, directory, scopes, add, content, dissolution, rows, snapshot, files, expected, probesFor,
+  const credentials = Object.fromEntries(["account_preferences", "auth_sessions"].map(table => [table, rows(table).filter(r => r.account_id === "target").map(r => r._row)]));
+  return { db, directory, scopes, add, content, dissolution, credentials, rows, snapshot, files, expected, probesFor,
     inventoryFor(tables: string[]) { return { ...erasureInventory, stores: Object.fromEntries(tables.map(table => [`table:${table}`, erasureInventory.stores[`table:${table}` as keyof typeof erasureInventory.stores]])) }; },
     dispose() { db.close(); rmSync(directory, { recursive: true, force: true }); } };
 }
