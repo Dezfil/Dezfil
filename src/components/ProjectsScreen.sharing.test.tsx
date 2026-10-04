@@ -1,4 +1,5 @@
-import { act } from "react";
+import { act, useState } from "react";
+import { useDepartureNotice } from "./projects/departure-notice";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,7 +13,7 @@ import { ProjectsScreen } from "./ProjectsScreen";
  * The Projects page's people chip, beside the published chip: the people
  * glyph with a count on a project one shares, the owner and one's role on a
  * project shared with one, nothing on a project only its owner reaches. A
- * project someone else owns offers Export alone; renaming, sharing and
+ * project someone else owns offers Export and Leave; renaming, sharing and
  * dissolving stay its owner's. The owner's Share action opens the share
  * dialog on that project, and a hand-over made there is said on the page.
  */
@@ -97,9 +98,13 @@ describe.each(["grid", "list"] as const)("the Projects page's people chip (%s)",
     expect(html.match(/data-people=/g)).toHaveLength(2);
   });
 
-  it("offers only Export on a project someone else owns", () => {
+  it("offers Export then Leave on a project someone else owns", () => {
     const html = render();
     expect(html).toContain('aria-label="Export Berlin housing study"');
+    expect(html).toContain('aria-label="Leave Berlin housing study"');
+    expect(html.indexOf('aria-label="Export Berlin housing study"')).toBeLessThan(html.indexOf('aria-label="Leave Berlin housing study"'));
+    expect(html).not.toContain('aria-label="Leave Port traffic"');
+    expect(html).not.toContain('aria-label="Leave Quay survey"');
     expect(html).not.toContain('aria-label="Rename Berlin housing study"');
     expect(html).not.toContain('aria-label="Delete Berlin housing study"');
     expect(html).toContain('aria-label="Rename Port traffic"');
@@ -137,6 +142,7 @@ describe.each(["grid", "list"] as const)("sharing from the Projects page (%s)", 
           { name: "Ada Okafor", sqlName: "ada", role: "editor", deactivated: false },
         ] });
       }
+      if (input === "/api/projects/berlin/leave") return answer(200, { left: true });
       if (input === "/api/projects/port/transfer") return answer(200, { id: "port", owner: ada });
       throw new Error(`unexpected ${init?.method ?? "GET"} ${input}`);
     }));
@@ -156,6 +162,39 @@ describe.each(["grid", "list"] as const)("sharing from the Projects page (%s)", 
   const click = (el: HostElement | null | undefined) => act(async () => { el!.click(); await new Promise((r) => setTimeout(r, 0)); });
   const mount = () => act(async () => {
     root.render(<SignedIn account={bo}><ProjectsScreen /></SignedIn>);
+  });
+
+  it("carries the home departure notice for one Projects visit", async () => {
+    function Visit() {
+      const { remember } = useDepartureNotice();
+      const [projects, show] = useState(false);
+      return <><button onClick={() => { remember("You left Berlin housing study."); show(true); }}>Arrive</button>
+        <button onClick={() => show(value => !value)}>Navigate</button>{projects && <ProjectsScreen />}</>;
+    }
+    await act(async () => root.render(<SignedIn account={bo}><Visit /></SignedIn>));
+    const press = (name: string) => click(host.document.querySelectorAll("button").find(b => b.textContent === name));
+    await press("Arrive");
+    expect(q('p[role="status"]')?.textContent).toBe("You left Berlin housing study.");
+    await press("Navigate"); await press("Navigate");
+    expect(q('p[role="status"]')).toBeNull();
+  });
+
+  it("opens Leave without navigation, cancels without a request, then reports the departure", async () => {
+    await mount();
+    await click(button("Leave Berlin housing study"));
+    expect(q('[role="dialog"]')?.textContent).toContain("Its owner can add you again.");
+    expect(calls).not.toContain("POST /api/projects/berlin/leave");
+    expect(spies.push).not.toHaveBeenCalled();
+    await click(host.document.querySelectorAll("button").find(b => b.textContent === "Cancel"));
+    expect(q('[role="dialog"]')).toBeNull();
+    expect(calls).not.toContain("POST /api/projects/berlin/leave");
+    await click(button("Leave Berlin housing study"));
+    await click(host.document.querySelectorAll("button").find(b => b.textContent === "Leave project"));
+    expect(calls.filter(c => c === "POST /api/projects/berlin/leave")).toHaveLength(1);
+    expect(q('[role="dialog"]')).toBeNull();
+    expect(q('p[role="status"]')?.textContent).toBe("You left Berlin housing study.");
+    expect(spies.invalidateProjects).toHaveBeenCalled();
+    expect(spies.refresh).toHaveBeenCalled();
   });
 
   it("opens the share dialog on that project from its Share action, without opening the project", async () => {

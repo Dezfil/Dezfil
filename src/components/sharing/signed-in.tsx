@@ -2,6 +2,7 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 import type { PersonLabel } from "./people";
+import { DepartureNoticeProvider } from "../projects/departure-notice";
 
 /**
  * Who is signed in, as the workspace shell read it on the server when the
@@ -20,7 +21,9 @@ export function SignedIn({
   children: ReactNode;
 }) {
   return (
-    <SignedInContext.Provider value={account}>{children}</SignedInContext.Provider>
+    <SignedInContext.Provider value={account}>
+      <DepartureNoticeProvider key={account?.sqlName ?? ""}>{children}</DepartureNoticeProvider>
+    </SignedInContext.Provider>
   );
 }
 
