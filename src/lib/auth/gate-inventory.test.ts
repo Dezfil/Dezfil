@@ -1,7 +1,10 @@
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import type { Database } from "better-sqlite3";
 import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
-import { AppRouteRouteModule } from "next/dist/server/route-modules/app-route/module";
+import { IncomingMessage, Server, ServerResponse } from "node:http";
+import type { Socket } from "node:net";
+import { Duplex } from "node:stream";
+import { installIngress } from "./ingress.mjs";
 import * as metadata from "@/lib/metadata/db";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { createFirstAccount } from "./accounts";
@@ -101,14 +104,26 @@ it("keeps authenticated wrong-method answers and OPTIONS behind the gate", async
   }
 });
 
-it("leaves TRACE to the framework's empty 400 without a handler or body read", async () => {
-  for (const { handlers } of excluded) {
-    const read = vi.fn();
-    const userland = new Proxy(handlers, { get: read });
-    const response = await AppRouteRouteModule.prototype["resolveHandlerFromUserland"].call({} as AppRouteRouteModule, "TRACE", userland)(undefined!, undefined!);
-    expect(response.status).toBe(400);
-    expect(await response.text()).toBe("");
-    expect(read).not.toHaveBeenCalled();
+it("answers TRACE in the product ingress before a handler or body read", () => {
+  installIngress();
+  for (const pathname of [...excluded.map(row => row.path), "/api/maps"]) {
+    for (const event of ["request", "checkContinue", "checkExpectation"]) {
+      const socket = new Duplex({ read() {}, write(_chunk, _encoding, callback) { callback(); } });
+      Object.defineProperty(socket, "remoteAddress", { value: "127.0.0.1" });
+      const incoming = new IncomingMessage(socket as Socket);
+      incoming.method = "TRACE"; incoming.url = pathname;
+      incoming.headers = { host: "instance.test", "content-length": "4194304" };
+      incoming.rawHeaders = ["Host", "instance.test", "Content-Length", "4194304"];
+      const response = new ServerResponse(incoming), reached = vi.fn();
+      const read = vi.spyOn(incoming, "read"), end = vi.spyOn(response, "end"), head = vi.spyOn(response, "writeHead");
+      try {
+        new Server().on(event, reached).emit(event, incoming, response);
+        expect(response.statusCode).toBe(400);
+        expect(head).toHaveBeenCalledExactlyOnceWith(400, { "cache-control": "private, no-store", "content-length": "0" });
+        expect(end).toHaveBeenCalledExactlyOnceWith();
+        expect(reached).not.toHaveBeenCalled(); expect(read).not.toHaveBeenCalled();
+      } finally { incoming.destroy(); socket.destroy(); }
+    }
   }
 });
 
