@@ -38,3 +38,12 @@ it("names the inspection-dependent consumers in every affected guide", () => {
     expect(text, file).toContain("Existing layer rendering");
   }
 });
+
+it("keeps result-budget commands and their outcomes in the runbook", () => {
+  const text = readFileSync("docs/runbook.md", "utf8").split("## SQL result byte budget")[1] ?? "";
+  for (const command of ["probe:query-result-budget", "e2e:result-budget", "geometry-latency.test.ts", "--observation-dir", "result-budget-image.sh"]) {
+    expect(text.includes(command), command).toBe(true);
+  }
+  expect(text).not.toMatch(/delegated (?:browser|runner)|supervising session|single observation/i);
+  expect(readFileSync("docs/api.md", "utf8")).toContain("runbook.md#sql-result-byte-budget");
+});

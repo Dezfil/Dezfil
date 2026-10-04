@@ -8,8 +8,7 @@ import { datasetBudgetSQL } from "../test-support/result-budget-browser.mjs";
 
 const sentence = "The result is too large to return: more than 32 MB in total, or one non-geometry value over 2 MB. Select fewer rows or columns, or shorten the value.";
 const sql = "SELECT repeat('x', 1000000) AS payload FROM range(40)";
-// Negative controls for the delegated browser observer. These alter only the
-// browser's received copy/completion, not server state or production sources.
+// Failure controls alter the browser's received copy or completion.
 const seed = process.env.DEZFIL_RESULT_BUDGET_BROWSER_SEED;
 test.beforeEach(async ({ page }) => {
   if (seed === "wrong-copy") await page.route("**/api/query", async route => {

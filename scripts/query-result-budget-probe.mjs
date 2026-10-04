@@ -19,7 +19,7 @@ export async function queryResultBudgetProbe(base, label = 'standalone', existin
     const observations = [];
     for (const geometry of ['wkt', 'geojson']) {
       const requestBody = { sql: "SELECT repeat('x', 1000000) AS payload FROM range(40)", ...(geometry === 'geojson' ? { geometry } : {}) };
-      console.log(JSON.stringify({ observation: 'refused-forty', geometry, label, request: { method: 'POST', path: '/api/query', body: requestBody }, memorySampling: 'caller-owned; label each heap/RSS result a single observation' }));
+      console.log(JSON.stringify({ observation: 'refused-forty', geometry, label, request: { method: 'POST', path: '/api/query', body: requestBody } }));
       const observed = await observeRequest(observationDirectory, `refused-forty-${geometry}`, requestBody, async () => {
         const response = await fetch(`${origin}/api/query`, {
           method: 'POST', redirect: 'error', signal: AbortSignal.timeout(120_000),
@@ -82,7 +82,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
           let landed = false;
           for (let attempt = 0; attempt < 30; attempt++) {
             const body = { sql: sql(fitted.tail) };
-            console.log(JSON.stringify({ observation: 'admitted-at-ceiling', attempt, request: { method: 'POST', path: '/api/query', body }, memorySampling: 'caller-owned; label each heap/RSS result a single observation' }));
+            console.log(JSON.stringify({ observation: 'admitted-at-ceiling', attempt, request: { method: 'POST', path: '/api/query', body } }));
             const result = await observeRequest(observationDirectory, `admitted-at-ceiling-${attempt}`, body, () => client.read('/api/query', body, 'admitted-at-ceiling'));
             if (result.status === 200 && result.bytes === 33554432) { landed = true; break; }
             if (result.status === 200) fitted.tail += 33554432 - result.bytes;

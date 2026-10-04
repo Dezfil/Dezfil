@@ -1632,4 +1632,4 @@ response message. Branch on the code.
 <!-- error-catalogue:end -->
 
 The result-byte regression and outside probe invocations are in
-[result budget proofs](result-budget-proof.md).
+[result budget commands](runbook.md#sql-result-byte-budget).
