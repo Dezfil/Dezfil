@@ -63,6 +63,7 @@ export async function publicationSourceProbe(base, mode, stateLog) {
     const afterExpiry = (await readFile(stateLog, 'utf8')).trim().split('\n').map(line => JSON.parse(line)).filter(row => row.phase === 'publication').at(-1);
     assert.equal(afterExpiry?.size, 1, 'ordinary read expires both buckets');
     if (mode === 'trusted') {
+      const beforeCapacity = (await readFile(stateLog, 'utf8')).trim().split('\n').length;
       let next = 0;
       await Promise.all(Array.from({ length: 24 }, async () => {
         while (next < 10_050) {
@@ -70,7 +71,7 @@ export async function publicationSourceProbe(base, mode, stateLog) {
           assertPublishedStatus(await send(i % 2 ? paths[4] : '', { source }), 404);
         }
       }));
-      assertPublicationState((await readFile(stateLog, 'utf8')).trim().split('\n').map(line => JSON.parse(line)), 10_050);
+      assertPublicationState((await readFile(stateLog, 'utf8')).trim().split('\n').slice(beforeCapacity).map(line => JSON.parse(line)), 10_050, true);
     }
     const rows = (await readFile(stateLog, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
     const peak = assertPublicationState(rows, 1);

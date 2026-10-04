@@ -28,3 +28,12 @@ it("sets up publications using the route's documented success status", async () 
   }));
   expect(tokens).toEqual(["publication", "publication"]);
 });
+
+
+it("requires the capacity arm to reach the bound and retain it in a later sample", () => {
+  const rows = Array.from({ length: 10_050 }, (_, i) => ({ phase: "publication", size: Math.min(i + 1, 10_000) }));
+  expect(() => assertPublicationState(rows.map(row => ({ ...row, size: Math.min(row.size, 9999) })), 10_050, true)).toThrow();
+  expect(() => assertPublicationState(rows.map((row, i) => ({ ...row, size: i === rows.length - 1 ? 10_000 : 1 })), 10_050, true)).toThrow();
+  expect(() => assertPublicationState(rows.map((row, i) => ({ ...row, size: i === 9999 ? 10_000 : Math.min(row.size, 9999) })), 10_050, true)).toThrow();
+  expect(assertPublicationState(rows, 10_050, true)).toBe(10_000);
+});

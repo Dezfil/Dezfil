@@ -10,11 +10,18 @@ export function assertPublishedStatus(result, status) {
       : { code: 'rate_limited', message: 'Too many requests. Please slow down.' } });
   }
 }
-export function assertPublicationState(rows, minimum) {
+export function assertPublicationState(rows, minimum, requireCapacity = false) {
   const samples = rows.filter(row => row.phase === 'publication');
   assert.ok(samples.length >= minimum, 'missing per-admission state evidence');
   for (const sample of samples) assert.ok(sample.size > 0 && sample.size <= 10_000, `publication state escaped its bound: ${sample.size}`);
-  return Math.max(...samples.map(sample => sample.size));
+  const peak = Math.max(...samples.map(sample => sample.size));
+  if (requireCapacity) {
+    assert.equal(peak, 10_000, 'capacity arm never reached the bound; expiry may have hidden eviction');
+    const firstFull = samples.findIndex(sample => sample.size === 10_000);
+    assert.ok(firstFull < samples.length - 1, 'capacity arm needs an admission after first reaching the bound');
+    assert.equal(samples.at(-1).size, 10_000, 'capacity arm did not retain the bound after further admissions');
+  }
+  return peak;
 }
 
 /** Real IPv4 socket, with explicit local binding. Forwarding is supplied only
