@@ -804,6 +804,12 @@ rather than on the page:
   bound refuses the whole answer with HTTP 422 `query_result_too_large`,
   the catalogue sentence below and no partial rows or details. These limits
   have no setting; row limits, engine budgets and complete file exports are unchanged.
+- PostGIS five-row preview (`POST /api/connections/postgis/{id}/preview`)
+  uses the same fixed ceilings on returned columns and rows. Internal health
+  is excluded. Source geometry/geography columns, identified by source type
+  and emitted as WKT, count only toward the result ceiling. Text and JSON
+  coordinates retain the cell ceiling. Excess returns the same whole-answer
+  422 catalogue refusal. Health, cancellation and source timeouts stay unchanged.
 - Geometry-choice preview (`POST /api/tables/{name}/geometry/preview`) shares
   those fixed ceilings. Metadata, grid rows and map features count together.
   Count the existing 512-character excerpts; source text and nested JSON remain
