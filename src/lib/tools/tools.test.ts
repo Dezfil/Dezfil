@@ -266,6 +266,8 @@ describe("tool parity", () => {
       "delete_project",
       "delete_recipe",
       "delete_table",
+      "delete_user",
+      "finish_user_deletion",
       "invite_user",
       "issue_user_sign_in_link",
       "leave_project",

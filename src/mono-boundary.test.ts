@@ -72,6 +72,8 @@ const ALLOWED = new Set([
   "src/components/GeometryProvenance.module.css :: .record b",
   // The sign-in hand-over is a literal URL, including its credential.
   "src/components/users/UsersScreen.module.css :: .field input",
+  // Typed confirmation repeats an exact account identifier, in the field and its label.
+  "src/components/users/DeleteAccountDialog.module.css :: .field b, .field input",
   // A SQL name is an identifier other people's SQL qualifies datasets by:
   // on Users, beside a person in the share dialog, beside a person's group
   // in the console's source list, and in the catalogue's line naming a

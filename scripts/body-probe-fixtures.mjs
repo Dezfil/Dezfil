@@ -4,6 +4,8 @@ import { sketchFixture, iconFixture, exportFixture, widgetFixture, extentFixture
 
 export async function seedBodyFixtures(api, publicApi) {
   const accept = async (method, url, options, status = 200) => { const answer = await api(method, url, options); assert.equal(answer.status, status, `${method} ${url}: ${JSON.stringify(answer.json)}`); return answer.json; };
+  // Deletion must reach its body reader, past the earlier self/active refusals.
+  const invitation = await accept('POST', '/api/users', { body: { name: 'Body target', email: 'body-target@example.test' } }, 201);
   const map = await accept('POST', '/api/maps', {}, 201); // optional empty body
   const project = await accept('POST', '/api/projects', { body: { name: 'Body controls' } }, 201);
   const recipe = (await accept('POST', '/api/recipes', { body: { name: 'Body controls' } }, 201)).recipe;
@@ -41,7 +43,7 @@ export async function seedBodyFixtures(api, publicApi) {
     const answer = await publicApi('POST', `/api/published/${token}/${suffix}`, { body }); assert.equal(answer.status, 200, JSON.stringify(answer.json));
   }
   for (const suffix of ['widget-values', `render/${layer.id}`, `extent/${layer.id}`]) assert.equal((await publicApi('POST', `/api/published/${token}/${suffix}`)).status, 200, 'optional empty selection body');
-  return { mapId: map.id, projectId: project.id, recipeId: recipe.id, stepId: step.step.id, layerId: layer.id, tableName: table.name, sketchName: sketch.table, featureId: sketch.featureId, token,
+  return { userId: invitation.account.id, mapId: map.id, projectId: project.id, recipeId: recipe.id, stepId: step.step.id, layerId: layer.id, tableName: table.name, sketchName: sketch.table, featureId: sketch.featureId, token,
     bytes: { sketch: fixtureBytes(sketchFixture), icon: fixtureBytes(iconFixture), export: fixtureBytes(exportFixture), widgets: fixtureBytes(widgetFixture), extent: fixtureBytes(extentFixture), render16: fixtureBytes(renderFixture(16)), render18: fixtureBytes(renderFixture(18)), viewer: fixtureBytes(viewerFixture), completeMap: fixtureBytes(complete) } };
 }
 
@@ -53,7 +55,7 @@ export const invalidBody = { name: 0, email: 0, password: 0, secret: 0, currentP
   addMaps: 0, maps: 0, expectedRevision: 0, choice: 0, connectionId: 0, schema: 0, table: 0, host: 0, message: 0 };
 export function concreteBodyPath(template, fixture, account) {
   return template.replace(/\{([^}]+)\}/g, (_match, key) => encodeURIComponent(
-    key === 'id' ? template.startsWith('/api/maps') ? fixture.mapId : template.startsWith('/api/layers') ? fixture.layerId : template.startsWith('/api/projects') ? fixture.projectId : template.startsWith('/api/recipes') ? fixture.recipeId : template.startsWith('/api/users') ? account.id : 'absent-connection' :
+    key === 'id' ? template.startsWith('/api/maps') ? fixture.mapId : template.startsWith('/api/layers') ? fixture.layerId : template.startsWith('/api/projects') ? fixture.projectId : template.startsWith('/api/recipes') ? fixture.recipeId : template.startsWith('/api/users') ? fixture.userId : 'absent-connection' :
     key === 'name' ? template.startsWith('/api/sketches') ? fixture.sketchName : fixture.tableName :
     key === 'layerId' ? fixture.layerId : key === 'stepId' ? fixture.stepId : key === 'featureId' ? fixture.featureId : key === 'token' ? fixture.token : key === 'sqlName' ? account.sqlName : (() => { throw new Error(`Uncovered body path parameter ${key}`); })()));
 }
