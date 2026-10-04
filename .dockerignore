@@ -48,3 +48,4 @@ test-data
 **/*.Dockerfile
 # Host-side container orchestration, never executed by the application image.
 scripts/result-budget-image.sh
+scripts/account-deletion-image.sh
