@@ -91,6 +91,13 @@ test("Users deletes invitations without typing and empty accounts without work c
 
 test("Users preserves unfinished deletion across reload and offers Finish deleting on note and row", async ({ page, browser, request, baseURL }, info) => {
   const target = await invitePerson(browser, request, baseURL!, "Retry", runTag()); let held = false;
+  // Keep evidence of a transient false success even after its notice expires.
+  const observeCompletion = () => page.evaluateHandle(text => {
+    const seen = { completed: false };
+    const check = () => { if (Array.from(document.querySelectorAll('[role="status"]')).some(node => node.textContent === text)) seen.completed = true; };
+    new MutationObserver(check).observe(document, { childList: true, subtree: true, characterData: true });
+    check(); return seen;
+  }, `${target.name}: deleted`);
   try {
     expect((await request.patch(`/api/users/${target.id}`, { data: { status: "deactivated" } })).status()).toBe(200);
     await deletionControl({ command: "hold", accountId: target.id }); held = true;
@@ -98,19 +105,37 @@ test("Users preserves unfinished deletion across reload and offers Finish deleti
     await page.goto("/users"); const row = page.getByRole("button", { name: new RegExp(target.email) }); await row.click();
     await page.getByRole("button", { name: "Delete account", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Delete account", exact: true });
+    const accepting = await observeCompletion();
+    const accepted = page.waitForResponse(response => response.request().method() === "DELETE" && new URL(response.url()).pathname === `/api/users/${target.id}`);
     await dialog.getByRole("textbox").fill(target.email); await dialog.getByRole("button", { name: "Delete account", exact: true }).click();
+    const status = await (await accepted).json(); expect(status.state).toBe("pending");
     await expect(dialog).toHaveCount(0); await expect(row).toContainText("Deleting");
-    await expect(page.getByText(`${target.name}: deleted`, { exact: true })).toHaveCount(0);
+    expect((await accepting.jsonValue()).completed, "pending acceptance must never show a completion notice").toBe(false);
+    await accepting.dispose();
     await page.reload(); await row.click(); await expect(page.getByRole("button", { name: "Reactivate", exact: true })).toHaveCount(0);
-    await page.getByRole("button", { name: "Finish deleting", exact: true }).click(); await expect(row).toContainText("Deleting");
+    const pending = await observeCompletion();
+    const finishing = () => page.waitForResponse(response => response.request().method() === "POST" && new URL(response.url()).pathname === `/api/users/deletions/${status.id}/finish`);
+    const continued = finishing();
+    await page.getByRole("button", { name: "Finish deleting", exact: true }).click();
+    expect((await (await continued).json()).state).toBe("pending");
+    await expect(row).toHaveAttribute("aria-expanded", "false"); await expect(row).toContainText("Deleting");
+    expect((await pending.jsonValue()).completed, "held continuation must never show a completion notice").toBe(false);
     await deletionControl({ command: "release", accountId: target.id }); held = false;
     await expect.poll(async () => (await (await request.get("/api/users")).json()).deletions.find((d: { account: { id: string } }) => d.account.id === target.id)?.state).toBe("needs-retry");
+    expect((await pending.jsonValue()).completed, "failed cleanup must never show a completion notice").toBe(false);
+    await pending.dispose();
     await page.reload(); await expect(row).toContainText("Deletion unfinished");
+    const unfinished = await observeCompletion();
     const note = page.getByRole("alert").filter({ hasText: `${target.name}’s account could not be deleted completely.` });
     await expect(note).toBeVisible(); await expect(note.getByRole("button", { name: "Finish deleting", exact: true })).toBeVisible();
-    await note.getByRole("button", { name: "Finish deleting", exact: true }).click(); await expect(note).toBeVisible();
+    const retried = finishing();
+    await note.getByRole("button", { name: "Finish deleting", exact: true }).click();
+    expect((await (await retried).json()).state).toBe("needs-retry");
+    await expect(note.getByRole("button", { name: "Finish deleting", exact: true })).toBeEnabled(); await expect(note).toBeVisible();
     await row.click(); await expect(page.getByRole("button", { name: "Finish deleting", exact: true })).toHaveCount(2);
     await page.screenshot({ path: info.outputPath("unfinished.png") });
+    expect((await unfinished.jsonValue()).completed, "unfinished retry must never show a completion notice").toBe(false);
+    await unfinished.dispose();
     await deletionControl({ command: "compaction", fail: false });
     await page.getByRole("button", { name: "Finish deleting", exact: true }).last().click();
     await expect(page.getByRole("status").filter({ hasText: `${target.name}: deleted` })).toBeVisible();
