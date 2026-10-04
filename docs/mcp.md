@@ -113,6 +113,16 @@ continued deletion rather than claiming completion. Use the same deletion id
 with Finish deleting. Completed ids return `not_found`. `list_users` includes
 a separate `deletions` array for unfinished work, including after profile erasure.
 
+Finishing deletion rewrites the metadata store and pauses all responses. The
+[host guide](self-hosting.md#leaving-and-deleting-accounts) gives measured pauses
+and the required data-volume and temporary-filesystem space; a failed compaction
+remains unfinished and safe to retry. Completion waits for prepared-copy settlement
+or expiry and cleanup. Recorded dataset inputs identify affected foreign derivatives;
+existing unattributed card images owned by others remain. Runs whose workflows were
+already deleted have no remaining workflow owner and stay with Deleted account as
+starter. Copies outside the instance, including downloads and databases written
+through connections, are not reached. Backup restoration can revive credentials.
+
 A project's people generate `list_project_people`, `set_project_person` and
 `remove_project_person`. Anyone who reaches the project reads them; the two
 changes are the project owner's and declare confirmation, since each changes

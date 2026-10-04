@@ -45,6 +45,84 @@ A published link is a capability. It carries a token, it is not guessable, and i
 grants read access to one published map until you unpublish it. Anyone the link
 reaches can pass it on.
 
+## Leaving and deleting accounts
+
+A Viewer or Editor can leave a project, including a frozen one. Leaving ends only
+that person's membership. Their owned work stays filed and shared; they can
+withdraw it separately. Project owners must transfer or dissolve the project.
+
+To keep a person's work for the team, leave the account deactivated. Shared reads,
+exports, downloads, SQL, map/workflow duplication, permitted workflow runs and
+published links remain available. Frozen work cannot be edited in place or gain
+members. Before deactivation the owner can transfer projects, maps and workflows
+to existing members; datasets and connections cannot transfer.
+
+Another active admin can permanently delete an account after separate deactivation,
+including a deactivated admin. An invitation never redeemed can be removed directly.
+Users shows totals and the number of other people losing reach, without revealing
+private resource names. Confirm the current preview and type the exact email for
+an ever-active account. Deletion erases everything that account owns wherever filed,
+dissolves its projects, unfiles other members' surviving work, and breaks its
+published links and embeds. Surviving maps and workflows report missing inputs.
+No handover or undelete is provided.
+
+Pending and needs-retry mean unfinished. The account and its work remain
+inaccessible, its email stays reserved, and Users offers **Finish deleting**, also
+after restart. Use the same deletion identifier through the API or MCP. Completion
+frees the email and removes the temporary deletion record; a subsequent status
+read returns not found. Deleting the original profile never reopens setup or
+adoption. Remaining admins can use this version's packaged local recovery command.
+A long-lived outside reader, such as a replication sidecar, can keep deletion unfinished until it releases the database; release it, then use Finish deleting.
+
+Finishing a deletion rewrites the whole metadata store, and the app answers nothing
+while that compaction runs, including health requests. Measurements observed about
+a second or less up to 64 MiB, up to about four seconds at 256 MiB, and several
+seconds at 1 GiB in the container (3.4 to 8.8 seconds observed). A host short of
+memory or disk took much longer at 1 GiB (9 to 38 seconds observed). These are
+observations, not an upper bound. Plan capacity and maintenance around that pause.
+SQLite needs free working space for a temporary database and a write-ahead log:
+allow up to twice the metadata database size in additional free space when both
+use one filesystem. With separate filesystems, allow roughly one database size
+on the data volume for the log and one on SQLite's temporary filesystem for the
+copy, with headroom for other writes. A large data volume does not compensate for
+a full or memory-limited temporary filesystem. See SQLite's
+[VACUUM space explanation](https://www.sqlite.org/lang_vacuum.html).
+Compaction that cannot finish leaves deletion unfinished and safe to retry after
+space is restored or the reader is released.
+
+Except for never-redeemed invitations, deletion purges the entire geocode,
+isochrone and Overpass answer caches. Subsequent requests contact providers again,
+with their usual latency and cost. Instance settings, keys and palettes remain.
+
+An ever-active account keeps an opaque deleted identity and its identifying SQL
+name, permanently reserved, plus the original-adoption marker where applicable.
+Its name, email, credentials and profile disappear. Surviving SQL homes never move,
+so reusing the freed email cannot capture old dataset references. Historical actors
+show **Deleted account**, distinct from **Unknown**, without a name or SQL-name
+label; times and authorship stay fixed. This is not anonymization or a promise to
+erase physical disk remanence.
+
+Deletion has these copy and attribution limits:
+
+- Other people's derived datasets remain theirs permanently. Their SQL, lineage,
+  run records and stored run sentences can retain dataset names, artifact identities
+  and personal text. Runs of workflows deleted before their owner's account have
+  no remaining workflow owner and stay, showing **Deleted account** as their starter.
+- Already issued private copies keep their existing lifetime. Completion waits for
+  prepared files to settle or expire and for observed cleanup. Recorded input
+  evidence removes affected card images, tiles, retained renders and prepared files,
+  even when another person owns them. Existing unattributed card images belonging to
+  other people remain because their source datasets cannot be identified.
+- Copies outside the instance are not reached: backups, snapshots, exports,
+  downloaded files, host-collected logs, provider-held data and a database a
+  connection wrote to. Browser-local SQL and conversations also remain. Restoring
+  a backup can revive erased data and credentials; review them before reopening.
+
+Before upgrading or rolling back, follow the [retained-identity upgrade and full
+backup instructions](runbook.md#retained-account-identity-upgrade). Keep a stopped,
+complete backup and the matching application and key; do not down-migrate a live
+store containing deleting or deleted accounts.
+
 ## The data directory is the product
 
 Everything the instance keeps lives in one directory, the durable data directory,

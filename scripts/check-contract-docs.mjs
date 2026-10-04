@@ -22,6 +22,10 @@ export function measureContract(document, tools) {
     operationsWithTools: operations.filter(({ operation }) => operation['x-tool'] !== false),
   };
 }
+export function readerCountSummary(counts) {
+  const tiers = Object.entries(counts.jsonTiers).map(([limit, total]) => `${total} at ${Number(limit).toLocaleString('en-US')} bytes`).join(', ');
+  return `Expected counts: ${counts.paths} paths, ${counts.operations} operations, ${counts.schemas} schemas, ${counts.errors} error codes, ${counts.tools} tools, ${counts.exclusions} exclusions and ${counts.jsonReaders} JSON readers (${tiers}).`;
+}
 /** Compare the committed reader text, never two newly generated summaries. */
 export function checkContractDocs(document, tools, docs) {
   const measured = measureContract(document, tools), problems = [];
@@ -55,12 +59,33 @@ export function checkContractDocs(document, tools, docs) {
   const contractTools = measured.operationsWithTools.map(({ path, method, operation }) => `${method} ${path} ${operation['x-tool']}`).sort();
   const derivedTools = tools.map(tool => `${tool.method} ${tool.path} ${tool.name}`).sort();
   if (!equal(contractTools, derivedTools)) problems.push('Derived tools differ from contract operations');
+  const actorVariants = [
+    { type: 'object', properties: { name: { type: 'string' }, sqlName: { type: 'string' } }, required: ['name', 'sqlName'], additionalProperties: false },
+    { type: 'object', properties: { deleted: { type: 'boolean', const: true } }, required: ['deleted'], additionalProperties: false },
+    { type: 'null' },
+  ];
+  const found = new Set();
+  function actors(value, name) {
+    if (!value || typeof value !== 'object') return;
+    for (const field of ['lastChangedBy', ...(name === 'HistoryTarget' ? ['author'] : []), ...(name === 'RecipeRun' ? ['runner'] : [])]) if (value.properties?.[field]) {
+      found.add(field);
+      if (!equal(value.properties[field].oneOf, actorVariants)) problems.push(`Actor schema differs: ${name}.${field}`);
+    }
+    for (const child of Object.values(value)) actors(child, name);
+  }
+  for (const [name, schema] of Object.entries(document.components.schemas)) actors(schema, name);
+  for (const field of ['lastChangedBy', 'author', 'runner']) if (!found.has(field)) problems.push(`Missing actor position: ${field}`);
+  for (const [key, label] of [['api', 'API'], ['mcp', 'MCP']]) {
+    if (!docs[key].includes('{ deleted: true }')) problems.push(`${label} actor guidance omits the deleted variant`);
+  }
+  const proofCounts = docs.proof?.match(/<!-- contract-counts:start -->([\s\S]*?)<!-- contract-counts:end -->/)?.[1];
+  if (normalize(proofCounts ?? '') !== readerCountSummary(measured)) problems.push('Proof guide counts differ from contract');
   return problems;
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const { document, tools } = await contractSource();
   const directory = process.argv.includes('--docs-dir') ? process.argv[process.argv.indexOf('--docs-dir') + 1] : 'docs';
-  const docs = { api: readFileSync(path.join(directory, 'api.md'), 'utf8'), mcp: readFileSync(path.join(directory, 'mcp.md'), 'utf8') };
+  const docs = { api: readFileSync(path.join(directory, 'api.md'), 'utf8'), mcp: readFileSync(path.join(directory, 'mcp.md'), 'utf8'), proof: readFileSync(path.join(directory, 'testing/account-deletion-guidance.md'), 'utf8') };
   const problems = checkContractDocs(document, tools, docs);
   for (const problem of problems) console.error(problem);
   if (problems.length) process.exitCode = 1;

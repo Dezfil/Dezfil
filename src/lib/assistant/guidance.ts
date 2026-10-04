@@ -80,6 +80,21 @@ export const GUIDANCE_SECTIONS: readonly { id: string; audience: 'shared' | 'ass
       "an admin can revoke a deactivated owner's known publication token without gaining access to the map.",
   },
   {
+    id: "account-departures",
+    audience: "shared",
+    text:
+      "A viewer or editor can leave a project, including a frozen one; only their grant ends and their owned work stays filed and shared. Owners transfer or dissolve instead. " +
+      "Another active admin can delete an account after separate deactivation. Deactivation keeps shared work; deletion permanently erases owned work, dissolves owned projects and breaks published links. " +
+      "Use the counts-only preview and its confirmation, confirm: true and the exact email for an ever-active account; an unredeemed invitation needs no typed email. " +
+      "Pending or needs-retry is unfinished: use status and Finish deleting with the same identifier, including after restart. A completed identifier becomes not_found. " +
+      "Finishing rewrites the metadata store and pauses all responses; an outside reader or insufficient space on the data or temporary filesystem can leave it unfinished and safe to retry. " +
+      "Except for invitations, all geocode, isochrone and Overpass answer caches are purged, so later calls reach providers again. The identifying SQL name stays reserved forever and SQL homes stay fixed. " +
+      "Historical last-change actors, Undo/Redo authors and run starters are { name, sqlName }, { deleted: true } for Deleted account, or null for Unknown. Deleted actors have no name or SQL-name label; ownership and times are separate. " +
+      "Others' derived datasets and stored SQL, lineage and run text remain. Runs whose workflow was already deleted have no remaining workflow owner and stay with a deleted starter. " +
+      "Issued private copies keep their existing lifetime; completion waits for prepared files to settle or expire and cleanup to finish. Recorded input evidence identifies affected derivatives, but others' existing unattributed card images remain. " +
+      "Backups, exports, downloaded files, host logs, providers, browser-local material and databases written through connections are outside deletion. Restores can revive data and credentials. This promises neither anonymization nor physical disk-remanence erasure.",
+  },
+  {
     id: "edit-revisions",
     audience: "package",
     text:

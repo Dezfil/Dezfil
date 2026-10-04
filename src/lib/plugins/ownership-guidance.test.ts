@@ -57,3 +57,13 @@ it("removes the obsolete shared-data upgrade claim and documents local draft dis
   expect(runbook).toContain("recorded original account");
   expect(runbook).toContain("File-referencing PROJ");
 });
+it("carries departure, deletion and explicit deleted actors in the generated guidance", () => {
+  const section = GUIDANCE_SECTIONS.find(value => value.id === "account-departures");
+  expect(section?.audience).toBe("shared");
+  for (const text of [analyticalGuidance(), analysis()]) {
+    expect(text).toContain(section?.text);
+    expect(text).toContain("{ deleted: true }");
+    expect(text).toContain("Finish deleting");
+    expect(text).toContain("unattributed card images");
+  }
+});

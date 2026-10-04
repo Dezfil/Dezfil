@@ -90,6 +90,28 @@ memory, including assistant recovery locators and prepared download state.
 Saved layer and workflow SQL in the data directory is unaffected by this
 browser cleanup.
 
+## Finishing account deletion
+
+Users lists pending and needs-retry deletions separately from accounts. Finish
+deleting resumes the same record and is safe to retry after restart. Never remove
+its journal or edit its identity rows manually. An active admin uses the same
+status and continuation operations through the [API](api.md) or [MCP](mcp.md).
+A long-lived outside reader, such as a replication sidecar, can keep deletion unfinished until it releases the database; release it, then use Finish deleting.
+
+Check free space on both the data volume and SQLite's temporary filesystem. The
+whole metadata-store rewrite pauses every response, including health. Measured
+pauses range from about a second or less at 64 MiB to 3.4–8.8 seconds at 1 GiB in
+the container, and 9–38 seconds at 1 GiB on a host short of memory or disk. The
+[host guide](self-hosting.md#leaving-and-deleting-accounts) states the 256 MiB result,
+space planning, cache purge and exact copy limits. A failed compaction stays
+unfinished and can be retried; these measurements promise no maximum pause.
+
+The [upgrade and packaged recovery proof](testing/account-deletion-recovery.md)
+and [built-image deletion journey](testing/account-deletion-image.md) exercise
+original-profile removal and remaining-admin recovery on disposable stores. The
+[served contract proof](testing/account-deletion-guidance.md) compares published
+counts, errors, actors, generated tools and installed guidance.
+
 ## Retained account identity upgrade
 
 Stop the instance and verify a whole-data-directory backup, including `secret.key`,
@@ -101,7 +123,7 @@ A failed rebuild rolls back; opening again retries it.
 
 Deleted identities reserve their SQL name permanently. Their profile fields are
 absent; the original-account adoption marker still prevents setup from reopening.
-The deletion operations are not exposed yet. The immediately preceding application
+The immediately preceding application
 can read and write this migrated schema **only while no account is deleting or
 deleted**. This is not recovery-command compatibility: local recovery requires this
 version's command and its matching schema pin. Rollback restores the matched old

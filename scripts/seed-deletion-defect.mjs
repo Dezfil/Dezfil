@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 const defects = {
+  'doc-count': ['docs/api.md', '**128 paths,', '**129 paths,'],
+  'doc-error': ['docs/api.md', '| `deletion_changed` |', '| `missing_deletion_changed` |'],
+  'doc-actor': ['src/lib/api/openapi-document-facts.ts', '    { type: "object", properties: { deleted: { type: "boolean", const: true } }, required: ["deleted"], additionalProperties: false },\n', ''],
+  'doc-plugin': ['plugins/dezfil/skills/dezfil/analysis.md', '## account-departures', '## stale-departures'],
   'row-only': ['src/lib/metadata/account-compaction.mjs', 'db.exec("VACUUM");', '/* Seed: checkpoint alone leaves historical free pages. */'],
   'foreign-card': ['src/lib/auth/account-erasure-derivatives.ts', 'eraseThumbnailArtifacts(captured.maps, datasets)', 'eraseThumbnailArtifacts(captured.maps, [])'],
   'original-setup': ['src/lib/metadata/accounts.ts', 'SELECT 1 FROM original_account UNION ALL SELECT 1 FROM accounts LIMIT 1', "SELECT 1 FROM original_account o JOIN accounts a ON a.id=o.account_id WHERE a.status='active'"],
@@ -25,4 +29,4 @@ assert.equal(execFileSync('git', ['branch', '--show-current'], { encoding: 'utf8
 const [file, before, after] = defects[mode];
 assert.equal(execFileSync('git', ['status', '--porcelain', '--', file], { encoding: 'utf8' }).trim(), '', 'restore earlier seeds first');
 const source = readFileSync(file, 'utf8'); assert.equal(source.split(before).length, 2, 'unique seed anchor');
-writeFileSync(file, source.replace(before, after)); console.log(`Seeded ${mode}. Rebuild; the corresponding proof must fail.`);
+writeFileSync(file, source.replace(before, after)); console.log(`Seeded ${mode}: ${file}. Rebuild product-source seeds; the corresponding proof must fail.`);

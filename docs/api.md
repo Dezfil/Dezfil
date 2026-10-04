@@ -554,6 +554,17 @@ anonymization nor disk-remanence erasure is promised. An outside database
 reader or insufficient temporary space can leave compaction unfinished;
 release the reader or restore space, then use Finish deleting.
 
+Finishing deletion rewrites the whole metadata store and pauses all responses.
+Allow free working space on both the data volume and SQLite's temporary filesystem;
+the [host guide](self-hosting.md#leaving-and-deleting-accounts) gives measured pauses
+and space requirements. A failed compaction remains unfinished and safe to retry.
+Completion also waits for prepared files to settle or expire and cleanup to finish.
+Recorded dataset inputs identify foreign card images, tiles and private prepared
+copies for erasure; existing unattributed card images owned by others remain. Runs
+of workflows deleted before their owner's account no longer have a workflow owner
+and remain, with Deleted account as starter. Copies outside the instance, including
+downloaded files and a database a connection wrote to, are not reached.
+
 **Directory.** `GET /api/accounts/search?q=` is how a signed-in person finds
 someone to share a project with, and the one deliberate exception to
 account reads being an admin's. Any signed-in account may call it. It finds
@@ -1653,6 +1664,7 @@ response message. Branch on the code.
 <!-- error-catalogue:start -->
 | Code | Meaning |
 |---|---|
+| `project_owner_cannot_leave` | The project's owner cannot leave. Transfer or delete the project instead. |
 | `method_not_allowed` | This method is not allowed for this path. |
 | `authentication_required` | Sign in with a valid session or account token to continue. |
 | `invalid_credentials` | Email or password is incorrect. |
@@ -1696,7 +1708,6 @@ response message. Branch on the code.
 | `mcp_response_invalid` | The instance returned a response that does not match this operation's documented result. |
 | `stale_revision` | This item has changed. Reload it before trying again. |
 | `invalid_request` | The request was malformed or failed validation, including a missing or malformed required edit revision. Read the item before a covered write. |
-| `project_owner_cannot_leave` | The project's owner cannot leave. Transfer or delete the project instead. |
 | `not_found` | The requested resource was not found. |
 | `sql_rejected` | The SQL was not an accepted read-only query. |
 | `sql_error` | The SQL failed to parse or execute. |
