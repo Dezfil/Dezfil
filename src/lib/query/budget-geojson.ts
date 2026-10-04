@@ -40,8 +40,8 @@ export function geojsonProjection(expression: string): string {
   // notation can change the byte count without first decoding an oversized cell.
   const integerJSON = `NOT regexp_matches(${expression}, '[0-9][.eE]|[0-9]{16}|-0[,\\]]')`;
   const text = `CASE WHEN ${integerJSON} THEN ${expression} END`;
-  return `struct_pack(bytes := octet_length(encode(${text})), text := ${text},
-    objects := ${coordinateProjection(`CASE WHEN NOT (${integerJSON}) THEN ${expression} END`)})`;
+  return `CASE WHEN ${expression} IS NULL THEN NULL ELSE struct_pack(bytes := octet_length(encode(${text})), text := ${text},
+    objects := ${coordinateProjection(`CASE WHEN NOT (${integerJSON}) THEN ${expression} END`)}) END`;
 }
 
 function coordinates(vector: DuckDBVector, index: number, depth: number, budget: CellBudget): unknown {
@@ -61,6 +61,7 @@ function coordinates(vector: DuckDBVector, index: number, depth: number, budget:
 
 export function decodeGeoJSON(vector: DuckDBVector, index: number, budget: CellBudget): unknown {
   const cell = vector as DuckDBStructVector;
+  if (!cell.isItemValid(index)) { budget.take(4); return null; }
   const bytes = cell.entryVectorAt(0).getItem(index);
   if (bytes !== null) {
     budget.take(Number(bytes));
