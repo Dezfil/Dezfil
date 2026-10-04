@@ -1,8 +1,10 @@
+import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
+import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { requireFilingDestination } from "@/lib/auth/reach";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { dataDir } from "@/lib/config";
 import { withConnection } from "@/lib/duckdb";
 import { ApiError } from "@/lib/api/errors";
@@ -204,12 +206,15 @@ export async function ingestFile(
   provenance: IngestProvenance = { source: "upload", sourceParams: null },
   requestedName?: string,
 ): Promise<DataTable> {
+  const deletionWork = admitAccountWork([requireAccountScope(scope)]);
+  try {
   requireAccountScope(scope);
   if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
   const format = detectFormat(originalFilename);
   const id = randomUUID();
   const relFile = path.join("tables", `${id}.parquet`);
   const artifact = path.join(dataDir(), relFile);
+    registerAccountFile(scope.accountId, artifact);
 
   try {
     const meta = await buildArtifact(sourcePath, originalFilename, artifact);
@@ -244,7 +249,9 @@ export async function ingestFile(
       return table;
     })();
   } catch (error) {
-    await rm(artifact, { force: true });
+    await removeAccountFile(artifact, { force: true });
     throw error;
   }
+
+  } finally { deletionWork.release(); }
 }

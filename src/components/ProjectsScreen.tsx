@@ -26,7 +26,10 @@ import { Dialog } from "./ui/Dialog";
 import { ErrorNote } from "./ui/ErrorNote";
 import { ListHeading } from "./ListHeading";
 import { headingLine } from "./scope/model";
-import { PlusIcon } from "./ui/icons";
+import { PlusIcon, SignOutIcon } from "./ui/icons";
+import { LeaveProjectDialog, ownsFiledWork } from "./projects/LeaveProjectDialog";
+import { useDepartureNotice } from "./projects/departure-notice";
+import { useSignedInSqlName } from "./sharing/signed-in";
 import {
   filterProjects,
   PROJECT_SORTS,
@@ -61,6 +64,8 @@ const count = (n: number, word: string) =>
 
 export function ProjectsScreen() {
   const router = useRouter();
+  const me = useSignedInSqlName();
+  const { notice: departureNotice, clear: clearDeparture } = useDepartureNotice();
   const { state, retry, mutate, refresh } = useProjectsWorld();
   const world = state.status === "ready" ? state.value : null;
   // The workflow miniature's group hues (the same read the home makes).
@@ -85,7 +90,9 @@ export function ProjectsScreen() {
   const [creating, setCreating] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [exporting, setExporting] = useState<{ id: string; name: string } | null>(null);
-  const [exportNote, setExportNote] = useState<string | null>(null);
+  const [exportNote, setExportNote] = useState<string | null>(departureNotice);
+  useEffect(() => clearDeparture(), [clearDeparture]);
+  const [leaving, setLeaving] = useState<ProjectOverview | null>(null);
   // The share dialog, the owner's, opened from a card's Share action.
   const [sharing, setSharing] = useState<ProjectOverview | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -93,6 +100,15 @@ export function ProjectsScreen() {
     null,
   );
   const searchRef = useRef<HTMLInputElement>(null);
+  // A departure removes the card whose action opened the confirmation, so
+  // focus goes to search instead. It moves in an effect of the render that
+  // closes the dialog: by then the dialog's own cleanup has released the
+  // page behind it and tried its opener. Asked any earlier, the search box
+  // is still inert and a browser ignores the call.
+  const [departures, setDepartures] = useState(0);
+  useEffect(() => {
+    if (departures > 0) searchRef.current?.focus();
+  }, [departures]);
 
   // "/" focuses search — unless the user is already typing somewhere.
   useEffect(() => {
@@ -306,8 +322,7 @@ export function ProjectsScreen() {
 
   const acts = (p: ProjectOverview, rowStyle: string) => {
     const armed = confirmId === p.id;
-    // Someone else's project: exporting what one can read is all that
-    // is one's own to do here.
+    // Members export what they can read or end their own grant.
     const owned = !p.role || p.role === "owner";
     return (
       <span className={rowStyle}>
@@ -333,6 +348,20 @@ export function ProjectsScreen() {
         >
           <IconDownload />
         </button>
+        {!owned && (
+          <button
+            className={gallery.deleteAct}
+            data-hint="Leave project"
+            aria-label={`Leave ${p.name}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.currentTarget.focus();
+              setLeaving(p);
+            }}
+          >
+            <SignOutIcon />
+          </button>
+        )}
         {owned && (
           <button
             data-hint="Share project"
@@ -558,6 +587,21 @@ export function ProjectsScreen() {
           onDone={(message) => {
             setExporting(null);
             setExportNote(message);
+          }}
+        />
+      )}
+      {leaving && world && (
+        <LeaveProjectDialog
+          projectId={leaving.id}
+          projectName={leaving.name}
+          ownsWork={ownsFiledWork(world, leaving.id, me)}
+          onClose={() => setLeaving(null)}
+          onDone={(notice) => {
+            mutate((current) => ({ ...current, projects: current.projects.filter(p => p.id !== leaving.id) }));
+            setLeaving(null);
+            setExportNote(notice);
+            setDepartures((n) => n + 1);
+            refresh().catch(() => retry());
           }}
         />
       )}

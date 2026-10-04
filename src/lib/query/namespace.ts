@@ -4,6 +4,7 @@ import { datasetReachOf, reachableDatasetIds } from "@/lib/auth/reach";
 import { requireAccountScope } from "@/lib/auth/scope";
 import { deriveTableName } from "@/lib/ingest/naming";
 import { metadataDb } from "@/lib/metadata/db";
+import { accountSqlNames } from "@/lib/metadata/accounts";
 import { isPublicationScope, requirePublicationScope, type PublicationScope } from "@/lib/publish/publication-scope";
 import type { DatasetScope } from "./access";
 import { ownerlessDatasets, reachableDatasets, type Namespace } from "./bindings";
@@ -13,8 +14,7 @@ import { publicationKey, rememberedPublication, resolvePublication, type Publica
 
 function sqlNameOf(account: string | null, db: Database): string | null {
   if (account === null) return null;
-  const row = db.prepare("SELECT sql_name FROM accounts WHERE id = ?").get(account) as { sql_name: string | null } | undefined;
-  return row?.sql_name ?? null;
+  return accountSqlNames([account], db).get(account) ?? null;
 }
 
 type StepRow = { parameters: string; proposed_parameters: string | null; output_table_name: string | null;

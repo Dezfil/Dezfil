@@ -13,7 +13,7 @@ it("publishes project reach, owner and role, atomic member checks and delete-unf
     expect(operation.description).not.toContain("belong only to the authenticated account");
     expect(operation.description).toContain("Anyone who reaches a project may export it, viewers included");
     expect(operation.description).not.toContain("Exporting stays the project owner's");
-    expect(operation.description).toContain("Renaming, the note, dissolution, its people and its transfer are the owner's");
+    expect(operation.description).toContain("Renaming, the note, dissolution, adding people, changing their roles, removing other people and its transfer are the owner's");
     expect(operation.responses).toHaveProperty("404"); count++;
   }
   expect(count).toBe(8);

@@ -11,17 +11,20 @@ let bundle: string;
 // Compile just this boundary into an isolated Node process. The listener in
 // the child sees unowned rejections without Vitest's global handler. Only
 // downstream ingestion/metadata and authenticated scope are supplied as fixtures;
-// receiver and HTTP mapper are real.
+// receiver, ownership ledger and HTTP mapper are real.
 beforeAll(async () => {
   bundle = await mkdtemp(path.join(process.cwd(), ".tmp-upload-"));
   const files = [
-    "src/lib/ingest/receive.ts", "src/lib/config.ts", "src/lib/limits.ts",
+    "src/lib/ingest/receive.ts", "src/lib/ingest/file-ownership.ts", "src/lib/config.ts", "src/lib/limits.ts",
     "src/lib/api/errors.ts", "src/lib/api/error-catalogue.ts", "src/lib/auth/errors.ts",
     "src/lib/project-scope.ts", "src/app/api/tables/route.ts",
   ];
   const mocks = new Map([
     // This fixture isolates receiver lifetime; the gate has its own real-route inventory.
     ["src/lib/auth/route-gate.ts", "exports.withRouteGate = (_request, work) => work();"],
+    // No account work is admitted in this receiver fixture. Still run and await
+    // the real ownership cleanup; deletion-lease retention is proven separately.
+    ["src/lib/auth/account-deletion-work.ts", "exports.observeDeletionCleanup = (cleanup) => cleanup();"],
     ["src/lib/ingest/gdal-formats.ts", `
       const fs = require("node:fs/promises");
       exports.calls = [];
@@ -107,6 +110,8 @@ for (const boundary of ["receiver", "route"] as const) {
       expect.soft(result.ingestsAtSettlement).toBe(0);
       expect.soft(result.filesAtSettlement).toEqual([]);
       expect.soft(result.filesAfterLateWork).toEqual([]);
+      expect.soft(result.ownedFilesAtSettlement).toEqual([]);
+      expect.soft(result.ownedFilesAfterLateWork).toEqual([]);
       expect.soft(result.globalRejections).toEqual([]);
       expect.soft(result.sourceSettled).toBe(true);
       expect.soft(result.parserClosedAtSettlement).toBe(true);
@@ -129,6 +134,8 @@ for (const boundary of ["receiver", "route"] as const) {
       expect.soft(result.status).toBe(201);
       expect.soft(result.filename).toBe("points.csv");
       expect.soft(result.bytes).toBe("x,y\n" + "1,2\n".repeat(2048));
+      expect.soft(result.ownedFilesAtSettlement).toEqual([]);
+      expect.soft(result.ownedFilesAfterLateWork).toEqual([]);
       expect.soft(result.destinationClosedAtSettlement).toBe(true);
       expect.soft(result.globalRejections).toEqual([]);
       expect.soft(result.sourceSettled).toBe(true);

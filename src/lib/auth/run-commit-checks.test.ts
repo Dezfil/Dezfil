@@ -14,6 +14,8 @@ import { cascadeSettled, readCascade, startCascade, startSingleRun } from "@/lib
 import { isExecuting, laneSettled, resetLane } from "@/lib/operations/lane";
 import { cancelRun, startRun } from "@/lib/operations/run";
 import { removeTable } from "@/lib/table-service";
+import { createApiToken } from "./credentials";
+import { requireRequestAuth } from "./http";
 import { testAccountRequest, testAccountScope } from "@/lib/test-support/accounts";
 import { shareProject, unfileDataset } from "@/lib/test-support/sharing";
 import type { CascadeRun } from "@/lib/metadata/cascades";
@@ -126,6 +128,17 @@ async function heldRun(start: () => Promise<CascadeRun>, change: () => void | Pr
   return run;
 }
 
+async function depart(project: string, kind: "session" | "token") {
+  const { POST } = await import("@/app/api/projects/[id]/leave/route");
+  const request = testAccountRequest(new Request(`http://instance.test/api/projects/${project}/leave`, { method: "POST" }), undefined, "bob");
+  if (kind === "token") {
+    const token = createApiToken(requireRequestAuth(request), "Leave during work");
+    request.headers.delete("cookie"); request.headers.set("authorization", `Bearer ${token.secret}`);
+  }
+  const response = await POST(request, { params: Promise.resolve({ id: project }) });
+  expect(response.status).toBe(200); expect(await response.json()).toEqual({ left: true });
+}
+
 describe("authority lost while a run is in flight", () => {
   it("completes a demoted editor's admitted step privately and admits nothing further", async () => {
     const first = await startCascade(scopes.ada, { expectedRevision: readEditRevision({ kind: "workflow", id: W })?.editRevision, recipeId: W });
@@ -158,6 +171,8 @@ describe("authority lost while a run is in flight", () => {
   it.each([
     ["the workflow unfiled", () => { fileRecipe(V, null); }],
     ["the runner removed from the project", () => { db().prepare("DELETE FROM project_people WHERE project_id = 'Q' AND account_id = 'bob'").run(); }],
+    ["self-departure through a session", () => depart("Q", "session")],
+    ["self-departure through a token", () => depart("Q", "token")],
     ["the project dissolved", () => { deleteProject("Q"); }],
   ])("completes privately when %s leaves the runner without the workflow", async (_label, change) => {
     const run = await heldRun(() => startSingleRun(scopes.bob, V, VS, { expectedRevision: readEditRevision({ kind: "workflow", id: V })?.editRevision }), change);
@@ -195,6 +210,8 @@ describe("an input withdrawn before the output commits", () => {
   it.each([
     ["unfiled by its owner", () => { unfileDataset("P", roads); }],
     ["deleted by its owner", () => removeTable(scopes.ada, "roads")],
+    ["self-departure through a session", () => depart("P", "session")],
+    ["self-departure through a token", () => depart("P", "token")],
     ["out of reach once the runner leaves the project", () => { db().prepare("DELETE FROM project_people WHERE project_id = 'P' AND account_id = 'bob'").run(); }],
   ])("refuses the output when %s, though the step already read it", async (_label, change) => {
     const run = await heldRun(() => startSingleRun(scopes.bob, W, S, { expectedRevision: readEditRevision({ kind: "workflow", id: W })?.editRevision }), change);
@@ -260,4 +277,19 @@ describe("cancelling a run after its initiator stops reaching the workflow", () 
       if (getJob(jobId)?.state === "running") await cancelRun(scopes.bob, jobId);
     }
   }, 60_000);
+});
+
+describe("accepted owner erasure during output work", () => {
+  it("refuses a held workflow output and proposal even when the runner owns every input", async () => {
+    const before = record(VS);
+    const run = await heldRun(() => startSingleRun(scopes.bob, V, VS, { expectedRevision: readEditRevision({ kind: "workflow", id: V })!.editRevision }), () => {
+      db().exec("UPDATE accounts SET status = 'deleting' WHERE id = 'ada'");
+    });
+    expect(owned("bob", "copied")).toBeUndefined();
+    expect(record(VS)).toEqual(before);
+    expect(read(run.id).outcome).not.toBe("completed");
+    await expect(startSingleRun(scopes.bob, V, VS, { expectedRevision: readEditRevision({ kind: "workflow", id: V })!.editRevision })).rejects.toThrow();
+    const independent = await startRun(scopes.bob, { operation: "sql_step", parameters: { sql: "SELECT * FROM mine", name: "independent_after" } });
+    await laneSettled(); expect(getJob(independent.id)?.state).toBe("succeeded");
+  });
 });

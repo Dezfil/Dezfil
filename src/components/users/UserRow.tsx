@@ -8,10 +8,10 @@ import { ChevronIcon } from "@/components/ui/icons";
 import { SignInHandOver, type HandOver } from "./SignInHandOver";
 import styles from "./UsersScreen.module.css";
 
-export function UserRow({ account, own, open, busy, handOver, onToggle, onAccess, onReset, onDone }: {
+export function UserRow({ account, own, open, busy, handOver, onToggle, onAccess, onReset, onDone, onDelete }: {
   account: Account; own: boolean; open: boolean; busy: boolean; handOver: HandOver | null;
   onToggle: () => void; onAccess: (patch: { isAdmin?: boolean; status?: "active" | "deactivated" }) => Promise<boolean>;
-  onReset: () => Promise<boolean>; onDone: () => void;
+  onReset: () => Promise<boolean>; onDone: () => void; onDelete: () => void;
 }) {
   const id = useId(), [confirm, setConfirm] = useState<"reset" | "deactivate" | null>(null);
   const status = account.status === "active" ? "Active" : account.status === "invited" ? "Invited" : "Deactivated";
@@ -39,11 +39,13 @@ export function UserRow({ account, own, open, busy, handOver, onToggle, onAccess
         <Button variant="quiet" disabled={busy} onClick={() => setConfirm(null)}>Cancel</Button>
       </div> : account.status === "deactivated" ? <div className={styles.actions}>
         <Button busy={busy} onClick={() => void onAccess({ status: "active" })}>Reactivate</Button>
+        <span className={styles.grow} /><Button variant="quiet" disabled={busy} onClick={onDelete}>Delete account</Button>
       </div> : <div className={styles.actions}>
         <Button disabled={busy} onClick={() => setConfirm("reset")}>{resetLabel}</Button>
         <Button disabled={busy} onClick={() => void onAccess({ isAdmin: !account.isAdmin })}>{account.isAdmin ? "Remove admin" : "Make admin"}</Button>
         <span className={styles.grow} /><span className={styles.note}>Added {new Date(account.createdAt).toLocaleDateString()}</span>
         <Button variant="quiet" disabled={busy} onClick={() => setConfirm("deactivate")}>Deactivate</Button>
+        {account.status === "invited" && <Button variant="quiet" disabled={busy} onClick={onDelete}>Delete account</Button>}
       </div>}
     </div>}
   </div>;

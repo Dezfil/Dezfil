@@ -38,6 +38,15 @@ export async function accessBody(request: Request) {
   return body as { isAdmin?: boolean; status?: "active" | "deactivated" };
 }
 
+export async function deletionBody(request: Request) {
+  const body = await objectBody(request, ["confirm", "confirmation", "email"]);
+  if (body.confirm !== true || typeof body.confirmation !== "string" || !/^[a-f0-9]{64}$/.test(body.confirmation) ||
+      body.email !== undefined && typeof body.email !== "string") {
+    throw new AuthError("invalid_request", "Confirm deletion using a fresh preview.", 400);
+  }
+  return { confirm: true, confirmation: body.confirmation, ...(body.email === undefined ? {} : { email: body.email as string }) };
+}
+
 export function handOver(request: Request, issued: { account: unknown; secret: string; expiresAt: number }) {
   const url = new URL("/accept", requestIngress(request).origin);
   url.hash = new URLSearchParams({ secret: issued.secret }).toString();

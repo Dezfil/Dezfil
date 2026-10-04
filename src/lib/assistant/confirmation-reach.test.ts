@@ -50,6 +50,8 @@ const req = (url: string, body?: unknown) => testAccountRequest(new Request(orig
 async function dispatch(request: Request): Promise<Response> {
   request = testAccountRequest(request);
   const p = new URL(request.url).pathname.split("/");
+  if (p[2] === "projects" && p[4] === "leave") return (await import("@/app/api/projects/[id]/leave/route")).POST(request, params(p[3]));
+  if (p[2] === "projects" && p.length === 4) return (await import("@/app/api/projects/[id]/route")).GET(request, params(p[3]));
   if (p[2] === "catalogue") return catalogue(request);
   if (p[2] === "recipes" && p.length === 4) return recipeGet(request, params(p[3]));
   if (p[2] === "recipes" && p[4] === "runs") return runRecipe(request, params(p[3]));
@@ -105,3 +107,30 @@ it.each([
     await cascadeSettled(runs[0].id); await laneSettled();
   }
 });
+
+
+for (const role of ["viewer", "editor"] as const) for (const frozen of [false, true]) {
+  it(`confirms or declines ${role} Leave with a ${frozen ? "frozen" : "live"} owner`, async () => {
+    testAccountScope(); testAccountScope(undefined, "ada");
+    shareProject("ada", "P", [["test-account", role]]);
+    if (frozen) metadataDb().prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'ada'").run();
+    for (const approved of [false, true]) {
+      factory.provider = stubProvider([reply(tool("leave_project", { id: "P" })), reply()] as ScriptEntry[]);
+      const id = (await (await reserve()).json()).id as string;
+      const opening = await events(await message(req("/api/assistant/messages", { runId: id, message: "Leave this project." })));
+      const question = opening.find(event => event.type === "confirm_required");
+      expect(question).toMatchObject({ tool: "leave_project", args: { id: "P" }, confirmation: {
+        consequence: expect.stringContaining("stays in the project"),
+      } });
+      const parked = ((await (await pending()).json()).pending as { id: string; runId: string }[]).find(p => p.runId === id)!;
+      expect(metadataDb().prepare("SELECT role FROM project_people WHERE project_id = 'P'").get()).toEqual({ role });
+      const resumed = await events(await message(req("/api/assistant/messages", { resolution: { pending: parked.id, approved } })));
+      const result = resumed.find(event => event.type === "tool_result" && event.tool === "leave_project");
+      expect(result).toMatchObject({ ok: approved, decision: approved ? "approved" : "declined" });
+      if (approved) {
+        expect(result).toMatchObject({ body: { left: true } });
+        expect(metadataDb().prepare("SELECT * FROM project_people WHERE project_id = 'P'").all()).toEqual([]);
+      } else expect(metadataDb().prepare("SELECT role FROM project_people WHERE project_id = 'P'").get()).toEqual({ role });
+    }
+  });
+}

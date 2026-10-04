@@ -20,6 +20,7 @@ interface Capability {
 }
 
 const PROMISED: Capability[] = [
+  { promise: "leaving one's own grant", method: "post", path: "/api/projects/{id}/leave", tool: "leave_project" },
   { promise: "listing projects with counts and size", method: "get", path: "/api/projects", tool: "list_projects" },
   { promise: "creating a project, optionally with initial members", method: "post", path: "/api/projects", tool: "create_project" },
   { promise: "reading a project", method: "get", path: "/api/projects/{id}", tool: "get_project" },

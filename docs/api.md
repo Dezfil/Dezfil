@@ -24,8 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **124 paths, 355 operations, 162 named
-component schemas.** Operations include supported automatic HEAD and OPTIONS.
+Measured from the current source: **128 paths, 366 operations, 167 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
 `npm run lint:contract-docs` measures these numbers and checks the catalogue below
 against the contract; changing only the reader-facing text fails the gate.
 
@@ -65,7 +64,7 @@ preconditions are declared on the operations that require them.
 
 ## Request bounds
 
-Measured JSON reader operations: **63**. These counts include optional bodies,
+Measured JSON reader operations: **64**. These counts include optional bodies,
 helper readers and MCP's external parser handoff, and exclude multipart uploads
 and binary thumbnails. The contract gate measures them; type-aware body-policy
 coverage independently checks the implementation against the contract.
@@ -73,7 +72,7 @@ coverage independently checks the implementation against the contract.
 <!-- body-tiers:start -->
 | JSON wire-byte tier | Operations |
 |---|---|
-| 65,536 | 11 |
+| 65,536 | 12 |
 | 131,072 | 1 |
 | 16,777,216 | 51 |
 <!-- body-tiers:end -->
@@ -495,12 +494,76 @@ in the fragment and does not reach the server until redemption.
 
 Normalized duplicate emails return `email_taken`. A deactivated duplicate also
 returns `accountId` and `canReactivate: true`, so the same account can be restored.
-An unaccepted invitation returns to invited status on reactivation. Self-demotion
+An email awaiting deletion completion stays reserved without offering reactivation,
+including after its profile has been removed. Accepted deletion refuses reactivation
+with `409 deletion_in_progress`. An unaccepted invitation returns to invited status on reactivation. Self-demotion
 and self-deactivation are refused even when another admin exists, and competing
 changes cannot leave the instance without an active admin. Reset invalidates the
 password and browser sessions while leaving tokens valid. Deactivation refuses
 sessions and tokens; reactivation preserves the account without reviving ended
-sessions. No user deletion operation exists.
+sessions.
+
+**Account deletion.** Another active admin may delete an ever-active account only
+following separate deactivation, including a deactivated admin. An unredeemed
+invitation may be deleted directly and wholly. Self-deletion returns
+`409 self_change_refused` before the active-target refusal `409 account_not_deactivated`.
+
+`GET /api/users/{id}/deletion-preview` returns the Users identity, `invited`,
+`totals` (maps, datasets, workflows, projects, connections, publishedLinks),
+`people` (distinct other active accounts losing reach), and an opaque `confirmation`.
+It discloses no private resource names, project references, roster or content.
+If deletion is already accepted, it returns that deletion's `id` and `state`.
+`DELETE /api/users/{id}` requires a JSON body with `confirm: true`, that
+`confirmation`, and the exact `email` for an ever-active account. Invitations
+need no typed email. The 65,536-byte limit applies. Missing confirmation is
+`400 invalid_request`; changed eligible inventory or eligibility is
+`409 deletion_changed`, with no effects. The admin must obtain a fresh preview.
+The precondition includes identities, grants, filings and publication links;
+a same-count swap or reactivate/deactivate cycle invalidates it. Unrelated
+edits to surviving documents do not.
+
+Deletion permanently erases owned work wherever filed. It dissolves owned
+projects, unfiles surviving members' work, ends grants and published links,
+and erases credentials and retained account work. It grants no private read.
+Deactivation remains the way to keep shared work. A response is `200` with
+`{id, state: "completed"}` only when cleanup has finished, or `202` with
+`state: "pending"` or `"needs-retry"`. Repeating acceptance returns the same
+unfinished deletion without restarting it. `GET /api/users/deletions/{id}`
+reads unfinished state; `POST /api/users/deletions/{id}/finish` resumes the
+same deletion, including after restart. Concurrent continuation joins the
+same work. All require current admin authority and private responses.
+`GET /api/users` adds `deletions`, a separate array of unfinished reservations
+with `id`, `state` and `account: {id, name, email, isAdmin}`. This survives
+profile erasure so Users can offer Finish deleting. Completed identities are
+absent from both arrays. A completed deletion id returns `404 not_found`;
+a client that previously received acceptance can refresh Users to reconcile
+that absence. An arbitrary missing identifier proves no deletion.
+
+Except for unredeemed invitations, cleanup purges all geocode, isochrone and
+Overpass answer caches, so subsequent requests contact providers again.
+An ever-active account retains only its opaque identity, deleted state,
+permanently reserved identifying SQL name and original-adoption marker.
+Completion frees its email; invitations also free their SQL name. Deleted
+actors are explicit `{deleted: true}`, distinct from null/Unknown, without
+name or SQL name; surviving facts, times and homes stay fixed. Other people's
+derived datasets, SQL, lineage and run text remain and may contain names or
+personal text. Issued private copies retain their shipped lifetime. Backups,
+host snapshots/logs, providers, browser-local SQL/conversations and exports
+are outside deletion; restores can revive credentials and data. Neither
+anonymization nor disk-remanence erasure is promised. An outside database
+reader or insufficient temporary space can leave compaction unfinished;
+release the reader or restore space, then use Finish deleting.
+
+Finishing deletion rewrites the whole metadata store and pauses all responses.
+Allow free working space on both the data volume and SQLite's temporary filesystem;
+the [host guide](self-hosting.md#leaving-and-deleting-accounts) gives measured pauses
+and space requirements. A failed compaction remains unfinished and safe to retry.
+Completion also waits for prepared files to settle or expire and cleanup to finish.
+Recorded dataset inputs identify foreign card images, tiles and private prepared
+copies for erasure; existing unattributed card images owned by others remain. Runs
+of workflows deleted before their owner's account no longer have a workflow owner
+and remain, with Deleted account as starter. Copies outside the instance, including
+downloaded files and a database a connection wrote to, are not reached.
 
 **Directory.** `GET /api/accounts/search?q=` is how a signed-in person finds
 someone to share a project with, and the one deliberate exception to
@@ -710,6 +773,18 @@ not yet redeemed and an unknown name are refused alike with
 nothing a removed person owns is deleted, unfiled or reassigned. A change
 governs the person's reach on their next request, with no sign-out.
 
+`POST /api/projects/{id}/leave` ends only the credential holder's grant. It takes
+no body and answers `{"left":true}`, never a roster. Active Viewers and Editors
+may leave, including frozen projects. Absent and non-member projects both answer
+`404 not_found`; owners answer `409 project_owner_cannot_leave` and can transfer
+or delete instead. On the next read the project leaves lists and filters;
+exclusive reach ends on the next request, exactly as after owner removal.
+Other grants and ownership remain, and owned work stays filed and shared, with
+its project identity still available for withdrawal. Historical attribution
+keeps its name. Already admitted reads finish once; outputs recheck permission
+and input reach at commit. No edit revision changes. The owner can add a departed
+person again under ordinary membership rules; a repeated Leave answers 404.
+
 Transfer is the only change of ownership, always the current owner's own
 act, with the new owner named by their SQL name as `{"to": "<sql name>"}`.
 `POST /api/projects/{id}/transfer` makes one of the project's active
@@ -833,7 +908,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **107** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **111** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -1093,8 +1168,12 @@ stored in history remains readable and can be echoed unchanged.
 their child definitions, list/project entries, history, layout, publication
 settings and filing dependency reads carry `editRevision`, `lastChangedAt`
 and `lastChangedBy`. Producer workflows in dependency lists carry their own
-facts. `lastChangedBy` is `{ name, sqlName }` or explicit null for unknown
-authorship, including legacy records. Departure and deactivation do not
+facts. `lastChangedBy` is `{ name, sqlName }`, `{ deleted: true }` for a deleted
+actor, or explicit null for unknown authorship, including legacy records. This
+additional actor variant is a contract change: clients must handle all three.
+The deleted variant carries neither name nor any profile fields. Actor labels
+change on read without changing revisions, authorship or times. Fixed SQL homes
+remain separately readable and are never an actor label. Departure and deactivation do not
 erase a recorded actor. Anonymous published views carry none of these facts.
 Workflow steps and their revision are captured together before presentation;
 separately read definition and layout belong together only when revisions match.
@@ -1124,7 +1203,8 @@ their revisions.
 **Shared history attribution.** `GET /api/maps/{id}/history` returns
 `canUndo`, `canRedo`, `undoTarget` and `redoTarget`. Each target is null or
 contains `steps`, `eligible` and `reason`. Steps name their original author
-as `{ name, sqlName }`, or null for unknown historical authors. A target
+as `{ name, sqlName }`, `{ deleted: true }` for a deleted actor, or null for
+unknown historical authors. Workflow run `runner` uses the same three variants. A target
 covers one contiguous group by one actor; coalescing never combines actors.
 Eligibility applies to the whole group under the caller's current edit,
 SQL admission and publication permissions. Undo and redo record the acting
@@ -1514,7 +1594,7 @@ needs no map revision and gets no private map facts; the map still records the
 change. Direct filing and map/workflow transfer do require revisions.
 
 Reached map/workflow responses carry `lastChangedBy` (display `name` and fixed
-`sqlName`, or null for Unknown) and `lastChangedAt`, separately from ownership
+`sqlName`, `{ deleted: true }` for Deleted account, or null for Unknown) and `lastChangedAt`, separately from ownership
 and general update time. Actors come from credentials, including token and
 assistant work. Legacy ownership adoption does not invent an author. No-ops,
 refusals, camera saves and derived writes do not change attribution. Actor identities remain visible to those who still reach the record after an
@@ -1584,6 +1664,7 @@ response message. Branch on the code.
 <!-- error-catalogue:start -->
 | Code | Meaning |
 |---|---|
+| `project_owner_cannot_leave` | The project's owner cannot leave. Transfer or delete the project instead. |
 | `method_not_allowed` | This method is not allowed for this path. |
 | `authentication_required` | Sign in with a valid session or account token to continue. |
 | `invalid_credentials` | Email or password is incorrect. |
@@ -1591,7 +1672,10 @@ response message. Branch on the code.
 | `setup_complete` | This instance already has an account. First-account creation is unavailable. |
 | `weak_password` | Use at least eight characters and avoid very common passwords. |
 | `email_taken` | An account already uses this normalized email address. |
-| `self_change_refused` | Another admin must change your admin flag or deactivate your account. |
+| `self_change_refused` | Another admin must change your admin flag, deactivate your account or delete it. |
+| `account_not_deactivated` | Deactivate this account before deleting it. |
+| `deletion_in_progress` | This account is being deleted and cannot be reactivated. |
+| `deletion_changed` | This account or its work has changed. Review a fresh deletion preview before confirming. |
 | `last_admin` | Keep at least one active admin. |
 | `forbidden` | This request is not permitted for the current account or origin: an admin-only request, a cookie request from another origin, or a change to something the account can view but cannot make. A refused change has no effect. |
 | `invalid_link` | This sign-in link is unavailable, expired, replaced or already used. |

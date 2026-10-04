@@ -1,3 +1,4 @@
+import { providerCacheGeneration } from "@/lib/provider-cache-generation";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { mkdir } from "node:fs/promises";
@@ -6,7 +7,7 @@ import {
   isochroneCacheKey,
   maintainIsochroneCache,
   readIsochrone,
-  writeIsochrone,
+  writeIsochrone as storeIsochrone,
   type CachedIsochrone,
 } from "./cache";
 
@@ -18,6 +19,7 @@ import {
  * protocol version, and never the URL itself.
  */
 
+const writeIsochrone = (key: string, answer: CachedIsochrone) => storeIsochrone(key, answer, providerCacheGeneration());
 let dir: string;
 const ENDPOINT = "https://router.example/isochrone?key=secret";
 const HOUR = 60 * 60 * 1000;

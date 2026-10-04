@@ -1,3 +1,4 @@
+import { providerCacheGeneration } from "@/lib/provider-cache-generation";
 import { ApiError } from "@/lib/api/errors";
 import { limits } from "@/lib/limits";
 import { readCapped } from "@/lib/net/read-capped";
@@ -332,12 +333,13 @@ export async function geocodeAddress(
   const endpoint = configuredEndpoint();
   if (!endpoint) throw unconfiguredError();
 
+  const generation = providerCacheGeneration();
   const cached = await readAnswer(endpoint, normalized);
   if (cached) return fromCache(cached, "cache");
 
   const text = await askWithRetry(endpoint, normalized, options);
   const answer = text === null ? null : readAnswerBody(text);
   if (!answer) return UNREADABLE;
-  await writeAnswer(endpoint, normalized, answer);
+  await writeAnswer(endpoint, normalized, answer, generation);
   return fromCache(answer, "wire");
 }

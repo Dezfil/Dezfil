@@ -1,12 +1,13 @@
+import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import type { DuckDBConnection } from "@duckdb/node-api";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { ingestScratchDir } from "@/lib/ingest/scratch";
 import { ident, lit } from "@/lib/ingest/sql";
 
 /** Preview fits in memory; full input uses the writable, boot-swept ingest
  * scratch directory. Small row groups bound the writer's buffered input. */
-export async function stageGeometry(conn: DuckDBConnection, select: string, full: boolean) {
+export async function stageGeometry(conn: DuckDBConnection, select: string, full: boolean, accountId?: string) {
   const name = `geometry_${crypto.randomUUID().replaceAll("-", "")}`;
   if (!full) {
     const from = ident(name);
@@ -16,7 +17,8 @@ export async function stageGeometry(conn: DuckDBConnection, select: string, full
   const dir = ingestScratchDir();
   await mkdir(dir, { recursive: true });
   const file = path.join(dir, `${name}.parquet`);
-  const dispose = async () => { await rm(file, { force: true }); };
+  if (accountId) registerAccountFile(accountId, file);
+  const dispose = async () => { await removeAccountFile(file, { force: true }); };
   try {
     // Parquet can report an entirely null geometry column as BLOB. Retain
     // the evaluated schema, including geometry CRS types, across this hop.

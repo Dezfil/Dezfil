@@ -1,3 +1,5 @@
+import { admitAccountWork, accountMaterialAvailable } from "@/lib/auth/account-deletion-admission";
+import { registerQueryStore, queryRetentionGeneration } from "@/lib/query/retained";
 import { resolvePublication } from "./publication-scope";
 import { limits } from "@/lib/limits";
 import { publicationRevision } from "@/lib/query/namespace";
@@ -47,11 +49,12 @@ function revisionOf(snapshot: PublicationSnapshot): string {
  * does not resolve. Read-only by construction: this reads map/layer state and
  * renders; it never mutates. Served within the freshness bound from cache.
  */
-export async function resolvePublishedView(
+async function resolvePublishedViewWork(
   token: string,
   now: number,
   assemble: (snapshot: PublicationSnapshot) => Promise<PublishedView>,
 ): Promise<PublishedView | null> {
+  const generation = queryRetentionGeneration();
   let snapshot = resolvePublication(token);
   if (!snapshot) {
     invalidatePublishedToken(token);
@@ -78,6 +81,9 @@ export async function resolvePublishedView(
     const revision = revisionOf(snapshot);
     const assembling: PublicationSnapshot = snapshot;
     const { value: view, inputs } = await collectInputs(() => assemble(assembling));
+    // This assembly was admitted before acceptance. Its read finishes once,
+    // but cannot repopulate a retained view after the owner became unavailable.
+    if (!accountMaterialAvailable(assembling.scope.ownerId)) return view;
     const current = resolvePublication(token);
     if (!current) {
       invalidatePublishedToken(token);
@@ -87,7 +93,7 @@ export async function resolvePublishedView(
       snapshot = current;
       continue;
     }
-    cache.set(token, {
+    if (generation === queryRetentionGeneration()) cache.set(token, {
       view,
       mapId: map.id,
       revision,
@@ -97,3 +103,20 @@ export async function resolvePublishedView(
     return view;
   }
 }
+
+const pending = new Set<Promise<unknown>>();
+function track<T>(promise: Promise<T>): Promise<T> {
+  pending.add(promise); void promise.then(() => pending.delete(promise), () => pending.delete(promise)); return promise;
+}
+export function resolvePublishedView(...args: Parameters<typeof resolvePublishedViewWork>): ReturnType<typeof resolvePublishedViewWork> {
+  const snapshot = resolvePublication(args[0]);
+  if (!snapshot) return Promise.resolve(null);
+  const admission = admitAccountWork([snapshot.scope.ownerId]);
+  return track(resolvePublishedViewWork(...args).finally(() => admission.release()));
+}
+registerQueryStore({ drain: async () => { await Promise.allSettled([...pending]); }, busy: () => pending.size > 0, clear: () => cache.clear() });
+export function publicationViewsForTests(): string[] { return [...cache.keys()]; }
+
+export function publicationPendingForTests(): number { return pending.size; }
+
+export function publicationViewForTests(token: string): PublishedView | undefined { return cache.get(token)?.view; }

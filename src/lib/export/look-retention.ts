@@ -19,10 +19,13 @@ interface Retained { accountId: string; id: string; facts: LookFacts; full: Uint
 
 export interface RetentionBounds { count: number; bytes: number }
 
+interface LookStoreState { entries: Map<string, Retained>; total: number }
 export class LookRetention {
-  private entries = new Map<string, Retained>();
-  private total = 0;
-  constructor(private readonly bounds: RetentionBounds | (() => RetentionBounds), private readonly now: () => number = Date.now) {}
+  constructor(private readonly bounds: RetentionBounds | (() => RetentionBounds), private readonly now: () => number = Date.now,
+    private readonly state: LookStoreState = { entries: new Map(), total: 0 }) {}
+  private get entries() { return this.state.entries; }
+  private get total() { return this.state.total; }
+  private set total(value: number) { this.state.total = value; }
   private limit(): RetentionBounds { return typeof this.bounds === "function" ? this.bounds() : this.bounds; }
   /** Keep a check's image and its thumbnail; evict the oldest until both bounds hold. */
   retain(scope: AccountScope, result: LookResult): { id: string; fullBytes: number; thumbnailBytes: number } {
@@ -52,6 +55,11 @@ export class LookRetention {
     const accountId = requireAccountScope(scope), entry = this.entries.get(id);
     return entry?.accountId === accountId ? structuredClone(entry.facts) : null;
   }
+  eraseAccount(accountId: string): void {
+    for (const [id, entry] of this.entries) if (entry.accountId === accountId) {
+      this.entries.delete(id); this.total -= entry.full.byteLength + entry.thumbnail.byteLength;
+    }
+  }
   sizeForTests(): { count: number; bytes: number } { return { count: this.entries.size, bytes: this.total }; }
   /** Oldest first. */
   idsForTests(): string[] { return [...this.entries.keys()]; }
@@ -60,4 +68,7 @@ export class LookRetention {
   resetForTests() { this.entries.clear(); this.total = 0; }
 }
 
-export const lookRetention = new LookRetention(() => ({ count: limits.assistantLookRetention, bytes: limits.assistantLookRetentionMb * 1024 * 1024 }));
+const lookRetentionKey = Symbol.for("dezfil.lookRetention");
+const lookRetentionHost = globalThis as typeof globalThis & { [lookRetentionKey]?: LookStoreState };
+const lookState: LookStoreState = lookRetentionHost[lookRetentionKey] ??= { entries: new Map(), total: 0 };
+export const lookRetention = new LookRetention(() => ({ count: limits.assistantLookRetention, bytes: limits.assistantLookRetentionMb * 1024 * 1024 }), Date.now, lookState);

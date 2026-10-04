@@ -1,9 +1,11 @@
+import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
+import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { resourceAbsent, requireOwnedResource } from "@/lib/auth/owned-resource";
 import { requireFilingDestination } from "@/lib/auth/reach";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { dataDir } from "@/lib/config";
 import { ApiError } from "@/lib/api/errors";
 import { registerTable, type DataTable } from "@/lib/metadata/tables";
@@ -186,6 +188,8 @@ export async function importPostgis(
   request: PostgisImportRequest,
   build: typeof buildPostgisArtifact = buildPostgisArtifact,
 ): Promise<DataTable> {
+  const deletionWork = admitAccountWork([requireAccountScope(scope)]);
+  try {
   requireAccountScope(scope);
   const projectId = importProjectId(request.projectId);
   if (projectId) requireFilingDestination(scope, projectId);
@@ -196,6 +200,7 @@ export async function importPostgis(
   const id = randomUUID();
   const relFile = path.join("tables", `${id}.parquet`);
   const artifact = path.join(dataDir(), relFile);
+    registerAccountFile(scope.accountId, artifact);
   let meta: PostgisArtifactMeta;
   let observedHealth: ConnectionHealth | null = null;
   try {
@@ -203,7 +208,7 @@ export async function importPostgis(
       observedHealth = health;
     });
   } catch (error) {
-    await rm(artifact, { force: true });
+    await removeAccountFile(artifact, { force: true });
     requireOwnedResource(scope, "connection", recipe.connectionId);
     if (isConnectionLevelFailure(error)) {
       recordConnectionFailure(scope, recipe.connectionId, error);
@@ -247,7 +252,9 @@ export async function importPostgis(
       return table;
     })();
   } catch (error) {
-    await rm(artifact, { force: true });
+    await removeAccountFile(artifact, { force: true });
     throw error;
   }
+
+  } finally { deletionWork.release(); }
 }

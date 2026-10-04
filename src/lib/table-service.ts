@@ -1,3 +1,5 @@
+import { copyFileWork, bindDeletionInputs } from "@/lib/auth/account-deletion-work";
+import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { readBudgetedRows } from "@/lib/query/budget-reader";
 import { ResultBudget, jsonBytes } from "@/lib/query/result-budget";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
@@ -9,7 +11,7 @@ import { presentDataset, type DatasetPresence } from "@/lib/dataset-presence";
 import { addressDataset, requireOwnDataset } from "@/lib/dataset-address";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { mkdir, rm, stat } from "node:fs/promises";
+import { mkdir, stat } from "node:fs/promises";
 import { dataDir } from "@/lib/config";
 import { limits } from "@/lib/limits";
 import { withConnection } from "@/lib/duckdb";
@@ -280,12 +282,14 @@ export interface TableExport {
  * artifact byte-for-byte; GeoJSON and CSV are written by DuckDB into the
  * data dir's tmp corner for the route to stream and clean up. Runs on the
  * main instance — the hardened fence guards user SQL, not our exports. */
-export async function exportTable(
+async function exportTableWork(
   scope: AccountScope,
   name: string,
   format: ExportFormat,
 ): Promise<TableExport> {
-  const table = addressDataset(scope, name).table;
+  const reached = addressDataset(scope, name);
+  bindDeletionInputs([reached.ownerId]);
+  const table = reached.table;
   const artifact = path.join(dataDir(), table.file);
   if (format === "geoparquet") {
     return {
@@ -304,6 +308,7 @@ export async function exportTable(
   }
   const ext = format === "csv" ? "csv" : "geojson";
   const tmp = path.join(dataDir(), "tmp", `export-${randomUUID()}.${ext}`);
+  registerAccountFile(scope.accountId, tmp);
   await mkdir(path.dirname(tmp), { recursive: true });
   // A tracked artifact reader: retirement waits for the conversion. A
   // conversion that fails after opening its target (a full disk, a late
@@ -336,7 +341,7 @@ export async function exportTable(
       }),
     );
   } catch (e) {
-    await rm(tmp, { force: true }).catch(() => {});
+    await removeAccountFile(tmp, { force: true });
     throw e;
   }
   return {
@@ -344,7 +349,7 @@ export async function exportTable(
     filename: `${name}.${ext}`,
     contentType:
       format === "csv" ? "text/csv; charset=utf-8" : "application/geo+json",
-    cleanup: () => rm(tmp, { force: true }),
+    cleanup: () => removeAccountFile(tmp, { force: true }),
   };
 }
 
@@ -390,5 +395,8 @@ export async function removeTable(scope: AccountScope, address: string): Promise
       );
     }
   }
+  registerAccountFile(scope.accountId, table.file);
   retireArtifact(path.join(dataDir(), table.file));
 }
+
+export function exportTable(scope: AccountScope, name: string, format: ExportFormat): Promise<TableExport> { return copyFileWork(scope, [{ table: "data_tables", id: addressDataset(scope, name).table.id }], () => exportTableWork(scope, name, format)); }

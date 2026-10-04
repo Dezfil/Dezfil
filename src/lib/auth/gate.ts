@@ -1,7 +1,7 @@
 import { apiMethodResponse } from "./api-methods";
 import { isAnonymousAsset } from "./public-assets";
 import { NextResponse } from "next/server";
-import { accountCount } from "@/lib/metadata/accounts";
+import { setupComplete } from "@/lib/metadata/accounts";
 import { AuthError } from "./errors";
 import { isAdminRequest, isAnonymousOperation, isEntryRequest } from "./request-policy";
 import { requireAdmin } from "./admin";
@@ -19,7 +19,7 @@ export function gateRequest(request: Request): Response {
     if (isEntryRequest(pathname, request.method)) {
       assertRequestOrigin(request);
       if (pathname === "/setup" || pathname === "/sign-in") {
-        const setupRequired = accountCount() === 0;
+        const setupRequired = !setupComplete();
         if (setupRequired && pathname !== "/setup") return redirect("/setup");
         if (!setupRequired) {
           const context = requestAuth(request);
@@ -38,7 +38,7 @@ export function gateRequest(request: Request): Response {
     return response;
   } catch (error) {
     if (error instanceof AuthError && error.code === "authentication_required" && pathname !== "/api" && !pathname.startsWith("/api/")) {
-      return privateResponse(NextResponse.redirect(new URL(accountCount() === 0 ? "/setup" : "/sign-in", requestIngress(request).origin)));
+      return privateResponse(NextResponse.redirect(new URL(!setupComplete() ? "/setup" : "/sign-in", requestIngress(request).origin)));
     }
     return authFailure(error);
   }

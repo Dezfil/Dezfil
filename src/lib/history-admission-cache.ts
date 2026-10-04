@@ -1,3 +1,4 @@
+import { registerQueryStore } from "./query/retained";
 import { createHash } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import type { AccountScope } from "./auth/scope";
@@ -8,13 +9,14 @@ import { namespaceFor } from "./query/namespace";
 import { admitMapSql, savesAsOwner } from "./save-admission";
 
 const LIMIT = 128;
-const caches = new WeakMap<Database, Map<string, Promise<void>>>();
+const pending = new Set<Promise<void>>();
+let caches = new WeakMap<Database, Map<string, Promise<void>>>();
 
 /** Presentation-only admission reuse. Replay still performs its own admission.
  * Permissions are checked by the caller on every read. Dataset reach, names,
  * artifacts and schema metadata participate because they can change without
  * advancing the map's revision. Failures are never retained. */
-export async function admitHistoryTarget(scope: AccountScope, mapId: string, revision: string,
+async function admitHistoryTargetWork(scope: AccountScope, mapId: string, revision: string,
   steps: HistoryStep[], direction: "undo" | "redo"): Promise<void> {
   const sql = steps.flatMap(step => {
     const image = direction === "undo" ? step.before : step.after;
@@ -46,3 +48,12 @@ export async function admitHistoryTarget(scope: AccountScope, mapId: string, rev
     throw error;
   }
 }
+
+registerQueryStore({ drain: async () => { await Promise.allSettled([...pending]); }, busy: () => pending.size > 0, clear: () => { caches = new WeakMap(); } });
+export function historyAdmissionsForTests(db: Database): number { return caches.get(db)?.size ?? 0; }
+
+export function admitHistoryTarget(...args: Parameters<typeof admitHistoryTargetWork>): ReturnType<typeof admitHistoryTargetWork> {
+  const work = admitHistoryTargetWork(...args); pending.add(work);
+  void work.then(() => pending.delete(work), () => pending.delete(work)); return work;
+}
+export function historyPendingForTests(): number { return pending.size; }

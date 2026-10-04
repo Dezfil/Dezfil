@@ -37,7 +37,7 @@ export function requireRecipe(scope: AccountScope, id: string, db: Database = me
  * reaches is filed, not none: its owner can see and withdraw that filing. */
 export function listRecipes(scope: AccountScope, db: Database = metadataDb(), filter: { origin?: recipes.RecipeOrigin; project?: string | "none" } = {}) {
   const me = requireAccountScope(scope, db);
-  const where = [`(owner_id = @me OR project_id IN (${REACHED_PROJECTS}))`];
+  const where = [`(owner_id = @me OR project_id IN (${REACHED_PROJECTS}))`, `owner_id IN (SELECT id FROM accounts WHERE status NOT IN ('deleting', 'deleted'))`];
   const args: Record<string, string> = { me };
   if (filter.origin) { where.push("origin = @origin"); args.origin = filter.origin; }
   if (filter.project === "none") where.push("owner_id = @me AND project_id IS NULL");

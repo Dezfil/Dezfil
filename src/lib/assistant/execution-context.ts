@@ -78,3 +78,9 @@ export function makeExecutionContext(
     exchange,
   };
 }
+
+export function disposeExecutionContext(ctx: ExecutionContext): void {
+  ctx.revisions.clear(); ctx.admitted.clear(); ctx.offered.clear(); ctx.byName.clear();
+  ctx.context = undefined; ctx.turn = emptyTurnFacts();
+  if (!ctx.store.holdsExchange(ctx.exchange)) ctx.exchange.dispose?.();
+}

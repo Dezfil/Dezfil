@@ -1,3 +1,4 @@
+import { providerCacheGeneration } from "@/lib/provider-cache-generation";
 import { ApiError } from "@/lib/api/errors";
 import {
   geometryVertexCount,
@@ -469,6 +470,7 @@ export async function askIsochrone(
   if (!endpoint) throw isochroneUnconfiguredError();
   const costing = COSTING_BY_MODE[mode];
   const key = isochroneCacheKey(endpoint, costing, origin, bands);
+  const generation = providerCacheGeneration();
   const cached = await readIsochrone(key);
   if (cached) return fromCache(cached, "cache");
 
@@ -499,7 +501,7 @@ export async function askIsochrone(
       snappedLon: answer.snappedLon,
       snappedLat: answer.snappedLat,
       answeredAt: new Date().toISOString(),
-    });
+    }, generation);
   }
   return answer;
 }

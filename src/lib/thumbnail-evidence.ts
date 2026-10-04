@@ -1,5 +1,7 @@
+import { observeDeletionCleanup } from "@/lib/auth/account-deletion-work";
 import { createHash, randomBytes } from "node:crypto";
-import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { renameSync } from "node:fs";
+import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { AccountScope } from "@/lib/auth/scope";
 import { dataDir } from "@/lib/config";
@@ -42,15 +44,16 @@ function digest(bytes: Uint8Array): string {
 }
 
 /** Written whole and renamed into place, before the image it describes. */
-export async function writeImageEvidence(image: string, bytes: Uint8Array, inputs: ArtifactInputs | null): Promise<void> {
+export async function writeImageEvidence(image: string, bytes: Uint8Array, inputs: ArtifactInputs | null, authorize: () => void = () => {}): Promise<void> {
   await mkdir(evidenceDir(), { recursive: true });
   const target = evidencePath(image);
   const temp = `${target}.${randomBytes(6).toString("hex")}.tmp`;
   try {
     await writeFile(temp, JSON.stringify({ sha256: digest(bytes), inputs }));
-    await rename(temp, target);
+    authorize();
+    renameSync(temp, target);
   } catch (error) {
-    await rm(temp, { force: true });
+    await observeDeletionCleanup(() => rm(temp, { force: true }));
     throw error;
   }
 }
@@ -68,7 +71,7 @@ export async function imageInputs(image: string, bytes: Uint8Array): Promise<Art
 }
 
 export async function removeImageEvidence(image: string): Promise<void> {
-  await rm(evidencePath(image), { force: true });
+  await observeDeletionCleanup(() => rm(evidencePath(image), { force: true }));
 }
 
 /** The images of one map that have evidence, by image file name. */

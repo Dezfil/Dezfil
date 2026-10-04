@@ -1,7 +1,9 @@
+import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
+import { registerAccountFile, removeAccountFile } from "./file-ownership";
 import { requireFilingDestination } from "@/lib/auth/reach";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { createWriteStream } from "node:fs";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { Transform } from "node:stream";
@@ -224,20 +226,22 @@ export function translateObjectUrl(ref: RemoteRef): string {
 async function downloadToScratch(
   url: string,
   filename: string,
+  accountId?: string,
 ): Promise<ResolvedRemoteSource> {
   const tmpDir = path.join(dataDir(), "tmp");
   await mkdir(tmpDir, { recursive: true });
   const tmpPath = path.join(tmpDir, `${randomUUID()}${path.extname(filename)}`);
+  if (accountId) registerAccountFile(accountId, tmpPath);
   try {
     await downloadHttp(url, tmpPath);
   } catch (error) {
-    await rm(tmpPath, { force: true });
+    await removeAccountFile(tmpPath, { force: true });
     throw error;
   }
   return {
     sourcePath: tmpPath,
     filename,
-    cleanup: () => rm(tmpPath, { force: true }),
+    cleanup: () => removeAccountFile(tmpPath, { force: true }),
   };
 }
 
@@ -250,12 +254,13 @@ async function downloadToScratch(
  */
 export async function resolveRemoteSource(
   raw: string,
+  accountId?: string,
 ): Promise<ResolvedRemoteSource> {
   const ref = parseRemoteUrl(raw);
   const format = detectFormat(ref.filename);
 
   if (ref.scheme === "https:" || ref.scheme === "http:") {
-    return downloadToScratch(ref.url, ref.filename);
+    return downloadToScratch(ref.url, ref.filename, accountId);
   }
 
   if (!objectStoreCredentialsEnabled()) {
@@ -270,7 +275,7 @@ export async function resolveRemoteSource(
       );
     }
     try {
-      return await downloadToScratch(translateObjectUrl(ref), ref.filename);
+      return await downloadToScratch(translateObjectUrl(ref), ref.filename, accountId);
     } catch (error) {
       if (error instanceof ApiError && error.code === "remote_fetch_failed") {
         throw new ApiError(
@@ -283,7 +288,7 @@ export async function resolveRemoteSource(
     }
   }
 
-  return resolveCredentialedObjectSource(ref, format);
+  return resolveCredentialedObjectSource(ref, format, accountId);
 }
 
 /** Best-effort anonymous size probe against the object's HTTPS form. A
@@ -313,6 +318,7 @@ async function probeObjectSize(ref: RemoteRef): Promise<number | null> {
 async function resolveCredentialedObjectSource(
   ref: RemoteRef,
   format: ReturnType<typeof detectFormat>,
+  accountId?: string,
 ): Promise<ResolvedRemoteSource> {
   const probed = await probeObjectSize(ref);
   if (probed !== null && probed > limits.remoteMaxBytes) {
@@ -336,6 +342,7 @@ async function resolveCredentialedObjectSource(
     tmpDir,
     `${randomUUID()}${path.extname(ref.filename)}`,
   );
+  if (accountId) registerAccountFile(accountId, tmpPath);
   try {
     const blob = await withConnection(async (conn) => {
       await ensureObjectStoreSupport(conn, ref.scheme);
@@ -366,10 +373,10 @@ async function resolveCredentialedObjectSource(
     return {
       sourcePath: tmpPath,
       filename: ref.filename,
-      cleanup: () => rm(tmpPath, { force: true }),
+      cleanup: () => removeAccountFile(tmpPath, { force: true }),
     };
   } catch (error) {
-    await rm(tmpPath, { force: true });
+    await removeAccountFile(tmpPath, { force: true });
     throw error;
   }
 }
@@ -382,9 +389,11 @@ export async function importFromUrl(
   requestedName?: string,
   projectId?: string | null,
 ): Promise<IngestResult> {
+  const deletionWork = admitAccountWork([requireAccountScope(scope)]);
+  try {
   requireAccountScope(scope);
   if (projectId) requireFilingDestination(scope, projectId);
-  const source = await resolveRemoteSource(url);
+  const source = await resolveRemoteSource(url, scope.accountId);
   try {
     return await ingestSource(
       scope,
@@ -399,4 +408,6 @@ export async function importFromUrl(
   } finally {
     await source.cleanup();
   }
+
+  } finally { deletionWork.release(); }
 }

@@ -1,7 +1,7 @@
 import type { Database } from "better-sqlite3";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { accountCount } from "@/lib/metadata/accounts";
+import { setupComplete } from "@/lib/metadata/accounts";
 import { AuthError } from "./errors";
 import { requestIngress } from "./http";
 import { requireRequestScope } from "./scope-http";
@@ -15,7 +15,7 @@ export async function requirePageScope(db?: Database): Promise<AccountScope> {
     return requireRequestScope(new Request(ingress.origin, { headers: incoming }), db);
   } catch (error) {
     if (error instanceof AuthError && error.code === "authentication_required") {
-      redirect(accountCount(db) === 0 ? "/setup" : "/sign-in");
+      redirect(!setupComplete(db) ? "/setup" : "/sign-in");
     }
     throw error;
   }

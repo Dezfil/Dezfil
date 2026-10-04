@@ -100,11 +100,39 @@ Administration generates `list_users`, `invite_user`, `update_user_access` and
 `issue_user_sign_in_link`. Every request requires current admin authority;
 mutations declare confirmation and their consequences. Invitation and reset
 links are disclosed once, expire after seven days and are shared by the admin.
+`preview_user_deletion`, `delete_user`, `get_user_deletion` and
+`finish_user_deletion` use the same admin routes and schemas as Users and the
+assistant. Preview shows only totals and a distinct affected-people count.
+Deletion requires the preview confirmation, `confirm: true` and the exact email
+for an ever-active account after separate deactivation; invitations need no
+email. The destructive confirmation states permanent erasure, sharing loss
+and broken published links. The description also states provider-cache purging,
+permanent identifying SQL-name reservation and backup/copy limits. A `pending`
+or `needs-retry` result is unfinished, and the record says requested or
+continued deletion rather than claiming completion. Use the same deletion id
+with Finish deleting. Completed ids return `not_found`. `list_users` includes
+a separate `deletions` array for unfinished work, including after profile erasure.
+
+Finishing deletion rewrites the metadata store and pauses all responses. The
+[host guide](self-hosting.md#leaving-and-deleting-accounts) gives measured pauses
+and the required data-volume and temporary-filesystem space; a failed compaction
+remains unfinished and safe to retry. Completion waits for prepared-copy settlement
+or expiry and cleanup. Recorded dataset inputs identify affected foreign derivatives;
+existing unattributed card images owned by others remain. Runs whose workflows were
+already deleted have no remaining workflow owner and stay with Deleted account as
+starter. Copies outside the instance, including downloads and databases written
+through connections, are not reached. Backup restoration can revive credentials.
 
 A project's people generate `list_project_people`, `set_project_person` and
 `remove_project_person`. Anyone who reaches the project reads them; the two
 changes are the project owner's and declare confirmation, since each changes
-who reaches the project. Transfer generates `transfer_project`,
+who reaches the project. `leave_project` ends the credential holder's own grant,
+including in a frozen project, after confirmation of reach loss. It takes only
+`id` and returns `{"left":true}`, never a roster. Owners receive
+`project_owner_cannot_leave`; missing and non-member projects receive `not_found`.
+Owned work stays filed and shared, other grants remain, and membership changes
+no edit revisions. The assistant uses the same operation and confirmation.
+Transfer generates `transfer_project`,
 `transfer_map` and `transfer_workflow`, each the owner's and each behind
 confirmation, since only the new owner can give it back. `find_accounts`
 is the directory search any signed-in account may call to find someone to
@@ -133,9 +161,9 @@ Direct multipart upload uses the separately configured upload limit.
 
 | | |
 |---|---|
-| Documented operations | 355 |
-| Operations that become tools | 136 |
-| Deliberately excluded | 219 |
+| Documented operations | 366 |
+| Operations that become tools | 141 |
+| Deliberately excluded | 225 |
 
 Measured by building the OpenAPI document and the tool set from
 `src/lib/api/openapi.ts` and `src/lib/tools/tools.ts` and counting the
@@ -352,3 +380,12 @@ let current = await call("get_map", { id: created.id });
 current = await call("update_map", { id: created.id, name: "Survey map" });
 current = await call("update_map", { id: created.id, basemap: "light" });
 ```
+
+
+Historical actors in reached document facts (`lastChangedBy`), Undo/Redo target
+steps (`author`) and workflow runs (`runner`) now have three contract variants:
+`{ name, sqlName }`, `{ deleted: true }`, and `null` for Unknown. The generated
+output schemas and assistant results carry the same values as REST. Clients
+must handle the new deleted variant, which includes no display name, SQL name,
+email or other profile fields. Resolve SQL homes separately; changing an actor's
+label does not change the stored authorship, timestamps or document revisions.

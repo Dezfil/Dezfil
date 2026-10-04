@@ -9,7 +9,7 @@ import type { GeometryChoice, GeometryIssue } from "./types";
 import { stageGeometry } from "./stage";
 
 /** A SQL plan with collision-proof working names. Full input remains in DuckDB. */
-export async function evaluateGeometry(conn: DuckDBConnection, from: string, choice: GeometryChoice, native = false, sampleRows?: number) {
+export async function evaluateGeometry(conn: DuckDBConnection, from: string, choice: GeometryChoice, native = false, sampleRows?: number, accountId?: string) {
   const suffix = crypto.randomUUID().replaceAll("-", "");
   const raw = `raw_${suffix}`, present = `present_${suffix}`, placed = `placed_${suffix}`, output = `output_${suffix}`;
   const issues: GeometryIssue[] = [];
@@ -40,7 +40,7 @@ export async function evaluateGeometry(conn: DuckDBConnection, from: string, cho
   const input = sampleRows === undefined ? from : `(SELECT * FROM ${from} LIMIT ${sampleRows})`;
   const decoded = `SELECT *, ${presentSql(choice.columns)} AS ${ident(present)}, ${decode} AS ${ident(raw)} FROM ${input}`;
   const { from: stage, dispose } = await stageGeometry(conn,
-    `SELECT *, ${degreeSql(ident(raw))} AS ${fitsColumn} FROM (${decoded})`, sampleRows === undefined);
+    `SELECT *, ${degreeSql(ident(raw))} AS ${fitsColumn} FROM (${decoded})`, sampleRows === undefined, accountId);
   try {
     const nonempty = `${ident(raw)} IS NOT NULL AND NOT ST_IsEmpty(${ident(raw)})`;
     const stats = (await conn.runAndReadAll(`SELECT count(*) FILTER (WHERE ${nonempty}) n,

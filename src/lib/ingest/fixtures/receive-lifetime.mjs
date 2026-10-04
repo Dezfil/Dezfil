@@ -71,6 +71,7 @@ require.cache[busboyPath].exports = (options) => {
 };
 
 const { receiveUpload } = require(path.join(bundle, "src/lib/ingest/receive.cjs"));
+const { accountFiles, removeAccountFile } = require(path.join(bundle, "src/lib/ingest/file-ownership.cjs"));
 const { errorResponse } = require(path.join(bundle, "src/lib/api/errors.cjs"));
 const { POST } = require(path.join(bundle, "src/app/api/tables/route.cjs"));
 const ingest = require(path.join(bundle, "src/lib/ingest/gdal-formats.cjs"));
@@ -143,9 +144,9 @@ async function receive(request) {
       ...(response.status === 201 ? ingest.calls.at(-1) : {}) };
   }
   try {
-    const received = await receiveUpload(request);
+    const received = await receiveUpload(request, "upload-fixture");
     const bytes = await readFile(received.tmpPath, "utf8");
-    await rm(received.tmpPath);
+    await removeAccountFile(received.tmpPath);
     return { status: 201, filename: received.filename, bytes };
   } catch (error) {
     // Use the real mapper for the receiver's coded outcome and bodiless 499.
@@ -161,7 +162,7 @@ let settledSnapshot;
 const pending = receive(request).then(async (result) => {
   settledSnapshot = {
     sourceSettled, parserClosedAtSettlement: parsers.every((p) => p.closed), destinationClosedAtSettlement: destinations.every((d) => d.closed),
-    ingestsAtSettlement: ingest.calls.length, filesAtSettlement: await files(),
+    ingestsAtSettlement: ingest.calls.length, filesAtSettlement: await files(), ownedFilesAtSettlement: accountFiles("upload-fixture"),
     chunksAtSettlement: chunksProduced,
   };
   return result;
@@ -212,10 +213,11 @@ const result = await Promise.race([
 clearTimeout(timer);
 if (!settledSnapshot) {
   settledSnapshot = { sourceSettled, parserClosedAtSettlement: parsers.every((p) => p.closed), destinationClosedAtSettlement: destinations.every((d) => d.closed),
-    ingestsAtSettlement: ingest.calls.length, filesAtSettlement: await files() };
+    ingestsAtSettlement: ingest.calls.length, filesAtSettlement: await files(), ownedFilesAtSettlement: accountFiles("upload-fixture") };
 }
 await delay(150);
 const filesAfterLateWork = await files();
+const ownedFilesAfterLateWork = accountFiles("upload-fixture");
 const createdBeforeRecovery = destinationsCreated;
 recovering = true;
 const form = new FormData();
@@ -224,7 +226,7 @@ const recoveryResult = await receive(new Request("http://dezfil.test/api/tables"
 const recovery = { status: recoveryResult.status, filename: recoveryResult.filename, bytes: recoveryResult.bytes };
 await delay(20);
 console.log(JSON.stringify({ timedOut: false, ...result, ...settledSnapshot, partialBytes,
-  destinationsCreated: createdBeforeRecovery, filesAfterLateWork, globalRejections, secondaryCancellation, recovery,
+  destinationsCreated: createdBeforeRecovery, filesAfterLateWork, ownedFilesAfterLateWork, globalRejections, secondaryCancellation, recovery,
   chunksProduced, totalChunks }));
 // All evidence precedes this fixture cleanup, including late-work observation.
 const closures = destinations.map((destination) => new Promise((resolve) => {

@@ -7,6 +7,8 @@ export async function register() {
     const { ensureDataDir } = await import("@/lib/data-dir");
     const { dataDir } = await import("@/lib/config");
     await ensureDataDir(dataDir());
+    const { discoverAccountDeletions } = await import("@/lib/auth/account-deletion-journal");
+    discoverAccountDeletions();
     const { maintainCredentials } = await import("@/lib/auth/credential-maintenance");
     maintainCredentials();
     // A crashed process can leave tile exports behind; sweep them. Served
@@ -20,6 +22,8 @@ export async function register() {
     // durable Overpass cache is deliberately not touched.
     const { cleanIngestScratch } = await import("@/lib/ingest/scratch");
     await cleanIngestScratch();
+    const { cleanAbandonedDeletionCandidates } = await import("@/lib/auth/account-deletion-candidate-recovery");
+    await cleanAbandonedDeletionCandidates();
     // Artifact files no registered table references — stranded by a crash
     // or an abandoned retirement — are permanent without this.
     const { sweepTableArtifacts } = await import("@/lib/ingest/sweep");

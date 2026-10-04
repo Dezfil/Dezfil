@@ -1,3 +1,5 @@
+import { admitEvaluationWork } from "@/lib/query/work-admission";
+import type { AccountWorkLease } from "@/lib/auth/account-deletion-admission";
 import { requireOwnedTableReference } from "@/lib/metadata/owned-tables";
 import { AuthError } from "@/lib/auth/errors";
 import { failInactiveJob } from "@/lib/metadata/jobs";
@@ -119,6 +121,7 @@ function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions)
     const deadlineAt = Date.now() + limits.operationTimeoutMs;
 
     let prepared: PreparedPublication | null = null;
+    let deletionWork: AccountWorkLease | undefined;
 
     // **The disclosure settles with the job, in the same statement.** Reading
     // it back from the output table made an older run report a newer one's
@@ -140,6 +143,7 @@ function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions)
       );
 
     try {
+      deletionWork = admitEvaluationWork(options.evaluation ?? scope);
       // Check the durable owner before a queued job can contact a source.
       if (!markRunning(scope, job.id, new Date().toISOString())) return;
       if (options.prepare) {
@@ -175,7 +179,7 @@ function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions)
       // **Whatever happened.** The staging a preparation owns is removed on
       // success, failure, cancellation and timeout alike — the boot sweep is
       // the backstop for a process that dies, not the ordinary path.
-      if (prepared) await prepared.cleanup().catch(() => {});
+      try { if (prepared) await prepared.cleanup(); } finally { deletionWork?.release(); }
       try { options.onSettled?.(job.id); }
       catch (error) { console.warn(`[operations] run ${job.id} could not retain its attempt:`, error); }
       pruneAfterJob(job.id);

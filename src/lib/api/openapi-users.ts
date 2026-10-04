@@ -2,24 +2,26 @@ import { AUTH_SECURITY } from "./openapi-auth";
 import { ERROR_RESPONSE, jsonOk, op, pathParam } from "./openapi-helpers";
 import { LOCAL_ADD, LOCAL_READ, LOCAL_REPLACE } from "./operation-mcp";
 import { READ_ONLY, resource, writes } from "./operation-metadata";
+import { DELETE_USER_OPERATION, USER_DELETION_PATHS, USER_DELETION_SCHEMAS } from "./openapi-user-deletion";
 const privacy = "Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. ";
 const errors = { "400": ERROR_RESPONSE, "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "409": ERROR_RESPONSE, "503": ERROR_RESPONSE };
 const body = (properties: Record<string, unknown>, required: string[], extra = {}) => ({ "x-byte-limit": 65_536, required: true,
   content: { "application/json": { schema: { type: "object", additionalProperties: false, properties, required, ...extra } } } });
 const subject = { path: "/api/users", argument: "id", name: "name", collection: "users", identity: "id" };
 export const USERS_PATHS = {
+  ...USER_DELETION_PATHS,
   "/api/users": {
-    get: { ...op({ summary: "List users", description: privacy + "Lists invited, active and deactivated accounts, their role and last sign-in. isOriginal permanently identifies the first account. Passwords, credential hashes and sign-in links are never returned.",
+    get: { ...op({ summary: "List users", description: privacy + "Lists invited, active and deactivated accounts, their role and last sign-in. isOriginal permanently identifies the first account. The separate deletions array lists unfinished reservations with their deletion id, pending or needs-retry state and the existing Users identity; it remains available after profile erasure and disappears on completion. Deleted accounts are absent from users. Passwords, credential hashes and sign-in links are never returned.",
       tag: "Accounts", tool: "list_users", effects: READ_ONLY, mcp: LOCAL_READ, display: { verb: "Read the users" },
       responses: { "200": jsonOk("#/components/schemas/Users"), ...errors } }), security: AUTH_SECURITY },
-    post: { ...op({ summary: "Invite a user", description: privacy + "Reserves a name and normalized email and returns a signInUrl once. The recipient chooses a password when opening the link; this instance sends no email. The link expires seven days after issue. isAdmin defaults to false and an admin may explicitly grant it. Duplicate emails return email_taken regardless of case or surrounding whitespace, including invited and deactivated accounts. For a deactivated duplicate the error carries accountId and canReactivate: true; reactivate that account instead of creating another.",
+    post: { ...op({ summary: "Invite a user", description: privacy + "Reserves a name and normalized email and returns a signInUrl once. The recipient chooses a password when opening the link; this instance sends no email. The link expires seven days after issue. isAdmin defaults to false and an admin may explicitly grant it. Duplicate emails return email_taken regardless of case or surrounding whitespace, including invited and deactivated accounts. An email awaiting deletion completion remains reserved, including after its profile is removed, and never offers reactivation. For a deactivated duplicate the error carries accountId and canReactivate: true; reactivate that account instead of creating another.",
       tag: "Accounts", tool: "invite_user", effects: writes(resource("accounts", undefined, "account.id")), mcp: LOCAL_ADD,
       display: { verb: "Invited {subject}", subject: { resource: "accounts", result: "account.id", name: ["account.name", "name"] } }, confirm: true,
       confirmation: { target: "Invite this person to the instance?", consequence: "They can sign in with the permissions you grant when they choose a password.", subject: { path: "/api/account", argument: "", name: "account.name" } },
       requestBody: body({ name: { type: "string", minLength: 1 }, email: { type: "string" }, isAdmin: { type: "boolean", default: false } }, ["name", "email"]),
       responses: { "201": jsonOk("#/components/schemas/IssuedSignInLink"), ...errors, "409": jsonOk("#/components/schemas/UserInvitationConflict", "Email already reserved.") } }), security: AUTH_SECURITY },
   },
-  "/api/users/{id}": { patch: { ...op({ summary: "Change user access", description: privacy + "Grants or removes admin status, deactivates or reactivates the same account. Self-deactivation and self-removal of admin status return self_change_refused even with another admin. Competing changes cannot remove every active admin. A patch is applied atomically or not at all. Deactivation ends sessions and refuses tokens; reactivation restores token eligibility without reviving ended sessions. Reactivating an unaccepted invitation returns it to invited status. Accounts and content are never deleted.",
+  "/api/users/{id}": { delete: DELETE_USER_OPERATION, patch: { ...op({ summary: "Change user access", description: privacy + "Grants or removes admin status, deactivates or reactivates the same account. Self-deactivation and self-removal of admin status return self_change_refused even with another admin. Competing changes cannot remove every active admin. A patch is applied atomically or not at all. Deactivation ends sessions and refuses tokens; reactivation restores token eligibility without reviving ended sessions. Reactivating an unaccepted invitation returns it to invited status. This operation does not delete accounts or content. Accepted deletion refuses reactivation with deletion_in_progress, including during final cleanup after the profile is removed.",
     tag: "Accounts", tool: "update_user_access", effects: writes(resource("accounts", "id")), mcp: LOCAL_REPLACE,
     display: { verb: "Changed access for {subject}", subject: { resource: "accounts", argument: "id" } }, confirm: true,
     confirmation: { target: "Change access for {target}?", consequence: "Role changes apply immediately. Deactivation ends browser sessions and refuses API tokens.", subject },
@@ -34,8 +36,9 @@ export const USERS_PATHS = {
     responses: { "200": jsonOk("#/components/schemas/IssuedSignInLink"), ...errors, "404": ERROR_RESPONSE } }), security: AUTH_SECURITY } },
 };
 export const USERS_SCHEMAS = {
+  ...USER_DELETION_SCHEMAS,
   UserInvitationConflict: { type: "object", additionalProperties: false, properties: { error: { type: "object", additionalProperties: false,
     properties: { code: { type: "string", const: "email_taken" }, message: { type: "string" }, accountId: { type: "string" }, canReactivate: { type: "boolean" } }, required: ["code", "message"] } }, required: ["error"] },
-  Users: { type: "object", additionalProperties: false, properties: { users: { type: "array", items: { $ref: "#/components/schemas/Account" } } }, required: ["users"] },
+  Users: { type: "object", additionalProperties: false, properties: { users: { type: "array", items: { $ref: "#/components/schemas/Account" } }, deletions: { type: "array", items: { $ref: "#/components/schemas/PendingAccountDeletion" } } }, required: ["users", "deletions"] },
   IssuedSignInLink: { type: "object", additionalProperties: false, properties: { account: { $ref: "#/components/schemas/Account" }, signInUrl: { type: "string", description: "One-time hand-over. The credential is in the fragment, never the query string." }, expiresAt: { type: "string", format: "date-time" } }, required: ["account", "signInUrl", "expiresAt"] },
 };

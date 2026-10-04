@@ -42,10 +42,10 @@ interface Entry {
   started: boolean;
 }
 
-const waiting: Entry[] = [];
-const inFlight = new Map<string, Entry>();
-/** Every entry the lane knows about, waiting or running, by job id. */
-const known = new Map<string, Entry>();
+const key = Symbol.for("dezfil.operation-lane");
+const host = globalThis as typeof globalThis & { [key]?: { waiting: Entry[]; inFlight: Map<string, Entry>; known: Map<string, Entry> } };
+const holder = host[key] ??= { waiting: [] as Entry[], inFlight: new Map<string, Entry>(), known: new Map<string, Entry>() };
+const { waiting, inFlight, known } = holder;
 
 function queueFull(): ApiError {
   return new ApiError(
@@ -183,3 +183,8 @@ export function resetLane(): void {
   inFlight.clear();
   known.clear();
 }
+
+export async function eraseLaneWork(ids: readonly string[]): Promise<void> {
+  const work = ids.map(jobSettled); for (const id of ids) cancel(id); await Promise.all(work);
+}
+export function laneEntriesForTests() { return { waiting: waiting.map(e => e.jobId), inFlight: [...inFlight.keys()], known: [...known.keys()] }; }

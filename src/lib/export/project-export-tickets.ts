@@ -1,73 +1,29 @@
-import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
+import { removeAccountFile } from "@/lib/ingest/file-ownership";
+import type { AccountScope } from "@/lib/auth/scope";
 import { randomBytes } from "node:crypto";
-import { rm } from "node:fs/promises";
-
-/**
- * Private, process-local hand-off for project-export downloads (the
- * prepare-then-redeem road): the POST assembles and finalizes the
- * archive on disk, this store keeps it alive for one native browser
- * navigation to redeem, and the staged file is deleted on redeem
- * completion, redeem failure, or expiry — never abandoned.
- */
+import { LayerDownloadTicketStore, type TicketStoreState } from "./layer-download-tickets";
 
 export const PROJECT_EXPORT_TICKET_TTL_MS = 60_000;
+const projectExportTicketsKey = Symbol.for("dezfil.projectExportTickets");
+const projectExportTicketsHost = globalThis as typeof globalThis & { [projectExportTicketsKey]?: TicketStoreState };
+const projectTicketState: TicketStoreState = projectExportTicketsHost[projectExportTicketsKey] ??= { entries: new Map(), pending: new Set() };
+export const projectExportTickets = new LayerDownloadTicketStore({ preparedTtlMs: PROJECT_EXPORT_TICKET_TTL_MS }, projectTicketState);
+const binding = (projectId: string, key: string) => ({ layerId: `${projectId}:${key}`, format: "geoparquet" as const });
 
-interface Entry {
-  accountId: string;
-  projectId: string;
-  key: string;
-  path: string;
-  filename: string;
-  size: number;
-  timer: ReturnType<typeof setTimeout>;
-}
-
-const entries = new Map<string, Entry>();
-
-const discard = (path: string) => {
-  void rm(path, { force: true }).catch(() => {});
-};
-
+/** A private copy keeps its preparation lifetime and its claimed stream's
+ * actual settlement. Cleanup remains tracked even after the single-use claim. */
 export function createProjectExportTicket(scope: AccountScope, projectId: string, file: {
-  path: string;
-  filename: string;
-  size: number;
+  path: string; filename: string; size: number;
 }): { ticket: string; key: string } {
-  const accountId = requireAccountScope(scope);
-  const ticket = randomBytes(16).toString("hex");
   const key = randomBytes(16).toString("hex");
-  const timer = setTimeout(() => {
-    entries.delete(ticket);
-    discard(file.path);
-  }, PROJECT_EXPORT_TICKET_TTL_MS);
-  timer.unref?.();
-  entries.set(ticket, { accountId, projectId, key, ...file, timer });
+  const ticket = projectExportTickets.prepare(scope, binding(projectId, key), {
+    ...file, contentType: "application/zip", cleanup: () => removeAccountFile(file.path, { force: true }),
+  });
   return { ticket, key };
 }
-
-/** Single use: a successful claim removes the entry; the claimer MUST
- * call settle() when its stream ends, however it ends — that is what
- * deletes the staged file. */
-export function claimProjectExportTicket(
-  scope: AccountScope,
-  projectId: string,
-  ticket: string,
-  key: string,
-): {
-  path: string;
-  filename: string;
-  size: number;
-  settle: () => void;
+export function claimProjectExportTicket(scope: AccountScope, projectId: string, ticket: string, key: string): {
+  path: string; filename: string; size: number; settle: () => void;
 } | null {
-  const accountId = requireAccountScope(scope);
-  const entry = entries.get(ticket);
-  if (!entry || entry.accountId !== accountId || entry.projectId !== projectId || entry.key !== key) return null;
-  clearTimeout(entry.timer);
-  entries.delete(ticket);
-  return {
-    path: entry.path,
-    filename: entry.filename,
-    size: entry.size,
-    settle: () => discard(entry.path),
-  };
+  const claimed = projectExportTickets.claim(scope, ticket, binding(projectId, key));
+  return claimed && { path: claimed.path, filename: claimed.filename, size: claimed.size, settle: claimed.fail };
 }

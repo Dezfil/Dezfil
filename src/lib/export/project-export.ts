@@ -1,8 +1,10 @@
+import { copyFileWork, bindDeletionInputs, observeDeletionCleanup } from "@/lib/auth/account-deletion-work";
+import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { AuthError } from "@/lib/auth/errors";
 import type { AccountScope } from "@/lib/auth/scope";
 import { canReach, requireReachable } from "@/lib/auth/reach";
 import { createWriteStream } from "node:fs";
-import { mkdir, readdir, rm, stat } from "node:fs/promises";
+import { mkdir, readdir, stat } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { ZipFile } from "yazl";
@@ -105,7 +107,7 @@ function requireSelectionInReach(
  * truncated 200. The caller owns the returned file's
  * lifetime (the ticket store deletes it on redeem, expiry or failure).
  */
-export async function assembleProjectExport(
+async function assembleProjectExportWork(
   scope: AccountScope,
   projectId: string,
   selection: ProjectExportSelection,
@@ -113,12 +115,12 @@ export async function assembleProjectExport(
   // Anyone who reaches the project exports it, viewers included; every
   // selected member must be filed in it and within their reach, whoever
   // owns it.
-  requireReachable(scope, "project", projectId);
+  bindDeletionInputs([requireReachable(scope, "project", projectId).ownerId]);
   const project = requireProject(scope, projectId);
   const members = projectMemberIds(scope, projectId);
-  for (const id of selection.maps) requireReachable(scope, "map", id);
-  for (const id of selection.recipes) requireReachable(scope, "workflow", id);
-  for (const id of selection.tables) requireReachable(scope, "dataset", id);
+  for (const id of selection.maps) bindDeletionInputs([requireReachable(scope, "map", id).ownerId]);
+  for (const id of selection.recipes) bindDeletionInputs([requireReachable(scope, "workflow", id).ownerId]);
+  for (const id of selection.tables) bindDeletionInputs([requireReachable(scope, "dataset", id).ownerId]);
   const maps = canonical("maps", selection.maps, members.maps);
   const recipes = canonical("workflows", selection.recipes, members.recipes);
   const tables = canonical("datasets", selection.tables, members.tables);
@@ -220,12 +222,13 @@ export async function assembleProjectExport(
     for (const name of await readdir(stagingDir)) {
       const p = path.join(stagingDir, name);
       const age = now - (await stat(p)).mtimeMs;
-      if (age > 15 * 60_000) await rm(p, { force: true });
+      if (age > 15 * 60_000) await removeAccountFile(p, { force: true });
     }
   } catch {
     // The sweep is best-effort; assembly proceeds regardless.
   }
   const staged = path.join(stagingDir, `${randomUUID()}.zip`);
+  registerAccountFile(scope.accountId, staged);
 
   const zip = new ZipFile();
   const json = (value: unknown) =>
@@ -243,9 +246,9 @@ export async function assembleProjectExport(
   // staging sweep never covers them.
   const conversions: { cleanup: () => Promise<void> }[] = [];
   const cleanConversions = async () => {
-    await Promise.all(
-      conversions.splice(0).map((c) => c.cleanup().catch(() => {})),
-    );
+    const settled = await Promise.allSettled(conversions.splice(0).map(c => observeDeletionCleanup(() => c.cleanup())));
+    const failed = settled.find(result => result.status === "rejected");
+    if (failed?.status === "rejected") throw failed.reason;
   };
   try {
     for (const t of chosenTables) {
@@ -299,8 +302,10 @@ export async function assembleProjectExport(
     ]);
     return { path: staged, filename: `${base}.zip`, size };
   } catch (e) {
-    await rm(staged, { force: true });
-    await cleanConversions();
+    await observeDeletionCleanup(async () => {
+      await removeAccountFile(staged, { force: true });
+      await cleanConversions();
+    });
     if (e instanceof ApiError || e instanceof AuthError) throw e;
     throw new ApiError(
       "export_failed",
@@ -310,4 +315,11 @@ export async function assembleProjectExport(
       500,
     );
   }
+}
+
+export function assembleProjectExport(scope: AccountScope, projectId: string, selection: ProjectExportSelection): Promise<PreparedProjectExport> {
+  return copyFileWork(scope, [{ table: "projects", id: projectId }], async () => {
+    const file = await assembleProjectExportWork(scope, projectId, selection);
+    return { ...file, cleanup: () => removeAccountFile(file.path, { force: true }) };
+  });
 }

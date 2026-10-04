@@ -2,7 +2,7 @@ import type { Database } from "better-sqlite3";
 import type { AccountScope } from "@/lib/auth/scope";
 import { reachableProjectIds, requireReachable } from "@/lib/auth/reach";
 import { resourceAbsent } from "@/lib/auth/owned-resource";
-import { accountLabels, type AccountLabel } from "@/lib/metadata/accounts";
+import { accountLabels, accountSqlNames, type AccountLabel } from "@/lib/metadata/accounts";
 import { metadataDb } from "@/lib/metadata/db";
 import { mapStanding, type MapStanding } from "@/lib/metadata/map-queries";
 
@@ -29,17 +29,18 @@ export interface Presence {
 export function presencesOf(scope: AccountScope, standings: readonly MapStanding[], db: Database = metadataDb()): Presence[] {
   if (standings.length === 0) return [];
   const projects = reachableProjectIds(scope, db);
-  const labels = accountLabels(standings.flatMap(s => [s.ownerId, s.homeId]), db);
+  const labels = accountLabels(standings.map(s => s.ownerId), db);
+  const homes = accountSqlNames(standings.map(s => s.homeId ?? s.ownerId), db);
   return standings.map(standing => {
     const owner = labels.get(standing.ownerId);
     // A home is stamped from the creator; an unstamped one is its owner's.
-    const home = labels.get(standing.homeId ?? standing.ownerId);
+    const home = homes.get(standing.homeId ?? standing.ownerId);
     if (!owner || !home) throw resourceAbsent();
     const told = standing.projectId !== null && (standing.ownerId === scope.accountId || projects.has(standing.projectId));
     return {
       projectId: told ? standing.projectId : null,
       owner,
-      home: home.sqlName,
+      home,
     };
   });
 }

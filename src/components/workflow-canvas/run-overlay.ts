@@ -1,3 +1,4 @@
+import type { AccountActor } from "@/lib/account-actor";
 import type { ChipTone } from "../workflow-model";
 
 /**
@@ -36,7 +37,7 @@ export interface RunMember {
 export type RunOutcome = "completed" | "partly_completed" | "failed" | "cancelled" | "interrupted";
 
 export interface WorkflowRun {
-  runner?: { name: string; sqlName: string } | null;
+  runner?: AccountActor | null;
   id: string;
   recipeId: string;
   kind: "run_all" | "from_step" | "single";

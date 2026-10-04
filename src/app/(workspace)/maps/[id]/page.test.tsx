@@ -1,4 +1,5 @@
-import { testAccountRequest } from "@/lib/test-support/accounts";
+import { createMap } from "@/lib/map-service";
+import { testAccountScope, testAccountRequest } from "@/lib/test-support/accounts";
 import type { ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -27,7 +28,7 @@ async function renderedPage(): Promise<
   }>
 > {
   return (await MapBuilderPage({
-    params: Promise.resolve({ id: "map-1" }),
+    params: Promise.resolve({ id: createMap(testAccountScope(), "Budget fixture").id }),
     searchParams: Promise.resolve({}),
   })) as ReactElement<{ preparationTimeoutMs: number }>;
 }

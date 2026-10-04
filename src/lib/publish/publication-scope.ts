@@ -1,3 +1,4 @@
+import { accountMaterialAvailable, type AccountWorkLease } from "@/lib/auth/account-deletion-admission";
 import type { Database } from "better-sqlite3";
 import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
@@ -13,17 +14,18 @@ export interface PublicationScope {
   readonly ownerId: string | null;
 }
 export const publicationAbsent = () => new ApiError("not_found", "This map is not available.", 404);
-function identity(token: string, db: Database) {
-  return db.prepare(`SELECT id, owner_id FROM maps WHERE publish_token = ?
+function identity(token: string, db: Database, admitted?: AccountWorkLease) {
+  const row = db.prepare(`SELECT id, owner_id FROM maps WHERE publish_token = ?
     AND (owner_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM accounts))`).get(token) as
     { id: string; owner_id: string | null } | undefined;
+  return row && (accountMaterialAvailable(row.owner_id, db) || admitted?.includes(row.owner_id)) ? row : undefined;
 }
 export function isPublicationScope(scope: unknown): scope is PublicationScope {
   return !!scope && typeof scope === "object" && publicationBrand in scope && scope[publicationBrand] === true;
 }
-export function requirePublicationScope(scope: PublicationScope, db: Database = metadataDb()): string | null {
+export function requirePublicationScope(scope: PublicationScope, db: Database = metadataDb(), admitted?: AccountWorkLease): string | null {
   if (!isPublicationScope(scope)) throw publicationAbsent();
-  const current = identity(scope.token, db);
+  const current = identity(scope.token, db, admitted);
   if (!current || current.id !== scope.mapId || current.owner_id !== scope.ownerId) throw publicationAbsent();
   return current.owner_id;
 }

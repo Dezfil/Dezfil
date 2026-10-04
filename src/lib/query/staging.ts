@@ -1,5 +1,6 @@
+import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { randomUUID } from "node:crypto";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { dataDir } from "@/lib/config";
@@ -21,7 +22,9 @@ interface Stage {
   drained: ReturnType<typeof Promise.withResolvers<void>>;
   cleanup?: Promise<void>;
 }
-const stages = new WeakMap<StagingInput, Stage>();
+const key = Symbol.for("dezfil.query-staging");
+const host = globalThis as typeof globalThis & { [key]?: Map<StagingInput, Stage> };
+const stages = host[key] ??= new Map<StagingInput, Stage>();
 const ident = (name: string) => `"${name.replace(/"/g, '""')}"`;
 
 /** Only a trusted provider preparation can mint this in-memory capability.
@@ -35,16 +38,25 @@ export async function prepareStagingInput(
   if (kind !== "geocode" && kind !== "isochrone") throw resourceAbsent();
   const id = randomUUID();
   const file = path.join(dataDir(), "tables", `${kind}-stage-${id}.parquet`);
-  await mkdir(path.dirname(file), { recursive: true });
+  registerAccountFile(owner, file);
+  const input = Object.freeze({ name: `__stage_${id.replaceAll("-", "_")}`, [stagingBrand]: true as const });
+  const stage: Stage = { owner, file, disposed: false, readers: 1, drained: Promise.withResolvers<void>() };
+  stages.set(input, stage);
   try {
+    await mkdir(path.dirname(file), { recursive: true });
     await write(file);
     requireAccountScope(scope);
-    const input = Object.freeze({ name: `__stage_${id.replaceAll("-", "_")}`, [stagingBrand]: true as const });
-    stages.set(input, { owner, file, disposed: false, readers: 0, drained: Promise.withResolvers<void>() });
+    if (stage.disposed) throw resourceAbsent();
     return input;
   } catch (error) {
-    await rm(file, { force: true }).catch(() => {});
+    stage.disposed = true;
     throw error;
+  } finally {
+    stage.readers--;
+    if (stage.disposed) {
+      if (!stage.readers) stage.drained.resolve();
+      await removeStagingInput(input);
+    }
   }
 }
 
@@ -55,7 +67,7 @@ export function removeStagingInput(input: StagingInput): Promise<void> {
   if (!stage) return Promise.resolve();
   stage.disposed = true;
   if (stage.readers === 0) stage.drained.resolve();
-  return stage.cleanup ??= stage.drained.promise.then(() => rm(stage.file, { force: true })).catch(() => {});
+  return stage.cleanup ??= stage.drained.promise.then(() => removeAccountFile(stage.file)).then(() => { stages.delete(input); }).catch(error => { stage.cleanup = undefined; throw error; });
 }
 
 export interface StagingLease {
@@ -99,4 +111,11 @@ export function leaseStagingInputs(scope: DatasetScope, inputs: readonly Staging
       }
     },
   };
+}
+
+export async function eraseAccountStaging(accountId: string): Promise<void> {
+  await Promise.all([...stages].filter(([, stage]) => stage.owner === accountId).map(([input]) => removeStagingInput(input)));
+}
+export function stagingForTests(): { owner: string; file: string; readers: number }[] {
+  return [...stages.values()].map(({ owner, file, readers }) => ({ owner, file, readers }));
 }

@@ -65,7 +65,7 @@ it("keeps actor boundaries even for identical groups and attributes replay to th
   expect(undoSteps(map.id)).toHaveLength(1);
   const replayed = await undoChange(editor, map.id, { expectedRevision: c.editRevision });
   expect(replayed.name).toBe("Editor");
-  expect(replayed.lastChangedBy?.name).toBe("editor");
+  expect(replayed.lastChangedBy).toMatchObject({ name: "editor" });
   expect(redoSteps(map.id)).toMatchObject([{ authorId: owner.accountId }]);
   expect(undoSteps(map.id)).toMatchObject([{ authorId: editor.accountId }]);
   const before = snapshot();

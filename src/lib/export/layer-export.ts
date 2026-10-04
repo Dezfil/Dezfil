@@ -1,7 +1,8 @@
+import { copyFileWork } from "@/lib/auth/account-deletion-work";
+import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { rm } from "node:fs/promises";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { ApiError } from "@/lib/api/errors";
 import { namedSql } from "@/lib/query/named-sql";
@@ -92,7 +93,7 @@ const CONTENT_TYPE: Record<LayerExportFormat, string> = {
  * geometry resolution, description, and the COPY — so the universal
  * budget is a single wall-clock bound, not a sum of separate ones.
  */
-export async function exportLayerResult(
+async function exportLayerResultWork(
   scope: AccountScope,
   layer: ExportableLayer,
   format: LayerExportFormat,
@@ -104,6 +105,7 @@ export async function exportLayerResult(
     tileScratchDir(),
     `export-${randomUUID()}.${EXT[format]}`,
   );
+  registerAccountFile(scope.accountId, outFile);
 
   try {
     await boundedEvaluation(
@@ -187,7 +189,7 @@ export async function exportLayerResult(
     );
     requireAccountScope(scope);
   } catch (error) {
-    await rm(outFile, { force: true }).catch(() => undefined);
+    await removeAccountFile(outFile, { force: true });
     throw error;
   }
 
@@ -195,7 +197,7 @@ export async function exportLayerResult(
     path: outFile,
     filename: safeFilename(layer.name, EXT[format]),
     contentType: CONTENT_TYPE[format],
-    cleanup: () => rm(outFile, { force: true }),
+    cleanup: () => removeAccountFile(outFile, { force: true }),
   };
 }
 
@@ -209,7 +211,7 @@ export async function exportLayerResult(
  * geometry-less row — is refused with a coded reason. Rows are never
  * dropped for a NULL feature geometry: a download means every row.
  */
-export async function exportQueryResult(
+async function exportQueryResultWork(
   scope: AccountScope,
   sql: string,
   format: LayerExportFormat,
@@ -222,6 +224,7 @@ export async function exportQueryResult(
     tileScratchDir(),
     `export-${randomUUID()}.${EXT[format]}`,
   );
+  registerAccountFile(scope.accountId, outFile);
 
   try {
     await boundedEvaluation(
@@ -273,7 +276,7 @@ export async function exportQueryResult(
     );
     requireAccountScope(scope);
   } catch (error) {
-    await rm(outFile, { force: true }).catch(() => undefined);
+    await removeAccountFile(outFile, { force: true });
     throw error;
   }
 
@@ -281,7 +284,7 @@ export async function exportQueryResult(
     path: outFile,
     filename: safeFilename(name, EXT[format]),
     contentType: CONTENT_TYPE[format],
-    cleanup: () => rm(outFile, { force: true }),
+    cleanup: () => removeAccountFile(outFile, { force: true }),
   };
 }
 
@@ -305,3 +308,7 @@ async function describe(
     throw sqlError(error);
   }
 }
+
+export function exportLayerResult(scope: AccountScope, layer: ExportableLayer, format: LayerExportFormat, signal?: AbortSignal): Promise<LayerExportFile> { return copyFileWork(scope, layer.mapId ? [{ table: "maps", id: layer.mapId }] : [], () => exportLayerResultWork(scope, layer, format, signal)); }
+
+export function exportQueryResult(scope: AccountScope, sql: string, format: LayerExportFormat, signal?: AbortSignal, name?: string): Promise<LayerExportFile> { return copyFileWork(scope, [], () => exportQueryResultWork(scope, sql, format, signal, name)); }

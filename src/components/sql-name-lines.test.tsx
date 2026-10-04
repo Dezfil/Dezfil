@@ -10,7 +10,7 @@ const account: Account = {
   lastSignInAt: null,
 };
 const row = (value: Account, own = false) => renderToStaticMarkup(<UserRow account={value} own={own} open={false} busy={false}
-  handOver={null} onToggle={() => {}} onAccess={async () => true} onReset={async () => true} onDone={() => {}} />);
+  handOver={null} onToggle={() => {}} onAccess={async () => true} onReset={async () => true} onDone={() => {}} onDelete={() => {}} />);
 
 describe("the SQL name on the account surfaces", () => {
   it("draws a quiet line under the person's name on a Users row, deactivated rows included", () => {

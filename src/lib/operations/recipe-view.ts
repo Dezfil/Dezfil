@@ -1,3 +1,4 @@
+import { accountLabels } from "@/lib/metadata/accounts";
 import { documentFacts, type DocumentFacts } from "@/lib/metadata/document-facts";
 import type { DatasetScope } from "@/lib/query/access";
 import type { AccountScope } from "@/lib/auth/scope";
@@ -178,12 +179,12 @@ async function presentReads(scope: DatasetScope, steps: RecipeStep[]): Promise<M
  */
 function describedSteps(scope: AccountScope, steps: RecipeStep[], ownerId: string): { steps: RecipeStep[]; runs: Map<string, { accountId: string; run: DescribedRun } | null> } {
   const runs = new Map<string, { accountId: string; run: DescribedRun } | null>();
-  const label = metadataDb().prepare("SELECT name, sql_name AS sqlName FROM accounts WHERE id = ?");
+  const labels = accountLabels([scope.accountId, ownerId]);
   const described = steps.map((step) => {
     const own = runnerOutput(step.id, scope.accountId);
     const output = own ?? runnerOutput(step.id, ownerId);
     const accountId = own ? scope.accountId : ownerId;
-    const person = output ? label.get(accountId) as { name: string; sqlName: string } | undefined : undefined;
+    const person = output ? labels.get(accountId) : undefined;
     runs.set(step.id, output && person ? { accountId, run: { runner: person, runId: output.runId, jobId: output.jobId } } : null);
     return {
       ...step,

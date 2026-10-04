@@ -39,7 +39,12 @@ interface CachedArchive {
   size: number;
 }
 
-const archives = new Map<string, CachedArchive>();
+const archivesKey = Symbol.for("dezfil.tile-archives");
+const archivesHost = globalThis as typeof globalThis & { [archivesKey]?: Map<string, CachedArchive> };
+const archives = archivesHost[archivesKey] ??= new Map<string, CachedArchive>();
+const readsKey = Symbol.for("dezfil.tile-readers");
+const readsHost = globalThis as typeof globalThis & { [readsKey]?: Map<string, Set<Promise<unknown>>> };
+const reads = readsHost[readsKey] ??= new Map<string, Set<Promise<unknown>>>();
 
 /** Tests reset shared state. */
 export function resetTileArchives(): void {
@@ -74,7 +79,7 @@ export interface TileArchiveInfo {
 }
 
 /** Bounds and zoom range of a layer's archive, or null when it has none. */
-export async function tileArchiveInfo(
+async function archiveInfo(
   layerId: string,
 ): Promise<TileArchiveInfo | null> {
   const archive = await openArchive(layerId);
@@ -89,7 +94,7 @@ export async function tileArchiveInfo(
 
 /** One decompressed MVT tile, or null when the archive or tile is absent —
  * an empty spot on the map, not an error. */
-export async function readTile(
+async function tile(
   layerId: string,
   z: number,
   x: number,
@@ -106,3 +111,20 @@ export async function readTile(
   }
   return tile ? new Uint8Array(tile.data) : null;
 }
+
+function track<T>(layerId: string, read: Promise<T>): Promise<T> {
+  let pending = reads.get(layerId);
+  if (!pending) { pending = new Set(); reads.set(layerId, pending); }
+  pending.add(read);
+  const done = () => { pending.delete(read); if (!pending.size) reads.delete(layerId); };
+  void read.then(done, done); return read;
+}
+export function tileArchiveInfo(layerId: string): Promise<TileArchiveInfo | null> { return track(layerId, archiveInfo(layerId)); }
+export function readTile(layerId: string, z: number, x: number, y: number): Promise<Uint8Array | null> { return track(layerId, tile(layerId, z, x, y)); }
+export async function closeTileArchives(layerIds: readonly string[]): Promise<void> {
+  for (const id of layerIds) {
+    while (reads.get(id)?.size) await Promise.allSettled([...reads.get(id)!]);
+    archives.delete(id);
+  }
+}
+export function tileArchivesForTests() { return { archives: [...archives.keys()], readers: [...reads.keys()] }; }

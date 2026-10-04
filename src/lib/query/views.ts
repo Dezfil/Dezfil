@@ -1,3 +1,6 @@
+import { accountMaterialAvailable, type AccountWorkLease } from "@/lib/auth/account-deletion-admission";
+import { resourceAbsent } from "@/lib/auth/owned-resource";
+import { registerQueryStore } from "@/lib/query/retained";
 import path from "node:path";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { dataDir } from "@/lib/config";
@@ -30,7 +33,7 @@ function relationKey(dataset: ReachableDataset): string {
 
 /** Names and views belong to this connection alone. The weak map only supports
  * reconciliation when an internal caller explicitly reuses its connection. */
-const mounted = new WeakMap<DuckDBConnection, Set<string>>();
+let mounted = new WeakMap<DuckDBConnection, Set<string>>();
 
 /**
  * Mount one evaluation's namespace on its own connection: a view per dataset
@@ -43,6 +46,7 @@ export async function registerTableViews(
   conn: DuckDBConnection,
   abandoned?: () => boolean,
   afterRegistration?: (registered: readonly RegisteredMount[]) => Promise<void>,
+  admission?: AccountWorkLease,
 ): Promise<void> {
   const caller = requireDatasetScope(scope);
   const context = contextOf(scope);
@@ -50,6 +54,11 @@ export async function registerTableViews(
   const publication = isPublicationScope(context.authority) ? await publicationNamespace(conn, context.authority) : null;
   if (publication && abandoned?.()) return;
   const plan = planMounts(publication?.namespace ?? namespaceFor(scope), context.purpose, caller === context.home);
+  // Resolution can await compilation. Admit discovered owners before any
+  // artifact relation is consumed, even when a namespace came from a cache.
+  const owners = plan.namespace.datasets.map(dataset => dataset.ownerId);
+  if (admission) admission.bind(owners);
+  else if (owners.some(owner => !accountMaterialAvailable(owner))) throw resourceAbsent();
   if (publication) plan.withheld = publication.withheld;
   const relations = artifactRelations(catalogGenerationOf(conn));
   const previous = mounted.get(conn) ?? new Set<string>();
@@ -98,7 +107,7 @@ export async function registerTableViews(
     if (relation.probed) relations.set(relationKey(binding.synthetic), relation);
   }
   setMountPlan(conn, plan);
-  requireDatasetScope(scope);
+  requireDatasetScope(scope, undefined, admission);
   if (!abandoned?.()) await afterRegistration?.(registered);
 }
 
@@ -107,3 +116,6 @@ export async function registerTableViews(
 export async function dropTableView(scope: DatasetScope, name: string): Promise<void> {
   invalidateArtifactRelations(requireDatasetScope(scope), name);
 }
+
+registerQueryStore({ drain: async () => {}, busy: () => false, clear: () => { mounted = new WeakMap<DuckDBConnection, Set<string>>(); } });
+export function mountedViewsForTests(conn: DuckDBConnection): string[] { return [...(mounted.get(conn) ?? [])]; }

@@ -90,6 +90,81 @@ memory, including assistant recovery locators and prepared download state.
 Saved layer and workflow SQL in the data directory is unaffected by this
 browser cleanup.
 
+## Finishing account deletion
+
+Users lists pending and needs-retry deletions separately from accounts. Finish
+deleting resumes the same record and is safe to retry after restart. Never remove
+its journal or edit its identity rows manually. An active admin uses the same
+status and continuation operations through the [API](api.md) or [MCP](mcp.md).
+A long-lived outside reader, such as a replication sidecar, can keep deletion unfinished until it releases the database; release it, then use Finish deleting.
+
+Check free space on both the data volume and SQLite's temporary filesystem. The
+whole metadata-store rewrite pauses every response, including health. Across two
+runs on one machine, the 1 GiB observations ranged from 3.4 to 13.2 seconds in the
+container (nine trials) and 9 to 38 seconds on the host. The repeat run observed up
+to 1.55 seconds at 64 MiB and 3.07 seconds at 256 MiB. These observations set no
+bound and promise no maximum pause. A slow or nearly full disk and a host short of
+memory make it longer. The [host guide](self-hosting.md#leaving-and-deleting-accounts)
+states space planning, cache purge and exact copy limits. A failed compaction stays
+unfinished and can be retried.
+
+The [upgrade and packaged recovery proof](testing/account-deletion-recovery.md)
+and [built-image deletion journey](testing/account-deletion-image.md) exercise
+original-profile removal and remaining-admin recovery on disposable stores. The
+[served contract proof](testing/account-deletion-guidance.md) compares published
+counts, errors, actors, generated tools and installed guidance.
+
+## Retained account identity upgrade
+
+Stop the instance and verify a whole-data-directory backup, including `secret.key`,
+before starting this version. Rehearse on a separate scratch copy first. The account
+constraint rebuild preserves every row, SQL home, index and trigger. It disables
+foreign-key enforcement outside its transaction, checks the complete foreign-key
+and database integrity before commit, and restores enforcement on success or failure.
+A failed rebuild rolls back; opening again retries it.
+
+Deleted identities reserve their SQL name permanently. Their profile fields are
+absent; the original-account adoption marker still prevents setup from reopening.
+The immediately preceding application
+can read and write this migrated schema **only while no account is deleting or
+deleted**. This is not recovery-command compatibility: local recovery requires this
+version's command and its matching schema pin. Rollback restores the matched old
+application and the complete stopped backup, never a down-migration of the live file.
+
+From a detached, built evidence checkout, with another built checkout at the
+pre-feature commit, run on an owned port:
+
+```sh
+DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/identity-command-XXXXXX") \
+  node scripts/account-identity-proof.mjs --old-root /path/to/built-old-checkout --port 3391
+```
+
+The proof creates its own populated old store and backup, upgrades a copy, compares
+all rows and every schema entry except the accounts table byte for byte, reopens,
+then runs real old-application reads and writes against the migrated copy. It runs
+the matching `admin:recover` command in a terminal, redeems the link, and restores
+the complete backup into another scratch directory for an old-application read.
+The proof allocates that terminal with BSD or util-linux `script` and null input,
+so its caller can be non-interactive on macOS or Linux. The recovery command's
+terminal-only disclosure rule still applies.
+Green ends with `PASS: identity upgrade, compatibility, recovery and restore`.
+Each `--seed row|home|trigger|reservation|foreign-key|writer|recovery` invocation
+must fail at its named preservation, write or recovery assertion. No seed touches
+an operator's store. Evidence and scratch copies remain under the printed directory.
+The `recovery` seed fails at `matching recovery command issues exactly one link`.
+The pinned old revision is checked by the script before it starts either server.
+
+Transaction rollback and enforcement on every exit are socket-free:
+
+```sh
+DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/identity-unit-XXXXXX") \
+  npx vitest run src/lib/metadata/identity-migration.test.ts src/lib/auth/upgrade-fixture.test.ts
+```
+
+The seeded copy, integrity and trigger failures must roll back unchanged rows and
+schema, keep foreign keys enabled, and permit a successful retry. The pre-account
+fixture separately proves adoption, encrypted credentials and artifact preservation.
+
 ## Full backup and restore
 
 Stop every process using the directory before copying it. For a checkout managed
@@ -372,15 +447,9 @@ The authentication probes run against an already running scratch instance:
   widgets and real tiles. Set `DEZFIL_RENDER_CAP_FEATURES=2000` on the server and
   keep `tippecanoe` on its `PATH`.
 
-`node scripts/account-upgrade-proof.mjs [port]` runs only in a detached linked
-worktree after a production build. It creates a synthetic old-schema store
-under `.claude/`, upgrades a copy, exercises the old data through authenticated
-HTTP, restarts the server, and restores a separate copy from the unchanged
-seed. Its evidence records file hashes and distinguishes copied credential
-usability from an unexecuted live external PostGIS connection. It never takes
-an operator data-directory argument. Owner stamps, histories, memberships,
-lineage and standalone jobs must survive adoption and restart; another admin
-must still receive the same refusal as for missing private work.
+The [upgrade and packaged recovery proofs](testing/account-deletion-recovery.md)
+cover pre-account adoption, original-account deletion, fixed homes, remaining-admin
+redemption and scratch restoration in checkout and container modes.
 
 `node scripts/ownership-journey.mjs seed <base-url> <scratch-state-file>`
 provisions an admin and two ordinary accounts on an empty scratch instance.
@@ -411,6 +480,24 @@ serves on that loopback port; start the instance for that with
 `OPENAI_BASE_URL=http://127.0.0.1:<port>/v1`, and run the script where the
 instance can reach the port (in a container, in its network namespace). Use
 an owned loopback port of 3300 or higher.
+
+Every sharing verification also provisions three fresh departure actors and
+exercises Leave as Viewer and Editor, with live and frozen project owners,
+through sessions, tokens, MCP and (when configured) the assistant. MCP decline
+and assistant decline leave the grant intact. Approval ends exclusive reach
+on both held credentials, preserves independent grants and owned filings,
+changes no document facts, and permits ordinary re-addition and withdrawal by
+identity. This part intentionally mutates its fresh fixture on each verify.
+
+For held reads and output commits, start the scratch server with the test-only
+`scripts/sharing-leave-observer.mjs` preload and pass
+`--leave-hold=<server-data-directory>/.leave-probe` to the journey. The observer
+pauses marked real engine work after the read, before returning or committing;
+the client leaves, checks new-request refusal, then releases it. It asserts an
+admitted read completes once, a lost input refuses a late output, and an input
+still reached through another grant yields a private output with no workflow
+association. No product route or deployment setting enables this test hold.
+Without the option the report explicitly says that the held arm was not run.
 
 The pipeline's image job runs both journeys after every merge this way: each
 on a fresh volume of its own, seeded, the container replaced over that
@@ -1026,10 +1113,109 @@ is a test client, not a shipped service.
 | 16 | `offline-export-probe.mjs --expect-unavailable` | One `dezfil-nobrowser` server from the image with Chromium removed. |
 | 17 | `dezfil-plugin-container.mjs --render --render-log ...` | The retained `dezfil-plugin-ci` server and a stock MCP client. |
 
+The [account-deletion image journey](testing/account-deletion-image.md) also runs
+after the account-journey cleanup and before MCP restart. Its guide is the canonical
+checkout/image mirror and seeded-red recipe.
+
 Cleanup steps stop remaining journey/plugin containers. The separate native gate,
 account-upgrade, login-window and admin-recovery recipes remain outside this
 image job; run them as described above when preparing a release.
 
+
+## Project departure proof on a production standalone
+
+Use a detached scratch checkout of the candidate, never the working checkout
+or its data. Build there, then provision the standalone exactly as the image
+does: copy `public`, `.next/static`, complete native packages (`@duckdb`,
+`better-sqlite3`, `bindings`, `file-uri-to-path`), and the ingress preload's
+`scripts/ingress-preload.mjs`, `scripts/preload-options.mjs` and
+`src/lib/auth/ingress.mjs` at their same relative paths. Keep every inherited
+request-bounds probe in the wider image battery.
+
+In that scratch checkout, after the production build:
+
+```sh
+PROOF_ROOT="$PWD"
+mkdir -p .claude/test-data
+LEAVE_PROOF=$(mktemp -d "$PWD/.claude/test-data/leave-proof-XXXXXX")
+mkdir "$LEAVE_PROOF/data"
+export DEZFIL_DATA_DIR="$LEAVE_PROOF/data"
+(cd .next/standalone && PORT=3391 HOSTNAME=127.0.0.1 \
+  DEZFIL_AI_PROVIDER=openai OPENAI_API_KEY=scripted-wire \
+  OPENAI_BASE_URL=http://127.0.0.1:3392/v1 \
+  DEZFIL_EGRESS_ALLOWLIST=127.0.0.1 DEZFIL_RENDER_CAP_FEATURES=2000 \
+  node --import=./scripts/ingress-preload.mjs \
+  --import="$PROOF_ROOT/scripts/sharing-leave-observer.mjs" server.js) \
+  > "$LEAVE_PROOF/server.log" 2>&1 &
+```
+
+After `/api/health` on port 3391 is ready, from the same shell:
+
+```sh
+node scripts/sharing-journey.mjs seed http://127.0.0.1:3391 \
+  "$LEAVE_PROOF/state.json" --assistant-wire=3392 \
+  --leave-hold="$DEZFIL_DATA_DIR/.leave-probe" > "$LEAVE_PROOF/seed.json"
+```
+
+Stop only the process that owns the scratch port, restart the same command
+against the same directory, then repeat with `verify` in place of `seed` and
+`verify.json` as the output. Each run owns and closes the scripted wire on 3392.
+Green exits zero and reports `departures` with session/token/MCP/assistant
+counts **4/4/4/4**, frozen **8**, re-added **16**, and six held results: two
+admitted reads, two refused outputs and two private outputs. Missing preload,
+a swallowed refusal or a leaked output fails, never skips the held arm.
+The retained `.ready` files identify the actual engine process and one marked
+execution. Record both server and journey logs; do not publish fixture secrets.
+
+For red controls, use separate detached builds of the same candidate. Run
+`node scripts/seed-leave-defect.mjs reach` before building one, and `commit`
+before building the other. Each gets a fresh store and the identical command
+above. The reach seed must fail **departed project is absent**; the commit
+seed must fail **late output commit follows current input reach**. A timeout,
+boot failure or unavailable dependency is not the intended red. Restore the
+single file printed by the seeder, rebuild, and observe the corrected green.
+The seeder refuses to modify a working branch or an already modified target.
+
+For browser proof, stop the scratch instance and restart it on port 3391 with
+a fresh `DEZFIL_DATA_DIR`, using the same standalone command above. The browser
+fixture provisions its own admin, so do not reuse the sharing journey's store.
+From the scratch checkout, run:
+
+```sh
+DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/test-data/leave-browser-XXXXXX") \
+  DEZFIL_BASE_URL=http://127.0.0.1:3391 npx playwright test e2e/project-leave.spec.ts
+```
+
+The four cases exercise Viewer/Editor and live/frozen owners, each across grid,
+list and home. Record browser results only from an observed run, retaining
+`test-results` screenshots:
+
+1. In Projects, reveal the member's card bundle: Export then the exit glyph,
+   with the Leave project hint. In list view both appear at rest. Check the
+   owner's card has no Leave, and its home menu retains Rename and Delete.
+2. On the member's home, keep the role/owner line and no people list. Open
+   More with Enter; its only menu item is Leave project, in danger ink.
+3. Open each confirmation using the keyboard. Focus starts inside the named
+   dialog. Read: “You will no longer see this project or work you could access
+   only through it. Its owner can add you again.” With owned work, also read:
+   “What you created here stays yours and stays in the project. You still find
+   it in your own lists.” No request has been sent.
+4. Tab reaches Cancel; Shift+Tab wraps to Leave project; Tab wraps to Cancel.
+   Cancel and Escape both close without a request and restore the entrance.
+5. Confirm with Enter. Exactly one Leave request succeeds. The project
+   disappears; home returns to Projects with “You left <name>.”; bundle
+   departure focuses Search projects. Reopening the old URL shows the absent
+   state. Owned maps still report the project identity for withdrawal.
+6. Open Maps and its project filter. The departed project is absent and the
+   independent project remains. Owned maps still appear in the list. Open
+   the independent project's home and confirm its name and Viewer role.
+   Capture the owner card/menu, each confirmation and the departure result.
+
+Observe browser reds on separate detached builds using `placement`, `notice`
+and `escape` seeds. Expect respectively owner/member entrance assertions,
+the owned-work sentence, and cancellation/focus assertions to fail. Restore
+and rebuild between seeds and the final green. Unit DOM assertions establish
+component behavior only; they do not establish real browser layout or focus.
 ## SQL result byte budget
 
 The claim is **bounded at 32 MiB per result on the covered reads**. These

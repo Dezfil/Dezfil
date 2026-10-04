@@ -1,32 +1,57 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { Account } from "@/lib/metadata/accounts";
+import type { PendingDeletion } from "@/lib/auth/account-deletion-status";
 import { ListHeading } from "@/components/ListHeading";
 import { IconSearch } from "@/components/gallery-icons";
 import { ErrorNote } from "@/components/ui/ErrorNote";
+import { Button } from "@/components/ui/Button";
 import { useSearchShortcut } from "@/components/use-search-shortcut";
 import { useTransientNotice } from "@/components/use-transient-notice";
 import { accountRequest, failureMessage } from "@/components/settings/api";
 import gallery from "@/components/gallery.module.css";
 import { InviteUserRow } from "./InviteUserRow";
 import { UserRow } from "./UserRow";
+import { DeleteAccountDialog } from "./DeleteAccountDialog";
+import { DeletingUserRow } from "./DeletingUserRow";
+import { finishDeletion, type DeletionStatus } from "./deletion-client";
 import type { HandOver } from "./SignInHandOver";
 import styles from "./UsersScreen.module.css";
 
 export function UsersScreen() {
-  const [data, setData] = useState<{ users: Account[]; own: string } | null>(null), [attempt, setAttempt] = useState(0);
+  const [data, setData] = useState<{ users: Account[]; deletions: PendingDeletion[]; own: string } | null>(null), [attempt, setAttempt] = useState(0);
   const [error, setError] = useState<string | null>(null), [busy, setBusy] = useState(false);
   const [query, setQuery] = useState(""), [inviting, setInviting] = useState(false), [open, setOpen] = useState<string | null>(null);
   const [handOver, setHandOver] = useState<HandOver | null>(null);
+  const [deleting, setDeleting] = useState<Account | null>(null);
+  const focusSearch = useRef(false), finishing = useRef(false);
   const search = useRef<HTMLInputElement>(null); useSearchShortcut(search);
   const { notice, show } = useTransientNotice();
   useEffect(() => {
     let cancelled = false;
-    Promise.all([accountRequest<{ users: Account[] }>("/api/users"), accountRequest<{ account: Account }>("/api/account")])
-      .then(([users, identity]) => { if (!cancelled) { setData({ users: users.users, own: identity.account.id }); setError(null); } })
+    Promise.all([accountRequest<{ users: Account[]; deletions: PendingDeletion[] }>("/api/users"), accountRequest<{ account: Account }>("/api/account")])
+      .then(([users, identity]) => { if (!cancelled) setData({ users: users.users, deletions: users.deletions, own: identity.account.id }); })
       .catch(error => { if (!cancelled) setError(failureMessage(error)); });
     return () => { cancelled = true; };
   }, [attempt]);
+  useEffect(() => {
+    // Dialog cleanup has released inertness and its opener may now be gone.
+    if (focusSearch.current && !deleting) { focusSearch.current = false; search.current?.focus(); }
+  });
+  function deleted(account: PendingDeletion["account"], status: DeletionStatus) {
+    setData(current => current ? { ...current, users: current.users.filter(user => user.id !== account.id),
+      deletions: [...current.deletions.filter(value => value.id !== status.id),
+        ...(status.state === "completed" ? [] : [{ id: status.id, state: status.state, account }])] } : null);
+    setDeleting(null); setHandOver(null); setOpen(null); focusSearch.current = true;
+    if (status.state === "completed") show(`${account.name}: deleted`);
+  }
+  async function finish(value: PendingDeletion) {
+    if (finishing.current) return;
+    finishing.current = true; setBusy(true); setError(null);
+    try { deleted(value.account, await finishDeletion(value.id)); }
+    catch (cause) { setError(failureMessage(cause)); setAttempt(value => value + 1); }
+    finally { finishing.current = false; setBusy(false); }
+  }
   function update(account: Account) {
     setData(current => current ? { ...current, users: current.users.some(user => user.id === account.id)
       ? current.users.map(user => user.id === account.id ? account : user) : [...current.users, account] } : null);
@@ -48,18 +73,25 @@ export function UsersScreen() {
     } catch (error) { setError(failureMessage(error)); return false; }
     finally { setBusy(false); }
   }
-  const shown = data?.users.filter(user => `${user.name} ${user.email}`.toLowerCase().includes(query.trim().toLowerCase())) ?? [];
+  const matches = (user: { name: string; email: string }) => `${user.name} ${user.email}`.toLowerCase().includes(query.trim().toLowerCase());
+  const pending = data?.deletions ?? [];
+  const shown = data?.users.filter(user => !pending.some(value => value.account.id === user.id) && matches(user)) ?? [];
+  const shownPending = pending.filter(value => matches(value.account));
   const active = shown.filter(user => user.status !== "deactivated"), deactivated = shown.filter(user => user.status === "deactivated");
   function row(account: Account) {
     return <UserRow key={account.id} account={account} own={account.id === data?.own} open={open === account.id} busy={busy}
       handOver={handOver?.account.id === account.id ? handOver : null}
       onToggle={() => { setOpen(open === account.id ? null : account.id); setHandOver(null); }}
-      onAccess={patch => change(account.id, patch)} onReset={() => reset(account.id)} onDone={() => setHandOver(null)} />;
+      onAccess={patch => change(account.id, patch)} onReset={() => reset(account.id)} onDone={() => setHandOver(null)} onDelete={() => setDeleting(account)} />;
   }
   return <div className={styles.screen}>
     <ListHeading title="Users" line={null} action={{ label: "Invite", disabled: !data || busy || inviting,
       onClick: () => { setInviting(true); setOpen(null); setHandOver(null); } }} />
-    {error && <ErrorNote message={error} onRetry={!data ? () => setAttempt(value => value + 1) : undefined} onDismiss={data ? () => setError(null) : undefined} />}
+    {error && <ErrorNote message={error} onRetry={!data ? () => { setError(null); setAttempt(value => value + 1); } : undefined} onDismiss={data ? () => setError(null) : undefined} />}
+    {pending.filter(value => value.state === "needs-retry").map(value => <ErrorNote key={value.id}
+      message={`${value.account.name}’s account could not be deleted completely. It stays closed: nobody can sign in to it or open its work.`}>
+      <Button disabled={busy} onClick={() => void finish(value)}>Finish deleting</Button>
+    </ErrorNote>)}
     {notice && <p className={styles.notice} role="status">{notice}</p>}
     <div className={gallery.toolbar}><label className={gallery.search}><IconSearch /><input ref={search} aria-label="Search users"
       placeholder="Search users…" value={query} onChange={event => setQuery(event.target.value)} /><kbd>/</kbd></label></div>
@@ -72,7 +104,10 @@ export function UsersScreen() {
       {active.map(row)}
       {deactivated.length > 0 && <div className={styles.group}>Deactivated · {deactivated.length}</div>}
       {deactivated.map(row)}
-      {shown.length === 0 && <p className={styles.empty}>No one matches this search.</p>}
+      {shownPending.map(value => <DeletingUserRow key={value.id} value={value} open={open === value.id} busy={busy}
+        onToggle={() => setOpen(open === value.id ? null : value.id)} onFinish={() => void finish(value)} />)}
+      {shown.length === 0 && shownPending.length === 0 && <p className={styles.empty}>No one matches this search.</p>}
     </div>}
+    {deleting && <DeleteAccountDialog account={deleting} onClose={() => setDeleting(null)} onDone={status => deleted(deleting, status)} />}
   </div>;
 }

@@ -1,3 +1,4 @@
+import { registerAssistantStore } from "./retained-work";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { getAccount } from "@/lib/metadata/accounts";
 import type { ActionEffects, ResolvedConfirmation } from "./action-metadata";
@@ -100,10 +101,12 @@ function canonical(value: unknown): string {
   if (value !== null && typeof value === "object") return `{${Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([k,v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(",")}}`;
   return JSON.stringify(value);
 }
+interface RunStoreState { entries: Map<string, RunEntry>; terminals: string[] }
 export class AssistantRunStore {
-  private entries = new Map<string, RunEntry>();
-  private terminals: string[] = [];
-  constructor(private now: () => number = Date.now) {}
+  constructor(private now: () => number = Date.now, private readonly state: RunStoreState = { entries: new Map(), terminals: [] }) {}
+  private get entries() { return this.state.entries; }
+  private get terminals() { return this.state.terminals; }
+  private set terminals(value: string[]) { this.state.terminals = value; }
   private expire() {
     for (const [id, entry] of this.entries) {
       if (entry.receipt.state === "reserved" && this.now() - entry.createdAt >= RECOVERY_LIMITS.reservationMs) {
@@ -291,7 +294,19 @@ export class AssistantRunStore {
     }
     return true;
   }
+  interruptAccount(accountId: string): void { for (const entry of this.entries.values()) if (entry.accountId === accountId) entry.controller?.abort(new DOMException("Account is inactive", "AbortError")); }
+  eraseAccount(accountId: string): void {
+    for (const [id, entry] of this.entries) if (entry.accountId === accountId) this.entries.delete(id);
+    this.terminals = this.terminals.filter(id => this.entries.has(id));
+  }
+  entriesForTests(accountId: string): string[] { return [...this.entries].filter(([,r]) => r.accountId === accountId).map(([id]) => id); }
+  terminalsForTests(accountId: string): string[] { return this.terminals.filter(id => this.entries.get(id)?.accountId === accountId); }
   /** Isolate in-process route fixtures, never exposed by the API. */
   resetForTests() { this.entries.clear(); this.terminals = []; }
 }
-export const assistantRuns = new AssistantRunStore();
+const runsKey = Symbol.for("dezfil.assistant-runs");
+const runsHost = globalThis as typeof globalThis & { [runsKey]?: RunStoreState };
+const runsState: RunStoreState = runsHost[runsKey] ??= { entries: new Map(), terminals: [] as string[] };
+export const assistantRuns = new AssistantRunStore(Date.now, runsState);
+
+registerAssistantStore({ interrupt: id => assistantRuns.interruptAccount(id), erase: id => assistantRuns.eraseAccount(id) });

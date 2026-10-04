@@ -1,0 +1,5 @@
+.body { display: flex; flex-direction: column; gap: 14px; padding: 0 18px; font-size: var(--text-label); color: var(--fg-muted); line-height: 1.5; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field b, .field input { font-family: var(--font-mono); }
+.field b { color: var(--fg); font-weight: 600; }
+.totals { margin-top: 0; gap: 7px 10px; }

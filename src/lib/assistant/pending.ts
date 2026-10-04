@@ -1,3 +1,4 @@
+import { registerAssistantStore } from "./retained-work";
 import { withoutWriteRevision } from "./edit-revisions";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { ResolvedConfirmation } from "./action-metadata";
@@ -66,9 +67,11 @@ const MAX_PARKED = 8;
  * distinctly from "unknown". */
 const MAX_TRACE = 256;
 
+interface PendingState { parked: Map<string, ParkedRun>; trace: Map<string, { resolution: Resolution; accountId: string }> }
 export class PendingActionStore {
-  private parked = new Map<string, ParkedRun>();
-  private trace = new Map<string, { resolution: Resolution; accountId: string }>();
+  constructor(private readonly state: PendingState = { parked: new Map(), trace: new Map() }) {}
+  private get parked() { return this.state.parked; }
+  private get trace() { return this.state.trace; }
 
   peek(scope: AccountScope, id: string): ParkedRun | undefined {
     const accountId = requireAccountScope(scope), run = this.parked.get(id);
@@ -101,7 +104,7 @@ export class PendingActionStore {
    * way. */
   supersede(scope: AccountScope, id: string): void {
     const run = this.peek(scope, id);
-    if (run && this.parked.delete(id)) this.remember(id, "superseded", run.accountId);
+    if (run && this.parked.delete(id)) { run.exchange.dispose?.(); this.remember(id, "superseded", run.accountId); }
   }
 
   /** How a no-longer-pending id was resolved, when the trace still holds
@@ -112,6 +115,12 @@ export class PendingActionStore {
     return trace && trace.accountId === accountId ? trace.resolution : undefined;
   }
 
+  holdsExchange(exchange: ProviderExchange): boolean { return [...this.parked.values()].some(run => run.exchange === exchange); }
+  eraseAccount(accountId: string): void {
+    for (const [id, run] of this.parked) if (run.accountId === accountId) { run.exchange.dispose?.(); this.parked.delete(id); }
+    for (const [id, trace] of this.trace) if (trace.accountId === accountId) this.trace.delete(id);
+  }
+  entriesForTests(accountId: string) { return { parked: [...this.parked].filter(([,r]) => r.accountId === accountId).map(([id]) => id), trace: [...this.trace].filter(([,r]) => r.accountId === accountId).map(([id]) => id) }; }
   resetForTests() { this.parked.clear(); this.trace.clear(); }
 
   private remember(id: string, how: Resolution, accountId: string): void {
@@ -125,4 +134,9 @@ export class PendingActionStore {
 }
 
 /** The instance's store — module state, shared by the exchange endpoint. */
-export const pendingActions = new PendingActionStore();
+const pendingKey = Symbol.for("dezfil.pending-actions");
+const pendingHost = globalThis as typeof globalThis & { [pendingKey]?: PendingState };
+const pendingState: PendingState = pendingHost[pendingKey] ??= { parked: new Map(), trace: new Map() };
+export const pendingActions = new PendingActionStore(pendingState);
+
+registerAssistantStore({ erase: accountId => pendingActions.eraseAccount(accountId) });

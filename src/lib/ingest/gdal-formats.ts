@@ -1,10 +1,11 @@
+import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { ownedTableNames, listOwnedTables } from "@/lib/metadata/owned-tables";
 import { requireFilingDestination } from "@/lib/auth/reach";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { replayGeometryRelation, type GeometryReplay } from "@/lib/geometry/replay";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { dataDir } from "@/lib/config";
 import { withConnection } from "@/lib/duckdb";
 import { ApiError } from "@/lib/api/errors";
@@ -92,6 +93,7 @@ export async function prepareSource(
   format: GdalFormat,
   sourcePath: string,
   filename: string,
+  accountId?: string,
 ): Promise<PreparedSource> {
   const ext = path.extname(filename).toLowerCase();
   if (format === "geopackage" || (format === "kml" && ext === ".kml")) {
@@ -99,6 +101,7 @@ export async function prepareSource(
   }
 
   const scratchDir = path.join(ingestScratchDir(), randomUUID());
+  if (accountId) registerAccountFile(accountId, scratchDir, true);
   await mkdir(scratchDir, { recursive: true });
   try {
     const { files } = await extractArchive(sourcePath, scratchDir, filename);
@@ -124,7 +127,7 @@ export async function prepareSource(
     return { datasets: [path.join(scratchDir, kml)], scratchDir };
   } catch (error) {
     // A refusal before the source is handed over cleans its own scratch.
-    await rm(scratchDir, { recursive: true, force: true });
+    await removeAccountFile(scratchDir, { recursive: true, force: true });
     throw error;
   }
 }
@@ -312,7 +315,7 @@ export async function buildLayerArtifact(
     // A failure after COPY leaves a written artifact the caller has not
     // yet taken ownership of — no-residue means it goes here (review
     // round one).
-    await rm(artifact, { force: true });
+    await removeAccountFile(artifact, { force: true });
     throw error;
   }
 }
@@ -333,7 +336,7 @@ export async function ingestSpatialFile(
   requireAccountScope(scope);
   if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
   const format = detectFormat(originalFilename) as GdalFormat;
-  const prepared = await prepareSource(format, sourcePath, originalFilename);
+  const prepared = await prepareSource(format, sourcePath, originalFilename, scope.accountId);
   try {
     return await withConnection(async (conn) => {
       const { spatial, skipped } = await enumerateLayers(
@@ -364,6 +367,7 @@ export async function ingestSpatialFile(
           const id = randomUUID();
           const relFile = path.join("tables", `${id}.parquet`);
           const artifact = path.join(dataDir(), relFile);
+    registerAccountFile(scope.accountId, artifact);
           const meta = await buildLayerArtifact(conn, format, layer, artifact);
           built.push({
             layer,
@@ -414,7 +418,7 @@ export async function ingestSpatialFile(
       } catch (error) {
         // No partial state, extended to groups: every artifact this import
         // built goes before the error surfaces.
-        for (const b of built) await rm(b.artifact, { force: true });
+        for (const b of built) await removeAccountFile(b.artifact, { force: true });
         throw error;
       }
     });
@@ -423,7 +427,7 @@ export async function ingestSpatialFile(
     // committed, and a cleanup stumble must not turn that success into a
     // failure answer. The boot sweep collects strays.
     if (prepared.scratchDir) {
-      await rm(prepared.scratchDir, { recursive: true, force: true }).catch(
+      await removeAccountFile(prepared.scratchDir, { recursive: true, force: true }).catch(
         (error: unknown) =>
           console.warn(
             `ingest scratch cleanup failed for ${prepared.scratchDir}: ${

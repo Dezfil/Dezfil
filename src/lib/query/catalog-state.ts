@@ -1,3 +1,4 @@
+import { registerQueryStore } from "./retained";
 import type { ArtifactRelation } from "./artifact-relation";
 
 /** Only immutable artifact projections are cached. A successful view on one
@@ -19,3 +20,6 @@ export function invalidateArtifactRelations(owner: string | null, name: string):
     if (boundOwner === owner && boundName === name) relations.delete(key);
   }
 }
+
+registerQueryStore({ drain: async () => {}, busy: () => false, clear() { relations.clear(); relations = new Map(); generation++; } });
+export function catalogRelationsForTests(): string[] { return [...relations.keys()]; }

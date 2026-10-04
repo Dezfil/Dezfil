@@ -1,3 +1,5 @@
+import { canReach } from "@/lib/auth/reach";
+import { notFound } from "next/navigation";
 import { MapBuilder } from "@/components/builder/MapBuilder";
 import { MapReader } from "@/components/reader/MapReader";
 import { LayerDownloadControlProvider } from "@/components/builder/LayerDownloadControlProvider";
@@ -21,6 +23,7 @@ export default async function MapBuilderPage({
 }) {
   const scope = await requirePageScope();
   const { id } = await params;
+  if (!canReach(scope, "map", id)) notFound();
   // Whoever may not change the map reads it (a Viewer, or anyone while its
   // owner is deactivated); everyone else who reaches it builds.
   if (viewsOnly(scope, "map", id)) {

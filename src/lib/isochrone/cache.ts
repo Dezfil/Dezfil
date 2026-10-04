@@ -1,3 +1,4 @@
+import { beginProviderCacheWrite } from "@/lib/provider-cache-generation";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -87,21 +88,25 @@ export async function readIsochrone(
 export async function writeIsochrone(
   key: string,
   answer: CachedIsochrone,
+  generation: number,
 ): Promise<void> {
-  const dir = cacheDir();
-  await mkdir(dir, { recursive: true });
-  const file = path.join(dir, `${key}.json`);
-  // Atomic within the directory, unique per write — two overlapping writes
-  // of one origin must not steal each other's staging file.
-  const staging = path.join(dir, `.${key}.${randomUUID()}.tmp`);
-  await writeFile(staging, JSON.stringify(answer), "utf8");
-  await rename(staging, file);
-  await maintainIsochroneCache();
+  const finish = await beginProviderCacheWrite(generation); if (!finish) return;
+  try {
+    const dir = cacheDir();
+    await mkdir(dir, { recursive: true });
+    const file = path.join(dir, `${key}.json`);
+    // Atomic within the directory, unique per write — two overlapping writes
+    // of one origin must not steal each other's staging file.
+    const staging = path.join(dir, `.${key}.${randomUUID()}.tmp`);
+    await writeFile(staging, JSON.stringify(answer), "utf8");
+    await rename(staging, file);
+    await maintainIsochroneCache();
+  } finally { finish(); }
 }
 
 /** Expired entries go, then oldest-first eviction holds the budget. Runs
  * around the cache's own writes, never from a boot sweep — durable by
- * design, shrinking only by lifetime and budget. */
+ * design, shrinking by lifetime, budget and account erasure. */
 export async function maintainIsochroneCache(
   now: number = Date.now(),
 ): Promise<void> {

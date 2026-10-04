@@ -1,33 +1,23 @@
-import { rm } from "node:fs/promises";
 import { inflightSettled } from "@/lib/query/inflight";
-
-/**
- * Retire a replaced or deleted artifact: removal waits for the readers in
- * flight at retirement time, so a committed swap never yanks a file out
- * from under an evaluation that bound its path beforehand. The wait is
- * bounded — every evaluation is timed — and fire-and-forget by design: a
- * post-commit cleanup problem is logged, never an error the caller reads.
- * The boot sweep collects whatever a dying process abandons.
- */
-
-const pending = new Set<Promise<void>>();
-
+import { removeAccountFile } from "./file-ownership";
+const key = Symbol.for("dezfil.artifact-retirements");
+const host = globalThis as typeof globalThis & { [key]?: Map<string, Promise<void>> };
+const pending = host[key] ??= new Map<string, Promise<void>>();
+/** Background retirement never turns a committed swap into a request failure.
+ * Failure stays outstanding, so account cleanup can observe and retry it. */
 export function retireArtifact(absPath: string): void {
-  const done = inflightSettled()
-    .then(() => rm(absPath, { force: true }))
-    .catch((error: unknown) => {
-      console.warn(
-        `artifact retirement failed for ${absPath}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    })
-    .then(() => undefined);
-  pending.add(done);
-  void done.then(() => pending.delete(done));
+  const done = inflightSettled().then(() => removeAccountFile(absPath));
+  pending.set(absPath, done);
+  void done.then(() => { if (pending.get(absPath) === done) pending.delete(absPath); }, error => {
+    console.warn(`artifact retirement failed for ${absPath}: ${error instanceof Error ? error.message : String(error)}`);
+  });
+}
+export async function retirementsSettled(files?: readonly string[]): Promise<void> {
+  for (const [file, promise] of [...pending]) {
+    if (files && !files.includes(file)) continue;
+    try { await promise; }
+    catch { await removeAccountFile(file); pending.delete(file); }
+  }
 }
 
-/** Test hook: settles once every scheduled retirement has run. */
-export async function retirementsSettled(): Promise<void> {
-  while (pending.size) await Promise.all([...pending]);
-}
+export function retirementsForTests(): string[] { return [...pending.keys()]; }

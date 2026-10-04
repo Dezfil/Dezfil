@@ -9,6 +9,7 @@ import { AuthError, type AuthErrorCode } from "@/lib/auth/errors";
  */
 export type ErrorCode =
   | AuthErrorCode
+  | "project_owner_cannot_leave"
   | "unsupported_format"
   | "upload_too_large"
   | "archive_too_large"

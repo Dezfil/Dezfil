@@ -1,3 +1,5 @@
+import { admitEvaluationWork } from "@/lib/query/work-admission";
+import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import type { StagingInput } from "@/lib/query/staging";
 import type { DatasetScope } from "@/lib/query/access";
 import { getOwnedTableByName, requireOwnedTableReference } from "@/lib/metadata/owned-tables";
@@ -6,7 +8,7 @@ export { LostAuthority } from "./dataset-publication";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { randomUUID } from "node:crypto";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { dataDir } from "@/lib/config";
 import { ApiError } from "@/lib/api/errors";
@@ -265,9 +267,10 @@ async function geometryColumnOfResult(
   );
 }
 
-async function artifactPaths(): Promise<{ rel: string; abs: string }> {
+async function artifactPaths(accountId: string): Promise<{ rel: string; abs: string }> {
   const rel = path.join("tables", `${randomUUID()}.parquet`);
   const abs = path.join(dataDir(), rel);
+  registerAccountFile(accountId, abs);
   // The import path creates this directory before every write and so must
   // this one: on a workspace whose first table is a derived one, nothing has
   // created it yet and the write fails for a reason that has nothing to do
@@ -369,7 +372,8 @@ export async function materialize(
   const name = exactName(request.name);
   const evaluation: DatasetScope = request.evaluation ?? scope;
 
-  return boundedEvaluation(async (conn, bounds) => {
+  const deletionWork = admitEvaluationWork(evaluation);
+  try { return await boundedEvaluation(async (conn, bounds) => {
     const compiledSql = await namedSql(conn, sql);
 
     // Refuse a taken name before doing the work, so the common collision
@@ -401,6 +405,7 @@ export async function materialize(
       id: t.id, name: t.name, artifact: t.file,
       ownerId: ownerOf.get(t.id) ?? null, written: writtenOf.get(t.id) ?? t.name,
     }));
+    deletionWork.bind(bound.map(input => input.ownerId ?? null));
     // An input whose geometry this query reads passes its uncertainty on; one
     // contributing only attributes does not.
     const crsAssumed = resolved.some((t) => t.crsAssumed && reads.geometry.has(t.id));
@@ -417,7 +422,7 @@ export async function materialize(
       }
     }
 
-    const { rel, abs } = await artifactPaths();
+    const { rel, abs } = await artifactPaths(scope.accountId);
     let committed = false;
     try {
       let measured;
@@ -478,6 +483,7 @@ export async function materialize(
         // reports its last run, so it is not the one row with no age.
         importedAt: now,
       };
+      deletionWork.assertCommit();
       const replaced = publishDataset(scope, table, bound, request);
       committed = true;
       // The generation this replaced is now unreferenced. Retiring it is
@@ -502,9 +508,10 @@ export async function materialize(
     } finally {
       // Only an uncommitted run owns the artifact. After the commit the row
       // points at it, and removing it here would strand a registered table.
-      if (!committed) await rm(abs, { force: true });
+      if (!committed) await removeAccountFile(abs, { force: true });
     }
   }, { scope: evaluation, inputs: request.inputs, pinBindings: true, signal, ...(budgetMs !== undefined ? { budgetMs } : {}), ...(timeoutError ? { timeoutError } : {}) });
+  } finally { deletionWork.release(); }
 }
 
 /**

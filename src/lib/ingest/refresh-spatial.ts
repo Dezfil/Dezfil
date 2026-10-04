@@ -1,9 +1,9 @@
+import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { geometryEvidence } from "@/lib/geometry-evidence";
 import { getGeometryState } from "@/lib/geometry/state";
 import path from "node:path";
-import { rm } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { dataDir } from "@/lib/config";
 import { ApiError } from "@/lib/api/errors";
@@ -59,7 +59,7 @@ export async function refreshUrlSpatial(
   }
 
   const format = requested.format as GdalFormat;
-  const source = await resolveRemoteSource(url);
+  const source = await resolveRemoteSource(url, scope.accountId);
   let prepared: Awaited<ReturnType<typeof prepareSource>> | null = null;
   const candidates: {
     member: DataTable;
@@ -69,7 +69,7 @@ export async function refreshUrlSpatial(
   }[] = [];
   let now = "";
   try {
-    prepared = await prepareSource(format, source.sourcePath, source.filename);
+    prepared = await prepareSource(format, source.sourcePath, source.filename, scope.accountId);
     await withConnection(async (conn) => {
       const { spatial } = await enumerateLayers(conn, format, prepared!);
       for (const member of members) {
@@ -88,12 +88,13 @@ export async function refreshUrlSpatial(
         }
         const relFile = path.join("tables", `${randomUUID()}.parquet`);
         const artifact = path.join(dataDir(), relFile);
+    registerAccountFile(scope.accountId, artifact);
         let meta: ArtifactMeta;
         try {
           const state = getGeometryState(member);
           meta = await buildLayerArtifact(conn, format, layer, artifact, state?.mode === "set" ? { table: member, state } : undefined);
         } catch (error) {
-          await rm(artifact, { force: true });
+          await removeAccountFile(artifact, { force: true });
           throw error;
         }
         candidates.push({ member, relFile, artifact, meta });
@@ -135,13 +136,13 @@ export async function refreshUrlSpatial(
       }
     })();
   } catch (error) {
-    for (const c of candidates) await rm(c.artifact, { force: true });
+    for (const c of candidates) await removeAccountFile(c.artifact, { force: true });
     throw error;
   } finally {
     // Best-effort: the swap may already be committed — a cleanup stumble
     // is logged, never a failure answer.
     if (prepared?.scratchDir) {
-      await rm(prepared.scratchDir, { recursive: true, force: true }).catch(
+      await removeAccountFile(prepared.scratchDir, { recursive: true, force: true }).catch(
         (error: unknown) =>
           console.warn(
             `refresh scratch cleanup failed: ${

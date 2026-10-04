@@ -7,9 +7,9 @@ import { metadataDb } from "./db";
 /**
  * A project's people: its owner and the members the owner gave a role.
  *
- * Everyone who reaches the project reads them, since members see each other;
- * adding a person, changing a role and removing a person are the project
- * owner's alone, by the kernel's membership rule. A person is named by their
+ * The owner reads the roster; members read the owner and their own role.
+ * Adding a person, changing a role and removing another person are the project
+ * owner's alone. A member may end their own grant. A person is named by their
  * SQL name, the one fact about an account other people already see. The store
  * keeps the owner out of the member rows; a membership change is read again
  * by the kernel on the member's next request, so nobody signs out for it.
@@ -80,8 +80,25 @@ export function removeProjectPerson(scope: AccountScope, projectId: string, sqlN
   db: Database = metadataDb()): ProjectPerson[] {
   return db.transaction(() => {
     const project = requirePermitted(scope, "project", projectId, "membership", db);
-    db.prepare(`DELETE FROM project_people WHERE project_id = ?
-      AND account_id = (SELECT id FROM accounts WHERE sql_name = ?)`).run(project.parentId, sqlName);
+    const account = db.prepare("SELECT id FROM accounts WHERE sql_name = ?").get(sqlName) as { id: string } | undefined;
+    if (account) endGrant(project.parentId, account.id, db);
     return peopleOf(project.parentId, project.ownerId, db);
+  }).immediate();
+}
+
+function endGrant(projectId: string, accountId: string, db: Database): void {
+  db.prepare("DELETE FROM project_people WHERE project_id = ? AND account_id = ?").run(projectId, accountId);
+}
+
+/** Departure ends only the credential holder's grant, including under a frozen
+ * owner. Reach rechecks the active account and hides absent/non-member projects.
+ * No roster is read, and no document revision or filing changes. */
+export function leaveProject(scope: AccountScope, projectId: string, db: Database = metadataDb()): { left: true } {
+  return db.transaction(() => {
+    const project = requireReachable(scope, "project", projectId, db);
+    if (project.relation === "owner") throw new ApiError("project_owner_cannot_leave",
+      "The project's owner cannot leave. Transfer or delete the project instead.", 409);
+    endGrant(project.parentId, scope.accountId, db);
+    return { left: true as const };
   }).immediate();
 }

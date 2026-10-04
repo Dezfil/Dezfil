@@ -7,13 +7,14 @@ import { AuthError } from "./errors";
 const accountScopeBrand: unique symbol = Symbol("account scope");
 export interface AccountScope {
   readonly accountId: string;
+  readonly workKey?: string;
   readonly [accountScopeBrand]: true;
 }
 
 /** Only authenticated entry points mint scopes. Request bodies never do. */
 export function accountScope(context: AuthContext, db: Database = metadataDb()): AccountScope {
   const account = requireCurrentActor(context, db);
-  return Object.freeze({ accountId: account.id, [accountScopeBrand]: true as const });
+  return Object.freeze({ accountId: account.id, ...(context.workKey ? { workKey: context.workKey } : {}), [accountScopeBrand]: true as const });
 }
 
 /** Recheck activity at commit, including work that outlives its request. */

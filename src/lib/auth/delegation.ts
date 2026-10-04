@@ -1,3 +1,4 @@
+import { delegatedWorkKey } from "./account-deletion-work";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
@@ -41,7 +42,7 @@ export function authenticateDelegation(secret: string, db: Database = metadataDb
   const account = parent && getAccount(parent.account_id, db);
   if (!parent || !account || account.id !== value.accountId || account.status !== "active" || parent.revoked_at !== null ||
       ("expires_at" in parent && parent.expires_at <= now)) return null;
-  return { account, credential: { kind: value.kind, id: parent.id }, delegationExpiresAt: value.expiresAt };
+  return { account, credential: { kind: value.kind, id: parent.id }, delegationExpiresAt: value.expiresAt, workKey: delegatedWorkKey(secret) };
 }
 
 export function authenticateBearer(secret: string, db: Database = metadataDb(), now?: number): AuthContext | null {

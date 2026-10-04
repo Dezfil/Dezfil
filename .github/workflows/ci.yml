@@ -360,7 +360,8 @@ jobs:
               -e DEZFIL_EGRESS_ALLOWLIST=127.0.0.1 \
               -e DEZFIL_AI_PROVIDER=openai -e OPENAI_API_KEY=scripted-wire \
               -e OPENAI_BASE_URL=http://127.0.0.1:3341/v1 \
-              -v dezfil-sharing-ci-data:/data dezfil:ci
+              -e NODE_OPTIONS=--import=/probes/sharing-leave-observer.mjs \
+              -v "$PWD/scripts:/probes:ro" -v dezfil-sharing-ci-data:/data dezfil:ci
             for i in $(seq 1 30); do
               if docker exec dezfil-sharing-ci node -e "fetch('http://127.0.0.1:3384/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
                 return 0
@@ -373,8 +374,9 @@ jobs:
           journey() {
             docker run --rm --network=container:dezfil-sharing-ci \
               -v "$PWD/scripts:/probe/scripts:ro" -v "$RUNNER_TEMP/journeys:/state" \
+              -v dezfil-sharing-ci-data:/data \
               dezfil-mcp-probe:ci node /probe/scripts/sharing-journey.mjs \
-              "$1" http://127.0.0.1:3384 /state/sharing-state.json --assistant-wire=3341
+              "$1" http://127.0.0.1:3384 /state/sharing-state.json --assistant-wire=3341 --leave-hold=/data/.leave-probe
           }
           start
           journey seed
@@ -387,6 +389,15 @@ jobs:
       - name: Stop the account journey containers
         if: always()
         run: docker stop dezfil-ownership-ci dezfil-sharing-ci 2>/dev/null || true
+      # Expected added time: 1-3 minutes, excluding the image build. Measure
+      # the outside mirror before release and correct this range from that run.
+      # Uses the built image, no database image pull and no browser. The driver
+      # removes every owned container/volume on every exit and waits for names.
+      - name: Account deletion, built pages and continuation across replacement
+        timeout-minutes: 5
+        run: |
+          DEZFIL_DATA_DIR=$(mktemp -d "$RUNNER_TEMP/account-deletion-XXXXXX") \
+            sh scripts/account-deletion-image.sh dezfil:ci
       - name: MCP restart, HTTP departure and notification characterization
         run: node scripts/mcp-process-driver.mjs --container dezfil:ci --client-image dezfil-mcp-probe:ci --port 3377
       - name: Installed plugin HTTP journey

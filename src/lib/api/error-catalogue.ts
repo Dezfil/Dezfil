@@ -4,6 +4,7 @@ import type { ErrorCode } from "./errors";
  * error's code appears in the API documentation). Single source, rendered
  * into the docs and the OpenAPI description. */
 export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
+  project_owner_cannot_leave: "The project's owner cannot leave. Transfer or delete the project instead.",
   method_not_allowed: "This method is not allowed for this path.",
   authentication_required: "Sign in with a valid session or account token to continue.",
   invalid_credentials: "Email or password is incorrect.",
@@ -11,7 +12,10 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   setup_complete: "This instance already has an account. First-account creation is unavailable.",
   weak_password: "Use at least eight characters and avoid very common passwords.",
   email_taken: "An account already uses this normalized email address.",
-  self_change_refused: "Another admin must change your admin flag or deactivate your account.",
+  self_change_refused: "Another admin must change your admin flag, deactivate your account or delete it.",
+  account_not_deactivated: "Deactivate this account before deleting it.",
+  deletion_in_progress: "This account is being deleted and cannot be reactivated.",
+  deletion_changed: "This account or its work has changed. Review a fresh deletion preview before confirming.",
   last_admin: "Keep at least one active admin.",
   forbidden: "This request is not permitted for the current account or origin: an admin-only request, a cookie request from another origin, or a change to something the account can view but cannot make. A refused change has no effect.",
   invalid_link: "This sign-in link is unavailable, expired, replaced or already used.",

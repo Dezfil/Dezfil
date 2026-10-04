@@ -1,3 +1,4 @@
+import { assertDeletionCommit } from "@/lib/auth/account-deletion-work";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { randomBytes } from "node:crypto";
 import type { Readable } from "node:stream";
@@ -29,7 +30,7 @@ export interface PreparedLayerDownload extends LayerExportFile {
 }
 
 interface TicketEntry {
-  scope: AccountScope;
+  assertActive: () => void;
   accountId: string;
   binding: LayerDownloadBinding;
   file: PreparedLayerDownload;
@@ -42,6 +43,8 @@ interface TicketEntry {
   prepareAbort: (() => void) | null;
   abortStream: (() => void) | null;
   cleanupPromise: Promise<void> | null;
+  settled: ReturnType<typeof Promise.withResolvers<void>>;
+  streamClosed: Promise<void> | null;
 }
 
 export interface ClaimedLayerDownload {
@@ -51,6 +54,7 @@ export interface ClaimedLayerDownload {
   size: number;
   /** Installs the abort hook. False means the claim has already settled. */
   registerAbort: (abort: () => void) => boolean;
+  holdUntilClosed?: (closed: Promise<void>) => void;
   complete: () => void;
   fail: () => void;
 }
@@ -66,6 +70,7 @@ export function observeLayerDownloadStream(
   claimed: ClaimedLayerDownload,
 ): boolean {
   let ended = false;
+  claimed.holdUntilClosed?.(new Promise<void>(resolve => stream.once("close", resolve)));
   const detachCaller = () => signal.removeEventListener("abort", callerDeparted);
   const callerDeparted = () => {
     claimed.fail();
@@ -104,13 +109,15 @@ interface StoreOptions {
   createToken?: () => string;
 }
 
+export interface TicketStoreState { entries: Map<string, TicketEntry>; pending: Set<TicketEntry> }
 export class LayerDownloadTicketStore {
-  private readonly entries = new Map<string, TicketEntry>();
+  private get entries() { return this.state.entries; }
+  private get pending() { return this.state.pending; }
   private readonly preparedTtlMs: number;
   private readonly tombstoneTtlMs: number;
   private readonly createToken: () => string;
 
-  constructor(options: StoreOptions = {}) {
+  constructor(options: StoreOptions = {}, private readonly state: TicketStoreState = { entries: new Map(), pending: new Set() }) {
     this.preparedTtlMs =
       options.preparedTtlMs ?? LAYER_DOWNLOAD_PREPARED_TTL_MS;
     this.tombstoneTtlMs =
@@ -126,6 +133,7 @@ export class LayerDownloadTicketStore {
     signal?: AbortSignal,
     servable?: () => boolean,
   ): string {
+    assertDeletionCommit();
     const accountId = requireAccountScope(scope);
     let ticket: string;
     do {
@@ -133,7 +141,7 @@ export class LayerDownloadTicketStore {
     } while (this.entries.has(ticket));
 
     const entry: TicketEntry = {
-      scope, accountId,
+      assertActive: () => { requireAccountScope(scope); }, accountId,
       binding: { ...binding },
       file,
       servable: servable ?? null,
@@ -143,15 +151,18 @@ export class LayerDownloadTicketStore {
       prepareAbort: null,
       abortStream: null,
       cleanupPromise: null,
+      settled: Promise.withResolvers<void>(),
+      streamClosed: null,
     };
     this.entries.set(ticket, entry);
+    this.pending.add(entry);
     this.arm(entry, this.preparedTtlMs, () => {
       if (this.entries.get(ticket) !== entry || entry.status !== "prepared") {
         return;
       }
       this.transferPrepareOwnership(entry);
       entry.status = "failed";
-      void this.cleanup(entry);
+      void this.cleanup(entry).catch(error => console.error("[layer export] scratch cleanup failed:", error));
       this.armTombstone(ticket, entry);
     });
     if (signal) {
@@ -192,7 +203,7 @@ export class LayerDownloadTicketStore {
       contentType: entry.file.contentType,
       size: entry.file.size,
       registerAbort: (abort) => {
-        try { requireAccountScope(entry.scope); } catch { this.settle(ticket, entry, "failed"); abort(); return false; }
+        try { entry.assertActive(); } catch { this.settle(ticket, entry, "failed"); abort(); return false; }
         if (!stillStreaming()) {
           abort();
           return false;
@@ -200,9 +211,10 @@ export class LayerDownloadTicketStore {
         entry.abortStream = abort;
         return true;
       },
+      holdUntilClosed: closed => { entry.streamClosed = closed; },
       complete: () => {
         if (!stillStreaming()) return;
-        try { requireAccountScope(entry.scope); } catch { this.settle(ticket, entry, "failed"); return; }
+        try { entry.assertActive(); } catch { this.settle(ticket, entry, "failed"); return; }
         this.settle(ticket, entry, "complete");
       },
       fail: () => {
@@ -268,6 +280,7 @@ export class LayerDownloadTicketStore {
       await this.cleanup(entry);
     });
     await Promise.all(pending);
+    await Promise.all([...this.pending].map(entry => this.cleanup(entry)));
   }
 
   private boundEntry(
@@ -275,6 +288,7 @@ export class LayerDownloadTicketStore {
     ticket: string,
     binding: LayerDownloadBinding,
   ): TicketEntry | null {
+    assertDeletionCommit();
     const accountId = requireAccountScope(scope);
     const entry = this.entries.get(ticket);
     if (
@@ -295,7 +309,7 @@ export class LayerDownloadTicketStore {
     this.transferPrepareOwnership(entry);
     entry.status = status;
     entry.abortStream = null;
-    void this.cleanup(entry);
+    void this.cleanup(entry).catch(error => console.error("[layer export] scratch cleanup failed:", error));
     this.armTombstone(ticket, entry);
   }
 
@@ -317,7 +331,7 @@ export class LayerDownloadTicketStore {
     this.transferPrepareOwnership(entry);
     this.entries.delete(ticket);
     this.clearTimer(entry);
-    void this.cleanup(entry);
+    void this.cleanup(entry).catch(error => console.error("[layer export] scratch cleanup failed:", error));
   }
 
   private transferPrepareOwnership(entry: TicketEntry): void {
@@ -340,14 +354,35 @@ export class LayerDownloadTicketStore {
     entry.timer = null;
   }
 
+  /** Snapshot before waiting: preparations admitted later belong to their own lease. */
+  settlePrepared(accountId?: string): Promise<void> {
+    return Promise.all([...this.pending].filter(e => accountId === undefined || e.accountId === accountId)
+      .map(async entry => { await entry.settled.promise; await this.cleanup(entry); })).then(() => {});
+  }
+
+  async eraseAccount(accountId: string): Promise<void> {
+    await this.settlePrepared(accountId);
+    for (const [ticket, entry] of this.entries) if (entry.accountId === accountId) {
+      this.transferPrepareOwnership(entry); this.clearTimer(entry); this.entries.delete(ticket);
+    }
+  }
+  idsForTests(): string[] { return [...this.entries.keys()]; }
+  pendingForTests(): number { return this.pending.size; }
+
   private cleanup(entry: TicketEntry): Promise<void> {
-    entry.cleanupPromise ??= entry.file.cleanup().catch((error: unknown) => {
-      // Cleanup failure is operational detail; never return a path or raw
-      // filesystem message through the private status protocol.
-      console.error("[layer export] scratch cleanup failed:", error);
+    entry.settled.resolve();
+    entry.cleanupPromise ??= (entry.streamClosed ? entry.streamClosed.then(() => entry.file.cleanup()) : entry.file.cleanup()).then(() => { this.pending.delete(entry); }).catch(error => {
+      entry.cleanupPromise = null; throw error;
     });
     return entry.cleanupPromise;
   }
 }
 
-export const layerDownloadTickets = new LayerDownloadTicketStore();
+const layerDownloadTicketsKey = Symbol.for("dezfil.layerDownloadTickets");
+const layerDownloadTicketsHost = globalThis as typeof globalThis & { [layerDownloadTicketsKey]?: TicketStoreState };
+const layerTicketState: TicketStoreState = layerDownloadTicketsHost[layerDownloadTicketsKey] ??= { entries: new Map(), pending: new Set<TicketEntry>() };
+export const layerDownloadTickets = new LayerDownloadTicketStore({}, layerTicketState);
+const queryDownloadTicketsKey = Symbol.for("dezfil.queryDownloadTickets");
+const queryDownloadTicketsHost = globalThis as typeof globalThis & { [queryDownloadTicketsKey]?: TicketStoreState };
+const queryTicketState: TicketStoreState = queryDownloadTicketsHost[queryDownloadTicketsKey] ??= { entries: new Map(), pending: new Set<TicketEntry>() };
+export const queryDownloadTickets = new LayerDownloadTicketStore({}, queryTicketState);

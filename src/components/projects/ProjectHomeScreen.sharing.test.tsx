@@ -8,9 +8,9 @@ import { SignedIn } from "../sharing/signed-in";
 /**
  * A shared project's home, as its people see it: one quiet line under the
  * name (the owner's initials, one's role, whose project it is); an Editor
- * keeps Add to project and Export, a Viewer has Export alone; neither gets
+ * keeps Add to project and Export, a Viewer has Export; both can Leave. Neither gets
  * renaming (in the head or the header path), the note's edit or the
- * project menu. The owner's home is unchanged.
+ * owner's menu items. The owner's home is unchanged.
  */
 
 const home = vi.hoisted(() => ({ record: null as unknown, crumb: "", people: null as unknown, empty: false }));
@@ -70,7 +70,7 @@ describe("a shared project's home", () => {
     expect(html).toContain("Ada Okafor’s project");
     expect(html).toContain("Add to project");
     expect(html).toContain("Export project");
-    expect(html).not.toContain('aria-label="More"');
+    expect(html).toContain('aria-label="More"');
     expect(html).not.toContain(">edit<");
     expect(html).toContain("Where rent pressure meets the tram.");
     expect(home.crumb).toBe("plain:Berlin housing study");
@@ -82,13 +82,13 @@ describe("a shared project's home", () => {
     expect(html).toContain('data-hint="Shared by Ada Okafor"');
   });
 
-  it("gives a Viewer Export alone", () => {
+  it("gives a Viewer Export and the Leave menu", () => {
     const html = render("viewer");
     expect(html).toContain('data-role-line="viewer"');
     expect(html).toContain("<b>Viewer</b>");
     expect(html).toContain("Export project");
     expect(html).not.toContain("Add to project");
-    expect(html).not.toContain('aria-label="More"');
+    expect(html).toContain('aria-label="More"');
     expect(html).not.toContain(">edit<");
     expect(home.crumb).toBe("plain:Berlin housing study");
   });
@@ -141,6 +141,7 @@ describe("a shared project's home", () => {
     home.people = [{ name: "Ada Okafor", sqlName: "ada", role: "owner", deactivated: false }];
     const html = render(role);
     expect(html).not.toContain("data-share-action");
+    expect(html).toContain('aria-label="More"');
     expect(html).not.toContain("data-members-line");
     home.people = null;
   });

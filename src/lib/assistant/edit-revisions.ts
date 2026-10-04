@@ -16,6 +16,8 @@ const record = (value: unknown): Record<string, unknown> | null => value !== nul
 export class AssistantRevisions {
   private revisions = new Map<string, string>();
   private parents = new Map<string, string>();
+  clear(): void { this.revisions.clear(); this.parents.clear(); }
+  entriesForTests() { return { revisions: [...this.revisions], parents: [...this.parents] }; }
   revision(key: string) { return this.revisions.get(key); }
   private document(path: string): string | undefined {
     const parent = /^\/api\/(maps|recipes)\/([^/]+)/.exec(path);

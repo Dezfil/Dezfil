@@ -1,3 +1,5 @@
+import type { AccountActor } from "@/lib/account-actor";
+import { accountActors } from "@/lib/metadata/account-actors";
 import { readDocumentRevision, requireDocumentRevision } from "@/lib/metadata/revisions";
 import type { DatasetScope } from "@/lib/query/access";
 import { settleInactiveCascade } from "./cascade-inactive";
@@ -65,7 +67,9 @@ import { readsByStep } from "./step-reads";
  */
 
 /** Drives in flight, so a caller — or a test — can await one. */
-const driving = new Map<string, Promise<void>>();
+const drivingKey = Symbol.for("dezfil.cascade-drivers");
+const drivingHost = globalThis as typeof globalThis & { [drivingKey]?: Map<string, Promise<void>> };
+const driving = drivingHost[drivingKey] ??= new Map<string, Promise<void>>();
 
 export function cascadeSettled(id: string): Promise<void> {
   return driving.get(id) ?? Promise.resolve();
@@ -354,7 +358,7 @@ export interface CascadeView extends CascadeRun {
   outputs: { id: string; name: string }[];
   /** Whose run it is: its outputs and lineage are that person's. Null for a
    * run recorded before runs were attributed. */
-  runner: { name: string; sqlName: string } | null;
+  runner: AccountActor | null;
 }
 
 /**
@@ -388,9 +392,9 @@ export function readCascade(scope: AccountScope, id: string): CascadeView {
   const outputs = cascade.members
     .filter((m) => m.state === "succeeded" && m.output !== null)
     .map((m) => m.output!);
-  const runner = metadataDb().prepare(`SELECT a.name, a.sql_name AS sqlName FROM cascade_runs c
-    JOIN accounts a ON a.id = c.initiator_id WHERE c.id = ?`).get(id) as { name: string; sqlName: string } | undefined;
-  return { ...cascade, outputs, runner: runner ?? null };
+  const row = metadataDb().prepare("SELECT initiator_id FROM cascade_runs WHERE id = ?").get(id) as { initiator_id: string | null };
+  const runner = row.initiator_id ? accountActors([row.initiator_id]).get(row.initiator_id) ?? null : null;
+  return { ...cascade, outputs, runner };
 }
 
 /**
@@ -452,3 +456,5 @@ export async function cancelCascade(scope: AccountScope, id: string): Promise<Ca
   requireAccountScope(scope);
   return cascades.getCascade(id) ?? cascade;
 }
+
+export function cascadeDriversForTests(): string[] { return [...driving.keys()]; }

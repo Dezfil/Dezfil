@@ -1,3 +1,6 @@
+import { admitResourceWork, inDeletionWork, registerRenderDeletionWork } from "@/lib/auth/account-deletion-work";
+import { drainAccountRenders } from "./render-work";
+import { trackRenderWork } from "./render-work";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { AuthError } from "@/lib/auth/errors";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
@@ -126,10 +129,11 @@ function awaitActiveRender(
   browser: RenderBrowser,
   input: Parameters<RenderBrowser["render"]>[0],
   deadline: number,
-  signal?: AbortSignal,
-  budgetMs?: number,
+  signal: AbortSignal | undefined,
+  budgetMs: number | undefined,
+  accountId: string,
 ): Promise<Awaited<ReturnType<RenderBrowser["render"]>>> {
-  const rendering = browser.render(input);
+  const rendering = trackRenderWork(accountId, browser.render(input));
 
   return new Promise((resolve, reject) => {
     let finished = false;
@@ -194,7 +198,18 @@ export interface RenderImageResult {
 }
 
 /** Render one map to PNG under the documented bounds. */
-export async function renderMapImage(
+export function renderMapImage(scope: AccountScope, input: RenderImageInput): Promise<RenderImageResult> {
+  const accountId = requireAccountScope(scope);
+  const lease = admitResourceWork(scope, [{ table: "maps", id: input.mapId }]);
+  const unregister = registerRenderDeletionWork(input.credential, lease);
+  const rendering = trackRenderWork(accountId, inDeletionWork(lease, () => performRenderMapImage(scope, input)));
+  return rendering.then(result => { lease.assertCommit(); return result; }).finally(() => {
+    // A timed-out response can precede browser launch/render/close settlement.
+    void drainAccountRenders(accountId).finally(() => { unregister(); lease.release(); });
+  });
+}
+
+async function performRenderMapImage(
   scope: AccountScope,
   input: RenderImageInput,
 ): Promise<RenderImageResult> {
@@ -224,12 +239,12 @@ export async function renderMapImage(
       // Launch is inside the budget too: a stalled
       // launch races the remaining deadline; a late arrival is closed.
       launches += 1;
-      const launching = driver.launch(chromiumPath(), CHROMIUM_FLAGS, {
+      const launching = trackRenderWork(scope.accountId, driver.launch(chromiumPath(), CHROMIUM_FLAGS, {
         appOrigin: new URL(input.baseUrl).origin,
         deadline,
         requestBoundMs: renderRequestBoundMs(budgetMs),
         signal: input.signal,
-      });
+      }));
       launching.catch(() => {});
       browser = await new Promise<RenderBrowser>((resolve, reject) => {
         let finished = false;
@@ -287,6 +302,7 @@ export async function renderMapImage(
       deadline,
       input.signal,
       budgetMs,
+      scope.accountId,
     );
     stand();
     settled = true;
@@ -314,7 +330,7 @@ export async function renderMapImage(
   } finally {
     clearTimeout(watchdog);
     if (browser) {
-      const closing = browser.close();
+      const closing = trackRenderWork(scope.accountId, browser.close());
       const killTimer = setTimeout(() => browser?.kill(), CLOSE_GRACE_MS);
       void closing
         .catch(() => browser?.kill())

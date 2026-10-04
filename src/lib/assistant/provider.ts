@@ -67,6 +67,9 @@ export interface ExchangeOptions {
 export interface ProviderCallOptions { signal?: AbortSignal; onTextDelta?: (text: string) => void }
 
 export interface ProviderExchange {
+  /** Release native conversation buffers once the segment has settled. */
+  dispose?(): void;
+  retainedForTests?(): { history: unknown[]; grounding: string | undefined; tools: string[] };
   /** Replace application data while preserving native conversation blocks. */
   setGrounding?(grounding: string): void;
   /** Add tool definitions for this exchange's subsequent requests (spec

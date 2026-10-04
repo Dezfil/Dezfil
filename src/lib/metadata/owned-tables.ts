@@ -1,3 +1,4 @@
+import { registerExistingAccountFile } from "@/lib/ingest/file-ownership";
 import type { Database } from "better-sqlite3";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
@@ -44,6 +45,9 @@ export function updateOwnedTableData(scope: AccountScope, ref: { id: string; nam
     // Admission already resolved the owned identity. A deleted member must
     // reach the caller's guarded-swap failure, including group rollback.
     if (!db.prepare("SELECT id FROM data_tables WHERE id = ? AND owner_id = ?").get(ref.id, owner)) return false;
+    const previous = db.prepare("SELECT file FROM data_tables WHERE id = ? AND owner_id = ?").get(ref.id, owner) as { file: string };
+    registerExistingAccountFile(owner, previous.file);
+    registerExistingAccountFile(owner, update.file);
     return updateTableData(ref, update, db);
   })();
 }
@@ -92,7 +96,7 @@ const REACHED_SELECT = `SELECT t.*, a.name AS owner_name, a.sql_name AS owner_sq
 export function listReachableTables(scope: AccountScope, db: Database = metadataDb()): ReachedTable[] {
   const me = requireAccountScope(scope, db);
   return (db.prepare(`${REACHED_SELECT}
-    WHERE t.owner_id = @me OR t.id IN (SELECT table_id FROM project_datasets WHERE project_id IN (${REACHED_PROJECTS}))
+    WHERE a.status NOT IN ('deleting', 'deleted') AND (t.owner_id = @me OR t.id IN (SELECT table_id FROM project_datasets WHERE project_id IN (${REACHED_PROJECTS})))
     ORDER BY t.created_at DESC, t.name`).all({ me }) as ReachedRow[]).map(reachedOf);
 }
 

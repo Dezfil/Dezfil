@@ -90,6 +90,13 @@ export function recordDocumentCreation(scope: AccountScope, document: DocumentKe
 export function recordDocumentChanges(scope: AccountScope, changes: readonly CoveredChange[], db: Database = metadataDb()): void {
   requireTransaction(db);
   const actor = requireAccountScope(scope, db);
+  recordAcceptedDocumentChanges(actor, changes, db);
+}
+
+/** Internal continuation of a previously accepted lifecycle transaction. The
+ * stored actor remains attribution even if that admin is no longer active. */
+export function recordAcceptedDocumentChanges(actor: string, changes: readonly CoveredChange[], db: Database): void {
+  requireTransaction(db);
   const unique = new Map<string, CoveredChange>();
   for (const change of changes) {
     if (change.executable && change.kind !== "workflow") throw new Error("Only a workflow has an executable revision.");

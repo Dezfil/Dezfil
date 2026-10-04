@@ -1,5 +1,5 @@
 .fact { white-space: nowrap; }
-.fact[data-unknown] { font-style: italic; }
+.fact[data-unknown], .fact[data-deleted] { font-style: italic; }
 
 .head {
   display: inline-flex;

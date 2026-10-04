@@ -30,6 +30,7 @@ export interface EvaluationContext {
   readonly home: string | null;
   readonly workflow: string | null;
   readonly purpose: EvaluationPurpose;
+  readonly resource?: { kind: "maps" | "recipes"; id: string };
 }
 
 export function isEvaluationContext(scope: unknown): scope is EvaluationContext {
@@ -41,8 +42,9 @@ function context(
   home: string | null,
   purpose: EvaluationPurpose,
   workflow: string | null = null,
+  resource?: EvaluationContext["resource"],
 ): EvaluationContext {
-  return Object.freeze({ [contextBrand]: true as const, authority, home, workflow, purpose });
+  return Object.freeze({ [contextBrand]: true as const, authority, home, workflow, purpose, ...(resource ? { resource } : {}) });
 }
 
 type Scope = AccountScope | PublicationScope | EvaluationContext;
@@ -68,13 +70,13 @@ function homeOf(table: "maps" | "recipes", id: string, db: Database): string | n
  */
 export function mapEvaluation(scope: Scope, mapId: string, db: Database = metadataDb()): Scope {
   if (isEvaluationContext(scope) || isPublicationScope(scope)) return scope;
-  return context(scope, homeOf("maps", mapId, db) ?? scope.accountId, "resource");
+  return context(scope, homeOf("maps", mapId, db) ?? scope.accountId, "resource", null, { kind: "maps", id: mapId });
 }
 
 /** A workflow's evaluation: its steps bind in the workflow's home with the
  * runner's reach, and its declared outputs bind for this runner. */
 export function workflowEvaluation(scope: AccountScope, recipeId: string, db: Database = metadataDb()): EvaluationContext {
-  return context(scope, homeOf("recipes", recipeId, db) ?? scope.accountId, "resource", recipeId);
+  return context(scope, homeOf("recipes", recipeId, db) ?? scope.accountId, "resource", recipeId, { kind: "recipes", id: recipeId });
 }
 
 /** The authority behind any dataset scope. */

@@ -36,6 +36,9 @@ import { RoleLine } from "../sharing/PeopleMarks";
 import { MembersLine } from "../sharing/MembersLine";
 import { ShareDialog } from "../sharing/ShareDialog";
 import { PeopleIcon } from "../ui/icons";
+import { useSignedInSqlName } from "../sharing/signed-in";
+import { LeaveProjectDialog, ownsFiledWork } from "./LeaveProjectDialog";
+import { useDepartureNotice } from "./departure-notice";
 import { attentionRows, factsLine, homeStats } from "./home-model";
 import {
   useCatalogue,
@@ -89,6 +92,9 @@ function ProjectHomeVisit({ id, home, files }: {
   files: boolean;
 }) {
   const router = useRouter();
+  const me = useSignedInSqlName();
+  const departure = useDepartureNotice();
+  const [leaving, setLeaving] = useState(false);
   const {
     state, retry, beginSave, acceptSave, ownsSave, refresh,
     confirmMembership, beginAction, ownsAction,
@@ -361,7 +367,7 @@ function ProjectHomeVisit({ id, home, files }: {
   const hasContent = maps.length + workflows.length + tables.length > 0;
   // How the reader stands to the project, as its read says: its owner
   // keeps the whole head; its people get the role line, and renaming, the
-  // note and the menu stay the owner's. Add to project, the picker and the
+  // note stay the owner's; a member's menu holds Leave. Add to project, the picker and the
   // empty home's offers follow whether the reader may file here now.
   const role = record.role ?? "owner";
   const owns = role === "owner";
@@ -471,23 +477,23 @@ function ProjectHomeVisit({ id, home, files }: {
               <PeopleIcon /> Share
             </Button>
           )}
-          {owns && (
-            <Menu
-              label="Project actions"
-              triggerLabel="More"
-              trigger="⋯"
-              className={styles.menuWrap}
-              triggerClassName={styles.menuTrigger}
-              menuClassName={styles.menu}
-            >
-              <MenuItem onSelect={() => setNameDraft(record.name)}>
-                Rename
-              </MenuItem>
-              <MenuItem danger onSelect={() => setConfirmingDelete(true)}>
-                Delete project
-              </MenuItem>
-            </Menu>
-          )}
+          <Menu
+            label="Project actions"
+            triggerLabel="More"
+            trigger="⋯"
+            className={styles.menuWrap}
+            triggerClassName={styles.menuTrigger}
+            menuClassName={styles.menu}
+          >
+            {owns ? (
+              <>
+                <MenuItem onSelect={() => setNameDraft(record.name)}>Rename</MenuItem>
+                <MenuItem danger onSelect={() => setConfirmingDelete(true)}>Delete project</MenuItem>
+              </>
+            ) : (
+              <MenuItem danger onSelect={() => setLeaving(true)}>Leave project</MenuItem>
+            )}
+          </Menu>
         </div>
       </div>
 
@@ -659,6 +665,20 @@ function ProjectHomeVisit({ id, home, files }: {
         uploadQueue={uploadQueue}
       />
 
+      {leaving && (
+        <LeaveProjectDialog
+          projectId={id}
+          projectName={record.name}
+          ownsWork={ownsFiledWork(state.value, id, me)}
+          onClose={() => setLeaving(false)}
+          onDone={(notice) => {
+            if (!ownsAction(renderedAction)) return;
+            departure.remember(notice);
+            setLeft(true);
+            router.push("/projects");
+          }}
+        />
+      )}
       {confirmingDelete && (
         <Dialog
           label="Delete project"

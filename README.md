@@ -68,6 +68,14 @@ Last-change labels identify the person who changed the document; ownership is a
 separate fact. Project sharing gives Viewers read access and Editors map/workflow
 editing and run access. Publication, deletion and transfer remain the owner's.
 
+Viewers and Editors can leave a project; their owned work stays filed and shared.
+Another active admin can permanently delete an account after deactivation. Leave
+it deactivated to keep shared work. Deletion breaks owned publications, dissolves
+owned projects and keeps the identifying SQL name reserved. Finish deleting resumes
+unfinished cleanup after restart. Read the [host guide's measured pause, required
+space and retained-copy limits](docs/self-hosting.md#leaving-and-deleting-accounts)
+before using it.
+
 ## Configuration
 
 The deployment settings below are optional. Pass them as `-e NAME=value` on

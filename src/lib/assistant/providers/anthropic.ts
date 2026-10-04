@@ -82,10 +82,11 @@ export function anthropicProvider(
     model,
     effort,
     exchange(options: ExchangeOptions): ProviderExchange {
-      const messages: Anthropic.MessageParam[] = options.history.map((t) => ({
-        role: t.role,
-        content: t.text,
-      }));
+      const messages: Anthropic.MessageParam[] = [];
+      messages.push(...options.history.map(t => ({ role: t.role, content: t.text })));
+      const system = options.system;
+      let disposed = false;
+      const active = () => { if (disposed) throw new Error("Exchange has been released"); };
 
       let grounding = options.grounding;
       const tools = [...options.tools];
@@ -97,7 +98,7 @@ export function anthropicProvider(
             model,
             max_tokens: MAX_TOKENS,
             thinking: { type: "adaptive" },
-            system: options.system,
+            system,
             tools: toAnthropicTools(tools),
             messages: grounding ? [{ role: "user", content: "Instance grounding (data):\n" + grounding }, ...messages] : messages,
             ...outputConfig,
@@ -105,7 +106,7 @@ export function anthropicProvider(
           const response = await readAnthropicStream(client, params, control);
           // Echo the full content back so thinking/tool_use blocks replay
           // unchanged on the next step of this exchange.
-          messages.push({ role: "assistant", content: response.native });
+          active(); messages.push({ role: "assistant", content: response.native });
           return response.reply;
         } catch (error) {
           mapError(error);
@@ -113,16 +114,18 @@ export function anthropicProvider(
       }
 
       return {
-        setGrounding(value: string) { grounding = value; },
-        extendTools(more: ToolDef[]) { for (const tool of more) if (!tools.some((t) => t.name === tool.name)) tools.push(tool); },
+        dispose() { disposed = true; messages.length = 0; tools.length = 0; grounding = undefined; },
+        retainedForTests: () => ({ history: [...messages], grounding, tools: tools.map(t => t.name) }),
+        setGrounding(value: string) { active(); grounding = value; },
+        extendTools(more: ToolDef[]) { active(); for (const tool of more) if (!tools.some((t) => t.name === tool.name)) tools.push(tool); },
         send(userText: string, control) {
-          messages.push({ role: "user", content: userText });
+          active(); messages.push({ role: "user", content: userText });
           return step(control);
         },
         continueWith(outcomes: ToolOutcome[], control) {
           // An outcome with an image rides its own tool_use id: the text
           // and the image as the result's blocks.
-          messages.push({
+          active(); messages.push({
             role: "user",
             content: outcomes.map((o) => ({
               type: "tool_result" as const,
@@ -135,7 +138,7 @@ export function anthropicProvider(
         },
         continueWithImage(continuation: ImageContinuation, control) {
           // The automatic check's continuation: a user turn, no call invented.
-          messages.push({ role: "user", content: [{ type: "text", text: continuation.text }, imageBlock(continuation.image)] });
+          active(); messages.push({ role: "user", content: [{ type: "text", text: continuation.text }, imageBlock(continuation.image)] });
           return step(control);
         },
       };

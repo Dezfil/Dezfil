@@ -58,6 +58,30 @@ const transferBody = {
 const TRANSFERRED = { "200": jsonOk("#/components/schemas/Transfer"), "400": ERROR_RESPONSE };
 
 const PEOPLE_PATHS = {
+  "/api/projects/{id}/leave": {
+    post: op(projectAccess({
+      summary: "Leave a project",
+      description: "An active viewer or editor may leave, including a frozen project. The credential supplies " +
+        "the departing member; there is no request body or member selector. Ends only that member's grant, " +
+        "with exactly the same reach loss as removal by the owner: exclusive reach ends on the next request, " +
+        "and the project disappears from lists and filters on the next read. Other grants and ownership remain. " +
+        "Owned work stays filed and shared, readable by its owner with the project's identity for withdrawal. " +
+        "Historical attribution stays named. Already admitted reads finish once; outputs recheck permission " +
+        "and input reach at commit, as after removal. Membership changes no edit revisions. " +
+        "No consent or notification is required, and the owner may add the person again normally. " +
+        "Answers only departure, never a roster. Missing and non-member projects both answer 404 not_found; " +
+        "owners answer 409 project_owner_cannot_leave. A repeated departure answers not_found.",
+      tag: "Projects", tool: "leave_project", mcp: LOCAL_DELETE,
+      display: { verb: "Left the project {subject}", subject: { resource: "projects", argument: "id" } },
+      effects: writes(resource("projects", "id")),
+      confirm: true,
+      confirmation: { target: "Leave {target}?",
+        consequence: "You lose what this project gave you on your next request. What you created here stays yours and stays in the project. You still find it in your own lists.",
+        subject: projectSubject },
+      parameters: [pathParam("id", "Project id.")],
+      responses: { "200": jsonOk("#/components/schemas/ProjectDeparture"), "409": ERROR_RESPONSE },
+    })),
+  },
   "/api/projects/{id}/people": {
     get: op(projectAccess({
       summary: "List a project's people",
@@ -228,6 +252,10 @@ const DIRECTORY_PATHS = {
 export const SHARING_PATHS = { ...PEOPLE_PATHS, ...TRANSFER_PATHS, ...DIRECTORY_PATHS };
 
 export const SHARING_SCHEMAS = {
+  ProjectDeparture: {
+    type: "object", additionalProperties: false,
+    properties: { left: { type: "boolean", enum: [true] } }, required: ["left"],
+  },
   ProjectPerson: {
     type: "object",
     description: "One of a project's people: never an email or an account identity.",

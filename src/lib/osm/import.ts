@@ -1,9 +1,11 @@
+import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
+import { registerAccountFile, removeAccountFile, fileAccountId } from "@/lib/ingest/file-ownership";
 import { listOwnedTables } from "@/lib/metadata/owned-tables";
 import { requireFilingDestination } from "@/lib/auth/reach";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { dataDir } from "@/lib/config";
 import { limits } from "@/lib/limits";
 import { ApiError } from "@/lib/api/errors";
@@ -300,11 +302,12 @@ export async function buildClassArtifact(
   const tmpDir = path.join(dataDir(), "tmp");
   await mkdir(tmpDir, { recursive: true });
   const tmp = path.join(tmpDir, `${randomUUID()}.geojson`);
+  const owner = fileAccountId(artifact); if (owner) registerAccountFile(owner, tmp);
   try {
     await writeFile(tmp, classDocument(features));
     return await buildArtifact(tmp, `${cls}.geojson`, artifact);
   } finally {
-    await rm(tmp, { force: true });
+    await removeAccountFile(tmp, { force: true });
   }
 }
 
@@ -343,6 +346,8 @@ export async function importOsm(
   scope: AccountScope,
   request: OsmImportRequest,
 ): Promise<DataTable[]> {
+  const deletionWork = admitAccountWork([requireAccountScope(scope)]);
+  try {
   requireAccountScope(scope);
   const projectId = importProjectId(request.projectId);
   if (projectId) requireFilingDestination(scope, projectId);
@@ -372,6 +377,7 @@ export async function importOsm(
       const id = randomUUID();
       const relFile = path.join("tables", `${id}.parquet`);
       const artifact = path.join(dataDir(), relFile);
+    registerAccountFile(scope.accountId, artifact);
       inFlight = artifact;
       const meta = await buildClassArtifact(split, cls, resolved.promoted, artifact);
       // Derive-and-register is one synchronous step — no taken-names
@@ -426,11 +432,13 @@ export async function importOsm(
     // and the in-flight class's artifact, which no registry row names.
     for (const t of created) {
       metadataDb().prepare("DELETE FROM data_tables WHERE id = ? AND owner_id = ?").run(t.id, scope.accountId);
-      await rm(path.join(dataDir(), t.file), { force: true });
+      await removeAccountFile(path.join(dataDir(), t.file), { force: true });
     }
-    if (inFlight) await rm(inFlight, { force: true });
+    if (inFlight) await removeAccountFile(inFlight, { force: true });
     throw error;
   }
+
+  } finally { deletionWork.release(); }
 }
 
 /** Every member of an import group, by any member's group id. */

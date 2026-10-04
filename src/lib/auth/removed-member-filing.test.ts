@@ -27,6 +27,7 @@ let directory: string;
 let customers: DataTable;
 let mapId: string;
 let workflowId: string;
+describe.each(["owner removal", "self-departure"])("%s", departure => {
 beforeEach(async () => {
   directory = await mkdtemp(path.join(initialDir, "removed-member-"));
   vi.stubEnv("DEZFIL_DATA_DIR", directory);
@@ -43,7 +44,9 @@ beforeEach(async () => {
     { ...{ addTables: [customers.id], addMaps: [mapId], addRecipes: [workflowId] }, expectedRevisions: readFilingRevisions({ addTables: [customers.id], addMaps: [mapId], addRecipes: [workflowId] }, undefined) })).status).toBe(200);
   expect((await call("ada", route.members, "/api/projects/Q/members", "PATCH", { id: "Q" }, { addTables: [customers.id] })).status).toBe(200);
   expect((await call("cy", route.table, "/api/tables/ada.customers", "GET", { name: "ada.customers" })).status).toBe(200);
-  expect((await call("bo", route.person, "/api/projects/B/people/ada", "DELETE", { id: "B", sqlName: "ada" })).status).toBe(200);
+  if (departure === "self-departure") {
+    expect((await call("ada", () => import("@/app/api/projects/[id]/leave/route"), "/api/projects/B/leave", "POST", { id: "B" })).status).toBe(200);
+  } else expect((await call("bo", route.person, "/api/projects/B/people/ada", "DELETE", { id: "B", sqlName: "ada" })).status).toBe(200);
 });
 afterEach(async () => { closeMetadataDb(); resetQueryInstance(); vi.unstubAllEnvs(); await rm(directory, { recursive: true, force: true }); });
 
@@ -115,4 +118,6 @@ describe("a removed member's own work filed in the project", () => {
     }
     expect(find(await rows("cy", route.tables, "/api/tables"), customers.id)).toBeUndefined();
   });
+});
+
 });

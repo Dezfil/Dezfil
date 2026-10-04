@@ -7,7 +7,7 @@ import { checkReaderDocs } from "../../../scripts/check-reader-docs.mjs";
 
 const document = buildOpenApiDocument(), tools = buildTools();
 const read = (file: string) => readFileSync(file, "utf8");
-const docs = { api: read("docs/api.md"), mcp: read("docs/mcp.md") };
+const docs = { api: read("docs/api.md"), mcp: read("docs/mcp.md"), proof: read("docs/testing/account-deletion-guidance.md") };
 const bump = (text: string, pattern: RegExp) => text.replace(pattern, match => match.replace(/\d+/, number => String(Number(number) + 1)));
 const countSeeds: [string, "api" | "mcp", RegExp][] = [
   ["paths", "api", /\d+ paths/], ["operations", "api", /\d+ operations/],
@@ -70,7 +70,25 @@ it("measures JSON reader counts and rejects a stale tier independently", () => {
   const changed = structuredClone(document);
   const body = changed.paths["/api/maps"].post.requestBody as Record<string, unknown>;
   body["x-byte-limit"] = 65_536;
-  expect(checkContractDocs(changed, tools, docs)).toContain("JSON tier 65536 readers: reader says 11, contract requires 12");
+  expect(checkContractDocs(changed, tools, docs)).toContain("JSON tier 65536 readers: reader says 12, contract requires 13");
   const missingBusy = { ...docs, api: docs.api.replace(/^\| `authentication_busy` \|.*\n/m, "") };
   expect(checkContractDocs(document, tools, missingBusy)).toContain("Reader error catalogue has missing or extra codes");
+});
+
+it("rejects a served actor union that drops deleted actors without changing counts", () => {
+  const changed = structuredClone(document);
+  changed.components.schemas.RecipeRun.properties.runner.oneOf.splice(1, 1);
+  expect(checkContractDocs(changed, tools, docs)).toContain("Actor schema differs: RecipeRun.runner");
+});
+it("rejects stale actor guidance in the actual reader", () => {
+  const seeded = { ...docs, mcp: docs.mcp.replaceAll("{ deleted: true }", "null") };
+  expect(checkContractDocs(document, tools, seeded)).toContain("MCP actor guidance omits the deleted variant");
+});
+it("does not describe deletion as unavailable", () => {
+  expect(read("docs/runbook.md")).not.toContain("The deletion operations are not exposed yet.");
+});
+
+it("rejects a stale count in the outside proof guide", () => {
+  const seeded = { ...docs, proof: docs.proof.replace("128 paths", "129 paths") };
+  expect(checkContractDocs(document, tools, seeded)).toContain("Proof guide counts differ from contract");
 });

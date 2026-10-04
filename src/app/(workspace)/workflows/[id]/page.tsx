@@ -1,3 +1,5 @@
+import { canReach } from "@/lib/auth/reach";
+import { notFound } from "next/navigation";
 import { WorkflowScreen } from "@/components/WorkflowScreen";
 import { LayerDownloadControlProvider } from "@/components/builder/LayerDownloadControlProvider";
 import { deriveLayerDownloadPreparationTimeoutMs } from "@/components/builder/layer-download-control";
@@ -16,6 +18,7 @@ export default async function WorkflowPage({
 }) {
   const scope = await requirePageScope();
   const { id } = await params;
+  if (!canReach(scope, "workflow", id)) notFound();
   return (
     <LayerDownloadControlProvider preparationTimeoutMs={deriveLayerDownloadPreparationTimeoutMs(limits.queryTimeoutMs)}>
       <WorkflowScreen id={id} viewOnly={viewsOnly(scope, "workflow", id)} runs={runsWorkflow(scope, id)} />

@@ -4,6 +4,7 @@ import path from 'node:path';
 
 export const READER_FILES = ['README.md', 'AGENTS.md', 'docs/configuration.md', 'docs/self-hosting.md', 'docs/runbook.md', 'docs/api.md', 'docs/mcp.md', 'plugins/dezfil/skills/dezfil/analysis.md', 'src/components/settings/WorkspaceCard.tsx'];
 const superseded = [
+  /deletion operations are not exposed yet/i,
   /fuller (?:account )?documentation follows/i,
   /configured entirely through environment/i,
   /nothing is stored in the database/i,

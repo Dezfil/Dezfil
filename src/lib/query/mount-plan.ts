@@ -1,3 +1,4 @@
+import { registerQueryStore } from "@/lib/query/retained";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import type { Namespace, ReachableDataset } from "./bindings";
 import type { EvaluationPurpose } from "./context";
@@ -94,10 +95,12 @@ export function planMounts(namespace: Namespace, purpose: EvaluationPurpose, cal
 }
 
 /** Plans belong to the connection that mounted them, and nothing else. */
-const plans = new WeakMap<DuckDBConnection, MountPlan>();
+let plans = new WeakMap<DuckDBConnection, MountPlan>();
 export function setMountPlan(conn: DuckDBConnection, plan: MountPlan): void {
   plans.set(conn, plan);
 }
 export function mountPlanOf(conn: DuckDBConnection): MountPlan | undefined {
   return plans.get(conn);
 }
+
+registerQueryStore({ drain: async () => {}, busy: () => false, clear: () => { plans = new WeakMap<DuckDBConnection, MountPlan>(); } });

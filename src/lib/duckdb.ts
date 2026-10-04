@@ -1,3 +1,4 @@
+import { registerQueryStore } from "./query/retained";
 import { registerCrsValidator } from "./query/projection-policy";
 import type { DatasetScope } from "@/lib/query/access";
 import {
@@ -26,6 +27,32 @@ import { ensureTileDirs, tileScratchDir } from "@/lib/tiles/paths";
 
 let instancePromise: Promise<DuckDBInstance> | null = null;
 let queryInstancePromise: Promise<DuckDBInstance> | null = null;
+
+const nativeInstances = new Set<WeakRef<DuckDBInstance>>();
+const nativeCreating = new Set<Promise<DuckDBInstance>>();
+const leases = new Set<ReturnType<typeof Promise.withResolvers<void>>>();
+function watchInstance(promise: Promise<DuckDBInstance>): Promise<DuckDBInstance> {
+  nativeCreating.add(promise);
+  void promise.then(instance => { nativeInstances.add(new WeakRef(instance)); nativeCreating.delete(promise); }, () => nativeCreating.delete(promise));
+  return promise;
+}
+function holdConnection(): () => void {
+  const lease = Promise.withResolvers<void>(); leases.add(lease);
+  return () => { leases.delete(lease); lease.resolve(); };
+}
+function observeDisconnect(conn: DuckDBConnection, release: () => void): void {
+  const close = conn.disconnectSync.bind(conn); let closed = false;
+  conn.disconnectSync = () => { if (closed) return; close(); closed = true; release(); };
+}
+registerQueryStore({
+  async drain() { await Promise.allSettled([...nativeCreating, ...[...leases].map(l => l.promise)]); },
+  busy: () => nativeCreating.size > 0 || leases.size > 0,
+  clear() {
+    for (const ref of nativeInstances) { ref.deref()?.closeSync(); nativeInstances.delete(ref); }
+    instancePromise = null; queryInstancePromise = null; queryCatalogGeneration++;
+    connectionGenerations = new WeakMap();
+  },
+});
 
 function baseConfig(): Record<string, string> {
   const config: Record<string, string> = {};
@@ -116,7 +143,7 @@ async function loadJson(conn: DuckDBConnection): Promise<void> {
 
 function getInstance(): Promise<DuckDBInstance> {
   if (!instancePromise) {
-    const attempt = DuckDBInstance.create(":memory:", baseConfig()).catch((error) => {
+    const attempt = watchInstance(DuckDBInstance.create(":memory:", baseConfig())).catch((error) => {
       if (instancePromise === attempt) instancePromise = null;
       throw error;
     });
@@ -128,7 +155,8 @@ function getInstance(): Promise<DuckDBInstance> {
 /** Optional ingest capability, separate from the hardened instance's flag.
  * Requested only when the bounded CSV sample contains H3-shaped text. */
 export async function trustedH3Ready(): Promise<boolean> {
-  return loadTrustedH3(await getInstance());
+  const release = holdConnection();
+  try { return await loadTrustedH3(await getInstance()); } finally { release(); }
 }
 
 async function createHardenedInstance(): Promise<DuckDBInstance> {
@@ -179,7 +207,7 @@ async function createHardenedInstance(): Promise<DuckDBInstance> {
 
 function getQueryInstance(): Promise<DuckDBInstance> {
   if (!queryInstancePromise) {
-    const attempt = createHardenedInstance().catch((error) => {
+    const attempt = watchInstance(createHardenedInstance()).catch((error) => {
       // A reset may have installed a replacement while this attempt waited.
       if (queryInstancePromise === attempt) queryInstancePromise = null;
       throw error;
@@ -194,7 +222,7 @@ function getQueryInstance(): Promise<DuckDBInstance> {
  * so work still running for a discarded catalog can be told apart from
  * live work — a late pass must not bless the replacement catalog. */
 let queryCatalogGeneration = 0;
-const connectionGenerations = new WeakMap<DuckDBConnection, number>();
+let connectionGenerations = new WeakMap<DuckDBConnection, number>();
 
 /** Tests re-point DEZFIL_DATA_DIR; the fence must be rebuilt. */
 export function resetQueryInstance(): void {
@@ -221,14 +249,12 @@ export function hasQueryInstance(): boolean {
 export async function withConnection<T>(
   fn: (conn: DuckDBConnection) => Promise<T>,
 ): Promise<T> {
-  const instance = await getInstance();
-  const conn = await instance.connect();
+  const release = holdConnection();
+  let conn: DuckDBConnection | undefined;
   try {
-    await loadSpatial(conn);
-    return await fn(conn);
-  } finally {
-    conn.disconnectSync();
-  }
+    const instance = await getInstance(); conn = await instance.connect();
+    await loadSpatial(conn); return await fn(conn);
+  } finally { conn?.disconnectSync(); release(); }
 }
 
 /**
@@ -242,9 +268,12 @@ export async function connectQueryInstance(): Promise<DuckDBConnection> {
   // Captured before the awaits: a reset landing mid-acquisition discards
   // exactly the catalog this connection will belong to, and the stamp
   // must say so.
-  const generation = queryCatalogGeneration;
-  const instance = await getQueryInstance();
-  const conn = await instance.connect();
-  connectionGenerations.set(conn, generation);
-  return conn;
+  const release = holdConnection(), generation = queryCatalogGeneration;
+  try {
+    const instance = await getQueryInstance(), conn = await instance.connect();
+    connectionGenerations.set(conn, generation); observeDisconnect(conn, release); return conn;
+  } catch (error) { release(); throw error; }
 }
+
+export function engineStateForTests() { return { trusted: instancePromise !== null, hardened: queryInstancePromise !== null, creating: nativeCreating.size, leases: leases.size, instances: [...nativeInstances].filter(ref => ref.deref()).length }; }
+export function connectionStampForTests(conn: DuckDBConnection): boolean { return connectionGenerations.has(conn); }

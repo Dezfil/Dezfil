@@ -64,3 +64,5 @@ export function previewGeometry(scope: AccountScope, name: string, expectedRevis
 
 export { setGeometry } from "./mutate";
 export { clearGeometry } from "./clear";
+
+export function inspectionEntriesForTests(): string[] { return cachedInspection.entriesForTests(); }
