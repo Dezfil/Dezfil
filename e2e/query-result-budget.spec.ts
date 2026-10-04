@@ -4,6 +4,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { routeHouse } from "./support";
+import { datasetBudgetSQL } from "../test-support/result-budget-browser.mjs";
 
 const sentence = "The result is too large to return: more than 32 MB in total, or one non-geometry value over 2 MB. Select fewer rows or columns, or shorten the value.";
 const sql = "SELECT repeat('x', 1000000) AS payload FROM range(40)";
@@ -47,23 +48,37 @@ test("console refusal settles, retains SQL and admits a narrower retry", async (
 });
 test("refused dataset inspection shows the sentence and cannot open its geometry panel", async ({ page, context }) => {
   await routeHouse(context);
-  const name = `budget_${randomUUID().replaceAll("-", "")}`;
-  const file = await page.request.post("/api/query/export", { data: { sql: "SELECT repeat('x', 2097151) AS payload, ST_AsWKB(ST_Point(0,0)) AS geometry", format: "geoparquet" } });
-  expect(file.status()).toBe(200);
-  const uploaded = await page.request.post("/api/tables", { multipart: { file: { name: `${name}.parquet`, mimeType: "application/octet-stream", buffer: await file.body() } } });
-  expect(uploaded.status()).toBe(201); const table = await uploaded.json();
-  try {
-    // Inspection gates both the dataset page and its open-with-panel address.
-    for (const suffix of ["", "?geometry=set"]) {
-      const response = page.waitForResponse(r => new URL(r.url()).pathname === `/api/tables/${encodeURIComponent(table.name)}` && r.request().method() === "GET");
-      await page.goto(`/tables/${encodeURIComponent(table.name)}${suffix}`); expect((await response).status()).toBe(422);
-      const note = page.getByRole("main").getByRole("alert");
-      await expect(note.getByText(sentence, { exact: true })).toBeVisible();
-      await expect(note.getByRole("button", { name: "Try again", exact: true })).toBeEnabled();
-      await expect(page.locator("[data-set-geometry-panel]")).toHaveCount(0);
-      await expect(page.locator("[data-set-geometry-door]")).toHaveCount(0);
-    }
-  } finally { expect((await page.request.delete(`/api/tables/${table.name}`)).status()).toBe(204); }
+  for (const size of [2, 2097151]) {
+    const name = `budget_${randomUUID().replaceAll("-", "")}`;
+    const file = await page.request.post("/api/query/export", { data: { sql: datasetBudgetSQL(size), format: "geoparquet" } });
+    expect(file.status()).toBe(200);
+    const uploaded = await page.request.post("/api/tables", { multipart: { file: { name: `${name}.parquet`, mimeType: "application/octet-stream", buffer: await file.body() } } });
+    expect(uploaded.status()).toBe(201); const table = await uploaded.json();
+    expect(table.geometryColumn).toBeNull();
+    try {
+      for (const suffix of ["", "?geometry=set"]) {
+        const response = page.waitForResponse(r => new URL(r.url()).pathname === `/api/tables/${encodeURIComponent(table.name)}` && r.request().method() === "GET");
+        await page.goto(`/tables/${encodeURIComponent(table.name)}${suffix}`);
+        expect((await response).status()).toBe(size === 2 ? 200 : 422);
+        const panel = page.locator("[data-set-geometry-panel]");
+        const door = page.locator('[data-set-geometry-door="primary"]');
+        if (size === 2) {
+          await expect(door).toBeVisible();
+          if (!suffix) {
+            await expect(panel).toHaveCount(0);
+            await door.click();
+          }
+          await expect(panel).toBeVisible();
+        } else {
+          const note = page.getByRole("main").getByRole("alert");
+          await expect(note.getByText(sentence, { exact: true })).toBeVisible();
+          await expect(note.getByRole("button", { name: "Try again", exact: true })).toBeEnabled();
+          await expect(panel).toHaveCount(0);
+          await expect(page.locator("[data-set-geometry-door]")).toHaveCount(0);
+        }
+      }
+    } finally { expect((await page.request.delete(`/api/tables/${table.name}`)).status()).toBe(204); }
+  }
 });
 test("Add data displays the same refusal in its existing geometry preview error place", async ({ page, context }) => {
   await routeHouse(context); await page.goto("/data");
