@@ -32,8 +32,9 @@ export function variantProjection(expression: string): string {
 }
 
 export function decodeVariant(vector: DuckDBVector, index: number, budget: CellBudget): unknown {
-  const nodes = (vector as DuckDBListVector).getItemVector(index) as DuckDBStructVector;
-  let cursor = 0;
+  const list = vector as DuckDBListVector;
+  const nodes = list.childVector as DuckDBStructVector;
+  let cursor = list.getEntryOffset(index);
   function next(nested: boolean): unknown {
     const row = cursor++;
     const kind = Number(nodes.entryVectorAt(0).getItem(row));

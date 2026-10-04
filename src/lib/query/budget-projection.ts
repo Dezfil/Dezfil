@@ -23,7 +23,7 @@ export function budgetProjection(expression: string, type: DuckDBType, depth = 0
     case DuckDBTypeId.LIST:
     case DuckDBTypeId.ARRAY: {
       const item = budgetProjection(child, type.valueType, depth + 1);
-      return { sql: `list_transform(${expression}, ${child} -> ${item.sql})`, kind: "list", children: [item] };
+      return { sql: nullable(`struct_pack(items := list_transform(${expression}, ${child} -> ${item.sql}))`), kind: "list", children: [item] };
     }
     case DuckDBTypeId.STRUCT: {
       const children = type.entryTypes.map((t, i) => budgetProjection(`${expression}.${quoteIdent(type.entryNames[i])}`, t, depth + 1));
@@ -32,7 +32,7 @@ export function budgetProjection(expression: string, type: DuckDBType, depth = 0
     case DuckDBTypeId.MAP: {
       const key = budgetProjection(`${child}.key`, type.keyType, depth + 1);
       const value = budgetProjection(`${child}.value`, type.valueType, depth + 1);
-      return { sql: `list_transform(map_entries(${expression}), ${child} -> struct_pack(key := ${key.sql}, value := ${value.sql}))`, kind: "list", children: [{ sql: "", kind: "struct", names: ["key", "value"], children: [key, value] }] };
+      return { sql: nullable(`struct_pack(items := list_transform(map_entries(${expression}), ${child} -> struct_pack(key := ${key.sql}, value := ${value.sql})))`), kind: "list", children: [{ sql: "", kind: "struct", names: ["key", "value"], children: [key, value] }] };
     }
     case DuckDBTypeId.UNION: {
       const children = type.memberTypes.map((t, i) => budgetProjection(`union_extract(${expression}, ${literal(type.memberTags[i])})`, t, depth + 1));

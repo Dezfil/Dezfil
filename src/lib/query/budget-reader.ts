@@ -15,11 +15,14 @@ function decode(vector: DuckDBVector, index: number, projection: Projection, bud
     return fields.entryVectorAt(1).getItem(index);
   }
   if (projection.kind === "list") {
-    const items = (vector as DuckDBListVector).getItemVector(index);
-    if (!items) { budget.take(4); return null; }
-    budget.take(2 + Math.max(0, items.itemCount - 1));
+    const cell = vector as DuckDBStructVector;
+    if (!cell.isItemValid(index)) { budget.take(4); return null; }
+    const list = cell.entryVectorAt(0) as DuckDBListVector;
+    const count = list.getEntryLength(index);
+    budget.take(2 + Math.max(0, count - 1));
+    const offset = list.getEntryOffset(index);
     const result: unknown[] = [];
-    for (let i = 0; i < items.itemCount; i++) result.push(decode(items, i, projection.children![0], budget));
+    for (let i = 0; i < count; i++) result.push(decode(list.childVector, offset + i, projection.children![0], budget));
     return result;
   }
   if (projection.kind === "struct" || projection.kind === "union") {

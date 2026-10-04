@@ -1,7 +1,37 @@
-import { describe, expect, it } from "vitest";
-import { DuckDBInstance } from "@duckdb/node-api";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { DuckDBBigIntVector, DuckDBDoubleVector, DuckDBInstance, DuckDBListVector, DuckDBStructVector } from "@duckdb/node-api";
 import { readBudgetedRows } from "./budget-reader";
 import { ResultBudget, jsonBytes } from "./result-budget";
+
+afterEach(() => vi.restoreAllMocks());
+
+it.each([
+  ["SELECT range(2200000) AS v", false],
+  [`SELECT '{"type":"MultiPolygon","coordinates":[[[[0.5,0.5],[1.5,0.5],[0.5,1.5],[0.5,0.5]]]]}' AS v`, true],
+  ["SELECT {'v': [1, 2, 3]}::VARIANT AS v", false],
+] as const)("refuses without copying native list storage: %s", async (sql, geometry) => {
+  const db = await DuckDBInstance.create(":memory:");
+  const conn = await db.connect();
+  try {
+    const copies = [DuckDBBigIntVector, DuckDBDoubleVector, DuckDBListVector, DuckDBStructVector]
+      .map(vector => vi.spyOn(vector.prototype, "slice"));
+    const budget = new ResultBudget();
+    budget.take(33_554_432 - 10);
+    await expect(readBudgetedRows(conn, sql, budget, new Set(geometry ? ["v"] : []), geometry))
+      .rejects.toMatchObject({ code: "query_result_too_large" });
+    for (const copy of copies) expect(copy).not.toHaveBeenCalled();
+  } finally { conn.disconnectSync(); db.closeSync(); }
+});
+
+it("walks flat list offsets across rows, empty values and nulls", async () => {
+  const db = await DuckDBInstance.create(":memory:");
+  const conn = await db.connect();
+  try {
+    const sql = "SELECT v FROM (VALUES ([[1], [], NULL]), (NULL), ([]), ([[2, 3], [4]])) t(v)";
+    const expected = (await conn.runAndReadAll(sql)).getRowObjectsJson();
+    expect(await readBudgetedRows(conn, sql, new ResultBudget())).toEqual(expected);
+  } finally { conn.disconnectSync(); db.closeSync(); }
+});
 
 describe("native budget projection", () => {
   it("evaluates volatile values once, carrying their lengths beside those same values", async () => {

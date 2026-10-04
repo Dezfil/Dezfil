@@ -50,11 +50,12 @@ function coordinates(vector: DuckDBVector, index: number, depth: number, budget:
     budget.take(jsonBytes(number));
     return number;
   }
-  const items = (vector as DuckDBListVector).getItemVector(index);
-  if (!items) { budget.take(4); return null; }
-  budget.take(2 + Math.max(0, items.itemCount - 1));
+  const list = vector as DuckDBListVector;
+  const count = list.getEntryLength(index);
+  budget.take(2 + Math.max(0, count - 1));
+  const offset = list.getEntryOffset(index);
   const values: unknown[] = [];
-  for (let i = 0; i < items.itemCount; i++) values.push(coordinates(items, i, depth - 1, budget));
+  for (let i = 0; i < count; i++) values.push(coordinates(list.childVector, offset + i, depth - 1, budget));
   return values;
 }
 
@@ -65,9 +66,10 @@ export function decodeGeoJSON(vector: DuckDBVector, index: number, budget: CellB
     budget.take(Number(bytes));
     return JSON.parse(cell.entryVectorAt(1).getItem(index) as string);
   }
-  const objects = (cell.entryVectorAt(2) as DuckDBListVector).getItemVector(index) as DuckDBStructVector | null;
-  if (!objects) { budget.take(4); return null; }
-  let cursor = 0;
+  const list = cell.entryVectorAt(2) as DuckDBListVector;
+  if (!list.getEntryLength(index)) { budget.take(4); return null; }
+  const objects = list.childVector as DuckDBStructVector;
+  let cursor = list.getEntryOffset(index);
   function next(): unknown {
     const row = cursor++;
     const type = objects!.entryVectorAt(0).getItem(row) as string;
@@ -83,8 +85,9 @@ export function decodeGeoJSON(vector: DuckDBVector, index: number, budget: CellB
     let values = objects!.entryVectorAt(2);
     let position = row;
     for (let wrap = depth; wrap < 4; wrap++) {
-      values = (values as DuckDBListVector).getItemVector(position)!;
-      position = 0;
+      const list = values as DuckDBListVector;
+      position = list.getEntryOffset(position);
+      values = list.childVector;
     }
     return { type, coordinates: coordinates(values, position, depth, budget) };
   }
