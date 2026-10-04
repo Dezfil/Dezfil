@@ -48,3 +48,50 @@ Restore `src/lib/auth/account-deletion-eligibility.ts`,
 `src/lib/auth/account-deletion-http.ts` or
 `src/lib/api/openapi-user-deletion.ts`, respectively, before the next build.
 An unobserved seed remains unconfirmed.
+
+The Users browser journey owns no server. Start the proof host against that
+same production standalone in one terminal, with a fresh empty scratch directory:
+
+```sh
+export DEZFIL_DATA_DIR="$(mktemp -d "$PWD/.proof-users-XXXXXX")"
+node scripts/deletion-proof-host.mjs --standalone .next/standalone --port 3399
+```
+
+In the browser runner's terminal, use that exact scratch directory (the READY
+line also prints the control directory). The normal browser setup creates and
+signs in its synthetic administrator through the real account routes:
+
+```sh
+DEZFIL_DATA_DIR="$SCRATCH" DEZFIL_PROOF_CONTROL_DIR="$SCRATCH/control" DEZFIL_BASE_URL=http://127.0.0.1:3399 npx playwright test e2e/account-deletion.spec.ts
+```
+
+Here `$SCRATCH` is the absolute directory from the host's terminal. Green is
+three passing journeys and the counts/email, invitation, empty, completed and
+unfinished screenshots in `test-results`. The journeys check actual Users
+rows, separate deactivation of an admin, self-row controls, private counts,
+exact-email arming, Cancel/Escape focus restoration, Tab containment, stale
+preview refusal and retyping, pending status, failure after acceptance, reload,
+and both Finish deleting entrances. Only the test preload holds work and fails
+compaction; preview, deletion, listing and continuation use the real routes.
+No response is mocked. A pending response is never asserted to be completion.
+
+For seeded browser reds, stop the host, apply one seed below in the detached
+checkout, rebuild and recopy assets, restart with a fresh scratch directory,
+and run the identical browser command. Each must fail, not skip:
+
+```sh
+DEZFIL_DATA_DIR="$(mktemp -d "$PWD/.proof-seed-XXXXXX")" node scripts/seed-deletion-defect.mjs ui-placement
+DEZFIL_DATA_DIR="$(mktemp -d "$PWD/.proof-seed-XXXXXX")" node scripts/seed-deletion-defect.mjs ui-arming
+DEZFIL_DATA_DIR="$(mktemp -d "$PWD/.proof-seed-XXXXXX")" node scripts/seed-deletion-defect.mjs ui-completion
+DEZFIL_DATA_DIR="$(mktemp -d "$PWD/.proof-seed-XXXXXX")" node scripts/seed-deletion-defect.mjs ui-focus
+```
+
+Restore each named file before the next seed: `UserRow.tsx` for placement,
+`DeleteAccountDialog.tsx` for arming, `UsersScreen.tsx` for completion/focus,
+all under `src/components/users`. Expected failures are respectively Delete on
+an active row, enabled Delete for an empty/wrong email, a completed notice while
+work is held, and focus missing from Search users after confirmation closes.
+These four defects also have observed unit reds, including an inertness check
+for focus. Browser runs remain unobserved until an outside browser agent records
+them as agent-verified flows. Stop the host and remove the scratch directory
+after retaining its log; each fixture is small and needs no retained database.
