@@ -50,13 +50,14 @@ export function removeTileEvidence(layerId: string): void {
   rmSync(tileEvidencePath(layerId), { force: true });
 }
 
-function readEvidence(file: string): TileEvidence | null {
+function readEvidence(file: string, strict = false): TileEvidence | null {
   try {
     const parsed = JSON.parse(readFileSync(file, "utf8")) as Partial<TileEvidence>;
     const inputs = parseInputs(parsed.inputs);
     if (!inputs || typeof parsed.fingerprint !== "string" || typeof parsed.builtAt !== "string") return null;
     return { fingerprint: parsed.fingerprint, builtAt: parsed.builtAt, inputs };
-  } catch {
+  } catch (error) {
+    if (strict && !(error instanceof SyntaxError) && (error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     return null;
   }
 }
@@ -104,13 +105,14 @@ export function layersWithEvidenceOf(datasetId: string): string[] {
   let entries: string[];
   try {
     entries = readdirSync(evidenceDir());
-  } catch {
-    return [];
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
   }
   const layers: string[] = [];
   for (const entry of entries) {
     if (!entry.endsWith(".json")) continue;
-    const evidence = readEvidence(path.join(evidenceDir(), entry));
+    const evidence = readEvidence(path.join(evidenceDir(), entry), true);
     if (evidence?.inputs.datasets.some((input) => input.id === datasetId)) layers.push(entry.slice(0, -".json".length));
   }
   return layers;
@@ -131,7 +133,9 @@ export function evidencedLayerIds(): string[] {
  * dataset's refresh or deletion finds these too, so it can fence a build
  * that is reading it.
  */
-const running = new Map<string, { layerId: string; inputs: ArtifactInputs | null }>();
+const runningKey = Symbol.for("dezfil.tile-inputs");
+const runningHost = globalThis as typeof globalThis & { [runningKey]?: Map<string, { layerId: string; inputs: ArtifactInputs | null }> };
+const running = runningHost[runningKey] ??= new Map<string, { layerId: string; inputs: ArtifactInputs | null }>();
 
 export function trackBuildInputs(attemptId: string, layerId: string, inputs: ArtifactInputs | null): void {
   running.set(attemptId, { layerId, inputs });
@@ -151,3 +155,5 @@ export function runningLayersOf(datasetId: string): string[] {
 export function resetBuildInputs(): void {
   running.clear();
 }
+
+export function runningTileInputsForTests(): string[] { return [...running.values()].map(r => r.layerId); }

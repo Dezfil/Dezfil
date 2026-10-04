@@ -435,8 +435,8 @@
       "fixture": "memory:src/lib/layer-admission.ts#updateAdmissions"
     },
     "memory:src/lib/map-thumbnails.ts#turns": {
-      "action": "erase",
-      "rule": "Drain owned and erased-input thumbnail writes across owners before removing images and evidence.",
+      "action": "purge",
+      "rule": "Drain every current thumbnail mutation before scanning its final input evidence. Independent writes finish normally and their bytes remain.",
       "fixture": "memory:src/lib/map-thumbnails.ts#turns"
     },
     "memory:tool-schema-cache": {
@@ -657,6 +657,11 @@
       "action": "erase",
       "rule": "Erase the target account file ownership obligations only after removal succeeds. Keep other owners records; never infer UUID ownership.",
       "fixture": "file:account-files"
+    },
+    "memory:src/lib/tiles/serve.ts#reads": {
+      "action": "erase",
+      "rule": "Drain affected archive reads through descriptor close. Preserve independent readers.",
+      "fixture": "memory:src/lib/tiles/serve.ts#reads"
     }
   },
   "tables": {
@@ -4263,6 +4268,71 @@
       ],
       "roots": [
         "tmp/export-*.*"
+      ]
+    },
+    "location:src/lib/thumbnail-erasure.ts#eraseThumbnailArtifacts:path.join": {
+      "stores": [
+        "file:thumbnails",
+        "file:thumbnail-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/thumbnails/*",
+        "thumbnails/*"
+      ]
+    },
+    "location:src/lib/thumbnail-erasure.ts#eraseThumbnailArtifacts.evidence:dataDir": {
+      "stores": [
+        "data-directory"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/thumbnail-erasure.ts#eraseThumbnailArtifacts.evidence:path.join": {
+      "stores": [
+        "file:thumbnails",
+        "file:thumbnail-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/thumbnails"
+      ]
+    },
+    "location:src/lib/thumbnail-erasure.ts#eraseThumbnailArtifacts.images:dataDir": {
+      "stores": [
+        "data-directory"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/thumbnail-erasure.ts#eraseThumbnailArtifacts.images:path.join": {
+      "stores": [
+        "file:thumbnails",
+        "file:thumbnail-inputs"
+      ],
+      "roots": [
+        "thumbnails"
+      ]
+    },
+    "location:src/lib/tiles/build.ts#eraseTileArtifacts:path.join": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch/*"
+      ]
+    },
+    "location:src/lib/tiles/build.ts#eraseTileArtifacts:tileScratchDir": {
+      "stores": [
+        "file:tile-scratch"
+      ],
+      "roots": [
+        "tiles/scratch"
+      ]
+    },
+    "memory:src/lib/tiles/serve.ts#reads": {
+      "stores": [
+        "memory:src/lib/tiles/serve.ts#reads"
       ]
     }
   },

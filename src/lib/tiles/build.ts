@@ -1,3 +1,4 @@
+import { closeTileArchives } from "./serve";
 import { metadataDb } from "@/lib/metadata/db";
 import { archiveServable, tileQueryScope, tileReachKey, requireTileAccess, tileAccessAvailable, type TileAccess } from "./access";
 import { createHash, randomUUID } from "node:crypto";
@@ -124,6 +125,7 @@ interface BuildAttempt {
   access: TileAccess;
   fingerprint: string;
   generation: number;
+  done: ReturnType<typeof Promise.withResolvers<void>>;
 }
 
 /** A layer's attempt for one requesting reach. */
@@ -131,17 +133,27 @@ const attemptKey = (layerId: string, access: TileAccess) => `${layerId}\u0000${t
 const keyOfLayer = (key: string, layerId: string) => key.startsWith(`${layerId}\u0000`);
 
 /** Each layer's scheduled or running build, per requesting reach. */
-const active = new Map<string, BuildAttempt>();
+const activeKey = Symbol.for("dezfil.tile-active");
+const activeHost = globalThis as typeof globalThis & { [activeKey]?: Map<string, BuildAttempt> };
+const active = activeHost[activeKey] ??= new Map<string, BuildAttempt>();
 /** A newer input that arrived while that reach's build was running. */
-const pending = new Map<string, { access: TileAccess; input: TileBuildInput }>();
+const pendingKey = Symbol.for("dezfil.tile-pending");
+const pendingHost = globalThis as typeof globalThis & { [pendingKey]?: Map<string, { access: TileAccess; input: TileBuildInput }> };
+const pending = pendingHost[pendingKey] ??= new Map<string, { access: TileAccess; input: TileBuildInput }>();
 /** The last failure of each reach's attempt: its query and why. It sticks
  * for that query, for that reach alone, until the data under it changes,
  * the layer goes, or the process restarts. */
-const failures = new Map<string, { fingerprint: string; generation: number; error: string }>();
+const failuresKey = Symbol.for("dezfil.tile-failures");
+const failuresHost = globalThis as typeof globalThis & { [failuresKey]?: Map<string, { fingerprint: string; generation: number; error: string }> };
+const failures = failuresHost[failuresKey] ??= new Map<string, { fingerprint: string; generation: number; error: string }>();
 /** Deletion advances the generation, fencing every older attempt. */
-const generations = new Map<string, number>();
+const generationsKey = Symbol.for("dezfil.tile-generations");
+const generationsHost = globalThis as typeof globalThis & { [generationsKey]?: Map<string, number> };
+const generations = generationsHost[generationsKey] ??= new Map<string, number>();
 /** Builds run one at a time process-wide. */
-let chain: Promise<unknown> = Promise.resolve();
+const chainKey = Symbol.for("dezfil.tile-chain");
+const chainHost = globalThis as typeof globalThis & { [chainKey]?: { value: Promise<unknown> } };
+const chain = chainHost[chainKey] ??= { value: Promise.resolve() };
 
 /** Tests reset shared state. */
 export function resetTileBuilds(): void {
@@ -150,7 +162,7 @@ export function resetTileBuilds(): void {
   failures.clear();
   generations.clear();
   resetBuildInputs();
-  chain = Promise.resolve();
+  chain.value = Promise.resolve();
 }
 
 /** Forget every reach's queued input and failure for a layer. */
@@ -163,7 +175,7 @@ function forgetLayer(layerId: string): void {
 /** Resolve once no build is running or queued (tests, journeys). */
 export async function tileBuildsSettled(): Promise<void> {
   while (active.size > 0 || pending.size > 0) {
-    await chain.then(
+    await chain.value.then(
       () => undefined,
       () => undefined,
     );
@@ -344,6 +356,7 @@ function start(access: TileAccess, input: TileBuildInput): void {
     input,
     fingerprint,
     generation: generation(input.layerId),
+    done: Promise.withResolvers<void>(),
   };
   failures.delete(attempt.key);
   // The record shows a build only while it names no archive: a ready one
@@ -362,10 +375,10 @@ function start(access: TileAccess, input: TileBuildInput): void {
   })();
   active.set(attempt.key, attempt);
   trackBuildInputs(attempt.id, input.layerId, input.inputs ?? null);
-  const work = () => runBuild(attempt);
+  const work = () => runBuild(attempt).finally(() => attempt.done.resolve());
   // Contain every terminal failure so one bad target cannot poison the
   // global queue or become an unhandled rejection.
-  chain = chain.then(work, work).catch(() => undefined);
+  chain.value = chain.value.then(work, work).catch(() => undefined);
 }
 
 /**
@@ -490,4 +503,25 @@ export async function sweepTileArchives(): Promise<number> {
     if (getTileRecord(layerId) === null) removeTileEvidence(layerId);
   }
   return removed;
+}
+
+/** Account cleanup waits actual writers, then removes their scratch and all
+ * retained lifecycle state. Authority is restricted to captured layer ids. */
+export async function eraseTileArtifacts(layerIds: readonly string[]): Promise<void> {
+  const waits = [...active.values()].filter(a => layerIds.includes(a.input.layerId)).map(a => a.done.promise);
+  for (const id of layerIds) { generations.set(id, generation(id) + 1); forgetLayer(id); }
+  await Promise.all(waits);
+  await closeTileArchives(layerIds);
+  for (const id of layerIds) {
+    await removeTileArtifacts(id);
+    let names: string[];
+    try { names = await readdir(tileScratchDir()); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; names = []; }
+    for (const name of names.filter(n => n.startsWith(`${id}.`))) await rm(path.join(tileScratchDir(), name), { force: true });
+    generations.delete(id); forgetLayer(id);
+  }
+}
+export function tileBuildStateForTests() {
+  return { active: [...active.values()].map(a => a.input.layerId), pending: [...pending.values()].map(a => a.input.layerId),
+    failures: [...failures.keys()].map(k => k.split("\u0000")[0]), generations: [...generations.keys()] };
 }

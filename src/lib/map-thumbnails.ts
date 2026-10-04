@@ -68,9 +68,11 @@ export function isThumbnailCycle(value: unknown): value is string {
 const PENDING_TTL_MS = 2 * 60_000;
 
 /** One turn at a time per map: every mutation queues behind the last. */
-const turns = new Map<string, Promise<unknown>>();
+const turnsKey = Symbol.for("dezfil.thumbnail-turns");
+const turnsHost = globalThis as typeof globalThis & { [turnsKey]?: Map<string, Promise<unknown>> };
+const turns = turnsHost[turnsKey] ??= new Map<string, Promise<unknown>>();
 
-async function inTurn<T>(mapId: string, work: () => Promise<T>): Promise<T> {
+export async function inThumbnailTurn<T>(mapId: string, work: () => Promise<T>): Promise<T> {
   const previous = turns.get(mapId) ?? Promise.resolve();
   const mine = previous.catch(() => undefined).then(work);
   turns.set(mapId, mine);
@@ -233,7 +235,7 @@ export function saveThumbnail(
 ): Promise<void> {
   const authorize = () => { requireOwnMap(scope, mapId); };
   authorize();
-  return inTurn(mapId, async () => {
+  return inThumbnailTurn(mapId, async () => {
     authorize();
     const single = path.basename(thumbnailPath(mapId));
     await writeImageEvidence(single, bytes, inputs);
@@ -258,7 +260,7 @@ export function saveThemedThumbnail(
 ): Promise<"held" | "published"> {
   const authorize = () => { requireOwnMap(scope, mapId); };
   authorize();
-  return inTurn(mapId, async () => {
+  return inThumbnailTurn(mapId, async () => {
     authorize();
     const previous = await readSet(mapId);
     authorize();
@@ -316,7 +318,7 @@ export async function readThumbnail(
 
 /** Every image the map has, published or held. */
 function removeThumbnailFiles(mapId: string, authorize: () => void): Promise<void> {
-  return inTurn(mapId, async () => {
+  return inThumbnailTurn(mapId, async () => {
     authorize();
     await rm(thumbnailManifestPath(mapId), { force: true });
     await removeImage(path.basename(thumbnailPath(mapId)));
@@ -351,7 +353,7 @@ export function copyThumbnail(scope: AccountScope, from: string, to: string): Pr
   authorize();
   if (from === to) return Promise.resolve();
   const [first, second] = [from, to].sort();
-  return inTurn(first, () => inTurn(second, async () => {
+  return inThumbnailTurn(first, () => inThumbnailTurn(second, async () => {
     authorize();
     let single: Buffer | undefined;
     try { single = await readFile(thumbnailPath(from)); } catch { /* No single image. */ }
@@ -381,3 +383,6 @@ export function copyThumbnail(scope: AccountScope, from: string, to: string): Pr
     await writeAtomically(thumbnailManifestPath(to), JSON.stringify(copied), authorize);
   }));
 }
+
+export function thumbnailMutationIds(): string[] { return [...turns.keys()]; }
+export function thumbnailTurnForTests(mapId: string): Promise<unknown> | undefined { return turns.get(mapId); }
