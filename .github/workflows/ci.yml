@@ -207,6 +207,8 @@ jobs:
             docker exec dezfil-publication-ci node /probes/publication-source-probe.mjs \
               "http://127.0.0.1:$port" "$mode" --state-log /data/publication.ndjson
             docker stop dezfil-publication-ci
+            # --rm removes the container after stop returns; the next arm reuses the name.
+            for i in $(seq 1 50); do docker container inspect dezfil-publication-ci >/dev/null 2>&1 || break; sleep 0.2; done
           }
           trap 'docker logs dezfil-publication-ci 2>/dev/null || true; docker stop dezfil-publication-ci 2>/dev/null || true' EXIT
           run_publication direct 3393 ""
@@ -277,6 +279,8 @@ jobs:
       - name: Replace container and check live and revoked credentials
         run: |
           docker stop dezfil-ci
+          # --rm removes the container after stop returns; wait until the name is free.
+          for i in $(seq 1 50); do docker container inspect dezfil-ci >/dev/null 2>&1 || break; sleep 0.2; done
           docker run -d --rm --name dezfil-ci --network=none \
             -e PORT=3183 -e DEZFIL_RENDER_CAP_FEATURES=2000 \
             -e DEZFIL_EGRESS_ALLOWLIST=127.0.0.1 \
@@ -322,6 +326,8 @@ jobs:
           start
           journey seed
           docker stop dezfil-ownership-ci
+          # --rm removes the container after stop returns; wait until the name is free.
+          for i in $(seq 1 50); do docker container inspect dezfil-ownership-ci >/dev/null 2>&1 || break; sleep 0.2; done
           start
           journey verify
           docker stop dezfil-ownership-ci
@@ -354,6 +360,8 @@ jobs:
           start
           journey seed
           docker stop dezfil-sharing-ci
+          # --rm removes the container after stop returns; wait until the name is free.
+          for i in $(seq 1 50); do docker container inspect dezfil-sharing-ci >/dev/null 2>&1 || break; sleep 0.2; done
           start
           journey verify
           docker stop dezfil-sharing-ci
