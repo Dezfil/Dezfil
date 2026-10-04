@@ -119,7 +119,11 @@ export function parseConnectionUrl(value: string): ParsedConnectionUrl {
         throw new Error("invalid");
       }
       const ssl = sslRequired(parsed.searchParams.getAll("sslmode"));
-      assertProtections(parsed.searchParams);
+      // A raw # does not terminate a libpq query. Inspect all protection
+      // occurrences from the normalized URL, retaining its whitespace handling
+      // and the shipped field and SSL-mode parsing.
+      const queryAt = parsed.href.indexOf("?");
+      assertProtections(new URLSearchParams(queryAt < 0 ? "" : parsed.href.slice(queryAt + 1)));
       return {
         host: parsed.hostname,
         port: parsed.port || undefined,

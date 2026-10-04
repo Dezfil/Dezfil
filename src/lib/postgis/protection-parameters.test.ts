@@ -182,6 +182,43 @@ for (const [form, string] of Object.entries(forms)) {
         expect(attachment).toContain("host=''override.example.org''");
         expect(attachment).toContain("sslmode=require ");
       });
+      if (form === "uri") {
+        it.each([
+          ["/next?application_name=a#b&channel_binding=require", "channel_binding"],
+          ["/next#x?sslrootcert=/distinctive/root.pem", "sslrootcert"],
+          ["/next?channel_binding=prefer#require", "channel_binding"],
+          ["/next?application_name=a#b&Channel_Binding=require&channel_binding=prefer", "channel_binding"],
+          ["/next?application_name=a#b&gssencmode=require&channel_binding=require", "gssencmode"],
+          ["/next?channel_bi\nnding=require", "channel_binding"],
+          ["/next?application_name=a#b&channel_bi\nnding=require", "channel_binding"],
+        ])("cannot hide protection parameters behind a hash in %s", async (suffix, name) => {
+          const { response, before } = await send(`postgres://new:distinctive-password@new.example.org${suffix}`, overrides);
+          noContact();
+          expect(response.status).toBe(400);
+          expect(await response.json()).toEqual({ error: { code: "invalid_request", message: refusal(name) } });
+          expect(rows()).toEqual(before);
+        });
+        it.each([
+          "/next?application_name=a#b&sslmode=disable",
+          "/next#fragment?sslmode=verify-full",
+          "/next?SSLMODE=verify-full",
+          "/next?application_name=a%23b&channel_binding=prefer",
+          "/next?channel_binding=pre\nfer",
+        ])("retains connection fields and SSL defaults for %s", async (suffix) => {
+          const { response } = await send(`postgres://new:distinctive-password@new.example.org${suffix}`);
+          expect(response.status).toBe(operation === "create" ? 201 : 200);
+          expect(await response.json()).toMatchObject({ host: "new.example.org", database: "next", username: "new", ssl: operation === "create" });
+          const attachment = io.run.mock.calls.find(([sql]) => String(sql).startsWith("ATTACH "))![0];
+          expect(attachment).toContain(operation === "create" ? "sslmode=require " : "sslmode=prefer ");
+        });
+        it("retains SSL refusal priority before a hash", async () => {
+          const { response, before } = await send("postgres://new:distinctive-password@new.example.org/next?sslmode=verify-full#x&channel_binding=require", overrides);
+          noContact();
+          expect(response.status).toBe(400);
+          expect(await response.json()).toEqual({ error: { code: "invalid_request", message: sslRefusal } });
+          expect(rows()).toEqual(before);
+        });
+      }
     });
   }
 }

@@ -21,6 +21,7 @@ const saved: PgConnection = {
 const refusal = "This connection string uses the unsupported protection parameter channel_binding; Dezfil supports connection fields and SSL required or not required.";
 const forms = {
   uri: "postgres://new:refused-password@refused.example.org:6543/new?channel_binding=require&oauth_client_secret=refused-option-secret&sslmode=require",
+  uri_hash: "postgres://new:refused-password@refused.example.org:6543/new?application_name=a#b&Channel_Binding=require&oauth_client_secret=refused-option-secret",
   libpq: "host=refused.example.org port=6543 dbname=new user=new password=refused-password channel_binding='require' oauth_client_secret='refused-option-secret' sslmode=require",
 };
 const placeholder = "postgres://user:password@host:5432/database?sslmode=require";
