@@ -5,6 +5,8 @@ import { SocksHandshake, SocksProtocolError, socksReply, type SocksTarget } from
 export interface RenderRelay {
   readonly port: number;
   readonly refused: boolean;
+  /** Pending policy decisions also count if the page abandoned their request. */
+  settleAdmissions(): Promise<void>;
   /** Synchronously revokes dialing and destroys every owned socket. */
   close(): void;
 }
@@ -21,6 +23,7 @@ export interface RenderRelayOptions {
  * the same destination policy; this grants no local-client exclusivity. */
 export async function startRenderRelay(options: RenderRelayOptions): Promise<RenderRelay> {
   const sockets = new Set<Socket>();
+  const admissions = new Set<Promise<unknown>>();
   const timers = new Set<ReturnType<typeof setTimeout>>();
   let closed = false;
   let refused = false;
@@ -50,7 +53,7 @@ export async function startRenderRelay(options: RenderRelayOptions): Promise<Ren
     };
     const connect = async ({ host, port }: SocksTarget, rest: Buffer) => {
       const admission = await admitRenderHost(host, options.resolve);
-      if (closed || client.destroyed || Date.now() >= connectDeadline) return;
+      if (closed) return;
       if (admission.verdict !== "allow") {
         if (admission.verdict === "deny") refused = true;
         fail(admission.verdict === "deny" ? 2 : 4);
@@ -105,7 +108,9 @@ export async function startRenderRelay(options: RenderRelayOptions): Promise<Ren
         if (!result.target) return;
         client.pause();
         client.off("data", onData);
-        void connect(result.target, result.rest!).catch(() => client.destroy());
+        const connecting = connect(result.target, result.rest!);
+        admissions.add(connecting);
+        void connecting.catch(() => client.destroy()).finally(() => admissions.delete(connecting));
       } catch (error) {
         client.off("data", onData);
         if (error instanceof SocksProtocolError && error.reply) client.end(error.reply);
@@ -140,7 +145,12 @@ export async function startRenderRelay(options: RenderRelayOptions): Promise<Ren
     });
     const address = server.address();
     if (!address || typeof address === "string") throw Error("Render relay has no address");
-    return { port: address.port, get refused() { return refused; }, close };
+    return {
+      port: address.port, get refused() { return refused; }, close,
+      async settleAdmissions() {
+        while (!closed && admissions.size) await Promise.allSettled([...admissions]);
+      },
+    };
   } catch (error) {
     close();
     throw error;

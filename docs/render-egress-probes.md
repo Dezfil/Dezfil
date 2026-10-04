@@ -253,3 +253,105 @@ proofs. Each child gets a fresh scratch data directory. The seeds are:
 
 The existing gate/matrix commands should be repeated with the candidate image.
 No TLS or guarded timing assertion is supplied by these socket tests.
+
+## Render integration and lifetime
+
+```sh
+DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) npm test -- src/lib/export/render-lifetime.test.ts src/lib/export/render-driver-relay.test.ts src/lib/export/render-driver-auth.test.ts src/lib/export/render-stall.test.ts
+```
+
+The lifetime file uses real relay and target sockets with a controlled browser
+lifecycle, not Chromium. It owns ephemeral IPv4/IPv6 loopback listeners, clients,
+in-memory account metadata and the relays; all are closed after each test.
+Success, refusal, launch failure, crash, timeout and cancellation must each leave
+no listener or upstream socket within the existing three-second grace, before
+fixture teardown, and a queued next render must succeed. Concurrent renders must
+keep independent tunnels. A stalled browser close must not retain relay resources;
+a browser arriving after cancellation/timeout must be killed. A real bind conflict
+must open no browser destination socket and yield exactly 502 `render_failed`:
+“The image could not be rendered. Retry; if it persists, the instance's renderer
+needs attention.” Recovery uses a fresh relay. Capture and abandoned-request
+verdicts must still yield the exact egress sentence even with a held sibling.
+Estimate 15 seconds for this focused invocation; measure outside.
+
+The seed runner above also provides the integration defects below. Each can be
+selected with `--seed=<name>`; the default runs all non-browser proofs. Pure and
+real-socket versions run separately when both exist:
+
+- `startup-classification`: leaks startup into the browser-unavailable 503 mapping.
+- `direct-fallback`: launches without a proxy after relay startup fails; the bind
+  proof's browser launch opens a real destination socket, which must fail silence.
+- `connection-report`: drops the relay's policy flag; the exact capture refusal fails.
+- `capture-refusal`: omits the final success/error checks; capture yields PNG/generic failure.
+- `pending-admission`: stops waiting for late connection decisions.
+- `abandoned-refusal`: discards a denied verdict after the client connection ended.
+- `transport-as-policy`: turns an ordinary DNS failure into a policy claim.
+- `cleanup-success`, `cleanup-refusal`, `cleanup-launch-failure`, `cleanup-crash`,
+  `cleanup-timeout`, `cleanup-cancellation`: omit that ending's relay cleanup;
+  timeout/cancellation seeds also detach the relay's independent stop so it cannot
+  mask the omission. Listener/upstream residue assertions must fail before teardown.
+- `late-dns`: restores dialing after shutdown; the target-contact count must fail.
+- `shared-state`: shares sockets between relays; closing one breaks the other's echo.
+- `credential-redirect`: attaches the app credential to external redirects; the
+  existing driver header assertions must fail. This unit proof makes no wire claim.
+
+The complete non-browser seed run is expected to take about 60 seconds. It retains
+per-proof green/red logs and restores source bytes even on an assertion failure.
+The supervising runner must retain actual durations; these added estimates have
+not been measured in the socket-restricted implementation environment.
+
+For the exact bypass seam, use the shipped Chromium executable on a host that
+can bind loopback sockets. No built application, image, fixed port or network is
+needed; the fixture serves its own tiny page and removes its resources in `finally`:
+
+```sh
+DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) DEZFIL_RELAY_BROWSER=1 DEZFIL_CHROMIUM_PATH=/usr/bin/chromium npm test -- src/lib/export/render-proxy.browser.test.ts
+DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) DEZFIL_RELAY_BROWSER=1 DEZFIL_CHROMIUM_PATH=/usr/bin/chromium node scripts/render-relay-seeds.mjs --browser --seed=broadened-scheme
+DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) DEZFIL_RELAY_BROWSER=1 DEZFIL_CHROMIUM_PATH=/usr/bin/chromium node scripts/render-relay-seeds.mjs --browser --seed=broadened-port
+DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) DEZFIL_RELAY_BROWSER=1 DEZFIL_CHROMIUM_PATH=/usr/bin/chromium node scripts/render-relay-seeds.mjs --browser --seed=implicit-loopback
+```
+
+This is explicitly a scripted-page stimulus, without request interception.
+Green means the exact app origin renders its text, while the other scheme,
+`localhost` alias and other port each fail with `ERR_SOCKS_CONNECTION_FAILED`,
+set the relay refusal and contact no target. The three seeds respectively drop
+the scheme, the port, or the implicit-loopback subtraction from the bypass rule;
+each must fail the browser assertion. Flag-string tests alone establish no
+browser behavior. Expect about 10 seconds for the unseeded browser file, plus
+about 20 seconds per selected browser seed, to be measured outside.
+
+The existing credential redirect browser control also remains required. On an
+already provisioned isolated production app at `http://127.0.0.1:3217`, configured
+with `DEZFIL_EGRESS_ALLOWLIST=127.0.0.1` and its shipped renderer, run from the same
+network namespace (the fixture's loopback listeners must be reachable by the app):
+
+```sh
+DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) DEZFIL_BASE_URL=http://127.0.0.1:3217 npx playwright test e2e/render-auth.spec.ts
+```
+
+Its two ephemeral trap listeners, map and API token are removed in `finally`;
+the supervising runner owns the app and its store. Green includes successful
+cookie/token renders and looks, no credentials on either external redirect hop,
+and the existing anonymous/revoked-call denials. For the stalled-tile control,
+provision a separate standalone on 3217 sharing a fresh `DEZFIL_DATA_DIR` with the
+test, with the same loopback allowlist and Chromium executable, then run:
+
+```sh
+DEZFIL_DATA_DIR="$RENDER_CONTROL_DATA_DIR" DEZFIL_STALLED_TILES_RENDER=3217 DEZFIL_CHROMIUM_PATH=/usr/bin/chromium DEZFIL_EGRESS_ALLOWLIST=127.0.0.1 npm test -- src/lib/export/map-look.stalled-tiles.test.ts
+```
+
+Set `RENDER_CONTROL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX)` before starting
+that dedicated standalone. Its ephemeral basemap listener is removed by the
+fixture; the runner removes the standalone and scratch store. Green is a complete
+image naming the abandoned host inside the existing check budget. Neither control
+starts an application, container or network for the runner.
+
+All currently failing gate assertions are expected to pass on the candidate:
+public/rebinding browser-DNS absence, rebinding listener silence and exact policy
+answers for both victim variants. All 23 matrix failures are likewise expected
+to pass; the tile refusal and all compatibility controls must stay green. None of
+those existing assertions is deferred. Trusted TLS/hostname/chain proofs,
+supplementary browser traffic and independently observed guarded-tile counts with
+the paired performance comparison still require their separate probes. The flags
+configure QUIC/UDP/speculative-DNS suppression; they alone demonstrate no traffic
+claim. No TLS positive or paired timing result is claimed here.

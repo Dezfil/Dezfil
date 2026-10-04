@@ -9,11 +9,11 @@
  * against the same private-range denial the egress policy encodes
  * (semantics — the allowlist names exceptions).
  *
- * Honest residual, recorded not claimed away: admission resolves DNS in
- * Node while Chromium resolves again for the connection, so a rebinding
- * window exists between the two lookups. The connect-path validation the
- * server's own fetches get has no in-process equivalent inside Chromium;
- * closing it fully would take a local egress proxy.
+ * This function alone checks only admission, not the browser's eventual
+ * connection. The real driver also routes external TCP through the
+ * per-render relay, which resolves again and dials only admitted literals.
+ * Socket and browser probes exercise that separate connection boundary;
+ * these page-admission tests cannot establish it.
  */
 
 import { admitRenderHost, type RenderResolver } from "./render-address";
