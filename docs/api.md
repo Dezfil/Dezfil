@@ -137,8 +137,9 @@ Anonymous published API reads use verified ingress sources. View, widget-values,
 render and extent share 60 requests per ten seconds across tokens; tiles have
 600 in their separate bucket, with the existing configuration overrides.
 Unknown tokens are charged before resolution. Across both buckets, at most
-10,000 source entries are retained: traffic removes expired windows, then
-capacity evicts the least recently used entry. Eviction grants a fresh window.
+10,000 source entries are retained. Traffic sweeps expired windows at most once
+per second; between sweeps, a new source at capacity evicts the least recently
+used entry. The bound holds either way. Eviction grants a fresh window.
 Window expiry permits retry; a refusal remains 429 `rate_limited`, “Too many
 requests. Please slow down.” No new retry-header guarantee applies.
 

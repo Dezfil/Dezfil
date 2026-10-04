@@ -164,8 +164,9 @@ behavior and [the API guide](docs/api.md#request-bounds) for exact refusals.
 
 Published API budgets use verified ingress sources, shared across tokens, including
 unknown tokens. View reads share one budget; tiles have another. Both together
-retain at most 10,000 entries, expiring on traffic then evicting least recently
-used entries at capacity. Eviction starts a fresh window. Readers behind an
+retain at most 10,000 entries. Traffic sweeps expired windows at most once per
+second; between sweeps, a new source at capacity evicts the least recently used
+entry. The bound holds either way. Eviction starts a fresh window. Readers behind an
 untrusted proxy share its socket budget; trusted chains use the nearest
 untrusted hop. Missing or forged provenance refuses with private, no-store
 503 `ingress_unavailable` before body work or token resolution. See
