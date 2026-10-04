@@ -75,11 +75,12 @@ adoption. Remaining admins can use this version's packaged local recovery comman
 A long-lived outside reader, such as a replication sidecar, can keep deletion unfinished until it releases the database; release it, then use Finish deleting.
 
 Finishing a deletion rewrites the whole metadata store, and the app answers nothing
-while that compaction runs, including health requests. Measurements observed about
-a second or less up to 64 MiB, up to about four seconds at 256 MiB, and several
-seconds at 1 GiB in the container (3.4 to 8.8 seconds observed). A host short of
-memory or disk took much longer at 1 GiB (9 to 38 seconds observed). These are
-observations, not an upper bound. Plan capacity and maintenance around that pause.
+while that compaction runs, including health requests. Across two runs on one
+machine, the 1 GiB observations ranged from 3.4 to 13.2 seconds in the container
+(nine trials) and 9 to 38 seconds on the host. The repeat run observed up to
+1.55 seconds at 64 MiB and 3.07 seconds at 256 MiB. These observations set no bound
+and promise no maximum pause. A slow or nearly full disk and a host short of memory
+make it longer. Plan capacity and maintenance around that pause.
 SQLite needs free working space for a temporary database and a write-ahead log:
 allow up to twice the metadata database size in additional free space when both
 use one filesystem. With separate filesystems, allow roughly one database size

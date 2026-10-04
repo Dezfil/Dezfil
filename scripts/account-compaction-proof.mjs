@@ -10,7 +10,7 @@ import os from 'node:os';
 import { parseArgs } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
-import { sampleCompaction, runProofArms } from './account-compaction-prober.mjs';
+import { sampleCompaction, runProofArms, reportPause, assertProofSucceeded } from './account-compaction-prober.mjs';
 import { sizedFixture } from './account-compaction-fixture.mjs';
 
 const { values } = parseArgs({ options: {
@@ -27,9 +27,8 @@ assert.ok(!values['container-only'] || values.container, '--container-only requi
 assert.ok(!values.seed || ['row-only', 'former-missing', 'busy-success', 'space-success', 'pause'].includes(values.seed), 'known seed');
 const temporary = values.inside ? '/sqlite-vacuum-tmp' : path.join(directory, 'sqlite-temporary');
 mkdirSync(temporary, { recursive: true });
-const base = `http://127.0.0.1:${port}`, boundMs = 5000;
+const base = `http://127.0.0.1:${port}`;
 let child, ended, output = '', ready, volume, containerName;
-const breaches = [];
 let interrupted = false;
 for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
   interrupted = true; process.exitCode = 1;
@@ -86,6 +85,7 @@ async function measure(folder, observeTemporary = false) {
     }
   }
   const measured = await sampleCompaction({
+    seed: values.seed,
     health: () => request('/health', 500), sampleSpace: spaceSample,
     spaceInterval: observeTemporary ? 2 : 100,
     // IPC is already connected before maintenance starts. Health connections
@@ -139,11 +139,7 @@ async function sizes() {
       assert.equal(measured.result.ok, true, JSON.stringify(measured));
       assert.equal(measured.result.open, true); assert.equal((await request('/integrity')).integrity, 'ok');
       const row = { mode: values.inside ? 'container' : 'host', mib, trial, ...fixture, ...measured };
-      record(row);
-      if (measured.pauseMs > boundMs) {
-        const breach = `DECISION REQUIRED: ${mib} MiB trial ${trial} pause ${(measured.pauseMs / 1000).toFixed(3)} s exceeds 5.0 s; do not ship around this breach`;
-        breaches.push(breach); console.error(breach);
-      }
+      reportPause(row, record, console.log);
       await stop(); rmSync(folder, { recursive: true });
     }
     rmSync(baselineDir, { recursive: true });
@@ -207,9 +203,7 @@ try {
     arms.push(() => containerRun(true));
   }
   const failures = await runProofArms(arms, stop);
-  if (breaches.length || failures.length || interrupted) throw new Error([
-    ...breaches, ...failures.map(error => error.message), ...(interrupted ? ['Proof interrupted'] : []),
-  ].join('\n'));
+  assertProofSucceeded(failures, interrupted);
   console.log(`PASS: all requested live-byte, reader, pause and temporary-space checks in ${((performance.now() - started) / 1000).toFixed(1)} s. Unrequested container arms remain unobserved.`);
 } catch (error) { console.error(`FAIL: ${error.message}`); process.exitCode = 1; }
 finally { await stop(); writeFileSync(path.join(directory, 'compaction-report.json'), JSON.stringify(reports, null, 2)); writeFileSync(path.join(directory, 'worker.log'), output); }

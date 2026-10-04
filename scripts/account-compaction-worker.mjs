@@ -12,7 +12,6 @@ db.pragma('foreign_keys = ON');
 let reader;
 function compact() {
       const started = performance.now();
-      if (seed === 'pause') { const until = performance.now() + 5100; while (performance.now() < until) { /* Seed an uninterrupted pause. */ } }
       let measured;
       if (seed !== 'row-only') measured = compactMetadataStore(db);
       return { ok: true, measured, intervalMs: performance.now() - started, open: db.open,

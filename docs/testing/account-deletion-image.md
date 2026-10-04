@@ -64,7 +64,7 @@ DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/test-data/seed-XXXXXX") node scripts/s
 sentinel remains` after continuation. `foreign-card` skips foreign input evidence
 and must fail `recorded foreign card removed before restart`. The unit fixture's
 same seed fails `recorded derivative or owned file remains`. Both probes take at
-most the green journey's approximate time; neither changes the pause-bound proof.
+most the green journey's approximate time; neither changes the compaction proof.
 
 The module-local admission red uses a scratch preload that replays the built
 page bundle's previously read metadata after acceptance. It is separate from

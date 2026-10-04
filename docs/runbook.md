@@ -99,12 +99,14 @@ status and continuation operations through the [API](api.md) or [MCP](mcp.md).
 A long-lived outside reader, such as a replication sidecar, can keep deletion unfinished until it releases the database; release it, then use Finish deleting.
 
 Check free space on both the data volume and SQLite's temporary filesystem. The
-whole metadata-store rewrite pauses every response, including health. Measured
-pauses range from about a second or less at 64 MiB to 3.4–8.8 seconds at 1 GiB in
-the container, and 9–38 seconds at 1 GiB on a host short of memory or disk. The
-[host guide](self-hosting.md#leaving-and-deleting-accounts) states the 256 MiB result,
-space planning, cache purge and exact copy limits. A failed compaction stays
-unfinished and can be retried; these measurements promise no maximum pause.
+whole metadata-store rewrite pauses every response, including health. Across two
+runs on one machine, the 1 GiB observations ranged from 3.4 to 13.2 seconds in the
+container (nine trials) and 9 to 38 seconds on the host. The repeat run observed up
+to 1.55 seconds at 64 MiB and 3.07 seconds at 256 MiB. These observations set no
+bound and promise no maximum pause. A slow or nearly full disk and a host short of
+memory make it longer. The [host guide](self-hosting.md#leaving-and-deleting-accounts)
+states space planning, cache purge and exact copy limits. A failed compaction stays
+unfinished and can be retried.
 
 The [upgrade and packaged recovery proof](testing/account-deletion-recovery.md)
 and [built-image deletion journey](testing/account-deletion-image.md) exercise

@@ -21,13 +21,13 @@ describe("outside compaction sampler", () => {
       expect(result.healthSamples).toBeGreaterThan(0);
     } finally { vi.useRealTimers(); }
   });
-  it("runs later arms and cleanup even after a measured breach", async () => {
+  it("runs later arms and cleanup even after a failed assertion", async () => {
     const events: string[] = [];
     const failures = await runProofArms([
-      async () => { events.push("host"); throw new Error("DECISION REQUIRED: 6.2 s"); },
+      async () => { events.push("host"); throw new Error("live bytes retained"); },
       async () => { events.push("container"); },
     ], async () => { events.push("stop"); });
     expect(events).toEqual(["host", "stop", "container", "stop"]);
-    expect((failures[0] as Error).message).toContain("6.2 s");
+    expect((failures[0] as Error).message).toContain("live bytes retained");
   });
 });
