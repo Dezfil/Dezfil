@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { active, fixtureLog } from './render-egress-log.mjs';
+import { fixtureResponse } from './render-style-fixture.mjs';
 
 const role = process.env.PROBE_ROLE;
 const log = fixtureLog(`${process.env.PROBE_EVIDENCE}/${role}.ndjson`);
@@ -8,17 +9,11 @@ const headers = { 'access-control-allow-origin': '*', 'cache-control': 'no-store
 const server = createServer((request, response) => {
   const state = active(), url = new URL(request.url, 'http://fixture.test');
   log({ event: 'request', arm: state.id, phase: state.phase, socket: request.socket.probeId, path: url.pathname, host: request.headers.host });
-  const finish = (type, body, status = 200) => {
-    response.writeHead(status, { ...headers, 'content-type': type }); response.end(body);
-  };
-  if (url.pathname === '/live') return finish('text/plain', 'listener-alive');
-  if (role === 'listener' && state.variant === 'blind') return finish('text/plain', 'internal-service-body');
-  if (url.pathname === '/style.json') return finish('application/json', JSON.stringify({
-    version: 8, sources: {}, layers: [{ id: 'background', type: 'background', paint: {
-      'background-color': role === 'listener' ? '#ff00ff' : '#00c8d8',
-    } }],
-  }));
-  finish('text/plain', 'missing', 404);
+  const payload = fixtureResponse(state, url.pathname, role);
+  response.on('finish', () => log({ event: 'response', arm: state.id, phase: state.phase,
+    socket: request.socket.probeId, path: url.pathname, status: payload.status }));
+  response.writeHead(payload.status, { ...headers, 'content-type': payload.type, ...(payload.location ? { location: payload.location } : {}) });
+  response.end(payload.body);
 });
 server.on('connection', socket => {
   const state = active(); socket.probeId = ++serial;
@@ -26,4 +21,4 @@ server.on('connection', socket => {
   log({ event: 'connection', ...identity, from: socket.remoteAddress });
   socket.on('close', () => log({ event: 'close', ...identity }));
 });
-server.listen(8080, '0.0.0.0', () => log({ event: 'ready' }));
+server.listen(role === 'local' ? 3188 : 8080, '::', () => log({ event: 'ready' }));

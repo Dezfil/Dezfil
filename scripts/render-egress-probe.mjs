@@ -16,6 +16,21 @@ const phase = async phase => {
   await writeFile(`${directory}/active.next.json`, JSON.stringify({ ...arm, phase }));
   await rename(`${directory}/active.next.json`, `${directory}/active.json`);
 };
+async function liveListener(file, url) {
+  const live = await fetch(url, { headers: { connection: 'close' }, signal: AbortSignal.timeout(3000) });
+  assert.equal(live.status, 200);
+  const liveBody = await live.text();
+  let rows;
+  for (let i = 0; i < 60; i++) {
+    rows = readRows(await readFile(`${directory}/${file}.ndjson`, 'utf8'));
+    const request = rows.find(row => row.phase === 'live' && row.event === 'request' && row.path === '/live');
+    if (request && rows.some(row => row.event === 'close' && row.socket === request.socket)) {
+      return { liveBody, emptyBeforeExport: !rows.some(row => row.phase === 'render') };
+    }
+    await delay(50);
+  }
+  throw new Error(`${file} liveness connection did not close`);
+}
 try {
   const credentials = await provisionJourney(base);
   const api = journeyApi(base, { token: credentials.token });
@@ -34,19 +49,11 @@ try {
   } });
   assert.equal(saved.status, 200, JSON.stringify(saved.json)); result.saved = true;
   await phase('live');
-  const live = await fetch(`http://${privateAddress}:8080/live`, { headers: { connection: 'close' }, signal: AbortSignal.timeout(3000) });
-  assert.equal(live.status, 200); result.liveBody = await live.text();
   // Wait for the separately logged liveness connection to close, before
   // the measurement epoch starts. A dead listener cannot prove silence.
-  let closed = false;
-  for (let i = 0; i < 60; i++) {
-    const rows = readRows(await readFile(`${directory}/listener.ndjson`, 'utf8'));
-    const request = rows.find(row => row.phase === 'live' && row.event === 'request' && row.path === '/live');
-    if (request && rows.some(row => row.event === 'close' && row.socket === request.socket)) { closed = true; break; }
-    await delay(50);
-  }
-  assert.ok(closed, 'listener liveness connection did not close');
-  result.emptyBeforeExport = !readRows(await readFile(`${directory}/listener.ndjson`, 'utf8')).some(row => row.phase === 'render');
+  const liveUrl = arm.local ? `http://${privateAddress}:8080/live` : arm.liveUrl ?? `http://${arm.privateIp ?? privateAddress}:8080/live`;
+  Object.assign(result, await liveListener('listener', liveUrl));
+  if (arm.local) result.localLive = await liveListener('local', arm.liveUrl);
   assert.ok(result.emptyBeforeExport, 'listener measurement is already dirty');
   result.armedAt = Date.now(); await phase('render');
   const definition = arm.definition ?? {

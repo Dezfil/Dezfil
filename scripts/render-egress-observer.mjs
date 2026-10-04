@@ -13,6 +13,7 @@ const packages = directories.flatMap(directory => readdirSync(directory).filter(
 const owners = new Set(packages.map(filename => require(filename).default));
 if (!owners.size) throw new Error('Browser observer cannot attach');
 log({ event: 'ready' });
+let targetSerial = 0;
 for (const owner of owners) {
   const launch = owner.launch;
   owner.launch = async function (options) {
@@ -21,12 +22,14 @@ for (const owner of owners) {
       `--log-net-log=${directory}/netlog.json`] });
     log({ event: 'version', version: await browser.version() });
     const observe = async target => {
+      const targetId = ++targetSerial;
       const session = await target.createCDPSession();
+      const { targetInfo } = await session.send('Target.getTargetInfo');
       await session.send('Network.enable');
       for (const event of ['requestWillBeSent', 'responseReceived', 'loadingFinished', 'loadingFailed']) {
         session.on(`Network.${event}`, data => {
           // Omit headers: the app's bearer credential belongs only in transit.
-          log({ event, target: target.type(), targetId: target._targetId, requestId: data.requestId,
+          log({ event, target: targetInfo.type, targetId, requestId: data.requestId,
             url: data.request?.url ?? data.response?.url, status: data.response?.status,
             initiator: data.initiator?.type, error: data.errorText, encodedDataLength: data.encodedDataLength });
         });

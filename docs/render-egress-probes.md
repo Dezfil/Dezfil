@@ -22,11 +22,12 @@ internal networks (`-public`, `203.0.113.0/24`; `-private`, `192.168.99.0/24`) a
 four containers (`-app`, `-dns`, `-host`, `-listener`), using the supplied image
 for all four. Run serially: those fixed subnets must be available. No host port
 is published. The app listens on 3187 inside its container, DNS on UDP 53,
-and the style host and private listener on 8080. The app's `/data` is fresh tmpfs.
+and the style host and private listener on 8080. Every container's `/data` is
+fresh tmpfs, overriding the image's volume declaration so no volumes are created.
 Containers are replaced between arms; hostnames are also unique. There is no
 attack allowlist. All scripts are mounted from this checkout.
 
-The `finally` path removes every owned container (including anonymous volumes)
+The `finally` path removes every owned container (defensively removing any attached volumes)
 and both networks, including after failures and SIGINT/SIGTERM. Retained scratch
 contains the inventory, per-arm NDJSON logs, unmodified browser netlogs, export
 PNG/JSON, browser version/flags, and the combined report. No global prune or
@@ -88,3 +89,118 @@ Expected failures are respectively `evidence-complete` / `browser-dns-absent`,
 `listener-live-before-measurement`, and `dns-answer-sequence`. Omit the seed to
 recheck the original observation. These are evidence-loss mutants, not claims
 about connections made by a mocked socket.
+
+## Dependency and compatibility matrix
+
+```sh
+DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) node scripts/render-egress-driver.mjs --image dezfil:baseline --suite matrix
+```
+
+This runs 43 independent exports. `--suite dependencies` selects its twelve
+dependency exports; `--suite controls` selects its 31 compatibility exports.
+Expect 10–20 minutes for the whole matrix, to be measured outside. It uses the
+same four owned container names and two owned network names as the gate,
+recreating them for every arm. The link-local arms use `169.254.99.0/24` for the
+private network instead of `192.168.99.0/24`. IPv6 arms add
+`fd00:deaf:beef::/64` and address `fd00:deaf:beef::10`; Docker must support IPv6.
+The loopback/other-port arms add a listener process on 3188 inside the owned app
+container, with separate logs and liveness. No host ports or extra containers.
+
+Each of redirect, source metadata, sprite JSON, glyph, raster tile, and worker
+GeoJSON gets a public companion and its own changed destination name. The root
+name stays public. The sprite's public PNG and redirected JSON avoid racing two
+admissions for the single public answer. The worker request must be observed in
+a worker target; a request from the page alone fails that proof. No scripted
+page substitutes for style-driven traffic. Public companion styles are checked
+by the shipped style validator in the unit suite.
+
+Expected baseline lines for each `<road>-rebind`, with the same exact names
+used by the original gate:
+
+```text
+PASS <road>-rebind evidence-complete
+PASS <road>-rebind listener-live-before-measurement
+PASS <road>-rebind dependency-request-observed
+PASS <road>-rebind dependency-answer-sequence
+FAIL <road>-rebind browser-dns-absent ...
+FAIL <road>-rebind private-connections-zero ...
+FAIL <road>-rebind private-requests-zero ...
+FAIL <road>-rebind exact-policy-answer ...
+```
+
+The last line can already PASS on the tile arm: concurrent tile admissions
+can refuse later requests while the first admitted request contacts the
+listener. That is still red on private contact. A baseline observation must
+show contact in **each** changed-name arm; a missing stimulus, wrong DNS
+sequence or setup error is not the intended baseline red. The public companions
+must PASS `dependency-request-observed`, `dependency-answer-sequence`, both
+silence assertions and `completed-control-png`. Their browser DNS remains in
+raw netlogs; this matrix does not rename it a compatibility failure.
+
+All 31 compatibility arms should PASS on the baseline and repaired image:
+
+- Five denied destinations (private IPv4, localhost, the app host on another
+  port, link-local, and private IPv6), directly and via redirect, for HTTP and
+  HTTPS. Each expects the exact policy answer and empty listener measurements.
+  Liveness uses plain HTTP on that destination's listening socket. HTTPS here
+  checks destination refusal before TLS, and proves no certificate behavior.
+- Hostname, IP and CIDR allowlists, each with private magenta content, a public
+  cyan control, and an unlisted loopback listener that must stay silent.
+- Dead at admission and public-then-NXDOMAIN: successful data-only PNGs, the
+  exact shipped dead-style notice observed at capture, data pixels, no private
+  contact and no policy answer. `dead-answer-sequence` must PASS.
+
+Green on the repaired image means every matrix assertion passes, including
+the exact refusal for all six changed dependencies. Removed literal checks,
+mixed-answer admission, exception/bypass changes, relay lifetime, trusted TLS,
+and comparison mutants belong beside the later implementation. They are not
+invented baseline reds or claims made by these controls.
+
+## Frozen timing baseline
+
+```sh
+DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) node scripts/render-egress-driver.mjs --image dezfil:baseline --suite timing
+```
+
+Expect 3–8 minutes, to be measured outside. Same owned names, standard two
+internal subnets and ports as the gate; no host ports. Each app has two CPUs
+and 4 GiB of memory, a fresh store and a fresh browser. Browser caching is
+disabled and every fixture response is `no-store`. The fixture is HTTP on the
+public-range network at `timing.render.test:8080`, outside the app origin.
+No internet, allowlist, app-origin tiles or loopback basemap supplies it.
+
+[`render-timing-fixture.json`](../scripts/render-timing-fixture.json) freezes
+the style, 256×256 authored cyan PNG, 2048×2048 export definition and SHA-256
+identities. The checker and tests pin those identities independently of the
+manifest. Do not change them between baseline and candidate. The observer
+captures the browser version and successful Network response/request IDs;
+the host separately logs completed responses. Both must name the same set of
+at least 64 distinct tile URLs, and every requested tile must finish with 200.
+
+For each of two warmups followed by ten measured exports, expected baseline
+output is:
+
+```text
+PASS timing-<warmup|sample>-<n> evidence-complete
+PASS timing-<warmup|sample>-<n> listener-live-before-measurement
+PASS timing-<warmup|sample>-<n> frozen-fixture
+PASS timing-<warmup|sample>-<n> complete-timing-png
+PASS timing-<warmup|sample>-<n> at-least-64-completed-tiles
+PASS timing-<warmup|sample>-<n> private-listener-silent
+```
+
+The baseline timing probe should exit 0. A 63-tile, failed, incomplete,
+abandoned or missing sample exits 1 and voids the entire series: no median is
+reported. Keep every voided directory and its reasons; rerun the whole command
+with fresh scratch. `report.json` retains all request-to-complete-body durations,
+both tile counts and URL sets, browser versions, fixture identity and the
+baseline median. `inventory.json` records the exact image and resource limits.
+The saved images must contain the fixture pixels, not merely an offline PNG.
+
+This is a baseline fixture/counting run, not a paired performance comparison.
+It makes no guarded-road claim. The later comparison must use these exact
+resources, an independent observer of the candidate's guarded connections,
+two warmups and ten interleaved samples per version on the same idle host, and
+record both medians, delta, ratio and every void. The direct-bypass and delay
+mutants wait for that observer and comparison; the observer unit seed here
+only weakens the 64-tile minimum and is restored before commit.

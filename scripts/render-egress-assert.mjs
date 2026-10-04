@@ -23,7 +23,7 @@ export function browserLookups(netlog, host) {
     (mentions(event.params) || sources.has(event.source?.id))).map(event => ({ type: types[event.type], ...event }));
 }
 
-export function assessArm(arm, evidence) {
+export function assessCommon(arm, evidence) {
   const checks = [];
   const check = (name, fn) => {
     try { fn(); checks.push({ name, ok: true }); }
@@ -42,15 +42,25 @@ export function assessArm(arm, evidence) {
     assert.ok(netlog.events.length, 'empty netlog');
   });
   check('listener-live-before-measurement', () => {
-    const live = listener.filter(row => row.arm === arm.id && row.phase === 'live');
-    const request = live.find(row => row.event === 'request' && row.path === '/live');
-    assert.ok(request, 'missing liveness GET');
-    assert.ok(live.some(row => row.event === 'connection' && row.socket === request.socket), 'missing liveness connection');
-    assert.ok(live.some(row => row.event === 'close' && row.socket === request.socket), 'liveness socket was not closed before measurement');
-    assert.ok(live.every(row => row.at <= result.armedAt), 'liveness overlaps measurement');
-    assert.equal(result.liveBody, 'listener-alive');
-    assert.equal(result.emptyBeforeExport, true, 'measurement did not start empty');
+    assertLiveness(listener, arm.id, result);
   });
+  return { checks, check, measured };
+}
+
+export function assertLiveness(listener, id, result) {
+  const live = listener.filter(row => row.arm === id && row.phase === 'live');
+  const request = live.find(row => row.event === 'request' && row.path === '/live');
+  assert.ok(request, 'missing liveness GET');
+  assert.ok(live.some(row => row.event === 'connection' && row.socket === request.socket), 'missing liveness connection');
+  assert.ok(live.some(row => row.event === 'close' && row.socket === request.socket), 'liveness socket was not closed before measurement');
+  assert.ok(live.every(row => row.at <= result.armedAt), 'liveness overlaps measurement');
+  assert.equal(result.liveBody, 'listener-alive');
+  assert.equal(result.emptyBeforeExport, true, 'measurement did not start empty');
+}
+
+export function assessArm(arm, evidence) {
+  const { checks, check, measured } = assessCommon(arm, evidence);
+  const { dns, listener, host, netlog, result } = evidence;
   check('dns-answer-sequence', () => {
     const queries = measured(dns).filter(row => row.name === arm.author);
     const answers = queries.filter(row => row.type === 1);
