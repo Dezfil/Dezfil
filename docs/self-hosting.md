@@ -157,8 +157,9 @@ MCP base64 uploads must be below 12 MiB after envelope and metadata overhead.
 Published render selections remain at 65,536 bytes even within their semantic
 filter counts; the viewer's twelve selections of fifty long values fit.
 
-The anonymous published widget-values, render and extent POST paths bypass the
-framework proxy. Their handlers admit at most 65,536 bytes and refuse excess
+The canonical spellings of the anonymous published widget-values, render and
+extent POST paths bypass the framework proxy. Encoded-slash spellings can still
+match the proxy and incur its body copy. Their handlers admit at most 65,536 bytes and refuse excess
 before parsing; empty bodies retain their existing defaults. All dispatchable
 methods on excluded paths retain their method-specific request gate. `TRACE`,
 which no handler can receive, is answered with an empty 400 on every path before

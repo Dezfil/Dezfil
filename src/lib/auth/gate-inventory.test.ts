@@ -14,6 +14,14 @@ import * as render from "@/app/api/published/[token]/render/[layerId]/route";
 import * as extent from "@/app/api/published/[token]/extent/[layerId]/route";
 
 const origin = "http://instance.test";
+// The router invokes the proxy if either spelling matches, in both server modes.
+function routerMatches(input: Parameters<typeof unstable_doesMiddlewareMatch>[0]): boolean {
+  const pathname = new URL(input.url, origin).pathname;
+  let decoded = pathname;
+  try { decoded = decodeURIComponent(pathname); } catch { /* Keep malformed escapes raw. */ }
+  return unstable_doesMiddlewareMatch({ ...input, url: pathname })
+    || unstable_doesMiddlewareMatch({ ...input, url: decoded });
+}
 const methods = ["GET", "HEAD", "OPTIONS", "POST", "PUT", "DELETE", "PATCH"];
 const excluded = [
   { path: "/api/tables", handlers: tables, allowed: ["GET", "HEAD", "OPTIONS", "POST"] },
@@ -27,9 +35,9 @@ afterEach(() => { vi.restoreAllMocks(); db.close(); });
 const input = (path: string, method: string, headers: Record<string, string> = {}) => socketRequest(new Request(origin + path, { method, headers: { origin, ...headers } }));
 
 it("excludes exactly the streaming upload path and admits the full workflow tier to dispatch", () => {
-  for (const { path: url } of excluded) expect(unstable_doesMiddlewareMatch({ config, nextConfig, url })).toBe(false);
+  for (const { path: url } of excluded) expect(routerMatches({ config, nextConfig, url })).toBe(false);
   for (const url of ["/api/tables/id", "/api/tables-extra", "/api/auth/sign-in", "/api/recipes"]) {
-    expect(unstable_doesMiddlewareMatch({ config, nextConfig, url }), url).toBe(true);
+    expect(routerMatches({ config, nextConfig, url }), url).toBe(true);
   }
   expect(nextConfig.experimental?.proxyClientMaxBodySize).toBe(17 * 1024 * 1024);
 });
@@ -159,27 +167,21 @@ it("preserves cookie origin checks and final rolling cookies on every excluded s
 });
 
 
-it("holds one closed exclusion inventory against the literal compiled matcher in development and production", () => {
+it("holds one closed exclusion inventory against the literal compiled matcher and router path decoding", () => {
   const expected = "/((?!" + excluded.map(({ path }) => path.slice(1).replaceAll("fixture", "[^/]+") + "/?$").join("|") + ").*)";
   expect(config.matcher).toEqual([expected]);
-  for (const environment of ["development", "production"]) {
-    vi.stubEnv("NODE_ENV", environment);
-    try {
-      for (const { path } of excluded) for (const suffix of ["", "/", "?query=1"]) {
-        expect(unstable_doesMiddlewareMatch({ config, nextConfig, url: path + suffix }), `${environment} ${path}${suffix}`).toBe(false);
-      }
-      for (const url of ["/api/%74ables", "/api/tables.json", "/api/tables/extra", "/api/tables-extra",
-        "/api/published/token", "/api/published/token/render", "/api/published/token/render/id/extra",
-        "/api/published/token/widget-values/extra", "/api/published/token/tiles/layer/0/0/0",
-        "/api/published/token/%72ender/id", "/api/auth/setup", "/api/auth/sign-in", "/api/auth/redeem"]) {
-        expect(unstable_doesMiddlewareMatch({ config, nextConfig, url }), `${environment} ${url}`).toBe(true);
-      }
-      for (const url of ["/api/published/t%2Foken/widget-values", "/api/published/%74oken/render/l%2Fayer", "/api/published/token/extent/%6cayer/"]) {
-        expect(unstable_doesMiddlewareMatch({ config, nextConfig, url }), url).toBe(false);
-      }
-      const seeded = { matcher: [expected.replace("(?!", "(?!api/maps/?$|")] };
-      expect(seeded.matcher).not.toEqual([expected]);
-      expect(unstable_doesMiddlewareMatch({ config: seeded, nextConfig, url: "/api/maps" })).toBe(false);
-    } finally { vi.unstubAllEnvs(); }
+  for (const { path } of excluded) for (const suffix of ["", "/", "?query=1"]) {
+    expect(routerMatches({ config, nextConfig, url: path + suffix }), `${path}${suffix}`).toBe(false);
   }
+  for (const url of ["/api/%74ables", "/api/tables.json", "/api/tables/extra", "/api/tables-extra",
+    "/api/published/token", "/api/published/token/render", "/api/published/token/render/id/extra",
+    "/api/published/token/widget-values/extra", "/api/published/token/tiles/layer/0/0/0",
+    "/api/published/token/%72ender/id", "/api/auth/setup", "/api/auth/sign-in", "/api/auth/redeem",
+    "/api/published/t%2Foken/widget-values", "/api/published/%74oken/render/l%2Fayer"]) {
+    expect(routerMatches({ config, nextConfig, url }), url).toBe(true);
+  }
+  expect(routerMatches({ config, nextConfig, url: "/api/published/token/extent/%6cayer/" })).toBe(false);
+  const seeded = { matcher: [expected.replace("(?!", "(?!api/maps/?$|")] };
+  expect(seeded.matcher).not.toEqual([expected]);
+  expect(routerMatches({ config: seeded, nextConfig, url: "/api/maps" })).toBe(false);
 });
