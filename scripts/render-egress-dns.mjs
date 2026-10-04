@@ -24,7 +24,7 @@ socket.on('message', (packet, remote) => {
     const key = `${state.id}:${state.phase}:${name}`;
     const n = type === 1 ? (counts.get(key) ?? 0) + 1 : counts.get(key) ?? 0;
     if (type === 1) counts.set(key, n);
-    const known = name === state.author || name === state.root;
+    const known = name === state.author || name === state.root || (['tls', 'supplementary'].includes(state.kind) && name === 'aia.render.test');
     const mode = state.phase === 'render' && name === state.author ? state.mode : 'public';
     const dead = mode === 'dead' || (mode === 'public-dead' && n > 1);
     const address = mode === 'private' || (mode === 'rebind' && n > 1) ? privateAddress : publicAddress;

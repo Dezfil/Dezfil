@@ -9,12 +9,16 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { randomBytes } from 'node:crypto';
 import { assessArm, readRows } from './render-egress-assert.mjs';
 import { gateArms, matrixArms, timingArms } from './render-egress-cases.mjs';
+import { provisionTrust } from './render-tls-trust.mjs';
+import { tlsArms, assessTlsArm, chainReport, supplementaryReport } from './render-tls-assert.mjs';
+import { guardedTiles } from './render-comparison-assert.mjs';
 import { assessMatrixArm, assessTimingArm, timingSummary } from './render-style-assert.mjs';
 
 const execute = promisify(execFile);
 const args = process.argv.slice(2), option = name => args.includes(name) ? args[args.indexOf(name) + 1] : undefined;
 const image = option('--image'), variant = option('--victim') ?? 'both';
 const suite = option('--suite') ?? 'gate';
+const index = option('--index'), seed = option('--seed'), candidate = process.argv.includes('--candidate');
 const scripts = path.dirname(fileURLToPath(import.meta.url));
 const directory = process.env.DEZFIL_DATA_DIR;
 const prefix = `dezfil-egress-${process.pid}-${randomBytes(4).toString('hex')}`;
@@ -70,16 +74,22 @@ async function ready(name, url) {
 try {
   assert.ok(image, 'Usage: DEZFIL_DATA_DIR=<fresh scratch> node scripts/render-egress-driver.mjs --image IMAGE [--victim both|style|blind]');
   assert.ok(['both', 'style', 'blind'].includes(variant), 'invalid victim variant');
-  assert.ok(['gate', 'matrix', 'dependencies', 'controls', 'timing'].includes(suite), 'invalid suite');
+  assert.ok(['gate', 'matrix', 'dependencies', 'controls', 'timing', 'tls', 'supplementary'].includes(suite), 'invalid suite');
   assert.ok(directory && path.isAbsolute(directory), 'DEZFIL_DATA_DIR must name an absolute empty scratch directory');
   assert.deepEqual(await readdir(directory), [], 'scratch directory must be empty');
   ownsDirectory = true;
   const inventory = { prefix, suite, image, imageId: await docker('image', 'inspect', '--format', '{{.Id}}', image), names, networks, hostPorts: [], started,
     timingResources: suite === 'timing' ? { cpus: 2, memory: '4g', cache: 'disabled', freshBrowser: true } : null };
   await writeFile(path.join(directory, 'inventory.json'), JSON.stringify(inventory, null, 2));
-  const arms = suite === 'gate' ? gateArms(variant) : suite === 'timing' ? timingArms()
+  assert.ok(!seed || ['broken-tunnel', 'certificate-bypass-untrusted', 'certificate-bypass-wrong-host', 'direct-bypass', 'delay', 'supplementary-direct'].includes(seed), 'unknown seed');
+  let arms = suite === 'tls' || suite === 'supplementary' ? tlsArms().filter(arm => suite === 'tls' || arm.certificate === 'trusted').map(arm => ({ ...arm, kind: suite })) : suite === 'gate' ? gateArms(variant) : suite === 'timing' ? timingArms()
     : matrixArms().filter(arm => suite === 'matrix' || (suite === 'dependencies' ? arm.kind === 'dependency' : arm.kind !== 'dependency'));
+  if (index !== undefined) { assert.ok(/^\d+$/.test(index) && arms[Number(index)], 'invalid arm index'); arms = [arms[Number(index)]]; }
+  if (seed) arms = arms.filter(arm => seed === 'broken-tunnel' ? arm.certificate === 'trusted' : seed.startsWith('certificate-bypass-') ? seed === `certificate-bypass-${arm.certificate}` : true);
+  assert.ok(arms.length, 'seed has no applicable arm');
   for (const arm of arms) {
+    arm.seed = seed; arm.candidate = candidate; arm.delayMs = Number(option('--delay-ms') ?? 10000);
+    assert.ok(!seed || (suite === 'timing' && candidate && ['direct-bypass', 'delay'].includes(seed)) || (suite === 'tls' && (seed === 'broken-tunnel' || seed.startsWith('certificate-bypass-'))) || (suite === 'supplementary' && seed === 'supplementary-direct'), 'seed/suite mismatch');
     if (interrupted) throw new Error('interrupted');
     const { id } = arm;
     const output = path.join(directory, id);
@@ -90,6 +100,9 @@ try {
     const mount = ['--tmpfs', '/data:uid=1000,gid=1000,mode=700',
       '-v', `${scripts}:/probes:ro`, '-v', `${output}:/evidence`, '-e', 'PROBE_EVIDENCE=/evidence'];
     try {
+      const tls = ['tls', 'supplementary'].includes(suite);
+      const trust = tls ? await provisionTrust(path.join(output, 'trust')) : null;
+      const trustMount = trust ? ['-v', `${trust}:/trust:ro`] : [];
       await docker('network', 'create', '--internal', '--subnet', '203.0.113.0/24', networks[0]);
       await docker('network', 'create', '--internal', '--subnet', arm.privateSubnet ?? '192.168.99.0/24',
         ...(arm.ipv6 ? ['--ipv6', '--subnet', 'fd00:deaf:beef::/64'] : []), networks[1]);
@@ -97,13 +110,24 @@ try {
         ...mount, '--entrypoint', 'node', image, '/probes/render-egress-dns.mjs');
       for (const [role, index, network, ip] of [['host', 2, networks[0], '203.0.113.10'], ['listener', 3, networks[1], arm.privateIp ?? '192.168.99.10']]) {
         await docker('run', '-d', '--name', names[index], '--network', network, '--ip', ip,
-          ...(arm.ipv6 && role === 'listener' ? ['--ip6', 'fd00:deaf:beef::10'] : []), ...mount,
+          ...trustMount, ...(arm.ipv6 && role === 'listener' ? ['--ip6', 'fd00:deaf:beef::10'] : []), ...mount,
           '-e', `PROBE_ROLE=${role}`, '--entrypoint', 'node', image, '/probes/render-egress-host.mjs');
+      }
+      if (tls) {
+        await docker('exec', '-d', names[2], 'node', '/probes/render-tls-fixture.mjs');
+        let tlsReady = false;
+        for (let i = 0; i < 120; i++) {
+          try { tlsReady = readRows(await readFile(path.join(output, 'tls.ndjson'), 'utf8')).some(row => row.event === 'ready'); } catch { /* wait for readiness */ }
+          if (tlsReady) break; await delay(250);
+        }
+        assert.ok(tlsReady, 'TLS fixture readiness missing');
       }
       await ready(names[2], 'http://127.0.0.1:8080/live'); await ready(names[3], 'http://127.0.0.1:8080/live');
       assert.ok(readRows(await readFile(path.join(output, 'dns.ndjson'), 'utf8')).some(row => row.event === 'ready'), 'DNS did not start');
       await docker('run', '-d', '--name', names[0], '--network', networks[0], '--dns', '203.0.113.2', ...mount,
-        '-e', 'DEZFIL_DATA_DIR=/data', '-e', 'PORT=3187',
+        '-e', 'DEZFIL_DATA_DIR=/data', '-e', 'PORT=3187', ...trustMount,
+        ...(tls ? ['-v', `${trust}/legacy-nss:/home/node/.pki/nssdb`, '-v', `${trust}/current-nss:/home/node/.local/share/pki/nssdb`, '-e', 'NODE_EXTRA_CA_CERTS=/trust/node-ca.pem'] : []),
+        ...(tls || suite === 'timing' ? ['-e', 'PROBE_ROAD=1'] : []),
         ...(suite === 'timing' ? ['--cpus', '2', '--memory', '4g'] : []),
         '-e', `DEZFIL_EGRESS_ALLOWLIST=${arm.allowlist ?? ''}`, '-e', 'NODE_OPTIONS=--import=/probes/render-egress-observer.mjs', image);
       await docker('network', 'connect', networks[1], names[0]);
@@ -119,13 +143,26 @@ try {
       if (arm.local) evidence.local = readRows(await readFile(path.join(output, 'local.ndjson'), 'utf8'));
       evidence.netlog = JSON.parse(await readFile(path.join(output, 'netlog.json'), 'utf8'));
       evidence.result = JSON.parse(await readFile(path.join(output, 'result.json'), 'utf8'));
-      const checks = suite === 'gate' ? assessArm(arm, evidence) : suite === 'timing' ? assessTimingArm(arm, evidence) : assessMatrixArm(arm, evidence);
+      if (tls || suite === 'timing') evidence.road = readRows(await readFile(path.join(output, 'road.ndjson'), 'utf8'));
+      if (tls) evidence.tls = readRows(await readFile(path.join(output, 'tls.ndjson'), 'utf8'));
+      const checks = tls ? assessTlsArm(arm, evidence) : suite === 'gate' ? assessArm(arm, evidence) : suite === 'timing' ? assessTimingArm(arm, evidence) : assessMatrixArm(arm, evidence);
+      if (suite === 'timing' && candidate) {
+        try { evidence.result.guardedTiles = guardedTiles(evidence.browser, evidence.road, evidence.result.tiles?.paths); checks.push({ name: 'guarded-tile-responses', ok: true }); }
+        catch (error) { checks.push({ name: 'guarded-tile-responses', ok: false, message: error.message }); }
+      }
+      if (tls) {
+        evidence.result.claims = suite === 'supplementary' ? supplementaryReport(evidence) : arm.certificate === 'incomplete' ? [chainReport(arm, evidence)] : [{ claim: arm.certificate, label: checks.every(row => row.ok) ? 'observed on the tip' : arm.certificate === 'trusted' && !seed ? 'not run' : 'not established', reason: checks.filter(row => !row.ok).map(row => row.name) }];
+        for (const claim of evidence.result.claims) console.log(`REPORT ${claim.claim}: ${claim.label}`);
+      }
       for (const row of checks) console.log(`${row.ok ? 'PASS' : 'FAIL'} ${id} ${row.name}${row.ok ? '' : ` ${row.message.replaceAll('\n', ' ')}`}`);
       report.push({ arm, checks, result: evidence.result });
       if (checks.some(row => !row.ok)) process.exitCode = 1;
     } catch (error) {
       console.error(`FAIL ${id} missing-or-invalid-evidence ${error.message}`);
-      report.push({ arm, failure: error.stack }); process.exitCode = 1;
+      const claims = suite === 'supplementary' ? supplementaryReport({ browser: [], tls: [], road: [] }).map(row => ({ ...row, reason: error.message }))
+        : suite === 'tls' ? [{ claim: arm.certificate, label: 'not run', reason: error.message }] : [];
+      for (const claim of claims) console.log(`REPORT ${claim.claim}: ${claim.label}`);
+      report.push({ arm, failure: error.stack, claims }); process.exitCode = 1;
     } finally {
       for (const name of names) {
         try { await writeFile(path.join(output, `${name.slice(prefix.length + 1)}.log`), await docker('logs', name)); }
@@ -141,7 +178,7 @@ try {
 } catch (error) { console.error(`FAIL driver ${error.message}`); process.exitCode = 1; }
 finally {
   await cleanup();
-  const timing = suite === 'timing' ? timingSummary(report) : undefined;
+  const timing = suite === 'timing' && index === undefined ? timingSummary(report) : undefined;
   if (timing && !timing.valid) process.exitCode = 1;
   if (ownsDirectory) await writeFile(path.join(directory, 'report.json'), JSON.stringify({ elapsedSeconds: (Date.now() - started) / 1000, timing, report }, null, 2));
   console.log(`Evidence: ${directory}; elapsed ${(Date.now() - started) / 1000}s; exit ${process.exitCode ?? 0}`);
