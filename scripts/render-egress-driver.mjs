@@ -138,6 +138,9 @@ try {
       }
       try { await docker('exec', names[0], 'node', '/probes/render-egress-probe.mjs'); }
       catch (error) { console.error(`FAIL ${id} probe-execution ${error.message}`); process.exitCode = 1; }
+      // Files keep the container user's ownership, and Chromium writes its net log
+      // owner-only. On a Linux host the runner's user cannot read them otherwise.
+      await docker('exec', '--user', '0:0', names[0], 'chmod', '-R', 'a+rwX', '/evidence');
       const evidence = {};
       for (const file of ['dns', 'host', 'listener', 'browser']) evidence[file] = readRows(await readFile(path.join(output, `${file}.ndjson`), 'utf8'));
       if (arm.local) evidence.local = readRows(await readFile(path.join(output, 'local.ndjson'), 'utf8'));
