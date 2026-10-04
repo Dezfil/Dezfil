@@ -4,7 +4,7 @@ import puppeteer from "puppeteer-core";
 import { expect, it, vi } from "vitest";
 import { startRenderRelay } from "./render-relay";
 import { renderProxyFlags } from "./render-proxy";
-import { RelaySockets } from "./relay-test-support";
+import { RelaySockets } from "./test-support/relay";
 
 // Scripted browser seam: page admission is intentionally absent so it cannot
 // conceal an overly broad Chromium bypass. No certificate bypass is used.

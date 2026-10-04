@@ -1,7 +1,7 @@
 import { Socket } from "node:net";
 import { afterEach, expect, it, vi } from "vitest";
 import { startRenderRelay, type RenderRelay, type RenderRelayOptions } from "./render-relay";
-import { RelaySockets, deferred, socksRequest, until } from "./relay-test-support";
+import { RelaySockets, deferred, socksRequest, until } from "./test-support/relay";
 
 // Real listeners: run outside the restricted implementation environment.
 const network = new RelaySockets();

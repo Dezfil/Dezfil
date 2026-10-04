@@ -6,7 +6,7 @@ import { testAccountScope } from "@/lib/test-support/accounts";
 import { EvaluationCancelled } from "@/lib/api/errors";
 import { renderMapImage, renderQueueState } from "./render-image";
 import * as relayModule from "./render-relay";
-import { RelaySockets, deferred, socksRequest, until } from "./relay-test-support";
+import { RelaySockets, deferred, socksRequest, until } from "./test-support/relay";
 import type { ExportImageDefinition } from "./image-definition";
 
 // A controlled browser lifecycle with real relay/target sockets. It makes no

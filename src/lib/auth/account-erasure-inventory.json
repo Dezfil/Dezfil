@@ -3000,6 +3000,26 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/export/render-driver.ts#puppeteerDriver.launch.browser": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/render-driver.ts#puppeteerDriver.launch.error": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/render-driver.ts#puppeteerDriver.launch.refused": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/render-driver.ts#puppeteerDriver.launch.relay": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
     "memory:src/lib/export/render-image.ts#active": {
       "stores": [
         "memory:src/lib/export/render-image.ts#active"
@@ -3013,6 +3033,56 @@
     "memory:src/lib/export/render-image.ts#waiters": {
       "stores": [
         "memory:src/lib/export/render-image.ts#waiters"
+      ]
+    },
+    "memory:src/lib/export/render-relay.ts#startRenderRelay.admissions": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/render-relay.ts#startRenderRelay.closed": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/render-relay.ts#startRenderRelay.error": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/render-relay.ts#startRenderRelay.refused": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/render-relay.ts#startRenderRelay.sockets": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/render-relay.ts#startRenderRelay.timers": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/render-socks.ts#SocksHandshake.done": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/render-socks.ts#SocksHandshake.frame": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/render-socks.ts#SocksHandshake.greeting": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/render-socks.ts#SocksHandshake.length": {
+      "stores": [
+        "memory:request-closures"
       ]
     },
     "memory:src/lib/geocode/limiter.ts#endpoints": {
