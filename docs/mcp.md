@@ -80,6 +80,18 @@ Administration generates `list_users`, `invite_user`, `update_user_access` and
 `issue_user_sign_in_link`. Every request requires current admin authority;
 mutations declare confirmation and their consequences. Invitation and reset
 links are disclosed once, expire after seven days and are shared by the admin.
+`preview_user_deletion`, `delete_user`, `get_user_deletion` and
+`finish_user_deletion` use the same admin routes and schemas as Users and the
+assistant. Preview shows only totals and a distinct affected-people count.
+Deletion requires the preview confirmation, `confirm: true` and the exact email
+for an ever-active account after separate deactivation; invitations need no
+email. The destructive confirmation states permanent erasure, sharing loss
+and broken published links. The description also states provider-cache purging,
+permanent identifying SQL-name reservation and backup/copy limits. A `pending`
+or `needs-retry` result is unfinished, and the record says requested or
+continued deletion rather than claiming completion. Use the same deletion id
+with Finish deleting. Completed ids return `not_found`. `list_users` includes
+a separate `deletions` array for unfinished work, including after profile erasure.
 
 A project's people generate `list_project_people`, `set_project_person` and
 `remove_project_person`. Anyone who reaches the project reads them; the two
@@ -119,9 +131,9 @@ Direct multipart upload uses the separately configured upload limit.
 
 | | |
 |---|---|
-| Documented operations | 357 |
-| Operations that become tools | 137 |
-| Deliberately excluded | 220 |
+| Documented operations | 366 |
+| Operations that become tools | 141 |
+| Deliberately excluded | 225 |
 
 Measured by building the OpenAPI document and the tool set from
 `src/lib/api/openapi.ts` and `src/lib/tools/tools.ts` and counting the

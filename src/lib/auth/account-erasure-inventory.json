@@ -4959,6 +4959,41 @@
       "roots": [
         "thumbnails"
       ]
+    },
+    "memory:src/lib/api/openapi-user-deletion.ts#DELETE_USER_OPERATION": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-user-deletion.ts#USER_DELETION_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-user-deletion.ts#USER_DELETION_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-user-deletion.ts#effects": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-user-deletion.ts#errors": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-user-deletion.ts#result": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-users.ts#USERS_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
     }
   },
   "files": {

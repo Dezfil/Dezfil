@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **125 paths, 357 operations, 163 named
+Measured from the current source: **128 paths, 366 operations, 167 named
 component schemas.** Operations include supported automatic HEAD and OPTIONS.
 `npm run lint:contract-docs` measures these numbers and checks the catalogue below
 against the contract; changing only the reader-facing text fails the gate.
@@ -65,7 +65,7 @@ preconditions are declared on the operations that require them.
 
 ## Request bounds
 
-Measured JSON reader operations: **63**. These counts include optional bodies,
+Measured JSON reader operations: **64**. These counts include optional bodies,
 helper readers and MCP's external parser handoff, and exclude multipart uploads
 and binary thumbnails. The contract gate measures them; type-aware body-policy
 coverage independently checks the implementation against the contract.
@@ -73,7 +73,7 @@ coverage independently checks the implementation against the contract.
 <!-- body-tiers:start -->
 | JSON wire-byte tier | Operations |
 |---|---|
-| 65,536 | 11 |
+| 65,536 | 12 |
 | 131,072 | 1 |
 | 16,777,216 | 51 |
 <!-- body-tiers:end -->
@@ -502,7 +502,58 @@ and self-deactivation are refused even when another admin exists, and competing
 changes cannot leave the instance without an active admin. Reset invalidates the
 password and browser sessions while leaving tokens valid. Deactivation refuses
 sessions and tokens; reactivation preserves the account without reviving ended
-sessions. No user deletion operation exists.
+sessions.
+
+**Account deletion.** Another active admin may delete an ever-active account only
+following separate deactivation, including a deactivated admin. An unredeemed
+invitation may be deleted directly and wholly. Self-deletion returns
+`409 self_change_refused` before the active-target refusal `409 account_not_deactivated`.
+
+`GET /api/users/{id}/deletion-preview` returns the Users identity, `invited`,
+`totals` (maps, datasets, workflows, projects, connections, publishedLinks),
+`people` (distinct other active accounts losing reach), and an opaque `confirmation`.
+It discloses no private resource names, project references, roster or content.
+If deletion is already accepted, it returns that deletion's `id` and `state`.
+`DELETE /api/users/{id}` requires a JSON body with `confirm: true`, that
+`confirmation`, and the exact `email` for an ever-active account. Invitations
+need no typed email. The 65,536-byte limit applies. Missing confirmation is
+`400 invalid_request`; changed eligible inventory or eligibility is
+`409 deletion_changed`, with no effects. The admin must obtain a fresh preview.
+The precondition includes identities, grants, filings and publication links;
+a same-count swap or reactivate/deactivate cycle invalidates it. Unrelated
+edits to surviving documents do not.
+
+Deletion permanently erases owned work wherever filed. It dissolves owned
+projects, unfiles surviving members' work, ends grants and published links,
+and erases credentials and retained account work. It grants no private read.
+Deactivation remains the way to keep shared work. A response is `200` with
+`{id, state: "completed"}` only when cleanup has finished, or `202` with
+`state: "pending"` or `"needs-retry"`. Repeating acceptance returns the same
+unfinished deletion without restarting it. `GET /api/users/deletions/{id}`
+reads unfinished state; `POST /api/users/deletions/{id}/finish` resumes the
+same deletion, including after restart. Concurrent continuation joins the
+same work. All require current admin authority and private responses.
+`GET /api/users` adds `deletions`, a separate array of unfinished reservations
+with `id`, `state` and `account: {id, name, email, isAdmin}`. This survives
+profile erasure so Users can offer Finish deleting. Completed identities are
+absent from both arrays. A completed deletion id returns `404 not_found`;
+a client that previously received acceptance can refresh Users to reconcile
+that absence. An arbitrary missing identifier proves no deletion.
+
+Except for unredeemed invitations, cleanup purges all geocode, isochrone and
+Overpass answer caches, so subsequent requests contact providers again.
+An ever-active account retains only its opaque identity, deleted state,
+permanently reserved identifying SQL name and original-adoption marker.
+Completion frees its email; invitations also free their SQL name. Deleted
+actors are explicit `{deleted: true}`, distinct from null/Unknown, without
+name or SQL name; surviving facts, times and homes stay fixed. Other people's
+derived datasets, SQL, lineage and run text remain and may contain names or
+personal text. Issued private copies retain their shipped lifetime. Backups,
+host snapshots/logs, providers, browser-local SQL/conversations and exports
+are outside deletion; restores can revive credentials and data. Neither
+anonymization nor disk-remanence erasure is promised. An outside database
+reader or insufficient temporary space can leave compaction unfinished;
+release the reader or restore space, then use Finish deleting.
 
 **Directory.** `GET /api/accounts/search?q=` is how a signed-in person finds
 someone to share a project with, and the one deliberate exception to

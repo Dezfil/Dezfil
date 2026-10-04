@@ -30,9 +30,10 @@ not measure stream drainage or byte erasure.
 
 ## Restart and continuation
 
-The private coordinator is not reachable through HTTP until confirmation ships.
-The restart proof injects it through parent/child IPC in a production standalone;
-production startup and HTTP admission use the built bundles. The proof-only source
+This earlier restart proof injects the coordinator through parent/child IPC in a production standalone;
+production startup and HTTP admission use the built bundles.
+The [operation proof](account-deletion-surfaces.md) separately drives the now-public
+confirmation and continuation routes. The proof-only source
 loader loads the checkout's matching coordinator revision and resolves native
 packages from the standalone's module tree. It starts `server.js` **inside the
 standalone folder**. Use a standalone built from this exact checkout revision.

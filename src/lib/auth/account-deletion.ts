@@ -34,8 +34,8 @@ function captureCopies(id: string, db: Database): Promise<void> {
   if (existing) return existing;
   const settled = capturePreparedCopies(); void settled.catch(() => {}); holder.prepared.set(key, settled); return settled;
 }
-/** Internal only until the counts/confirmation API is complete. Confirmation
- * runs inside the same serialized transaction that records acceptance. */
+/** The confirmation service supplies its check here, inside the same
+ * serialized transaction that records acceptance. */
 export function acceptAccountDeletion(context: AuthContext, accountId: string, confirm: () => void,
   db: Database = metadataDb()): DeletionStatus {
   let prepared: string | undefined, accepted = false;
