@@ -1,3 +1,4 @@
+import { accountMaterialAvailable } from "./account-deletion-admission";
 import type { Database } from "better-sqlite3";
 import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
@@ -103,23 +104,23 @@ const STANDING: Record<Family, string> = {
   map: `SELECT r.owner_id AS owner, o.status AS owner_status, r.project_id AS project,
       CASE WHEN r.owner_id = @me THEN 'owner' WHEN p.owner_id = @me THEN 'project-owner' ELSE pp.role END AS relation
     FROM maps r JOIN accounts o ON o.id = r.owner_id
-    LEFT JOIN projects p ON p.id = r.project_id
-    LEFT JOIN project_people pp ON pp.project_id = r.project_id AND pp.account_id = @me
+    LEFT JOIN projects p ON p.id = r.project_id AND p.owner_id IN (SELECT id FROM accounts WHERE status NOT IN ('deleting', 'deleted'))
+    LEFT JOIN project_people pp ON pp.project_id = p.id AND pp.account_id = @me
     WHERE r.id = @id`,
   workflow: `SELECT r.owner_id AS owner, o.status AS owner_status, r.project_id AS project,
       CASE WHEN r.owner_id = @me THEN 'owner' WHEN p.owner_id = @me THEN 'project-owner' ELSE pp.role END AS relation
     FROM recipes r JOIN accounts o ON o.id = r.owner_id
-    LEFT JOIN projects p ON p.id = r.project_id
-    LEFT JOIN project_people pp ON pp.project_id = r.project_id AND pp.account_id = @me
+    LEFT JOIN projects p ON p.id = r.project_id AND p.owner_id IN (SELECT id FROM accounts WHERE status NOT IN ('deleting', 'deleted'))
+    LEFT JOIN project_people pp ON pp.project_id = p.id AND pp.account_id = @me
     WHERE r.id = @id`,
   dataset: `SELECT r.owner_id AS owner, o.status AS owner_status, NULL AS project,
       CASE WHEN r.owner_id = @me THEN 'owner'
         WHEN EXISTS (SELECT 1 FROM project_datasets pd JOIN projects p ON p.id = pd.project_id
-          WHERE pd.table_id = r.id AND p.owner_id = @me) THEN 'project-owner'
-        WHEN EXISTS (SELECT 1 FROM project_datasets pd JOIN project_people pp ON pp.project_id = pd.project_id
-          WHERE pd.table_id = r.id AND pp.account_id = @me AND pp.role = 'editor') THEN 'editor'
-        WHEN EXISTS (SELECT 1 FROM project_datasets pd JOIN project_people pp ON pp.project_id = pd.project_id
-          WHERE pd.table_id = r.id AND pp.account_id = @me) THEN 'viewer' END AS relation
+          WHERE p.owner_id IN (SELECT id FROM accounts WHERE status NOT IN ('deleting', 'deleted')) AND pd.table_id = r.id AND p.owner_id = @me) THEN 'project-owner'
+        WHEN EXISTS (SELECT 1 FROM project_datasets pd JOIN projects p ON p.id = pd.project_id JOIN project_people pp ON pp.project_id = pd.project_id
+          WHERE p.owner_id IN (SELECT id FROM accounts WHERE status NOT IN ('deleting', 'deleted')) AND pd.table_id = r.id AND pp.account_id = @me AND pp.role = 'editor') THEN 'editor'
+        WHEN EXISTS (SELECT 1 FROM project_datasets pd JOIN projects p ON p.id = pd.project_id JOIN project_people pp ON pp.project_id = pd.project_id
+          WHERE p.owner_id IN (SELECT id FROM accounts WHERE status NOT IN ('deleting', 'deleted')) AND pd.table_id = r.id AND pp.account_id = @me) THEN 'viewer' END AS relation
     FROM data_tables r JOIN accounts o ON o.id = r.owner_id
     WHERE r.id = @id`,
   project: `SELECT r.owner_id AS owner, o.status AS owner_status, r.id AS project,
@@ -150,7 +151,7 @@ function standing(scope: AccountScope, kind: ReachKind, id: string, db: Database
   if (!parent) return null;
   const row = db.prepare(STANDING[FAMILY[kind]]).get({ me, id: parent.parent }) as
     { owner: string; owner_status: string; project: string | null; relation: Relation | null } | undefined;
-  if (!row?.relation) return null;
+  if (!row?.relation || !accountMaterialAvailable(row.owner, db)) return null;
   return {
     kind, id, parentId: parent.parent, ownerId: row.owner, projectId: row.project,
     relation: row.relation, frozen: row.owner_status !== "active",
@@ -179,8 +180,9 @@ export function projectRole(scope: AccountScope, projectId: string, db: Database
  * the ones it owns and the ones it belongs to. Listings select their rows
  * through it, so a list covers exactly what the kernel would admit one by
  * one. */
-export const REACHED_PROJECTS = `SELECT id FROM projects WHERE owner_id = @me
-  UNION SELECT project_id FROM project_people WHERE account_id = @me`;
+export const REACHED_PROJECTS = `SELECT p.id FROM projects p JOIN accounts a ON a.id = p.owner_id
+  WHERE a.status NOT IN ('deleting', 'deleted') AND (p.owner_id = @me
+    OR EXISTS (SELECT 1 FROM project_people pp WHERE pp.project_id = p.id AND pp.account_id = @me))`;
 
 /** Every project identity the acting account reaches. */
 export function reachableProjectIds(scope: AccountScope, db: Database = metadataDb()): Set<string> {
@@ -200,10 +202,11 @@ export function reachableDatasetIds(scope: AccountScope, db: Database = metadata
  * does itself goes through `reachableDatasetIds`, which checks it is active.
  */
 export function datasetReachOf(me: string, db: Database = metadataDb()): Set<string> {
-  const rows = db.prepare(`SELECT id FROM data_tables WHERE owner_id = @me
-    UNION SELECT pd.table_id FROM project_datasets pd JOIN projects p ON p.id = pd.project_id WHERE p.owner_id = @me
-    UNION SELECT pd.table_id FROM project_datasets pd JOIN project_people pp ON pp.project_id = pd.project_id
-      WHERE pp.account_id = @me`).all({ me }) as { id: string }[];
+  if (!accountMaterialAvailable(me, db)) return new Set();
+  const rows = db.prepare(`SELECT id FROM data_tables WHERE
+    owner_id IN (SELECT id FROM accounts WHERE status NOT IN ('deleting', 'deleted'))
+    AND (owner_id = @me OR id IN (SELECT table_id FROM project_datasets WHERE project_id IN (${REACHED_PROJECTS})))
+    `).all({ me }) as { id: string }[];
   return new Set(rows.map(row => row.id));
 }
 

@@ -1,3 +1,4 @@
+import { admitEvaluationWork } from "./work-admission";
 import { normalizeEngineError } from "./engine-message";
 import { leaseStagingInputs, type StagingInput } from "./staging";
 import { requireDatasetScope, type DatasetScope } from "./access";
@@ -141,6 +142,7 @@ async function runBoundedEvaluation<T>(
   // stall in that must not outlive the budget or the caller. An abandoned
   // acquisition releases its connection whenever it finally arrives.
   const staging = leaseStagingInputs(scope, options.inputs);
+  const admission = admitEvaluationWork(scope);
   const connecting = connectQueryInstance();
   connecting.catch(() => {});
   const conn = await new Promise<DuckDBConnection>((resolve, reject) => {
@@ -157,7 +159,7 @@ async function runBoundedEvaluation<T>(
     });
   }).catch((error: unknown) => {
     staging.release();
-    connecting.then((late) => late.disconnectSync()).catch(() => {});
+    connecting.then((late) => late.disconnectSync()).catch(() => {}).finally(() => admission.release());
     throw error;
   });
 
@@ -173,7 +175,7 @@ async function runBoundedEvaluation<T>(
       async (registered) => {
         await staging.mount(conn, () => prepAbandoned);
         if (options.pinBindings) bindings = await pinBindings(conn, registered);
-      },
+      }, admission,
     );
     registration.catch(() => {});
     try {
@@ -207,6 +209,7 @@ async function runBoundedEvaluation<T>(
           clearInterval(drain);
           conn.disconnectSync();
           staging.release();
+          admission.release();
         })
         .catch(() => {});
       throw error;
@@ -239,11 +242,11 @@ async function runBoundedEvaluation<T>(
     };
 
     try {
-      requireDatasetScope(scope);
+      requireDatasetScope(scope, undefined, admission);
       staging.assertLive();
       const result = await fn(conn, bounds);
       staging.assertLive();
-      requireDatasetScope(scope);
+      requireDatasetScope(scope, undefined, admission);
       // The bound is wall-clock, not statements-only: a callback whose
       // engine work finished but whose tail (tile probes, archive reads)
       // outlived the budget or its caller does not return as a success.
@@ -264,6 +267,6 @@ async function runBoundedEvaluation<T>(
       foldEvaluation(collections, conn);
     }
   } finally {
-    if (!deferDisconnect) { conn.disconnectSync(); staging.release(); }
+    if (!deferDisconnect) { conn.disconnectSync(); staging.release(); admission.release(); }
   }
 }

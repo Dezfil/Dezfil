@@ -35,7 +35,7 @@ const standingOf = (row: StandingRow): MapStanding =>
  * the reach rule before anything is decoded. */
 export function listReachableMaps(scope: AccountScope, db: Database = metadataDb()): (MapStanding & { map: MapRecord })[] {
   const me = requireAccountScope(scope, db);
-  const rows = db.prepare(`SELECT * FROM maps WHERE owner_id = @me OR project_id IN (${REACHED_PROJECTS})
+  const rows = db.prepare(`SELECT * FROM maps WHERE (owner_id = @me OR project_id IN (${REACHED_PROJECTS})) AND owner_id IN (SELECT id FROM accounts WHERE status NOT IN ('deleting', 'deleted'))
     ORDER BY created_at DESC`).all({ me }) as (MapRow & StandingRow)[];
   return rows.map(row => ({ map: mapFromRow(row), ...standingOf(row) }));
 }

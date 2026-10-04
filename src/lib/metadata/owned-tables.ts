@@ -96,7 +96,7 @@ const REACHED_SELECT = `SELECT t.*, a.name AS owner_name, a.sql_name AS owner_sq
 export function listReachableTables(scope: AccountScope, db: Database = metadataDb()): ReachedTable[] {
   const me = requireAccountScope(scope, db);
   return (db.prepare(`${REACHED_SELECT}
-    WHERE t.owner_id = @me OR t.id IN (SELECT table_id FROM project_datasets WHERE project_id IN (${REACHED_PROJECTS}))
+    WHERE a.status NOT IN ('deleting', 'deleted') AND (t.owner_id = @me OR t.id IN (SELECT table_id FROM project_datasets WHERE project_id IN (${REACHED_PROJECTS})))
     ORDER BY t.created_at DESC, t.name`).all({ me }) as ReachedRow[]).map(reachedOf);
 }
 

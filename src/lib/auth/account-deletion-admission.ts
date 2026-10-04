@@ -19,6 +19,7 @@ export function accountMaterialAvailable(accountId: string | null, db: Database 
 
 export interface AccountWorkLease {
   /** Newly discovered dependencies must be admitted before being consumed. */
+  includes(accountId: string | null): boolean;
   bind(accounts: readonly (string | null)[]): void;
   /** Check immediately before a synchronous commit, without an intervening await. */
   assertCommit(): void;
@@ -31,6 +32,7 @@ export function admitAccountWork(accounts: readonly (string | null)[], db: Datab
   let released = false;
   const check = (id: string) => { if (!accountMaterialAvailable(id, db)) throw resourceAbsent(); };
   const lease: AccountWorkLease = {
+    includes: id => !released && (id === null || work.accounts.has(id)),
     bind(ids) {
       if (released) throw new Error("Work has already settled.");
       for (const id of ids) if (id !== null && !work.accounts.has(id)) check(id);

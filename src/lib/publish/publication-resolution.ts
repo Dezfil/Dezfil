@@ -1,3 +1,4 @@
+import { admitAccountWork, accountMaterialAvailable } from "@/lib/auth/account-deletion-admission";
 import { registerQueryStore, queryRetentionGeneration } from "@/lib/query/retained";
 import { resolvePublication } from "./publication-scope";
 import { limits } from "@/lib/limits";
@@ -80,6 +81,9 @@ async function resolvePublishedViewWork(
     const revision = revisionOf(snapshot);
     const assembling: PublicationSnapshot = snapshot;
     const { value: view, inputs } = await collectInputs(() => assemble(assembling));
+    // This assembly was admitted before acceptance. Its read finishes once,
+    // but cannot repopulate a retained view after the owner became unavailable.
+    if (!accountMaterialAvailable(assembling.scope.ownerId)) return view;
     const current = resolvePublication(token);
     if (!current) {
       invalidatePublishedToken(token);
@@ -104,7 +108,12 @@ const pending = new Set<Promise<unknown>>();
 function track<T>(promise: Promise<T>): Promise<T> {
   pending.add(promise); void promise.then(() => pending.delete(promise), () => pending.delete(promise)); return promise;
 }
-export function resolvePublishedView(...args: Parameters<typeof resolvePublishedViewWork>): ReturnType<typeof resolvePublishedViewWork> { return track(resolvePublishedViewWork(...args)); }
+export function resolvePublishedView(...args: Parameters<typeof resolvePublishedViewWork>): ReturnType<typeof resolvePublishedViewWork> {
+  const snapshot = resolvePublication(args[0]);
+  if (!snapshot) return Promise.resolve(null);
+  const admission = admitAccountWork([snapshot.scope.ownerId]);
+  return track(resolvePublishedViewWork(...args).finally(() => admission.release()));
+}
 registerQueryStore({ drain: async () => { await Promise.allSettled([...pending]); }, busy: () => pending.size > 0, clear: () => cache.clear() });
 export function publicationViewsForTests(): string[] { return [...cache.keys()]; }
 

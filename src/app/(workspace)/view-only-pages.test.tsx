@@ -82,9 +82,14 @@ describe("a map's page", () => {
     expect(page.type).toBe(LayerDownloadControlProvider);
   });
 
-  it("leaves a map the reader cannot reach to the builder's own absent answer", async () => {
-    const page = await mapPage("zed");
-    expect(page.type).toBe(LayerDownloadControlProvider);
+  it("refuses a map the reader cannot reach on the server", async () => {
+    await expect(mapPage("zed")).rejects.toThrow("NEXT_HTTP_ERROR_FALLBACK;404");
+  });
+  it("refuses deleting owners on the page while independent ownership stays readable", async () => {
+    db.exec("UPDATE accounts SET status = 'deleting' WHERE id = 'fay'");
+    await expect(mapPage("viv", "F")).rejects.toThrow("NEXT_HTTP_ERROR_FALLBACK;404");
+    await expect(workflowPage("viv", "G")).rejects.toThrow("NEXT_HTTP_ERROR_FALLBACK;404");
+    expect((await mapPage("viv", "V")).type).toBe(LayerDownloadControlProvider);
   });
 
   // A map whose owner is deactivated is read-only for everyone: an Editor
