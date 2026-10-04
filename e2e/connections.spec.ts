@@ -6,6 +6,7 @@ import { test, expect } from "@playwright/test";
 import type { BrowserContext, Route } from "@playwright/test";
 import { isAllowedConsoleError } from "./console-allowlist";
 import { routeHouse, trackConsole } from "./support";
+import { exerciseRefusedConnectionPaste, refusedConnectionStrings } from "./connection-paste";
 
 const NOW = "2026-08-31T10:00:00.000Z";
 const CHECKED_AT = "2026-08-01T10:00:00.000Z";
@@ -139,6 +140,7 @@ async function installFixture(
   let listedTables: (Snapshot & { sizeBytes: number })[] = [];
   const submitted: Record<string, unknown>[] = [];
   let refusePatchOnce = false;
+  let failNextSave = false;
   const refreshCalls: string[] = [];
   let refreshHeld: string | null = null;
   let refreshStarted: (() => void) | null = null;
@@ -160,6 +162,11 @@ async function installFixture(
       if (pathname === "/api/connections/postgis" && method === "POST") {
         const body = request.postDataJSON() as Record<string, unknown>;
         submitted.push(body);
+        if (failNextSave) {
+          failNextSave = false;
+          await json(route, { error: { code: "connection_failed", message: "Prior source failure." } }, 502);
+          return true;
+        }
         const created = connected({
           id: "c-new",
           name: String(body.name),
@@ -242,6 +249,11 @@ async function installFixture(
       if (connectionMatch && method === "PATCH") {
         const body = request.postDataJSON() as Record<string, unknown>;
         submitted.push(body);
+        if (failNextSave) {
+          failNextSave = false;
+          await json(route, { error: { code: "connection_failed", message: "Prior source failure." } }, 502);
+          return true;
+        }
         const current = connections.find((item) => item.id === connectionMatch[1])!;
         // The client's own guard refuses repoints locally, so no browser
         // path can reach a mirrored server rule here; the flag stands in
@@ -367,6 +379,7 @@ async function installFixture(
 
   return {
     submitted,
+    failNextSave: () => { failNextSave = true; },
     deleteLiveConnection: () => {
       connections = connections.filter((item) => item.id !== "c-berlin");
     },
@@ -786,3 +799,16 @@ test.describe("darwin connection pixels", () => {
     });
   }
 });
+
+for (const [form, refused] of Object.entries(refusedConnectionStrings)) {
+  for (const mode of ["add", "edit"] as const) {
+    test(`${mode} form refuses unsupported protection in ${form} paste and saves after correction`, async ({ page, context }) => {
+      const fixture = await installFixture(context);
+      await page.goto(mode === "add" ? "/connections/new" : "/connections/c-berlin");
+      await exerciseRefusedConnectionPaste(page.locator("main"), refused, mode === "add" ? "Test & save connection" : "Test & save changes", fixture);
+      await expect(page).toHaveURL(mode === "add" ? /\/connections\/c-new$/ : /\/connections\/c-berlin$/);
+      await expect(page.getByRole("heading", { name: "Corrected connection", exact: true })).toBeVisible();
+      await expect(page.getByLabel("Password", { exact: true })).toHaveValue("");
+    });
+  }
+}
