@@ -165,8 +165,9 @@ methods on excluded paths retain their method-specific request gate. `TRACE`,
 which no handler can receive, is answered with an empty 400 on every path before
 its body is read.
 
-Multipart uploads bypass the framework proxy and stream to scratch storage under
-the configured file and archive limits. Workflow JSON keeps its 16 MiB limit.
+Multipart uploads at the canonical `/api/tables` path bypass the framework proxy
+and stream to scratch storage under the configured file and archive limits.
+Workflow JSON keeps its 16 MiB limit.
 The framework proxy copy limit is 17 MiB (previously 10 MiB), so complete workflow
 requests, including their over-limit refusal boundary, reach their readers.
 On paths still matched by the proxy, the framework drains and copies the body

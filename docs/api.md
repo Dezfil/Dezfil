@@ -90,10 +90,11 @@ and `{"error":{"code":"request_body_too_large","message":"The request body excee
 At the handler, declared excess refuses without reading, and a crossing chunk
 is cancelled without retaining it or pulling again. On framework-matched paths
 this is a handler guarantee: the framework may already have drained and copied
-up to its 17 MiB limit before the gate, including anonymous callers. The three
-excluded public POSTs additionally refuse before a large wire body completes.
-Multipart uploads stream to disk without the framework copy, under their file
-and archive limits. A reverse proxy's own request-size limit bounds the matched
+up to its 17 MiB limit before the gate, including anonymous callers. Canonical
+spellings of the excluded public widget-values, render and extent POST paths
+additionally refuse before a large wire body completes. Multipart uploads at the
+canonical `/api/tables` path stream to disk without the framework copy, under
+their file and archive limits. A reverse proxy's own request-size limit bounds the matched
 paths' residual copy further; see [self-hosting](self-hosting.md).
 `TRACE` returns an empty 400 at the native door before body work.
 
