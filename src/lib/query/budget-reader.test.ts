@@ -48,6 +48,23 @@ it("walks flat list offsets across rows, empty values and nulls", async () => {
   } finally { conn.disconnectSync(); db.closeSync(); }
 });
 
+it.each([
+  '{"type":"MultiPolygon","coordinates":[[[[0.5,0.5],[1.5,0.5],[0.5,1.5],[0.5,0.5]]]]}',
+  '{"type":"GeometryCollection","geometries":[{"type":"Point","coordinates":[0.5,1.5]},{"type":"LineString","coordinates":[[0.5,0.5],[1.5,1.5]]}]}',
+])("decodes decimal geometry through every list depth without copying: %s", async geometry => {
+  const db = await DuckDBInstance.create(":memory:");
+  const conn = await db.connect();
+  try {
+    const copies = [DuckDBBigIntVector, DuckDBDoubleVector, DuckDBListVector, DuckDBStructVector]
+      .map(vector => vi.spyOn(vector.prototype, "slice"));
+    const numbers = vi.spyOn(DuckDBDoubleVector.prototype, "getItem");
+    const rows = await readBudgetedRows(conn, `SELECT '${geometry}' AS v`, new ResultBudget(), new Set(["v"]), true);
+    expect(rows).toEqual([{ v: JSON.parse(geometry) }]);
+    expect(numbers).toHaveBeenCalled();
+    for (const copy of copies) expect(copy).not.toHaveBeenCalled();
+  } finally { conn.disconnectSync(); db.closeSync(); }
+});
+
 describe("native budget projection", () => {
   it("evaluates volatile values once, carrying their lengths beside those same values", async () => {
     const db = await DuckDBInstance.create(":memory:");
