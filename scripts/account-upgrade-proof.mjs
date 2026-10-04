@@ -28,7 +28,7 @@ const originalFiles = await legacyFiles(source);
 const original = new Database(path.join(source, 'metadata.sqlite'), { readonly: true });
 const originalRows = legacyRows(original); assert.equal(original.pragma('user_version', { simple: true }), legacy.version); original.close();
 await cp(source, copy, { recursive: true }); await mkdir(path.join(copy, 'tmp'));
-const base = `http://127.0.0.1:${port}`, anonymous = journeyApi(base);
+const base = `http://127.0.0.1:${port}`, anonymous = journeyApi(base, { origin: new URL(base).origin });
 let server, serverOutput = '', boots = 0;
 async function boot() {
   const env = { ...process.env, DEZFIL_DATA_DIR: copy, TMPDIR: path.join(copy, 'tmp'), NEXT_TELEMETRY_DISABLED: '1', DEZFIL_TRUSTED_PROXIES: '' };

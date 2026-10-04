@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { journeyApi } from "../../../scripts/journey-http.mjs";
+import { assertSetupClosed } from "../../../scripts/deletion-recovery-checks.mjs";
 
 afterEach(() => vi.unstubAllGlobals());
 it("carries the supplied credential on JSON, multipart and raw journey requests", async () => {
@@ -26,6 +27,22 @@ it("keeps an explicitly anonymous journey free of credentials", async () => {
     return Response.json({ status: "ready" });
   });
   await journeyApi("http://instance.test")("GET", "/api/health");
+});
+it("sends the instance origin on the anonymous setup-closure check", async () => {
+  const base = "http://127.0.0.1:3389", seen: Request[] = [];
+  vi.stubGlobal("fetch", async (input: string, init: RequestInit) => {
+    const request = new Request(input, init); seen.push(request);
+    expect(request.headers.has("authorization")).toBe(false);
+    expect(request.headers.has("cookie")).toBe(false);
+    if (request.method === "GET") return Response.json({ setupRequired: false });
+    if (request.headers.get("origin") !== base) return Response.json({ error: { code: "forbidden" } }, { status: 403 });
+    expect(new URL(request.url).pathname).toBe("/api/auth/setup");
+    return Response.json({ error: { code: "setup_complete" } }, { status: 409 });
+  });
+  const anonymous = journeyApi(base, { origin: new URL(base).origin });
+  await assertSetupClosed((method: string, route: string, body?: object) => anonymous(method, route, { body }));
+  expect(seen).toHaveLength(2);
+  expect(seen[1].headers.get("origin")).toBe(base);
 });
 
 it.each([true, false])("provisions through real entry/session/token contracts (setup=%s)", async setupRequired => {
