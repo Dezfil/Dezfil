@@ -1055,6 +1055,25 @@ the same engine budget, at least three times each, and retain every printed
 value. This measures the complete query path, including table access and engine
 projection, rather than the JavaScript decoder in isolation.
 
+The engine-budget control reads a stored geometry whose compact GeoJSON is
+exactly 10,151,576 bytes. Its normal test checks admission at 512 MB. Report
+mode searches configured budgets from 1 to 512 MB on fresh query instances,
+then rechecks the smallest admitted budget and the immediately lower refusal:
+
+```sh
+DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) DEZFIL_TEST_GEOMETRY_BUDGET_REPORT=1 \
+  npx vitest run src/lib/query/geometry-engine-budget.test.ts --maxWorkers=1
+```
+
+Copy this self-contained test unchanged to each comparison checkout and keep
+the native dependencies and host the same. Run it alone and retain every
+attempt plus the final `geometry-engine-budget-floor` line. The binary search
+assumes admission is monotonic in the configured budget; a failed neighbor
+recheck, an unexpected error or a changed geometry fails the report. The floor
+has 1 MB resolution and describes this isolated control, not process memory
+or concurrent-query capacity. Result byte ceilings do not guarantee admission
+under a smaller engine budget: execution and projection also use engine memory.
+
 ### Served standalone probe
 
 Build and provision two instances on unused ports. Do not use an existing operator data directory.

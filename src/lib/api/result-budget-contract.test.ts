@@ -41,9 +41,18 @@ it("names the inspection-dependent consumers in every affected guide", () => {
 
 it("keeps result-budget commands and their outcomes in the runbook", () => {
   const text = readFileSync("docs/runbook.md", "utf8").split("## SQL result byte budget")[1] ?? "";
-  for (const command of ["probe:query-result-budget", "e2e:result-budget", "geometry-latency.test.ts", "--observation-dir", "result-budget-image.sh"]) {
+  for (const command of ["probe:query-result-budget", "e2e:result-budget", "geometry-latency.test.ts", "geometry-engine-budget.test.ts", "--observation-dir", "result-budget-image.sh"]) {
     expect(text.includes(command), command).toBe(true);
   }
   expect(text).not.toMatch(/delegated (?:browser|runner)|supervising session|single observation/i);
   expect(readFileSync("docs/api.md", "utf8")).toContain("runbook.md#sql-result-byte-budget");
+});
+
+it("distinguishes fixed result ceilings from engine-memory admission", () => {
+  for (const file of ["README.md", "docs/configuration.md", "docs/self-hosting.md"]) {
+    const text = readFileSync(file, "utf8").replace(/\s+/g, " ");
+    expect(text, file).toContain("Row and engine-memory limits still apply");
+    expect(text, file).toContain("a result below both byte ceilings can fail the engine-memory limit");
+    expect(text, file).not.toContain("independent of row and engine-memory limits");
+  }
 });

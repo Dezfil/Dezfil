@@ -58,8 +58,10 @@ answer with HTTP 422 `query_result_too_large`, without partial data or details:
 
 > The result is too large to return: more than 32 MB in total, or one non-geometry value over 2 MB. Select fewer rows or columns, or shorten the value.
 
-These ceilings have no setting and are independent of row and engine-memory
-limits. Layer renders, dataset map features, slider and Overture previews,
+These ceilings have no setting. Row and engine-memory limits still apply;
+a result below both byte ceilings can fail the engine-memory limit during
+query execution or result projection, including geometry decoding. Layer
+renders, dataset map features, slider and Overture previews,
 published views, statistics, classification, widgets and value search retain
 their existing limits. SQL, table and layer file exports still stream complete
 results above both ceilings. A refused dataset inspection prevents its detail and docked set-geometry

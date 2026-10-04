@@ -208,6 +208,23 @@ describe("SQL result byte budget", () => {
     expect(error).toMatchObject(refusal);
   });
 
+  it("decodes a large decimal collection exactly through the collection projection", async () => {
+    process.env.DEZFIL_QUERY_MEMORY_MB = "512";
+    const sql = `SELECT ST_Collect([${geometryOfBytes(2_097_200)}, ST_Point(1.5, 2.5)]) AS g`;
+    const expected = await withConnection(async conn => JSON.parse(String((await conn.runAndReadAll(`SELECT ST_AsGeoJSON(g) AS g FROM (${sql}) q`)).getRowObjects()[0].g)));
+    let decoded = false;
+    const original = DuckDBDoubleVector.prototype.getItem;
+    const spy = vi.spyOn(DuckDBDoubleVector.prototype, "getItem").mockImplementationOnce(function (this: DuckDBDoubleVector, index) {
+      decoded = true; spy.mockRestore(); return original.call(this, index);
+    });
+    const answer = await executeQuery(testAccountScope(), sql, { geometry: "geojson" });
+    expect(answer.preview).toEqual([{ g: expected }]);
+    expect(expected.type).toBe("GeometryCollection");
+    expect(expected.geometries).toHaveLength(2);
+    expect(Buffer.byteLength(JSON.stringify(answer.preview[0].g))).toBe(2_097_286);
+    expect(decoded).toBe(true);
+  }, 60_000);
+
   it.each(["wkt", "geojson"] as const)("exempts native geometry only in %s previews", async (geometry) => {
     const native = "ST_GeomFromText('LINESTRING (' || repeat('0 0,', 550000) || '1 1)')";
     const result = await executeQuery(testAccountScope(), `SELECT ${native} AS coast`, { geometry });
