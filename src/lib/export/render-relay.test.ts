@@ -1,3 +1,4 @@
+import { Socket } from "node:net";
 import { afterEach, expect, it, vi } from "vitest";
 import { startRenderRelay, type RenderRelay, type RenderRelayOptions } from "./render-relay";
 import { RelaySockets, deferred, socksRequest, until } from "./relay-test-support";
@@ -9,7 +10,7 @@ async function start(options: Partial<RenderRelayOptions> = {}) {
   const relay = await startRenderRelay({ deadline: Date.now() + 10_000, requestBoundMs: 1_000, ...options });
   relays.push(relay); return relay;
 }
-afterEach(async () => { for (const relay of relays.splice(0)) relay.close(); await network.close(); vi.unstubAllEnvs(); });
+afterEach(async () => { vi.restoreAllMocks(); for (const relay of relays.splice(0)) relay.close(); await network.close(); vi.unstubAllEnvs(); });
 
 it("streams coalesced and fragmented frames with backpressure and no authentication", async () => {
   vi.stubEnv("DEZFIL_EGRESS_ALLOWLIST", "echo.test");
@@ -114,13 +115,26 @@ it("revokes late DNS, destroys open tunnels and stops accepting before teardown"
   vi.stubEnv("DEZFIL_EGRESS_ALLOWLIST", "held.test,live.test");
   const target = await network.target(); await network.live(target);
   const pending = deferred<string[]>(), resolving = deferred<void>();
-  const relay = await start({ resolve: async host => { if (host === "live.test") return ["127.0.0.1"]; resolving.resolve(); return pending.promise; } });
+  const deadline = Date.now() + 10_000;
+  // Observe real connects: an immediately destroyed dial may never be accepted.
+  const dial = vi.spyOn(Socket.prototype, "connect");
+  const relay = await start({ deadline, requestBoundMs: 10_000,
+    resolve: async host => { if (host === "live.test") return ["127.0.0.1"]; resolving.resolve(); return pending.promise; } });
   const open = await network.client(relay.port); open.socket.write(socksRequest("live.test", target.port)); await open.read(12);
-  const held = await network.client(relay.port); held.socket.write(socksRequest("held.test", target.port)); await resolving.promise;
-  relay.close(); pending.resolve(["127.0.0.1"]);
+  expect(dial).toHaveBeenCalledWith({ host: "127.0.0.1", port: target.port });
+  expect(target.contacts).toBe(1);
+  const held = await network.client(relay.port);
+  held.socket.write(Buffer.concat([socksRequest("held.test", target.port), Buffer.from("late payload")])); await resolving.promise;
+  relay.close();
   await until(() => open.closed && held.closed && target.active.size === 0);
   await network.assertClosed(relay.port);
-  await new Promise(r => setTimeout(r, 50)); expect(target.contacts).toBe(1);
+  // Release DNS only after closure. Exclude fixture dials and the live tunnel.
+  dial.mockClear(); target.reset(); pending.resolve(["127.0.0.1"]);
+  await new Promise(r => setTimeout(r, 50));
+  // An expired request must not mask the removed close guards in the seed.
+  expect(Date.now()).toBeLessThan(deadline);
+  expect({ dials: dial.mock.calls.length, contacts: target.contacts, bytes: target.bytes },
+    "late DNS must not dial or reach the target after relay close").toEqual({ dials: 0, contacts: 0, bytes: 0 });
 });
 
 it("two relays own independent listeners and connections", async () => {

@@ -56,7 +56,7 @@ const seeds = [
   { name: 'late-dns', edits: [
     { file: relay, from: 'if (closed) return;\n      if (admission.verdict', to: 'if (admission.verdict' },
     { file: relay, from: 'if (closed || client.destroyed || Date.now() >= connectDeadline) return;', to: 'if (Date.now() >= connectDeadline) return;' },
-  ], test: sockets, pattern: 'revokes late DNS' },
+  ], test: sockets, pattern: 'revokes late DNS', assertion: 'late DNS must not dial or reach the target after relay close' },
   { name: 'abandoned-refusal', file: relay, from: 'if (closed) return;\n      if (admission.verdict',
     to: 'if (closed || client.destroyed) return;\n      if (admission.verdict', test: lifetime, pattern: 'abandoned connection verdict' },
   { name: 'pending-admission', file: driver, from: 'await relay.settleAdmissions();', to: '', count: 2,
@@ -102,7 +102,8 @@ for (const seed of seeds.filter(seed => (!unitOnly || seed.unit) && (!requested 
       for (const [file, mutated] of mutations) await writeFile(file, mutated);
       const red = run({ ...seed, ...proof, scratch: await mkdtemp('/tmp/dezfil-test-') }, 'SEEDED');
       await writeFile(`${logdir}/${seed.name}-${index}-red.log`, red.output);
-      if (red.result.status !== 1 || !/AssertionError|expected .* to|observation missing/.test(red.output) || /EPERM|Failed Suites|Unhandled Error/.test(red.output)) {
+      if (red.result.status !== 1 || !/AssertionError|expected .* to|observation missing/.test(red.output) || /EPERM|Failed Suites|Unhandled Error/.test(red.output)
+        || (seed.assertion && !red.output.includes(`AssertionError: ${seed.assertion}:`))) {
         throw Error(`Seed did not fail its assertion: ${seed.name}; see ${logdir}`);
       }
       console.log(`PASS ${seed.name}: restored green, seeded assertion red (${proof.test})`);
