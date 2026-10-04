@@ -16,6 +16,7 @@ export function populateErasureFiles(directory: string) {
     "artifact-inputs/tiles/target.json", "artifact-inputs/tiles/control.json",
     "cache/geocode/target.json", "cache/geocode/control.json", "cache/geocode/.target.tmp",
     "cache/isochrone/target.json", "cache/isochrone/control.json", "cache/overpass/target.json", "cache/overpass/control.json",
+    "account-deletions/target.json", "account-deletions/control.json", "account-deletions/partial.json.tmp",
     "file-owners/target.json", "file-owners/control.json",
     "secret.key", "assistant-models.json",
   ];

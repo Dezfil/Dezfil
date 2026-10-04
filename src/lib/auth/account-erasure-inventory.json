@@ -749,6 +749,16 @@
       "action": "erase",
       "rule": "Drain admitted reads and output cleanup through settlement; release identities and promises before completion.",
       "fixture": "memory:account-deletion-work"
+    },
+    "file:account-deletion-journals": {
+      "action": "erase",
+      "rule": "Private pending obligations survive failure and are removed only after all cleanup and compaction completes. Independent deletions keep their obligations.",
+      "fixture": "file:account-deletion-journals"
+    },
+    "memory:account-deletion-continuations": {
+      "action": "erase",
+      "rule": "Private pending obligations survive failure and are removed only after all cleanup and compaction completes. Independent deletions keep their obligations.",
+      "fixture": "memory:account-deletion-continuations"
     }
   },
   "tables": {
@@ -4688,6 +4698,198 @@
       "roots": [
         "artifact-inputs/thumbnails/*.json"
       ]
+    },
+    "location:src/lib/auth/account-deletion-journal.ts#deletionJournals:folder": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "account-deletions"
+      ]
+    },
+    "location:src/lib/auth/account-deletion-journal.ts#discardPreparedJournal:journalPath": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "account-deletions/*.json"
+      ]
+    },
+    "location:src/lib/auth/account-deletion-journal.ts#discoverAccountDeletions:folder": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "account-deletions"
+      ]
+    },
+    "location:src/lib/auth/account-deletion-journal.ts#discoverAccountDeletions:path.join": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "account-deletions/*"
+      ]
+    },
+    "location:src/lib/auth/account-deletion-journal.ts#emptyFolder:dataDir": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/auth/account-deletion-journal.ts#emptyFolder:folder": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "account-deletions"
+      ]
+    },
+    "location:src/lib/auth/account-deletion-journal.ts#folder:dataDir": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/auth/account-deletion-journal.ts#folder:path.join": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "account-deletions"
+      ]
+    },
+    "location:src/lib/auth/account-deletion-journal.ts#journalPath:folder": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "account-deletions"
+      ]
+    },
+    "location:src/lib/auth/account-deletion-journal.ts#journalPath:path.join": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "account-deletions/*.json"
+      ]
+    },
+    "location:src/lib/auth/account-deletion-journal.ts#readDeletionJournal:journalPath": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "account-deletions/*.json"
+      ]
+    },
+    "location:src/lib/auth/account-deletion-journal.ts#removeDeletionJournal:folder": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "account-deletions"
+      ]
+    },
+    "location:src/lib/auth/account-deletion-journal.ts#removeDeletionJournal:journalPath": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "account-deletions/*.json"
+      ]
+    },
+    "location:src/lib/auth/account-deletion-journal.ts#writeDeletionJournal:dataDir": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/auth/account-deletion-journal.ts#writeDeletionJournal:folder": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "account-deletions"
+      ]
+    },
+    "location:src/lib/auth/account-deletion-journal.ts#writeDeletionJournal.target:journalPath": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "account-deletions/*.json"
+      ]
+    },
+    "memory:src/lib/auth/account-deletion.ts#holder": {
+      "stores": [
+        "memory:account-deletion-continuations"
+      ]
+    },
+    "memory:src/lib/auth/account-deletion.ts#holder.prepared": {
+      "stores": [
+        "memory:account-deletion-continuations"
+      ]
+    },
+    "memory:src/lib/auth/account-deletion.ts#holder.running": {
+      "stores": [
+        "memory:account-deletion-continuations"
+      ]
+    },
+    "writer:src/lib/auth/account-deletion-journal.ts#emptyFolder:syncDirectory": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "writer:src/lib/auth/account-deletion-journal.ts#removeDeletionJournal:syncDirectory": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "account-deletions"
+      ]
+    },
+    "writer:src/lib/auth/account-deletion-journal.ts#writeDeletionJournal:mkdirSync": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "account-deletions"
+      ]
+    },
+    "writer:src/lib/auth/account-deletion-journal.ts#writeDeletionJournal:openSync": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "account-deletions/*.json"
+      ]
+    },
+    "writer:src/lib/auth/account-deletion-journal.ts#writeDeletionJournal:renameSync": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        "account-deletions/*.json"
+      ]
+    },
+    "writer:src/lib/auth/account-deletion-journal.ts#writeDeletionJournal:syncDirectory": {
+      "stores": [
+        "file:account-deletion-journals"
+      ],
+      "roots": [
+        ".",
+        "account-deletions"
+      ]
     }
   },
   "files": {
@@ -4737,6 +4939,10 @@
     ],
     "file:account-files": [
       "file-owners/*.json"
+    ],
+    "file:account-deletion-journals": [
+      "account-deletions/*.json",
+      "account-deletions/*.tmp"
     ]
   },
   "accountReferences": {
