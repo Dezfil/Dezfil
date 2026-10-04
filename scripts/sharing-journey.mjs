@@ -15,7 +15,8 @@ import { provisionJourney } from './journey-auth.mjs';
 import { journeyApi } from './journey-http.mjs';
 import { connect } from './mcp-process-probe.mjs';
 
-const PASSWORD = 'field notebooks at dawn';
+import { invite, signIn } from './sharing-journey-auth.mjs';
+import { exerciseProjectDepartures } from './sharing-departures.mjs';
 const PERMISSION = { error: { code: 'forbidden', message: 'You can view this but cannot make this change.' } };
 const unavailable = name => ({ error: { code: 'sql_error', message: `The dataset "${name}" is not available to you.` } });
 const missing = 'never-created-resource';
@@ -63,21 +64,6 @@ async function upload(api, name, sentinel) {
   return table;
 }
 
-async function invite(base, admin, name) {
-  const email = `${name}@example.test`;
-  const invitation = expectStatus(await admin('POST', '/api/users', { body: { name, email } }), 201, `invite ${name}`);
-  const secret = new URLSearchParams(new URL(invitation.signInUrl).hash.slice(1)).get('secret');
-  const redeemed = await fetch(base + '/api/auth/redeem', { method: 'POST', headers: { origin: base, 'content-type': 'application/json' }, body: JSON.stringify({ secret, password: PASSWORD }) });
-  assert.equal(redeemed.status, 200); await redeemed.body?.cancel();
-  return signIn(base, name);
-}
-
-/** A fresh session and token for one of the journey's people. */
-async function signIn(base, name) {
-  const credential = await provisionJourney(base, { name, email: `${name}@example.test`, password: PASSWORD });
-  const account = expectStatus(await journeyApi(base, { token: credential.token })('GET', '/api/account'), 200).account;
-  return { id: account.id, name, sqlName: account.sqlName, token: credential.token, cookie: credential.cookie };
-}
 
 async function settle(api, recipeId, runId) {
   const deadline = Date.now() + 60_000;
@@ -168,6 +154,34 @@ export async function assistantWire(port) {
         const result = events.find(event => event.type === 'tool_result' && event.tool === 'run_sql');
         assert.ok(result, `the assistant dispatched run_sql: ${JSON.stringify(events.map(event => event.type))}`);
         return result;
+      });
+      turn = run.catch(() => {});
+      return run;
+    },
+    async leave(base, credential, id, { approved = true, beforeResolution = async () => {} } = {}) {
+      const run = turn.then(async () => {
+        replies.push({ call: { name: 'leave_project', args: { id } } }, { text: 'Done.' });
+        try {
+          const api = journeyApi(base, credential);
+          const reservation = expectStatus(await api('POST', '/api/assistant/runs'), 201, 'reserve Leave');
+          const stream = async body => {
+            const response = await api('POST', '/api/assistant/messages', { body, raw: true });
+            assert.equal(response.status, 200, 'Leave assistant stream');
+            return (await response.text()).trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
+          };
+          const events = await stream({ runId: reservation.id, message: 'Leave this project.', history: [] });
+          const pending = events.find(event => event.type === 'confirm_required' && event.tool === 'leave_project');
+          assert.ok(pending, `Leave parks for confirmation: ${JSON.stringify(events)}`);
+          assert.match(pending.confirmation.consequence, /next request/);
+          assert.match(pending.confirmation.consequence, /stays in the project/);
+          assert.equal(events.some(event => event.type === 'tool_result' && event.tool === 'leave_project' && event.ok), false);
+          await beforeResolution(pending);
+          const resumed = await stream({ resolution: { pending: pending.id, approved } });
+          const result = resumed.find(event => event.type === 'tool_result' && event.tool === 'leave_project');
+          assert.ok(result, `Leave produces a result: ${JSON.stringify(resumed)}`);
+          assert.equal(result.decision, approved ? 'approved' : 'declined');
+          return result;
+        } finally { replies.length = 0; }
       });
       turn = run.catch(() => {});
       return run;
@@ -376,7 +390,7 @@ async function linkHolds(base, { ids }, when) {
   }
 }
 
-export async function verifySharing(base, state, { wire } = {}) {
+export async function verifySharing(base, state, { wire, holdDirectory } = {}) {
   const { ids, people } = state;
   const book = recorder();
   const anonymous = journeyApi(base);
@@ -516,21 +530,23 @@ export async function verifySharing(base, state, { wire } = {}) {
     concurrent += 2;
   }));
   expectStatus(await anonymous('GET', '/api/maps'), 401);
-  return { accounts: 5, comparisons, concurrentQueries: concurrent, transports, refusals: book.refusals };
+  const departures = await exerciseProjectDepartures(base, state, { wire, holdDirectory });
+  return { accounts: 5, comparisons, concurrentQueries: concurrent, transports, departures, refusals: book.refusals };
 }
 
 if (process.argv[1]?.endsWith('/sharing-journey.mjs')) {
   const args = process.argv.slice(2);
   const wireArg = args.find(arg => arg.startsWith('--assistant-wire='));
+  const holdDirectory = args.find(arg => arg.startsWith('--leave-hold='))?.slice('--leave-hold='.length);
   const [mode, base, stateFile] = args.filter(arg => !arg.startsWith('--'));
-  assert.ok(['seed', 'verify'].includes(mode) && base && stateFile, 'usage: seed|verify origin scratch-state.json [--assistant-wire=port]');
+  assert.ok(['seed', 'verify'].includes(mode) && base && stateFile, 'usage: seed|verify origin scratch-state.json [--assistant-wire=port] [--leave-hold=directory]');
   const url = new URL(base);
   assert.ok(['127.0.0.1', 'localhost'].includes(url.hostname) && (Number(url.port) >= 3300 || url.port === '3183'), 'use an isolated loopback port, never 3000');
   const wire = wireArg ? await assistantWire(Number(wireArg.split('=')[1])) : undefined;
   try {
     const state = mode === 'seed' ? await seedSharing(base) : JSON.parse(await readFile(stateFile, 'utf8'));
     if (mode === 'seed') await writeFile(stateFile, JSON.stringify(state), { mode: 0o600, flag: 'wx' });
-    const verified = await verifySharing(base, state, { wire });
+    const verified = await verifySharing(base, state, { wire, holdDirectory });
     console.log(JSON.stringify({ label: 'confirmed', mode, ...verified, seedRefusals: mode === 'seed' ? state.seedRefusals : undefined }, null, 1));
   } finally { await wire?.close(); }
 }

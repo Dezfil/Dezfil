@@ -1,9 +1,12 @@
+import path from "node:path";
+import { DuckDBConnection } from "@duckdb/node-api";
 import { afterEach, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { closeMetadataDb } from "@/lib/metadata/db";
 import { resetQueryInstance } from "@/lib/duckdb";
 import { laneSettled } from "@/lib/operations/lane";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
+import { exerciseProjectDepartures } from "../../../scripts/sharing-departures.mjs";
 import { seedSharing } from "../../../scripts/sharing-journey.mjs";
 
 type Handler = (request: Request, context: { params: Promise<Record<string, string>> }) => Promise<Response>;
@@ -43,4 +46,16 @@ it("seeds shared edits through reached reads and the real handlers without a lis
   const state = await seedSharing("http://127.0.0.1:3388");
   expect(state.ids.layers).toHaveProperty("editor");
   expect(state.seedRefusals.length).toBeGreaterThan(20);
+  const originalRun = DuckDBConnection.prototype.run;
+  const originalRead = DuckDBConnection.prototype.runAndReadAll;
+  try {
+    await import("../../../scripts/sharing-leave-observer.mjs");
+    expect(await exerciseProjectDepartures("http://127.0.0.1:3388", state, { holdDirectory: path.join(directory, ".leave-probe") })).toMatchObject({
+      session: 4, token: 4, mcp: 4, assistant: 0, frozen: 6, readded: 12,
+      held: { sessionPrivateOutput: "confirmed", tokenRefusedOutput: "confirmed" },
+    });
+  } finally {
+    DuckDBConnection.prototype.run = originalRun;
+    DuckDBConnection.prototype.runAndReadAll = originalRead;
+  }
 }, 120_000);

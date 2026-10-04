@@ -12,6 +12,9 @@ for (const role of ["viewer", "editor"] as const) for (const frozen of [false, t
       const member = await invitePerson(browser, request, baseURL!, "Member", tag);
       const other = await invitePerson(browser, request, baseURL!, "Hidden", tag);
       people.push(owner, member, other);
+      const independentName = `Independent ${tag}`;
+      const independent = await createProject(owner, independentName);
+      await share(owner, independent, member, "viewer");
       const fixtures = [];
       for (const entrance of ["grid", "list", "home"] as const) {
         const name = `${entrance} survey ${tag}`;
@@ -82,6 +85,15 @@ for (const role of ["viewer", "editor"] as const) for (const frozen of [false, t
         await page.goto(`/projects/${id}`);
         await expect(page.getByText("The requested resource was not found.", { exact: true })).toBeVisible();
         await expect(page.getByRole("button", { name: "More", exact: true })).toHaveCount(0);
+        await page.goto("/maps");
+        await page.getByRole("button", { name: "Filter by project", exact: true }).click();
+        await expect(page.getByRole("menuitem").filter({ hasText: name })).toHaveCount(0);
+        await expect(page.getByRole("menuitem").filter({ hasText: independentName })).toBeVisible();
+        await page.keyboard.press("Escape");
+        if (ownMap) await expect(page.getByText(`Own ${entrance} ${tag}`, { exact: true })).toBeVisible();
+        await page.goto(`/projects/${independent}`);
+        await expect(page.getByRole("heading", { name: independentName, exact: true })).toBeVisible();
+        await expect(page.locator('[data-role-line="viewer"]')).toContainText(owner.name);
         page.off("request", count);
       }
     } finally { await closeAll(people); }

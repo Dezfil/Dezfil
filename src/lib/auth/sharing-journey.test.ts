@@ -73,6 +73,7 @@ it("shares a project with a Viewer and an Editor through real route, MCP and ass
   await expect(seedSharing(base)).rejects.toThrow("seed requires an empty scratch instance");
   const first = await verifySharing(base, state, { wire });
   expect(first).toMatchObject({ accounts: 5, transports: { console: 16, mcp: 8, assistant: 8 }, concurrentQueries: 48 });
+  expect(first.departures).toMatchObject({ session: 4, token: 4, mcp: 4, assistant: 4, frozen: 8, readded: 16 });
   expect(first.comparisons).toBeGreaterThanOrEqual(30);
   // Every refusal compared carries its body, and the permission refusal is one sentence everywhere.
   const bodies = [...state.seedRefusals, ...first.refusals];
