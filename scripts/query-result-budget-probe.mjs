@@ -15,35 +15,40 @@ export async function queryResultBudgetProbe(base, label = 'standalone', existin
   const client = existing ?? await probeClient(origin, label);
   const token = client.token;
   try {
-    console.log(JSON.stringify({ observation: 'refused-forty', label, request: { method: 'POST', path: '/api/query', body: { sql: "SELECT repeat('x', 1000000) AS payload FROM range(40)" } }, memorySampling: 'caller-owned; label each heap/RSS result a single observation' }));
-    const response = await fetch(`${origin}/api/query`, {
-      method: 'POST', redirect: 'error', signal: AbortSignal.timeout(120_000),
-      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', 'accept-encoding': 'identity' },
-      body: JSON.stringify({ sql: "SELECT repeat('x', 1000000) AS payload FROM range(40)" }),
-    });
-    let bytes = 0;
-    const small = [];
-    for await (const chunk of response.body) {
-      bytes += chunk.byteLength;
-      if (bytes < 1024) small.push(Buffer.from(chunk));
-      else small.length = 0;
+    const observations = [];
+    for (const geometry of ['wkt', 'geojson']) {
+      const requestBody = { sql: "SELECT repeat('x', 1000000) AS payload FROM range(40)", ...(geometry === 'geojson' ? { geometry } : {}) };
+      console.log(JSON.stringify({ observation: 'refused-forty', geometry, label, request: { method: 'POST', path: '/api/query', body: requestBody }, memorySampling: 'caller-owned; label each heap/RSS result a single observation' }));
+      const response = await fetch(`${origin}/api/query`, {
+        method: 'POST', redirect: 'error', signal: AbortSignal.timeout(120_000),
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', 'accept-encoding': 'identity' },
+        body: JSON.stringify(requestBody),
+      });
+      let bytes = 0;
+      const small = [];
+      for await (const chunk of response.body) {
+        bytes += chunk.byteLength;
+        if (bytes < 1024) small.push(Buffer.from(chunk));
+        else small.length = 0;
+      }
+      let body;
+      if (bytes < 1024) {
+        try { body = JSON.parse(Buffer.concat(small).toString('utf8')); } catch { /* assertion below */ }
+      }
+      const observed = { label, geometry, status: response.status, bytes,
+        code: body?.error?.code ?? null,
+        contentEncoding: response.headers.get('content-encoding'),
+        contentLength: response.headers.get('content-length'),
+        transferEncoding: response.headers.get('transfer-encoding'),
+        engineMemoryMb: `${memory} (operator configuration; not measured by this probe)` };
+      console.log(JSON.stringify(observed));
+      assert.equal(response.status, 422, `forty-row refusal: observed HTTP ${response.status}, ${bytes} bytes`);
+      assert.ok(bytes < 1024, `refusal must be under 1 KiB; observed ${bytes} bytes`);
+      assert.deepEqual(body, { error: { code: 'query_result_too_large', message: sentence } }, 'exact catalogue refusal, without data or details');
+      console.log('confirmed: served forty-row query returned only the catalogue refusal under 1 KiB');
+      observations.push(observed);
     }
-    let body;
-    if (bytes < 1024) {
-      try { body = JSON.parse(Buffer.concat(small).toString('utf8')); } catch { /* assertion below */ }
-    }
-    const observed = { label, status: response.status, bytes,
-      code: body?.error?.code ?? null,
-      contentEncoding: response.headers.get('content-encoding'),
-      contentLength: response.headers.get('content-length'),
-      transferEncoding: response.headers.get('transfer-encoding'),
-      engineMemoryMb: `${memory} (operator configuration; not measured by this probe)` };
-    console.log(JSON.stringify(observed));
-    assert.equal(response.status, 422, `forty-row refusal: observed HTTP ${response.status}, ${bytes} bytes`);
-    assert.ok(bytes < 1024, `refusal must be under 1 KiB; observed ${bytes} bytes`);
-    assert.deepEqual(body, { error: { code: 'query_result_too_large', message: sentence } }, 'exact catalogue refusal, without data or details');
-    console.log('confirmed: served forty-row query returned only the catalogue refusal under 1 KiB');
-    return observed;
+    return observations;
   } finally { if (!existing) await client.cleanup(); }
 }
 

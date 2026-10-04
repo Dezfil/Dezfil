@@ -40,14 +40,17 @@ function observeClient() {
 }
 
 describe("SQL result byte budget", () => {
-  it("refuses the forty-row result at the client boundary and releases the connection", async () => {
+  it.each(["wkt", "geojson"] as const)("refuses the forty-row %s result at the client boundary and releases the connection", async geometry => {
     process.env.DEZFIL_QUERY_MEMORY_MB = "32";
     await query("SELECT 1");
     const seen = observeClient();
-    await refused(query("SELECT repeat('x', 1000000) AS payload FROM range(40)"));
+    await refused(executeQuery(testAccountScope(), "SELECT repeat('x', 1000000) AS payload FROM range(40)", { geometry }));
     expect(seen.decoded.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(33_554_432);
     expect(seen.decoded).toHaveLength(33);
     expect(seen.releases).toHaveBeenCalledTimes(1);
+    const fitting = await executeQuery(testAccountScope(), "SELECT repeat('x', 1000000) AS payload FROM range(24)", { geometry });
+    expect(fitting.preview).toHaveLength(24);
+    expect(fitting.preview.every(row => row.payload === "x".repeat(1000000))).toBe(true);
     expect((await query("SELECT 42 AS answer")).preview).toEqual([{ answer: 42 }]);
   });
 

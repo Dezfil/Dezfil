@@ -3,12 +3,27 @@ import { setupGeometryTest, cleanupGeometryTest } from "@/lib/test-support/geome
 import { dispatchAssistantTestRoute } from "@/lib/assistant/testing/route-dispatch";
 import { probeClient } from "../../../scripts/result-budget-client.mjs";
 import { quickReaders } from "../../../scripts/result-budget-readers.mjs";
+import { queryResultBudgetProbe } from "../../../scripts/query-result-budget-probe.mjs";
 
 let directory: string;
 beforeEach(async () => { directory = await setupGeometryTest(); });
 afterEach(async () => {
   vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks();
   await cleanupGeometryTest(directory);
+});
+
+it("sends the console's GeoJSON request as well as WKT under the small engine budget", async () => {
+  vi.stubEnv("DEZFIL_QUERY_MEMORY_MB", "32");
+  vi.stubEnv("DEZFIL_PROBE_TOKEN", "fixture");
+  const encodings: string[] = [];
+  vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = input instanceof Request ? input : new Request(String(input), init);
+    request.headers.delete("authorization");
+    if (new URL(request.url).pathname === "/api/query") encodings.push((await request.clone().json()).geometry ?? "wkt");
+    return dispatchAssistantTestRoute(request);
+  });
+  await queryResultBudgetProbe("http://localhost:3307");
+  expect(encodings).toEqual(["wkt", "geojson"]);
 });
 
 it("runs source-free cell boundaries and exact SQL result admission through real routes", async () => {
