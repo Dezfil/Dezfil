@@ -1,3 +1,4 @@
+import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { requireFilingDestination } from "@/lib/auth/reach";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
@@ -526,6 +527,8 @@ export async function importOverture(
   request: OvertureImportRequest,
   build: typeof buildOvertureArtifact = buildOvertureArtifact,
 ): Promise<DataTable> {
+  const deletionWork = admitAccountWork([scope.accountId]);
+  try {
   requireAccountScope(scope);
   const projectId = importProjectId(request.projectId);
   if (projectId) requireFilingDestination(scope, projectId);
@@ -572,4 +575,6 @@ export async function importOverture(
     await removeAccountFile(artifact, { force: true });
     throw error;
   }
+
+  } finally { deletionWork.release(); }
 }

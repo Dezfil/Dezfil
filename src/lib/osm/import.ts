@@ -1,3 +1,4 @@
+import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
 import { registerAccountFile, removeAccountFile, fileAccountId } from "@/lib/ingest/file-ownership";
 import { listOwnedTables } from "@/lib/metadata/owned-tables";
 import { requireFilingDestination } from "@/lib/auth/reach";
@@ -345,6 +346,8 @@ export async function importOsm(
   scope: AccountScope,
   request: OsmImportRequest,
 ): Promise<DataTable[]> {
+  const deletionWork = admitAccountWork([scope.accountId]);
+  try {
   requireAccountScope(scope);
   const projectId = importProjectId(request.projectId);
   if (projectId) requireFilingDestination(scope, projectId);
@@ -434,6 +437,8 @@ export async function importOsm(
     if (inFlight) await removeAccountFile(inFlight, { force: true });
     throw error;
   }
+
+  } finally { deletionWork.release(); }
 }
 
 /** Every member of an import group, by any member's group id. */

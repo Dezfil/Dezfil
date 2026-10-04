@@ -1,3 +1,4 @@
+import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { requireFilingDestination } from "@/lib/auth/reach";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
@@ -205,6 +206,8 @@ export async function ingestFile(
   provenance: IngestProvenance = { source: "upload", sourceParams: null },
   requestedName?: string,
 ): Promise<DataTable> {
+  const deletionWork = admitAccountWork([scope.accountId]);
+  try {
   requireAccountScope(scope);
   if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
   const format = detectFormat(originalFilename);
@@ -249,4 +252,6 @@ export async function ingestFile(
     await removeAccountFile(artifact, { force: true });
     throw error;
   }
+
+  } finally { deletionWork.release(); }
 }

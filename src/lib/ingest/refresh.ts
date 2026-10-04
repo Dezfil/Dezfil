@@ -1,3 +1,4 @@
+import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource } from "@/lib/auth/owned-resource";
@@ -223,6 +224,8 @@ export async function refreshTable(
   name: string,
   options: RefreshOptions = {},
 ): Promise<DataTable> {
+  const deletionWork = admitAccountWork([scope.accountId]);
+  try {
   const table = requireTable(scope, name);
   // Single-flight per provenance unit: the claim happens before the first
   // await, so a second caller can never start a second build.
@@ -233,6 +236,8 @@ export async function refreshTable(
   } finally {
     endRefresh(unit);
   }
+
+  } finally { deletionWork.release(); }
 }
 
 async function performRefresh(

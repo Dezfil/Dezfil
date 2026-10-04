@@ -1,3 +1,4 @@
+import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
 import { registerAccountFile, removeAccountFile } from "./file-ownership";
 import { requireFilingDestination } from "@/lib/auth/reach";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
@@ -388,6 +389,8 @@ export async function importFromUrl(
   requestedName?: string,
   projectId?: string | null,
 ): Promise<IngestResult> {
+  const deletionWork = admitAccountWork([scope.accountId]);
+  try {
   requireAccountScope(scope);
   if (projectId) requireFilingDestination(scope, projectId);
   const source = await resolveRemoteSource(url, scope.accountId);
@@ -405,4 +408,6 @@ export async function importFromUrl(
   } finally {
     await source.cleanup();
   }
+
+  } finally { deletionWork.release(); }
 }

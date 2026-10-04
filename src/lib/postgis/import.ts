@@ -1,3 +1,4 @@
+import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { resourceAbsent, requireOwnedResource } from "@/lib/auth/owned-resource";
 import { requireFilingDestination } from "@/lib/auth/reach";
@@ -187,6 +188,8 @@ export async function importPostgis(
   request: PostgisImportRequest,
   build: typeof buildPostgisArtifact = buildPostgisArtifact,
 ): Promise<DataTable> {
+  const deletionWork = admitAccountWork([scope.accountId]);
+  try {
   requireAccountScope(scope);
   const projectId = importProjectId(request.projectId);
   if (projectId) requireFilingDestination(scope, projectId);
@@ -252,4 +255,6 @@ export async function importPostgis(
     await removeAccountFile(artifact, { force: true });
     throw error;
   }
+
+  } finally { deletionWork.release(); }
 }

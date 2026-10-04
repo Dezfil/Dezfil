@@ -1,3 +1,4 @@
+import { admitEvaluationWork } from "@/lib/query/work-admission";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import type { StagingInput } from "@/lib/query/staging";
 import type { DatasetScope } from "@/lib/query/access";
@@ -371,7 +372,8 @@ export async function materialize(
   const name = exactName(request.name);
   const evaluation: DatasetScope = request.evaluation ?? scope;
 
-  return boundedEvaluation(async (conn, bounds) => {
+  const deletionWork = admitEvaluationWork(evaluation);
+  try { return await boundedEvaluation(async (conn, bounds) => {
     const compiledSql = await namedSql(conn, sql);
 
     // Refuse a taken name before doing the work, so the common collision
@@ -403,6 +405,7 @@ export async function materialize(
       id: t.id, name: t.name, artifact: t.file,
       ownerId: ownerOf.get(t.id) ?? null, written: writtenOf.get(t.id) ?? t.name,
     }));
+    deletionWork.bind(bound.map(input => input.ownerId ?? null));
     // An input whose geometry this query reads passes its uncertainty on; one
     // contributing only attributes does not.
     const crsAssumed = resolved.some((t) => t.crsAssumed && reads.geometry.has(t.id));
@@ -480,6 +483,7 @@ export async function materialize(
         // reports its last run, so it is not the one row with no age.
         importedAt: now,
       };
+      deletionWork.assertCommit();
       const replaced = publishDataset(scope, table, bound, request);
       committed = true;
       // The generation this replaced is now unreferenced. Retiring it is
@@ -507,6 +511,7 @@ export async function materialize(
       if (!committed) await removeAccountFile(abs, { force: true });
     }
   }, { scope: evaluation, inputs: request.inputs, pinBindings: true, signal, ...(budgetMs !== undefined ? { budgetMs } : {}), ...(timeoutError ? { timeoutError } : {}) });
+  } finally { deletionWork.release(); }
 }
 
 /**

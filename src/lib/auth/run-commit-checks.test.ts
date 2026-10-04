@@ -278,3 +278,18 @@ describe("cancelling a run after its initiator stops reaching the workflow", () 
     }
   }, 60_000);
 });
+
+describe("accepted owner erasure during output work", () => {
+  it("refuses a held workflow output and proposal even when the runner owns every input", async () => {
+    const before = record(VS);
+    const run = await heldRun(() => startSingleRun(scopes.bob, V, VS, { expectedRevision: readEditRevision({ kind: "workflow", id: V })!.editRevision }), () => {
+      db().exec("UPDATE accounts SET status = 'deleting' WHERE id = 'ada'");
+    });
+    expect(owned("bob", "copied")).toBeUndefined();
+    expect(record(VS)).toEqual(before);
+    expect(read(run.id).outcome).not.toBe("completed");
+    await expect(startSingleRun(scopes.bob, V, VS, { expectedRevision: readEditRevision({ kind: "workflow", id: V })!.editRevision })).rejects.toThrow();
+    const independent = await startRun(scopes.bob, { operation: "sql_step", parameters: { sql: "SELECT * FROM mine", name: "independent_after" } });
+    await laneSettled(); expect(getJob(independent.id)?.state).toBe("succeeded");
+  });
+});
