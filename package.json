@@ -46,6 +46,7 @@
     "journey:browser": "playwright test",
     "admin:recover": "node scripts/admin-recover.mjs",
     "journey:recovery": "node scripts/recovery-journey.mjs",
+    "probe:query-result-budget": "node scripts/query-result-budget-probe.mjs",
     "probe:body": "node scripts/body-probe.mjs",
     "probe:transport": "node scripts/transport-probe.mjs",
     "probe:gate": "node scripts/gate-journey.mjs",
