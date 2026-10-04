@@ -6,6 +6,28 @@ import { LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE, REMOTE_ADD, REMOTE_READ, REMOT
 import { READ_ONLY, writes, resource } from "./operation-metadata";
 import { op, jsonOk, pathParam } from "./openapi-helpers";
 
+const PROTECTION_INPUT_CONTRACT =
+  " Both string forms refuse unsupported protection parameters before source contact or " +
+  "explicit-field overrides: nonempty ssl_min_protocol_version, ssl_max_protocol_version, " +
+  "sslrootcert (including paths and system), sslcrl, sslcrldir, sslcert, sslkey, sslpassword, " +
+  "require_auth, krbsrvname, gsslib, scram_client_key, scram_server_key, oauth_issuer, " +
+  "oauth_client_id, oauth_client_secret and oauth_scope. Nonempty channel_binding and " +
+  "gssencmode are refused except prefer/disable; sslcertmode except allow; sslsni except 1; " +
+  "sslcompression and gssdelegation except 0/1; sslnegotiation except postgres; requiressl " +
+  "except 0; string ssl except false (the JSON boolean is unchanged). These exceptions " +
+  "and requirepeer are ignored, not forwarded or stored. Empty values are absent. " +
+  "Every occurrence is checked after URI decoding or key-value unescaping; later empty " +
+  "or permissive repeats cannot hide a refusal. The existing SSL-mode refusal wins; " +
+  "otherwise the first refused parameter in input order is named. HTTP 400 invalid_request: " +
+  "This connection string uses the unsupported protection parameter channel_binding; " +
+  "Dezfil supports connection fields and SSL required or not required. For another " +
+  "parameter, only its canonical name replaces channel_binding. No input value is echoed. " +
+  "Refusal changes no stored fields, encrypted credential or health. Previously saved " +
+  "connections retain their behavior: the original string was discarded, so its " +
+  "protections cannot be recovered or checked retrospectively. A new string is validated. " +
+  "Other omitted parameters keep their existing treatment, including options, service " +
+  "and min_protocol_version; their omission is not a guarantee of harmlessness.";
+
 export const CONNECTION_PATHS = {
   "/api/connections/postgis": {
     get: op(connectionAccess({
@@ -53,7 +75,7 @@ export const CONNECTION_PATHS = {
                     "contact, even with explicit fields. Identical repeats are " +
                     "accepted; empty modes are absent. " +
                     "Absent mode defaults to SSL required on create. " +
-                    "Explicit fields override only a valid URL.",
+                    "Explicit fields override only a valid URL." + PROTECTION_INPUT_CONTRACT,
                 },
                 host: { type: "string" },
                 port: { type: "integer", default: 5432 },
@@ -116,7 +138,7 @@ export const CONNECTION_PATHS = {
                     "and conflicting repeated modes are refused before source " +
                     "contact, even with explicit fields. Identical repeats are " +
                     "accepted; empty modes are absent. " +
-                    "Absent mode retains the saved SSL setting on edit.",
+                    "Absent mode retains the saved SSL setting on edit." + PROTECTION_INPUT_CONTRACT,
                 },
                 host: { type: "string" },
                 port: { type: "integer" },

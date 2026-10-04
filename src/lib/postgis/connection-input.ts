@@ -4,6 +4,8 @@
  * as the API, while persistence and source contact stay server-side.
  */
 
+import { unsupportedProtection } from "./protection-parameters";
+
 export interface ConnectionValues {
   name: string;
   host: string;
@@ -58,9 +60,19 @@ function sslRequired(modes: string[]): boolean | undefined {
   return mode === "require";
 }
 
-function parseKeyValue(text: string): { values: Record<string, string>; modes: string[] } | null {
+function assertProtections(entries: Iterable<[string, string]>): void {
+  const name = unsupportedProtection(entries);
+  if (name) {
+    throw new ConnectionInputError(
+      `This connection string uses the unsupported protection parameter ${name}; Dezfil supports connection fields and SSL required or not required.`,
+    );
+  }
+}
+
+function parseKeyValue(text: string): { values: Record<string, string>; modes: string[]; entries: [string, string][] } | null {
   const values: Record<string, string> = {};
   const modes: string[] = [];
+  const entries: [string, string][] = [];
   let at = 0;
   while (at < text.length) {
     while (/\s/.test(text[at] ?? "")) at += 1;
@@ -91,9 +103,10 @@ function parseKeyValue(text: string): { values: Record<string, string>; modes: s
     }
     const name = key[1].toLowerCase();
     values[name] = value;
+    entries.push([name, value]);
     if (name === "sslmode") modes.push(value);
   }
-  return Object.keys(values).length > 0 ? { values, modes } : null;
+  return Object.keys(values).length > 0 ? { values, modes, entries } : null;
 }
 
 /** Interpret the two accepted Postgres URL forms without retaining the URL. */
@@ -105,13 +118,15 @@ export function parseConnectionUrl(value: string): ParsedConnectionUrl {
       if (!/^postgres(?:ql)?:$/.test(parsed.protocol) || !parsed.hostname) {
         throw new Error("invalid");
       }
+      const ssl = sslRequired(parsed.searchParams.getAll("sslmode"));
+      assertProtections(parsed.searchParams);
       return {
         host: parsed.hostname,
         port: parsed.port || undefined,
         database: decode(parsed.pathname.replace(/^\//, "")),
         username: decode(parsed.username),
         password: decode(parsed.password),
-        ssl: sslRequired(parsed.searchParams.getAll("sslmode")),
+        ssl,
       };
     } catch (error) {
       if (error instanceof ConnectionInputError) throw error;
@@ -123,14 +138,16 @@ export function parseConnectionUrl(value: string): ParsedConnectionUrl {
   if (!parsed || !Object.hasOwn(parsed.values, "host")) {
     throw new ConnectionInputError("That does not look like a Postgres URL.");
   }
-  const { values, modes } = parsed;
+  const { values, modes, entries } = parsed;
+  const ssl = sslRequired(modes);
+  assertProtections(entries);
   return {
     host: values.host,
     port: values.port,
     database: values.dbname ?? values.database ?? "",
     username: values.user ?? values.username ?? "",
     password: values.password ?? "",
-    ssl: sslRequired(modes),
+    ssl,
   };
 }
 

@@ -739,6 +739,62 @@ refreshing the dataset through it is its owner's act, refused to the
 project's editors with `forbidden`; no route or tool transfers a connection;
 and a project archive carries no connection facts.
 
+Create (`POST /api/connections/postgis`) and edit
+(`PATCH /api/connections/postgis/{id}`) interpret a Postgres URI or libpq
+key-value `url` once, then discard it. Explicit fields override only a valid
+string. `sslmode=require` means SSL required; `prefer`, `disable` and `allow`
+mean SSL not required and emit `prefer`, which can still negotiate TLS.
+An absent or empty mode defaults to required on create and retains the saved
+setting on edit. Identical repeats are accepted. Strict (`verify-ca`,
+`verify-full`), unknown and conflicting repeated modes refuse before source
+contact, even with explicit fields.
+
+Both string forms now refuse the following unsupported protection requests,
+including strings previously accepted with these options silently omitted:
+
+| String parameter | Treatment of nonempty values |
+| --- | --- |
+| `channel_binding`, `gssencmode` | Refuse except `prefer` and `disable`, which are ignored. |
+| `ssl_min_protocol_version`, `ssl_max_protocol_version` | Refuse custom TLS bounds. |
+| `sslrootcert` | Refuse supplied trust, including paths with `sslmode=require` and `system`, even when encryption is opportunistic. |
+| `sslcrl`, `sslcrldir` | Refuse supplied revocation policy. |
+| `sslcert`, `sslkey`, `sslpassword` | Refuse supplied certificate credentials. |
+| `sslcertmode` | Refuse except `allow`, which is ignored. Neither required certificate use nor suppression of certificate disclosure is supported. |
+| `require_auth`, `krbsrvname`, `gsslib` | Refuse authentication restrictions and selected identity/provider. |
+| `sslsni` | Ignore `1`; refuse all others, including `0`. |
+| `sslcompression`, `gssdelegation` | Ignore `0` and `1`; refuse all others. |
+| `sslnegotiation` | Ignore `postgres`; refuse all others, including `direct`. |
+| `requiressl`, `ssl` | Ignore `requiressl=0` and `ssl=false`; refuse all others, including `requiressl=1` and `ssl=true`. The separate JSON boolean `ssl` is unchanged. |
+| `scram_client_key`, `scram_server_key` | Refuse alternative authentication credentials. |
+| `oauth_issuer`, `oauth_client_id`, `oauth_client_secret`, `oauth_scope` | Refuse alternative authentication credentials, trust choices and access restrictions. |
+| `requirepeer` | Ignore: the peer-user check applies only to Unix sockets; connections use guarded TCP. |
+
+Empty values, including OAuth scope, are absent. Ignored values are neither
+forwarded nor stored and make no mandatory protection promise. All supplied
+occurrences count, after URI decoding or key-value quoting/escaping: a later
+empty or permissive value cannot hide a refused value. The existing SSL-mode
+refusal takes precedence; otherwise the first refused parameter in input
+order is named, using its canonical name and never its value.
+
+The response is HTTP **400**, code **`invalid_request`**, with this exact
+sentence for `channel_binding`:
+
+> This connection string uses the unsupported protection parameter channel_binding; Dezfil supports connection fields and SSL required or not required.
+
+For another parameter, only the parameter name changes. MCP returns the same
+code and sentence as an error in text and structured content. Refusal makes
+no source attempt and changes no saved fields, encrypted credential or health
+memory. The form fills nothing from a refused paste, preserves prior fields,
+password and status, and keeps submission of those fields available.
+
+Previously stored connections retain their behavior. Their original string
+was discarded, leaving only endpoint, credentials and the SSL boolean, so
+requested protections cannot be recovered or refused retrospectively. There
+is no migration or automatic invalidation. Submitting a new string invokes
+the new validation. Other parameters keep their existing treatment, including
+omission of `options`, `service` and `min_protocol_version` (a wire-protocol
+floor); omission outside this inventory is not a claim of harmlessness.
+
 **Agents.** The assistant and the MCP endpoint. `POST /api/assistant/runs`
 reserves a run, `POST /api/assistant/messages` sends a message under that
 run id, and `GET /api/assistant/runs/{id}` re-reads it after a lost
