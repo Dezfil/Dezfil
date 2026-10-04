@@ -10,6 +10,7 @@ import { until } from './mcp-probe-wait.mjs';
 import { deletionFixture } from './deletion-journey-fixture.mjs';
 import { assertErased, storeFiles } from './deletion-journey-store.mjs';
 import { good, deletionRoads } from './deletion-journey-roads.mjs';
+import { assertDeletionPage } from './deletion-journey-pages.mjs';
 const [mode, base, stateFile, directory, controlDirectory, wirePort = '3404'] = process.argv.slice(2);
 assert.ok(['seed', 'verify', 'recover'].includes(mode));
 assert.ok(directory && path.isAbsolute(directory) && stateFile && path.isAbsolute(stateFile));
@@ -26,10 +27,7 @@ async function pages(fixture, refused) {
     [`/maps/${fixture.controlMap.id}`, false, fixture.control.cookie], ['/v/deletion-control-page', false],
   ]) {
     const response = await fetch(base + route, { headers: cookie ? { cookie } : {}, redirect: 'manual' }), body = await response.text();
-    if (target && refused) {
-      assert.ok(response.status === 404 || body.includes('NEXT_HTTP_ERROR_FALLBACK;404'), `accepted owner must be absent from built page ${route}`);
-      assert.ok(!body.includes(fixture.targetName), 'refused page contains no target material');
-    } else { assert.equal(response.status, 200, `warm or independent page ${route}`); assert.ok(body.includes(target ? fixture.targetName : fixture.ledger.retained[0]), 'page positive content control'); }
+    assertDeletionPage({ status: response.status, body }, { route, refused: target && refused, targetName: fixture.targetName });
   }
 }
 try {
