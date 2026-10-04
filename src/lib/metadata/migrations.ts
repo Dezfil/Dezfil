@@ -2,6 +2,7 @@ import { DATASET_CONNECTION_MIGRATIONS } from "./migrations-datasets-connections
 import { OWNERSHIP_MIGRATION, CONNECTION_NAMES_MIGRATION, DATASET_NAMES_MIGRATION } from "./migrations-ownership";
 import { REVISIONS_MIGRATION } from "./migrations-revisions";
 import { SHARING_MIGRATION } from "./migrations-sharing";
+import { IDENTITIES_MIGRATION } from "./migrations-identities";
 
 export const MIGRATIONS: string[] = [
   DATASET_CONNECTION_MIGRATIONS.v1,
@@ -485,4 +486,5 @@ export const MIGRATIONS: string[] = [
   // run initiators and per-runner step outputs. Nothing is shared by it.
   SHARING_MIGRATION,
   REVISIONS_MIGRATION,
+  IDENTITIES_MIGRATION,
 ];

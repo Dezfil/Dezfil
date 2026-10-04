@@ -13,7 +13,7 @@ import { DuckDBInstance } from '@duckdb/node-api';
 // this import so the fixture does not change other modules' loader behavior.
 const migrationsUrl = new URL('../src/lib/metadata/migrations.ts', import.meta.url).href;
 const metadataUrl = new URL('../src/lib/metadata/', import.meta.url).href;
-const migrationModules = new Set(['./migrations-datasets-connections', './migrations-ownership', './migrations-sharing', './migrations-revisions', './sql-names']);
+const migrationModules = new Set(['./migrations-datasets-connections', './migrations-ownership', './migrations-sharing', './migrations-revisions', './migrations-identities', './sql-names']);
 const migrationLoader = registerHooks({
   resolve(specifier, context, next) {
     if (context.parentURL?.startsWith(metadataUrl) && migrationModules.has(specifier)) {

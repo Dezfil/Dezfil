@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { metadataDb } from "@/lib/metadata/db";
-import { accountCount } from "@/lib/metadata/accounts";
+import { setupComplete } from "@/lib/metadata/accounts";
 import { getSetting, instanceName } from "@/lib/metadata/settings";
 import { createFirstAccount } from "./accounts";
 import { signInFromRequest } from "./login-limits";
@@ -11,7 +11,7 @@ import { assertRequestOrigin, authBody, authFailure, privateResponse, requestIng
 export async function entryInformation(request: Request): Promise<Response> {
   try {
     requestIngress(request);
-    const db = metadataDb(), setupRequired = accountCount(db) === 0;
+    const db = metadataDb(), setupRequired = !setupComplete(db);
     return privateResponse(NextResponse.json({ instanceName: instanceName(db), setupRequired,
       ...(setupRequired ? { prefillName: getSetting("display_name", db) ?? "" } : {}) }));
   } catch (error) { return authFailure(error); }

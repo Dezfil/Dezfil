@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
-import { accountCount, accountPasswordHash, getAccount, getAccountByEmail, insertAccount, markOriginalAccount,
-  normalizeEmail } from "@/lib/metadata/accounts";
+import { setupComplete, accountPasswordHash, getAccount, getAccountByEmail, insertAccount, markOriginalAccount,
+  normalizeEmail, type IdentityStatus } from "@/lib/metadata/accounts";
 import { revokeSessions } from "@/lib/metadata/auth-credentials";
 import { maintainCredentials } from "./credential-maintenance";
 import { AuthError, requireAuthenticationWanted } from "./errors";
@@ -12,7 +12,8 @@ import { adoptLegacyPreferences } from "./adoption";
 
 /** Call under the write transaction, after authorizing the caller. */
 export function requireAvailableEmail(email: string, exceptId: string | null, db: Database, admin = false): void {
-  const duplicate = getAccountByEmail(email, db);
+  const duplicate = db.prepare("SELECT id, status FROM accounts WHERE email = ?").get(normalizeEmail(email)) as
+    { id: string; status: IdentityStatus } | undefined;
   if (duplicate && duplicate.id !== exceptId) {
     const canReactivate = admin && duplicate.status === "deactivated";
     throw new AuthError("email_taken", canReactivate ? "This account is deactivated. Reactivate it in Users."
@@ -47,12 +48,12 @@ export async function createFirstAccount(input: { name: string; email: string; p
   db: Database = metadataDb(), now?: number, signal?: AbortSignal) {
   maintainCredentials(db, now);
   // The write transaction repeats this check after asynchronous password work.
-  if (accountCount(db) !== 0) throw new AuthError("setup_complete", "This instance is already set up.", 409);
+  if (setupComplete(db)) throw new AuthError("setup_complete", "This instance is already set up.", 409);
   const fields = identityFields(input.name, input.email);
   const passwordHash = await hashPassword(input.password, { signal });
   return db.transaction(() => {
     requireAuthenticationWanted(signal);
-    if (accountCount(db) !== 0) throw new AuthError("setup_complete", "This instance is already set up.", 409);
+    if (setupComplete(db)) throw new AuthError("setup_complete", "This instance is already set up.", 409);
     const at = now ?? Date.now();
     const account = insertAccount({ id: randomUUID(), ...fields, passwordHash, isAdmin: true,
       status: "active", now: new Date(at).toISOString() }, db);

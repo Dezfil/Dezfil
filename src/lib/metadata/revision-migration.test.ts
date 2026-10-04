@@ -88,7 +88,7 @@ afterEach(() => {
 
 describe("document revision migration", () => {
   it("adds one atomic entry, valid distinct document tokens and unknown actors without changing existing facts", () => {
-    expect(MIGRATIONS).toHaveLength(ENTRY + 1);
+    expect(MIGRATIONS.length).toBeGreaterThanOrEqual(ENTRY + 1);
     const before = rows();
     reopen();
     expect(rows()).toEqual(before);
@@ -133,7 +133,7 @@ describe("document revision migration", () => {
     db.exec("ALTER TABLE cascade_runs DROP COLUMN admitted_executable_revision");
     reopen();
     expect(db.prepare("SELECT edit_revision FROM maps WHERE id = 'map'").get()).toEqual({ edit_revision: expect.stringMatching(token) });
-    expect(db.pragma("user_version", { simple: true })).toBe(ENTRY + 1);
+    expect(db.pragma("user_version", { simple: true })).toBe(MIGRATIONS.length);
   });
 
   it("allows pre-revision readers and writers to omit every new field", () => {

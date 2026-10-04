@@ -3,6 +3,22 @@ import { metadataDb } from "./db";
 import { allocateSqlName } from "./sql-names";
 
 export type AccountStatus = "invited" | "active" | "deactivated";
+export type IdentityStatus = AccountStatus | "deleting" | "deleted";
+
+/** Retained identity is separate from a readable account profile. */
+export function accountSqlNames(ids: Iterable<string | null>, db: Database = metadataDb()): Map<string, string> {
+  const wanted = [...new Set([...ids].filter((id): id is string => id !== null))];
+  if (wanted.length === 0) return new Map();
+  const rows = db.prepare("SELECT id, sql_name FROM accounts WHERE id IN (SELECT value FROM json_each(?))")
+    .all(JSON.stringify(wanted)) as { id: string; sql_name: string }[];
+  return new Map(rows.map(row => [row.id, row.sql_name]));
+}
+
+/** Adoption survives removal of the original profile. Existing accounts also
+ * refuse setup in an incomplete legacy store; setup never guesses a new owner. */
+export function setupComplete(db: Database = metadataDb()): boolean {
+  return db.prepare("SELECT 1 FROM original_account UNION ALL SELECT 1 FROM accounts LIMIT 1").get() !== undefined;
+}
 
 /** The public account projection never includes password or credential material. */
 export interface Account {
@@ -51,7 +67,7 @@ export interface AccountLabel {
 export function accountLabels(ids: Iterable<string | null>, db: Database = metadataDb()): Map<string, AccountLabel> {
   const wanted = [...new Set([...ids].filter((id): id is string => id !== null))];
   if (wanted.length === 0) return new Map();
-  const rows = db.prepare("SELECT id, name, sql_name FROM accounts WHERE id IN (SELECT value FROM json_each(?))")
+  const rows = db.prepare("SELECT id, name, sql_name FROM accounts WHERE status NOT IN ('deleting', 'deleted') AND id IN (SELECT value FROM json_each(?))")
     .all(JSON.stringify(wanted)) as { id: string; name: string; sql_name: string }[];
   return new Map(rows.map(row => [row.id, { name: row.name, sqlName: row.sql_name }]));
 }
@@ -65,22 +81,22 @@ export function accountCount(db: Database = metadataDb()): number {
 }
 
 export function getAccount(id: string, db: Database = metadataDb()): Account | null {
-  const row = db.prepare(`${projection} WHERE a.id = ?`).get(id) as Row | undefined;
+  const row = db.prepare(`${projection} WHERE a.id = ? AND a.status NOT IN ('deleting', 'deleted')`).get(id) as Row | undefined;
   return row ? fromRow(row) : null;
 }
 
 export function getAccountByEmail(email: string, db: Database = metadataDb()): Account | null {
-  const row = db.prepare(`${projection} WHERE a.email = ?`).get(normalizeEmail(email)) as Row | undefined;
+  const row = db.prepare(`${projection} WHERE a.email = ? AND a.status NOT IN ('deleting', 'deleted')`).get(normalizeEmail(email)) as Row | undefined;
   return row ? fromRow(row) : null;
 }
 
 export function listAccounts(db: Database = metadataDb()): Account[] {
-  return (db.prepare(`${projection} ORDER BY a.created_at, a.id`).all() as Row[]).map(fromRow);
+  return (db.prepare(`${projection} WHERE a.status NOT IN ('deleting', 'deleted') ORDER BY a.created_at, a.id`).all() as Row[]).map(fromRow);
 }
 
 /** Internal password-verification accessor. Account reads use the projection above. */
 export function accountPasswordHash(id: string, db: Database = metadataDb()): string | null {
-  const row = db.prepare("SELECT password_hash FROM accounts WHERE id = ?").get(id) as
+  const row = db.prepare("SELECT password_hash FROM accounts WHERE id = ? AND status NOT IN ('deleting', 'deleted')").get(id) as
     { password_hash: string | null } | undefined;
   return row?.password_hash ?? null;
 }
