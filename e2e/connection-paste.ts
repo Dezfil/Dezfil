@@ -13,6 +13,7 @@ export async function exerciseRefusedConnectionPaste(
   submitLabel: string,
   fixture: { failNextSave: () => void; submitted: Record<string, unknown>[] },
 ) {
+  await expect(scope.getByLabel("Connection name")).toBeVisible();
   const reveal = scope.getByRole("button", { name: "Paste a new connection URL" });
   if (await reveal.isVisible()) await reveal.click();
   const url = scope.getByLabel(/Paste a connection URL/);
