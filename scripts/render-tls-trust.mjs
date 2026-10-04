@@ -6,7 +6,11 @@ import path from 'node:path';
 const execute = promisify(execFile);
 export async function provisionTrust(directory) {
   await mkdir(directory);
-  const run = (file, args) => execute(file, args, { cwd: directory, timeout: 30_000 });
+  // Use the NSS trust representation understood by both host and image NSS.
+  // Newer hosts otherwise write PKCS #11 3.2 trust that older readers ignore.
+  const run = (file, args) => execute(file, args, {
+    cwd: directory, timeout: 30_000, env: { ...process.env, NSS_TRUST_TYPE: 'NSS' },
+  });
   await run('openssl', ['version']);
   // Fail early if the host lacks the NSS tool. Never fall back to ignoring TLS.
   await run('certutil', ['-H']).catch(error => { if (error.code === 'ENOENT') throw error; });

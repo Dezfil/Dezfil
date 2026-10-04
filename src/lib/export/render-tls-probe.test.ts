@@ -25,6 +25,11 @@ describe('TLS report assertions', () => {
     expect(check()?.ok).toBe(false);
     e.browser[2].error = 'net::ERR_CERT_COMMON_NAME_INVALID'; expect(check()?.ok).toBe(true);
   });
+  it('includes the fixture browser error in the trusted pixel failure', () => {
+    const e = { ...evidence(), result: { status: 200, abandoned: null, png: { cyan: 0 } } };
+    expect(assessTlsArm(tlsArms()[0], e).find(row => row.name === 'trusted-style-tiles-identity-pixels'))
+      .toMatchObject({ ok: false, message: expect.stringContaining('net::ERR_CERT_AUTHORITY_INVALID') });
+  });
   it('does not infer intermediate or transport coverage from configuration', () => {
     expect(chainReport(tlsArms()[3], evidence())).toMatchObject({ label: 'configured, not observed', route: 'not observed' });
     expect(supplementaryReport(evidence()).map(row => [row.claim, row.label, row.tipLabel])).toEqual([
@@ -33,5 +38,63 @@ describe('TLS report assertions', () => {
       ['non-proxied UDP/QUIC', 'configured, not observed', 'configured, not observed'],
       ['browser-owned requests', 'observed in the spike', 'configured, not observed'],
     ]);
+  });
+});
+
+function chainEvidence(blocked: boolean) {
+  const arm = tlsArms()[blocked ? 4 : 3];
+  return {
+    ...evidence(),
+    browser: [{ event: 'ready' }, { event: 'launch', flags: [] }, { event: 'closed' }],
+    dns: [{ event: 'ready' }], netlog: { events: [{}] },
+    listener: [{ event: 'ready' }, ...['connection', 'request', 'close'].map(event =>
+      ({ event, arm: arm.id, phase: 'live', socket: 1, path: '/live', at: 1 }))],
+    host: [{ event: 'ready' },
+      { event: 'request', arm: arm.id, phase: 'render', socket: 2, path: '/intermediate.der', host: 'aia.render.test:8080' },
+      { event: 'response', arm: arm.id, phase: 'render', socket: 2, path: '/intermediate.der', status: blocked ? 503 : 200 }],
+    road: [{ event: 'road-response', host: 'aia.render.test', port: 8080, path: '/intermediate.der', status: blocked ? 503 : 200 }],
+    result: { arm: arm.id, saved: true, armedAt: 2, liveBody: 'listener-alive', emptyBeforeExport: true,
+      status: 200, abandoned: null as string | null, failure: undefined as string | undefined, png: { cyan: blocked ? 0 : 229_118 } },
+  };
+}
+
+describe.each([false, true])('incomplete chain, blocked=%s', blocked => {
+  const arm = tlsArms()[blocked ? 4 : 3];
+  const assertion = blocked ? 'incomplete-blocked-fetch-no-pixels' : 'incomplete-fetch-pixels';
+  it('observes only the completed fetch and its matching pixel outcome', () => {
+    const e = chainEvidence(blocked);
+    expect(assessTlsArm(arm, e).find(row => row.name === assertion)?.ok).toBe(true);
+    expect(chainReport(arm, e)).toMatchObject({ label: 'observed on the tip', route: 'SOCKS loopback stream' });
+    e.result.png.cyan = blocked ? 1 : 0;
+    expect(assessTlsArm(arm, e).find(row => row.name === assertion)?.ok).toBe(false);
+    expect(chainReport(arm, e).label).toBe('not established');
+  });
+  it.each(['request', 'response'])('does not claim observation without the fetch %s', event => {
+    const e = chainEvidence(blocked); e.host = e.host.filter(row => row.event !== event);
+    expect(assessTlsArm(arm, e).find(row => row.name === assertion)?.ok).toBe(false);
+    expect(chainReport(arm, e).label).not.toBe('observed on the tip');
+  });
+  it.each(['status', 'socket', 'phase', 'arm'])('refuses a mismatched fetch response %s', field => {
+    const e = chainEvidence(blocked);
+    Object.assign(e.host[2], { [field]: field === 'status' ? (blocked ? 200 : 503) : field === 'socket' ? 99 : 'other' });
+    expect(assessTlsArm(arm, e).find(row => row.name === assertion)?.ok).toBe(false);
+    expect(chainReport(arm, e).label).toBe('not established');
+  });
+  it('does not claim a SOCKS response with the wrong status', () => {
+    const e = chainEvidence(blocked); e.road[0].status = blocked ? 200 : 503;
+    expect(chainReport(arm, e).route).not.toBe('SOCKS loopback stream');
+  });
+  it('leaves the route unconfirmed without a SOCKS response', () => {
+    const e = chainEvidence(blocked); e.road = [];
+    expect(chainReport(arm, e)).toMatchObject({ label: 'observed on the tip', route: 'fixture reached; route unconfirmed' });
+  });
+  it.each(['failed-export', 'abandoned-export', 'missing-png', 'missing-netlog', 'certificate-bypass'])('cannot report observed with %s', defect => {
+    const e = chainEvidence(blocked);
+    if (defect === 'failed-export') e.result.failure = 'probe failed';
+    if (defect === 'abandoned-export') e.result.abandoned = '1';
+    if (defect === 'missing-png') Reflect.deleteProperty(e.result, 'png');
+    if (defect === 'missing-netlog') e.netlog.events = [];
+    if (defect === 'certificate-bypass') e.browser.push({ event: 'certificate-bypass-seed' });
+    expect(chainReport(arm, e).label).toBe('not established');
   });
 });

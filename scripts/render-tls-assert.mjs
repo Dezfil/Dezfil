@@ -18,15 +18,37 @@ export function assessTlsArm(arm, evidence) {
   });
   const requests = evidence.tls.filter(row => row.phase === 'render' && row.event === 'request');
   if (arm.certificate === 'trusted') check('trusted-style-tiles-identity-pixels', () => {
-    assert.equal(evidence.result.status, 200); assert.equal(evidence.result.abandoned, null);
-    assert.ok(evidence.result.png?.cyan > 200_000, 'trusted fixture pixels absent');
-    assert.ok(requests.some(row => row.path === '/style.json' && row.sni === 'tls.render.test'));
-    assert.ok(requests.some(row => row.path.startsWith('/tiles/') && row.sni === 'tls.render.test'));
-    const finished = new Set(evidence.browser.filter(row => row.event === 'loadingFinished').map(row => `${row.targetId}:${row.requestId}`));
-    for (const path of ['/style.json', '/tiles/']) assert.ok(evidence.browser.some(row => row.event === 'responseReceived' && row.status === 200 &&
-      row.url?.startsWith(`https://tls.render.test:8443${path}`) && row.security?.sanList?.includes('tls.render.test') &&
-      finished.has(`${row.targetId}:${row.requestId}`)), `missing completed trusted browser response/security details: ${path}`);
+    try {
+      assert.equal(evidence.result.status, 200); assert.equal(evidence.result.abandoned, null);
+      assert.ok(evidence.result.png?.cyan > 200_000, 'trusted fixture pixels absent');
+      assert.ok(requests.some(row => row.path === '/style.json' && row.sni === 'tls.render.test'));
+      assert.ok(requests.some(row => row.path.startsWith('/tiles/') && row.sni === 'tls.render.test'));
+      const finished = new Set(evidence.browser.filter(row => row.event === 'loadingFinished').map(row => `${row.targetId}:${row.requestId}`));
+      for (const path of ['/style.json', '/tiles/']) assert.ok(evidence.browser.some(row => row.event === 'responseReceived' && row.status === 200 &&
+        row.url?.startsWith(`https://tls.render.test:8443${path}`) && row.security?.sanList?.includes('tls.render.test') &&
+        finished.has(`${row.targetId}:${row.requestId}`)), `missing completed trusted browser response/security details: ${path}`);
+    } catch (error) {
+      const requested = new Set(evidence.browser.filter(row => row.event === 'requestWillBeSent' && row.url?.startsWith('https://tls.render.test:8443/')).map(row => `${row.targetId}:${row.requestId}`));
+      const errors = evidence.browser.filter(row => row.event === 'loadingFailed' && requested.has(`${row.targetId}:${row.requestId}`)).map(row => row.error);
+      error.message += `; fixture browser errors: ${errors.join(', ') || 'none recorded'}`;
+      throw error;
+    }
   });
+  if (arm.certificate === 'incomplete') {
+    const fetch = intermediateFetch(arm, evidence);
+    // No provoked fetch remains a supplementary non-observation. Once there
+    // is fetch evidence, its response and render outcome must support it.
+    if (fetch.requests.length || fetch.responses.length || fetch.road.length) check(arm.blockAia ? 'incomplete-blocked-fetch-no-pixels' : 'incomplete-fetch-pixels', () => {
+      assert.ok(fetch.requests.length, 'missing intermediate request');
+      for (const request of fetch.requests) assert.ok(fetch.responses.some(row => row.socket === request.socket && row.status === fetch.expectedStatus), `missing intermediate response ${fetch.expectedStatus} on the requesting socket`);
+      assert.ok(!evidence.result.failure, 'export probe failed before observing the chain outcome');
+      assert.equal(evidence.result.status, 200);
+      assert.equal(evidence.result.abandoned, null);
+      assert.ok(evidence.result.png, 'missing completed PNG');
+      if (arm.blockAia) assert.equal(evidence.result.png.cyan, 0, 'blocked intermediate fetch contributed fixture pixels');
+      else assert.ok(evidence.result.png.cyan > 200_000, 'intermediate fetch did not produce fixture pixels');
+    });
+  }
   if (['untrusted', 'wrong-host'].includes(arm.certificate)) check(`${arm.certificate}-validation-no-pixels`, () => {
     const error = arm.certificate === 'untrusted' ? 'net::ERR_CERT_AUTHORITY_INVALID' : 'net::ERR_CERT_COMMON_NAME_INVALID';
     const requested = new Set(evidence.browser.filter(row => row.event === 'requestWillBeSent' && row.url?.startsWith('https://tls.render.test:8443/')).map(row => `${row.targetId}:${row.requestId}`));
@@ -38,11 +60,22 @@ export function assessTlsArm(arm, evidence) {
   check('tls-private-listener-silent', () => assert.equal(measured(evidence.listener).filter(row => ['connection', 'request'].includes(row.event)).length, 0));
   return checks;
 }
+function intermediateFetch(arm, evidence) {
+  const rows = evidence.host.filter(row => row.arm === arm.id && row.phase === 'render' && row.path === '/intermediate.der');
+  return {
+    requests: rows.filter(row => row.event === 'request' && row.host === 'aia.render.test:8080'),
+    responses: rows.filter(row => row.event === 'response'),
+    road: evidence.road.filter(row => row.event === 'road-response' && row.host === 'aia.render.test' && row.port === 8080 && row.path === '/intermediate.der'),
+    expectedStatus: arm.blockAia ? 503 : 200,
+  };
+}
 export function chainReport(arm, evidence) {
-  const requests = evidence.host.filter(row => row.phase === 'render' && row.event === 'request' && row.path === '/intermediate.der');
-  const road = evidence.road.filter(row => row.event === 'road-response' && row.host === 'aia.render.test' && row.path === '/intermediate.der');
-  return { claim: 'cold-profile intermediate fetch', label: requests.length ? 'observed on the tip' : 'configured, not observed',
-    blocked: !!arm.blockAia, requests, road, route: road.length ? 'SOCKS loopback stream' : requests.length ? 'fixture reached; route unconfirmed' : 'not observed',
+  const { requests, responses, road, expectedStatus } = intermediateFetch(arm, evidence);
+  const attempted = requests.length || responses.length || road.length;
+  const failed = assessTlsArm(arm, evidence).filter(row => !row.ok);
+  return { claim: 'cold-profile intermediate fetch', label: !attempted ? 'configured, not observed' : failed.length ? 'not established' : 'observed on the tip',
+    reason: failed, blocked: !!arm.blockAia, requests, responses, road,
+    route: road.some(row => row.status === expectedStatus) && !failed.length ? 'SOCKS loopback stream' : requests.length ? 'fixture reached; route unconfirmed' : 'not observed',
     destination: 'http://aia.render.test:8080/intermediate.der', source: 'fresh image browser; no scripted fetch',
     status: evidence.result.status, fixturePixels: evidence.result.png?.cyan ?? 0 };
 }

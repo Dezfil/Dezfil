@@ -28,7 +28,9 @@ added to the image. `render-tls-trust.mjs` generates, for each independent arm:
   trust `C,,`, mounted writable at `/home/node/.pki/nssdb` and
   `/home/node/.local/share/pki/nssdb`. Both Linux browser database locations are
   provisioned; Chromium still has to demonstrate that it honors the mounted
-  trust. Its user-data profile is newly created by each browser launch.
+  trust. Its user-data profile is newly created by each browser launch. The
+  provisioning calls set `NSS_TRUST_TYPE=NSS` so newer host NSS writes trust in
+  a form the image's older NSS can read.
 - A separate `node-ca.pem`, containing both roots and the intermediate, mounted
   through `NODE_EXTRA_CA_CERTS` for Node's save-time inspection. This does not
   supply browser trust. Save uses the normal API and force-save contract.
@@ -38,6 +40,7 @@ The fixtures and observers are mounted at `/probes`; none enters the image.
 The positive has no certificate override, special insecure origin, SPKI
 exception or validation bypass. If provisioning or browser trust fails, its
 report says **not run**, gives the failing checks/reason, and exits nonzero.
+The trusted assertion includes errors from the fixture's browser requests.
 No green positive is inferred from a self-signed connection or from Node trust.
 
 Green is exit 0 with `trusted-style-tiles-identity-pixels`: a complete PNG with
@@ -52,12 +55,18 @@ produce the shipped data-only image; these arms do not invent a new API error.
 Missing logs, identity, pixels, closure, liveness or certificate errors are red.
 
 The two cold-profile incomplete-chain arms separately report the AIA request's
-source, destination, response, road and render outcome. The second returns 503
-at the intermediate URL. A passive observer records any HTTP response through
-a SOCKS stream. Contact without that attribution is reported as route
-unconfirmed. No request means **configured, not observed**, even if rendering
-succeeds. These are supplementary observations, not closure assertions; a
-cached-chain or flag-only success does not prove fetching or suppression.
+source, destination, response, road and render outcome. **Observed on the tip**
+requires all common evidence checks and a completed render: the unblocked arm
+must fetch the intermediate with a matched 200 response and render fixture
+pixels; the blocked arm must fetch it with a matched 503 response and render
+zero fixture pixels. A response must match the request's arm, phase, socket and
+path. Missing evidence or the wrong outcome is **not established** and exits
+nonzero. A passive observer records HTTP responses through SOCKS streams; only
+the expected response status supports that route claim. Contact without that
+attribution is reported as route unconfirmed. No fetch evidence means
+**configured, not observed**, even if rendering succeeds. These remain
+supplementary observations, not closure criteria; a cached-chain or flag-only
+success does not prove fetching or suppression.
 
 ## Supplementary browser report
 
