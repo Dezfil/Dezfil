@@ -27,3 +27,14 @@ it("keeps the four-reader limits and refusal code in every operator guide", () =
     for (const reader of file === "docs/mcp.md" ? ["run_sql", "inspect_table", "preview_table_geometry", "preview_postgis_relation"] : file === "docs/api.md" ? ["POST /api/query", "GET /api/tables/{name}", "POST /api/tables/{name}/geometry/preview", "POST /api/connections/postgis/{id}/preview"] : ["SQL console", "dataset inspection", "geometry-choice preview", "PostGIS five-row preview"]) expect(text, file).toContain(reader);
   }
 });
+
+it("names the inspection-dependent consumers in every affected guide", () => {
+  for (const file of ["README.md", "docs/api.md", "docs/configuration.md", "docs/self-hosting.md"]) {
+    const text = readFileSync(file, "utf8").replace(/\s+/g, " ");
+    for (const consumer of ["tool column pickers", "SQL schema inventory and completion", "workflow dataset reads and facts", "automatic layer addition after a tool run"]) {
+      expect(text.includes(consumer), `${file}: ${consumer}`).toBe(true);
+    }
+    expect(text, file).toContain("the dataset has already been written");
+    expect(text, file).toContain("Existing layer rendering");
+  }
+});

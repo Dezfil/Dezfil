@@ -823,9 +823,13 @@ rather than on the page:
   toward the result ceiling only. All metadata, schema, ownership, project
   memberships and resolved inputs count in the same answer. An oversized
   inspection returns the same 422 catalogue refusal with no partial data.
-  The dataset detail and its docked set-geometry panel cannot open after that
-  refusal; otherwise valid layer use, dataset map features, complete API file
-  exports and owner deletion from Data remain separate and available.
+  A refused dataset inspection prevents its detail and docked set-geometry
+  panel from opening. It also blocks tool column pickers, SQL schema inventory
+  and completion, workflow dataset reads and facts, and automatic layer addition
+  after a tool run. The tool run can report failure even though the dataset has
+  already been written. Existing layer rendering, dataset map features, complete
+  API file exports and owner deletion from Data use separate reads and remain
+  available.
 - Timeouts, memory budgets, configured size caps, area budgets, render caps, queue
   depths and anonymous rate limits are all configuration; see
   [configuration.md](configuration.md). When one is hit the answer is a

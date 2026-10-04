@@ -152,9 +152,13 @@ These ceilings have no setting and are independent of row and engine-memory
 limits. Layer renders, dataset map features, slider and Overture previews,
 published views, statistics, classification, widgets and value search retain
 their existing limits. SQL, table and layer file exports still stream complete
-results above both ceilings. A refused dataset inspection prevents opening its
-detail and docked set-geometry panel; layer use, API export and owner deletion
-from Data remain available. This bounds serialized data on the covered reads,
+results above both ceilings. A refused dataset inspection prevents its detail and docked set-geometry
+panel from opening. It also blocks tool column pickers, SQL schema inventory
+and completion, workflow dataset reads and facts, and automatic layer addition
+after a tool run. The tool run can report failure even though the dataset has
+already been written. Existing layer rendering, dataset map features, complete
+API file exports and owner deletion from Data use separate reads and remain
+available. This bounds serialized data on the covered reads,
 not native chunks, JavaScript object overhead, heap or RSS.
 
 
