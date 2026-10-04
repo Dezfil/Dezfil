@@ -34,9 +34,13 @@ it("drives every JSON operation with the served probe's requests and assertions"
   };
   vi.stubGlobal("fetch", dispatch);
   const printed = vi.spyOn(console, "log").mockImplementation(() => {});
+  const methods = new Set<string>();
   try {
     const result = await bodyProbe("http://instance.test", { serverLog: log, runTransport: false,
       exchangeImpl: async (url: string, { method = "POST", headers = {}, chunks = [] }: { method?: string; headers?: Record<string, string>; chunks?: Iterable<Uint8Array> | AsyncIterable<Uint8Array> } = {}) => {
+        methods.add(method);
+        if (headers["content-length"] === undefined) expect(headers["transfer-encoding"], `${method} ${new URL(url).pathname}: frame every unknown-length body`).toBe("chunked");
+        else expect(headers["transfer-encoding"]).toBeUndefined();
         const iterator = Symbol.asyncIterator in chunks ? (chunks as AsyncIterable<Uint8Array>)[Symbol.asyncIterator]() : (chunks as Iterable<Uint8Array>)[Symbol.iterator]();
         const stream = new ReadableStream({ async pull(controller) { const next = await iterator.next(); if (next.done) controller.close(); else controller.enqueue(next.value); } }, { highWaterMark: 0 });
         const response = await dispatch(url, { method, headers, body: stream, duplex: "half" } as RequestInit);
@@ -45,6 +49,7 @@ it("drives every JSON operation with the served probe's requests and assertions"
       },
     });
     expect(result.operations).toBeGreaterThan(50); expect(result.checks).toBe(result.operations * 12);
+    expect(methods.has("DELETE")).toBe(true);
     expect(result.mcp.rows).toBe(12_288);
     printed.mockRestore(); console.log(JSON.stringify({ label: "confirmed", scope: "route-level; renderer stubbed; no socket or framework copy", operations: result.operations, checks: result.checks, fixtures: result.fixtures, mcp: result.mcp }));
   } finally { closeMetadataDb(); resetQueryInstance(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); await rm(dir, { recursive: true, force: true }); }

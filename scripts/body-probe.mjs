@@ -42,13 +42,13 @@ export async function bodyProbe(base, { serverLog, exchangeImpl = exchange, runT
     if (template.startsWith('/api/recipes/')) headers['x-edit-revision'] = (await api('GET', `/api/recipes/${fixture.recipeId}`)).json.recipe.editRevision;
     const value = template === '/api/mcp' ? { jsonrpc: '2.0', id: 1, method: 'body_probe_unknown' } : invalidBody;
     const control = Buffer.from(JSON.stringify({ ...value, _padding: '' }));
-    const expected = await exchangeImpl(base + pathname, { method, headers, chunks: [control] });
+    const expected = await exchangeImpl(base + pathname, { method, headers: { ...headers, 'transfer-encoding': 'chunked' }, chunks: [control] });
     assert.ok(expected.status >= 400 && expected.status < 500 || template === '/api/mcp' && expected.json?.error, `${method} ${template}: control must refuse without work: ${expected.text}`);
     assert.notEqual(expected.json?.error?.code, 'authentication_required', template);
     assert.notEqual(expected.json?.error?.code, 'assistant_disabled', 'enable the assistant with a synthetic provider key; no provider call is made');
     for (const declared of [true, false]) for (const encoding of ['utf8', 'escaped']) for (const delta of [-1, 0, 1]) {
       const bytes = limit + delta, body = sizedJson(value, bytes, encoding);
-      const result = await exchangeImpl(base + pathname, { method, headers: { ...headers, ...(declared ? { 'content-length': String(bytes) } : {}) }, chunks: chunksOf(body) });
+      const result = await exchangeImpl(base + pathname, { method, headers: { ...headers, ...(declared ? { 'content-length': String(bytes) } : { 'transfer-encoding': 'chunked' }) }, chunks: chunksOf(body) });
       if (delta <= 0) assertValidation(result, expected);
       else assertByteRefusal(result, limit, { code: operation.requestBody['x-byte-error'], workflow: template.startsWith('/api/recipes') && !template.endsWith('/transfer'),
         ...(template === '/api/assistant/messages' ? { message: 'The assistant submission exceeds 128 KiB.' } : {}) });
