@@ -34,5 +34,6 @@ export function pairedSummary(rows) {
   const baselineMedianMs = valid ? baseline.medianMs : null, candidateMedianMs = valid ? candidate.medianMs : null;
   const ratio = valid ? candidateMedianMs / baselineMedianMs : null;
   return { valid, reasons, baselineMedianMs, candidateMedianMs, deltaMs: valid ? candidateMedianMs - baselineMedianMs : null,
-    ratio, withinBound: valid && ratio <= 1.5, explanationNeeded: valid && ratio > 1.2 };
+    ratio, observerCost: 'Confirmed mechanism, unmeasured impact: both images load the road observer, but only candidate SOCKS streams pay its buffering, parsing and SHA-256 cost inside the timed window. This can only inflate the candidate duration and ratio; the added cost is unmeasured.',
+    withinBound: valid && ratio <= 1.5, explanationNeeded: valid && ratio > 1.2 };
 }

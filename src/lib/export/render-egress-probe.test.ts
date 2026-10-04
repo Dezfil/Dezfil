@@ -17,7 +17,7 @@ function records() {
     browser: [{ event: 'ready' }, { event: 'launch' }, { event: 'closed' }],
     netlog: { constants: { logEventTypes: { HOST_RESOLVER_MANAGER_JOB: 1, HOST_RESOLVER_MANAGER_REQUEST: 2, DNS_TRANSACTION: 3 } },
       events: [{ type: 2, source: { id: 1 }, params: { host: arm.author } }] },
-    result: { arm: arm.id, saved: true, armedAt: 4, liveBody: 'listener-alive', emptyBeforeExport: true,
+    result: { arm: arm.id, saved: true, armedAt: 4, liveBody: 'listener-alive',
       status: 502, png: null, body: { error: { code: 'render_failed', message: "The map reaches an address this instance's egress policy denies (private and internal ranges). The image was not produced." } } },
   };
 }

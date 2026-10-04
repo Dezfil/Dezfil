@@ -54,17 +54,25 @@ an unrelated browser certificate error fails these checks. The export may
 produce the shipped data-only image; these arms do not invent a new API error.
 Missing logs, identity, pixels, closure, liveness or certificate errors are red.
 
+Read negatives only beside the passing trusted positive from the **same
+invocation**. The `untrusted` and `tls-incomplete-blocked` reports carry that
+positive's checks in `trustedPositive`. If the positive is absent or any of its
+checks failed, these negatives are **not established**, even when their own
+checks pass. An isolated `--index 1` or `--index 4` can still diagnose its arm
+and exit zero, but cannot establish the negative without that positive.
+
 The two cold-profile incomplete-chain arms separately report the AIA request's
 source, destination, response, road and render outcome. **Observed on the tip**
 requires all common evidence checks and a completed render: the unblocked arm
 must fetch the intermediate with a matched 200 response and render fixture
 pixels; the blocked arm must fetch it with a matched 503 response and render
 zero fixture pixels. A response must match the request's arm, phase, socket and
-path. Missing evidence or the wrong outcome is **not established** and exits
+path. Missing arm evidence or the wrong outcome is **not established** and exits
 nonzero. A passive observer records HTTP responses through SOCKS streams; only
 the expected response status supports that route claim. Contact without that
-attribution is reported as route unconfirmed. No fetch evidence means
-**configured, not observed**, even if rendering succeeds. These remain
+attribution is reported as route unconfirmed. With the trusted positive
+established, no fetch evidence means **configured, not observed**, even if
+rendering succeeds. These remain
 supplementary observations, not closure criteria; a cached-chain or flag-only
 success does not prove fetching or suppression.
 
@@ -135,8 +143,13 @@ Both versions load the observer; the baseline has no SOCKS listener to count.
 
 `paired-report.json` retains all durations/counts and evidence paths, both
 absolute medians, candidate-minus-baseline milliseconds, ratio, attempted-run
-count and every void with reasons. Green is a valid complete run with ratio
-at most **1.5**. A ratio above **1.2** requests an outside explanation/profile;
+count and every void with reasons. Beside each ratio, `observerCost` records a
+**confirmed mechanism, unmeasured impact**: both images load the road observer,
+but only candidate SOCKS streams pay its buffering, parsing and SHA-256 cost
+inside the timed window. That extra work can only inflate the candidate duration
+and ratio; its cost has not been measured separately from the relay's.
+Green is a valid complete run with ratio at most **1.5**. A ratio above **1.2**
+requests an outside explanation/profile;
 it is not a second gate. A complete slower-than-1.5 run is red and retained,
 never reclassified as void to select a faster result.
 
@@ -145,7 +158,7 @@ three attempts by default (`--max-runs 1..10`). Exhaustion or interruption exits
 nonzero. Keep all directories. After interruption, repeat the complete command
 with fresh scratch plus `--prior-report /absolute/old/paired-report.json` to
 retain/count previous attempts. Repeated voids or a bound that cannot be met go
-to the supervising operator for a decision; do not relax the fixture or bound.
+to the maintainer for a decision; do not relax the fixture or bound.
 
 ## Named negative seeds
 
@@ -171,6 +184,8 @@ or a fallback. Their additional `no-certificate-bypass` failure alone does not
 satisfy the seed runner: the corresponding validation/pixels assertion must
 also fail. Successful seed execution exits 0 and prints each green/red pair;
 a seed that misses its assertion exits nonzero.
+Isolated TLS seed controls test the named assertion; use the full TLS suite to
+establish the negative observations beside the trusted positive.
 
 ## Ownership and retained artifacts
 

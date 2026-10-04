@@ -10,7 +10,7 @@ import { randomBytes } from 'node:crypto';
 import { assessArm, readRows } from './render-egress-assert.mjs';
 import { gateArms, matrixArms, timingArms } from './render-egress-cases.mjs';
 import { provisionTrust } from './render-tls-trust.mjs';
-import { tlsArms, assessTlsArm, chainReport, supplementaryReport } from './render-tls-assert.mjs';
+import { tlsArms, assessTlsArm, tlsReport, supplementaryReport } from './render-tls-assert.mjs';
 import { guardedTiles } from './render-comparison-assert.mjs';
 import { assessMatrixArm, assessTimingArm, timingSummary } from './render-style-assert.mjs';
 
@@ -151,7 +151,7 @@ try {
         catch (error) { checks.push({ name: 'guarded-tile-responses', ok: false, message: error.message }); }
       }
       if (tls) {
-        evidence.result.claims = suite === 'supplementary' ? supplementaryReport(evidence) : arm.certificate === 'incomplete' ? [chainReport(arm, evidence)] : [{ claim: arm.certificate, label: checks.every(row => row.ok) ? 'observed on the tip' : arm.certificate === 'trusted' && !seed ? 'not run' : 'not established', reason: checks.filter(row => !row.ok).map(row => row.name) }];
+        evidence.result.claims = suite === 'supplementary' ? supplementaryReport(evidence) : [tlsReport(arm, evidence, report)];
         for (const claim of evidence.result.claims) console.log(`REPORT ${claim.claim}: ${claim.label}`);
       }
       for (const row of checks) console.log(`${row.ok ? 'PASS' : 'FAIL'} ${id} ${row.name}${row.ok ? '' : ` ${row.message.replaceAll('\n', ' ')}`}`);

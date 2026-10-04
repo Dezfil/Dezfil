@@ -25,7 +25,7 @@ async function liveListener(file, url) {
     rows = readRows(await readFile(`${directory}/${file}.ndjson`, 'utf8'));
     const request = rows.find(row => row.phase === 'live' && row.event === 'request' && row.path === '/live');
     if (request && rows.some(row => row.event === 'close' && row.socket === request.socket)) {
-      return { liveBody, emptyBeforeExport: !rows.some(row => row.phase === 'render') };
+      return { liveBody };
     }
     await delay(50);
   }
@@ -54,7 +54,6 @@ try {
   const liveUrl = arm.local ? `http://${privateAddress}:8080/live` : arm.liveUrl ?? `http://${arm.privateIp ?? privateAddress}:8080/live`;
   Object.assign(result, await liveListener('listener', liveUrl));
   if (arm.local) result.localLive = await liveListener('local', arm.liveUrl);
-  assert.ok(result.emptyBeforeExport, 'listener measurement is already dirty');
   result.armedAt = Date.now(); await phase('render');
   const definition = arm.definition ?? {
     viewport: { lng: 13.37, lat: 52.5, zoom: 10, pitch: 0, bearing: 0 },

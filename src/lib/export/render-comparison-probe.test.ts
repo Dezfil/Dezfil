@@ -9,7 +9,8 @@ function series() {
 }
 describe('paired timing evidence', () => {
   it('reports both medians, milliseconds and ratio, with a separate explanation threshold', () => {
-    expect(pairedSummary(series())).toMatchObject({ valid: true, baselineMedianMs: 4000, candidateMedianMs: 5000, deltaMs: 1000, ratio: 1.25, withinBound: true, explanationNeeded: true });
+    expect(pairedSummary(series())).toMatchObject({ valid: true, baselineMedianMs: 4000, candidateMedianMs: 5000, deltaMs: 1000, ratio: 1.25, withinBound: true, explanationNeeded: true,
+      observerCost: 'Confirmed mechanism, unmeasured impact: both images load the road observer, but only candidate SOCKS streams pay its buffering, parsing and SHA-256 cost inside the timed window. This can only inflate the candidate duration and ratio; the added cost is unmeasured.' });
   });
   it('voids both series for a failed warmup, missing sample, mismatched browser or absent guarded count', () => {
     const bad = series(); bad[0].checks[0].ok = false;

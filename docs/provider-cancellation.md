@@ -192,7 +192,7 @@ proof fails unexpectedly. Rebuild/restart the restored source and require
 green. Use the same process for the route-signal and timeout seeds with the
 route probe. Never commit a prepared seed or test a stale build.
 
-## Review record
+## Retaining evidence
 
 Retain the baseline and candidate commits, app/runtime/browser versions,
 instance environment, commands and raw output. Record all six route arms
@@ -206,6 +206,6 @@ first and asserts that the concurrent provider rejection already has a handler.
 Use **confirmed** only for observations actually run; code-only signal and
 sequence checks are **confirmed mechanism, unmeasured impact** for socket
 lifetime. Leave the 1,000 ms bound and browser flows explicitly **not run**
-until an outside observer has exercised them. A provider-only review needs
-the required checks and this complete proof, without borrowing any renderer
-claim or deferring a provider failure to renderer work.
+until the outside run has exercised them. Validating provider cancellation on
+its own requires the checks and complete proof described here. Renderer results
+cannot establish provider behavior; provider failures must be resolved separately.

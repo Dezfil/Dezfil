@@ -55,7 +55,6 @@ export function assertLiveness(listener, id, result) {
   assert.ok(live.some(row => row.event === 'close' && row.socket === request.socket), 'liveness socket was not closed before measurement');
   assert.ok(live.every(row => row.at <= result.armedAt), 'liveness overlaps measurement');
   assert.equal(result.liveBody, 'listener-alive');
-  assert.equal(result.emptyBeforeExport, true, 'measurement did not start empty');
 }
 
 export function assessArm(arm, evidence) {

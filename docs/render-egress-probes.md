@@ -297,8 +297,8 @@ real-socket versions run separately when both exist:
 
 The complete non-browser seed run is expected to take about 60 seconds. It retains
 per-proof green/red logs and restores source bytes even on an assertion failure.
-The supervising runner must retain actual durations; these added estimates have
-not been measured in the socket-restricted implementation environment.
+The maintainer must retain actual durations from the outside run; these added
+estimates have not been measured in the socket-restricted implementation environment.
 
 For the exact bypass seam, use the shipped Chromium executable on a host that
 can bind loopback sockets. No built application, image, fixed port or network is
@@ -330,7 +330,7 @@ DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) DEZFIL_BASE_URL=http://127.
 ```
 
 Its two ephemeral trap listeners, map and API token are removed in `finally`;
-the supervising runner owns the app and its store. Green includes successful
+the maintainer owns the app and its store. Green includes successful
 cookie/token renders and looks, no credentials on either external redirect hop,
 and the existing anonymous/revoked-call denials. For the stalled-tile control,
 provision a separate standalone on 3217 sharing a fresh `DEZFIL_DATA_DIR` with the

@@ -69,7 +69,21 @@ function intermediateFetch(arm, evidence) {
     expectedStatus: arm.blockAia ? 503 : 200,
   };
 }
-export function chainReport(arm, evidence) {
+export function tlsReport(arm, evidence, priorReports = []) {
+  const checks = assessTlsArm(arm, evidence);
+  const claim = arm.certificate === 'incomplete' ? chainReport(arm, evidence) : {
+    claim: arm.certificate, label: checks.every(row => row.ok) ? 'observed on the tip' : arm.certificate === 'trusted' && !arm.seed ? 'not run' : 'not established',
+    reason: checks.filter(row => !row.ok).map(row => row.name) };
+  if (arm.certificate !== 'untrusted' && !(arm.certificate === 'incomplete' && arm.blockAia)) return claim;
+  const positive = priorReports.find(row => row.arm.id === 'tls-trusted');
+  const positiveChecks = positive?.checks ?? [];
+  const trustedPositive = { arm: 'tls-trusted', checks: positiveChecks, failure: positive?.failure,
+    passed: !positive?.failure && positiveChecks.some(row => row.name === 'trusted-style-tiles-identity-pixels' && row.ok) && positiveChecks.every(row => row.ok) };
+  return { ...claim, trustedPositive, ...(!trustedPositive.passed ? {
+    label: 'not established', reason: [...claim.reason, 'trusted positive did not pass in this invocation'],
+  } : {}) };
+}
+function chainReport(arm, evidence) {
   const { requests, responses, road, expectedStatus } = intermediateFetch(arm, evidence);
   const attempted = requests.length || responses.length || road.length;
   const failed = assessTlsArm(arm, evidence).filter(row => !row.ok);
