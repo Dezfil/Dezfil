@@ -735,6 +735,15 @@
     "memory:assistant-store-registry": {
       "action": "retain",
       "rule": "Keep per-bundle store cleanup callbacks. Each registered store erases its own account entries and retains its module-local scope validator."
+    },
+    "memory:provider-cache-writers": {
+      "action": "purge",
+      "rule": "Drain every earlier cache writer, including temporary files and maintenance, before whole-cache removal. A new generation waits behind the purge.",
+      "fixture": "memory:provider-cache-writers"
+    },
+    "memory:provider-cache-coordination": {
+      "action": "retain",
+      "rule": "Keep the monotonic non-content generation and serialization slot across bundles. Each purge releases its promise on actual settlement; writer obligations have a separate purge rule."
     }
   },
   "tables": {
@@ -4597,6 +4606,27 @@
     "memory:src/lib/export/project-export-tickets.ts#projectTicketState.pending": {
       "stores": [
         "memory:src/lib/export/project-export-tickets.ts#projectExportTickets"
+      ]
+    },
+    "memory:src/lib/provider-cache-generation.ts#state.writers": {
+      "stores": [
+        "memory:provider-cache-writers"
+      ]
+    },
+    "memory:src/lib/provider-cache-generation.ts#state": {
+      "stores": [
+        "memory:provider-cache-coordination",
+        "memory:provider-cache-writers"
+      ]
+    },
+    "location:src/lib/auth/account-erasure-provider-caches.ts#eraseProviderCaches:dataDir": {
+      "stores": [
+        "file:geocode",
+        "file:isochrone",
+        "file:overpass"
+      ],
+      "roots": [
+        "."
       ]
     }
   },

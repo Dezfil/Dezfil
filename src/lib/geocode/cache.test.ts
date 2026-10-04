@@ -1,7 +1,8 @@
+import { providerCacheGeneration } from "@/lib/provider-cache-generation";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { cacheKey, maintain, readAnswer, writeAnswer } from "./cache";
+import { cacheKey, maintain, readAnswer, writeAnswer as storeAnswer } from "./cache";
 
 /**
  * The durable answer cache.
@@ -11,6 +12,7 @@ import { cacheKey, maintain, readAnswer, writeAnswer } from "./cache";
  * when either expires, which is the whole point of having two.
  */
 
+const writeAnswer = (endpoint: string, normalized: string, answer: Parameters<typeof storeAnswer>[2]) => storeAnswer(endpoint, normalized, answer, providerCacheGeneration());
 let dir: string;
 const ENDPOINT = "https://geocoder.example/search?key=secret";
 const HOUR = 60 * 60 * 1000;

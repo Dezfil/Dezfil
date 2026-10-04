@@ -1,3 +1,4 @@
+import { beginProviderCacheWrite } from "@/lib/provider-cache-generation";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -95,27 +96,31 @@ export async function writeAnswer(
   endpointUrl: string,
   normalized: string,
   answer: CachedAnswer,
+  generation: number,
 ): Promise<void> {
-  const dir = cacheDir();
-  await mkdir(dir, { recursive: true });
-  const key = cacheKey(endpointUrl, normalized);
-  const file = path.join(dir, `${key}.json`);
-  // Atomic within the directory: a reader sees the whole entry or no entry,
-  // never half of one. **Unique per write**, not per process: two writes of one
-  // address that overlap would otherwise target the same temporary file, and
-  // the first rename would take it out from under the second — failing a run
-  // that did nothing wrong.
-  const staging = path.join(dir, `.${key}.${randomUUID()}.tmp`);
-  await writeFile(staging, JSON.stringify(answer), "utf8");
-  await rename(staging, file);
-  await maintain();
+  const finish = await beginProviderCacheWrite(generation); if (!finish) return;
+  try {
+    const dir = cacheDir();
+    await mkdir(dir, { recursive: true });
+    const key = cacheKey(endpointUrl, normalized);
+    const file = path.join(dir, `${key}.json`);
+    // Atomic within the directory: a reader sees the whole entry or no entry,
+    // never half of one. **Unique per write**, not per process: two writes of one
+    // address that overlap would otherwise target the same temporary file, and
+    // the first rename would take it out from under the second — failing a run
+    // that did nothing wrong.
+    const staging = path.join(dir, `.${key}.${randomUUID()}.tmp`);
+    await writeFile(staging, JSON.stringify(answer), "utf8");
+    await rename(staging, file);
+    await maintain();
+  } finally { finish(); }
 }
 
 /**
  * Expired entries go, then oldest-first eviction holds the cache under its
  * budget. Runs around the cache's own writes — never from a boot sweep, for
  * the reason the Overpass cache states: this cache is durable by design and
- * must only ever shrink by lifetime and budget.
+ * shrinks by lifetime, budget and account erasure.
  */
 export async function maintain(now: number = Date.now()): Promise<void> {
   try {

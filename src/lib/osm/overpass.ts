@@ -1,3 +1,4 @@
+import { beginProviderCacheWrite, providerCacheGeneration } from "@/lib/provider-cache-generation";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import {
@@ -64,7 +65,7 @@ async function readCache(key: string): Promise<OverpassResponse | null> {
  * Cache maintenance: TTL-expired entries are unlinked, then oldest-first
  * eviction holds the cache under its size budget. Runs around the cache's
  * own writes — never from a boot sweep; this cache is durable by design
- * and must only ever shrink by TTL and budget.
+ * and shrinks by TTL, budget and account erasure.
  */
 export async function maintainOverpassCache(): Promise<void> {
   try {
@@ -104,14 +105,15 @@ export async function maintainOverpassCache(): Promise<void> {
   }
 }
 
-async function writeCache(key: string, body: OverpassResponse): Promise<void> {
+async function writeCache(key: string, body: OverpassResponse, generation: number): Promise<void> {
+  const finish = await beginProviderCacheWrite(generation); if (!finish) return;
   try {
     await mkdir(cacheDir(), { recursive: true });
     await writeFile(path.join(cacheDir(), `${key}.json`), JSON.stringify(body));
     await maintainOverpassCache();
   } catch {
     /* A failed cache write never fails an import */
-  }
+  } finally { finish(); }
 }
 
 /** Fetch a query, cached. `bypassCache` re-hits the endpoint (refresh). */
@@ -119,6 +121,7 @@ export async function fetchOverpass(
   ql: string,
   options: { bypassCache?: boolean } = {},
 ): Promise<{ response: OverpassResponse; fromCache: boolean }> {
+  const generation = providerCacheGeneration();
   const endpoint = overpassEndpoint();
   const key = cacheKey(endpoint, ql);
   if (!options.bypassCache) {
@@ -219,6 +222,6 @@ export async function fetchOverpass(
     );
   }
 
-  await writeCache(key, body);
+  await writeCache(key, body, generation);
   return { response: body, fromCache: false };
 }
