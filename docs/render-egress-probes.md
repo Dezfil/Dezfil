@@ -1,8 +1,8 @@
 # Renderer destination probes
 
-These are assertion-bearing probes for the built image. They add no renderer
-repair or pipeline step. Their socket/browser outcomes require an outside run;
-unit tests exercise only the evidence checker.
+These are assertion-bearing probes for the built image and the relay. Their
+socket/browser outcomes require an outside run. Pure parser, admission and
+evidence-checker tests make no connection claim. No pipeline step is added here.
 
 ## Original gate
 
@@ -14,8 +14,9 @@ DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) node scripts/render-egress-
 
 Use the baseline image built from `2aded21`, then repeat with the repaired image
 tag. `--victim style` or `--victim blind` runs one three-arm variant; the default
-runs both and reports every arm even when earlier assertions fail. Expect
-90–180 seconds for both variants, to be measured by the outside runner.
+runs both and reports every arm even when earlier assertions fail. The observed
+baseline took 27 seconds for both variants (exit 1). Measure the candidate
+separately; this is an observation, not a response-time promise.
 
 Each invocation owns a random `dezfil-egress-<pid>-<nonce>` prefix. It creates two
 internal networks (`-public`, `203.0.113.0/24`; `-private`, `192.168.99.0/24`) and
@@ -98,7 +99,8 @@ DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) node scripts/render-egress-
 
 This runs 43 independent exports. `--suite dependencies` selects its twelve
 dependency exports; `--suite controls` selects its 31 compatibility exports.
-Expect 10–20 minutes for the whole matrix, to be measured outside. It uses the
+The observed baseline took 198 seconds: 240 assertions passed and 23 failed,
+exactly on the six changed-name roads below. It uses the
 same four owned container names and two owned network names as the gate,
 recreating them for every arm. The link-local arms use `169.254.99.0/24` for the
 private network instead of `192.168.99.0/24`. IPv6 arms add
@@ -162,7 +164,9 @@ invented baseline reds or claims made by these controls.
 DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) node scripts/render-egress-driver.mjs --image dezfil:baseline --suite timing
 ```
 
-Expect 3–8 minutes, to be measured outside. Same owned names, standard two
+The observed baseline took 95 seconds, exit 0: all ten measured exports had
+81 completed tiles each, with a 4,543 ms median. This is an unpaired baseline.
+Same owned names, standard two
 internal subnets and ports as the gate; no host ports. Each app has two CPUs
 and 4 GiB of memory, a fresh store and a fresh browser. Browser caching is
 disabled and every fixture response is `no-store`. The fixture is HTTP on the
@@ -204,3 +208,48 @@ two warmups and ten interleaved samples per version on the same idle host, and
 record both medians, delta, ratio and every void. The direct-bypass and delay
 mutants wait for that observer and comparison; the observer unit seed here
 only weakens the 64-tile minimum and is restored before commit.
+
+
+## Relay framing, connections and local clients
+
+Run from this checkout on a host that can bind IPv4 and IPv6 loopback sockets:
+
+```sh
+DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) npm test -- src/lib/export/render-socks.test.ts src/lib/export/render-address.test.ts src/lib/export/render-relay.test.ts
+DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) node scripts/render-relay-seeds.mjs
+```
+
+No browser, container, network, fixed port or external service is created.
+The socket fixture owns ephemeral TCP listeners on `127.0.0.1` and `::1`,
+checks liveness before silence, and tears down its own clients/listeners in
+`afterEach`. The relay owns its independent ephemeral IPv4 loopback listener,
+upstream sockets and timers. Residue assertions run before fixture teardown.
+Estimated added outside runtime: 20 seconds for the unseeded files and 40 seconds
+for all relay seeds; these are expectations to measure, not observed timings.
+
+Green means echo bytes arrive through the relay, only the admitted target sees
+contact, reconnects recheck, mixed/literal denials contact nothing, each allowlist
+exception works, and an unreachable first address falls back after one resolution.
+A local client can use an allowed target; it cannot evade the policy. No client
+authentication or exclusivity is promised. DNS/transport failures do not set the
+policy-refusal flag. Invalid/unfinished handshakes open no upstream connection.
+Closing destroys tunnels and the listener; a late DNS result cannot dial.
+
+The seed runner first requires the unmodified named test to pass, applies one
+source mutation, requires an assertion failure (infrastructure failure is not a
+red), then restores exact source bytes in `finally`. Do not run it alongside an
+editor/build/test in this checkout. Logs remain in `.claude/logs/render-relay-seeds`.
+`--list` lists seeds; `--seed=<name>` selects one; `--unit` runs only socket-free
+proofs. Each child gets a fresh scratch data directory. The seeds are:
+
+- `parser`: accepts UDP ASSOCIATE as CONNECT; malformed-command assertion fails.
+- `second-lookup`: replaces admitted addresses with a fresh unchecked resolution;
+  target-contact/one-resolution assertions fail.
+- `unchecked-literal`: skips literal policy; denial/silence assertions fail.
+- `mixed-answer`: admits a set with any allowed address; whole-set refusal fails.
+- `omitted-hostname-exception`, `omitted-ip-exception`, `omitted-cidr-exception`:
+  each named exception's successful admission and real connection fail.
+- `first-address-only`: omits remaining admitted candidates; fallback echo fails.
+
+The existing gate/matrix commands should be repeated with the candidate image.
+No TLS or guarded timing assertion is supplied by these socket tests.
