@@ -43,6 +43,15 @@ Removing owned cleanup must fail its control. The quick probe also runs through
 real routes in-process; omitting a reader must fail its coverage assertions.
 Neither test establishes container readiness or the image job's elapsed time.
 
+The decimal geometry latency control compares a large LineString exactly with
+`JSON.parse(ST_AsGeoJSON)`, then prints the elapsed query time and geometry bytes:
+
+```sh
+DEZFIL_DATA_DIR=$(mktemp -d /tmp/dezfil-test-XXXXXX) npx vitest run src/lib/query/geometry-latency.test.ts
+```
+
+Use the same self-contained test source and native dependencies for comparisons.
+
 ## Served standalone probe
 
 Build once outside a restricted runner, then provision two instances on
@@ -84,7 +93,7 @@ use nested cells so geometry-choice excerpts do not defeat the control.
 Expected totals come from fitting response bytes, including current metadata;
 SQL runtime digit changes are re-fitted. Inability to land fails the run.
 
-Valid native multipoints have compact GeoJSON sizes 10,151,576, 6,138,709 and
+Valid native multipoints use decimal coordinates and have compact GeoJSON sizes 10,151,576, 6,138,709 and
 267,502 bytes. The 258-row control totals 12,395,238 bytes with a 1,573,724-byte
 largest geometry. Large shapes come first within each reader's row window.
 Multipoints survive preview simplification, so emitted geometry above 2 MiB

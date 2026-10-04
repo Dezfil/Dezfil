@@ -7,16 +7,16 @@ import { sourceFixture } from './result-budget-source.mjs';
 export function geometrySQL(bytes) {
   const prefix = '{"type":"MultiPoint","coordinates":[';
   const fixed = Buffer.byteLength(prefix) + 1;
-  const points = Math.floor((bytes - fixed) / 6), extra = bytes - fixed - points * 6;
-  assert.ok(points > 0 && extra >= 0 && extra < 6);
-  const [x, y] = [[1, 1], [10, 1], [100, 1], [-100, 1], [-100, 10], [-100, -90]][extra];
-  return `ST_GeomFromGeoJSON('${prefix}' || repeat('[0,0],', ${points - 1}) || '[${x},${y}]]}')`;
+  const points = Math.floor((bytes - fixed) / 10), extra = bytes - fixed - points * 10;
+  assert.ok(points > 0 && extra >= 0 && extra < 10);
+  const x = `0.${"5".repeat(extra + 1)}`, y = 0.5;
+  return `ST_GeomFromGeoJSON('${prefix}' || repeat('[0.5,0.5],', ${points - 1}) || '[${x},${y}]]}')`;
 }
 export function countriesSQL(postgres = false) {
   const other = Math.floor((12395238 - 1573724) / 257), second = 12395238 - 1573724 - other * 256;
   return `SELECT i::INTEGER AS id, CASE i WHEN 0 THEN ${geometrySQL(1573724)} WHEN 1 THEN ${geometrySQL(second)} ELSE ${geometrySQL(other)} END AS geometry FROM ${postgres ? 'generate_series(0,257)' : 'range(258)'} t(i)`;
 }
-const point = 'ST_Point(1,2) AS geometry';
+const point = 'ST_Point(0.5,0.5) AS geometry';
 const select = value => `SELECT ${value}, ${point}`;
 
 function localReaders(client) {

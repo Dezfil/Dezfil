@@ -58,7 +58,7 @@ async function measure(bytes: AsyncIterable<Uint8Array>) {
 
 describe("dataset inspection result budget", () => {
   it("refuses the full metadata envelope at plus-one and admits minus-one and equality", async () => {
-    await seed("envelope", "SELECT repeat('x', 1000000) AS value FROM range(33)", 33);
+    await seed("envelope", "SELECT repeat('x', 1000000) AS value, ST_Point(0.5,0.5) AS geometry FROM range(33)", 33, "geometry");
     await seed("source", "SELECT 1 AS id", 1);
     const project = createProject(testAccountScope(), { name: "Coast é" });
     fileTable("envelope", project.id);

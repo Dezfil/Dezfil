@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DuckDBConnection, DuckDBResult, DuckDBVarCharVector } from "@duckdb/node-api";
 import { withConnection } from "@/lib/duckdb";
 import { setupGeometryTest, cleanupGeometryTest } from "@/lib/test-support/geometry";
+import { geometryOfBytes } from "@/lib/test-support/budget-geometry";
 import { PgPreviewOwner } from "./preview-owner";
 
 const fixture = vi.hoisted(() => ({ sql: "SELECT 1 AS v", columns: [{ name: "v", udt: "text" }], source: "" }));
@@ -46,7 +47,7 @@ it("refuses nested and escaped cells without decoding excess or later values", a
 });
 it.each(["geometry", "geography"])("exempts source %s WKT, retaining the five-row limit and source projection", async udt => {
   fixture.columns = [{ name: "v", udt }];
-  fixture.sql = "SELECT 'LINESTRING (' || repeat('0 0,', 550000) || '1 1)' AS v FROM range(6)";
+  fixture.sql = "SELECT 'LINESTRING (' || repeat('0.5 0.5,', 300000) || '1.5 1.5)' AS v FROM range(6)";
   const answer = await preview();
   expect(answer.rows).toHaveLength(5);
   expect(Buffer.byteLength(JSON.stringify(answer.rows[0].v))).toBeGreaterThan(2097152);
@@ -56,8 +57,8 @@ it.each(["geometry", "geography"])("exempts source %s WKT, retaining the five-ro
   await refused(preview());
 });
 it("fits the columns and rows envelope independently, excluding internal health", async () => {
-  fixture.columns = Array.from({ length: 4 }, (_, i) => ({ name: `v${i}`, udt: "text" }));
-  const sql = (tail: number) => `SELECT ${fixture.columns.map((c, i) => `repeat('x', ${i === 3 ? `CASE range WHEN 4 THEN ${tail} ELSE 1700000 END` : 1700000}) AS ${c.name}`).join(",")} FROM range(5)`;
+  fixture.columns = [...Array.from({ length: 4 }, (_, i) => ({ name: `v${i}`, udt: "text" })), { name: "geometry", udt: "geometry" }];
+  const sql = (tail: number) => `SELECT ${fixture.columns.slice(0, 4).map((c, i) => `repeat('x', ${i === 3 ? `CASE range WHEN 4 THEN ${tail} ELSE 1700000 END` : 1700000}) AS ${c.name}`).join(",")}, 'POINT (0.5 0.5)' AS geometry FROM range(5)`;
   fixture.sql = sql(1);
   const { columns, rows } = await preview();
   const overhead = Buffer.byteLength(JSON.stringify({ columns, rows })) - 19 * 1700000 - 1;
@@ -90,4 +91,11 @@ it("discards a chunk after caller departure without decoding it", async () => {
     const chunk = await original.call(this); controller.abort(); return chunk;
   });
   expect(await preview(controller.signal).then(() => null, e => e)).toBeInstanceOf(EvaluationCancelled);
+});
+
+it.each([10_151_576, 6_138_709, 267_502])("admits the %s-byte decimal geometry source control", async bytes => {
+  fixture.columns = [{ name: "v", udt: "geometry" }];
+  fixture.sql = `SELECT ST_AsText(CASE range WHEN 0 THEN ${geometryOfBytes(bytes)} ELSE ST_Point(0.5,0.5) END) AS v FROM range(6)`;
+  const expected = await withConnection(async conn => (await conn.runAndReadAll(`${fixture.sql} LIMIT 5`)).getRowObjectsJson());
+  expect((await preview()).rows).toEqual(expected);
 });

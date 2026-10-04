@@ -7,22 +7,19 @@ import { jsonBytes, type CellBudget } from "./result-budget";
  * coordinate arrays stay typed vectors, not a JavaScript string or whole list. */
 function coordinateProjection(expression: string): string {
   const node = (value: string) => {
-    const kind = `json_extract_string(${value}, '$.type')`;
-    const coords = `json_extract(${value}, '$.coordinates')`;
+    // ST_AsGeoJSON emits type first and coordinates as the final member.
+    // Extract that array as text so only from_json parses the large document.
+    const kind = `regexp_extract(${value}, '^\\{"type":"([^"]+)"', 1)`;
+    const coords = `CASE WHEN ${kind} <> 'GeometryCollection' THEN substr(${value}, strpos(${value}, '['), length(${value}) - strpos(${value}, '[')) END`;
+    const prefix = `CASE ${kind} WHEN 'Point' THEN '[[[' WHEN 'LineString' THEN '[[' WHEN 'MultiPoint' THEN '[[' WHEN 'Polygon' THEN '[' WHEN 'MultiLineString' THEN '[' WHEN 'MultiPolygon' THEN '' END`;
+    const suffix = `CASE ${kind} WHEN 'Point' THEN ']]]' WHEN 'LineString' THEN ']]' WHEN 'MultiPoint' THEN ']]' WHEN 'Polygon' THEN ']' WHEN 'MultiLineString' THEN ']' WHEN 'MultiPolygon' THEN '' END`;
     return `struct_pack(
       kind := ${kind},
-      children := CASE WHEN ${kind} = 'GeometryCollection' THEN json_array_length(${value}, '$.geometries') ELSE NULL END,
-      coordinates := from_json(CASE ${kind}
-        WHEN 'Point' THEN '[[[' || ${coords} || ']]]'
-        WHEN 'LineString' THEN '[[' || ${coords} || ']]'
-        WHEN 'MultiPoint' THEN '[[' || ${coords} || ']]'
-        WHEN 'Polygon' THEN '[' || ${coords} || ']'
-        WHEN 'MultiLineString' THEN '[' || ${coords} || ']'
-        WHEN 'MultiPolygon' THEN CAST(${coords} AS VARCHAR)
-        END, '\"DOUBLE[][][][]\"')
+      children := json_array_length(CASE WHEN ${kind} = 'GeometryCollection' THEN ${value} END, '$.geometries'),
+      coordinates := from_json((${prefix}) || ${coords} || (${suffix}), '\"DOUBLE[][][][]\"')
     )`;
   };
-  const collection = `json_extract_string(${expression}, '$.type') = 'GeometryCollection'`;
+  const collection = `regexp_matches(${expression}, '^\\{"type":"GeometryCollection"')`;
   return `CASE WHEN ${expression} IS NULL THEN NULL
     WHEN NOT (${collection}) THEN [${node(expression)}]
     ELSE (SELECT list(${node("value")} ORDER BY id)
@@ -33,15 +30,16 @@ function coordinateProjection(expression: string): string {
 export function geojsonProjection(expression: string): string {
   // The native writer emits integral doubles with a .0 suffix. Removing that
   // suffix is exact for JSON.parse followed by JSON.stringify.
-  expression = String.raw`regexp_replace(${expression}, '\.0([,\]])', '\1', 'g')`;
+  const normalized = String.raw`regexp_replace(${expression}, '\.0([,\]])', '\1', 'g')`;
+  expression = "__dezfil_geometry.text";
   // Integer-coordinate GeoJSON is already in JSON.stringify's number form.
   // Keep that common case as text, with its length checked before decoding.
   // Decimal/exponent/large-number cases use native coordinates so rounding and
   // notation can change the byte count without first decoding an oversized cell.
   const integerJSON = `NOT regexp_matches(${expression}, '[0-9][.eE]|[0-9]{16}|-0[,\\]]')`;
   const text = `CASE WHEN ${integerJSON} THEN ${expression} END`;
-  return `CASE WHEN ${expression} IS NULL THEN NULL ELSE struct_pack(bytes := octet_length(encode(${text})), text := ${text},
-    objects := ${coordinateProjection(`CASE WHEN NOT (${integerJSON}) THEN ${expression} END`)}) END`;
+  return `(WITH __dezfil_geometry AS MATERIALIZED (SELECT ${normalized} AS text) SELECT CASE WHEN ${expression} IS NULL THEN NULL ELSE struct_pack(bytes := octet_length(encode(${text})), text := ${text},
+    objects := ${coordinateProjection(`CASE WHEN NOT (${integerJSON}) THEN ${expression} END`)}) END FROM __dezfil_geometry)`;
 }
 
 function coordinates(vector: DuckDBVector, index: number, depth: number, budget: CellBudget): unknown {

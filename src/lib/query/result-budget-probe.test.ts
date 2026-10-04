@@ -31,6 +31,7 @@ it("constructs independently measured native fitting geometry controls", async (
     for (const size of [10151576, 6138709, 267502]) {
       const result = (await conn.runAndReadAll(`SELECT ST_AsGeoJSON(${geometrySQL(size)}) AS value`)).getRowObjects()[0].value;
       expect(Buffer.byteLength(JSON.stringify(JSON.parse(String(result))))).toBe(size);
+      expect(JSON.parse(String(result)).coordinates[0]).toEqual([0.5, 0.5]);
     }
     const rows = (await conn.runAndReadAll(`SELECT ST_AsGeoJSON(geometry) AS value FROM (${countriesSQL()}) q`)).getRowObjects();
     const sizes = rows.map(row => Buffer.byteLength(JSON.stringify(JSON.parse(String(row.value)))));

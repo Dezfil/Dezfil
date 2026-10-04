@@ -2,7 +2,7 @@ import { geometryOfBytes, countryGeometryRows } from "@/lib/test-support/budget-
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
-import { DuckDBConnection, DuckDBResult, DuckDBVarCharVector } from "@duckdb/node-api";
+import { DuckDBConnection, DuckDBDoubleVector, DuckDBResult, DuckDBVarCharVector } from "@duckdb/node-api";
 import { testAccountRequest, testAccountScope } from "@/lib/test-support/accounts";
 import { closeMetadataDb } from "@/lib/metadata/db";
 import { resetQueryInstance, withConnection } from "@/lib/duckdb";
@@ -73,14 +73,14 @@ describe("SQL result byte budget", () => {
     await refused(query(`SELECT 1 AS "${name}" FROM range(1000)`));
   });
 
-  it("admits minus-one and exact complete envelopes and refuses plus-one using an independent fitting control", async () => {
+  it.each(["wkt", "geojson"] as const)("admits minus-one and exact complete %s envelopes and refuses plus-one using an independent fitting control", async geometry => {
     const scope = testAccountScope();
     vi.spyOn(Date, "now").mockReturnValue(Date.now());
-    const sql = (tail: number) => `SELECT repeat('x', CASE range WHEN 32 THEN ${tail} ELSE 1000000 END) AS v FROM range(33)`;
-    const fitting = await executeQuery(scope, sql(1));
+    const sql = (tail: number) => `SELECT repeat('x', CASE range WHEN 32 THEN ${tail} ELSE 1000000 END) AS v, ST_Point(0.5,0.5) AS geometry FROM range(33)`;
+    const fitting = await executeQuery(scope, sql(1), { geometry });
     const overhead = Buffer.byteLength(JSON.stringify(fitting)) - 32_000_001;
     for (const delta of [-1, 0, 1]) {
-      const answer = executeQuery(scope, sql(33_554_432 - overhead - 32_000_000 + delta));
+      const answer = executeQuery(scope, sql(33_554_432 - overhead - 32_000_000 + delta), { geometry });
       if (delta > 0) expect(await answer.then(() => null, e => e)).toMatchObject(refusal);
       else expect(Buffer.byteLength(JSON.stringify(await answer))).toBe(33_554_432 + delta);
     }
@@ -115,7 +115,7 @@ describe("SQL result byte budget", () => {
   });
 
   it("retains parsed GeoJSON geometry collections, empty shapes and numeric presentation", async () => {
-    for (const wkt of ["POINT EMPTY", "POINT (0.0000001 12345678901234567)", "MULTIPOLYGON (((0 0,1 0,1 1,0 0)))", "GEOMETRYCOLLECTION (POINT (1 2), GEOMETRYCOLLECTION (LINESTRING (0 0,1 1)))"]) {
+    for (const wkt of ["POINT EMPTY", "POINT (0.0000001 12345678901234567)", "LINESTRING (0.5 0.5, 1.25 1.5, 0.0000001 -0.0000001)", "MULTIPOLYGON (((0.5 0.5,1.5 0.5,1.5 1.5,0.5 0.5)))", "GEOMETRYCOLLECTION (POINT (1.5 2.5), GEOMETRYCOLLECTION (LINESTRING (0.5 0.5,1.5 1.5)))"]) {
       const expected = await withConnection(async conn => JSON.parse(String((await conn.runAndReadAll(`SELECT ST_AsGeoJSON(ST_GeomFromText('${wkt}')) AS g`)).getRowObjects()[0].g)));
       const result = await executeQuery(testAccountScope(), `SELECT ST_GeomFromText('${wkt}') AS g`, { geometry: "geojson" });
       expect(result.preview[0].g).toEqual(expected);
@@ -177,12 +177,18 @@ describe("SQL result byte budget", () => {
   });
 
   it("admits coastline-sized native geometries with independently measured GeoJSON and WKT envelopes", async () => {
+    process.env.DEZFIL_QUERY_MEMORY_MB = "512";
     for (const bytes of [10_151_576, 6_138_709]) {
       for (const geometry of ["geojson", "wkt"] as const) {
+        let decoded = false;
+        const original = DuckDBDoubleVector.prototype.getItem;
+        const spy = vi.spyOn(DuckDBDoubleVector.prototype, "getItem").mockImplementationOnce(function (this: DuckDBDoubleVector, index) {
+          decoded = true; spy.mockRestore(); return original.call(this, index);
+        });
         const answer = await executeQuery(testAccountScope(), `SELECT ${geometryOfBytes(bytes)} AS coast`, { geometry });
         const cellBytes = Buffer.byteLength(JSON.stringify(answer.preview[0].coast));
-        if (geometry === "geojson") expect(cellBytes).toBe(bytes);
-        else expect(cellBytes).toBeGreaterThan(2_097_152);
+        if (geometry === "geojson") { expect(cellBytes).toBe(bytes); expect(decoded).toBe(true); }
+        else { spy.mockRestore(); expect(cellBytes).toBeGreaterThan(2_097_152); }
         expect(Buffer.byteLength(JSON.stringify(answer))).toBeLessThan(33_554_432);
       }
     }
@@ -194,6 +200,7 @@ describe("SQL result byte budget", () => {
   });
 
   it.each(["wkt", "geojson"] as const)("refuses complete native-geometry overflow in %s", async (geometry) => {
+    process.env.DEZFIL_QUERY_MEMORY_MB = "512";
     const error = await executeQuery(testAccountScope(), `SELECT ${geometryOfBytes(10_151_576)} AS coast FROM range(4)`, { geometry }).then(() => null, e => e);
     expect(error).toMatchObject(refusal);
   });
