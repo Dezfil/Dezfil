@@ -155,6 +155,17 @@ describe("SQL result byte budget", () => {
     expect((await query(sql)).preview).toEqual(expected);
   });
 
+  it("matches the client's text conversion for all 256 blob byte values", async () => {
+    const hex = Buffer.from(Array.from({ length: 256 }, (_, byte) => byte)).toString("hex");
+    const sql = `SELECT from_hex('${hex}') AS b`;
+    const expected = await withConnection(async conn => {
+      const size = (await conn.runAndReadAll(`SELECT octet_length(b) AS bytes FROM (${sql}) q`)).getRowObjects()[0].bytes;
+      expect(Number(size)).toBe(256);
+      return (await conn.runAndReadAll(sql)).getRowObjectsJson();
+    });
+    expect((await query(sql)).preview).toEqual(expected);
+  });
+
   it("preserves the client's last unnamed struct entry, including zipped lists", async () => {
     expect((await query("SELECT row(1, 'a') AS r, list_zip([1], [2]) AS z")).preview)
       .toEqual([{ r: { "": "a" }, z: [{ "": 2 }] }]);
