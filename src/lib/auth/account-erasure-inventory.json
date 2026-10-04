@@ -744,6 +744,11 @@
     "memory:provider-cache-coordination": {
       "action": "retain",
       "rule": "Keep the monotonic non-content generation and serialization slot across bundles. Each purge releases its promise on actual settlement; writer obligations have a separate purge rule."
+    },
+    "memory:account-deletion-work": {
+      "action": "erase",
+      "rule": "Drain admitted reads and output cleanup through settlement; release identities and promises before completion.",
+      "fixture": "memory:account-deletion-work"
     }
   },
   "tables": {
@@ -4434,16 +4439,6 @@
         "memory:src/lib/query/views.ts#mounted"
       ]
     },
-    "memory:src/lib/query/retained.ts#holder": {
-      "stores": [
-        "memory:query-store-registry"
-      ]
-    },
-    "memory:src/lib/query/retained.ts#holder.stores": {
-      "stores": [
-        "memory:query-store-registry"
-      ]
-    },
     "location:src/lib/geometry/inspection-cache.ts#inspectionCache.inspect.key:dataDir": {
       "stores": [
         "file:tables"
@@ -4627,6 +4622,21 @@
       ],
       "roots": [
         "."
+      ]
+    },
+    "memory:src/lib/auth/account-deletion-admission.ts#holder": {
+      "stores": [
+        "memory:query-store-registry"
+      ]
+    },
+    "memory:src/lib/auth/account-deletion-admission.ts#holder.stores": {
+      "stores": [
+        "memory:query-store-registry"
+      ]
+    },
+    "memory:src/lib/auth/account-deletion-admission.ts#holder.work": {
+      "stores": [
+        "memory:account-deletion-work"
       ]
     }
   },
