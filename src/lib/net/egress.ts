@@ -175,6 +175,11 @@ export async function resolveAllowed(
   host: string,
   lookupFn: LookupFn = nodeLookup,
 ): Promise<string[]> {
+  // URI hosts retain brackets in storage. Only valid IPv6 literals lose
+  // them here, before both classification and allowlist name matching.
+  if (host.startsWith("[") && host.endsWith("]") && isIP(host.slice(1, -1)) === 6) {
+    host = host.slice(1, -1);
+  }
   if (isIP(host)) {
     if (!isAddressAllowed(host, host)) throw egressBlockedError();
     return [host];

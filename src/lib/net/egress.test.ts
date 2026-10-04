@@ -172,3 +172,35 @@ for (const arm of ["failure", "answer"] as const) {
     }
   });
 }
+
+
+describe("PostGIS literal normalization and administrator exceptions", () => {
+  it.each(["::1", "fd00::1", "fe80::1", "::ffff:127.0.0.1", "64:ff9b::7f00:1"])("blocks both spellings of %s without DNS", async (literal) => {
+    const lookup = vi.fn();
+    for (const host of [literal, `[${literal}]`]) {
+      await expect(resolveAllowed(host, lookup)).rejects.toMatchObject({ status: 403, code: "egress_blocked" });
+    }
+    expect(lookup).not.toHaveBeenCalled();
+  });
+  it.each(["::1", "::1/128", "::/64"])("admits both spellings by %s", async (entry) => {
+    process.env.DEZFIL_EGRESS_ALLOWLIST = entry;
+    const lookup = vi.fn();
+    for (const host of ["::1", "[::1]"]) {
+      await expect(resolveAllowed(host, lookup)).resolves.toEqual(["::1"]);
+    }
+    expect(lookup).not.toHaveBeenCalled();
+  });
+  it("does not treat a bracket-spelled entry as a hostname exception", async () => {
+    process.env.DEZFIL_EGRESS_ALLOWLIST = "[::1]";
+    const lookup = vi.fn();
+    for (const host of ["::1", "[::1]"]) {
+      await expect(resolveAllowed(host, lookup)).rejects.toMatchObject({ code: "egress_blocked" });
+    }
+    expect(lookup).not.toHaveBeenCalled();
+  });
+  it.each(["[db.example.org]", "[not:ipv6]", "[::1", "::1]"])("retains the lookup path for malformed host %s", async (host) => {
+    const lookup = vi.fn().mockResolvedValue([{ address: "8.8.8.8", family: 4 }]);
+    await expect(resolveAllowed(host, lookup)).resolves.toEqual(["8.8.8.8"]);
+    expect(lookup).toHaveBeenCalledWith(host, { all: true, verbatim: true });
+  });
+});
