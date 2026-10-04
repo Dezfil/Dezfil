@@ -144,6 +144,20 @@ describe("SQL result byte budget", () => {
     expect((await query(sql)).preview).toEqual(expected);
   });
 
+  it("preserves bare backslash bytes in blobs and nested geometry", async () => {
+    const sql = String.raw`SELECT '\x5C'::BLOB AS b, {'g': ST_Point(113, 0)} AS s,
+      ['\x5Cx5C\x00'::BLOB] AS nested, '\x5C'::BLOB::VARIANT AS variant`;
+    const expected = await withConnection(async conn => (await conn.runAndReadAll(sql)).getRowObjectsJson());
+    expect(expected[0].b).toBe("\\");
+    expect((await query(sql)).preview).toEqual(expected);
+  });
+
+  it.each([-1, 0, 1])("counts the shipped blob text at its cell boundary (%s)", async delta => {
+    const sql = `SELECT encode(repeat(chr(92), 1048574) || repeat('a', ${delta + 2})) AS b`;
+    if (delta > 0) await refused(query(sql));
+    else expect(Buffer.byteLength(JSON.stringify((await query(sql)).preview[0].b))).toBe(2097152 + delta);
+  });
+
   it("preserves heterogeneous variant containers and refuses their oversized leaves before decoding", async () => {
     const sql = `SELECT {'x': [1::BIGINT, 2], 'a': 'é', 'b': 4294967295::UINTEGER, 'blob': '\\x00'::BLOB}::VARIANT AS value`;
     const expected = await withConnection(async conn => (await conn.runAndReadAll(sql)).getRowObjectsJson());

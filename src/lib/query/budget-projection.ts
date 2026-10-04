@@ -1,4 +1,4 @@
-import { stringByteLength } from "./budget-string";
+import { blobDisplayText, stringByteLength } from "./budget-string";
 import { variantProjection } from "./budget-variant";
 import { DuckDBTypeId, type DuckDBType } from "@duckdb/node-api";
 
@@ -44,7 +44,8 @@ export function budgetProjection(expression: string, type: DuckDBType, depth = 0
     case DuckDBTypeId.BIGNUM:
     case DuckDBTypeId.ENUM:
     case DuckDBTypeId.GEOMETRY: {
-      const text = type.typeId === DuckDBTypeId.GEOMETRY ? `CAST(ST_AsWKB(${expression}) AS VARCHAR)` : `CAST(${expression} AS VARCHAR)`;
+      const text = type.typeId === DuckDBTypeId.GEOMETRY ? blobDisplayText(`ST_AsWKB(${expression})`)
+        : type.typeId === DuckDBTypeId.BLOB ? blobDisplayText(expression) : `CAST(${expression} AS VARCHAR)`;
       return { sql: nullable(`struct_pack(bytes := ${stringByteLength(text)}, value := ${text})`), kind: "text" };
     }
     default: return { sql: expression, kind: "scalar" };

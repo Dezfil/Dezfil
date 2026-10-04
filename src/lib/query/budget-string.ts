@@ -6,3 +6,8 @@ export function stringByteLength(text: string): string {
     + len(regexp_extract_all(${text}, '["\\\x08\x09\x0a\x0c\x0d]'))
     + 5 * len(regexp_extract_all(${text}, '[\x00-\x07\x0b\x0e-\x1f]')))`;
 }
+
+/** The shipped client leaves byte 0x5C bare; the engine's cast escapes it. */
+export function blobDisplayText(blob: string): string {
+  return String.raw`replace(CAST(${blob} AS VARCHAR), '\x5C', '\')`;
+}

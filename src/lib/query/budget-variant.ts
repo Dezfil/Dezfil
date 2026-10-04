@@ -1,4 +1,4 @@
-import { stringByteLength } from "./budget-string";
+import { blobDisplayText, stringByteLength } from "./budget-string";
 import { DuckDBListVector, DuckDBStructVector, DuckDBVariantValue, DuckDBStructValue, VARIANT, JsonDuckDBValueConverter, type DuckDBVector } from "@duckdb/node-api";
 import { jsonBytes, type CellBudget } from "./result-budget";
 
@@ -25,8 +25,9 @@ export function variantProjection(expression: string): string {
     kind := kind,
     children := CASE kind WHEN 1 THEN cardinality(CAST(v AS MAP(VARCHAR, VARIANT))) WHEN 2 THEN len(CAST(v AS VARIANT[])) ELSE 0 END,
     key_bytes := ${stringByteLength("k")}, key_value := k,
-    bytes := CASE WHEN t IN ('VARCHAR', 'BLOB', 'BIT', 'BIGNUM') THEN ${stringByteLength("CAST(v AS VARCHAR)")}
-      WHEN t = 'GEOMETRY' THEN ${stringByteLength("CAST(ST_AsWKB(CAST(v AS GEOMETRY)) AS VARCHAR)")} END,
+    bytes := CASE WHEN t IN ('VARCHAR', 'BIT', 'BIGNUM') THEN ${stringByteLength("CAST(v AS VARCHAR)")}
+      WHEN t = 'BLOB' THEN ${stringByteLength(blobDisplayText("CAST(v AS BLOB)"))}
+      WHEN t = 'GEOMETRY' THEN ${stringByteLength(blobDisplayText("ST_AsWKB(CAST(v AS GEOMETRY))"))} END,
     value := CASE WHEN kind = 0 THEN v END
   ) ORDER BY p) FROM nodes)`;
 }
