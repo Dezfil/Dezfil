@@ -10,7 +10,9 @@ import type { DataTable } from "@/lib/metadata/tables";
  * fences stand on.
  */
 
-const active = new Set<string>();
+const key = Symbol.for("dezfil.refresh-fences");
+const host = globalThis as typeof globalThis & { [key]?: Map<string, ReturnType<typeof Promise.withResolvers<void>>> };
+const active = host[key] ??= new Map<string, ReturnType<typeof Promise.withResolvers<void>>>();
 
 /** The unit a table's refresh contends on: OSM members share their group,
  * and so do the tables of a multi-layer URL import. */
@@ -38,14 +40,23 @@ export function beginRefresh(unit: string, name: string): void {
       409,
     );
   }
-  active.add(unit);
+  active.set(unit, Promise.withResolvers<void>());
 }
 
 export function endRefresh(unit: string): void {
+  active.get(unit)?.resolve();
   active.delete(unit);
 }
 
 /** Test hook, mirroring the tile builder's reset. */
 export function resetRefreshFences(): void {
+  for (const entry of active.values()) entry.resolve();
   active.clear();
 }
+
+export async function drainAccountRefreshes(accountId: string): Promise<void> {
+  const owned = () => [...active].filter(([unit]) => JSON.parse(unit.slice(unit.indexOf(":") + 1))[0] === accountId);
+  while (owned().length) await Promise.all(owned().map(([, entry]) => entry.promise));
+}
+
+export function refreshFencesForTests(): string[] { return [...active.keys()]; }

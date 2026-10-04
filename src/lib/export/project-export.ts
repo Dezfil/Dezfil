@@ -1,8 +1,9 @@
+import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { AuthError } from "@/lib/auth/errors";
 import type { AccountScope } from "@/lib/auth/scope";
 import { canReach, requireReachable } from "@/lib/auth/reach";
 import { createWriteStream } from "node:fs";
-import { mkdir, readdir, rm, stat } from "node:fs/promises";
+import { mkdir, readdir, stat } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { ZipFile } from "yazl";
@@ -220,12 +221,13 @@ export async function assembleProjectExport(
     for (const name of await readdir(stagingDir)) {
       const p = path.join(stagingDir, name);
       const age = now - (await stat(p)).mtimeMs;
-      if (age > 15 * 60_000) await rm(p, { force: true });
+      if (age > 15 * 60_000) await removeAccountFile(p, { force: true });
     }
   } catch {
     // The sweep is best-effort; assembly proceeds regardless.
   }
   const staged = path.join(stagingDir, `${randomUUID()}.zip`);
+  registerAccountFile(scope.accountId, staged);
 
   const zip = new ZipFile();
   const json = (value: unknown) =>
@@ -299,7 +301,7 @@ export async function assembleProjectExport(
     ]);
     return { path: staged, filename: `${base}.zip`, size };
   } catch (e) {
-    await rm(staged, { force: true });
+    await removeAccountFile(staged, { force: true });
     await cleanConversions();
     if (e instanceof ApiError || e instanceof AuthError) throw e;
     throw new ApiError(

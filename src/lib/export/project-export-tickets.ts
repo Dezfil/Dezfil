@@ -1,6 +1,6 @@
+import { removeAccountFile } from "@/lib/ingest/file-ownership";
 import type { AccountScope } from "@/lib/auth/scope";
 import { randomBytes } from "node:crypto";
-import { rm } from "node:fs/promises";
 import { LayerDownloadTicketStore } from "./layer-download-tickets";
 
 export const PROJECT_EXPORT_TICKET_TTL_MS = 60_000;
@@ -16,7 +16,7 @@ export function createProjectExportTicket(scope: AccountScope, projectId: string
 }): { ticket: string; key: string } {
   const key = randomBytes(16).toString("hex");
   const ticket = projectExportTickets.prepare(scope, binding(projectId, key), {
-    ...file, contentType: "application/zip", cleanup: () => rm(file.path, { force: true }),
+    ...file, contentType: "application/zip", cleanup: () => removeAccountFile(file.path, { force: true }),
   });
   return { ticket, key };
 }

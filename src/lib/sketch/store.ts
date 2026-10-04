@@ -1,3 +1,4 @@
+import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { documentFacts } from "@/lib/metadata/document-facts";
 import { recordDocumentChanges, requireDocumentRevision } from "@/lib/metadata/revisions";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
@@ -10,7 +11,7 @@ import { fileTable, mapProjectId } from "@/lib/metadata/projects";
 import { mapHome } from "@/lib/metadata/maps";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { dataDir } from "@/lib/config";
 import { withConnection } from "@/lib/duckdb";
 import { ApiError } from "@/lib/api/errors";
@@ -61,9 +62,14 @@ import {
 
 /* ---------------- serialization ---------------- */
 
-const lanes = new Map<string, Promise<unknown>>();
+const laneKey = Symbol.for("dezfil.sketch-lanes");
+const laneHost = globalThis as typeof globalThis & { [laneKey]?: Map<string, Promise<unknown>> };
+const lanes = laneHost[laneKey] ??= new Map<string, Promise<unknown>>();
+export async function drainSketchWrites(ids: readonly string[]): Promise<void> {
+  while (ids.some(id => lanes.has(id))) await Promise.all(ids.flatMap(id => lanes.get(id) ?? []));
+}
 
-function serialize<T>(key: string, work: () => Promise<T>): Promise<T> {
+export function serializeSketchMutation<T>(key: string, work: () => Promise<T>): Promise<T> {
   const tail = lanes.get(key) ?? Promise.resolve();
   const run = tail.then(work, work);
   const settled = run.then(
@@ -100,9 +106,11 @@ function absOf(rel: string): string {
 
 async function writeArtifact(
   features: StoredSketchFeature[],
+  accountId: string,
 ): Promise<{ rel: string; abs: string }> {
   const rel = path.join("tables", `${randomUUID()}.parquet`);
   const abs = absOf(rel);
+  registerAccountFile(accountId, abs);
   await mkdir(path.dirname(abs), { recursive: true });
   const select = features.length
     ? `SELECT * FROM (VALUES ${features
@@ -202,7 +210,7 @@ export async function createSketch(
     id: randomUUID(),
     ...asSketchFeature(feature),
   };
-  const { rel, abs } = await writeArtifact([stored]);
+  const { rel, abs } = await writeArtifact([stored], scope.accountId);
   try {
     const meta = await withConnection((conn) =>
       measureArtifact(conn, abs, "geom"),
@@ -271,7 +279,7 @@ export async function createSketch(
     })();
     return { ...created, featureId: stored.id };
   } catch (error) {
-    await rm(abs, { force: true });
+    await removeAccountFile(abs, { force: true });
     throw error;
   }
 }
@@ -289,7 +297,7 @@ async function mutate(
   transform: (features: StoredSketchFeature[]) => StoredSketchFeature[],
 ): Promise<MutationResult> {
   const keyed = requireSketch(scope, name);
-  return serialize(keyed.id, async () => {
+  return serializeSketchMutation(keyed.id, async () => {
     const fresh = requireSketch(scope, name);
     // The name alone is not identity: a cascaded sketch's
     // reclaimed name resolves the REPLACEMENT, and the keyed swap would
@@ -302,7 +310,7 @@ async function mutate(
       );
     const features = await readFeatures(absOf(fresh.file));
     const next = transform(features);
-    const { rel, abs } = await writeArtifact(next);
+    const { rel, abs } = await writeArtifact(next, scope.accountId);
     try {
       const meta = await withConnection((conn) =>
         measureArtifact(conn, abs, "geom"),
@@ -326,6 +334,7 @@ async function mutate(
           `"${name}" was deleted or replaced while this change was in flight; nothing was written.`,
           409,
         );
+      registerAccountFile(scope.accountId, fresh.file);
       retireArtifact(absOf(fresh.file));
       return {
         table: {
@@ -338,7 +347,7 @@ async function mutate(
         rowCount: meta.rowCount,
       };
     } catch (error) {
-      await rm(abs, { force: true });
+      await removeAccountFile(abs, { force: true });
       throw error;
     }
   });
@@ -475,7 +484,7 @@ export interface CascadeResult {
  */
 export async function cascadeDeleteSketch(scope: AccountScope, name: string, from: "layer" | "dataset" = "dataset", opts: { expectedRevision?: unknown } = {}): Promise<CascadeResult> {
   const keyed = requireSketch(scope, name);
-  return serialize(keyed.id, async () => {
+  return serializeSketchMutation(keyed.id, async () => {
     const fresh = requireSketch(scope, name);
     if (fresh.id !== keyed.id)
       throw new ApiError(
@@ -546,7 +555,10 @@ export async function cascadeDeleteSketch(scope: AccountScope, name: string, fro
         }`,
       );
     });
+    registerAccountFile(scope.accountId, fresh.file);
     retireArtifact(absOf(fresh.file));
     return { layerId, mapId, ...(editRevision ? { editRevision } : {}) };
   });
 }
+
+export function sketchWritesForTests(): string[] { return [...lanes.keys()]; }

@@ -1,7 +1,7 @@
+import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import type { AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { rm } from "node:fs/promises";
 import { dataDir } from "@/lib/config";
 import { ApiError } from "@/lib/api/errors";
 import type { DataTable, TableDataUpdate } from "@/lib/metadata/tables";
@@ -54,10 +54,11 @@ export function setGeometry(scope: AccountScope, name: string, expectedRevision:
   return withGeometryMutation(scope, name, expectedRevision, async (table, state) => {
     const choice = parseGeometryChoice(input);
     const file = path.join("tables", `${randomUUID()}.parquet`), artifact = path.join(dataDir(), file);
+    registerAccountFile(scope.accountId, artifact);
     try {
       const meta = await readGeometry(table, (conn, from) => buildGeometryArtifact(conn, from, artifact, table, state, choice));
       const { extent, ...facts } = meta;
       return publishGeometry(scope, table, { ...facts, file, importedAt: table.importedAt }, extent);
-    } catch (error) { await rm(artifact, { force: true }); throw error; }
+    } catch (error) { await removeAccountFile(artifact, { force: true }); throw error; }
   });
 }

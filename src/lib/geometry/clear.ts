@@ -1,7 +1,7 @@
+import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import type { AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { rm } from "node:fs/promises";
 import { dataDir } from "@/lib/config";
 import { measureArtifact } from "@/lib/ingest/ingest";
 import { ident, lit } from "@/lib/ingest/sql";
@@ -13,6 +13,7 @@ export function clearGeometry(scope: AccountScope, name: string, expectedRevisio
   return withGeometryMutation(scope, name, expectedRevision, async (table, state) => {
     if (!table.geometryColumn) return geometryMutationResult(scope, table, state, null);
     const file = path.join("tables", `${randomUUID()}.parquet`), artifact = path.join(dataDir(), file);
+    registerAccountFile(scope.accountId, artifact);
     try {
       const meta = await readGeometry(table, async (conn, from) => {
         const columns = await geometryColumns(conn, from);
@@ -27,6 +28,6 @@ export function clearGeometry(scope: AccountScope, name: string, expectedRevisio
         geometryRecord: null, geometryCandidates: [],
         geometryState: { mode: "cleared", choice: null, outputColumn: null, sourceRetained: true },
       }, null);
-    } catch (error) { await rm(artifact, { force: true }); throw error; }
+    } catch (error) { await removeAccountFile(artifact, { force: true }); throw error; }
   });
 }

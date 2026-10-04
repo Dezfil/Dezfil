@@ -1,7 +1,7 @@
+import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { rm } from "node:fs/promises";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { ApiError } from "@/lib/api/errors";
 import { namedSql } from "@/lib/query/named-sql";
@@ -104,6 +104,7 @@ export async function exportLayerResult(
     tileScratchDir(),
     `export-${randomUUID()}.${EXT[format]}`,
   );
+  registerAccountFile(scope.accountId, outFile);
 
   try {
     await boundedEvaluation(
@@ -187,7 +188,7 @@ export async function exportLayerResult(
     );
     requireAccountScope(scope);
   } catch (error) {
-    await rm(outFile, { force: true }).catch(() => undefined);
+    await removeAccountFile(outFile, { force: true }).catch(() => undefined);
     throw error;
   }
 
@@ -195,7 +196,7 @@ export async function exportLayerResult(
     path: outFile,
     filename: safeFilename(layer.name, EXT[format]),
     contentType: CONTENT_TYPE[format],
-    cleanup: () => rm(outFile, { force: true }),
+    cleanup: () => removeAccountFile(outFile, { force: true }),
   };
 }
 
@@ -222,6 +223,7 @@ export async function exportQueryResult(
     tileScratchDir(),
     `export-${randomUUID()}.${EXT[format]}`,
   );
+  registerAccountFile(scope.accountId, outFile);
 
   try {
     await boundedEvaluation(
@@ -273,7 +275,7 @@ export async function exportQueryResult(
     );
     requireAccountScope(scope);
   } catch (error) {
-    await rm(outFile, { force: true }).catch(() => undefined);
+    await removeAccountFile(outFile, { force: true }).catch(() => undefined);
     throw error;
   }
 
@@ -281,7 +283,7 @@ export async function exportQueryResult(
     path: outFile,
     filename: safeFilename(name, EXT[format]),
     contentType: CONTENT_TYPE[format],
-    cleanup: () => rm(outFile, { force: true }),
+    cleanup: () => removeAccountFile(outFile, { force: true }),
   };
 }
 

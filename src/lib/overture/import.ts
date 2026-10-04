@@ -1,8 +1,8 @@
+import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { requireFilingDestination } from "@/lib/auth/reach";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { rm } from "node:fs/promises";
 import { mkdir } from "node:fs/promises";
 import { dataDir } from "@/lib/config";
 import { limits } from "@/lib/limits";
@@ -533,6 +533,7 @@ export async function importOverture(
   const id = randomUUID();
   const relFile = path.join("tables", `${id}.parquet`);
   const artifact = path.join(dataDir(), relFile);
+    registerAccountFile(scope.accountId, artifact);
 
   try {
     const meta = await build(params, artifact);
@@ -568,7 +569,7 @@ export async function importOverture(
       return table;
     })();
   } catch (error) {
-    await rm(artifact, { force: true });
+    await removeAccountFile(artifact, { force: true });
     throw error;
   }
 }

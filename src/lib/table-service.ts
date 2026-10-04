@@ -1,3 +1,4 @@
+import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { resourceAbsent } from "@/lib/auth/owned-resource";
 import { reachableDatasetIds, requireReachable } from "@/lib/auth/reach";
@@ -7,7 +8,7 @@ import { presentDataset, type DatasetPresence } from "@/lib/dataset-presence";
 import { addressDataset, requireOwnDataset } from "@/lib/dataset-address";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { mkdir, rm, stat } from "node:fs/promises";
+import { mkdir, stat } from "node:fs/promises";
 import { dataDir } from "@/lib/config";
 import { limits } from "@/lib/limits";
 import { withConnection } from "@/lib/duckdb";
@@ -309,6 +310,7 @@ export async function exportTable(
   }
   const ext = format === "csv" ? "csv" : "geojson";
   const tmp = path.join(dataDir(), "tmp", `export-${randomUUID()}.${ext}`);
+  registerAccountFile(scope.accountId, tmp);
   await mkdir(path.dirname(tmp), { recursive: true });
   // A tracked artifact reader: retirement waits for the conversion. A
   // conversion that fails after opening its target (a full disk, a late
@@ -341,7 +343,7 @@ export async function exportTable(
       }),
     );
   } catch (e) {
-    await rm(tmp, { force: true }).catch(() => {});
+    await removeAccountFile(tmp, { force: true }).catch(() => {});
     throw e;
   }
   return {
@@ -349,7 +351,7 @@ export async function exportTable(
     filename: `${name}.${ext}`,
     contentType:
       format === "csv" ? "text/csv; charset=utf-8" : "application/geo+json",
-    cleanup: () => rm(tmp, { force: true }),
+    cleanup: () => removeAccountFile(tmp, { force: true }),
   };
 }
 
@@ -395,5 +397,6 @@ export async function removeTable(scope: AccountScope, address: string): Promise
       );
     }
   }
+  registerAccountFile(scope.accountId, table.file);
   retireArtifact(path.join(dataDir(), table.file));
 }

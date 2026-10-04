@@ -1,3 +1,4 @@
+import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { getOwnedTableByName, updateOwnedTableData, ownedDependentLayerIds } from "@/lib/metadata/owned-tables";
@@ -5,7 +6,6 @@ import { requireTable } from "@/lib/table-service";
 import { getGeometryState } from "@/lib/geometry/state";
 import { geometryEvidence } from "@/lib/geometry-evidence";
 import path from "node:path";
-import { rm } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { dataDir } from "@/lib/config";
 import { ApiError } from "@/lib/api/errors";
@@ -94,11 +94,12 @@ export function postCommitCleanup(scope: AccountScope, name: string, oldArtifact
 }
 
 async function rebuildFromUrl(
+  accountId: string,
   table: DataTable,
   artifact: string,
 ): Promise<ArtifactMeta> {
   const url = String(table.sourceParams!.url);
-  const source = await resolveRemoteSource(url);
+  const source = await resolveRemoteSource(url, accountId);
   try {
     const state = getGeometryState(table);
     return await buildArtifact(source.sourcePath, source.filename, artifact, state?.mode === "set" ? { table, state } : undefined);
@@ -153,6 +154,7 @@ async function refreshOsmGroup(
       const cls = member.sourceParams?.class as GeometryClass;
       const relFile = path.join("tables", `${randomUUID()}.parquet`);
       const artifact = path.join(dataDir(), relFile);
+    registerAccountFile(scope.accountId, artifact);
       // A build that dies after partially writing its file must clean that
       // file itself — it joins `candidates` only on success, so the outer
       // catch never sees it.
@@ -160,7 +162,7 @@ async function refreshOsmGroup(
       try {
         meta = await buildClassArtifact(split, cls, promoted, artifact);
       } catch (error) {
-        await rm(artifact, { force: true });
+        await removeAccountFile(artifact, { force: true });
         throw error;
       }
       candidates.push({ member, relFile, artifact, meta });
@@ -195,7 +197,7 @@ async function refreshOsmGroup(
       }
     })();
   } catch (error) {
-    for (const c of candidates) await rm(c.artifact, { force: true });
+    for (const c of candidates) await removeAccountFile(c.artifact, { force: true });
     throw error;
   }
 
@@ -250,6 +252,7 @@ async function performRefresh(
 
   const relFile = path.join("tables", `${randomUUID()}.parquet`);
   const artifact = path.join(dataDir(), relFile);
+    registerAccountFile(scope.accountId, artifact);
   let meta: ArtifactMeta;
   let newParams: Record<string, unknown> | null = null;
   let now = "";
@@ -268,7 +271,7 @@ async function performRefresh(
         if (isGdalFormat(table.format)) {
           return refreshUrlSpatial(scope, table, name);
         }
-        meta = await rebuildFromUrl(table, artifact);
+        meta = await rebuildFromUrl(scope.accountId, table, artifact);
         break;
       }
       case "postgis": {
@@ -397,7 +400,7 @@ async function performRefresh(
       );
     }
   } catch (error) {
-    await rm(artifact, { force: true });
+    await removeAccountFile(artifact, { force: true });
     throw error;
   }
 

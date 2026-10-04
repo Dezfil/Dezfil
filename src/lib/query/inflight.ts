@@ -6,7 +6,9 @@
  * on; readers starting later already see the new registry state.
  */
 
-const inflight = new Set<Promise<unknown>>();
+const key = Symbol.for("dezfil.artifact-readers");
+const host = globalThis as typeof globalThis & { [key]?: Set<Promise<unknown>> };
+const inflight = host[key] ??= new Set<Promise<unknown>>();
 
 export function trackInflight<T>(run: Promise<T>): Promise<T> {
   const settled = run.then(

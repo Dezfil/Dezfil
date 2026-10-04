@@ -1,8 +1,8 @@
+import { removeAccountFile } from "@/lib/ingest/file-ownership";
 import { withRouteGate, gateOnly, gateHead } from "@/lib/auth/route-gate";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { requireFilingDestination } from "@/lib/auth/reach";
 import { NextResponse } from "next/server";
-import { rm } from "node:fs/promises";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { receiveUpload } from "@/lib/ingest/receive";
 import { ingestSource, toIngestResponse } from "@/lib/ingest/gdal-formats";
@@ -37,7 +37,7 @@ async function upload(request: Request) {
       );
     }
     if (projectId) requireFilingDestination(scope, projectId);
-    const { tmpPath, filename } = await receiveUpload(request);
+    const { tmpPath, filename } = await receiveUpload(request, scope.accountId);
     try {
       const result = await ingestSource(scope, tmpPath, filename, {
         source: "upload",
@@ -53,7 +53,7 @@ async function upload(request: Request) {
       };
       return NextResponse.json(toIngestResponse(filed), { status: 201 });
     } finally {
-      await rm(tmpPath, { force: true });
+      await removeAccountFile(tmpPath, { force: true });
     }
   } catch (error) {
     return errorResponse(error);

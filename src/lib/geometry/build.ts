@@ -1,3 +1,4 @@
+import { fileAccountId } from "@/lib/ingest/file-ownership";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import type { DataTable } from "@/lib/metadata/tables";
 import { ApiError } from "@/lib/api/errors";
@@ -17,7 +18,7 @@ export async function buildGeometryArtifact(conn: DuckDBConnection, from: string
   const columns = await geometryColumns(conn, from);
   const native = nativeGeometryChoice(table, state, columns, choice);
   validateGeometryColumns(choice, columns, native);
-  const evaluated = await evaluateGeometry(conn, from, choice, native);
+  const evaluated = await evaluateGeometry(conn, from, choice, native, undefined, fileAccountId(artifact));
   try {
     if (evaluated.issues.length) throw new ApiError("geometry_choice_invalid", evaluated.issues[0].message, 422, { issues: evaluated.issues });
     const measured = await measureGeometry(conn, evaluated);

@@ -1,3 +1,4 @@
+import { registerExistingAccountFile } from "@/lib/ingest/file-ownership";
 import type { Database } from "better-sqlite3";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource, resourceAbsent } from "@/lib/auth/owned-resource";
@@ -44,6 +45,9 @@ export function updateOwnedTableData(scope: AccountScope, ref: { id: string; nam
     // Admission already resolved the owned identity. A deleted member must
     // reach the caller's guarded-swap failure, including group rollback.
     if (!db.prepare("SELECT id FROM data_tables WHERE id = ? AND owner_id = ?").get(ref.id, owner)) return false;
+    const previous = db.prepare("SELECT file FROM data_tables WHERE id = ? AND owner_id = ?").get(ref.id, owner) as { file: string };
+    registerExistingAccountFile(owner, previous.file);
+    registerExistingAccountFile(owner, update.file);
     return updateTableData(ref, update, db);
   })();
 }

@@ -1,8 +1,8 @@
+import { removeAccountFile } from "@/lib/ingest/file-ownership";
 import { largeJsonValue } from "@/lib/api/json-body";
 import type { AccountScope } from "@/lib/auth/scope";
 import { openPrivateExport } from "@/lib/export/private-file";
 import { requireRequestScope } from "@/lib/auth/scope-http";
-import { rm } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
@@ -59,10 +59,10 @@ async function streamStaged(scope: AccountScope, prepared: {
   filename: string;
   size: number;
 }) {
-  const { handle } = await openPrivateExport(scope, { ...prepared, cleanup: () => rm(prepared.path, { force: true }) });
+  const { handle } = await openPrivateExport(scope, { ...prepared, cleanup: () => removeAccountFile(prepared.path, { force: true }) });
   const stream = handle.createReadStream();
   stream.once("close", () => {
-    void rm(prepared.path, { force: true }).catch(() => {});
+    void removeAccountFile(prepared.path, { force: true }).catch(() => {});
   });
   return new NextResponse(Readable.toWeb(stream) as ReadableStream, {
     headers: {

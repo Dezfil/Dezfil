@@ -1,6 +1,7 @@
+import { registerAccountFile, removeAccountFile } from "./file-ownership";
 import Busboy from "busboy";
 import { createWriteStream } from "node:fs";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { Readable, type Writable } from "node:stream";
@@ -17,7 +18,7 @@ export interface ReceivedUpload {
 /** Stream exactly one "file" part to disk. Every stream and pipeline is
  * observed from creation, and failure stops and settles them before unlink.
  * Successful reception still means the destination has finished writing. */
-export async function receiveUpload(request: Request): Promise<ReceivedUpload> {
+export async function receiveUpload(request: Request, accountId?: string): Promise<ReceivedUpload> {
   const interrupted = () => new ApiError(
     "invalid_request",
     "The upload was interrupted or its multipart data is incomplete.",
@@ -90,6 +91,7 @@ export async function receiveUpload(request: Request): Promise<ReceivedUpload> {
     }
     if (failure) throw failure;
     tmpPath = path.join(tmpDir, randomUUID());
+    if (accountId) registerAccountFile(accountId, tmpPath);
     let bb: ReturnType<typeof Busboy>;
     try {
       bb = own(Busboy({
@@ -155,7 +157,7 @@ export async function receiveUpload(request: Request): Promise<ReceivedUpload> {
     fail(error instanceof ApiError || error instanceof EvaluationCancelled
       ? error : interrupted());
     await Promise.all(work);
-    if (tmpPath) await rm(tmpPath, { force: true });
+    if (tmpPath) await removeAccountFile(tmpPath, { force: true });
     throw failure;
   } finally {
     request.signal.removeEventListener("abort", abort);

@@ -1,3 +1,4 @@
+import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import type { StagingInput } from "@/lib/query/staging";
 import type { DatasetScope } from "@/lib/query/access";
 import { getOwnedTableByName, requireOwnedTableReference } from "@/lib/metadata/owned-tables";
@@ -6,7 +7,7 @@ export { LostAuthority } from "./dataset-publication";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
 import { randomUUID } from "node:crypto";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { dataDir } from "@/lib/config";
 import { ApiError } from "@/lib/api/errors";
@@ -265,9 +266,10 @@ async function geometryColumnOfResult(
   );
 }
 
-async function artifactPaths(): Promise<{ rel: string; abs: string }> {
+async function artifactPaths(accountId: string): Promise<{ rel: string; abs: string }> {
   const rel = path.join("tables", `${randomUUID()}.parquet`);
   const abs = path.join(dataDir(), rel);
+  registerAccountFile(accountId, abs);
   // The import path creates this directory before every write and so must
   // this one: on a workspace whose first table is a derived one, nothing has
   // created it yet and the write fails for a reason that has nothing to do
@@ -417,7 +419,7 @@ export async function materialize(
       }
     }
 
-    const { rel, abs } = await artifactPaths();
+    const { rel, abs } = await artifactPaths(scope.accountId);
     let committed = false;
     try {
       let measured;
@@ -502,7 +504,7 @@ export async function materialize(
     } finally {
       // Only an uncommitted run owns the artifact. After the commit the row
       // points at it, and removing it here would strand a registered table.
-      if (!committed) await rm(abs, { force: true });
+      if (!committed) await removeAccountFile(abs, { force: true });
     }
   }, { scope: evaluation, inputs: request.inputs, pinBindings: true, signal, ...(budgetMs !== undefined ? { budgetMs } : {}), ...(timeoutError ? { timeoutError } : {}) });
 }
