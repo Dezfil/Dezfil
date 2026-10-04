@@ -1,4 +1,5 @@
 import type { AccountScope } from "@/lib/auth/scope";
+import { ResultBudget, jsonBytes } from "@/lib/query/result-budget";
 import { INSPECT_PREVIEW_ROWS } from "@/lib/table-preview-limit";
 import { trustedH3Ready } from "@/lib/duckdb";
 import { recognizeStoredContent } from "@/lib/ingest/content-recognition";
@@ -47,12 +48,16 @@ export function previewGeometry(scope: AccountScope, name: string, expectedRevis
     validateGeometryColumns(choice, columns, native);
     const evaluated = await evaluateGeometry(conn, from, choice, native, INSPECT_PREVIEW_ROWS);
     try {
-      return {
+      const answer: GeometryPreview = {
         tableId: table.id, revision: geometryRevision(table), choice,
         canApply: evaluated.issues.length === 0, issues: evaluated.issues,
         ...await measureGeometry(conn, evaluated), degreeCompatible: evaluated.degreeCompatible,
-        sample: await sampleGeometry(conn, evaluated, columns),
+        sample: { rows: [], features: { type: "FeatureCollection", features: [] } },
       };
+      const budget = new ResultBudget();
+      budget.take(jsonBytes(answer));
+      answer.sample = await sampleGeometry(conn, evaluated, columns, budget);
+      return answer;
     } finally { await evaluated.dispose(); }
   });
 }

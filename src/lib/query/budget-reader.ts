@@ -45,19 +45,26 @@ function decode(vector: DuckDBVector, index: number, projection: Projection, bud
   return value;
 }
 
+/** Alternate returned row shapes still charge each decoded cell exactly once. */
+export interface BudgetRowShape {
+  rowBytes(index: number): number;
+  keyBytes(name: string): number;
+  geometryJSONColumns: ReadonlySet<string>;
+}
+
 /** The owning reader closes its connection on refusal; interrupt abandons the
  * current stream immediately, without draining another chunk. */
-export async function readBudgetedRows(conn: DuckDBConnection, sql: string, budget: ResultBudget, geometryColumns: ReadonlySet<string> = new Set(), geometryJSON = false, interrupted: () => boolean = () => false): Promise<Record<string, unknown>[]> {
+export async function readBudgetedRows(conn: DuckDBConnection, sql: string, budget: ResultBudget, geometryColumns: ReadonlySet<string> = new Set(), geometryJSON = false, interrupted: () => boolean = () => false, shape?: BudgetRowShape): Promise<Record<string, unknown>[]> {
   const prepared = await conn.prepare(sql);
   let projections: Projection[];
   let names: string[];
   try {
     names = Array.from({ length: prepared.columnCount }, (_, i) => prepared.columnName(i));
-    projections = names.map((name, i) => geometryJSON && geometryColumns.has(name)
+    projections = names.map((name, i) => (shape ? shape.geometryJSONColumns.has(name) : geometryJSON && geometryColumns.has(name))
       ? { sql: geojsonProjection(quoteIdent(name)), kind: "geojson" }
       : budgetProjection(quoteIdent(name), prepared.columnType(i)));
   } finally { prepared.destroySync(); }
-  const query = `WITH __budget_values AS ${geometryJSON ? "" : "NOT "}MATERIALIZED (${sql}) SELECT ${projections.map((p, i) => `${p.sql} AS ${quoteIdent(names[i])}`).join(", ")} FROM __budget_values`;
+  const query = `WITH __budget_values AS ${geometryJSON || shape?.geometryJSONColumns.size ? "" : "NOT "}MATERIALIZED (${sql}) SELECT ${projections.map((p, i) => `${p.sql} AS ${quoteIdent(names[i])}`).join(", ")} FROM __budget_values`;
   const rows: Record<string, unknown>[] = [];
   try {
     const result = await conn.stream(query);
@@ -68,10 +75,10 @@ export async function readBudgetedRows(conn: DuckDBConnection, sql: string, budg
       if (interrupted()) throw new EvaluationCancelled();
       if (!chunk || chunk.rowCount === 0) break;
       for (let r = 0; r < chunk.rowCount; r++) {
-        budget.take(2 + (rows.length ? 1 : 0) + Math.max(0, keys.length - 1));
+        budget.take(shape ? shape.rowBytes(rows.length) : 2 + (rows.length ? 1 : 0) + Math.max(0, keys.length - 1));
         const row: Record<string, unknown> = {};
         for (let c = 0; c < keys.length; c++) {
-          budget.take(jsonBytes(keys[c]) + 1);
+          budget.take(shape ? shape.keyBytes(keys[c]) : jsonBytes(keys[c]) + 1);
           row[keys[c]] = decode(chunk.getColumnVector(c), r, projections[c], new CellBudget(budget, geometryColumns.has(names[c])));
         }
         rows.push(row);

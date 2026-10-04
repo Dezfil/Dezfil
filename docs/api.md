@@ -804,6 +804,13 @@ rather than on the page:
   bound refuses the whole answer with HTTP 422 `query_result_too_large`,
   the catalogue sentence below and no partial rows or details. These limits
   have no setting; row limits, engine budgets and complete file exports are unchanged.
+- Geometry-choice preview (`POST /api/tables/{name}/geometry/preview`) shares
+  those fixed ceilings. Metadata, grid rows and map features count together.
+  Count the existing 512-character excerpts; source text and nested JSON remain
+  non-geometry. Native WKT excerpts and evaluated native map geometries count
+  only toward the result ceiling. Simplification and its original-geometry
+  fallback stay unchanged. Excess refuses the whole preview with the same 422
+  catalogue error, with no partial sample.
 - Dataset inspection (`GET /api/tables/{name}`) uses the same fixed 32 MiB
   complete-answer and 2 MiB non-geometry-cell ceilings for its fifty-row
   preview. Its registered native geometry column is emitted as WKT and counts
