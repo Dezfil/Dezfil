@@ -1,3 +1,4 @@
+import type { AccountActor } from "@/lib/account-actor";
 import type { RecipeOrigin } from "@/lib/metadata/recipes";
 import type { RecipeSummary, WorkflowStatus } from "@/lib/operations/recipe-summary";
 
@@ -84,7 +85,7 @@ export function nodeState(step: WorkflowStep): { label: string; tone: ChipTone }
 
 export interface WorkflowListing {
   lastChangedAt?: string | null;
-  lastChangedBy?: { name: string; sqlName: string } | null;
+  lastChangedBy?: AccountActor | null;
   editRevision?: string;
   id: string;
   name: string;

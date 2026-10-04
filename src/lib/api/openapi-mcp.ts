@@ -1,4 +1,4 @@
-import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA, editRevisionParam, editRevisionResponses } from "./openapi-document-facts";
+import { ACCOUNT_ACTOR_SCHEMA, DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA, editRevisionParam, editRevisionResponses } from "./openapi-document-facts";
 import { mapChildren } from "./openapi-map-children";
 import { mapAccess } from "./openapi-map-access";
 import { authenticatedOp } from "./openapi-authenticated";
@@ -132,8 +132,7 @@ export const HISTORY_SCHEMAS = {
               id: { type: "string" }, scope: { type: "string", enum: ["map", "layer"] },
               targetId: { type: "string" }, op: { type: "string", enum: ["add", "update", "delete"] },
               createdAt: { type: "string", format: "date-time" },
-              author: { type: ["object", "null"], description: "Original actor; null means unknown. Ownership and later replay never reattribute a step.",
-                properties: { name: { type: "string" }, sqlName: { type: "string" } }, required: ["name", "sqlName"], additionalProperties: false },
+              author: ACCOUNT_ACTOR_SCHEMA,
             }, required: ["id", "scope", "targetId", "op", "author", "createdAt"] } },
           }, required: ["eligible", "reason", "steps"],
         },

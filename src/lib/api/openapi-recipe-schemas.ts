@@ -1,4 +1,4 @@
-import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA, EDIT_REVISION_SCHEMA } from "./openapi-document-facts";
+import { ACCOUNT_ACTOR_SCHEMA, DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA, EDIT_REVISION_SCHEMA } from "./openapi-document-facts";
 export const RECIPE_DEPENDENCY_SCHEMAS = {
   WorkflowDependencies: {
     type: "object",
@@ -582,13 +582,7 @@ export const RECIPE_SCHEMAS = {
           },
         },
       },
-      runner: {
-        oneOf: [{ $ref: "#/components/schemas/ResourceOwner" }, { type: "null" }],
-        description:
-          "Whose run it is: the person who started it, whose datasets " +
-          "its outputs are. Null for a run recorded before runs were " +
-          "attributed.",
-      },
+      runner: ACCOUNT_ACTOR_SCHEMA,
     },
   },
   RecipeRunEnvelope: {

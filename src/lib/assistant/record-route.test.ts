@@ -438,3 +438,16 @@ describe("assistant group ownership", () => {
     expect(storedSteps(group!)).toEqual([{ mapId: map.id, groupId: group, scope: "map", op: "update" }]);
   });
 });
+
+it("preserves the explicit deleted actor in assistant tool results", async () => {
+  const { map, builder } = await seed();
+  testAccountScope(metadataDb(), "past-actor");
+  metadataDb().prepare("UPDATE maps SET last_changed_by = 'past-actor' WHERE id = ?").run(map.id);
+  metadataDb().exec(`UPDATE accounts SET status = 'deleted', name = NULL, email = NULL, password_hash = NULL,
+    is_admin = NULL, created_at = NULL, updated_at = NULL, last_sign_in_at = NULL WHERE id = 'past-actor'`);
+  const { stream } = await turn([
+    { text: "", toolCalls: [{ id: "read-actor", name: "get_map", args: { id: map.id } }] },
+    { text: "Read", toolCalls: [] },
+  ], builder);
+  expect(results(stream).find(r => r.tool === "get_map")?.body).toMatchObject({ lastChangedBy: { deleted: true } });
+});

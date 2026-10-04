@@ -338,3 +338,12 @@ let current = await call("get_map", { id: created.id });
 current = await call("update_map", { id: created.id, name: "Survey map" });
 current = await call("update_map", { id: created.id, basemap: "light" });
 ```
+
+
+Historical actors in reached document facts (`lastChangedBy`), Undo/Redo target
+steps (`author`) and workflow runs (`runner`) now have three contract variants:
+`{ name, sqlName }`, `{ deleted: true }`, and `null` for Unknown. The generated
+output schemas and assistant results carry the same values as REST. Clients
+must handle the new deleted variant, which includes no display name, SQL name,
+email or other profile fields. Resolve SQL homes separately; changing an actor's
+label does not change the stored authorship, timestamps or document revisions.

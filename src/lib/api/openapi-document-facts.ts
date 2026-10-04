@@ -1,10 +1,18 @@
 import { ERROR_RESPONSE } from "./openapi-helpers";
+/** All three actor positions share this exact published union. */
+export const ACCOUNT_ACTOR_SCHEMA = {
+  description: "A named actor has display and fixed SQL names. { deleted: true } explicitly identifies a deleted actor and carries no names or profile fields. Null explicitly means unknown. Never inferred from ownership.",
+  oneOf: [
+    { type: "object", properties: { name: { type: "string" }, sqlName: { type: "string" } }, required: ["name", "sqlName"], additionalProperties: false },
+    { type: "object", properties: { deleted: { type: "boolean", const: true } }, required: ["deleted"], additionalProperties: false },
+    { type: "null" },
+  ],
+};
 /** Safe facts on reached document reads. Anonymous projections never use it. */
 export const DOCUMENT_FACT_PROPERTIES = {
   editRevision: { type: "string", pattern: "^[0-9a-f]{32}$", description: "Opaque durable revision paired with this document state. Camera and derived writes do not change it." },
   lastChangedAt: { type: ["string", "null"], format: "date-time", description: "Time of the last accepted covered change, independent of camera and cache clocks." },
-  lastChangedBy: { type: ["object", "null"], description: "The acting account's display and fixed SQL names; null explicitly means unknown. Never inferred from ownership.",
-    properties: { name: { type: "string" }, sqlName: { type: "string" } }, required: ["name", "sqlName"], additionalProperties: false },
+  lastChangedBy: ACCOUNT_ACTOR_SCHEMA,
 };
 export const DOCUMENT_FACT_SCHEMA = { type: "object", properties: DOCUMENT_FACT_PROPERTIES,
   required: ["editRevision", "lastChangedAt", "lastChangedBy"] };

@@ -1006,8 +1006,12 @@ stored in history remains readable and can be echoed unchanged.
 their child definitions, list/project entries, history, layout, publication
 settings and filing dependency reads carry `editRevision`, `lastChangedAt`
 and `lastChangedBy`. Producer workflows in dependency lists carry their own
-facts. `lastChangedBy` is `{ name, sqlName }` or explicit null for unknown
-authorship, including legacy records. Departure and deactivation do not
+facts. `lastChangedBy` is `{ name, sqlName }`, `{ deleted: true }` for a deleted
+actor, or explicit null for unknown authorship, including legacy records. This
+additional actor variant is a contract change: clients must handle all three.
+The deleted variant carries neither name nor any profile fields. Actor labels
+change on read without changing revisions, authorship or times. Fixed SQL homes
+remain separately readable and are never an actor label. Departure and deactivation do not
 erase a recorded actor. Anonymous published views carry none of these facts.
 Workflow steps and their revision are captured together before presentation;
 separately read definition and layout belong together only when revisions match.
@@ -1037,7 +1041,8 @@ their revisions.
 **Shared history attribution.** `GET /api/maps/{id}/history` returns
 `canUndo`, `canRedo`, `undoTarget` and `redoTarget`. Each target is null or
 contains `steps`, `eligible` and `reason`. Steps name their original author
-as `{ name, sqlName }`, or null for unknown historical authors. A target
+as `{ name, sqlName }`, `{ deleted: true }` for a deleted actor, or null for
+unknown historical authors. Workflow run `runner` uses the same three variants. A target
 covers one contiguous group by one actor; coalescing never combines actors.
 Eligibility applies to the whole group under the caller's current edit,
 SQL admission and publication permissions. Undo and redo record the acting
@@ -1427,7 +1432,7 @@ needs no map revision and gets no private map facts; the map still records the
 change. Direct filing and map/workflow transfer do require revisions.
 
 Reached map/workflow responses carry `lastChangedBy` (display `name` and fixed
-`sqlName`, or null for Unknown) and `lastChangedAt`, separately from ownership
+`sqlName`, `{ deleted: true }` for Deleted account, or null for Unknown) and `lastChangedAt`, separately from ownership
 and general update time. Actors come from credentials, including token and
 assistant work. Legacy ownership adoption does not invent an author. No-ops,
 refusals, camera saves and derived writes do not change attribution. Actor identities remain visible to those who still reach the record after an
