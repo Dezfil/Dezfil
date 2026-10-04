@@ -1,3 +1,4 @@
+import { assertDeletionCommit } from "@/lib/auth/account-deletion-work";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { randomBytes } from "node:crypto";
 import type { Readable } from "node:stream";
@@ -132,6 +133,7 @@ export class LayerDownloadTicketStore {
     signal?: AbortSignal,
     servable?: () => boolean,
   ): string {
+    assertDeletionCommit();
     const accountId = requireAccountScope(scope);
     let ticket: string;
     do {
@@ -286,6 +288,7 @@ export class LayerDownloadTicketStore {
     ticket: string,
     binding: LayerDownloadBinding,
   ): TicketEntry | null {
+    assertDeletionCommit();
     const accountId = requireAccountScope(scope);
     const entry = this.entries.get(ticket);
     if (

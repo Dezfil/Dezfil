@@ -1,3 +1,5 @@
+import { streamPrivateCopy } from "@/lib/export/copy-stream";
+import { admitResourceWork, inDeletionWork } from "@/lib/auth/account-deletion-work";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { openPrivateExport } from "@/lib/export/private-file";
 import { open, stat } from "node:fs/promises";
@@ -149,6 +151,8 @@ async function prepareDownload(
   layer: NonNullable<ReturnType<typeof requireLayer>>,
   binding: LayerDownloadBinding,
 ): Promise<NextResponse> {
+ const deletionWork = admitResourceWork(scope, [{ table: "maps", id: layer.mapId }]);
+ try { return await inDeletionWork(deletionWork, async () => {
   let ticket: string | null = null;
   try {
     if (request.signal.aborted) throw new EvaluationCancelled();
@@ -187,6 +191,8 @@ async function prepareDownload(
     }
     throw error;
   }
+
+ }); } finally { deletionWork.release(); }
 }
 
 async function directDownload(
@@ -195,27 +201,8 @@ async function directDownload(
   layer: NonNullable<ReturnType<typeof requireLayer>>,
   format: LayerExportFormat,
 ): Promise<NextResponse> {
-  // The evaluation itself is bounded (and cancels with the caller); the
-  // descriptor is then held before the response starts so a concurrent
-  // scratch sweep cannot land between write and open.
-  const { file, handle, size } = await trackInflight(
-    (async () => {
-      const file = await exportLayerResult(scope, layer, format, request.signal);
-      const { handle, size } = await openPrivateExport(scope, file);
-      return { file, handle, size };
-    })(),
-  );
-  const stream = handle.createReadStream();
-  // The scratch file vanishes once the download (or an abort) closes the
-  // stream; the boot sweep covers a process that dies mid-stream.
-  stream.once("close", () => void file.cleanup());
-  return new NextResponse(Readable.toWeb(stream) as ReadableStream, {
-    headers: {
-      "content-type": file.contentType,
-      "content-length": String(size),
-      "content-disposition": `attachment; filename="${file.filename}"`,
-    },
-  });
+  return streamPrivateCopy(scope, [{ table: "maps", id: layer.mapId }],
+    () => exportLayerResult(scope, layer, format, request.signal), request.signal);
 }
 
 async function preparedDownload(

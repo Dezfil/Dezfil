@@ -1,3 +1,5 @@
+import { inDelegatedDeletionWork } from "@/lib/auth/account-deletion-work";
+import { authorityOf } from "./context";
 import { admitEvaluationWork } from "./work-admission";
 import { normalizeEngineError } from "./engine-message";
 import { leaseStagingInputs, type StagingInput } from "./staging";
@@ -118,7 +120,7 @@ export function boundedEvaluation<T>(
 ): Promise<T> {
   // Registered as an in-flight reader: artifact retirement waits for
   // evaluations that may have bound a replaced artifact's path.
-  return trackInflight(runBoundedEvaluation(fn, options));
+  return trackInflight(inDelegatedDeletionWork(authorityOf(options.scope), () => runBoundedEvaluation(fn, options)));
 }
 
 async function runBoundedEvaluation<T>(

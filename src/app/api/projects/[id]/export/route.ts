@@ -1,6 +1,6 @@
+import { streamPrivateCopy } from "@/lib/export/copy-stream";
 import { removeAccountFile } from "@/lib/ingest/file-ownership";
 import { largeJsonValue } from "@/lib/api/json-body";
-import type { AccountScope } from "@/lib/auth/scope";
 import { openPrivateExport } from "@/lib/export/private-file";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { Readable } from "node:stream";
@@ -52,27 +52,6 @@ const idList = (raw: unknown, field: string): string[] => {
   return raw as string[];
 };
 
-/** Stream a finalized staged archive as the attachment, deleting it
- * when the stream closes, however it closes. */
-async function streamStaged(scope: AccountScope, prepared: {
-  path: string;
-  filename: string;
-  size: number;
-}) {
-  const { handle } = await openPrivateExport(scope, { ...prepared, cleanup: () => removeAccountFile(prepared.path, { force: true }) });
-  const stream = handle.createReadStream();
-  stream.once("close", () => {
-    void removeAccountFile(prepared.path, { force: true }).catch(() => {});
-  });
-  return new NextResponse(Readable.toWeb(stream) as ReadableStream, {
-    headers: {
-      "content-type": "application/zip",
-      "content-length": String(prepared.size),
-      "content-disposition": `attachment; filename="${prepared.filename}"`,
-    },
-  });
-}
-
 /** The 16-C archive: assemble and finalize on disk —
  * every failure answers a coded refusal before any success exists.
  * Without `prepare`, the attachment streams directly (the agent road);
@@ -92,8 +71,11 @@ export async function POST(request: Request, { params }: Params) {
       file: typeof body.file === "string" ? body.file : "",
       datasetFormat: datasetFormatOf(body.datasetFormat),
     };
+    if (body.prepare !== true) return await streamPrivateCopy(scope, [{ table: "projects", id }], async () => {
+      const file = await assembleProjectExport(scope, id, selection);
+      return { ...file, contentType: "application/zip", cleanup: () => removeAccountFile(file.path, { force: true }) };
+    }, request.signal);
     const prepared = await assembleProjectExport(scope, id, selection);
-    if (body.prepare !== true) return await streamStaged(scope, prepared);
     const { ticket, key } = createProjectExportTicket(scope, id, prepared);
     return NextResponse.json({
       ticket,

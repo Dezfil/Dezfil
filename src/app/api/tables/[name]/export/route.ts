@@ -1,10 +1,8 @@
 import { requireRequestScope } from "@/lib/auth/scope-http";
-import { open } from "node:fs/promises";
-import { Readable } from "node:stream";
-import { NextResponse } from "next/server";
 import { ApiError, errorResponse } from "@/lib/api/errors";
 import { exportTable, isExportFormat } from "@/lib/table-service";
-import { trackInflight } from "@/lib/query/inflight";
+import { streamPrivateCopy } from "@/lib/export/copy-stream";
+import { addressDataset } from "@/lib/dataset-address";
 
 type Params = { params: Promise<{ name: string }> };
 
@@ -23,29 +21,9 @@ export async function GET(request: Request, { params }: Params) {
         400,
       );
     }
-    // Resolve-and-open is one tracked reader: the descriptor is held before
-    // the response starts, so a concurrent refresh retiring the artifact
-    // cannot land between path resolution and open — and once open, the
-    // descriptor outlives any removal for the whole download.
-    const { file, handle, size } = await trackInflight(
-      (async () => {
-        const file = await exportTable(scope, name, format);
-        const handle = await open(file.path);
-        const size = (await handle.stat()).size;
-        return { file, handle, size };
-      })(),
-    );
-    const stream = handle.createReadStream();
-    // Temp conversions vanish once the download (or an abort) closes the
-    // stream; the GeoParquet artifact's cleanup is a no-op.
-    stream.once("close", () => void file.cleanup());
-    return new NextResponse(Readable.toWeb(stream) as ReadableStream, {
-      headers: {
-        "content-type": file.contentType,
-        "content-length": String(size),
-        "content-disposition": `attachment; filename="${file.filename}"`,
-      },
-    });
+    const table = addressDataset(scope, name).table;
+    return await streamPrivateCopy(scope, [{ table: "data_tables", id: table.id }],
+      () => exportTable(scope, name, format), request.signal);
   } catch (error) {
     return errorResponse(error);
   }

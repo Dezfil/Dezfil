@@ -1,3 +1,5 @@
+import { streamPrivateCopy } from "@/lib/export/copy-stream";
+import { admitResourceWork, inDeletionWork } from "@/lib/auth/account-deletion-work";
 import { largeJsonValue } from "@/lib/api/json-body";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
@@ -156,34 +158,12 @@ export async function GET(request: Request) {
 }
 
 async function directDownload(scope: AccountScope, request: Request, body: Body) {
-  // Resolve-and-open is one tracked reader: the descriptor is held before
-  // the response starts, so a scratch sweep cannot land between write and
-  // open.
-  const { file, handle, size } = await trackInflight(
-    (async () => {
-      const file = await exportQueryResult(
-        scope,
-        body.sql,
-        body.format,
-        request.signal,
-        body.name,
-      );
-      const { handle, size } = await openPrivateExport(scope, file);
-      return { file, handle, size };
-    })(),
-  );
-  const stream = handle.createReadStream();
-  stream.once("close", () => void file.cleanup());
-  return new NextResponse(Readable.toWeb(stream) as ReadableStream, {
-    headers: {
-      "content-type": file.contentType,
-      "content-length": String(size),
-      "content-disposition": `attachment; filename="${file.filename}"`,
-    },
-  });
+  return streamPrivateCopy(scope, [], () => exportQueryResult(scope, body.sql, body.format, request.signal, body.name), request.signal);
 }
 
 async function prepareDownload(scope: AccountScope, request: Request, body: Body) {
+ const deletionWork = admitResourceWork(scope, []);
+ try { return await inDeletionWork(deletionWork, async () => {
   const binding = bindingFor(body.sql, body.format);
   let ticket: string | null = null;
   try {
@@ -220,4 +200,6 @@ async function prepareDownload(scope: AccountScope, request: Request, body: Body
     if (ticket !== null) await queryDownloadTickets.release(scope, ticket, binding);
     throw error;
   }
+
+ }); } finally { deletionWork.release(); }
 }

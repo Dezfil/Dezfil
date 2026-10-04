@@ -1,3 +1,4 @@
+import { bindDeletionInputs } from "@/lib/auth/account-deletion-work";
 import { registerQueryStore } from "@/lib/query/retained";
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { DuckDBConnection } from "@duckdb/node-api";
@@ -53,6 +54,7 @@ function recorder(conn: DuckDBConnection): Recorder {
 /** The evaluation read the engine's catalogue: its evidence is everything it
  * had mounted. */
 export function noteCatalogue(conn: DuckDBConnection): void {
+  bindDeletionInputs(mountPlanOf(conn)?.namespace.datasets.map(dataset => dataset.ownerId) ?? []);
   recorder(conn).catalogue = true;
 }
 
@@ -81,6 +83,7 @@ export function noteReference(conn: DuckDBConnection, plan: MountPlan | undefine
     const binding = plan.qualified.get(`${classified.qualifier}.${classified.name}`);
     if (!binding) return;
     if ("synthetic" in binding) {
+      bindDeletionInputs([binding.synthetic.ownerId]);
       recorder(conn).ids.add(binding.synthetic.id);
       return;
     }
@@ -88,7 +91,7 @@ export function noteReference(conn: DuckDBConnection, plan: MountPlan | undefine
   }
   if (view === null) return;
   const mount = plan.views.get(view.toLowerCase());
-  if (mount) recorder(conn).ids.add(mount.dataset.id);
+  if (mount) { bindDeletionInputs([mount.dataset.ownerId]); recorder(conn).ids.add(mount.dataset.id); }
 }
 
 function normalized(entries: Iterable<ArtifactInput>, catalogue: boolean): ArtifactInputs {

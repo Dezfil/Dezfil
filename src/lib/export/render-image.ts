@@ -1,3 +1,5 @@
+import { admitResourceWork, inDeletionWork, registerRenderDeletionWork } from "@/lib/auth/account-deletion-work";
+import { drainAccountRenders } from "./render-work";
 import { trackRenderWork } from "./render-work";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { AuthError } from "@/lib/auth/errors";
@@ -198,7 +200,13 @@ export interface RenderImageResult {
 /** Render one map to PNG under the documented bounds. */
 export function renderMapImage(scope: AccountScope, input: RenderImageInput): Promise<RenderImageResult> {
   const accountId = requireAccountScope(scope);
-  return trackRenderWork(accountId, performRenderMapImage(scope, input));
+  const lease = admitResourceWork(scope, [{ table: "maps", id: input.mapId }]);
+  const unregister = registerRenderDeletionWork(input.credential, lease);
+  const rendering = trackRenderWork(accountId, inDeletionWork(lease, () => performRenderMapImage(scope, input)));
+  return rendering.then(result => { lease.assertCommit(); return result; }).finally(() => {
+    // A timed-out response can precede browser launch/render/close settlement.
+    void drainAccountRenders(accountId).finally(() => { unregister(); lease.release(); });
+  });
 }
 
 async function performRenderMapImage(

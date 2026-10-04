@@ -14,6 +14,7 @@ export interface AuthContext {
   account: Account;
   /** Expiry of a server-issued bearer bound to this session or token. */
   delegationExpiresAt?: number;
+  workKey?: string;
   credential: { kind: "session" | "token"; id: string };
 }
 

@@ -837,7 +837,7 @@
         "tiles/scratch"
       ]
     },
-    "location:src/lib/export/layer-export.ts#exportLayerResult.outFile:path.join": {
+    "location:src/lib/export/layer-export.ts#exportLayerResultWork.outFile:path.join": {
       "stores": [
         "file:tile-scratch"
       ],
@@ -845,7 +845,7 @@
         "tiles/scratch/export-*.*"
       ]
     },
-    "location:src/lib/export/layer-export.ts#exportLayerResult.outFile:tileScratchDir": {
+    "location:src/lib/export/layer-export.ts#exportLayerResultWork.outFile:tileScratchDir": {
       "stores": [
         "file:tile-scratch"
       ],
@@ -853,7 +853,7 @@
         "tiles/scratch"
       ]
     },
-    "location:src/lib/export/layer-export.ts#exportQueryResult.outFile:path.join": {
+    "location:src/lib/export/layer-export.ts#exportQueryResultWork.outFile:path.join": {
       "stores": [
         "file:tile-scratch"
       ],
@@ -861,7 +861,7 @@
         "tiles/scratch/export-*.*"
       ]
     },
-    "location:src/lib/export/layer-export.ts#exportQueryResult.outFile:tileScratchDir": {
+    "location:src/lib/export/layer-export.ts#exportQueryResultWork.outFile:tileScratchDir": {
       "stores": [
         "file:tile-scratch"
       ],
@@ -869,7 +869,7 @@
         "tiles/scratch"
       ]
     },
-    "location:src/lib/export/project-export.ts#assembleProjectExport:dataDir": {
+    "location:src/lib/export/project-export.ts#assembleProjectExportWork:dataDir": {
       "stores": [
         "file:tables"
       ],
@@ -877,7 +877,7 @@
         "."
       ]
     },
-    "location:src/lib/export/project-export.ts#assembleProjectExport:path.join": {
+    "location:src/lib/export/project-export.ts#assembleProjectExportWork:path.join": {
       "stores": [
         "file:tables"
       ],
@@ -885,7 +885,7 @@
         "*"
       ]
     },
-    "location:src/lib/export/project-export.ts#assembleProjectExport.p:path.join": {
+    "location:src/lib/export/project-export.ts#assembleProjectExportWork.p:path.join": {
       "stores": [
         "file:exports"
       ],
@@ -893,7 +893,7 @@
         "exports/*"
       ]
     },
-    "location:src/lib/export/project-export.ts#assembleProjectExport.staged:path.join": {
+    "location:src/lib/export/project-export.ts#assembleProjectExportWork.staged:path.join": {
       "stores": [
         "file:exports"
       ],
@@ -901,7 +901,7 @@
         "exports/*.zip"
       ]
     },
-    "location:src/lib/export/project-export.ts#assembleProjectExport.stagingDir:dataDir": {
+    "location:src/lib/export/project-export.ts#assembleProjectExportWork.stagingDir:dataDir": {
       "stores": [
         "file:tables"
       ],
@@ -909,7 +909,7 @@
         "."
       ]
     },
-    "location:src/lib/export/project-export.ts#assembleProjectExport.stagingDir:path.join": {
+    "location:src/lib/export/project-export.ts#assembleProjectExportWork.stagingDir:path.join": {
       "stores": [
         "file:exports"
       ],
@@ -2030,7 +2030,7 @@
         "*"
       ]
     },
-    "location:src/lib/table-service.ts#exportTable.artifact:dataDir": {
+    "location:src/lib/table-service.ts#exportTableWork.artifact:dataDir": {
       "stores": [
         "file:tables",
         "file:tmp"
@@ -2039,7 +2039,7 @@
         "."
       ]
     },
-    "location:src/lib/table-service.ts#exportTable.artifact:path.join": {
+    "location:src/lib/table-service.ts#exportTableWork.artifact:path.join": {
       "stores": [
         "file:tables",
         "file:tmp"
@@ -2048,7 +2048,7 @@
         "*"
       ]
     },
-    "location:src/lib/table-service.ts#exportTable.tmp:dataDir": {
+    "location:src/lib/table-service.ts#exportTableWork.tmp:dataDir": {
       "stores": [
         "file:tables",
         "file:tmp"
@@ -2057,7 +2057,7 @@
         "."
       ]
     },
-    "location:src/lib/table-service.ts#exportTable.tmp:path.join": {
+    "location:src/lib/table-service.ts#exportTableWork.tmp:path.join": {
       "stores": [
         "file:tmp"
       ],
@@ -2965,12 +2965,12 @@
         "memory:immutable-configuration"
       ]
     },
-    "memory:src/lib/export/layer-export.ts#exportLayerResult.error": {
+    "memory:src/lib/export/layer-export.ts#exportLayerResultWork.error": {
       "stores": [
         "memory:request-closures"
       ]
     },
-    "memory:src/lib/export/layer-export.ts#exportQueryResult.error": {
+    "memory:src/lib/export/layer-export.ts#exportQueryResultWork.error": {
       "stores": [
         "memory:request-closures"
       ]
@@ -3415,7 +3415,7 @@
         "memory:browser-presentation"
       ]
     },
-    "memory:src/lib/table-service.ts#exportTable.e": {
+    "memory:src/lib/table-service.ts#exportTableWork.e": {
       "stores": [
         "memory:request-closures"
       ]
@@ -3501,7 +3501,7 @@
         "assistant-models.json"
       ]
     },
-    "writer:src/lib/export/project-export.ts#assembleProjectExport:mkdir": {
+    "writer:src/lib/export/project-export.ts#assembleProjectExportWork:mkdir": {
       "stores": [
         "file:exports"
       ],
@@ -3509,7 +3509,7 @@
         "exports"
       ]
     },
-    "writer:src/lib/export/project-export.ts#assembleProjectExport.out:createWriteStream": {
+    "writer:src/lib/export/project-export.ts#assembleProjectExportWork.out:createWriteStream": {
       "stores": [
         "file:exports"
       ],
@@ -4062,7 +4062,7 @@
         "file-owners/*.json"
       ]
     },
-    "writer:src/lib/export/layer-export.ts#exportLayerResult:registerAccountFile": {
+    "writer:src/lib/export/layer-export.ts#exportLayerResultWork:registerAccountFile": {
       "stores": [
         "file:account-files"
       ],
@@ -4070,7 +4070,7 @@
         "tiles/scratch/export-*.*"
       ]
     },
-    "writer:src/lib/export/layer-export.ts#exportQueryResult:registerAccountFile": {
+    "writer:src/lib/export/layer-export.ts#exportQueryResultWork:registerAccountFile": {
       "stores": [
         "file:account-files"
       ],
@@ -4078,7 +4078,7 @@
         "tiles/scratch/export-*.*"
       ]
     },
-    "writer:src/lib/export/project-export.ts#assembleProjectExport:registerAccountFile": {
+    "writer:src/lib/export/project-export.ts#assembleProjectExportWork:registerAccountFile": {
       "stores": [
         "file:account-files"
       ],
@@ -4286,7 +4286,7 @@
         "tables/*.parquet"
       ]
     },
-    "writer:src/lib/table-service.ts#exportTable:registerAccountFile": {
+    "writer:src/lib/table-service.ts#exportTableWork:registerAccountFile": {
       "stores": [
         "file:account-files"
       ],
@@ -4637,6 +4637,36 @@
     "memory:src/lib/auth/account-deletion-admission.ts#holder.work": {
       "stores": [
         "memory:account-deletion-work"
+      ]
+    },
+    "memory:src/lib/auth/account-deletion-work.ts#holder": {
+      "stores": [
+        "memory:account-deletion-work"
+      ]
+    },
+    "memory:src/lib/auth/account-deletion-work.ts#holder.renderers": {
+      "stores": [
+        "memory:account-deletion-work"
+      ]
+    },
+    "memory:src/lib/auth/account-deletion-work.ts#registerRenderDeletionWork": {
+      "stores": [
+        "memory:account-deletion-work"
+      ]
+    },
+    "memory:src/lib/auth/account-deletion-work.ts#registerRenderDeletionWork.leases": {
+      "stores": [
+        "memory:account-deletion-work"
+      ]
+    },
+    "memory:src/app/api/projects/[id]/export/route.ts#POST.file": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/export/project-export.ts#assembleProjectExport.file": {
+      "stores": [
+        "memory:request-closures"
       ]
     }
   },

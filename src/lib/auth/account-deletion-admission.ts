@@ -24,10 +24,11 @@ export interface AccountWorkLease {
   /** Check immediately before a synchronous commit, without an intervening await. */
   assertCommit(): void;
   /** Release after evaluation/stream settlement and candidate cleanup. */
-  release(): void;
+  release(error?: unknown): void;
 }
 export function admitAccountWork(accounts: readonly (string | null)[], db: Database = metadataDb()): AccountWorkLease {
   const done = Promise.withResolvers<void>();
+  void done.promise.catch(() => {});
   const work: Work = { database: db.name, accounts: new Set<string>(), settled: done.promise };
   let released = false;
   const check = (id: string) => { if (!accountMaterialAvailable(id, db)) throw resourceAbsent(); };
@@ -39,7 +40,7 @@ export function admitAccountWork(accounts: readonly (string | null)[], db: Datab
       for (const id of ids) if (id !== null) work.accounts.add(id);
     },
     assertCommit() { if (released) throw new Error("Work has already settled."); for (const id of work.accounts) check(id); },
-    release() { if (!released) { released = true; holder.work.delete(work); work.accounts.clear(); done.resolve(); } },
+    release(error) { if (!released) { released = true; holder.work.delete(work); work.accounts.clear(); if (error === undefined) done.resolve(); else done.reject(error); } },
   };
   lease.bind(accounts); holder.work.add(work);
   return lease;

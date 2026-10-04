@@ -1,3 +1,4 @@
+import { copyFileWork, bindDeletionInputs } from "@/lib/auth/account-deletion-work";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { resourceAbsent } from "@/lib/auth/owned-resource";
@@ -286,12 +287,14 @@ export interface TableExport {
  * artifact byte-for-byte; GeoJSON and CSV are written by DuckDB into the
  * data dir's tmp corner for the route to stream and clean up. Runs on the
  * main instance — the hardened fence guards user SQL, not our exports. */
-export async function exportTable(
+async function exportTableWork(
   scope: AccountScope,
   name: string,
   format: ExportFormat,
 ): Promise<TableExport> {
-  const table = addressDataset(scope, name).table;
+  const reached = addressDataset(scope, name);
+  bindDeletionInputs([reached.ownerId]);
+  const table = reached.table;
   const artifact = path.join(dataDir(), table.file);
   if (format === "geoparquet") {
     return {
@@ -343,7 +346,7 @@ export async function exportTable(
       }),
     );
   } catch (e) {
-    await removeAccountFile(tmp, { force: true }).catch(() => {});
+    await removeAccountFile(tmp, { force: true });
     throw e;
   }
   return {
@@ -400,3 +403,5 @@ export async function removeTable(scope: AccountScope, address: string): Promise
   registerAccountFile(scope.accountId, table.file);
   retireArtifact(path.join(dataDir(), table.file));
 }
+
+export function exportTable(scope: AccountScope, name: string, format: ExportFormat): Promise<TableExport> { return copyFileWork(scope, [{ table: "data_tables", id: addressDataset(scope, name).table.id }], () => exportTableWork(scope, name, format)); }

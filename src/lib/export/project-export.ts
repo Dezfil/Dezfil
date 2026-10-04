@@ -1,3 +1,4 @@
+import { copyFileWork, bindDeletionInputs } from "@/lib/auth/account-deletion-work";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { AuthError } from "@/lib/auth/errors";
 import type { AccountScope } from "@/lib/auth/scope";
@@ -106,7 +107,7 @@ function requireSelectionInReach(
  * truncated 200. The caller owns the returned file's
  * lifetime (the ticket store deletes it on redeem, expiry or failure).
  */
-export async function assembleProjectExport(
+async function assembleProjectExportWork(
   scope: AccountScope,
   projectId: string,
   selection: ProjectExportSelection,
@@ -114,12 +115,12 @@ export async function assembleProjectExport(
   // Anyone who reaches the project exports it, viewers included; every
   // selected member must be filed in it and within their reach, whoever
   // owns it.
-  requireReachable(scope, "project", projectId);
+  bindDeletionInputs([requireReachable(scope, "project", projectId).ownerId]);
   const project = requireProject(scope, projectId);
   const members = projectMemberIds(scope, projectId);
-  for (const id of selection.maps) requireReachable(scope, "map", id);
-  for (const id of selection.recipes) requireReachable(scope, "workflow", id);
-  for (const id of selection.tables) requireReachable(scope, "dataset", id);
+  for (const id of selection.maps) bindDeletionInputs([requireReachable(scope, "map", id).ownerId]);
+  for (const id of selection.recipes) bindDeletionInputs([requireReachable(scope, "workflow", id).ownerId]);
+  for (const id of selection.tables) bindDeletionInputs([requireReachable(scope, "dataset", id).ownerId]);
   const maps = canonical("maps", selection.maps, members.maps);
   const recipes = canonical("workflows", selection.recipes, members.recipes);
   const tables = canonical("datasets", selection.tables, members.tables);
@@ -312,4 +313,11 @@ export async function assembleProjectExport(
       500,
     );
   }
+}
+
+export function assembleProjectExport(scope: AccountScope, projectId: string, selection: ProjectExportSelection): Promise<PreparedProjectExport> {
+  return copyFileWork(scope, [{ table: "projects", id: projectId }], async () => {
+    const file = await assembleProjectExportWork(scope, projectId, selection);
+    return { ...file, cleanup: () => removeAccountFile(file.path, { force: true }) };
+  });
 }
