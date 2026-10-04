@@ -19,8 +19,8 @@ import { POLICY_REFUSAL_CODE } from "./policy";
  * profile, password and token controls add six operations; user administration
  * adds four more. Token-addressed publication revocation adds one. A
  * project's people add their read and two changes, transfer three, and the
- * directory search one. */
-const GENERATED_TOOLS = 136;
+ * directory search one. Self-departure adds one. */
+const GENERATED_TOOLS = 137;
 
 describe("the page action policy is documented", () => {
   const document = buildOpenApiDocument();

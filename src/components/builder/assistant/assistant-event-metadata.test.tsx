@@ -25,8 +25,8 @@ describe("pane consumes declared metadata", () => {
   });
   it("renders target and consequence for every gate without displaying the opcode", () => {
     const gates = buildTools().filter((tool) => tool.confirm || tool.confirmWhen);
-    // The two changes of a project's people and the three transfers are gates.
-    expect(gates).toHaveLength(24);
+    // Membership changes, self-departure and the three transfers are gates.
+    expect(gates).toHaveLength(25);
     for (const tool of gates) {
       const confirmation = { target: tool.confirmation!.target.replace("{target}", "Original (id)"), consequence: tool.confirmation!.consequence };
       const html = renderToStaticMarkup(<AssistantConfirmation pending={{ id: "pending", runId: "run", tool: tool.name, args: {}, confirmation }} promptId="prompt" busy={false} resolve={() => {}} />);
