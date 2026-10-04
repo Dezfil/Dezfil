@@ -74,7 +74,8 @@
     "lint:reader-docs": "node scripts/check-reader-docs.mjs",
     "probe:publication-source": "node scripts/publication-source-probe.mjs",
     "probe:derivation": "node scripts/derivation-probe.mjs",
-    "probe:credential-cleanup": "node scripts/credential-cleanup-driver.mjs"
+    "probe:credential-cleanup": "node scripts/credential-cleanup-driver.mjs",
+    "e2e:result-budget": "playwright test e2e/query-result-budget.spec.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",

@@ -156,6 +156,11 @@ jobs:
         run: |
           mcp_client_version=$(node -p "require('./package-lock.json').packages['node_modules/@modelcontextprotocol/client'].version")
           docker build -f scripts/mcp-probe-client.Dockerfile --build-arg MCP_CLIENT_VERSION="$mcp_client_version" -t dezfil-mcp-probe:ci .
+      # Expected added time: 300-600 seconds, excluding the image build.
+      # The driver owns unique app/source names and always removes containers
+      # and their anonymous volumes, including on an assertion failure.
+      - name: Four-reader result-byte boundaries and complete exports
+        run: sh scripts/result-budget-image.sh dezfil:ci
       - name: JSON and MCP bounds, whole uploads, paced public refusals and file limits
         run: |
           run_transport() {

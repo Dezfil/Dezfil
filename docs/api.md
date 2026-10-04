@@ -1626,3 +1626,6 @@ response message. Branch on the code.
 | `map_not_found` | No map exists with the given id. |
 | `internal` | An unexpected server error occurred. |
 <!-- error-catalogue:end -->
+
+The result-byte regression and outside probe invocations are in
+[result budget proofs](result-budget-proof.md).

@@ -44,6 +44,29 @@ Two classes are deliberately outside the check: source-local test seams
 `NEXT_RUNTIME`, `TZ`, `CI`, `DUCKDB_EXTENSION_DIR`). Both are listed at the
 end of this page.
 
+## Fixed result limits
+
+SQL console/SQL previews, dataset inspection, geometry-choice preview and the
+PostGIS five-row preview have fixed result limits: **33,554,432 bytes (32 MiB)**
+for the complete uncompressed UTF-8 JSON answer and **2,097,152 bytes (2 MiB)**
+for one non-geometry column value. Equality is admitted. Quotes, escaping,
+nested values, schema, repeated keys and metadata count after existing display
+conversions and excerpts. Native geometry, identified by type or registered
+provenance before conversion, counts only toward the result ceiling; coordinate
+text and JSON remain non-geometry. Exceeding either bound refuses the whole
+answer with HTTP 422 `query_result_too_large`, without partial data or details:
+
+> The result is too large to return: more than 32 MB in total, or one non-geometry value over 2 MB. Select fewer rows or columns, or shorten the value.
+
+These ceilings have no setting and are independent of row and engine-memory
+limits. Layer renders, dataset map features, slider and Overture previews,
+published views, statistics, classification, widgets and value search retain
+their existing limits. SQL, table and layer file exports still stream complete
+results above both ceilings. A refused dataset inspection prevents opening its
+detail and docked set-geometry panel; layer use, API export and owner deletion
+from Data remain available. This bounds serialized data on the covered reads,
+not native chunks, JavaScript object overhead, heap or RSS.
+
 ## Storage
 
 | Variable | Default | Effect |
@@ -236,6 +259,7 @@ for a tunable. The two image-observer settings are checked in both guides:
 
 | Variable | Default | Effect |
 |---|---|---|
+| `DEZFIL_TEST_PG_URL` | unset | Test/probe process only: disposable PostGIS fixture URL for live source tests and the full result-budget probe. Never read by the product server. |
 | `DEZFIL_TEST_PUBLICATION_LOG` | unset | Test preload only: NDJSON destination for per-admission published-source state. Required by `scripts/publication-observer.mjs`; no effect without that preload. |
 | `DEZFIL_TEST_DERIVATION_LOG` | unset | Test preload only: NDJSON destination for native derivation starts, completions and admission occupancy. Required by `scripts/derivation-observer.mjs`; no effect without that preload. |
 
@@ -243,7 +267,7 @@ for a tunable. The two image-observer settings are checked in both guides:
   headless journey scripts.
 - `DEZFIL_E2E_FIRST_RUN=1`: leaves account setup to the first-run browser
   journey on an empty scratch store instead of provisioning a signed-in fixture.
-- `DEZFIL_TEST_PG_URL`, `DEZFIL_TEST_PG_TLS_URL`, `DEZFIL_TEST_OVERTURE`,
+- `DEZFIL_TEST_PG_TLS_URL`, `DEZFIL_TEST_OVERTURE`,
   `DEZFIL_TEST_TILER_LOG`, `DEZFIL_TEST_TILER_RELEASE`,
   `DEZFIL_TEST_TILER_STARTED`: fixture endpoints and stub seams for the unit
   suites.

@@ -136,6 +136,28 @@ attach to your installation, not to the project.
 
 ## Resources and limits
 
+SQL console/SQL previews, dataset inspection, geometry-choice preview and the
+PostGIS five-row preview have fixed result limits: **33,554,432 bytes (32 MiB)**
+for the complete uncompressed UTF-8 JSON answer and **2,097,152 bytes (2 MiB)**
+for one non-geometry column value. Equality is admitted. Quotes, escaping,
+nested values, schema, repeated keys and metadata count after existing display
+conversions and excerpts. Native geometry, identified by type or registered
+provenance before conversion, counts only toward the result ceiling; coordinate
+text and JSON remain non-geometry. Exceeding either bound refuses the whole
+answer with HTTP 422 `query_result_too_large`, without partial data or details:
+
+> The result is too large to return: more than 32 MB in total, or one non-geometry value over 2 MB. Select fewer rows or columns, or shorten the value.
+
+These ceilings have no setting and are independent of row and engine-memory
+limits. Layer renders, dataset map features, slider and Overture previews,
+published views, statistics, classification, widgets and value search retain
+their existing limits. SQL, table and layer file exports still stream complete
+results above both ceilings. A refused dataset inspection prevents opening its
+detail and docked set-geometry panel; layer use, API export and owner deletion
+from Data remain available. This bounds serialized data on the covered reads,
+not native chunks, JavaScript object overhead, heap or RSS.
+
+
 The query engine runs server side, so the work happens on your machine rather than in
 the viewer's browser. Data beyond what a browser could hold is the point of the
 design, and the limit is your disk and memory rather than a tab.
