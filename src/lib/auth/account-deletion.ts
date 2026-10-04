@@ -16,7 +16,7 @@ import { drainAccountWork } from "./account-deletion-admission";
 import { discardPreparedJournal, journalForAccount, readDeletionJournal, removeDeletionJournal, writeDeletionJournal, type DeletionJournal } from "./account-deletion-journal";
 import { requireAdmin } from "./admin";
 import type { AuthContext } from "./credentials";
-import { AuthError } from "./errors";
+import { deletionEligibility } from "./account-deletion-eligibility";
 
 export interface DeletionStatus { id: string; state: "pending" | "needs-retry" | "completed" }
 const key = Symbol.for("dezfil.account-deletion-continuations");
@@ -41,15 +41,13 @@ export function acceptAccountDeletion(context: AuthContext, accountId: string, c
   let prepared: string | undefined, accepted = false;
   try {
     const journal = db.transaction(() => {
-      const actor = requireAdmin(context, db, Date.now());
-      const pending = journalForAccount(accountId); if (pending) return pending;
-      const account = db.prepare("SELECT name,email,status,is_admin AS isAdmin,last_sign_in_at AS lastSignInAt FROM accounts WHERE id = ?").get(accountId) as
-        { name: string; email: string; status: string; isAdmin: number; lastSignInAt: string | null } | undefined;
-      if (!account || !["deactivated", "invited"].includes(account.status)) throw new AuthError("not_found", "Account not found.", 404);
+      const { actor, pending, account } = deletionEligibility(context, accountId, db);
+      if (pending) return pending;
+      if (!account) throw new Error("Deletion eligibility requires an account.");
       confirm();
       db.prepare("UPDATE accounts SET status='deleting' WHERE id=?").run(accountId);
       const journal: DeletionJournal = { version: 1, id: randomUUID(), accountId, actorId: actor.id,
-        invited: account.status === "invited" && account.lastSignInAt === null,
+        invited: account.lastSignInAt === null,
         identity: { name: account.name, email: account.email, isAdmin: !!account.isAdmin },
         content: captureAccountContent(accountId, db), files: ownedFileRecords().filter(f => f.accountId === accountId), next: 0, state: "pending" };
       prepared = journal.id; writeDeletionJournal(journal); return journal;

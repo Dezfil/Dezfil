@@ -495,7 +495,9 @@ in the fragment and does not reach the server until redemption.
 
 Normalized duplicate emails return `email_taken`. A deactivated duplicate also
 returns `accountId` and `canReactivate: true`, so the same account can be restored.
-An unaccepted invitation returns to invited status on reactivation. Self-demotion
+An email awaiting deletion completion stays reserved without offering reactivation,
+including after its profile has been removed. Accepted deletion refuses reactivation
+with `409 deletion_in_progress`. An unaccepted invitation returns to invited status on reactivation. Self-demotion
 and self-deactivation are refused even when another admin exists, and competing
 changes cannot leave the instance without an active admin. Reset invalidates the
 password and browser sessions while leaving tokens valid. Deactivation refuses
@@ -783,7 +785,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **107** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **109** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -1509,7 +1511,9 @@ response message. Branch on the code.
 | `setup_complete` | This instance already has an account. First-account creation is unavailable. |
 | `weak_password` | Use at least eight characters and avoid very common passwords. |
 | `email_taken` | An account already uses this normalized email address. |
-| `self_change_refused` | Another admin must change your admin flag or deactivate your account. |
+| `self_change_refused` | Another admin must change your admin flag, deactivate your account or delete it. |
+| `account_not_deactivated` | Deactivate this account before deleting it. |
+| `deletion_in_progress` | This account is being deleted and cannot be reactivated. |
 | `last_admin` | Keep at least one active admin. |
 | `forbidden` | This request is not permitted for the current account or origin: an admin-only request, a cookie request from another origin, or a change to something the account can view but cannot make. A refused change has no effect. |
 | `invalid_link` | This sign-in link is unavailable, expired, replaced or already used. |

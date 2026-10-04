@@ -5,6 +5,7 @@ import { setupComplete, accountPasswordHash, getAccount, getAccountByEmail, inse
   normalizeEmail, type IdentityStatus } from "@/lib/metadata/accounts";
 import { revokeSessions } from "@/lib/metadata/auth-credentials";
 import { maintainCredentials } from "./credential-maintenance";
+import { deletionReservesEmail } from "./account-deletion-journal";
 import { AuthError, requireAuthenticationWanted } from "./errors";
 import { issueSession, requireCurrentActor, type AuthContext } from "./credentials";
 import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from "./passwords";
@@ -12,6 +13,7 @@ import { adoptLegacyPreferences } from "./adoption";
 
 /** Call under the write transaction, after authorizing the caller. */
 export function requireAvailableEmail(email: string, exceptId: string | null, db: Database, admin = false): void {
+  if (deletionReservesEmail(email)) throw new AuthError("email_taken", "An account already uses this email address.", 409);
   const duplicate = db.prepare("SELECT id, status FROM accounts WHERE email = ?").get(normalizeEmail(email)) as
     { id: string; status: IdentityStatus } | undefined;
   if (duplicate && duplicate.id !== exceptId) {

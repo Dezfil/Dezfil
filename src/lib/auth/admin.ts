@@ -5,6 +5,8 @@ import { getAccount, insertAccount, listAccounts } from "@/lib/metadata/accounts
 import { revokeSessions } from "@/lib/metadata/auth-credentials";
 import { identityFields, requireAvailableEmail } from "./accounts";
 import { requireCurrentActor, type AuthContext } from "./credentials";
+import { journalForAccount } from "./account-deletion-journal";
+import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 import { AuthError } from "./errors";
 import { issueLink, revokeSignInCredentials } from "./link-issuance.mjs";
 
@@ -50,10 +52,13 @@ export function changeAccountAccess(context: AuthContext, accountId: string,
   patch: { isAdmin?: boolean; status?: "active" | "deactivated" }, db: Database = metadataDb(), now = Date.now()) {
   return db.transaction(() => {
     const actor = requireAdmin(context, db, now);
+    if (journalForAccount(accountId) || (db.prepare("SELECT status FROM accounts WHERE id=?").get(accountId) as { status: string } | undefined)?.status === "deleting") {
+      throw new AuthError("deletion_in_progress", ERROR_CATALOGUE.deletion_in_progress, 409);
+    }
     const account = getAccount(accountId, db);
     if (!account) throw new AuthError("not_found", "Account not found.", 404);
     if (actor.id === accountId && (patch.isAdmin === false || patch.status === "deactivated")) {
-      throw new AuthError("self_change_refused", "Another admin must make this change.", 409);
+      throw new AuthError("self_change_refused", ERROR_CATALOGUE.self_change_refused, 409);
     }
     const status = patch.status === "active" && account.lastSignInAt === null
       ? "invited" : patch.status ?? account.status;

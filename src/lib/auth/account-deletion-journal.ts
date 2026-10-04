@@ -2,6 +2,7 @@ import { closeSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, r
 import path from "node:path";
 import type { Database } from "better-sqlite3";
 import { dataDir } from "@/lib/config";
+import { normalizeEmail } from "@/lib/metadata/accounts";
 import { metadataDb } from "@/lib/metadata/db";
 import type { AccountContentCapture } from "@/lib/metadata/account-erasure-content";
 import { AuthError } from "./errors";
@@ -55,6 +56,9 @@ export function deletionJournals(): DeletionJournal[] {
   return names.filter(name => name.endsWith(".json")).map(name => readDeletionJournal(name.slice(0, -5)));
 }
 export function journalForAccount(id: string): DeletionJournal | null { return deletionJournals().find(j => j.accountId === id) ?? null; }
+export function deletionReservesEmail(email: string): boolean {
+  return deletionJournals().some(journal => normalizeEmail(journal.identity.email) === normalizeEmail(email));
+}
 export function removeDeletionJournal(id: string): void {
   const journal = readDeletionJournal(id);
   try { unlinkSync(journalPath(id)); syncDirectory(folder()); emptyFolder(); }
