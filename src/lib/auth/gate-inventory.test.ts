@@ -18,6 +18,10 @@ import * as extent from "@/app/api/published/[token]/extent/[layerId]/route";
 
 const origin = "http://instance.test";
 // The router invokes the proxy if either spelling matches, in both server modes.
+// This helper reparses the decoded path as a URL, so an encoded ? or # inside a
+// segment can appear proxied here even though the router treats it as path text
+// and excludes it. No inventory row depends on that case; handler gates cover
+// either outcome.
 function routerMatches(input: Parameters<typeof unstable_doesMiddlewareMatch>[0]): boolean {
   const pathname = new URL(input.url, origin).pathname;
   let decoded = pathname;
