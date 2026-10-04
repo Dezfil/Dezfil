@@ -136,6 +136,18 @@ describe("SQL result byte budget", () => {
     expect(JSON.parse(body)).toEqual({ error: { code: "query_result_too_large", message } });
   });
 
+  it("keeps nested collection children before the following sibling", async () => {
+    const sql = "SELECT ST_GeomFromText('GEOMETRYCOLLECTION (GEOMETRYCOLLECTION (POINT (0.5 0.5)), POINT (1.5 1.5))') AS g";
+    const result = await executeQuery(testAccountScope(), sql, { geometry: "geojson" });
+    expect(result.preview).toEqual([{ g: {
+      type: "GeometryCollection",
+      geometries: [
+        { type: "GeometryCollection", geometries: [{ type: "Point", coordinates: [0.5, 0.5] }] },
+        { type: "Point", coordinates: [1.5, 1.5] },
+      ],
+    } }]);
+  });
+
   it("preserves native conversions, duplicate columns, nulls and nested values", async () => {
     const sql = `SELECT 1 AS a, 2 AS a, NULL AS missing, 9007199254740993::BIGINT AS big,
       12.340::DECIMAL(10,3) AS decimal, TIMESTAMP '2020-01-01 12:30:00.123456' AS stamp,
