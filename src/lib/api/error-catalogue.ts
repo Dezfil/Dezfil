@@ -72,6 +72,8 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   query_timeout: "The query exceeded the configured timeout.",
   query_memory_exceeded:
     "The query exceeded the configured engine memory budget for user SQL.",
+  query_result_too_large:
+    "The result is too large to return: more than 32 MB in total, or one non-geometry value over 2 MB. Select fewer rows or columns, or shorten the value.",
   tile_build_timeout:
     "A tile-build stage exceeded the configured tile-build timeout.",
   render_cap_exceeded:

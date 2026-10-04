@@ -1,3 +1,5 @@
+import { readBudgetedRows } from "@/lib/query/budget-reader";
+import { ResultBudget, jsonBytes } from "@/lib/query/result-budget";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireOwnedResource } from "@/lib/auth/owned-resource";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
@@ -119,7 +121,7 @@ function composePreviewSelect(
  * deliberately substitutes a stable sentence instead of relaying internals. */
 export function previewReadError(error: unknown): ApiError {
   if (error instanceof EvaluationCancelled) throw error;
-  if (error instanceof ApiError && error.code === "query_timeout") return error;
+  if (error instanceof ApiError && (error.code === "query_timeout" || error.code === "query_result_too_large")) return error;
   return new ApiError(
     "malformed_file",
     "The preview could not be read from PostGIS. Check the filter expression.",
@@ -153,10 +155,16 @@ export async function buildPostgisPreview(
       request.filter,
     );
     try {
-      const read = await conn.runAndReadAll(`SELECT * FROM ${passthrough(select)}`);
+      const returnedColumns = previewColumns(columns);
+      const budget = new ResultBudget();
+      // Health belongs to the attachment, not the returned REST answer.
+      budget.take(jsonBytes({ columns: returnedColumns, rows: [] }));
+      const geometryColumns = new Set(returnedColumns.filter(c => c.spatialKind !== null).map(c => c.name));
+      const rows = await readBudgetedRows(conn, `SELECT * FROM ${passthrough(select)}`, budget,
+        geometryColumns, false, () => signal?.aborted ?? false);
       return {
-        columns: previewColumns(columns),
-        rows: read.getRowObjectsJson() as Record<string, unknown>[],
+        columns: returnedColumns,
+        rows,
         connectionHealth,
       };
     } catch (error) {

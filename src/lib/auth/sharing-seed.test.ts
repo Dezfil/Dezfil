@@ -48,6 +48,7 @@ it("seeds shared edits through reached reads and the real handlers without a lis
   expect(state.seedRefusals.length).toBeGreaterThan(20);
   const originalRun = DuckDBConnection.prototype.run;
   const originalRead = DuckDBConnection.prototype.runAndReadAll;
+  const originalStream = DuckDBConnection.prototype.stream;
   try {
     await import("../../../scripts/sharing-leave-observer.mjs");
     expect(await exerciseProjectDepartures("http://127.0.0.1:3388", state, { holdDirectory: path.join(directory, ".leave-probe") })).toMatchObject({
@@ -57,5 +58,6 @@ it("seeds shared edits through reached reads and the real handlers without a lis
   } finally {
     DuckDBConnection.prototype.run = originalRun;
     DuckDBConnection.prototype.runAndReadAll = originalRead;
+    DuckDBConnection.prototype.stream = originalStream;
   }
 }, 120_000);

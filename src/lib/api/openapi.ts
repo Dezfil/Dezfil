@@ -339,7 +339,14 @@ export function buildOpenApiDocument() {
             "connection-local views on one shared hardened engine. Returns a capped " +
             "preview plus the exact total row count. Geometry cells in the " +
             "preview are WKT text by default; pass geometry: \"geojson\" " +
-            "to receive GeoJSON geometry objects instead. A " +
+            "to receive GeoJSON geometry objects instead. The complete UTF-8 JSON answer " +
+            "is limited to 33,554,432 bytes (32 MiB), and each non-geometry " +
+            "cell to 2,097,152 bytes (2 MiB), including JSON escaping. Equality " +
+            "is admitted. Native GEOMETRY columns, including CRS-qualified types, " +
+            "count toward the result limit only. Geometry-looking text and explicit " +
+            "WKT/GeoJSON text remain non-geometry. An oversized answer is refused " +
+            "in full with HTTP 422 query_result_too_large, without partial rows. " +
+            "These fixed limits do not change row limits, engine budgets or exports. A " +
             "failing statement answers with the engine's message and, when " +
             "the location maps to the submitted text, a 1-based line and column into the " +
             "submitted SQL.",
@@ -382,7 +389,7 @@ export function buildOpenApiDocument() {
               },
             },
           },
-          responses: { "200": jsonOk("#/components/schemas/QueryResult") },
+          responses: { "200": jsonOk("#/components/schemas/QueryResult"), "422": ERROR_RESPONSE },
         }),
       },
       "/api/query/export": {

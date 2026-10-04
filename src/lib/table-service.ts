@@ -1,5 +1,7 @@
 import { copyFileWork, bindDeletionInputs } from "@/lib/auth/account-deletion-work";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
+import { readBudgetedRows } from "@/lib/query/budget-reader";
+import { ResultBudget, jsonBytes } from "@/lib/query/result-budget";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { resourceAbsent } from "@/lib/auth/owned-resource";
 import { reachableDatasetIds, requireReachable } from "@/lib/auth/reach";
@@ -137,55 +139,48 @@ export async function inspectDataset(scope: AccountScope, reached: ReachedTable)
         artifact,
         table.geometryColumn,
       );
-      const described = await conn.runAndReadAll(
-        `DESCRIBE SELECT * FROM ${from}`,
-      );
-      const columns = (
-        described.getRowObjects() as unknown as {
-          column_name: string;
-          column_type: string;
-        }[]
-      ).map((c) => ({ name: c.column_name, type: c.column_type }));
-
-      // Geometry previews as WKT, not raw WKB bytes.
-      const replace = table.geometryColumn
-        ? ` REPLACE (ST_AsText(${ident(table.geometryColumn)}) AS ${ident(table.geometryColumn)})`
-        : "";
-      const previewed = await conn.runAndReadAll(
-        `SELECT *${replace} FROM ${from} LIMIT ${INSPECT_PREVIEW_ROWS}`,
-      );
-      const preview = previewed.getRowObjectsJson() as Record<
-        string,
-        unknown
-      >[];
-
       // Legacy MIXED rows predate the family-collapse rules: a table of
-      // POLYGON + MULTIPOLYGON is polygons. Re-measure once and heal the
-      // record; newer imports never store plain MIXED for one family.
+      // POLYGON + MULTIPOLYGON is polygons. Determine the final envelope
+      // before decoding preview values; persist the repair after admission.
       let geometryType = table.geometryType;
       if (geometryType === "MIXED" && table.geometryColumn) {
         const typed = await conn.runAndReadAll(
           `SELECT DISTINCT ST_GeometryType(${ident(table.geometryColumn)}) AS t
          FROM ${from} LIMIT 5`,
         );
-        const healed = collapseGeometryTypes(
+        geometryType = collapseGeometryTypes(
           typed.getRowObjects().map((r) => String(r.t)),
         );
-        if (healed !== geometryType) {
-          updateOwnedTableGeometryType(scope, table, healed);
-          geometryType = healed;
-        }
       }
-
-      return {
+      const envelope = {
         ...presentDataset(scope, reached),
         geometryType,
-        columns,
-        preview,
+        columns: [], preview: [],
         sizeBytes: await artifactSize(table),
         projectIds: reachedTableProjectIds(scope).get(table.id) ?? [],
         inputs,
       };
+      const budget = new ResultBudget();
+      budget.take(jsonBytes(envelope));
+      // Schema entries count toward the answer, not as preview cells.
+      const columns = await readBudgetedRows(conn,
+        `SELECT column_name AS name, column_type AS type FROM (DESCRIBE SELECT * FROM ${from})`,
+        budget, new Set(["name", "type"]),
+      ) as { name: string; type: string }[];
+
+      // Geometry previews as WKT, not raw WKB bytes.
+      const replace = table.geometryColumn
+        ? ` REPLACE (ST_AsText(${ident(table.geometryColumn)}) AS ${ident(table.geometryColumn)})`
+        : "";
+      const nativeGeometry = new Set(columns.filter(c => c.name === table.geometryColumn &&
+        (c.type === "GEOMETRY" || c.type.startsWith("GEOMETRY("))).map(c => c.name));
+      const preview = await readBudgetedRows(conn,
+        `SELECT *${replace} FROM ${from} LIMIT ${INSPECT_PREVIEW_ROWS}`, budget, nativeGeometry);
+
+      if (geometryType !== table.geometryType) {
+        updateOwnedTableGeometryType(scope, table, geometryType);
+      }
+      return { ...envelope, geometryType, columns, preview };
     }),
   );
 }

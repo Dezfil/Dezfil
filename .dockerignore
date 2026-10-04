@@ -46,3 +46,5 @@ test-data
 **/*.snap
 # Build inputs of other images (the MCP probe client, ci.yml), not of this one.
 **/*.Dockerfile
+# Host-side container orchestration, never executed by the application image.
+scripts/result-budget-image.sh

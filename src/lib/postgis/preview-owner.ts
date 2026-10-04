@@ -24,14 +24,14 @@ export class PgPreviewOwner {
 
   check(): void { assertPreviewActive(this.signal); }
 
-  async query<T>(work: () => Promise<T>): Promise<T> {
+  async query<T>(work: () => Promise<T>, discard?: (value: T) => void): Promise<T> {
     this.check();
     let result: T;
     try { result = await work(); } catch (error) {
       this.check();
       throw previewSourceError(error);
     }
-    this.check();
+    try { this.check(); } catch (error) { discard?.(result); throw error; }
     return result;
   }
 
@@ -47,11 +47,27 @@ export class PgPreviewOwner {
       this.signal?.removeEventListener("abort", interrupt);
       if (repeater) clearInterval(repeater);
     };
-    // The preview uses these two native statement methods. Bind all other
+    // Own preparation, stream acquisition and every asynchronous chunk read. Bind other
     // methods to the native object so its internal receiver stays intact.
     return new Proxy(conn, {
       get: (target, key) => {
         const value = Reflect.get(target, key);
+        if (key === "prepare") {
+          return (...args: Parameters<DuckDBConnection["prepare"]>) => this.query(
+            () => target.prepare(...args), prepared => prepared.destroySync());
+        }
+        if (key === "stream") {
+          return async (...args: Parameters<DuckDBConnection["stream"]>) => {
+            const result = await this.query(() => target.stream(...args));
+            return new Proxy(result, {
+              get: (stream, member) => {
+                const method = Reflect.get(stream, member);
+                if (member === "fetchChunk") return () => this.query(() => stream.fetchChunk());
+                return typeof method === "function" ? method.bind(stream) : method;
+              },
+            });
+          };
+        }
         if (key === "run" || key === "runAndReadAll") {
           return (...args: unknown[]) => this.query(async () => Reflect.apply(value, target, args));
         }

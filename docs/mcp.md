@@ -43,6 +43,26 @@ loopback, and the address is built from `PORT` when it is set, otherwise
 from the incoming request's port (`src/lib/self-url.ts`). The container
 image sets `PORT`.
 
+## SQL result refusals
+
+The four bounded REST readers are `run_sql`, `inspect_table`,
+`preview_table_geometry` and `preview_postgis_relation`. Each complete REST
+answer has a fixed 33,554,432-byte (32 MiB) ceiling and each non-geometry cell
+a 2,097,152-byte (2 MiB) ceiling, after conversions and excerpts. Equality is
+admitted. Native geometry provenance exempts only the cell ceiling; coordinate
+text/JSON remains non-geometry. See [the API guide](api.md).
+
+HTTP 422 `query_result_too_large` is relayed with `isError: true`, the same
+code and sentence in text and `structuredContent.result`, and no partial rows:
+
+> The result is too large to return: more than 32 MB in total, or one non-geometry value over 2 MB. Select fewer rows or columns, or shorten the value.
+
+MCP's text and structured copies do not consume the REST allowance again; a
+fitting result can have a duplicated MCP representation above 32 MiB. The
+embedded assistant receives the same error outcome. Attachment ceilings and
+all assistant context, grounding and recovery limits stay unchanged. File
+exports and the other readers keep their existing limits.
+
 ## Where the tools come from
 
 Tools are derived from the OpenAPI document, not written by hand
