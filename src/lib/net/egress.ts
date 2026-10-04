@@ -38,8 +38,9 @@ function parseIp(text: string): Uint8Array | null {
     return Uint8Array.from(parts);
   }
   if (version === 6) {
-    // Expand :: and any trailing dotted-quad into 16 bytes.
-    let body = text;
+    // The validated zone identifies an interface, not address bytes. Remove
+    // it before expanding :: and detecting a trailing dotted-quad.
+    let body = text.split("%", 1)[0];
     let v4Tail: number[] = [];
     const dotted = body.match(/:(\d+\.\d+\.\d+\.\d+)$/);
     if (dotted) {
@@ -175,6 +176,11 @@ export async function resolveAllowed(
   host: string,
   lookupFn: LookupFn = nodeLookup,
 ): Promise<string[]> {
+  // URI hosts retain brackets in storage. Only unscoped IPv6 literals lose
+  // them here, before both classification and allowlist name matching.
+  if (host.startsWith("[") && host.endsWith("]") && !host.includes("%") && isIP(host.slice(1, -1)) === 6) {
+    host = host.slice(1, -1);
+  }
   if (isIP(host)) {
     if (!isAddressAllowed(host, host)) throw egressBlockedError();
     return [host];

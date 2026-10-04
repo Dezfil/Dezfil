@@ -6,6 +6,7 @@ import type { BrowserContext, Page, Route } from "@playwright/test";
 import type { DataTable } from "../src/components/api";
 import { createMap, routeHouse, trackConsole } from "./support";
 import { isAllowedConsoleError } from "./console-allowlist";
+import { exerciseRefusedConnectionPaste, refusedConnectionStrings } from "./connection-paste";
 
 const NOW = "2026-08-31T10:00:00.000Z";
 // A month back, as the connections journey pins it: the relative-time label
@@ -143,6 +144,9 @@ async function installFixture(context: BrowserContext) {
   let tables: ReturnType<typeof importedTable>[] = [];
   let tableListReads = 0;
   let layerRequests = 0;
+  let failNextSave = false;
+  const connections = [connection];
+  const submitted: Record<string, unknown>[] = [];
   let layerMode: LayerMode = "created";
   let heldStarted: (() => void) | null = null;
   let heldRelease: (() => void) | null = null;
@@ -162,11 +166,24 @@ async function installFixture(context: BrowserContext) {
       const method = request.method();
 
       if (pathname === "/api/connections/postgis" && method === "GET") {
-        await json(route, [connection]);
+        await json(route, connections);
+        return true;
+      }
+      if (pathname === "/api/connections/postgis" && method === "POST") {
+        const body = request.postDataJSON() as Record<string, unknown>;
+        submitted.push(body);
+        if (failNextSave) {
+          failNextSave = false;
+          await json(route, { error: { code: "connection_failed", message: "Prior source failure." } }, 502);
+          return true;
+        }
+        const created = { ...connection, id: "connection-new", name: String(body.name), host: String(body.host), port: Number(body.port), database: String(body.database), username: String(body.username), ssl: Boolean(body.ssl) };
+        connections.push(created);
+        await json(route, created, 201);
         return true;
       }
       if (
-        pathname === `/api/connections/postgis/${connection.id}/tables` &&
+        connections.some((item) => pathname === `/api/connections/postgis/${item.id}/tables`) &&
         method === "GET"
       ) {
         await json(route, { tables: relations });
@@ -364,6 +381,8 @@ async function installFixture(context: BrowserContext) {
   });
 
   return {
+    submitted,
+    failNextSave: () => { failNextSave = true; },
     reads: () => tableListReads,
     layerRequests: () => layerRequests,
     setLayerMode: (mode: Exclude<LayerMode, "held">) => {
@@ -711,3 +730,19 @@ test.describe("darwin PostGIS pane pixels", () => {
     });
   }
 });
+
+for (const [form, refused] of Object.entries(refusedConnectionStrings)) {
+  test(`pane form refuses unsupported protection in ${form} paste and saves after correction`, async ({ page, context }) => {
+    const fixture = await installFixture(context);
+    await page.goto("/data");
+    await page.getByRole("button", { name: "Add data" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add data" });
+    await dialog.getByRole("button", { name: /^PostGIS/ }).click();
+    await dialog.getByRole("button", { name: "New connection", exact: true }).click();
+    await expect(dialog.getByRole("heading", { name: "Connect a PostGIS database" })).toBeVisible();
+    await exerciseRefusedConnectionPaste(dialog, refused, "Test & save connection", fixture);
+    await expect(dialog.getByText("Corrected connection", { exact: true })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: /^roads/i })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Connect a PostGIS database" })).toHaveCount(0);
+  });
+}

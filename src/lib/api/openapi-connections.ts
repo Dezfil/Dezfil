@@ -6,6 +6,16 @@ import { LOCAL_DELETE, LOCAL_READ, LOCAL_REPLACE, REMOTE_ADD, REMOTE_READ, REMOT
 import { READ_ONLY, writes, resource } from "./operation-metadata";
 import { op, jsonOk, pathParam } from "./openapi-helpers";
 
+const PROTECTION_INPUT_CONTRACT =
+  " Both string forms refuse unsupported protection requests before source contact or " +
+  "explicit-field overrides. Every occurrence is checked, with case-insensitive inventory " +
+  "names; encoding, repeats and URI fragments cannot hide a refusal. HTTP 400 invalid_request: " +
+  "This connection string uses the unsupported protection parameter channel_binding; " +
+  "Dezfil supports connection fields and SSL required or not required. The first refused " +
+  "parameter's canonical name replaces channel_binding; the existing SSL-mode refusal wins. " +
+  "Saved connections are not rechecked because their original string was never stored. " +
+  "See docs/api.md (Connections) for parameter dispositions.";
+
 export const CONNECTION_PATHS = {
   "/api/connections/postgis": {
     get: op(connectionAccess({
@@ -53,7 +63,7 @@ export const CONNECTION_PATHS = {
                     "contact, even with explicit fields. Identical repeats are " +
                     "accepted; empty modes are absent. " +
                     "Absent mode defaults to SSL required on create. " +
-                    "Explicit fields override only a valid URL.",
+                    "Explicit fields override only a valid URL." + PROTECTION_INPUT_CONTRACT,
                 },
                 host: { type: "string" },
                 port: { type: "integer", default: 5432 },
@@ -116,7 +126,7 @@ export const CONNECTION_PATHS = {
                     "and conflicting repeated modes are refused before source " +
                     "contact, even with explicit fields. Identical repeats are " +
                     "accepted; empty modes are absent. " +
-                    "Absent mode retains the saved SSL setting on edit.",
+                    "Absent mode retains the saved SSL setting on edit." + PROTECTION_INPUT_CONTRACT,
                 },
                 host: { type: "string" },
                 port: { type: "integer" },
@@ -248,6 +258,12 @@ export const CONNECTION_PATHS = {
       summary: "Preview a PostGIS relation",
       description:
         "Reads at most five rows from one saved connection and relation. " +
+        "The complete uncompressed UTF-8 JSON answer (columns and rows, excluding internal health) " +
+        "has a fixed 33,554,432-byte (32 MiB) ceiling; each non-geometry column value, including " +
+        "nested values and escaping, has a 2,097,152-byte (2 MiB) ceiling. Equality is admitted. " +
+        "Only source geometry/geography columns identified by source type, returned as WKT, " +
+        "are exempt from the cell ceiling. Text/JSON coordinates remain non-geometry. " +
+        "Excess refuses the whole answer with HTTP 422 query_result_too_large, without partial rows. " +
         "The optional WHERE expression passes through the import guard and " +
         "is applied to the preview. The caller cannot supply credentials, " +
         "source SQL, or a row limit. Caller departure prevents later stages " +

@@ -164,6 +164,17 @@ jobs:
         run: |
           mcp_client_version=$(node -p "require('./package-lock.json').packages['node_modules/@modelcontextprotocol/client'].version")
           docker build -f scripts/mcp-probe-client.Dockerfile --build-arg MCP_CLIENT_VERSION="$mcp_client_version" -t dezfil-mcp-probe:ci .
+      # Measured driver time: 7 seconds for --quick, 47 seconds for --full,
+      # excluding the build and a cold source image pull. Runs the forty-row
+      # refusal, exact SQL result admission, and SQL, inspection and
+      # geometry-choice cell boundaries. The three-minute timeout leaves room
+      # for slower workers; elapsed time is printed by the driver.
+      # PostGIS and the full four-reader result/geometry/export matrix remain the
+      # outside --full proof in docs/runbook.md, section "SQL result byte budget".
+      # Invocation-owned containers and anonymous volumes are always removed.
+      - name: Source-free result-byte boundaries
+        timeout-minutes: 3
+        run: sh scripts/result-budget-image.sh dezfil:ci --quick
       - name: JSON and MCP bounds, whole uploads, paced public refusals and file limits
         run: |
           run_transport() {
@@ -215,6 +226,8 @@ jobs:
             docker exec dezfil-publication-ci node /probes/publication-source-probe.mjs \
               "http://127.0.0.1:$port" "$mode" --state-log /data/publication.ndjson
             docker stop dezfil-publication-ci
+            # --rm removes the container after stop returns; the next arm reuses the name.
+            for i in $(seq 1 50); do docker container inspect dezfil-publication-ci >/dev/null 2>&1 || break; sleep 0.2; done
           }
           trap 'docker logs dezfil-publication-ci 2>/dev/null || true; docker stop dezfil-publication-ci 2>/dev/null || true' EXIT
           run_publication direct 3393 ""
@@ -285,6 +298,8 @@ jobs:
       - name: Replace container and check live and revoked credentials
         run: |
           docker stop dezfil-ci
+          # --rm removes the container after stop returns; wait until the name is free.
+          for i in $(seq 1 50); do docker container inspect dezfil-ci >/dev/null 2>&1 || break; sleep 0.2; done
           docker run -d --rm --name dezfil-ci --network=none \
             -e PORT=3183 -e DEZFIL_RENDER_CAP_FEATURES=2000 \
             -e DEZFIL_EGRESS_ALLOWLIST=127.0.0.1 \
@@ -330,6 +345,8 @@ jobs:
           start
           journey seed
           docker stop dezfil-ownership-ci
+          # --rm removes the container after stop returns; wait until the name is free.
+          for i in $(seq 1 50); do docker container inspect dezfil-ownership-ci >/dev/null 2>&1 || break; sleep 0.2; done
           start
           journey verify
           docker stop dezfil-ownership-ci
@@ -362,6 +379,8 @@ jobs:
           start
           journey seed
           docker stop dezfil-sharing-ci
+          # --rm removes the container after stop returns; wait until the name is free.
+          for i in $(seq 1 50); do docker container inspect dezfil-sharing-ci >/dev/null 2>&1 || break; sleep 0.2; done
           start
           journey verify
           docker stop dezfil-sharing-ci

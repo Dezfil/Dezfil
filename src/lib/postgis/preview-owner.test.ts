@@ -2,7 +2,7 @@ import { testAccountScope, testAccountRequest } from "@/lib/test-support/account
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
-import type { DuckDBConnection } from "@duckdb/node-api";
+import { INTEGER, type DuckDBConnection } from "@duckdb/node-api";
 
 const fixture = vi.hoisted(() => ({ acquire: vi.fn(), resolve: vi.fn() }));
 vi.mock("@/lib/duckdb", () => ({ withConnection: async (work: (conn: DuckDBConnection) => Promise<unknown>) => {
@@ -38,7 +38,17 @@ function connection(hold?: Stage, failure?: Stage) {
       : stage === "columns" ? [{ column_name: "id", udt_name: "int4" }] : [{ id: 7 }];
     return { getRowObjects: () => rows, getRowObjectsJson: () => rows };
   }
-  return { stages, sql, entered, release, run: vi.fn(execute), runAndReadAll: vi.fn(execute), interrupt: vi.fn(), disconnectSync: vi.fn() };
+  const prepare = vi.fn(async () => ({ columnCount: 1, columnName: () => "id", columnType: () => INTEGER, destroySync: vi.fn() }));
+  const stream = vi.fn(async (statement: string) => {
+    await execute(statement);
+    let read = false;
+    return { deduplicatedColumnNames: () => ["id"], fetchChunk: async () => {
+      if (read) return null;
+      read = true;
+      return { rowCount: 1, getColumnVector: () => ({ getItem: () => 7, type: INTEGER }) };
+    } };
+  });
+  return { stages, sql, entered, release, prepare, stream, run: vi.fn(execute), runAndReadAll: vi.fn(execute), interrupt: vi.fn(), disconnectSync: vi.fn() };
 }
 function preview(controller = new AbortController()) {
   return POST(testAccountRequest(new Request("http://localhost/api/connections/postgis/c1/preview", {
@@ -144,4 +154,36 @@ describe("actual preview route owns its attachment", () => {
     expect(attachments[0].match(/application_name=([^ ]+)/)?.[0]).not.toBe(attachments[1].match(/application_name=([^ ]+)/)?.[0]);
     for (const attach of attachments.slice(2)) { expect(attach).not.toContain("statement_timeout"); expect(attach).not.toContain("dezfil_preview_"); }
   });
+});
+
+import { PgPreviewOwner } from "./preview-owner";
+import { EvaluationCancelled } from "@/lib/api/errors";
+it.each(["prepare", "stream", "fetchChunk"] as const)("owns late native %s completion through departure", async stage => {
+  const wait = deferred(); const entered = deferred();
+  const controller = new AbortController(); const owner = new PgPreviewOwner(controller.signal);
+  const destroySync = vi.fn();
+  const hold = async (where: string) => { if (stage === where) { entered.resolve(); await wait.promise; } };
+  const result = { fetchChunk: vi.fn(async () => { await hold("fetchChunk"); return null; }) };
+  const conn = { prepare: async () => { await hold("prepare"); return { destroySync }; },
+    stream: async () => { await hold("stream"); return result; }, interrupt: vi.fn() };
+  const guarded = owner.bind(conn as unknown as DuckDBConnection);
+  const pending = (async () => {
+    if (stage === "prepare") return guarded.prepare("SELECT 1");
+    const stream = await guarded.stream("SELECT 1");
+    if (stage === "fetchChunk") return stream.fetchChunk();
+    return stream;
+  })().then(() => null, e => e);
+  try {
+    await entered.promise; controller.abort();
+    expect(conn.interrupt).toHaveBeenCalledOnce();
+    wait.resolve();
+    expect(await pending).toBeInstanceOf(EvaluationCancelled);
+    if (stage === "prepare") expect(destroySync).toHaveBeenCalledOnce();
+  } finally { wait.resolve(); await pending; owner.drainComplete(); }
+});
+it("classifies a source timeout raised while fetching a native chunk", async () => {
+  const owner = new PgPreviewOwner();
+  const conn = { stream: async () => ({ fetchChunk: async () => { throw new Error("ERROR: canceling statement due to statement timeout"); } }) };
+  const stream = await owner.bind(conn as unknown as DuckDBConnection).stream("SELECT 1");
+  await expect(stream.fetchChunk()).rejects.toMatchObject({ code: "query_timeout", status: 408 });
 });

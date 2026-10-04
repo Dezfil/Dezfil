@@ -739,6 +739,68 @@ refreshing the dataset through it is its owner's act, refused to the
 project's editors with `forbidden`; no route or tool transfers a connection;
 and a project archive carries no connection facts.
 
+Create (`POST /api/connections/postgis`) and edit
+(`PATCH /api/connections/postgis/{id}`) interpret a Postgres URI or libpq
+key-value `url` once, then discard it. Explicit fields override only a valid
+string. `sslmode=require` means SSL required; `prefer`, `disable` and `allow`
+mean SSL not required and emit `prefer`, which can still negotiate TLS.
+An absent or empty mode defaults to required on create and retains the saved
+setting on edit. Identical repeats are accepted. Strict (`verify-ca`,
+`verify-full`), unknown and conflicting repeated modes refuse before source
+contact, even with explicit fields.
+
+Both string forms now refuse the following unsupported protection requests,
+including strings previously accepted with these options silently omitted:
+
+| String parameter | Treatment of nonempty values |
+| --- | --- |
+| `channel_binding`, `gssencmode` | Refuse except `prefer` and `disable`, which are ignored. |
+| `ssl_min_protocol_version`, `ssl_max_protocol_version` | Refuse custom TLS bounds. |
+| `sslrootcert` | Refuse supplied trust, including paths with `sslmode=require` and `system`, even when encryption is opportunistic. |
+| `sslcrl`, `sslcrldir` | Refuse supplied revocation policy. |
+| `sslcert`, `sslkey`, `sslpassword` | Refuse supplied certificate credentials. |
+| `sslcertmode` | Refuse except `allow`, which is ignored. Neither required certificate use nor suppression of certificate disclosure is supported. |
+| `require_auth`, `krbsrvname`, `gsslib` | Refuse authentication restrictions and selected identity/provider. |
+| `sslsni` | Ignore `1`; refuse all others, including `0`. |
+| `sslcompression`, `gssdelegation` | Ignore `0` and `1`; refuse all others. |
+| `sslnegotiation` | Ignore `postgres`; refuse all others, including `direct`. |
+| `requiressl`, `ssl` | Ignore `requiressl=0` and `ssl=false`; refuse all others, including `requiressl=1` and `ssl=true`. The separate JSON boolean `ssl` is unchanged. |
+| `scram_client_key`, `scram_server_key` | Refuse alternative authentication credentials. |
+| `oauth_issuer`, `oauth_client_id`, `oauth_client_secret`, `oauth_scope` | Refuse alternative authentication credentials, trust choices and access restrictions. |
+| `requirepeer` | Ignore: the peer-user check applies only to Unix sockets; connections use guarded TCP. |
+
+Empty values, including OAuth scope, are absent. Ignored values are neither
+forwarded nor stored and make no mandatory protection promise. All supplied
+occurrences count, after URI decoding or key-value quoting/escaping: a later
+empty or permissive value cannot hide a refused value. Names in this protection
+inventory are case-insensitive in both forms; values keep their exact spelling.
+Protection validation reads the complete URI query, including text after a
+raw `#`, so fragment syntax cannot hide an inventory parameter. Connection
+fields and `sslmode` retain their existing URL fragment interpretation;
+the SSL-mode key also retains its existing case-sensitive URI matching.
+The existing SSL-mode
+refusal takes precedence; otherwise the first refused parameter in input
+order is named, using its canonical name and never its value.
+
+The response is HTTP **400**, code **`invalid_request`**, with this exact
+sentence for `channel_binding`:
+
+> This connection string uses the unsupported protection parameter channel_binding; Dezfil supports connection fields and SSL required or not required.
+
+For another parameter, only the parameter name changes. MCP returns the same
+code and sentence as an error in text and structured content. Refusal makes
+no source attempt and changes no saved fields, encrypted credential or health
+memory. The form fills nothing from a refused paste, preserves prior fields,
+password and status, and keeps submission of those fields available.
+
+Previously stored connections retain their behavior. Their original string
+was discarded, leaving only endpoint, credentials and the SSL boolean, so
+requested protections cannot be recovered or refused retrospectively. There
+is no migration or automatic invalidation. Submitting a new string invokes
+the new validation. Other parameters keep their existing treatment, including
+omission of `options`, `service` and `min_protocol_version` (a wire-protocol
+floor); omission outside this inventory is not a claim of harmlessness.
+
 **Agents.** The assistant and the MCP endpoint. `POST /api/assistant/runs`
 reserves a run, `POST /api/assistant/messages` sends a message under that
 run id, and `GET /api/assistant/runs/{id}` re-reads it after a lost
@@ -771,7 +833,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **106** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **107** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -793,7 +855,44 @@ rather than on the page:
 - Query results carry a capped preview and a flag saying whether it was
   truncated, plus the exact total row count, so a caller always knows what
   it is not seeing.
-- Timeouts, memory budgets, size caps, area budgets, render caps, queue
+- SQL console and preview answers (`POST /api/query`) have fixed byte limits:
+  **33,554,432 bytes (32 MiB)** for the complete uncompressed UTF-8 JSON answer
+  and **2,097,152 bytes (2 MiB)** for one non-geometry column value, including
+  nested values, quotes and escaping. Equality is admitted. Schema, repeated
+  column names, runtime and the envelope count toward the result. Native
+  GEOMETRY columns (including CRS-qualified types) count toward the result
+  ceiling only, whether emitted as WKT or parsed GeoJSON. Explicit WKT/GeoJSON
+  text and geometry-looking text/JSON remain non-geometry. Exceeding either
+  bound refuses the whole answer with HTTP 422 `query_result_too_large`,
+  the catalogue sentence below and no partial rows or details. These limits
+  have no setting; row limits, engine budgets and complete file exports are unchanged.
+- PostGIS five-row preview (`POST /api/connections/postgis/{id}/preview`)
+  uses the same fixed ceilings on returned columns and rows. Internal health
+  is excluded. Source geometry/geography columns, identified by source type
+  and emitted as WKT, count only toward the result ceiling. Text and JSON
+  coordinates retain the cell ceiling. Excess returns the same whole-answer
+  422 catalogue refusal. Health, cancellation and source timeouts stay unchanged.
+- Geometry-choice preview (`POST /api/tables/{name}/geometry/preview`) shares
+  those fixed ceilings. Metadata, grid rows and map features count together.
+  Count the existing 512-character excerpts; source text and nested JSON remain
+  non-geometry. Native WKT excerpts and evaluated native map geometries count
+  only toward the result ceiling. Simplification and its original-geometry
+  fallback stay unchanged. Excess refuses the whole preview with the same 422
+  catalogue error, with no partial sample.
+- Dataset inspection (`GET /api/tables/{name}`) uses the same fixed 32 MiB
+  complete-answer and 2 MiB non-geometry-cell ceilings for its fifty-row
+  preview. Its registered native geometry column is emitted as WKT and counts
+  toward the result ceiling only. All metadata, schema, ownership, project
+  memberships and resolved inputs count in the same answer. An oversized
+  inspection returns the same 422 catalogue refusal with no partial data.
+  A refused dataset inspection prevents its detail and docked set-geometry
+  panel from opening. It also blocks tool column pickers, SQL schema inventory
+  and completion, workflow dataset reads and facts, and automatic layer addition
+  after a tool run. The tool run can report failure even though the dataset has
+  already been written. Existing layer rendering, dataset map features, complete
+  API file exports and owner deletion from Data use separate reads and remain
+  available.
+- Timeouts, memory budgets, configured size caps, area budgets, render caps, queue
   depths and anonymous rate limits are all configuration; see
   [configuration.md](configuration.md). When one is hit the answer is a
   coded error naming the bound, not a truncated success.
@@ -1530,6 +1629,7 @@ response message. Branch on the code.
 | `sql_error` | The SQL failed to parse or execute. |
 | `query_timeout` | The query exceeded the configured timeout. |
 | `query_memory_exceeded` | The query exceeded the configured engine memory budget for user SQL. |
+| `query_result_too_large` | The result is too large to return: more than 32 MB in total, or one non-geometry value over 2 MB. Select fewer rows or columns, or shorten the value. |
 | `tile_build_timeout` | A tile-build stage exceeded the configured tile-build timeout. |
 | `render_cap_exceeded` | The layer's result exceeds the inline render cap; tiled rendering is unavailable for this geometry or configuration. |
 | `tiler_unavailable` | The result is too large for inline rendering and no tile builder is installed on this instance. |
@@ -1592,3 +1692,6 @@ response message. Branch on the code.
 | `map_not_found` | No map exists with the given id. |
 | `internal` | An unexpected server error occurred. |
 <!-- error-catalogue:end -->
+
+The result-byte regression and outside probe invocations are in
+[result budget commands](runbook.md#sql-result-byte-budget).

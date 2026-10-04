@@ -1,4 +1,6 @@
 import type { DatasetScope } from "@/lib/query/access";
+import { readBudgetedRows } from "./budget-reader";
+import { ResultBudget, jsonBytes } from "./result-budget";
 import { limits } from "@/lib/limits";
 import { ApiError } from "@/lib/api/errors";
 import { namedSql } from "./named-sql";
@@ -49,7 +51,7 @@ export async function executeQuery(
 ): Promise<QueryResult> {
   const submittedSql = sql;
   const encoding: GeometryEncoding = options.geometry ?? "wkt";
-  return boundedEvaluation(async (conn) => {
+  return boundedEvaluation(async (conn, bounds) => {
     sql = await namedSql(conn, sql);
 
     const started = Date.now();
@@ -60,15 +62,17 @@ export async function executeQuery(
     // SQL on line one, and what a reported caret is mapped through.
     const probePrefix = "DESCRIBE SELECT * FROM (";
     try {
-      const described = await conn.runAndReadAll(
-        `${probePrefix.slice(0, -1)}${sub}`,
-      );
-      const columns = (
-        described.getRowObjects() as unknown as {
-          column_name: string;
-          column_type: string;
-        }[]
-      ).map((c) => ({ name: c.column_name, type: c.column_type }));
+      // Preserve the existing diagnostic coordinates before adding accounting
+      // projections. Preparation binds types; it does not evaluate row values.
+      const diagnostic = await conn.prepare(`${probePrefix.slice(0, -1)}${sub}`);
+      diagnostic.destroySync();
+      const budget = new ResultBudget();
+      budget.take(jsonBytes({ columns: [], rowCount: 0, preview: [], previewTruncated: true, runtimeMs: 0 }));
+      // Schema is part of the answer, not a data cell. It uses the same
+      // incremental reader without the per-cell ceiling on names or types.
+      const columns = await readBudgetedRows(conn,
+        `SELECT column_name AS name, column_type AS type FROM (${probePrefix.slice(0, -1)}${sub})`, budget, new Set(["name", "type"]), false, bounds.interrupted,
+      ) as { name: string; type: string }[];
 
       // Preview geometry as text, not raw bytes: WKT by default, GeoJSON
       // when asked — parsed below so the wire carries objects. The
@@ -92,28 +96,17 @@ export async function executeQuery(
       );
       const rowCount = Number(counted.getRowObjects()[0].n);
 
-      const previewed = await conn.runAndReadAll(
-        `SELECT *${replace} FROM ${sub} LIMIT ${limits.previewRows}`,
-      );
-      const preview = previewed.getRowObjectsJson() as Record<
-        string,
-        unknown
-      >[];
-      if (encoding === "geojson" && geometryColumns.length) {
-        for (const row of preview) {
-          for (const g of geometryColumns) {
-            const cell = row[g];
-            row[g] = typeof cell === "string" ? JSON.parse(cell) : null;
-          }
-        }
-      }
-
+      budget.take(jsonBytes(rowCount) - 1);
+      const preview = await readBudgetedRows(conn,
+        `SELECT *${replace} FROM ${sub} LIMIT ${limits.previewRows}`, budget, new Set(geometryColumns), encoding === "geojson", bounds.interrupted);
+      const runtimeMs = Date.now() - started;
+      budget.take(String(runtimeMs).length - 1 + (rowCount > preview.length ? 0 : 1));
       return {
         columns,
         rowCount,
         preview,
         previewTruncated: rowCount > preview.length,
-        runtimeMs: Date.now() - started,
+        runtimeMs,
       };
     } catch (error) {
       if (error instanceof ApiError) throw error;

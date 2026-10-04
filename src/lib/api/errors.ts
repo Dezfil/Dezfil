@@ -53,6 +53,7 @@ export type ErrorCode =
   | "sql_error"
   | "query_timeout"
   | "query_memory_exceeded"
+  | "query_result_too_large"
   | "tile_build_timeout"
   | "render_cap_exceeded"
   | "tiler_unavailable"
@@ -141,6 +142,12 @@ export class ApiError extends Error {
 export class EvaluationCancelled extends Error {
   constructor() {
     super("The caller abandoned this evaluation before it completed.");
+  }
+}
+
+export class QueryResultTooLarge extends ApiError {
+  constructor() {
+    super("query_result_too_large", ERROR_CATALOGUE.query_result_too_large, 422);
   }
 }
 
