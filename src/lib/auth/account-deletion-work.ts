@@ -23,6 +23,10 @@ export function bindDeletionDatasets(ids: readonly string[]): void {
 export function inDeletionWork<T>(lease: AccountWorkLease, work: () => T): T {
   return holder.context.run([...(holder.context.getStore() ?? []), lease], work);
 }
+/** Background output owns its lifetime independently of the requesting turn. */
+export function inDetachedDeletionWork<T>(lease: AccountWorkLease, work: () => T): T {
+  return holder.context.run([lease], work);
+}
 export function inDelegatedDeletionWork<T>(scope: object, work: () => T): T {
   const workKey = "workKey" in scope && typeof scope.workKey === "string" ? scope.workKey : undefined;
   const leases = workKey ? holder.renderers.get(workKey) : undefined;

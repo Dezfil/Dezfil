@@ -1,3 +1,5 @@
+import { admitAccountWork, type AccountWorkLease } from "@/lib/auth/account-deletion-admission";
+import { bindDeletionDatasets, inDetachedDeletionWork } from "@/lib/auth/account-deletion-work";
 import { closeTileArchives } from "./serve";
 import { metadataDb } from "@/lib/metadata/db";
 import { archiveServable, tileQueryScope, tileReachKey, requireTileAccess, tileAccessAvailable, type TileAccess } from "./access";
@@ -126,6 +128,7 @@ interface BuildAttempt {
   fingerprint: string;
   generation: number;
   done: ReturnType<typeof Promise.withResolvers<void>>;
+  deletionWork: AccountWorkLease;
 }
 
 /** A layer's attempt for one requesting reach. */
@@ -226,6 +229,7 @@ function generation(layerId: string): number {
 
 function attemptCanCommit(attempt: BuildAttempt): boolean {
   try {
+    attempt.deletionWork.assertCommit();
     return (
       active.get(attempt.key) === attempt &&
       generation(attempt.input.layerId) === attempt.generation &&
@@ -261,6 +265,7 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
       },
       exportFile,
     ));
+    bindDeletionDatasets(inputs.datasets.map(input => input.id));
     trackBuildInputs(attempt.id, input.layerId, inputs);
     if (!attemptCanCommit(attempt)) return;
     await runTippecanoe(exportFile, archiveFile);
@@ -357,7 +362,10 @@ function start(access: TileAccess, input: TileBuildInput): void {
     fingerprint,
     generation: generation(input.layerId),
     done: Promise.withResolvers<void>(),
+    deletionWork: admitAccountWork([access.ownerId, ...("scope" in access.credential ? [access.credential.scope.accountId] : [])]),
   };
+  try {
+  inDetachedDeletionWork(attempt.deletionWork, () => bindDeletionDatasets(input.inputs?.datasets.map(input => input.id) ?? []));
   failures.delete(attempt.key);
   // The record shows a build only while it names no archive: a ready one
   // keeps serving whoever may be served it until a build replaces it.
@@ -375,7 +383,8 @@ function start(access: TileAccess, input: TileBuildInput): void {
   })();
   active.set(attempt.key, attempt);
   trackBuildInputs(attempt.id, input.layerId, input.inputs ?? null);
-  const work = () => runBuild(attempt).finally(() => attempt.done.resolve());
+  } catch (error) { attempt.deletionWork.release(); throw error; }
+  const work = () => inDetachedDeletionWork(attempt.deletionWork, () => runBuild(attempt)).finally(() => { attempt.deletionWork.release(); attempt.done.resolve(); });
   // Contain every terminal failure so one bad target cannot poison the
   // global queue or become an unhandled rejection.
   chain.value = chain.value.then(work, work).catch(() => undefined);

@@ -1,3 +1,4 @@
+import { admitResourceWork, bindDeletionDatasets, inDeletionWork } from "@/lib/auth/account-deletion-work";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireMap, requireOwnMap } from "./map-access";
 import { servableTo } from "./artifact-access";
@@ -233,16 +234,32 @@ export function saveThumbnail(
   bytes: Uint8Array,
   inputs: ArtifactInputs | null = null,
 ): Promise<void> {
-  const authorize = () => { requireOwnMap(scope, mapId); };
-  authorize();
-  return inThumbnailTurn(mapId, async () => {
+  requireOwnMap(scope, mapId);
+  const lease = admitResourceWork(scope, [{ table: "maps", id: mapId }]);
+  const authorize = () => { requireOwnMap(scope, mapId); lease.assertCommit(); };
+  try { inDeletionWork(lease, () => bindDeletionDatasets(inputs?.datasets.map(input => input.id) ?? [])); }
+  catch (error) { lease.release(); throw error; }
+  return inDeletionWork(lease, () => inThumbnailTurn(mapId, async () => {
     authorize();
     const single = path.basename(thumbnailPath(mapId));
-    await writeImageEvidence(single, bytes, inputs);
-    await writeAtomically(thumbnailPath(mapId), bytes, authorize);
+    await writeImageCandidate(single, thumbnailPath(mapId), bytes, inputs, authorize);
     await rm(thumbnailManifestPath(mapId), { force: true });
     await retireUnreferenced(mapId, null, true);
-  });
+  })).finally(() => lease.release());
+}
+
+async function writeImageCandidate(image: string, target: string, bytes: Uint8Array, inputs: ArtifactInputs | null, authorize: () => void) {
+  let previous: Buffer | undefined;
+  try { previous = await readFile(target); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+  const previousInputs = previous ? await imageInputs(image, previous) : null;
+  try {
+    await writeImageEvidence(image, bytes, inputs, authorize);
+    await writeAtomically(target, bytes, authorize);
+  } catch (error) {
+    if (previous) await writeImageEvidence(image, previous, previousInputs);
+    else await removeImageEvidence(image);
+    throw error;
+  }
 }
 
 /**
@@ -258,20 +275,25 @@ export function saveThemedThumbnail(
   bytes: Uint8Array,
   inputs: ArtifactInputs | null = null,
 ): Promise<"held" | "published"> {
-  const authorize = () => { requireOwnMap(scope, mapId); };
-  authorize();
-  return inThumbnailTurn(mapId, async () => {
+  requireOwnMap(scope, mapId);
+  const lease = admitResourceWork(scope, [{ table: "maps", id: mapId }]);
+  const authorize = () => { requireOwnMap(scope, mapId); lease.assertCommit(); };
+  try { inDeletionWork(lease, () => bindDeletionDatasets(inputs?.datasets.map(input => input.id) ?? [])); }
+  catch (error) { lease.release(); throw error; }
+  return inDeletionWork(lease, () => inThumbnailTurn(mapId, async () => {
     authorize();
     const previous = await readSet(mapId);
     authorize();
     await expireHeld(mapId, previous);
     const own = thumbnailSetFile(mapId, cycle, theme);
-    await writeImageEvidence(own, bytes, inputs);
-    await writeAtomically(inDir(own), bytes, authorize);
+    await writeImageCandidate(own, inDir(own), bytes, inputs, authorize);
     const partner = thumbnailSetFile(mapId, cycle, otherTheme(theme));
     const paired = await exists(inDir(partner));
     authorize();
-    if (!paired) return "held";
+    if (!paired) return "held" as const;
+    const partnerInputs = await imageInputs(partner, await readFile(inDir(partner)));
+    bindDeletionDatasets(partnerInputs?.datasets.map(input => input.id) ?? []);
+    authorize();
     // The switch: one rename, after which the new pair is the map's set
     // and the previous one is not. Nothing before it changes a read;
     // a failure here leaves the previous set exactly as it was.
@@ -280,8 +302,8 @@ export function saveThemedThumbnail(
     await writeAtomically(thumbnailManifestPath(mapId), JSON.stringify(next), authorize);
     await removeImage(path.basename(thumbnailPath(mapId)));
     await retireUnreferenced(mapId, next);
-    return "published";
-  });
+    return "published" as const;
+  })).finally(() => lease.release());
 }
 
 /**

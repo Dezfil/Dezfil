@@ -1,3 +1,4 @@
+import { accountMaterialAvailable } from "@/lib/auth/account-deletion-admission";
 import { resolvePublication, publicationAbsent } from "@/lib/publish/publication-scope";
 import type { DatasetScope } from "@/lib/query/access";
 import type { AccountScope } from "@/lib/auth/scope";
@@ -43,7 +44,7 @@ export function requireTileAccess(access: TileAccess | undefined, layerId: strin
   if (!access || access[tileAccessBrand] !== true || access.layerId !== layerId) throw resourceAbsent();
   if ("scope" in access.credential) requireReachable(access.credential.scope, "layer", layerId);
   const row = identity(layerId);
-  if (!row || row.map_id !== access.mapId || row.owner_id !== access.ownerId) throw resourceAbsent();
+  if (!row || !accountMaterialAvailable(row.owner_id) || row.map_id !== access.mapId || row.owner_id !== access.ownerId) throw resourceAbsent();
   if ("token" in access.credential && (row.publish_token !== access.credential.token || row.visible !== 1)) throw resourceAbsent();
 }
 /** Which reach an access asks for tiles in: a build's attempts and their
