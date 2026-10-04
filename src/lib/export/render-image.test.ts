@@ -1,5 +1,5 @@
 import { testAccountScope } from "@/lib/test-support/accounts";
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { EvaluationCancelled } from "@/lib/api/errors";
 import {
   renderMapImage,
@@ -353,4 +353,22 @@ describe("physical renders are counted at the renderer", () => {
     await expect(renderMapImage(testAccountScope(), { mapId: "m1", definition: def(), credential: "fixture-render-credential", baseUrl: "http://x", driver: { launch: async () => { throw new Error("ENOENT"); } } })).rejects.toMatchObject({ code: "render_unavailable" });
     expect(renderStats().launches - before).toBe(2);
   });
+});
+
+
+it("cancellation while launch is pending releases the deadline timer and kills a late arrival", async () => {
+  const scope = testAccountScope(), abort = new AbortController();
+  const late = deferred<RenderBrowser>(), entered = deferred<void>();
+  const browser = browserStub();
+  vi.useFakeTimers();
+  try {
+    const run = renderMapImage(scope, { mapId: "pending", definition: def(), credential: "fixture", baseUrl: "http://127.0.0.1:3216",
+      signal: abort.signal, driver: { launch: () => { entered.resolve(); return late.promise; } } });
+    await entered.promise; abort.abort();
+    await expect(run).rejects.toBeInstanceOf(EvaluationCancelled);
+    expect(vi.getTimerCount()).toBe(0);
+    late.resolve(browser.browser);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(browser.killed()).toBe(true);
+  } finally { late.resolve(browser.browser); vi.useRealTimers(); }
 });

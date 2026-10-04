@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CustomBasemap } from "@/lib/metadata/maps";
 import type { StyleInspection } from "@/lib/net/inspect-style";
 import styles from "./CustomBasemapSection.module.css";
@@ -35,6 +35,13 @@ export function CustomBasemapSection({
   const [verdict, setVerdict] = useState<StyleInspection | null>(null);
   const [saving, setSaving] = useState(false);
   const checkSeq = useRef(0);
+  const checkAbort = useRef<AbortController | null>(null);
+  const invalidateCheck = useCallback(() => {
+    checkSeq.current++;
+    checkAbort.current?.abort();
+    checkAbort.current = null;
+  }, []);
+  useEffect(() => invalidateCheck, [invalidateCheck]);
 
   const open = () => {
     setUrl(custom?.url ?? "");
@@ -46,25 +53,29 @@ export function CustomBasemapSection({
     setEditing(false);
     setVerdict(null);
     setChecking(false);
-    checkSeq.current++; // cancel any check still in flight
+    invalidateCheck();
   };
 
   const check = useCallback(async () => {
     const trimmed = url.trim();
     if (!trimmed) return;
-    const seq = ++checkSeq.current;
+    invalidateCheck();
+    const seq = checkSeq.current;
+    const controller = new AbortController();
+    checkAbort.current = controller;
     setChecking(true);
     setVerdict(null);
     try {
       const response = await fetch("/api/basemap/inspect", {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: trimmed }),
       });
       const result = (await response.json()) as StyleInspection & {
         error?: { message: string };
       };
-      if (seq !== checkSeq.current) return; // a newer check took over
+      if (controller.signal.aborted || seq !== checkSeq.current) return; // a newer check took over
       setVerdict(
         response.ok
           ? result
@@ -74,16 +85,19 @@ export function CustomBasemapSection({
             },
       );
     } catch {
-      if (seq === checkSeq.current) {
+      if (!controller.signal.aborted && seq === checkSeq.current) {
         setVerdict({
           verdict: "unreachable",
           detail: "The check request itself failed.",
         });
       }
     } finally {
-      if (seq === checkSeq.current) setChecking(false);
+      if (seq === checkSeq.current) {
+        checkAbort.current = null;
+        setChecking(false);
+      }
     }
-  }, [url]);
+  }, [url, invalidateCheck]);
 
   const save = async (force: boolean) => {
     setSaving(true);
@@ -143,7 +157,7 @@ export function CustomBasemapSection({
             setVerdict(null);
             // A check in flight is for the old URL — invalidate it, or
             // its verdict lands on the edited value.
-            checkSeq.current++;
+            invalidateCheck();
             setChecking(false);
           }}
           onKeyDown={(e) => {

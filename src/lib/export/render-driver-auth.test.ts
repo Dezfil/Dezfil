@@ -11,6 +11,7 @@ import { puppeteerDriver } from "./render-driver";
 import type { ExportImageDefinition } from "./image-definition";
 
 vi.mock("puppeteer-core", () => ({ default: { launch: vi.fn() } }));
+vi.mock("./render-relay", () => ({ startRenderRelay: async () => ({ port: 43127, refused: false, close() {}, settleAdmissions: async () => {} }) }));
 vi.mock("./render-guard", () => ({ admitRenderRequest: vi.fn() }));
 const origin = "http://127.0.0.1:3216";
 const definition: ExportImageDefinition = { viewport: { lng: 0, lat: 0, zoom: 2, pitch: 0, bearing: 0 }, size: { width: 512, height: 256 },
@@ -50,7 +51,7 @@ function browserFixture(urls: string[], afterRequest: (index: number) => void = 
   return { page, sent, aborted };
 }
 async function render(credential: string) {
-  const driver = await puppeteerDriver(), browser = await driver.launch("unused-test-browser", []);
+  const driver = await puppeteerDriver(), browser = await driver.launch("unused-test-browser", [], { appOrigin: origin, deadline: Date.now() + 10_000, requestBoundMs: 1000 });
   const input = { url: origin + "/render/map", width: 512, height: 256, definition, deadline: Date.now() + 10_000, requestBoundMs: 1000, credential };
   return browser.render(input);
 }

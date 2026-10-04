@@ -121,6 +121,7 @@ function asStyle(
 export async function inspectStyle(
   url: string,
   open: Opener = openRemote,
+  signal?: AbortSignal,
 ): Promise<StyleInspection> {
   let parsedUrl: URL;
   try {
@@ -136,6 +137,7 @@ export async function inspectStyle(
   try {
     const response = await open(url, {
       timeoutMs: STYLE_TIMEOUT_MS,
+      signal,
       timeoutError: () =>
         new ApiError("remote_timeout", "The style fetch timed out.", 504),
     });

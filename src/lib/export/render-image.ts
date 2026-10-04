@@ -239,31 +239,46 @@ async function performRenderMapImage(
       // Launch is inside the budget too: a stalled
       // launch races the remaining deadline; a late arrival is closed.
       launches += 1;
-      const launching = trackRenderWork(scope.accountId, driver.launch(chromiumPath(), CHROMIUM_FLAGS));
+      const launching = trackRenderWork(scope.accountId, driver.launch(chromiumPath(), CHROMIUM_FLAGS, {
+        appOrigin: new URL(input.baseUrl).origin,
+        deadline,
+        requestBoundMs: renderRequestBoundMs(budgetMs),
+        signal: input.signal,
+      }));
       launching.catch(() => {});
       browser = await new Promise<RenderBrowser>((resolve, reject) => {
+        let finished = false;
+        const finish = (settle: () => void) => {
+          if (finished) return;
+          finished = true;
+          clearTimeout(timer);
+          input.signal?.removeEventListener("abort", onAbort);
+          settle();
+        };
         const timer = setTimeout(
-          () => {
+          () => finish(() => {
             timedOut = true;
             reject(renderTimeout(budgetMs));
-          },
+          }),
           Math.max(deadline - Date.now(), 1),
         );
         // The caller's departure aborts a slow launch too: the slot must
         // not sit held behind a stuck startup.
-        const onAbort = () => reject(new EvaluationCancelled());
+        const onAbort = () => finish(() => reject(new EvaluationCancelled()));
         input.signal?.addEventListener("abort", onAbort, { once: true });
         if (input.signal?.aborted) onAbort();
-        launching.then(resolve, reject).finally(() => {
-          clearTimeout(timer);
-          input.signal?.removeEventListener("abort", onAbort);
-        });
+        void launching.then(
+          (arrived) => finish(() => resolve(arrived)),
+          (error) => finish(() => reject(error)),
+        );
       }).catch((error: unknown) => {
         launching.then((late) => late.kill()).catch(() => {});
         throw error;
       });
     } catch (error) {
-      if (error instanceof ApiError || error instanceof AuthError) throw error;
+      if (input.signal?.aborted) throw new EvaluationCancelled();
+      if (timedOut || Date.now() >= deadline) throw renderTimeout(budgetMs);
+      if (error instanceof ApiError || error instanceof AuthError || error instanceof EvaluationCancelled) throw error;
       throw new ApiError(
         "render_unavailable",
         "The image renderer's browser is not available on this instance. " +

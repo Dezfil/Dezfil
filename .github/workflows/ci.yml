@@ -152,6 +152,14 @@ jobs:
       # and no key material anywhere inside.
       - name: Runtime image inventory matches the allowlist
         run: node scripts/check-image-inventory.mjs dezfil:ci
+      # Reuses the built image for the app and three helpers. The driver owns
+      # both internal networks and always removes its exact resource names.
+      # Expect about 30 added seconds, against outside measurements of 27–29 s;
+      # record the hosted runner's actual elapsed time. Wider probes stay outside.
+      - name: Render destination gate, both three-arm variants
+        run: |
+          DEZFIL_DATA_DIR=$(mktemp -d "$RUNNER_TEMP/dezfil-render-XXXXXX") \
+            node scripts/render-egress-driver.mjs --image dezfil:ci
       - name: Provision the separate stock MCP probe client
         run: |
           mcp_client_version=$(node -p "require('./package-lock.json').packages['node_modules/@modelcontextprotocol/client'].version")
