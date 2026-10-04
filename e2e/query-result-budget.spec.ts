@@ -39,9 +39,9 @@ test("console refusal settles, retains SQL and admits a narrower retry", async (
   await page.getByRole("button", { name: "Run query", exact: true }).click();
   expect((await response).status()).toBe(422);
   const note = page.getByRole("region", { name: "Results", exact: true }).getByRole("alert");
-  await expect(note).toContainText("query_result_too_large"); await expect(note).toContainText(sentence);
   await expect(page.getByRole("button", { name: "Run query", exact: true })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Cancel", exact: true })).toHaveCount(0);
+  await expect(note).toContainText("query_result_too_large"); await expect(note).toContainText(sentence);
   await expect(page.locator(".cm-content")).toHaveText(sql);
   await typeSql(page, "SELECT 42 AS answer"); await page.getByRole("button", { name: "Run query", exact: true }).click();
   await expect(page.getByRole("cell", { name: "42", exact: true })).toBeVisible(); await expect(note).toHaveCount(0);
