@@ -1,3 +1,4 @@
+import { registerQueryStore } from "@/lib/query/retained";
 import path from "node:path";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { dataDir } from "@/lib/config";
@@ -30,7 +31,7 @@ function relationKey(dataset: ReachableDataset): string {
 
 /** Names and views belong to this connection alone. The weak map only supports
  * reconciliation when an internal caller explicitly reuses its connection. */
-const mounted = new WeakMap<DuckDBConnection, Set<string>>();
+let mounted = new WeakMap<DuckDBConnection, Set<string>>();
 
 /**
  * Mount one evaluation's namespace on its own connection: a view per dataset
@@ -107,3 +108,6 @@ export async function registerTableViews(
 export async function dropTableView(scope: DatasetScope, name: string): Promise<void> {
   invalidateArtifactRelations(requireDatasetScope(scope), name);
 }
+
+registerQueryStore({ drain: async () => {}, busy: () => false, clear: () => { mounted = new WeakMap<DuckDBConnection, Set<string>>(); } });
+export function mountedViewsForTests(conn: DuckDBConnection): string[] { return [...(mounted.get(conn) ?? [])]; }

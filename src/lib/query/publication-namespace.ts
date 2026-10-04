@@ -1,3 +1,4 @@
+import { registerQueryStore, queryRetentionGeneration } from "@/lib/query/retained";
 import type { Database } from "better-sqlite3";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { metadataDb } from "@/lib/metadata/db";
@@ -62,8 +63,9 @@ export function rememberedPublication(mapId: string, full: Namespace, db: Databa
  * is mounted on it. A layer whose SQL cannot be read names nothing here; its
  * own evaluation fails as it would anyway.
  */
-export async function resolvePublication(conn: DuckDBConnection, mapId: string, full: Namespace,
+async function resolvePublicationWork(conn: DuckDBConnection, mapId: string, full: Namespace,
   db: Database = metadataDb()): Promise<PublicationReach> {
+  const generation = queryRetentionGeneration();
   const layers = layerSql(mapId, db);
   const key = keyOf(mapId, full, layers);
   const known = remembered.get(key);
@@ -85,7 +87,7 @@ export async function resolvePublication(conn: DuckDBConnection, mapId: string, 
   } finally {
     if (previous) setMountPlan(conn, previous);
   }
-  remembered.set(key, ids);
+  if (generation === queryRetentionGeneration()) remembered.set(key, ids);
   if (remembered.size > MEMORY) remembered.delete(remembered.keys().next().value!);
   return restricted(full, ids);
 }
@@ -94,3 +96,13 @@ export async function resolvePublication(conn: DuckDBConnection, mapId: string, 
 export function forgetPublications(): void {
   remembered.clear();
 }
+
+const pending = new Set<Promise<unknown>>();
+function track<T>(promise: Promise<T>): Promise<T> {
+  pending.add(promise); void promise.then(() => pending.delete(promise), () => pending.delete(promise)); return promise;
+}
+export function resolvePublication(...args: Parameters<typeof resolvePublicationWork>): ReturnType<typeof resolvePublicationWork> { return track(resolvePublicationWork(...args)); }
+registerQueryStore({ drain: async () => { await Promise.allSettled([...pending]); }, busy: () => pending.size > 0, clear: () => remembered.clear() });
+export function publicationNamespacesForTests(): string[] { return [...remembered.keys()]; }
+
+export function publicationNamespacePendingForTests(): number { return pending.size; }

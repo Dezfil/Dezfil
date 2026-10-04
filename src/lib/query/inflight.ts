@@ -1,3 +1,4 @@
+import { registerQueryStore } from "./retained";
 /**
  * In-flight artifact readers: every bounded evaluation and every direct
  * artifact read registers here, so retirement can wait for readers that
@@ -23,3 +24,7 @@ export function trackInflight<T>(run: Promise<T>): Promise<T> {
 export function inflightSettled(): Promise<void> {
   return Promise.all([...inflight]).then(() => undefined);
 }
+
+registerQueryStore({ drain: inflightSettled, busy: () => inflight.size > 0, clear: () => inflight.clear() });
+
+export function readersForTests(): number { return inflight.size; }

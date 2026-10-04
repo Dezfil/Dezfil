@@ -1,3 +1,4 @@
+import { registerQueryStore } from "@/lib/query/retained";
 import { requireDocumentRevision } from "./metadata/revisions";
 import type { AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
@@ -47,7 +48,7 @@ import { admitMapSql, recheckSaved, type SavedAdmission } from "./save-admission
 
 /** What a layer update's admission bound, by the layer as admission read it,
  * for the commit's recheck. */
-const updateAdmissions = new WeakMap<Layer, SavedAdmission>();
+let updateAdmissions = new WeakMap<Layer, SavedAdmission>();
 
 /** The layer when the acting account may make this write to it: an edit,
  * and the publish permission too when the published fields change. */
@@ -116,7 +117,7 @@ export async function admitLayerCreate(
  * resolving against the schema as the request leaves it. Returns the
  * layer as read at entry (the snapshot the commit compares against) and
  * the fields with the style normalized. */
-export async function admitLayerUpdate(
+async function admitLayerUpdateWork(
   scope: AccountScope,
   id: string,
   fields: UpdateLayerFields,
@@ -205,3 +206,13 @@ export function admitLayerCommit(
   requireDocumentRevision(scope, { kind: "map", id: entry.mapId, expectedRevision });
   return prior;
 }
+
+const pending = new Set<Promise<unknown>>();
+export function admitLayerUpdate(...args: Parameters<typeof admitLayerUpdateWork>): ReturnType<typeof admitLayerUpdateWork> {
+  const work = admitLayerUpdateWork(...args); pending.add(work);
+  void work.then(() => pending.delete(work), () => pending.delete(work)); return work;
+}
+registerQueryStore({ drain: async () => { await Promise.allSettled([...pending]); }, busy: () => pending.size > 0, clear: () => { updateAdmissions = new WeakMap<Layer, SavedAdmission>(); } });
+export function layerAdmissionForTests(layer: Layer): boolean { return updateAdmissions.has(layer); }
+
+export function layerAdmissionsPendingForTests(): number { return pending.size; }

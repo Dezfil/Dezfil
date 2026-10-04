@@ -48,6 +48,7 @@ it.each([
     function wrapper(file: string) { return persist(file, 'private'); }
     export async function added() { const target = path.join(folder(), 'value'); await wrapper(target); }`, "writer:", "added:wrapper"],
   ["factory collection", `function factory() { const entries = new Map<string, string>(); return { get: (key: string) => entries.get(key) }; } export const retained = factory();`, "memory:", "factory.entries"],
+  ["attached callable", `function factory() { const entries = new Map<string, string>(); const read = (key: string) => entries.get(key); return Object.assign(read, { size: () => entries.size }); } export const retained = factory();`, "memory:", "factory.entries"],
   ["weak collection", `function factory() { const entries = new WeakMap<object, string>(); return (key: object) => entries.get(key); } export const retained = factory();`, "memory:", "factory.entries"],
   ["singleton class", `class Holder { entries = new WeakSet<object>(); } export const retained = new Holder();`, "memory:", "Holder.entries"],
   ["process holder", `export function install() { const entries = new Map<string, string>(); globalThis['retained'] = entries; }`, "memory:", "install.entries"],

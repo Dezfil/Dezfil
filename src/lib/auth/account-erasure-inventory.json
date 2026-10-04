@@ -340,9 +340,8 @@
       "fixture": "memory:src/lib/duckdb.ts#instancePromise"
     },
     "memory:src/lib/duckdb.ts#queryCatalogGeneration": {
-      "action": "purge",
-      "rule": "Drain evaluations and leased connections, clear retained mounts, catalog views and instance namespaces before completion.",
-      "fixture": "memory:src/lib/duckdb.ts#queryCatalogGeneration"
+      "action": "retain",
+      "rule": "Keep the monotonic non-content generation counter; advance it when clearing the catalog so late work cannot repopulate a replacement."
     },
     "memory:src/lib/duckdb.ts#queryInstancePromise": {
       "action": "purge",
@@ -491,9 +490,8 @@
       "fixture": "memory:src/lib/query/catalog-state.ts#artifactRelations"
     },
     "memory:src/lib/query/catalog-state.ts#generation": {
-      "action": "purge",
-      "rule": "Drain evaluations and leased connections, clear retained mounts, catalog views and input state before completion.",
-      "fixture": "memory:src/lib/query/catalog-state.ts#generation"
+      "action": "retain",
+      "rule": "Keep the monotonic non-content generation counter; advance it when clearing the catalog so late work cannot repopulate a replacement."
     },
     "memory:src/lib/query/catalog-state.ts#relations": {
       "action": "purge",
@@ -662,6 +660,55 @@
       "action": "erase",
       "rule": "Drain affected archive reads through descriptor close. Preserve independent readers.",
       "fixture": "memory:src/lib/tiles/serve.ts#reads"
+    },
+    "memory:src/lib/duckdb.ts#nativeInstances": {
+      "action": "purge",
+      "rule": "Drain all retained work to physical settlement before clearing its associated query store; independent durable records remain unchanged.",
+      "fixture": "memory:src/lib/duckdb.ts#nativeInstances"
+    },
+    "memory:src/lib/duckdb.ts#nativeCreating": {
+      "action": "purge",
+      "rule": "Drain all retained work to physical settlement before clearing its associated query store; independent durable records remain unchanged.",
+      "fixture": "memory:src/lib/duckdb.ts#nativeCreating"
+    },
+    "memory:src/lib/duckdb.ts#leases": {
+      "action": "purge",
+      "rule": "Drain all retained work to physical settlement before clearing its associated query store; independent durable records remain unchanged.",
+      "fixture": "memory:src/lib/duckdb.ts#leases"
+    },
+    "memory:src/lib/geometry/inspection-cache.ts#inspectionCache.pending": {
+      "action": "purge",
+      "rule": "Drain all retained work to physical settlement before clearing its associated query store; independent durable records remain unchanged.",
+      "fixture": "memory:src/lib/geometry/inspection-cache.ts#inspectionCache.pending"
+    },
+    "memory:src/lib/query/evaluation-inputs.ts#collections": {
+      "action": "purge",
+      "rule": "Drain all retained work to physical settlement before clearing its associated query store; independent durable records remain unchanged.",
+      "fixture": "memory:src/lib/query/evaluation-inputs.ts#collections"
+    },
+    "memory:src/lib/publish/publication-resolution.ts#pending": {
+      "action": "purge",
+      "rule": "Drain all retained work to physical settlement before clearing its associated query store; independent durable records remain unchanged.",
+      "fixture": "memory:src/lib/publish/publication-resolution.ts#pending"
+    },
+    "memory:src/lib/query/publication-namespace.ts#pending": {
+      "action": "purge",
+      "rule": "Drain all retained work to physical settlement before clearing its associated query store; independent durable records remain unchanged.",
+      "fixture": "memory:src/lib/query/publication-namespace.ts#pending"
+    },
+    "memory:src/lib/history-admission-cache.ts#pending": {
+      "action": "purge",
+      "rule": "Drain all retained work to physical settlement before clearing its associated query store; independent durable records remain unchanged.",
+      "fixture": "memory:src/lib/history-admission-cache.ts#pending"
+    },
+    "memory:src/lib/layer-admission.ts#pending": {
+      "action": "purge",
+      "rule": "Drain all retained work to physical settlement before clearing its associated query store; independent durable records remain unchanged.",
+      "fixture": "memory:src/lib/layer-admission.ts#pending"
+    },
+    "memory:query-store-registry": {
+      "action": "retain",
+      "rule": "Keep registration callbacks and a non-content monotonic purge generation across compiled module copies; the registered data stores have their own purge obligations."
     }
   },
   "tables": {
@@ -916,14 +963,6 @@
       ],
       "roots": [
         "tables/*.parquet"
-      ]
-    },
-    "location:src/lib/geometry/inspection-cache.ts#inspectionCache.key:dataDir": {
-      "stores": [
-        "file:tables"
-      ],
-      "roots": [
-        "."
       ]
     },
     "location:src/lib/geometry/mutate.ts#publishGeometry:dataDir": {
@@ -4333,6 +4372,104 @@
     "memory:src/lib/tiles/serve.ts#reads": {
       "stores": [
         "memory:src/lib/tiles/serve.ts#reads"
+      ]
+    },
+    "memory:src/lib/duckdb.ts#nativeInstances": {
+      "stores": [
+        "memory:src/lib/duckdb.ts#nativeInstances"
+      ]
+    },
+    "memory:src/lib/duckdb.ts#nativeCreating": {
+      "stores": [
+        "memory:src/lib/duckdb.ts#nativeCreating"
+      ]
+    },
+    "memory:src/lib/duckdb.ts#leases": {
+      "stores": [
+        "memory:src/lib/duckdb.ts#leases"
+      ]
+    },
+    "memory:src/lib/geometry/inspection-cache.ts#inspectionCache.pending": {
+      "stores": [
+        "memory:src/lib/geometry/inspection-cache.ts#inspectionCache.pending"
+      ]
+    },
+    "memory:src/lib/query/evaluation-inputs.ts#collections": {
+      "stores": [
+        "memory:src/lib/query/evaluation-inputs.ts#collections"
+      ]
+    },
+    "memory:src/lib/publish/publication-resolution.ts#pending": {
+      "stores": [
+        "memory:src/lib/publish/publication-resolution.ts#pending"
+      ]
+    },
+    "memory:src/lib/query/publication-namespace.ts#pending": {
+      "stores": [
+        "memory:src/lib/query/publication-namespace.ts#pending"
+      ]
+    },
+    "memory:src/lib/history-admission-cache.ts#pending": {
+      "stores": [
+        "memory:src/lib/history-admission-cache.ts#pending"
+      ]
+    },
+    "memory:src/lib/layer-admission.ts#pending": {
+      "stores": [
+        "memory:src/lib/layer-admission.ts#pending"
+      ]
+    },
+    "memory:src/lib/duckdb.ts#clear": {
+      "stores": [
+        "memory:src/lib/duckdb.ts#connectionGenerations"
+      ]
+    },
+    "memory:src/lib/history-admission-cache.ts#clear": {
+      "stores": [
+        "memory:src/lib/history-admission-cache.ts#caches"
+      ]
+    },
+    "memory:src/lib/layer-admission.ts#clear": {
+      "stores": [
+        "memory:src/lib/layer-admission.ts#updateAdmissions"
+      ]
+    },
+    "memory:src/lib/query/catalog-state.ts#clear": {
+      "stores": [
+        "memory:src/lib/query/catalog-state.ts#relations"
+      ]
+    },
+    "memory:src/lib/query/evaluation-inputs.ts#clear": {
+      "stores": [
+        "memory:src/lib/query/evaluation-inputs.ts#recorders"
+      ]
+    },
+    "memory:src/lib/query/mount-plan.ts#clear": {
+      "stores": [
+        "memory:src/lib/query/mount-plan.ts#plans"
+      ]
+    },
+    "memory:src/lib/query/views.ts#clear": {
+      "stores": [
+        "memory:src/lib/query/views.ts#mounted"
+      ]
+    },
+    "memory:src/lib/query/retained.ts#holder": {
+      "stores": [
+        "memory:query-store-registry"
+      ]
+    },
+    "memory:src/lib/query/retained.ts#holder.stores": {
+      "stores": [
+        "memory:query-store-registry"
+      ]
+    },
+    "location:src/lib/geometry/inspection-cache.ts#inspectionCache.inspect.key:dataDir": {
+      "stores": [
+        "file:tables"
+      ],
+      "roots": [
+        "."
       ]
     }
   },

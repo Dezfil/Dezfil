@@ -1,3 +1,4 @@
+import { registerQueryStore } from "@/lib/query/retained";
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { classifyReference } from "./reference-forms";
@@ -38,7 +39,7 @@ interface Recorder {
 }
 
 /** Notes belong to the connection that compiled them, and nothing else. */
-const recorders = new WeakMap<DuckDBConnection, Recorder>();
+let recorders = new WeakMap<DuckDBConnection, Recorder>();
 
 function recorder(conn: DuckDBConnection): Recorder {
   let found = recorders.get(conn);
@@ -144,11 +145,14 @@ interface Collection {
   catalogue: boolean;
 }
 const collecting = new AsyncLocalStorage<readonly Collection[]>();
+const collections = new Set<Promise<unknown>>();
 
 export async function collectInputs<T>(work: () => Promise<T>): Promise<{ value: T; inputs: ArtifactInputs }> {
   const mine: Collection = { entries: new Map(), catalogue: false };
-  const value = await collecting.run([...(collecting.getStore() ?? []), mine], work);
-  return { value, inputs: normalized(mine.entries.values(), mine.catalogue) };
+  const pending = collecting.run([...(collecting.getStore() ?? []), mine], work);
+  collections.add(pending);
+  try { return { value: await pending, inputs: normalized(mine.entries.values(), mine.catalogue) }; }
+  finally { collections.delete(pending); mine.entries.clear(); }
 }
 
 /** The collections open where an evaluation starts. */
@@ -165,3 +169,9 @@ export function foldEvaluation(collections: readonly Collection[] | undefined, c
     collection.catalogue ||= inputs.catalogue;
   }
 }
+
+registerQueryStore({ drain: async () => {}, busy: () => false, clear: () => { recorders = new WeakMap<DuckDBConnection, Recorder>(); } });
+export function inputRecorderForTests(conn: DuckDBConnection): boolean { return recorders.has(conn); }
+
+registerQueryStore({ drain: async () => { await Promise.allSettled([...collections]); }, busy: () => collections.size > 0, clear: () => collecting.disable() });
+export function inputCollectionsForTests(): number { return collections.size; }

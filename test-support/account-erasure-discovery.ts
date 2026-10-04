@@ -63,6 +63,9 @@ function returnedClosure(fn: ts.FunctionLikeDeclaration): boolean {
   function escapes(node: ts.Node): boolean {
     const n = unwrap(node);
     if (ts.isArrowFunction(n) || ts.isFunctionExpression(n) || ts.isMethodDeclaration(n)) return true;
+    if (ts.isCallExpression(n) && n.expression.getText() === "Object.assign") return n.arguments.some(escapes);
+    if (ts.isIdentifier(n)) return !!fn.body && find(fn.body, d =>
+      ts.isFunctionDeclaration(d) && name(d) === n.text || ts.isVariableDeclaration(d) && name(d) === n.text && !!d.initializer && (ts.isArrowFunction(unwrap(d.initializer)) || ts.isFunctionExpression(unwrap(d.initializer)))).length > 0;
     if (ts.isObjectLiteralExpression(n)) return n.properties.some(p => ts.isMethodDeclaration(p) || ts.isShorthandPropertyAssignment(p) && !!fn.body && find(fn.body, d =>
       ts.isFunctionDeclaration(d) && name(d) === p.name.text || ts.isVariableDeclaration(d) && name(d) === p.name.text && !!d.initializer && (ts.isArrowFunction(unwrap(d.initializer)) || ts.isFunctionExpression(unwrap(d.initializer)))).length > 0 || ts.isPropertyAssignment(p) && escapes(p.initializer));
     return false;
