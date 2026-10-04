@@ -84,8 +84,26 @@ test("Users deletes invitations without typing and empty accounts without work c
     await expect(dialog).not.toContainText("leave the account deactivated");
     await expect(dialog.getByRole("button", { name: "Delete account", exact: true })).toBeDisabled();
     await page.screenshot({ path: info.outputPath("empty.png") });
+    const accepted = page.waitForResponse(response => response.request().method() === "DELETE" && new URL(response.url()).pathname === `/api/users/${empty.id}`);
     await dialog.getByRole("textbox").fill(empty.email); await dialog.getByRole("button", { name: "Delete account", exact: true }).click();
-    await expect(page.getByRole("status").filter({ hasText: `${empty.name}: deleted` })).toBeVisible();
+    const response = await accepted; expect([200, 202]).toContain(response.status());
+    const status = await response.json(); await expect(dialog).toHaveCount(0);
+    const emptyRow = page.getByRole("button", { name: new RegExp(empty.email) });
+    if (status.state === "completed") await expect(page.getByRole("status").filter({ hasText: `${empty.name}: deleted` })).toBeVisible();
+    else {
+      expect(status.state).toBe("pending"); await expect(emptyRow).toContainText("Deleting");
+      await expect.poll(async () => {
+        const read = await request.get(`/api/users/deletions/${status.id}`);
+        if (read.status() === 404) return "completed";
+        expect(read.status()).toBe(200); const pending = await read.json();
+        expect(pending.state).toBe("pending"); return pending.state;
+      }).toBe("completed");
+      // Users holds the accepted state until a fresh list read on reload.
+      const refreshed = page.waitForResponse(value => value.request().method() === "GET" && new URL(value.url()).pathname === "/api/users");
+      await page.reload(); expect((await refreshed).status()).toBe(200);
+      await expect(page.getByText("Loading users…", { exact: true })).toHaveCount(0);
+    }
+    await expect(emptyRow).toHaveCount(0);
   } finally { await closeAll(people); }
 });
 
