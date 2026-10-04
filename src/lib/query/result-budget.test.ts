@@ -152,6 +152,14 @@ describe("SQL result byte budget", () => {
     expect((await query(sql)).preview).toEqual(expected);
   });
 
+  it("preserves the client's last unnamed struct entry, including zipped lists", async () => {
+    expect((await query("SELECT row(1, 'a') AS r, list_zip([1], [2]) AS z")).preview)
+      .toEqual([{ r: { "": "a" }, z: [{ "": 2 }] }]);
+    expect((await query("SELECT row(repeat('x', 2097153), 'a') AS r")).preview)
+      .toEqual([{ r: { "": "a" } }]);
+    await refused(query("SELECT row(1, repeat('x', 2097151)) AS r"));
+  });
+
   it.each([-1, 0, 1])("counts the shipped blob text at its cell boundary (%s)", async delta => {
     const sql = `SELECT encode(repeat(chr(92), 1048574) || repeat('a', ${delta + 2})) AS b`;
     if (delta > 0) await refused(query(sql));

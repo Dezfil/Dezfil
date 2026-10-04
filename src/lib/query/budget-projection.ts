@@ -26,8 +26,12 @@ export function budgetProjection(expression: string, type: DuckDBType, depth = 0
       return { sql: nullable(`struct_pack(items := list_transform(${expression}, ${child} -> ${item.sql}))`), kind: "list", children: [item] };
     }
     case DuckDBTypeId.STRUCT: {
-      const children = type.entryTypes.map((t, i) => budgetProjection(`${expression}.${quoteIdent(type.entryNames[i])}`, t, depth + 1));
-      return { sql: nullable(`struct_pack(${children.map((p, i) => `${quoteIdent(type.entryNames[i])} := ${p.sql}`).join(", ")})`), kind: "struct", children, names: type.entryNames };
+      // The client's object conversion retains the last duplicate key in an
+      // unnamed tuple. Discarded entries are not part of the returned cell.
+      const indices = type.entryNames.map((_, i) => i).filter(i => type.entryNames.lastIndexOf(type.entryNames[i]) === i);
+      const children = indices.map(i => budgetProjection(type.entryNames[i]
+        ? `${expression}.${quoteIdent(type.entryNames[i])}` : `struct_extract(${expression}, ${i + 1})`, type.entryTypes[i], depth + 1));
+      return { sql: nullable(`struct_pack(${children.map((p, i) => `v${i} := ${p.sql}`).join(", ")})`), kind: "struct", children, names: indices.map(i => type.entryNames[i]) };
     }
     case DuckDBTypeId.MAP: {
       const key = budgetProjection(`${child}.key`, type.keyType, depth + 1);
