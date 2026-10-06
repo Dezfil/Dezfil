@@ -1,19 +1,13 @@
+import { accountChoices } from "@/lib/settings/account";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
 import { instanceName, setInstanceName, type ScreenPrefs, type ViewPrefs } from "@/lib/metadata/settings";
-import { accountSourceGrouping, accountViewPrefs, mergeAccountViewPrefs, setAccountSourceGrouping, SOURCE_GROUPINGS,
+import { accountSourceGrouping, accountViewPrefs, mergeAccountViewPrefs, setAccountSourceGrouping,
   type SourceGrouping } from "@/lib/metadata/account-preferences";
 import { requireCurrentActor, type AuthContext } from "./credentials";
 import { AuthError } from "./errors";
 
 const NAME_MAX = 80;
-
-const SCREEN_SORTS: Record<keyof ViewPrefs, string[]> = {
-  maps: ["edited", "created", "name"],
-  data: ["updated", "name", "rows", "size"],
-  workflows: ["edited", "created", "name"],
-  projects: ["updated", "name", "largest"],
-};
 
 /** Accept only the documented shape: per-screen view/sort. */
 function normalizeViewPrefs(input: unknown): ViewPrefs {
@@ -38,23 +32,25 @@ function normalizeViewPrefs(input: unknown): ViewPrefs {
     const { view, sort } = slice as Record<string, unknown>;
     const normalized: ScreenPrefs = {};
     if (view !== undefined) {
-      if (view !== "grid" && view !== "list") {
+      const choices = accountChoices(`${screen}.view`);
+      if (typeof view !== "string" || !choices.includes(view)) {
         throw new AuthError(
           "invalid_request",
-          `viewPrefs.${screen}.view must be "grid" or "list".`,
+          `viewPrefs.${screen}.view must be ${choices.map(value => JSON.stringify(value)).join(" or ")}.`,
           400,
         );
       }
-      normalized.view = view;
+      normalized.view = view as ScreenPrefs["view"];
     }
     if (sort !== undefined) {
+      const choices = accountChoices(`${screen}.sort`);
       if (
         typeof sort !== "string" ||
-        !SCREEN_SORTS[screen].includes(sort)
+        !choices.includes(sort)
       ) {
         throw new AuthError(
           "invalid_request",
-          `viewPrefs.${screen}.sort must be one of ${SCREEN_SORTS[screen].join(", ")}.`,
+          `viewPrefs.${screen}.sort must be one of ${choices.join(", ")}.`,
           400,
         );
       }
@@ -88,8 +84,9 @@ function normalizePatch(input: unknown): SettingsPatch {
   }
   if (body.viewPrefs !== undefined) patch.viewPrefs = normalizeViewPrefs(body.viewPrefs);
   if (body.sourceGrouping !== undefined) {
-    if (!SOURCE_GROUPINGS.includes(body.sourceGrouping as SourceGrouping)) {
-      throw new AuthError("invalid_request", '"sourceGrouping" must be "person" or "project".', 400);
+    const choices = accountChoices("sourceGrouping");
+    if (typeof body.sourceGrouping !== "string" || !choices.includes(body.sourceGrouping)) {
+      throw new AuthError("invalid_request", `"sourceGrouping" must be ${choices.map(value => JSON.stringify(value)).join(" or ")}.`, 400);
     }
     patch.sourceGrouping = body.sourceGrouping as SourceGrouping;
   }

@@ -398,6 +398,11 @@ plus the shared instance name. Only admins may change the instance name.
 `sourceGrouping` is how the SQL console's source list groups datasets for
 the caller, `person` (their own, then each other person's) until they choose
 `project`; the read always carries it, and it is one account's alone.
+The complete document remains `displayName`, `instanceName`, `viewPrefs` and
+`sourceGrouping`. View and sort choices for maps, data, workflows and projects,
+and the SQL grouping choices, come from the account setting definitions.
+Partial slices merge; absent slices stay absent and stored preferences are
+not filtered on read. One account's patch never changes another's preferences.
 Every field in a patch is validated and authorized before any write.
 `/api/palettes` manages saved color palettes.
 
