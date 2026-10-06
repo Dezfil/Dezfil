@@ -198,3 +198,26 @@ it("loads and resets the singleton without letting an explicit open replace it",
   vi.stubEnv("DEZFIL_DATA_DIR", mkdtempSync(path.join(root, "fresh-")));
   metadataDb(); expect(limits.queryTimeoutMs).toBe(60_000);
 });
+
+it("resets every loaded singleton bundle before selecting a fresh data directory", async () => {
+  db.close();
+  const root = mkdtempSync(path.join(process.env.DEZFIL_DATA_DIR!, "bundle-reset-"));
+  vi.stubEnv("DEZFIL_DATA_DIR", root);
+  writeStoredSettings({ queryTimeoutS: 80 }, metadataDb());
+  vi.resetModules();
+  const other = await import("@/lib/metadata/db");
+  const otherHandle = other.metadataDb();
+  try {
+    expect(limits.queryTimeoutMs).toBe(80_000);
+    closeMetadataDb();
+    expect(limits.queryTimeoutMs).toBe(60_000);
+    expect(otherHandle.open).toBe(false);
+    vi.stubEnv("DEZFIL_DATA_DIR", mkdtempSync(path.join(root, "fresh-")));
+    expect(readStoredSettings(other.metadataDb())).toEqual({});
+    expect(other.metadataDb()).toBe(metadataDb());
+    expect(limits.queryTimeoutMs).toBe(60_000);
+    writeStoredSettings({ queryTimeoutS: 90 }, other.metadataDb());
+    expect(limits.queryTimeoutMs).toBe(90_000);
+    other.closeMetadataDb(); expect(limits.queryTimeoutMs).toBe(60_000);
+  } finally { other.closeMetadataDb(); }
+});

@@ -1670,14 +1670,6 @@
         "thumbnails"
       ]
     },
-    "location:src/lib/metadata/db.ts#metadataDb:path.join": {
-      "stores": [
-        "file:metadata"
-      ],
-      "roots": [
-        "metadata.sqlite"
-      ]
-    },
     "location:src/lib/metadata/db.ts#metadataDb.dir:dataDir": {
       "stores": [
         "file:metadata"
@@ -3214,11 +3206,6 @@
         "memory:tool-schema-cache"
       ]
     },
-    "memory:src/lib/metadata/db.ts#instance": {
-      "stores": [
-        "memory:open-metadata-handle"
-      ]
-    },
     "memory:src/lib/metadata/revisions.ts#recordings": {
       "stores": [
         "memory:src/lib/metadata/revisions.ts#recordings"
@@ -3821,14 +3808,6 @@
       ],
       "roots": [
         "."
-      ]
-    },
-    "writer:src/lib/metadata/db.ts#metadataDb:open": {
-      "stores": [
-        "file:metadata"
-      ],
-      "roots": [
-        "metadata.sqlite"
       ]
     },
     "writer:src/lib/osm/import.ts#buildClassArtifact:buildArtifact": {
@@ -5113,6 +5092,37 @@
       "stores": [
         "memory:src/lib/export/render-image.ts#active",
         "memory:src/lib/export/render-image.ts#waiters"
+      ]
+    },
+    "memory:src/lib/metadata/db.ts#store": {
+      "stores": [
+        "memory:open-metadata-handle"
+      ]
+    },
+    "location:src/lib/metadata/db.ts#metadataDb.db:path.join": {
+      "stores": [
+        "file:metadata"
+      ],
+      "roots": [
+        "metadata.sqlite"
+      ]
+    },
+    "writer:src/lib/metadata/db.ts#metadataDb.db:open": {
+      "stores": [
+        "file:metadata"
+      ],
+      "roots": [
+        "metadata.sqlite"
+      ]
+    },
+    "memory:src/lib/metadata/db.ts#metadataDb.db": {
+      "stores": [
+        "memory:open-metadata-handle"
+      ]
+    },
+    "memory:src/lib/metadata/db.ts#metadataDb.error": {
+      "stores": [
+        "memory:request-closures"
       ]
     }
   },

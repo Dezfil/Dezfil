@@ -16,16 +16,20 @@ export { MIGRATIONS } from "./migrations";
  * repositories portable — no SQLite-specific syntax.
  */
 
-let instance: Database.Database | null = null;
+const key = Symbol.for("dezfil.metadata-store");
+const host = process as typeof process & { [key]?: { instance: Database.Database | null } };
+const store: NonNullable<typeof host[typeof key]> = host[key] ??= { instance: null };
 
 export function metadataDb(): Database.Database {
-  if (!instance) {
+  if (!store.instance?.open) {
     const dir = dataDir();
     mkdirSync(dir, { recursive: true });
-    instance = open(path.join(dir, "metadata.sqlite"));
-    activateSettingsStore(instance);
+    const db = open(path.join(dir, "metadata.sqlite"));
+    try { activateSettingsStore(db); }
+    catch (error) { db.close(); throw error; }
+    store.instance = db;
   }
-  return instance;
+  return store.instance;
 }
 
 /** Open (and migrate) a metadata database at an explicit path — used by tests. */
@@ -61,8 +65,9 @@ export function migrate(db: Database.Database): void {
   }
 }
 
-/** Reset the singleton — used by tests that point DEZFIL_DATA_DIR elsewhere. */
+/** Reset every route bundle's singleton and its settings snapshot together.
+ * Explicit stores keep their independent connection lifetime. */
 export function closeMetadataDb(): void {
-  instance?.close();
-  instance = null;
+  if (store.instance?.open) store.instance.close();
+  store.instance = null;
 }
