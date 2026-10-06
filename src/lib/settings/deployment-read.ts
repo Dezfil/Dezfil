@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { dataDir } from "@/lib/config";
 import { assistantAvailability, allowedModels, DEFAULT_MODELS } from "@/lib/assistant/config";
+import { readModelCatalogue } from "@/lib/assistant/model-catalogue";
 import { discloseAddress } from "./disclosure";
 import { settingEnvironment } from "./resolver";
 import type { SettingDefinition } from "./types";
@@ -32,7 +33,7 @@ export function readDeploymentSetting(definition: SettingDefinition) {
   } else if (modelList) {
     const provider = definition.key === "aiModelsAnthropic" ? "anthropic" : "openai";
     const model = settingEnvironment({ ...definition, environment: "DEZFIL_AI_MODEL" }) ?? DEFAULT_MODELS[provider];
-    value = allowedModels(process.env, provider, model);
+    value = allowedModels(process.env, provider, model, readModelCatalogue().models);
   } else if (definition.kind === "list") value = raw?.split(definition.key === "trustedProxies" ? /[\s,]+/ : /,/).map(item => item.trim()).filter(Boolean) ?? [];
   return { value, source: locked && !invalidOverride ? "environment" as const : "default" as const,
     locked, invalidOverride, storedValue: null };

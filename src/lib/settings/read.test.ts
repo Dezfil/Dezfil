@@ -13,6 +13,7 @@ import { testClient } from "@/lib/mcp/test-client";
 import * as secrets from "@/lib/secrets";
 import { DISCLOSURE_SEEDS, FORBIDDEN_DISCLOSURE, instanceSettingsFixture } from "../../../test-support/instance-settings";
 import manifest from "../../../package.json";
+import { currentAssistantChoices } from "@/lib/assistant/catalogue-choices";
 
 vi.mock("node:fs", async importOriginal => ({ ...await importOriginal<typeof import("node:fs")>() }));
 
@@ -82,7 +83,11 @@ it("omits seeded credentials from read, schema, defaults and generated tool resu
   } finally { await client.close(); }
 });
 
-it("reads key-file presence without reading its contents or creating any artifact, service request or engine", async () => {
+it("reads local model additions and key-file presence without key access, writes, service requests or engines", async () => {
+  writeFileSync(path.join(fixture.dir, "assistant-models.json"), JSON.stringify({
+    anthropic: [{ id: "fixture-anthropic-model", name: "Local model", efforts: [] }],
+    openai: [{ id: "fixture-openai-model", name: "Local model", efforts: [] }],
+  }));
   const key = vi.spyOn(secrets, "secretKey").mockImplementation(() => { throw new Error("Key accessor called"); });
   const readFile = fs.readFileSync;
   vi.spyOn(fs, "readFileSync").mockImplementation((...args: Parameters<typeof readFile>) => {
@@ -102,6 +107,19 @@ it("reads key-file presence without reading its contents or creating any artifac
   expect(result.settings.secretKey.value).toEqual({ status: "not-yet-present" });
   expect(result.settings.anthropicApiKey.value).toEqual({ set: false });
   expect(result.settings.openaiApiKey.value).toEqual({ set: false });
+  for (const [provider, key, credential] of [
+    ["anthropic", "aiModelsAnthropic", "ANTHROPIC_API_KEY"],
+    ["openai", "aiModelsOpenai", "OPENAI_API_KEY"],
+  ]) {
+    expect(result.settings[key].value).toContain(`fixture-${provider}-model`);
+    expect(result.settings[key]).toMatchObject({ source: "default", locked: false });
+    vi.stubEnv("DEZFIL_AI_PROVIDER", provider);
+    vi.stubEnv(credential, "seed-provider-key");
+    const offered = currentAssistantChoices();
+    expect(offered.enabled).toBe(true);
+    if (!offered.enabled) throw new Error("Missing model offer");
+    expect(result.settings[key].value).toEqual(offered.models);
+  }
   expect(files()).toEqual(before);
   writeFileSync(path.join(fixture.dir, "secret.key"), "cd".repeat(32));
   const present = files();
