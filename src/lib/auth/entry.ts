@@ -1,3 +1,5 @@
+import { readStoredSettings } from "@/lib/settings/store";
+import { settingDefinition } from "@/lib/settings/catalogue";
 import { NextResponse } from "next/server";
 import { metadataDb } from "@/lib/metadata/db";
 import { setupComplete } from "@/lib/metadata/accounts";
@@ -12,7 +14,11 @@ export async function entryInformation(request: Request): Promise<Response> {
   try {
     requestIngress(request);
     const db = metadataDb(), setupRequired = !setupComplete(db);
-    return privateResponse(NextResponse.json({ instanceName: instanceName(db), setupRequired,
+    const stored = readStoredSettings(db);
+    return privateResponse(NextResponse.json({ instanceName: instanceName(db),
+      signInMessage: stored.signInMessage ?? settingDefinition("signInMessage").defaultValue,
+      lostPasswordContact: stored.lostPasswordContact ?? settingDefinition("lostPasswordContact").defaultValue,
+      landingPage: stored.landingPage ?? settingDefinition("landingPage").defaultValue, setupRequired,
       ...(setupRequired ? { prefillName: getSetting("display_name", db) ?? "" } : {}) }));
   } catch (error) { return authFailure(error); }
 }

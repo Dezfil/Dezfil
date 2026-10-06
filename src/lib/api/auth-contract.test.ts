@@ -27,3 +27,20 @@ it("documents every entry refusal and its retry fields without exposing password
   expect(Object.keys(doc.components.schemas.Account.properties)).not.toContain("password");
   expect(AUTH_PATHS["/api/auth/sign-in"].post.responses["429"].headers).toHaveProperty("Retry-After");
 });
+
+it("documents the public General entry values without promising navigation", () => {
+  const doc = buildOpenApiDocument();
+  const schema = doc.components.schemas.AuthEntry;
+  expect(schema.required).toEqual(["instanceName", "signInMessage", "lostPasswordContact", "landingPage", "setupRequired"]);
+  expect(schema.properties).toMatchObject({
+    signInMessage: { type: "string", maxLength: 280, default: "" },
+    lostPasswordContact: { type: "string", maxLength: 120, default: "" },
+    landingPage: { type: "string", enum: ["home", "projects", "maps", "workflows", "data", "sql"], default: "home" },
+  });
+  const description = AUTH_PATHS["/api/auth/entry"].get.description;
+  expect(description).toContain("sign-in message");
+  expect(description).toContain("lost-password contact");
+  expect(description).toContain("landing page");
+  expect(description).toContain("does not change navigation");
+  expect(description).not.toContain("Only the instance name");
+});

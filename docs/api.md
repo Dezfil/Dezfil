@@ -424,6 +424,13 @@ the fixed export maximum; `version` is the package version and `startedAt`
 is the stable process start time. `warnings` reports an effective query timeout
 at or above the run timeout, including a mismatch imposed by the environment.
 
+`GET /api/auth/entry` anonymously returns `instanceName`, `signInMessage`,
+`lostPasswordContact`, `landingPage` and `setupRequired`, plus the legacy
+`prefillName` before setup. The three General values use their stored values or
+default to empty message, empty contact and `home`. Empty contact means the
+built-in recovery line. This read does not change sign-in navigation: signed-in
+visits to the entry pages still redirect to `/`. Responses are private, no-store.
+
 `PATCH /api/instance/settings` changes only submitted editable keys: the fourteen
 Limits numbers, `instanceName`, `signInMessage`, `lostPasswordContact` and
 `landingPage`. The closed `InstanceSettingsPatch` schema names each key and its
