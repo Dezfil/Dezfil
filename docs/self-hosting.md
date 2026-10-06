@@ -45,6 +45,30 @@ A published link is a capability. It carries a token, it is not guessable, and i
 grants read access to one published map until you unpublish it. Anyone the link
 reaches can pass it on.
 
+## Settings
+
+The Settings column has two groups. Under **You**, every account has **Account**
+(name, email and password) and **Tokens**. Under **Instance**, admins have
+**General**, **Limits** and **System**, with Users linked at the column's foot;
+members see General alone, read-only.
+
+- **General** holds the instance name, shown beside the wordmark and in browser
+  titles, and the sign-in page: a message under its heading, who to ask about a
+  lost password, and the page people open after signing in (Home, Projects, Maps,
+  Workflows, Data or SQL). Anyone who opens the sign-in page can read the message,
+  so keep anything private out of it.
+- **Limits** changes the editable limits while the instance runs; new work uses a
+  changed value at once. A limit its environment variable sets is shown locked,
+  naming the variable, and changes only through the environment and a restart.
+- **System** shows the version and how long the server has run, whether the data
+  folder is writable, whether the assistant is on, and every setting a variable
+  decides, with the value in effect and where it came from. A credential shows
+  only whether it is set, and an address only its scheme and host.
+
+Choices and numbers are kept as they change; typed text waits for Save. A card
+offers Reset to defaults while it differs from its defaults, then Undo for a few
+seconds. Leaving a tab with unsaved typed text asks first.
+
 ## Leaving and deleting accounts
 
 A Viewer or Editor can leave a project, including a frozen one. Leaving ends only
@@ -295,7 +319,8 @@ design, and the limit is your disk and memory rather than a tab.
 
 The settings table has the bounds worth knowing: how large an upload may be, how many
 rows a query may return, when a layer becomes tiles instead of features, and how
-often the instance will talk to an external service. The defaults are chosen to be
+often the instance will talk to an external service. Admins change the editable ones
+on the Limits tab of Settings without a restart. The defaults are chosen to be
 safe on a small machine. Raise them deliberately, not because a limit annoyed you
 once.
 

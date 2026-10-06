@@ -82,16 +82,18 @@ export function SaveLine({ busy, onCancel }: { busy: boolean; onCancel: () => vo
 
 /** The head's quiet action: Reset to defaults while a kept value differs
  * from its default, then Undo for a few seconds, held while focus or the
- * pointer is on it. The slot never makes the head taller. */
+ * pointer is on it. The slot never makes the head taller. Its name leads
+ * with the words it shows and ends with the card's title, so the cards
+ * of one tab are told apart. */
 export function ResetSlot({ unit, card }: { unit: SaveUnit; card: UnitSnapshot }) {
   if (card.slot === "reset") {
     return <span className={styles.slot}>
-      <Button variant="quiet" data-unit-slot="reset" onClick={() => unit.reset()}>Reset to defaults</Button>
+      <Button variant="quiet" data-unit-slot="reset" aria-label={`Reset to defaults: ${unit.title}`} onClick={() => unit.reset()}>Reset to defaults</Button>
     </span>;
   }
   if (card.slot === "undo") {
     return <span className={styles.slot}>
-      <Button variant="quiet" data-unit-slot="undo" data-leaving={card.undoLeaving || undefined} onClick={() => unit.undo()}
+      <Button variant="quiet" data-unit-slot="undo" aria-label={`Undo reset to defaults: ${unit.title}`} data-leaving={card.undoLeaving || undefined} onClick={() => unit.undo()}
         onFocus={() => unit.holdUndo("focus", true)} onBlur={() => unit.holdUndo("focus", false)}
         onPointerEnter={() => unit.holdUndo("pointer", true)} onPointerLeave={() => unit.holdUndo("pointer", false)}>Undo</Button>
     </span>;

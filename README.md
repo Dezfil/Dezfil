@@ -36,10 +36,11 @@ whole directory and preserve any externally supplied `DEZFIL_SECRET_KEY`. Runnin
 the volume works, but state then lasts only for that container's lifetime.
 
 On first run, create the initial admin account. Application pages and APIs
-require a session or an account API token; admins manage accounts and the
-instance name. Each account's maps, datasets, workflows, connections and
-projects are private, including from admins, until a project's owner shares the
-project: its people then reach everything filed in it, as viewers or editors.
+require a session or an account API token; admins manage accounts in Users,
+and the instance name, the sign-in page and the limits in Settings. Each
+account's maps, datasets, workflows, connections and projects are private,
+including from admins, until a project's owner shares the project: its people
+then reach everything filed in it, as viewers or editors.
 Connections are never shared. Dataset and connection names belong to that
 account's space; SQL names another person's dataset `<sql name>.<dataset>`.
 Basemap, palette, operation and model catalogues remain shared; any signed-in
@@ -54,7 +55,7 @@ before updating. SQL uses your imported datasets by name. Direct file reads
 and file-referencing projection definitions are refused, including in saved
 queries and published layers; ordinary EPSG transforms remain supported.
 
-Create a personal token in Settings under **API / MCP tokens** for a script or
+Create a personal token on the **Tokens** tab of Settings for a script or
 agent. Copy its secret once; it cannot be read back. REST and MCP calls use that
 account's current permissions. Revoking a token stops both. See the
 [MCP guide](docs/mcp.md) for client setup and the [API guide](docs/api.md) for
@@ -80,8 +81,11 @@ before using it.
 
 Every deployment setting below is optional; pass them as `-e NAME=value`
 on `docker run`. The editable limits also accept stored admin changes, marked
-**App (live) or restart**. The test-wiring rows are for probe processes.
-`GET /api/instance/settings` reports the effective configuration to admins.
+**App (live) or restart**, made on the **Limits** tab of Settings; a limit its
+variable sets shows locked there, naming the variable. The **System** tab lists
+every setting a variable decides, with the value in effect and its source. The
+test-wiring rows are for probe processes. `GET /api/instance/settings` reports
+the effective configuration to admins.
 Account and instance preferences persist in the data directory, alongside the
 optional model catalogue file. See [configuration](docs/configuration.md).
 

@@ -215,12 +215,16 @@ describe("Limits", () => {
     stored = { queryTimeoutS: 90, previewRows: 2000 };
     await open();
     expect(buttons(card("Image export"))).not.toContain("Reset to defaults");
+    // Five cards may each offer it: the card's title tells them apart by name.
+    const named = (scope: HostElement) => scope.querySelectorAll("[data-unit-slot]").map(button => button.getAttribute("aria-label"));
+    expect(named(card("Queries"))).toEqual(["Reset to defaults: Queries"]);
     await press(card("Queries"), "Reset to defaults");
     await settle();
     expect(writes()).toEqual([{ queryTimeoutS: null, previewRows: null }]);
     expect(field("Query time limit").value).toBe("60");
     expect(field("Rows shown in results").value).toBe("1000");
     expect(buttons(card("Queries"))).toContain("Undo");
+    expect(named(card("Queries"))).toEqual(["Undo reset to defaults: Queries"]);
     await press(card("Queries"), "Undo");
     await settle();
     expect(writes()[1]).toEqual({ queryTimeoutS: 90, previewRows: 2000 });

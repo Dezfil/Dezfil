@@ -2,9 +2,10 @@
 
 The catalogue defines every deployment setting. Their defaults allow a local
 instance to start without deployment configuration. The editable limits also accept
-stored admin changes, marked **App (live) or restart**; **Restart** marks settings
-changed only through the environment. `GET /api/instance/settings` reports the
-effective configuration, sources and locks to admins.
+stored admin changes, made on the **Limits** tab of Settings and marked **App (live)
+or restart**; **Restart** marks settings changed only through the environment.
+`GET /api/instance/settings` reports the effective configuration, sources and
+locks to admins.
 
 For an instance setting, a non-empty deployment variable wins and locks app
 changes, including clearing a stored value. Changing any environment variable
@@ -19,10 +20,13 @@ budget. Settings without a variable are never locked.
 Other settings persist at runtime. Settings saves **account preferences** such as
 the display name and view choices, and **instance preferences** such as the
 admin-managed instance name, in SQLite. The instance operation also saves the
-sign-in message, lost-password contact and landing page; the entry read carries
-them, while navigation remains unchanged. Accounts, sessions and API token records
-also persist there. Saved palettes are shared instance data. These are not
-environment variables.
+sign-in message, lost-password contact and landing page, which admins set on the
+**General** tab of Settings; the entry read carries them. The sign-in page shows the
+message as plain text and names the contact in its lost-password line. After a
+sign-in, the first account or an accepted invitation, the browser opens the landing
+page. A signed-in visit to the setup or sign-in page still opens Home. Accounts,
+sessions and API token records also persist there. Saved palettes are shared
+instance data. These are not environment variables.
 
 The optional `assistant-models.json` in the data directory supplies the model
 catalogue; environment model lists narrow its offer. It is a file, not an account
