@@ -78,9 +78,9 @@ before using it.
 
 ## Configuration
 
-The 63 deployment settings below are optional; pass them as `-e NAME=value`
-on `docker run`. Fourteen also accept stored admin changes, marked
-**App (live) or restart**. The three test-wiring rows are for probe processes.
+Every deployment setting below is optional; pass them as `-e NAME=value`
+on `docker run`. The editable limits also accept stored admin changes, marked
+**App (live) or restart**. The test-wiring rows are for probe processes.
 `GET /api/instance/settings` reports the effective configuration to admins.
 Account and instance preferences persist in the data directory, alongside the
 optional model catalogue file. See [configuration](docs/configuration.md).

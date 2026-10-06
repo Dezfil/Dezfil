@@ -1,8 +1,8 @@
 # Configuration
 
-The catalogue defines 63 deployment settings. Their defaults allow a local
-instance to start without deployment configuration. Fourteen also accept stored
-admin changes, marked **App (live) or restart**; **Restart** marks settings
+The catalogue defines every deployment setting. Their defaults allow a local
+instance to start without deployment configuration. The editable limits also accept
+stored admin changes, marked **App (live) or restart**; **Restart** marks settings
 changed only through the environment. `GET /api/instance/settings` reports the
 effective configuration, sources and locks to admins.
 
