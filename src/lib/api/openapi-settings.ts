@@ -1,3 +1,5 @@
+import { accountChoiceSchema } from "@/lib/settings/account";
+import { settingDefinition } from "@/lib/settings/catalogue";
 import { op, jsonOk, ERROR_RESPONSE } from "./openapi-helpers";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
 import { LOCAL_READ, LOCAL_REPLACE } from "./operation-mcp";
@@ -8,12 +10,12 @@ import { AUTH_SECURITY } from "./openapi-auth";
  * and the screen's own sort. Documented on the update body and on the
  * settings read alike. */
 function viewPrefsSchema() {
-  const slice = (description: string, sorts: string[]) => ({
+  const slice = (screen: string, description: string) => ({
     type: "object",
     description,
     properties: {
-      view: { type: "string", enum: ["grid", "list"] },
-      sort: { type: "string", enum: sorts },
+      view: accountChoiceSchema(`${screen}.view`),
+      sort: accountChoiceSchema(`${screen}.sort`),
     },
   });
   return {
@@ -22,24 +24,23 @@ function viewPrefsSchema() {
       "Per-screen view preferences; slices merge into what is " +
       "stored, and the read carries every slice written so far.",
     properties: {
-      maps: slice("The Maps list.", ["edited", "created", "name"]),
-      data: slice("The Data page.", ["updated", "name", "rows", "size"]),
-      workflows: slice("The workflows list.", ["edited", "created", "name"]),
-      projects: slice("The Projects list.", ["updated", "name", "largest"]),
+      maps: slice("maps", "The Maps list."),
+      data: slice("data", "The Data page."),
+      workflows: slice("workflows", "The workflows list."),
+      projects: slice("projects", "The Projects list."),
     },
   };
 }
 
 /** How the SQL console's source list groups datasets, one account's choice. */
-const SOURCE_GROUPING = {
-  type: "string",
-  enum: ["person", "project"],
-  default: "person",
+const sourceGroupingSchema = () => ({
+  ...accountChoiceSchema("sourceGrouping"),
+  default: settingDefinition("sourceGrouping").defaultValue,
   description:
     "How the SQL console's source list groups datasets: by person (your own, then each other person's " +
     "under their name and SQL name) or by project. Your own choice, never another account's; person " +
     "until you choose otherwise.",
-};
+});
 
 export function settingsContract() {
   return {
@@ -96,7 +97,7 @@ export function settingsContract() {
                         "null clears it; the instance is then unnamed.",
                     },
                     viewPrefs: viewPrefsSchema(),
-                    sourceGrouping: SOURCE_GROUPING,
+                    sourceGrouping: sourceGroupingSchema(),
                   },
                 },
                 example: { displayName: "Ada Lovelace" },
@@ -127,7 +128,7 @@ export function settingsContract() {
               "the instance is unnamed.",
           },
           viewPrefs: viewPrefsSchema(),
-          sourceGrouping: SOURCE_GROUPING,
+          sourceGrouping: sourceGroupingSchema(),
         },
         required: ["displayName", "instanceName", "viewPrefs", "sourceGrouping"],
       },

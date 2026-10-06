@@ -1,3 +1,4 @@
+import { captureIngestBudget } from "@/lib/ingest/budget";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -18,7 +19,7 @@ it.each(["import", "refresh"])("holds rejected %s candidates through observed cl
   const source = path.join(folder, "data.csv"); await writeFile(source, "value\n42\n");
   const own = await ingestFile(target, source, "same.csv"), other = await ingestFile(control, source, "same.csv");
   metadataDb().prepare("UPDATE data_tables SET source = 'url', source_params = ? WHERE id = ?").run(JSON.stringify({ url: "https://example.test/data.csv" }), own.id);
-  vi.spyOn(remote, "resolveRemoteSource").mockResolvedValue({ sourcePath: source, filename: "data.csv", cleanup: async () => {} });
+  vi.spyOn(remote, "resolveRemoteSource").mockResolvedValue({ budget: captureIngestBudget(), sourcePath: source, filename: "data.csv", cleanup: async () => {} });
   const ready = Promise.withResolvers<void>(), release = Promise.withResolvers<void>();
   const cleaning = Promise.withResolvers<void>(), clean = Promise.withResolvers<void>();
   const run = DuckDBConnection.prototype.run;

@@ -20,8 +20,8 @@ import { POLICY_REFUSAL_CODE } from "./policy";
  * adds four more. Token-addressed publication revocation adds one. A
  * project's people add their read and two changes, transfer three, and the
  * directory search one. Self-departure adds one. Account deletion adds preview,
- * confirmation, unfinished status and continuation. */
-const GENERATED_TOOLS = 141;
+ * confirmation, unfinished status and continuation. Instance configuration adds one read. */
+const GENERATED_TOOLS = 143;
 
 describe("the page action policy is documented", () => {
   const document = buildOpenApiDocument();

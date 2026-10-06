@@ -21,7 +21,7 @@ it("accepts the actual generated server listing and committed readers through th
 });
 it.each(["count", "error", "actor", "plugin", "tool"])("rejects %s drift in the outside checker's actual inputs", seed => {
   const values = observed(); let failure: string;
-  if (seed === "count") { values.docs.api = values.docs.api.replace("**128 paths,", "**129 paths,"); failure = "API paths: reader says 129, contract requires 128"; }
+  if (seed === "count") { values.docs.api = values.docs.api.replace("**129 paths,", "**130 paths,"); failure = "API paths: reader says 130, contract requires 129"; }
   else if (seed === "error") { values.docs.api = values.docs.api.replace("| `deletion_changed` |", "| `missing_deletion_changed` |"); failure = "Reader error catalogue has missing or extra codes"; }
   else if (seed === "actor") { values.document.components.schemas.RecipeRun.properties.runner.oneOf.splice(1, 1); failure = "Actor schema differs: RecipeRun.runner"; }
   else if (seed === "plugin") { values.guidance = values.guidance.replace("## account-departures", "## stale-departures"); failure = "Installed plugin guidance is stale"; }

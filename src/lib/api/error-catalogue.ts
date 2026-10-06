@@ -4,6 +4,7 @@ import type { ErrorCode } from "./errors";
  * error's code appears in the API documentation). Single source, rendered
  * into the docs and the OpenAPI description. */
 export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
+  setting_locked: "An environment variable locks a submitted setting. No settings changed; change or remove the named variable and restart before editing this setting.",
   project_owner_cannot_leave: "The project's owner cannot leave. Transfer or delete the project instead.",
   method_not_allowed: "This method is not allowed for this path.",
   authentication_required: "Sign in with a valid session or account token to continue.",

@@ -759,6 +759,14 @@
       "action": "erase",
       "rule": "Private pending obligations survive failure and are removed only after all cleanup and compaction completes. Independent deletions keep their obligations.",
       "fixture": "memory:account-deletion-continuations"
+    },
+    "memory:instance-settings": {
+      "action": "retain",
+      "rule": "Keep committed instance numeric limits and process listener registrations. They contain no account content; store owners follow the metadata handle lifetime."
+    },
+    "memory:process-start": {
+      "action": "retain",
+      "rule": "Keep the process start timestamp across route bundles. It contains no account identity or content."
     }
   },
   "tables": {
@@ -1664,14 +1672,6 @@
       ],
       "roots": [
         "thumbnails"
-      ]
-    },
-    "location:src/lib/metadata/db.ts#metadataDb:path.join": {
-      "stores": [
-        "file:metadata"
-      ],
-      "roots": [
-        "metadata.sqlite"
       ]
     },
     "location:src/lib/metadata/db.ts#metadataDb.dir:dataDir": {
@@ -3020,19 +3020,9 @@
         "memory:request-closures"
       ]
     },
-    "memory:src/lib/export/render-image.ts#active": {
-      "stores": [
-        "memory:src/lib/export/render-image.ts#active"
-      ]
-    },
     "memory:src/lib/export/render-image.ts#launches": {
       "stores": [
         "memory:src/lib/export/render-image.ts#launches"
-      ]
-    },
-    "memory:src/lib/export/render-image.ts#waiters": {
-      "stores": [
-        "memory:src/lib/export/render-image.ts#waiters"
       ]
     },
     "memory:src/lib/export/render-relay.ts#startRenderRelay.admissions": {
@@ -3218,11 +3208,6 @@
     "memory:src/lib/mcp/call.ts#validators": {
       "stores": [
         "memory:tool-schema-cache"
-      ]
-    },
-    "memory:src/lib/metadata/db.ts#instance": {
-      "stores": [
-        "memory:open-metadata-handle"
       ]
     },
     "memory:src/lib/metadata/revisions.ts#recordings": {
@@ -3443,6 +3428,26 @@
     "memory:src/lib/secrets.ts#cachedKey": {
       "stores": [
         "memory:cached-secret-key"
+      ]
+    },
+    "memory:src/lib/settings/catalogue.ts#SETTING_CATALOGUE": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/settings/catalogue.ts#byKey": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/settings/numeric.ts#NUMERIC_SETTINGS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/settings/resolver.ts#numericByKey": {
+      "stores": [
+        "memory:immutable-configuration"
       ]
     },
     "memory:src/lib/sketch/store.ts#lanes": {
@@ -3807,14 +3812,6 @@
       ],
       "roots": [
         "."
-      ]
-    },
-    "writer:src/lib/metadata/db.ts#metadataDb:open": {
-      "stores": [
-        "file:metadata"
-      ],
-      "roots": [
-        "metadata.sqlite"
       ]
     },
     "writer:src/lib/osm/import.ts#buildClassArtifact:buildArtifact": {
@@ -5078,6 +5075,107 @@
     "memory:src/lib/query/result-budget.ts#ResultBudget.used": {
       "stores": [
         "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/settings/state.ts#state": {
+      "stores": [
+        "memory:instance-settings"
+      ]
+    },
+    "memory:src/lib/settings/state.ts#state.listeners": {
+      "stores": [
+        "memory:instance-settings"
+      ]
+    },
+    "memory:src/lib/settings/state.ts#activateCommittedSettings.owners": {
+      "stores": [
+        "memory:open-metadata-handle"
+      ]
+    },
+    "memory:src/lib/export/render-image.ts#slots": {
+      "stores": [
+        "memory:src/lib/export/render-image.ts#active",
+        "memory:src/lib/export/render-image.ts#waiters"
+      ]
+    },
+    "memory:src/lib/metadata/db.ts#store": {
+      "stores": [
+        "memory:open-metadata-handle"
+      ]
+    },
+    "location:src/lib/metadata/db.ts#metadataDb.db:path.join": {
+      "stores": [
+        "file:metadata"
+      ],
+      "roots": [
+        "metadata.sqlite"
+      ]
+    },
+    "writer:src/lib/metadata/db.ts#metadataDb.db:open": {
+      "stores": [
+        "file:metadata"
+      ],
+      "roots": [
+        "metadata.sqlite"
+      ]
+    },
+    "memory:src/lib/metadata/db.ts#metadataDb.db": {
+      "stores": [
+        "memory:open-metadata-handle"
+      ]
+    },
+    "memory:src/lib/metadata/db.ts#metadataDb.error": {
+      "stores": [
+        "memory:request-closures"
+      ]
+    },
+    "location:src/lib/settings/deployment-read.ts#readDeploymentSetting.status:dataDir": {
+      "stores": [
+        "file:secret-key"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/settings/deployment-read.ts#readDeploymentSetting.status:path.join": {
+      "stores": [
+        "file:secret-key"
+      ],
+      "roots": [
+        "secret.key"
+      ]
+    },
+    "location:src/lib/settings/deployment-read.ts#readDeploymentSetting:dataDir": {
+      "stores": [
+        "data-directory"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-settings.ts#INSTANCE_SETTINGS_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-settings.ts#INSTANCE_SETTINGS_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-settings.ts#address": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-settings.ts#rule": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/settings/process-info.ts#startedAt": {
+      "stores": [
+        "memory:process-start"
       ]
     }
   },

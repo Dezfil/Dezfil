@@ -1,3 +1,4 @@
+import { writeStoredSettings } from "@/lib/settings/store";
 import type { Database } from "better-sqlite3";
 import { NextRequest } from "next/server";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
@@ -44,5 +45,15 @@ it("does not set a browser cookie for a bearer delegation", async () => {
     const response = gateRequest(input("/api/account", { authorization: `Bearer ${delegation}`, ...(cookie ? { cookie } : {}) }));
     expect(response.headers.get("x-middleware-next")).toBe("1");
     expect(response.headers.get("set-cookie")).toBeNull();
+  }
+});
+
+it.each(["home", "projects", "maps", "workflows", "data", "sql"])("keeps the signed-in entry redirect at home with landingPage %s", async landingPage => {
+  const signed = await first();
+  writeStoredSettings({ landingPage }, db);
+  for (const path of ["/setup", "/sign-in"]) {
+    const response = gateRequest(input(path, { cookie: `${SESSION_COOKIE}=${signed.secret}` }));
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("http://instance.test/");
   }
 });

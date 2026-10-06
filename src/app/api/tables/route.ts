@@ -37,13 +37,13 @@ async function upload(request: Request) {
       );
     }
     if (projectId) requireFilingDestination(scope, projectId);
-    const { tmpPath, filename } = await receiveUpload(request, scope.accountId);
+    const { tmpPath, filename, budget } = await receiveUpload(request, scope.accountId);
     try {
       const result = await ingestSource(scope, tmpPath, filename, {
         source: "upload",
         sourceParams: null,
         projectId: projectId ?? null,
-      });
+      }, undefined, budget);
       const filed = {
         ...result,
         tables: result.tables.map((t) => ({

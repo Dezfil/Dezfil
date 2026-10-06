@@ -283,6 +283,7 @@ describe("tool parity", () => {
       "transfer_project",
       "transfer_workflow",
       "unpublish_map",
+      "update_instance_settings",
       "update_user_access",
     ]);
     for (const tool of buildTools().filter((t) => t.confirm)) {

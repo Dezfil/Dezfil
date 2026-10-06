@@ -70,7 +70,7 @@ it("measures JSON reader counts and rejects a stale tier independently", () => {
   const changed = structuredClone(document);
   const body = changed.paths["/api/maps"].post.requestBody as Record<string, unknown>;
   body["x-byte-limit"] = 65_536;
-  expect(checkContractDocs(changed, tools, docs)).toContain("JSON tier 65536 readers: reader says 12, contract requires 13");
+  expect(checkContractDocs(changed, tools, docs)).toContain("JSON tier 65536 readers: reader says 13, contract requires 14");
   const missingBusy = { ...docs, api: docs.api.replace(/^\| `authentication_busy` \|.*\n/m, "") };
   expect(checkContractDocs(document, tools, missingBusy)).toContain("Reader error catalogue has missing or extra codes");
 });
@@ -89,6 +89,6 @@ it("does not describe deletion as unavailable", () => {
 });
 
 it("rejects a stale count in the outside proof guide", () => {
-  const seeded = { ...docs, proof: docs.proof.replace("128 paths", "129 paths") };
+  const seeded = { ...docs, proof: docs.proof.replace("129 paths", "130 paths") };
   expect(checkContractDocs(document, tools, seeded)).toContain("Proof guide counts differ from contract");
 });

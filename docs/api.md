@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **128 paths, 366 operations, 167 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
+Measured from the current source: **129 paths, 370 operations, 169 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
 `npm run lint:contract-docs` measures these numbers and checks the catalogue below
 against the contract; changing only the reader-facing text fails the gate.
 
@@ -64,7 +64,7 @@ preconditions are declared on the operations that require them.
 
 ## Request bounds
 
-Measured JSON reader operations: **64**. These counts include optional bodies,
+Measured JSON reader operations: **65**. These counts include optional bodies,
 helper readers and MCP's external parser handoff, and exclude multipart uploads
 and binary thumbnails. The contract gate measures them; type-aware body-policy
 coverage independently checks the implementation against the contract.
@@ -72,12 +72,12 @@ coverage independently checks the implementation against the contract.
 <!-- body-tiers:start -->
 | JSON wire-byte tier | Operations |
 |---|---|
-| 65,536 | 12 |
+| 65,536 | 13 |
 | 131,072 | 1 |
 | 16,777,216 | 51 |
 <!-- body-tiers:end -->
 
-Authentication entry, Account, Users and the anonymous widget-values, render
+Authentication entry, Account, Users, instance settings and the anonymous widget-values, render
 and extent POSTs accept at most 65,536 wire bytes. This includes whitespace,
 escaping and multi-byte UTF-8, regardless of Content-Type. Excess answers 413
 before JSON parsing. Access and origin checks precede protected work; refusal
@@ -111,7 +111,7 @@ The viewer's twelve selections of fifty 30-character CJK values with distinct
 three-digit suffixes measure 58,288 bytes and fit. Unbounded strings and JSON
 escaping still count toward the outer limit.
 
-All other JSON consumers, including query, import, connection, settings, table
+All other JSON consumers, including query, import, connection, own-settings, table
 and helper operations, use the 16,777,216-byte tier. Workflow readers retain
 their existing 16 MiB bound, required or optional empty-body behavior and
 `request_body_too_large` with the message "The workflow request body exceeds the
@@ -398,8 +398,77 @@ plus the shared instance name. Only admins may change the instance name.
 `sourceGrouping` is how the SQL console's source list groups datasets for
 the caller, `person` (their own, then each other person's) until they choose
 `project`; the read always carries it, and it is one account's alone.
+The complete document remains `displayName`, `instanceName`, `viewPrefs` and
+`sourceGrouping`. View and sort choices for maps, data, workflows and projects,
+and the SQL grouping choices, come from the account setting definitions.
+Partial slices merge; absent slices stay absent and stored preferences are
+not filtered on read. One account's patch never changes another's preferences.
 Every field in a patch is validated and authorized before any write.
 `/api/palettes` manages saved color palettes.
+
+`GET /api/instance/settings` requires a current admin, through a cookie or
+bearer token, rechecked on every call. Successes and refusals are private,
+no-store. Its `settings` object names every instance and platform key with
+the definition, effective `value`, `source`, `storedValue`, `locked` and
+`invalidOverride`. A non-empty environment override locks the setting;
+an invalid numeric override remains locked on its default without exposing
+the rejected text. Shadowed stored values remain visible. Environment changes
+require a restart. Empty numeric overrides count as absent; a set empty
+assistant model list keeps only the default model.
+
+Provider credentials disclose only `{ set: true }` or `{ set: false }`.
+The encryption key discloses `environment`, `data-directory` or
+`not-yet-present`, without generating or reading a key. Address `value` and
+`defaultValue` disclose only scheme and host as `origin`, or
+`{ set: true, unreadable: true }`; user information, paths, queries and fragments
+are absent. The built-in `documentedDefault` stays as documented, including any
+path. Contextual defaults can carry a `rule`. The read contacts no provider, initializes no
+engine and creates no configuration artifact. `capacities` contains
+`geocodeRows` (at least one) and `isochroneOrigins` (possibly zero), matching
+operation admission without promising a provider. `maxImageDimension` is
+the fixed export maximum; `version` is the package version and `startedAt`
+is the stable process start time. `warnings` reports an effective query timeout
+at or above the run timeout, including a mismatch imposed by the environment.
+
+`GET /api/auth/entry` anonymously returns `instanceName`, `signInMessage`,
+`lostPasswordContact`, `landingPage` and `setupRequired`, plus the legacy
+`prefillName` before setup. The three General values use their stored values or
+default to empty message, empty contact and `home`. Empty contact means the
+built-in recovery line. This read does not change sign-in navigation: signed-in
+visits to the entry pages still redirect to `/`. Responses are private, no-store.
+
+`PATCH /api/instance/settings` changes only submitted editable keys: the fourteen
+Limits numbers, `instanceName`, `signInMessage`, `lostPasswordContact` and
+`landingPage`. The closed `InstanceSettingsPatch` schema names each key and its
+kind and bounds. For example, `{ "previewRows": 2000, "queryTimeoutS": 90 }`;
+null clears a stored value, and an empty object changes nothing. Text is
+trimmed before its length is checked (80 characters for the name, 280 for the
+message, 120 for the contact). Empty text clears the stored value and reports
+the default source. The generated tool input accepts the same whitespace
+padding through a string pattern. The answer is the same configuration document as the read.
+
+The admin and the complete body are checked inside one immediate transaction
+against the committed configuration. Any refusal or failure rolls back the
+entire change. Non-empty environment variables lock their settings, null
+included: `409 setting_locked` takes precedence over `400 invalid_request`
+when the body contains both locked and invalid keys. Known failing keys and
+reasons are all named; unknown keys are identified by entry position to avoid
+echoing arbitrary input. Validation covers unknown and non-editable keys, kind,
+whole numbers, bounds, text length, choices and a query timeout below the run
+timeout. An existing environment mismatch remains visible in `warnings` and
+blocks no unrelated edit. Different concurrent keys both land; the last
+accepted write wins for one key. There is no stale-write refusal or Undo.
+
+Cookie writes require the trusted same Origin; current admin bearer tokens
+call directly. The assistant confirms before calling where writes are admitted;
+SQL and workflow assistants refuse this operation. The response and errors
+carry the read's disclosure protections. Storage and live consumers change
+together only after durable commit. Limits apply to new work, with admitted
+budgets, accepted waiters and public window counts retained. Increased lane
+capacity wakes waiters after commit. Environment changes still need a restart.
+In addition to validation and lock refusals, the operation can answer
+`authentication_required` (401), `forbidden` (403), `request_body_too_large`
+(413), `internal` (500) and `ingress_unavailable` (503).
 
 Built-in and configured basemaps, the palette catalogue, geometry projections,
 the API reference, operation catalogue and offered assistant models are shared
@@ -908,7 +977,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **111** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **112** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -1665,6 +1734,7 @@ response message. Branch on the code.
 | Code | Meaning |
 |---|---|
 | `project_owner_cannot_leave` | The project's owner cannot leave. Transfer or delete the project instead. |
+| `setting_locked` | An environment variable locks a submitted setting. No settings changed; change or remove the named variable and restart before editing this setting. |
 | `method_not_allowed` | This method is not allowed for this path. |
 | `authentication_required` | Sign in with a valid session or account token to continue. |
 | `invalid_credentials` | Email or password is incorrect. |

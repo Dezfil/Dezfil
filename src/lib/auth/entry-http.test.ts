@@ -2,6 +2,7 @@ import type { Database } from "better-sqlite3";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
 import { accountCount } from "@/lib/metadata/accounts";
+import { writeStoredSettings } from "@/lib/settings/store";
 import { setSetting } from "@/lib/metadata/settings";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { createFirstAccount } from "./accounts";
@@ -53,10 +54,10 @@ it("exposes only entry metadata and removes the legacy prefill once setup exists
   setSetting("view_prefs", '{"maps":{"view":"list"}}', db);
   const before = await entryInformation(request("/api/auth/entry"));
   expect(before.headers.get("cache-control")).toBe("private, no-store");
-  expect(await before.json()).toEqual({ instanceName: "Field atlas", setupRequired: true, prefillName: "Legacy name" });
+  expect(await before.json()).toEqual({ instanceName: "Field atlas", signInMessage: "", lostPasswordContact: "", landingPage: "home", setupRequired: true, prefillName: "Legacy name" });
   const signed = await first();
   const after = await entryInformation(request("/api/auth/entry", undefined, { cookie: cookie(signed.secret) }));
-  expect(await after.json()).toEqual({ instanceName: "Field atlas", setupRequired: false });
+  expect(await after.json()).toEqual({ instanceName: "Field atlas", signInMessage: "", lostPasswordContact: "", landingPage: "home", setupRequired: false });
 });
 it.each(["http://instance.test", "https://instance.test"])("sets an HttpOnly SameSite cookie using trusted transport at %s", async origin => {
   const response = await enter(request("/api/auth/setup", { name: "Ada", email: "ada@example.test", password }, {}, origin), "setup");
@@ -140,4 +141,17 @@ it.each(["setup", "sign-in", "redeem"] as const)("refuses oversized %s before cr
   const response = await enter(input, mode);
   expect(response.status).toBe(413); expect((await response.json()).error.code).toBe("request_body_too_large");
   expect(get).not.toHaveBeenCalled(); expect(rows()).toEqual(before); expect(accountCount(db)).toBe(0);
+});
+
+it("serves stored General values anonymously and restores defaults after clearing", async () => {
+  await first();
+  writeStoredSettings({ signInMessage: " Welcome aboard ", lostPasswordContact: " Ask the steward ", landingPage: "sql" }, db);
+  const response = await entryInformation(request("/api/auth/entry"));
+  expect(response.status).toBe(200);
+  expect(response.headers.get("cache-control")).toBe("private, no-store");
+  expect(await response.json()).toEqual({ instanceName: null, setupRequired: false,
+    signInMessage: "Welcome aboard", lostPasswordContact: "Ask the steward", landingPage: "sql" });
+  writeStoredSettings({ signInMessage: null, lostPasswordContact: null, landingPage: null }, db);
+  expect(await (await entryInformation(request("/api/auth/entry"))).json()).toEqual({ instanceName: null,
+    setupRequired: false, signInMessage: "", lostPasswordContact: "", landingPage: "home" });
 });

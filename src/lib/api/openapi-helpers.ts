@@ -41,7 +41,7 @@ export function op(config: {
   /** The pages whose default offer holds this operation (item
    * 6); absent, the tag's default applies. Never widens admission. */
   relevance?: readonly AssistantPage[];
-  toolInput?: { multipart?: { field: string; filename: string; content: string } };
+  toolInput?: { closed?: boolean; multipart?: { field: string; filename: string; content: string } };
   requestBody?: unknown;
   responses: Record<string, unknown>;
   parameters?: unknown[];

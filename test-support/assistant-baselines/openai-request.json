@@ -316,6 +316,195 @@
     },
     {
       "type": "function",
+      "name": "get_instance_settings",
+      "description": "Read instance configuration. Requires a current admin account through a cookie session or bearer token, rechecked on every call. Responses, including refusals, are private, no-store. Returns every instance and platform definition with its effective value, source, stored value (including a shadowed value), lock and invalid-override state. A non-empty environment variable locks the setting even when invalid; invalid numeric overrides use the default without returning the override text. Empty numeric overrides are absent; a set empty assistant model list retains its default model alone. Environment changes require a restart. Provider keys report set or not set; the encryption key reports environment, data-directory or not-yet-present. Address value and defaultValue expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. The built-in documentedDefault stays as documented, including any path. Contextual defaults carry a rule when there is no single address or value. The read generates no key, writes no configuration file, contacts no service and initializes no engine. Capacities report admitted geocode rows and travel-time origins per run, without promising a configured provider. Also returns the fixed maximum image dimension, package version, stable process start time and warnings when the effective query timeout is at or above the run timeout.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
+      "name": "update_instance_settings",
+      "description": "Change instance settings. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Requires a current admin through cookie or bearer authentication, rechecked inside the write transaction on every call. Cookie mutations require the same trusted Origin; an admin bearer token calls directly with no additional scope or approval step. Responses, including refusals, are private, no-store. Submit only editable keys; omitted keys stay unchanged and null clears a stored value. The complete body is validated against the committed configuration under one write lock. A refusal or failed commit changes nothing. Non-editable keys answer 400 invalid_request as read-only regardless of their environment. A non-empty environment variable locks an editable setting, including invalid overrides and null writes. A locked editable key answers 409 setting_locked, taking precedence over 400 invalid_request for unknown, non-editable, wrong-kind, non-whole, out-of-range, over-length or invalid-choice entries and a resulting queryTimeoutS at or above operationTimeoutS. Messages identify all failing known keys and their reasons, and unknown keys by their entry position without echoing arbitrary input. An existing environment timeout mismatch is reported in warnings and blocks no unrelated change. Concurrent different-key edits both land; the last accepted value wins on one key. There is no stale-write rejection or Undo. Stored changes apply live to new work; admitted work keeps its budget. Lowered concurrency cancels nothing, increased concurrency wakes waiters after commit, and lowered queue limits keep accepted waiters. Public limits apply against the existing window count. Environment changes need a restart. Returns the same configuration as the read, with the same secret and address disclosure rules; no secret or address setting is accepted. The embedded assistant asks for confirmation before calling on pages admitting writes; SQL and workflow assistants refuse this update. MCP advertises that policy and adds no confirmation step.",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "uploadMaxMb": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 102400,
+            "description": "Largest upload. Size cap for one uploaded file. Null clears the stored value."
+          },
+          "remoteMaxMb": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 102400,
+            "description": "Largest link import. Size cap for a URL or object-store import. Null clears the stored value."
+          },
+          "remoteTimeoutS": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 10,
+            "maximum": 3600,
+            "description": "Link import time limit. Budget for the complete remote exchange, including the body. Null clears the stored value."
+          },
+          "overtureMaxKm2": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 1000000,
+            "description": "Overture area. Places area budget; other themes scale by density. Null clears the stored value."
+          },
+          "osmMaxKm2": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 1000000,
+            "description": "OpenStreetMap area. Area budget for one OpenStreetMap import. Null clears the stored value."
+          },
+          "queryTimeoutS": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 5,
+            "maximum": 600,
+            "description": "Query time limit. Default bounded evaluation budget for user SQL. Null clears the stored value."
+          },
+          "previewRows": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 10,
+            "maximum": 100000,
+            "description": "Rows shown in results. Row cap for result previews. Null clears the stored value."
+          },
+          "exportRenderTimeoutS": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 10,
+            "maximum": 300,
+            "description": "Time limit per image. Image-render budget including queue wait. Null clears the stored value."
+          },
+          "exportRenderConcurrency": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 8,
+            "description": "Images at once. Concurrent server image renders. Null clears the stored value."
+          },
+          "operationTimeoutS": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 30,
+            "maximum": 7200,
+            "description": "Time limit per run. Execution budget for a geospatial operation, excluding queue wait. Null clears the stored value."
+          },
+          "operationConcurrency": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 8,
+            "description": "Operation runs at once. Concurrent geospatial operations sharing the hardened engine. Null clears the stored value."
+          },
+          "operationQueueMax": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 200,
+            "description": "Operation runs waiting. Maximum waiting geospatial operations. Null clears the stored value."
+          },
+          "publicRateLimit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 10000,
+            "description": "Requests per source. Anonymous published reads per verified source across publication tokens. Null clears the stored value."
+          },
+          "publicTileRateLimit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 100000,
+            "description": "Tile requests per source. Anonymous tile reads per verified source across publication tokens. Null clears the stored value."
+          },
+          "instanceName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\s*[\\s\\S]{0,80}\\s*$",
+            "description": "Instance name. Name beside the wordmark and in browser titles. Null clears the stored value. Text is trimmed before the 80-character limit; empty text clears to the default."
+          },
+          "signInMessage": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\s*[\\s\\S]{0,280}\\s*$",
+            "description": "Sign-in message. Optional message on the sign-in page. Null clears the stored value. Text is trimmed before the 280-character limit; empty text clears to the default."
+          },
+          "lostPasswordContact": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\s*[\\s\\S]{0,120}\\s*$",
+            "description": "Lost-password contact. Contact line for password recovery; empty uses the built-in line. Null clears the stored value. Text is trimmed before the 120-character limit; empty text clears to the default."
+          },
+          "landingPage": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "home",
+              "projects",
+              "maps",
+              "workflows",
+              "data",
+              "sql",
+              null
+            ],
+            "description": "Landing page. Preferred entry destination after sign-in. Null clears the stored value."
+          }
+        }
+      },
+      "strict": false
+    },
+    {
+      "type": "function",
       "name": "inspect_table_geometry",
       "description": "Inspect a dataset's geometry choices. A dataset is reached by its owner and by the owner and people of every project it is filed in. Lists, schema discovery and counts cover exactly the reached datasets and name each one's owner and the name the caller would type for it: the plain name for the caller's own, <sql name>.<name> for another owner's. Another owner's dataset is shown without connection facts and without links to what the caller cannot reach: a PostGIS snapshot shows its origin kind, with neither its connection nor its remote schema and table. A bare dataset name in a path or parameter is the caller's own dataset. On dataset reads, features, downloads and operation parameters, another owner's dataset the caller reaches is addressed by its qualified name, and in a /api/tables path also by its identifier; changing one by any address answers forbidden. Datasets change, refresh and go only by their owner; administrators reach nothing more. Upload and sketch suffixes ignore other accounts' names. Unreached and missing datasets, maps and project references return not_found before source or artifact access; a refused change leaves resources unchanged. Refresh and geometry changes preserve the dataset's identity and owner and recheck account activity at commit. For file uploads and URL imports only. SQL-save, workflow, PostGIS, OSM, Overture and sketch datasets refuse with 409 geometry_not_supported and a sentence. Unknown or reclaimed dataset identity answers 404 not_found; a stale artifact revision answers 409 input_changed. Column names are identifiers, never SQL expressions or file paths. Reads current stored schema, record, choice, opaque revision and candidates using the same first-1,000-row recognition and full safety evidence as CSV upload. Does not apply a proposal, fetch a source or invent legacy provenance. Repeated inspections reuse candidates while the artifact is unchanged. Historical consumed names and generated outputs are not new source columns.",
       "parameters": {

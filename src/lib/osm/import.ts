@@ -1,3 +1,4 @@
+import { settingRemedy } from "@/lib/settings/remedy";
 import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
 import { registerAccountFile, removeAccountFile, fileAccountId } from "@/lib/ingest/file-ownership";
 import { listOwnedTables } from "@/lib/metadata/owned-tables";
@@ -82,7 +83,7 @@ export function assertOsmAreaWithinBudget(bbox: Bbox): void {
   if (area > limits.osmMaxKm2) {
     throw new ApiError(
       "area_too_large",
-      `The selected area is ${Math.round(area).toLocaleString()} km²; OSM imports allow up to ${Math.round(limits.osmMaxKm2).toLocaleString()} km². Zoom in, or raise DEZFIL_OSM_MAX_KM2.`,
+      `The selected area is ${Math.round(area).toLocaleString()} km²; OSM imports allow up to ${Math.round(limits.osmMaxKm2).toLocaleString()} km². Zoom in. ${settingRemedy("osmMaxKm2")}`,
       413,
     );
   }

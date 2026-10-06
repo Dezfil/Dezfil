@@ -41,11 +41,11 @@ const ENABLE_HINT =
  * each identity once, with the instance default present whether or not they named it. An unset
  * list uses the catalogue; a set list of nothing but separators leaves the default alone.
  */
-function allowedModels(
+export function allowedModels(
   env: Record<string, string | undefined>,
   provider: string,
   defaultModel: string,
-  catalogue: ModelCatalogue,
+  catalogue: ModelCatalogue = shipped,
 ): string[] {
   const list = env[MODEL_LIST_VARS[provider]];
   const named = list === undefined

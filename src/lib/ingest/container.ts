@@ -1,3 +1,4 @@
+import { settingRemedy } from "@/lib/settings/remedy";
 import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, open, stat } from "node:fs/promises";
 import { crc32, createInflateRaw } from "node:zlib";
@@ -297,6 +298,7 @@ export async function extractArchive(
   zipPath: string,
   destDir: string,
   displayName: string,
+  cap = limits.uploadMaxBytes,
 ): Promise<ExtractedArchive> {
   const { entries, rejectedNames } = await listArchive(zipPath, displayName);
   // An archive carrying members that try to escape is refused whole —
@@ -308,14 +310,13 @@ export async function extractArchive(
       `entry "${rejectedNames[0]}" has a hostile or unusable path`,
     );
   }
-  const cap = limits.uploadMaxBytes;
   const declared = expandedSize(entries);
   if (declared > cap) {
     throw new ApiError(
       "archive_too_large",
       `The archive "${displayName}" unpacks to ${Math.round(
         declared / (1024 * 1024),
-      )} MB; the cap is ${Math.round(cap / (1024 * 1024))} MB. Raise DEZFIL_UPLOAD_MAX_MB to change it.`,
+      )} MB; the cap is ${Math.round(cap / (1024 * 1024))} MB. ${settingRemedy("uploadMaxMb")}`,
       413,
     );
   }

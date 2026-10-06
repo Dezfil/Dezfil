@@ -7,6 +7,8 @@ export async function register() {
     const { ensureDataDir } = await import("@/lib/data-dir");
     const { dataDir } = await import("@/lib/config");
     await ensureDataDir(dataDir());
+    const { metadataDb } = await import("@/lib/metadata/db");
+    metadataDb();
     const { discoverAccountDeletions } = await import("@/lib/auth/account-deletion-journal");
     discoverAccountDeletions();
     const { maintainCredentials } = await import("@/lib/auth/credential-maintenance");

@@ -1,5 +1,7 @@
+import { settingRemedy } from "@/lib/settings/remedy";
 import { ApiError } from "@/lib/api/errors";
 import { limits } from "@/lib/limits";
+import { onCommittedSettings } from "@/lib/settings/state";
 
 /**
  * The operation run lane.
@@ -51,7 +53,7 @@ function queueFull(): ApiError {
   return new ApiError(
     "operation_queue_full",
     `${limits.operationQueueMax} operations are already waiting to run. ` +
-      `Retry once some finish, or raise DEZFIL_OPERATION_QUEUE_MAX.`,
+      `Retry once some finish. ${settingRemedy("operationQueueMax")}`,
     503,
   );
 }
@@ -106,6 +108,8 @@ function pump(): void {
     void execute(entry);
   }
 }
+
+onCommittedSettings("operation-lane", pump);
 
 async function execute(entry: Entry): Promise<void> {
   try {

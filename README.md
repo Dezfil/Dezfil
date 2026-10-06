@@ -78,82 +78,94 @@ before using it.
 
 ## Configuration
 
-The deployment settings below are optional. Pass them as `-e NAME=value` on
-`docker run` and restart to change them. Settings also saves account preferences
-and admin-managed instance preferences in the data directory. The optional model
-catalogue is a file there. See [configuration](docs/configuration.md).
+Every deployment setting below is optional; pass them as `-e NAME=value`
+on `docker run`. The editable limits also accept stored admin changes, marked
+**App (live) or restart**. The test-wiring rows are for probe processes.
+`GET /api/instance/settings` reports the effective configuration to admins.
+Account and instance preferences persist in the data directory, alongside the
+optional model catalogue file. See [configuration](docs/configuration.md).
 
-| Setting | Default | What it controls |
-|---|---|---|
-| `DEZFIL_DATA_DIR` | `/data` | Durable data directory (the mounted volume), including the optional `assistant-models.json` [model catalogue](docs/runbook.md#the-model-catalogue-file). |
-| `DEZFIL_TRUSTED_PROXIES` | *(none)* | Comma-separated IP addresses or CIDRs of reverse proxy socket peers. Only these peers may supply forwarding information. Configure proxies to replace host/protocol/port forwarding fields and append the actual client address. Direct clients' forwarding headers are discarded. |
-| `DEZFIL_UPLOAD_MAX_MB` | `5120` | Upload size cap, in MB. |
-| `DEZFIL_EGRESS_ALLOWLIST` | — | Hosts, IPs, or CIDRs the server may fetch for a user despite the egress policy. By default, loopback, private-network, link-local, and cloud-metadata destinations are blocked on URL imports and PostGIS connections. |
-| `DEZFIL_REMOTE_TIMEOUT_S` | `300` | Time bound for one whole remote fetch (URL and object-store imports), redirects and body included. |
-| `DEZFIL_REMOTE_MAX_MB` | `2048` | Size cap for one remote import (URL and object-store), in MB. |
-| `DEZFIL_OBJECT_STORE_CREDENTIALS` | off | Opt-in (`true`): sign `s3://`/`gs://`/`az://` imports with the instance's own credential chain. Off, object-store reads are anonymous — users can only read what the public can. |
-| `DEZFIL_S3_ENDPOINT` | AWS | Custom S3-compatible endpoint (MinIO and friends) for anonymous `s3://` imports, addressed path-style. |
-| `DEZFIL_OVERPASS_URL` | `https://overpass-api.de/api/interpreter` | Overpass endpoint for OSM imports. Point it at your own instance to escape the public per-IP limits. |
-| `DEZFIL_OVERTURE_S3_ENDPOINT` | *(unset — public Overture bucket)* | S3-compatible endpoint override for Overture reads (path-style, plain http). The test seam behind the browser suite's Overture drive; also fits a private mirror of the bucket. |
-| `DEZFIL_OVERPASS_TIMEOUT_S` | `60` | Server-side time budget passed with each Overpass query. |
-| `DEZFIL_OVERPASS_MAXSIZE_MB` | `512` | Response budget passed with each Overpass query; a response over twice this aborts locally. |
-| `DEZFIL_OVERPASS_CACHE_MB` | `2048` | Overpass response-cache budget; oldest entries are evicted past it, expired ones on sight. |
-| `DEZFIL_OVERPASS_CACHE_H` | `24` | How long a cached Overpass response stays fresh, in hours. |
-| `DEZFIL_OSM_MAX_KM2` | `10000` | OSM import area budget, in km². |
-| `DEZFIL_OVERTURE_MAX_KM2` | `25000` | Overture import area budget for the places theme, in km²; the other themes scale from it. |
-| `DEZFIL_QUERY_TIMEOUT_S` | `60` | Read-only query timeout, in seconds. It bounds every evaluation of user SQL — builder and published views alike — not just the SQL workspace. |
-| `DEZFIL_QUERY_MEMORY_MB` | `2048` | Engine memory budget for user SQL, shared by all queries on the hardened instance. A query pushed over it fails with a coded error; the instance keeps serving. |
-| `DEZFIL_PREVIEW_ROWS` | `1000` | Rows returned in a query/preview result. |
-| `DEZFIL_RENDER_CAP_FEATURES` | `250000` | Max features a single layer renders before asking for a LIMIT or aggregation. |
-| `DEZFIL_SLIDER_PREVIEW_ROWS` | `50000` | Max source points transferred for an interactive slider preview. |
-| `DEZFIL_PUBLISH_FRESHNESS_S` | `30` | How stale a published view may be — its cache window. |
-| `DEZFIL_TILE_BUILD_TIMEOUT_S` | `600` | Timeout for each stage of a background tile build. |
-| `DEZFIL_PUBLIC_RATE_LIMIT` | `60` | Anonymous published-view requests per 10s window, per verified source. |
-| `DEZFIL_PUBLIC_TILE_RATE_LIMIT` | `600` | Anonymous tile requests per 10s window, per verified source (one map pan is dozens of tiles). |
-| `DEZFIL_TIPPECANOE` | `tippecanoe` | Path to the tippecanoe binary used for tile builds. |
-| `DEZFIL_BASEMAP_URL` | OpenFreeMap dark | MapLibre style URL for the basemap. |
-| `DEZFIL_BASEMAP_ATTRIBUTION` | — | Credit line shown on maps that use `DEZFIL_BASEMAP_URL`. Unset, no credit is shown for the override: the built-in credit would name a provider that is not serving the tiles. |
-| `DEZFIL_SATELLITE_URL` | — | Raster tile URL template (`{z}/{y}/{x}`) for satellite imagery, with your own key or token. No imagery ships with the app; unset, no imagery basemap is offered at all. |
-| `DEZFIL_SATELLITE_ATTRIBUTION` | — | Credit line the imagery provider requires, shown on every map using it and stored with anything published from one. |
-| `DEZFIL_GEOCODER_URL` | — | Nominatim-compatible `/search` endpoint for place search in the builder **and for the batch geocoding operation** (key query parameters travel with it, server-side only). Unset, search still answers layers, values, and coordinates, and the geocode operation is not offered. Public Nominatim expects at most one request per second; see `DEZFIL_GEOCODE_PACE_MS`. |
-| `DEZFIL_ISOCHRONE_URL` | — | Valhalla-compatible `/isochrone` endpoint for the travel-time-area operation (key query parameters travel with it, server-side only). Unset, the verb stays visible and refuses with a sentence naming this setting. |
-| `DEZFIL_ISOCHRONE_PACE_MS` | `1000` | Milliseconds between isochrone requests — one exchange in flight at a time, this endpoint's own pace. |
-| `DEZFIL_ISOCHRONE_REQUEST_TIMEOUT_S` | `20` | Whole-exchange deadline for one isochrone request; routing answers slower than geocoding. |
-| `DEZFIL_ISOCHRONE_CACHE_HOURS` | `168` | How long a fully answered isochrone keeps; only complete answers are cached. |
-| `DEZFIL_ISOCHRONE_CACHE_MB` | `64` | The isochrone answer cache's size budget, oldest evicted first. |
-| `DEZFIL_GEOCODE_PACE_MS` | `1000` | Minimum gap between two requests to that endpoint, in milliseconds — enforced across the whole instance, so a batch and the builder's own search share one pace, and only one request is ever in flight. The public-Nominatim recipe requires one second. Lowering it against your own geocoder raises the batch size the operation accepts; `0` means no gap at all. |
-| `DEZFIL_GEOCODE_REQUEST_TIMEOUT_S` | `10` | Deadline for one geocoding exchange. A batch's row costs the pace or this, whichever is longer, so lowering it raises the batch size the operation accepts — the bound is derived from both, not from the pace alone. |
-| `DEZFIL_GEOCODE_MATCH_CACHE_HOURS` | `720` | How long a matched address is kept. Thirty days: an address that resolved rarely moves. |
-| `DEZFIL_GEOCODE_NO_MATCH_CACHE_HOURS` | `24` | How long a no-match is kept. Shorter, because an address that did not resolve is what improves when the provider's data does. |
-| `DEZFIL_GEOCODE_CACHE_MB` | `64` | Size budget for the geocode answer cache; oldest entries are evicted first. |
-| `DEZFIL_SECRET_KEY` | generated | 64 hex characters (32 bytes) — the at-rest encryption key for stored credentials. See below before relying on the default. |
-| `ANTHROPIC_API_KEY` | — | Enables the assistant with Anthropic. Bring your own key. |
-| `OPENAI_API_KEY` | — | Enables the assistant with OpenAI. Bring your own key. |
-| `DEZFIL_AI_PROVIDER` | first key set | `anthropic` or `openai` — which provider to use when both keys are set. |
-| `DEZFIL_AI_MODEL` | provider default | Override the model (defaults: `claude-opus-5`, `gpt-5.6-terra`; OpenAI uses the Responses API). `DEZFIL_AI_MODEL=gpt-6-astra` restores the earlier OpenAI default. |
-| `DEZFIL_AI_MODELS_ANTHROPIC` | Unset | Comma-separated Anthropic model identities, narrowing and ordering the offer. Unset offers the full effective [catalogue](docs/runbook.md#the-model-catalogue-file) and shows the picker. A set empty list or a list naming only the default offers that model alone. The default stays where listed or is prepended once; only the resolved provider's list applies. |
-| `DEZFIL_AI_MODELS_OPENAI` | Unset | The same catalogue and narrowing rules for OpenAI, for example `gpt-5.6-terra,gpt-6-astra`. Use `gpt-5.6-terra` alone for the default one-model state. See the [catalogue instructions](docs/runbook.md#the-model-catalogue-file). |
-| `DEZFIL_ASSISTANT_STEP_BUDGET` | `20` | Max model+tool steps one assistant request may take. |
-| `DEZFIL_ASSISTANT_AUTO_CHECK` | `1` | Whether the assistant checks the map by itself after a turn that changed it: a bounded rendered image read back by the model, one line in the transcript saying what it saw. `0`, `false` or `off` turns it off; an explicit check stays available. `GET /api/assistant` reports the setting. |
-| `DEZFIL_ASSISTANT_LOOK_TIMEOUT_S` | `30` | The map check's budget, request to response: queue wait, render and image preparation. Past it the check answers `render_timeout` and the note says the picture could not be taken in time. |
-| `DEZFIL_ASSISTANT_LOOK_RETENTION` | `256` | Renders of the map check kept in process for the transcript's thumbnails and `GET /api/maps/look/{renderId}`, full images and thumbnails counted together, oldest evicted first; gone with the process. |
-| `DEZFIL_ASSISTANT_LOOK_RETENTION_MB` | `96` | The retained renders' byte budget. |
-| `DEZFIL_ASSISTANT_OFFER` | `subset` | Which operations a page's assistant run is offered at the start: `subset` (the page's own operations and the grounding reads, the rest reachable through the run's discovery tool; the measured default) or `full` (every operation the page admits, with no discovery tool, the offer every page had before the subset was measured). `GET /api/assistant/policy?page=` reports the current answer per page. |
-| `DEZFIL_TOOL_ATTACHMENT_MAX_MB` | `32` | Cap on a download answered to an agent tool (the base64 attachment envelope). Over the cap the tool gets a coded error instead. |
-| `DEZFIL_CHROMIUM_PATH` | `/usr/bin/chromium` | The headless browser the server image export drives (baked into the container). Runs with `--no-sandbox` — the container is rootless without the user namespaces chromium's sandbox wants, and the only pages rendered are this instance's own origin. |
-| `DEZFIL_EXPORT_RENDER_TIMEOUT_S` | `90` | Server image-render budget, queue wait included. A render past it dies with a coded error. |
-| `DEZFIL_EXPORT_REQUEST_TIMEOUT_S` | `20` | The bound on any one request the render page makes. A request past it is abandoned, the image is still produced, the answer carries `x-dezfil-export-abandoned` with the count and the hosts (`1; hosts=tiles.example`), and the server log names the abandonment as it happens. |
-| `DEZFIL_EXPORT_RENDER_CONCURRENCY` | `2` | Concurrent server image renders; software-GL rendering is CPU-expensive, so work beyond the cap waits inside the budget. |
-| `DEZFIL_OPERATION_TIMEOUT_S` | `600` | Execution budget for one operation run, in seconds. Deliberately larger than the query timeout — an operation is not a preview query. It covers execution only: time a run spends waiting for the lane is not charged against it. |
-| `DEZFIL_OPERATION_CONCURRENCY` | `1` | Operations executing at once. Runs are heavy work on the query engine, whose memory budget is shared, so work beyond the cap queues rather than competing. |
-| `DEZFIL_OPERATION_QUEUE_MAX` | `20` | Runs that may wait for the lane. A run arriving at a full queue is refused with a coded error instead of joining a queue that will not drain. |
-| `DEZFIL_OPERATION_HISTORY_PER_SUBJECT` | `20` | Runs kept per subject. The subject's most recent success is preserved inside this depth, so a failed re-run never erases the last good one. |
-| `DEZFIL_TEST_PG_URL` | unset | Test/probe process only: disposable PostGIS fixture URL for live source tests and the full result-budget probe. Never read by the product server. |
-| `DEZFIL_TEST_PUBLICATION_LOG` | unset | Test preload only: NDJSON destination for per-admission published-source state. Required by `scripts/publication-observer.mjs`; no effect without that preload. |
-| `DEZFIL_TEST_DERIVATION_LOG` | unset | Test preload only: NDJSON destination for native derivation starts, completions and admission occupancy. Required by `scripts/derivation-observer.mjs`; no effect without that preload. |
+For an instance setting, a non-empty deployment variable wins and locks app
+changes, including clearing a stored value. Changing any environment variable
+requires a restart. An accepted variable supplies its normalized value; an
+invalid numeric variable keeps the setting locked and uses the built-in default.
+With no variable (an empty numeric variable counts as absent), the stored value
+wins, then the default. Shadowed stored values stay saved and apply after the
+variable is removed and the process restarted. Admin changes through
+`PATCH /api/instance/settings` apply live to new work; admitted work retains its
+budget. Settings without a variable are never locked.
+
+| Setting | Default | What it controls | Changed by |
+|---|---|---|---|
+| `DEZFIL_DATA_DIR` | ./data; /data in the container | Durable data directory (the mounted volume), including the optional `assistant-models.json` [model catalogue](docs/runbook.md#the-model-catalogue-file). | Restart |
+| `DEZFIL_TRUSTED_PROXIES` | unset | Comma-separated IP addresses or CIDRs of reverse proxy socket peers. Only these peers may supply forwarding information. Configure proxies to replace host/protocol/port forwarding fields and append the actual client address. Direct clients' forwarding headers are discarded. | Restart |
+| `DEZFIL_UPLOAD_MAX_MB` | `5120` | Upload size cap, in MB. | App (live) or restart |
+| `DEZFIL_EGRESS_ALLOWLIST` | unset | Hosts, IPs, or CIDRs the server may fetch for a user despite the egress policy. By default, loopback, private-network, link-local, and cloud-metadata destinations are blocked on URL imports and PostGIS connections. | Restart |
+| `DEZFIL_REMOTE_TIMEOUT_S` | `300` | Time bound for one whole remote fetch (URL and object-store imports), redirects and body included. | App (live) or restart |
+| `DEZFIL_REMOTE_MAX_MB` | `2048` | Size cap for one remote import (URL and object-store), in MB. | App (live) or restart |
+| `DEZFIL_OBJECT_STORE_CREDENTIALS` | off | Opt-in (`true`): sign `s3://`/`gs://`/`az://` imports with the instance's own credential chain. Off, object-store reads are anonymous — users can only read what the public can. | Restart |
+| `DEZFIL_S3_ENDPOINT` | AWS | Custom S3-compatible endpoint (MinIO and friends) for anonymous `s3://` imports, addressed path-style. | Restart |
+| `DEZFIL_OVERPASS_URL` | `https://overpass-api.de/api/interpreter` | Overpass endpoint for OSM imports. Point it at your own instance to escape the public per-IP limits. | Restart |
+| `DEZFIL_OVERTURE_S3_ENDPOINT` | unset, the public bucket | S3-compatible endpoint override for Overture reads (path-style, plain http). The test seam behind the browser suite's Overture drive; also fits a private mirror of the bucket. | Restart |
+| `DEZFIL_OVERPASS_TIMEOUT_S` | `60` | Server-side time budget passed with each Overpass query. | Restart |
+| `DEZFIL_OVERPASS_MAXSIZE_MB` | `512` | Response budget passed with each Overpass query; a response over twice this aborts locally. | Restart |
+| `DEZFIL_OVERPASS_CACHE_MB` | `2048` | Overpass response-cache budget; oldest entries are evicted past it, expired ones on sight. | Restart |
+| `DEZFIL_OVERPASS_CACHE_H` | `24` | How long a cached Overpass response stays fresh, in hours. | Restart |
+| `DEZFIL_OSM_MAX_KM2` | `10000` | OSM import area budget, in km². | App (live) or restart |
+| `DEZFIL_OVERTURE_MAX_KM2` | `25000` | Overture import area budget for the places theme, in km²; the other themes scale from it. | App (live) or restart |
+| `DEZFIL_QUERY_TIMEOUT_S` | `60` | Read-only query timeout, in seconds. It bounds every evaluation of user SQL — builder and published views alike — not just the SQL workspace. | App (live) or restart |
+| `DEZFIL_QUERY_MEMORY_MB` | `2048` | Engine memory budget for user SQL, shared by all queries on the hardened instance. A query pushed over it fails with a coded error; the instance keeps serving. | Restart |
+| `DEZFIL_PREVIEW_ROWS` | `1000` | Rows returned in a query/preview result. | App (live) or restart |
+| `DEZFIL_RENDER_CAP_FEATURES` | `250000` | Max features a single layer renders before asking for a LIMIT or aggregation. | Restart |
+| `DEZFIL_SLIDER_PREVIEW_ROWS` | `50000` | Max source points transferred for an interactive slider preview. | Restart |
+| `DEZFIL_PUBLISH_FRESHNESS_S` | `30` | How stale a published view may be — its cache window. | Restart |
+| `DEZFIL_TILE_BUILD_TIMEOUT_S` | `600` | Timeout for each stage of a background tile build. | Restart |
+| `DEZFIL_PUBLIC_RATE_LIMIT` | `60` | Anonymous published-view requests per 10s window, per verified source. | App (live) or restart |
+| `DEZFIL_PUBLIC_TILE_RATE_LIMIT` | `600` | Anonymous tile requests per 10s window, per verified source (one map pan is dozens of tiles). | App (live) or restart |
+| `DEZFIL_TIPPECANOE` | `tippecanoe` | Path to the tippecanoe binary used for tile builds. | Restart |
+| `DEZFIL_BASEMAP_URL` | built-in styles | MapLibre style URL for the basemap. | Restart |
+| `DEZFIL_BASEMAP_ATTRIBUTION` | unset | Credit line shown on maps that use `DEZFIL_BASEMAP_URL`. Unset, no credit is shown for the override: the built-in credit would name a provider that is not serving the tiles. | Restart |
+| `DEZFIL_SATELLITE_URL` | unset | Raster tile URL template (`{z}/{y}/{x}`) for satellite imagery, with your own key or token. No imagery ships with the app; unset, no imagery basemap is offered at all. | Restart |
+| `DEZFIL_SATELLITE_ATTRIBUTION` | unset | Credit line the imagery provider requires, shown on every map using it and stored with anything published from one. | Restart |
+| `DEZFIL_GEOCODER_URL` | unset | Nominatim-compatible `/search` endpoint for place search in the builder **and for the batch geocoding operation** (key query parameters travel with it, server-side only). Unset, search still answers layers, values, and coordinates, and the geocode operation is not offered. Public Nominatim expects at most one request per second; see `DEZFIL_GEOCODE_PACE_MS`. | Restart |
+| `DEZFIL_ISOCHRONE_URL` | unset | Valhalla-compatible `/isochrone` endpoint for the travel-time-area operation (key query parameters travel with it, server-side only). Unset, the verb stays visible and refuses with a sentence naming this setting. | Restart |
+| `DEZFIL_ISOCHRONE_PACE_MS` | `1000` | Milliseconds between isochrone requests — one exchange in flight at a time, this endpoint's own pace. | Restart |
+| `DEZFIL_ISOCHRONE_REQUEST_TIMEOUT_S` | `20` | Whole-exchange deadline for one isochrone request; routing answers slower than geocoding. | Restart |
+| `DEZFIL_ISOCHRONE_CACHE_HOURS` | `168` | How long a fully answered isochrone keeps; only complete answers are cached. | Restart |
+| `DEZFIL_ISOCHRONE_CACHE_MB` | `64` | The isochrone answer cache's size budget, oldest evicted first. | Restart |
+| `DEZFIL_GEOCODE_PACE_MS` | `1000` | Minimum gap between two requests to that endpoint, in milliseconds — enforced across the whole instance, so a batch and the builder's own search share one pace, and only one request is ever in flight. The public-Nominatim recipe requires one second. Lowering it against your own geocoder raises the batch size the operation accepts; `0` means no gap at all. | Restart |
+| `DEZFIL_GEOCODE_REQUEST_TIMEOUT_S` | `10` | Deadline for one geocoding exchange. A batch's row costs the pace or this, whichever is longer, so lowering it raises the batch size the operation accepts — the bound is derived from both, not from the pace alone. | Restart |
+| `DEZFIL_GEOCODE_MATCH_CACHE_HOURS` | `720` | How long a matched address is kept. Thirty days: an address that resolved rarely moves. | Restart |
+| `DEZFIL_GEOCODE_NO_MATCH_CACHE_HOURS` | `24` | How long a no-match is kept. Shorter, because an address that did not resolve is what improves when the provider's data does. | Restart |
+| `DEZFIL_GEOCODE_CACHE_MB` | `64` | Size budget for the geocode answer cache; oldest entries are evicted first. | Restart |
+| `DEZFIL_SECRET_KEY` | generated | 64 hex characters (32 bytes) — the at-rest encryption key for stored credentials. See below before relying on the default. | Restart |
+| `ANTHROPIC_API_KEY` | unset | Enables the assistant with Anthropic. Bring your own key. | Restart |
+| `OPENAI_API_KEY` | unset | Enables the assistant with OpenAI. Bring your own key. | Restart |
+| `DEZFIL_AI_PROVIDER` | first key set | `anthropic` or `openai` — which provider to use when both keys are set. | Restart |
+| `DEZFIL_AI_MODEL` | provider default | Override the model (defaults: `claude-opus-5`, `gpt-5.6-terra`; OpenAI uses the Responses API). `DEZFIL_AI_MODEL=gpt-6-astra` restores the earlier OpenAI default. | Restart |
+| `DEZFIL_AI_MODELS_ANTHROPIC` | unset | Comma-separated Anthropic model identities, narrowing and ordering the offer. Unset offers the full effective [catalogue](docs/runbook.md#the-model-catalogue-file) and shows the picker. A set empty list or a list naming only the default offers that model alone. The default stays where listed or is prepended once; only the resolved provider's list applies. | Restart |
+| `DEZFIL_AI_MODELS_OPENAI` | unset | The same catalogue and narrowing rules for OpenAI, for example `gpt-5.6-terra,gpt-6-astra`. Use `gpt-5.6-terra` alone for the default one-model state. See the [catalogue instructions](docs/runbook.md#the-model-catalogue-file). | Restart |
+| `DEZFIL_ASSISTANT_STEP_BUDGET` | `20` | Max model+tool steps one assistant request may take. | Restart |
+| `DEZFIL_ASSISTANT_AUTO_CHECK` | on | Whether the assistant checks the map by itself after a turn that changed it: a bounded rendered image read back by the model, one line in the transcript saying what it saw. `0`, `false` or `off` turns it off; an explicit check stays available. `GET /api/assistant` reports the setting. | Restart |
+| `DEZFIL_ASSISTANT_LOOK_TIMEOUT_S` | `30` | The map check's budget, request to response: queue wait, render and image preparation. Past it the check answers `render_timeout` and the note says the picture could not be taken in time. | Restart |
+| `DEZFIL_ASSISTANT_LOOK_RETENTION` | `256` | Renders of the map check kept in process for the transcript's thumbnails and `GET /api/maps/look/{renderId}`, full images and thumbnails counted together, oldest evicted first; gone with the process. | Restart |
+| `DEZFIL_ASSISTANT_LOOK_RETENTION_MB` | `96` | The retained renders' byte budget. | Restart |
+| `DEZFIL_ASSISTANT_OFFER` | `subset` | Which operations a page's assistant run is offered at the start: `subset` (the page's own operations and the grounding reads, the rest reachable through the run's discovery tool; the measured default) or `full` (every operation the page admits, with no discovery tool, the offer every page had before the subset was measured). `GET /api/assistant/policy?page=` reports the current answer per page. | Restart |
+| `DEZFIL_TOOL_ATTACHMENT_MAX_MB` | `32` | Cap on a download answered to an agent tool (the base64 attachment envelope). Over the cap the tool gets a coded error instead. | Restart |
+| `DEZFIL_CHROMIUM_PATH` | `/usr/bin/chromium` | The headless browser the server image export drives (baked into the container). Runs with `--no-sandbox` — the container is rootless without the user namespaces chromium's sandbox wants, and the only pages rendered are this instance's own origin. | Restart |
+| `DEZFIL_EXPORT_RENDER_TIMEOUT_S` | `90` | Server image-render budget, queue wait included. A render past it dies with a coded error. | App (live) or restart |
+| `DEZFIL_EXPORT_REQUEST_TIMEOUT_S` | `20` | The bound on any one request the render page makes. A request past it is abandoned, the image is still produced, the answer carries `x-dezfil-export-abandoned` with the count and the hosts (`1; hosts=tiles.example`), and the server log names the abandonment as it happens. | Restart |
+| `DEZFIL_EXPORT_RENDER_CONCURRENCY` | `2` | Concurrent server image renders; software-GL rendering is CPU-expensive, so work beyond the cap waits inside the budget. | App (live) or restart |
+| `DEZFIL_OPERATION_TIMEOUT_S` | `600` | Execution budget for one operation run, in seconds. Deliberately larger than the query timeout — an operation is not a preview query. It covers execution only: time a run spends waiting for the lane is not charged against it. | App (live) or restart |
+| `DEZFIL_OPERATION_CONCURRENCY` | `1` | Operations executing at once. Runs are heavy work on the query engine, whose memory budget is shared, so work beyond the cap queues rather than competing. | App (live) or restart |
+| `DEZFIL_OPERATION_QUEUE_MAX` | `20` | Runs that may wait for the lane. A run arriving at a full queue is refused with a coded error instead of joining a queue that will not drain. | App (live) or restart |
+| `DEZFIL_OPERATION_HISTORY_PER_SUBJECT` | `20` | Runs kept per subject. The subject's most recent success is preserved inside this depth, so a failed re-run never erases the last good one. | Restart |
+| `DEZFIL_TEST_PG_URL` | unset | Test/probe process only: disposable PostGIS fixture URL for live source tests and the full result-budget probe. Never read by the product server. | Restart |
+| `DEZFIL_TEST_PUBLICATION_LOG` | unset | Test preload only: NDJSON destination for per-admission published-source state. Required by `scripts/publication-observer.mjs`; no effect without that preload. | Restart |
+| `DEZFIL_TEST_DERIVATION_LOG` | unset | Test preload only: NDJSON destination for native derivation starts, completions and admission occupancy. Required by `scripts/derivation-observer.mjs`; no effect without that preload. | Restart |
 
 JSON admission has fixed outer byte tiers: 65,536 bytes for authentication
-entry, Account, Users and the three anonymous published POSTs; 16,777,216 for
+entry, Account, Users, instance settings and the three anonymous published POSTs; 16,777,216 for
 other JSON, including MCP and workflows; assistant messages retain 131,072.
 Excess returns 413 with the operation's documented error. Optional bodies,
 escaping and UTF-8 bytes count too. Render selections remain in the small tier

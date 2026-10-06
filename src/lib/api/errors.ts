@@ -48,6 +48,7 @@ export type ErrorCode =
   | "mcp_response_invalid"
   | "method_not_allowed"
   | "stale_revision"
+  | "setting_locked"
   | "invalid_request"
   | "not_found"
   | "sql_rejected"

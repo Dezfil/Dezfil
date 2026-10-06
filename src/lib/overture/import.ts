@@ -1,3 +1,4 @@
+import { settingRemedy } from "@/lib/settings/remedy";
 import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { requireFilingDestination } from "@/lib/auth/reach";
@@ -105,7 +106,7 @@ export function assertAreaWithinBudget(theme: OvertureTheme, bbox: Bbox): void {
       "area_too_large",
       `The selected area spans ${Math.round(area).toLocaleString()} km²; the ${
         OVERTURE_THEMES[theme].label
-      } theme allows up to ${Math.round(budget).toLocaleString()} km². Pick a smaller area or scope, or raise DEZFIL_OVERTURE_MAX_KM2.`,
+      } theme allows up to ${Math.round(budget).toLocaleString()} km². Pick a smaller area or scope. ${settingRemedy("overtureMaxKm2")}`,
       413,
     );
   }

@@ -1,3 +1,4 @@
+import { captureIngestBudget, type IngestBudget } from "./budget";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { ownedTableNames, listOwnedTables } from "@/lib/metadata/owned-tables";
 import { requireFilingDestination } from "@/lib/auth/reach";
@@ -94,6 +95,7 @@ export async function prepareSource(
   sourcePath: string,
   filename: string,
   accountId?: string,
+  budget: IngestBudget = captureIngestBudget(),
 ): Promise<PreparedSource> {
   const ext = path.extname(filename).toLowerCase();
   if (format === "geopackage" || (format === "kml" && ext === ".kml")) {
@@ -104,7 +106,7 @@ export async function prepareSource(
   if (accountId) registerAccountFile(accountId, scratchDir, true);
   await mkdir(scratchDir, { recursive: true });
   try {
-    const { files } = await extractArchive(sourcePath, scratchDir, filename);
+    const { files } = await extractArchive(sourcePath, scratchDir, filename, budget.uploadMaxBytes);
 
     if (format === "shapefile") {
       const shp = files.filter((f) => f.toLowerCase().endsWith(".shp"));
@@ -332,11 +334,12 @@ export async function ingestSpatialFile(
   originalFilename: string,
   provenance: IngestProvenance = { source: "upload", sourceParams: null },
   requestedName?: string,
+  budget: IngestBudget = captureIngestBudget(),
 ): Promise<IngestResult> {
   requireAccountScope(scope);
   if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
   const format = detectFormat(originalFilename) as GdalFormat;
-  const prepared = await prepareSource(format, sourcePath, originalFilename, scope.accountId);
+  const prepared = await prepareSource(format, sourcePath, originalFilename, scope.accountId, budget);
   try {
     return await withConnection(async (conn) => {
       const { spatial, skipped } = await enumerateLayers(
@@ -450,6 +453,7 @@ export async function ingestSource(
   originalFilename: string,
   provenance?: IngestProvenance,
   requestedName?: string,
+  budget: IngestBudget = captureIngestBudget(),
 ): Promise<IngestResult> {
   requireAccountScope(scope);
   if (provenance?.projectId) requireFilingDestination(scope, provenance.projectId);
@@ -461,6 +465,7 @@ export async function ingestSource(
       originalFilename,
       provenance,
       requestedName,
+      budget,
     );
   }
   const table = await ingestFile(
