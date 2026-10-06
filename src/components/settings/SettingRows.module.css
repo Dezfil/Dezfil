@@ -1,0 +1,122 @@
+/* A settings card's rows: the label column at the left, the control at
+   the right; the read-only value; and the field the server decides, with
+   its lock and its sentence. */
+
+.row {
+  display: grid;
+  align-items: center;
+  width: 100%;
+  grid-template-columns: minmax(150px, min(230px, 34%)) minmax(0, 1fr);
+  column-gap: 24px;
+  min-height: 54px;
+  padding: 11px 0;
+  border-top: 1px solid var(--border);
+}
+
+.row:first-child {
+  border-top: 0;
+  padding-top: 2px;
+}
+
+.row[data-stack] {
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 8px;
+  align-items: start;
+}
+
+.rowLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowLabel > b {
+  font-size: var(--text-body);
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--fg);
+}
+
+.rowMeta {
+  font-size: var(--text-meta);
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.rowControl {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  min-width: 0;
+}
+
+.row[data-stack] .rowControl {
+  align-items: flex-start;
+}
+
+.after {
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+
+.value {
+  font-size: var(--text-body);
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.value[data-mono] {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+}
+
+/* the field the server decides: the lock sits inside its right edge */
+.locked {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  width: min(340px, 100%);
+}
+
+.locked[data-w="m"] {
+  width: min(200px, 100%);
+}
+
+.locked[data-w="s"] {
+  width: min(122px, 100%);
+}
+
+.lockedField {
+  position: relative;
+  display: flex;
+}
+
+.lockedField input {
+  width: 100%;
+  padding-right: 30px;
+}
+
+.lockedField svg {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fg-muted);
+  pointer-events: none;
+}
+
+.lockedNote {
+  font-size: var(--text-meta);
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.lockedNote code {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--fg);
+}
