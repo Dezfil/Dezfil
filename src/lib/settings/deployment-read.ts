@@ -3,6 +3,7 @@ import path from "node:path";
 import { dataDir } from "@/lib/config";
 import { assistantAvailability, allowedModels, DEFAULT_MODELS } from "@/lib/assistant/config";
 import { readModelCatalogue } from "@/lib/assistant/model-catalogue";
+import { defaultOfferMode } from "@/lib/assistant/offer";
 import { discloseAddress } from "./disclosure";
 import { settingEnvironment } from "./resolver";
 import type { SettingDefinition } from "./types";
@@ -24,7 +25,7 @@ export function readDeploymentSetting(definition: SettingDefinition) {
   else if (definition.key === "assistantAutoCheck") value = !locked || !["0", "false", "off"].includes(raw!.trim().toLowerCase());
   else if (definition.key === "objectStoreCredentials") value = ["1", "true", "yes"].includes(raw?.toLowerCase() ?? "");
   else if (definition.key === "assistantOffer") {
-    value = raw === "full" ? "full" : "subset";
+    value = defaultOfferMode();
     invalidOverride = locked && raw !== "full" && raw !== "subset";
   } else if (definition.key === "aiProvider" || definition.key === "aiModel") {
     const assistant = assistantAvailability();
