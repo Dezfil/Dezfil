@@ -4,9 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HostElement, HostEvent, installDomHost } from "../testing/dom-host";
 import { openPrivateState } from "../auth/private-state";
 import { DISPLAY_NAME_EVENT } from "../UserBadge";
-import { settingDefinition } from "@/lib/settings/catalogue";
-import { disclosedDefinition } from "@/lib/settings/disclosure";
 import { readLastTab, writeLastTab } from "./last-tab";
+import { storedRead } from "./read-fixture";
 import { SettingsFrame } from "./SettingsFrame";
 
 /**
@@ -68,11 +67,7 @@ beforeEach(() => {
     if (url === "/api/account") {
       return Response.json({ account: { id: "ada", name: accountName, email: "ada@example.test", sqlName: "ada", isAdmin: admin } });
     }
-    if (url === "/api/instance/settings") {
-      const setting = (key: string, value: unknown) => ({ ...disclosedDefinition(settingDefinition(key)), value, source: "stored", storedValue: value, locked: false, invalidOverride: false });
-      return Response.json({ settings: { instanceName: setting("instanceName", instanceName), signInMessage: setting("signInMessage", ""),
-        lostPasswordContact: setting("lostPasswordContact", ""), landingPage: setting("landingPage", "home") } });
-    }
+    if (url === "/api/instance/settings") return Response.json(storedRead({ instanceName }));
     if (url === "/api/auth/entry") {
       return Response.json({ instanceName, signInMessage: "", lostPasswordContact: "", landingPage: "home", setupRequired: false });
     }

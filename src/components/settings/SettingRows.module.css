@@ -2,6 +2,12 @@
    the right; the read-only value; and the field the server decides, with
    its lock and its sentence. */
 
+.rows {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
 .row {
   display: grid;
   align-items: center;
@@ -59,6 +65,39 @@
 .after {
   font-size: var(--text-label);
   color: var(--fg-muted);
+}
+
+/* a number kept as it changes, its unit after it in the quiet ink */
+.withUnit {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+
+.number {
+  width: 96px;
+  background: var(--bg-raised);
+  border-color: var(--border-strong);
+  font-size: var(--text-body);
+  font-variant-numeric: tabular-nums;
+}
+
+.number:focus {
+  border-color: var(--accent);
+}
+
+.number[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+/* the red line: under the row's control, across the row */
+.rowError {
+  flex-basis: 100%;
+  font-size: var(--text-label);
+  line-height: 1.5;
+  color: var(--danger);
 }
 
 .value {
