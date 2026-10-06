@@ -4,6 +4,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { GET as assistantStatusHandler } from "@/app/api/assistant/route";
 import { GET as configHandler } from "@/app/api/config/route";
+import { scanConsumption } from "../../../test-support/settings-consumption";
 
 const assistantStatus = authenticatedRoute(assistantStatusHandler);
 const configGet = authenticatedRoute(configHandler);
@@ -15,6 +16,11 @@ const configGet = authenticatedRoute(configHandler);
  */
 
 const SENTINEL = "sk-ant-SECRET-DO-NOT-LEAK-000";
+const CATALOGUE = "src/lib/settings/catalogue.ts";
+
+function allowedCredentialLocation(file: string, source: string): boolean {
+  return file.startsWith("src/lib/assistant/") || file === CATALOGUE && scanConsumption(file, source).length === 0;
+}
 
 afterEach(() => {
   delete process.env.ANTHROPIC_API_KEY;
@@ -61,9 +67,8 @@ describe("credential leak sweep", () => {
   });
 
   it("credential handling is contained to the server-only assistant lib", () => {
-    // Every non-test file that names a model-credential env var lives under
-    // src/lib/assistant/ — nothing in a page, route, or component reads it
-    // (routes reach the credential only through the assistant lib's factory).
+    // The catalogue may name a credential variable as data, with no reads.
+    // Routes reach credentials through the assistant factory.
     const files = walk(path.join(process.cwd(), "src"));
     const stray = files
       .map((f) => path.relative(process.cwd(), f))
@@ -74,7 +79,18 @@ describe("credential leak sweep", () => {
           src.includes("ANTHROPIC_API_KEY") || src.includes("OPENAI_API_KEY")
         );
       })
-      .filter((f) => !f.startsWith("src/lib/assistant/"));
+      .filter((f) => !allowedCredentialLocation(f, readFileSync(f, "utf8")));
     expect(stray).toEqual([]);
+  });
+
+  it("refuses seeded credential reads in the catalogue while admitting its definitions", () => {
+    const source = readFileSync(CATALOGUE, "utf8");
+    expect(allowedCredentialLocation(CATALOGUE, source)).toBe(true);
+    for (const seed of [
+      "export const leaked = process.env.ANTHROPIC_API_KEY;",
+      'export const leaked = process.env["OPENAI_API_KEY"];',
+      'const env = process.env; const key = "OPENAI_API_KEY"; export const leaked = env[key];',
+    ]) expect(allowedCredentialLocation(CATALOGUE, `${source}\n${seed}`)).toBe(false);
+    expect(allowedCredentialLocation("src/lib/settings/other.ts", source)).toBe(false);
   });
 });
