@@ -759,6 +759,10 @@
       "action": "erase",
       "rule": "Private pending obligations survive failure and are removed only after all cleanup and compaction completes. Independent deletions keep their obligations.",
       "fixture": "memory:account-deletion-continuations"
+    },
+    "memory:instance-settings": {
+      "action": "retain",
+      "rule": "Keep committed instance numeric limits and process listener registrations. They contain no account content; store owners follow the metadata handle lifetime."
     }
   },
   "tables": {
@@ -5098,6 +5102,21 @@
     "memory:src/lib/query/result-budget.ts#ResultBudget.used": {
       "stores": [
         "memory:request-closures"
+      ]
+    },
+    "memory:src/lib/settings/state.ts#state": {
+      "stores": [
+        "memory:instance-settings"
+      ]
+    },
+    "memory:src/lib/settings/state.ts#state.listeners": {
+      "stores": [
+        "memory:instance-settings"
+      ]
+    },
+    "memory:src/lib/settings/state.ts#activateCommittedSettings.owners": {
+      "stores": [
+        "memory:open-metadata-handle"
       ]
     }
   },

@@ -1,5 +1,12 @@
 import { settingDefinition } from "./catalogue";
 import { NUMERIC_SETTINGS, type NumericSettingKey } from "./numeric";
+import { committedNumericSettings } from "./state";
+import type { SettingDefinition } from "./types";
+
+export function lockedEnvironment(definition: SettingDefinition): string | undefined {
+  const raw = definition.environment ? process.env[definition.environment] : undefined;
+  return raw !== undefined && raw !== "" ? definition.environment : undefined;
+}
 
 export interface ResolvedSetting<T> {
   key: string;
@@ -24,7 +31,7 @@ export function resolveNumericSetting(key: NumericSettingKey, input: NumericReso
   const definition = numericByKey.get(key);
   if (!definition) throw new Error(`Unknown numeric setting: ${key}`);
   const raw = (input.environment ?? process.env)[definition.environment];
-  const storedValue = definition.editable ? input.stored?.[key] ?? null : null;
+  const storedValue = definition.editable ? (input.stored ?? committedNumericSettings())[key] ?? null : null;
   const locked = raw !== undefined && raw !== "";
   if (locked) {
     const number = Number(raw);

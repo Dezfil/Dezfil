@@ -5,6 +5,7 @@ import { dataDir } from "@/lib/config";
 import { MIGRATIONS } from "./migrations";
 import { allocateSqlNames, type SqlNameIdentity } from "./sql-names";
 import { IDENTITIES_MIGRATION, rebuildIdentities } from "./migrations-identities";
+import { activateSettingsStore, observeSettingsStore } from "@/lib/settings/store";
 
 export { MIGRATIONS } from "./migrations";
 
@@ -22,6 +23,7 @@ export function metadataDb(): Database.Database {
     const dir = dataDir();
     mkdirSync(dir, { recursive: true });
     instance = open(path.join(dir, "metadata.sqlite"));
+    activateSettingsStore(instance);
   }
   return instance;
 }
@@ -33,6 +35,7 @@ export function open(file: string): Database.Database {
     db.pragma("journal_mode = WAL");
     db.pragma("foreign_keys = ON");
     migrate(db);
+    observeSettingsStore(db);
     return db;
   } catch (error) {
     db.close();
