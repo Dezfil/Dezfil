@@ -13,6 +13,10 @@ it("documents the complete admin read and exposes a local read-only tool with a 
   expect(operation.description).toContain("private, no-store");
   for (const status of ["200", "401", "403", "503"]) expect(operation.responses).toHaveProperty(status);
   const schema = doc.components.schemas.InstanceSettings;
+  expect(schema.properties.settings.properties.overpassUrl.properties).toMatchObject({
+    documentedDefault: { const: "https://overpass-api.de/api/interpreter" },
+    defaultValue: { const: { set: true, origin: "https://overpass-api.de" } },
+  });
   expect(Object.keys(schema.properties.settings.properties).sort()).toEqual(SETTING_CATALOGUE.filter(d => d.scope !== "account").map(d => d.key).sort());
   const tool = buildTools().find(tool => tool.name === "get_instance_settings")!;
   expect(tool).toMatchObject({ path: "/api/instance/settings", method: "get", confirm: false,

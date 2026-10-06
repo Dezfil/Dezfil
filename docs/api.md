@@ -418,10 +418,11 @@ assistant model list keeps only the default model.
 
 Provider credentials disclose only `{ set: true }` or `{ set: false }`.
 The encryption key discloses `environment`, `data-directory` or
-`not-yet-present`, without generating or reading a key. Addresses disclose
-only scheme and host as `origin`, or `{ set: true, unreadable: true }`;
-user information, paths, queries and fragments are absent. Contextual
-defaults can carry a `rule`. The read contacts no provider, initializes no
+`not-yet-present`, without generating or reading a key. Address `value` and
+`defaultValue` disclose only scheme and host as `origin`, or
+`{ set: true, unreadable: true }`; user information, paths, queries and fragments
+are absent. The built-in `documentedDefault` stays as documented, including any
+path. Contextual defaults can carry a `rule`. The read contacts no provider, initializes no
 engine and creates no configuration artifact. `capacities` contains
 `geocodeRows` (at least one) and `isochroneOrigins` (possibly zero), matching
 operation admission without promising a provider. `maxImageDimension` is

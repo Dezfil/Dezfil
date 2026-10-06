@@ -60,7 +60,8 @@ export const INSTANCE_SETTINGS_PATHS = {
       "the setting even when invalid; invalid numeric overrides use the default without returning the override text. " +
       "Empty numeric overrides are absent; a set empty assistant model list retains its default model alone. Environment changes require a restart. " +
       "Provider keys report set or not set; the encryption key reports environment, data-directory or not-yet-present. " +
-      "Addresses expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. " +
+      "Address value and defaultValue expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. " +
+      "The built-in documentedDefault stays as documented, including any path. " +
       "Contextual defaults carry a rule when there is no single address or value. The read generates no key, writes no configuration file, " +
       "contacts no service and initializes no engine. Capacities report admitted geocode rows and travel-time origins per run, " +
       "without promising a configured provider. Also returns the fixed maximum image dimension, package version, stable process start time " +

@@ -37,6 +37,11 @@ it("reports every instance and platform definition, defaults, stored values and 
   expect(result.settings.remoteTimeoutS).toMatchObject({ value: 40, source: "stored", locked: false });
   expect(result.settings.exportRenderTimeoutS).toMatchObject({ value: 2.9, source: "environment", locked: true });
   expect(result.settings.uploadMaxMb).toMatchObject({ value: 5120, source: "default", locked: false });
+  expect(result.settings.overpassUrl).toMatchObject({
+    documentedDefault: "https://overpass-api.de/api/interpreter",
+    defaultValue: { set: true, origin: "https://overpass-api.de" },
+    value: { set: true, origin: "https://overpass-api.de" },
+  });
   for (const [key, value] of Object.entries({ instanceName: "Field atlas", signInMessage: "Welcome", lostPasswordContact: "Ask Ada", landingPage: "maps" })) {
     expect(result.settings[key]).toMatchObject({ value, storedValue: value, source: "stored", locked: false });
   }

@@ -22,10 +22,5 @@ export function disclosedDefault(definition: SettingDefinition): SettingDefault 
 
 /** Shared static metadata for the read and its schema. No environment enters this projection. */
 export function disclosedDefinition(definition: SettingDefinition) {
-  const defaultValue = disclosedDefault(definition);
-  return { ...definition, defaultValue,
-    documentedDefault: definition.kind === "address" && typeof definition.defaultValue === "string"
-      ? (discloseAddress(definition.defaultValue) as { origin?: string }).origin ?? "set and unreadable"
-      : definition.documentedDefault,
-  };
+  return { ...definition, defaultValue: disclosedDefault(definition) };
 }
