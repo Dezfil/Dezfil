@@ -5,6 +5,8 @@
  * password); a card's heading marks the whole card.
  */
 
+import { createContext, useContext, useEffect } from "react";
+
 /** How long the mark holds before it fades, and the fade itself. */
 export const MARK_HOLD_MS = 900;
 export const MARK_FADE_MS = 350;
@@ -40,4 +42,33 @@ export function landOn(root: Element | null, anchor: string): boolean {
   }
   markElement(target);
   return true;
+}
+
+/**
+ * A tab that draws from a read tells the frame once its rows are on the
+ * page, so an address or a search hit naming one of them lands when the
+ * row arrives rather than before.
+ */
+export const DrawnContext = createContext<(() => void) | null>(null);
+
+/** Report the tab's rows drawn while `ready` holds. */
+export function useDrawn(ready: boolean): void {
+  const drawn = useContext(DrawnContext);
+  useEffect(() => { if (ready) drawn?.(); }, [ready, drawn]);
+}
+
+/** Mark an element outside the page's content (the header's theme
+ * button) with the same wash, drawn on the element itself. */
+export function markOutside(target: HTMLElement): void {
+  if (typeof target.scrollIntoView === "function") target.scrollIntoView({ block: "nearest", behavior: reducedMotion() ? "auto" : "smooth" });
+  const style = target.style;
+  style.setProperty("background-color", "var(--accent-wash)");
+  style.setProperty("box-shadow", "0 0 0 4px var(--accent-wash)");
+  markElement(target);
+  setTimeout(() => {
+    style.setProperty("transition", "background-color var(--dur-feedback) ease, box-shadow var(--dur-feedback) ease");
+    style.removeProperty("background-color");
+    style.removeProperty("box-shadow");
+    setTimeout(() => style.removeProperty("transition"), MARK_FADE_MS);
+  }, MARK_HOLD_MS);
 }

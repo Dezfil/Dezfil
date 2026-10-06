@@ -7,6 +7,8 @@ import { ErrorNote } from "@/components/ui/ErrorNote";
 import { Dialog } from "@/components/ui/Dialog";
 import { accountRequest, failureMessage } from "./api";
 import { useGuardEntry } from "./settings-guard";
+import { tokenState } from "./settings-index";
+import { useDrawn } from "./settings-land";
 import { cardFormClass, CardActions, LabelledField, Note, SettingsCard } from "./SettingsCard";
 import styles from "./SettingsCard.module.css";
 
@@ -21,6 +23,7 @@ export function TokensCard() {
   const [copied, setCopied] = useState(false), [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null), [revoking, setRevoking] = useState<ApiToken | null>(null);
   useGuardEntry("tokens-secret", secret !== null, "API / MCP tokens", "The new token will not be shown again.");
+  useDrawn(tokens !== null);
   useEffect(() => {
     let cancelled = false;
     accountRequest<{ tokens: ApiToken[] }>("/api/account/tokens").then(body => {
@@ -63,16 +66,16 @@ export function TokensCard() {
       <CardActions><Button onClick={() => void copy()}>{copied ? "Copied" : "Copy token"}</Button>
         <Button onClick={() => { setSecret(null); setCopied(false); }}>Done</Button></CardActions>
     </div> : <form className={cardFormClass} onSubmit={create}>
-      <LabelledField label="Token name" inputId={`${ids}-name`}>
+      <LabelledField id="set-token-name" label="Token name" inputId={`${ids}-name`}>
         <TextInput id={`${ids}-name`} value={name} onChange={event => setName(event.target.value)} required disabled={busy || tokens === null} />
       </LabelledField>
       <Button type="submit" variant="primary" busy={busy} disabled={!name.trim() || tokens === null}>Create token</Button>
     </form>}
     {tokens === null && !error && <p role="status" className={styles.note}>Loading tokens…</p>}
     {tokens?.length === 0 && <Note>No tokens yet.</Note>}
-    {!!tokens?.length && <ul className={styles.list}>{tokens.map(token => <li key={token.id} className={styles.listRow}>
+    {!!tokens?.length && <ul className={styles.list}>{tokens.map(token => <li key={token.id} id={`token-${token.id}`} className={styles.listRow}>
       <div className={styles.listMain}><strong>{token.name}</strong>
-        <span className={styles.note}>{token.revokedAt ? "Revoked" : token.lastUsedAt ? `Last used ${new Date(token.lastUsedAt).toLocaleDateString()}` : "Never used"}</span></div>
+        <span className={styles.note}>{tokenState(token)}</span></div>
       {!token.revokedAt && <Button disabled={busy} onClick={() => { setError(null); setRevoking(token); }} aria-label={`Revoke ${token.name}`}>Revoke</Button>}
     </li>)}</ul>}
     {revoking && <Dialog label={`Revoke ${revoking.name}`} className={styles.dialog} onClose={() => { if (!busy) { setRevoking(null); setError(null); } }}>

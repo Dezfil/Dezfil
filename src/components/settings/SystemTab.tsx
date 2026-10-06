@@ -6,12 +6,12 @@ import { accountRequest, failureMessage } from "./api";
 import { useInstanceRead, type InstanceRead } from "./instance-read";
 import { Rows, SettingRow, ValueText } from "./SettingRows";
 import { Note, SettingsCard } from "./SettingsCard";
-import { providerName, runningFor, serverSettingsRows, type SettingSource, type ShownValue } from "./system-table";
+import { useDrawn } from "./settings-land";
+import { providerName, runningFor, serverSettingsRows, type AssistantStatus, type SettingSource, type ShownValue } from "./system-table";
 import cardStyles from "./SettingsCard.module.css";
 import styles from "./SystemTab.module.css";
 
 type Health = "checking" | "ready" | "unready";
-type AssistantStatus = { enabled: true; provider: string } | { enabled: false; reason: string };
 
 /** System, read-only: the version and the data folder's state, the
  * assistant's status, and every setting a server variable decides with
@@ -19,6 +19,7 @@ type AssistantStatus = { enabled: true; provider: string } | { enabled: false; r
 export function SystemTab() {
   const { read, error, retry } = useInstanceRead();
   const health = useHealth();
+  useDrawn(!!read);
   if (error) return <ErrorNote message={error} onRetry={retry} />;
   if (!read) return <p role="status" className={cardStyles.loading}>Loading settings…</p>;
   return <>
@@ -71,6 +72,7 @@ function AssistantCard() {
     }).catch(failure => { if (!cancelled) setError(failureMessage(failure)); });
     return () => { cancelled = true; };
   }, [attempt]);
+  useDrawn(!!status);
   return <SettingsCard id="system-assistant" title="Assistant" headingId="system-assistant-heading">
     {error && <ErrorNote message={error} onRetry={() => { setError(null); setAttempt(value => value + 1); }} />}
     {!status && !error && <p role="status" className={cardStyles.loading}>Loading…</p>}

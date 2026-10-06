@@ -14,11 +14,13 @@ const ICONS: Record<SettingsTabId, ReactNode> = {
   system: <ServerIcon />,
 };
 
-/** The tab column: You, then Instance, each with the tabs this person
- * may open, and for an admin the Users page under a rule at the foot. */
-export function SettingsColumn({ admin, current }: { admin: boolean; current: SettingsTabId }) {
+/** The tab column: the search at its head, You, then Instance, each with
+ * the tabs this person may open, and for an admin the Users page under a
+ * rule at the foot. No tab is marked current while the search answers. */
+export function SettingsColumn({ admin, current, search }: { admin: boolean; current: SettingsTabId | null; search?: ReactNode }) {
   const column = settingsColumn(admin);
   return <nav className={styles.column} aria-label="Settings">
+    {search}
     {column.groups.map(group => <div key={group.id} className={styles.group}>
       <div className={styles.groupLabel}>{group.label}</div>
       {group.tabs.map(tab => <Link key={tab.id} href={tabAddress(tab.id)} scroll={false} className={styles.item}
@@ -28,7 +30,7 @@ export function SettingsColumn({ admin, current }: { admin: boolean; current: Se
     </div>)}
     {column.users && <>
       <div className={styles.rule} />
-      <Link href="/users" className={styles.item}><UsersIcon /><span>Users</span><span className={styles.out}><ArrowRightIcon /></span></Link>
+      <Link id="settings-users" href="/users" className={styles.item}><UsersIcon /><span>Users</span><span className={styles.out}><ArrowRightIcon /></span></Link>
     </>}
   </nav>;
 }

@@ -119,6 +119,8 @@ async function follow() {
 const column = () => container.querySelector("nav")!;
 const columnLinks = () => column().querySelectorAll("a").map(a => ({ text: a.textContent, href: a.getAttribute("href") }));
 const byId = (id: string) => container.querySelector(`[id="${id}"]`);
+/** The tab on screen, beside the column (whose head is the search field). */
+const tabContent = () => container.querySelector("[data-tab]")!;
 
 describe("the Settings frame", () => {
   it("draws the heading and, for an admin, You and Instance whole with Users at the foot", async () => {
@@ -218,20 +220,20 @@ describe("the Settings frame", () => {
     nav.pathname = "/settings/tokens"; await follow();
     nav.pathname = "/settings/account"; await follow();
     // The account card's first field is the display name.
-    expect(container.querySelectorAll("input")[0]?.value).toBe("Ada Lovelace");
+    expect(tabContent().querySelectorAll("input")[0]?.value).toBe("Ada Lovelace");
     nav.pathname = "/settings/general"; await follow();
-    expect(container.querySelector("input")?.value).toBe("Atlas");
+    expect(tabContent().querySelector("input")?.value).toBe("Atlas");
     // General reads the instance afresh each time it opens.
     instanceName = "Atlas North";
     nav.pathname = "/settings/tokens"; await follow();
     nav.pathname = "/settings/general"; await follow();
-    expect(container.querySelector("input")?.value).toBe("Atlas North");
+    expect(tabContent().querySelector("input")?.value).toBe("Atlas North");
   });
 
   it("gives a member General from the entry read, disabled", async () => {
     await open("/settings/general", "", "member");
     expect(requests).toContain("/api/auth/entry");
-    expect(container.querySelector("input")?.disabled).toBe(true);
+    expect(tabContent().querySelector("input")?.disabled).toBe(true);
     expect(container.textContent).toContain("Only admins can change the instance name.");
   });
 

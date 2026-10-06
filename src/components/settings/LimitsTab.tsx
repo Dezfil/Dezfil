@@ -4,6 +4,7 @@ import { ErrorNote } from "@/components/ui/ErrorNote";
 import { keptValues, useInstanceRead, writeInstanceSettings, type InstanceRead } from "./instance-read";
 import { capacityText, inLabels, LIMITS_CARDS, LIMITS_LABELS, type LimitsCard, type LimitsRow } from "./limits-table";
 import { SaveUnit, type UnitSnapshot, type Value } from "./save-unit";
+import { useDrawn } from "./settings-land";
 import { formatSettingNumber, serverSetState, unitControlFor, type ReadSetting } from "./server-set";
 import { LockedField, NumberField, RowError, Rows, SettingRow, ValueText } from "./SettingRows";
 import { ResetSlot, SavedMark, SettingsCard } from "./SettingsCard";
@@ -26,6 +27,7 @@ function refusalLabels(settings: Settings): Record<string, string> {
 export function LimitsTab() {
   const { read, error, retry } = useInstanceRead();
   const [answered, setAnswered] = useState<InstanceRead | null>(null);
+  useDrawn(!!read);
   if (error) return <ErrorNote message={error} onRetry={retry} />;
   if (!read) return <p role="status" className={styles.loading}>Loading settings…</p>;
   const now = answered ?? read;

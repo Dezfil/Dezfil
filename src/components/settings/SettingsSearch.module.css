@@ -1,0 +1,122 @@
+/* The Settings search: the field at the head of the tab column (the
+   gallery's search field), and its answer in the content's place, a line
+   per hit with the found words marked. */
+
+.search {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 8px;
+  height: var(--control);
+  margin-bottom: 4px;
+  padding: 0 12px;
+  border-radius: var(--radius-control);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--fg-faint);
+  transition: border-color var(--dur-micro) ease;
+}
+
+.search:focus-within {
+  border-color: var(--accent);
+}
+
+.search > svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  font-size: var(--text-body);
+  color: var(--fg);
+}
+
+.search input::placeholder {
+  color: var(--fg-faint);
+}
+
+.search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.clear {
+  margin-right: -6px;
+  color: var(--fg-faint);
+}
+
+.found h2 {
+  font-size: var(--text-heading);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 2px;
+  text-align: left;
+  border-top: 1px solid var(--border);
+}
+
+.result:first-child {
+  border-top: 0;
+}
+
+.result > svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--fg-faint);
+}
+
+.result:hover .resultPath b,
+.result:focus-visible .resultPath b {
+  color: var(--accent);
+}
+
+.resultText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.resultPath {
+  font-size: var(--text-body);
+  line-height: 1.35;
+  color: var(--fg-muted);
+}
+
+.resultPath b {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.resultMeta {
+  overflow: hidden;
+  font-size: var(--text-meta);
+  line-height: 1.5;
+  color: var(--fg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result mark {
+  border-radius: var(--radius-sm);
+  background: var(--accent-wash);
+  color: inherit;
+}

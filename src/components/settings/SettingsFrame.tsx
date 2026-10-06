@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { Account } from "@/lib/metadata/accounts";
 import { DISPLAY_NAME_EVENT } from "@/components/UserBadge";
@@ -11,10 +11,13 @@ import { LimitsTab } from "./LimitsTab";
 import { SystemTab } from "./SystemTab";
 import { accountRequest, failureMessage } from "./api";
 import { SettingsColumn } from "./SettingsColumn";
-import { resolveSettingsAddress, SETTINGS_PATH } from "./settings-address";
+import { resolveSettingsAddress, SETTINGS_PATH, tabAddress } from "./settings-address";
 import type { SettingsTabId } from "./settings-tabs";
 import { readLastTab, writeLastTab } from "./last-tab";
-import { landOn } from "./settings-land";
+import { DrawnContext, landOn, markOutside } from "./settings-land";
+import type { Pointer, SearchHit } from "./settings-search";
+import { SearchField, SearchResults } from "./SettingsSearch";
+import { useSettingsSearch } from "./use-settings-search";
 import { LeaveGuard, type GuardMessage } from "./leave-guard";
 import { watchLeaving } from "./leave-watch";
 import { GuardContext, LeaveDialog } from "./settings-guard";
@@ -25,6 +28,8 @@ interface Loaded { account: Account }
  * so a second visit to the same row lands again. */
 interface Shown { tab: SettingsTabId; anchor: string | null; visit: number }
 interface Asking { message: GuardMessage; settle: (discard: boolean) => void }
+/** Where a search hit lands once its tab is on screen: a row, or a control outside the page. */
+interface Landing { anchor: string | null; pointer: Pointer | null; seq: number }
 
 const inSettings = (pathname: string) => pathname === SETTINGS_PATH || pathname.startsWith(`${SETTINGS_PATH}/`);
 
@@ -36,7 +41,9 @@ const inSettings = (pathname: string) => pathname === SETTINGS_PATH || pathname.
  * shows when it names nothing this person can open, remembers the tab
  * for the session and lands on the row the fragment names. While a card
  * holds unsaved typed text, leaving the tab (the column, a link, back,
- * forward, reload, closing) asks first, naming the cards.
+ * forward, reload, closing) asks first, naming the cards. The search at
+ * the column's head answers in the tab's place; a hit opens its tab and
+ * marks its row, asking first as any leaving does.
  */
 export function SettingsFrame() {
   const pathname = usePathname();
@@ -52,6 +59,15 @@ export function SettingsFrame() {
   const [asking, setAsking] = useState<Asking | null>(null);
   /** What the watch reads between renders: the tab and address on screen, and the role. */
   const here = useRef<{ tab: SettingsTabId | null; address: string | null; admin: boolean }>({ tab: null, address: null, admin: false });
+  const search = useSettingsSearch(loaded?.account ?? null);
+  const [landing, setLanding] = useState<Landing | null>(null);
+  /** A row an address or a hit named that its tab has not drawn yet. */
+  const pending = useRef<string | null>(null);
+  const land = useEffectEvent((anchor: string) => { pending.current = landOn(content.current, anchor) ? null : anchor; });
+  const drawn = useCallback(() => {
+    const anchor = pending.current;
+    if (anchor && landOn(content.current, anchor)) pending.current = null;
+  }, []);
   const openAddress = useEffectEvent((address: string) => {
     router.push(address, inSettings(new URL(address, window.location.href).pathname) ? { scroll: false } : undefined);
   });
@@ -127,22 +143,55 @@ export function SettingsFrame() {
     if (!shown) return;
     const tabChanged = lastTab.current !== null && lastTab.current !== shown.tab;
     lastTab.current = shown.tab;
-    if (shown.anchor) landOn(content.current, shown.anchor);
+    pending.current = null;
+    if (shown.anchor) land(shown.anchor);
     else if (tabChanged && typeof window.scrollTo === "function") window.scrollTo(0, 0);
   }, [shown]);
+
+  useEffect(() => {
+    if (!landing) return;
+    if (landing.pointer) {
+      const target = landing.pointer === "users" ? document.getElementById("settings-users")
+        : document.querySelector<HTMLElement>('[aria-label="Switch between dark and light theme"]');
+      if (target) markOutside(target);
+    } else if (landing.anchor) land(landing.anchor);
+  }, [landing]);
+
+  /** A search hit: a control outside the page or a row on this tab at
+   * once, another tab once the person lets this one go. */
+  const choose = (hit: SearchHit) => {
+    const next = (target: Omit<Landing, "seq">) => setLanding(previous => ({ ...target, seq: (previous?.seq ?? 0) + 1 }));
+    if ("pointer" in hit.target) { search.onQuery(""); next({ anchor: null, pointer: hit.target.pointer }); return; }
+    const { tab, anchor } = hit.target;
+    if (tab === here.current.tab) { search.onQuery(""); next({ anchor, pointer: null }); return; }
+    void new Promise<boolean>(settle => {
+      const message = guard.message();
+      if (message) setAsking({ message, settle }); else settle(true);
+    }).then(discard => {
+      if (!discard) return;
+      search.onQuery("");
+      router.push(tabAddress(tab, anchor), { scroll: false });
+    });
+  };
 
   return <div className={styles.screen}>
     <div className={styles.heading}><h1>Settings</h1></div>
     {error && <ErrorNote message={error} onRetry={() => { setError(null); setAttempt(value => value + 1); }} />}
     {!loaded && !error && <p role="status" className={styles.loading}>Loading settings…</p>}
-    {loaded && shown && <GuardContext.Provider value={guard}>
+    {loaded && shown && <GuardContext.Provider value={guard}><DrawnContext.Provider value={drawn}>
       <div className={styles.set}>
-        <SettingsColumn admin={loaded.account.isAdmin} current={shown.tab} />
-        <div ref={content} className={styles.content} data-tab={shown.tab}>
-          <TabContent tab={shown.tab} loaded={loaded} />
+        <SettingsColumn admin={loaded.account.isAdmin} current={search.searching ? null : shown.tab}
+          search={<SearchField value={search.query} inputRef={search.field} onQuery={search.onQuery} onKeyDown={event => search.fieldKeys(event, choose)} />} />
+        <div className={styles.pane}>
+          {/* Kept while the search answers in its place, so nothing typed in it is lost. */}
+          <div ref={content} className={styles.content} data-tab={shown.tab} hidden={search.searching}>
+            <TabContent tab={shown.tab} loaded={loaded} />
+          </div>
+          {search.searching && <SearchResults query={search.query} hits={search.hits} loading={search.loading} listRef={search.list}
+            onChoose={choose} onField={search.focusField} />}
         </div>
       </div>
-    </GuardContext.Provider>}
+    </DrawnContext.Provider></GuardContext.Provider>}
     {asking && <LeaveDialog message={asking.message} onAnswer={discard => { asking.settle(discard); setAsking(null); }} />}
   </div>;
 }

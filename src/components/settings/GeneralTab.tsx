@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { accountRequest, failureMessage } from "./api";
 import { useInstanceRead } from "./instance-read";
+import { useDrawn } from "./settings-land";
 import type { Value } from "./save-unit";
 import { SignInCard } from "./SignInCard";
 import { WorkspaceCard } from "./WorkspaceCard";
@@ -24,6 +25,7 @@ export function GeneralTab({ admin }: { admin: boolean }) {
 
 function AdminGeneral() {
   const { read, error, retry } = useInstanceRead();
+  useDrawn(!!read);
   if (error) return <ErrorNote message={error} onRetry={retry} />;
   if (!read) return <p role="status" className={styles.loading}>Loading settings…</p>;
   return <>
@@ -42,6 +44,7 @@ function MemberGeneral() {
     }).catch(failure => { if (!cancelled) setError(failureMessage(failure)); });
     return () => { cancelled = true; };
   }, [attempt]);
+  useDrawn(!!entry);
   if (error) return <ErrorNote message={error} onRetry={() => { setError(null); setAttempt(value => value + 1); }} />;
   if (!entry) return <p role="status" className={styles.loading}>Loading settings…</p>;
   return <>

@@ -62,14 +62,14 @@ export function AccountCard({ account }: { account: Account }) {
   const invalid = (key: string) => card.errors[key] ? { "aria-invalid": true, "aria-describedby": `${ids}-${key}-error` } : {};
   return <SettingsCard id="account" title="Account" headingId="account-heading">
     <form ref={form} className={cardFormClass} noValidate onSubmit={event => { event.preventDefault(); unit.save(); }}>
-      <LabelledField label="Display name" inputId={`${ids}-name`} saved={card.saved.includes("name")}
+      <LabelledField id="set-display-name" label="Display name" inputId={`${ids}-name`} saved={card.saved.includes("name")}
         error={card.errors.name} errorId={`${ids}-name-error`}>
         <TextInput id={`${ids}-name`} data-unit-key="name" value={text("name")} maxLength={80} required autoComplete="name"
           disabled={card.busy} {...invalid("name")} onChange={event => unit.edit("name", event.target.value)} />
       </LabelledField>
-      <p className={styles.sqlName}><span>SQL name</span><code>{account.sqlName}</code></p>
+      <p id="set-sql-name" className={styles.sqlName}><span>SQL name</span><code>{account.sqlName}</code></p>
       <Note>Your SQL name stays the same when you change your name or email.</Note>
-      <LabelledField label="Email" inputId={`${ids}-email`} saved={card.saved.includes("email")}
+      <LabelledField id="set-email" label="Email" inputId={`${ids}-email`} saved={card.saved.includes("email")}
         error={card.errors.email} errorId={`${ids}-email-error`}>
         <TextInput id={`${ids}-email`} data-unit-key="email" type="email" value={text("email")} required autoComplete="email"
           disabled={card.busy} {...invalid("email")} onChange={event => {

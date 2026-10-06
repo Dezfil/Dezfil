@@ -94,6 +94,9 @@ export function runningFor(startedAt: string, now = Date.now()): string {
   return `Running for ${plural(Math.floor(hours / 24), "day")}`;
 }
 
+/** The assistant's status read: on with its provider, or off with the reason. */
+export type AssistantStatus = { readonly enabled: true; readonly provider: string } | { readonly enabled: false; readonly reason: string };
+
 /** The assistant's provider, by its name. */
 export function providerName(provider: string): string {
   return ({ anthropic: "Anthropic", openai: "OpenAI" } as Record<string, string>)[provider] ?? provider;
