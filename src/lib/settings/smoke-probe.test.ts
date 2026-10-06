@@ -35,8 +35,9 @@ function fixture(defect = "", existing = false) {
     if (path === "/api/query") {
       expect(JSON.parse(String(init?.body))).toEqual({ sql: "SELECT range AS n FROM range(25) ORDER BY n" });
       const length = Math.min(writes === 1 && defect === "stale-query" ? 1000 : effective().previewRows, 25);
+      // range() produces BIGINT values, which the query route serializes as strings.
       return Response.json({ rowCount: defect === "wrong-count" ? length : 25,
-        preview: Array.from({ length }, (_, n) => ({ n })), previewTruncated: defect === "wrong-truncation" ? false : length < 25 });
+        preview: Array.from({ length }, (_, n) => ({ n: String(n) })), previewTruncated: defect === "wrong-truncation" ? false : length < 25 });
     }
     throw new Error(`Unexpected path: ${path}`);
   });

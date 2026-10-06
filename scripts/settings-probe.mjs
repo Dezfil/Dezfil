@@ -52,7 +52,7 @@ export async function settingsProbe(base, { token = '', restart = undefined, fet
     assert.equal(result.rowCount, 25, 'full query row count');
     assert.equal(result.preview.length, length, 'query preview must see previewRows');
     assert.equal(result.previewTruncated, length < 25, 'query truncation must keep its meaning');
-    assert.deepEqual(result.preview, Array.from({ length }, (_, n) => ({ n })), 'query preview contents');
+    assert.deepEqual(result.preview, Array.from({ length }, (_, n) => ({ n: String(n) })), 'query preview contents');
     const entry = await request('/api/auth/entry');
     assert.equal(entry.signInMessage, values.signInMessage, 'anonymous entry consumer must see signInMessage');
   }
