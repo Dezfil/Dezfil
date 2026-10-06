@@ -1,9 +1,6 @@
-// The README documents the full configuration surface:
-// every environment variable the server reads as a deployment setting —
-// DEZFIL_* and the provider keys alike — appears in
-// the README's configuration table, and every table row names a variable
-// the server actually reads — both directions, so the surface and its
-// documentation cannot silently drift apart again.
+// Both configuration guides cover the catalogue in both directions, including
+// documented defaults and change timing. Keep the independent source and script
+// scans too: a row in the catalogue cannot justify an unused deployment name.
 //
 // Coverage is defined by what `src` reads from process.env, minus two
 // documented exclusion classes:
@@ -22,14 +19,16 @@
 // Usage: node scripts/check-readme-config.mjs [--src DIR] [--readme FILE] [--configuration FILE]
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { settingsSource } from "./settings-source.mjs";
+
+const PLATFORM = new Set(["NODE_ENV", "PORT", "HOSTNAME", "NEXT_RUNTIME", "TZ", "CI", "DUCKDB_EXTENSION_DIR"]);
+const DOCUMENTED_PLATFORM = new Set([...PLATFORM, "NEXT_TELEMETRY_DISABLED"]);
 
 const EXCLUDED = (name) =>
   name.startsWith("DEZFIL_TEST_") ||
   name === "DEZFIL_BASE_URL" ||
-  ["NODE_ENV", "PORT", "HOSTNAME", "NEXT_RUNTIME", "TZ", "CI"].includes(
-    name,
-  ) ||
-  name === "DUCKDB_EXTENSION_DIR";
+  PLATFORM.has(name);
 
 function walk(dir) {
   const out = [];
@@ -102,7 +101,75 @@ export function judge(server, documented) {
   return { undocumented, stale };
 }
 
-const isMain = process.argv[1]?.endsWith("check-readme-config.mjs");
+/** Parse table cells by their header, so a lost timing column cannot pass. */
+export function configurationRows(text) {
+  let header = [];
+  const rows = [];
+  const normalize = value => value.replaceAll("`", "").replace(/\s+/g, " ").trim();
+  for (const line of text.split("\n")) {
+    const cells = line.split(/(?<!\\)\|/).slice(1, -1).map(cell => cell.trim());
+    if (/^\|\s*(?:Setting|Variable)\s*\|/.test(line)) header = cells;
+    if (!line.startsWith("|")) header = [];
+    const match = /^\|\s*`([A-Z][A-Z0-9_]+)`/.exec(line);
+    if (match) rows.push({ name: match[1],
+      defaultValue: normalize(cells[header.indexOf("Default")] ?? ""),
+      changedBy: normalize(cells[header.indexOf("Changed by")] ?? ""),
+    });
+  }
+  return rows;
+}
+
+function differences(expected, actual, label) {
+  const { undocumented, stale } = judge(expected, actual);
+  return [
+    ...undocumented.map(name => `UNDOCUMENTED: ${label}: ${name}`),
+    ...stale.map(name => `STALE: ${label}: ${name}`),
+  ];
+}
+
+/** Definitions are supplied by the actual catalogue, never a second defaults map. */
+export function catalogueRowProblems(definitions, rows, label) {
+  const byName = new Map(definitions.map(definition => [definition.environment, definition]));
+  const names = new Set(rows.map(row => row.name));
+  const problems = differences(new Set(byName.keys()), names, label);
+  for (const name of names) {
+    const matches = rows.filter(row => row.name === name);
+    if (matches.length !== 1) problems.push(`DUPLICATE: ${label}: ${name}`);
+    const definition = byName.get(name);
+    if (!definition) continue;
+    const changedBy = definition.editable && definition.timing === "live" ? "App (live) or restart" : "Restart";
+    for (const row of matches) {
+      if (row.defaultValue !== definition.documentedDefault) problems.push(
+        `DEFAULT: ${label}: ${name}: expected ${JSON.stringify(definition.documentedDefault)}, found ${JSON.stringify(row.defaultValue)}`,
+      );
+      if (row.changedBy !== changedBy) problems.push(
+        `CHANGED BY: ${label}: ${name}: expected ${JSON.stringify(changedBy)}, found ${JSON.stringify(row.changedBy)}`,
+      );
+    }
+  }
+  return problems;
+}
+
+export function configurationProblems({ srcDir, documents, catalogue, testWiring }) {
+  const definitions = catalogue.filter(definition => definition.environment && definition.scope !== "platform");
+  const scriptsDir = path.join(srcDir, "..", "scripts");
+  const server = serverVariables(srcDir, scriptsDir);
+  const wiring = probeVariables(scriptsDir);
+  const problems = differences(new Set([...definitions, ...testWiring].map(d => d.environment)), server, "source scan against catalogue");
+  problems.push(...differences(new Set(testWiring.map(d => d.environment)), wiring, "script test wiring against catalogue"));
+  for (const [label, text] of Object.entries(documents)) {
+    const rows = configurationRows(text).filter(row => !DOCUMENTED_PLATFORM.has(row.name));
+    const deploymentRows = rows.filter(row => !row.name.startsWith("DEZFIL_TEST_"));
+    const wiringRows = rows.filter(row => row.name.startsWith("DEZFIL_TEST_"));
+    problems.push(...catalogueRowProblems(definitions, deploymentRows, label));
+    problems.push(...catalogueRowProblems(testWiring, wiringRows, `${label} test wiring`));
+    // Retain each document's direct comparison with executable script reads.
+    problems.push(...differences(wiring, new Set(wiringRows.map(row => row.name)), `${label} script test wiring`));
+  }
+  return problems;
+}
+
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
   const args = process.argv.slice(2);
   const argOf = (flag, fallback) => {
@@ -111,27 +178,17 @@ if (isMain) {
   };
   const srcDir = argOf("--src", path.join(process.cwd(), "src"));
   const readme = argOf("--readme", path.join(process.cwd(), "README.md"));
-  const { undocumented, stale } = judge(
-    serverVariables(srcDir),
-    documentedVariables(readme),
-  );
   const configuration = argOf("--configuration", path.join(process.cwd(), "docs/configuration.md"));
-  const wiring = probeVariables(path.join(srcDir, "..", "scripts"));
-  const documentedWiring = new Set([...documentedVariables(configuration)].filter(name => name.startsWith("DEZFIL_TEST_")));
-  const drift = judge(wiring, documentedWiring);
-  for (const name of drift.undocumented) undocumented.push(`${name} (docs/configuration.md)`);
-  for (const name of drift.stale) stale.push(`${name} (docs/configuration.md)`);
-  for (const n of undocumented) {
-    console.error(`UNDOCUMENTED: code reads ${n} — add it to the configuration table`);
+  const { SETTING_CATALOGUE, TEST_WIRING } = await settingsSource(path.dirname(srcDir));
+  const problems = configurationProblems({ srcDir, catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING,
+    documents: { [readme]: readFileSync(readme, "utf8"), [configuration]: readFileSync(configuration, "utf8") },
+  });
+  for (const problem of problems) console.error(problem);
+  if (problems.length) {
+    console.error(`FAIL: ${problems.length} configuration discrepancies.`);
+    process.exitCode = 1;
+  } else {
+    const deployment = SETTING_CATALOGUE.filter(d => d.environment && d.scope !== "platform").length;
+    console.log(`PASS: both documents match ${deployment} deployment settings and ${TEST_WIRING.length} test-wiring names, defaults and change timing; source scans agree in both directions.`);
   }
-  for (const n of stale) {
-    console.error(`STALE: configuration documents ${n} — code no longer reads it`);
-  }
-  if (undocumented.length + stale.length > 0) {
-    console.error(
-      `FAIL — ${undocumented.length} undocumented, ${stale.length} stale.`,
-    );
-    process.exit(1);
-  }
-  console.log("PASS — configuration covers server settings and script test wiring, both directions.");
 }

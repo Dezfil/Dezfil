@@ -1,12 +1,26 @@
 # Configuration
 
-Deployment settings come from environment variables read when the process or
-container starts. Change those values and restart to apply them. Their defaults
-allow a local instance to start without deployment configuration.
+The catalogue defines 63 deployment settings. Their defaults allow a local
+instance to start without deployment configuration. Fourteen also accept stored
+admin changes, marked **App (live) or restart**; **Restart** marks settings
+changed only through the environment. `GET /api/instance/settings` reports the
+effective configuration, sources and locks to admins.
+
+For an instance setting, a non-empty deployment variable wins and locks app
+changes, including clearing a stored value. Changing any environment variable
+requires a restart. An accepted variable supplies its normalized value; an
+invalid numeric variable keeps the setting locked and uses the built-in default.
+With no variable (an empty numeric variable counts as absent), the stored value
+wins, then the default. Shadowed stored values stay saved and apply after the
+variable is removed and the process restarted. Admin changes through
+`PATCH /api/instance/settings` apply live to new work; admitted work retains its
+budget. Settings without a variable are never locked.
 
 Other settings persist at runtime. Settings saves **account preferences** such as
 the display name and view choices, and **instance preferences** such as the
-admin-managed instance name, in SQLite. Accounts, sessions and API token records
+admin-managed instance name, in SQLite. The instance operation also saves the
+sign-in message, lost-password contact and landing page; the entry read carries
+them, while navigation remains unchanged. Accounts, sessions and API token records
 also persist there. Saved palettes are shared instance data. These are not
 environment variables.
 
@@ -18,26 +32,29 @@ recovery need no deployment switch.
 
 Two conventions run through the whole surface:
 
-- A numeric setting that is unset, non-numeric, or not greater than zero
-  falls back to its default rather than failing the boot
-  (`src/lib/limits.ts`). Two settings treat zero as a real value, the two
+- A numeric environment override that is non-numeric or not greater than zero
+  falls back to its default rather than failing the boot. An absent override
+  uses the stored value when available, otherwise the default. Two settings
+  treat zero as a real value, the two
   provider pacing intervals, so that "no gap at all" can be expressed.
 - Sizes are megabytes, durations are seconds unless the name ends in `_MS`
   or `_HOURS`.
 
-## What the README already documents
+## How the configuration tables are checked
 
-The table in the **Configuration** section of [README.md](../README.md) is the
-checked environment surface. It is checked in
-both directions by `scripts/check-readme-config.mjs` (run as `npm run
-lint:readme`), which scans production `src/` names and `DEZFIL_TEST_*` reads
-in `scripts/`, then compares the set with the table's rows. The script test
-settings must also match this page's table. Undocumented and stale rows fail.
+Both this page and the **Configuration** table in [README.md](../README.md)
+are checked against `src/lib/settings/catalogue.ts` by
+`scripts/check-readme-config.mjs` (`npm run lint:readme`). Each document must
+cover every deployment definition exactly once, with no orphan row, and match
+its documented default and **Changed by** value. The checker reads the catalogue
+itself; it keeps no separate list of settings. It also scans production `src/`
+names and script `DEZFIL_TEST_*` reads, and holds both documents and the catalogue
+to those sets in both directions. The three test-wiring names keep their own
+coverage check.
 
-The checker pins the row format: a line starting with `` | `NAME` `` followed
-by the default and the effect. Anything added to that table has to match it,
-and anything the server starts reading has to be added. This page groups and
-expands on the same variables; the table stays the source the check reads.
+Rows start with `` | `NAME` `` and contain the default, effect and **Changed by**
+cells. The latter has two values: **Restart**, or **App (live) or restart** for
+an editable live setting. Environment changes always require a restart.
 
 Two classes are deliberately outside the check: source-local test seams
 (`DEZFIL_TEST_*` in `src/` and `DEZFIL_BASE_URL`) and platform plumbing (`NODE_ENV`, `PORT`, `HOSTNAME`,
@@ -75,21 +92,21 @@ not native chunks, JavaScript object overhead, heap or RSS.
 
 ## Storage
 
-| Variable | Default | Effect |
-|---|---|---|
-| `DEZFIL_DATA_DIR` | `./data`, `/data` in the container | The single durable directory. Back up the complete stopped directory and any external encryption key. `src/lib/config.ts` falls back to `data` under the working directory; the image sets `/data` and declares it a volume. |
-| `DEZFIL_SECRET_KEY` | generated | 64 hex characters (32 bytes), the at-rest encryption key for stored connection credentials. Unset, a key is generated into the data directory as `secret.key` on first boot and reused from there (`src/lib/secrets.ts`). A wrong or lost key makes stored credentials unreadable. |
+| Variable | Default | Effect | Changed by |
+|---|---|---|---|
+| `DEZFIL_DATA_DIR` | ./data; /data in the container | The single durable directory. Back up the complete stopped directory and any external encryption key. `src/lib/config.ts` falls back to `data` under the working directory; the image sets `/data` and declares it a volume. | Restart |
+| `DEZFIL_SECRET_KEY` | generated | 64 hex characters (32 bytes), the at-rest encryption key for stored connection credentials. Unset, a key is generated into the data directory as `secret.key` on first boot and reused from there (`src/lib/secrets.ts`). A wrong or lost key makes stored credentials unreadable. | Restart |
 
 ## Trusted proxies
 
-| Variable | Default | Effect |
-|---|---|---|
-| `DEZFIL_TRUSTED_PROXIES` | unset | Comma-separated IP addresses or CIDRs of reverse proxy socket peers. Only these peers may supply forwarding information. Configure proxies to replace host/protocol/port forwarding fields and append the actual client address; direct clients' forwarding headers are discarded. |
+| Variable | Default | Effect | Changed by |
+|---|---|---|---|
+| `DEZFIL_TRUSTED_PROXIES` | unset | Comma-separated IP addresses or CIDRs of reverse proxy socket peers. Only these peers may supply forwarding information. Configure proxies to replace host/protocol/port forwarding fields and append the actual client address; direct clients' forwarding headers are discarded. | Restart |
 
 ## Request body admission
 
 JSON admission has fixed outer byte tiers: 65,536 bytes for authentication
-entry, Account, Users and the three anonymous published POSTs; 16,777,216 for
+entry, Account, Users, instance settings and the three anonymous published POSTs; 16,777,216 for
 other JSON, including MCP and workflows; assistant messages retain 131,072.
 Excess returns 413 with the operation's documented error. Optional bodies,
 escaping and UTF-8 bytes count too. Render selections remain in the small tier
@@ -109,53 +126,56 @@ behavior and [the API guide](api.md#request-bounds) for exact refusals.
 
 ## Upload and remote import
 
-| Variable | Default | Effect |
-|---|---|---|
-| `DEZFIL_UPLOAD_MAX_MB` | `5120` | Size cap for one uploaded file. |
-| `DEZFIL_REMOTE_MAX_MB` | `2048` | Size cap for one remote import (URL or object store). Deliberately below the upload cap: remote fetches run unattended. |
-| `DEZFIL_REMOTE_TIMEOUT_S` | `300` | Time bound for one whole remote fetch, redirects and body included. |
-| `DEZFIL_EGRESS_ALLOWLIST` | unset | Comma-separated hosts, IPs, or CIDRs the server may fetch for a user despite the egress policy. By default loopback, private-network, link-local, and cloud-metadata destinations are refused on URL imports and database connections (`src/lib/net/egress.ts`). |
-| `DEZFIL_OBJECT_STORE_CREDENTIALS` | off | `1`, `true`, or `yes` signs `s3://`, `gs://`, and `az://` imports with the instance's own credential chain. Off, object-store reads are anonymous, so a user can only read what the public can (`src/lib/ingest/remote.ts`). |
-| `DEZFIL_S3_ENDPOINT` | AWS | S3-compatible endpoint for anonymous `s3://` imports, addressed path-style. |
+| Variable | Default | Effect | Changed by |
+|---|---|---|---|
+| `DEZFIL_UPLOAD_MAX_MB` | `5120` | Size cap for one uploaded file. | App (live) or restart |
+| `DEZFIL_REMOTE_MAX_MB` | `2048` | Size cap for one remote import (URL or object store). Deliberately below the upload cap: remote fetches run unattended. | App (live) or restart |
+| `DEZFIL_REMOTE_TIMEOUT_S` | `300` | Time bound for one whole remote fetch, redirects and body included. | App (live) or restart |
+| `DEZFIL_EGRESS_ALLOWLIST` | unset | Comma-separated hosts, IPs, or CIDRs the server may fetch for a user despite the egress policy. By default loopback, private-network, link-local, and cloud-metadata destinations are refused on URL imports and database connections (`src/lib/net/egress.ts`). | Restart |
+| `DEZFIL_OBJECT_STORE_CREDENTIALS` | off | `1`, `true`, or `yes` signs `s3://`, `gs://`, and `az://` imports with the instance's own credential chain. Off, object-store reads are anonymous, so a user can only read what the public can (`src/lib/ingest/remote.ts`). | Restart |
+| `DEZFIL_S3_ENDPOINT` | AWS | S3-compatible endpoint for anonymous `s3://` imports, addressed path-style. | Restart |
 
 ## Open data providers
 
-| Variable | Default | Effect |
-|---|---|---|
-| `DEZFIL_OVERPASS_URL` | `https://overpass-api.de/api/interpreter` | Overpass endpoint for OpenStreetMap imports. Point it at your own instance to escape the public per-IP limits (`src/lib/osm/overpass.ts`). |
-| `DEZFIL_OVERPASS_TIMEOUT_S` | `60` | Time budget sent with each Overpass query. |
-| `DEZFIL_OVERPASS_MAXSIZE_MB` | `512` | Response budget sent with each Overpass query; a response over twice this is aborted locally. |
-| `DEZFIL_OVERPASS_CACHE_MB` | `2048` | Overpass response-cache budget, evicted oldest first. |
-| `DEZFIL_OVERPASS_CACHE_H` | `24` | How long a cached Overpass response stays fresh. |
-| `DEZFIL_OSM_MAX_KM2` | `10000` | Area budget for one OpenStreetMap import. |
-| `DEZFIL_OVERTURE_MAX_KM2` | `25000` | Area budget for the Overture places theme; other themes scale from it by density. |
-| `DEZFIL_OVERTURE_S3_ENDPOINT` | unset, the public bucket | S3-compatible endpoint override for Overture reads, path-style. Fits a private mirror of the bucket (`src/lib/overture/releases.ts`). |
+| Variable | Default | Effect | Changed by |
+|---|---|---|---|
+| `DEZFIL_OVERPASS_URL` | `https://overpass-api.de/api/interpreter` | Overpass endpoint for OpenStreetMap imports. Point it at your own instance to escape the public per-IP limits (`src/lib/osm/overpass.ts`). | Restart |
+| `DEZFIL_OVERPASS_TIMEOUT_S` | `60` | Time budget sent with each Overpass query. | Restart |
+| `DEZFIL_OVERPASS_MAXSIZE_MB` | `512` | Response budget sent with each Overpass query; a response over twice this is aborted locally. | Restart |
+| `DEZFIL_OVERPASS_CACHE_MB` | `2048` | Overpass response-cache budget, evicted oldest first. | Restart |
+| `DEZFIL_OVERPASS_CACHE_H` | `24` | How long a cached Overpass response stays fresh. | Restart |
+| `DEZFIL_OSM_MAX_KM2` | `10000` | Area budget for one OpenStreetMap import. | App (live) or restart |
+| `DEZFIL_OVERTURE_MAX_KM2` | `25000` | Area budget for the Overture places theme; other themes scale from it by density. | App (live) or restart |
+| `DEZFIL_OVERTURE_S3_ENDPOINT` | unset, the public bucket | S3-compatible endpoint override for Overture reads, path-style. Fits a private mirror of the bucket (`src/lib/overture/releases.ts`). | Restart |
 
 ## Query engine
 
-| Variable | Default | Effect |
-|---|---|---|
-| `DEZFIL_QUERY_TIMEOUT_S` | `60` | Timeout for any evaluation of user SQL: the SQL workspace, layer rendering, and published views alike. |
-| `DEZFIL_QUERY_MEMORY_MB` | `2048` | Memory budget of the hardened read-only engine instance, shared by every query on it. A query past it fails with a coded error and the instance keeps serving. |
-| `DEZFIL_PREVIEW_ROWS` | `1000` | Rows returned in a query or preview result. |
-| `DEZFIL_SLIDER_PREVIEW_ROWS` | `50000` | Source points transferred for an interactive slider preview. |
+| Variable | Default | Effect | Changed by |
+|---|---|---|---|
+| `DEZFIL_QUERY_TIMEOUT_S` | `60` | Timeout for any evaluation of user SQL: the SQL workspace, layer rendering, and published views alike. | App (live) or restart |
+| `DEZFIL_QUERY_MEMORY_MB` | `2048` | Memory budget of the hardened read-only engine instance, shared by every query on it. A query past it fails with a coded error and the instance keeps serving. | Restart |
+| `DEZFIL_PREVIEW_ROWS` | `1000` | Rows returned in a query or preview result. | App (live) or restart |
+| `DEZFIL_SLIDER_PREVIEW_ROWS` | `50000` | Source points transferred for an interactive slider preview. | Restart |
 
 ## Rendering and tiles
 
-| Variable | Default | Effect |
-|---|---|---|
-| `DEZFIL_RENDER_CAP_FEATURES` | `250000` | Features a single layer renders before the API asks for a limit or an aggregation instead. |
-| `DEZFIL_TILE_BUILD_TIMEOUT_S` | `600` | Timeout for each stage of a background tile build. |
-| `DEZFIL_TIPPECANOE` | `tippecanoe` | Path to the tile-building binary (`src/lib/tiles/tiler.ts`). The image installs it on the path. |
-| `DEZFIL_BASEMAP_URL` | built-in styles | A MapLibre style URL that replaces the built-in basemap and pins it in both themes, for instances with no internet access (`src/lib/basemap.ts`). |
+| Variable | Default | Effect | Changed by |
+|---|---|---|---|
+| `DEZFIL_RENDER_CAP_FEATURES` | `250000` | Features a single layer renders before the API asks for a limit or an aggregation instead. | Restart |
+| `DEZFIL_TILE_BUILD_TIMEOUT_S` | `600` | Timeout for each stage of a background tile build. | Restart |
+| `DEZFIL_TIPPECANOE` | `tippecanoe` | Path to the tile-building binary (`src/lib/tiles/tiler.ts`). The image installs it on the path. | Restart |
+| `DEZFIL_BASEMAP_URL` | built-in styles | A MapLibre style URL that replaces the built-in basemap and pins it in both themes, for instances with no internet access (`src/lib/basemap.ts`). | Restart |
+| `DEZFIL_BASEMAP_ATTRIBUTION` | unset | Credit line shown on maps that use `DEZFIL_BASEMAP_URL`. Unset, no credit is shown for the override: the built-in credit would name a provider that is not serving the tiles. | Restart |
+| `DEZFIL_SATELLITE_URL` | unset | Raster tile URL template (`{z}/{y}/{x}`) for satellite imagery, with your own key or token. No imagery ships with the app; unset, no imagery basemap is offered at all. | Restart |
+| `DEZFIL_SATELLITE_ATTRIBUTION` | unset | Credit line the imagery provider requires, shown on every map using it and stored with anything published from one. | Restart |
 
 ## Publishing
 
-| Variable | Default | Effect |
-|---|---|---|
-| `DEZFIL_PUBLISH_FRESHNESS_S` | `30` | How stale a published view may be, which is its cache window. |
-| `DEZFIL_PUBLIC_RATE_LIMIT` | `60` | Anonymous published-view requests per ten-second window, per verified source. |
-| `DEZFIL_PUBLIC_TILE_RATE_LIMIT` | `600` | Anonymous tile requests per ten-second window, per verified source. One pan is dozens of tiles, so tiles get their own, larger bucket (`src/lib/publish/rate-limit.ts`). |
+| Variable | Default | Effect | Changed by |
+|---|---|---|---|
+| `DEZFIL_PUBLISH_FRESHNESS_S` | `30` | How stale a published view may be, which is its cache window. | Restart |
+| `DEZFIL_PUBLIC_RATE_LIMIT` | `60` | Anonymous published-view requests per ten-second window, per verified source. | App (live) or restart |
+| `DEZFIL_PUBLIC_TILE_RATE_LIMIT` | `600` | Anonymous tile requests per ten-second window, per verified source. One pan is dozens of tiles, so tiles get their own, larger bucket (`src/lib/publish/rate-limit.ts`). | App (live) or restart |
 
 Published API budgets use verified ingress sources, shared across tokens, including
 unknown tokens. View reads share one budget; tiles have another. Both together
@@ -180,42 +200,42 @@ actual derivation time depends on the host.
 Server-side image export drives the application's own client bundle in a
 headless browser inside the container.
 
-| Variable | Default | Effect |
-|---|---|---|
-| `DEZFIL_CHROMIUM_PATH` | `/usr/bin/chromium` | The headless browser binary. The image bakes one in and sets this variable. |
-| `DEZFIL_EXPORT_RENDER_TIMEOUT_S` | `90` | Budget for one render, queue wait included. |
-| `DEZFIL_EXPORT_REQUEST_TIMEOUT_S` | `20` | Bound on any single request the render page makes. A slower one is abandoned, the image is still produced, and the response reports how many were dropped and from which hosts. |
-| `DEZFIL_EXPORT_RENDER_CONCURRENCY` | `2` | Concurrent renders. Software rendering is CPU-expensive, so work past the cap waits inside the budget. |
+| Variable | Default | Effect | Changed by |
+|---|---|---|---|
+| `DEZFIL_CHROMIUM_PATH` | `/usr/bin/chromium` | The headless browser binary. The image bakes one in and sets this variable. | Restart |
+| `DEZFIL_EXPORT_RENDER_TIMEOUT_S` | `90` | Budget for one render, queue wait included. | App (live) or restart |
+| `DEZFIL_EXPORT_REQUEST_TIMEOUT_S` | `20` | Bound on any single request the render page makes. A slower one is abandoned, the image is still produced, and the response reports how many were dropped and from which hosts. | Restart |
+| `DEZFIL_EXPORT_RENDER_CONCURRENCY` | `2` | Concurrent renders. Software rendering is CPU-expensive, so work past the cap waits inside the budget. | App (live) or restart |
 
 ## Geocoding
 
-| Variable | Default | Effect |
-|---|---|---|
-| `DEZFIL_GEOCODER_URL` | unset | A Nominatim-compatible `/search` endpoint, used by place search in the builder and by the batch geocoding operation. Unset, search still answers layers, values, and coordinates, and the geocode operation is not offered. The URL stays server-side, so it may carry a key. |
-| `DEZFIL_GEOCODE_PACE_MS` | `1000` | Minimum gap between two requests to that endpoint, enforced across the whole instance with one request in flight at a time. `0` means no gap. |
-| `DEZFIL_GEOCODE_REQUEST_TIMEOUT_S` | `10` | Deadline for one geocoding exchange. A batch row costs the pace or this, whichever is longer, so both bound the batch size the operation accepts. |
-| `DEZFIL_GEOCODE_MATCH_CACHE_HOURS` | `720` | How long a matched address is kept. |
-| `DEZFIL_GEOCODE_NO_MATCH_CACHE_HOURS` | `24` | How long a no-match is kept, shorter because that is what improves when provider data does. |
-| `DEZFIL_GEOCODE_CACHE_MB` | `64` | Size budget for the geocode answer cache, evicted oldest first. |
+| Variable | Default | Effect | Changed by |
+|---|---|---|---|
+| `DEZFIL_GEOCODER_URL` | unset | A Nominatim-compatible `/search` endpoint, used by place search in the builder and by the batch geocoding operation. Unset, search still answers layers, values, and coordinates, and the geocode operation is not offered. The URL stays server-side, so it may carry a key. | Restart |
+| `DEZFIL_GEOCODE_PACE_MS` | `1000` | Minimum gap between two requests to that endpoint, enforced across the whole instance with one request in flight at a time. `0` means no gap. | Restart |
+| `DEZFIL_GEOCODE_REQUEST_TIMEOUT_S` | `10` | Deadline for one geocoding exchange. A batch row costs the pace or this, whichever is longer, so both bound the batch size the operation accepts. | Restart |
+| `DEZFIL_GEOCODE_MATCH_CACHE_HOURS` | `720` | How long a matched address is kept. | Restart |
+| `DEZFIL_GEOCODE_NO_MATCH_CACHE_HOURS` | `24` | How long a no-match is kept, shorter because that is what improves when provider data does. | Restart |
+| `DEZFIL_GEOCODE_CACHE_MB` | `64` | Size budget for the geocode answer cache, evicted oldest first. | Restart |
 
 ## Travel-time areas
 
-| Variable | Default | Effect |
-|---|---|---|
-| `DEZFIL_ISOCHRONE_URL` | unset | A Valhalla-compatible `/isochrone` endpoint. Unset, the operation stays visible and refuses with a sentence naming this setting (`src/lib/isochrone/endpoint.ts`). |
-| `DEZFIL_ISOCHRONE_PACE_MS` | `1000` | Milliseconds between isochrone requests, one exchange in flight at a time. |
-| `DEZFIL_ISOCHRONE_REQUEST_TIMEOUT_S` | `20` | Whole-exchange deadline for one request. Routing answers slower than geocoding. |
-| `DEZFIL_ISOCHRONE_CACHE_HOURS` | `168` | How long a fully answered isochrone is kept. Only complete answers are cached. |
-| `DEZFIL_ISOCHRONE_CACHE_MB` | `64` | Size budget for that cache, evicted oldest first. |
+| Variable | Default | Effect | Changed by |
+|---|---|---|---|
+| `DEZFIL_ISOCHRONE_URL` | unset | A Valhalla-compatible `/isochrone` endpoint. Unset, the operation stays visible and refuses with a sentence naming this setting (`src/lib/isochrone/endpoint.ts`). | Restart |
+| `DEZFIL_ISOCHRONE_PACE_MS` | `1000` | Milliseconds between isochrone requests, one exchange in flight at a time. | Restart |
+| `DEZFIL_ISOCHRONE_REQUEST_TIMEOUT_S` | `20` | Whole-exchange deadline for one request. Routing answers slower than geocoding. | Restart |
+| `DEZFIL_ISOCHRONE_CACHE_HOURS` | `168` | How long a fully answered isochrone is kept. Only complete answers are cached. | Restart |
+| `DEZFIL_ISOCHRONE_CACHE_MB` | `64` | Size budget for that cache, evicted oldest first. | Restart |
 
 ## Operations, the background run lane
 
-| Variable | Default | Effect |
-|---|---|---|
-| `DEZFIL_OPERATION_TIMEOUT_S` | `600` | Execution budget for one operation run. Time spent waiting for the lane is not charged against it. |
-| `DEZFIL_OPERATION_CONCURRENCY` | `1` | Operations executing at once. They are heavy work on the shared engine, so work past the cap queues. |
-| `DEZFIL_OPERATION_QUEUE_MAX` | `20` | Runs that may wait for the lane. A run arriving at a full queue is refused with a coded error. |
-| `DEZFIL_OPERATION_HISTORY_PER_SUBJECT` | `20` | Runs kept per subject. The subject's most recent success is preserved inside that depth. |
+| Variable | Default | Effect | Changed by |
+|---|---|---|---|
+| `DEZFIL_OPERATION_TIMEOUT_S` | `600` | Execution budget for one operation run. Time spent waiting for the lane is not charged against it. | App (live) or restart |
+| `DEZFIL_OPERATION_CONCURRENCY` | `1` | Operations executing at once. They are heavy work on the shared engine, so work past the cap queues. | App (live) or restart |
+| `DEZFIL_OPERATION_QUEUE_MAX` | `20` | Runs that may wait for the lane. A run arriving at a full queue is refused with a coded error. | App (live) or restart |
+| `DEZFIL_OPERATION_HISTORY_PER_SUBJECT` | `20` | Runs kept per subject. The subject's most recent success is preserved inside that depth. | Restart |
 
 ## The assistant
 
@@ -223,21 +243,21 @@ The in-product assistant is off until a model credential is set. Without one
 the surface is simply absent and everything else works unchanged
 (`src/lib/assistant/config.ts`).
 
-| Variable | Default | Effect |
-|---|---|---|
-| `ANTHROPIC_API_KEY` | unset | Enables the assistant with Anthropic. |
-| `OPENAI_API_KEY` | unset | Enables the assistant with OpenAI. |
-| `DEZFIL_AI_PROVIDER` | the first key set | `anthropic` or `openai`, when both keys are present. An unknown value leaves the assistant disabled with an explanatory reason. |
-| `DEZFIL_AI_MODEL` | provider default | Overrides the model. Defaults are `claude-opus-5` for Anthropic and `gpt-5.6-terra` for OpenAI. |
-| `DEZFIL_AI_MODELS_ANTHROPIC` | unset | Comma-separated model identities narrowing and ordering what a person may choose. Unset offers the effective catalogue. The instance default is always present exactly once. Only the resolved provider's list applies. |
-| `DEZFIL_AI_MODELS_OPENAI` | unset | The same, for OpenAI. |
-| `DEZFIL_ASSISTANT_STEP_BUDGET` | `20` | Maximum model and tool steps one assistant request may take. |
-| `DEZFIL_ASSISTANT_OFFER` | `subset` | Which operations a page's run is offered at the start: `subset` (that page's operations plus the grounding reads, the rest reachable through a discovery tool) or `full` (every operation the page admits, no discovery tool). Any other value reads as `subset` (`src/lib/assistant/offer.ts`). |
-| `DEZFIL_ASSISTANT_AUTO_CHECK` | on | Whether the assistant looks at the rendered map by itself after a turn that changed it. `0`, `false`, or `off` turns it off; an explicit check stays available. |
-| `DEZFIL_ASSISTANT_LOOK_TIMEOUT_S` | `30` | Budget for that map check, request to response. |
-| `DEZFIL_ASSISTANT_LOOK_RETENTION` | `256` | Renders of the map check kept in process for the transcript, full images and thumbnails counted together, oldest evicted first. They are gone when the process restarts. |
-| `DEZFIL_ASSISTANT_LOOK_RETENTION_MB` | `96` | Byte budget for those retained renders. |
-| `DEZFIL_TOOL_ATTACHMENT_MAX_MB` | `32` | Cap on a download answered to an agent tool. Past it the tool gets a coded error instead. |
+| Variable | Default | Effect | Changed by |
+|---|---|---|---|
+| `ANTHROPIC_API_KEY` | unset | Enables the assistant with Anthropic. | Restart |
+| `OPENAI_API_KEY` | unset | Enables the assistant with OpenAI. | Restart |
+| `DEZFIL_AI_PROVIDER` | first key set | `anthropic` or `openai`, when both keys are present. An unknown value leaves the assistant disabled with an explanatory reason. | Restart |
+| `DEZFIL_AI_MODEL` | provider default | Overrides the model. Defaults are `claude-opus-5` for Anthropic and `gpt-5.6-terra` for OpenAI. | Restart |
+| `DEZFIL_AI_MODELS_ANTHROPIC` | unset | Comma-separated model identities narrowing and ordering what a person may choose. Unset offers the effective catalogue. The instance default is always present exactly once. Only the resolved provider's list applies. | Restart |
+| `DEZFIL_AI_MODELS_OPENAI` | unset | The same, for OpenAI. | Restart |
+| `DEZFIL_ASSISTANT_STEP_BUDGET` | `20` | Maximum model and tool steps one assistant request may take. | Restart |
+| `DEZFIL_ASSISTANT_OFFER` | `subset` | Which operations a page's run is offered at the start: `subset` (that page's operations plus the grounding reads, the rest reachable through a discovery tool) or `full` (every operation the page admits, no discovery tool). Any other value reads as `subset` (`src/lib/assistant/offer.ts`). | Restart |
+| `DEZFIL_ASSISTANT_AUTO_CHECK` | on | Whether the assistant looks at the rendered map by itself after a turn that changed it. `0`, `false`, or `off` turns it off; an explicit check stays available. | Restart |
+| `DEZFIL_ASSISTANT_LOOK_TIMEOUT_S` | `30` | Budget for that map check, request to response. | Restart |
+| `DEZFIL_ASSISTANT_LOOK_RETENTION` | `256` | Renders of the map check kept in process for the transcript, full images and thumbnails counted together, oldest evicted first. They are gone when the process restarts. | Restart |
+| `DEZFIL_ASSISTANT_LOOK_RETENTION_MB` | `96` | Byte budget for those retained renders. | Restart |
+| `DEZFIL_TOOL_ATTACHMENT_MAX_MB` | `32` | Cap on a download answered to an agent tool. Past it the tool gets a coded error instead. | Restart |
 
 The optional model catalogue file that these settings narrow lives in the data
 directory; see [the runbook](runbook.md#the-model-catalogue-file).
@@ -261,13 +281,13 @@ self-hoster, and the README check excludes them by name.
 
 Read by test files, end-to-end specs, and helper scripts, never by the
 server as a setting. They are listed here so nobody mistakes one
-for a tunable. The two image-observer settings are checked in both guides:
+for a tunable. All three names and their defaults are checked in both guides:
 
-| Variable | Default | Effect |
-|---|---|---|
-| `DEZFIL_TEST_PG_URL` | unset | Test/probe process only: disposable PostGIS fixture URL for live source tests and the full result-budget probe. Never read by the product server. |
-| `DEZFIL_TEST_PUBLICATION_LOG` | unset | Test preload only: NDJSON destination for per-admission published-source state. Required by `scripts/publication-observer.mjs`; no effect without that preload. |
-| `DEZFIL_TEST_DERIVATION_LOG` | unset | Test preload only: NDJSON destination for native derivation starts, completions and admission occupancy. Required by `scripts/derivation-observer.mjs`; no effect without that preload. |
+| Variable | Default | Effect | Changed by |
+|---|---|---|---|
+| `DEZFIL_TEST_PG_URL` | unset | Test/probe process only: disposable PostGIS fixture URL for live source tests and the full result-budget probe. Never read by the product server. | Restart |
+| `DEZFIL_TEST_PUBLICATION_LOG` | unset | Test preload only: NDJSON destination for per-admission published-source state. Required by `scripts/publication-observer.mjs`; no effect without that preload. | Restart |
+| `DEZFIL_TEST_DERIVATION_LOG` | unset | Test preload only: NDJSON destination for native derivation starts, completions and admission occupancy. Required by `scripts/derivation-observer.mjs`; no effect without that preload. | Restart |
 
 - `DEZFIL_BASE_URL`: the target address for the browser test runner and the
   headless journey scripts.
