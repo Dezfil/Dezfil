@@ -42,8 +42,8 @@ export const SETTING_CATALOGUE: readonly SettingDefinition[] = [
   deployment("assistantOffer", "DEZFIL_ASSISTANT_OFFER", "choice", "Assistant operation offer", "Choose the page's subset or its full admitted operation set.", "subset", "subset"),
   deployment("chromiumPath", "DEZFIL_CHROMIUM_PATH", "path", "Image renderer", "Headless browser binary used for server image export.", "/usr/bin/chromium", "/usr/bin/chromium"),
   stored("instanceName", "Instance name", "Name beside the wordmark and in browser titles.", null, { kind: "text", maxLength: 80, empty: "null" }),
-  stored("signInMessage", "Sign-in message", "Optional message on the sign-in page.", "", { kind: "text", maxLength: 280, empty: "value" }),
-  stored("lostPasswordContact", "Lost-password contact", "Contact line for password recovery; empty uses the built-in line.", "", { kind: "text", maxLength: 120, empty: "value" }),
+  stored("signInMessage", "Sign-in message", "Optional message on the sign-in page.", "", { kind: "text", maxLength: 280, empty: "null" }),
+  stored("lostPasswordContact", "Lost-password contact", "Contact line for password recovery; empty uses the built-in line.", "", { kind: "text", maxLength: 120, empty: "null" }),
   stored("landingPage", "Landing page", "Preferred entry destination after sign-in.", "home", choice("home", "projects", "maps", "workflows", "data", "sql")),
   ...(["maps", "data", "workflows", "projects"] as const).flatMap(screen => [
     stored(`${screen}.view`, `${screen} view`, "The account's list layout.", "grid", choice("grid", "list"), "account"),

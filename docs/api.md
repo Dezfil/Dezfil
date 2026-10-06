@@ -442,7 +442,10 @@ Limits numbers, `instanceName`, `signInMessage`, `lostPasswordContact` and
 `landingPage`. The closed `InstanceSettingsPatch` schema names each key and its
 kind and bounds. For example, `{ "previewRows": 2000, "queryTimeoutS": 90 }`;
 null clears a stored value, and an empty object changes nothing. Text is
-trimmed. The answer is the same configuration document as the read.
+trimmed before its length is checked (80 characters for the name, 280 for the
+message, 120 for the contact). Empty text clears the stored value and reports
+the default source. The generated tool input accepts the same whitespace
+padding through a string pattern. The answer is the same configuration document as the read.
 
 The admin and the complete body are checked inside one immediate transaction
 against the committed configuration. Any refusal or failure rolls back the

@@ -90,6 +90,18 @@ it("applies a multi-key body together, normalizes text, clears to defaults and s
   expect(limits.queryTimeoutMs).toBe(60_000); expect(readOwnSettings(f.context, f.db).instanceName).toBeNull();
 });
 
+it.each(["", " \t\n "])("clears empty text %j to default values and sources", async empty => {
+  writeStoredSettings({ instanceName: "Atlas", signInMessage: "Welcome", lostPasswordContact: "Ask us" }, f.db);
+  const response = await patch({ instanceName: empty, signInMessage: empty, lostPasswordContact: empty });
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  for (const [key, value] of [["instanceName", null], ["signInMessage", ""], ["lostPasswordContact", ""]] as const) {
+    expect(body.settings[key]).toMatchObject({ value, source: "default", storedValue: null });
+  }
+  expect(readStoredSettings(f.db)).toEqual({});
+  expect(f.db.prepare("SELECT key FROM workspace_settings WHERE key IN ('instance_name', 'instance.signInMessage', 'instance.lostPasswordContact')").all()).toEqual([]);
+});
+
 it.each([false, true])("serializes competing timeout bodies against committed state (reverse %s)", async reverse => {
   const changes = [{ queryTimeoutS: 500 }, { operationTimeoutS: 100 }];
   const responses = await Promise.all((reverse ? changes.reverse() : changes).map(patch));

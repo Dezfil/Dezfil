@@ -46,7 +46,7 @@ describe("settings catalogue", () => {
     expect(validateStoredValue(settingDefinition("queryMemoryMb"), null).ok).toBe(false);
   });
 
-  it.each([["instanceName", 80, null], ["signInMessage", 280, ""], ["lostPasswordContact", 120, ""]] as const)(
+  it.each([["instanceName", 80, null], ["signInMessage", 280, null], ["lostPasswordContact", 120, null]] as const)(
     "%s trims text, bounds the normalized length and clears without a substitute string", (key, max, empty) => {
       const definition = settingDefinition(key);
       expect(validateStoredValue(definition, "  name  ")).toEqual({ ok: true, value: "name" });

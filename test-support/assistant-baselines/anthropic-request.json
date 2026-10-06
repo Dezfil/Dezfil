@@ -406,24 +406,24 @@
               "string",
               "null"
             ],
-            "maxLength": 80,
-            "description": "Instance name. Name beside the wordmark and in browser titles. Null clears the stored value. Text is trimmed; empty text clears to the default."
+            "pattern": "^\\s*[\\s\\S]{0,80}\\s*$",
+            "description": "Instance name. Name beside the wordmark and in browser titles. Null clears the stored value. Text is trimmed before the 80-character limit; empty text clears to the default."
           },
           "signInMessage": {
             "type": [
               "string",
               "null"
             ],
-            "maxLength": 280,
-            "description": "Sign-in message. Optional message on the sign-in page. Null clears the stored value. Text is trimmed; empty text clears to the default."
+            "pattern": "^\\s*[\\s\\S]{0,280}\\s*$",
+            "description": "Sign-in message. Optional message on the sign-in page. Null clears the stored value. Text is trimmed before the 280-character limit; empty text clears to the default."
           },
           "lostPasswordContact": {
             "type": [
               "string",
               "null"
             ],
-            "maxLength": 120,
-            "description": "Lost-password contact. Contact line for password recovery; empty uses the built-in line. Null clears the stored value. Text is trimmed; empty text clears to the default."
+            "pattern": "^\\s*[\\s\\S]{0,120}\\s*$",
+            "description": "Lost-password contact. Contact line for password recovery; empty uses the built-in line. Null clears the stored value. Text is trimmed before the 120-character limit; empty text clears to the default."
           },
           "landingPage": {
             "type": [

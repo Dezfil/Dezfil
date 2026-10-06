@@ -39,9 +39,9 @@ export const INSTANCE_SETTINGS_SCHEMAS = {
     properties: Object.fromEntries(SETTING_CATALOGUE.filter(d => d.scope === "instance" && d.editable).map(definition => {
       const constraint = definition.write!;
       const schema = constraint.kind === "integer" ? { type: ["integer", "null"], minimum: constraint.min, maximum: constraint.max }
-        : constraint.kind === "text" ? { type: ["string", "null"], maxLength: constraint.maxLength }
+        : constraint.kind === "text" ? { type: ["string", "null"], pattern: `^\\s*[\\s\\S]{0,${constraint.maxLength}}\\s*$` }
         : { type: ["string", "null"], enum: [...constraint.values, null] };
-      return [definition.key, { ...schema, description: `${definition.label}. ${definition.purpose} Null clears the stored value. ${constraint.kind === "text" ? "Text is trimmed; empty text clears to the default." : ""}`.trim() }];
+      return [definition.key, { ...schema, description: `${definition.label}. ${definition.purpose} Null clears the stored value. ${constraint.kind === "text" ? `Text is trimmed before the ${constraint.maxLength}-character limit; empty text clears to the default.` : ""}`.trim() }];
     })),
   },
   InstanceSettings: object({ settings: object(settings),

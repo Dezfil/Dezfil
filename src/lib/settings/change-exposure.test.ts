@@ -30,7 +30,7 @@ it("exposes a closed update input and refuses unknown arguments before HTTP disp
   expect(tool).toMatchObject({ method: "patch", path: "/api/instance/settings", confirm: true,
     inputSchema: { additionalProperties: false }, effects: { readOnly: false, writes: [{ resource: "settings", collection: true }] } });
   expect(tool.inputSchema.properties).toMatchObject({ queryTimeoutS: { type: ["integer", "null"], minimum: 5, maximum: 600 },
-    instanceName: { type: ["string", "null"], maxLength: 80 }, landingPage: { enum: ["home", "projects", "maps", "workflows", "data", "sql", null] } });
+    instanceName: { type: ["string", "null"], pattern: "^\\s*[\\s\\S]{0,80}\\s*$" }, landingPage: { enum: ["home", "projects", "maps", "workflows", "data", "sql", null] } });
   expect(Object.keys(tool.inputSchema.properties)).toHaveLength(18);
   for (const key of ["secretKey", "geocoderUrl", "renderCapFeatures", "sourceGrouping"]) expect(tool.inputSchema.properties).not.toHaveProperty(key);
   const fetch = vi.fn();
@@ -38,6 +38,34 @@ it("exposes a closed update input and refuses unknown arguments before HTTP disp
   expect(result.status).toBe(400); expect(fetch).not.toHaveBeenCalled();
   expect(JSON.stringify(result)).not.toContain("seed-tool-secret");
 });
+
+it.each([["instanceName", 80], ["signInMessage", 280], ["lostPasswordContact", 120]] as const)(
+  "bounds %s after trimming in direct, generated and MCP calls", async (key, max) => {
+    const value = "x".repeat(max), args = { [key]: `${value}  ` };
+    const tool = buildTools().find(t => t.name === "update_instance_settings")!;
+    const direct = await dispatch("http://instance.test/api/instance/settings", {
+      method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(args),
+    });
+    expect(direct.status).toBe(200);
+    const fetch = vi.fn(dispatch);
+    const generated = await executeTool(tool, args, "http://instance.test", fetch);
+    expect(generated.status).toBe(200);
+    expect(fetch).toHaveBeenCalledOnce();
+    const api = vi.fn((request: Request) => dispatch(request)), client = await testClient(api);
+    try {
+      const accepted = await client.callTool({ name: tool.name, arguments: args });
+      expect(accepted.isError).not.toBe(true);
+      expect(api).toHaveBeenCalledOnce();
+      expect(readStoredSettings(f.db)[key]).toBe(value);
+      api.mockClear(); fetch.mockClear();
+      const tooLong = { [key]: `  ${value}x  ` };
+      expect((await executeTool(tool, tooLong, "http://instance.test", fetch)).status).toBe(400);
+      expect((await client.callTool({ name: tool.name, arguments: tooLong })).isError).toBe(true);
+      expect(api).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled();
+      expect(readStoredSettings(f.db)[key]).toBe(value);
+    } finally { await client.close(); }
+  },
+);
 
 it.each(["approve", "decline", "demote"])("parks the actual assistant update until confirmation, then handles %s", async decision => {
   const scope = testAccountScope(f.db, "admin"), pending = new PendingActionStore(), fetch = vi.fn(dispatch);
