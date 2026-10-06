@@ -1,0 +1,477 @@
+/**
+ * A settings card's save unit: what saves when, and what the card shows
+ * about it. Framework-free, so every rule is held by unit tests and the
+ * card component stays a thin drawing over the snapshot.
+ *
+ * - A choice is kept at once. A number is kept at once when stepped, and
+ *   only the value the steps settle on is sent; a typed number is kept on
+ *   Enter or on leaving the field. Typed text waits for the card's Save,
+ *   which writes the changed keys in one request, and Save and Cancel
+ *   show only while that text differs from what was saved.
+ * - Nothing is marked Saved before the server accepted the write, and the
+ *   kept value is the one the response reports.
+ * - A number out of range is refused before any request. A refusal that
+ *   names a row draws the red line under it with the refusal's words and
+ *   keeps nothing; any other refusal is the card's error note, with Try
+ *   again where trying again can help.
+ * - Reset to defaults is offered while a kept value differs from its
+ *   default; it writes the defaults in one request, then offers Undo for
+ *   a few seconds (held while focus or the pointer is on it), which
+ *   writes the previous values back in one request.
+ * - A setting pinned by the server's environment joins none of this.
+ */
+
+/** Rapid steps settle for this long before the settled value is sent. */
+export const SETTLE_MS = 300;
+/** How long a row's Saved mark holds. */
+export const SAVED_HOLD_MS = 2200;
+/** How long Undo is offered after a Reset. */
+export const UNDO_MS = 6000;
+/** How long Undo takes to fade once it lets go. */
+export const FADE_MS = 400;
+
+export type Value = string | number | boolean | null;
+
+export interface UnitControl {
+  /** The key the write takes. */
+  readonly key: string;
+  readonly kind: "choice" | "number" | "text";
+  /** A number's accepted range. Every editable number is a whole number. */
+  readonly min?: number;
+  readonly max?: number;
+  /** Pinned by the server's environment, or fixed: never edited, saved, reset or held. */
+  readonly locked?: boolean;
+  /** What Reset to defaults returns it to. A control without one is not reset. */
+  readonly defaultValue?: Value;
+}
+
+/** A write the server answered with a refusal, with its code. */
+export class WriteRefusal extends Error {
+  constructor(readonly code: string, message: string, readonly status: number) {
+    super(message);
+    this.name = "WriteRefusal";
+  }
+}
+
+export interface UnitNote { readonly message: string; readonly retry: boolean }
+export interface UnitFocus { readonly to: "field" | "undo" | "reset" | "heading"; readonly key?: string; readonly seq: number }
+
+export interface UnitSnapshot {
+  /** What each control shows: a number and a text as the field's text. */
+  readonly values: Readonly<Record<string, Value>>;
+  /** What the server last reported as kept. */
+  readonly kept: Readonly<Record<string, Value>>;
+  /** The red line under each row that has one. */
+  readonly errors: Readonly<Record<string, string>>;
+  /** The rows showing Saved. */
+  readonly saved: readonly string[];
+  readonly note: UnitNote | null;
+  /** A Save is in flight. */
+  readonly busy: boolean;
+  /** Save and Cancel show. */
+  readonly saveLine: boolean;
+  /** Leaving the tab would lose typed text. */
+  readonly dirty: boolean;
+  /** The quiet action at the head's right. */
+  readonly slot: "reset" | "undo" | null;
+  readonly undoLeaving: boolean;
+  /** Where focus should go, once per seq. */
+  readonly focus: UnitFocus | null;
+}
+
+type Patch = Record<string, Value>;
+type Write = (patch: Patch) => Promise<Record<string, Value>>;
+interface Operation { readonly how: "keep" | "save" | "reset" | "undo"; patch: Patch; readonly previous?: Patch }
+interface UndoOffer { readonly previous: Patch; timer: ReturnType<typeof setTimeout> | null; held: Set<"focus" | "pointer">; expired: boolean; leaving: boolean }
+
+/** The rows a refusal names among `keys`, each with its own words: the
+ * reason after "key: ", or the whole sentence when it names the key
+ * otherwise (a rule between two settings). */
+export function rowRefusals(message: string, keys: readonly string[]): Record<string, string> {
+  const named = new Set(keys), out: Record<string, string> = {};
+  const marks = [...message.matchAll(/(?:^|\s)([A-Za-z][\w.]*): /g)].filter(mark => named.has(mark[1]));
+  marks.forEach((mark, index) => {
+    const end = index + 1 < marks.length ? marks[index + 1].index : message.length;
+    out[mark[1]] = message.slice(mark.index + mark[0].length, end).trim();
+  });
+  if (marks.length) return out;
+  for (const key of keys) {
+    const word = new RegExp(`(^|[^\\w.])${key.replace(/[.]/g, "\\.")}([^\\w]|$)`);
+    if (word.test(message)) out[key] = message;
+  }
+  return out;
+}
+
+/** A number's own check, before any request. */
+export function numberProblem(text: string, control: Pick<UnitControl, "min" | "max">): string | null {
+  const trimmed = text.trim(), value = Number(trimmed);
+  if (!trimmed || !Number.isFinite(value)) return "Enter a number.";
+  const { min, max } = control;
+  if ((min !== undefined && value < min) || (max !== undefined && value > max)) {
+    return min !== undefined && max !== undefined ? `Enter a number from ${min} to ${max}.`
+      : min !== undefined ? `Enter a number of ${min} or more.` : `Enter a number of ${max} or less.`;
+  }
+  return Number.isInteger(value) ? null : "Enter a whole number.";
+}
+
+function display(control: UnitControl, value: Value): Value {
+  return control.kind === "choice" ? value : value === null || value === undefined ? "" : String(value);
+}
+
+function same(control: UnitControl, a: Value, b: Value): boolean {
+  if (control.kind === "choice") return a === b || String(a) === String(b);
+  const left = String(a ?? "").trim(), right = String(b ?? "").trim();
+  if (control.kind === "number" && left !== "" && right !== "" && Number.isFinite(Number(left)) && Number.isFinite(Number(right))) {
+    return Number(left) === Number(right);
+  }
+  return control.kind === "number" ? left === right : String(a ?? "") === String(b ?? "");
+}
+
+export class SaveUnit {
+  readonly title: string;
+  private readonly controls = new Map<string, UnitControl>();
+  private readonly write: Write;
+  private kept: Record<string, Value> = {};
+  private values: Record<string, Value> = {};
+  private errors: Record<string, string> = {};
+  private readonly saved = new Map<string, ReturnType<typeof setTimeout>>();
+  private note: UnitNote | null = null;
+  private busy = false;
+  private offer: UndoOffer | null = null;
+  private focus: UnitFocus | null = null;
+  private focusSeq = 0;
+  private lastTyped: string | null = null;
+  private readonly settling = new Set<string>();
+  private settleTimer: ReturnType<typeof setTimeout> | null = null;
+  private flight: Operation | null = null;
+  private readonly queue: Operation[] = [];
+  private failed: Operation | null = null;
+  private readonly listeners = new Set<() => void>();
+  private current!: UnitSnapshot;
+
+  constructor(options: { title: string; controls: readonly UnitControl[]; kept: Record<string, Value>; write: Write }) {
+    this.title = options.title;
+    this.write = options.write;
+    for (const control of options.controls) {
+      this.controls.set(control.key, control);
+      const value = options.kept[control.key] ?? null;
+      this.kept[control.key] = value;
+      this.values[control.key] = display(control, value);
+    }
+    this.current = this.build();
+  }
+
+  get snapshot(): UnitSnapshot { return this.current; }
+
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => { this.listeners.delete(listener); };
+  }
+
+  /** A person changes what a field shows: typed text, or a typed number
+   * not yet kept. Nothing is sent. */
+  edit(key: string, value: Value): void {
+    const control = this.editable(key);
+    if (!control) return;
+    this.changed(control, value);
+    if (control.kind === "text") this.lastTyped = key;
+    if (control.kind === "number") this.settling.delete(key);
+    this.emit();
+  }
+
+  /** A choice: kept at once. */
+  choose(key: string, value: Value): void {
+    const control = this.editable(key);
+    if (!control) return;
+    this.changed(control, value);
+    if (!same(control, value, this.target(key))) this.enqueue({ how: "keep", patch: { [key]: value } });
+    this.emit();
+  }
+
+  /** A number stepped (arrows, the spin buttons, the wheel): kept at once,
+   * the settled value only. */
+  step(key: string, text: string): void {
+    const control = this.editable(key);
+    if (!control || control.kind !== "number") return;
+    this.changed(control, text);
+    const problem = numberProblem(text, control);
+    if (problem) { this.errors = { ...this.errors, [key]: problem }; this.settling.delete(key); }
+    else {
+      this.settling.add(key);
+      if (this.settleTimer) clearTimeout(this.settleTimer);
+      this.settleTimer = setTimeout(() => { this.settleTimer = null; this.settle(); }, SETTLE_MS);
+    }
+    this.emit();
+  }
+
+  /** A typed number, on Enter or on leaving the field. */
+  commit(key: string): void {
+    const control = this.editable(key);
+    if (!control || control.kind !== "number") return;
+    this.settling.delete(key);
+    const text = String(this.values[key] ?? "");
+    const problem = numberProblem(text, control);
+    if (problem) this.errors = { ...this.errors, [key]: problem };
+    else if (!same(control, text, this.target(key))) this.enqueue({ how: "keep", patch: { [key]: Number(text.trim()) } });
+    this.emit();
+  }
+
+  /** The card's Save: every changed text in one request. */
+  save(): void {
+    if (this.busy) return;
+    const patch: Patch = {};
+    for (const control of this.controls.values()) {
+      if (control.kind === "text" && !control.locked && !same(control, this.values[control.key], this.kept[control.key])) {
+        patch[control.key] = this.values[control.key];
+      }
+    }
+    if (!Object.keys(patch).length) return;
+    this.busy = true;
+    this.note = null;
+    this.enqueue({ how: "save", patch });
+    this.emit();
+  }
+
+  /** Every control back to what was saved. */
+  cancel(): void {
+    for (const control of this.controls.values()) {
+      if (!control.locked) this.values[control.key] = display(control, this.target(control.key));
+    }
+    this.settling.clear();
+    this.errors = {};
+    this.note = null;
+    this.focusTo(this.lastTyped ? "field" : "heading", this.lastTyped ?? undefined);
+    this.emit();
+  }
+
+  /** Reset to defaults: the card's editable, unlocked controls, in one write. */
+  reset(): void {
+    if (this.slot() !== "reset") return;
+    const patch: Patch = {}, previous: Patch = {};
+    for (const control of this.resettable()) {
+      if (!same(control, this.kept[control.key], control.defaultValue ?? null)) {
+        patch[control.key] = null;
+        previous[control.key] = this.kept[control.key];
+      }
+    }
+    this.errors = {};
+    this.note = null;
+    this.enqueue({ how: "reset", patch, previous });
+    this.emit();
+  }
+
+  /** Undo the Reset: the previous values, in one write. */
+  undo(): void {
+    const offer = this.offer;
+    if (!offer) return;
+    this.dropUndo();
+    this.enqueue({ how: "undo", patch: { ...offer.previous } });
+    this.emit();
+  }
+
+  /** Focus or the pointer rests on Undo (on), or leaves it (off). */
+  holdUndo(by: "focus" | "pointer", on: boolean): void {
+    const offer = this.offer;
+    if (!offer || offer.leaving) return;
+    if (on) offer.held.add(by); else offer.held.delete(by);
+    if (!on && offer.expired && !offer.held.size) this.fadeUndo();
+  }
+
+  /** Try the refused write again. */
+  retry(): void {
+    const failed = this.failed;
+    if (!failed) return;
+    this.failed = null;
+    this.note = null;
+    if (failed.how === "save") { this.save(); return; }
+    if (failed.how === "keep") for (const [key, value] of Object.entries(failed.patch)) this.values[key] = display(this.controls.get(key)!, value);
+    this.enqueue({ ...failed, patch: { ...failed.patch } });
+    this.emit();
+  }
+
+  dismiss(): void {
+    this.note = null;
+    this.failed = null;
+    this.emit();
+  }
+
+  /** The tab is left: Undo and the Saved marks go; a settling number is sent now. */
+  leave(): void {
+    this.dropUndo();
+    for (const timer of this.saved.values()) clearTimeout(timer);
+    this.saved.clear();
+    if (this.settleTimer) { clearTimeout(this.settleTimer); this.settleTimer = null; this.settle(); }
+    this.emit();
+  }
+
+  private editable(key: string): UnitControl | undefined {
+    const control = this.controls.get(key);
+    return control && !control.locked ? control : undefined;
+  }
+
+  private resettable(): UnitControl[] {
+    return [...this.controls.values()].filter(control => !control.locked && control.defaultValue !== undefined);
+  }
+
+  /** A person's change: the value shows, its red line goes, Undo lets go. */
+  private changed(control: UnitControl, value: Value): void {
+    this.values[control.key] = value;
+    if (control.key in this.errors) {
+      const rest = { ...this.errors };
+      delete rest[control.key];
+      this.errors = rest;
+    }
+    this.dropUndo();
+  }
+
+  /** What the server will hold for a key once the writes on their way land. */
+  private target(key: string): Value {
+    for (let index = this.queue.length - 1; index >= 0; index -= 1) {
+      const operation = this.queue[index];
+      if (key in operation.patch && operation.how !== "reset") return operation.patch[key];
+    }
+    if (this.flight && key in this.flight.patch && this.flight.how !== "reset") return this.flight.patch[key];
+    return this.kept[key];
+  }
+
+  private settle(): void {
+    const patch: Patch = {};
+    for (const key of this.settling) {
+      const control = this.controls.get(key)!, text = String(this.values[key] ?? "");
+      if (!numberProblem(text, control) && !same(control, text, this.target(key))) patch[key] = Number(text.trim());
+    }
+    this.settling.clear();
+    if (Object.keys(patch).length) this.enqueue({ how: "keep", patch });
+    this.emit();
+  }
+
+  private enqueue(operation: Operation): void {
+    const last = this.queue[this.queue.length - 1];
+    if (operation.how === "keep" && last?.how === "keep") last.patch = { ...last.patch, ...operation.patch };
+    else this.queue.push(operation);
+    if (!this.flight) void this.next();
+  }
+
+  private waiting(key: string): boolean {
+    return this.settling.has(key) || this.queue.some(operation => key in operation.patch);
+  }
+
+  private async next(): Promise<void> {
+    const operation = this.queue.shift();
+    if (!operation) return;
+    this.flight = operation;
+    try {
+      const reported = await this.write(operation.patch);
+      this.flight = null;
+      this.accepted(operation, reported);
+    } catch (failure) {
+      this.flight = null;
+      this.refused(operation, failure);
+    }
+    this.emit();
+    void this.next();
+  }
+
+  private accepted(operation: Operation, reported: Record<string, Value>): void {
+    const forced = operation.how === "reset" || operation.how === "undo";
+    for (const control of this.controls.values()) {
+      const key = control.key;
+      if (!(key in reported)) continue;
+      const next = reported[key] ?? null;
+      const shown = this.values[key];
+      if (key in operation.patch) {
+        if (forced || (same(control, shown, operation.patch[key]) && !this.waiting(key))) this.values[key] = display(control, next);
+      } else if (same(control, shown, this.kept[key]) && !this.waiting(key)) {
+        this.values[key] = display(control, next);
+      }
+      this.kept[key] = next;
+    }
+    this.note = null;
+    this.failed = null;
+    if (operation.how === "save") {
+      this.busy = false;
+      if (this.lastTyped) this.focusTo("field", this.lastTyped);
+    }
+    if (operation.how === "keep" || operation.how === "save") {
+      for (const key of Object.keys(operation.patch)) if (!this.waiting(key)) this.markSaved(key);
+    }
+    if (operation.how === "reset") this.offerUndo(operation.previous ?? {});
+    if (operation.how === "undo") this.focusTo(this.slot() === "reset" ? "reset" : "heading");
+  }
+
+  private refused(operation: Operation, failure: unknown): void {
+    if (operation.how === "save") this.busy = false;
+    const keys = Object.keys(operation.patch);
+    if (failure instanceof WriteRefusal && failure.code === "invalid_request") {
+      const rows = rowRefusals(failure.message, keys);
+      if (Object.keys(rows).length) { this.errors = { ...this.errors, ...rows }; return; }
+    }
+    const message = failure instanceof Error && failure.message ? failure.message : "This could not be saved.";
+    const retry = !(failure instanceof WriteRefusal) || failure.status >= 500;
+    this.note = { message, retry };
+    this.failed = operation;
+    if (operation.how === "keep") {
+      // Nothing was kept: a choice or a number shows what the server holds.
+      for (const key of keys) {
+        const control = this.controls.get(key)!;
+        if (same(control, this.values[key], operation.patch[key]) && !this.waiting(key)) this.values[key] = display(control, this.kept[key]);
+      }
+    }
+  }
+
+  private markSaved(key: string): void {
+    const previous = this.saved.get(key);
+    if (previous) clearTimeout(previous);
+    this.saved.set(key, setTimeout(() => { this.saved.delete(key); this.emit(); }, SAVED_HOLD_MS));
+  }
+
+  private offerUndo(previous: Patch): void {
+    this.dropUndo();
+    const offer: UndoOffer = { previous, timer: null, held: new Set(), expired: false, leaving: false };
+    offer.timer = setTimeout(() => {
+      offer.timer = null;
+      offer.expired = true;
+      if (!offer.held.size) this.fadeUndo();
+    }, UNDO_MS);
+    this.offer = offer;
+    this.focusTo("undo");
+  }
+
+  private fadeUndo(): void {
+    const offer = this.offer;
+    if (!offer) return;
+    offer.leaving = true;
+    offer.timer = setTimeout(() => { if (this.offer === offer) { this.offer = null; this.emit(); } }, FADE_MS);
+    this.emit();
+  }
+
+  private dropUndo(): void {
+    if (this.offer?.timer) clearTimeout(this.offer.timer);
+    this.offer = null;
+  }
+
+  private slot(): "reset" | "undo" | null {
+    if (this.offer) return "undo";
+    return this.resettable().some(control => !same(control, this.kept[control.key], control.defaultValue ?? null)) ? "reset" : null;
+  }
+
+  private focusTo(to: UnitFocus["to"], key?: string): void {
+    this.focusSeq += 1;
+    this.focus = { to, ...(key ? { key } : {}), seq: this.focusSeq };
+  }
+
+  private build(): UnitSnapshot {
+    const saveLine = [...this.controls.values()].some(control =>
+      control.kind === "text" && !control.locked && !same(control, this.values[control.key], this.kept[control.key]));
+    return {
+      values: { ...this.values }, kept: { ...this.kept }, errors: { ...this.errors }, saved: [...this.saved.keys()],
+      note: this.note, busy: this.busy, saveLine, dirty: saveLine, slot: this.slot(),
+      undoLeaving: !!this.offer?.leaving, focus: this.focus,
+    };
+  }
+
+  private emit(): void {
+    this.current = this.build();
+    for (const listener of [...this.listeners]) listener();
+  }
+}
