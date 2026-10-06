@@ -73,7 +73,8 @@ export const INSTANCE_SETTINGS_PATHS = {
       "Cookie mutations require the same trusted Origin; an admin bearer token calls directly with no additional scope or approval step. " +
       "Responses, including refusals, are private, no-store. Submit only editable keys; omitted keys stay unchanged and null clears a stored value. " +
       "The complete body is validated against the committed configuration under one write lock. A refusal or failed commit changes nothing. " +
-      "A non-empty environment variable locks its setting, including invalid overrides and null writes. A locked key answers 409 setting_locked, " +
+      "Non-editable keys answer 400 invalid_request as read-only regardless of their environment. " +
+      "A non-empty environment variable locks an editable setting, including invalid overrides and null writes. A locked editable key answers 409 setting_locked, " +
       "taking precedence over 400 invalid_request for unknown, non-editable, wrong-kind, non-whole, out-of-range, over-length or invalid-choice entries " +
       "and a resulting queryTimeoutS at or above operationTimeoutS. Messages identify all failing known keys and their reasons, and unknown keys " +
       "by their entry position without echoing arbitrary input. An existing environment timeout mismatch is reported in warnings and blocks no unrelated change. " +

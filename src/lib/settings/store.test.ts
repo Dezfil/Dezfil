@@ -134,6 +134,17 @@ it("uses the same instance-name row in both writer directions, including clear a
   expect(readStoredSettings(db)).toEqual({ signInMessage: "Hello" });
 });
 
+it.each([
+  ["renderCapFeatures", "DEZFIL_RENDER_CAP_FEATURES", "50000"],
+  ["port", "PORT", "3000"],
+  ["extensionDir", "DUCKDB_EXTENSION_DIR", "/extensions"],
+])("refuses read-only %s before its environment lock at the repository boundary", (key, environment, value) => {
+  vi.stubEnv(environment, value);
+  expect(() => writeStoredSettings({ uploadMaxMb: 12, [key]: 1 }, db)).toThrow(`${key}: Setting is read-only.`);
+  expect(readStoredSettings(db)).toEqual({});
+  expect(limits.uploadMaxBytes).toBe(5120 * 1024 ** 2);
+});
+
 it("updates two already-loaded consumers and writer bundles through the same file identity", async () => {
   db.close();
   const file = path.join(mkdtempSync(path.join(process.env.DEZFIL_DATA_DIR!, "settings-")), "metadata.sqlite");

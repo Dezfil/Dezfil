@@ -60,7 +60,7 @@ export function writeStoredSettings(patch: Readonly<Record<string, unknown>>, db
   db.transaction(() => {
     const entries = Object.entries(patch).map(([key, input]) => {
       const definition = settingDefinition(key);
-      if (definition.scope !== "instance") throw new Error(`${key}: Not an instance setting.`);
+      if (!definition.editable || definition.scope !== "instance") throw new Error(`${key}: Setting is read-only.`);
       const lock = lockedEnvironment(definition);
       if (lock) throw new Error(`${key}: Locked by ${lock}.`);
       const validated = validateStoredValue(definition, input);

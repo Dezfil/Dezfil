@@ -29,9 +29,9 @@ export function changeInstanceSettings(context: AuthContext, input: unknown, db:
         problems.push(`Unknown setting key at position ${index + 1}.`);
         continue;
       }
+      if (!definition.editable || definition.scope !== "instance") { problems.push(`${key}: Setting is read-only.`); continue; }
       const environment = lockedEnvironment(definition);
       if (environment) { locked = true; problems.push(`${key}: Locked by ${environment}.`); continue; }
-      if (definition.scope !== "instance") { problems.push(`${key}: Not an instance setting.`); continue; }
       const result = validateStoredValue(definition, value);
       if (!result.ok) problems.push(`${key}: ${result.reason}`);
       else patch[key] = result.value;

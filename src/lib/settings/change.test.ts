@@ -50,6 +50,17 @@ it.each([
   expect(limits.previewRows).toBe(1000);
 });
 
+it.each([
+  ["renderCapFeatures", "DEZFIL_RENDER_CAP_FEATURES", "50000"],
+  ["port", "PORT", "3000"],
+  ["extensionDir", "DUCKDB_EXTENSION_DIR", "/extensions"],
+])("refuses read-only %s before its environment lock, including its valid sibling", async (key, environment, value) => {
+  vi.stubEnv(environment, value);
+  const result = await refusal({ previewRows: 200, [key]: 1 }, [key]);
+  expect(result.error.message).toBe(`${key}: Setting is read-only.`);
+  expect(limits.previewRows).toBe(1000);
+});
+
 it("collects every failing key and gives a lock precedence over validation in either order", async () => {
   writeStoredSettings({ queryTimeoutS: 80 }, f.db);
   vi.stubEnv("DEZFIL_QUERY_TIMEOUT_S", "seed-invalid-environment");
