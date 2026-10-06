@@ -20,3 +20,9 @@ export function forgotLine(contact: string | null | undefined): string {
   const named = String(contact ?? "").trim().replace(/[.\s]+$/, "");
   return named ? `Forgot your password? Ask ${named}.` : "Forgot your password? An admin can reset it.";
 }
+
+/** Where a person lands after signing in: the chosen page's own route, or
+ * Home for anything else. The stored value is never used as an address. */
+export function landingRoute(value: unknown): string {
+  return LANDING_PAGES.find(page => page.value === value)?.route ?? "/";
+}

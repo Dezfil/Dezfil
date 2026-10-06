@@ -9,9 +9,15 @@ import { EyeIcon, EyeOffIcon } from "@/components/ui/icons";
 import { RhumbChart } from "./RhumbChart";
 import styles from "./EntryScreen.module.css";
 import { accountChanged } from "./private-state";
+import { forgotLine, landingRoute } from "./entry-settings";
 
 type Mode = "setup" | "sign-in" | "redeem";
-interface Entry { instanceName: string | null; setupRequired: boolean; prefillName?: string; }
+interface Entry {
+  instanceName: string | null; setupRequired: boolean; prefillName?: string;
+  /** What an admin set for this screen: a message on the sign-in page, who
+   * to ask about a lost password, and where people land once signed in. */
+  signInMessage?: string | null; lostPasswordContact?: string | null; landingPage?: string | null;
+}
 interface Failure { code?: string; message?: string; retryAt?: string; }
 export function EntryScreen({ mode }: { mode: Mode }) {
   const [entry, setEntry] = useState<Entry | null>(null);
@@ -47,12 +53,13 @@ export function EntryScreen({ mode }: { mode: Mode }) {
         throw new Error(error?.message ?? "This request could not be completed. Try again.");
       }
       accountChanged();
-      window.location.replace(new URL("/", window.location.origin).href);
+      window.location.replace(new URL(landingRoute(entry?.landingPage), window.location.origin).href);
     } catch (error) { setFailure(error instanceof Error ? error.message : "This instance could not be reached. Try again."); }
     finally { setBusy(false); }
   }
   const missingLink = redeem && entry !== null && !secret;
   const instance = entry?.instanceName ?? (setup ? "A new instance" : null);
+  const message = mode === "sign-in" ? entry?.signInMessage?.trim() : null;
   return <ThemeProvider><div className={styles.stage}>
     <aside className={styles.brandPane} aria-label="Dezfil">
       <RhumbChart /><div className={styles.shade} />
@@ -66,6 +73,7 @@ export function EntryScreen({ mode }: { mode: Mode }) {
     <main className={styles.formPane}><div className={styles.column}>
       <div className={styles.heading}><h1>{setup ? "Create the first account" : redeem ? "Choose your password" : "Sign in"}</h1>
         {setup && <p className={styles.help}>It becomes this instance&apos;s admin.</p>}
+        {message && <p className={`${styles.help} ${styles.message}`}>{message}</p>}
       </div>
       {(failure || missingLink) && <ErrorNote message={failure ?? "This sign-in link is unavailable. Ask an admin for a new one."} />}
       <form className={styles.form} onSubmit={submit} noValidate>
@@ -80,7 +88,7 @@ export function EntryScreen({ mode }: { mode: Mode }) {
           {mode !== "sign-in" && <p id="password-rule" className={styles.help}>At least 8 characters.</p>}
         </div>
         <Button type="submit" variant="primary" size="chrome" busy={busy} disabled={!entry || missingLink} className={styles.submit}>{setup ? "Create account" : redeem ? "Set password" : "Sign in"}</Button>
-        {mode === "sign-in" && <p className={styles.help}>Forgot your password? An admin can reset it.</p>}
+        {mode === "sign-in" && (entry || failure) && <p className={styles.help}>{forgotLine(entry?.lostPasswordContact)}</p>}
       </form>
     </div></main>
   </div></ThemeProvider>;
