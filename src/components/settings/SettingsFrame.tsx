@@ -1,0 +1,130 @@
+"use client";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import type { Account } from "@/lib/metadata/accounts";
+import { DISPLAY_NAME_EVENT } from "@/components/UserBadge";
+import { INSTANCE_NAME_EVENT } from "@/components/shell/path-model";
+import { ErrorNote } from "@/components/ui/ErrorNote";
+import { AccountCard } from "./AccountCard";
+import { TokensCard } from "./TokensCard";
+import { WorkspaceCard } from "./WorkspaceCard";
+import { accountRequest, failureMessage } from "./api";
+import { SettingsColumn } from "./SettingsColumn";
+import { resolveSettingsAddress } from "./settings-address";
+import type { SettingsTabId } from "./settings-tabs";
+import { readLastTab, writeLastTab } from "./last-tab";
+import { landOn } from "./settings-land";
+import styles from "./SettingsFrame.module.css";
+
+interface Loaded { account: Account; instanceName: string | null }
+/** The tab on screen, the row its address names, and a count of visits
+ * so a second visit to the same row lands again. */
+interface Shown { tab: SettingsTabId; anchor: string | null; visit: number }
+
+/**
+ * The Settings page: the heading, the tab column and the tab beside it.
+ * One route serves every tab address and this frame stays mounted across
+ * them, so a tab change is an address change it follows: it resolves the
+ * address against the person's role, corrects the address the browser
+ * shows when it names nothing this person can open, remembers the tab
+ * for the session and lands on the row the fragment names.
+ */
+export function SettingsFrame() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const [loaded, setLoaded] = useState<Loaded | null>(null);
+  const [error, setError] = useState<string | null>(null), [attempt, setAttempt] = useState(0);
+  const [shown, setShown] = useState<Shown | null>(null);
+  const content = useRef<HTMLDivElement>(null);
+  /** The address this frame just asked the router for: its arrival is not a new visit. */
+  const echo = useRef<string | null>(null);
+  const lastTab = useRef<SettingsTabId | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      accountRequest<{ account: Account }>("/api/account"),
+      accountRequest<{ instanceName: string | null }>("/api/settings"),
+    ]).then(([identity, settings]) => {
+      if (!cancelled) { setLoaded({ account: identity.account, instanceName: settings.instanceName }); setError(null); }
+    }).catch(failure => { if (!cancelled) setError(failureMessage(failure)); });
+    return () => { cancelled = true; };
+  }, [attempt]);
+
+  // A card saved on one tab is shown as saved when its tab opens again:
+  // the frame keeps the account and the instance name the cards start from.
+  useEffect(() => {
+    let cancelled = false;
+    const account = () => {
+      void accountRequest<{ account: Account }>("/api/account").then(body => {
+        if (!cancelled) setLoaded(current => current && { ...current, account: body.account });
+      }).catch(() => { /* the card that saved already shows what it kept */ });
+    };
+    const instance = (event: Event) => {
+      const name = (event as CustomEvent<string | null>).detail ?? null;
+      setLoaded(current => current && { ...current, instanceName: name });
+    };
+    window.addEventListener(DISPLAY_NAME_EVENT, account);
+    window.addEventListener(INSTANCE_NAME_EVENT, instance);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(DISPLAY_NAME_EVENT, account);
+      window.removeEventListener(INSTANCE_NAME_EVENT, instance);
+    };
+  }, []);
+
+  const admin = loaded ? loaded.account.isAdmin : null;
+  const follow = useEffectEvent(() => {
+    if (admin === null) return;
+    const hash = window.location.hash;
+    if (echo.current !== null && echo.current === pathname + hash) { echo.current = null; return; }
+    const place = resolveSettingsAddress({ pathname, hash, admin, lastTab: readLastTab() });
+    if (place.replace) {
+      echo.current = place.address;
+      router.replace(place.address, { scroll: false });
+    }
+    writeLastTab(place.tab);
+    setShown(previous => ({ tab: place.tab, anchor: place.anchor, visit: (previous?.visit ?? 0) + 1 }));
+  });
+  useEffect(() => { follow(); }, [admin, pathname]);
+  useEffect(() => {
+    // A fragment-only change (an in-page link, back or forward between
+    // rows) moves no path, so the router does not report it.
+    const onHash = () => follow();
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  useEffect(() => {
+    if (!shown) return;
+    const tabChanged = lastTab.current !== null && lastTab.current !== shown.tab;
+    lastTab.current = shown.tab;
+    if (shown.anchor) landOn(content.current, shown.anchor);
+    else if (tabChanged && typeof window.scrollTo === "function") window.scrollTo(0, 0);
+  }, [shown]);
+
+  return <div className={styles.screen}>
+    <div className={styles.heading}><h1>Settings</h1></div>
+    {error && <ErrorNote message={error} onRetry={() => { setError(null); setAttempt(value => value + 1); }} />}
+    {!loaded && !error && <p role="status" className={styles.loading}>Loading settings…</p>}
+    {loaded && shown && <div className={styles.set}>
+      <SettingsColumn admin={loaded.account.isAdmin} current={shown.tab} />
+      <div ref={content} className={styles.content} data-tab={shown.tab}>
+        <TabContent tab={shown.tab} loaded={loaded} />
+      </div>
+    </div>}
+  </div>;
+}
+
+/** What each tab draws. Account, Tokens and General hold the shipped
+ * cards; Limits and System draw from the configuration read. */
+function TabContent({ tab, loaded }: { tab: SettingsTabId; loaded: Loaded }) {
+  switch (tab) {
+    case "account": return <AccountCard account={loaded.account} />;
+    case "tokens": return <TokensCard />;
+    case "general": return <WorkspaceCard name={loaded.instanceName} admin={loaded.account.isAdmin} />;
+    case "limits":
+    case "system":
+      return null;
+  }
+}
