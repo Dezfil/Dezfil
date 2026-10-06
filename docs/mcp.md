@@ -101,6 +101,18 @@ Credentials are presence or key-location states; addresses contain only scheme
 and host, or set-and-unreadable state. The same current-admin checks and
 private, no-store responses apply to direct API calls and tool calls.
 
+`update_instance_settings` calls `PATCH /api/instance/settings` with the closed
+editable-key input. Values are validated together and null clears a stored
+value; the result is the configuration read, including timeout relationship
+warnings. A lock refuses the whole body with `setting_locked`, before other
+validation refusals. All calls recheck current admin authority. The embedded
+assistant parks the update for confirmation on pages admitting writes, and
+refuses it under SQL and workflow policies. MCP advertises this policy and
+the local settings-write consequences; it adds no approval gate. An active
+admin's bearer token calls directly, without a new token scope. Unknown tool
+arguments are refused before HTTP dispatch. Successes and errors never disclose
+credentials or address paths, queries or user information.
+
 Own-account operations generate `get_account`, `update_account`,
 `change_password`, `list_api_tokens`, `create_api_token` and `revoke_api_token`.
 They always address the authenticated caller. Password changes, token creation
@@ -172,8 +184,8 @@ Direct multipart upload uses the separately configured upload limit.
 
 | | |
 |---|---|
-| Documented operations | 369 |
-| Operations that become tools | 142 |
+| Documented operations | 370 |
+| Operations that become tools | 143 |
 | Deliberately excluded | 227 |
 
 Measured by building the OpenAPI document and the tool set from

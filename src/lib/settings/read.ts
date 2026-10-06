@@ -11,6 +11,7 @@ import { resolveNumericSettings } from "./resolver";
 import { readStoredSettings } from "./store";
 import type { NumericOverrides } from "./state";
 import { startedAt, version } from "./process-info";
+import { settingsWarnings } from "./relationships";
 
 export function readInstanceSettings(context: AuthContext, db: Database = metadataDb(), now = Date.now()) {
   return db.transaction(() => {
@@ -29,6 +30,6 @@ export function readInstanceSettings(context: AuthContext, db: Database = metada
       return [definition.key, { ...disclosedDefinition(definition), ...resolved }];
     }));
     return { settings, capacities: { geocodeRows: maxBatchRows(budget), isochroneOrigins: maxIsochroneOrigins(budget) },
-      maxImageDimension: EXPORT_MAX_DIMENSION, version, startedAt };
+      maxImageDimension: EXPORT_MAX_DIMENSION, version, startedAt, warnings: settingsWarnings(numbers.queryTimeoutS.value, numbers.operationTimeoutS.value) };
   }).immediate();
 }

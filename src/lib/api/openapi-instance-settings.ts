@@ -4,8 +4,8 @@ import type { SettingDefinition } from "@/lib/settings/types";
 import { EXPORT_MAX_DIMENSION } from "@/lib/export/space";
 import { AUTH_SECURITY } from "./openapi-auth";
 import { ERROR_RESPONSE, jsonOk, op } from "./openapi-helpers";
-import { LOCAL_READ } from "./operation-mcp";
-import { READ_ONLY } from "./operation-metadata";
+import { LOCAL_READ, LOCAL_REPLACE } from "./operation-mcp";
+import { READ_ONLY, writes, resource } from "./operation-metadata";
 
 const object = <T extends Record<string, unknown>>(properties: T) => ({
   type: "object", properties, required: Object.keys(properties), additionalProperties: false,
@@ -34,9 +34,20 @@ const settings = Object.fromEntries(SETTING_CATALOGUE.filter(d => d.scope !== "a
 }));
 
 export const INSTANCE_SETTINGS_SCHEMAS = {
+  InstanceSettingsPatch: {
+    type: "object", additionalProperties: false,
+    properties: Object.fromEntries(SETTING_CATALOGUE.filter(d => d.scope === "instance" && d.editable).map(definition => {
+      const constraint = definition.write!;
+      const schema = constraint.kind === "integer" ? { type: ["integer", "null"], minimum: constraint.min, maximum: constraint.max }
+        : constraint.kind === "text" ? { type: ["string", "null"], maxLength: constraint.maxLength }
+        : { type: ["string", "null"], enum: [...constraint.values, null] };
+      return [definition.key, { ...schema, description: `${definition.label}. ${definition.purpose} Null clears the stored value. ${constraint.kind === "text" ? "Text is trimmed; empty text clears to the default." : ""}`.trim() }];
+    })),
+  },
   InstanceSettings: object({ settings: object(settings),
     capacities: object({ geocodeRows: { type: "integer", minimum: 1 }, isochroneOrigins: { type: "integer", minimum: 0 } }),
     maxImageDimension: { type: "integer", const: EXPORT_MAX_DIMENSION }, version: { type: "string" }, startedAt: { type: "string", format: "date-time" },
+    warnings: { type: "array", items: { type: "string" }, description: "Effective timeout relationship mismatches, including deployment overrides. These do not block unrelated edits." },
   }),
 };
 
@@ -52,8 +63,32 @@ export const INSTANCE_SETTINGS_PATHS = {
       "Addresses expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. " +
       "Contextual defaults carry a rule when there is no single address or value. The read generates no key, writes no configuration file, " +
       "contacts no service and initializes no engine. Capacities report admitted geocode rows and travel-time origins per run, " +
-      "without promising a configured provider. Also returns the fixed maximum image dimension, package version and stable process start time.",
+      "without promising a configured provider. Also returns the fixed maximum image dimension, package version, stable process start time " +
+      "and warnings when the effective query timeout is at or above the run timeout.",
     tag: "System", tool: "get_instance_settings", toolInput: { closed: true }, display: { verb: "Read instance configuration" }, effects: READ_ONLY, mcp: LOCAL_READ,
     responses: { "200": jsonOk("#/components/schemas/InstanceSettings"), "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "503": ERROR_RESPONSE },
+  }), security: AUTH_SECURITY }, patch: { ...op({
+    summary: "Change instance settings",
+    description: "Requires a current admin through cookie or bearer authentication, rechecked inside the write transaction on every call. " +
+      "Cookie mutations require the same trusted Origin; an admin bearer token calls directly with no additional scope or approval step. " +
+      "Responses, including refusals, are private, no-store. Submit only editable keys; omitted keys stay unchanged and null clears a stored value. " +
+      "The complete body is validated against the committed configuration under one write lock. A refusal or failed commit changes nothing. " +
+      "A non-empty environment variable locks its setting, including invalid overrides and null writes. A locked key answers 409 setting_locked, " +
+      "taking precedence over 400 invalid_request for unknown, non-editable, wrong-kind, non-whole, out-of-range, over-length or invalid-choice entries " +
+      "and a resulting queryTimeoutS at or above operationTimeoutS. Messages identify all failing known keys and their reasons, and unknown keys " +
+      "by their entry position without echoing arbitrary input. An existing environment timeout mismatch is reported in warnings and blocks no unrelated change. " +
+      "Concurrent different-key edits both land; the last accepted value wins on one key. There is no stale-write rejection or Undo. " +
+      "Stored changes apply live to new work; admitted work keeps its budget. Lowered concurrency cancels nothing, increased concurrency wakes waiters " +
+      "after commit, and lowered queue limits keep accepted waiters. Public limits apply against the existing window count. Environment changes need a restart. " +
+      "Returns the same configuration as the read, with the same secret and address disclosure rules; no secret or address setting is accepted. " +
+      "The embedded assistant asks for confirmation before calling on pages admitting writes; SQL and workflow assistants refuse this update. " +
+      "MCP advertises that policy and adds no confirmation step.",
+    tag: "System", tool: "update_instance_settings", toolInput: { closed: true }, display: { verb: "Changed instance settings" },
+    effects: writes(resource("settings")), mcp: LOCAL_REPLACE, confirm: true,
+    confirmation: { target: "Change instance settings?", consequence: "These settings apply to the whole instance. Limits affect new work; admitted work keeps its budget. There is no Undo.",
+      subject: { path: null, argument: "", name: "" } },
+    requestBody: { required: true, "x-byte-limit": 65_536, content: { "application/json": { schema: { $ref: "#/components/schemas/InstanceSettingsPatch" }, example: { previewRows: 2000, queryTimeoutS: 90 } } } },
+    responses: { "200": jsonOk("#/components/schemas/InstanceSettings"), "400": ERROR_RESPONSE, "401": ERROR_RESPONSE, "403": ERROR_RESPONSE,
+      "409": ERROR_RESPONSE, "413": ERROR_RESPONSE, "500": ERROR_RESPONSE, "503": ERROR_RESPONSE },
   }), security: AUTH_SECURITY } },
 };

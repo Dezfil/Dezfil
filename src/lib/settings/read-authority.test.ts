@@ -45,9 +45,9 @@ it.each(["demotion", "deactivation", "revocation"])("rechecks a captured context
 it("uses the shared origin rule and private method refusals for unsupported cookie mutations", async () => {
   const crossSite = gateRequest(f.request({ cookie: `dezfil_session=${f.admin.secret}`, origin: "https://elsewhere.test" }, "PATCH"));
   expect(crossSite.status).toBe(403); expect(crossSite.headers.get("cache-control")).toBe("private, no-store");
-  const unsupported = gateRequest(f.request({ authorization: `Bearer ${f.token.secret}` }, "PATCH"));
+  const unsupported = gateRequest(f.request({ authorization: `Bearer ${f.token.secret}` }, "POST"));
   expect(unsupported.status).toBe(405); expect(unsupported.headers.get("cache-control")).toBe("private, no-store");
   const options = gateRequest(f.request(undefined, "OPTIONS"));
-  expect(options.status).toBe(204); expect(options.headers.get("allow")).toBe("GET, HEAD, OPTIONS");
+  expect(options.status).toBe(204); expect(options.headers.get("allow")).toBe("GET, HEAD, OPTIONS, PATCH");
   expect(options.headers.get("cache-control")).toBe("private, no-store");
 });
