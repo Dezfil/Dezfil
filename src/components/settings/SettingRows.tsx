@@ -86,9 +86,9 @@ export function RowError({ id, children }: { id: string; children: ReactNode }) 
 }
 
 /** A read-only value in full ink with even figures; `mono` for a path or
- * an identifier. */
-export function ValueText({ mono, children }: { mono?: boolean; children: ReactNode }) {
-  return <span className={styles.value} data-mono={mono || undefined}>{children}</span>;
+ * an identifier, `muted` for nothing set. */
+export function ValueText({ mono, muted, children }: { mono?: boolean; muted?: boolean; children: ReactNode }) {
+  return <span className={styles.value} data-mono={mono || undefined} data-muted={muted || undefined}>{children}</span>;
 }
 
 function Sentence({ state }: { state: ServerSetState }) {

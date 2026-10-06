@@ -112,6 +112,10 @@
   font-size: var(--text-label);
 }
 
+.value[data-muted] {
+  color: var(--fg-muted);
+}
+
 /* the field the server decides: the lock sits inside its right edge */
 .locked {
   display: inline-flex;

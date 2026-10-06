@@ -8,6 +8,7 @@ import { AccountCard } from "./AccountCard";
 import { TokensCard } from "./TokensCard";
 import { GeneralTab } from "./GeneralTab";
 import { LimitsTab } from "./LimitsTab";
+import { SystemTab } from "./SystemTab";
 import { accountRequest, failureMessage } from "./api";
 import { SettingsColumn } from "./SettingsColumn";
 import { resolveSettingsAddress, SETTINGS_PATH } from "./settings-address";
@@ -154,7 +155,6 @@ function TabContent({ tab, loaded }: { tab: SettingsTabId; loaded: Loaded }) {
     case "tokens": return <TokensCard />;
     case "general": return <GeneralTab admin={loaded.account.isAdmin} />;
     case "limits": return <LimitsTab />;
-    case "system":
-      return null;
+    case "system": return <SystemTab />;
   }
 }
