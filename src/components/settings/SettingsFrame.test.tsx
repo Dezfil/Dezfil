@@ -199,4 +199,12 @@ describe("the Settings frame", () => {
     nav.pathname = "/settings/general"; await follow();
     expect(container.querySelector("input")?.value).toBe("Atlas North");
   });
+
+  it("takes only the router's next answer for the address it asked for", async () => {
+    await open("/settings/limits", "#not a row");
+    expect(nav.replace).toHaveBeenCalledWith("/settings/limits", { scroll: false });
+    nav.pathname = "/settings/tokens"; await follow();
+    nav.pathname = "/settings/limits"; await follow();
+    expect(column().querySelectorAll('a[aria-current="page"]').map(a => a.textContent)).toEqual(["Limits"]);
+  });
 });

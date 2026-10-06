@@ -77,7 +77,11 @@ export function SettingsFrame() {
   const follow = useEffectEvent(() => {
     if (admin === null) return;
     const hash = window.location.hash;
-    if (echo.current !== null && echo.current === pathname + hash) { echo.current = null; return; }
+    // Only the next observation can be the router's answer: a replace that
+    // changes the fragment alone moves no path, so it never comes back.
+    const expected = echo.current;
+    echo.current = null;
+    if (expected === pathname + hash) return;
     const place = resolveSettingsAddress({ pathname, hash, admin, lastTab: readLastTab() });
     if (place.replace) {
       echo.current = place.address;
