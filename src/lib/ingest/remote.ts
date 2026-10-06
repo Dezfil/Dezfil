@@ -9,7 +9,7 @@ import path from "node:path";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { dataDir } from "@/lib/config";
-import { limits } from "@/lib/limits";
+import { captureIngestBudget, type IngestBudget } from "./budget";
 import { ApiError } from "@/lib/api/errors";
 import { openRemote } from "@/lib/net/remote-fetch";
 import { withConnection } from "@/lib/duckdb";
@@ -68,21 +68,21 @@ export function parseRemoteUrl(raw: string): RemoteRef {
   return { url: raw, scheme: parsed.protocol as Scheme, filename };
 }
 
-function capMb(): number {
-  return Math.round(limits.remoteMaxBytes / (1024 * 1024));
+function capMb(budget: IngestBudget): number {
+  return Math.round(budget.remoteMaxBytes / (1024 * 1024));
 }
 
 /** Stream an http(s) file to a temp path, enforcing the cap mid-flight.
  * The fetch goes through the egress engine: every redirect hop re-enters
  * the address policy before it is contacted. */
-async function downloadHttp(url: string, tmpPath: string): Promise<void> {
+async function downloadHttp(url: string, tmpPath: string, budget: IngestBudget): Promise<void> {
   const response = await openRemote(url, {
-    timeoutMs: limits.remoteTimeoutMs,
+    timeoutMs: budget.remoteTimeoutMs,
     timeoutError: () =>
       new ApiError(
         "remote_timeout",
         `The download from ${url} exceeded the remote time bound of ${Math.round(
-          limits.remoteTimeoutMs / 1000,
+          budget.remoteTimeoutMs / 1000,
         )} s. Raise DEZFIL_REMOTE_TIMEOUT_S to change it.`,
         504,
       ),
@@ -96,11 +96,11 @@ async function downloadHttp(url: string, tmpPath: string): Promise<void> {
     );
   }
   const declared = Number(response.headers["content-length"] ?? 0);
-  if (declared > limits.remoteMaxBytes) {
+  if (declared > budget.remoteMaxBytes) {
     response.body.destroy();
     throw new ApiError(
       "remote_too_large",
-      `The remote file is ${Math.round(declared / (1024 * 1024))} MB; the cap is ${capMb()} MB. Raise DEZFIL_REMOTE_MAX_MB to change it.`,
+      `The remote file is ${Math.round(declared / (1024 * 1024))} MB; the cap is ${capMb(budget)} MB. Raise DEZFIL_REMOTE_MAX_MB to change it.`,
       413,
     );
   }
@@ -108,11 +108,11 @@ async function downloadHttp(url: string, tmpPath: string): Promise<void> {
   const counter = new Transform({
     transform(chunk: Buffer, _enc, cb) {
       seen += chunk.length;
-      if (seen > limits.remoteMaxBytes) {
+      if (seen > budget.remoteMaxBytes) {
         cb(
           new ApiError(
             "remote_too_large",
-            `The remote file exceeds the cap of ${capMb()} MB. Raise DEZFIL_REMOTE_MAX_MB to change it.`,
+            `The remote file exceeds the cap of ${capMb(budget)} MB. Raise DEZFIL_REMOTE_MAX_MB to change it.`,
             413,
           ),
         );
@@ -185,6 +185,7 @@ function mapObjectStoreError(url: string, error: unknown): never {
 }
 
 export interface ResolvedRemoteSource {
+  budget: IngestBudget;
   /** Path handed to the ingest pipeline — a temp file or the URL itself. */
   sourcePath: string;
   filename: string;
@@ -226,20 +227,22 @@ export function translateObjectUrl(ref: RemoteRef): string {
 async function downloadToScratch(
   url: string,
   filename: string,
-  accountId?: string,
+  accountId: string | undefined,
+  budget: IngestBudget,
 ): Promise<ResolvedRemoteSource> {
   const tmpDir = path.join(dataDir(), "tmp");
   await mkdir(tmpDir, { recursive: true });
   const tmpPath = path.join(tmpDir, `${randomUUID()}${path.extname(filename)}`);
   if (accountId) registerAccountFile(accountId, tmpPath);
   try {
-    await downloadHttp(url, tmpPath);
+    await downloadHttp(url, tmpPath, budget);
   } catch (error) {
     await removeAccountFile(tmpPath, { force: true });
     throw error;
   }
   return {
     sourcePath: tmpPath,
+    budget,
     filename,
     cleanup: () => removeAccountFile(tmpPath, { force: true }),
   };
@@ -256,11 +259,12 @@ export async function resolveRemoteSource(
   raw: string,
   accountId?: string,
 ): Promise<ResolvedRemoteSource> {
+  const budget = captureIngestBudget();
   const ref = parseRemoteUrl(raw);
   const format = detectFormat(ref.filename);
 
   if (ref.scheme === "https:" || ref.scheme === "http:") {
-    return downloadToScratch(ref.url, ref.filename, accountId);
+    return downloadToScratch(ref.url, ref.filename, accountId, budget);
   }
 
   if (!objectStoreCredentialsEnabled()) {
@@ -275,7 +279,7 @@ export async function resolveRemoteSource(
       );
     }
     try {
-      return await downloadToScratch(translateObjectUrl(ref), ref.filename, accountId);
+      return await downloadToScratch(translateObjectUrl(ref), ref.filename, accountId, budget);
     } catch (error) {
       if (error instanceof ApiError && error.code === "remote_fetch_failed") {
         throw new ApiError(
@@ -288,7 +292,7 @@ export async function resolveRemoteSource(
     }
   }
 
-  return resolveCredentialedObjectSource(ref, format, accountId);
+  return resolveCredentialedObjectSource(ref, format, accountId, budget);
 }
 
 /** Best-effort anonymous size probe against the object's HTTPS form. A
@@ -318,13 +322,14 @@ async function probeObjectSize(ref: RemoteRef): Promise<number | null> {
 async function resolveCredentialedObjectSource(
   ref: RemoteRef,
   format: ReturnType<typeof detectFormat>,
-  accountId?: string,
+  accountId: string | undefined,
+  budget: IngestBudget,
 ): Promise<ResolvedRemoteSource> {
   const probed = await probeObjectSize(ref);
-  if (probed !== null && probed > limits.remoteMaxBytes) {
+  if (probed !== null && probed > budget.remoteMaxBytes) {
     throw new ApiError(
       "remote_too_large",
-      `The remote object is ${Math.round(probed / (1024 * 1024))} MB; the cap is ${capMb()} MB. Raise DEZFIL_REMOTE_MAX_MB to change it.`,
+      `The remote object is ${Math.round(probed / (1024 * 1024))} MB; the cap is ${capMb(budget)} MB. Raise DEZFIL_REMOTE_MAX_MB to change it.`,
       413,
     );
   }
@@ -333,7 +338,7 @@ async function resolveCredentialedObjectSource(
   // formats, which must be local files before extraction/GDAL — land in
   // scratch via read_blob first.
   if (format === "geoparquet" || format === "csv") {
-    return { sourcePath: ref.url, filename: ref.filename, cleanup: async () => {} };
+    return { sourcePath: ref.url, budget, filename: ref.filename, cleanup: async () => {} };
   }
 
   const tmpDir = path.join(dataDir(), "tmp");
@@ -358,10 +363,10 @@ async function resolveCredentialedObjectSource(
         mapObjectStoreError(ref.url, error);
       }
     });
-    if (Number(blob.size) > limits.remoteMaxBytes) {
+    if (Number(blob.size) > budget.remoteMaxBytes) {
       throw new ApiError(
         "remote_too_large",
-        `The remote file is ${Math.round(Number(blob.size) / (1024 * 1024))} MB; the cap is ${capMb()} MB. Raise DEZFIL_REMOTE_MAX_MB to change it.`,
+        `The remote file is ${Math.round(Number(blob.size) / (1024 * 1024))} MB; the cap is ${capMb(budget)} MB. Raise DEZFIL_REMOTE_MAX_MB to change it.`,
         413,
       );
     }
@@ -372,6 +377,7 @@ async function resolveCredentialedObjectSource(
     await writeFile(tmpPath, blob.content);
     return {
       sourcePath: tmpPath,
+      budget,
       filename: ref.filename,
       cleanup: () => removeAccountFile(tmpPath, { force: true }),
     };
@@ -401,6 +407,7 @@ export async function importFromUrl(
       source.filename,
       { source: "url", sourceParams: { url }, projectId },
       requestedName,
+      source.budget,
     );
   } catch (error) {
     if (source.sourcePath === url) mapObjectStoreError(url, error);

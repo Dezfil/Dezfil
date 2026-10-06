@@ -7,18 +7,20 @@ import path from "node:path";
 import { Readable, type Writable } from "node:stream";
 import { finished, pipeline } from "node:stream/promises";
 import { dataDir } from "@/lib/config";
-import { limits } from "@/lib/limits";
+import { captureIngestBudget, type IngestBudget } from "./budget";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 
 export interface ReceivedUpload {
   tmpPath: string;
   filename: string;
+  budget: IngestBudget;
 }
 
 /** Stream exactly one "file" part to disk. Every stream and pipeline is
  * observed from creation, and failure stops and settles them before unlink.
  * Successful reception still means the destination has finished writing. */
 export async function receiveUpload(request: Request, accountId?: string): Promise<ReceivedUpload> {
+  const budget = captureIngestBudget();
   const interrupted = () => new ApiError(
     "invalid_request",
     "The upload was interrupted or its multipart data is incomplete.",
@@ -96,7 +98,7 @@ export async function receiveUpload(request: Request, accountId?: string): Promi
     try {
       bb = own(Busboy({
         headers: { "content-type": contentType },
-        limits: { files: 1, fileSize: limits.uploadMaxBytes },
+        limits: { files: 1, fileSize: budget.uploadMaxBytes },
       }), interrupted);
     } catch (error) {
       if (error instanceof Error && error.message === "Multipart: Boundary not found") {
@@ -123,7 +125,7 @@ export async function receiveUpload(request: Request, accountId?: string): Promi
       part.on("limit", () => fail(new ApiError(
         "upload_too_large",
         `Upload exceeds the size cap of ${Math.round(
-          limits.uploadMaxBytes / (1024 * 1024),
+          budget.uploadMaxBytes / (1024 * 1024),
         )} MB. Raise DEZFIL_UPLOAD_MAX_MB to change it.`,
         413,
       )));
@@ -152,7 +154,7 @@ export async function receiveUpload(request: Request, accountId?: string): Promi
         400,
       );
     }
-    return { tmpPath, filename };
+    return { tmpPath, filename, budget };
   } catch (error) {
     fail(error instanceof ApiError || error instanceof EvaluationCancelled
       ? error : interrupted());

@@ -69,7 +69,7 @@ export async function refreshUrlSpatial(
   }[] = [];
   let now = "";
   try {
-    prepared = await prepareSource(format, source.sourcePath, source.filename, scope.accountId);
+    prepared = await prepareSource(format, source.sourcePath, source.filename, scope.accountId, source.budget);
     await withConnection(async (conn) => {
       const { spatial } = await enumerateLayers(conn, format, prepared!);
       for (const member of members) {

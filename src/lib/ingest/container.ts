@@ -297,6 +297,7 @@ export async function extractArchive(
   zipPath: string,
   destDir: string,
   displayName: string,
+  cap = limits.uploadMaxBytes,
 ): Promise<ExtractedArchive> {
   const { entries, rejectedNames } = await listArchive(zipPath, displayName);
   // An archive carrying members that try to escape is refused whole —
@@ -308,7 +309,6 @@ export async function extractArchive(
       `entry "${rejectedNames[0]}" has a hostile or unusable path`,
     );
   }
-  const cap = limits.uploadMaxBytes;
   const declared = expandedSize(entries);
   if (declared > cap) {
     throw new ApiError(

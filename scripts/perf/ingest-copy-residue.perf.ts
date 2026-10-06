@@ -1,3 +1,4 @@
+import { captureIngestBudget } from "@/lib/ingest/budget";
 import { testAccountScope } from "@/lib/test-support/accounts";
 /** Native copy-stage measurements and separately named controls.
  * Never joins the default unit suite. Fixtures are prepared once, then copied
@@ -129,7 +130,7 @@ test("copy residue: cold and warm samples, controls and ownership", async () => 
               return await action(observed.conn);
             } finally { c.closeSync(); }
           });
-          const remoteSpy = vi.spyOn(remote, "resolveRemoteSource").mockResolvedValue({ sourcePath: input, filename: "input.gpkg", cleanup: async () => {} });
+          const remoteSpy = vi.spyOn(remote, "resolveRemoteSource").mockResolvedValue({ budget: captureIngestBudget(), sourcePath: input, filename: "input.gpkg", cleanup: async () => {} });
           try {
             let requested: DataTable | undefined;
             if (scenario.road === "refresh") {

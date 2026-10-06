@@ -43,11 +43,11 @@ import type { DatasetScope } from "@/lib/query/access";
  * an output behind.
  */
 
-function operationTimeout(): ApiError {
+function operationTimeout(budgetMs: number): ApiError {
   return new ApiError(
     "operation_timeout",
     `The operation exceeded the ${Math.round(
-      limits.operationTimeoutMs / 1000,
+      budgetMs / 1000,
     )}s execution budget. Narrow it, or raise DEZFIL_OPERATION_TIMEOUT_S.`,
     408,
   );
@@ -118,7 +118,9 @@ function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions)
     // preparation that spends minutes leaves the publication what is left of
     // the budget, never a fresh one; otherwise a slow batch would get twice
     // the time it was promised and the coded timeout would arrive late.
-    const deadlineAt = Date.now() + limits.operationTimeoutMs;
+    const budgetMs = limits.operationTimeoutMs;
+    const deadlineAt = Date.now() + budgetMs;
+    const timeoutError = () => operationTimeout(budgetMs);
 
     let prepared: PreparedPublication | null = null;
     let deletionWork: AccountWorkLease | undefined;
@@ -150,7 +152,7 @@ function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions)
         prepared = await options.prepare({
           signal,
           deadlineAt,
-          timeoutError: operationTimeout,
+          timeoutError,
         });
       }
       await materialize(scope, {
@@ -163,7 +165,7 @@ function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions)
         ...(prepared ? { disclosure: prepared.disclosure } : {}),
         signal,
         budgetMs: Math.max(1, deadlineAt - Date.now()),
-        timeoutError: operationTimeout,
+        timeoutError,
         ...(options.replaceTable ? { replaceTable: options.replaceTable } : {}),
         ...(options.bindings ? { requireBindings: options.bindings } : {}),
         ...(options.evaluation ? { evaluation: options.evaluation } : {}),

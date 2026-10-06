@@ -3024,19 +3024,9 @@
         "memory:request-closures"
       ]
     },
-    "memory:src/lib/export/render-image.ts#active": {
-      "stores": [
-        "memory:src/lib/export/render-image.ts#active"
-      ]
-    },
     "memory:src/lib/export/render-image.ts#launches": {
       "stores": [
         "memory:src/lib/export/render-image.ts#launches"
-      ]
-    },
-    "memory:src/lib/export/render-image.ts#waiters": {
-      "stores": [
-        "memory:src/lib/export/render-image.ts#waiters"
       ]
     },
     "memory:src/lib/export/render-relay.ts#startRenderRelay.admissions": {
@@ -5117,6 +5107,12 @@
     "memory:src/lib/settings/state.ts#activateCommittedSettings.owners": {
       "stores": [
         "memory:open-metadata-handle"
+      ]
+    },
+    "memory:src/lib/export/render-image.ts#slots": {
+      "stores": [
+        "memory:src/lib/export/render-image.ts#active",
+        "memory:src/lib/export/render-image.ts#waiters"
       ]
     }
   },

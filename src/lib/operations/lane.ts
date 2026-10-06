@@ -1,5 +1,6 @@
 import { ApiError } from "@/lib/api/errors";
 import { limits } from "@/lib/limits";
+import { onCommittedSettings } from "@/lib/settings/state";
 
 /**
  * The operation run lane.
@@ -106,6 +107,8 @@ function pump(): void {
     void execute(entry);
   }
 }
+
+onCommittedSettings("operation-lane", pump);
 
 async function execute(entry: Entry): Promise<void> {
   try {

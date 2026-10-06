@@ -5,6 +5,7 @@ import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { AuthError } from "@/lib/auth/errors";
 import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { limits } from "@/lib/limits";
+import { onCommittedSettings } from "@/lib/settings/state";
 import { renderRequestBoundMs } from "./render-stall";
 import { puppeteerDriver, type RenderBrowser, type RenderDriver } from "./render-driver";
 export type { RenderBrowser, RenderDriver } from "./render-driver";
@@ -46,64 +47,58 @@ function chromiumPath(): string {
 
 // ---- the slot queue (documented cap; budget covers the wait) ----
 
-interface Waiter {
-  resolve: () => void;
-  reject: (e: unknown) => void;
-}
+interface RenderBudget { timeoutMs: number; check: boolean; }
+interface Waiter { start: () => boolean; }
 
-let active = 0;
+const slotKey = Symbol.for("dezfil.image-lane");
+const shared = process as typeof process & { [slotKey]?: { active: number; waiters: Waiter[] } };
+const slots = shared[slotKey] ??= { active: 0, waiters: [] as Waiter[] };
+const { waiters } = slots;
 let launches = 0;
-const waiters: Waiter[] = [];
+
+function pumpSlots(): void {
+  while (slots.active < limits.exportRenderConcurrency && waiters.length) {
+    if (waiters.shift()!.start()) slots.active += 1;
+  }
+}
+onCommittedSettings("image-lane", pumpSlots);
 
 function releaseSlot(): void {
-  active -= 1;
-  const next = waiters.shift();
-  if (next) {
-    active += 1;
-    next.resolve();
-  }
+  slots.active -= 1;
+  pumpSlots();
 }
 
-function acquireSlot(deadline: number, signal?: AbortSignal, budgetMs?: number): Promise<void> {
-  if (active < limits.exportRenderConcurrency) {
-    active += 1;
-    return Promise.resolve();
-  }
+function acquireSlot(deadline: number, signal: AbortSignal | undefined, budget: RenderBudget): Promise<void> {
   return new Promise<void>((resolve, reject) => {
-    const waiter: Waiter = { resolve: () => {}, reject };
-    const timer = setTimeout(
-      () => {
-        const i = waiters.indexOf(waiter);
-        if (i >= 0) waiters.splice(i, 1);
-        reject(renderTimeout(budgetMs));
-      },
-      Math.max(deadline - Date.now(), 1),
-    );
-    const onAbort = () => {
-      const i = waiters.indexOf(waiter);
-      if (i >= 0) waiters.splice(i, 1);
-      clearTimeout(timer);
-      reject(new EvaluationCancelled());
-    };
-    waiter.resolve = () => {
+    const cleanup = () => {
       clearTimeout(timer);
       signal?.removeEventListener("abort", onAbort);
-      resolve();
     };
+    const leave = (error: unknown) => {
+      const i = waiters.indexOf(waiter);
+      if (i >= 0) waiters.splice(i, 1);
+      cleanup(); reject(error);
+    };
+    const waiter: Waiter = { start: () => {
+      // A commit or release can pump before an expired waiter's timer fires.
+      if (signal?.aborted) { leave(new EvaluationCancelled()); return false; }
+      if (Date.now() >= deadline) { leave(renderTimeout(budget)); return false; }
+      cleanup(); resolve(); return true;
+    } };
+    const timer = setTimeout(() => leave(renderTimeout(budget)), Math.max(deadline - Date.now(), 1));
+    const onAbort = () => leave(new EvaluationCancelled());
     signal?.addEventListener("abort", onAbort, { once: true });
-    if (signal?.aborted) {
-      onAbort();
-      return;
-    }
+    if (signal?.aborted) { onAbort(); return; }
     waiters.push(waiter);
+    pumpSlots();
   });
 }
 
-function renderTimeout(budgetMs?: number): ApiError {
+function renderTimeout(budget: RenderBudget): ApiError {
   // A per-call budget (the assistant's check) names itself; the export's
   // own budget keeps its remedy.
-  if (budgetMs !== undefined) {
-    const seconds = budgetMs / 1000;
+  if (budget.check) {
+    const seconds = budget.timeoutMs / 1000;
     return new ApiError(
       "render_timeout",
       `The image render exceeded the ${Number.isInteger(seconds) ? seconds : seconds.toFixed(2)} s check budget (queue wait included).`,
@@ -113,7 +108,7 @@ function renderTimeout(budgetMs?: number): ApiError {
   return new ApiError(
     "render_timeout",
     `The image render exceeded the ${Math.round(
-      limits.exportRenderTimeoutMs / 1000,
+      budget.timeoutMs / 1000,
     )}s export budget (queue wait included). Retry, reduce the size, or raise DEZFIL_EXPORT_RENDER_TIMEOUT_S.`,
     408,
   );
@@ -130,7 +125,7 @@ function awaitActiveRender(
   input: Parameters<RenderBrowser["render"]>[0],
   deadline: number,
   signal: AbortSignal | undefined,
-  budgetMs: number | undefined,
+  budget: RenderBudget,
   accountId: string,
 ): Promise<Awaited<ReturnType<RenderBrowser["render"]>>> {
   const rendering = trackRenderWork(accountId, browser.render(input));
@@ -156,7 +151,7 @@ function awaitActiveRender(
 
     onAbort = () => terminate(new EvaluationCancelled());
     timer = setTimeout(
-      () => terminate(renderTimeout(budgetMs)),
+      () => terminate(renderTimeout(budget)),
       Math.max(deadline - Date.now(), 1),
     );
     signal?.addEventListener("abort", onAbort, { once: true });
@@ -217,9 +212,10 @@ async function performRenderMapImage(
   // launch and after the render.
   const stand = () => { requireAccountScope(scope); input.standing?.(); };
   stand();
-  const budgetMs = input.budgetMs;
-  const deadline = Date.now() + (budgetMs ?? limits.exportRenderTimeoutMs);
-  await acquireSlot(deadline, input.signal, budgetMs);
+  const budget: RenderBudget = { timeoutMs: input.budgetMs ?? limits.exportRenderTimeoutMs, check: input.budgetMs !== undefined };
+  const requestBoundMs = renderRequestBoundMs(input.budgetMs);
+  const deadline = Date.now() + budget.timeoutMs;
+  await acquireSlot(deadline, input.signal, budget);
   let browser: RenderBrowser | null = null;
   let settled = false;
   let timedOut = false;
@@ -242,7 +238,7 @@ async function performRenderMapImage(
       const launching = trackRenderWork(scope.accountId, driver.launch(chromiumPath(), CHROMIUM_FLAGS, {
         appOrigin: new URL(input.baseUrl).origin,
         deadline,
-        requestBoundMs: renderRequestBoundMs(budgetMs),
+        requestBoundMs,
         signal: input.signal,
       }));
       launching.catch(() => {});
@@ -258,7 +254,7 @@ async function performRenderMapImage(
         const timer = setTimeout(
           () => finish(() => {
             timedOut = true;
-            reject(renderTimeout(budgetMs));
+            reject(renderTimeout(budget));
           }),
           Math.max(deadline - Date.now(), 1),
         );
@@ -277,7 +273,7 @@ async function performRenderMapImage(
       });
     } catch (error) {
       if (input.signal?.aborted) throw new EvaluationCancelled();
-      if (timedOut || Date.now() >= deadline) throw renderTimeout(budgetMs);
+      if (timedOut || Date.now() >= deadline) throw renderTimeout(budget);
       if (error instanceof ApiError || error instanceof AuthError || error instanceof EvaluationCancelled) throw error;
       throw new ApiError(
         "render_unavailable",
@@ -297,11 +293,11 @@ async function performRenderMapImage(
         height: input.definition.size.height,
         definition: input.definition,
         deadline,
-        requestBoundMs: renderRequestBoundMs(budgetMs),
+        requestBoundMs,
       },
       deadline,
       input.signal,
-      budgetMs,
+      budget,
       scope.accountId,
     );
     stand();
@@ -319,7 +315,7 @@ async function performRenderMapImage(
     }
     if (input.signal?.aborted) throw new EvaluationCancelled();
     if (timedOut || (!settled && Date.now() >= deadline)) {
-      throw renderTimeout(budgetMs);
+      throw renderTimeout(budget);
     }
     throw new ApiError(
       "render_failed",
@@ -342,7 +338,7 @@ async function performRenderMapImage(
 
 /** Test seam: the current queue depth (unit assertions only). */
 export function renderQueueState(): { active: number; waiting: number } {
-  return { active, waiting: waiters.length };
+  return { active: slots.active, waiting: waiters.length };
 }
 
 /** Test and measurement seam: physical launch attempts since the process
