@@ -1,3 +1,6 @@
+import { writeFileSync } from "node:fs";
+import { extractArchive } from "./container";
+import { expectSettingRemedy } from "../../../test-support/setting-remedy";
 import { mkdtempSync } from "node:fs";
 import path from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -70,4 +73,19 @@ it("carries a link import and its spatial refresh budget from download through G
   const refreshed = await refreshTable(scope, imported.tables[0].name);
   expect(refreshed.rowCount).toBe(1);
   expect(network.openRemote).toHaveBeenCalledTimes(2);
+});
+
+it.each([false, true])("keeps upload and archive refusals with locked=%s remedies", async locked => {
+  write(1);
+  if (locked) vi.stubEnv("DEZFIL_UPLOAD_MAX_MB", "1");
+  const zip = path.join(process.env.DEZFIL_DATA_DIR!, "large.zip");
+  writeFileSync(zip, archive());
+  for (const [pending, code] of [
+    [() => receiver.receiveUpload(multipart(new TextEncoder().encode(padding), "large.csv")), "upload_too_large"],
+    [() => extractArchive(zip, path.join(process.env.DEZFIL_DATA_DIR!, "unpacked"), "large.zip"), "archive_too_large"],
+  ] as const) {
+    const error = await pending().catch(error => error);
+    expect(error).toMatchObject({ code, status: 413 });
+    expectSettingRemedy(error.message, "Largest upload", "DEZFIL_UPLOAD_MAX_MB", locked);
+  }
 });

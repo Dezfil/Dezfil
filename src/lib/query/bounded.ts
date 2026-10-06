@@ -1,3 +1,4 @@
+import { settingRemedy } from "@/lib/settings/remedy";
 import { inDelegatedDeletionWork, inDeletionWork } from "@/lib/auth/account-deletion-work";
 import { authorityOf } from "./context";
 import { admitEvaluationWork } from "./work-admission";
@@ -99,7 +100,7 @@ function defaultTimeoutError(budgetMs: number): ApiError {
     "query_timeout",
     `The query exceeded the ${Math.round(
       budgetMs / 1000,
-    )}s timeout. Narrow it down, or raise DEZFIL_QUERY_TIMEOUT_S.`,
+    )}s timeout. Narrow it down. ${settingRemedy("queryTimeoutS")}`,
     408,
   );
 }

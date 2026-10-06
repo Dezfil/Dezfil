@@ -1,3 +1,4 @@
+import { settingRemedy } from "@/lib/settings/remedy";
 import { admitResourceWork, inDeletionWork, registerRenderDeletionWork } from "@/lib/auth/account-deletion-work";
 import { drainAccountRenders } from "./render-work";
 import { trackRenderWork } from "./render-work";
@@ -109,7 +110,7 @@ function renderTimeout(budget: RenderBudget): ApiError {
     "render_timeout",
     `The image render exceeded the ${Math.round(
       budget.timeoutMs / 1000,
-    )}s export budget (queue wait included). Retry, reduce the size, or raise DEZFIL_EXPORT_RENDER_TIMEOUT_S.`,
+    )}s export budget (queue wait included). Retry or reduce the size. ${settingRemedy("exportRenderTimeoutS")}`,
     408,
   );
 }

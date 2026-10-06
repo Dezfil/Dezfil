@@ -1,3 +1,4 @@
+import { expectSettingRemedy } from "../../../test-support/setting-remedy";
 import { mkdtempSync } from "node:fs";
 import path from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -41,4 +42,13 @@ it("captures a run budget at execution and carries it and its refusal through pr
   expect(observed.remaining).toEqual([580_000, 80_000]);
   expect(getJob(first.id)!.errorMessage).toContain("600s execution budget");
   expect(getJob(second.id)!.errorMessage).toContain("80s execution budget");
+});
+
+it.each([false, true])("keeps the operation timeout with locked=%s remedies", async locked => {
+  if (locked) vi.stubEnv("DEZFIL_OPERATION_TIMEOUT_S", "600");
+  const job = submitRun(testAccountScope(), { operationId: "sql_step", parameters: {}, sql: "SELECT 1", name: "timeout" });
+  await laneSettled();
+  const result = getJob(job.id)!;
+  expect(result.errorCode).toBe("operation_timeout");
+  expectSettingRemedy(result.errorMessage!, "Time limit per run", "DEZFIL_OPERATION_TIMEOUT_S", locked);
 });

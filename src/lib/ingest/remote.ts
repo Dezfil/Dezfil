@@ -1,3 +1,4 @@
+import { settingRemedy } from "@/lib/settings/remedy";
 import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
 import { registerAccountFile, removeAccountFile } from "./file-ownership";
 import { requireFilingDestination } from "@/lib/auth/reach";
@@ -83,7 +84,7 @@ async function downloadHttp(url: string, tmpPath: string, budget: IngestBudget):
         "remote_timeout",
         `The download from ${url} exceeded the remote time bound of ${Math.round(
           budget.remoteTimeoutMs / 1000,
-        )} s. Raise DEZFIL_REMOTE_TIMEOUT_S to change it.`,
+        )} s. ${settingRemedy("remoteTimeoutS")}`,
         504,
       ),
   });
@@ -100,7 +101,7 @@ async function downloadHttp(url: string, tmpPath: string, budget: IngestBudget):
     response.body.destroy();
     throw new ApiError(
       "remote_too_large",
-      `The remote file is ${Math.round(declared / (1024 * 1024))} MB; the cap is ${capMb(budget)} MB. Raise DEZFIL_REMOTE_MAX_MB to change it.`,
+      `The remote file is ${Math.round(declared / (1024 * 1024))} MB; the cap is ${capMb(budget)} MB. ${settingRemedy("remoteMaxMb")}`,
       413,
     );
   }
@@ -112,7 +113,7 @@ async function downloadHttp(url: string, tmpPath: string, budget: IngestBudget):
         cb(
           new ApiError(
             "remote_too_large",
-            `The remote file exceeds the cap of ${capMb(budget)} MB. Raise DEZFIL_REMOTE_MAX_MB to change it.`,
+            `The remote file exceeds the cap of ${capMb(budget)} MB. ${settingRemedy("remoteMaxMb")}`,
             413,
           ),
         );
@@ -329,7 +330,7 @@ async function resolveCredentialedObjectSource(
   if (probed !== null && probed > budget.remoteMaxBytes) {
     throw new ApiError(
       "remote_too_large",
-      `The remote object is ${Math.round(probed / (1024 * 1024))} MB; the cap is ${capMb(budget)} MB. Raise DEZFIL_REMOTE_MAX_MB to change it.`,
+      `The remote object is ${Math.round(probed / (1024 * 1024))} MB; the cap is ${capMb(budget)} MB. ${settingRemedy("remoteMaxMb")}`,
       413,
     );
   }
@@ -366,7 +367,7 @@ async function resolveCredentialedObjectSource(
     if (Number(blob.size) > budget.remoteMaxBytes) {
       throw new ApiError(
         "remote_too_large",
-        `The remote file is ${Math.round(Number(blob.size) / (1024 * 1024))} MB; the cap is ${capMb(budget)} MB. Raise DEZFIL_REMOTE_MAX_MB to change it.`,
+        `The remote file is ${Math.round(Number(blob.size) / (1024 * 1024))} MB; the cap is ${capMb(budget)} MB. ${settingRemedy("remoteMaxMb")}`,
         413,
       );
     }

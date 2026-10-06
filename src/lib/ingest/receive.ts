@@ -1,3 +1,4 @@
+import { settingRemedy } from "@/lib/settings/remedy";
 import { registerAccountFile, removeAccountFile } from "./file-ownership";
 import Busboy from "busboy";
 import { createWriteStream } from "node:fs";
@@ -126,7 +127,7 @@ export async function receiveUpload(request: Request, accountId?: string): Promi
         "upload_too_large",
         `Upload exceeds the size cap of ${Math.round(
           budget.uploadMaxBytes / (1024 * 1024),
-        )} MB. Raise DEZFIL_UPLOAD_MAX_MB to change it.`,
+        )} MB. ${settingRemedy("uploadMaxMb")}`,
         413,
       )));
       try {

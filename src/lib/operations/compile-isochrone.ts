@@ -1,3 +1,4 @@
+import { settingRemedy } from "@/lib/settings/remedy";
 import { bindingKey } from "./input-ref";
 import type { AccountScope } from "@/lib/auth/scope";
 import type { DatasetScope } from "@/lib/query/access";
@@ -181,9 +182,8 @@ function refuseSize(table: DataTable, label: string): void {
     `"${table.name}" has ${rows.toLocaleString("en-US")} rows, and ${label} ` +
       `accepts ${bound.toLocaleString("en-US")} origins in one run; every ` +
       `origin may cost a request, and the run has to finish inside its ` +
-      `budget. Filter the table first, or raise ` +
-      `DEZFIL_OPERATION_TIMEOUT_S (or lower the pace and the request ` +
-      `deadline against your own provider).`,
+      `budget. Filter the table first, or lower the pace and the request ` +
+      `deadline against your own provider. ` + settingRemedy("operationTimeoutS"),
     400,
   );
 }

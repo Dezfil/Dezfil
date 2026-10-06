@@ -1,3 +1,4 @@
+import { settingRemedy } from "@/lib/settings/remedy";
 import { admitEvaluationWork } from "@/lib/query/work-admission";
 import type { AccountWorkLease } from "@/lib/auth/account-deletion-admission";
 import { requireOwnedTableReference } from "@/lib/metadata/owned-tables";
@@ -48,7 +49,7 @@ function operationTimeout(budgetMs: number): ApiError {
     "operation_timeout",
     `The operation exceeded the ${Math.round(
       budgetMs / 1000,
-    )}s execution budget. Narrow it, or raise DEZFIL_OPERATION_TIMEOUT_S.`,
+    )}s execution budget. Narrow it. ${settingRemedy("operationTimeoutS")}`,
     408,
   );
 }

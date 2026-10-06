@@ -1,3 +1,4 @@
+import { expectSettingRemedy } from "../../../test-support/setting-remedy";
 import { mkdtempSync } from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
@@ -72,4 +73,27 @@ it.each(["probe", "blob"])("keeps the admitted credentialed-object cap at the la
   }));
   const source = await resolveRemoteSource("s3://bucket/file.geojson");
   await source.cleanup(); expect(network.connect).toHaveBeenCalled();
+});
+
+it.each([false, true])("keeps every link-size refusal with locked=%s remedies", async locked => {
+  write({ remoteMaxMb: 1 });
+  if (locked) vi.stubEnv("DEZFIL_REMOTE_MAX_MB", "1");
+  for (const stage of ["declared", "stream", "probe", "blob"]) {
+    vi.stubEnv("DEZFIL_OBJECT_STORE_CREDENTIALS", stage === "probe" || stage === "blob" ? "1" : "");
+    network.open.mockResolvedValue(response(payload, stage === "declared" || stage === "probe" ? { "content-length": String(payload.length) } : {}));
+    network.connect.mockImplementation(async (work: (conn: unknown) => Promise<unknown>) => work({
+      run: async () => {}, runAndReadAll: async () => ({ getRowObjects: () => [{ content: payload, size: payload.length }] }),
+    }));
+    const error = await resolveRemoteSource(stage === "probe" || stage === "blob" ? "s3://bucket/file.geojson" : "https://example.test/file.csv").catch(error => error);
+    expect(error, stage).toMatchObject({ code: "remote_too_large", status: 413 });
+    expectSettingRemedy(error.message, "Largest link import", "DEZFIL_REMOTE_MAX_MB", locked);
+  }
+});
+it.each([false, true])("keeps the link timeout with locked=%s remedies", async locked => {
+  write({ remoteTimeoutS: 10 });
+  if (locked) vi.stubEnv("DEZFIL_REMOTE_TIMEOUT_S", "10");
+  network.open.mockImplementation(async (_url: string, options: OpenRemoteOptions) => { throw options.timeoutError!(); });
+  const error = await resolveRemoteSource("https://example.test/file.csv").catch(error => error);
+  expect(error).toMatchObject({ code: "remote_timeout", status: 504 });
+  expectSettingRemedy(error.message, "Link import time limit", "DEZFIL_REMOTE_TIMEOUT_S", locked);
 });
