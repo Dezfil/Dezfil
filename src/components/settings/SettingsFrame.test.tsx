@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HostElement, HostEvent, installDomHost } from "../testing/dom-host";
 import { openPrivateState } from "../auth/private-state";
 import { DISPLAY_NAME_EVENT } from "../UserBadge";
-import { INSTANCE_NAME_EVENT } from "../shell/path-model";
+import { settingDefinition } from "@/lib/settings/catalogue";
+import { disclosedDefinition } from "@/lib/settings/disclosure";
 import { readLastTab, writeLastTab } from "./last-tab";
 import { SettingsFrame } from "./SettingsFrame";
 
@@ -49,9 +50,10 @@ let root: ReturnType<typeof createRoot>;
 let container: HostElement;
 let admin = true;
 let accountName = "Ada Okafor";
+let instanceName = "Atlas";
 
 beforeEach(() => {
-  requests.length = 0; scrolled.length = 0; accountName = "Ada Okafor";
+  requests.length = 0; scrolled.length = 0; accountName = "Ada Okafor"; instanceName = "Atlas";
   nav.pathname = "/settings"; nav.hash = ""; nav.replace = vi.fn((address: string) => {
     const at = address.indexOf("#");
     nav.pathname = at < 0 ? address : address.slice(0, at);
@@ -66,7 +68,14 @@ beforeEach(() => {
     if (url === "/api/account") {
       return Response.json({ account: { id: "ada", name: accountName, email: "ada@example.test", sqlName: "ada", isAdmin: admin } });
     }
-    if (url === "/api/settings") return Response.json({ instanceName: "Atlas" });
+    if (url === "/api/instance/settings") {
+      const setting = (key: string, value: unknown) => ({ ...disclosedDefinition(settingDefinition(key)), value, source: "stored", storedValue: value, locked: false, invalidOverride: false });
+      return Response.json({ settings: { instanceName: setting("instanceName", instanceName), signInMessage: setting("signInMessage", ""),
+        lostPasswordContact: setting("lostPasswordContact", ""), landingPage: setting("landingPage", "home") } });
+    }
+    if (url === "/api/auth/entry") {
+      return Response.json({ instanceName, signInMessage: "", lostPasswordContact: "", landingPage: "home", setupRequired: false });
+    }
     if (url === "/api/account/tokens" && init?.method === "POST") {
       return Response.json({ id: "t1", name: "CLI", createdAt: "2026-10-01T00:00:00.000Z", lastUsedAt: null, revokedAt: null, secret: "dz_secret_once" });
     }
@@ -210,14 +219,25 @@ describe("the Settings frame", () => {
     await open("/settings/account");
     accountName = "Ada Lovelace";
     await act(async () => { host.window.dispatchEvent(new CustomEvent(DISPLAY_NAME_EVENT, { detail: "Ada Lovelace" })); });
-    await act(async () => { host.window.dispatchEvent(new CustomEvent(INSTANCE_NAME_EVENT, { detail: "Atlas North" })); });
     await settle();
     nav.pathname = "/settings/tokens"; await follow();
     nav.pathname = "/settings/account"; await follow();
     // The account card's first field is the display name.
     expect(container.querySelectorAll("input")[0]?.value).toBe("Ada Lovelace");
     nav.pathname = "/settings/general"; await follow();
+    expect(container.querySelector("input")?.value).toBe("Atlas");
+    // General reads the instance afresh each time it opens.
+    instanceName = "Atlas North";
+    nav.pathname = "/settings/tokens"; await follow();
+    nav.pathname = "/settings/general"; await follow();
     expect(container.querySelector("input")?.value).toBe("Atlas North");
+  });
+
+  it("gives a member General from the entry read, disabled", async () => {
+    await open("/settings/general", "", "member");
+    expect(requests).toContain("/api/auth/entry");
+    expect(container.querySelector("input")?.disabled).toBe(true);
+    expect(container.textContent).toContain("Only admins can change the instance name.");
   });
 
   it("takes only the router's next answer for the address it asked for", async () => {

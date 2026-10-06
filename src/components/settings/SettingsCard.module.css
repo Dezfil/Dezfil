@@ -32,12 +32,34 @@
   line-height: 1.35;
 }
 
+/* the head's Reset to defaults, then Undo: never taller than the title */
+.slot {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
+.slot > button {
+  margin-block: calc((var(--text-heading) * 1.35 - var(--control-compact)) / 2);
+  animation: quiet-in var(--dur-entrance) ease backwards;
+}
+
+.slot > button[data-leaving] {
+  opacity: 0;
+  transition: opacity var(--dur-feedback) ease;
+}
+
 .stack {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
   width: 100%;
+}
+
+.loading {
+  font-size: var(--text-body);
+  color: var(--fg-muted);
 }
 
 /* the shipped label-above field */
@@ -60,6 +82,11 @@
   background: var(--bg-raised);
   border-color: var(--border-strong);
   font-size: var(--text-body);
+}
+
+.field select {
+  width: auto;
+  min-width: 160px;
 }
 
 .field :is(input, textarea, select):focus {

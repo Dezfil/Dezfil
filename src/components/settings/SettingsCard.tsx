@@ -1,6 +1,7 @@
 "use client";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { Button } from "@/components/ui/Button";
+import type { SaveUnit, UnitSnapshot } from "./save-unit";
 import styles from "./SettingsCard.module.css";
 
 /**
@@ -10,15 +11,16 @@ import styles from "./SettingsCard.module.css";
  * waits.
  */
 
-export function SettingsCard({ id, title, headingId, head, children }: {
+export function SettingsCard({ id, title, headingId, head, ref, children }: {
   id?: string;
   title: string;
   headingId: string;
   /** Quiet actions at the head's right. */
   head?: ReactNode;
+  ref?: Ref<HTMLElement>;
   children: ReactNode;
 }) {
-  return <section id={id} className={styles.card} aria-labelledby={headingId}>
+  return <section ref={ref} id={id} className={styles.card} aria-labelledby={headingId}>
     <div className={styles.head}>
       <h2 id={headingId} tabIndex={-1}>{title}</h2>
       {head}
@@ -76,6 +78,25 @@ export function SaveLine({ busy, onCancel }: { busy: boolean; onCancel: () => vo
     <Button type="submit" variant="primary" busy={busy}>Save</Button>
     <Button variant="quiet" disabled={busy} onClick={onCancel}>Cancel</Button>
   </div>;
+}
+
+/** The head's quiet action: Reset to defaults while a kept value differs
+ * from its default, then Undo for a few seconds, held while focus or the
+ * pointer is on it. The slot never makes the head taller. */
+export function ResetSlot({ unit, card }: { unit: SaveUnit; card: UnitSnapshot }) {
+  if (card.slot === "reset") {
+    return <span className={styles.slot}>
+      <Button variant="quiet" data-unit-slot="reset" onClick={() => unit.reset()}>Reset to defaults</Button>
+    </span>;
+  }
+  if (card.slot === "undo") {
+    return <span className={styles.slot}>
+      <Button variant="quiet" data-unit-slot="undo" data-leaving={card.undoLeaving || undefined} onClick={() => unit.undo()}
+        onFocus={() => unit.holdUndo("focus", true)} onBlur={() => unit.holdUndo("focus", false)}
+        onPointerEnter={() => unit.holdUndo("pointer", true)} onPointerLeave={() => unit.holdUndo("pointer", false)}>Undo</Button>
+    </span>;
+  }
+  return null;
 }
 
 /** The class a card's form takes: its parts in a column. */

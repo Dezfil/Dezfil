@@ -3,11 +3,10 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { Account } from "@/lib/metadata/accounts";
 import { DISPLAY_NAME_EVENT } from "@/components/UserBadge";
-import { INSTANCE_NAME_EVENT } from "@/components/shell/path-model";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { AccountCard } from "./AccountCard";
 import { TokensCard } from "./TokensCard";
-import { WorkspaceCard } from "./WorkspaceCard";
+import { GeneralTab } from "./GeneralTab";
 import { accountRequest, failureMessage } from "./api";
 import { SettingsColumn } from "./SettingsColumn";
 import { resolveSettingsAddress, SETTINGS_PATH } from "./settings-address";
@@ -19,7 +18,7 @@ import { watchLeaving } from "./leave-watch";
 import { GuardContext, LeaveDialog } from "./settings-guard";
 import styles from "./SettingsFrame.module.css";
 
-interface Loaded { account: Account; instanceName: string | null }
+interface Loaded { account: Account }
 /** The tab on screen, the row its address names, and a count of visits
  * so a second visit to the same row lands again. */
 interface Shown { tab: SettingsTabId; anchor: string | null; visit: number }
@@ -72,17 +71,15 @@ export function SettingsFrame() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      accountRequest<{ account: Account }>("/api/account"),
-      accountRequest<{ instanceName: string | null }>("/api/settings"),
-    ]).then(([identity, settings]) => {
-      if (!cancelled) { setLoaded({ account: identity.account, instanceName: settings.instanceName }); setError(null); }
+    accountRequest<{ account: Account }>("/api/account").then(identity => {
+      if (!cancelled) { setLoaded({ account: identity.account }); setError(null); }
     }).catch(failure => { if (!cancelled) setError(failureMessage(failure)); });
     return () => { cancelled = true; };
   }, [attempt]);
 
-  // A card saved on one tab is shown as saved when its tab opens again:
-  // the frame keeps the account and the instance name the cards start from.
+  // The account card saved on its tab is shown as saved when the tab opens
+  // again: the frame keeps the account it starts from. The instance's
+  // settings are read afresh each time General opens.
   useEffect(() => {
     let cancelled = false;
     const account = () => {
@@ -90,16 +87,10 @@ export function SettingsFrame() {
         if (!cancelled) setLoaded(current => current && { ...current, account: body.account });
       }).catch(() => { /* the card that saved already shows what it kept */ });
     };
-    const instance = (event: Event) => {
-      const name = (event as CustomEvent<string | null>).detail ?? null;
-      setLoaded(current => current && { ...current, instanceName: name });
-    };
     window.addEventListener(DISPLAY_NAME_EVENT, account);
-    window.addEventListener(INSTANCE_NAME_EVENT, instance);
     return () => {
       cancelled = true;
       window.removeEventListener(DISPLAY_NAME_EVENT, account);
-      window.removeEventListener(INSTANCE_NAME_EVENT, instance);
     };
   }, []);
 
@@ -154,13 +145,13 @@ export function SettingsFrame() {
   </div>;
 }
 
-/** What each tab draws. Account, Tokens and General hold the shipped
- * cards; Limits and System draw from the configuration read. */
+/** What each tab draws. Account and Tokens hold the person's own cards;
+ * General, Limits and System draw from the configuration read. */
 function TabContent({ tab, loaded }: { tab: SettingsTabId; loaded: Loaded }) {
   switch (tab) {
     case "account": return <AccountCard account={loaded.account} />;
     case "tokens": return <TokensCard />;
-    case "general": return <WorkspaceCard name={loaded.instanceName} admin={loaded.account.isAdmin} />;
+    case "general": return <GeneralTab admin={loaded.account.isAdmin} />;
     case "limits":
     case "system":
       return null;
