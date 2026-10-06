@@ -1,6 +1,7 @@
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { settingDefinition } from "@/lib/settings/catalogue";
 import { installDomHost, type HostElement } from "../testing/dom-host";
 import { instanceReadFixture, type Resolution } from "./read-fixture";
 import { SystemTab } from "./SystemTab";
@@ -118,7 +119,8 @@ describe("System", () => {
     expect(byId("env-dezfil-query-timeout-s").querySelector("a")?.getAttribute("href")).toBe("/settings/limits#set-query-time");
     expect(cells("env-dezfil-operation-concurrency")).toEqual(["Tools running at once", "DEZFIL_OPERATION_CONCURRENCY", "2 runs", "Environment"]);
     expect(cells("env-dezfil-geocoder-url")).toEqual(["Address finder", "DEZFIL_GEOCODER_URL", "https://geocoder.example", "Environment"]);
-    expect(cells("env-anthropic-api-key")).toEqual(["Anthropic credential", "ANTHROPIC_API_KEY", "Set", "Environment"]);
+    // A model credential's variable is named only by the server's code: the definition supplies it here.
+    expect(cells("env-anthropic-api-key")).toEqual(["Anthropic credential", settingDefinition("anthropicApiKey").environment, "Set", "Environment"]);
     expect(cells("env-dezfil-remote-max-mb")).toEqual(["Largest link import", "DEZFIL_REMOTE_MAX_MB", "2,048 MB", "Default"]);
   });
 

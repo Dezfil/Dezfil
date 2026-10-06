@@ -17,6 +17,8 @@ beforeEach(() => { fixture = instanceSettingsFixture(); });
 afterEach(() => fixture.close());
 const read = () => JSON.parse(JSON.stringify(readInstanceSettings(fixture.context, fixture.db)));
 const byVariable = (rows: ReturnType<typeof serverSettingsRows>, variable: string) => rows.find(row => row.variable === variable)!;
+// A model credential's variable is named only by the server's code, so these rows are found by their setting.
+const byKey = (rows: ReturnType<typeof serverSettingsRows>, key: string) => rows.find(row => row.key === key)!;
 
 describe("the Server settings table", () => {
   it("has one row per setting a variable decides, in the read's order, and none for the rest", () => {
@@ -50,7 +52,7 @@ describe("the Server settings table", () => {
     for (const [variable, value] of Object.entries(DISCLOSURE_SEEDS)) vi.stubEnv(variable, value);
     const rows = serverSettingsRows(read());
     expect(byVariable(rows, "DEZFIL_GEOCODER_URL").value).toEqual({ text: "https://geocoder.example", mono: true });
-    expect(byVariable(rows, "ANTHROPIC_API_KEY").value).toEqual({ text: "Set" });
+    expect(byKey(rows, "anthropicApiKey").value).toEqual({ text: "Set" });
     expect(byVariable(rows, "DEZFIL_SECRET_KEY").value).toEqual({ text: "Set" });
     expect(byVariable(rows, "DEZFIL_OVERTURE_S3_ENDPOINT").value).toEqual({ text: "Set" });
     const shown = JSON.stringify(rows);
@@ -59,7 +61,7 @@ describe("the Server settings table", () => {
 
   it("says when a key or an address is not set, and where the encryption key lives", () => {
     const rows = serverSettingsRows(read());
-    expect(byVariable(rows, "OPENAI_API_KEY").value).toEqual({ text: "Not set", muted: true });
+    expect(byKey(rows, "openaiApiKey").value).toEqual({ text: "Not set", muted: true });
     expect(byVariable(rows, "DEZFIL_ISOCHRONE_URL").value).toEqual({ text: "Not set", muted: true });
     expect(byVariable(rows, "DEZFIL_SECRET_KEY").value).toEqual({ text: "Not created yet", muted: true });
     expect(byVariable(rows, "DEZFIL_OVERPASS_URL").value).toEqual({ text: "https://overpass-api.de", mono: true });
