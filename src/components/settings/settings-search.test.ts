@@ -43,6 +43,13 @@ describe("what the search finds", () => {
     expect(hits[0].target).toEqual({ tab: "limits", anchor: "set-query-time" });
   });
 
+  it("reads a Limits value as its row shows it: a count bare, a rate window every 10 seconds, the largest image per side", () => {
+    const limits = (query: string) => searchSettings(index(), query).filter(hit => hitPath(hit).startsWith("Instance / Limits · "));
+    expect(limits("tools waiting")[0].meta).toBe("Tools · 20");
+    expect(limits("tile requests")[0].meta).toBe("Public requests · 600 every 10 seconds");
+    expect(limits("largest image")[0].meta).toBe("Image export · 4,096 px per side");
+  });
+
   it("finds a row by a keyword, by the words of its current value, and by a variable's name", () => {
     expect(paths(searchSettings(index(), "concurrency"))).toContain("Instance / Limits · Tools running at once");
     expect(paths(searchSettings(index(), "atlas north"))).toContain("Instance / General · Instance name");

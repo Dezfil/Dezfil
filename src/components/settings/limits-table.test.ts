@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readInstanceSettings } from "@/lib/settings/read";
 import { TIMEOUT_RELATIONSHIP } from "@/lib/settings/relationships";
 import { instanceSettingsFixture } from "../../../test-support/instance-settings";
-import { capacityText, inLabels, LIMITS_CARDS, LIMITS_LABELS, limitsSettingRows } from "./limits-table";
+import { capacityText, inLabels, LIMITS_CARDS, LIMITS_LABELS, LIMITS_UNITS, limitsSettingRows, shownUnit, withShownUnit } from "./limits-table";
 
 /**
  * The Limits tab's label table, held against the configuration read the
@@ -52,6 +52,40 @@ describe("the Limits label table against the read", () => {
     });
     const ids = LIMITS_CARDS.flatMap(card => [card.id, ...card.rows.map(row => row.id)]);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("the units the page shows", () => {
+  it("writes a count with no unit, a rate window as every 10 seconds, the largest image per side, and the read's unit for the rest", () => {
+    const settings: Record<string, { unit?: string }> = read().settings;
+    const shown = LIMITS_CARDS.map(card => [card.title, card.rows.flatMap(row =>
+      row.kind === "setting" ? [shownUnit(row.key, settings[row.key].unit)] : row.kind === "image" ? [row.unit] : [])]);
+    expect(shown).toEqual([
+      ["Imports", ["MB", "MB", "seconds", "km²", "km²"]],
+      ["Queries", ["seconds", "rows", "features"]],
+      ["Tools", ["", "", "seconds"]],
+      ["Image export", ["px per side", "", "seconds"]],
+      ["Public requests", ["every 10 seconds", "every 10 seconds"]],
+    ]);
+  });
+
+  it("names a unit only where the read's is not the page's, and only for a row Limits draws", () => {
+    const settings: Record<string, { unit?: string }> = read().settings;
+    const drawn = new Set(limitsSettingRows().map(row => row.key));
+    expect(Object.keys(LIMITS_UNITS).sort()).toEqual(["exportRenderConcurrency", "operationConcurrency", "operationQueueMax", "publicRateLimit", "publicTileRateLimit"]);
+    for (const [key, unit] of Object.entries(LIMITS_UNITS)) {
+      expect(drawn.has(key)).toBe(true);
+      expect(settings[key].unit).not.toBe(unit);
+    }
+  });
+
+  it("writes a value with the unit the page shows, grouped, and a count bare", () => {
+    expect(withShownUnit("operationConcurrency", 1, "runs")).toBe("1");
+    expect(withShownUnit("exportRenderConcurrency", 2, "renders")).toBe("2");
+    expect(withShownUnit("publicRateLimit", 60, "per 10 seconds")).toBe("60 every 10 seconds");
+    expect(withShownUnit("uploadMaxMb", 5120, "MB")).toBe("5,120 MB");
+    // A setting Limits does not draw keeps the read's own unit.
+    expect(withShownUnit("operationHistoryPerSubject", 20, "runs")).toBe("20 runs");
   });
 });
 

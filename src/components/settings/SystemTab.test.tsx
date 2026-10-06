@@ -117,7 +117,9 @@ describe("System", () => {
     expect(settings.querySelectorAll("th").map(cell => cell.textContent)).toEqual(["Setting", "Variable", "Value", "Source"]);
     expect(cells("env-dezfil-query-timeout-s")).toEqual(["Query time limit", "DEZFIL_QUERY_TIMEOUT_S", "90 seconds", "Limits"]);
     expect(byId("env-dezfil-query-timeout-s").querySelector("a")?.getAttribute("href")).toBe("/settings/limits#set-query-time");
-    expect(cells("env-dezfil-operation-concurrency")).toEqual(["Tools running at once", "DEZFIL_OPERATION_CONCURRENCY", "2 runs", "Environment"]);
+    // A row Limits draws reads as its Limits row does: a count bare, a rate window every 10 seconds.
+    expect(cells("env-dezfil-operation-concurrency")).toEqual(["Tools running at once", "DEZFIL_OPERATION_CONCURRENCY", "2", "Environment"]);
+    expect(cells("env-dezfil-public-rate-limit")).toEqual(["Requests per visitor", "DEZFIL_PUBLIC_RATE_LIMIT", "60 every 10 seconds", "Default"]);
     expect(cells("env-dezfil-geocoder-url")).toEqual(["Address finder", "DEZFIL_GEOCODER_URL", "https://geocoder.example", "Environment"]);
     // A model credential's variable is named only by the server's code: the definition supplies it here.
     expect(cells("env-anthropic-api-key")).toEqual(["Anthropic credential", settingDefinition("anthropicApiKey").environment, "Set", "Environment"]);

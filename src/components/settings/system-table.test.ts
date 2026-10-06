@@ -48,6 +48,15 @@ describe("the Server settings table", () => {
     expect(byVariable(rows, "DEZFIL_REMOTE_MAX_MB")).toMatchObject({ value: { text: "2,048 MB" }, source: { kind: "default" } });
   });
 
+  it("writes a number with the unit its Limits row shows, and the read's unit for a setting Limits does not draw", () => {
+    const rows = serverSettingsRows(read());
+    expect(byVariable(rows, "DEZFIL_OPERATION_CONCURRENCY").value).toEqual({ text: "1" });
+    expect(byVariable(rows, "DEZFIL_OPERATION_QUEUE_MAX").value).toEqual({ text: "20" });
+    expect(byVariable(rows, "DEZFIL_EXPORT_RENDER_CONCURRENCY").value).toEqual({ text: "2" });
+    expect(byVariable(rows, "DEZFIL_PUBLIC_TILE_RATE_LIMIT").value).toEqual({ text: "600 every 10 seconds" });
+    expect(byVariable(rows, "DEZFIL_OPERATION_HISTORY_PER_SUBJECT").value).toEqual({ text: "20 runs" });
+  });
+
   it("shows only what the read discloses: an address's scheme and host, whether a key is set, the encryption key's state", () => {
     for (const [variable, value] of Object.entries(DISCLOSURE_SEEDS)) vi.stubEnv(variable, value);
     const rows = serverSettingsRows(read());

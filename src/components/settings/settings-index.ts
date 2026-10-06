@@ -2,7 +2,7 @@ import type { Account } from "@/lib/metadata/accounts";
 import type { ApiToken } from "@/lib/metadata/auth-credentials";
 import { LANDING_PAGES } from "@/components/auth/entry-settings";
 import type { InstanceRead } from "./instance-read";
-import { capacityText, LIMITS_CARDS } from "./limits-table";
+import { capacityText, LIMITS_CARDS, withShownUnit } from "./limits-table";
 import { formatSettingNumber } from "./server-set";
 import type { IndexCard, TabDeclarations } from "./settings-search";
 import { providerName, serverSettingsRows, type AssistantStatus } from "./system-table";
@@ -78,8 +78,8 @@ function generalCards(values: EntryValues): IndexCard[] {
 function limitsCards(read: InstanceRead): IndexCard[] {
   return LIMITS_CARDS.map(card => ({ id: card.id, title: card.title, keys: card.keys, rows: card.rows.map(row => {
     const value = row.kind === "capacity" ? capacityText(row.of, row.of === "geocode" ? read.capacities.geocodeRows : read.capacities.isochroneOrigins)
-      : row.kind === "image" ? `${formatSettingNumber(read.maxImageDimension)} px per side`
-        : read.settings[row.key] ? `${formatSettingNumber(read.settings[row.key].value)} ${read.settings[row.key].unit ?? ""}`.trim() : "";
+      : row.kind === "image" ? `${formatSettingNumber(read.maxImageDimension)} ${row.unit}`
+        : read.settings[row.key] ? withShownUnit(row.key, read.settings[row.key].value, read.settings[row.key].unit) : "";
     return { id: row.id, label: row.label, keys: row.keys, value };
   }) }));
 }

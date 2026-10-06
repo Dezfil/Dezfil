@@ -98,8 +98,12 @@ describe("Limits", () => {
     expect(row("Query time limit").textContent).toContain("seconds");
     expect(row("Query time limit").textContent).toContain("Also applies to published maps.");
     expect([field("Tools waiting").getAttribute("min"), field("Tools waiting").getAttribute("max")]).toEqual(["1", "200"]);
-    expect(row("Tools running at once").textContent).toContain("runs");
-    expect(row("Requests per visitor").textContent).toContain("per 10 seconds");
+    // A count has no unit after it, and a rate window reads as the page says it.
+    expect(row("Tools running at once").textContent).toBe("Tools running at onceThey share the query engine’s memory.");
+    expect(row("Tools waiting").textContent).toBe("Tools waiting");
+    expect(row("Images at once").textContent).toBe("Images at once");
+    expect(row("Requests per visitor").textContent).toBe("Requests per visitorevery 10 seconds");
+    expect(row("Tile requests per visitor").textContent).toBe("Tile requests per visitorevery 10 seconds");
     expect(row("OpenStreetMap area").textContent).toContain("km²");
     const editable = container.querySelectorAll("input").filter(input => !input.disabled);
     expect(editable).toHaveLength(14);
@@ -141,8 +145,11 @@ describe("Limits", () => {
   });
 
   it("draws the feature cap and the largest image fixed, and a setting the environment pins locked", async () => {
-    pinned = { uploadMaxMb: 8192 };
+    pinned = { uploadMaxMb: 8192, operationConcurrency: 3 };
     await open();
+    // A pinned count reads bare, as the page writes every count.
+    expect(field("Tools running at once").disabled).toBe(true);
+    expect(field("Tools running at once").value).toBe("3");
     expect(field("Features drawn per layer").disabled).toBe(true);
     expect(field("Features drawn per layer").value).toBe("250,000 features");
     expect(row("Features drawn per layer").textContent).toContain("Changes with DEZFIL_RENDER_CAP_FEATURES when the server restarts.");

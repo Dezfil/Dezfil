@@ -1,15 +1,16 @@
 import type { InstanceRead } from "./instance-read";
-import { LIMITS_LABELS, LIMITS_ROW_IDS } from "./limits-table";
-import { formatSettingNumber, type ReadSetting } from "./server-set";
+import { LIMITS_LABELS, LIMITS_ROW_IDS, withShownUnit } from "./limits-table";
+import type { ReadSetting } from "./server-set";
 import { tabAddress } from "./settings-address";
 
 /**
  * System's Server settings table: one row per setting a server variable
  * decides, in the read's order. A setting Limits draws is named by its
- * Limits row, word for word, so the row here and the row it links to read
- * alike; the rest by the read's own label. The value is what the read
- * discloses (an address's scheme and host, whether a key is set, the
- * encryption key's state, a number with its unit), never more.
+ * Limits row, word for word, and its number takes the unit that row
+ * shows, so the row here and the row it links to read alike; the rest by
+ * the read's own label and unit. The value is what the read discloses (an
+ * address's scheme and host, whether a key is set, the encryption key's
+ * state, a number with its unit), never more.
  */
 
 export interface ShownValue {
@@ -56,7 +57,7 @@ export function shownValue(setting: ReadSetting): ShownValue {
     if (!address?.set) return NOT_SET;
     return address.origin ? { text: address.origin, mono: true } : { text: "Set" };
   }
-  if (setting.kind === "number") return { text: `${formatSettingNumber(value)}${setting.unit ? ` ${setting.unit}` : ""}` };
+  if (setting.kind === "number") return { text: withShownUnit(setting.key, value, setting.unit) };
   if (setting.kind === "boolean") return { text: value ? "On" : "Off" };
   if (setting.kind === "list") {
     const items = Array.isArray(value) ? value.map(String) : [];

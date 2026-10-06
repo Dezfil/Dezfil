@@ -2,10 +2,10 @@
 import { useRef, useState } from "react";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { keptValues, useInstanceRead, writeInstanceSettings, type InstanceRead } from "./instance-read";
-import { capacityText, inLabels, LIMITS_CARDS, LIMITS_LABELS, type LimitsCard, type LimitsRow } from "./limits-table";
+import { capacityText, inLabels, LIMITS_CARDS, LIMITS_LABELS, shownUnit, withShownUnit, type LimitsCard, type LimitsRow } from "./limits-table";
 import { SaveUnit, type UnitSnapshot, type Value } from "./save-unit";
 import { useDrawn } from "./settings-land";
-import { formatSettingNumber, serverSetState, unitControlFor, type ReadSetting } from "./server-set";
+import { formatSettingNumber, serverSetState, unitControlFor } from "./server-set";
 import { LockedField, NumberField, RowError, Rows, SettingRow, ValueText } from "./SettingRows";
 import { ResetSlot, SavedMark, SettingsCard } from "./SettingsCard";
 import { useSaveUnit, useUnitFocus } from "./use-save-unit";
@@ -66,8 +66,6 @@ function LimitsCardView({ spec, read, now, onAnswer }: {
   </SettingsCard>;
 }
 
-const withUnit = (setting: ReadSetting) => `${formatSettingNumber(setting.value)}${setting.unit ? ` ${setting.unit}` : ""}`;
-
 function LimitsRowView({ row, now, unit, card, words }: {
   row: LimitsRow; now: InstanceRead; unit: SaveUnit; card: UnitSnapshot; words: (message: string) => string;
 }) {
@@ -77,7 +75,7 @@ function LimitsRowView({ row, now, unit, card, words }: {
   }
   if (row.kind === "image") {
     return <SettingRow id={row.id} label={row.label} meta={row.meta}>
-      <LockedField label={row.label} value={`${formatSettingNumber(now.maxImageDimension)} px per side`} state={{ kind: "fixed", variable: null }} width="m" />
+      <LockedField label={row.label} value={`${formatSettingNumber(now.maxImageDimension)} ${row.unit}`} state={{ kind: "fixed", variable: null }} width="m" />
     </SettingRow>;
   }
   const setting = now.settings[row.key];
@@ -85,13 +83,13 @@ function LimitsRowView({ row, now, unit, card, words }: {
   const decided = serverSetState(setting);
   if (decided) {
     return <SettingRow id={row.id} label={row.label} meta={row.meta}>
-      <LockedField label={row.label} value={withUnit(setting)} state={decided} width="m" />
+      <LockedField label={row.label} value={withShownUnit(row.key, setting.value, setting.unit)} state={decided} width="m" />
     </SettingRow>;
   }
   const range = setting.write?.kind === "integer" ? setting.write : null;
   const error = card.errors[row.key], errorId = `${row.id}-error`;
   return <SettingRow id={row.id} label={row.label} meta={row.meta}>
-    <NumberField label={row.label} unitKey={row.key} value={String(card.values[row.key] ?? "")} unit={setting.unit}
+    <NumberField label={row.label} unitKey={row.key} value={String(card.values[row.key] ?? "")} unit={shownUnit(row.key, setting.unit)}
       min={range?.min} max={range?.max} error={error} errorId={errorId}
       onStep={text => unit.step(row.key, text)} onType={text => unit.edit(row.key, text)} onCommit={() => unit.commit(row.key)} />
     {card.saved.includes(row.key) && <SavedMark />}
