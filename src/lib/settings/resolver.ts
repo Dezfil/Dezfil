@@ -23,6 +23,15 @@ export interface NumericResolutionInput {
   stored?: Readonly<Partial<Record<NumericSettingKey, number | null>>>;
 }
 
+/** Reporting uses the same numeric resolution over one caller-owned store snapshot. */
+export function resolveNumericSettings(input: NumericResolutionInput): Record<string, ResolvedSetting<number>> {
+  return Object.fromEntries(NUMERIC_SETTINGS.map(({ key }) => [key, resolveNumericSetting(key, input)]));
+}
+
+export function settingEnvironment(definition: SettingDefinition): string | undefined {
+  return definition.environment ? process.env[definition.environment] : undefined;
+}
+
 const numericByKey = new Map(NUMERIC_SETTINGS.map(definition => [definition.key, definition]));
 
 /** Environment changes require a deployment restart. Read on each call rather than

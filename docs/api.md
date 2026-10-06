@@ -24,7 +24,7 @@ every documented operation must have a route, and every call the interface
 makes must hit a documented path (`src/lib/api/parity.test.ts`). The
 description cannot drift from the server.
 
-Measured from the current source: **128 paths, 366 operations, 167 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
+Measured from the current source: **129 paths, 369 operations, 168 named component schemas.** Operations include supported automatic HEAD and OPTIONS.
 `npm run lint:contract-docs` measures these numbers and checks the catalogue below
 against the contract; changing only the reader-facing text fails the gate.
 
@@ -400,6 +400,28 @@ the caller, `person` (their own, then each other person's) until they choose
 `project`; the read always carries it, and it is one account's alone.
 Every field in a patch is validated and authorized before any write.
 `/api/palettes` manages saved color palettes.
+
+`GET /api/instance/settings` requires a current admin, through a cookie or
+bearer token, rechecked on every call. Successes and refusals are private,
+no-store. Its `settings` object names every instance and platform key with
+the definition, effective `value`, `source`, `storedValue`, `locked` and
+`invalidOverride`. A non-empty environment override locks the setting;
+an invalid numeric override remains locked on its default without exposing
+the rejected text. Shadowed stored values remain visible. Environment changes
+require a restart. Empty numeric overrides count as absent; a set empty
+assistant model list keeps only the default model.
+
+Provider credentials disclose only `{ set: true }` or `{ set: false }`.
+The encryption key discloses `environment`, `data-directory` or
+`not-yet-present`, without generating or reading a key. Addresses disclose
+only scheme and host as `origin`, or `{ set: true, unreadable: true }`;
+user information, paths, queries and fragments are absent. Contextual
+defaults can carry a `rule`. The read contacts no provider, initializes no
+engine and creates no configuration artifact. `capacities` contains
+`geocodeRows` (at least one) and `isochroneOrigins` (possibly zero), matching
+operation admission without promising a provider. `maxImageDimension` is
+the fixed export maximum; `version` is the package version and `startedAt`
+is the stable process start time.
 
 Built-in and configured basemaps, the palette catalogue, geometry projections,
 the API reference, operation catalogue and offered assistant models are shared

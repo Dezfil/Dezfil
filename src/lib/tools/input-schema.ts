@@ -7,7 +7,7 @@ export interface Parameter {
 export interface InputOperation {
   parameters?: Parameter[];
   requestBody?: { required?: boolean; content?: Record<string, { schema?: unknown }> };
-  'x-tool-input'?: { multipart?: { field: string; filename: string; content: string } };
+  'x-tool-input'?: { closed?: boolean; multipart?: { field: string; filename: string; content: string } };
 }
 export interface InputSchema extends Record<string, unknown> {
   type: 'object'; properties: Record<string, unknown>; required?: string[];
@@ -104,6 +104,7 @@ export function projectInput(operation: InputOperation, schemas: Record<string, 
   const inputSchema: InputSchema = {
     ...typeof projected === 'object' ? projected : { allOf: [projected] },
     type: 'object', properties: { ...properties, ...bodyFields },
+    ...(operation['x-tool-input']?.closed ? { additionalProperties: false } : {}),
     ...required.length || bodyRequired.length ? { required: [...new Set([...required, ...bodyRequired])] } : {},
   };
   return { inputSchema, pathParams, queryParams, headerParams, bodyKeys: upload ? bodyKeys.filter(key => key !== multipart?.filename && key !== multipart?.content) : bodyKeys, upload,

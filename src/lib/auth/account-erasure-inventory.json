@@ -763,6 +763,10 @@
     "memory:instance-settings": {
       "action": "retain",
       "rule": "Keep committed instance numeric limits and process listener registrations. They contain no account content; store owners follow the metadata handle lifetime."
+    },
+    "memory:process-start": {
+      "action": "retain",
+      "rule": "Keep the process start timestamp across route bundles. It contains no account identity or content."
     }
   },
   "tables": {
@@ -5123,6 +5127,55 @@
     "memory:src/lib/metadata/db.ts#metadataDb.error": {
       "stores": [
         "memory:request-closures"
+      ]
+    },
+    "location:src/lib/settings/deployment-read.ts#readDeploymentSetting.status:dataDir": {
+      "stores": [
+        "file:secret-key"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/settings/deployment-read.ts#readDeploymentSetting.status:path.join": {
+      "stores": [
+        "file:secret-key"
+      ],
+      "roots": [
+        "secret.key"
+      ]
+    },
+    "location:src/lib/settings/deployment-read.ts#readDeploymentSetting:dataDir": {
+      "stores": [
+        "data-directory"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-settings.ts#INSTANCE_SETTINGS_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-settings.ts#INSTANCE_SETTINGS_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-settings.ts#address": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-instance-settings.ts#rule": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/settings/process-info.ts#startedAt": {
+      "stores": [
+        "memory:process-start"
       ]
     }
   },

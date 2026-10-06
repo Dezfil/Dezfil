@@ -90,6 +90,17 @@ and view preferences, the source list's grouping among them. Updating the
 instance name requires current admin authority; a forbidden or invalid field
 refuses the entire patch.
 
+`get_instance_settings` reads the admin-only instance configuration through
+`GET /api/instance/settings`. It is a local, read-only operation, admitted
+by the assistant's read-only policies and requiring no confirmation. Its
+input is closed and takes no arguments; unknown arguments are refused before
+HTTP dispatch. The result contains every instance and platform definition,
+effective and stored values, source, lock and invalid-override state, derived
+admission capacities, the fixed image maximum, version and process start time.
+Credentials are presence or key-location states; addresses contain only scheme
+and host, or set-and-unreadable state. The same current-admin checks and
+private, no-store responses apply to direct API calls and tool calls.
+
 Own-account operations generate `get_account`, `update_account`,
 `change_password`, `list_api_tokens`, `create_api_token` and `revoke_api_token`.
 They always address the authenticated caller. Password changes, token creation
@@ -161,9 +172,9 @@ Direct multipart upload uses the separately configured upload limit.
 
 | | |
 |---|---|
-| Documented operations | 366 |
-| Operations that become tools | 141 |
-| Deliberately excluded | 225 |
+| Documented operations | 369 |
+| Operations that become tools | 142 |
+| Deliberately excluded | 227 |
 
 Measured by building the OpenAPI document and the tool set from
 `src/lib/api/openapi.ts` and `src/lib/tools/tools.ts` and counting the

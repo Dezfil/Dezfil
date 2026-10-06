@@ -9,7 +9,8 @@ import {
 } from "@/lib/isochrone/batch";
 import { isochroneConfigured } from "@/lib/isochrone/endpoint";
 import { isochroneUnconfiguredError } from "@/lib/isochrone/provider";
-import { limits } from "@/lib/limits";
+import { maxIsochroneOrigins } from "./provider-capacities";
+export { maxIsochroneOrigins, ATTEMPTS_PER_ORIGIN } from "./provider-capacities";
 import type { DataTable } from "@/lib/metadata/tables";
 import type { OperationDef } from "./catalog";
 import type { CompiledRun } from "./compile";
@@ -39,30 +40,6 @@ export const ISOCHRONE_COLUMNS = [
 /** The protocol's own default maximum (K10): the product does not promise
  * what a stock provider refuses. */
 export const MAX_BANDS = 4;
-
-/** One attempt, then the retry the run allows before a transport failure
- * ends it. Exported so the bound's test can state K9's formula
- * independently of the function that computes it. */
-export const ATTEMPTS_PER_ORIGIN = 2;
-
-/**
- * K9: the bound is derived and counts **origins** — a row costs nothing, an
- * origin costs one request, which may cost the pace or the deadline,
- * whichever is longer, twice. Bands do not enter it: they travel together.
- * Publication keeps one query timeout as its reserve.
- */
-export function maxIsochroneOrigins(): number {
-  const perExchange = Math.max(
-    limits.isochronePaceMs,
-    limits.isochroneRequestTimeoutMs,
-  );
-  const perOrigin = perExchange * ATTEMPTS_PER_ORIGIN;
-  const available = limits.operationTimeoutMs - limits.queryTimeoutMs;
-  // Zero is an answer: a budget that cannot afford one origin's
-  // worst case plus the publication reserve admits nothing, rather than
-  // admitting one run the advertised reserve cannot hold.
-  return Math.max(0, Math.floor(available / Math.max(1, perOrigin)));
-}
 
 /** The travel-time bands, refused on every rule the catalog serves: present, at most four, each a positive whole number of
  * minutes, no duplicates. */

@@ -10,6 +10,7 @@ import { USERS_PATHS, USERS_SCHEMAS } from "./openapi-users";
 import { ACCOUNT_PATHS, ACCOUNT_SCHEMAS } from "./openapi-account";
 import { AUTH_PATHS, AUTH_SCHEMAS, AUTH_SECURITY_SCHEMES } from "./openapi-auth";
 import { settingsContract } from "./openapi-settings";
+import { INSTANCE_SETTINGS_PATHS, INSTANCE_SETTINGS_SCHEMAS } from "./openapi-instance-settings";
 import { QUERY_EXPORT_TICKET } from "./openapi-tool-responses";
 import { LOCAL_ADD, LOCAL_DELETE, LOCAL_READ, LOCAL_TRANSIENT_READ, REMOTE_READ } from "./operation-mcp";
 import { HISTORY_PATHS, HISTORY_SCHEMAS, MCP_PATHS } from "./openapi-mcp";
@@ -137,6 +138,7 @@ export function buildOpenApiDocument() {
       ...AUTH_PATHS,
       ...ACCOUNT_PATHS,
       ...USERS_PATHS,
+      ...INSTANCE_SETTINGS_PATHS,
       ...GEOMETRY_RESOURCE_PATHS,
       "/api/health": {
         get: op({
@@ -820,6 +822,7 @@ export function buildOpenApiDocument() {
         ...WRITTEN_IN_SCHEMAS,
         ...ACCOUNT_SCHEMAS,
         ...USERS_SCHEMAS,
+        ...INSTANCE_SETTINGS_SCHEMAS,
         // Documented as a schema only: the operation that consumes it is
         // the server renderer's feature, and a tool name before that
         // operation exists would hand agents an inert schema and call it

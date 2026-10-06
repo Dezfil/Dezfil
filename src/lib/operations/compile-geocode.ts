@@ -5,7 +5,8 @@ import { ApiError } from "@/lib/api/errors";
 import { publicationSql, removeStage, stageBatch } from "@/lib/geocode/batch";
 import { geocoderConfigured } from "@/lib/geocode/endpoint";
 import { unconfiguredError } from "@/lib/geocode/provider";
-import { limits } from "@/lib/limits";
+import { maxBatchRows } from "./provider-capacities";
+export { maxBatchRows, ATTEMPTS_PER_ROW } from "./provider-capacities";
 import type { DataTable } from "@/lib/metadata/tables";
 import type { OperationDef } from "./catalog";
 import { isTextColumn } from "./column-types";
@@ -39,45 +40,6 @@ export const GEOCODE_COLUMNS = [
   "geocode_attribution",
   "geocode_source",
 ];
-
-/**
- * The largest input this instance will accept, derived from what a row can
- * actually cost.
- *
- * **A row costs the pacing interval or the provider's answer, whichever is
- * longer** — the per-request deadline bounds the second — and the run must also
- * publish inside the same budget, so a reserve is held back for that. The
- * reserve is one query timeout: publication *is* a query, and reserving exactly
- * what a query is allowed to take is a number with a reason rather than a feel.
- *
- * **And a row may cost that twice.** A transport failure is retried once
- * before it fails the run (J8), so a run in which every first exchange burns
- * its deadline and every retry succeeds is a perfectly valid run that spends
- * two slots per row. Budgeting one meant an input admitted *at the advertised
- * maximum* could time out around halfway through — which is the opposite of
- * what a bound is for. Found at the cross-model review.
- *
- * It follows that the bound **does not simply scale with the pace**: against a
- * slow provider the deadline dominates, and lowering the pace alone changes
- * nothing. Both settings move it, which is what makes it a derived bound rather
- * than a disguised constant.
- */
-/** One attempt, then the retry J8 allows before a transport failure ends the
- * run. Exported so the bound's test can state the formula independently of the
- * function that computes it. */
-export const ATTEMPTS_PER_ROW = 2;
-
-export function maxBatchRows(): number {
-  const perExchange = Math.max(
-    limits.geocodePaceMs,
-    limits.geocodeRequestTimeoutMs,
-  );
-  // The retry is part of what a row is allowed to cost, so it is part of what
-  // a row is budgeted at.
-  const perRow = perExchange * ATTEMPTS_PER_ROW;
-  const available = limits.operationTimeoutMs - limits.queryTimeoutMs;
-  return Math.max(1, Math.floor(available / Math.max(1, perRow)));
-}
 
 function refuseGeometry(table: DataTable, label: string): void {
   if (!table.geometryColumn) return;
