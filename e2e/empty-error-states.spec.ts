@@ -205,12 +205,13 @@ test("settings keeps the name locked over data that never arrived", async ({
       return false;
     },
   });
-  await page.goto("/settings");
+  await page.goto("/settings/general");
   const field = page.getByLabel("Display name");
   const instanceField = page.getByLabel("Instance name");
   await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
-  // Account cards only mount after both identity and settings have loaded.
-  // A failed load cannot offer a blind save over missing values.
+  // The tabs and their cards only mount after both identity and settings
+  // have loaded. A failed load cannot offer a blind save over missing values.
+  await expect(page.getByRole("navigation", { name: "Settings" })).toHaveCount(0);
   await expect(field).toHaveCount(0);
   await expect(instanceField).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Save" })).toHaveCount(0);
@@ -218,9 +219,10 @@ test("settings keeps the name locked over data that never arrived", async ({
   // stored value.
   failing = false;
   await page.getByRole("button", { name: "Try again" }).click();
+  await expect(instanceField).toBeEnabled();
+  await page.getByRole("navigation", { name: "Settings" }).getByRole("link", { name: "Account", exact: true }).click();
   await expect(field).toBeEnabled();
   await expect(field).not.toHaveValue("");
-  await expect(instanceField).toBeEnabled();
   // The aborted window's console shadows are the injected fault's own.
   const unexpected = consoleErrors.filter(
     (e) =>

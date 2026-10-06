@@ -10,16 +10,22 @@ import { TokensCard } from "./TokensCard";
 import { WorkspaceCard } from "./WorkspaceCard";
 import { accountRequest, failureMessage } from "./api";
 import { SettingsColumn } from "./SettingsColumn";
-import { resolveSettingsAddress } from "./settings-address";
+import { resolveSettingsAddress, SETTINGS_PATH } from "./settings-address";
 import type { SettingsTabId } from "./settings-tabs";
 import { readLastTab, writeLastTab } from "./last-tab";
 import { landOn } from "./settings-land";
+import { LeaveGuard, type GuardMessage } from "./leave-guard";
+import { watchLeaving } from "./leave-watch";
+import { GuardContext, LeaveDialog } from "./settings-guard";
 import styles from "./SettingsFrame.module.css";
 
 interface Loaded { account: Account; instanceName: string | null }
 /** The tab on screen, the row its address names, and a count of visits
  * so a second visit to the same row lands again. */
 interface Shown { tab: SettingsTabId; anchor: string | null; visit: number }
+interface Asking { message: GuardMessage; settle: (discard: boolean) => void }
+
+const inSettings = (pathname: string) => pathname === SETTINGS_PATH || pathname.startsWith(`${SETTINGS_PATH}/`);
 
 /**
  * The Settings page: the heading, the tab column and the tab beside it.
@@ -27,7 +33,9 @@ interface Shown { tab: SettingsTabId; anchor: string | null; visit: number }
  * them, so a tab change is an address change it follows: it resolves the
  * address against the person's role, corrects the address the browser
  * shows when it names nothing this person can open, remembers the tab
- * for the session and lands on the row the fragment names.
+ * for the session and lands on the row the fragment names. While a card
+ * holds unsaved typed text, leaving the tab (the column, a link, back,
+ * forward, reload, closing) asks first, naming the cards.
  */
 export function SettingsFrame() {
   const pathname = usePathname();
@@ -39,6 +47,28 @@ export function SettingsFrame() {
   /** The address this frame just asked the router for: its arrival is not a new visit. */
   const echo = useRef<string | null>(null);
   const lastTab = useRef<SettingsTabId | null>(null);
+  const [guard] = useState(() => new LeaveGuard());
+  const [asking, setAsking] = useState<Asking | null>(null);
+  /** What the watch reads between renders: the tab and address on screen, and the role. */
+  const here = useRef<{ tab: SettingsTabId | null; address: string | null; admin: boolean }>({ tab: null, address: null, admin: false });
+  const openAddress = useEffectEvent((address: string) => {
+    router.push(address, inSettings(new URL(address, window.location.href).pathname) ? { scroll: false } : undefined);
+  });
+
+  useEffect(() => watchLeaving(window, document, {
+    guard,
+    staysOnTab: url => {
+      if (!here.current.tab) return true;
+      if (!inSettings(url.pathname)) return false;
+      return resolveSettingsAddress({ pathname: url.pathname, hash: url.hash, admin: here.current.admin, lastTab: readLastTab() }).tab === here.current.tab;
+    },
+    here: () => here.current.address ?? window.location.pathname + window.location.hash,
+    ask: () => new Promise<boolean>(settle => {
+      const message = guard.message();
+      if (message) setAsking({ message, settle }); else settle(true);
+    }),
+    open: address => openAddress(address),
+  }), [guard]);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,6 +118,7 @@ export function SettingsFrame() {
       router.replace(place.address, { scroll: false });
     }
     writeLastTab(place.tab);
+    here.current = { tab: place.tab, address: place.address, admin };
     setShown(previous => ({ tab: place.tab, anchor: place.anchor, visit: (previous?.visit ?? 0) + 1 }));
   });
   useEffect(() => { follow(); }, [admin, pathname]);
@@ -111,12 +142,15 @@ export function SettingsFrame() {
     <div className={styles.heading}><h1>Settings</h1></div>
     {error && <ErrorNote message={error} onRetry={() => { setError(null); setAttempt(value => value + 1); }} />}
     {!loaded && !error && <p role="status" className={styles.loading}>Loading settings…</p>}
-    {loaded && shown && <div className={styles.set}>
-      <SettingsColumn admin={loaded.account.isAdmin} current={shown.tab} />
-      <div ref={content} className={styles.content} data-tab={shown.tab}>
-        <TabContent tab={shown.tab} loaded={loaded} />
+    {loaded && shown && <GuardContext.Provider value={guard}>
+      <div className={styles.set}>
+        <SettingsColumn admin={loaded.account.isAdmin} current={shown.tab} />
+        <div ref={content} className={styles.content} data-tab={shown.tab}>
+          <TabContent tab={shown.tab} loaded={loaded} />
+        </div>
       </div>
-    </div>}
+    </GuardContext.Provider>}
+    {asking && <LeaveDialog message={asking.message} onAnswer={discard => { asking.settle(discard); setAsking(null); }} />}
   </div>;
 }
 

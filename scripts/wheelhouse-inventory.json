@@ -360,18 +360,6 @@
     "count": 1
   },
   {
-    "file": "src/components/SettingsScreen.module.css",
-    "rule": "font-size",
-    "value": "12.5px",
-    "count": 2
-  },
-  {
-    "file": "src/components/SettingsScreen.module.css",
-    "rule": "font-size",
-    "value": "13.5px",
-    "count": 1
-  },
-  {
     "file": "src/components/SourceNav.module.css",
     "rule": "color",
     "value": "color-mix(in srgb, #1e6ce0 12%, transparent)",

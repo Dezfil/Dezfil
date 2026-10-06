@@ -455,3 +455,44 @@ describe("the leave guard", () => {
     expect(guard.holding()).toBe(true);
   });
 });
+
+describe("a card that checks its own text before Save", () => {
+  const name: UnitControl = { key: "name", kind: "text" };
+  const email: UnitControl = { key: "email", kind: "text" };
+  function account(server = fakeServer({ name: "Ada", email: "ada@example.test" } as Record<string, Value>), refusalRows = false) {
+    return new SaveUnit({
+      title: "Account", controls: [name, email], write: server.write, refusalRows,
+      kept: { name: "Ada", email: "ada@example.test" },
+      validate: values => {
+        const problems: Record<string, string> = {};
+        if (!String(values.name ?? "").trim()) problems.name = "Enter a display name.";
+        if (!String(values.email ?? "").trim()) problems.email = "Enter your email address.";
+        return problems;
+      },
+    });
+  }
+
+  it("draws the red line under each field its check refuses, sends nothing, and focuses the first", () => {
+    const server = fakeServer(), unit = account(server);
+    unit.edit("name", " ");
+    unit.edit("email", "");
+    unit.save();
+    expect(server.calls).toEqual([]);
+    expect(unit.snapshot.errors).toEqual({ name: "Enter a display name.", email: "Enter your email address." });
+    expect(unit.snapshot.busy).toBe(false);
+    expect(unit.snapshot.saveLine).toBe(true);
+    expect(unit.snapshot.focus).toMatchObject({ to: "field", key: "name" });
+    unit.edit("name", "Ada Lovelace");
+    expect(unit.snapshot.errors).toEqual({ email: "Enter your email address." });
+  });
+
+  it("can keep every refusal as the card's note, even one that uses a field's name as a word", async () => {
+    const server = fakeServer(), unit = account(server);
+    unit.edit("name", "Ada Lovelace");
+    unit.save();
+    server.calls[0].refuse("invalid_request", "Enter a name and email address."); await flush();
+    expect(unit.snapshot.errors).toEqual({});
+    expect(unit.snapshot.note).toEqual({ message: "Enter a name and email address.", retry: false });
+    expect(unit.snapshot.saveLine).toBe(true);
+  });
+});

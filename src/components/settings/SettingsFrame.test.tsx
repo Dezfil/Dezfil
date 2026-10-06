@@ -1,7 +1,7 @@
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { HostElement, installDomHost } from "../testing/dom-host";
+import { HostElement, HostEvent, installDomHost } from "../testing/dom-host";
 import { openPrivateState } from "../auth/private-state";
 import { DISPLAY_NAME_EVENT } from "../UserBadge";
 import { INSTANCE_NAME_EVENT } from "../shell/path-model";
@@ -14,10 +14,10 @@ import { SettingsFrame } from "./SettingsFrame";
  * session reopens. The reads are faked; nothing here reaches a server.
  */
 
-const nav = vi.hoisted(() => ({ pathname: "/settings", hash: "", replace: vi.fn() }));
+const nav = vi.hoisted(() => ({ pathname: "/settings", hash: "", replace: vi.fn(), push: vi.fn() }));
 vi.mock("next/navigation", () => ({
   usePathname: () => nav.pathname,
-  useRouter: () => ({ replace: nav.replace, push: vi.fn(), prefetch: vi.fn() }),
+  useRouter: () => ({ replace: nav.replace, push: nav.push, prefetch: vi.fn() }),
 }));
 vi.mock("next/link", () => ({
   default: ({ href, children, className, "aria-current": current }: {
@@ -40,6 +40,10 @@ function memoryStorage() {
   };
 }
 
+/** The history entry on screen, by its position, as the Navigation API reports it. */
+const entry = { index: 3, listeners: [] as (() => void)[] };
+/** The address the browser shows when it differs from the router's, as after back before the router follows. */
+let browserAddress: string | null = null;
 let host: ReturnType<typeof installDomHost>;
 let root: ReturnType<typeof createRoot>;
 let container: HostElement;
@@ -53,20 +57,36 @@ beforeEach(() => {
     nav.pathname = at < 0 ? address : address.slice(0, at);
     nav.hash = at < 0 ? "" : address.slice(at);
   });
+  nav.push = vi.fn();
+  entry.index = 3; entry.listeners = []; browserAddress = null;
   vi.stubGlobal("sessionStorage", memoryStorage());
   vi.stubGlobal("localStorage", memoryStorage());
-  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     requests.push(url);
     if (url === "/api/account") {
       return Response.json({ account: { id: "ada", name: accountName, email: "ada@example.test", sqlName: "ada", isAdmin: admin } });
     }
     if (url === "/api/settings") return Response.json({ instanceName: "Atlas" });
+    if (url === "/api/account/tokens" && init?.method === "POST") {
+      return Response.json({ id: "t1", name: "CLI", createdAt: "2026-10-01T00:00:00.000Z", lastUsedAt: null, revokedAt: null, secret: "dz_secret_once" });
+    }
     if (url === "/api/account/tokens") return Response.json({ tokens: [] });
     return Response.json({ error: { code: "not_found", message: "Not found." } }, { status: 404 });
   }));
   openPrivateState("ada");
   host = installDomHost();
-  Object.assign(host.window, { location: { get hash() { return nav.hash; }, get pathname() { return nav.pathname; } } });
+  Object.assign(host.window, {
+    location: {
+      get hash() { return nav.hash; }, get pathname() { return nav.pathname; },
+      get href() { return `https://dezfil.example${browserAddress ?? nav.pathname + nav.hash}`; }, origin: "https://dezfil.example",
+    },
+    history: { go: vi.fn() },
+    navigation: {
+      get currentEntry() { return { index: entry.index }; },
+      addEventListener: (_: string, fn: () => void) => { entry.listeners.push(fn); },
+      removeEventListener: (_: string, fn: () => void) => { entry.listeners = entry.listeners.filter(l => l !== fn); },
+    },
+  });
   container = host.document.createElement("div");
   host.document.body.appendChild(container);
   root = createRoot(container as unknown as Element);
@@ -159,7 +179,7 @@ describe("the Settings frame", () => {
     expect(nav.replace).toHaveBeenCalledWith("/settings/tokens#tokens-heading", { scroll: false });
     const card = byId("tokens-heading")!.closest("section")!;
     expect(card.hasAttribute("data-marked")).toBe(true);
-    expect(scrolled).toEqual([""]);
+    expect(scrolled).toEqual(["tokens"]);
   });
 
   it("reopens the tab last open in this browser session at the bare address", async () => {
@@ -206,5 +226,83 @@ describe("the Settings frame", () => {
     nav.pathname = "/settings/tokens"; await follow();
     nav.pathname = "/settings/limits"; await follow();
     expect(column().querySelectorAll('a[aria-current="page"]').map(a => a.textContent)).toEqual(["Limits"]);
+  });
+});
+
+describe("leaving a tab with unsaved text", () => {
+  const dialog = () => host.document.querySelector('[role="dialog"]');
+  const answer = (label: string) => act(async () => {
+    dialog()!.querySelectorAll("button").find(button => button.textContent === label)!.click();
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  const link = (label: string) => column().querySelectorAll("a").find(a => a.textContent === label)!;
+  async function type(label: string, text: string) {
+    const tag = container.querySelectorAll("label").find(element => element.textContent === label)!;
+    const input = (tag.getAttribute("for") ? container.querySelector(`[id="${tag.getAttribute("for")}"]`) : tag.querySelector("input"))!;
+    const key = Object.keys(input).find(name => name.startsWith("__reactProps$"))!;
+    await act(async () => (input as unknown as Record<string, { onChange: (e: unknown) => void }>)[key].onChange({ target: { value: text } }));
+  }
+  const click = (target: HostElement) => act(async () => {
+    const event = new HostEvent("click", { bubbles: true, cancelable: true });
+    target.dispatchEvent(event);
+    return event;
+  });
+
+  it("asks before the column leaves a tab with unsaved typed text, naming the card, and leaves only when told", async () => {
+    await open("/settings/account");
+    await type("Display name", "Ada Lovelace");
+    const held = await click(link("Tokens"));
+    expect(held.defaultPrevented).toBe(true);
+    expect(dialog()?.querySelector("h2")?.textContent).toBe("Discard unsaved changes?");
+    expect(dialog()?.textContent).toContain("Account has changes that are not saved.");
+    await answer("Keep editing");
+    expect(dialog()).toBeNull();
+    expect(nav.push).not.toHaveBeenCalled();
+    expect(byId("account")).not.toBeNull();
+    await click(link("Tokens"));
+    await answer("Discard changes");
+    expect(nav.push).toHaveBeenCalledWith("/settings/tokens", { scroll: false });
+  });
+
+  it("asks while a new token's secret is on screen, in its own words", async () => {
+    await open("/settings/tokens");
+    await type("Token name", "CLI");
+    await act(async () => { container.querySelector("form")!.dispatchEvent(new HostEvent("submit", { bubbles: true, cancelable: true })); });
+    await settle();
+    expect(container.textContent).toContain("Copy this token now.");
+    expect((await click(link("Account"))).defaultPrevented).toBe(true);
+    expect(dialog()?.textContent).toContain("The new token will not be shown again.");
+  });
+
+  it("never asks when nothing typed is unsaved", async () => {
+    await open("/settings/account");
+    expect((await click(link("Tokens"))).defaultPrevented).toBe(false);
+    expect(dialog()).toBeNull();
+  });
+
+  it("holds back: the router is not let follow, the address is put back, and the question asked", async () => {
+    await open("/settings/account");
+    await type("Display name", "Ada Lovelace");
+    // Back: the browser has moved one entry when it says so; the router has not.
+    browserAddress = "/settings/general"; entry.index = 2;
+    for (const fn of entry.listeners) fn();
+    const popstate = { type: "popstate", stopImmediatePropagation: vi.fn() };
+    await act(async () => { host.window.dispatchEvent(popstate); });
+    expect(popstate.stopImmediatePropagation).toHaveBeenCalled();
+    expect((host.window as unknown as { history: { go: ReturnType<typeof vi.fn> } }).history.go).toHaveBeenCalledWith(1);
+    expect(dialog()?.textContent).toContain("Account has changes that are not saved.");
+    expect(byId("account")).not.toBeNull();
+  });
+
+  it("asks the browser's own question on reload or closing while typed text is unsaved", async () => {
+    await open("/settings/account");
+    const quiet = { type: "beforeunload", preventDefault: vi.fn(), returnValue: undefined as unknown };
+    host.window.dispatchEvent(quiet);
+    expect(quiet.preventDefault).not.toHaveBeenCalled();
+    await type("Display name", "Ada Lovelace");
+    const held = { type: "beforeunload", preventDefault: vi.fn(), returnValue: undefined as unknown };
+    host.window.dispatchEvent(held);
+    expect(held.preventDefault).toHaveBeenCalled();
+    expect(held.returnValue).toBe("");
   });
 });

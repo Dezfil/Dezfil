@@ -1,13 +1,14 @@
 "use client";
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { INSTANCE_NAME_EVENT } from "@/components/shell/path-model";
 import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/Field";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { accountRequest, failureMessage } from "./api";
-import styles from "../SettingsScreen.module.css";
+import { cardFormClass, CardActions, LabelledField, Note, SavedMark, SettingsCard } from "./SettingsCard";
 
 export function WorkspaceCard({ name, admin }: { name: string | null; admin: boolean }) {
+  const ids = useId();
   const [instance, setInstance] = useState(name ?? "");
   const [busy, setBusy] = useState(false), [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,17 +21,18 @@ export function WorkspaceCard({ name, admin }: { name: string | null; admin: boo
     } catch (error) { setError(failureMessage(error)); }
     finally { setBusy(false); }
   }
-  return <section className={styles.card} aria-labelledby="instance-heading">
-    <h2 id="instance-heading">Instance</h2>
-    <form className={styles.cardForm} onSubmit={submit}>
-      <label className={styles.field}><span>Instance name</span><TextInput value={instance} disabled={!admin || busy} maxLength={80}
-        onChange={event => { setInstance(event.target.value); setSaved(false); }} /></label>
-      {!admin && <p className={styles.note}>Only admins can change the instance name.</p>}
+  return <SettingsCard title="Instance" headingId="instance-heading">
+    <form className={cardFormClass} onSubmit={submit}>
+      <LabelledField label="Instance name" inputId={`${ids}-name`}>
+        <TextInput id={`${ids}-name`} value={instance} disabled={!admin || busy} maxLength={80}
+          onChange={event => { setInstance(event.target.value); setSaved(false); }} />
+      </LabelledField>
+      {!admin && <Note>Only admins can change the instance name.</Note>}
       {error && <ErrorNote message={error} onDismiss={() => setError(null)} />}
-      {admin && <div className={styles.actions}>
+      {admin && <CardActions>
         <Button type="submit" variant="primary" busy={busy}>Save</Button>
-        {saved && <span className={styles.savedNote} role="status">Saved</span>}
-      </div>}
+        {saved && <SavedMark />}
+      </CardActions>}
     </form>
-  </section>;
+  </SettingsCard>;
 }

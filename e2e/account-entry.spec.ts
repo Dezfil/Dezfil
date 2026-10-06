@@ -104,9 +104,10 @@ test.describe("account entry", () => {
     await expect(rail.getByRole("link", { name: "Browser fixture, account", exact: true })).toHaveCount(0);
     await page.goto("/maps");
     await expect(page.getByRole("button", { name: "Grid view", exact: true })).toHaveAttribute("data-on", "true");
-    await page.goto("/settings");
-    await expect(page.getByLabel("Display name", { exact: true })).toHaveValue("Link recipient");
+    await page.goto("/settings/general");
     await expect(page.getByLabel("Instance name", { exact: true })).toBeDisabled();
+    await page.goto("/settings/account");
+    await expect(page.getByLabel("Display name", { exact: true })).toHaveValue("Link recipient");
     await page.getByLabel("Display name", { exact: true }).fill("Recipient renamed");
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByRole("status")).toHaveText("Saved");
@@ -137,8 +138,11 @@ test.describe("account entry", () => {
       await page.getByRole("button", { name: "Sign in", exact: true }).click();
       await expect(page).toHaveURL(new URL("/", baseURL).href);
       await page.goto("/settings#account");
+      await expect(page).toHaveURL(new URL("/settings/account#account", baseURL).href);
+      const column = page.getByRole("navigation", { name: "Settings" });
       const account = page.getByRole("region", { name: "Account", exact: true });
       const tokens = page.getByRole("region", { name: "API / MCP tokens", exact: true });
+      await expect(account.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
       await account.getByLabel("Display name").fill("Account journey");
       await account.getByRole("button", { name: "Save", exact: true }).click();
       await expect(account.getByRole("status")).toHaveText("Saved");
@@ -146,7 +150,8 @@ test.describe("account entry", () => {
       await expect(account.getByLabel("Display name")).toHaveValue("Account journey");
       const changedEmail = "renamed-entry@example.test";
       await account.getByLabel("Email", { exact: true }).fill(changedEmail);
-      await expect(account.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+      await account.getByRole("button", { name: "Save", exact: true }).click();
+      await expect(account.getByText("Enter your current password to change your email.")).toBeVisible();
       await account.getByLabel("Current password to change email").fill("wrong");
       await account.getByRole("button", { name: "Save", exact: true }).click();
       await expect(account.getByRole("alert")).toContainText("current password");
@@ -155,6 +160,8 @@ test.describe("account entry", () => {
       await account.getByRole("button", { name: "Save", exact: true }).click();
       await expect(account.getByRole("status")).toHaveText("Saved");
       expect((await anonymous.post("/api/auth/sign-in", { headers: { origin }, data: { email, password } })).status()).toBe(401);
+      await column.getByRole("link", { name: "Tokens", exact: true }).click();
+      await expect(page).toHaveURL(new URL("/settings/tokens", baseURL).href);
       await tokens.getByLabel("Token name").fill("Browser CLI");
       await tokens.getByRole("button", { name: "Create token" }).click();
       const secret = await tokens.getByLabel("New token").inputValue();
@@ -162,10 +169,20 @@ test.describe("account entry", () => {
       const bearer = { authorization: `Bearer ${secret}` };
       expect((await anonymous.get("/api/account", { headers: bearer })).status()).toBe(200);
       expect(JSON.stringify(await (await page.request.get("/api/account/tokens")).json())).not.toContain(secret);
+      // The secret is shown once: leaving the tab while it shows asks first.
+      await column.getByRole("link", { name: "Account", exact: true }).click();
+      const leaving = page.getByRole("dialog", { name: "Unsaved changes" });
+      await expect(leaving).toContainText("Discard unsaved changes?");
+      await expect(leaving).toContainText("The new token will not be shown again.");
+      await leaving.getByRole("button", { name: "Keep editing", exact: true }).click();
+      await expect(page).toHaveURL(new URL("/settings/tokens", baseURL).href);
+      await expect(tokens.getByLabel("New token")).toHaveValue(secret);
       await tokens.getByRole("button", { name: "Done", exact: true }).click();
       await expect(tokens.getByLabel("New token")).toHaveCount(0);
       await page.reload();
       await expect(tokens.getByLabel("New token")).toHaveCount(0);
+      await column.getByRole("link", { name: "Account", exact: true }).click();
+      await expect(leaving).toHaveCount(0);
       await account.locator("summary").click();
       await account.getByLabel("Current password", { exact: true }).fill(password);
       await account.getByLabel("New password", { exact: true }).fill("12345678");
@@ -178,6 +195,7 @@ test.describe("account entry", () => {
       expect((await page.request.get("/api/account")).status()).toBe(200);
       expect((await other.get("/api/account")).status()).toBe(401);
       expect((await anonymous.get("/api/account", { headers: bearer })).status()).toBe(200);
+      await column.getByRole("link", { name: "Tokens", exact: true }).click();
       await tokens.getByRole("button", { name: "Revoke Browser CLI" }).click();
       const confirmation = page.getByRole("dialog", { name: "Revoke Browser CLI" });
       await confirmation.getByRole("button", { name: "Revoke token", exact: true }).click();

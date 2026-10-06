@@ -10,7 +10,8 @@
  *   show only while that text differs from what was saved.
  * - Nothing is marked Saved before the server accepted the write, and the
  *   kept value is the one the response reports.
- * - A number out of range is refused before any request. A refusal that
+ * - A number out of range is refused before any request, and so is typed
+ *   text the card's own check refuses on Save. A refusal that
  *   names a row draws the red line under it with the refusal's words and
  *   keeps nothing; any other refusal is the card's error note, with Try
  *   again where trying again can help.
@@ -127,10 +128,16 @@ function same(control: UnitControl, a: Value, b: Value): boolean {
   return control.kind === "number" ? left === right : String(a ?? "") === String(b ?? "");
 }
 
+/** A card's own check of its typed text before Save: the red line for
+ * each field it refuses, by key. */
+export type UnitCheck = (values: Readonly<Record<string, Value>>) => Record<string, string> | null;
+
 export class SaveUnit {
   readonly title: string;
   private readonly controls = new Map<string, UnitControl>();
   private readonly write: Write;
+  private readonly check: UnitCheck | null;
+  private readonly refusalRows: boolean;
   private kept: Record<string, Value> = {};
   private values: Record<string, Value> = {};
   private errors: Record<string, string> = {};
@@ -149,9 +156,18 @@ export class SaveUnit {
   private readonly listeners = new Set<() => void>();
   private current!: UnitSnapshot;
 
-  constructor(options: { title: string; controls: readonly UnitControl[]; kept: Record<string, Value>; write: Write }) {
+  constructor(options: {
+    title: string; controls: readonly UnitControl[]; kept: Record<string, Value>; write: Write;
+    /** Checked on Save before any request. */
+    validate?: UnitCheck;
+    /** False when the server's refusals are written for the whole card (an
+     * account's), so none is read as naming a row: each is the card's note. */
+    refusalRows?: boolean;
+  }) {
     this.title = options.title;
     this.write = options.write;
+    this.check = options.validate ?? null;
+    this.refusalRows = options.refusalRows ?? true;
     for (const control of options.controls) {
       this.controls.set(control.key, control);
       const value = options.kept[control.key] ?? null;
@@ -226,6 +242,13 @@ export class SaveUnit {
       }
     }
     if (!Object.keys(patch).length) return;
+    const problems = Object.entries(this.check?.(this.values) ?? {}).filter(([key]) => this.controls.has(key));
+    if (problems.length) {
+      this.errors = { ...this.errors, ...Object.fromEntries(problems) };
+      this.focusTo("field", problems[0][0]);
+      this.emit();
+      return;
+    }
     this.busy = true;
     this.note = null;
     this.enqueue({ how: "save", patch });
@@ -402,7 +425,7 @@ export class SaveUnit {
   private refused(operation: Operation, failure: unknown): void {
     if (operation.how === "save") this.busy = false;
     const keys = Object.keys(operation.patch);
-    if (failure instanceof WriteRefusal && failure.code === "invalid_request") {
+    if (this.refusalRows && failure instanceof WriteRefusal && failure.code === "invalid_request") {
       const rows = rowRefusals(failure.message, keys);
       if (Object.keys(rows).length) { this.errors = { ...this.errors, ...rows }; return; }
     }
