@@ -7,6 +7,7 @@ import { ErrorNote } from "@/components/ui/ErrorNote";
 import { Dialog } from "@/components/ui/Dialog";
 import { accountRequest, failureMessage } from "./api";
 import { useGuardEntry } from "./settings-guard";
+import { useLiveValue } from "./live-values";
 import { tokenState } from "./settings-index";
 import { useDrawn } from "./settings-land";
 import { cardFormClass, CardActions, LabelledField, Note, SettingsCard } from "./SettingsCard";
@@ -26,6 +27,8 @@ export function TokensCard() {
   // The secret's entry first: when the secret arrives and the name clears in the same render, the page stays held throughout.
   useGuardEntry("tokens-secret", secret !== null, "API / MCP tokens", "The new token will not be shown again.");
   useGuardEntry("tokens-name", secret === null && (name !== "" || creating), "API / MCP tokens");
+  // The name being typed is found by the search; the secret never reports.
+  useLiveValue("set-token-name", name);
   useDrawn(tokens !== null);
   useEffect(() => {
     let cancelled = false;

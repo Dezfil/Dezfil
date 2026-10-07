@@ -9,6 +9,7 @@ import { PasswordField } from "./PasswordField";
 import { settingsWrite } from "./api";
 import { SaveUnit, type Value } from "./save-unit";
 import { useSaveUnit, useUnitFocus } from "./use-save-unit";
+import { useLiveValue } from "./live-values";
 import { cardFormClass, LabelledField, Note, SaveLine, SettingsCard } from "./SettingsCard";
 import styles from "./SettingsCard.module.css";
 
@@ -59,6 +60,9 @@ export function AccountCard({ account }: { account: Account }) {
   useUnitFocus(form, card.focus);
   const changingEmail = normal(card.values.email) !== normal(card.kept.email);
   const text = (key: string) => String(card.values[key] ?? "");
+  // The search finds these rows by what the fields hold now; the passwords never report.
+  useLiveValue("set-display-name", text("name"));
+  useLiveValue("set-email", text("email"));
   const invalid = (key: string) => card.errors[key] ? { "aria-invalid": true, "aria-describedby": `${ids}-${key}-error` } : {};
   return <SettingsCard id="account" title="Account" headingId="account-heading">
     <form ref={form} className={cardFormClass} noValidate onSubmit={event => { event.preventDefault(); unit.save(); }}>

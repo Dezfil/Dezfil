@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Account } from "@/lib/metadata/accounts";
 import { instanceReadFixture } from "./read-fixture";
-import { settingsDeclarations, type IndexSources } from "./settings-index";
+import { settingsDeclarations, withLiveValues, type IndexSources } from "./settings-index";
 import { buildSearchIndex, hitPath, searchSettings, type IndexCard, type SearchHit } from "./settings-search";
 
 /**
@@ -92,6 +92,21 @@ describe("what the search finds", () => {
   });
 });
 
+describe("what the fields on screen hold now", () => {
+  it("finds a row by its field's current text, typed and not yet saved, in place of the served value", () => {
+    const live = new Map([["set-display-name", "Ada Lovelace"], ["set-sign-in-message", "Bring your badge."], ["set-token-name", "Nightly sync"]]);
+    const built = buildSearchIndex(withLiveValues(settingsDeclarations(sources(), true), live), true);
+    expect(paths(searchSettings(built, "lovelace"))).toEqual(["You / Account · Display name"]);
+    expect(searchSettings(built, "lovelace")[0].meta).toBe("Account · Ada Lovelace");
+    expect(searchSettings(built, "badge")[0].meta).toBe("Sign-in · Bring your badge.");
+    expect(paths(searchSettings(built, "nightly"))).toEqual(["You / Tokens · Token name"]);
+    // The served text no longer stands for a field that holds other text now.
+    expect(paths(searchSettings(built, "work email"))).not.toContain("Instance / General · Message");
+    // A row no field registered keeps its served value.
+    expect(paths(searchSettings(built, "atlas north"))).toContain("Instance / General · Instance name");
+  });
+});
+
 describe("what a member's search holds", () => {
   it("holds only the member's tabs: never Limits, System or Users", () => {
     const member = index(false, { instance: null });
@@ -126,6 +141,18 @@ describe("what the search never reads", () => {
     expect(JSON.stringify(seededIndex)).not.toMatch(/seeded|dz_/);
     // The rest of the card is still found.
     expect(searchSettings(seededIndex, "display").map(hitPath)).toEqual(["You / Account · Display name"]);
+  });
+
+  it("never reads a password or a token secret registered as a field's current text", () => {
+    const live = new Map([
+      ["set-current-password", PASSWORD], ["set-new-password", PASSWORD], ["set-current-password-email", PASSWORD],
+      ["tokens-secret", SECRET], ["set-display-name", "Ada Lovelace"],
+    ]);
+    const built = buildSearchIndex(withLiveValues(settingsDeclarations(sources(), true), live), true);
+    expect(JSON.stringify(built)).not.toMatch(/seeded|dz_/);
+    for (const query of [PASSWORD, SECRET, "seeded", "dz_"]) expect(searchSettings(built, query).map(hitPath)).toEqual([]);
+    // The plain field registered beside them is found by what it holds.
+    expect(paths(searchSettings(built, "lovelace"))).toEqual(["You / Account · Display name"]);
   });
 
   it("keeps a token's secret out even when the token's record carries one", () => {

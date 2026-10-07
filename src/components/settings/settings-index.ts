@@ -104,6 +104,19 @@ function systemCards(read: InstanceRead, health: IndexSources["health"], assista
   ];
 }
 
+/** The declarations with what the text fields on screen hold now in place
+ * of each row's served value. A row its tab declares secret stays out of
+ * the index whatever is reported under it: the index drops it, its value
+ * and its name. */
+export function withLiveValues(tabs: TabDeclarations, live: ReadonlyMap<string, string>): TabDeclarations {
+  if (!live.size) return tabs;
+  const out: TabDeclarations = {};
+  for (const [tab, cards] of Object.entries(tabs) as [keyof TabDeclarations, TabDeclarations[keyof TabDeclarations]][]) {
+    out[tab] = cards?.map(card => ({ ...card, rows: card.rows.map(row => live.has(row.id) ? { ...row, value: live.get(row.id) } : row) }));
+  }
+  return out;
+}
+
 /** Every tab's declaration this person's search may hold, from what has been read so far. */
 export function settingsDeclarations(sources: IndexSources, admin: boolean): TabDeclarations {
   const general = admin && sources.instance

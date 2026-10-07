@@ -7,6 +7,7 @@ import { keptValues, writeInstanceSettings } from "./instance-read";
 import { SaveUnit, type Value } from "./save-unit";
 import { unitControlFor, type ReadSetting } from "./server-set";
 import { useSaveUnit, useUnitFocus } from "./use-save-unit";
+import { useLiveValue } from "./live-values";
 import { cardFormClass, LabelledField, Note, SaveLine, SettingsCard } from "./SettingsCard";
 
 /** The Instance card: this instance's name, beside the wordmark and in
@@ -33,6 +34,7 @@ function AdminInstance({ setting }: { setting: ReadSetting }) {
   const root = useRef<HTMLElement>(null);
   const [unit, card] = useSaveUnit("card-instance", () => instanceUnit(setting));
   useUnitFocus(root, card.focus);
+  useLiveValue("set-instance-name", String(card.values.instanceName ?? ""));
   const error = card.errors.instanceName;
   return <SettingsCard ref={root} id="card-instance" title="Instance" headingId="instance-heading">
     <form className={cardFormClass} noValidate onSubmit={event => { event.preventDefault(); unit.save(); }}>

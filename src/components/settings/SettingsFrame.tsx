@@ -22,6 +22,7 @@ import { LeaveGuard, type GuardMessage } from "./leave-guard";
 import { watchLeaving, type LeaveWatch } from "./leave-watch";
 import { keepTraversals, letTraversalGo, takeTraversals } from "@/components/auth/kept-traversals";
 import { GuardContext, LeaveDialog } from "./settings-guard";
+import { LiveContext, LiveValues } from "./live-values";
 import styles from "./SettingsFrame.module.css";
 
 interface Loaded { account: Account }
@@ -62,7 +63,8 @@ export function SettingsFrame() {
   const leaving = useRef<LeaveWatch | null>(null);
   /** What the watch reads between renders: the tab on screen, and the role. */
   const here = useRef<{ tab: SettingsTabId | null; admin: boolean }>({ tab: null, admin: false });
-  const search = useSettingsSearch(loaded?.account ?? null);
+  const [live] = useState(() => new LiveValues());
+  const search = useSettingsSearch(loaded?.account ?? null, live);
   const [landing, setLanding] = useState<Landing | null>(null);
   /** A row an address or a hit named that its tab has not drawn yet. */
   const pending = useRef<string | null>(null);
@@ -180,7 +182,7 @@ export function SettingsFrame() {
     <div className={styles.heading}><h1>Settings</h1></div>
     {error && <ErrorNote message={error} onRetry={() => { setError(null); setAttempt(value => value + 1); }} />}
     {!loaded && !error && <p role="status" className={styles.loading}>Loading settings…</p>}
-    {loaded && shown && <GuardContext.Provider value={guard}><DrawnContext.Provider value={drawn}>
+    {loaded && shown && <GuardContext.Provider value={guard}><LiveContext.Provider value={live}><DrawnContext.Provider value={drawn}>
       <div className={styles.set}>
         <SettingsColumn admin={loaded.account.isAdmin} current={search.searching ? null : shown.tab}
           search={<SearchField value={search.query} inputRef={search.field} onQuery={search.onQuery} onKeyDown={event => search.fieldKeys(event, choose)} />} />
@@ -193,7 +195,7 @@ export function SettingsFrame() {
             onChoose={choose} onField={search.focusField} />}
         </div>
       </div>
-    </DrawnContext.Provider></GuardContext.Provider>}
+    </DrawnContext.Provider></LiveContext.Provider></GuardContext.Provider>}
     {asking && <LeaveDialog message={asking.message} onAnswer={discard => { asking.settle(discard); setAsking(null); }} />}
   </div>;
 }

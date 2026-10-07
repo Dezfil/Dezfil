@@ -209,6 +209,20 @@ describe("the Settings search", () => {
     expect(answer()).toBeUndefined();
   });
 
+  it("finds a field by the text typed in it and not yet saved", async () => {
+    await open("/settings/account");
+    await type("Display name", "Ada Lovelace");
+    await find("lovelace");
+    expect(lines()).toEqual(["You / Account · Display name"]);
+    expect(metas()).toEqual(["Account · Ada Lovelace"]);
+    await find("");
+    await arrive("/settings/general");
+    await type("Message", "Bring your badge.");
+    await find("badge");
+    expect(lines()).toEqual(["Instance / General · Message"]);
+    expect(metas()).toEqual(["Sign-in · Bring your badge."]);
+  });
+
   it("opens a hit's tab and marks its row once the tab's read has drawn it", async () => {
     await open("/settings/account");
     await find("rows shown");
@@ -296,6 +310,9 @@ describe("what the search never finds", () => {
       await find(query);
       expect(lines()).toEqual([]);
     }
+    // The email typed beside them is found by what it holds now.
+    await find("ada.okafor");
+    expect(lines()).toEqual(["You / Account · Email"]);
     // The fields themselves are not listed; the disclosure that holds them is.
     await find("new password");
     expect(lines()).toEqual(["You / Account · Change password"]);
