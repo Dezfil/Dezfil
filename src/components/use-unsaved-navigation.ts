@@ -4,14 +4,14 @@ import { ACCOUNT_CHANGED_EVENT } from "./auth/private-state";
 import { takeTraversals } from "./auth/kept-traversals";
 
 /** Native navigation owns the browser's unsaved-work warning, including Back:
- * the page takes Back and Forward itself, so the private workspace stands
- * aside and the person may still stay. Account retirement bypasses it:
- * private workspace state is already gone. */
+ * the page takes Back and Forward itself, so the private workspace stops
+ * the step before the router hears it and hands it here, and the person
+ * may still stay. Account retirement bypasses it: private workspace state
+ * is already gone. */
 export function useUnsavedNavigation(unsaved: boolean) {
   useEffect(() => {
     if (!unsaved) return;
     let retired = false;
-    const letGo = takeTraversals(() => !retired);
     const unload = (event: BeforeUnloadEvent) => {
       if (retired) return;
       event.preventDefault(); event.returnValue = "";
@@ -24,11 +24,12 @@ export function useUnsavedNavigation(unsaved: boolean) {
       event.preventDefault(); event.stopImmediatePropagation();
       window.location.assign(link.href);
     };
-    const pop = (event: PopStateEvent) => {
+    const pop = (event: Event) => {
       if (retired) return;
       event.stopImmediatePropagation();
       window.location.reload();
     };
+    const letGo = takeTraversals(() => !retired, pop);
     window.addEventListener("beforeunload", unload);
     window.addEventListener(ACCOUNT_CHANGED_EVENT, account);
     window.addEventListener("popstate", pop, true);

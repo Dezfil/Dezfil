@@ -18,8 +18,9 @@
  *   while the tab holds.
  * - A step past the tab (a jump of several entries from the browser's
  *   history list, or a second Back while the question is open): the page
- *   takes it, so neither the private workspace nor the router hears it,
- *   and asks. Keep editing puts the tab's address back: to the extra
+ *   takes it. The private workspace, whose listener runs before the
+ *   router's, stops it there and hands it over, so the router never
+ *   restores the arrival's route, and the page asks. Keep editing puts the tab's address back: to the extra
  *   entry, where the browser reports how far away it is, else as new
  *   entries, the tab's own with the router's state and the extra one on
  *   top. Discard hands the step to the private workspace, which ends the
@@ -65,6 +66,9 @@ export interface LeaveWatch {
   /** Whether the page takes the Back or Forward that just happened itself:
    * a step past the tab it holds, or its own step back to it. */
   takes(): boolean;
+  /** Handles a step it takes, handed over by the private workspace before
+   * the router hears it: asks, or settles its own step back. */
+  take(event: Event): void;
   stop(): void;
 }
 
@@ -205,7 +209,9 @@ export function watchLeaving(win: Window, doc: Document, options: LeaveWatchOpti
     question(discard => { if (!onTab()) settle(discard); else if (discard) go(addressOf(url)); });
   };
 
-  /** Heard before the router: the steps the page takes go no further. */
+  /** A step the page takes goes no further. The private workspace hands
+   * it over before the router hears it; outside one, the page's own
+   * listener hears it. */
   const onTake = (event: Event) => {
     if (returned()) {
       // Back on the extra entry: the router never heard the step out, so it hears nothing of this one.
@@ -313,6 +319,7 @@ export function watchLeaving(win: Window, doc: Document, options: LeaveWatchOpti
     takes() {
       return returned() || pastTab();
     },
+    take: onTake,
     stop() {
       stopped = true;
       // Put the replace back unless something wrapped it since; this one marks nothing once stopped.

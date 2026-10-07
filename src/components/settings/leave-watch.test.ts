@@ -10,9 +10,11 @@ import { openPrivateState } from "../auth/private-state";
  * fake session history: entries with their state, a push that drops what
  * lay ahead, and back and forward that move only when the test lets them,
  * telling every listener in turn as a browser does, until one stops the
- * step. The private workspace is heard before the watch, as its capture
- * listener is, and asks whether the page keeps or takes the step; the
- * router is heard after it, so it hears only what nobody stopped.
+ * step. A browser runs a window's popstate listeners in the order they
+ * were added, capture or not, and the app adds them in this order: the
+ * private workspace's, the router's, then the page's own, which mounts
+ * later. So only the workspace can stop a step before the router hears
+ * it, and a step the router hears is one the page has already followed.
  */
 
 type Listener = (event: never) => void;
@@ -131,29 +133,38 @@ function deferred() {
 const tabOf = (url: URL) => url.pathname.startsWith("/settings/") ? url.pathname.split("/")[2] : url.pathname;
 
 /**
- * Watch the tab on screen. The private workspace asks first whether the
- * page keeps or takes the traversal; whether it still keeps it is asked
- * again after the watch has heard the step, where the router hears it,
- * since the page's own bookkeeping must not change that answer.
+ * Watch the tab on screen, the window's listeners added in the app's
+ * order. First the private workspace: it asks whether the page keeps or
+ * takes the traversal, and hands a step the page takes to the page,
+ * stopped there. Then the router, which follows the step it hears, as
+ * the frame follows the router, so the tab on screen becomes the
+ * arrival's. Then the page's own. Whether the page still keeps a step is
+ * asked again last, since its own bookkeeping must not change that answer.
  */
 function watch(browser: ReturnType<typeof fakeBrowser>, { holding = true } = {}) {
   const guard = fakeGuard();
   const { ask, answer } = deferred();
   const open = vi.fn(), end = vi.fn();
-  const shown = browser.address;
+  let shown = browser.address;
   const kept: [boolean, boolean][] = [];
   /** Whether the page took each step, as the workspace heard it. */
   const taken: boolean[] = [];
   /** The addresses the router heard a step arrive at. */
   const router = vi.fn<(address: string) => void>();
   let first = false;
-  browser.win.addEventListener("popstate", (() => { first = page.keeps(); taken.push(page.takes()); }) as Listener);
+  browser.win.addEventListener("popstate", ((event: Step) => {
+    first = page.keeps();
+    const took = page.takes();
+    taken.push(took);
+    if (took) { event.stopImmediatePropagation(); page.take(event as unknown as Event); }
+  }) as Listener);
+  browser.win.addEventListener("popstate", (() => { router(browser.address); shown = browser.address; }) as Listener);
   const page = watchLeaving(browser.win as unknown as Window, browser.doc as unknown as Document, {
     guard,
     staysOnTab: url => tabOf(url) === tabOf(new URL(ORIGIN + shown)),
     ask, open, end,
   });
-  browser.win.addEventListener("popstate", (() => { kept.push([first, page.keeps()]); router(browser.address); }) as Listener);
+  browser.win.addEventListener("popstate", (() => { kept.push([first, page.keeps()]); }) as Listener);
   if (holding) guard.hold(true);
   return { guard, ask, answer, open, end, page, kept, taken, router };
 }
@@ -510,9 +521,9 @@ describe("reload and closing", () => {
     const before = browser.count();
     expect(tab.guard.listening).toBe(1);
     tab.page.stop();
-    // Only the test's own two popstate listeners remain.
-    expect(browser.count()).toBe(2);
-    expect(before).toBeGreaterThan(2);
+    // Only the test's own three popstate listeners remain: the workspace's, the router's and the last look.
+    expect(browser.count()).toBe(3);
+    expect(before).toBeGreaterThan(3);
     expect(tab.guard.listening).toBe(0);
   });
 });
@@ -536,15 +547,17 @@ describe("held by the private workspace", () => {
     const stopWorkspace = watchPrivateWorkspace("alice", ready);
     await reads();
     expect(ready).toHaveBeenLastCalledWith(true);
-    // The page, wired as the Settings frame wires it, and the router heard after both.
+    // The router, added after the workspace and before the page, follows what it hears: the tab on screen becomes the arrival's.
+    let routed = "account";
+    const router = vi.fn(() => { routed = tabOf(new URL(browser.win.location.href)); });
+    browser.win.addEventListener("popstate", router as Listener);
+    // The page, wired as the Settings frame wires it.
     const guard = fakeGuard();
     const { ask, answer } = deferred();
     const page = watchLeaving(browser.win as unknown as Window, browser.doc as unknown as Document, {
-      guard, staysOnTab: url => tabOf(url) === "account", ask, open: vi.fn(), end: () => { letTraversalGo(); },
+      guard, staysOnTab: url => tabOf(url) === routed, ask, open: vi.fn(), end: () => { letTraversalGo(); },
     });
-    const letKeep = keepTraversals(page.keeps), letTake = takeTraversals(page.takes);
-    const router = vi.fn();
-    browser.win.addEventListener("popstate", router as Listener);
+    const letKeep = keepTraversals(page.keeps), letTake = takeTraversals(page.takes, page.take);
     try {
       guard.hold(true);
       browser.traverse(-3);
@@ -582,11 +595,14 @@ describe("held by the private workspace", () => {
     const ready = vi.fn();
     const stopWorkspace = watchPrivateWorkspace("alice", ready);
     await reads();
+    let routed = "account";
+    const router = vi.fn(() => { routed = tabOf(new URL(browser.win.location.href)); });
+    browser.win.addEventListener("popstate", router as Listener);
     const guard = fakeGuard();
     const page = watchLeaving(browser.win as unknown as Window, browser.doc as unknown as Document, {
-      guard, staysOnTab: url => tabOf(url) === "account", ask: deferred().ask, open: vi.fn(), end: () => { letTraversalGo(); },
+      guard, staysOnTab: url => tabOf(url) === routed, ask: deferred().ask, open: vi.fn(), end: () => { letTraversalGo(); },
     });
-    const letKeep = keepTraversals(page.keeps), letTake = takeTraversals(page.takes);
+    const letKeep = keepTraversals(page.keeps), letTake = takeTraversals(page.takes, page.take);
     try {
       guard.hold(true);
       // Another account signed in, with no notice reaching this tab.
@@ -596,6 +612,7 @@ describe("held by the private workspace", () => {
       expect(browser.win.location.replace).toHaveBeenCalledWith(`${ORIGIN}/maps`);
       expect(browser.doc.documentElement.hidden).toBe(true);
       expect(ready).toHaveBeenLastCalledWith(false);
+      expect(router).not.toHaveBeenCalled();
     } finally { letKeep(); letTake(); page.stop(); stopWorkspace(); }
   });
 });

@@ -12,18 +12,25 @@
  * text away. A keeper answers for the traversal that just happened, from
  * the address the browser now shows.
  *
- * A page with unsaved work may take Back and Forward itself: it stops the
- * step, asks, and the person may still choose to stay on the page as it
- * is. The workspace stands aside for it rather than ending the document
- * before the question is asked. A page that took a step and lets it go on
- * hands it back, and the workspace ends the document at the address the
- * browser shows, as it does for any step nobody keeps.
+ * A page with unsaved work may take Back and Forward itself: the step is
+ * stopped, the page asks, and the person may still choose to stay on the
+ * page as it is. A browser runs a window's popstate listeners in the
+ * order they were added, capture or not, and the router adds its own
+ * after the workspace's and before any page's, which mounts later; so
+ * only the workspace can stop a step before the router restores the
+ * route it arrived at. It stops a taken step there and hands it to the
+ * page that took it, rather than ending the document before the question
+ * is asked. A page that took a step and lets it go on hands it back, and
+ * the workspace ends the document at the address the browser shows, as
+ * it does for any step nobody keeps.
  */
 
 type Claim = () => boolean;
+/** How a page handles a step it takes: the step, already stopped before the router. */
+type Take = (event: Event) => void;
 
 const keepers = new Set<Claim>();
-const takers = new Set<Claim>();
+const takers = new Set<{ readonly claim: Claim; readonly take: Take }>();
 const enders = new Set<() => void>();
 
 function claim(claims: Set<Claim>, answer: Claim): () => void {
@@ -48,14 +55,26 @@ export function traversalKept(): boolean {
   return claimed(keepers);
 }
 
-/** Take Back and Forward while the page asks its own question or the browser's; the returned function lets go. */
-export function takeTraversals(taker: Claim): () => void {
-  return claim(takers, taker);
+/** Take Back and Forward while the page asks its own question or the
+ * browser's: `take` handles each step `claim` claims. The returned
+ * function lets go. */
+export function takeTraversals(claim: Claim, take: Take): () => void {
+  const taker = { claim, take };
+  takers.add(taker);
+  return () => { takers.delete(taker); };
+}
+
+/** How the page on screen handles the traversal that just happened, when it takes it; null when no page does. */
+export function traversalTaker(): Take | null {
+  for (const taker of takers) {
+    try { if (taker.claim()) return taker.take; } catch { /* a claim that fails claims nothing */ }
+  }
+  return null;
 }
 
 /** Whether a page on screen takes the traversal that just happened itself. */
 export function traversalTaken(): boolean {
-  return claimed(takers);
+  return traversalTaker() !== null;
 }
 
 /** How the document ends on a step nobody keeps, offered by the private

@@ -92,27 +92,31 @@ it("lets a Back or Forward the page keeps reach every listener, the router's inc
     expect(doc.documentElement.hidden).toBe(false); expect(ready).toHaveBeenLastCalledWith(true);
   } finally { letGo(); win.removeEventListener("popstate", router); }
 });
-it("stands aside for a page that takes Back and Forward itself, so the browser's question can still keep the page", async () => {
+it("stops a step a page takes before the router hears it and hands it to that page, ending nothing", async () => {
   const ready = vi.fn(); dispose = watchPrivateWorkspace("alice", ready); await flush();
-  // The page's own listener, in the capture phase after the workspace's: it stops the step and reloads.
-  const page = vi.fn((event: Event) => { event.stopImmediatePropagation(); });
+  // Listeners on the window run in the order they were added, capture or not: the router's is added after the
+  // workspace's and before the page's own, which mounts later.
   const router = vi.fn();
-  win.addEventListener("popstate", page, true);
+  const page = vi.fn((event: Event) => { event.stopImmediatePropagation(); });
   win.addEventListener("popstate", router);
-  const letGo = takeTraversals(() => true);
+  win.addEventListener("popstate", page, true);
+  const take = vi.fn();
+  const letGo = takeTraversals(() => true, take);
   try {
-    win.dispatchEvent(new Event("popstate"));
-    expect(page).toHaveBeenCalledOnce();
+    const step = new Event("popstate");
+    win.dispatchEvent(step);
+    expect(take).toHaveBeenCalledExactlyOnceWith(step);
     expect(router).not.toHaveBeenCalled();
+    expect(page).not.toHaveBeenCalled();
     expect(win.location.replace).not.toHaveBeenCalled();
     expect(doc.documentElement.hidden).toBe(false); expect(ready).toHaveBeenLastCalledWith(true);
-  } finally { letGo(); win.removeEventListener("popstate", page, true); win.removeEventListener("popstate", router); }
+  } finally { letGo(); win.removeEventListener("popstate", router); win.removeEventListener("popstate", page, true); }
 });
 it.each(["keeps", "takes"] as const)("reads the session for a Back or Forward the page %s, and ends the document when another account is signed in", async how => {
   const transport = vi.fn<typeof fetch>(async () => Response.json({ account: { id: "alice" } }));
   win.fetch = transport;
   const ready = vi.fn(); dispose = watchPrivateWorkspace("alice", ready); await flush();
-  const letGo = (how === "keeps" ? keepTraversals : takeTraversals)(() => true);
+  const letGo = how === "keeps" ? keepTraversals(() => true) : takeTraversals(() => true, () => {});
   try {
     // The session changed with no notice reaching this tab.
     transport.mockImplementation(async () => Response.json({ account: { id: "bob" } }));

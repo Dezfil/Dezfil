@@ -94,7 +94,7 @@ export function SettingsFrame() {
       end: () => { if (!letTraversalGo()) window.location.replace(window.location.href); },
     });
     leaving.current = watch;
-    const letKeep = keepTraversals(watch.keeps), letTake = takeTraversals(watch.takes);
+    const letKeep = keepTraversals(watch.keeps), letTake = takeTraversals(watch.takes, watch.take);
     return () => { letKeep(); letTake(); watch.stop(); leaving.current = null; };
   }, [guard]);
 

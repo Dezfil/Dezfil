@@ -1,6 +1,6 @@
 import { ACCOUNT_CHANGED_EVENT, ACCOUNT_STORAGE_KEY, closePrivateState, openPrivateState } from "./private-state";
 import { privateFetch } from "./private-fetch";
-import { endTraversalsWith, traversalKept, traversalTaken } from "./kept-traversals";
+import { endTraversalsWith, traversalKept, traversalTaker } from "./kept-traversals";
 
 /** A document belongs to one account. A change ends that document, so Next's
  * route cache, React state, module caches and pending downloads cannot become
@@ -40,11 +40,14 @@ export function watchPrivateWorkspace(accountId: string, ready: (value: boolean)
   const focus = () => { void check(); };
   // A Back or Forward restores a cached route, unless the page on screen
   // keeps it on what it already shows, or takes it itself to ask first.
-  // Every other one ends the document, stopped before anyone else hears
-  // it, so the router never starts restoring a route the reload throws
-  // away. A capture listener on the window runs before its other
-  // listeners, the router's included. A page that took a step and lets
-  // it go on hands it back here.
+  // A browser runs a window's popstate listeners in the order they were
+  // added, capture or not; this one is added before the router's (the
+  // workspace's effect runs before the app router's), so it is the one
+  // place a step can be stopped before the router restores a route. A
+  // step nobody keeps or takes ends the document, stopped here, so the
+  // router never starts restoring a route the reload throws away. A step
+  // a page takes is stopped here too and handed to the page; a page that
+  // took a step and lets it go on hands it back to the reload.
   //
   // A step kept or taken stays in this document, so the session is read
   // for it as on focus, and a changed or ended account ends the document
@@ -52,7 +55,9 @@ export function watchPrivateWorkspace(accountId: string, ready: (value: boolean)
   // that was not there a moment before, so the page stays shown while
   // the session is read.
   const popstate = (event: Event) => {
-    if (traversalKept() || traversalTaken()) { void check(false); return; }
+    const take = traversalTaker();
+    if (take) { event.stopImmediatePropagation(); void check(false); take(event); return; }
+    if (traversalKept()) { void check(false); return; }
     event.stopImmediatePropagation();
     reload();
   };

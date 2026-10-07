@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { installDomHost, type HostElement } from "./testing/dom-host";
 import { useUnsavedNavigation } from "./use-unsaved-navigation";
-import { traversalTaken } from "./auth/kept-traversals";
+import { traversalTaken, traversalTaker } from "./auth/kept-traversals";
 import { ACCOUNT_CHANGED_EVENT } from "./auth/private-state";
 
 /**
@@ -47,6 +47,11 @@ it("takes Back and Forward only while work is unsaved, and lets go once the acco
   host.window.dispatchEvent(step);
   expect(step.stopImmediatePropagation).toHaveBeenCalledOnce();
   expect(reload).toHaveBeenCalledOnce();
+  // The private workspace, heard before the router, hands it the step it takes: the same stop and reload.
+  const handed = { type: "popstate", stopImmediatePropagation: vi.fn() };
+  traversalTaker()!(handed as unknown as Event);
+  expect(handed.stopImmediatePropagation).toHaveBeenCalledOnce();
+  expect(reload).toHaveBeenCalledTimes(2);
   await act(async () => root.render(<Page unsaved={false} />));
   expect(traversalTaken()).toBe(false);
   await act(async () => root.render(<Page unsaved />));
