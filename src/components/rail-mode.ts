@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useSyncExternalStore } from "react";
+import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
 import { lookChoices } from "@/lib/look";
 
 /**
@@ -60,4 +60,12 @@ export function readRailShift(): number {
   if (typeof window === "undefined" || typeof window.getComputedStyle !== "function") return 0;
   const value = Number.parseFloat(window.getComputedStyle(document.documentElement).getPropertyValue("--rail-shift"));
   return Number.isFinite(value) ? value : 0;
+}
+
+/** The shift as the pick on the root has it, read again whenever the pick
+ * changes: zero until hydration and under the two picks that add nothing,
+ * so the first client render agrees with the server's. */
+export function useRailShift(): number {
+  const mode = useRailMode();
+  return useMemo(() => (mode === "open" ? readRailShift() : 0), [mode]);
 }

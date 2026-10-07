@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BOTH_FROM, CLOSED_SLOT, HELPER_OFFSET, MAP_MINIMUM, THREE_PANE_CHROME,
-  bandOf, closeHelper, crossBand, openHelper, stageOffsets, visible,
+  bandLimits, bandOf, closeHelper, crossBand, openHelper, stageOffsets, visible,
 } from "./helper-bands";
 
 /**
@@ -25,6 +25,26 @@ describe("the three bands", () => {
     expect(bandOf(1859)).toBe("one");
     expect(bandOf(1860)).toBe("both");
     expect(bandOf(1920)).toBe("both");
+  });
+});
+
+describe("the bands beside the always-open rail", () => {
+  /** What the rail standing open adds to the chrome: 210 px open less the 54 px collapsed. */
+  const SHIFT = 156;
+  it("keep the map's 700 px with both docked: one helper just under 1860 plus the shift", () => {
+    expect(bandOf(BOTH_FROM + SHIFT - 1, SHIFT)).toBe("one");
+    expect(bandOf(1920, SHIFT)).toBe("one");
+    expect(bandOf(BOTH_FROM + SHIFT, SHIFT)).toBe("both");
+    expect(bandLimits(SHIFT).bothFrom - (THREE_PANE_CHROME + SHIFT)).toBe(MAP_MINIMUM);
+  });
+  it("move the overlay limit up by the same shift", () => {
+    expect(bandOf(1120 + SHIFT, SHIFT)).toBe("overlay");
+    expect(bandOf(1121 + SHIFT, SHIFT)).toBe("one");
+    expect(bandLimits(SHIFT)).toEqual({ overlayAtMost: 1120 + SHIFT, bothFrom: 1860 + SHIFT });
+  });
+  it("stay where they are with no shift, the other two picks", () => {
+    expect(bandLimits(0)).toEqual({ overlayAtMost: 1120, bothFrom: 1860 });
+    expect([bandOf(1120, 0), bandOf(1121, 0), bandOf(1859, 0), bandOf(1860, 0)]).toEqual(["overlay", "one", "one", "both"]);
   });
 });
 

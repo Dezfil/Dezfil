@@ -53,9 +53,12 @@ export function RecipeDrawerHost({
   selectedLayerId,
   onWorkspaceChange,
   onLayerMade,
+  overlay,
   hidden = false,
 }: {
   state: RecipeDrawerState;
+  /** The slot's band puts the drawer over the stage, not beside it. */
+  overlay: boolean;
   /** The map being built; null before it has loaded. */
   map: MapWithLayers | null;
   /**
@@ -130,7 +133,7 @@ export function RecipeDrawerHost({
           drawer open — it is how the drawer opens. It replaced the
           recipe index at the cutover. */}
       <ToolsControlPortal state={state} selectedLayerId={selectedLayerId ?? null} hidden={hidden} />
-      <RecipeDrawer state={state} name="Tools" onDismiss={state.close} hidden={hidden}>
+      <RecipeDrawer state={state} name="Tools" onDismiss={state.close} overlay={overlay} hidden={hidden}>
         {map && (
           <DrawerContents
             // **Keyed by the authoring session, not by the recipe id.**

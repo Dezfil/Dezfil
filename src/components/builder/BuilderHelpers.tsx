@@ -62,6 +62,7 @@ export function BuilderHelpers({
         selectedLayerId={selectedLayerId}
         onWorkspaceChange={onWorkspaceChange}
         onLayerMade={onLayerMade}
+        overlay={slot.overlay}
         hidden={drawer.open && !slot.toolsVisible}
       />
       <BuilderAssistantPane
