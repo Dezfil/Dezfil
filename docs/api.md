@@ -406,9 +406,10 @@ the caller, `person` (their own, then each other person's) until they choose
 no longer offers reading as its default without being rewritten; a patch
 takes any of them and leaves the rest as they are. Inside `look` nothing
 unknown is tolerated: a value outside a pick's choices, or a key that is not
-a pick, refuses the whole patch with `invalid_request`, each failing key
-named as `look.<key>: reason`. Unknown fields elsewhere in the body are
-ignored.
+a pick, refuses the whole patch with `invalid_request`. A failing pick is
+named as `look.<key>: reason`; a key that is not a pick is identified by its
+position inside `look` and never echoed, since arbitrary key text may hold a
+credential. Unknown fields elsewhere in the body are ignored.
 The complete document remains `displayName`, `instanceName`, `viewPrefs`,
 `sourceGrouping` and `look`. View and sort choices for maps, data, workflows
 and projects, the SQL grouping choices and the look's choices come from the

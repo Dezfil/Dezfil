@@ -44,7 +44,7 @@ function lookSchema(position: "read" | "update") {
       ? "Your look, every pick at its kept value or its default; a kept value this version no longer offers reads as " +
         "its default. It follows you to every browser you sign in to; published pages and exported images keep the default look."
       : "Any of your look's picks; the others stay as they are. A value outside a pick's choices, or a key that is not " +
-        "one of the picks, refuses the whole update, naming it as look.<key>.",
+        "one of the picks, refuses the whole update: a bad value is named as look.<key>, an unknown key by its position.",
     properties: Object.fromEntries(LOOK_KEYS.map(key => {
       const definition = settingDefinition(`look.${key}`);
       return [key, { ...accountChoiceSchema(`look.${key}`), default: definition.defaultValue,

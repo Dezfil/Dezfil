@@ -979,7 +979,7 @@
           "look": {
             "type": "object",
             "additionalProperties": false,
-            "description": "Any of your look's picks; the others stay as they are. A value outside a pick's choices, or a key that is not one of the picks, refuses the whole update, naming it as look.<key>.",
+            "description": "Any of your look's picks; the others stay as they are. A value outside a pick's choices, or a key that is not one of the picks, refuses the whole update: a bad value is named as look.<key>, an unknown key by its position.",
             "properties": {
               "color": {
                 "type": "string",

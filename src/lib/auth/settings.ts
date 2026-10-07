@@ -65,18 +65,20 @@ function normalizeViewPrefs(input: unknown): ViewPrefs {
 }
 
 /** The look's slice, checked whole against the catalogue: a value outside its
- * pick's choices, or a key the slice does not have, refuses the body, every
- * failing key named as `look.<key>: reason`. Unlike the rest of the body,
- * the slice tolerates nothing unknown: a misspelt pick would otherwise be
- * accepted and silently change nothing. */
+ * pick's choices, or a key the slice does not have, refuses the body. A bad
+ * value is named as `look.<key>: reason`; an unknown key is named by its
+ * position in the slice and never repeated, because a posted key may hold a
+ * credential and refusals are logged. Unlike the rest of the body, the slice
+ * tolerates nothing unknown: a misspelt pick would otherwise be accepted and
+ * silently change nothing. */
 function normalizeLookPatch(input: unknown): Partial<Record<LookKey, string>> {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
     throw new AuthError("invalid_request", "look: Expected an object of look settings.", 400);
   }
   const out: Partial<Record<LookKey, string>> = {}, problems: string[] = [];
-  for (const [key, value] of Object.entries(input)) {
+  for (const [index, [key, value]] of Object.entries(input).entries()) {
     if (!(LOOK_KEYS as readonly string[]).includes(key)) {
-      problems.push(`look.${key}: Unknown look setting. Expected one of: ${LOOK_KEYS.join(", ")}.`);
+      problems.push(`look: Unknown setting at position ${index + 1}. Expected one of: ${LOOK_KEYS.join(", ")}.`);
       continue;
     }
     const result = validateStoredValue(settingDefinition(`look.${key}`), value);

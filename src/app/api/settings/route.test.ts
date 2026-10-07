@@ -112,17 +112,29 @@ describe("the look: six picks, read whole and written in part", () => {
   });
 
   it.each([
-    ["a value outside the pick's choices", { color: "teal" }, "look.color: Expected one of: kelp, harbor, heather, slate."],
-    ["a null value", { rail: null }, "look.rail: Expected one of: hover, open, icons."],
-    ["an unknown key inside the slice", { glow: "on" },
-      "look.glow: Unknown look setting. Expected one of: color, contrast, font, background, corners, rail."],
-  ])("refuses %s, naming the key, and stores nothing of a body that also changes the grouping", async (_label, look, message) => {
+    ["a value outside the pick's choices, naming the key", { color: "teal" }, "look.color: Expected one of: kelp, harbor, heather, slate."],
+    ["a null value, naming the key", { rail: null }, "look.rail: Expected one of: hover, open, icons."],
+    ["an unknown key inside the slice, by its position", { glow: "on" },
+      "look: Unknown setting at position 2. Expected one of: color, contrast, font, background, corners, rail."],
+  ])("refuses %s, and stores nothing of a body that also changes the grouping", async (_label, look, message) => {
     expect((await patch({ look: { contrast: "more" } })).status).toBe(200);
     const before = await (await get()).json();
     const refused = await patch({ sourceGrouping: "project", look: { font: "system", ...look } });
     expect(refused.status).toBe(400);
     expect((await refused.json()) as Refusal).toEqual({ error: { code: "invalid_request", message } });
     expect(await (await get()).json()).toEqual(before);
+  });
+
+  it("never repeats an unknown key's text, which may hold a credential, while a bad value still names its pick", async () => {
+    const key = "sk-live-7Qx2Rv9TzKp4", value = "hunter2-on-the-wire";
+    const refused = await patch({ look: { color: "teal", [key]: value } });
+    expect(refused.status).toBe(400);
+    const { message } = ((await refused.json()) as Refusal).error;
+    expect(message).toBe("look.color: Expected one of: kelp, harbor, heather, slate. "
+      + "look: Unknown setting at position 2. Expected one of: color, contrast, font, background, corners, rail.");
+    expect(message).not.toContain(key);
+    expect(message).not.toContain("sk-live");
+    expect(message).not.toContain(value);
   });
 
   it("names every failing key of the slice in one refusal", async () => {
