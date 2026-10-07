@@ -1,9 +1,10 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defaultLook, LOOK_KEYS, type Look } from "@/lib/look";
+import { defaultLook, LOOK_KEYS, lookChoices, type Look } from "@/lib/look";
 import { HostElement, HostEvent, installDomHost } from "../testing/dom-host";
 import { AppearanceTab } from "./AppearanceTab";
+import { choiceLabel, LOOK_CARDS } from "./look-tab";
 import { FADE_MS, UNDO_MS } from "./save-unit";
 
 /**
@@ -256,5 +257,45 @@ describe("Reset to Dezfil's default", () => {
     await vi.advanceTimersByTimeAsync(UNDO_MS * 2);
     expect(writes()).toHaveLength(1);
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe("the tab's words", () => {
+  /** Every text the tab draws, its pictures' own drawings left out. */
+  const said = (element: HostElement): string[] => element.childNodes.flatMap(node => node instanceof HostElement
+    ? (node.getAttribute("aria-hidden") === "true" ? [] : said(node)) : [node.textContent.trim()]).filter(Boolean);
+  /** Every text and attribute value, the pictures' included. */
+  const everything = () => [container.textContent,
+    ...container.descendants().flatMap(element => [...element.attributes.values()])];
+  /** The only things the tab says: its titles, labels, choices and actions. */
+  const SAYS = new Set([
+    ...LOOK_CARDS.flatMap(card => [card.title, ...card.rows.flatMap(row =>
+      [row.label, ...lookChoices(row.key).map(value => choiceLabel(row.key, value))])]),
+    "Reset to defaults", "Reset to Dezfil's default", "Undo", "Saved",
+  ]);
+  const holdsTheCopyRules = () => {
+    // No hint of any kind: no meta line, note or words after a control, and no tooltip.
+    expect(said(container).filter(text => !SAYS.has(text))).toEqual([]);
+    expect(container.descendants().filter(element => element.hasAttribute("data-hint") || element.hasAttribute("title"))
+      .map(element => element.tagName)).toEqual([]);
+    expect(everything().filter(text => text.includes("—"))).toEqual([]);
+    // The product's word is color.
+    expect(everything().filter(text => /colour/i.test(text))).toEqual([]);
+  };
+
+  it("says only its titles, labels, choices and actions: no hint, no em dash, and the word color", async () => {
+    stored = { ...defaultLook(), color: "slate", corners: "soft" };
+    await open();
+    expect(said(container)).toContain("Reset to Dezfil's default");
+    expect(said(container)).toContain("Reset to defaults");
+    holdsTheCopyRules();
+    await pick("set-typeface", "System");
+    await settle();
+    expect(saved("set-typeface")).toEqual(["Saved"]);
+    holdsTheCopyRules();
+    await press(top(), "Reset to Dezfil's default");
+    await settle();
+    expect(button(top(), "Undo reset to Dezfil's default")).toBeDefined();
+    holdsTheCopyRules();
   });
 });

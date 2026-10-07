@@ -404,9 +404,11 @@ the caller, `person` (their own, then each other person's) until they choose
 `graticule`, `hex`), `corners` (`rounded`, `soft`) and `rail` (`hover`,
 `open`, `icons`). The read always carries all six, a kept value this version
 no longer offers reading as its default without being rewritten; a patch
-takes any of them and leaves the rest as they are. Inside `look` nothing
-unknown is tolerated: a value outside a pick's choices, or a key that is not
-a pick, refuses the whole patch with `invalid_request`. A failing pick is
+takes any of them and leaves the rest as they are. There is no `null`: a
+pick returns to the default when its first choice is sent. Inside `look`
+nothing unknown is tolerated: a `look` that is not an object, a value outside
+a pick's choices (`null` included), or a key that is not a pick refuses the
+whole patch with `invalid_request`. A failing pick is
 named as `look.<key>: reason`; a key that is not a pick is identified by its
 position inside `look` and never echoed, since arbitrary key text may hold a
 credential. Unknown fields elsewhere in the body are ignored.
