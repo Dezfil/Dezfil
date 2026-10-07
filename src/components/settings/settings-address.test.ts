@@ -22,8 +22,17 @@ describe("the Settings addresses", () => {
   it("opens Account for a tab the person cannot see, as for any unknown tab", () => {
     expect(open("/settings/limits", "", false)).toEqual({ tab: "account", anchor: null, address: "/settings/account", replace: true });
     expect(open("/settings/system", "#set-version", false)).toEqual({ tab: "account", anchor: null, address: "/settings/account", replace: true });
-    expect(open("/settings/appearance")).toMatchObject({ tab: "account", anchor: null, replace: true });
+    expect(open("/settings/ai")).toMatchObject({ tab: "account", anchor: null, replace: true });
     expect(open("/settings/limits/deeper")).toMatchObject({ tab: "account", anchor: null, replace: true });
+  });
+
+  it("opens Appearance for every signed-in person, each of its rows at its own address", () => {
+    for (const admin of [true, false]) {
+      expect(open("/settings/appearance", "", admin)).toEqual({ tab: "appearance", anchor: null, address: "/settings/appearance", replace: false });
+      expect(open("/settings/appearance", "#set-side-menu", admin)).toEqual({
+        tab: "appearance", anchor: "set-side-menu", address: "/settings/appearance#set-side-menu", replace: false,
+      });
+    }
   });
 
   it("lands the three shipped fragment links where they did", () => {
@@ -46,7 +55,7 @@ describe("the Settings addresses", () => {
 
   it("never reopens a remembered tab the person cannot see, or one that no longer exists", () => {
     expect(open("/settings", "", false, "limits")).toMatchObject({ tab: "account", address: "/settings/account" });
-    expect(open("/settings", "", true, "appearance")).toMatchObject({ tab: "account", address: "/settings/account" });
+    expect(open("/settings", "", true, "ai")).toMatchObject({ tab: "account", address: "/settings/account" });
   });
 
   it("keeps only a fragment that can name a row", () => {

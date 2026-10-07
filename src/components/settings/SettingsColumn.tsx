@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowRightIcon, GaugeIcon, KeyIcon, PersonIcon, ServerIcon, SlidersIcon, UsersIcon } from "@/components/ui/icons";
+import { ArrowRightIcon, GaugeIcon, KeyIcon, LookIcon, PersonIcon, ServerIcon, SlidersIcon, UsersIcon } from "@/components/ui/icons";
 import { tabAddress } from "./settings-address";
 import { settingsColumn, type SettingsTabId } from "./settings-tabs";
 import styles from "./SettingsFrame.module.css";
@@ -9,6 +9,7 @@ import styles from "./SettingsFrame.module.css";
 const ICONS: Record<SettingsTabId, ReactNode> = {
   account: <PersonIcon />,
   tokens: <KeyIcon />,
+  appearance: <LookIcon />,
   general: <SlidersIcon />,
   limits: <GaugeIcon />,
   system: <ServerIcon />,

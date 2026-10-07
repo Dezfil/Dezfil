@@ -136,6 +136,7 @@ describe("the Settings frame", () => {
     expect(columnLinks()).toEqual([
       { text: "Account", href: "/settings/account" },
       { text: "Tokens", href: "/settings/tokens" },
+      { text: "Appearance", href: "/settings/appearance" },
       { text: "General", href: "/settings/general" },
       { text: "Limits", href: "/settings/limits" },
       { text: "System", href: "/settings/system" },
@@ -145,9 +146,9 @@ describe("the Settings frame", () => {
     expect(column().textContent).toContain("Instance");
   });
 
-  it("shows a member Account, Tokens and General only, and never makes the configuration read", async () => {
+  it("shows a member Account, Tokens, Appearance and General only, and never makes the configuration read", async () => {
     await open("/settings/general", "", "member");
-    expect(columnLinks().map(link => link.text)).toEqual(["Account", "Tokens", "General"]);
+    expect(columnLinks().map(link => link.text)).toEqual(["Account", "Tokens", "Appearance", "General"]);
     expect(requests).not.toContain("/api/instance/settings");
     expect(requests.every(url => !url.startsWith("/api/instance"))).toBe(true);
   });

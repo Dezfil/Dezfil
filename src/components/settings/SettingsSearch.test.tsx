@@ -1,4 +1,5 @@
 import { act, type ReactNode } from "react";
+import { defaultLook } from "@/lib/look";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HostElement, HostEvent, installDomHost } from "../testing/dom-host";
@@ -28,6 +29,8 @@ vi.mock("next/link", () => ({
 }));
 
 const PASSWORD = "seeded-Password-4711", SECRET = "dz_seededTokenSecret_0042";
+/** The person's look as the own-settings read reports it. */
+const LOOK = { ...defaultLook(), color: "slate", background: "hex" };
 let admin = true;
 let tokens: { id: string; name: string; createdAt: string; lastUsedAt: string | null; revokedAt: string | null }[];
 let requests: string[];
@@ -77,6 +80,7 @@ beforeEach(() => {
       return Response.json({ ...token, secret: SECRET });
     }
     if (url === "/api/account/tokens") return Response.json({ tokens });
+    if (url === "/api/settings") return Response.json({ displayName: "Ada Okafor", instanceName: null, viewPrefs: {}, sourceGrouping: "kind", look: LOOK });
     return Response.json({ error: { code: "not_found", message: "Not found." } }, { status: 404 });
   }));
   openPrivateState("ada");
@@ -283,10 +287,10 @@ describe("where a hit lands", () => {
   it("names only cards and rows its tab draws, under the same id and label", async () => {
     const declared = settingsDeclarations({
       account: { id: "ada", name: "Ada Okafor", email: "ada@example.test", sqlName: "ada_okafor", isAdmin: true } as never,
-      tokens, instance: storedRead({ instanceName: "Atlas North", landingPage: "maps", queryTimeoutS: 90 }), entry: null,
+      tokens, look: LOOK, instance: storedRead({ instanceName: "Atlas North", landingPage: "maps", queryTimeoutS: 90 }), entry: null,
       health: "ready", assistant: { enabled: false, reason: "No model credential is configured." },
     }, true);
-    for (const tab of ["account", "tokens", "general", "limits", "system"] as SettingsTabId[]) {
+    for (const tab of ["account", "tokens", "appearance", "general", "limits", "system"] as SettingsTabId[]) {
       await arrive(`/settings/${tab}`);
       for (const card of declared[tab]!) {
         expect(tabContent().querySelector(`[id="${card.id}"]`), `${tab}: ${card.id}`).not.toBeNull();

@@ -6,7 +6,7 @@
  */
 
 export type SettingsGroup = "you" | "instance";
-export type SettingsTabId = "account" | "tokens" | "general" | "limits" | "system";
+export type SettingsTabId = "account" | "tokens" | "appearance" | "general" | "limits" | "system";
 
 export interface SettingsTab {
   readonly id: SettingsTabId;
@@ -18,6 +18,7 @@ export interface SettingsTab {
 export const SETTINGS_TABS: readonly SettingsTab[] = [
   { id: "account", label: "Account", group: "you", adminOnly: false },
   { id: "tokens", label: "Tokens", group: "you", adminOnly: false },
+  { id: "appearance", label: "Appearance", group: "you", adminOnly: false },
   { id: "general", label: "General", group: "instance", adminOnly: false },
   { id: "limits", label: "Limits", group: "instance", adminOnly: true },
   { id: "system", label: "System", group: "instance", adminOnly: true },

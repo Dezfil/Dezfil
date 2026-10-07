@@ -9,20 +9,20 @@ const shape = (admin: boolean) => {
 describe("the Settings column", () => {
   it("shows an admin You and Instance whole, with Users at its foot", () => {
     expect(shape(true)).toEqual({
-      groups: [["You", ["Account", "Tokens"]], ["Instance", ["General", "Limits", "System"]]],
+      groups: [["You", ["Account", "Tokens", "Appearance"]], ["Instance", ["General", "Limits", "System"]]],
       users: true,
     });
   });
 
-  it("shows a member Account, Tokens and General only, and no Users link", () => {
+  it("shows a member Account, Tokens, Appearance and General only, and no Users link", () => {
     expect(shape(false)).toEqual({
-      groups: [["You", ["Account", "Tokens"]], ["Instance", ["General"]]],
+      groups: [["You", ["Account", "Tokens", "Appearance"]], ["Instance", ["General"]]],
       users: false,
     });
   });
 
   it("opens the admin-only tabs for an admin alone, and nothing it does not draw", () => {
-    for (const id of ["account", "tokens", "general"]) {
+    for (const id of ["account", "tokens", "appearance", "general"]) {
       expect(canOpenTab(id, false)).toBe(true);
       expect(canOpenTab(id, true)).toBe(true);
     }
@@ -30,7 +30,7 @@ describe("the Settings column", () => {
       expect(canOpenTab(id, false)).toBe(false);
       expect(canOpenTab(id, true)).toBe(true);
     }
-    for (const id of ["appearance", "maps", "users", "", "Account"]) {
+    for (const id of ["ai", "maps", "users", "", "Account"]) {
       expect(canOpenTab(id, true)).toBe(false);
     }
   });

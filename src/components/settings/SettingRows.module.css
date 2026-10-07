@@ -37,11 +37,20 @@
   min-width: 0;
 }
 
-.rowLabel > b {
+.rowLabel > b,
+.labelLine > b {
   font-size: var(--text-body);
   font-weight: 500;
   line-height: 1.35;
   color: var(--fg);
+}
+
+/* the label with a mark beside it */
+.labelLine {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
 }
 
 .rowMeta {

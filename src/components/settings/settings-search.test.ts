@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Account } from "@/lib/metadata/accounts";
+import { defaultLook } from "@/lib/look";
 import { instanceReadFixture } from "./read-fixture";
 import { settingsDeclarations, withLiveValues, type IndexSources } from "./settings-index";
 import { buildSearchIndex, hitPath, searchSettings, type IndexCard, type SearchHit } from "./settings-search";
@@ -19,7 +20,7 @@ const TOKENS = [
 
 function sources(overrides: Partial<IndexSources> = {}): IndexSources {
   return {
-    account: ACCOUNT, tokens: TOKENS,
+    account: ACCOUNT, tokens: TOKENS, look: { ...defaultLook(), color: "heather", rail: "icons" },
     instance: instanceReadFixture({
       instanceName: { value: "Atlas North", source: "stored", storedValue: "Atlas North" },
       landingPage: { value: "maps", source: "stored", storedValue: "maps" },
@@ -34,6 +35,45 @@ function sources(overrides: Partial<IndexSources> = {}): IndexSources {
 }
 const index = (admin = true, overrides: Partial<IndexSources> = {}) => buildSearchIndex(settingsDeclarations(sources(overrides), admin), admin);
 const paths = (hits: SearchHit[]) => hits.map(hitPath);
+
+describe("Appearance in the search", () => {
+  const rows = ["Color", "Contrast", "Background", "Typeface", "Corners", "Side menu"];
+  const appearance = (query: string, overrides: Partial<IndexSources> = {}, admin = true) =>
+    searchSettings(index(admin, overrides), query).filter(hit => hitPath(hit).startsWith("You / Appearance · "));
+
+  it("finds each of the six rows by its label, as You / Appearance · Row, opening the tab on the row", () => {
+    for (const label of rows) {
+      const hit = appearance(label.toLowerCase()).find(found => found.entry.kind === "row" && found.name === label);
+      expect(hitPath(hit!), label).toBe(`You / Appearance · ${label}`);
+      expect(hit!.target).toEqual({ tab: "appearance", anchor: expect.stringMatching(/^set-/) });
+    }
+    expect(appearance("side menu")[0].target).toEqual({ tab: "appearance", anchor: "set-side-menu" });
+  });
+
+  it("finds a row by the words it is also known by", () => {
+    expect(appearance("tint").map(hitPath)).toContain("You / Appearance · Color");
+    expect(appearance("legibility").map(hitPath)).toEqual(["You / Appearance · Contrast"]);
+    expect(appearance("wallpaper").map(hitPath)).toEqual(["You / Appearance · Background"]);
+    expect(appearance("font family").map(hitPath)).toEqual(["You / Appearance · Typeface"]);
+    expect(appearance("radius").map(hitPath)).toEqual(["You / Appearance · Corners"]);
+    expect(appearance("sidebar").map(hitPath)).toEqual(["You / Appearance · Side menu"]);
+  });
+
+  it("finds a row by the words of its current choice, and shows them", () => {
+    expect(appearance("heather").map(hitPath)).toContain("You / Appearance · Color");
+    const rail = appearance("icons only").find(hit => hit.name === "Side menu");
+    expect(rail?.meta).toBe("Layout · Icons only");
+    // The card and the row share a name, so the row's line is its choice alone.
+    expect(appearance("hex lattice", { look: { ...defaultLook(), background: "hex" } }).find(hit => hit.entry.kind === "row")?.meta)
+      .toBe("Hex lattice");
+    expect(appearance("always open").find(hit => hit.name === "Side menu")).toBeUndefined();
+  });
+
+  it("is there for a member as for an admin, the labels found before the look is read", () => {
+    expect(appearance("corners", {}, false).map(hitPath)).toEqual(["You / Appearance · Corners"]);
+    expect(appearance("typeface", { look: null }).map(hitPath)).toEqual(["You / Appearance · Typeface"]);
+  });
+});
 
 describe("what the search finds", () => {
   it("finds a row by the label the person sees, as Group / Tab · Row with its card and value", () => {
@@ -111,7 +151,7 @@ describe("what a member's search holds", () => {
   it("holds only the member's tabs: never Limits, System or Users", () => {
     const member = index(false, { instance: null });
     const tabs = new Set(member.map(entry => entry.tab ?? entry.pointer));
-    expect([...tabs].sort()).toEqual(["account", "general", "theme", "tokens"]);
+    expect([...tabs].sort()).toEqual(["account", "appearance", "general", "theme", "tokens"]);
     for (const query of ["limit", "users", "invite", "environment", "version", "query time"]) {
       expect(paths(searchSettings(member, query)).filter(path => /Limits|System|Users/.test(path))).toEqual([]);
     }

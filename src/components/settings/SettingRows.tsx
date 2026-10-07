@@ -15,20 +15,24 @@ export function Rows({ children }: { children: ReactNode }) {
 }
 
 /** A settings row: the label (and a meta line) at the left, the control at
- * the right and named by the label. `stack` puts a wide control under it. */
-export function SettingRow({ id, label, meta, after, stack, children }: {
+ * the right and named by the label. `stack` puts a wide control under it.
+ * `mark` stands beside the label, outside it, so the control's name never
+ * changes: the quiet Saved of a row whose control fills its width. */
+export function SettingRow({ id, label, meta, after, stack, mark, children }: {
   id: string;
   label: ReactNode;
   meta?: ReactNode;
   /** Quiet words after the control. */
   after?: ReactNode;
   stack?: boolean;
+  mark?: ReactNode;
   children: ReactNode;
 }) {
   const labelId = `${id}-label`;
+  const name = <b id={labelId}>{label}</b>;
   return <div className={styles.row} id={id} data-stack={stack || undefined}>
     <div className={styles.rowLabel}>
-      <b id={labelId}>{label}</b>
+      {mark === undefined ? name : <span className={styles.labelLine}>{name}{mark}</span>}
       {meta && <span className={styles.rowMeta}>{meta}</span>}
     </div>
     <div className={styles.rowControl} role="group" aria-labelledby={labelId}>

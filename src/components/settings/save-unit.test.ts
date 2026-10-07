@@ -453,6 +453,54 @@ describe("Reset to defaults, and Undo", () => {
   });
 });
 
+describe("a write made beside the card", () => {
+  it("takes what another writer kept as a response is taken: the values, the defaults' Reset, no Saved, no Undo", async () => {
+    const server = fakeServer({ landingPage: "maps" }), unit = signIn(server);
+    unit.choose("landingPage", "sql");
+    server.calls[0].accept(); await flush();
+    expect(unit.snapshot.saved).toEqual(["landingPage"]);
+    unit.sync({ landingPage: "home", unknownKey: "ignored" });
+    expect(unit.snapshot.values.landingPage).toBe("home");
+    expect(unit.snapshot.kept.landingPage).toBe("home");
+    expect(unit.snapshot.saved).toEqual([]);
+    expect(unit.snapshot.slot).toBeNull();
+    expect(server.calls).toHaveLength(1);
+  });
+
+  it("lets the card's Undo go, since what it would write back is gone", async () => {
+    const server = fakeServer({ landingPage: "maps" }), unit = signIn(server);
+    unit.reset(); server.calls[0].accept(); await flush();
+    expect(unit.snapshot.slot).toBe("undo");
+    unit.sync({ landingPage: "projects" });
+    expect(unit.snapshot.slot).toBe("reset");
+    unit.undo();
+    expect(server.calls).toHaveLength(1);
+  });
+
+  it("keeps a newer change on its way showing, and lands it when its own write answers", async () => {
+    const server = fakeServer({ landingPage: "maps" }), unit = signIn(server);
+    unit.choose("landingPage", "sql");
+    unit.choose("landingPage", "data");
+    unit.sync({ landingPage: "home" });
+    expect(unit.snapshot.values.landingPage).toBe("data");
+    expect(unit.snapshot.kept.landingPage).toBe("home");
+    server.calls[0].accept(); await flush();
+    server.calls[1].accept(); await flush();
+    expect(unit.snapshot.values.landingPage).toBe("data");
+    expect(unit.snapshot.saved).toEqual(["landingPage"]);
+  });
+
+  it("clears a row's red line with the value now kept", async () => {
+    const server = fakeServer({ landingPage: "maps" }), unit = signIn(server);
+    unit.choose("landingPage", "sql");
+    server.calls[0].refuse("invalid_request", "landingPage: Not a page here."); await flush();
+    expect(unit.snapshot.errors.landingPage).toBe("Not a page here.");
+    unit.sync({ landingPage: "home" });
+    expect(unit.snapshot.errors).toEqual({});
+    expect(unit.snapshot.values.landingPage).toBe("home");
+  });
+});
+
 describe("a setting pinned by the server's environment", () => {
   const pinned: UnitControl = { key: "previewRows", kind: "number", min: 10, max: 100000, defaultValue: 1000, locked: true };
 

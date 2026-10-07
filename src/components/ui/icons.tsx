@@ -961,6 +961,11 @@ export function SlidersIcon() {
   return <ChromeSvg strokeWidth={1.7}><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" /></ChromeSvg>;
 }
 
+/** The Appearance tab: a window and its panes. */
+export function LookIcon() {
+  return <ChromeSvg strokeWidth={1.7}><rect x="3" y="3" width="18" height="18" rx="2.5" /><path d="M3 9h18M9 21V9" /></ChromeSvg>;
+}
+
 export function GaugeIcon() {
   return <ChromeSvg strokeWidth={1.7}><path d="m12 14 4-4" /><path d="M3.34 19a10 10 0 1 1 17.32 0" /></ChromeSvg>;
 }

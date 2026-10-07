@@ -1,8 +1,10 @@
 import type { Account } from "@/lib/metadata/accounts";
+import type { Look } from "@/lib/look";
 import type { ApiToken } from "@/lib/metadata/auth-credentials";
 import { LANDING_PAGES } from "@/components/auth/entry-settings";
 import type { InstanceRead } from "./instance-read";
 import { capacityText, LIMITS_CARDS, withShownUnit } from "./limits-table";
+import { choiceLabel, LOOK_CARDS } from "./look-tab";
 import { formatSettingNumber } from "./server-set";
 import type { IndexCard, TabDeclarations } from "./settings-search";
 import { providerName, serverSettingsRows, type AssistantStatus } from "./system-table";
@@ -25,6 +27,8 @@ export interface EntryValues {
 export interface IndexSources {
   readonly account: Account;
   readonly tokens: readonly ApiToken[] | null;
+  /** The person's look, from the own-settings read. */
+  readonly look: Look | null;
   /** The configuration read, for an admin. */
   readonly instance: InstanceRead | null;
   /** The entry read, for a member's General. */
@@ -59,6 +63,14 @@ function tokenCards(tokens: readonly ApiToken[] | null): IndexCard[] {
     // A token is found by its name and its state, never by anything else its record holds.
     ...(tokens ?? []).map(token => ({ id: `token-${token.id}`, label: token.name, value: tokenState(token) })),
   ] }];
+}
+
+/** Appearance's rows, by their labels, the words of each pick and the
+ * words of the current choice once the look is read. */
+function appearanceCards(look: Look | null): IndexCard[] {
+  return LOOK_CARDS.map(card => ({ id: card.id, title: card.title, rows: card.rows.map(row => ({
+    id: row.id, label: row.label, keys: row.keys, ...(look ? { value: choiceLabel(row.key, look[row.key]) } : {}),
+  })) }));
 }
 
 function generalCards(values: EntryValues): IndexCard[] {
@@ -126,6 +138,7 @@ export function settingsDeclarations(sources: IndexSources, admin: boolean): Tab
   return {
     account: accountCards(sources.account),
     tokens: tokenCards(sources.tokens),
+    appearance: appearanceCards(sources.look),
     ...(general ? { general: generalCards(general) } : {}),
     ...(admin && sources.instance ? { limits: limitsCards(sources.instance), system: systemCards(sources.instance, sources.health, sources.assistant) } : {}),
   };

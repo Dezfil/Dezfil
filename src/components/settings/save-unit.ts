@@ -323,6 +323,33 @@ export class SaveUnit {
     this.emit();
   }
 
+  /** What another writer over the same values reports kept (a tab-wide
+   * reset): taken as a response is. A row still showing what was kept, or
+   * one under a refusal, shows the new value; a row whose newer change is
+   * on its way keeps showing it, and its own write lands it. The card's
+   * Undo goes, since what it would write back is gone, and so does the
+   * Saved of any row whose value changed. */
+  sync(reported: Record<string, Value>): void {
+    for (const control of this.controls.values()) {
+      const key = control.key;
+      if (!(key in reported)) continue;
+      const next = reported[key] ?? null;
+      const refused = key in this.errors;
+      if (refused || (same(control, this.values[key], this.kept[key]) && !this.waiting(key))) {
+        if (!same(control, this.values[key], next)) this.unmarkSaved(key);
+        this.values[key] = display(control, next);
+      }
+      if (refused) {
+        const rest = { ...this.errors };
+        delete rest[key];
+        this.errors = rest;
+      }
+      this.kept[key] = next;
+    }
+    this.dropUndo();
+    this.emit();
+  }
+
   /** The tab is left: Undo and the Saved marks go; a settling number is sent now. */
   leave(): void {
     this.dropUndo();
