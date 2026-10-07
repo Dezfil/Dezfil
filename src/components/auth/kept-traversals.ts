@@ -1,25 +1,27 @@
 /**
- * Back and Forward the page on screen keeps inside the document, or sent
- * itself to leave it.
+ * Back and Forward the page on screen keeps inside the document, or takes
+ * itself.
  *
  * The private workspace ends the document on every Back or Forward, so a
- * route cached for one account is never restored into another's. A page
- * may claim a traversal that stays on what it already shows (the Settings
- * tab holding unsaved text, stepping between entries of its own address):
- * nothing another account could have drawn comes back, and reloading
- * would only throw the text away. A keeper answers for the traversal that
- * just happened, from the address the browser now shows.
+ * route cached for one account is never restored into another's, and it
+ * stops the step before the router hears it, so the router never starts
+ * restoring a route the reload throws away. A page may claim a traversal
+ * that stays on what it already shows (the Settings tab holding unsaved
+ * text, stepping between entries of its own address): nothing another
+ * account could have drawn comes back, and reloading would only throw the
+ * text away. A keeper answers for the traversal that just happened, from
+ * the address the browser now shows.
  *
- * A page may also claim the traversal it sent itself to leave, once the
- * person let go of what it held (the Settings tab's Discard over Back).
- * The workspace ends the document on that step before anyone else hears
- * it, so the router never starts restoring a route the reload throws away.
+ * A page whose unsaved work the browser's own question guards takes Back
+ * and Forward itself: it stops the step and reloads, and the person may
+ * still choose to stay on the page as it is. The workspace stands aside
+ * for it rather than ending the document before that question is asked.
  */
 
 type Claim = () => boolean;
 
 const keepers = new Set<Claim>();
-const enders = new Set<Claim>();
+const takers = new Set<Claim>();
 
 function claim(claims: Set<Claim>, answer: Claim): () => void {
   claims.add(answer);
@@ -43,12 +45,12 @@ export function traversalKept(): boolean {
   return claimed(keepers);
 }
 
-/** Claim the traversals the page sends to leave; the returned function lets go. */
-export function endTraversals(ender: Claim): () => void {
-  return claim(enders, ender);
+/** Take Back and Forward while the page asks the browser's own question; the returned function lets go. */
+export function takeTraversals(taker: Claim): () => void {
+  return claim(takers, taker);
 }
 
-/** Whether a page on screen sent the traversal that just happened to leave the document. */
-export function traversalEnds(): boolean {
-  return claimed(enders);
+/** Whether a page on screen takes the traversal that just happened itself. */
+export function traversalTaken(): boolean {
+  return claimed(takers);
 }

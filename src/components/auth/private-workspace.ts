@@ -1,6 +1,6 @@
 import { ACCOUNT_CHANGED_EVENT, ACCOUNT_STORAGE_KEY, closePrivateState, openPrivateState } from "./private-state";
 import { privateFetch } from "./private-fetch";
-import { traversalEnds, traversalKept } from "./kept-traversals";
+import { traversalKept, traversalTaken } from "./kept-traversals";
 
 /** A document belongs to one account. A change ends that document, so Next's
  * route cache, React state, module caches and pending downloads cannot become
@@ -36,18 +36,17 @@ export function watchPrivateWorkspace(accountId: string, ready: (value: boolean)
   const pagehide = () => { conceal(); document.title = "Dezfil"; lifetime.abort(); };
   const pageshow = (event: PageTransitionEvent) => { if (event.persisted) reload(); };
   const focus = () => { void check(); };
-  // A Back or Forward the page on screen sent to leave ends the document
-  // before anyone else hears it: the router would only start restoring a
+  // A Back or Forward restores a cached route, unless the page on screen
+  // keeps it on what it already shows, or takes it itself to ask the
+  // browser's question first. Every other one ends the document, stopped
+  // before anyone else hears it, so the router never starts restoring a
   // route the reload throws away. A capture listener on the window runs
   // before its other listeners, the router's included.
-  const leaving = (event: Event) => {
-    if (!traversalEnds()) return;
+  const popstate = (event: Event) => {
+    if (traversalKept() || traversalTaken()) return;
     event.stopImmediatePropagation();
     reload();
   };
-  // A Back or Forward restores a cached route, unless the page on screen
-  // keeps it on what it already shows.
-  const popstate = () => { if (!traversalKept()) reload(); };
   const channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(ACCOUNT_CHANGED_EVENT);
   channel?.addEventListener("message", reload);
   window.addEventListener("storage", storage);
@@ -55,8 +54,7 @@ export function watchPrivateWorkspace(accountId: string, ready: (value: boolean)
   window.addEventListener("focus", focus);
   window.addEventListener("pagehide", pagehide);
   window.addEventListener("pageshow", pageshow);
-  window.addEventListener("popstate", leaving, true);
-  window.addEventListener("popstate", popstate);
+  window.addEventListener("popstate", popstate, true);
   document.addEventListener("visibilitychange", visibility);
   void check();
   return () => {
@@ -67,8 +65,7 @@ export function watchPrivateWorkspace(accountId: string, ready: (value: boolean)
     window.removeEventListener("focus", focus);
     window.removeEventListener("pagehide", pagehide);
     window.removeEventListener("pageshow", pageshow);
-    window.removeEventListener("popstate", leaving, true);
-    window.removeEventListener("popstate", popstate);
+    window.removeEventListener("popstate", popstate, true);
     document.removeEventListener("visibilitychange", visibility);
     channel?.close();
   };

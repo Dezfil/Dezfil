@@ -21,10 +21,9 @@
  * Moving within the tab (a row's fragment) never asks, and nothing asks
  * or is added while nothing is unsaved. The private workspace ends the
  * document on every Back and Forward; the watch tells it which steps stay
- * on this tab, so those keep the text, and which step Discard sent. A
- * jump of several entries from the browser's history list past the tab is
- * not held here: the workspace reloads at its arrival, and that reload
- * asks the browser's question.
+ * on this tab, so those keep the text. A jump of several entries from the
+ * browser's history list past the tab is not held here: the workspace
+ * reloads at its arrival, and that reload asks the browser's question.
  */
 
 /** Marks the extra entry in its history state, with the watch it belongs to. */
@@ -49,9 +48,6 @@ export interface LeaveWatch {
   leave(address: string): Promise<boolean>;
   /** Whether the Back or Forward that just happened stays in the document. */
   keeps(): boolean;
-  /** Whether the Back or Forward that just happened is the step Discard
-   * sent: the tab was let go, so the document may end on it at once. */
-  ends(): boolean;
   stop(): void;
 }
 
@@ -213,9 +209,6 @@ export function watchLeaving(win: Window, doc: Document, options: LeaveWatchOpti
       if (dropped !== null && href === dropped) return true;
       if (passing || extra === null || !guard.holding()) return false;
       return options.staysOnTab(new URL(href));
-    },
-    ends() {
-      return !stopped && passing > 0;
     },
     stop() {
       stopped = true;
