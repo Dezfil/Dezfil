@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HostElement, HostEvent, installDomHost } from "../testing/dom-host";
 import { openPrivateState } from "../auth/private-state";
-import { traversalKept } from "../auth/kept-traversals";
+import { traversalEnds, traversalKept } from "../auth/kept-traversals";
 import { DISPLAY_NAME_EVENT } from "../UserBadge";
 import { readLastTab, writeLastTab } from "./last-tab";
 import { storedRead } from "./read-fixture";
@@ -326,6 +326,19 @@ describe("leaving a tab with unsaved text", () => {
     await answer("Discard changes");
     expect(browser.steps).toEqual([-1]);
     expect(traversalKept()).toBe(false);
+  });
+
+  it("hands the step Discard sends to the workspace to end, and claims no step before it or once the page is gone", async () => {
+    await open("/settings/account");
+    await type("Display name", "Ada Lovelace");
+    expect(traversalEnds()).toBe(false);
+    await back();
+    expect(traversalEnds()).toBe(false);
+    await answer("Discard changes");
+    expect(browser.steps).toEqual([-1]);
+    expect(traversalEnds()).toBe(true);
+    await act(async () => root.render(null));
+    expect(traversalEnds()).toBe(false);
   });
 
   it("takes the extra entry away unseen once the text is put back", async () => {

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { watchPrivateWorkspace } from "./private-workspace";
-import { keepTraversals } from "./kept-traversals";
+import { endTraversals, keepTraversals } from "./kept-traversals";
 import { ACCOUNT_STORAGE_KEY, accountChanged, openPrivateState } from "./private-state";
 import { readStored, SQL_KEYS, writeStored } from "../sql/sql-storage";
 import { conversation, LOCATOR_KEY } from "../builder/assistant/conversation-store";
@@ -67,6 +67,36 @@ it("keeps a Back or Forward the page on screen claims, and reloads every other o
     expect(win.location.replace).toHaveBeenCalledWith("http://instance.test/maps/copied-id");
     expect(doc.documentElement.hidden).toBe(true);
   } finally { letGo(); }
+});
+it("ends the document on a Back or Forward the page on screen sent to leave, before anyone after it hears the step", async () => {
+  const ready = vi.fn(); dispose = watchPrivateWorkspace("alice", ready); await flush();
+  // Registered after the workspace, as the router's own listener is.
+  const after = vi.fn();
+  win.addEventListener("popstate", after);
+  let sent = false;
+  const letGo = endTraversals(() => sent);
+  const kept = keepTraversals(() => true);
+  try {
+    // A step the page keeps reaches every listener and ends nothing.
+    win.dispatchEvent(new Event("popstate"));
+    expect(after).toHaveBeenCalledOnce();
+    expect(win.location.replace).not.toHaveBeenCalled();
+    sent = true;
+    win.dispatchEvent(new Event("popstate"));
+    expect(after).toHaveBeenCalledOnce();
+    expect(win.location.replace).toHaveBeenCalledWith("http://instance.test/maps/copied-id");
+    expect(doc.documentElement.hidden).toBe(true); expect(ready).toHaveBeenLastCalledWith(false);
+  } finally { letGo(); kept(); win.removeEventListener("popstate", after); }
+});
+it("hears every Back or Forward as before once the page that sent one has gone", async () => {
+  dispose = watchPrivateWorkspace("alice", vi.fn()); await flush();
+  const after = vi.fn();
+  win.addEventListener("popstate", after);
+  endTraversals(() => true)();
+  win.dispatchEvent(new Event("popstate"));
+  expect(after).toHaveBeenCalledOnce();
+  expect(win.location.replace).toHaveBeenCalledOnce();
+  win.removeEventListener("popstate", after);
 });
 it("reloads a Back or Forward once the page that claimed it has gone", async () => {
   const ready = vi.fn(); dispose = watchPrivateWorkspace("alice", ready); await flush();

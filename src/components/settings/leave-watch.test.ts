@@ -7,7 +7,8 @@ import { watchLeaving } from "./leave-watch";
  * fake session history: entries with their state, a push that drops what
  * lay ahead, and back and forward that move only when the test lets them,
  * telling every listener as a browser does. The router's own listener is
- * not here: nothing in this watch stops it, so it always follows.
+ * not here: the watch itself stops no step, so the router follows every
+ * one the workspace lets through (it ends the one Discard sends).
  */
 
 type Listener = (event: never) => void;
@@ -206,6 +207,40 @@ describe("leaving through back and forward", () => {
     expect(browser.unload().defaultPrevented).toBe(false);
     expect(tab.ask).toHaveBeenCalledTimes(1);
     expect(tab.open).not.toHaveBeenCalled();
+  });
+
+  it("claims the step a Discard sends, and only that one, for the workspace to end the document before anyone else hears it", async () => {
+    const browser = fakeBrowser(["/maps", "/settings/general"]);
+    const guard = fakeGuard();
+    const { ask, answer } = deferred();
+    const heard: { address: string; ends: boolean; keeps: boolean }[] = [];
+    // Heard before the watch, as the workspace's claim check always is.
+    browser.win.addEventListener("popstate", (() => { heard.push({ address: browser.address, ends: page.ends(), keeps: page.keeps() }); }) as Listener);
+    const page = watchLeaving(browser.win as unknown as Window, browser.doc as unknown as Document, {
+      guard, ask, open: vi.fn(),
+      staysOnTab: url => tabOf(url) === "general",
+    });
+    guard.hold(true);
+    // The watch's own steps stay in the document: taking the extra entry away, then Back held.
+    guard.hold(false);
+    browser.settle();
+    await tick();
+    guard.hold(true);
+    browser.back();
+    await answer(false);
+    browser.back();
+    expect(page.ends()).toBe(false);
+    await answer(true);
+    browser.settle();
+    expect(heard).toEqual([
+      { address: "/settings/general", ends: false, keeps: true },
+      { address: "/settings/general", ends: false, keeps: true },
+      { address: "/settings/general", ends: false, keeps: true },
+      { address: "/maps", ends: true, keeps: false },
+    ]);
+    // Once that step has passed, nothing is claimed.
+    expect(page.ends()).toBe(false);
+    page.stop();
   });
 
   it("leaves from the page's own entry when Forward went back onto the extra one while it asked", async () => {

@@ -20,7 +20,7 @@ import { SearchField, SearchResults } from "./SettingsSearch";
 import { useSettingsSearch } from "./use-settings-search";
 import { LeaveGuard, type GuardMessage } from "./leave-guard";
 import { watchLeaving, type LeaveWatch } from "./leave-watch";
-import { keepTraversals } from "@/components/auth/kept-traversals";
+import { endTraversals, keepTraversals } from "@/components/auth/kept-traversals";
 import { GuardContext, LeaveDialog } from "./settings-guard";
 import styles from "./SettingsFrame.module.css";
 
@@ -90,7 +90,8 @@ export function SettingsFrame() {
     });
     leaving.current = watch;
     const letGo = keepTraversals(watch.keeps);
-    return () => { letGo(); watch.stop(); leaving.current = null; };
+    const unclaim = endTraversals(watch.ends);
+    return () => { letGo(); unclaim(); watch.stop(); leaving.current = null; };
   }, [guard]);
 
   useEffect(() => {
