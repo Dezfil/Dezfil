@@ -70,7 +70,7 @@
     "e2e:wheelhousepixels": "playwright test e2e/wheelhouse-pixels.spec.ts",
     "e2e:primitives": "playwright test e2e/primitive-contracts.spec.ts",
     "e2e:smoke": "DEZFIL_E2E_ASSISTANT=1 playwright test e2e/assistant-confirmation-smoke.spec.ts",
-    "e2e:look": "playwright test e2e/appearance.spec.ts",
+    "e2e:look": "playwright test e2e/appearance.spec.ts e2e/appearance-export.spec.ts",
     "lint:plugin": "node scripts/generate-dezfil-guidance.mjs --check",
     "lint:contract-docs": "node scripts/check-contract-docs.mjs",
     "lint:reader-docs": "node scripts/check-reader-docs.mjs",

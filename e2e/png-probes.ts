@@ -201,3 +201,50 @@ export async function targetColorCount(
     { b64: png.toString("base64"), target: [...target], tolerance },
   );
 }
+
+/** Two PNGs compared pixel by pixel, decoded in-browser: whether their
+ * sizes agree, how many pixels differ in any channel, and the largest
+ * channel difference among them. Equal bytes need no decode; this is for
+ * the files whose bytes differ, so a tolerance is measured, never guessed. */
+export interface PixelDifference {
+  width: number;
+  height: number;
+  sameSize: boolean;
+  differing: number;
+  maxDelta: number;
+}
+
+export async function pngDifference(page: Page, a: Buffer, b: Buffer): Promise<PixelDifference> {
+  return page.evaluate(
+    async ({ a64, b64 }) => {
+      const decode = async (encoded: string) => {
+        const raw = atob(encoded);
+        const bytes = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; i += 1) bytes[i] = raw.charCodeAt(i);
+        const bmp = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
+        const c = document.createElement("canvas");
+        c.width = bmp.width;
+        c.height = bmp.height;
+        const ctx = c.getContext("2d");
+        if (!ctx) throw new Error("no 2d context");
+        ctx.drawImage(bmp, 0, 0);
+        return { width: c.width, height: c.height, data: ctx.getImageData(0, 0, c.width, c.height).data };
+      };
+      const [x, y] = await Promise.all([decode(a64), decode(b64)]);
+      if (x.width !== y.width || x.height !== y.height)
+        return { width: x.width, height: x.height, sameSize: false, differing: x.width * x.height, maxDelta: 255 };
+      let differing = 0;
+      let maxDelta = 0;
+      for (let i = 0; i < x.data.length; i += 4) {
+        let delta = 0;
+        for (let c = 0; c < 4; c += 1) delta = Math.max(delta, Math.abs(x.data[i + c] - y.data[i + c]));
+        if (delta > 0) {
+          differing += 1;
+          if (delta > maxDelta) maxDelta = delta;
+        }
+      }
+      return { width: x.width, height: x.height, sameSize: true, differing, maxDelta };
+    },
+    { a64: a.toString("base64"), b64: b.toString("base64") },
+  );
+}
