@@ -18,6 +18,27 @@ function rules(css: string): Rule[] {
     selectors.split(",").map(selector => ({ selector: selector.trim().replace(/\s+/g, " "), body })));
 }
 const read = (file: string) => rules(readFileSync(file, "utf8"));
+
+/** Every flat rule of a stylesheet, parsed once, with the at-rule it sits
+ * in (`@media (...)`), or null at the top level. */
+function scopedRules(css: string): (Rule & { within: string | null })[] {
+  const text = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const out: (Rule & { within: string | null })[] = [];
+  const within: string[] = [];
+  let start = 0;
+  for (let at = 0; at < text.length; at += 1) {
+    if (text[at] === "}") { within.pop(); start = at + 1; continue; }
+    if (text[at] !== "{") continue;
+    const head = text.slice(start, at).trim().replace(/\s+/g, " ");
+    if (head.startsWith("@")) { within.push(head); start = at + 1; continue; }
+    const close = text.indexOf("}", at);
+    const body = text.slice(at + 1, close);
+    for (const selector of head.split(",")) out.push({ selector: selector.trim(), body, within: within.at(-1) ?? null });
+    at = close;
+    start = close + 1;
+  }
+  return out;
+}
 const declaration = (body: string, property: string) =>
   body.match(new RegExp(`(?:^|[;\\s])${property.replace(/[-]/g, "\\-")}\\s*:\\s*([^;]+)`))?.[1].trim();
 const px = (value: string | undefined) => Number(/^(\d+)px$/.exec(value ?? "")?.[1]);
@@ -92,19 +113,26 @@ describe("the Side menu pick in the stylesheets", () => {
   });
 
   it("expands the rail on keyboard focus only under Opens on hover", () => {
-    const focusRules = read(LAYOUT).filter(rule => rule.selector.includes(".rail:has(:focus-visible)")
-      && !/^\s*transition-(duration|delay)[^;]*;\s*transition-(duration|delay)[^;]*;?\s*$/.test(rule.body.trim()));
+    const layout = scopedRules(readFileSync(LAYOUT, "utf8"));
+    const FOCUS = ".rail:has(:focus-visible)", REDUCED = "@media (prefers-reduced-motion: reduce)";
+    const focusRules = layout.filter(rule => rule.selector.includes(FOCUS) && rule.within === null);
     expect(focusRules.length).toBeGreaterThanOrEqual(3);
     for (const rule of focusRules) {
       expect(rule.selector, rule.selector).toContain(':not([data-look-rail="icons"])');
       expect(rule.selector, rule.selector).toContain(':not([data-look-rail="open"])');
     }
-    // Reduced motion quiets those same rules: its focus selectors carry the
-    // gate too, or the gated reveal would outweigh them and keep its delay.
-    const quieting = read(LAYOUT).filter(rule => rule.selector.includes(".rail:has(:focus-visible)")
-      && !focusRules.includes(rule));
-    expect(quieting.length).toBeGreaterThanOrEqual(3);
-    for (const rule of quieting) expect(rule.selector, rule.selector).toContain(':not([data-look-rail="open"])');
+    // Reduced motion quiets those same rules: each focus reveal that waits
+    // (a transition delay) has a reduced-motion rule of the very same
+    // selector, gate included, or the gated reveal would outweigh it and
+    // keep its delay.
+    const waiting = focusRules.filter(rule => declaration(rule.body, "transition-delay") !== undefined).map(rule => rule.selector).sort();
+    expect(waiting.length).toBeGreaterThanOrEqual(3);
+    const quieting = layout.filter(rule => rule.selector.includes(FOCUS) && rule.within === REDUCED);
+    expect(quieting.map(rule => rule.selector).sort()).toEqual(waiting);
+    for (const rule of quieting) {
+      expect(declaration(rule.body, "transition-delay"), rule.selector).toBe("0s");
+      expect(declaration(rule.body, "transition-duration"), rule.selector).toBe("0.01s");
+    }
     // Under Always open the labels and the sign-out stand shown.
     const shown = read(LAYOUT).filter(rule => rule.selector.startsWith(':global(:root[data-look-rail="open"])'));
     expect(shown.some(rule => rule.selector.endsWith(".railLabel") && declaration(rule.body, "opacity") === "1")).toBe(true);

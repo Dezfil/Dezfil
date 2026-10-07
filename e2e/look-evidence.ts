@@ -176,9 +176,10 @@ export async function installFrameRecorder(page: Page): Promise<void> {
 }
 
 /** The recorder's evidence for the page's current document, once its first
- * animation frame has run, with the paint entries as they stand. */
+ * animation frame has run and the page has painted, with the paint entries. */
 export async function frameEvidence(page: Page): Promise<FrameEvidence> {
-  await page.waitForFunction(() => (window as RecorderWindow).__lookFrames?.frame != null, undefined, { timeout: 15_000 });
+  await page.waitForFunction(() => (window as RecorderWindow).__lookFrames?.frame != null
+    && performance.getEntriesByType("paint").length > 0, undefined, { timeout: 15_000 });
   return page.evaluate(() => ({
     ...(window as RecorderWindow).__lookFrames!,
     paints: performance.getEntriesByType("paint").map((p) => ({ name: p.name, startTime: p.startTime })),
@@ -187,24 +188,45 @@ export async function frameEvidence(page: Page): Promise<FrameEvidence> {
 
 /** The problems with the evidence as proof that the root carried `expected`
  * from the first painted frame: the created root and the root at the first
- * animation frame both carry exactly the look, the frame was read before
- * anything had painted, and the creation was seen no later than it. */
+ * animation frame both carry exactly the look; the creation was read before
+ * any of the page's own scripts ran and no later than the frame; and the
+ * frame was read before anything had painted, both by the paint entries
+ * that existed at the frame and by the first paint's own timestamp. */
 export function frameProblems(evidence: FrameEvidence, expected: LookAttributes): string[] {
   const want = JSON.stringify(sorted(expected));
   const problems: string[] = [];
   if (!evidence.creation) problems.push("the root's creation was never recorded");
-  else if (JSON.stringify(evidence.creation.look) !== want)
-    problems.push(`the created root carried ${JSON.stringify(evidence.creation.look)}, not ${want}`);
+  else {
+    if (JSON.stringify(evidence.creation.look) !== want)
+      problems.push(`the created root carried ${JSON.stringify(evidence.creation.look)}, not ${want}`);
+    if (evidence.creation.pageScriptRan)
+      problems.push("the root's creation was recorded after a page script had run");
+  }
   if (!evidence.frame) problems.push("the first animation frame was never recorded");
   else {
     if (JSON.stringify(evidence.frame.look) !== want)
       problems.push(`the root at the first animation frame carried ${JSON.stringify(evidence.frame.look)}, not ${want}`);
     if (evidence.frame.paintsBefore.length > 0)
       problems.push(`the first animation frame ran after a paint (${evidence.frame.paintsBefore.join(", ")})`);
+    const painted = (evidence.paints ?? []).map((paint) => paint.startTime);
+    if (painted.length === 0) problems.push("no paint was recorded to hold the first animation frame against");
+    else if (Math.min(...painted) < evidence.frame.t)
+      problems.push(`the first paint (${Math.min(...painted).toFixed(1)} ms) came before the first animation frame (${evidence.frame.t.toFixed(1)} ms)`);
   }
   if (evidence.creation && evidence.frame && evidence.creation.t > evidence.frame.t)
     problems.push("the root's creation was recorded after the first animation frame");
   return problems;
+}
+
+/** The evidence turned around, each way the proof must catch: the root's
+ * creation seen only after a page script had run, and the first paint
+ * landing before the recorded frame. Each must fail `frameProblems`. */
+export function reversedEvidence(evidence: FrameEvidence): { label: string; evidence: FrameEvidence }[] {
+  const frameAt = evidence.frame?.t ?? 0;
+  return [
+    { label: "created after a page script", evidence: { ...evidence, creation: evidence.creation && { ...evidence.creation, pageScriptRan: true } } },
+    { label: "painted before the frame", evidence: { ...evidence, paints: [{ name: "first-paint", startTime: Math.max(0, frameAt - 1) }, ...(evidence.paints ?? [])] } },
+  ];
 }
 
 /** The look attributes on the live root, in name order. */

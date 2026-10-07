@@ -31,6 +31,7 @@ import {
   frameEvidence,
   frameProblems,
   installFrameRecorder,
+  reversedEvidence,
   rootLook,
   servedLookProblems,
   setLook,
@@ -190,6 +191,11 @@ test.describe("the person's look", () => {
         const evidence = await frameEvidence(page);
         console.log(describeEvidence("first account, /maps", evidence));
         expect(frameProblems(evidence, attrs(LOOK_A))).toEqual([]);
+        // The same record turned around fails the same check: a creation
+        // after a page script, or a first paint before the frame.
+        for (const { label, evidence: reversed } of reversedEvidence(evidence)) {
+          expect(frameProblems(reversed, attrs(LOOK_A)).length, label).toBe(1);
+        }
         expectQuiet(errors);
         await page.close();
       });
