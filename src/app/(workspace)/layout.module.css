@@ -169,7 +169,7 @@
   align-items: stretch;
   padding: 10px 8px;
   gap: 5px;
-  border-radius: 18px;
+  border-radius: var(--radius-rail);
   background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
   backdrop-filter: blur(18px);
   box-shadow: 0 3px 12px var(--shadow);

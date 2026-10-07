@@ -235,7 +235,7 @@
   width: 30px;
   height: 30px;
   place-items: center;
-  border-radius: 9px;
+  border-radius: var(--radius);
   background: var(--accent-wash);
   color: var(--accent);
 }

@@ -230,6 +230,7 @@
   --radius-control: 9px;
   --radius-lg: 11px;
   --radius-card: 14px;
+  --radius-rail: 13px;
 }
 
 /* ---- Background: the texture behind the workspace and in the header
@@ -354,6 +355,7 @@
   --radius-control: 12px;
   --radius-lg: 14px;
   --radius-card: 20px;
+  --radius-rail: 18px;
   --sheet: url("/shell-sheet-light.svg");
   --sheet-size: cover;
   --sheet-pos: center;

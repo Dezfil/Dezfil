@@ -32,7 +32,7 @@
   transform: translateX(-50%);
   width: 38px;
   height: 13px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: var(--accent);
   opacity: 0;
   transition: opacity var(--dur-micro) ease;

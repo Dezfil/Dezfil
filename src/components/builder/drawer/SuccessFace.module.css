@@ -48,7 +48,7 @@
   height: 28px;
   padding: 0 10px;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--radius);
   background: transparent;
   color: var(--fg-muted);
   font-size: 12px;

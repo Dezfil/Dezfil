@@ -354,7 +354,8 @@ rule:
 - `npm run lint:stage-edge` fails when the map stage's left edge reappears
   as a literal instead of the single custom property.
 - `npm run lint:wheelhouse` holds the design vocabulary against the token
-  set: off-ramp font sizes, radii outside the closed family, motion beats,
+  set: off-ramp font sizes, literal radii other than pills and rounds (the
+  family is read through its tokens), motion beats,
   raw colour literals in component styles, banned glyph classes,
   focus-outline suppression and stray arrow cursors.
 - `npm run lint:tokens` fails on a `var(--x)` reference with no definition

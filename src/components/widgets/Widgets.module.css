@@ -240,7 +240,7 @@
   gap: 8px;
   width: 100%;
   padding: 3px 7px;
-  border-radius: 9px;
+  border-radius: var(--radius);
   color: var(--fg-faint);
   text-align: left;
   transition: 0.13s;

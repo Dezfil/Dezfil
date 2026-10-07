@@ -40,13 +40,23 @@ describe("sweepStyles", () => {
       ".a { font-size: var(--text-body); }",
       ".b { font-size: 11px; }",
       ".c { border-radius: var(--radius); }",
-      ".d { border-radius: 9px 9px 0 0; }",
+      ".d { border-radius: var(--radius) var(--radius) 0 0; }",
       ".e { transition: opacity var(--dur-micro); }",
       ".f { transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }",
       ".g { color: var(--fg); background: var(--accent-dim); }",
       ".h { border-radius: 50%; }",
     ].join("\n");
     expect(sweepStyles(css, "x.module.css")).toEqual([]);
+  });
+
+  it("flags a literal radius the family's tokens carry, so the person's Corners reach it; pills and rounds stay literal", () => {
+    for (const literal of ["4px", "9px", "12px", "14px", "20px", "9px 9px 0 0", "0 12px"]) {
+      expect(rules(sweepStyles(`.a { border-radius: ${literal}; }`, "x.module.css")), literal).toEqual(["radius"]);
+    }
+    expect(rules(sweepStyles(".a { border-top-left-radius: 14px; }", "x.module.css"))).toEqual(["radius"]);
+    for (const kept of ["999px", "50%", "0", "999px 999px 0 0"]) {
+      expect(sweepStyles(`.a { border-radius: ${kept}; }`, "x.module.css"), kept).toEqual([]);
+    }
   });
 
   it("flags a raw color even when a custom property carries it", () => {
@@ -263,6 +273,11 @@ describe("sweepSpecimen", () => {
       "specimen-glyph",
       "specimen-radius",
     ]);
+  });
+
+  it("lets the page show the radius family's own values, which its samples draw", () => {
+    const page = ['<div class="box" style="border-radius:9px"></div>', ".b { border-radius: 20px; }"].join("\n");
+    expect(sweepSpecimen(page, "p.html")).toEqual([]);
   });
 
   it("leaves the fed regions alone — they are the sources' business", () => {

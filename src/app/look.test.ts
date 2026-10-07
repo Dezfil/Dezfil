@@ -138,7 +138,8 @@ describe("the look stylesheet", () => {
 
   it("changes the face of what is read and the corners' family, never the wordmark, the mono face or the pills", () => {
     expect(names(block(["font=system"], false))).toEqual(["--font-ui"]);
-    expect(names(block(["corners=soft"], false))).toEqual(["--radius", "--radius-card", "--radius-control", "--radius-lg", "--radius-sm"]);
+    expect(names(block(["corners=soft"], false))).toEqual(["--radius", "--radius-card", "--radius-control", "--radius-lg",
+      "--radius-rail", "--radius-sm"]);
     const set = new Set(pickRules.flatMap(rule => names(rule)));
     for (const kept of ["--font-display", "--font-mono", "--radius-pill"]) expect(set.has(kept), kept).toBe(false);
   });
@@ -182,6 +183,18 @@ describe("the look stylesheet", () => {
     expect(names(dark)).toEqual(set.filter(token => GLOBAL_DARK.tokens.has(token)));
     for (const token of set) expect(light.tokens.get(token), token).toBe(GLOBAL_LIGHT.tokens.get(token));
     for (const token of names(dark)) expect(dark.tokens.get(token), token).toBe(GLOBAL_DARK.tokens.get(token));
+  });
+
+  it("keeps the radius family at the literals its readers held, so Rounded is today's corners", () => {
+    // Module stylesheets read these tokens where they once wrote the literal
+    // of the same value; the rail has its own token at its own radius.
+    const family = { "--radius-sm": "4px", "--radius": "9px", "--radius-control": "12px", "--radius-lg": "14px",
+      "--radius-card": "20px", "--radius-rail": "18px", "--radius-pill": "999px" };
+    for (const [token, value] of Object.entries(family)) expect(GLOBAL_LIGHT.tokens.get(token), token).toBe(value);
+    const rail = bodies(readFileSync("src/app/(workspace)/layout.module.css", "utf8"))
+      .filter(rule => rule.selector === ".rail" && /border-radius/.test(rule.body));
+    expect(rail.length).toBe(1);
+    expect(rail[0].body).toMatch(/border-radius:\s*var\(--radius-rail\)/);
   });
 
   it("is loaded by the document after the global tokens it overrides", () => {

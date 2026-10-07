@@ -6,8 +6,11 @@
  * Rules swept, each against the token set in src/app/globals.css:
  *   font-size   px literals must sit on the type ramp (27/22/15/13/12/11)
  *               or reference a token; anything else is off-ramp.
- *   radius      literals must sit in the closed family (4/9/12/14/20/999,
- *               plus 0 and 50% circles) or reference a token.
+ *   radius      a module stylesheet reads the closed family (4/9/12/14/20)
+ *               through its tokens, so the person's Corners reaches every
+ *               rounded edge; only pills (999px), rounds (50%) and 0 stay
+ *               literal. The specimen's authored page may still write the
+ *               family's values: its samples draw them.
  *   motion      duration literals must be a role beat (0.13/0.22/0.3/0.35s),
  *               easing literals a token curve or the default keywords.
  *   color       raw hex/rgb/hsl in component styles is off-token.
@@ -47,7 +50,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const RAMP_PX = new Set(["27px", "22px", "15px", "13px", "12px", "11px"]);
-const RADIUS_OK = new Set(["4px", "9px", "12px", "14px", "20px", "999px", "0", "50%"]);
+/** The literals a module stylesheet may write: pills and rounds. */
+const RADIUS_OK = new Set(["999px", "0", "50%"]);
+/** The family the specimen's samples draw by value. */
+const RADIUS_FAMILY = new Set(["4px", "9px", "12px", "14px", "20px", ...RADIUS_OK]);
 const DUR_OK = new Set(["0.13s", "0.22s", "0.3s", "0.35s", "130ms", "220ms", "300ms", "350ms", "0s", "0ms"]);
 const EASE_OK = new Set([
   "ease",
@@ -331,7 +337,7 @@ export function sweepSpecimen(page, file) {
       const px = /^(\d+(?:\.\d+)?)px$/.exec(value);
       if (px && Number(px[1]) < 11) found.push({ file, rule: "specimen-floor", value, line });
     } else if (/^border(-\w+){0,2}-radius$/.test(prop) && !usesVar(value)) {
-      if (!value.split(/\s+/).every((p) => RADIUS_OK.has(p)))
+      if (!value.split(/\s+/).every((p) => RADIUS_FAMILY.has(p)))
         found.push({ file, rule: "specimen-radius", value, line });
     }
   }

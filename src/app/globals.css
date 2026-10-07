@@ -113,6 +113,8 @@
      small radius for swatches/kbd/dismiss, the pill blessed */
   --radius-sm: 4px;
   --radius-pill: 999px;
+  /* The icon rail's own corner, which Corners tightens with the rest */
+  --radius-rail: 18px;
 
   /* Type ramp — six roles, floor 11px; nothing renders below --text-meta */
   --text-hero: 27px;
