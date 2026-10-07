@@ -347,6 +347,17 @@
 .rail[data-expanded] .accountOut,
 :global(:root:not([data-look-rail="icons"]):not([data-look-rail="open"])) .rail:has(:focus-visible) .accountOut,
 :global(:root[data-look-rail="open"]) .accountOut { opacity: 1; pointer-events: auto; }
+/* Icons only: the rail never opens, so Sign out cannot wait at the end of
+   an opened row. It stands in the icon column under the account instead,
+   shown and named by its hint like every other item: a control that takes
+   focus unseen is not one. */
+:global(:root[data-look-rail="icons"]) .accountRow {
+  display: flex; flex-direction: column; gap: 5px;
+}
+:global(:root[data-look-rail="icons"]) .accountRow .accountOut {
+  position: static; transform: none; align-self: center;
+  opacity: 1; pointer-events: auto;
+}
 .accountOut:hover { color: var(--fg); background: var(--bg-hover); }
 .accountError {
   position: fixed; left: calc(var(--gutter) + 62px + var(--rail-shift)); bottom: var(--gutter);
