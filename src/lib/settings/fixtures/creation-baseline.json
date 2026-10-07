@@ -1,0 +1,367 @@
+{
+  "calls": {
+    "map": {
+      "status": 201,
+      "body": {
+        "id": "<map>",
+        "name": "Baseline",
+        "viewport": {
+          "lng": 0,
+          "lat": 40,
+          "zoom": 1.3
+        },
+        "basemap": null,
+        "customBasemap": null,
+        "basemapLayers": null,
+        "note": null,
+        "legendCorner": null,
+        "legendOrder": null,
+        "timeline": null,
+        "widgets": [],
+        "widgetsPublished": true,
+        "publishToken": null,
+        "publishedAt": null,
+        "published": false,
+        "createdAt": "<time>",
+        "updatedAt": "<time>",
+        "editRevision": "<revision 1>",
+        "lastChangedAt": "<time>",
+        "lastChangedBy": {
+          "name": "test-account",
+          "sqlName": "test_account"
+        },
+        "projectId": null,
+        "owner": {
+          "name": "test-account",
+          "sqlName": "test_account"
+        },
+        "home": "test_account"
+      }
+    },
+    "layers": [
+      {
+        "status": 201,
+        "body": {
+          "id": "<points layer>",
+          "mapId": "<map>",
+          "name": "Points",
+          "sql": "SELECT ST_Point(13.40, 52.52) AS geom",
+          "style": {
+            "fill": {
+              "type": "constant",
+              "color": {
+                "r": 18,
+                "g": 147,
+                "b": 154,
+                "a": 1
+              }
+            },
+            "fillOpacity": 0.72,
+            "stroke": {
+              "r": 12,
+              "g": 16,
+              "b": 24,
+              "a": 1
+            },
+            "strokeOpacity": 0.85,
+            "strokeWidth": 0,
+            "pointRadius": 3,
+            "opacity": 1
+          },
+          "visible": true,
+          "tooltip": null,
+          "popup": null,
+          "publishedFields": null,
+          "inLegend": true,
+          "viz": {
+            "type": "points"
+          },
+          "filters": [],
+          "legendTitle": null,
+          "legendLabels": null,
+          "legendAttrs": null,
+          "ordinal": 0,
+          "createdAt": "<time>",
+          "updatedAt": "<time>",
+          "editRevision": "<revision 2>",
+          "lastChangedAt": "<time>",
+          "lastChangedBy": {
+            "name": "test-account",
+            "sqlName": "test_account"
+          }
+        }
+      },
+      {
+        "status": 201,
+        "body": {
+          "id": "<lines layer>",
+          "mapId": "<map>",
+          "name": "Lines",
+          "sql": "SELECT ST_GeomFromText('LINESTRING (13.30 52.45, 13.50 52.58)') AS geom",
+          "style": {
+            "fill": {
+              "type": "constant",
+              "color": {
+                "r": 221,
+                "g": 178,
+                "b": 124,
+                "a": 1
+              }
+            },
+            "fillOpacity": 0.72,
+            "stroke": {
+              "r": 221,
+              "g": 178,
+              "b": 124,
+              "a": 1
+            },
+            "strokeOpacity": 0.95,
+            "strokeWidth": 2,
+            "pointRadius": 3,
+            "opacity": 1
+          },
+          "visible": true,
+          "tooltip": null,
+          "popup": null,
+          "publishedFields": null,
+          "inLegend": true,
+          "viz": {
+            "type": "points"
+          },
+          "filters": [],
+          "legendTitle": null,
+          "legendLabels": null,
+          "legendAttrs": null,
+          "ordinal": 1,
+          "createdAt": "<time>",
+          "updatedAt": "<time>",
+          "editRevision": "<revision 3>",
+          "lastChangedAt": "<time>",
+          "lastChangedBy": {
+            "name": "test-account",
+            "sqlName": "test_account"
+          }
+        }
+      },
+      {
+        "status": 201,
+        "body": {
+          "id": "<areas layer>",
+          "mapId": "<map>",
+          "name": "Areas",
+          "sql": "SELECT ST_GeomFromText('POLYGON ((13.30 52.45, 13.50 52.45, 13.50 52.58, 13.30 52.45))') AS geom",
+          "style": {
+            "fill": {
+              "type": "constant",
+              "color": {
+                "r": 136,
+                "g": 87,
+                "b": 44,
+                "a": 1
+              }
+            },
+            "fillOpacity": 0.5,
+            "stroke": {
+              "r": 12,
+              "g": 16,
+              "b": 24,
+              "a": 1
+            },
+            "strokeOpacity": 0.85,
+            "strokeWidth": 0,
+            "pointRadius": 3,
+            "opacity": 1
+          },
+          "visible": true,
+          "tooltip": null,
+          "popup": null,
+          "publishedFields": null,
+          "inLegend": true,
+          "viz": {
+            "type": "points"
+          },
+          "filters": [],
+          "legendTitle": null,
+          "legendLabels": null,
+          "legendAttrs": null,
+          "ordinal": 2,
+          "createdAt": "<time>",
+          "updatedAt": "<time>",
+          "editRevision": "<revision 4>",
+          "lastChangedAt": "<time>",
+          "lastChangedBy": {
+            "name": "test-account",
+            "sqlName": "test_account"
+          }
+        }
+      }
+    ],
+    "sketch": {
+      "status": 201,
+      "body": {
+        "editRevision": "<revision 5>",
+        "table": "baseline_sketch",
+        "tableId": "<sketch dataset>",
+        "layerId": "<sketch layer>",
+        "layerName": "Sketch",
+        "featureId": "<sketch feature>"
+      }
+    }
+  },
+  "stored": {
+    "map": {
+      "id": "<map>",
+      "name": "Baseline",
+      "view_lng": 0,
+      "view_lat": 40,
+      "view_zoom": 1.3,
+      "publish_token": null,
+      "published_at": null,
+      "created_at": "<time>",
+      "updated_at": "<time>",
+      "basemap": null,
+      "note": null,
+      "basemap_layers": null,
+      "legend_corner": null,
+      "history_cursor": 3,
+      "timeline": null,
+      "widgets": null,
+      "widgets_published": 1,
+      "view_pitch": 0,
+      "view_bearing": 0,
+      "published_theme": null,
+      "viewer_controls": null,
+      "custom_basemap": null,
+      "legend_order": null,
+      "project_id": null,
+      "owner_id": "test-account",
+      "home_account_id": "test-account",
+      "edit_revision": "<revision 5>",
+      "last_changed_at": "<time>",
+      "last_changed_by": "test-account"
+    },
+    "layers": [
+      {
+        "id": "<points layer>",
+        "map_id": "<map>",
+        "name": "Points",
+        "sql": "SELECT ST_Point(13.40, 52.52) AS geom",
+        "style": "{\"fill\":{\"type\":\"constant\",\"color\":{\"r\":18,\"g\":147,\"b\":154,\"a\":1}},\"fillOpacity\":0.72,\"stroke\":{\"r\":12,\"g\":16,\"b\":24,\"a\":1},\"strokeOpacity\":0.85,\"strokeWidth\":0,\"pointRadius\":3,\"opacity\":1}",
+        "visible": 1,
+        "ordinal": 0,
+        "created_at": "<time>",
+        "updated_at": "<time>",
+        "tooltip": null,
+        "in_legend": 1,
+        "viz": null,
+        "filters": null,
+        "legend_title": null,
+        "legend_labels": null,
+        "legend_attrs": null,
+        "popup": null,
+        "published_fields": null
+      },
+      {
+        "id": "<lines layer>",
+        "map_id": "<map>",
+        "name": "Lines",
+        "sql": "SELECT ST_GeomFromText('LINESTRING (13.30 52.45, 13.50 52.58)') AS geom",
+        "style": "{\"fill\":{\"type\":\"constant\",\"color\":{\"r\":221,\"g\":178,\"b\":124,\"a\":1}},\"fillOpacity\":0.72,\"stroke\":{\"r\":221,\"g\":178,\"b\":124,\"a\":1},\"strokeOpacity\":0.95,\"strokeWidth\":2,\"pointRadius\":3,\"opacity\":1}",
+        "visible": 1,
+        "ordinal": 1,
+        "created_at": "<time>",
+        "updated_at": "<time>",
+        "tooltip": null,
+        "in_legend": 1,
+        "viz": null,
+        "filters": null,
+        "legend_title": null,
+        "legend_labels": null,
+        "legend_attrs": null,
+        "popup": null,
+        "published_fields": null
+      },
+      {
+        "id": "<areas layer>",
+        "map_id": "<map>",
+        "name": "Areas",
+        "sql": "SELECT ST_GeomFromText('POLYGON ((13.30 52.45, 13.50 52.45, 13.50 52.58, 13.30 52.45))') AS geom",
+        "style": "{\"fill\":{\"type\":\"constant\",\"color\":{\"r\":136,\"g\":87,\"b\":44,\"a\":1}},\"fillOpacity\":0.5,\"stroke\":{\"r\":12,\"g\":16,\"b\":24,\"a\":1},\"strokeOpacity\":0.85,\"strokeWidth\":0,\"pointRadius\":3,\"opacity\":1}",
+        "visible": 1,
+        "ordinal": 2,
+        "created_at": "<time>",
+        "updated_at": "<time>",
+        "tooltip": null,
+        "in_legend": 1,
+        "viz": null,
+        "filters": null,
+        "legend_title": null,
+        "legend_labels": null,
+        "legend_attrs": null,
+        "popup": null,
+        "published_fields": null
+      },
+      {
+        "id": "<sketch layer>",
+        "map_id": "<map>",
+        "name": "Sketch",
+        "sql": "SELECT * FROM baseline_sketch",
+        "style": "{\"fill\":{\"type\":\"constant\",\"color\":{\"r\":255,\"g\":153,\"b\":31,\"a\":1}},\"fillOpacity\":0.45,\"stroke\":{\"r\":255,\"g\":153,\"b\":31,\"a\":1},\"strokeOpacity\":0.95,\"strokeWidth\":2,\"pointRadius\":4,\"opacity\":1}",
+        "visible": 1,
+        "ordinal": 3,
+        "created_at": "<time>",
+        "updated_at": "<time>",
+        "tooltip": null,
+        "in_legend": 1,
+        "viz": null,
+        "filters": null,
+        "legend_title": null,
+        "legend_labels": null,
+        "legend_attrs": null,
+        "popup": null,
+        "published_fields": null
+      }
+    ],
+    "history": [
+      {
+        "id": "<step 1>",
+        "map_id": "<map>",
+        "seq": 1,
+        "scope": "layer",
+        "target_id": "<points layer>",
+        "op": "add",
+        "before": null,
+        "after": "{\"id\":\"<points layer>\",\"mapId\":\"<map>\",\"name\":\"Points\",\"sql\":\"SELECT ST_Point(13.40, 52.52) AS geom\",\"style\":{\"fill\":{\"type\":\"constant\",\"color\":{\"r\":18,\"g\":147,\"b\":154,\"a\":1}},\"fillOpacity\":0.72,\"stroke\":{\"r\":12,\"g\":16,\"b\":24,\"a\":1},\"strokeOpacity\":0.85,\"strokeWidth\":0,\"pointRadius\":3,\"opacity\":1},\"visible\":true,\"tooltip\":null,\"popup\":null,\"publishedFields\":null,\"inLegend\":true,\"viz\":{\"type\":\"points\"},\"filters\":[],\"legendTitle\":null,\"legendLabels\":null,\"legendAttrs\":null,\"ordinal\":0,\"createdAt\":\"<time>\",\"updatedAt\":\"<time>\"}",
+        "group_id": null,
+        "created_at": "<time>",
+        "author_id": "test-account"
+      },
+      {
+        "id": "<step 2>",
+        "map_id": "<map>",
+        "seq": 2,
+        "scope": "layer",
+        "target_id": "<lines layer>",
+        "op": "add",
+        "before": null,
+        "after": "{\"id\":\"<lines layer>\",\"mapId\":\"<map>\",\"name\":\"Lines\",\"sql\":\"SELECT ST_GeomFromText('LINESTRING (13.30 52.45, 13.50 52.58)') AS geom\",\"style\":{\"fill\":{\"type\":\"constant\",\"color\":{\"r\":221,\"g\":178,\"b\":124,\"a\":1}},\"fillOpacity\":0.72,\"stroke\":{\"r\":221,\"g\":178,\"b\":124,\"a\":1},\"strokeOpacity\":0.95,\"strokeWidth\":2,\"pointRadius\":3,\"opacity\":1},\"visible\":true,\"tooltip\":null,\"popup\":null,\"publishedFields\":null,\"inLegend\":true,\"viz\":{\"type\":\"points\"},\"filters\":[],\"legendTitle\":null,\"legendLabels\":null,\"legendAttrs\":null,\"ordinal\":1,\"createdAt\":\"<time>\",\"updatedAt\":\"<time>\"}",
+        "group_id": null,
+        "created_at": "<time>",
+        "author_id": "test-account"
+      },
+      {
+        "id": "<step 3>",
+        "map_id": "<map>",
+        "seq": 3,
+        "scope": "layer",
+        "target_id": "<areas layer>",
+        "op": "add",
+        "before": null,
+        "after": "{\"id\":\"<areas layer>\",\"mapId\":\"<map>\",\"name\":\"Areas\",\"sql\":\"SELECT ST_GeomFromText('POLYGON ((13.30 52.45, 13.50 52.45, 13.50 52.58, 13.30 52.45))') AS geom\",\"style\":{\"fill\":{\"type\":\"constant\",\"color\":{\"r\":136,\"g\":87,\"b\":44,\"a\":1}},\"fillOpacity\":0.5,\"stroke\":{\"r\":12,\"g\":16,\"b\":24,\"a\":1},\"strokeOpacity\":0.85,\"strokeWidth\":0,\"pointRadius\":3,\"opacity\":1},\"visible\":true,\"tooltip\":null,\"popup\":null,\"publishedFields\":null,\"inLegend\":true,\"viz\":{\"type\":\"points\"},\"filters\":[],\"legendTitle\":null,\"legendLabels\":null,\"legendAttrs\":null,\"ordinal\":2,\"createdAt\":\"<time>\",\"updatedAt\":\"<time>\"}",
+        "group_id": null,
+        "created_at": "<time>",
+        "author_id": "test-account"
+      }
+    ]
+  }
+}
