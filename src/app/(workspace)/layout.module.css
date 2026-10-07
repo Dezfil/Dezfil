@@ -105,7 +105,7 @@
 
 .crumbLink {
   padding: 4px 8px;
-  border-radius: 8px;
+  border-radius: var(--radius-row);
   color: var(--fg-muted);
   font-size: 13px;
   /* Part of what makes the card compressible: a crumb that cannot shrink puts

@@ -98,7 +98,7 @@
   flex: none;
   display: grid;
   place-items: center;
-  border-radius: 7px;
+  border-radius: var(--radius-item);
   color: var(--fg-muted);
   border: 0;
   background: none;
@@ -155,7 +155,7 @@
   color: var(--fg-muted);
   border: 1px solid var(--border);
   background: var(--bg-panel);
-  border-radius: 11px;
+  border-radius: var(--radius-tile);
   padding: 8px 2px 7px;
   text-align: center;
   cursor: pointer;

@@ -56,6 +56,43 @@ const NEVER = /^--(on-health|health|warn|danger|grp-|source-|note-|code-|verb-|g
 const globalBlock = (selector: string) => GLOBALS.find(rule => rule.selector === selector)!;
 const GLOBAL_LIGHT = globalBlock(":root"), GLOBAL_DARK = globalBlock(':root[data-theme="dark"]');
 
+/** The corners' family, and the in-between corners derived from it, at
+ * the pixel values their readers wrote before they read a token. */
+const FAMILY = ["--radius-sm", "--radius", "--radius-control", "--radius-lg", "--radius-card", "--radius-rail"];
+const TODAY: Record<string, number> = {
+  "--radius-sm": 4, "--radius": 9, "--radius-control": 12, "--radius-lg": 14, "--radius-card": 20, "--radius-rail": 18,
+  "--radius-chip": 3, "--radius-spine": 5, "--radius-key": 6, "--radius-item": 7, "--radius-row": 8, "--radius-box": 10,
+  "--radius-tile": 11, "--radius-stage": 13, "--radius-legend": 16,
+};
+/** Every radius token a Corners pick re-tunes: the whole set but the pill. */
+const RADIUS_TOKENS = Object.keys(TODAY).sort();
+
+/** Token blocks applied in order, a later one winning, as rules on one element. */
+const layered = (...blocks: Map<string, string>[]) => new Map(blocks.flatMap(tokens => [...tokens]));
+/** A radius token's value in px on an element that declares `tokens`: a
+ * literal, or a calc over another token plus or minus a literal. A custom
+ * property's references resolve where it is declared, so a token this
+ * element does not declare is the parent's computed value (`inherited`),
+ * never re-resolved against this element's own family. */
+function resolvePx(tokens: Map<string, string>, token: string, inherited: Map<string, number> = new Map(), depth = 0): number {
+  const value = tokens.get(token);
+  if (value === undefined) {
+    const from = inherited.get(token);
+    if (from === undefined) throw new Error(`${token} is not defined`);
+    return from;
+  }
+  if (depth > 4) throw new Error(`${token} refers too deep`);
+  const literal = /^(\d+(?:\.\d+)?)px$/.exec(value);
+  if (literal) return Number(literal[1]);
+  const derived = /^calc\(var\((--[\w-]+)\) ([-+]) (\d+(?:\.\d+)?)px\)$/.exec(value);
+  if (!derived) throw new Error(`${token}: ${value} is neither a literal nor a calc over a token`);
+  const base = resolvePx(tokens, derived[1], inherited, depth + 1);
+  return derived[2] === "+" ? base + Number(derived[3]) : base - Number(derived[3]);
+}
+/** Every radius token's computed px on an element. */
+const computedPx = (tokens: Map<string, string>, inherited?: Map<string, number>) =>
+  new Map(Object.keys(TODAY).map(token => [token, resolvePx(tokens, token, inherited)]));
+
 /** Every flat rule of a stylesheet with its declarations as written. */
 function bodies(css: string): { selector: string; body: string }[] {
   const text = css.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -147,10 +184,11 @@ describe("the look stylesheet", () => {
     }
   });
 
-  it("changes the face of what is read and the corners' family, never the wordmark, the mono face or the pills", () => {
+  it("changes the face of what is read and the corners' whole family, never the wordmark, the mono face or the pills", () => {
     expect(names(block(["font=system"], false))).toEqual(["--font-ui"]);
-    expect(names(block(["corners=soft"], false))).toEqual(["--radius", "--radius-card", "--radius-control", "--radius-lg",
-      "--radius-rail", "--radius-sm"]);
+    expect(names(block(["corners=soft"], false))).toEqual(RADIUS_TOKENS);
+    // The complete set: every radius token the page defines but the pill.
+    expect(RADIUS_TOKENS).toEqual([...GLOBAL_LIGHT.tokens.keys()].filter(token => token.startsWith("--radius") && token !== "--radius-pill").sort());
     const set = new Set(pickRules.flatMap(rule => names(rule)));
     for (const kept of ["--font-display", "--font-mono", "--radius-pill"]) expect(set.has(kept), kept).toBe(false);
   });
@@ -217,6 +255,48 @@ describe("the look stylesheet", () => {
     // The light scope matches under either theme; the dark one re-sets
     // tokens only, so the same declarations read the dark defaults.
     for (const property of page.keys()) expect(dark.has(property), `dark ${property}`).toBe(false);
+  });
+
+  it("derives every in-between corner from the family: today's values by default and in the default scope, tighter under Soft", () => {
+    const soft = block(["corners=soft"], false)!;
+    const scope = LOOK.find(rule => rule.selector === DEFAULT_LIGHT)!;
+    // The root by default and under Soft; inside the default scope while
+    // Soft is picked, where only what the scope declares is resolved anew.
+    const byDefault = computedPx(GLOBAL_LIGHT.tokens);
+    const underSoft = computedPx(layered(GLOBAL_LIGHT.tokens, soft.tokens));
+    const inScope = computedPx(scope.tokens, underSoft);
+    for (const [token, px] of Object.entries(TODAY)) {
+      expect(byDefault.get(token), token).toBe(px);
+      expect(inScope.get(token), `${token} in the default scope`).toBe(px);
+      expect(underSoft.get(token), `${token} under Soft`).toBeLessThan(px);
+    }
+    // The in-between corners are written over the family, never as their own literal.
+    for (const token of Object.keys(TODAY).filter(token => !FAMILY.includes(token))) {
+      for (const tokens of [GLOBAL_LIGHT.tokens, soft.tokens, scope.tokens]) {
+        expect(tokens.get(token), token).toMatch(/^calc\(var\(--radius[\w-]*\) [-+] \d+px\)$/);
+      }
+    }
+    // As the approved map page draws them under Soft.
+    expect(Object.fromEntries(["--radius-chip", "--radius-spine", "--radius-tile", "--radius-stage", "--radius-legend"]
+      .map(token => [token, underSoft.get(token)]))).toEqual({
+      "--radius-chip": 2, "--radius-spine": 4, "--radius-tile": 9, "--radius-stage": 10, "--radius-legend": 13 });
+  });
+
+  it("reads every rounded edge of a component through the radius tokens; only pills, rounds and hairline tips stay literal", () => {
+    const corner = (file: string, selector: string) => bodies(readFileSync(file, "utf8"))
+      .filter(rule => rule.selector === selector).map(rule => declared(rule.body).get("border-radius")).filter(Boolean);
+    // The two most prominent controls over a map.
+    expect(corner("src/components/map/LegendPanel.module.css", ".legend")).toEqual(["var(--radius-legend)"]);
+    expect(corner("src/components/map/StageStack.module.css", ".stageBtn")).toEqual(["var(--radius-stage)"]);
+    // A pill (999px, or the 99px a few pills write), a round mark, none, or the
+    // 2 px-and-under tip of a bar, a track or a grip: a mark, not a rounded edge.
+    const KEPT = new Set(["999px", "99px", "50%", "0", "0px", "1px", "1.5px", "2px"]);
+    const literal = moduleSheets("src").filter(file => file.endsWith(".module.css")).flatMap(file =>
+      bodies(readFileSync(file, "utf8")).flatMap(rule => [...declared(rule.body)]
+        .filter(([property, value]) => /^border(-[a-z]+){0,2}-radius$/.test(property) && !/var\(--/.test(value)
+          && !value.split(/\s+/).every(part => KEPT.has(part)))
+        .map(([, value]) => `${file} ${rule.selector}: ${value}`)));
+    expect(literal).toEqual([]);
   });
 
   it("keeps the radius family at the literals its readers held, so Rounded is today's corners", () => {

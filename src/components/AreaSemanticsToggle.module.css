@@ -21,7 +21,7 @@
   font: inherit;
   font-size: 12px;
   padding: 5px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-key);
   cursor: pointer;
 }
 

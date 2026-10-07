@@ -98,7 +98,7 @@
   flex-direction: column;
   width: 9px;
   height: 32px;
-  border-radius: 5px;
+  border-radius: var(--radius-spine);
   border: 1px solid var(--swatch-border);
   overflow: hidden;
   flex-shrink: 0;

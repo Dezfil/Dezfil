@@ -39,7 +39,7 @@
   color: var(--fg-muted);
   border: 1px solid var(--border);
   background: var(--bg-panel);
-  border-radius: 11px;
+  border-radius: var(--radius-tile);
   padding: 8px 2px 7px;
   text-align: center;
   transition:
@@ -129,7 +129,7 @@
   height: 24px;
   padding: 0;
   border: 1px solid var(--border-strong);
-  border-radius: 5px;
+  border-radius: var(--radius-spine);
   background: none;
   cursor: pointer;
 }
@@ -143,7 +143,7 @@
   color: var(--fg);
   background: var(--bg-panel);
   border: 1px solid var(--border-strong);
-  border-radius: 5px;
+  border-radius: var(--radius-spine);
 }
 
 .num:focus {
@@ -161,7 +161,7 @@
 
 .color::-webkit-color-swatch {
   border: none;
-  border-radius: 3px;
+  border-radius: var(--radius-chip);
 }
 
 /* Kelp slider skin: filled track left of the thumb, faint right, white
@@ -206,7 +206,7 @@
 .legendSwatch {
   width: 12px;
   height: 12px;
-  border-radius: 3px;
+  border-radius: var(--radius-chip);
   border: 1px solid var(--swatch-border);
   flex-shrink: 0;
 }
@@ -232,7 +232,7 @@
   margin: -5px;
   padding: 5px;
   border: 0;
-  border-radius: 3px;
+  border-radius: var(--radius-chip);
   background: none;
   cursor: pointer;
   flex-shrink: 0;
@@ -248,7 +248,7 @@
 
 .legendSwatchInput::-webkit-color-swatch {
   border: 1px solid var(--swatch-border);
-  border-radius: 3px;
+  border-radius: var(--radius-chip);
 }
 
 .breakInput {

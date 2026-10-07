@@ -172,7 +172,7 @@
 .entrySwatch {
   width: 12px;
   height: 12px;
-  border-radius: 3px;
+  border-radius: var(--radius-chip);
   border: 1px solid var(--swatch-border);
   flex-shrink: 0;
 }

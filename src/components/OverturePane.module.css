@@ -51,7 +51,7 @@
   justify-content: space-between;
   gap: 8px;
   border: 1px solid var(--border-strong);
-  border-radius: 10px;
+  border-radius: var(--radius-box);
   background: var(--accent-dim);
   color: var(--fg);
   font-size: 13px;
@@ -61,7 +61,7 @@
 .cityPick button {
   width: 24px;
   height: 24px;
-  border-radius: 7px;
+  border-radius: var(--radius-item);
   color: var(--fg-muted);
   font-size: 15px;
 }
@@ -75,7 +75,7 @@
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-box);
   background: var(--bg-panel);
   overflow: hidden;
 }
@@ -128,7 +128,7 @@
   gap: 2px;
   text-align: left;
   border: 1px solid var(--border);
-  border-radius: 11px;
+  border-radius: var(--radius-tile);
   background: var(--bg-panel);
   padding: 8px 10px;
   transition: border-color 0.14s ease, background 0.14s ease;
@@ -180,7 +180,7 @@
   align-items: center;
   gap: 8px;
   border: 1px dashed var(--border-strong);
-  border-radius: 10px;
+  border-radius: var(--radius-box);
   padding: 10px;
   font-size: 12px;
   color: var(--fg-faint);
@@ -193,7 +193,7 @@
   justify-content: space-between;
   background: var(--accent-dim);
   border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  border-radius: 10px;
+  border-radius: var(--radius-box);
   padding: 8px 11px;
   font-size: 12.5px;
   color: var(--fg-muted);
@@ -217,7 +217,7 @@
   justify-content: space-between;
   background: var(--bg-raised);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-box);
   padding: 8px 11px;
   font-size: 12.5px;
   color: var(--fg-muted);
@@ -241,7 +241,7 @@
   gap: 8px;
   padding: 8px 10px;
   border: 1px solid var(--border);
-  border-radius: 11px;
+  border-radius: var(--radius-tile);
   background: var(--bg-panel);
   font-size: 12px;
   font-weight: 500;
@@ -288,7 +288,7 @@
   height: 36px;
   padding: 0 10px;
   border: 1px solid var(--border-strong);
-  border-radius: 10px;
+  border-radius: var(--radius-box);
   background: var(--bg-panel);
   color: var(--fg);
   font-size: 13px;
@@ -322,7 +322,7 @@
   font-weight: 500;
   color: var(--accent);
   padding: 3px 8px;
-  border-radius: 7px;
+  border-radius: var(--radius-item);
 }
 
 .queryBtn:hover:not(:disabled) {

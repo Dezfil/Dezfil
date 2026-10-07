@@ -115,6 +115,20 @@
   --radius-pill: 999px;
   /* The icon rail's own corner, which Corners tightens with the rest */
   --radius-rail: 18px;
+  /* The corners in between, each derived from the family so Corners
+     tightens them with it: a swatch or strip (3), a small input (5), a key
+     in a bar (6), an item in a menu or bar (7), a row or chip (8), a box,
+     field or menu (10), a tile (11), the map's stage controls (13), the
+     legend and a widget card (16) */
+  --radius-chip: calc(var(--radius-sm) - 1px);
+  --radius-spine: calc(var(--radius-sm) + 1px);
+  --radius-key: calc(var(--radius-sm) + 2px);
+  --radius-item: calc(var(--radius) - 2px);
+  --radius-row: calc(var(--radius) - 1px);
+  --radius-box: calc(var(--radius) + 1px);
+  --radius-tile: calc(var(--radius) + 2px);
+  --radius-stage: calc(var(--radius-control) + 1px);
+  --radius-legend: calc(var(--radius-lg) + 2px);
   /* What the always-open rail adds to every left edge beside it: none
      while the rail opens over the page */
   --rail-shift: 0px;

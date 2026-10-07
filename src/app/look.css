@@ -222,7 +222,9 @@
   --font-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
-/* ---- Corners: Soft is the tighter family; pills and rounds stay ---- */
+/* ---- Corners: Soft is the tighter family; pills and rounds stay. The
+   corners in between are restated over the family as the page defines
+   them, so the block holds every corner the pick changes ---- */
 
 :root[data-look-corners="soft"] {
   --radius-sm: 3px;
@@ -231,6 +233,15 @@
   --radius-lg: 11px;
   --radius-card: 14px;
   --radius-rail: 13px;
+  --radius-chip: calc(var(--radius-sm) - 1px);
+  --radius-spine: calc(var(--radius-sm) + 1px);
+  --radius-key: calc(var(--radius-sm) + 2px);
+  --radius-item: calc(var(--radius) - 2px);
+  --radius-row: calc(var(--radius) - 1px);
+  --radius-box: calc(var(--radius) + 1px);
+  --radius-tile: calc(var(--radius) + 2px);
+  --radius-stage: calc(var(--radius-control) + 1px);
+  --radius-legend: calc(var(--radius-lg) + 2px);
 }
 
 /* ---- Side menu: Always open stands the rail at its open width (210 px)
@@ -374,6 +385,15 @@
   --radius-lg: 14px;
   --radius-card: 20px;
   --radius-rail: 18px;
+  --radius-chip: calc(var(--radius-sm) - 1px);
+  --radius-spine: calc(var(--radius-sm) + 1px);
+  --radius-key: calc(var(--radius-sm) + 2px);
+  --radius-item: calc(var(--radius) - 2px);
+  --radius-row: calc(var(--radius) - 1px);
+  --radius-box: calc(var(--radius) + 1px);
+  --radius-tile: calc(var(--radius) + 2px);
+  --radius-stage: calc(var(--radius-control) + 1px);
+  --radius-legend: calc(var(--radius-lg) + 2px);
   --rail-shift: 0px;
   --sheet: url("/shell-sheet-light.svg");
   --sheet-size: cover;

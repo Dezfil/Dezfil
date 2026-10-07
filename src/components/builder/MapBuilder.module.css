@@ -102,7 +102,7 @@
   font-weight: 700;
   background: var(--bg-raised);
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-row);
   color: var(--fg);
   padding: 3px 8px;
   width: 220px;
