@@ -1,11 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { useRailShift } from "../rail-mode";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { RecipeDrawerState } from "./drawer/use-recipe-drawer";
 import {
-  bandLimits,
-  bandOf,
   closeHelper,
   crossBand,
   openHelper,
@@ -15,6 +12,7 @@ import {
   type Helper,
   type HelperSlot,
 } from "./helper-bands";
+import { useViewportBand } from "./use-viewport-band";
 
 /**
  * The two-sided helper slot's coordinator: the pure rules in
@@ -39,24 +37,6 @@ export const ASSISTANT_DOOR_SELECTOR = '[aria-controls="builder-assistant"]';
 export const TOOLS_DOOR_SELECTOR = "[data-tools-control]";
 const TOOLS_SELECTOR = "[data-recipe-drawer]";
 const ASSISTANT_SELECTOR = "[data-assistant-pane]";
-
-/** The width queries at the bands' two limits, where the rail beside the
- * page puts them: the open rail moves both up by its shift. */
-function bandSubscription(railShift: number) {
-  const { overlayAtMost, bothFrom } = bandLimits(railShift);
-  return (onChange: () => void): (() => void) => {
-    const narrow = window.matchMedia(`(max-width: ${overlayAtMost}px)`);
-    const wide = window.matchMedia(`(min-width: ${bothFrom}px)`);
-    narrow.addEventListener("change", onChange);
-    wide.addEventListener("change", onChange);
-    return () => {
-      narrow.removeEventListener("change", onChange);
-      wide.removeEventListener("change", onChange);
-    };
-  };
-}
-/** The server renders the one-docked layout; the client corrects on first paint. */
-const serverBand = (): Band => "one";
 
 /** Focus inside the helper the width is about to hide lands on its door. */
 function moveFocusToDoor(helper: Helper) {
@@ -84,12 +64,9 @@ export interface HelperSlotControl {
 interface Memory { lastOpened: Helper | null; hidden: Helper | null; band: Band }
 
 export function useHelperSlot(drawer: RecipeDrawerState, onToolsOpenedRef: React.RefObject<(() => void) | null>): HelperSlotControl {
-  // The rail's width is inside the bands' chrome: read from the root as
-  // the rail reads its pick, so Always open moves both limits with it.
-  const railShift = useRailShift();
-  const subscribeBand = useMemo(() => bandSubscription(railShift), [railShift]);
-  const readBand = useCallback((): Band => bandOf(window.innerWidth, railShift), [railShift]);
-  const band = useSyncExternalStore(subscribeBand, readBand, serverBand);
+  // The rail's width is inside the bands' chrome, so Always open moves
+  // both limits with it.
+  const band = useViewportBand();
   const [assistantHand, setAssistantHand] = useState(false);
   const [memory, setMemory] = useState<Memory>({ lastOpened: null, hidden: null, band });
 

@@ -18,8 +18,9 @@ import { DRAWER_GUTTER, DRAWER_WIDTH, OVERLAY_BELOW } from "./drawer/use-recipe-
  * standing open (the Side menu's Always open) moves both limits up by
  * what it adds to the collapsed rail, the root's `--rail-shift`: the map
  * keeps its 700 px with both helpers docked, and one docked helper keeps
- * the stage it has today. The shift is an input here; the coordinator
- * reads it from the root.
+ * the stage it has today. The shift is an input here; the band hook
+ * (`use-viewport-band.ts`) reads it from the root for the builder, the
+ * workflow canvas and the SQL console alike.
  *
  * Narrowing out of the three-pane band with both open keeps the helper
  * opened later by hand and hides the other; widening back returns it.
