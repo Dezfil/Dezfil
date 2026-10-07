@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { SETTING_CATALOGUE, TEST_WIRING, settingDefinition } from "./catalogue";
 import { catalogueProblems, validateStoredValue } from "./validation";
 import { lockedEnvironment } from "./resolver";
+import type { SettingDefinition } from "./types";
 import { DEFAULTS, EDITABLE_NUMBERS } from "../../../test-support/settings-fixtures";
 
 describe("settings catalogue", () => {
@@ -109,5 +110,46 @@ describe("the look's six picks", () => {
     expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
     const seeded = SETTING_CATALOGUE.map(definition => definition.key === key ? { ...definition, ...change } : definition);
     expect(catalogueProblems(seeded)).toContain(`${key}: ${problem}`);
+  });
+});
+
+/** A stored instance setting of each newer value kind, built on an
+ * existing stored definition so only the kind differs. */
+const decimal: SettingDefinition = { ...settingDefinition("landingPage"), key: "seeded.zoom", label: "Seeded zoom",
+  purpose: "A number kept as given.", kind: "number", defaultValue: 1.3, documentedDefault: "1.3",
+  write: { kind: "decimal", min: 0, max: 22 } };
+const toggle: SettingDefinition = { ...settingDefinition("landingPage"), key: "seeded.wrap", label: "Seeded wrap",
+  purpose: "On or off.", kind: "boolean", defaultValue: false, documentedDefault: "off", write: { kind: "switch" } };
+
+describe("the decimal and switch value kinds", () => {
+  it("keeps a finite decimal within its inclusive bounds exactly as given", () => {
+    for (const value of [0, 22, 1.3, 0.1 + 0.2, 21.999999999, -0]) expect(validateStoredValue(decimal, value)).toEqual({ ok: true, value });
+    for (const value of [-0.000001, 22.000001, NaN, Infinity, -Infinity, "1.3", true, [], {}, undefined]) {
+      expect(validateStoredValue(decimal, value), String(value)).toEqual({ ok: false, reason: "Expected a number from 0 to 22." });
+    }
+    expect(validateStoredValue(decimal, null)).toEqual({ ok: true, value: null });
+  });
+
+  it("keeps only true or false for a switch", () => {
+    for (const value of [true, false]) expect(validateStoredValue(toggle, value)).toEqual({ ok: true, value });
+    for (const value of ["true", "false", "on", 0, 1, "", [], {}, undefined]) {
+      expect(validateStoredValue(toggle, value), String(value)).toEqual({ ok: false, reason: "Expected true or false." });
+    }
+    expect(validateStoredValue(toggle, null)).toEqual({ ok: true, value: null });
+  });
+
+  it("admits a well-formed decimal and switch definition", () => {
+    expect(catalogueProblems([...SETTING_CATALOGUE, decimal, toggle])).toEqual([]);
+  });
+
+  it.each([
+    ["a decimal constraint on a choice definition", { ...decimal, kind: "choice" }, "invalid decimal constraint"],
+    ["a decimal constraint with crossed bounds", { ...decimal, write: { kind: "decimal", min: 22, max: 0 } }, "invalid decimal constraint"],
+    ["a decimal constraint with an unbounded end", { ...decimal, write: { kind: "decimal", min: 0, max: Infinity } }, "invalid decimal constraint"],
+    ["a decimal default outside its bounds", { ...decimal, defaultValue: 22.5 }, "default fails validation"],
+    ["a switch constraint on a number definition", { ...toggle, kind: "number" }, "invalid switch constraint"],
+    ["a switch default that is not true or false", { ...toggle, defaultValue: "off" }, "default fails validation"],
+  ] as [string, SettingDefinition, string][])("fails the catalogue with %s", (_name, seeded, problem) => {
+    expect(catalogueProblems([...SETTING_CATALOGUE, seeded])).toContain(`${seeded.key}: ${problem}`);
   });
 });

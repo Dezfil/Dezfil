@@ -3,6 +3,10 @@ export type SettingValue = number | boolean | string | null | readonly string[];
 export type SettingDefault = SettingValue | { readonly rule: string };
 export type WriteConstraint =
   | { readonly kind: "integer"; readonly min: number; readonly max: number }
+  /** Any finite number within inclusive bounds, kept as given: never rounded. */
+  | { readonly kind: "decimal"; readonly min: number; readonly max: number }
+  /** True or false. */
+  | { readonly kind: "switch" }
   | { readonly kind: "text"; readonly maxLength: number; readonly empty: "null" | "value" }
   | { readonly kind: "choice"; readonly values: readonly string[] };
 
