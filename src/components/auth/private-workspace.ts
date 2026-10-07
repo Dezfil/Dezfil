@@ -1,5 +1,6 @@
 import { ACCOUNT_CHANGED_EVENT, ACCOUNT_STORAGE_KEY, closePrivateState, openPrivateState } from "./private-state";
 import { privateFetch } from "./private-fetch";
+import { traversalKept } from "./kept-traversals";
 
 /** A document belongs to one account. A change ends that document, so Next's
  * route cache, React state, module caches and pending downloads cannot become
@@ -35,6 +36,9 @@ export function watchPrivateWorkspace(accountId: string, ready: (value: boolean)
   const pagehide = () => { conceal(); document.title = "Dezfil"; lifetime.abort(); };
   const pageshow = (event: PageTransitionEvent) => { if (event.persisted) reload(); };
   const focus = () => { void check(); };
+  // A Back or Forward restores a cached route, unless the page on screen
+  // keeps it on what it already shows.
+  const popstate = () => { if (!traversalKept()) reload(); };
   const channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(ACCOUNT_CHANGED_EVENT);
   channel?.addEventListener("message", reload);
   window.addEventListener("storage", storage);
@@ -42,7 +46,7 @@ export function watchPrivateWorkspace(accountId: string, ready: (value: boolean)
   window.addEventListener("focus", focus);
   window.addEventListener("pagehide", pagehide);
   window.addEventListener("pageshow", pageshow);
-  window.addEventListener("popstate", reload);
+  window.addEventListener("popstate", popstate);
   document.addEventListener("visibilitychange", visibility);
   void check();
   return () => {
@@ -53,7 +57,7 @@ export function watchPrivateWorkspace(accountId: string, ready: (value: boolean)
     window.removeEventListener("focus", focus);
     window.removeEventListener("pagehide", pagehide);
     window.removeEventListener("pageshow", pageshow);
-    window.removeEventListener("popstate", reload);
+    window.removeEventListener("popstate", popstate);
     document.removeEventListener("visibilitychange", visibility);
     channel?.close();
   };

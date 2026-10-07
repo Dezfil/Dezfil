@@ -83,7 +83,7 @@ beforeEach(() => {
   host = installDomHost();
   Object.assign(host.window, {
     location: { get hash() { return nav.hash; }, get pathname() { return nav.pathname; }, get href() { return `https://dezfil.example${nav.pathname}${nav.hash}`; }, origin: "https://dezfil.example" },
-    history: { go: vi.fn() },
+    history: { state: null as unknown, pushState(this: { state: unknown }, state: unknown) { this.state = state; }, back: vi.fn(), go: vi.fn() },
   });
   themeButton = host.document.createElement("button");
   themeButton.setAttribute("aria-label", "Switch between dark and light theme");

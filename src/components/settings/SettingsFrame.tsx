@@ -19,7 +19,8 @@ import type { Pointer, SearchHit } from "./settings-search";
 import { SearchField, SearchResults } from "./SettingsSearch";
 import { useSettingsSearch } from "./use-settings-search";
 import { LeaveGuard, type GuardMessage } from "./leave-guard";
-import { watchLeaving } from "./leave-watch";
+import { watchLeaving, type LeaveWatch } from "./leave-watch";
+import { keepTraversals } from "@/components/auth/kept-traversals";
 import { GuardContext, LeaveDialog } from "./settings-guard";
 import styles from "./SettingsFrame.module.css";
 
@@ -57,8 +58,9 @@ export function SettingsFrame() {
   const lastTab = useRef<SettingsTabId | null>(null);
   const [guard] = useState(() => new LeaveGuard());
   const [asking, setAsking] = useState<Asking | null>(null);
-  /** What the watch reads between renders: the tab and address on screen, and the role. */
-  const here = useRef<{ tab: SettingsTabId | null; address: string | null; admin: boolean }>({ tab: null, address: null, admin: false });
+  const leaving = useRef<LeaveWatch | null>(null);
+  /** What the watch reads between renders: the tab on screen, and the role. */
+  const here = useRef<{ tab: SettingsTabId | null; admin: boolean }>({ tab: null, admin: false });
   const search = useSettingsSearch(loaded?.account ?? null);
   const [landing, setLanding] = useState<Landing | null>(null);
   /** A row an address or a hit named that its tab has not drawn yet. */
@@ -72,20 +74,24 @@ export function SettingsFrame() {
     router.push(address, inSettings(new URL(address, window.location.href).pathname) ? { scroll: false } : undefined);
   });
 
-  useEffect(() => watchLeaving(window, document, {
-    guard,
-    staysOnTab: url => {
-      if (!here.current.tab) return true;
-      if (!inSettings(url.pathname)) return false;
-      return resolveSettingsAddress({ pathname: url.pathname, hash: url.hash, admin: here.current.admin, lastTab: readLastTab() }).tab === here.current.tab;
-    },
-    here: () => here.current.address ?? window.location.pathname + window.location.hash,
-    ask: () => new Promise<boolean>(settle => {
-      const message = guard.message();
-      if (message) setAsking({ message, settle }); else settle(true);
-    }),
-    open: address => openAddress(address),
-  }), [guard]);
+  useEffect(() => {
+    const watch = watchLeaving(window, document, {
+      guard,
+      staysOnTab: url => {
+        if (!here.current.tab) return true;
+        if (!inSettings(url.pathname)) return false;
+        return resolveSettingsAddress({ pathname: url.pathname, hash: url.hash, admin: here.current.admin, lastTab: readLastTab() }).tab === here.current.tab;
+      },
+      ask: () => new Promise<boolean>(settle => {
+        const message = guard.message();
+        if (message) setAsking({ message, settle }); else settle(true);
+      }),
+      open: address => openAddress(address),
+    });
+    leaving.current = watch;
+    const letGo = keepTraversals(watch.keeps);
+    return () => { letGo(); watch.stop(); leaving.current = null; };
+  }, [guard]);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,7 +133,7 @@ export function SettingsFrame() {
       router.replace(place.address, { scroll: false });
     }
     writeLastTab(place.tab);
-    here.current = { tab: place.tab, address: place.address, admin };
+    here.current = { tab: place.tab, admin };
     setShown(previous => ({ tab: place.tab, anchor: place.anchor, visit: (previous?.visit ?? 0) + 1 }));
   });
   useEffect(() => { follow(); }, [admin, pathname]);
@@ -164,14 +170,7 @@ export function SettingsFrame() {
     if ("pointer" in hit.target) { search.onQuery(""); next({ anchor: null, pointer: hit.target.pointer }); return; }
     const { tab, anchor } = hit.target;
     if (tab === here.current.tab) { search.onQuery(""); next({ anchor, pointer: null }); return; }
-    void new Promise<boolean>(settle => {
-      const message = guard.message();
-      if (message) setAsking({ message, settle }); else settle(true);
-    }).then(discard => {
-      if (!discard) return;
-      search.onQuery("");
-      router.push(tabAddress(tab, anchor), { scroll: false });
-    });
+    void leaving.current?.leave(tabAddress(tab, anchor)).then(went => { if (went) search.onQuery(""); });
   };
 
   return <div className={styles.screen}>

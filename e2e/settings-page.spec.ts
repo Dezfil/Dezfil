@@ -180,19 +180,27 @@ test.describe("the Settings page", () => {
     await expect(page).toHaveURL(new URL("/settings/general", baseURL).href);
     await expect(message).toHaveValue("Words that were never saved");
 
-    // Over back: the address is put back while the question is open.
-    await page.evaluate(() => history.back());
+    // Over the browser's own Back: the page stays where it is while the question is open.
+    await page.goBack();
     await expect(leaving(page)).toContainText("Sign-in has changes that are not saved.");
     await expect(page).toHaveURL(new URL("/settings/general", baseURL).href);
+    await expect(message).toHaveValue("Words that were never saved");
     await leaving(page).getByRole("button", { name: "Keep editing", exact: true }).click();
+    await expect(leaving(page)).toHaveCount(0);
     await expect(page).toHaveURL(new URL("/settings/general", baseURL).href);
+    await expect(message).toHaveValue("Words that were never saved");
+    // Forward after a kept edit goes nowhere.
+    await page.goForward();
+    await expect(page).toHaveURL(new URL("/settings/general", baseURL).href);
+    await expect(leaving(page)).toHaveCount(0);
     await expect(message).toHaveValue("Words that were never saved");
 
     // Back again, letting the tab go: the browser goes where it was sent and nothing was kept.
-    await page.evaluate(() => history.back());
+    await page.goBack();
     await leaving(page).getByRole("button", { name: "Discard changes", exact: true }).click();
     await expect(page).toHaveURL(new URL("/settings/account", baseURL).href);
-    await page.evaluate(() => history.forward());
+    await expect(card(page, "Account")).toBeVisible();
+    await page.goForward();
     await expect(page).toHaveURL(new URL("/settings/general", baseURL).href);
     await expect(message).toHaveValue("");
     await expect(signIn.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);

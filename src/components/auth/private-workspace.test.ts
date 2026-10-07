@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { watchPrivateWorkspace } from "./private-workspace";
+import { keepTraversals } from "./kept-traversals";
 import { ACCOUNT_STORAGE_KEY, accountChanged, openPrivateState } from "./private-state";
 import { readStored, SQL_KEYS, writeStored } from "../sql/sql-storage";
 import { conversation, LOCATOR_KEY } from "../builder/assistant/conversation-store";
@@ -52,6 +53,26 @@ it.each(["storage", "popstate", "pageshow"])("conceals and reloads a %s restore 
   expect(doc.documentElement.hidden).toBe(true); expect(ready).toHaveBeenLastCalledWith(false);
   expect(win.location.replace).toHaveBeenCalledWith("http://instance.test/maps/copied-id");
   await expect(win.fetch("/api/maps")).rejects.toMatchObject({ name: "AbortError" });
+});
+it("keeps a Back or Forward the page on screen claims, and reloads every other one", async () => {
+  const ready = vi.fn(); dispose = watchPrivateWorkspace("alice", ready); await flush();
+  let keeping = true;
+  const letGo = keepTraversals(() => keeping);
+  try {
+    win.dispatchEvent(new Event("popstate"));
+    expect(win.location.replace).not.toHaveBeenCalled();
+    expect(doc.documentElement.hidden).toBe(false); expect(ready).toHaveBeenLastCalledWith(true);
+    keeping = false;
+    win.dispatchEvent(new Event("popstate"));
+    expect(win.location.replace).toHaveBeenCalledWith("http://instance.test/maps/copied-id");
+    expect(doc.documentElement.hidden).toBe(true);
+  } finally { letGo(); }
+});
+it("reloads a Back or Forward once the page that claimed it has gone", async () => {
+  const ready = vi.fn(); dispose = watchPrivateWorkspace("alice", ready); await flush();
+  keepTraversals(() => true)();
+  win.dispatchEvent(new Event("popstate"));
+  expect(win.location.replace).toHaveBeenCalledOnce();
 });
 it("refuses an old server payload and removes old-tab locators before a new account mounts", async () => {
   writeStored(SQL_KEYS.draft, "Alice's SQL");

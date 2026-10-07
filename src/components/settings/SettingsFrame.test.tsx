@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HostElement, HostEvent, installDomHost } from "../testing/dom-host";
 import { openPrivateState } from "../auth/private-state";
+import { traversalKept } from "../auth/kept-traversals";
 import { DISPLAY_NAME_EVENT } from "../UserBadge";
 import { readLastTab, writeLastTab } from "./last-tab";
 import { storedRead } from "./read-fixture";
@@ -40,10 +41,9 @@ function memoryStorage() {
   };
 }
 
-/** The history entry on screen, by its position, as the Navigation API reports it. */
-const entry = { index: 3, listeners: [] as (() => void)[] };
-/** The address the browser shows when it differs from the router's, as after back before the router follows. */
-let browserAddress: string | null = null;
+/** The browser's history as the page sees it: the state of the entry on
+ * screen, the entries the page added, and the steps it asked for. */
+const browser = { state: null as unknown, pushed: [] as unknown[], steps: [] as number[] };
 let host: ReturnType<typeof installDomHost>;
 let root: ReturnType<typeof createRoot>;
 let container: HostElement;
@@ -59,7 +59,7 @@ beforeEach(() => {
     nav.hash = at < 0 ? "" : address.slice(at);
   });
   nav.push = vi.fn();
-  entry.index = 3; entry.listeners = []; browserAddress = null;
+  browser.state = null; browser.pushed = []; browser.steps = [];
   vi.stubGlobal("sessionStorage", memoryStorage());
   vi.stubGlobal("localStorage", memoryStorage());
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
@@ -82,13 +82,13 @@ beforeEach(() => {
   Object.assign(host.window, {
     location: {
       get hash() { return nav.hash; }, get pathname() { return nav.pathname; },
-      get href() { return `https://dezfil.example${browserAddress ?? nav.pathname + nav.hash}`; }, origin: "https://dezfil.example",
+      get href() { return `https://dezfil.example${nav.pathname + nav.hash}`; }, origin: "https://dezfil.example",
     },
-    history: { go: vi.fn() },
-    navigation: {
-      get currentEntry() { return { index: entry.index }; },
-      addEventListener: (_: string, fn: () => void) => { entry.listeners.push(fn); },
-      removeEventListener: (_: string, fn: () => void) => { entry.listeners = entry.listeners.filter(l => l !== fn); },
+    history: {
+      get state() { return browser.state; },
+      pushState: (state: unknown) => { browser.state = state; browser.pushed.push(state); },
+      back: () => { browser.steps.push(-1); },
+      go: (delta: number) => { browser.steps.push(delta); },
     },
   });
   container = host.document.createElement("div");
@@ -264,6 +264,12 @@ describe("leaving a tab with unsaved text", () => {
     target.dispatchEvent(event);
     return event;
   });
+  /** Back by one entry: the entry under the page's extra one has the router's state, and the same address. */
+  async function back() {
+    browser.state = null;
+    await act(async () => { host.window.dispatchEvent({ type: "popstate" } as unknown as Event); });
+    await settle();
+  }
 
   it("asks before the column leaves a tab with unsaved typed text, naming the card, and leaves only when told", async () => {
     await open("/settings/account");
@@ -278,6 +284,10 @@ describe("leaving a tab with unsaved text", () => {
     expect(byId("account")).not.toBeNull();
     await click(link("Tokens"));
     await answer("Discard changes");
+    // The extra entry the unsaved text added goes first, then the link.
+    expect(browser.steps).toEqual([-1]);
+    expect(nav.push).not.toHaveBeenCalled();
+    await back();
     expect(nav.push).toHaveBeenCalledWith("/settings/tokens", { scroll: false });
   });
 
@@ -297,18 +307,34 @@ describe("leaving a tab with unsaved text", () => {
     expect(dialog()).toBeNull();
   });
 
-  it("holds back: the router is not let follow, the address is put back, and the question asked", async () => {
+  it("holds back: unsaved text adds one entry at the same address, so Back stays on the tab, in the document, and asks", async () => {
     await open("/settings/account");
+    expect(browser.pushed).toEqual([]);
     await type("Display name", "Ada Lovelace");
-    // Back: the browser has moved one entry when it says so; the router has not.
-    browserAddress = "/settings/general"; entry.index = 2;
-    for (const fn of entry.listeners) fn();
-    const popstate = { type: "popstate", stopImmediatePropagation: vi.fn() };
-    await act(async () => { host.window.dispatchEvent(popstate); });
-    expect(popstate.stopImmediatePropagation).toHaveBeenCalled();
-    expect((host.window as unknown as { history: { go: ReturnType<typeof vi.fn> } }).history.go).toHaveBeenCalledWith(1);
+    expect(browser.pushed).toHaveLength(1);
+    await type("Display name", "Ada Lovelace King");
+    expect(browser.pushed).toHaveLength(1);
+    await back();
+    expect(traversalKept()).toBe(true);
     expect(dialog()?.textContent).toContain("Account has changes that are not saved.");
     expect(byId("account")).not.toBeNull();
+    await answer("Keep editing");
+    expect(browser.pushed).toHaveLength(2);
+    expect(nav.push).not.toHaveBeenCalled();
+    // Back again, letting the tab go: back once more, and the workspace's reload is not kept.
+    await back();
+    await answer("Discard changes");
+    expect(browser.steps).toEqual([-1]);
+    expect(traversalKept()).toBe(false);
+  });
+
+  it("takes the extra entry away unseen once the text is put back", async () => {
+    await open("/settings/account");
+    await type("Display name", "Ada Lovelace");
+    expect(browser.pushed).toHaveLength(1);
+    await type("Display name", "Ada Okafor");
+    expect(browser.steps).toEqual([-1]);
+    expect(dialog()).toBeNull();
   });
 
   it("asks the browser's own question on reload or closing while typed text is unsaved", async () => {
