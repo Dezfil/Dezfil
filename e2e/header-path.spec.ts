@@ -231,13 +231,15 @@ test("the path, the titles, the instance name and the re-measure", async ({
   });
 
   await test.step("Settings splits, and a saved instance name reaches the chip and the title without a reload", async () => {
-    await page.goto("/settings");
+    await page.goto("/settings/general");
     await title(page).toBe("Settings · Dezfil");
     await expect(
       page.getByRole("heading", { name: "Instance", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Account", exact: true }),
+      page
+        .getByRole("navigation", { name: "Settings" })
+        .getByRole("link", { name: "Account", exact: true }),
     ).toBeVisible();
     await expect(page.getByRole("region", { name: "Instance", exact: true }).getByLabel("Instance name")).toBeVisible();
     await expect(chip(page)).toHaveCount(0);
@@ -379,7 +381,7 @@ test("the path, the titles, the instance name and the re-measure", async ({
   });
 
   await test.step("clearing the instance name removes the chip without a reload", async () => {
-    await page.goto("/settings");
+    await page.goto("/settings/general");
     const workspaceCard = page.locator("form", {
       has: page.getByLabel("Instance name"),
     });

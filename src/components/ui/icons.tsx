@@ -945,3 +945,36 @@ export function PlugIcon() {
 export function ClockIcon() {
   return <Svg><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></Svg>;
 }
+
+/* The Settings column: one chrome-tier glyph per tab, drawn on the
+   rail's stroke so the column reads as the rail's sibling. */
+
+export function PersonIcon() {
+  return <ChromeSvg strokeWidth={1.7}><circle cx="12" cy="8" r="3.6" /><path d="M5 20.2c.8-3.6 3.6-5.7 7-5.7s6.2 2.1 7 5.7" /></ChromeSvg>;
+}
+
+export function KeyIcon() {
+  return <ChromeSvg strokeWidth={1.7}><path d="m21 2-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8Zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4" /></ChromeSvg>;
+}
+
+export function SlidersIcon() {
+  return <ChromeSvg strokeWidth={1.7}><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" /></ChromeSvg>;
+}
+
+export function GaugeIcon() {
+  return <ChromeSvg strokeWidth={1.7}><path d="m12 14 4-4" /><path d="M3.34 19a10 10 0 1 1 17.32 0" /></ChromeSvg>;
+}
+
+export function ServerIcon() {
+  return <ChromeSvg strokeWidth={1.7}><rect x="2" y="2" width="20" height="8" rx="2" /><rect x="2" y="14" width="20" height="8" rx="2" /><path d="M6 6h.01M6 18h.01" /></ChromeSvg>;
+}
+
+/** The rail's Users glyph, at the chrome tier. */
+export function UsersIcon() {
+  return <ChromeSvg strokeWidth={1.7}><circle cx="9" cy="8" r="3" /><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 3 4v2" /></ChromeSvg>;
+}
+
+/** A link that leaves the page it sits on. */
+export function ArrowRightIcon() {
+  return <Svg><path d="M5 12h14M13 6l6 6-6 6" /></Svg>;
+}

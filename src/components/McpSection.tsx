@@ -1,4 +1,5 @@
 "use client";
+import Link from 'next/link';
 import { useSyncExternalStore, useState } from 'react';
 import { Button } from './ui/Button';
 import { Select } from './ui/Field';
@@ -31,7 +32,7 @@ export function McpSection() {
   return (
     <section className={styles.card} aria-labelledby="mcp-guide-title">
       <div className={styles.head}><h2 id="mcp-guide-title">MCP server</h2></div>
-      <p>Create an <a href="/settings#tokens-heading">API / MCP token in Settings</a>. Set <code>DEZFIL_API_TOKEN</code> in the environment that starts your client.</p>
+      <p>Create an <Link href="/settings#tokens-heading">API / MCP token in Settings</Link>. Set <code>DEZFIL_API_TOKEN</code> in the environment that starts your client.</p>
       <code className={styles.endpoint}>{endpoint || '/api/mcp'}</code>
       <label className={styles.client}>MCP client
         <Select value={client} onChange={event => { setClient(event.target.value as McpClientName); setCopy(''); }}>

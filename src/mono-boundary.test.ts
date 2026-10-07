@@ -82,7 +82,12 @@ const ALLOWED = new Set([
   "src/components/sharing/ShareDialog.module.css :: .sqlName",
   "src/components/sql/SqlConsole.module.css :: .eyebrowSql",
   "src/components/builder/add-layer/AddLayerCatalog.module.css :: .homeLine code",
-  "src/components/SettingsScreen.module.css :: .sqlName code",
+  // Settings: the SQL name on the Account card is the same identifier.
+  "src/components/settings/SettingsCard.module.css :: .sqlName code",
+  // Settings: the variable that decides a setting the server holds is an
+  // identifier, and a read-only value can be a path or an identifier.
+  "src/components/settings/SettingRows.module.css :: .value[data-mono]",
+  "src/components/settings/SettingRows.module.css :: .lockedNote code",
   "src/components/McpSection.module.css :: .endpoint",
   // per-client commands and configuration are literal code.
   "src/components/McpSection.module.css :: .configuration",

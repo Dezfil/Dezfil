@@ -1,0 +1,227 @@
+/* A Settings card and its parts: the shipped card's plain panel, the
+   label-above field, the quiet Saved, the red line, the Save line that
+   shows only while typed text waits, the password field with its eye,
+   the Change password disclosure, the token list and the leave dialog. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.head h2,
+.dialog h2 {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--text-heading);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+/* the head's Reset to defaults, then Undo: never taller than the title */
+.slot {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
+.slot > button {
+  margin-block: calc((var(--text-heading) * 1.35 - var(--control-compact)) / 2);
+  animation: quiet-in var(--dur-entrance) ease backwards;
+}
+
+.slot > button[data-leaving] {
+  opacity: 0;
+  transition: opacity var(--dur-feedback) ease;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+}
+
+.loading {
+  font-size: var(--text-body);
+  color: var(--fg-muted);
+}
+
+/* the shipped label-above field */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(340px, 100%);
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+}
+
+.fieldHead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.field :is(input, textarea, select) {
+  background: var(--bg-raised);
+  border-color: var(--border-strong);
+  font-size: var(--text-body);
+}
+
+.field select {
+  width: auto;
+  min-width: 160px;
+}
+
+.field :is(input, textarea, select):focus {
+  border-color: var(--accent);
+}
+
+.field :is(input, textarea, select)[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.fieldError {
+  font-size: var(--text-label);
+  line-height: 1.5;
+  color: var(--danger);
+}
+
+.note {
+  max-width: 56ch;
+  font-size: var(--text-label);
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+/* the quiet Saved, beside the label or the control it confirms */
+@keyframes quiet-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.saved {
+  font-size: var(--text-label);
+  font-weight: 400;
+  color: var(--accent);
+  white-space: nowrap;
+  animation: quiet-in var(--dur-micro) ease backwards;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.saveLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: quiet-in var(--dur-entrance) ease backwards;
+}
+
+/* the SQL name under the display name: an identifier, so mono */
+.sqlName {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: -4px;
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+}
+
+.sqlName code {
+  font-family: var(--font-mono);
+  color: var(--fg);
+}
+
+/* the password field and its eye */
+.password {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.password input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* the Change password disclosure */
+.details {
+  width: 100%;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.details > summary {
+  cursor: pointer;
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+.details[open] > summary {
+  margin-bottom: 12px;
+}
+
+/* the token list */
+.list {
+  width: 100%;
+  list-style: none;
+}
+
+.listRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+  font-size: var(--text-body);
+  overflow-wrap: anywhere;
+}
+
+.listMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.listMain strong {
+  font-weight: 600;
+}
+
+/* a confirmation: the shipped dialog at a question's width */
+.dialog {
+  width: min(460px, 100%);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px;
+}
+
+.dialog > p {
+  max-width: 56ch;
+  font-size: var(--text-body);
+  color: var(--fg);
+}

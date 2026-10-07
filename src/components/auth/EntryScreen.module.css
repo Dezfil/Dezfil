@@ -32,6 +32,8 @@
 .eye { position: absolute; top: 50%; right: 5px; transform: translateY(-50%); width: 28px; height: 28px; }
 .submit { width: 100%; margin-top: 4px; }
 .help { margin: 0; color: var(--fg-muted); font-size: var(--text-label); line-height: 1.45; }
+/* an admin's message on the sign-in page: their lines kept, a long word wrapped */
+.message { white-space: pre-line; overflow-wrap: anywhere; }
 .theme { position: fixed; top: 14px; right: 16px; z-index: 1; }
 @media (max-width: 760px) {
   .stage { flex-direction: column; }

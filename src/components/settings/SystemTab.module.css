@@ -1,0 +1,91 @@
+/* System: a part's state (a dot and its words), the quiet reason beside
+   it, the provider's chip, and the server's settings table, where a
+   variable's name and a source never break inside a word and a setting's
+   name wraps only between its words. */
+
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-body);
+  color: var(--fg);
+}
+
+.state::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fg-faint);
+}
+
+.state[data-state="on"]::before {
+  background: var(--accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.state[data-state="danger"]::before {
+  background: var(--danger);
+}
+
+.quiet {
+  font-size: var(--text-label);
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-body);
+}
+
+.table th {
+  padding: 0 16px 6px 0;
+  text-align: left;
+  font-size: var(--text-meta);
+  font-weight: 500;
+  color: var(--fg-muted);
+}
+
+.table td {
+  padding: 8px 16px 8px 0;
+  border-top: 1px solid var(--border);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.table :is(th, td):last-child {
+  padding-right: 0;
+}
+
+/* more specific than the cells' rule above, which breaks anywhere */
+.table .setting {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.variable,
+.source {
+  white-space: nowrap;
+}
+
+.link {
+  color: var(--accent);
+  font-weight: 500;
+}

@@ -189,15 +189,15 @@ test("settings keeps the name locked over data that never arrived", async ({
   context,
 }) => {
   const consoleErrors = trackConsole(page);
-  // A failure window, not abort-once: the shell's InstanceChip requests the
-  // same path on load, so a single-shot stub would race it.
+  // A failure window, not abort-once: the read is made again on every
+  // visit to General, so a single-shot stub could race it.
   let failing = true;
   await routeHouse(context, {
     handler: async (route) => {
       if (
         failing &&
         route.request().method() === "GET" &&
-        new URL(route.request().url()).pathname === "/api/settings"
+        new URL(route.request().url()).pathname === "/api/instance/settings"
       ) {
         await route.abort();
         return true;
@@ -205,27 +205,23 @@ test("settings keeps the name locked over data that never arrived", async ({
       return false;
     },
   });
-  await page.goto("/settings");
-  const field = page.getByLabel("Display name");
+  await page.goto("/settings/general");
   const instanceField = page.getByLabel("Instance name");
   await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
-  // Account cards only mount after both identity and settings have loaded.
+  // General's cards only mount after the instance's settings have loaded.
   // A failed load cannot offer a blind save over missing values.
-  await expect(field).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Settings" })).toBeVisible();
   await expect(instanceField).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Save" })).toHaveCount(0);
-  // The retry issues a fresh request and only then unlocks, holding the
-  // stored value.
+  // The retry issues a fresh request and only then unlocks.
   failing = false;
   await page.getByRole("button", { name: "Try again" }).click();
-  await expect(field).toBeEnabled();
-  await expect(field).not.toHaveValue("");
   await expect(instanceField).toBeEnabled();
   // The aborted window's console shadows are the injected fault's own.
   const unexpected = consoleErrors.filter(
     (e) =>
       !isAllowedConsoleError(e.text, e.url) &&
-      !/\/api\/settings/.test(e.url ?? e.text),
+      !/\/api\/instance\/settings/.test(e.url ?? e.text),
   );
   expect(unexpected).toEqual([]);
 });
