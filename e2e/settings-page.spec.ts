@@ -1,7 +1,8 @@
 // The Settings page in a browser: a limit kept as it is stepped, Reset to
-// defaults then Undo, the leave guard over a link and over back, a search
-// hit landing on its row, a member's column, and the sign-in page carrying
-// what General stores. Every journey here runs as the browser fixture's
+// defaults then Undo, the leave guard over a link, over back and over a
+// jump of several entries from the history list, a search hit landing on
+// its row, a member's column, and the sign-in page carrying what General
+// stores. Every journey here runs as the browser fixture's
 // admin unless it says otherwise, and puts back what it changed.
 //
 // One journey needs a second instance: start it with
@@ -124,7 +125,8 @@ test.describe("the Settings page", () => {
 
       const resetWrite = settingsWrite(page);
       await reset.click();
-      expect((await resetWrite).request().postDataJSON()).toEqual({ exportRenderConcurrency: null });
+      // Every control the card can change goes back, the one already at its default included.
+      expect((await resetWrite).request().postDataJSON()).toEqual({ exportRenderConcurrency: null, exportRenderTimeoutS: null });
       await expect(atOnce).toHaveValue("2");
       await expect(undo).toBeFocused();
       const undoWrite = settingsWrite(page);
@@ -213,6 +215,47 @@ test.describe("the Settings page", () => {
     await column(page).getByRole("link", { name: "Account", exact: true }).click();
     await expect(page).toHaveURL(new URL("/settings/account", baseURL).href);
     await expect(leaving(page)).toHaveCount(0);
+    expectQuiet(errors);
+  });
+
+  test("a jump of several entries past a tab with unsaved text asks; Keep editing comes back, Discard goes", async ({ page, context, request, baseURL }) => {
+    await routeHouse(context);
+    const errors = trackConsole(page);
+    await restore(request, ["signInMessage"]);
+    try {
+      // Three entries of one document: Account, Tokens, General.
+      await page.goto("/settings/account");
+      await expect(card(page, "Account")).toBeVisible();
+      await column(page).getByRole("link", { name: "Tokens", exact: true }).click();
+      await expect(page).toHaveURL(new URL("/settings/tokens", baseURL).href);
+      await column(page).getByRole("link", { name: "General", exact: true }).click();
+      await expect(page).toHaveURL(new URL("/settings/general", baseURL).href);
+      const signIn = card(page, "Sign-in");
+      const message = signIn.getByLabel("Message", { exact: true });
+      await message.fill("Words that were never saved");
+      await expect(signIn.getByRole("button", { name: "Save", exact: true })).toBeVisible();
+
+      // A jump from the history list past Tokens to Account: the page asks and stays.
+      await page.evaluate(() => history.go(-3));
+      await expect(leaving(page)).toContainText("Sign-in has changes that are not saved.");
+      await expect(message).toHaveValue("Words that were never saved");
+      await leaving(page).getByRole("button", { name: "Keep editing", exact: true }).click();
+      await expect(leaving(page)).toHaveCount(0);
+      await expect(page).toHaveURL(new URL("/settings/general", baseURL).href);
+      await expect(message).toHaveValue("Words that were never saved");
+      // Still held: the browser's own Back asks again.
+      await page.goBack();
+      await expect(leaving(page)).toContainText("Sign-in has changes that are not saved.");
+      await leaving(page).getByRole("button", { name: "Keep editing", exact: true }).click();
+      await expect(message).toHaveValue("Words that were never saved");
+
+      // The jump again, letting the tab go: the browser lands where the jump went, and nothing was kept.
+      await page.evaluate(() => history.go(-3));
+      await leaving(page).getByRole("button", { name: "Discard changes", exact: true }).click();
+      await expect(page).toHaveURL(new URL("/settings/account", baseURL).href);
+      await expect(card(page, "Account")).toBeVisible();
+      expect((await (await request.get(SETTINGS)).json()).settings.signInMessage.source).toBe("default");
+    } finally { await restore(request, ["signInMessage"]); }
     expectQuiet(errors);
   });
 
