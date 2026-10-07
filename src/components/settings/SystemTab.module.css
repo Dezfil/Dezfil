@@ -74,7 +74,8 @@
   padding-right: 0;
 }
 
-.setting {
+/* more specific than the cells' rule above, which breaks anywhere */
+.table .setting {
   overflow-wrap: normal;
   word-break: normal;
 }

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -134,5 +136,86 @@ describe("System", () => {
     await press(container, "Try again");
     await settle();
     expect(titles()).toEqual(["Status", "Assistant", "Server settings"]);
+  });
+});
+
+/**
+ * How the Server settings table wraps, as the browser's cascade decides
+ * it from the stylesheet: the table's cells may break anywhere (a long
+ * address in Value), a variable's name and a source never break, and a
+ * setting's name breaks only between its words. The host computes no
+ * layout, so the rules are resolved here: each declaration whose selector
+ * matches the cell, the most specific winning, the later on a tie.
+ */
+describe("the Server settings table's wrapping", () => {
+  const css = readFileSync(fileURLToPath(new URL("./SystemTab.module.css", import.meta.url)), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  interface Cell { tag: string; classes: string[]; last: boolean }
+  /** Split at commas outside parentheses. */
+  const split = (list: string) => {
+    const parts: string[] = [];
+    let depth = 0, start = 0;
+    for (let i = 0; i < list.length; i += 1) {
+      if (list[i] === "(") depth += 1; else if (list[i] === ")") depth -= 1;
+      else if (list[i] === "," && depth === 0) { parts.push(list.slice(start, i).trim()); start = i + 1; }
+    }
+    return [...parts, list.slice(start).trim()];
+  };
+  /** One compound selector against one element: its specificity when it matches. */
+  function compound(selector: string, cell: Cell): [number, number] | null {
+    let classes = 0, types = 0, rest = selector;
+    const is = /:is\(([^)]*)\)/.exec(rest);
+    if (is) {
+      const matched = split(is[1]).map(inner => compound(inner, cell)).filter((found): found is [number, number] => !!found);
+      if (!matched.length) return null;
+      const best = matched.reduce((a, b) => (a[0] - b[0] || a[1] - b[1]) >= 0 ? a : b);
+      classes += best[0]; types += best[1];
+      rest = rest.replace(is[0], "");
+    }
+    if (rest.includes(":last-child")) { if (!cell.last) return null; classes += 1; rest = rest.replace(":last-child", ""); }
+    const tag = /^[a-z]+/.exec(rest)?.[0];
+    if (tag) { if (tag !== cell.tag) return null; types += 1; }
+    for (const [, name] of rest.matchAll(/\.([\w-]+)/g)) { if (!cell.classes.includes(name)) return null; classes += 1; }
+    return [classes, types];
+  }
+  /** A descendant selector against an element and its ancestors, nearest last. */
+  function matches(selector: string, path: Cell[]): [number, number] | null {
+    const parts = selector.split(/\s+/);
+    const subject = compound(parts[parts.length - 1], path[path.length - 1]);
+    if (!subject) return null;
+    let [classes, types] = subject, at = path.length - 2;
+    for (let i = parts.length - 2; i >= 0; i -= 1) {
+      while (at >= 0 && !compound(parts[i], path[at])) at -= 1;
+      if (at < 0) return null;
+      const found = compound(parts[i], path[at])!;
+      classes += found[0]; types += found[1]; at -= 1;
+    }
+    return [classes, types];
+  }
+  function resolved(property: string, cellClass: string): string | null {
+    const path: Cell[] = [
+      { tag: "table", classes: ["table"], last: false }, { tag: "tbody", classes: [], last: true }, { tag: "tr", classes: [], last: false },
+      { tag: "td", classes: [cellClass], last: false },
+    ];
+    let winner: { value: string; weight: [number, number] } | null = null;
+    for (const [, selectors, body] of css.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+      const value = new RegExp(`(?:^|;)\\s*${property}\\s*:\\s*([^;]+)`).exec(body)?.[1].trim();
+      if (!value) continue;
+      for (const selector of split(selectors)) {
+        const weight = matches(selector, path);
+        if (weight && (!winner || (weight[0] - winner.weight[0] || weight[1] - winner.weight[1]) >= 0)) winner = { value, weight };
+      }
+    }
+    return winner?.value ?? null;
+  }
+
+  it("breaks a setting's name only between its words", () => {
+    expect(resolved("overflow-wrap", "setting")).toBe("normal");
+    expect(resolved("word-break", "setting")).toBe("normal");
+  });
+
+  it("never breaks a variable's name or a source, and lets a value break anywhere", () => {
+    expect(resolved("white-space", "variable")).toBe("nowrap");
+    expect(resolved("white-space", "source")).toBe("nowrap");
+    expect(resolved("overflow-wrap", "value")).toBe("anywhere");
   });
 });
