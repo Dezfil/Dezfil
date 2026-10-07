@@ -20,7 +20,7 @@ import { SearchField, SearchResults } from "./SettingsSearch";
 import { useSettingsSearch } from "./use-settings-search";
 import { LeaveGuard, type GuardMessage } from "./leave-guard";
 import { watchLeaving, type LeaveWatch } from "./leave-watch";
-import { keepTraversals } from "@/components/auth/kept-traversals";
+import { keepTraversals, letTraversalGo, takeTraversals } from "@/components/auth/kept-traversals";
 import { GuardContext, LeaveDialog } from "./settings-guard";
 import styles from "./SettingsFrame.module.css";
 
@@ -42,7 +42,8 @@ const inSettings = (pathname: string) => pathname === SETTINGS_PATH || pathname.
  * shows when it names nothing this person can open, remembers the tab
  * for the session and lands on the row the fragment names. While a card
  * holds unsaved typed text, leaving the tab (the column, a link, back,
- * forward, reload, closing) asks first, naming the cards. The search at
+ * forward, a jump from the history list, reload, closing) asks first,
+ * naming the cards. The search at
  * the column's head answers in the tab's place; a hit opens its tab and
  * marks its row, asking first as any leaving does.
  */
@@ -87,10 +88,12 @@ export function SettingsFrame() {
         if (message) setAsking({ message, settle }); else settle(true);
       }),
       open: address => openAddress(address),
+      // A step past the tab, let go: the private workspace ends the document there, or the page reloads.
+      end: () => { if (!letTraversalGo()) window.location.replace(window.location.href); },
     });
     leaving.current = watch;
-    const letGo = keepTraversals(watch.keeps);
-    return () => { letGo(); watch.stop(); leaving.current = null; };
+    const letKeep = keepTraversals(watch.keeps), letTake = takeTraversals(watch.takes);
+    return () => { letKeep(); letTake(); watch.stop(); leaving.current = null; };
   }, [guard]);
 
   useEffect(() => {

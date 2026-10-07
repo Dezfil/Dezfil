@@ -1,6 +1,6 @@
 import { ACCOUNT_CHANGED_EVENT, ACCOUNT_STORAGE_KEY, closePrivateState, openPrivateState } from "./private-state";
 import { privateFetch } from "./private-fetch";
-import { traversalKept, traversalTaken } from "./kept-traversals";
+import { endTraversalsWith, traversalKept, traversalTaken } from "./kept-traversals";
 
 /** A document belongs to one account. A change ends that document, so Next's
  * route cache, React state, module caches and pending downloads cannot become
@@ -37,16 +37,18 @@ export function watchPrivateWorkspace(accountId: string, ready: (value: boolean)
   const pageshow = (event: PageTransitionEvent) => { if (event.persisted) reload(); };
   const focus = () => { void check(); };
   // A Back or Forward restores a cached route, unless the page on screen
-  // keeps it on what it already shows, or takes it itself to ask the
-  // browser's question first. Every other one ends the document, stopped
-  // before anyone else hears it, so the router never starts restoring a
-  // route the reload throws away. A capture listener on the window runs
-  // before its other listeners, the router's included.
+  // keeps it on what it already shows, or takes it itself to ask first.
+  // Every other one ends the document, stopped before anyone else hears
+  // it, so the router never starts restoring a route the reload throws
+  // away. A capture listener on the window runs before its other
+  // listeners, the router's included. A page that took a step and lets
+  // it go on hands it back here.
   const popstate = (event: Event) => {
     if (traversalKept() || traversalTaken()) return;
     event.stopImmediatePropagation();
     reload();
   };
+  const withdraw = endTraversalsWith(reload);
   const channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(ACCOUNT_CHANGED_EVENT);
   channel?.addEventListener("message", reload);
   window.addEventListener("storage", storage);
@@ -59,6 +61,7 @@ export function watchPrivateWorkspace(accountId: string, ready: (value: boolean)
   void check();
   return () => {
     stopped = true; checking++; lifetime.abort();
+    withdraw();
     if (window.fetch === guarded) window.fetch = transport;
     window.removeEventListener("storage", storage);
     window.removeEventListener(ACCOUNT_CHANGED_EVENT, reload);

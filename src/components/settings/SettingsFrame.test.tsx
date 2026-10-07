@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HostElement, HostEvent, installDomHost } from "../testing/dom-host";
 import { openPrivateState } from "../auth/private-state";
-import { traversalKept } from "../auth/kept-traversals";
+import { endTraversalsWith, traversalKept, traversalTaken } from "../auth/kept-traversals";
 import { DISPLAY_NAME_EVENT } from "../UserBadge";
 import { readLastTab, writeLastTab } from "./last-tab";
 import { storedRead } from "./read-fixture";
@@ -50,9 +50,11 @@ let container: HostElement;
 let admin = true;
 let accountName = "Ada Okafor";
 let instanceName = "Atlas";
+/** Where the browser is when it has moved without the router hearing it. */
+let shownAt: string | null = null;
 
 beforeEach(() => {
-  requests.length = 0; scrolled.length = 0; accountName = "Ada Okafor"; instanceName = "Atlas";
+  requests.length = 0; scrolled.length = 0; accountName = "Ada Okafor"; instanceName = "Atlas"; shownAt = null;
   nav.pathname = "/settings"; nav.hash = ""; nav.replace = vi.fn((address: string) => {
     const at = address.indexOf("#");
     nav.pathname = at < 0 ? address : address.slice(0, at);
@@ -82,7 +84,7 @@ beforeEach(() => {
   Object.assign(host.window, {
     location: {
       get hash() { return nav.hash; }, get pathname() { return nav.pathname; },
-      get href() { return `https://dezfil.example${nav.pathname + nav.hash}`; }, origin: "https://dezfil.example",
+      get href() { return `https://dezfil.example${shownAt ?? nav.pathname + nav.hash}`; }, origin: "https://dezfil.example",
     },
     history: {
       get state() { return browser.state; },
@@ -326,6 +328,27 @@ describe("leaving a tab with unsaved text", () => {
     await answer("Discard changes");
     expect(browser.steps).toEqual([-1]);
     expect(traversalKept()).toBe(false);
+  });
+
+  it("takes a jump past the tab while it holds, asks, and hands the step to the workspace on Discard", async () => {
+    const ended = vi.fn();
+    const withdraw = endTraversalsWith(ended);
+    try {
+      await open("/settings/account");
+      await type("Display name", "Ada Lovelace");
+      // The browser jumped from its history list to a map; the router has not heard it.
+      shownAt = "/maps";
+      expect(traversalTaken()).toBe(true);
+      const step = { type: "popstate", stopImmediatePropagation: vi.fn() };
+      await act(async () => { host.window.dispatchEvent(step as unknown as Event); });
+      await settle();
+      expect(step.stopImmediatePropagation).toHaveBeenCalled();
+      expect(dialog()?.textContent).toContain("Account has changes that are not saved.");
+      expect(byId("account")).not.toBeNull();
+      await answer("Discard changes");
+      expect(ended).toHaveBeenCalledOnce();
+      expect(nav.push).not.toHaveBeenCalled();
+    } finally { withdraw(); }
   });
 
   it("takes the extra entry away unseen once the text is put back", async () => {

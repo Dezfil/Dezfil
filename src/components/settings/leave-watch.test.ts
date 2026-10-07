@@ -1,19 +1,24 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { watchLeaving } from "./leave-watch";
+import { watchPrivateWorkspace } from "../auth/private-workspace";
+import { keepTraversals, letTraversalGo, takeTraversals } from "../auth/kept-traversals";
+import { openPrivateState } from "../auth/private-state";
 
 /**
  * Leaving the Settings tab on screen while it holds unsaved text: a link,
  * a search hit, back, forward, reload or closing. The browser here is a
  * fake session history: entries with their state, a push that drops what
  * lay ahead, and back and forward that move only when the test lets them,
- * telling every listener as a browser does. The router's own listener is
- * not here: the watch stops no step itself, and the workspace stops every
- * step the watch does not keep before the router hears it.
+ * telling every listener in turn as a browser does, until one stops the
+ * step. The private workspace is heard before the watch, as its capture
+ * listener is, and asks whether the page keeps or takes the step; the
+ * router is heard after it, so it hears only what nobody stopped.
  */
 
 type Listener = (event: never) => void;
 const ORIGIN = "https://dezfil.example";
 interface Entry { address: string; state: unknown; key: string }
+interface Step { type: string; state: unknown; stopped: boolean; stopImmediatePropagation(): void }
 
 function fakeBrowser(addresses: string[], at = addresses.length - 1, { keys = false } = {}) {
   const listeners = new Map<string, Listener[]>();
@@ -22,31 +27,49 @@ function fakeBrowser(addresses: string[], at = addresses.length - 1, { keys = fa
   let made = 0;
   const entry = (address: string, state: unknown): Entry => ({ address, state, key: `k${made++}` });
   let list: Entry[] = addresses.map(address => entry(address, { router: address })), index = at;
-  const fire = (map: Map<string, Listener[]>, type: string, event: object) => { for (const fn of [...(map.get(type) ?? [])]) (fn as (e: object) => void)(event); };
+  const fire = (map: Map<string, Listener[]>, type: string, event: object) => {
+    for (const fn of [...(map.get(type) ?? [])]) {
+      (fn as (e: object) => void)(event);
+      if ((event as Partial<Step>).stopped) return;
+    }
+  };
   const add = (map: Map<string, Listener[]>) => (type: string, fn: Listener) => { map.set(type, [...(map.get(type) ?? []), fn]); };
   const remove = (map: Map<string, Listener[]>) => (type: string, fn: Listener) => { map.set(type, (map.get(type) ?? []).filter(l => l !== fn)); };
+  /** An address a page passes to the history, as the entry's path, query and fragment. */
+  const addressOf = (url: string | URL | null | undefined) => {
+    if (url === undefined || url === null) return list[index].address;
+    const parsed = new URL(String(url), ORIGIN + list[index].address);
+    return parsed.pathname + parsed.search + parsed.hash;
+  };
   const win = {
-    location: { get href() { return ORIGIN + list[index].address; }, get origin() { return ORIGIN; } },
+    location: { get href() { return ORIGIN + list[index].address; }, get origin() { return ORIGIN; }, replace: vi.fn() },
     history: {
       get state() { return list[index].state; },
-      pushState: vi.fn((state: unknown, _unused: string, url?: string) => {
-        list = [...list.slice(0, index + 1), entry(url ?? list[index].address, state)];
+      pushState: vi.fn((state: unknown, _unused: string, url?: string | URL | null) => {
+        list = [...list.slice(0, index + 1), entry(addressOf(url), state)];
         index += 1;
       }),
       back: vi.fn(() => { queued.push(-1); }),
       go: vi.fn((delta: number) => { queued.push(delta); }),
     },
+    fetch: vi.fn(async () => Response.json({ account: { id: "alice" } })),
     addEventListener: add(listeners), removeEventListener: remove(listeners),
-    // The Navigation API, where a browser reports its entries: a key per entry that a replace keeps.
-    ...(keys ? { navigation: { get currentEntry() { return { key: list[index].key }; } } } : {}),
+    // The Navigation API, where a browser reports its entries: a key per entry that a replace keeps, and where it sits.
+    ...(keys ? { navigation: {
+      get currentEntry() { return { key: list[index].key, index }; },
+      entries: () => list.map((item, position) => ({ key: item.key, index: position })),
+    } } : {}),
   };
-  const doc = { addEventListener: add(docListeners), removeEventListener: remove(docListeners) };
+  const doc = {
+    addEventListener: add(docListeners), removeEventListener: remove(docListeners),
+    documentElement: { hidden: false }, visibilityState: "visible", title: "Settings",
+  };
   /** A traversal: the entry moves, then the browser says so. Nothing happens at either end. */
   function traverse(delta: number) {
     const target = index + delta;
     if (target < 0 || target >= list.length) return null;
     index = target;
-    const event = { type: "popstate", state: list[index].state };
+    const event: Step = { type: "popstate", state: list[index].state, stopped: false, stopImmediatePropagation() { this.stopped = true; } };
     fire(listeners, "popstate", event);
     return event;
   }
@@ -104,26 +127,31 @@ function deferred() {
 const tabOf = (url: URL) => url.pathname.startsWith("/settings/") ? url.pathname.split("/")[2] : url.pathname;
 
 /**
- * Watch the tab on screen. The private workspace's own listener (does
- * this page keep the traversal?) is heard both before and after the
- * watch's, since browsers differ in which runs first.
+ * Watch the tab on screen. The private workspace asks first whether the
+ * page keeps or takes the traversal; whether it still keeps it is asked
+ * again after the watch has heard the step, where the router hears it,
+ * since the page's own bookkeeping must not change that answer.
  */
 function watch(browser: ReturnType<typeof fakeBrowser>, { holding = true } = {}) {
   const guard = fakeGuard();
   const { ask, answer } = deferred();
-  const open = vi.fn();
+  const open = vi.fn(), end = vi.fn();
   const shown = browser.address;
   const kept: [boolean, boolean][] = [];
+  /** Whether the page took each step, as the workspace heard it. */
+  const taken: boolean[] = [];
+  /** The addresses the router heard a step arrive at. */
+  const router = vi.fn<(address: string) => void>();
   let first = false;
-  browser.win.addEventListener("popstate", (() => { first = page.keeps(); }) as Listener);
+  browser.win.addEventListener("popstate", (() => { first = page.keeps(); taken.push(page.takes()); }) as Listener);
   const page = watchLeaving(browser.win as unknown as Window, browser.doc as unknown as Document, {
     guard,
     staysOnTab: url => tabOf(url) === tabOf(new URL(ORIGIN + shown)),
-    ask, open,
+    ask, open, end,
   });
-  browser.win.addEventListener("popstate", (() => { kept.push([first, page.keeps()]); }) as Listener);
+  browser.win.addEventListener("popstate", (() => { kept.push([first, page.keeps()]); router(browser.address); }) as Listener);
   if (holding) guard.hold(true);
-  return { guard, ask, answer, open, page, kept };
+  return { guard, ask, answer, open, end, page, kept, taken, router };
 }
 
 describe("the extra entry while the tab holds", () => {
@@ -240,27 +268,93 @@ describe("leaving through back and forward", () => {
     expect(tab.ask).toHaveBeenCalledTimes(1);
   });
 
-  it("does not hold a jump off the tab: the document is not kept and reload asks the browser's question", () => {
-    const browser = fakeBrowser(["/maps", "/settings/account"]);
+  it("takes a jump past the tab from the history list: neither the workspace nor the router hears it, and it asks", () => {
+    const browser = fakeBrowser(["/maps", "/data", "/settings/account"]);
     const tab = watch(browser);
-    browser.traverse(-2);
+    browser.traverse(-3);
     expect(browser.address).toBe("/maps");
-    expect(tab.ask).not.toHaveBeenCalled();
-    expect(tab.kept).toEqual([[false, false]]);
-    expect(browser.unload().defaultPrevented).toBe(true);
+    expect(tab.taken).toEqual([true]);
+    expect(tab.router).not.toHaveBeenCalled();
+    expect(tab.ask).toHaveBeenCalledTimes(1);
+    expect(tab.end).not.toHaveBeenCalled();
   });
 
-  it("asks once however often Back is pressed while it asks, and an answer after the page went does nothing", async () => {
+  it("puts the tab's address back on Keep editing by the entry's distance, where the browser reports its entries", async () => {
+    const browser = fakeBrowser(["/maps", "/data", "/settings/account"], 2, { keys: true });
+    const tab = watch(browser);
+    browser.traverse(-3);
+    await tab.answer(false);
+    expect(browser.queued).toEqual([3]);
+    browser.settle();
+    expect(browser.address).toBe("/settings/account");
+    expect(browser.index).toBe(3);
+    expect(browser.entries).toEqual(["/maps", "/data", "/settings/account", "/settings/account"]);
+    // The step back is the page's own: taken too, so the router hears neither.
+    expect(tab.taken).toEqual([true, true]);
+    expect(tab.router).not.toHaveBeenCalled();
+    expect(tab.ask).toHaveBeenCalledTimes(1);
+    // Held as before: Back asks, and saving takes the extra entry away.
+    browser.back();
+    expect(tab.ask).toHaveBeenCalledTimes(2);
+    await tab.answer(false);
+    tab.guard.hold(false);
+    expect(browser.queued).toEqual([-1]);
+  });
+
+  it("puts the tab's address back on Keep editing as new entries, its own and the extra one, where the browser reports none", async () => {
+    const browser = fakeBrowser(["/maps", "/data", "/settings/account"]);
+    // The router's state on the tab's own entry, under the extra one.
+    const state = browser.win.history.state;
+    const tab = watch(browser);
+    browser.traverse(-3);
+    await tab.answer(false);
+    expect(browser.queued).toEqual([]);
+    expect(browser.entries).toEqual(["/maps", "/settings/account", "/settings/account"]);
+    expect(browser.index).toBe(2);
+    expect(tab.router).not.toHaveBeenCalled();
+    // The tab's own entry comes back with the state the router left on it, so the router has nothing to restore.
+    browser.back();
+    expect(browser.win.history.state).toBe(state);
+    expect(tab.ask).toHaveBeenCalledTimes(2);
+    await tab.answer(false);
+    // Saving takes the extra entry away and stays on the tab.
+    tab.guard.hold(false);
+    browser.settle();
+    await tick();
+    expect(browser.address).toBe("/settings/account");
+    expect(browser.index).toBe(1);
+  });
+
+  it("hands a step past the tab to the workspace on Discard, and the browser's question stays quiet for it", async () => {
+    const browser = fakeBrowser(["/maps", "/data", "/settings/account"], 2, { keys: true });
+    const tab = watch(browser);
+    browser.traverse(-3);
+    await tab.answer(true);
+    expect(tab.end).toHaveBeenCalledOnce();
+    expect(browser.queued).toEqual([]);
+    expect(browser.address).toBe("/maps");
+    expect(browser.unload().defaultPrevented).toBe(false);
+    expect(tab.router).not.toHaveBeenCalled();
+  });
+
+  it("asks once however often Back is pressed while it asks; a Back past the tab is taken, and the one answer settles where the browser is", async () => {
     const browser = fakeBrowser(["/maps", "/settings/account"]);
     const tab = watch(browser);
     browser.back();
     browser.back();
     expect(browser.address).toBe("/maps");
     expect(tab.ask).toHaveBeenCalledTimes(1);
-    const pushes = browser.win.history.pushState.mock.calls.length;
+    expect(tab.taken).toEqual([false, true]);
+    // Only the Back that stayed on the tab reached the router.
+    expect(tab.router.mock.calls).toEqual([["/settings/account"]]);
     await tab.answer(false);
-    expect(browser.win.history.pushState).toHaveBeenCalledTimes(pushes);
-    expect(browser.queued).toEqual([]);
+    expect(browser.address).toBe("/settings/account");
+    expect(browser.entries).toEqual(["/maps", "/settings/account", "/settings/account"]);
+    expect(tab.end).not.toHaveBeenCalled();
+    browser.back();
+    browser.back();
+    await tab.answer(true);
+    expect(tab.end).toHaveBeenCalledOnce();
   });
 
   it("with nowhere to go back to, lets the next key press take the tab up again", async () => {
@@ -383,5 +477,60 @@ describe("reload and closing", () => {
     expect(browser.count()).toBe(2);
     expect(before).toBeGreaterThan(2);
     expect(tab.guard.listening).toBe(0);
+  });
+});
+
+describe("held by the private workspace", () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  function memory(): Storage {
+    const data = new Map<string, string>();
+    return { get length() { return data.size; }, getItem: key => data.get(key) ?? null, setItem: (key, value) => { data.set(key, value); }, removeItem: key => { data.delete(key); }, key: index => [...data.keys()][index] ?? null, clear: () => data.clear() };
+  }
+  const reads = async () => { for (let i = 0; i < 12; i += 1) await Promise.resolve(); };
+
+  it("keeps the document through a jump past the tab answered Keep editing, and ends it where the jump went on Discard", async () => {
+    const browser = fakeBrowser(["/maps", "/data", "/settings/account"], 2, { keys: true });
+    vi.stubGlobal("BroadcastChannel", undefined);
+    vi.stubGlobal("localStorage", memory()); vi.stubGlobal("sessionStorage", memory());
+    vi.stubGlobal("window", browser.win); vi.stubGlobal("document", browser.doc);
+    openPrivateState("alice");
+    const ready = vi.fn();
+    const stopWorkspace = watchPrivateWorkspace("alice", ready);
+    await reads();
+    expect(ready).toHaveBeenLastCalledWith(true);
+    // The page, wired as the Settings frame wires it, and the router heard after both.
+    const guard = fakeGuard();
+    const { ask, answer } = deferred();
+    const page = watchLeaving(browser.win as unknown as Window, browser.doc as unknown as Document, {
+      guard, staysOnTab: url => tabOf(url) === "account", ask, open: vi.fn(), end: () => { letTraversalGo(); },
+    });
+    const letKeep = keepTraversals(page.keeps), letTake = takeTraversals(page.takes);
+    const router = vi.fn();
+    browser.win.addEventListener("popstate", router as Listener);
+    try {
+      guard.hold(true);
+      browser.traverse(-3);
+      expect(browser.address).toBe("/maps");
+      expect(browser.doc.documentElement.hidden).toBe(false);
+      expect(browser.win.location.replace).not.toHaveBeenCalled();
+      expect(ready).toHaveBeenLastCalledWith(true);
+      expect(router).not.toHaveBeenCalled();
+      expect(ask).toHaveBeenCalledOnce();
+      await answer(false);
+      browser.settle();
+      await reads();
+      expect(browser.address).toBe("/settings/account");
+      expect(browser.doc.documentElement.hidden).toBe(false);
+      expect(browser.win.location.replace).not.toHaveBeenCalled();
+      expect(router).not.toHaveBeenCalled();
+      // Again, and this time the tab is let go: the document ends where the jump went.
+      browser.traverse(-3);
+      await answer(true);
+      expect(browser.win.location.replace).toHaveBeenCalledWith(`${ORIGIN}/maps`);
+      expect(browser.doc.documentElement.hidden).toBe(true);
+      expect(ready).toHaveBeenLastCalledWith(false);
+      expect(browser.unload().defaultPrevented).toBe(false);
+    } finally { letKeep(); letTake(); page.stop(); stopWorkspace(); }
   });
 });

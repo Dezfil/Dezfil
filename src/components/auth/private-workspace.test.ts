@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { watchPrivateWorkspace } from "./private-workspace";
-import { keepTraversals, takeTraversals } from "./kept-traversals";
+import { keepTraversals, letTraversalGo, takeTraversals } from "./kept-traversals";
 import { ACCOUNT_STORAGE_KEY, accountChanged, openPrivateState } from "./private-state";
 import { readStored, SQL_KEYS, writeStored } from "../sql/sql-storage";
 import { conversation, LOCATOR_KEY } from "../builder/assistant/conversation-store";
@@ -107,6 +107,15 @@ it("stands aside for a page that takes Back and Forward itself, so the browser's
     expect(win.location.replace).not.toHaveBeenCalled();
     expect(doc.documentElement.hidden).toBe(false); expect(ready).toHaveBeenLastCalledWith(true);
   } finally { letGo(); win.removeEventListener("popstate", page, true); win.removeEventListener("popstate", router); }
+});
+it("ends the document on a step a page took and lets go, and offers that only while it watches", async () => {
+  const ready = vi.fn(); dispose = watchPrivateWorkspace("alice", ready); await flush();
+  expect(letTraversalGo()).toBe(true);
+  expect(win.location.replace).toHaveBeenCalledWith("http://instance.test/maps/copied-id");
+  expect(doc.documentElement.hidden).toBe(true); expect(ready).toHaveBeenLastCalledWith(false);
+  dispose(); dispose = undefined;
+  expect(letTraversalGo()).toBe(false);
+  expect(win.location.replace).toHaveBeenCalledOnce();
 });
 it("reloads a Back or Forward once the page that claimed it has gone", async () => {
   const ready = vi.fn(); dispose = watchPrivateWorkspace("alice", ready); await flush();
