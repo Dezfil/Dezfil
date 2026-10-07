@@ -33,15 +33,23 @@ export function trackConsole(page: Page): ConsoleError[] {
   return errors;
 }
 
-/** Consume the browser's expected console shadow of an injected fault. */
+/** Consume the browser's expected console shadow of an injected fault:
+ * one entry on the route, and with `message`, one whose words match it
+ * too (a status, say), so a different failure on the same route stays. */
 export async function consumeExpected(
   errors: ConsoleError[],
   route: RegExp,
+  message?: RegExp,
 ): Promise<void> {
   const find = () =>
-    errors.findIndex((entry) => route.test(entry.url ?? entry.text));
+    errors.findIndex((entry) => route.test(entry.url ?? entry.text) && (!message || message.test(entry.text)));
   await expect.poll(find).toBeGreaterThanOrEqual(0);
   errors.splice(find(), 1);
+}
+
+/** A route that is exactly one address, nothing before or after it. */
+export function exactly(url: string): RegExp {
+  return new RegExp(`^${url.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}$`);
 }
 
 /** House route policy: third-party hosts abort (the documented offline

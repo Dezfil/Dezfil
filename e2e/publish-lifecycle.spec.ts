@@ -30,6 +30,7 @@ import {
   addLayer,
   consumeExpected,
   createMap,
+  exactly,
   patchLayer,
   patchMap,
   publishMap,
@@ -42,13 +43,13 @@ import {
 } from "./support";
 import { markStats } from "./png-probes";
 
-/** Remove every console shadow on a route, however many arrived, none
- * included: reads a step tolerates without counting them. */
-function dropShadows(errors: ConsoleError[], route: RegExp): void {
-  for (let i = errors.length - 1; i >= 0; i--) {
-    const entry = errors[i];
-    if (route.test(entry.url ?? entry.text)) errors.splice(i, 1);
-  }
+/** The two 404s a dead published link casts, each consumed once and only
+ * for that link: the document the published root answers with its
+ * not-found page, and the step's own probe of the payload. Any other
+ * failure, on these routes or another link, stays for the final check. */
+async function consumeDeadLink(errors: ConsoleError[], origin: string, token: string): Promise<void> {
+  await consumeExpected(errors, exactly(`${origin}/v/${token}`), /status of 404/);
+  await consumeExpected(errors, exactly(`${origin}/api/published/${token}`), /status of 404/);
 }
 
 const runId = Date.now().toString(36);
@@ -136,13 +137,10 @@ test("publish, unpublish, republish — the link lifecycle a reader sees", async
       return (await fetch(`/api/published/${token}`)).status;
     }, firstUrl);
     expect(status).toBe(404);
-    // The probe's 404 casts one expected console shadow. The page itself
-    // makes no read: the published root answers a dead link with its
-    // not-found page before any client view mounts, so the two sentences
-    // above are what hold the presentation. Any other shadow on the
-    // route is tolerated, not counted.
-    await consumeExpected(consoleErrors, /\/api\/published\//);
-    dropShadows(consoleErrors, /\/api\/published\//);
+    // The published root answers the dead link with its not-found page
+    // before any client view mounts, so the page makes no read of its own:
+    // the document's 404 and the probe's are the step's only shadows.
+    await consumeDeadLink(consoleErrors, new URL(page.url()).origin, firstUrl.split("/v/")[1]);
   });
 
   await test.step("a token that never existed gets the same designed presentation", async () => {
@@ -162,9 +160,8 @@ test("publish, unpublish, republish — the link lifecycle a reader sees", async
       neverIssued,
     );
     expect(status).toBe(404);
-    // As for the revoked link: the probe's shadow, and no read of the page's.
-    await consumeExpected(consoleErrors, /\/api\/published\//);
-    dropShadows(consoleErrors, /\/api\/published\//);
+    // As for the revoked link: the document's 404 and the probe's, no other.
+    await consumeDeadLink(consoleErrors, new URL(page.url()).origin, neverIssued);
   });
 
   await test.step("publishing again yields a working link", async () => {
