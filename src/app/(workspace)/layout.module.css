@@ -190,8 +190,10 @@
    *visible* focus: a mouse click parks focus on the link it navigated,
    which must not hold the rail open after the pointer leaves. The
    expanded surface goes opaque: it overlays builder panels,
-   and content bleeding through the glass reads as clutter. */
-.rail:has(:focus-visible) {
+   and content bleeding through the glass reads as clutter. Only under
+   the person's Opens on hover (no attribute, today's look): Icons only
+   never opens and Always open already stands open. */
+:global(:root:not([data-look-rail="icons"]):not([data-look-rail="open"])) .rail:has(:focus-visible) {
   width: 210px;
   background: var(--bg-panel);
   box-shadow:
@@ -209,6 +211,13 @@
   box-shadow:
     0 10px 30px var(--shadow),
     16px 0 36px -18px var(--shadow);
+}
+
+/* Always open: the open width standing beside the page rather than over
+   it, so it keeps the glass and the float shadow; the page moves right by
+   --rail-shift. */
+:global(:root[data-look-rail="open"]) .rail {
+  width: 210px;
 }
 
 .railLink {
@@ -272,15 +281,17 @@
     transform 0.22s var(--ease-panel);
 }
 
-.rail:has(:focus-visible) .railLabel,
-.rail:has(:focus-visible) .railStatusLabel {
+:global(:root:not([data-look-rail="icons"]):not([data-look-rail="open"])) .rail:has(:focus-visible) .railLabel,
+:global(:root:not([data-look-rail="icons"]):not([data-look-rail="open"])) .rail:has(:focus-visible) .railStatusLabel {
   opacity: 1;
   transform: none;
   transition-delay: 0.15s;
 }
 
 .rail[data-expanded] .railLabel,
-.rail[data-expanded] .railStatusLabel {
+.rail[data-expanded] .railStatusLabel,
+:global(:root[data-look-rail="open"]) .railLabel,
+:global(:root[data-look-rail="open"]) .railStatusLabel {
   opacity: 1;
   transform: none;
 }
@@ -334,10 +345,11 @@
   transition: opacity 0.22s ease, color var(--dur-micro) ease, background var(--dur-micro) ease;
 }
 .rail[data-expanded] .accountOut,
-.rail:has(:focus-visible) .accountOut { opacity: 1; pointer-events: auto; }
+:global(:root:not([data-look-rail="icons"]):not([data-look-rail="open"])) .rail:has(:focus-visible) .accountOut,
+:global(:root[data-look-rail="open"]) .accountOut { opacity: 1; pointer-events: auto; }
 .accountOut:hover { color: var(--fg); background: var(--bg-hover); }
 .accountError {
-  position: fixed; left: calc(var(--gutter) + 62px); bottom: var(--gutter);
+  position: fixed; left: calc(var(--gutter) + 62px + var(--rail-shift)); bottom: var(--gutter);
   max-width: min(400px, calc(100vw - 100px)); z-index: 20;
 }
 
@@ -345,16 +357,18 @@
    presentation collapses — the RailShell dwell is interaction semantics
    and is untouched by this block. */
 @media (prefers-reduced-motion: reduce) {
+  /* The focus selectors carry the same gate as the rules they quiet, so
+     they match them in weight and win by coming later. */
   .rail,
   .rail[data-expanded],
-  .rail:has(:focus-visible),
+  :global(:root:not([data-look-rail="icons"]):not([data-look-rail="open"])) .rail:has(:focus-visible),
   .railLabel,
   .railStatusLabel,
   .accountRow .accountOut,
   .rail[data-expanded] .railLabel,
   .rail[data-expanded] .railStatusLabel,
-  .rail:has(:focus-visible) .railLabel,
-  .rail:has(:focus-visible) .railStatusLabel {
+  :global(:root:not([data-look-rail="icons"]):not([data-look-rail="open"])) .rail:has(:focus-visible) .railLabel,
+  :global(:root:not([data-look-rail="icons"]):not([data-look-rail="open"])) .rail:has(:focus-visible) .railStatusLabel {
     transition-duration: 0.01s;
     transition-delay: 0s;
   }
@@ -378,7 +392,10 @@
      column (a later sitting; the arithmetic is held by
      gallery-columns.test.ts). */
   max-width: calc(1480px + 2 * 24px);
-  margin: 0 auto;
+  /* Centred, unless the always-open rail needs more room on the left
+     than the centring gives: then the rail's clearance (the narrow
+     branch's 96px, less the 24px padding counted inside it). */
+  margin: 0 auto 0 max(calc(72px + var(--rail-shift)), calc((100% - 1480px - 2 * 24px) / 2));
   /* Topbar clearance lives in padding, not margin: a top margin here
      collapses through <body> and grows every page by 58px of phantom
      scroll (the fixed topbar and rail leave main as body's first
@@ -389,7 +406,7 @@
 @media (max-width: 1720px) {
   .main {
     max-width: 1480px;
-    margin-left: 96px;
+    margin-left: calc(96px + var(--rail-shift));
     margin-right: 24px;
     padding-left: 0;
     padding-right: 0;

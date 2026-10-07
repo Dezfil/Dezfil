@@ -115,6 +115,9 @@
   --radius-pill: 999px;
   /* The icon rail's own corner, which Corners tightens with the rest */
   --radius-rail: 18px;
+  /* What the always-open rail adds to every left edge beside it: none
+     while the rail opens over the page */
+  --rail-shift: 0px;
 
   /* Type ramp — six roles, floor 11px; nothing renders below --text-meta */
   --text-hero: 27px;

@@ -4,6 +4,7 @@ import { useReactFlow } from "@xyflow/react";
 import { StageButton } from "../map/StageStack";
 import { ArrangeIcon, CompressIcon, ExpandIcon, FitIcon, LockIcon, MinimapIcon, MinusIcon, NoteIcon, PlusIcon, UnlockIcon } from "../ui/icons";
 import { fitOptions } from "./view";
+import { readRailShift } from "../rail-mode";
 import { useViewOnly } from "./view-only";
 import styles from "./WorkflowCanvas.module.css";
 
@@ -75,7 +76,7 @@ export function CanvasStage({
           next click and lands short of a full step. */}
       <StageButton action="Zoom in" icon={<PlusIcon />} onClick={() => void flow.zoomIn()} />
       <StageButton action="Zoom out" icon={<MinusIcon />} onClick={() => void flow.zoomOut()} />
-      <StageButton action="Fit to view" icon={<FitIcon />} onClick={() => void flow.fitView({ ...fitOptions(view, panel, reserve, helperRight), duration: 240 })} />
+      <StageButton action="Fit to view" icon={<FitIcon />} onClick={() => void flow.fitView({ ...fitOptions(view, panel, reserve, helperRight, readRailShift()), duration: 240 })} />
       <StageButton
         action={view === "full" ? "Framed view" : "Fill the screen"}
         icon={view === "full" ? <CompressIcon /> : <ExpandIcon />}

@@ -27,6 +27,11 @@
   transform: translateY(-100%);
 }
 
+/* Beside a rail icon: on the icon's centre line. */
+.bubble[data-beside] {
+  transform: translateY(-50%);
+}
+
 @keyframes hint-in {
   from {
     opacity: 0;

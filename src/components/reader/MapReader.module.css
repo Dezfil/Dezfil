@@ -25,7 +25,7 @@
    right. */
 .failures {
   /* The stage is the viewport less the rail and its insets. */
-  width: min(420px, calc(100vw - 470px));
+  width: min(420px, calc(100vw - 470px - var(--rail-shift)));
   display: flex;
   flex-direction: column;
   gap: 8px;

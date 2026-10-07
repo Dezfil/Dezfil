@@ -233,6 +233,16 @@
   --radius-rail: 13px;
 }
 
+/* ---- Side menu: Always open stands the rail at its open width (210 px)
+   beside the page, not over it, so every site that places content beside
+   the rail moves right by what it adds to the collapsed 54 px. Icons
+   only and Opens on hover add nothing. The rail's own behavior is the
+   shell's, keyed on the same attribute ---- */
+
+:root[data-look-rail="open"] {
+  --rail-shift: 156px;
+}
+
 /* ---- Background: the texture behind the workspace and in the header
    bar, as faint as today's, in the Color's ink on the theme's ground.
    Every Color and theme names its own file, so no rule here depends on
@@ -356,6 +366,7 @@
   --radius-lg: 14px;
   --radius-card: 20px;
   --radius-rail: 18px;
+  --rail-shift: 0px;
   --sheet: url("/shell-sheet-light.svg");
   --sheet-size: cover;
   --sheet-pos: center;

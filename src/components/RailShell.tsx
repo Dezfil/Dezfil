@@ -9,6 +9,7 @@ import {
 } from "react";
 import { usePathname } from "next/navigation";
 import { hotZoneShare } from "./rail-hot-zone";
+import { RailModeContext, useRailMode } from "./rail-mode";
 
 // Pointer intent for the workspace rail (the hot zone). The rail expands
 // only after a sustained hover over the collapsed rail's hot zone — on
@@ -20,6 +21,12 @@ import { hotZoneShare } from "./rail-hot-zone";
 // entirely. The dwell is interaction semantics, so it lives here rather
 // than in a transition delay — reduced motion strips the animation,
 // never the dwell.
+//
+// All of that is the person's default Side menu pick, Opens on hover.
+// Always open stands the rail open by the stylesheet and Icons only never
+// opens it, so under either the dwell never arms and the keyboard rule is
+// gated off; the items learn the pick so they can name themselves in a
+// hint beside the icon when the rail stays shut.
 
 /** Dwell before a resting pointer expands the rail. Shipped 400ms;
  * a field round ruled it back to 150ms, and
@@ -36,6 +43,7 @@ export function RailShell({
   className: string;
   children: React.ReactNode;
 }) {
+  const mode = useRailMode();
   const [expanded, setExpanded] = useState(false);
   const navRef = useRef<HTMLElement | null>(null);
   const timerRef = useRef<number | null>(null);
@@ -65,7 +73,7 @@ export function RailShell({
 
   const onPointerMove = useCallback(
     (event: React.PointerEvent<HTMLElement>) => {
-      if (event.pointerType === "touch" || expanded) return;
+      if (event.pointerType === "touch" || expanded || mode !== "hover") return;
       const nav = navRef.current;
       if (!nav) return;
       const rect = nav.getBoundingClientRect();
@@ -90,7 +98,7 @@ export function RailShell({
         }, EXPAND_DWELL_MS);
       }
     },
-    [expanded, hotZone, cancelDwell],
+    [expanded, hotZone, cancelDwell, mode],
   );
 
   const onPointerLeave = useCallback(
@@ -107,7 +115,11 @@ export function RailShell({
       ref={navRef}
       className={className}
       aria-label="Product navigation"
-      data-expanded={expanded || undefined}
+      // Only Opens on hover expands: a pick that leaves it lets an open
+      // rail go at once.
+      data-expanded={(expanded && mode === "hover") || undefined}
+      // A hint inside the rail stands beside its icon, never over the next.
+      data-hint-place="beside"
       onPointerMove={onPointerMove}
       onPointerLeave={onPointerLeave}
       // A click that navigates must not leave the dwell armed: the layout
@@ -115,7 +127,7 @@ export function RailShell({
       // the rail on the destination page.
       onClick={cancelDwell}
     >
-      {children}
+      <RailModeContext.Provider value={mode}>{children}</RailModeContext.Provider>
     </nav>
   );
 }

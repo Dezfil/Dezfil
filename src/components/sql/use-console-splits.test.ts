@@ -14,6 +14,12 @@ describe("the sidebar's bound", () => {
     expect(sidebarBound(1121, true)).toBe(335);
     expect(sidebarBound(1440, true)).toBe(495);
   });
+  it("gives up what the always-open rail adds beside a docked pane", () => {
+    expect(sidebarAvailable(1440, true, 156)).toBe(1440 - 82 - 156 - 354 - 14);
+    expect(sidebarBound(1440, true, 156)).toBe(417);
+    // With no docked pane the bound is half the window, rail or not.
+    expect(sidebarAvailable(1440, false, 156)).toBe(1440);
+  });
   it("never drops under the sidebar's minimum", () => {
     expect(sidebarBound(600, true)).toBe(PANE_MIN);
   });

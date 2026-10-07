@@ -4,7 +4,7 @@
    Geometry is the console's own, derived from the shell the same way the
    builder derives its cards (MapBuilder.module.css is the reference, never
    written to): the pane sits where the layers inspector sits — top 62px,
-   left 82px (rail + gutter), bottom gutter, width --sql-pane — and the
+   left 82px (rail + gutter; the always-open rail adds --rail-shift), bottom gutter, width --sql-pane — and the
    work area fills from the pane's right edge to the right gutter. Both
    sizes are custom properties the component sets, reclamped to the
    viewport before use. */
@@ -20,7 +20,7 @@
 .pane {
   position: fixed;
   top: var(--sql-top);
-  left: 82px;
+  left: calc(82px + var(--rail-shift));
   bottom: var(--gutter);
   width: var(--sql-pane);
   z-index: 10;
@@ -90,7 +90,7 @@
   position: fixed;
   top: var(--sql-top);
   bottom: var(--gutter);
-  left: calc(82px + var(--sql-pane));
+  left: calc(82px + var(--rail-shift) + var(--sql-pane));
   width: var(--gutter);
   z-index: 11;
   cursor: col-resize;
@@ -120,7 +120,7 @@
 .work {
   position: fixed;
   top: var(--sql-top);
-  left: calc(82px + var(--sql-pane) + var(--gutter));
+  left: calc(82px + var(--rail-shift) + var(--sql-pane) + var(--gutter));
   right: calc(var(--gutter) + var(--sql-assistant, 0px));
   bottom: var(--gutter);
   z-index: 2;

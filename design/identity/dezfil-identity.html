@@ -124,6 +124,7 @@
   --radius-sm: 4px;
   --radius-pill: 999px;
   --radius-rail: 18px;
+  --rail-shift: 0px;
   --text-hero: 27px;
   --text-title: 22px;
   --text-heading: 15px;
@@ -1167,6 +1168,11 @@ select.kit-field-field {
 
 .kit-hintlayer-bubble[data-above] {
   transform: translateY(-100%);
+}
+
+/* Beside a rail icon: on the icon's centre line. */
+.kit-hintlayer-bubble[data-beside] {
+  transform: translateY(-50%);
 }
 
 @keyframes hint-in {
