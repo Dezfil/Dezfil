@@ -1,5 +1,5 @@
 import type { Database } from "better-sqlite3";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import type { ReactElement, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -18,7 +18,7 @@ import RenderMissingPage from "../render/[id]/[...missing]/page";
 import PublishedRootPage from "../v/page";
 import PublishedMissingPage from "../v/[token]/[...missing]/page";
 import WorkspaceLayout from "./layout";
-import MissingPage from "./[...missing]/page";
+import GlobalNotFound from "../global-not-found";
 import WorkspaceNotFound from "./not-found";
 import { pageLook } from "./page-look";
 
@@ -142,9 +142,9 @@ describe("the route tree", () => {
     expect(existsSync("src/app/render/[id]/page.tsx")).toBe(true);
   });
 
-  it("catches an unknown address under the published and the render root inside that root, never the workspace's catch-all", () => {
+  it("catches an unknown address under the published and the render root inside that root, never the workspace's not-found", () => {
     // Without these, `/v`, `/v/<token>/extra`, `/render` and `/render/<id>/extra`
-    // match no page of their own root and fall to the workspace's catch-all.
+    // match no page of their own root and fall to the framework's not-found.
     const scoped: [string, () => never, string][] = [
       ["src/app/v/page.tsx", PublishedRootPage, "src/app/v/not-found.tsx"],
       ["src/app/v/[token]/[...missing]/page.tsx", PublishedMissingPage, "src/app/v/not-found.tsx"],
@@ -161,10 +161,23 @@ describe("the route tree", () => {
     expect(renderToStaticMarkup(<RenderNotFound />)).toBe("<h1>Page not found</h1>");
   });
 
-  it("catches an unknown address in the workspace and answers it with the workspace's not-found page", () => {
-    let thrown: unknown;
-    try { MissingPage(); } catch (error) { thrown = error; }
-    expect((thrown as { digest?: string }).digest).toBe("NEXT_HTTP_ERROR_FALLBACK;404");
+  it("hands any other unknown address to the framework's not-found, drawn as the workspace's not-found page", async () => {
+    // A catch-all page inside the workspace answers 200: the workspace holds
+    // its pages out of the server render until the session is confirmed, so
+    // the page's not-found never sets the status. The framework's own
+    // not-found sets 404 before rendering; it is switched on in the config.
+    const workspace = path.join(APP, "(workspace)");
+    const catchAlls = readdirSync(workspace).filter(entry => /^\[\[?\.\.\./.test(entry));
+    expect(catchAlls).toEqual([]);
+    expect(readFileSync("next.config.ts", "utf8")).toMatch(/experimental:\s*\{[^}]*\bglobalNotFound:\s*true\b/);
+    const page = GlobalNotFound();
+    expect(page.type).toBe(WorkspaceLayout);
+    expect((page.props as { children: ReactElement }).children.type).toBe(WorkspaceNotFound);
+    // Drawn whole for the signed-in person: the document with their look.
+    preferences.mergeAccountLook("ada", { color: "harbor" }, db);
+    who.account = "ada";
+    const document = (await WorkspaceLayout(page.props as { children: ReactNode })) as Document;
+    expect(htmlTag(document)).toContain('data-look-color="harbor"');
     const markup = renderToStaticMarkup(<WorkspaceNotFound />);
     expect(markup).toContain("<h1>Page not found</h1>");
     expect(markup).toContain('href="/"');

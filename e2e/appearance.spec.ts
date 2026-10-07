@@ -155,12 +155,20 @@ test.describe("the person's look", () => {
               expect({ status: gated.status, location: gated.location }, `nobody ${path}`).toEqual({ status: own.status, location: own.location });
               expect(gated.location ?? "", `nobody ${path}`).toMatch(/\/(sign-in|setup)(\?|$)/);
             }
-            // The workspace's own unknown address still answers inside the shell
-            // (whose document always carries its not-found words), with the look.
-            const missing = await served("person", "/no-such-page");
-            expect(missing.location).toBeNull();
-            expect(servedLookProblems(missing.body, attrs(LOOK_A))).toEqual([]);
-            expect(missing.body).toContain("Nothing is at this address.");
+            // The workspace's own unknown addresses, a page's and an API's,
+            // answer 404 with the workspace's not-found page, the look on its
+            // root; nobody gets the gate's own answer.
+            for (const path of ["/no-such-page", "/api/nope", `/api/maps/${map.id}/nope`]) {
+              const { status, location, body } = await served("person", path);
+              expect({ status, location }, `person ${path}`).toEqual({ status: 404, location: null });
+              expect(servedLookProblems(body, attrs(LOOK_A)), `person ${path}`).toEqual([]);
+              expect(body, `person ${path}`).toContain("Page not found");
+              expect(body, `person ${path}`).toContain("Nothing is at this address.");
+              expect(body, `person ${path}`).not.toContain("Map not found");
+            }
+            const gated = await served("nobody", "/no-such-page");
+            expect(gated.status, "nobody /no-such-page").toBe(307);
+            expect(gated.location ?? "", "nobody /no-such-page").toMatch(/\/(sign-in|setup)(\?|$)/);
           } finally { await nobody.close(); }
         });
       });
