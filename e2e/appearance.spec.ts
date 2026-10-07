@@ -115,6 +115,53 @@ test.describe("the person's look", () => {
         const viewer = await person.api.get(`/v/${token}`);
         expect(viewer.status()).toBe(200);
         expect(servedLookProblems(await viewer.text(), {})).toEqual([]);
+
+        await test.step("an address no page answers under the published or the render root, as the person and as nobody", async () => {
+          const nobody = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] } });
+          try {
+            const PUBLISHED = ["/v", `/v/${token}/extra`, "/v/no-such-token/extra/more"];
+            const RENDER = ["/render", `/render/${map.id}/extra`];
+            const served = async (who: "person" | "nobody", path: string) => {
+              const response = await (who === "person" ? person.api : nobody.request).get(path, { maxRedirects: 0 });
+              return { status: response.status(), location: response.headers().location ?? null, body: await response.text() };
+            };
+            for (const who of ["person", "nobody"] as const) {
+              // A published address is public: whoever asks gets the published
+              // view's not-found page, never the gate and never a look.
+              for (const path of PUBLISHED) {
+                const { status, location, body } = await served(who, path);
+                expect({ status, location }, `${who} ${path}`).toEqual({ status: 404, location: null });
+                expect(servedLookProblems(body, {}), `${who} ${path}`).toEqual([]);
+                expect(body, `${who} ${path}`).toContain("Map not found");
+                expect(body, `${who} ${path}`).toContain("This link is no longer available.");
+                expect(body, `${who} ${path}`).not.toContain("Nothing is at this address.");
+              }
+            }
+            // The render root is the authoring surface the server's renderer
+            // reads: the person gets its plain not-found, nobody the gate,
+            // as for a map's own render address.
+            for (const path of RENDER) {
+              const { status, location, body } = await served("person", path);
+              expect({ status, location }, `person ${path}`).toEqual({ status: 404, location: null });
+              expect(servedLookProblems(body, {}), `person ${path}`).toEqual([]);
+              // Its one line, as markup or in the framework's payload, and none
+              // of the words every workspace document carries.
+              expect(body, `person ${path}`).toContain("Page not found");
+              expect(body, `person ${path}`).not.toContain("Nothing is at this address.");
+              expect(body, `person ${path}`).not.toContain("Map not found");
+              const gated = await served("nobody", path);
+              const own = await served("nobody", `/render/${map.id}`);
+              expect({ status: gated.status, location: gated.location }, `nobody ${path}`).toEqual({ status: own.status, location: own.location });
+              expect(gated.location ?? "", `nobody ${path}`).toMatch(/\/(sign-in|setup)(\?|$)/);
+            }
+            // The workspace's own unknown address still answers inside the shell
+            // (whose document always carries its not-found words), with the look.
+            const missing = await served("person", "/no-such-page");
+            expect(missing.location).toBeNull();
+            expect(servedLookProblems(missing.body, attrs(LOOK_A))).toEqual([]);
+            expect(missing.body).toContain("Nothing is at this address.");
+          } finally { await nobody.close(); }
+        });
       });
     } finally {
       await closeAll(people);

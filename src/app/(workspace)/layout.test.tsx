@@ -12,6 +12,7 @@ import { DezfilDocument } from "../document";
 import EntryLayout from "../(entry)/layout";
 import PublishedLayout from "../v/layout";
 import RenderLayout from "../render/layout";
+import RenderNotFound from "../render/not-found";
 import WorkspaceLayout from "./layout";
 import MissingPage from "./[...missing]/page";
 import WorkspaceNotFound from "./not-found";
@@ -135,6 +136,26 @@ describe("the route tree", () => {
   it("keeps the render view where the export drift check reads it", () => {
     expect(existsSync("src/app/render/[id]/RenderExportView.tsx")).toBe(true);
     expect(existsSync("src/app/render/[id]/page.tsx")).toBe(true);
+  });
+
+  it("catches an unknown address under the published and the render root inside that root, never the workspace's catch-all", async () => {
+    // Without these, `/v`, `/v/<token>/extra`, `/render` and `/render/<id>/extra`
+    // match no page of their own root and fall to the workspace's catch-all.
+    const scoped: [string, string][] = [
+      ["src/app/v/page.tsx", "src/app/v/not-found.tsx"],
+      ["src/app/v/[token]/[...missing]/page.tsx", "src/app/v/not-found.tsx"],
+      ["src/app/render/page.tsx", "src/app/render/not-found.tsx"],
+      ["src/app/render/[id]/[...missing]/page.tsx", "src/app/render/not-found.tsx"],
+    ];
+    for (const [page, notFoundPage] of scoped) {
+      expect(existsSync(page), page).toBe(true);
+      expect(existsSync(notFoundPage), notFoundPage).toBe(true);
+      const { default: Page } = await import(/* @vite-ignore */ path.resolve(page)) as { default: () => never };
+      let thrown: unknown;
+      try { Page(); } catch (error) { thrown = error; }
+      expect((thrown as { digest?: string }).digest, page).toBe("NEXT_HTTP_ERROR_FALLBACK;404");
+    }
+    expect(renderToStaticMarkup(<RenderNotFound />)).toBe("<h1>Page not found</h1>");
   });
 
   it("catches an unknown address in the workspace and answers it with the workspace's not-found page", () => {
