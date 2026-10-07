@@ -9,6 +9,7 @@
 # prove the value never reaches a log line, an exported archive, or an error
 # message. They are invented strings and grant access to nothing.
 src/app/api/connections/postgis/[id]/preview/route.test.ts:generic-api-key:63
+src/app/api/settings/route.test.ts:generic-api-key:129
 src/lib/export/project-archive.test.ts:generic-api-key:66
 src/lib/postgis/tls-attachment.test.ts:generic-api-key:21
 
