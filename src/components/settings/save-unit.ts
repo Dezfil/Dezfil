@@ -156,6 +156,10 @@ export class SaveUnit {
   private failed: Operation | null = null;
   /** Rows another writer's write went past: they show what it reports. */
   private readonly superseded = new Set<string>();
+  /** The write that was on its way when another writer's write went past
+   * this card's rows: that write lands after it, so what this one sends is
+   * not what the server will hold. */
+  private overtaken: Operation | null = null;
   private readonly listeners = new Set<() => void>();
   private current!: UnitSnapshot;
 
@@ -203,7 +207,7 @@ export class SaveUnit {
     const control = this.editable(key);
     if (!control) return;
     this.changed(control, value);
-    if (!same(control, value, this.target(key))) this.enqueue({ how: "keep", patch: { [key]: value } });
+    if (this.differs(control, value)) this.enqueue({ how: "keep", patch: { [key]: value } });
     this.emit();
   }
 
@@ -231,7 +235,7 @@ export class SaveUnit {
     const text = String(this.values[key] ?? "");
     const problem = numberProblem(text, control);
     if (problem) this.errors = { ...this.errors, [key]: problem };
-    else if (!same(control, text, this.target(key))) this.enqueue({ how: "keep", patch: { [key]: Number(text.trim()) } });
+    else if (this.differs(control, text)) this.enqueue({ how: "keep", patch: { [key]: Number(text.trim()) } });
     this.emit();
   }
 
@@ -261,7 +265,7 @@ export class SaveUnit {
   /** Every control back to what was saved. */
   cancel(): void {
     for (const control of this.controls.values()) {
-      if (!control.locked) this.values[control.key] = display(control, this.target(control.key));
+      if (!control.locked) this.values[control.key] = display(control, this.target(control.key) ?? this.kept[control.key]);
     }
     this.settling.clear();
     this.errors = {};
@@ -338,7 +342,7 @@ export class SaveUnit {
       const next = reported[key] ?? null;
       const refused = key in this.errors;
       const passed = this.superseded.delete(key) && !this.pending(key);
-      if (refused || passed || (same(control, this.values[key], this.kept[key]) && !this.waiting(key))) {
+      if (refused || passed || (same(control, this.values[key], this.kept[key]) && !this.pending(key))) {
         if (!same(control, this.values[key], next)) this.unmarkSaved(key);
         this.values[key] = display(control, next);
       }
@@ -370,6 +374,7 @@ export class SaveUnit {
       if (operation.how === "save") this.busy = false;
     }
     for (const key of covered) { this.settling.delete(key); this.superseded.add(key); }
+    if (this.flight) this.overtaken = this.flight;
     if (this.settleTimer && !this.settling.size) { clearTimeout(this.settleTimer); this.settleTimer = null; }
     this.emit();
   }
@@ -415,21 +420,33 @@ export class SaveUnit {
     this.dropUndo();
   }
 
-  /** What the server will hold for a key once the writes on their way land. */
-  private target(key: string): Value {
+  /** What the server will hold for a key once the writes on their way
+   * land, or undefined when that is another writer's to say: a row another
+   * writer's write went past, with no change of its own made since. The
+   * write that was on its way when that write came does not count, since
+   * that write lands after it. */
+  private target(key: string): Value | undefined {
     for (let index = this.queue.length - 1; index >= 0; index -= 1) {
       const operation = this.queue[index];
       if (key in operation.patch && operation.how !== "reset") return operation.patch[key];
     }
-    if (this.flight && key in this.flight.patch && this.flight.how !== "reset") return this.flight.patch[key];
-    return this.kept[key];
+    const flight = this.flight && key in this.flight.patch && this.flight.how !== "reset" ? this.flight : null;
+    if (flight && flight !== this.overtaken) return flight.patch[key];
+    if (this.superseded.has(key)) return undefined;
+    return flight ? flight.patch[key] : this.kept[key];
+  }
+
+  /** A change is sent unless the writes on their way already end at it. */
+  private differs(control: UnitControl, value: Value): boolean {
+    const target = this.target(control.key);
+    return target === undefined || !same(control, value, target);
   }
 
   private settle(): void {
     const patch: Patch = {};
     for (const key of this.settling) {
       const control = this.controls.get(key)!, text = String(this.values[key] ?? "");
-      if (!numberProblem(text, control) && !same(control, text, this.target(key))) patch[key] = Number(text.trim());
+      if (!numberProblem(text, control) && this.differs(control, text)) patch[key] = Number(text.trim());
     }
     this.settling.clear();
     if (Object.keys(patch).length) this.enqueue({ how: "keep", patch });
@@ -459,9 +476,11 @@ export class SaveUnit {
     try {
       const reported = await this.write(operation.patch);
       this.flight = null;
+      if (this.overtaken === operation) this.overtaken = null;
       this.accepted(operation, reported);
     } catch (failure) {
       this.flight = null;
+      if (this.overtaken === operation) this.overtaken = null;
       this.refused(operation, failure);
     }
     this.emit();

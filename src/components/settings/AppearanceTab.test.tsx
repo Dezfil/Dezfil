@@ -278,6 +278,25 @@ describe("Reset to Dezfil's default", () => {
     expect(onRoot()).toEqual({ color: "heather", rail: "icons" });
   });
 
+  it("sends a pick made after the reset even when it repeats a write the reset overtakes, and ends there", async () => {
+    await open();
+    holding = true;
+    // Slate's answer is held; Heather waits behind it; the reset goes past
+    // Heather; then Slate again, after the reset.
+    await pick("set-color", "Slate");
+    await pick("set-color", "Heather");
+    await press(top(), "Reset to Dezfil's default");
+    await pick("set-color", "Slate");
+    while (held.length) {
+      await act(async () => { held.shift()!(); });
+      await settle();
+    }
+    expect(writes()).toEqual([{ look: { color: "slate" } }, { look: defaultLook() }, { look: { color: "slate" } }]);
+    expect(stored.color).toBe("slate");
+    expect(picked("set-color")).toEqual(["Slate"]);
+    expect(onRoot()).toEqual({ color: "slate" });
+  });
+
   it("returns a row whose pick the reset went past to what is kept when the reset is refused", async () => {
     await open();
     holding = true;
