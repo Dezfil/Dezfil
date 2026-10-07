@@ -86,7 +86,9 @@ HTTP transport behavior and create no extra tools.
 
 The settings read and update are generated as `get_settings` and
 `update_settings`. They address the authenticated account's display name
-and view preferences, the source list's grouping among them. Updating the
+and view preferences, the source list's grouping and the look among them.
+The look's input is closed: an unknown pick or a value outside a pick's
+choices is refused before any call. Updating the
 instance name requires current admin authority; a forbidden or invalid field
 refuses the entire patch.
 

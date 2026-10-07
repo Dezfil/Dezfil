@@ -769,7 +769,7 @@
     },
     {
       "name": "get_settings",
-      "description": "Workspace settings. The signed-in account's display name, per-screen view/sort preferences and how the SQL console's source list groups datasets, plus the instance name shown beside the wordmark and in browser titles (null when unnamed). Cookie or bearer authentication is required. Responses, including refusals, are private, no-store.",
+      "description": "Workspace settings. The signed-in account's display name, per-screen view/sort preferences, how the SQL console's source list groups datasets and its look (color, contrast, typeface, background, corners and side menu), plus the instance name shown beside the wordmark and in browser titles (null when unnamed). Cookie or bearer authentication is required. Responses, including refusals, are private, no-store.",
       "input_schema": {
         "type": "object",
         "properties": {}
@@ -777,7 +777,7 @@
     },
     {
       "name": "update_settings",
-      "description": "Update your settings. At most 16,777,216 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Updates only the authenticated account's display name and preferences. Only admins can change instanceName. The entire patch is validated and authorized before any write; a forbidden or invalid field leaves every field unchanged. Cookie mutations require the same trusted Origin. Explicit bearer requests need no cookie or Origin. Responses, including refusals, are private, no-store.",
+      "description": "Update your settings. At most 16,777,216 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Updates only the authenticated account's display name and preferences. Only admins can change instanceName. The entire patch is validated and authorized before any write; a forbidden or invalid field leaves every field unchanged. The look takes any of its picks; an unknown pick or value inside look refuses the patch, while an unknown field outside it is ignored. Cookie mutations require the same trusted Origin. Explicit bearer requests need no cookie or Origin. Responses, including refusals, are private, no-store.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -893,6 +893,72 @@
             ],
             "default": "person",
             "description": "How the SQL console's source list groups datasets: by person (your own, then each other person's under their name and SQL name) or by project. Your own choice, never another account's; person until you choose otherwise."
+          },
+          "look": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Any of your look's picks; the others stay as they are. A value outside a pick's choices, or a key that is not one of the picks, refuses the whole update, naming it as look.<key>.",
+            "properties": {
+              "color": {
+                "type": "string",
+                "enum": [
+                  "kelp",
+                  "harbor",
+                  "heather",
+                  "slate"
+                ],
+                "default": "kelp",
+                "description": "Color. The interface's tint: accents, primary buttons, active marks, focus and the background's ink. Never a data color."
+              },
+              "contrast": {
+                "type": "string",
+                "enum": [
+                  "standard",
+                  "more"
+                ],
+                "default": "standard",
+                "description": "Contrast. Borders, dividers and quieter text; more makes them stronger in both themes."
+              },
+              "font": {
+                "type": "string",
+                "enum": [
+                  "inter",
+                  "system"
+                ],
+                "default": "inter",
+                "description": "Typeface. The face of everything read: Inter, or the computer's own. Identifiers and values keep the mono face."
+              },
+              "background": {
+                "type": "string",
+                "enum": [
+                  "atlantic",
+                  "plain",
+                  "graticule",
+                  "hex"
+                ],
+                "default": "atlantic",
+                "description": "Background. The texture behind the workspace and in the header bar; plain is none."
+              },
+              "corners": {
+                "type": "string",
+                "enum": [
+                  "rounded",
+                  "soft"
+                ],
+                "default": "rounded",
+                "description": "Corners. Rounded edges of cards, fields, buttons and panels; soft is tighter."
+              },
+              "rail": {
+                "type": "string",
+                "enum": [
+                  "hover",
+                  "open",
+                  "icons"
+                ],
+                "default": "hover",
+                "description": "Side menu. How the side menu opens: on a resting pointer or focus, always open with labels, or icons only."
+              }
+            }
           }
         }
       }

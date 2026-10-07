@@ -90,6 +90,64 @@ describe("view preferences per screen (workflows)", () => {
   });
 });
 
+describe("the look: six picks, read whole and written in part", () => {
+  const TODAY = { color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover" };
+  type Refusal = { error: { code: string; message: string } };
+
+  it("reads every pick at its default for an account that never picked", async () => {
+    const read = (await (await get()).json()) as Json;
+    expect(read.look).toEqual(TODAY);
+  });
+
+  it("reports a written choice back, keeps it across a reopened store and merges a later pick beside it", async () => {
+    const saved = await patch({ look: { color: "harbor", rail: "icons" } });
+    expect(saved.status).toBe(200);
+    expect(((await saved.json()) as Json).look).toEqual({ ...TODAY, color: "harbor", rail: "icons" });
+    closeMetadataDb();
+    expect(((await (await get()).json()) as Json).look).toEqual({ ...TODAY, color: "harbor", rail: "icons" });
+    const merged = await patch({ look: { corners: "soft" } });
+    expect(((await merged.json()) as Json).look).toEqual({ ...TODAY, color: "harbor", rail: "icons", corners: "soft" });
+    // The default itself is a choice like any other: writing it back is how a pick returns.
+    expect(((await (await patch({ look: { color: "kelp" } })).json()) as Json).look).toEqual({ ...TODAY, rail: "icons", corners: "soft" });
+  });
+
+  it.each([
+    ["a value outside the pick's choices", { color: "teal" }, "look.color: Expected one of: kelp, harbor, heather, slate."],
+    ["a null value", { rail: null }, "look.rail: Expected one of: hover, open, icons."],
+    ["an unknown key inside the slice", { glow: "on" },
+      "look.glow: Unknown look setting. Expected one of: color, contrast, font, background, corners, rail."],
+  ])("refuses %s, naming the key, and stores nothing of a body that also changes the grouping", async (_label, look, message) => {
+    expect((await patch({ look: { contrast: "more" } })).status).toBe(200);
+    const before = await (await get()).json();
+    const refused = await patch({ sourceGrouping: "project", look: { font: "system", ...look } });
+    expect(refused.status).toBe(400);
+    expect((await refused.json()) as Refusal).toEqual({ error: { code: "invalid_request", message } });
+    expect(await (await get()).json()).toEqual(before);
+  });
+
+  it("names every failing key of the slice in one refusal", async () => {
+    const refused = await patch({ look: { color: "teal", corners: "sharp" } });
+    expect(((await refused.json()) as Refusal).error.message).toBe(
+      "look.color: Expected one of: kelp, harbor, heather, slate. look.corners: Expected one of: rounded, soft.");
+  });
+
+  it.each([["a bare value", "harbor"], ["null", null], ["a list", ["harbor"]]])("refuses %s in place of the slice", async (_label, look) => {
+    const refused = await patch({ sourceGrouping: "project", look });
+    expect(refused.status).toBe(400);
+    expect(((await refused.json()) as Refusal).error.message).toBe("look: Expected an object of look settings.");
+    expect(((await (await get()).json()) as Json).sourceGrouping).toBe("person");
+  });
+
+  it("still ignores an unknown field outside the slice", async () => {
+    const saved = await patch({ look: { background: "hex" }, glow: "on", viewPrefs: { canvas: { view: "list" } } });
+    expect(saved.status).toBe(200);
+    const body = (await saved.json()) as Json;
+    expect(body).not.toHaveProperty("glow");
+    expect(body.viewPrefs as Json).not.toHaveProperty("canvas");
+    expect(body.look).toEqual({ ...TODAY, background: "hex" });
+  });
+});
+
 describe("the Projects list's view preferences", () => {
   it("remembers the Projects list's view and sort and preserves a sibling slice", async () => {
     expect((await patch({ viewPrefs: { maps: { view: "list", sort: "name" } } })).status).toBe(200);

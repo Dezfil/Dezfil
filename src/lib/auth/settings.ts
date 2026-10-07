@@ -1,9 +1,12 @@
 import { accountChoices } from "@/lib/settings/account";
+import { settingDefinition } from "@/lib/settings/catalogue";
+import { validateStoredValue } from "@/lib/settings/validation";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
 import { instanceName, setInstanceName, type ScreenPrefs, type ViewPrefs } from "@/lib/metadata/settings";
-import { accountSourceGrouping, accountViewPrefs, mergeAccountViewPrefs, setAccountSourceGrouping,
+import { accountLook, accountSourceGrouping, accountViewPrefs, mergeAccountLook, mergeAccountViewPrefs, setAccountSourceGrouping,
   type SourceGrouping } from "@/lib/metadata/account-preferences";
+import { LOOK_KEYS, type LookKey } from "@/lib/look";
 import { requireCurrentActor, type AuthContext } from "./credentials";
 import { AuthError } from "./errors";
 
@@ -61,7 +64,33 @@ function normalizeViewPrefs(input: unknown): ViewPrefs {
   return out;
 }
 
-interface SettingsPatch { displayName?: string; instanceName?: string | null; viewPrefs?: ViewPrefs; sourceGrouping?: SourceGrouping; }
+/** The look's slice, checked whole against the catalogue: a value outside its
+ * pick's choices, or a key the slice does not have, refuses the body, every
+ * failing key named as `look.<key>: reason`. Unlike the rest of the body,
+ * the slice tolerates nothing unknown: a misspelt pick would otherwise be
+ * accepted and silently change nothing. */
+function normalizeLookPatch(input: unknown): Partial<Record<LookKey, string>> {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+    throw new AuthError("invalid_request", "look: Expected an object of look settings.", 400);
+  }
+  const out: Partial<Record<LookKey, string>> = {}, problems: string[] = [];
+  for (const [key, value] of Object.entries(input)) {
+    if (!(LOOK_KEYS as readonly string[]).includes(key)) {
+      problems.push(`look.${key}: Unknown look setting. Expected one of: ${LOOK_KEYS.join(", ")}.`);
+      continue;
+    }
+    const result = validateStoredValue(settingDefinition(`look.${key}`), value);
+    if (result.ok) out[key as LookKey] = result.value as string;
+    else problems.push(`look.${key}: ${result.reason}`);
+  }
+  if (problems.length) throw new AuthError("invalid_request", problems.join(" "), 400);
+  return out;
+}
+
+interface SettingsPatch {
+  displayName?: string; instanceName?: string | null; viewPrefs?: ViewPrefs; sourceGrouping?: SourceGrouping;
+  look?: Partial<Record<LookKey, string>>;
+}
 
 function normalizePatch(input: unknown): SettingsPatch {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
@@ -90,6 +119,7 @@ function normalizePatch(input: unknown): SettingsPatch {
     }
     patch.sourceGrouping = body.sourceGrouping as SourceGrouping;
   }
+  if (body.look !== undefined) patch.look = normalizeLookPatch(body.look);
   return patch;
 }
 
@@ -97,7 +127,7 @@ export function readOwnSettings(context: AuthContext, db: Database = metadataDb(
   return db.transaction(() => {
     const account = requireCurrentActor(context, db, now);
     return { displayName: account.name, instanceName: instanceName(db), viewPrefs: accountViewPrefs(account.id, db),
-      sourceGrouping: accountSourceGrouping(account.id, db) };
+      sourceGrouping: accountSourceGrouping(account.id, db), look: accountLook(account.id, db) };
   }).immediate();
 }
 
@@ -116,6 +146,7 @@ export function patchOwnSettings(context: AuthContext, input: unknown, db: Datab
     if (patch.instanceName !== undefined) setInstanceName(patch.instanceName, db);
     if (patch.viewPrefs !== undefined) mergeAccountViewPrefs(account.id, patch.viewPrefs, db);
     if (patch.sourceGrouping !== undefined) setAccountSourceGrouping(account.id, patch.sourceGrouping, db);
+    if (patch.look !== undefined) mergeAccountLook(account.id, patch.look, db);
     return readOwnSettings(context, db, now);
   }).immediate();
 }

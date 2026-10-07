@@ -25,13 +25,17 @@ const cases = [
   ["workflows.view", "grid", "list"], ["workflows.sort", "edited", "created"],
   ["projects.view", "grid", "list"], ["projects.sort", "updated", "largest"],
   ["sourceGrouping", "person", "project"],
+  ["look.color", "kelp", "harbor"], ["look.contrast", "standard", "more"], ["look.font", "inter", "system"],
+  ["look.background", "atlantic", "hex"], ["look.corners", "rounded", "soft"], ["look.rail", "hover", "icons"],
 ];
+const TODAY = { color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover" };
 it.each(cases)("uses the %s definition for validation and both schema positions", async (key, rejected, accepted) => {
   const original = catalogue.settingDefinition;
   vi.spyOn(catalogue, "settingDefinition").mockImplementation(name => name === key
     ? { ...original(name), write: { kind: "choice", values: [accepted] } } : original(name));
   const [screen, field] = key.split(".");
-  const body = (value: string) => field ? { viewPrefs: { [screen]: { [field]: value } } } : { sourceGrouping: value };
+  const body = (value: string) => screen === "look" ? { look: { [field]: value } }
+    : field ? { viewPrefs: { [screen]: { [field]: value } } } : { sourceGrouping: value };
   const before = await read("alice");
   expect((await patch("alice", { displayName: "Must not land", ...body(rejected) })).status).toBe(400);
   expect(await read("alice")).toEqual(before);
@@ -42,22 +46,23 @@ it.each(cases)("uses the %s definition for validation and both schema positions"
   };
   for (const properties of [contract.schemas.WorkspaceSettings.properties,
     bodySchema.content["application/json"].schema.properties]) {
-    const choice = field ? properties.viewPrefs.properties[screen as "maps"].properties[field as "view"] : properties.sourceGrouping;
+    const choice = screen === "look" ? properties.look.properties[field as "color"]
+      : field ? properties.viewPrefs.properties[screen as "maps"].properties[field as "view"] : properties.sourceGrouping;
     expect(choice.enum).toEqual([accepted]);
   }
 });
 
 it("keeps the complete legacy document and isolates each account's merged preferences", async () => {
-  expect(await read("alice")).toEqual({ displayName: "alice", instanceName: null, viewPrefs: {}, sourceGrouping: "person" });
-  expect(await read("bob")).toEqual({ displayName: "bob", instanceName: null, viewPrefs: {}, sourceGrouping: "person" });
+  expect(await read("alice")).toEqual({ displayName: "alice", instanceName: null, viewPrefs: {}, sourceGrouping: "person", look: TODAY });
+  expect(await read("bob")).toEqual({ displayName: "bob", instanceName: null, viewPrefs: {}, sourceGrouping: "person", look: TODAY });
   setInstanceName("Field atlas", db);
   setAccountViewPrefs("bob", { maps: { sort: "retained-legacy-sort" } }, db);
-  const bob = { displayName: "bob", instanceName: "Field atlas", viewPrefs: { maps: { sort: "retained-legacy-sort" } }, sourceGrouping: "person" };
+  const bob = { displayName: "bob", instanceName: "Field atlas", viewPrefs: { maps: { sort: "retained-legacy-sort" } }, sourceGrouping: "person", look: TODAY };
   expect(await read("bob")).toEqual(bob);
-  const saved = await patch("alice", { displayName: " Alice ", sourceGrouping: "project", viewPrefs: {
+  const saved = await patch("alice", { displayName: " Alice ", sourceGrouping: "project", look: { color: "slate" }, viewPrefs: {
     maps: { view: "list", sort: "name" }, data: { sort: "rows" }, workflows: { view: "grid" }, projects: { sort: "largest" },
   } });
-  const expected = { displayName: "Alice", instanceName: "Field atlas", sourceGrouping: "project", viewPrefs: {
+  const expected = { displayName: "Alice", instanceName: "Field atlas", sourceGrouping: "project", look: { ...TODAY, color: "slate" }, viewPrefs: {
     maps: { view: "list", sort: "name" }, data: { sort: "rows" }, workflows: { view: "grid" }, projects: { sort: "largest" },
   } };
   expect(saved.status).toBe(200);

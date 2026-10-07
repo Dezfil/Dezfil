@@ -1,5 +1,5 @@
 import type { Database } from "better-sqlite3";
-import { normalizeLook, type Look } from "@/lib/look";
+import { normalizeLook, type Look, type LookKey } from "@/lib/look";
 import { metadataDb } from "./db";
 import type { ViewPrefs } from "./settings";
 
@@ -27,14 +27,15 @@ function store(accountId: string, document: Stored, db: Database): void {
 export function accountViewPrefs(accountId: string, db: Database = metadataDb()): ViewPrefs {
   const prefs = stored(accountId, db);
   delete prefs.sourceGrouping;
+  delete prefs.look;
   return prefs;
 }
 
-/** Replace the view preferences whole, keeping the source-list grouping. */
+/** Replace the view preferences whole, keeping the source-list grouping and the look. */
 export function setAccountViewPrefs(accountId: string, prefs: ViewPrefs,
   db: Database = metadataDb()): void {
-  const { sourceGrouping } = stored(accountId, db);
-  store(accountId, { ...prefs, ...(sourceGrouping ? { sourceGrouping } : {}) }, db);
+  const { sourceGrouping, look } = stored(accountId, db);
+  store(accountId, { ...prefs, ...(sourceGrouping ? { sourceGrouping } : {}), ...(look !== undefined ? { look } : {}) }, db);
 }
 
 /** Merge under the write lock so different screens cannot overwrite each other. */
@@ -59,6 +60,21 @@ export function accountSourceGrouping(accountId: string, db: Database = metadata
  * this version does not offer reads as the default and is left as stored. */
 export function accountLook(accountId: string, db: Database = metadataDb()): Look {
   return normalizeLook((stored(accountId, db) as Stored | null)?.look);
+}
+
+/** Merge picks into the account's kept look under the write lock. Every other
+ * kept pick stays as stored, a retired value included, and the view
+ * preferences and the grouping are left as they are. An empty patch writes
+ * nothing. */
+export function mergeAccountLook(accountId: string, patch: Partial<Record<LookKey, string>>,
+  db: Database = metadataDb()): Look {
+  if (!Object.keys(patch).length) return accountLook(accountId, db);
+  return db.transaction(() => {
+    const document = stored(accountId, db);
+    const kept = document.look !== null && typeof document.look === "object" && !Array.isArray(document.look) ? document.look : {};
+    store(accountId, { ...document, look: { ...kept, ...patch } }, db);
+    return accountLook(accountId, db);
+  }).immediate();
 }
 
 /** Remember the account's source-list grouping, leaving its view preferences as they are. */
