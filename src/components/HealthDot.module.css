@@ -13,8 +13,8 @@
 }
 
 .dot[data-state="ready"] {
-  background: var(--accent);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 70%, transparent);
+  background: var(--health-ok);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--health-ok) 70%, transparent);
 }
 
 .dot[data-state="unready"] {

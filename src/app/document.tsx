@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Archivo, DM_Mono, Gabarito, IBM_Plex_Mono, Inter } from "next/font/google";
 import type { LookAttributes } from "@/lib/look";
 import "./globals.css";
+import "./look.css";
 
 // Self-hosted at build time — no runtime font CDN (air-gapped instances
 // keep their typography). The workspace speaks Gabarito/Inter/DM Mono;
