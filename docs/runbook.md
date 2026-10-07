@@ -576,6 +576,14 @@ token blocks, every component stylesheet in the UI kit, and the palette
 ramps. `--check` on the same script is what `npm run lint:specimen` runs.
 Re-run it whenever a token, a kit stylesheet or a palette changes.
 
+**The look's background sheets.** `node scripts/generate-look-sheets.mjs`
+rewrites `public/look/`: the Atlantic chart in every other Color and theme,
+derived from the two shipped sheets by swapping their inks, and the
+Graticule and Hex lattice tiles per Color and theme. `--check` reports a
+stale, missing or stray file, and the unit suite runs it. Re-run it when a
+shipped sheet or the script's ink table changes; never edit those files by
+hand.
+
 **The plugin guidance file.** `node scripts/generate-dezfil-guidance.mjs`
 rewrites the skill's analysis document and its bundled licence from the one
 canonical source; `--check` is `npm run lint:plugin`. Re-run on any change

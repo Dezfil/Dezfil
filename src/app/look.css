@@ -6,14 +6,15 @@
    the workspace root carries the attributes: entry screens, published
    pages and the render route never match a rule here.
 
-   Kelp, Standard, Inter and Rounded are today's tokens in globals.css
-   and need no rule. A colour override has its dark twin with the same
+   Kelp, Standard, Inter, the Atlantic chart and Rounded are today's
+   tokens in globals.css and need no rule. A colour override has its dark twin with the same
    tokens, because the light one alone would also win under the dark
    theme. Color never sets a status colour (the health dot's
    --health-ok, --warn, --danger) or a data colour.
    ============================================================ */
 
-/* ---- Color: the interface family re-hued at Kelp's lightness ---- */
+/* ---- Color: the interface family re-hued at Kelp's lightness, and the
+   Atlantic chart in the Color's inks ---- */
 
 :root[data-look-color="harbor"] {
   --bg: #ebf0f5;
@@ -34,6 +35,7 @@
   --focus: #2b62a6;
   --swatch-border: rgba(41, 47, 56, 0.18);
   --shadow: rgba(41, 47, 56, 0.16);
+  --sheet: url("/look/atlantic-harbor-light.svg");
 }
 
 :root[data-theme="dark"][data-look-color="harbor"] {
@@ -55,6 +57,7 @@
   --focus: #74a6ff;
   --swatch-border: rgba(255, 255, 255, 0.12);
   --shadow: rgba(0, 0, 0, 0.4);
+  --sheet: url("/look/atlantic-harbor-dark.svg");
 }
 
 :root[data-look-color="heather"] {
@@ -76,6 +79,7 @@
   --focus: #6b4cad;
   --swatch-border: rgba(48, 45, 56, 0.18);
   --shadow: rgba(48, 45, 56, 0.16);
+  --sheet: url("/look/atlantic-heather-light.svg");
 }
 
 :root[data-theme="dark"][data-look-color="heather"] {
@@ -97,6 +101,7 @@
   --focus: #74a6ff;
   --swatch-border: rgba(255, 255, 255, 0.12);
   --shadow: rgba(0, 0, 0, 0.4);
+  --sheet: url("/look/atlantic-heather-dark.svg");
 }
 
 :root[data-look-color="slate"] {
@@ -118,6 +123,7 @@
   --focus: #45525e;
   --swatch-border: rgba(43, 47, 53, 0.18);
   --shadow: rgba(43, 47, 53, 0.16);
+  --sheet: url("/look/atlantic-slate-light.svg");
 }
 
 :root[data-theme="dark"][data-look-color="slate"] {
@@ -139,6 +145,7 @@
   --focus: #74a6ff;
   --swatch-border: rgba(255, 255, 255, 0.12);
   --shadow: rgba(0, 0, 0, 0.4);
+  --sheet: url("/look/atlantic-slate-dark.svg");
 }
 
 /* ---- Contrast: stronger borders, dividers and quieter text, restated
@@ -225,6 +232,96 @@
   --radius-card: 14px;
 }
 
+/* ---- Background: the texture behind the workspace and in the header
+   bar, as faint as today's, in the Color's ink on the theme's ground.
+   Every Color and theme names its own file, so no rule here depends on
+   source order. Plain is no image ---- */
+
+:root[data-look-background="plain"],
+:root[data-theme="dark"][data-look-background="plain"],
+:root[data-look-color="harbor"][data-look-background="plain"],
+:root[data-theme="dark"][data-look-color="harbor"][data-look-background="plain"],
+:root[data-look-color="heather"][data-look-background="plain"],
+:root[data-theme="dark"][data-look-color="heather"][data-look-background="plain"],
+:root[data-look-color="slate"][data-look-background="plain"],
+:root[data-theme="dark"][data-look-color="slate"][data-look-background="plain"] {
+  --sheet: none;
+}
+
+/* Graticule: an 88 px grid, tiled from the screen's corner */
+
+:root[data-look-background="graticule"] {
+  --sheet: url("/look/graticule-kelp-light.svg");
+  --sheet-size: 88px 88px;
+  --sheet-pos: 0 0;
+  --sheet-repeat: repeat;
+}
+
+:root[data-theme="dark"][data-look-background="graticule"] {
+  --sheet: url("/look/graticule-kelp-dark.svg");
+}
+
+:root[data-look-color="harbor"][data-look-background="graticule"] {
+  --sheet: url("/look/graticule-harbor-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="harbor"][data-look-background="graticule"] {
+  --sheet: url("/look/graticule-harbor-dark.svg");
+}
+
+:root[data-look-color="heather"][data-look-background="graticule"] {
+  --sheet: url("/look/graticule-heather-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="heather"][data-look-background="graticule"] {
+  --sheet: url("/look/graticule-heather-dark.svg");
+}
+
+:root[data-look-color="slate"][data-look-background="graticule"] {
+  --sheet: url("/look/graticule-slate-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="slate"][data-look-background="graticule"] {
+  --sheet: url("/look/graticule-slate-dark.svg");
+}
+
+/* Hex: a hexagon lattice, tiled from the screen's corner */
+
+:root[data-look-background="hex"] {
+  --sheet: url("/look/hex-kelp-light.svg");
+  --sheet-size: 31.177px 54px;
+  --sheet-pos: 0 0;
+  --sheet-repeat: repeat;
+}
+
+:root[data-theme="dark"][data-look-background="hex"] {
+  --sheet: url("/look/hex-kelp-dark.svg");
+}
+
+:root[data-look-color="harbor"][data-look-background="hex"] {
+  --sheet: url("/look/hex-harbor-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="harbor"][data-look-background="hex"] {
+  --sheet: url("/look/hex-harbor-dark.svg");
+}
+
+:root[data-look-color="heather"][data-look-background="hex"] {
+  --sheet: url("/look/hex-heather-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="heather"][data-look-background="hex"] {
+  --sheet: url("/look/hex-heather-dark.svg");
+}
+
+:root[data-look-color="slate"][data-look-background="hex"] {
+  --sheet: url("/look/hex-slate-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="slate"][data-look-background="hex"] {
+  --sheet: url("/look/hex-slate-dark.svg");
+}
+
 /* ---- The default scope. What an image is made of keeps Dezfil's
    default look whatever the person picked: an element carrying
    data-look-default restates, at its theme's default, every token a
@@ -257,6 +354,10 @@
   --radius-control: 12px;
   --radius-lg: 14px;
   --radius-card: 20px;
+  --sheet: url("/shell-sheet-light.svg");
+  --sheet-size: cover;
+  --sheet-pos: center;
+  --sheet-repeat: no-repeat;
 }
 
 :root[data-theme="dark"] [data-look-default] {
@@ -278,4 +379,5 @@
   --focus: #74a6ff;
   --swatch-border: rgba(255, 255, 255, 0.12);
   --shadow: rgba(0, 0, 0, 0.4);
+  --sheet: url("/shell-sheet-dark.svg");
 }

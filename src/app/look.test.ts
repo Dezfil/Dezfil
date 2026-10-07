@@ -43,10 +43,10 @@ const block = (picks: string[], dark: boolean) => pickRules.find(rule =>
   isDark(rule) === dark && JSON.stringify(keyedBy(rule.selector)) === JSON.stringify([...picks].sort()));
 const names = (rule: Rule | undefined) => [...(rule?.tokens.keys() ?? [])].sort();
 
-/** The interface family a Color re-hues, in both themes. */
+/** The interface family a Color re-hues, and its Atlantic chart, in both themes. */
 const COLOR_TOKENS = ["--accent", "--accent-bright", "--accent-dim", "--accent-wash", "--bg", "--bg-hover", "--bg-panel",
   "--bg-raised", "--border", "--border-strong", "--divider", "--fg", "--fg-faint", "--fg-muted", "--focus", "--on-accent",
-  "--shadow", "--swatch-border"];
+  "--shadow", "--sheet", "--swatch-border"];
 /** What More contrast strengthens, in both themes. */
 const CONTRAST_TOKENS = ["--border", "--border-strong", "--divider", "--fg-faint", "--fg-muted"];
 /** Status and data colours: no pick ever sets one. */

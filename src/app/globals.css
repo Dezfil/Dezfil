@@ -78,6 +78,11 @@
   /* The shell sheet: Atlantic coastlines over the sixteen-winds
      rhumb net, exported verbatim from the approved final prototype */
   --sheet: url("/shell-sheet-light.svg");
+  /* How the sheet is laid: today's chart covers the screen; a tiled
+     background repeats from its corner. */
+  --sheet-size: cover;
+  --sheet-pos: center;
+  --sheet-repeat: no-repeat;
   /* The published viewer's chart grid (light publishes) */
   --graticule: rgba(31, 44, 62, 0.05);
   --swatch-border: rgba(36, 50, 48, 0.18);
@@ -231,9 +236,9 @@ body {
   /* The shell sheet — the chart under everything; fixed so
      scrolling content never moves it */
   background-image: var(--sheet);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  background-size: var(--sheet-size);
+  background-position: var(--sheet-pos);
+  background-repeat: var(--sheet-repeat);
   background-attachment: fixed;
 }
 

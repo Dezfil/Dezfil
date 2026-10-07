@@ -15,7 +15,7 @@
   /* The body's fixed sheet, painted here too: the
      bar reads as the sheet from the screen's top edge, and its opaque
      ground still masks whatever scrolls under it. */
-  background: var(--bg) var(--sheet) center / cover no-repeat fixed;
+  background: var(--bg) var(--sheet) var(--sheet-pos) / var(--sheet-size) var(--sheet-repeat) fixed;
   transition: background 0.3s;
 }
 
