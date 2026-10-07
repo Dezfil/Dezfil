@@ -434,8 +434,11 @@ at or above the run timeout, including a mismatch imposed by the environment.
 `lostPasswordContact`, `landingPage` and `setupRequired`, plus the legacy
 `prefillName` before setup. The three General values use their stored values or
 default to empty message, empty contact and `home`. Empty contact means the
-built-in recovery line. This read does not change sign-in navigation: signed-in
-visits to the entry pages still redirect to `/`. Responses are private, no-store.
+built-in recovery line. After sign-in, setup or a redeemed invitation, the
+browser lands on the page `landingPage` names (`/projects`, `/maps`,
+`/workflows`, `/data` or `/sql`; Home, `/`, for `home` or any other value). A
+signed-in visit to the setup or sign-in page redirects to Home; the invitation
+page opens whether or not someone is signed in. Responses are private, no-store.
 
 `PATCH /api/instance/settings` changes only submitted editable keys: the fourteen
 Limits numbers, `instanceName`, `signInMessage`, `lostPasswordContact` and
