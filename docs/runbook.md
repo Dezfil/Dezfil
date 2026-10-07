@@ -421,6 +421,11 @@ Optional; absent, the gated tests skip visibly:
   real failed-tile-build drive;
 - `DEZFIL_E2E_ASSISTANT=1` plus a server-side model key, for the assistant
   confirmation smoke (`npm run e2e:smoke` sets that opt-in itself).
+- `DEZFIL_E2E_PINNED_QUEUE_MAX=<n>` in the test process, against a second
+  instance started with `DEZFIL_OPERATION_QUEUE_MAX=<n>`, for the Settings
+  journey that draws a pinned limit locked
+  (`npx playwright test e2e/settings-page.spec.ts`); on that instance the
+  journey that steps the same limit skips instead.
 
 The suite blocks third-party hosts, so it needs no internet beyond the
 instance itself.
