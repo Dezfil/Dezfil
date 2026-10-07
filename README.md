@@ -37,8 +37,8 @@ the volume works, but state then lasts only for that container's lifetime.
 
 On first run, create the initial admin account. Application pages and APIs
 require a session or an account API token; admins manage accounts in Users,
-and the instance name, the sign-in page and the limits in Settings. Each
-account's maps, datasets, workflows, connections and projects are private,
+and the instance name, the sign-in page and the limits in Settings.
+Each account's maps, datasets, workflows, connections and projects are private,
 including from admins, until a project's owner shares the project: its people
 then reach everything filed in it, as viewers or editors.
 Connections are never shared. Dataset and connection names belong to that
@@ -55,9 +55,9 @@ before updating. SQL uses your imported datasets by name. Direct file reads
 and file-referencing projection definitions are refused, including in saved
 queries and published layers; ordinary EPSG transforms remain supported.
 
-Create a personal token on the **Tokens** tab of Settings for a script or
-agent. Copy its secret once; it cannot be read back. REST and MCP calls use that
-account's current permissions. Revoking a token stops both. See the
+Create a personal token on the **Tokens** tab of Settings, under
+**API / MCP tokens**, for a script or agent. Copy its secret once; it cannot be
+read back. REST and MCP calls use that account's current permissions. Revoking a token stops both. See the
 [MCP guide](docs/mcp.md) for client setup and the [API guide](docs/api.md) for
 ordered writes.
 
