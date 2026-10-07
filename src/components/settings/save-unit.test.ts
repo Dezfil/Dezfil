@@ -355,13 +355,42 @@ describe("Reset to defaults, and Undo", () => {
     const { server, unit } = await changed();
     expect(unit.snapshot.slot).toBe("reset");
     unit.reset();
-    expect(server.calls.map(call => call.patch)).toEqual([{ signInMessage: null, landingPage: null }]);
+    // Every control, the contact already at its default included.
+    expect(server.calls.map(call => call.patch)).toEqual([{ signInMessage: null, lostPasswordContact: null, landingPage: null }]);
     server.calls[0].accept(); await flush();
     expect(unit.snapshot.kept).toMatchObject({ signInMessage: "", landingPage: "home" });
     expect(unit.snapshot.values).toMatchObject({ signInMessage: "", landingPage: "home" });
     expect(unit.snapshot.slot).toBe("undo");
     expect(unit.snapshot.saved).toEqual([]);
     expect(unit.snapshot.focus).toMatchObject({ to: "undo" });
+  });
+
+  it("puts back typed text in a field whose saved value is already its default, so the card holds nothing unsaved", async () => {
+    const server = fakeServer({ landingPage: "maps" }), unit = signIn(server);
+    unit.edit("signInMessage", "Typed, not saved");
+    expect(unit.snapshot).toMatchObject({ dirty: true, slot: "reset" });
+    unit.reset();
+    expect(server.calls.map(call => call.patch)).toEqual([{ signInMessage: null, lostPasswordContact: null, landingPage: null }]);
+    server.calls[0].accept(); await flush();
+    expect(unit.snapshot.values).toEqual({ signInMessage: "", lostPasswordContact: "", landingPage: "home" });
+    expect(unit.snapshot).toMatchObject({ dirty: false, saveLine: false, slot: "undo" });
+    // Undo writes back what was saved, as before: the landing page alone differed.
+    unit.undo();
+    expect(server.calls[1].patch).toEqual({ landingPage: "maps" });
+  });
+
+  it("drops a stepped number still settling when Reset puts it back", async () => {
+    const server = fakeServer({ queryTimeoutS: 90 }), unit = new SaveUnit({
+      title: "Queries", controls: [query], write: server.write, kept: { queryTimeoutS: 90 },
+    });
+    unit.step("queryTimeoutS", "91");
+    unit.reset();
+    // The steps would settle while the Reset is still out.
+    await vi.advanceTimersByTimeAsync(SETTLE_MS * 2);
+    server.calls[0].accept(); await flush();
+    await vi.advanceTimersByTimeAsync(SETTLE_MS * 2);
+    expect(server.calls.map(call => call.patch)).toEqual([{ queryTimeoutS: null }]);
+    expect(unit.snapshot.values.queryTimeoutS).toBe("60");
   });
 
   it("writes the previous values back in one write on Undo, and returns focus to Reset", async () => {

@@ -179,6 +179,21 @@ describe("General, for an admin", () => {
     expect(buttons(signIn)).toContain("Reset to defaults");
   });
 
+  it("puts typed text back with the rest on Reset, even in a field saved at its default, so nothing is left unsaved", async () => {
+    stored = { instanceName: "Atlas", signInMessage: null, lostPasswordContact: null, landingPage: "maps" };
+    await open(true);
+    const signIn = card("Sign-in");
+    await type(signIn, "Message", "Typed, not saved");
+    expect(buttons(signIn)).toContain("Save");
+    await press(signIn, "Reset to defaults");
+    await settle();
+    expect(writes()).toEqual([{ signInMessage: null, lostPasswordContact: null, landingPage: null }]);
+    expect(field(signIn, "Message").value).toBe("");
+    expect(chosen(signIn, "Landing page")).toBe("home");
+    expect(buttons(signIn)).not.toContain("Save");
+    expect(buttons(signIn)).toContain("Undo");
+  });
+
   it("lets Undo go after six seconds, and shows no Reset once the card is at its defaults", async () => {
     stored = { instanceName: null, signInMessage: null, lostPasswordContact: null, landingPage: "workflows" };
     await open(true);

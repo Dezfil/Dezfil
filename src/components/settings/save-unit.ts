@@ -17,9 +17,9 @@
  *   keeps nothing; any other refusal is the card's error note, with Try
  *   again where trying again can help.
  * - Reset to defaults is offered while a kept value differs from its
- *   default; it writes the defaults in one request, then offers Undo for
- *   a few seconds (held while focus or the pointer is on it), which
- *   writes the previous values back in one request.
+ *   default; it puts every control back to its default in one request,
+ *   then offers Undo for a few seconds (held while focus or the pointer
+ *   is on it), which writes the previous values back in one request.
  * - A setting pinned by the server's environment joins none of this.
  */
 
@@ -268,16 +268,20 @@ export class SaveUnit {
     this.emit();
   }
 
-  /** Reset to defaults: the card's editable, unlocked controls, in one write. */
+  /** Reset to defaults: every editable, unlocked control of the card, in
+   * one write, the response then setting what each shows (typed text in a
+   * field already saved at its default included). Undo writes back only
+   * what differed from the defaults: the rest was at its default already.
+   * A stepped number still settling is dropped, so it never lands after. */
   reset(): void {
     if (this.slot() !== "reset") return;
     const patch: Patch = {}, previous: Patch = {};
     for (const control of this.resettable()) {
-      if (!same(control, this.kept[control.key], control.defaultValue ?? null)) {
-        patch[control.key] = null;
-        previous[control.key] = this.kept[control.key];
-      }
+      patch[control.key] = null;
+      if (!same(control, this.kept[control.key], control.defaultValue ?? null)) previous[control.key] = this.kept[control.key];
+      this.settling.delete(control.key);
     }
+    if (this.settleTimer && !this.settling.size) { clearTimeout(this.settleTimer); this.settleTimer = null; }
     this.errors = {};
     this.note = null;
     this.enqueue({ how: "reset", patch, previous });
