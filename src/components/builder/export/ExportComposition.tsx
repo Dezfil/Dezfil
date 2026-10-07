@@ -197,6 +197,11 @@ export function ExportComposition({
     <div
       className={styles.frame}
       ref={frameRef}
+      // An image keeps Dezfil's default look whatever the person picked:
+      // the look's default scope puts every token a pick sets back at its
+      // theme's default, here and on the two nodes the download rasterizes
+      // below, so the preview, the file and the render route agree.
+      data-look-default=""
       style={
         {
           width,
@@ -240,7 +245,7 @@ export function ExportComposition({
       {/* Overlays are real DOM — the exact nodes the card's download
           rasterizes and the route's screenshot captures. The rail carries
           a docked legend; only a standalone legend leaves this layer. */}
-      <div ref={chromeRef} className={styles.chromeLayer}>
+      <div ref={chromeRef} className={styles.chromeLayer} data-look-default="">
         {widgets.length > 0 && (
           <div inert className={styles.railHost}>
             <div
@@ -322,6 +327,7 @@ export function ExportComposition({
           <div
             ref={setLegendScaleEl}
             className={styles.legendScale}
+            data-look-default=""
             style={{ "--legend-scale": legendScale } as CSSProperties}
             data-corner={legend.corner}
           >

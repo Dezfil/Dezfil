@@ -8,10 +8,7 @@ import { useTheme } from "@/components/theme";
 import { attemptTablePreviewWebGLMap } from "./table-preview-webgl";
 import styles from "./FeaturePreviewMap.module.css";
 import attribution from "./maplibre-attribution.module.css";
-
-/** The one ink a preview draws in — kelp, matching the accent. */
-const PREVIEW_COLOR = "#0d7d5c";
-const PREVIEW_COLOR_DARK = "#45c58f";
+import { previewInk } from "./preview-ink";
 
 type Bounds = [[number, number], [number, number]];
 
@@ -217,7 +214,8 @@ export function FeaturePreviewMap({
     // is what brings the effect back once one has.
     const map = loadedMapRef.current;
     if (!map) return;
-    const color = theme === "dark" ? PREVIEW_COLOR_DARK : PREVIEW_COLOR;
+    // The one ink a preview draws in: the interface's accent where it stands.
+    const color = previewInk(containerRef.current, theme === "dark" ? "dark" : "light");
     const data: GeoJSON.GeoJSON = geojson ?? {
       type: "FeatureCollection",
       features: [],

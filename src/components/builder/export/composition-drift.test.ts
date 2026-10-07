@@ -2,6 +2,22 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
+/** The JSX opening tag around `marker`: from the `<` before it to the
+ * `>` that closes the tag, braces in attribute values skipped. */
+function openingTag(source: string, marker: string): string {
+  const at = source.indexOf(marker);
+  expect(at, `${marker} not found`).toBeGreaterThan(-1);
+  const start = source.lastIndexOf("<", at);
+  let depth = 0;
+  for (let i = start; i < source.length; i++) {
+    const char = source[i];
+    if (char === "{") depth++;
+    else if (char === "}") depth--;
+    else if (char === ">" && depth === 0) return source.slice(start, i + 1);
+  }
+  throw new Error(`no end to the tag around ${marker}`);
+}
+
 /**
  * The composition drift guard: both hosts — the card's preview and the
  * bare render route — must render the SHARED export composition. A host
@@ -61,6 +77,24 @@ describe("export composition — one component, two hosts", () => {
         /buildCompositionMapInputs\(/,
       );
     }
+  });
+
+  it("keeps Dezfil's default look on the nodes the download rasterizes", () => {
+    // The download rasterizes the chrome layer and the standalone legend's
+    // scale node with their computed styles, and the preview shows the
+    // same nodes: each carries the look's default scope, as the frame
+    // around them does (the frame's mono rule reads the UI face, so the
+    // scope must sit there too or the person's typeface reaches it).
+    const source = read("src/components/builder/export/ExportComposition.tsx");
+    for (const marker of ["className={styles.frame}", "ref={chromeRef}", "ref={setLegendScaleEl}"]) {
+      expect(openingTag(source, marker), marker).toMatch(/\sdata-look-default=""/);
+    }
+    // ...and those are the very nodes the card hands the download.
+    const card = read("src/components/builder/export/ExportImageCard.tsx");
+    expect(card).toMatch(/chrome: chromeRef\.current/);
+    expect(card).toMatch(/const standaloneLegend = legendScaleRef\.current/);
+    expect(card).toMatch(/chromeRef=\{chromeRef\}/);
+    expect(card).toMatch(/legendScaleRef=\{legendScaleRef\}/);
   });
 
   it("no second frame implementation exists beside the composition", () => {
