@@ -57,27 +57,34 @@ async function openTab(page: Page, tab: string): Promise<void> {
   for (const part of parts) await expect(page.locator(`[data-tab="${tab.toLowerCase()}"] ${part}`).first()).toBeVisible();
 }
 
-/** What a painted frame showed in the tab's place. */
-interface Painted { tab: string; drawn: boolean; loading: boolean }
+/** A frame painted during a change of tab: whether the tab that was on
+ * screen and the tab opening are each visible and drawn whole, and whether
+ * a loading line is visible on the page. */
+interface Painted { outgoing: boolean; incoming: boolean; loading: boolean }
+interface Recorder { change: { from: string; to: string } | null; frames: Painted[] }
+const recorder = (page: Page) => page.evaluate(() => (window as unknown as { tabChange: Recorder }).tabChange);
 
-/** Before the page's own scripts: record, at every animation frame, which
- * tab is on screen (a tab still reading out of sight is not), whether it
- * is drawn whole, and whether a loading line shows, each time that changes. */
+/** Before the page's own scripts: while a change of tab is armed, record
+ * every animation frame, up to the first that paints the tab opening
+ * whole. */
 async function recordFrames(page: Page): Promise<void> {
   await page.addInitScript(drawnBy => {
-    const frames: Painted[] = [];
-    (window as unknown as { painted: Painted[] }).painted = frames;
+    const recorder: Recorder = { change: null, frames: [] };
+    (window as unknown as { tabChange: Recorder }).tabChange = recorder;
+    /** The tab on screen and drawn whole: a visible pane holding its cards. */
+    const drawn = (tab: string) => [...document.querySelectorAll(`[data-tab="${tab}"]`)].some(pane =>
+      (pane as HTMLElement).checkVisibility() && (drawnBy[tab] ?? []).every(part => pane.querySelector(part) !== null));
     const look = () => {
-      const pane = [...document.querySelectorAll("[data-tab]")].find(element => !element.hasAttribute("hidden"));
-      if (pane) {
-        const tab = pane.getAttribute("data-tab") ?? "";
-        const now = {
-          tab,
-          drawn: (drawnBy[tab] ?? []).every(part => pane.querySelector(part) !== null),
-          loading: /Loading/.test(pane.textContent ?? ""),
+      const change = recorder.change;
+      if (change) {
+        const frame: Painted = {
+          outgoing: drawn(change.from),
+          incoming: drawn(change.to),
+          // What a person can read: a hidden pane's text is not drawn.
+          loading: /Loading/.test(document.querySelector("main")?.innerText ?? ""),
         };
-        const last = frames.at(-1);
-        if (!last || last.tab !== now.tab || last.drawn !== now.drawn || last.loading !== now.loading) frames.push(now);
+        recorder.frames.push(frame);
+        if (frame.incoming) recorder.change = null;
       }
       requestAnimationFrame(look);
     };
@@ -85,20 +92,25 @@ async function recordFrames(page: Page): Promise<void> {
   }, Object.fromEntries(DRAWN.map(([tab, parts]) => [tab.toLowerCase(), parts])));
 }
 
-/** Open a tab from the column. Every frame painted since the click shows
- * no loading line, and the first frame to show the tab, and every one
- * after it, shows it drawn whole: no empty pane in between. (The frames
- * before it show the tab that was on screen while the next one read.) */
+/** Open a tab from the column, recording every frame from the click until
+ * the tab is painted whole. Each of those frames shows the tab that was on
+ * screen or the tab opening, drawn whole, never an empty or half-drawn
+ * pane between them, and none shows a loading line. */
 async function openDrawn(page: Page, tab: string): Promise<void> {
-  await page.evaluate(() => { (window as unknown as { painted: Painted[] }).painted.splice(0); });
+  const from = await page.evaluate(() =>
+    [...document.querySelectorAll("[data-tab]")].find(pane => (pane as HTMLElement).checkVisibility())?.getAttribute("data-tab") ?? "");
+  await page.evaluate(change => {
+    const recorder = (window as unknown as { tabChange: Recorder }).tabChange;
+    recorder.frames = [];
+    recorder.change = change;
+  }, { from, to: tab.toLowerCase() });
   await openTab(page, tab);
-  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-  const painted = await page.evaluate(() => (window as unknown as { painted: Painted[] }).painted.slice());
-  const said = `${tab}: ${JSON.stringify(painted)}`;
-  expect(painted.filter(frame => frame.loading), said).toEqual([]);
-  const shown = painted.filter(frame => frame.tab === tab.toLowerCase());
-  expect(shown.length, said).toBeGreaterThan(0);
-  expect(shown, said).toEqual(shown.map(() => ({ tab: tab.toLowerCase(), drawn: true, loading: false })));
+  await expect.poll(async () => (await recorder(page)).change, { message: `${tab}: still recording` }).toBeNull();
+  const { frames } = await recorder(page);
+  const said = `${from} to ${tab.toLowerCase()}: ${JSON.stringify(frames)}`;
+  expect(frames.length, said).toBeGreaterThan(0);
+  expect(frames.filter(frame => !frame.outgoing && !frame.incoming), said).toEqual([]);
+  expect(frames.filter(frame => frame.loading), said).toEqual([]);
 }
 
 test.describe("the Settings page", () => {
@@ -536,7 +548,7 @@ test.describe("the Settings page", () => {
     } finally { await browser.close(); }
   });
 
-  test("every tab opens drawn from its first painted frame, with no loading line in any frame of the change", async ({ page, context, request }) => {
+  test("every frame of a change of tab shows a tab drawn whole, the one leaving or the one opening, and no loading line", async ({ page, context, request }) => {
     await routeHouse(context);
     const errors = trackConsole(page);
     await recordFrames(page);
