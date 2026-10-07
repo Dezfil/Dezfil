@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { RerunIcon } from "@/components/ui/icons";
 import { accountRequest, failureMessage, settingsWrite } from "./api";
-import { choiceLabel, LOOK_CARDS, LookReset, LookWriter, lookUnit, shownLook, stampLook, unitKey, unitValues, type LookCard, type LookResetSnapshot } from "./look-tab";
+import { choiceLabel, LOOK_CARDS, LookReset, lookTab, shownLook, stampLook, unitKey, type LookCard, type LookResetSnapshot, type LookTab } from "./look-tab";
 import { LookPicture } from "./LookPictures";
 import { PictureChoice } from "./PictureChoice";
 import type { SaveUnit, UnitSnapshot } from "./save-unit";
@@ -43,16 +43,10 @@ export function AppearanceTab() {
   return <LookCards kept={kept} />;
 }
 
-interface Tab { units: SaveUnit[]; reset: LookReset }
-
-/** The four units and the tab-wide reset, made once for the tab's life:
- * every write goes through one writer, and what the tab-wide reset kept
- * goes to the cards. */
-function createTab(kept: Look): Tab {
-  const writer = new LookWriter(patch => settingsWrite<{ look?: unknown }>(OWN_SETTINGS, "PATCH", { look: patch }).then(body => normalizeLook(body.look)));
-  const units = LOOK_CARDS.map(card => lookUnit(card, kept, writer));
-  const reset = new LookReset({ write: writer.write, kept: look => { for (const unit of units) unit.sync(unitValues(look)); } });
-  return { units, reset };
+/** The four units and the tab-wide reset, made once for the tab's life,
+ * every write through one writer. */
+function createTab(kept: Look): LookTab {
+  return lookTab(kept, patch => settingsWrite<{ look?: unknown }>(OWN_SETTINGS, "PATCH", { look: patch }).then(body => normalizeLook(body.look)));
 }
 
 /** Every unit's snapshot, one stable list per change. */

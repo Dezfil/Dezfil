@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defaultLook, LOOK_KEYS, lookChoices, type Look, type LookKey } from "@/lib/look";
 import { FADE_MS, UNDO_MS, WriteRefusal, type UnitSnapshot } from "./save-unit";
-import { choiceLabel, LOOK_CARDS, LookReset, LookWriter, lookUnit, shownLook, stampLook, unitKey } from "./look-tab";
+import { choiceLabel, LOOK_CARDS, LookReset, lookTab, LookWriter, lookUnit, shownLook, stampLook, unitKey } from "./look-tab";
 
 /**
  * The Appearance tab's own logic: its cards and rows, one writer every
@@ -215,6 +215,24 @@ describe("Reset to Dezfil's default, and Undo", () => {
     reset.drop();
     server.calls[0].accept(); await flush();
     expect(reset.slot(defaultLook())).toBeNull();
+  });
+
+  it("joins the cards' queue: a pick made before it and not yet sent never lands after it", async () => {
+    const server = fakeServer(HARBOR);
+    const { units, reset } = lookTab(server.stored(), server.send);
+    const color = units[0];
+    color.choose(unitKey("color"), "slate");
+    color.choose(unitKey("color"), "heather");
+    reset.reset(shownLook(units.map(unit => unit.snapshot)));
+    server.calls[0].accept(); await flush();
+    server.calls[1].accept(); await flush();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(server.calls.map(call => call.patch)).toEqual([{ color: "slate" }, defaultLook()]);
+    expect(server.stored()).toEqual(defaultLook());
+    expect(shownLook(units.map(unit => unit.snapshot))).toEqual(defaultLook());
+    expect(reset.slot(defaultLook())).toBe("undo");
+    reset.undo();
+    expect(server.calls[2].patch).toEqual({ color: "heather", rail: "icons" });
   });
 
   it("shows a refused reset as the page's note with Try again, keeping every pick", async () => {

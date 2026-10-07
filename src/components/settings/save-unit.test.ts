@@ -499,6 +499,50 @@ describe("a write made beside the card", () => {
     expect(unit.snapshot.errors).toEqual({});
     expect(unit.snapshot.values.landingPage).toBe("home");
   });
+
+  it("drops a change not yet sent when another writer's write goes past it, then shows what that write kept", async () => {
+    const server = fakeServer({ landingPage: "maps" }), unit = signIn(server);
+    unit.choose("landingPage", "sql");
+    unit.choose("landingPage", "data");
+    unit.supersede(["landingPage", "elsewhere"]);
+    // The change on its way still shows until the other write answers.
+    expect(unit.snapshot.values.landingPage).toBe("data");
+    server.calls[0].accept(); await flush();
+    expect(server.calls.map(call => call.patch)).toEqual([{ landingPage: "sql" }]);
+    expect(unit.snapshot.saved).toEqual([]);
+    expect(unit.snapshot.values.landingPage).toBe("data");
+    unit.sync({ landingPage: "home" });
+    expect(unit.snapshot.values.landingPage).toBe("home");
+    expect(unit.snapshot.kept.landingPage).toBe("home");
+    await vi.advanceTimersByTimeAsync(SAVED_HOLD_MS);
+    expect(server.calls).toHaveLength(1);
+  });
+
+  it("returns a row the other write went past to what is kept when that write is refused", async () => {
+    const server = fakeServer({ landingPage: "maps" }), unit = signIn(server);
+    unit.choose("landingPage", "sql");
+    unit.choose("landingPage", "data");
+    unit.supersede(["landingPage"]);
+    server.calls[0].accept(); await flush();
+    unit.release(["landingPage"]);
+    expect(unit.snapshot.values.landingPage).toBe("sql");
+    expect(unit.snapshot.kept.landingPage).toBe("sql");
+    expect(server.calls).toHaveLength(1);
+  });
+
+  it("keeps a change made after the other write showing, and sends it after that write", async () => {
+    const server = fakeServer({ landingPage: "maps" }), unit = signIn(server);
+    unit.choose("landingPage", "sql");
+    unit.supersede(["landingPage"]);
+    unit.choose("landingPage", "data");
+    unit.sync({ landingPage: "home" });
+    expect(unit.snapshot.values.landingPage).toBe("data");
+    server.calls[0].accept(); await flush();
+    expect(server.calls.map(call => call.patch)).toEqual([{ landingPage: "sql" }, { landingPage: "data" }]);
+    server.calls[1].accept(); await flush();
+    expect(unit.snapshot.values.landingPage).toBe("data");
+    expect(unit.snapshot.saved).toEqual(["landingPage"]);
+  });
 });
 
 describe("a setting pinned by the server's environment", () => {

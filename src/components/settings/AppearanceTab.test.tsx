@@ -246,6 +246,55 @@ describe("Reset to Dezfil's default", () => {
     expect(button(top(), "Undo reset to Dezfil's default")).toBeUndefined();
   });
 
+  it("goes after every pick made before it, so none lands after it: the kept look is the default while Undo is offered", async () => {
+    await open();
+    holding = true;
+    // The first pick's answer is held; the second waits behind it in its card.
+    await pick("set-color", "Slate");
+    await pick("set-color", "Heather");
+    await press(top(), "Reset to Dezfil's default");
+    while (held.length) {
+      await act(async () => { held.shift()!(); });
+      await settle();
+    }
+    // The second pick was made before the reset, which returns every pick: it is never sent after it.
+    expect(writes()).toEqual([{ look: { color: "slate" } }, { look: defaultLook() }]);
+    expect(stored).toEqual(defaultLook());
+    expect(onRoot()).toEqual({});
+    expect(picked("set-color")).toEqual(["Kelp"]);
+    expect(saved("set-color")).toEqual([]);
+    // Undo writes back what the screen showed when the reset was pressed.
+    await press(top(), "Undo reset to Dezfil's default");
+    while (held.length) {
+      await act(async () => { held.shift()!(); });
+      await settle();
+    }
+    expect(writes().at(-1)).toEqual({ look: { color: "heather", rail: "icons" } });
+    expect(stored).toEqual({ ...defaultLook(), color: "heather", rail: "icons" });
+    expect(onRoot()).toEqual({ color: "heather", rail: "icons" });
+  });
+
+  it("returns a row whose pick the reset went past to what is kept when the reset is refused", async () => {
+    await open();
+    holding = true;
+    await pick("set-color", "Slate");
+    await pick("set-color", "Heather");
+    await press(top(), "Reset to Dezfil's default");
+    // The first pick is kept; the reset after it fails like a lost write.
+    await act(async () => { held.shift()!(); });
+    await settle();
+    mode = "fail";
+    while (held.length) {
+      await act(async () => { held.shift()!(); });
+      await settle();
+    }
+    expect(writes()).toEqual([{ look: { color: "slate" } }, { look: defaultLook() }]);
+    expect(stored).toEqual({ ...defaultLook(), color: "slate", rail: "icons" });
+    expect(picked("set-color")).toEqual(["Slate"]);
+    expect(onRoot()).toEqual({ color: "slate", rail: "icons" });
+    expect(container.textContent).toContain("The settings could not be saved.");
+  });
+
   it("lets Undo go when the tab is left: nothing is written after", async () => {
     await open();
     vi.useFakeTimers();

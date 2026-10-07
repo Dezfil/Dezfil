@@ -154,6 +154,8 @@ export class SaveUnit {
   private flight: Operation | null = null;
   private readonly queue: Operation[] = [];
   private failed: Operation | null = null;
+  /** Rows another writer's write went past: they show what it reports. */
+  private readonly superseded = new Set<string>();
   private readonly listeners = new Set<() => void>();
   private current!: UnitSnapshot;
 
@@ -335,7 +337,8 @@ export class SaveUnit {
       if (!(key in reported)) continue;
       const next = reported[key] ?? null;
       const refused = key in this.errors;
-      if (refused || (same(control, this.values[key], this.kept[key]) && !this.waiting(key))) {
+      const passed = this.superseded.delete(key) && !this.pending(key);
+      if (refused || passed || (same(control, this.values[key], this.kept[key]) && !this.waiting(key))) {
         if (!same(control, this.values[key], next)) this.unmarkSaved(key);
         this.values[key] = display(control, next);
       }
@@ -347,6 +350,37 @@ export class SaveUnit {
       this.kept[key] = next;
     }
     this.dropUndo();
+    this.emit();
+  }
+
+  /** Another writer over the same values (a tab-wide reset) is about to
+   * send these keys, after the write this card has on its way. Every
+   * change to them made before it and not yet sent is dropped, so none
+   * lands after it; the rows it went past keep showing their change until
+   * it answers, then show what it reports (`sync`), or what is kept if it
+   * is refused (`release`). */
+  supersede(keys: readonly string[]): void {
+    const covered = new Set(keys.filter(key => this.controls.has(key)));
+    if (!covered.size) return;
+    for (let index = this.queue.length - 1; index >= 0; index -= 1) {
+      const operation = this.queue[index];
+      for (const key of Object.keys(operation.patch)) if (covered.has(key)) delete operation.patch[key];
+      if (Object.keys(operation.patch).length) continue;
+      this.queue.splice(index, 1);
+      if (operation.how === "save") this.busy = false;
+    }
+    for (const key of covered) { this.settling.delete(key); this.superseded.add(key); }
+    if (this.settleTimer && !this.settling.size) { clearTimeout(this.settleTimer); this.settleTimer = null; }
+    this.emit();
+  }
+
+  /** The superseding write was refused: the rows it went past show what is kept. */
+  release(keys: readonly string[]): void {
+    for (const key of keys) {
+      const control = this.controls.get(key);
+      if (!control || !this.superseded.delete(key) || this.pending(key)) continue;
+      this.values[key] = display(control, this.kept[key]);
+    }
     this.emit();
   }
 
@@ -411,6 +445,11 @@ export class SaveUnit {
 
   private waiting(key: string): boolean {
     return this.settling.has(key) || this.queue.some(operation => key in operation.patch);
+  }
+
+  /** A change to the key is waiting or on its way. */
+  private pending(key: string): boolean {
+    return this.waiting(key) || (!!this.flight && key in this.flight.patch);
   }
 
   private async next(): Promise<void> {

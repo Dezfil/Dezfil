@@ -66,7 +66,7 @@ const pickOf = (key: string) => key.slice("look.".length) as LookKey;
 export type LookSend = (patch: Partial<Look>) => Promise<Look>;
 
 /**
- * Every look write on the tab, one at a time in the order they were made:
+ * Every look write on the tab, one at a time in the order they reach it:
  * a card's pick, a card's Reset and Undo, and the tab-wide reset and its
  * Undo all patch the same slice, so a reset made while a pick is on its
  * way lands after it and the server ends where the screen does.
@@ -101,6 +101,33 @@ export function lookUnit(card: LookCard, kept: Look, writer: LookWriter): SaveUn
       return unitValues(look, keys);
     },
   });
+}
+
+export interface LookTab { readonly units: readonly SaveUnit[]; readonly reset: LookReset }
+
+/**
+ * The tab's four cards and its tab-wide reset over the one writer. A card
+ * queues its own writes before they reach the writer, so the reset and its
+ * Undo join that queue first: every change a card made before them and
+ * has not sent yet is superseded, since they write each pick themselves,
+ * and nothing made before them lands after them. What they keep goes to
+ * the cards; a refusal returns the rows they went past to what is kept.
+ */
+export function lookTab(kept: Look, send: LookSend): LookTab {
+  const writer = new LookWriter(send);
+  const units = LOOK_CARDS.map(card => lookUnit(card, kept, writer));
+  const reset = new LookReset({
+    write: patch => {
+      const keys = (Object.keys(patch) as LookKey[]).map(unitKey);
+      for (const unit of units) unit.supersede(keys);
+      return writer.write(patch).catch((failure: unknown) => {
+        for (const unit of units) unit.release(keys);
+        throw failure;
+      });
+    },
+    kept: look => { for (const unit of units) unit.sync(unitValues(look)); },
+  });
+  return { units, reset };
 }
 
 /** What the server reports, as a card's unit keeps it. */
