@@ -108,6 +108,52 @@ it("stands aside for a page that takes Back and Forward itself, so the browser's
     expect(doc.documentElement.hidden).toBe(false); expect(ready).toHaveBeenLastCalledWith(true);
   } finally { letGo(); win.removeEventListener("popstate", page, true); win.removeEventListener("popstate", router); }
 });
+it.each(["keeps", "takes"] as const)("reads the session for a Back or Forward the page %s, and ends the document when another account is signed in", async how => {
+  const transport = vi.fn<typeof fetch>(async () => Response.json({ account: { id: "alice" } }));
+  win.fetch = transport;
+  const ready = vi.fn(); dispose = watchPrivateWorkspace("alice", ready); await flush();
+  const letGo = (how === "keeps" ? keepTraversals : takeTraversals)(() => true);
+  try {
+    // The session changed with no notice reaching this tab.
+    transport.mockImplementation(async () => Response.json({ account: { id: "bob" } }));
+    win.dispatchEvent(new Event("popstate"));
+    await flush();
+    expect(transport).toHaveBeenCalledTimes(2);
+    expect(transport).toHaveBeenLastCalledWith("/api/auth/session", expect.objectContaining({ cache: "no-store" }));
+    expect(win.location.replace).toHaveBeenCalledOnce();
+    expect(doc.documentElement.hidden).toBe(true); expect(ready).toHaveBeenLastCalledWith(false);
+  } finally { letGo(); }
+});
+it.each([
+  ["signed out", async () => Response.json({ error: { code: "unauthorized" } }, { status: 401 })],
+  ["unreachable", async () => { throw new TypeError("Failed to fetch"); }],
+] as const)("ends the document on a kept Back or Forward when the session read finds it %s", async (_case, answer) => {
+  const transport = vi.fn<typeof fetch>(async () => Response.json({ account: { id: "alice" } }));
+  win.fetch = transport;
+  const ready = vi.fn(); dispose = watchPrivateWorkspace("alice", ready); await flush();
+  const letGo = keepTraversals(() => true);
+  try {
+    transport.mockImplementation(answer);
+    win.dispatchEvent(new Event("popstate"));
+    await flush();
+    expect(win.location.replace).toHaveBeenCalledOnce();
+    expect(doc.documentElement.hidden).toBe(true);
+  } finally { letGo(); }
+});
+it("keeps a kept step's page shown while the session is read, and keeps the document when the session still names its account", async () => {
+  const transport = vi.fn<typeof fetch>(async () => Response.json({ account: { id: "alice" } }));
+  win.fetch = transport;
+  const ready = vi.fn(); dispose = watchPrivateWorkspace("alice", ready); await flush();
+  const letGo = keepTraversals(() => true);
+  try {
+    win.dispatchEvent(new Event("popstate"));
+    expect(doc.documentElement.hidden).toBe(false);
+    await flush();
+    expect(transport).toHaveBeenCalledTimes(2);
+    expect(win.location.replace).not.toHaveBeenCalled();
+    expect(doc.documentElement.hidden).toBe(false); expect(ready).toHaveBeenLastCalledWith(true);
+  } finally { letGo(); }
+});
 it("ends the document on a step a page took and lets go, and offers that only while it watches", async () => {
   const ready = vi.fn(); dispose = watchPrivateWorkspace("alice", ready); await flush();
   expect(letTraversalGo()).toBe(true);

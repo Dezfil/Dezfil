@@ -533,4 +533,32 @@ describe("held by the private workspace", () => {
       expect(browser.unload().defaultPrevented).toBe(false);
     } finally { letKeep(); letTake(); page.stop(); stopWorkspace(); }
   });
+
+  it("ends the document on a step past the tab when the session names another account, unsaved text or not", async () => {
+    const browser = fakeBrowser(["/maps", "/data", "/settings/account"], 2, { keys: true });
+    vi.stubGlobal("BroadcastChannel", undefined);
+    vi.stubGlobal("localStorage", memory()); vi.stubGlobal("sessionStorage", memory());
+    vi.stubGlobal("window", browser.win); vi.stubGlobal("document", browser.doc);
+    openPrivateState("alice");
+    // The transport the workspace reads the session with, before it guards the window's fetch.
+    const session = browser.win.fetch;
+    const ready = vi.fn();
+    const stopWorkspace = watchPrivateWorkspace("alice", ready);
+    await reads();
+    const guard = fakeGuard();
+    const page = watchLeaving(browser.win as unknown as Window, browser.doc as unknown as Document, {
+      guard, staysOnTab: url => tabOf(url) === "account", ask: deferred().ask, open: vi.fn(), end: () => { letTraversalGo(); },
+    });
+    const letKeep = keepTraversals(page.keeps), letTake = takeTraversals(page.takes);
+    try {
+      guard.hold(true);
+      // Another account signed in, with no notice reaching this tab.
+      session.mockImplementation(async () => Response.json({ account: { id: "bob" } }));
+      browser.traverse(-3);
+      await reads();
+      expect(browser.win.location.replace).toHaveBeenCalledWith(`${ORIGIN}/maps`);
+      expect(browser.doc.documentElement.hidden).toBe(true);
+      expect(ready).toHaveBeenLastCalledWith(false);
+    } finally { letKeep(); letTake(); page.stop(); stopWorkspace(); }
+  });
 });

@@ -18,10 +18,12 @@ export function watchPrivateWorkspace(accountId: string, ready: (value: boolean)
   };
   const guarded = privateFetch(accountId, window.location.origin, transport, lifetime.signal, reload);
   window.fetch = guarded;
-  const check = async () => {
+  /** Read the session; a changed or ended account ends the document.
+   * `hide` keeps the page hidden until the read agrees. */
+  const check = async (hide = true) => {
     if (stopped) return;
     const version = ++checking;
-    conceal();
+    if (hide) conceal();
     try {
       const response = await transport("/api/auth/session", { cache: "no-store", signal: lifetime.signal });
       const body = response.ok ? await response.json() : null;
@@ -43,8 +45,14 @@ export function watchPrivateWorkspace(accountId: string, ready: (value: boolean)
   // away. A capture listener on the window runs before its other
   // listeners, the router's included. A page that took a step and lets
   // it go on hands it back here.
+  //
+  // A step kept or taken stays in this document, so the session is read
+  // for it as on focus, and a changed or ended account ends the document
+  // as any other step would. Such a step brings nothing onto the screen
+  // that was not there a moment before, so the page stays shown while
+  // the session is read.
   const popstate = (event: Event) => {
-    if (traversalKept() || traversalTaken()) return;
+    if (traversalKept() || traversalTaken()) { void check(false); return; }
     event.stopImmediatePropagation();
     reload();
   };
