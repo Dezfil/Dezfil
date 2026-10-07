@@ -14,15 +14,18 @@ import styles from "./SettingsCard.module.css";
 
 /** The person's API / MCP tokens: name one and create it, its secret shown
  * once with Copy token and Done, the list with Revoke behind its
- * confirmation. While a new secret is on screen, leaving asks first: it
- * will not be shown again. */
+ * confirmation. A typed name or a creation on its way holds the page, so
+ * leaving asks first naming the card, and once the new secret is on
+ * screen, its own words take over: it will not be shown again. */
 export function TokensCard() {
   const ids = useId();
   const [tokens, setTokens] = useState<ApiToken[] | null>(null), [attempt, setAttempt] = useState(0);
   const [name, setName] = useState(""), [secret, setSecret] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false), [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false), [busy, setBusy] = useState(false), [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null), [revoking, setRevoking] = useState<ApiToken | null>(null);
+  // The secret's entry first: when the secret arrives and the name clears in the same render, the page stays held throughout.
   useGuardEntry("tokens-secret", secret !== null, "API / MCP tokens", "The new token will not be shown again.");
+  useGuardEntry("tokens-name", secret === null && (name !== "" || creating), "API / MCP tokens");
   useDrawn(tokens !== null);
   useEffect(() => {
     let cancelled = false;
@@ -32,13 +35,13 @@ export function TokensCard() {
     return () => { cancelled = true; };
   }, [attempt]);
   async function create(event: FormEvent) {
-    event.preventDefault(); setBusy(true); setError(null);
+    event.preventDefault(); setBusy(true); setCreating(true); setError(null);
     try {
       const created = await accountRequest<ApiToken & { secret: string }>("/api/account/tokens", "POST", { name });
       const { secret: disclosed, ...token } = created;
       setTokens(current => [...(current ?? []), token]); setSecret(disclosed); setCopied(false); setName("");
     } catch (error) { setError(failureMessage(error)); }
-    finally { setBusy(false); }
+    finally { setBusy(false); setCreating(false); }
   }
   async function revoke() {
     if (!revoking) return;

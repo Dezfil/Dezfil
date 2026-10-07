@@ -52,9 +52,12 @@ let accountName = "Ada Okafor";
 let instanceName = "Atlas";
 /** Where the browser is when it has moved without the router hearing it. */
 let shownAt: string | null = null;
+/** While set, a token's creation waits for the test to answer it. */
+let holdCreation = false;
+let answerCreation: (() => void) | null = null;
 
 beforeEach(() => {
-  requests.length = 0; scrolled.length = 0; accountName = "Ada Okafor"; instanceName = "Atlas"; shownAt = null;
+  requests.length = 0; scrolled.length = 0; accountName = "Ada Okafor"; instanceName = "Atlas"; shownAt = null; holdCreation = false; answerCreation = null;
   nav.pathname = "/settings"; nav.hash = ""; nav.replace = vi.fn((address: string) => {
     const at = address.indexOf("#");
     nav.pathname = at < 0 ? address : address.slice(0, at);
@@ -74,6 +77,7 @@ beforeEach(() => {
       return Response.json({ instanceName, signInMessage: "", lostPasswordContact: "", landingPage: "home", setupRequired: false });
     }
     if (url === "/api/account/tokens" && init?.method === "POST") {
+      if (holdCreation) await new Promise<void>(resolve => { answerCreation = resolve; });
       return Response.json({ id: "t1", name: "CLI", createdAt: "2026-10-01T00:00:00.000Z", lastUsedAt: null, revokedAt: null, secret: "dz_secret_once" });
     }
     if (url === "/api/account/tokens") return Response.json({ tokens: [] });
@@ -301,6 +305,34 @@ describe("leaving a tab with unsaved text", () => {
     expect(container.textContent).toContain("Copy this token now.");
     expect((await click(link("Account"))).defaultPrevented).toBe(true);
     expect(dialog()?.textContent).toContain("The new token will not be shown again.");
+  });
+
+  it("asks while a token's name is typed or its creation is on the way, naming the card, then in the secret's own words", async () => {
+    await open("/settings/tokens");
+    await type("Token name", "CLI");
+    expect((await click(link("Account"))).defaultPrevented).toBe(true);
+    expect(dialog()?.textContent).toContain("API / MCP tokens has changes that are not saved.");
+    await answer("Keep editing");
+    holdCreation = true;
+    await act(async () => { container.querySelector("form")!.dispatchEvent(new HostEvent("submit", { bubbles: true, cancelable: true })); });
+    await settle();
+    expect(answerCreation).not.toBeNull();
+    expect(container.textContent).not.toContain("Copy this token now.");
+    expect((await click(link("Account"))).defaultPrevented).toBe(true);
+    expect(dialog()?.textContent).toContain("API / MCP tokens has changes that are not saved.");
+    await answer("Keep editing");
+    await act(async () => { answerCreation!(); });
+    await settle();
+    expect(container.textContent).toContain("Copy this token now.");
+    expect((await click(link("Account"))).defaultPrevented).toBe(true);
+    expect(dialog()?.textContent).toContain("The new token will not be shown again.");
+    expect(dialog()?.textContent).not.toContain("has changes that are not saved");
+    await answer("Keep editing");
+    // Done: nothing holds the page any more, so the extra entry goes and nothing asks.
+    await act(async () => { container.querySelectorAll("button").find(button => button.textContent === "Done")!.click(); });
+    expect(browser.steps).toEqual([-1]);
+    await click(link("Account"));
+    expect(dialog()).toBeNull();
   });
 
   it("never asks when nothing typed is unsaved", async () => {
