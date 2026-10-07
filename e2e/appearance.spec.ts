@@ -449,14 +449,13 @@ test.describe("the person's look", () => {
           });
           // The rail stands beside the inspector, not over it.
           expect(await right(rail(page))).toBeLessThanOrEqual(moved.inspector);
-          // The header card grows toward the inspector's right edge. At
-          // this width the builder's header actions take the rest of the
-          // row, and the shipped header lets the card give way before they
-          // would leave the screen, so its full reach is held where the row
-          // affords it, at 1920 below; here it has widened.
-          const widened = await right(head);
-          console.log(`[rail] 1440 x 900, Always open: header card right ${widened}, inspector right ${await right(inspector)}, under Opens on hover ${headRight}`);
-          expect(widened).toBeGreaterThan(headRight);
+          // The header card keeps its left edge and widens to the inspector's
+          // right edge: the header's actions give it the room, the whole
+          // row staying on screen.
+          await expectHeadReachesInspector();
+          const actionsRight = await right(page.locator('header [class*="actions"]').first());
+          console.log(`[rail] 1440 x 900, Always open: header card right ${await right(head)}, inspector right ${await right(inspector)}, under Opens on hover ${headRight}, actions right ${actionsRight}`);
+          expect(actionsRight).toBeLessThanOrEqual(1440);
           await page.setViewportSize({ width: 1920, height: 1080 });
           await openBuilder();
           await expectRailWidth(OPEN);

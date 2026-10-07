@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { affordableReach, roomForCard } from "./affordable-reach";
+import { affordableReach, roomForCard, shareOut } from "./affordable-reach";
 
 // The header row at 1280 with the builder's chrome: the card at the
 // gutter, the search control and the actions beside it, one gap each.
@@ -31,5 +31,25 @@ describe("the reach the header card can afford", () => {
     const narrow = { cardLeft: 14, contentRight: 464, gap: 14, siblingWidths: [123.375] };
     expect(affordableReach(424, narrow)).toBe(312.625);
     expect(affordableReach(424, narrow)).toBeLessThanOrEqual(roomForCard(narrow));
+  });
+
+  it("counts what the yielding search field can give, so it narrows for the reach before the card gives any up", () => {
+    // The builder at 1440 with the rail standing open: the inspector's right
+    // edge at 580; the search field (230 at rest, 150 at the least), the
+    // last-changed fact and the actions beside the card.
+    const open = { cardLeft: 14, contentRight: 1424, gap: 14, siblingWidths: [230, 113, 515] };
+    expect(roomForCard(open)).toBe(510);
+    // Without anything that yields the card stops 56 px short of the inspector.
+    expect(affordableReach(580, open)).toBe(510);
+    const yielding = { ...open, give: 80 };
+    expect(affordableReach(580, yielding)).toBe(566);
+    // The field gives exactly the shortfall, and nothing while the row has room.
+    expect(shareOut(566, yielding, [{ width: 230, least: 150 }])).toEqual([56]);
+    expect(shareOut(500, yielding, [{ width: 230, least: 150 }])).toEqual([0]);
+    // Past what it can give, the card gives up the rest of its reach.
+    expect(affordableReach(700, yielding)).toBe(590);
+    expect(shareOut(590, yielding, [{ width: 230, least: 150 }])).toEqual([80]);
+    // Several give in row order, each down to its least before the next.
+    expect(shareOut(595, { ...open, give: 90 }, [{ width: 230, least: 150 }, { width: 100, least: 90 }])).toEqual([80, 5]);
   });
 });
