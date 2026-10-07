@@ -38,6 +38,15 @@ export const allowedErrorPatterns: { pattern: RegExp; url?: RegExp; reason: stri
       "panel shows, and only the API may word it, so the request is " +
       "the product working; the browser still logs the 422.",
   },
+  {
+    pattern: /status of 404/,
+    url: /\/v\/[0-9A-Za-z]{22}$/,
+    reason:
+      "A published link taken down, or never issued, is answered by the " +
+      "server with the published not-found page under a 404 status by " +
+      "design: the reader sees that page, and the browser still logs the " +
+      "document's 404.",
+  },
 ];
 
 function firstUrlIn(text: string): string | undefined {
