@@ -204,7 +204,7 @@
 }
 
 .result > span[data-state="ok"] {
-  color: var(--accent-bright);
+  color: var(--health-ok-bright);
 }
 
 .result > span[data-state="warn"] {

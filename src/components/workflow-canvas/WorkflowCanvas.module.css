@@ -194,7 +194,8 @@
 }
 
 .tBadge[data-s="check"] {
-  background: var(--accent);
+  background: var(--health-ok);
+  color: var(--on-health-ok);
 }
 
 .spin {

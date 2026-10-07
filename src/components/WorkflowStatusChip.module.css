@@ -2,11 +2,11 @@
    Workflows list's stylesheet; the muted tone is the chip's
    own look). */
 .stateChip[data-tone="ok"] {
-  background: var(--accent-dim);
-  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
-  color: var(--accent);
+  background: var(--health-ok-dim);
+  border-color: color-mix(in srgb, var(--health-ok) 25%, transparent);
+  color: var(--health-ok);
 }
-.stateChip[data-tone="ok"] i { background: var(--accent); }
+.stateChip[data-tone="ok"] i { background: var(--health-ok); }
 .stateChip[data-tone="accent"] {
   background: var(--accent-dim);
   border-color: transparent;

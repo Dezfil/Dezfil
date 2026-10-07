@@ -230,7 +230,7 @@
 }
 
 .entry[data-lv="ok"] .lv {
-  color: var(--accent);
+  color: var(--health-ok);
 }
 
 .entry[data-lv="info"] .lv {

@@ -905,8 +905,8 @@
   display: inline-grid;
   place-items: center;
   flex: none;
-  color: var(--on-accent);
-  background: var(--accent);
+  color: var(--on-health-ok);
+  background: var(--health-ok);
 }
 .cardStatus svg {
   width: 10px;

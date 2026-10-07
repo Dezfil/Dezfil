@@ -70,9 +70,14 @@
   --danger: #bb4434;
   --danger-dim: rgba(187, 68, 52, 0.1);
   --focus: #0d7d5c;
-  /* A healthy service's mark: today's kelp, kept apart from the accent
-     so the person's Color never repaints a status. */
+  /* The status family: a healthy service, an "ok" outcome, a "live"
+     state. Today's kelp, one for one with the accent family, kept apart
+     from it so the person's Color never repaints a status. */
   --health-ok: #0d7d5c;
+  --health-ok-bright: #0a6248;
+  --health-ok-dim: rgba(13, 125, 92, 0.12);
+  --health-ok-wash: #e2f2ec;
+  --on-health-ok: #ffffff;
 
   /* Details that follow the theme */
   /* The shell sheet: Atlantic coastlines over the sixteen-winds
@@ -180,6 +185,10 @@
   --danger-dim: rgba(224, 110, 90, 0.12);
   --focus: #74a6ff;
   --health-ok: #45c58f;
+  --health-ok-bright: #5fe3ab;
+  --health-ok-dim: rgba(69, 197, 143, 0.13);
+  --health-ok-wash: rgba(69, 197, 143, 0.12);
+  --on-health-ok: #06231a;
 
   /* The published viewer's chart grid, night value */
   --graticule: rgba(151, 170, 205, 0.045);

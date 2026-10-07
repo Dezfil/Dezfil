@@ -364,8 +364,8 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: var(--accent-wash);
-  color: var(--accent);
+  background: var(--health-ok-wash);
+  color: var(--health-ok);
   flex: none;
 }
 

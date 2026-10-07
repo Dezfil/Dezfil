@@ -803,8 +803,8 @@
   place-items: center;
   margin-bottom: 4px;
   border-radius: 50%;
-  background: var(--accent-dim);
-  color: var(--accent-bright);
+  background: var(--health-ok-dim);
+  color: var(--health-ok-bright);
 }
 
 .bigCheck svg {

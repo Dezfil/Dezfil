@@ -452,13 +452,13 @@
 }
 
 .chip[data-live] {
-  background: var(--accent-dim);
-  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
-  color: var(--accent);
+  background: var(--health-ok-dim);
+  border-color: color-mix(in srgb, var(--health-ok) 25%, transparent);
+  color: var(--health-ok);
 }
 
 .chip[data-live] i {
-  background: var(--accent);
+  background: var(--health-ok);
 }
 
 /* The Data table's Project cell: the same passive fact in

@@ -5,10 +5,10 @@
   width: fit-content;
   min-height: 24px;
   padding: 2px 9px;
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  border: 1px solid color-mix(in srgb, var(--health-ok) 24%, transparent);
   border-radius: var(--radius-pill);
-  background: var(--accent-dim);
-  color: var(--accent-bright);
+  background: var(--health-ok-dim);
+  color: var(--health-ok-bright);
   font-size: var(--text-meta);
   font-weight: 600;
   white-space: nowrap;

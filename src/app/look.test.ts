@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { LOOK_KEYS, lookChoices, type LookKey } from "@/lib/look";
 
@@ -50,10 +51,54 @@ const COLOR_TOKENS = ["--accent", "--accent-bright", "--accent-dim", "--accent-w
 /** What More contrast strengthens, in both themes. */
 const CONTRAST_TOKENS = ["--border", "--border-strong", "--divider", "--fg-faint", "--fg-muted"];
 /** Status and data colours: no pick ever sets one. */
-const NEVER = /^--(health|warn|danger|grp-|source-|note-|code-|verb-|graticule|entry-)/;
+const NEVER = /^--(on-health|health|warn|danger|grp-|source-|note-|code-|verb-|graticule|entry-)/;
 
 const globalBlock = (selector: string) => GLOBALS.find(rule => rule.selector === selector)!;
 const GLOBAL_LIGHT = globalBlock(":root"), GLOBAL_DARK = globalBlock(':root[data-theme="dark"]');
+
+/** Every flat rule of a stylesheet with its declarations as written. */
+function bodies(css: string): { selector: string; body: string }[] {
+  const text = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  return [...text.matchAll(/([^{}]+)\{([^{}]*)\}/g)].flatMap(([, selectors, body]) =>
+    selectors.split(",").map(selector => ({ selector: selector.trim().replace(/\s+/g, " "), body })));
+}
+
+function moduleSheets(dir: string): string[] {
+  return readdirSync(dir).flatMap(entry => {
+    const file = path.join(dir, entry);
+    if (statSync(file).isDirectory()) return moduleSheets(file);
+    return file.endsWith(".css") ? [file.split(path.sep).join("/")] : [];
+  });
+}
+
+/**
+ * The status marks: a service's health, an "ok" outcome and a "live"
+ * state. They read the status family, today's kelp kept apart from the
+ * accent, so the person's Color never repaints one, as it never repaints
+ * a warning or a danger mark. Activity (running, in progress) is the
+ * interface's and stays on the accent.
+ */
+const STATUS_MARKS: [file: string, selector: string][] = [
+  ["src/components/HealthDot.module.css", '.dot[data-state="ready"]'],
+  ["src/components/settings/SystemTab.module.css", '.state[data-state="on"]::before'],
+  ["src/components/WorkflowStatusChip.module.css", '.stateChip[data-tone="ok"]'],
+  ["src/components/WorkflowStatusChip.module.css", '.stateChip[data-tone="ok"] i'],
+  ["src/components/workflow-canvas/WorkflowCanvas.module.css", '.tBadge[data-s="check"]'],
+  ["src/components/workflow-canvas/ResultsBand.module.css", '.entry[data-lv="ok"] .lv'],
+  ["src/components/connections/ConnectionStatus.module.css", ".pill"],
+  ["src/components/connections/ConnectionForm.module.css", '.result > span[data-state="ok"]'],
+  ["src/components/connections/PostgisPane.module.css", ".bigCheck"],
+  ["src/components/gallery.module.css", ".chip[data-live]"],
+  ["src/components/gallery.module.css", ".chip[data-live] i"],
+  ["src/components/builder/publish/PublishPopover.module.css", ".liveDot"],
+  ["src/components/ui/Status.module.css", ".dot[data-live]::before"],
+  ["src/components/builder/CustomBasemapSection.module.css", '.verdict[data-tone="ok"]'],
+  ["src/components/sql/SqlConsole.module.css", ".cardStatus"],
+  ["src/components/builder/AssistantPanel.module.css", ".lineStatus"],
+];
+/** A selector naming an ok or live state, wherever it is written. */
+const OK_OR_LIVE = /\[data-(?:tone|state|lv|status|s)="(?:ok|ready|on|check|succeeded|valid)"\]|\[data-live\]/;
+const READS_ACCENT = /var\(--(?:on-)?accent/;
 
 describe("the look stylesheet", () => {
   it("keys every rule on the document root by picks and choices the catalogue offers, never a default", () => {
@@ -104,12 +149,27 @@ describe("the look stylesheet", () => {
     // The health marks read their own token, which no pick sets.
     expect(GLOBAL_LIGHT.tokens.get("--health-ok")).toBe("#0d7d5c");
     expect(GLOBAL_DARK.tokens.get("--health-ok")).toBe("#45c58f");
-    for (const file of ["src/components/HealthDot.module.css", "src/components/settings/SystemTab.module.css"]) {
-      const marks = rules(readFileSync(file, "utf8")).filter(rule => /data-state="(ready|on)"/.test(rule.selector));
-      expect(marks.length, file).toBe(1);
-      const source = readFileSync(file, "utf8").split(marks[0].selector)[1].split("}")[0];
-      expect(source, file).toContain("var(--health-ok)");
-      expect(source, file).not.toContain("var(--accent");
+  });
+
+  it("keeps every status mark (health, ok, live) on the status family, never the accent", () => {
+    const onAccent = STATUS_MARKS.flatMap(([file, selector]) => {
+      const marks = bodies(readFileSync(file, "utf8")).filter(rule => rule.selector === selector);
+      expect(marks.length, `${file} ${selector}`).toBe(1);
+      return READS_ACCENT.test(marks[0].body) || !/var\(--(?:on-)?health-ok/.test(marks[0].body) ? [`${file} ${selector}`] : [];
+    });
+    expect(onAccent).toEqual([]);
+    // And any other rule naming an ok or live state, so a new one cannot slip back.
+    const offenders = moduleSheets("src").flatMap(file => bodies(readFileSync(file, "utf8"))
+      .filter(rule => OK_OR_LIVE.test(rule.selector) && READS_ACCENT.test(rule.body))
+      .map(rule => `${file} ${rule.selector}`));
+    expect(offenders).toEqual([]);
+    // The family is today's kelp in both themes, so Dezfil's default look is unchanged.
+    for (const [status, accent] of [["--health-ok", "--accent"], ["--health-ok-bright", "--accent-bright"],
+      ["--health-ok-dim", "--accent-dim"], ["--health-ok-wash", "--accent-wash"], ["--on-health-ok", "--on-accent"]]) {
+      for (const theme of [GLOBAL_LIGHT, GLOBAL_DARK]) {
+        expect(theme.tokens.get(status), status).toBeDefined();
+        expect(theme.tokens.get(status), status).toBe(theme.tokens.get(accent));
+      }
     }
   });
 

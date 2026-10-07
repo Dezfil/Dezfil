@@ -98,6 +98,10 @@
   --danger-dim: rgba(187, 68, 52, 0.1);
   --focus: #0d7d5c;
   --health-ok: #0d7d5c;
+  --health-ok-bright: #0a6248;
+  --health-ok-dim: rgba(13, 125, 92, 0.12);
+  --health-ok-wash: #e2f2ec;
+  --on-health-ok: #ffffff;
   --sheet: var(--sheet-light);
   --sheet-size: cover;
   --sheet-pos: center;
@@ -175,6 +179,10 @@
   --danger-dim: rgba(224, 110, 90, 0.12);
   --focus: #74a6ff;
   --health-ok: #45c58f;
+  --health-ok-bright: #5fe3ab;
+  --health-ok-dim: rgba(69, 197, 143, 0.13);
+  --health-ok-wash: rgba(69, 197, 143, 0.12);
+  --on-health-ok: #06231a;
   --graticule: rgba(151, 170, 205, 0.045);
   --sheet: var(--sheet-dark);
   --swatch-border: rgba(255, 255, 255, 0.12);
@@ -224,6 +232,10 @@
     --danger-dim: rgba(224, 110, 90, 0.12);
     --focus: #74a6ff;
     --health-ok: #45c58f;
+    --health-ok-bright: #5fe3ab;
+    --health-ok-dim: rgba(69, 197, 143, 0.13);
+    --health-ok-wash: rgba(69, 197, 143, 0.12);
+    --on-health-ok: #06231a;
     --graticule: rgba(151, 170, 205, 0.045);
     --sheet: var(--sheet-dark);
     --swatch-border: rgba(255, 255, 255, 0.12);
@@ -1543,7 +1555,7 @@ select.kit-field-field {
 }
 
 .kit-status-dot[data-live]::before {
-  background: var(--accent);
+  background: var(--health-ok);
 }
 
 .kit-status-dotText {
