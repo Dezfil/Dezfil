@@ -39,21 +39,66 @@ function expectQuiet(errors: ConsoleError[]): void {
 }
 
 /** An admin's tabs, each with what is on screen once the tab has drawn whole. */
-const DRAWN: readonly (readonly [string, string])[] = [
-  ["Account", "#account"],
-  ["Tokens", "#tokens li"],
-  ["Appearance", "#set-side-menu"],
-  ["General", "#card-sign-in"],
-  ["Limits", "#limits-public"],
-  ["System", "#sys-assistant-status"],
+const DRAWN: readonly (readonly [string, readonly string[]])[] = [
+  ["Account", ["#account"]],
+  ["Tokens", ["#tokens li"]],
+  ["Appearance", ["#set-side-menu"]],
+  ["General", ["#card-sign-in"]],
+  ["Limits", ["#limits-public"]],
+  // The data folder's state, not its Checking placeholder.
+  ["System", ["#sys-assistant-status", "#sys-data-folder [data-state]"]],
 ];
 
 /** Open a tab from the column and wait until it has drawn whole. */
 async function openTab(page: Page, tab: string): Promise<void> {
-  const [, last] = DRAWN.find(([name]) => name === tab)!;
+  const [, parts] = DRAWN.find(([name]) => name === tab)!;
   await column(page).getByRole("link", { name: tab, exact: true }).click();
   await expect(column(page).getByRole("link", { name: tab, exact: true })).toHaveAttribute("aria-current", "page");
-  await expect(page.locator(`[data-tab="${tab.toLowerCase()}"] ${last}`).first()).toBeVisible();
+  for (const part of parts) await expect(page.locator(`[data-tab="${tab.toLowerCase()}"] ${part}`).first()).toBeVisible();
+}
+
+/** What a painted frame showed in the tab's place. */
+interface Painted { tab: string; drawn: boolean; loading: boolean }
+
+/** Before the page's own scripts: record, at every animation frame, which
+ * tab is on screen (a tab still reading out of sight is not), whether it
+ * is drawn whole, and whether a loading line shows, each time that changes. */
+async function recordFrames(page: Page): Promise<void> {
+  await page.addInitScript(drawnBy => {
+    const frames: Painted[] = [];
+    (window as unknown as { painted: Painted[] }).painted = frames;
+    const look = () => {
+      const pane = [...document.querySelectorAll("[data-tab]")].find(element => !element.hasAttribute("hidden"));
+      if (pane) {
+        const tab = pane.getAttribute("data-tab") ?? "";
+        const now = {
+          tab,
+          drawn: (drawnBy[tab] ?? []).every(part => pane.querySelector(part) !== null),
+          loading: /Loading/.test(pane.textContent ?? ""),
+        };
+        const last = frames.at(-1);
+        if (!last || last.tab !== now.tab || last.drawn !== now.drawn || last.loading !== now.loading) frames.push(now);
+      }
+      requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
+  }, Object.fromEntries(DRAWN.map(([tab, parts]) => [tab.toLowerCase(), parts])));
+}
+
+/** Open a tab from the column. Every frame painted since the click shows
+ * no loading line, and the first frame to show the tab, and every one
+ * after it, shows it drawn whole: no empty pane in between. (The frames
+ * before it show the tab that was on screen while the next one read.) */
+async function openDrawn(page: Page, tab: string): Promise<void> {
+  await page.evaluate(() => { (window as unknown as { painted: Painted[] }).painted.splice(0); });
+  await openTab(page, tab);
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const painted = await page.evaluate(() => (window as unknown as { painted: Painted[] }).painted.slice());
+  const said = `${tab}: ${JSON.stringify(painted)}`;
+  expect(painted.filter(frame => frame.loading), said).toEqual([]);
+  const shown = painted.filter(frame => frame.tab === tab.toLowerCase());
+  expect(shown.length, said).toBeGreaterThan(0);
+  expect(shown, said).toEqual(shown.map(() => ({ tab: tab.toLowerCase(), drawn: true, loading: false })));
 }
 
 test.describe("the Settings page", () => {
@@ -489,5 +534,23 @@ test.describe("the Settings page", () => {
         } finally { await context.close(); }
       }
     } finally { await browser.close(); }
+  });
+
+  test("every tab opens drawn from its first painted frame, with no loading line in any frame of the change", async ({ page, context, request }) => {
+    await routeHouse(context);
+    const errors = trackConsole(page);
+    await recordFrames(page);
+    // The development server builds each route on its first request; build
+    // them first, so what is measured is the change of tab and not that.
+    for (const address of ["/api/account/tokens", "/api/settings", "/api/instance/settings", "/api/assistant", "/api/health"]) {
+      expect((await request.get(address)).status(), address).toBe(200);
+    }
+    await page.goto("/settings/account");
+    await expect(card(page, "Account")).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    // Each tab's first opening in this visit, then each again.
+    for (const [tab] of DRAWN) await openDrawn(page, tab);
+    for (const [tab] of DRAWN) await openDrawn(page, tab);
+    expectQuiet(errors);
   });
 });

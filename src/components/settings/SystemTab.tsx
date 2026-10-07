@@ -20,6 +20,7 @@ export function SystemTab() {
   const { read, error, retry } = useInstanceRead();
   const health = useHealth();
   useDrawn(!!read);
+  useDrawn(health !== "checking");
   if (error) return <ErrorNote message={error} onRetry={retry} />;
   if (!read) return <p role="status" className={cardStyles.loading}>Loading settings…</p>;
   return <>
