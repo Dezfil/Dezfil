@@ -63,6 +63,17 @@ function bodies(css: string): { selector: string; body: string }[] {
     selectors.split(",").map(selector => ({ selector: selector.trim().replace(/\s+/g, " "), body })));
 }
 
+/** The declarations of one rule body, property to value as written. */
+const declared = (body: string) => new Map([...body.matchAll(/([-\w]+)\s*:\s*([^;]+);?/g)]
+  .map(([, property, value]) => [property, value.trim().replace(/\s+/g, " ")]));
+
+/** The text properties an element takes from its parent when nothing sets
+ * them on the element itself. */
+const INHERITED_TEXT = new Set(["color", "font", "font-family", "font-size", "font-style", "font-weight", "font-variant",
+  "font-stretch", "font-kerning", "font-feature-settings", "font-variation-settings", "line-height", "letter-spacing",
+  "word-spacing", "text-align", "text-indent", "text-transform", "text-rendering", "text-shadow", "white-space",
+  "direction", "hyphens", "overflow-wrap", "word-break", "tab-size", "-webkit-font-smoothing", "-moz-osx-font-smoothing"]);
+
 function moduleSheets(dir: string): string[] {
   return readdirSync(dir).flatMap(entry => {
     const file = path.join(dir, entry);
@@ -183,6 +194,29 @@ describe("the look stylesheet", () => {
     expect(names(dark)).toEqual(set.filter(token => GLOBAL_DARK.tokens.has(token)));
     for (const token of set) expect(light.tokens.get(token), token).toBe(GLOBAL_LIGHT.tokens.get(token));
     for (const token of names(dark)) expect(dark.tokens.get(token), token).toBe(GLOBAL_DARK.tokens.get(token));
+  });
+
+  it("restates in the default scope every inherited text property the page sets on its body, in both themes", () => {
+    // The body computes its text colour and face from the person's tokens,
+    // and an element inherits the computed value, not the token: restating
+    // the tokens alone would leave an image in the person's text colour
+    // and face. Restated over the scope's own tokens, they resolve to the
+    // theme's default.
+    const page = new Map(bodies(readFileSync("src/app/globals.css", "utf8"))
+      .filter(rule => rule.selector === "body")
+      .flatMap(rule => [...declared(rule.body)])
+      .filter(([property]) => INHERITED_TEXT.has(property)));
+    expect([...page.keys()]).toEqual(expect.arrayContaining(["color", "font-family"]));
+    const scope = (selector: string) => {
+      const found = bodies(readFileSync("src/app/look.css", "utf8")).filter(rule => rule.selector === selector);
+      expect(found.length, selector).toBe(1);
+      return declared(found[0].body);
+    };
+    const light = scope(DEFAULT_LIGHT), dark = scope(DEFAULT_DARK);
+    for (const [property, value] of page) expect(light.get(property), property).toBe(value);
+    // The light scope matches under either theme; the dark one re-sets
+    // tokens only, so the same declarations read the dark defaults.
+    for (const property of page.keys()) expect(dark.has(property), `dark ${property}`).toBe(false);
   });
 
   it("keeps the radius family at the literals its readers held, so Rounded is today's corners", () => {

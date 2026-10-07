@@ -338,9 +338,17 @@
    data-look-default restates, at its theme's default, every token a
    rule above sets, so the export composition the download rasterizes
    (and its preview) reads today's tokens while the card's own controls
-   outside it take the person's look ---- */
+   outside it take the person's look. It also restates the text the page
+   sets on its body: the body computes its colour and face from the
+   person's tokens and an element inherits the computed value, so these
+   read the scope's own tokens instead, in either theme ---- */
 
 [data-look-default] {
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
   --bg: #edf1ec;
   --bg-panel: #ffffff;
   --bg-raised: #f6f8f5;
