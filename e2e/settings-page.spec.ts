@@ -38,6 +38,24 @@ function expectQuiet(errors: ConsoleError[]): void {
   expect(errors.filter(error => !isAllowedConsoleError(error.text, error.url))).toEqual([]);
 }
 
+/** An admin's tabs, each with what is on screen once the tab has drawn whole. */
+const DRAWN: readonly (readonly [string, string])[] = [
+  ["Account", "#account"],
+  ["Tokens", "#tokens li"],
+  ["Appearance", "#set-side-menu"],
+  ["General", "#card-sign-in"],
+  ["Limits", "#limits-public"],
+  ["System", "#sys-assistant-status"],
+];
+
+/** Open a tab from the column and wait until it has drawn whole. */
+async function openTab(page: Page, tab: string): Promise<void> {
+  const [, last] = DRAWN.find(([name]) => name === tab)!;
+  await column(page).getByRole("link", { name: tab, exact: true }).click();
+  await expect(column(page).getByRole("link", { name: tab, exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.locator(`[data-tab="${tab.toLowerCase()}"] ${last}`).first()).toBeVisible();
+}
+
 test.describe("the Settings page", () => {
   test.describe.configure({ mode: "serial" });
 
@@ -434,5 +452,42 @@ test.describe("the Settings page", () => {
       for (const visitor of visitors) await visitor.close();
     }
     expectQuiet(errors);
+  });
+
+  test("the tab starts at the same left edge on every tab while the page's scrollbar takes room", async ({ playwright, baseURL }) => {
+    // Headless Chromium hides its scrollbars, and a hidden scrollbar takes no
+    // room; a Mac set to show scroll bars always draws one that does.
+    const browser = await playwright.chromium.launch({ ignoreDefaultArgs: ["--hide-scrollbars"] });
+    try {
+      // Two laptop widths, and a 16-inch laptop's full width, past the shell's
+      // 1720 px breakpoint, where the shell centers its content.
+      for (const width of [1280, 1440, 1728]) {
+        const context = await browser.newContext({ baseURL, storageState: ".claude/browser-auth.json", viewport: { width, height: 900 } });
+        try {
+          await routeHouse(context);
+          const page = await context.newPage();
+          const errors = trackConsole(page);
+          await page.goto("/settings/account");
+          await expect(card(page, "Account")).toBeVisible();
+          const seen: Record<string, { left: number; room: number; tall: boolean }> = {};
+          for (const [tab] of DRAWN) {
+            await openTab(page, tab);
+            seen[tab] = await page.locator("[data-tab]").evaluate(element => ({
+              left: element.getBoundingClientRect().left,
+              room: window.innerWidth - document.documentElement.clientWidth,
+              tall: document.documentElement.scrollHeight > document.documentElement.clientHeight,
+            }));
+          }
+          const shown = JSON.stringify(seen);
+          // The check can see a shift: some tab is taller than the window and
+          // some is not, and the scrollbar takes room on the taller.
+          expect(Object.values(seen).some(at => at.tall) && Object.values(seen).some(at => !at.tall), shown).toBe(true);
+          expect(Math.max(...Object.values(seen).filter(at => at.tall).map(at => at.room)), shown).toBeGreaterThan(0);
+          const edges = Object.fromEntries(Object.entries(seen).map(([tab, at]) => [tab, at.left]));
+          expect(edges, `at ${width} px`).toEqual(Object.fromEntries(DRAWN.map(([tab]) => [tab, edges.Account])));
+          expectQuiet(errors);
+        } finally { await context.close(); }
+      }
+    } finally { await browser.close(); }
   });
 });
