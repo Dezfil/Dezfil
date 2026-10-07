@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useHeaderMin } from "./header-min";
-import { affordableReach, measureRow, rowItems } from "./affordable-reach";
+import { affordableReach, applyYield, measureRow, rowItems } from "./affordable-reach";
 
 /**
  * The shell's header card: sized by its content, as before,
@@ -11,7 +11,9 @@ import { affordableReach, measureRow, rowItems } from "./affordable-reach";
  * own left edge rather than assuming the gutter, and the reach is
  * clamped to what the row can afford: the actions beside the card do not
  * shrink, so the floor gives way before they would leave the viewport,
- * re-measured as the row, its items and their contents change.
+ * re-measured as the row, its items and their contents change. A sibling
+ * that yields (the builder's search field) narrows for the reach first,
+ * by no more than the card needs.
  */
 export function HeadCard({
   className,
@@ -26,12 +28,15 @@ export function HeadCard({
   useLayoutEffect(() => {
     const card = ref.current;
     if (paneRight === null || !card) {
+      if (card) applyYield(card, null, null);
       setMinWidth(null);
       return;
     }
     const measure = () => {
       const row = measureRow(card);
-      setMinWidth(row ? affordableReach(paneRight, row) : null);
+      const reach = row ? affordableReach(paneRight, row) : null;
+      applyYield(card, row, reach);
+      setMinWidth(reach);
     };
     measure();
     const row = card.parentElement;
@@ -55,6 +60,7 @@ export function HeadCard({
     return () => {
       sizes.disconnect();
       contents?.disconnect();
+      applyYield(card, null, null);
     };
   }, [paneRight]);
   return (

@@ -85,10 +85,15 @@ export function SaveLine({ busy, onCancel }: { busy: boolean; onCancel: () => vo
  * pointer is on it. The slot never makes the head taller. Its name leads
  * with the words it shows and ends with the card's title, so the cards
  * of one tab are told apart. */
-export function ResetSlot({ unit, card }: { unit: SaveUnit; card: UnitSnapshot }) {
+export function ResetSlot({ unit, card, onReset }: {
+  unit: SaveUnit;
+  card: UnitSnapshot;
+  /** Told as the card's Reset is pressed, before its write. */
+  onReset?: () => void;
+}) {
   if (card.slot === "reset") {
     return <span className={styles.slot}>
-      <Button variant="quiet" data-unit-slot="reset" aria-label={`Reset to defaults: ${unit.title}`} onClick={() => unit.reset()}>Reset to defaults</Button>
+      <Button variant="quiet" data-unit-slot="reset" aria-label={`Reset to defaults: ${unit.title}`} onClick={() => { onReset?.(); unit.reset(); }}>Reset to defaults</Button>
     </span>;
   }
   if (card.slot === "undo") {

@@ -48,10 +48,20 @@ reaches can pass it on.
 ## Settings
 
 The Settings column has two groups. Under **You**, every account has **Account**
-(name, email and password) and **Tokens**. Under **Instance**, admins have
-**General**, **Limits** and **System**, with Users linked at the column's foot;
-members see General alone, read-only.
+(name, email and password), **Tokens** and **Appearance**. Under **Instance**,
+admins have **General**, **Limits** and **System**, with Users linked at the
+column's foot; members see General alone, read-only.
 
+- **Appearance** is the person's own look: Color (Kelp, Harbor, Heather or
+  Slate), Contrast (Standard or More contrast), Background (Atlantic chart,
+  Plain, Graticule or Hex lattice), Typeface (Inter, or System for the
+  computer's own), Corners (Rounded or Soft) and Side menu (Opens on hover,
+  Always open or Icons only). A pick changes the page at once and is kept with
+  the account, so every other browser that account uses shows it from its next
+  page load, with no flash of the default first. The look is never shared and
+  never reaches a published page or an image of a map: those keep Dezfil's
+  default look. There is no instance-wide look, and the light and dark button in
+  the header stays a choice of each browser.
 - **General** holds the instance name, shown beside the wordmark and in browser
   titles, and the sign-in page: a message under its heading, who to ask about a
   lost password, and the page people open after signing in (Home, Projects, Maps,
@@ -67,7 +77,9 @@ members see General alone, read-only.
 
 Choices and numbers are kept as they change; typed text waits for Save. A card
 offers Reset to defaults while it differs from its defaults, then Undo for a few
-seconds. Leaving a tab with unsaved typed text asks first.
+seconds. Appearance also offers **Reset to Dezfil's default** at the right of
+its heading while any pick differs, which returns every pick at once with the
+same Undo. Leaving a tab with unsaved typed text asks first.
 
 ## Leaving and deleting accounts
 

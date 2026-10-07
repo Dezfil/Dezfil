@@ -24,18 +24,6 @@
     "count": 1
   },
   {
-    "file": "src/app/(workspace)/layout.module.css",
-    "rule": "radius",
-    "value": "18px",
-    "count": 1
-  },
-  {
-    "file": "src/app/(workspace)/layout.module.css",
-    "rule": "radius",
-    "value": "8px",
-    "count": 1
-  },
-  {
     "file": "src/components/AddDataDialog.module.css",
     "rule": "duration",
     "value": "0.12s",
@@ -64,12 +52,6 @@
     "rule": "font-size",
     "value": "12.5px",
     "count": 3
-  },
-  {
-    "file": "src/components/AreaSemanticsToggle.module.css",
-    "rule": "radius",
-    "value": "6px",
-    "count": 1
   },
   {
     "file": "src/components/DocsScreen.module.css",
@@ -168,18 +150,6 @@
     "count": 1
   },
   {
-    "file": "src/components/MiniMap.module.css",
-    "rule": "radius",
-    "value": "3px",
-    "count": 2
-  },
-  {
-    "file": "src/components/MiniMap.module.css",
-    "rule": "radius",
-    "value": "6px",
-    "count": 1
-  },
-  {
     "file": "src/components/OsmPane.module.css",
     "rule": "duration",
     "value": "0.14s",
@@ -210,36 +180,6 @@
     "count": 2
   },
   {
-    "file": "src/components/OsmPane.module.css",
-    "rule": "radius",
-    "value": "10px",
-    "count": 2
-  },
-  {
-    "file": "src/components/OsmPane.module.css",
-    "rule": "radius",
-    "value": "11px",
-    "count": 2
-  },
-  {
-    "file": "src/components/OsmPane.module.css",
-    "rule": "radius",
-    "value": "5px",
-    "count": 1
-  },
-  {
-    "file": "src/components/OsmPane.module.css",
-    "rule": "radius",
-    "value": "7px",
-    "count": 1
-  },
-  {
-    "file": "src/components/OsmPane.module.css",
-    "rule": "radius",
-    "value": "8px",
-    "count": 1
-  },
-  {
     "file": "src/components/OverturePane.module.css",
     "rule": "duration",
     "value": "0.14s",
@@ -264,24 +204,6 @@
     "count": 2
   },
   {
-    "file": "src/components/OverturePane.module.css",
-    "rule": "radius",
-    "value": "10px",
-    "count": 6
-  },
-  {
-    "file": "src/components/OverturePane.module.css",
-    "rule": "radius",
-    "value": "11px",
-    "count": 2
-  },
-  {
-    "file": "src/components/OverturePane.module.css",
-    "rule": "radius",
-    "value": "7px",
-    "count": 2
-  },
-  {
     "file": "src/components/QueryAreaPicker.module.css",
     "rule": "duration",
     "value": "0.14s",
@@ -294,34 +216,10 @@
     "count": 1
   },
   {
-    "file": "src/components/QueryAreaPicker.module.css",
-    "rule": "radius",
-    "value": "10px",
-    "count": 1
-  },
-  {
-    "file": "src/components/QueryAreaPicker.module.css",
-    "rule": "radius",
-    "value": "8px",
-    "count": 1
-  },
-  {
     "file": "src/components/QueryDrawer.module.css",
     "rule": "font-size",
     "value": "11.5px",
     "count": 2
-  },
-  {
-    "file": "src/components/QueryDrawer.module.css",
-    "rule": "radius",
-    "value": "10px",
-    "count": 1
-  },
-  {
-    "file": "src/components/QueryDrawer.module.css",
-    "rule": "radius",
-    "value": "7px",
-    "count": 1
   },
   {
     "file": "src/components/ResultGrid.module.css",
@@ -369,12 +267,6 @@
     "file": "src/components/SourceNav.module.css",
     "rule": "color",
     "value": "color-mix(in srgb, #76a723 14%, transparent)",
-    "count": 1
-  },
-  {
-    "file": "src/components/SourceNav.module.css",
-    "rule": "radius",
-    "value": "10px",
     "count": 1
   },
   {
@@ -560,12 +452,6 @@
     "count": 1
   },
   {
-    "file": "src/components/builder/LayerList.module.css",
-    "rule": "radius",
-    "value": "5px",
-    "count": 1
-  },
-  {
     "file": "src/components/builder/LegendTab.module.css",
     "rule": "font-size",
     "value": "11.5px",
@@ -575,12 +461,6 @@
     "file": "src/components/builder/LegendTab.module.css",
     "rule": "font-size",
     "value": "12.5px",
-    "count": 1
-  },
-  {
-    "file": "src/components/builder/LegendTab.module.css",
-    "rule": "radius",
-    "value": "3px",
     "count": 1
   },
   {
@@ -608,33 +488,9 @@
     "count": 2
   },
   {
-    "file": "src/components/builder/MapBuilder.module.css",
-    "rule": "radius",
-    "value": "8px",
-    "count": 1
-  },
-  {
     "file": "src/components/builder/PaletteControl.module.css",
     "rule": "font-size",
     "value": "12.5px",
-    "count": 1
-  },
-  {
-    "file": "src/components/builder/PaletteControl.module.css",
-    "rule": "radius",
-    "value": "3px",
-    "count": 4
-  },
-  {
-    "file": "src/components/builder/PaletteControl.module.css",
-    "rule": "radius",
-    "value": "5px",
-    "count": 2
-  },
-  {
-    "file": "src/components/builder/PaletteControl.module.css",
-    "rule": "radius",
-    "value": "6px",
     "count": 1
   },
   {
@@ -656,40 +512,10 @@
     "count": 1
   },
   {
-    "file": "src/components/builder/StylePanel.module.css",
-    "rule": "radius",
-    "value": "11px",
-    "count": 1
-  },
-  {
-    "file": "src/components/builder/StylePanel.module.css",
-    "rule": "radius",
-    "value": "3px",
-    "count": 4
-  },
-  {
-    "file": "src/components/builder/StylePanel.module.css",
-    "rule": "radius",
-    "value": "5px",
-    "count": 2
-  },
-  {
     "file": "src/components/builder/WidgetsTab.module.css",
     "rule": "font-size",
     "value": "12.5px",
     "count": 3
-  },
-  {
-    "file": "src/components/builder/WidgetsTab.module.css",
-    "rule": "radius",
-    "value": "11px",
-    "count": 1
-  },
-  {
-    "file": "src/components/builder/WidgetsTab.module.css",
-    "rule": "radius",
-    "value": "7px",
-    "count": 1
   },
   {
     "file": "src/components/builder/add-layer/AddLayerCatalog.module.css",
@@ -708,12 +534,6 @@
     "rule": "font-size",
     "value": "17px",
     "count": 1
-  },
-  {
-    "file": "src/components/builder/add-layer/AddLayerCatalog.module.css",
-    "rule": "radius",
-    "value": "8px",
-    "count": 2
   },
   {
     "file": "src/components/builder/export/ExportControl.module.css",
@@ -738,12 +558,6 @@
     "file": "src/components/builder/publish/PublishControl.module.css",
     "rule": "font-size",
     "value": "13.5px",
-    "count": 1
-  },
-  {
-    "file": "src/components/builder/style-panel/BreakBrush.module.css",
-    "rule": "radius",
-    "value": "3px",
     "count": 1
   },
   {
@@ -783,29 +597,11 @@
     "count": 1
   },
   {
-    "file": "src/components/map/LegendPanel.module.css",
-    "rule": "radius",
-    "value": "16px",
-    "count": 1
-  },
-  {
-    "file": "src/components/map/LegendPanel.module.css",
-    "rule": "radius",
-    "value": "3px",
-    "count": 5
-  },
-  {
     "file": "src/components/map/StageStack.module.css",
     "rule": "duration",
     "value": "0.12s",
     "count": 3,
     "exception": "Motion exception 1 of 3 \u2014 the compass needle's continuous linear tracking of the view bearing (.compassBtn svg); the other occurrences in this file are ordinary chrome transitions"
-  },
-  {
-    "file": "src/components/map/StageStack.module.css",
-    "rule": "radius",
-    "value": "13px",
-    "count": 1
   },
   {
     "file": "src/components/map/TimelineBar.module.css",
@@ -817,12 +613,6 @@
     "file": "src/components/map/TimelineBar.module.css",
     "rule": "radius",
     "value": "2px",
-    "count": 1
-  },
-  {
-    "file": "src/components/map/TimelineBar.module.css",
-    "rule": "radius",
-    "value": "6px",
     "count": 1
   },
   {
@@ -872,31 +662,7 @@
   {
     "file": "src/components/sql/SqlConsole.module.css",
     "rule": "radius",
-    "value": "10px",
-    "count": 2
-  },
-  {
-    "file": "src/components/sql/SqlConsole.module.css",
-    "rule": "radius",
     "value": "2px",
-    "count": 2
-  },
-  {
-    "file": "src/components/sql/SqlConsole.module.css",
-    "rule": "radius",
-    "value": "6px",
-    "count": 1
-  },
-  {
-    "file": "src/components/sql/SqlConsole.module.css",
-    "rule": "radius",
-    "value": "7px",
-    "count": 2
-  },
-  {
-    "file": "src/components/sql/SqlConsole.module.css",
-    "rule": "radius",
-    "value": "8px",
     "count": 2
   },
   {
@@ -1000,18 +766,6 @@
   {
     "file": "src/components/viewer/PublishedView.module.css",
     "rule": "radius",
-    "value": "10px",
-    "count": 1
-  },
-  {
-    "file": "src/components/viewer/PublishedView.module.css",
-    "rule": "radius",
-    "value": "16px",
-    "count": 1
-  },
-  {
-    "file": "src/components/viewer/PublishedView.module.css",
-    "rule": "radius",
     "value": "99px",
     "count": 1
   },
@@ -1063,31 +817,7 @@
   {
     "file": "src/components/widgets/Widgets.module.css",
     "rule": "radius",
-    "value": "10px",
-    "count": 1
-  },
-  {
-    "file": "src/components/widgets/Widgets.module.css",
-    "rule": "radius",
-    "value": "16px",
-    "count": 1
-  },
-  {
-    "file": "src/components/widgets/Widgets.module.css",
-    "rule": "radius",
     "value": "2px 2px 0 0",
-    "count": 1
-  },
-  {
-    "file": "src/components/widgets/Widgets.module.css",
-    "rule": "radius",
-    "value": "3px",
-    "count": 3
-  },
-  {
-    "file": "src/components/widgets/Widgets.module.css",
-    "rule": "radius",
-    "value": "7px",
     "count": 1
   },
   {

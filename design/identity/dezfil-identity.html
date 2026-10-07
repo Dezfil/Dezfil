@@ -97,7 +97,15 @@
   --danger: #bb4434;
   --danger-dim: rgba(187, 68, 52, 0.1);
   --focus: #0d7d5c;
+  --health-ok: #0d7d5c;
+  --health-ok-bright: #0a6248;
+  --health-ok-dim: rgba(13, 125, 92, 0.12);
+  --health-ok-wash: #e2f2ec;
+  --on-health-ok: #ffffff;
   --sheet: var(--sheet-light);
+  --sheet-size: cover;
+  --sheet-pos: center;
+  --sheet-repeat: no-repeat;
   --graticule: rgba(31, 44, 62, 0.05);
   --swatch-border: rgba(36, 50, 48, 0.18);
   --shadow: rgba(36, 50, 48, 0.16);
@@ -115,6 +123,17 @@
   --radius-control: 12px;
   --radius-sm: 4px;
   --radius-pill: 999px;
+  --radius-rail: 18px;
+  --radius-chip: calc(var(--radius-sm) - 1px);
+  --radius-spine: calc(var(--radius-sm) + 1px);
+  --radius-key: calc(var(--radius-sm) + 2px);
+  --radius-item: calc(var(--radius) - 2px);
+  --radius-row: calc(var(--radius) - 1px);
+  --radius-box: calc(var(--radius) + 1px);
+  --radius-tile: calc(var(--radius) + 2px);
+  --radius-stage: calc(var(--radius-control) + 1px);
+  --radius-legend: calc(var(--radius-lg) + 2px);
+  --rail-shift: 0px;
   --text-hero: 27px;
   --text-title: 22px;
   --text-heading: 15px;
@@ -170,6 +189,11 @@
   --danger: #e06e5a;
   --danger-dim: rgba(224, 110, 90, 0.12);
   --focus: #74a6ff;
+  --health-ok: #45c58f;
+  --health-ok-bright: #5fe3ab;
+  --health-ok-dim: rgba(69, 197, 143, 0.13);
+  --health-ok-wash: rgba(69, 197, 143, 0.12);
+  --on-health-ok: #06231a;
   --graticule: rgba(151, 170, 205, 0.045);
   --sheet: var(--sheet-dark);
   --swatch-border: rgba(255, 255, 255, 0.12);
@@ -218,6 +242,11 @@
     --danger: #e06e5a;
     --danger-dim: rgba(224, 110, 90, 0.12);
     --focus: #74a6ff;
+    --health-ok: #45c58f;
+    --health-ok-bright: #5fe3ab;
+    --health-ok-dim: rgba(69, 197, 143, 0.13);
+    --health-ok-wash: rgba(69, 197, 143, 0.12);
+    --on-health-ok: #06231a;
     --graticule: rgba(151, 170, 205, 0.045);
     --sheet: var(--sheet-dark);
     --swatch-border: rgba(255, 255, 255, 0.12);
@@ -1150,6 +1179,11 @@ select.kit-field-field {
   transform: translateY(-100%);
 }
 
+/* Beside a rail icon: on the icon's centre line. */
+.kit-hintlayer-bubble[data-beside] {
+  transform: translateY(-50%);
+}
+
 @keyframes hint-in {
   from {
     opacity: 0;
@@ -1537,7 +1571,7 @@ select.kit-field-field {
 }
 
 .kit-status-dot[data-live]::before {
-  background: var(--accent);
+  background: var(--health-ok);
 }
 
 .kit-status-dotText {
@@ -2164,7 +2198,7 @@ select.kit-field-field {
       <div class="principle"><span class="idx">R2</span><span class="pt"><b>The mono boundary</b><span>Mono carries code and data — SQL, dataset-table and dataset-list values, schema and machine identifiers, expression inputs, feature readouts, raw errors — never control labels, buttons, prose sentences, or chrome figures: counts and coordinates read the UI face, tabular where steadiness matters.</span></span></div>
       <div class="principle"><span class="idx">R3</span><span class="pt"><b>The ink hierarchy</b><span>Full ink for anything you act on or need to read — names, values, labels of controls. Muted only for secondary description. Faint only for decoration-grade text — never a value, never a label, never anything you'd miss if it vanished. Each application is checked against rendered evidence; where the rule worsens a surface, that returns as a question, never a silent exception.</span></span></div>
       <!-- wheelhouse:allow — R4 must print the glyphs it bans --><div class="principle"><span class="idx">R4</span><span class="pt"><b>Drawn icons, three tiers</b><span>SVG icons only — action at 13px/2.0 stroke, chrome normally at 16px with a 1.6–2.0 stroke, illustrative at 20px/1.5. Chrome may use a 22px filled directional mark where that geometry needs the control height; the stage compass is the named instance. Unicode glyphs (▸ ✓ ＋ ◇ ⚠ …) are banned in UI chrome.</span></span></div>
-      <div class="principle"><span class="idx">R5</span><span class="pt"><b>The radius family, closed</b><span>sm 4 · 9 · control 12 · lg 14 · card 20 · pill. Everything snaps to family.</span></span></div>
+      <div class="principle"><span class="idx">R5</span><span class="pt"><b>The radius family, closed</b><span>sm 4 · 9 · control 12 · lg 14 · card 20 · rail 18 · pill. Everything snaps to family and reads it through its token, so the Corners pick reaches every rounded edge; only pills and rounds are written as values.</span></span></div>
       <div class="principle"><span class="idx">R6</span><span class="pt"><b>Four motion roles</b><span>Panel 0.3s, micro 0.13s, entrance 0.22s on the settle curve, feedback 0.35s after a readable hold — all collapsing under reduced motion. Three continuous identities are named exceptions, not a fifth role, and stay as they are in code: the compass's linear tracking, the indefinite tile-preparation pulse, and the drag settle-and-reveal on its 250ms bespoke curve.</span></span></div>
       <div class="principle"><span class="idx">R7</span><span class="pt"><b>Control tiers and the hit-area contract</b><span>Three tiers — 38px chrome (carrying R4's chrome icon), 30px compact, and icon-action, whose visual size follows the icon tiers (R4) while its hit target is the contract's floor. The contract: every interactive target offers at least 24×24px of hit area regardless of visual size.</span></span></div>
       <div class="principle"><span class="idx">R8</span><span class="pt"><b>One primary: flat accent</b><span>The flat accent button is the only primary treatment; the gradient is retired.</span></span></div>

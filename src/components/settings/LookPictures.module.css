@@ -1,0 +1,606 @@
+/* The Appearance tab's pictures. Each reads its own option's tokens (the
+   pictures' stylesheet, keyed on data-picture-<pick>) and the person's
+   look for everything else, so nothing here names a colour. The scaled
+   ones hold a stage drawn at a logical width (s 190, m 240; the box is
+   16:10) that the component scales to its box through --picture-scale. */
+
+.art {
+  --picture-scale: 0.5;
+  /* The texture a picture lays: none here, at a class's weight, so the
+     pictures' stylesheet (keyed on the root and the picture, heavier)
+     always decides it */
+  --picture-sheet: none;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.art span,
+.art b,
+.art i,
+.art small {
+  display: block;
+  font-style: normal;
+}
+
+.stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  transform: scale(var(--picture-scale));
+}
+
+.stage[data-size="s"] {
+  width: 190px;
+  height: 118.75px;
+}
+
+.stage[data-size="m"] {
+  width: 240px;
+  height: 150px;
+}
+
+/* ---- Background: the texture itself, laid several times over so a small
+   picture reads (the page's own stays as faint as ever), under a card
+   floating on it ---- */
+
+.backgroundArt {
+  background-color: var(--bg);
+}
+
+.backgroundArt[data-picture-background="atlantic"] {
+  background-image: var(--picture-sheet), var(--picture-sheet), var(--picture-sheet), var(--picture-sheet), var(--picture-sheet), var(--picture-sheet);
+  background-size: 760px auto;
+  /* centred on the chart's eastern shore */
+  background-position: calc(50% - 237px) calc(50% + 77px);
+  background-repeat: no-repeat;
+}
+
+.backgroundArt[data-picture-background="plain"] {
+  background-image: none;
+}
+
+.backgroundArt[data-picture-background="graticule"] {
+  background-image: var(--picture-sheet), var(--picture-sheet), var(--picture-sheet), var(--picture-sheet), var(--picture-sheet);
+  background-size: 88px 88px;
+  background-position: 0 0;
+  background-repeat: repeat;
+}
+
+.backgroundArt[data-picture-background="hex"] {
+  background-image: var(--picture-sheet), var(--picture-sheet), var(--picture-sheet), var(--picture-sheet);
+  background-size: 31.177px 54px;
+  background-position: 0 0;
+  background-repeat: repeat;
+}
+
+.art .bgCard {
+  position: absolute;
+  right: 9%;
+  bottom: 9%;
+  width: 42%;
+  height: 30%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 8px;
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  box-shadow: 0 3px 12px var(--shadow);
+}
+
+.bgCard > i {
+  height: 6px;
+  width: 62%;
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+
+.bgCard > i + i {
+  width: 38%;
+  background: var(--border);
+}
+
+/* ---- Color: the shell in that Color, on its ground and the person's
+   Background in its inks (doubled, so a small picture reads) ---- */
+
+.colorArt {
+  background-color: var(--bg);
+  background-image: var(--picture-sheet), var(--picture-sheet);
+  background-size: 760px auto;
+  background-position: calc(50% - 237px) calc(50% + 77px);
+  background-repeat: no-repeat;
+}
+
+:global(:root[data-look-background="graticule"]) .colorArt {
+  background-size: 88px 88px;
+  background-position: 0 0;
+  background-repeat: repeat;
+}
+
+:global(:root[data-look-background="hex"]) .colorArt {
+  background-size: 31.177px 54px;
+  background-position: 0 0;
+  background-repeat: repeat;
+}
+
+.art .coHead {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  width: 58%;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  box-shadow: 0 3px 12px var(--shadow);
+}
+
+.art .coHead > b {
+  font-family: var(--font-display);
+  font-size: var(--text-heading);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--accent-bright);
+}
+
+.coHead > i {
+  width: 30px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--accent-wash);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.art .coRail {
+  position: absolute;
+  left: 10px;
+  top: 48px;
+  bottom: 10px;
+  width: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding-top: 8px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
+  box-shadow: 0 3px 12px var(--shadow);
+}
+
+.coRail > i {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--fg-faint);
+}
+
+.coRail > i[data-on] {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.art .coCard {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  top: 48px;
+  left: 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.art .coRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.coRow > i {
+  height: 6px;
+  width: 38%;
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+
+.art .coSwitch {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.coSwitch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--bg-panel);
+  box-shadow: 0 1px 2px var(--shadow);
+}
+
+.art .coButton {
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: var(--control-compact);
+  padding: 0 12px;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--text-label);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---- Contrast: rows with their borders, quieter words and a field ---- */
+
+.art .ctCard {
+  position: absolute;
+  inset: 12px;
+  display: flex;
+  flex-direction: column;
+  padding: 0 12px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.art .ctRow {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.art .ctRow:first-child {
+  border-top: 0;
+}
+
+.art .ctText {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ctText b {
+  font-size: var(--text-body);
+  font-weight: 500;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctText small {
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.art .ctField {
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: var(--control-compact);
+  padding: 0 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-raised);
+  font-size: var(--text-body);
+  font-variant-numeric: tabular-nums;
+}
+
+.art .ctSwitch {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+
+.ctSwitch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--bg-panel);
+  box-shadow: 0 1px 2px var(--shadow);
+}
+
+/* ---- Typeface: a few words in that face ---- */
+
+.art .fnCard {
+  position: absolute;
+  inset: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 12px;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  box-shadow: 0 3px 12px var(--shadow);
+}
+
+.fnSample {
+  font-size: var(--text-hero);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.fnName {
+  font-size: var(--text-body);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.fnDigits {
+  font-size: var(--text-label);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ---- Corners: a card, a field, a choice and a button in that family ---- */
+
+.art .crCard {
+  position: absolute;
+  inset: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 16px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  box-shadow: 0 3px 12px var(--shadow);
+}
+
+.art .crField {
+  display: flex;
+  align-items: center;
+  height: var(--control-compact);
+  padding: 0 10px;
+  overflow: hidden;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-raised);
+  font-size: var(--text-body);
+  white-space: nowrap;
+}
+
+.art .crActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.art .crSegments {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.crSegments > i {
+  width: 20px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+}
+
+.crSegments > i[data-on] {
+  background: var(--accent-dim);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.art .crButton {
+  display: flex;
+  align-items: center;
+  height: var(--control-compact);
+  padding: 0 12px;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--text-label);
+  font-weight: 600;
+}
+
+/* ---- Side menu: the menu beside a page in each behavior; the hover
+   picture opens it while the pointer rests on its card ---- */
+
+.art .smRail {
+  position: absolute;
+  z-index: 2;
+  left: 8px;
+  top: 8px;
+  bottom: 8px;
+  width: 34px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 6px;
+  border-radius: var(--radius-control);
+  background: var(--bg-panel);
+  box-shadow: 0 3px 12px var(--shadow);
+  transition:
+    width var(--dur-entrance) var(--ease-panel),
+    box-shadow var(--dur-entrance) var(--ease-panel);
+}
+
+.art .smRail > span {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 22px;
+  padding: 0 4px;
+  border-radius: var(--radius);
+}
+
+.art .smRail > span[data-on] {
+  background: var(--accent-dim);
+}
+
+.smRail i {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--fg-faint);
+}
+
+.smRail [data-on] i {
+  background: var(--accent);
+}
+
+.smRail b {
+  flex: none;
+  width: 46px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  opacity: 0;
+  transition: opacity var(--dur-entrance) ease;
+}
+
+.art .smPage {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  bottom: 8px;
+  left: 50px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  transition: left var(--dur-entrance) var(--ease-panel);
+}
+
+.smPage > i {
+  height: 6px;
+  width: 62%;
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+
+.smPage > i + i {
+  width: 100%;
+  background: var(--border);
+}
+
+.smPage > i + i + i {
+  width: 38%;
+}
+
+.art[data-picture-rail="open"] .smRail {
+  width: 104px;
+}
+
+.art[data-picture-rail="open"] .smRail b {
+  opacity: 1;
+}
+
+.art[data-picture-rail="open"] .smPage {
+  left: 120px;
+}
+
+[role="radio"]:hover .art[data-picture-rail="hover"] .smRail {
+  width: 104px;
+  box-shadow:
+    0 10px 30px var(--shadow),
+    16px 0 36px -18px var(--shadow);
+  transition-delay: var(--dur-micro);
+}
+
+[role="radio"]:hover .art[data-picture-rail="hover"] .smRail b {
+  opacity: 1;
+  transition-delay: var(--dur-micro);
+}
+
+.art .smPointer {
+  position: absolute;
+  z-index: 3;
+  left: 30px;
+  top: 66px;
+  color: var(--fg);
+  transition: opacity var(--dur-micro) ease;
+}
+
+.smPointer svg {
+  fill: var(--bg-panel);
+}
+
+[role="radio"]:hover .smPointer {
+  opacity: 0;
+}
+
+.art .smHint {
+  position: absolute;
+  z-index: 3;
+  left: 46px;
+  top: 16px;
+  display: flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-hover);
+  box-shadow: 0 4px 14px var(--shadow);
+  font-size: var(--text-meta);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .art .smRail,
+  .smRail b,
+  .art .smPage,
+  .art .smPointer {
+    transition-duration: 0s;
+  }
+}

@@ -10,8 +10,9 @@
   top: 62px;
   bottom: var(--gutter);
   /* Right where the inspector ends: the drawer sits between it and the stage,
-     and its own width plus the 12 px gutter is what the stage moves by. */
-  left: var(--stage-left-base);
+     and its own width plus the 12 px gutter is what the stage moves by. The
+     always-open rail moves the inspector, and the drawer with it. */
+  left: calc(var(--stage-left-base) + var(--rail-shift));
   width: var(--drawer-width, 342px);
   z-index: 3;
   display: flex;

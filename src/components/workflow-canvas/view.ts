@@ -15,13 +15,16 @@ export const FAR_ZOOM = 0.6;
  * the last row never lands under it (reference 13's free rect). `reserve`
  * is what the band keeps at the foot in full view. `helperRight` is what
  * the assistant pane takes on the right when it overlays the canvas, and
- * what a shifted panel moved by: the fit keeps out from under both. */
-export function fitOptions(view: "full" | "framed", panel = false, reserve = 0, helperRight = 0): FitViewOptions {
+ * what a shifted panel moved by: the fit keeps out from under both.
+ * `railShift` is what the always-open rail moved the pane right by, which
+ * the full view's free area loses on its left; the framed card moves with
+ * the pane and keeps its own insets. */
+export function fitOptions(view: "full" | "framed", panel = false, reserve = 0, helperRight = 0, railShift = 0): FitViewOptions {
   // An open panel takes the right edge: the fit keeps out from under it.
   const right: `${number}px` = `${(panel ? 386 : 56) + helperRight}px`;
   const padding: FitViewOptions["padding"] =
     view === "full"
-      ? { top: "76px", right, bottom: `${56 + reserve}px`, left: "494px" }
+      ? { top: "76px", right, bottom: `${56 + reserve}px`, left: `${494 + railShift}px` }
       : { top: "56px", right, bottom: "56px", left: "56px" };
   return { padding, minZoom: MIN_ZOOM, maxZoom: 1.15 };
 }

@@ -50,6 +50,8 @@ it.each(["cookie", "token"])("refuses a non-admin mixed instance/personal patch 
 it.each([
   { displayName: "Changed", instanceName: "Changed", viewPrefs: { maps: { view: "invalid" } } },
   { displayName: "Changed", instanceName: 4 },
+  { displayName: "Changed", instanceName: "Changed", viewPrefs: { maps: { view: "list" } }, look: { color: "harbor", rail: "sideways" } },
+  { displayName: "Changed", instanceName: "Changed", sourceGrouping: "project", look: { glow: "on" } },
 ])("validates the whole admin patch before writing any field", async body => {
   const before = state(); const response = await patch(body, admin.secret);
   expect.soft(response.status).toBe(400); expect(state()).toEqual(before);
@@ -63,7 +65,7 @@ it("projects the caller and ignores submitted identity when writing only their n
     { "x-account-id": admin.account.id, "x-account-admin": "true" });
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ displayName: "My new name", instanceName: "Field atlas", viewPrefs: { maps: { view: "grid", sort: "name" }, data: { sort: "size" } },
-    sourceGrouping: "person" });
+    sourceGrouping: "person", look: { color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover" } });
   expect(getAccount(admin.account.id, db)?.name).toBe("Admin");
   expect(accountViewPrefs(admin.account.id, db)).toEqual({ maps: { view: "list", sort: "name" } });
   expect(instanceName(db)).toBe("Field atlas");

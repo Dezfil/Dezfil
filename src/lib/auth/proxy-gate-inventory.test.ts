@@ -49,7 +49,9 @@ it.each(["anonymous", "invalid", "revoked-token", "revoked-cookie"])("refuses %s
 it("redirects every private application page before and after setup, including unknown future routes", async () => {
   const pages = walk(path.join(process.cwd(), "src/app")).filter(file => file.endsWith("/page.tsx"))
     .map(file => "/" + path.relative("src/app", path.dirname(file)).split(path.sep).filter(segment => !segment.startsWith("(")).map(segment => segment.startsWith("[") ? "fixture" : segment).join("/"))
-    .filter(page => !["/setup", "/sign-in", "/accept", "/v/fixture"].includes(page));
+    .filter(page => !["/setup", "/sign-in", "/accept"].includes(page) && page !== "/v" && !page.startsWith("/v/"));
+  // The render root's own addresses are private like a map's render page.
+  expect(pages).toEqual(expect.arrayContaining(["/render", "/render/fixture", "/render/fixture/fixture"]));
   pages.push("/future-feature", "/private.json", "/_next/data/build/maps.json", "/_next/image?url=/api/maps");
   for (const destination of ["/setup", "/sign-in"]) {
     for (const pathname of pages) {
@@ -74,7 +76,7 @@ it("refuses cross-site cookie mutations across the protected inventory without r
 });
 
 it("allows only explicit anonymous methods and data-free assets, even with an invalid cookie", () => {
-  const publicPaths = ["/api/health", "/api/auth/entry", "/accept", "/v/token", "/v/token?embed=1", "/_next/static/chunks/app.js", "/_next/static/media/font.woff2", "/icon.svg", "/shell-sheet-light.svg", "/maki/marker.svg", "/workers/maplibre-gl-6.11.2/maplibre-gl-worker.mjs", "/workers/loaders.gl-mvt-worker-4.4.5.js"];
+  const publicPaths = ["/api/health", "/api/auth/entry", "/accept", "/v/token", "/v/token?embed=1", "/v", "/v/token/extra", "/v/token/extra/more", "/_next/static/chunks/app.js", "/_next/static/media/font.woff2", "/icon.svg", "/shell-sheet-light.svg", "/maki/marker.svg", "/workers/maplibre-gl-6.11.2/maplibre-gl-worker.mjs", "/workers/loaders.gl-mvt-worker-4.4.5.js"];
   for (const pathname of publicPaths) {
     const response = gateRequest(input(pathname, "GET", { cookie: "dezfil_session=invalid" }));
     expect.soft(response.headers.get("x-middleware-next"), pathname).toBe("1");
@@ -85,11 +87,11 @@ it("allows only explicit anonymous methods and data-free assets, even with an in
     const pathname = template.replaceAll(/\{[^}]+\}/g, "fixture");
     expect.soft(gateRequest(input(pathname, method)).headers.get("x-middleware-next"), key).toBe("1");
   }
-  for (const pathname of ["/api/health", "/api/published/token", "/api/published/token/widget-values", "/v/token", "/_next/static/chunks/app.js", "/maki/marker.svg"]) {
+  for (const pathname of ["/api/health", "/api/published/token", "/api/published/token/widget-values", "/v/token", "/v", "/v/token/extra", "/_next/static/chunks/app.js", "/maki/marker.svg"]) {
     const response = gateRequest(input(pathname, "DELETE"));
     expect.soft(response.headers.get("x-middleware-next"), pathname).toBeNull();
   }
-  for (const pathname of ["/api/published/token/authoring", "/api/published/token/widget-values/extra", "/api/unknown.svg", "/maki/private.svg", "/workers/private.js", "/_next/server/private.js", "/_next/hmr"]) {
+  for (const pathname of ["/vault", "/viewer/token", "/render", "/render/token/extra", "/api/published/token/authoring", "/api/published/token/widget-values/extra", "/api/unknown.svg", "/maki/private.svg", "/workers/private.js", "/_next/server/private.js", "/_next/hmr"]) {
     expect.soft(gateRequest(input(pathname)).headers.get("x-middleware-next"), pathname).toBeNull();
   }
 });

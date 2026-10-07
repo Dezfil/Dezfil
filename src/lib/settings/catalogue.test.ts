@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { SETTING_CATALOGUE, TEST_WIRING, settingDefinition } from "./catalogue";
 import { catalogueProblems, validateStoredValue } from "./validation";
+import { lockedEnvironment } from "./resolver";
 import { DEFAULTS, EDITABLE_NUMBERS } from "../../../test-support/settings-fixtures";
 
 describe("settings catalogue", () => {
@@ -65,6 +66,7 @@ describe("settings catalogue", () => {
       "workflows.view": ["grid", "list"], "workflows.sort": ["edited", "created", "name"],
       "projects.view": ["grid", "list"], "projects.sort": ["updated", "name", "largest"],
       sourceGrouping: ["person", "project"],
+      ...LOOK,
     };
     expect(SETTING_CATALOGUE.filter(d => d.scope === "account").map(d => d.key).sort()).toEqual(Object.keys(choices).filter(k => k !== "landingPage").sort());
     for (const [key, values] of Object.entries(choices)) {
@@ -75,5 +77,37 @@ describe("settings catalogue", () => {
       for (const value of ["unknown", "", 1, [], {}]) expect(validateStoredValue(definition, value).ok).toBe(false);
       if (definition.scope === "account") expect(validateStoredValue(definition, null).ok).toBe(false);
     }
+  });
+});
+
+/** The look's six picks, today's value first: the account's own choices. */
+const LOOK = {
+  "look.color": ["kelp", "harbor", "heather", "slate"],
+  "look.contrast": ["standard", "more"],
+  "look.font": ["inter", "system"],
+  "look.background": ["atlantic", "plain", "graticule", "hex"],
+  "look.corners": ["rounded", "soft"],
+  "look.rail": ["hover", "open", "icons"],
+};
+
+describe("the look's six picks", () => {
+  it("are account choices defaulting to today's value, with no variable, never secret and never locked", () => {
+    for (const [key, values] of Object.entries(LOOK)) {
+      const definition = settingDefinition(key);
+      expect(definition, key).toMatchObject({ scope: "account", readBy: "account", changedBy: "account", kind: "choice",
+        timing: "live", secret: false, editable: true, defaultValue: values[0], write: { kind: "choice", values } });
+      expect(definition.label, key).not.toBe("");
+      expect(definition.environment, key).toBeUndefined();
+      expect(lockedEnvironment(definition), key).toBeUndefined();
+    }
+  });
+
+  it.each(Object.keys(LOOK).flatMap(key => [
+    [key, "variable", { environment: "DEZFIL_LOOK_SEEDED" }, "account variable"],
+    [key, "secret mark", { secret: true }, "editable secret"],
+  ] as const))("%s fails the catalogue with a seeded %s", (key, _seed, change, problem) => {
+    expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
+    const seeded = SETTING_CATALOGUE.map(definition => definition.key === key ? { ...definition, ...change } : definition);
+    expect(catalogueProblems(seeded)).toContain(`${key}: ${problem}`);
   });
 });

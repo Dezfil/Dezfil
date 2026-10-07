@@ -26,6 +26,7 @@ import { useLayoutSaves, type LayoutSnapshot, type SaveState } from "./use-layou
 import type { RecipeCoordinator } from "./use-recipe-edits";
 import type { WorkflowRunner } from "./use-workflow-run";
 import { fitOptions } from "./view";
+import { readRailShift } from "../rail-mode";
 
 /**
  * The canvas's interaction and edit wiring, out of `WorkflowCanvas.tsx`
@@ -277,7 +278,7 @@ export function useCanvasEditing({
     const settle = window.setTimeout(
       () => {
         setAnimating(false);
-        void flow.fitView({ ...fitOptions(view, fitPanelRef.current, reserveRef.current, helperRightRef.current), duration: animate ? 240 : 0 });
+        void flow.fitView({ ...fitOptions(view, fitPanelRef.current, reserveRef.current, helperRightRef.current, readRailShift()), duration: animate ? 240 : 0 });
       },
       animate ? 320 : 0,
     );
@@ -565,7 +566,7 @@ export function useCanvasEditing({
     window.setTimeout(
       () => {
         setAnimating(false);
-        void flow.fitView({ ...fitOptions(viewRef.current, fitPanelRef.current, reserveRef.current, helperRightRef.current), duration: animate ? 240 : 0 });
+        void flow.fitView({ ...fitOptions(viewRef.current, fitPanelRef.current, reserveRef.current, helperRightRef.current, readRailShift()), duration: animate ? 240 : 0 });
       },
       animate ? 320 : 0,
     );

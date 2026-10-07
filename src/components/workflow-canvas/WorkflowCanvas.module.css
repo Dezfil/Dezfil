@@ -20,7 +20,7 @@
 
 .host[data-view="full"] {
   --canvas-overlay-top: 62px;
-  --canvas-overlay-left: calc(82px + 342px + var(--gutter));
+  --canvas-overlay-left: calc(82px + var(--rail-shift) + 342px + var(--gutter));
 }
 
 /* Framed view (reference 13): the host is the reference's
@@ -32,7 +32,7 @@
    property the canvas sets from its layout rule; the overlaying pane and
    the full view leave it at zero. */
 .host[data-view="framed"] {
-  inset: 62px calc(var(--gutter) + var(--assistant-right, 0px)) var(--gutter) calc(82px + 342px + var(--gutter));
+  inset: 62px calc(var(--gutter) + var(--assistant-right, 0px)) var(--gutter) calc(82px + var(--rail-shift) + 342px + var(--gutter));
   z-index: 2;
   display: flex;
   flex-direction: column;
@@ -194,7 +194,8 @@
 }
 
 .tBadge[data-s="check"] {
-  background: var(--accent);
+  background: var(--health-ok);
+  color: var(--on-health-ok);
 }
 
 .spin {
@@ -614,7 +615,7 @@
 .pane {
   position: fixed;
   top: 62px;
-  left: 82px;
+  left: calc(82px + var(--rail-shift));
   bottom: var(--gutter);
   width: 342px;
   z-index: 10;
@@ -1487,7 +1488,7 @@ span.chip {
   width: 100%;
   padding: 6px 8px;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--radius);
   background: var(--bg-panel);
   font: inherit;
   font-size: 12px;
@@ -1504,7 +1505,7 @@ span.chip {
   width: 100%;
   padding: 6px 8px;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--radius);
   background: var(--bg-panel);
   font-family: var(--font-mono);
   font-size: 12px;

@@ -87,7 +87,7 @@
   align-items: center;
   gap: 10px;
   padding: 11px 15px;
-  border-radius: 16px;
+  border-radius: var(--radius-legend);
   background: color-mix(in srgb, var(--bg-panel) 93%, transparent);
   backdrop-filter: blur(8px);
   box-shadow: 0 8px 26px var(--shadow);
@@ -157,7 +157,7 @@
 
 .layerFailed {
   padding: 5px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-box);
   background: var(--bg-panel);
   border: 1px solid var(--warn);
   font-size: 10px;

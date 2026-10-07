@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { HELPER_OFFSET } from "../builder/helper-bands";
 import { SQL_KEYS, readStored, writeStored } from "./sql-storage";
+import { readRailShift } from "../rail-mode";
 
 /**
  * The console's remembered sizes and their splits (extracted from
@@ -27,20 +28,21 @@ const RAIL_PX = 82;
 const RIGHT_GUTTER_PX = 14;
 
 /** The width available to the sidebar: the window, less what a docked
- * assistant pane takes with its gutter and the chrome around it. */
-export function sidebarAvailable(innerWidth: number, paneDocked: boolean): number {
-  return paneDocked ? innerWidth - RAIL_PX - HELPER_OFFSET - RIGHT_GUTTER_PX : innerWidth;
+ * assistant pane takes with its gutter and the chrome around it, the
+ * always-open rail's extra width (`railShift`) included. */
+export function sidebarAvailable(innerWidth: number, paneDocked: boolean, railShift = 0): number {
+  return paneDocked ? innerWidth - RAIL_PX - railShift - HELPER_OFFSET - RIGHT_GUTTER_PX : innerWidth;
 }
 
 /** The sidebar's bound: half of what is available to it, never under its minimum. */
-export function sidebarBound(innerWidth: number, paneDocked: boolean): number {
-  return Math.max(PANE_MIN, Math.floor(sidebarAvailable(innerWidth, paneDocked) * PANE_MAX_FRACTION));
+export function sidebarBound(innerWidth: number, paneDocked: boolean, railShift = 0): number {
+  return Math.max(PANE_MIN, Math.floor(sidebarAvailable(innerWidth, paneDocked, railShift) * PANE_MAX_FRACTION));
 }
 
 /** The width the sidebar shows: the remembered width, clamped for the
  * docked pane's duration and otherwise itself. */
-export function shownSidebarWidth(remembered: number, innerWidth: number, paneDocked: boolean): number {
-  return Math.min(remembered, sidebarBound(innerWidth, paneDocked));
+export function shownSidebarWidth(remembered: number, innerWidth: number, paneDocked: boolean, railShift = 0): number {
+  return Math.min(remembered, sidebarBound(innerWidth, paneDocked, railShift));
 }
 
 function clampPane(px: number): number {
@@ -56,6 +58,9 @@ export function useConsoleSplits(paneDocked: boolean) {
   const [paneWidth, setPaneWidth] = useState(342);
   const [editorHeight, setEditorHeight] = useState(260);
   const [innerWidth, setInnerWidth] = useState(1440);
+  // What the always-open rail takes beside the pane, read with the window
+  // after hydration so the first render matches the server's.
+  const [railShift, setRailShift] = useState(0);
 
   /** The remembered sizes, once, client-only: the caller gates on hydration. */
   const hydrate = useCallback(() => {
@@ -64,6 +69,7 @@ export function useConsoleSplits(paneDocked: boolean) {
     const eh = readStored<number | null>(SQL_KEYS.editorHeight, null);
     setEditorHeight(clampEditor(typeof eh === "number" ? eh : (window.innerHeight - 76) * 0.36));
     setInnerWidth(window.innerWidth);
+    setRailShift(readRailShift());
   }, []);
 
   // Reclamp the remembered sizes when the viewport changes.
@@ -72,6 +78,7 @@ export function useConsoleSplits(paneDocked: boolean) {
       setPaneWidth((w) => clampPane(w));
       setEditorHeight((h) => clampEditor(h));
       setInnerWidth(window.innerWidth);
+      setRailShift(readRailShift());
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
@@ -85,13 +92,13 @@ export function useConsoleSplits(paneDocked: boolean) {
       const startY = e.clientY;
       // A drag starts from the width shown, so a clamped sidebar is not
       // yanked to its remembered width at the first pixel of the drag.
-      const startW = shownSidebarWidth(paneWidth, window.innerWidth, paneDocked);
+      const startW = shownSidebarWidth(paneWidth, window.innerWidth, paneDocked, readRailShift());
       const startH = editorHeight;
       handle.setAttribute("data-drag", "");
       document.body.style.cursor = axis === "x" ? "col-resize" : "row-resize";
       document.body.style.userSelect = "none";
       const move = (ev: MouseEvent) => {
-        if (axis === "x") setPaneWidth(Math.min(sidebarBound(window.innerWidth, paneDocked), clampPane(startW + ev.clientX - startX)));
+        if (axis === "x") setPaneWidth(Math.min(sidebarBound(window.innerWidth, paneDocked, readRailShift()), clampPane(startW + ev.clientX - startX)));
         else setEditorHeight(clampEditor(startH + ev.clientY - startY));
       };
       const up = () => {
@@ -117,7 +124,7 @@ export function useConsoleSplits(paneDocked: boolean) {
 
   return {
     /** The width the sidebar shows now. */
-    paneWidth: shownSidebarWidth(paneWidth, innerWidth, paneDocked),
+    paneWidth: shownSidebarWidth(paneWidth, innerWidth, paneDocked, railShift),
     editorHeight,
     hydrate,
     startDrag,

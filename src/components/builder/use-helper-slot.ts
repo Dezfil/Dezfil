@@ -1,10 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-import { OVERLAY_BELOW, type RecipeDrawerState } from "./drawer/use-recipe-drawer";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { RecipeDrawerState } from "./drawer/use-recipe-drawer";
 import {
-  BOTH_FROM,
-  bandOf,
   closeHelper,
   crossBand,
   openHelper,
@@ -14,6 +12,7 @@ import {
   type Helper,
   type HelperSlot,
 } from "./helper-bands";
+import { useViewportBand } from "./use-viewport-band";
 
 /**
  * The two-sided helper slot's coordinator: the pure rules in
@@ -39,20 +38,6 @@ export const TOOLS_DOOR_SELECTOR = "[data-tools-control]";
 const TOOLS_SELECTOR = "[data-recipe-drawer]";
 const ASSISTANT_SELECTOR = "[data-assistant-pane]";
 
-function subscribeBand(onChange: () => void): () => void {
-  const narrow = window.matchMedia(`(max-width: ${OVERLAY_BELOW}px)`);
-  const wide = window.matchMedia(`(min-width: ${BOTH_FROM}px)`);
-  narrow.addEventListener("change", onChange);
-  wide.addEventListener("change", onChange);
-  return () => {
-    narrow.removeEventListener("change", onChange);
-    wide.removeEventListener("change", onChange);
-  };
-}
-const readBand = (): Band => bandOf(window.innerWidth);
-/** The server renders the one-docked layout; the client corrects on first paint. */
-const serverBand = (): Band => "one";
-
 /** Focus inside the helper the width is about to hide lands on its door. */
 function moveFocusToDoor(helper: Helper) {
   const surface = document.querySelector(helper === "tools" ? TOOLS_SELECTOR : ASSISTANT_SELECTOR);
@@ -62,7 +47,8 @@ function moveFocusToDoor(helper: Helper) {
 
 export interface HelperSlotControl {
   band: Band;
-  /** True at and below the shell's breakpoint, where a helper overlays. */
+  /** True in the overlay band, where a helper overlays: at and below the
+   * shell's breakpoint, moved up by the open rail. Both helpers read it. */
   overlay: boolean;
   toolsVisible: boolean;
   assistantVisible: boolean;
@@ -78,7 +64,9 @@ export interface HelperSlotControl {
 interface Memory { lastOpened: Helper | null; hidden: Helper | null; band: Band }
 
 export function useHelperSlot(drawer: RecipeDrawerState, onToolsOpenedRef: React.RefObject<(() => void) | null>): HelperSlotControl {
-  const band = useSyncExternalStore(subscribeBand, readBand, serverBand);
+  // The rail's width is inside the bands' chrome, so Always open moves
+  // both limits with it.
+  const band = useViewportBand();
   const [assistantHand, setAssistantHand] = useState(false);
   const [memory, setMemory] = useState<Memory>({ lastOpened: null, hidden: null, band });
 

@@ -453,6 +453,120 @@ describe("Reset to defaults, and Undo", () => {
   });
 });
 
+describe("a write made beside the card", () => {
+  it("takes what another writer kept as a response is taken: the values, the defaults' Reset, no Saved, no Undo", async () => {
+    const server = fakeServer({ landingPage: "maps" }), unit = signIn(server);
+    unit.choose("landingPage", "sql");
+    server.calls[0].accept(); await flush();
+    expect(unit.snapshot.saved).toEqual(["landingPage"]);
+    unit.sync({ landingPage: "home", unknownKey: "ignored" });
+    expect(unit.snapshot.values.landingPage).toBe("home");
+    expect(unit.snapshot.kept.landingPage).toBe("home");
+    expect(unit.snapshot.saved).toEqual([]);
+    expect(unit.snapshot.slot).toBeNull();
+    expect(server.calls).toHaveLength(1);
+  });
+
+  it("lets the card's Undo go, since what it would write back is gone", async () => {
+    const server = fakeServer({ landingPage: "maps" }), unit = signIn(server);
+    unit.reset(); server.calls[0].accept(); await flush();
+    expect(unit.snapshot.slot).toBe("undo");
+    unit.sync({ landingPage: "projects" });
+    expect(unit.snapshot.slot).toBe("reset");
+    unit.undo();
+    expect(server.calls).toHaveLength(1);
+  });
+
+  it("keeps a newer change on its way showing, and lands it when its own write answers", async () => {
+    const server = fakeServer({ landingPage: "maps" }), unit = signIn(server);
+    unit.choose("landingPage", "sql");
+    unit.choose("landingPage", "data");
+    unit.sync({ landingPage: "home" });
+    expect(unit.snapshot.values.landingPage).toBe("data");
+    expect(unit.snapshot.kept.landingPage).toBe("home");
+    server.calls[0].accept(); await flush();
+    server.calls[1].accept(); await flush();
+    expect(unit.snapshot.values.landingPage).toBe("data");
+    expect(unit.snapshot.saved).toEqual(["landingPage"]);
+  });
+
+  it("clears a row's red line with the value now kept", async () => {
+    const server = fakeServer({ landingPage: "maps" }), unit = signIn(server);
+    unit.choose("landingPage", "sql");
+    server.calls[0].refuse("invalid_request", "landingPage: Not a page here."); await flush();
+    expect(unit.snapshot.errors.landingPage).toBe("Not a page here.");
+    unit.sync({ landingPage: "home" });
+    expect(unit.snapshot.errors).toEqual({});
+    expect(unit.snapshot.values.landingPage).toBe("home");
+  });
+
+  it("drops a change not yet sent when another writer's write goes past it, then shows what that write kept", async () => {
+    const server = fakeServer({ landingPage: "maps" }), unit = signIn(server);
+    unit.choose("landingPage", "sql");
+    unit.choose("landingPage", "data");
+    unit.supersede(["landingPage", "elsewhere"]);
+    // The change on its way still shows until the other write answers.
+    expect(unit.snapshot.values.landingPage).toBe("data");
+    server.calls[0].accept(); await flush();
+    expect(server.calls.map(call => call.patch)).toEqual([{ landingPage: "sql" }]);
+    expect(unit.snapshot.saved).toEqual([]);
+    expect(unit.snapshot.values.landingPage).toBe("data");
+    unit.sync({ landingPage: "home" });
+    expect(unit.snapshot.values.landingPage).toBe("home");
+    expect(unit.snapshot.kept.landingPage).toBe("home");
+    await vi.advanceTimersByTimeAsync(SAVED_HOLD_MS);
+    expect(server.calls).toHaveLength(1);
+  });
+
+  it("returns a row the other write went past to what is kept when that write is refused", async () => {
+    const server = fakeServer({ landingPage: "maps" }), unit = signIn(server);
+    unit.choose("landingPage", "sql");
+    unit.choose("landingPage", "data");
+    unit.supersede(["landingPage"]);
+    server.calls[0].accept(); await flush();
+    unit.release(["landingPage"]);
+    expect(unit.snapshot.values.landingPage).toBe("sql");
+    expect(unit.snapshot.kept.landingPage).toBe("sql");
+    expect(server.calls).toHaveLength(1);
+  });
+
+  it("sends a change made after the other write even when it repeats the write that write overtakes", async () => {
+    const server = fakeServer({ landingPage: "maps" }), unit = signIn(server);
+    unit.choose("landingPage", "sql");
+    unit.choose("landingPage", "data");
+    unit.supersede(["landingPage"]);
+    // The other write lands after "sql", so "sql" again is a change of its own.
+    unit.choose("landingPage", "sql");
+    server.calls[0].accept(); await flush();
+    expect(server.calls.map(call => call.patch)).toEqual([{ landingPage: "sql" }, { landingPage: "sql" }]);
+    // The other write lands first and reports its value; the later change still shows.
+    unit.sync({ landingPage: "home" });
+    expect(unit.snapshot.values.landingPage).toBe("sql");
+    server.calls[1].accept(); await flush();
+    expect(unit.snapshot.values.landingPage).toBe("sql");
+    expect(unit.snapshot.kept.landingPage).toBe("sql");
+    expect(unit.snapshot.saved).toEqual(["landingPage"]);
+    // Once the other write has answered, a repeat of what is on its way is not sent again.
+    unit.choose("landingPage", "data");
+    unit.choose("landingPage", "data");
+    expect(server.calls.map(call => call.patch).slice(2)).toEqual([{ landingPage: "data" }]);
+  });
+
+  it("keeps a change made after the other write showing, and sends it after that write", async () => {
+    const server = fakeServer({ landingPage: "maps" }), unit = signIn(server);
+    unit.choose("landingPage", "sql");
+    unit.supersede(["landingPage"]);
+    unit.choose("landingPage", "data");
+    unit.sync({ landingPage: "home" });
+    expect(unit.snapshot.values.landingPage).toBe("data");
+    server.calls[0].accept(); await flush();
+    expect(server.calls.map(call => call.patch)).toEqual([{ landingPage: "sql" }, { landingPage: "data" }]);
+    server.calls[1].accept(); await flush();
+    expect(unit.snapshot.values.landingPage).toBe("data");
+    expect(unit.snapshot.saved).toEqual(["landingPage"]);
+  });
+});
+
 describe("a setting pinned by the server's environment", () => {
   const pinned: UnitControl = { key: "previewRows", kind: "number", min: 10, max: 100000, defaultValue: 1000, locked: true };
 

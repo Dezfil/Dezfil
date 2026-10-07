@@ -31,9 +31,9 @@
   width: 7px;
   height: 7px;
   border-radius: var(--radius-pill);
-  background: var(--accent);
+  background: var(--health-ok);
   flex-shrink: 0;
-  box-shadow: 0 0 0 3px var(--accent-dim);
+  box-shadow: 0 0 0 3px var(--health-ok-dim);
 }
 
 .ago {

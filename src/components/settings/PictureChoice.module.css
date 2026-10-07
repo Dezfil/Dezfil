@@ -1,0 +1,60 @@
+/* Picture cards: a settings row's choice as cards, each a picture over its
+   name, in even columns so a card is the same size in every row of a tab
+   (a row of two leaves the other columns empty). The picked card takes
+   the accent's edge and wash. */
+
+.pictures {
+  --picture-columns: 4;
+  display: grid;
+  grid-template-columns: repeat(var(--picture-columns), minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 7px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  text-align: center;
+  transition:
+    border-color var(--dur-micro) ease,
+    background var(--dur-micro) ease;
+}
+
+.card:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.card[aria-checked="true"] {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.card:disabled {
+  opacity: 0.5;
+}
+
+/* The picture's box: 16:10, its drawing clipped to the box's corners. */
+.box {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.name {
+  display: block;
+  font-size: var(--text-label);
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--fg);
+}

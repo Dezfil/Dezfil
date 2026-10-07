@@ -1,5 +1,6 @@
 import { accountChoiceSchema } from "@/lib/settings/account";
 import { settingDefinition } from "@/lib/settings/catalogue";
+import { LOOK_KEYS } from "@/lib/look";
 import { op, jsonOk, ERROR_RESPONSE } from "./openapi-helpers";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
 import { LOCAL_READ, LOCAL_REPLACE } from "./operation-mcp";
@@ -32,6 +33,27 @@ function viewPrefsSchema() {
   };
 }
 
+/** The account's look: the six picks, each property built from its catalogue
+ * definition, closed to unknown keys. The read carries every pick; the
+ * update takes any of them and leaves the rest as they are. */
+function lookSchema(position: "read" | "update") {
+  return {
+    type: "object",
+    additionalProperties: false,
+    description: position === "read"
+      ? "Your look, every pick at its kept value or its default; a kept value this version no longer offers reads as " +
+        "its default. It follows you to every browser you sign in to; published pages and exported images keep the default look."
+      : "Any of your look's picks; the others stay as they are. A value outside a pick's choices, or a key that is not " +
+        "one of the picks, refuses the whole update: a bad value is named as look.<key>, an unknown key by its position.",
+    properties: Object.fromEntries(LOOK_KEYS.map(key => {
+      const definition = settingDefinition(`look.${key}`);
+      return [key, { ...accountChoiceSchema(`look.${key}`), default: definition.defaultValue,
+        description: `${definition.label}. ${definition.purpose}` }];
+    })),
+    ...(position === "read" ? { required: [...LOOK_KEYS] } : {}),
+  };
+}
+
 /** How the SQL console's source list groups datasets, one account's choice. */
 const sourceGroupingSchema = () => ({
   ...accountChoiceSchema("sourceGrouping"),
@@ -49,8 +71,9 @@ export function settingsContract() {
         get: { ...op({
           summary: "Workspace settings",
           description:
-            "The signed-in account's display name, per-screen view/sort preferences and " +
-            "how the SQL console's source list groups datasets, " +
+            "The signed-in account's display name, per-screen view/sort preferences, " +
+            "how the SQL console's source list groups datasets and its look (color, contrast, typeface, " +
+            "background, corners and side menu), " +
             "plus the instance name shown beside the wordmark and in browser titles " +
             "(null when unnamed). Cookie or bearer authentication is required. " +
             "Responses, including refusals, are private, no-store.",
@@ -69,6 +92,8 @@ export function settingsContract() {
           description: "Updates only the authenticated account's display name and preferences. " +
             "Only admins can change instanceName. The entire patch is validated and authorized " +
             "before any write; a forbidden or invalid field leaves every field unchanged. " +
+            "The look takes any of its picks; an unknown pick or value inside look refuses the patch, " +
+            "while an unknown field outside it is ignored. " +
             "Cookie mutations require the same trusted Origin. Explicit bearer requests need no " +
             "cookie or Origin. Responses, including refusals, are private, no-store.",
           tag: "System",
@@ -98,6 +123,7 @@ export function settingsContract() {
                     },
                     viewPrefs: viewPrefsSchema(),
                     sourceGrouping: sourceGroupingSchema(),
+                    look: lookSchema("update"),
                   },
                 },
                 example: { displayName: "Ada Lovelace" },
@@ -129,8 +155,9 @@ export function settingsContract() {
           },
           viewPrefs: viewPrefsSchema(),
           sourceGrouping: sourceGroupingSchema(),
+          look: lookSchema("read"),
         },
-        required: ["displayName", "instanceName", "viewPrefs", "sourceGrouping"],
+        required: ["displayName", "instanceName", "viewPrefs", "sourceGrouping", "look"],
       },
     },
   };

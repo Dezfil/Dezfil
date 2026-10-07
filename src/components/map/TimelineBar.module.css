@@ -46,7 +46,7 @@
   align-items: center;
   justify-content: center;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-key);
   background: none;
   color: var(--fg-muted);
   cursor: pointer;

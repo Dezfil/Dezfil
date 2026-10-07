@@ -22,11 +22,13 @@
    card, and the gutter. The recipe drawer adds its own width and gutter to it
    through `--drawer-offset`, which it is the only writer of — zero when it is
    shut, and zero in overlay mode however wide it is, because the overlay's
-   whole point is that the stage does not move. */
+   whole point is that the stage does not move. The always-open rail adds
+   `--rail-shift` (the root's; zero under the other Side menu picks), which
+   moves the inspector by the same amount. */
 :global(body) {
   --stage-left-base: 438px;
   --drawer-offset: 0px;
-  --stage-left: calc(var(--stage-left-base) + var(--drawer-offset));
+  --stage-left: calc(var(--stage-left-base) + var(--drawer-offset) + var(--rail-shift));
   /* The stage's right edge, once: the screen's gutter
      plus what a docked assistant adds through `--assistant-offset`, which
      the same coordinator writes together with the left offset, zero when
@@ -100,7 +102,7 @@
   font-weight: 700;
   background: var(--bg-raised);
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-row);
   color: var(--fg);
   padding: 3px 8px;
   width: 220px;
@@ -165,7 +167,7 @@
 .rail {
   position: fixed;
   top: 62px;
-  left: 82px;
+  left: calc(82px + var(--rail-shift));
   bottom: var(--gutter);
   width: 342px;
   z-index: 10;

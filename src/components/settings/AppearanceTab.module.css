@@ -1,0 +1,51 @@
+/* The Appearance tab: its cards in a column, and Reset to Dezfil's
+   default (then Undo) at the right of the page's heading row. The action
+   sits above the tab rather than in it, so the cards never move when it
+   comes or goes. */
+
+.tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+.top {
+  position: absolute;
+  right: 0;
+  /* the frame's gap between the heading row and the tab */
+  bottom: calc(100% + 24px);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: calc(var(--text-title) * 1.35);
+}
+
+.top:empty {
+  display: none;
+}
+
+.top > button {
+  animation: quiet-in var(--dur-entrance) ease backwards;
+}
+
+.top > button[data-leaving] {
+  opacity: 0;
+  transition: opacity var(--dur-feedback) ease;
+}
+
+@keyframes quiet-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* One column: the tab column stands above the tab, so the action takes
+   its own line at the tab's top instead. */
+@media (max-width: 900px) {
+  .top {
+    position: static;
+    min-height: 0;
+  }
+}

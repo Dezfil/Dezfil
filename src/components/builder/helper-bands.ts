@@ -14,6 +14,14 @@ import { DRAWER_GUTTER, DRAWER_WIDTH, OVERLAY_BELOW } from "./drawer/use-recipe-
  * right gutter) plus the 700 px map minimum, which governs the third
  * pane only.
  *
+ * The rail's width is inside that chrome, so a rail the person keeps
+ * standing open (the Side menu's Always open) moves both limits up by
+ * what it adds to the collapsed rail, the root's `--rail-shift`: the map
+ * keeps its 700 px with both helpers docked, and one docked helper keeps
+ * the stage it has today. The shift is an input here; the band hook
+ * (`use-viewport-band.ts`) reads it from the root for the builder, the
+ * workflow canvas and the SQL console alike.
+ *
  * Narrowing out of the three-pane band with both open keeps the helper
  * opened later by hand and hides the other; widening back returns it.
  * The memory is passive: any hand action on either helper below the
@@ -38,9 +46,16 @@ export const BOTH_FROM = THREE_PANE_CHROME + MAP_MINIMUM;
 export type Band = "overlay" | "one" | "both";
 export type Helper = "tools" | "assistant";
 
-export function bandOf(width: number): Band {
-  if (width <= OVERLAY_BELOW) return "overlay";
-  if (width < BOTH_FROM) return "one";
+/** The two limits beside a rail that adds `railShift` px to the chrome:
+ * at or below the first a helper overlays, from the second both dock. */
+export function bandLimits(railShift = 0): { overlayAtMost: number; bothFrom: number } {
+  return { overlayAtMost: OVERLAY_BELOW + railShift, bothFrom: BOTH_FROM + railShift };
+}
+
+export function bandOf(width: number, railShift = 0): Band {
+  const { overlayAtMost, bothFrom } = bandLimits(railShift);
+  if (width <= overlayAtMost) return "overlay";
+  if (width < bothFrom) return "one";
   return "both";
 }
 

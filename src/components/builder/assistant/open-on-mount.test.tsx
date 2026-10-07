@@ -26,11 +26,12 @@ const MEMORY_KEY = "dezfil-assistant-open";
 const WIDTH = 1440;
 
 /** The browser bits the three hooks read that the stored tree has no
- * opinion about: the width queries, the frame callback, and a storage. */
+ * opinion about: the width queries, the frame callback, a storage, and
+ * the observer the builder's slot reads the rail's pick through. */
 function installBrowserBits(window: object) {
   const g = globalThis as Record<string, unknown>;
   const w = window as Record<string, unknown>;
-  const kept = { raf: g.requestAnimationFrame, caf: g.cancelAnimationFrame, storage: g.localStorage };
+  const kept = { raf: g.requestAnimationFrame, caf: g.cancelAnimationFrame, storage: g.localStorage, observer: g.MutationObserver };
   const cells = new Map<string, string>();
   const storage = {
     getItem: (key: string) => cells.get(key) ?? null,
@@ -51,12 +52,14 @@ function installBrowserBits(window: object) {
   g.requestAnimationFrame = (fn: () => void) => setTimeout(fn, 0) as unknown as number;
   g.cancelAnimationFrame = (id: number) => { clearTimeout(id as unknown as ReturnType<typeof setTimeout>); };
   g.localStorage = storage;
+  g.MutationObserver = class { observe() {} disconnect() {} };
   return {
     storage,
     uninstall() {
       g.requestAnimationFrame = kept.raf;
       g.cancelAnimationFrame = kept.caf;
       if (kept.storage === undefined) delete g.localStorage; else g.localStorage = kept.storage;
+      if (kept.observer === undefined) delete g.MutationObserver; else g.MutationObserver = kept.observer;
     },
   };
 }

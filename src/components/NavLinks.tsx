@@ -8,6 +8,7 @@ import { useProjectFact } from "@/components/shell/use-project-name";
 import { PeopleChip } from "@/components/sharing/PeopleMarks";
 import { peopleMark } from "@/components/sharing/people";
 import { useProjectPeople } from "@/components/sharing/use-project-people";
+import { railHint, useRailItemMode } from "./rail-mode";
 
 /* The workspace's sections, shared by the icon rail and the
    breadcrumb. Icon strokes follow the Wheelhouse reference mockup. */
@@ -103,11 +104,13 @@ function RailLink({
   link: (typeof LINKS)[number];
   pathname: string;
 }) {
+  const mode = useRailItemMode();
   return (
     <Link
       href={link.href}
       className={styles.railLink}
       data-active={link.match(pathname) || undefined}
+      {...railHint(mode, link.label)}
     >
       <span className={styles.railIcon}>
         <svg

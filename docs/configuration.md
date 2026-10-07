@@ -18,7 +18,8 @@ variable is removed and the process restarted. Admin changes through
 budget. Settings without a variable are never locked.
 
 Other settings persist at runtime. Settings saves **account preferences** such as
-the display name and view choices, and **instance preferences** such as the
+the display name, view choices and the look picked on the **Appearance** tab,
+and **instance preferences** such as the
 admin-managed instance name, in SQLite. The instance operation also saves the
 sign-in message, lost-password contact and landing page, which admins set on the
 **General** tab of Settings; the entry read carries them. The sign-in page shows the

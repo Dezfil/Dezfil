@@ -301,7 +301,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 7px 10px;
-  border-radius: 9px;
+  border-radius: var(--radius);
   font-size: 13px;
   color: var(--fg);
   text-align: left;

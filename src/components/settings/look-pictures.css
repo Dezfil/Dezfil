@@ -1,0 +1,586 @@
+/* ============================================================
+   The Appearance tab's pictures: each shows its own option of one pick
+   while the rest of it follows the person's look. A picture carries its
+   option as data-picture-<pick> and takes here exactly the tokens the
+   whole page takes with that pick made, keyed on the same root as the
+   look's own rules, so the person's theme, Color, Contrast and Background
+   reach it as they reach the page. The values restate src/app/globals.css
+   and src/app/look.css; the pictures' test holds them equal for every
+   look a person can have. Only elements inside the Appearance tab carry
+   a data-picture attribute, so nothing else ever matches a rule here.
+   ============================================================ */
+
+/* ---- Color: the interface family in that Color, in both themes, the
+   Atlantic chart in its inks, the person's More contrast restated per
+   pictured Color, and the person's Background in the Color's inks ---- */
+
+:root [data-picture-color="kelp"] {
+  --bg: #edf1ec;
+  --bg-panel: #ffffff;
+  --bg-raised: #f6f8f5;
+  --bg-hover: #e7ece6;
+  --border: #e2e7e1;
+  --border-strong: #c9d2ca;
+  --divider: color-mix(in srgb, #93a19c 45%, transparent);
+  --fg: #243230;
+  --fg-muted: #5f6f6b;
+  --fg-faint: #93a19c;
+  --accent: #0d7d5c;
+  --accent-bright: #0a6248;
+  --accent-dim: rgba(13, 125, 92, 0.12);
+  --accent-wash: #e2f2ec;
+  --on-accent: #ffffff;
+  --focus: #0d7d5c;
+  --swatch-border: rgba(36, 50, 48, 0.18);
+  --shadow: rgba(36, 50, 48, 0.16);
+  --picture-sheet: url("/shell-sheet-light.svg");
+}
+
+:root[data-theme="dark"] [data-picture-color="kelp"] {
+  --bg: #0b0e14;
+  --bg-panel: #10141d;
+  --bg-raised: #151b27;
+  --bg-hover: #1a2130;
+  --border: #222a3b;
+  --border-strong: #2e3950;
+  --divider: color-mix(in srgb, #5d6880 50%, transparent);
+  --fg: #e9ecf3;
+  --fg-muted: #98a3b8;
+  --fg-faint: #5d6880;
+  --accent: #45c58f;
+  --accent-bright: #5fe3ab;
+  --accent-dim: rgba(69, 197, 143, 0.13);
+  --accent-wash: rgba(69, 197, 143, 0.12);
+  --on-accent: #06231a;
+  --focus: #74a6ff;
+  --swatch-border: rgba(255, 255, 255, 0.12);
+  --shadow: rgba(0, 0, 0, 0.4);
+  --picture-sheet: url("/shell-sheet-dark.svg");
+}
+
+:root [data-picture-color="harbor"] {
+  --bg: #ebf0f5;
+  --bg-panel: #ffffff;
+  --bg-raised: #f5f8fa;
+  --bg-hover: #e5ebf1;
+  --border: #e0e6ec;
+  --border-strong: #c7d1d9;
+  --divider: color-mix(in srgb, #969ea8 45%, transparent);
+  --fg: #292f38;
+  --fg-muted: #616a75;
+  --fg-faint: #969ea8;
+  --accent: #2b62a6;
+  --accent-bright: #1f4f8c;
+  --accent-dim: rgba(43, 98, 166, 0.12);
+  --accent-wash: #e3ebf3;
+  --on-accent: #ffffff;
+  --focus: #2b62a6;
+  --swatch-border: rgba(41, 47, 56, 0.18);
+  --shadow: rgba(41, 47, 56, 0.16);
+  --picture-sheet: url("/look/atlantic-harbor-light.svg");
+}
+
+:root[data-theme="dark"] [data-picture-color="harbor"] {
+  --bg: #090e15;
+  --bg-panel: #0d151e;
+  --bg-raised: #121c28;
+  --bg-hover: #162231;
+  --border: #1d2b3c;
+  --border-strong: #273a52;
+  --divider: color-mix(in srgb, #566a82 50%, transparent);
+  --fg: #e7edf4;
+  --fg-muted: #93a4ba;
+  --fg-faint: #566a82;
+  --accent: #6ea2ee;
+  --accent-bright: #93bbf6;
+  --accent-dim: rgba(110, 162, 238, 0.13);
+  --accent-wash: rgba(110, 162, 238, 0.12);
+  --on-accent: #08182f;
+  --focus: #74a6ff;
+  --swatch-border: rgba(255, 255, 255, 0.12);
+  --shadow: rgba(0, 0, 0, 0.4);
+  --picture-sheet: url("/look/atlantic-harbor-dark.svg");
+}
+
+:root [data-picture-color="heather"] {
+  --bg: #f1eef4;
+  --bg-panel: #ffffff;
+  --bg-raised: #f8f6fa;
+  --bg-hover: #ece9f0;
+  --border: #e7e4eb;
+  --border-strong: #d2cdd8;
+  --divider: color-mix(in srgb, #9f9ba7 45%, transparent);
+  --fg: #302d38;
+  --fg-muted: #6c6775;
+  --fg-faint: #9f9ba7;
+  --accent: #6b4cad;
+  --accent-bright: #573b95;
+  --accent-dim: rgba(107, 76, 173, 0.12);
+  --accent-wash: #ece8f4;
+  --on-accent: #ffffff;
+  --focus: #6b4cad;
+  --swatch-border: rgba(48, 45, 56, 0.18);
+  --shadow: rgba(48, 45, 56, 0.16);
+  --picture-sheet: url("/look/atlantic-heather-light.svg");
+}
+
+:root[data-theme="dark"] [data-picture-color="heather"] {
+  --bg: #0e0d13;
+  --bg-panel: #14131c;
+  --bg-raised: #1b1926;
+  --bg-hover: #211f2f;
+  --border: #2a273a;
+  --border-strong: #3a354e;
+  --divider: color-mix(in srgb, #68647e 50%, transparent);
+  --fg: #ecebf2;
+  --fg-muted: #a39fb6;
+  --fg-faint: #68647e;
+  --accent: #ab95ec;
+  --accent-bright: #c4b4f5;
+  --accent-dim: rgba(171, 149, 236, 0.13);
+  --accent-wash: rgba(171, 149, 236, 0.12);
+  --on-accent: #1a1236;
+  --focus: #74a6ff;
+  --swatch-border: rgba(255, 255, 255, 0.12);
+  --shadow: rgba(0, 0, 0, 0.4);
+  --picture-sheet: url("/look/atlantic-heather-dark.svg");
+}
+
+:root [data-picture-color="slate"] {
+  --bg: #edf0f3;
+  --bg-panel: #ffffff;
+  --bg-raised: #f6f7f9;
+  --bg-hover: #e7ebee;
+  --border: #e2e6e9;
+  --border-strong: #cbd0d5;
+  --divider: color-mix(in srgb, #999ea4 45%, transparent);
+  --fg: #2b2f35;
+  --fg-muted: #646a70;
+  --fg-faint: #999ea4;
+  --accent: #45525e;
+  --accent-bright: #323d47;
+  --accent-dim: rgba(69, 82, 94, 0.12);
+  --accent-wash: #e6e9ed;
+  --on-accent: #ffffff;
+  --focus: #45525e;
+  --swatch-border: rgba(43, 47, 53, 0.18);
+  --shadow: rgba(43, 47, 53, 0.16);
+  --picture-sheet: url("/look/atlantic-slate-light.svg");
+}
+
+:root[data-theme="dark"] [data-picture-color="slate"] {
+  --bg: #0c0e11;
+  --bg-panel: #121418;
+  --bg-raised: #181b20;
+  --bg-hover: #1d2127;
+  --border: #262b31;
+  --border-strong: #333a43;
+  --divider: color-mix(in srgb, #626972 50%, transparent);
+  --fg: #eaecef;
+  --fg-muted: #9da3ac;
+  --fg-faint: #626972;
+  --accent: #c3cad6;
+  --accent-bright: #e1e5ec;
+  --accent-dim: rgba(195, 202, 214, 0.13);
+  --accent-wash: rgba(195, 202, 214, 0.12);
+  --on-accent: #121418;
+  --focus: #74a6ff;
+  --swatch-border: rgba(255, 255, 255, 0.12);
+  --shadow: rgba(0, 0, 0, 0.4);
+  --picture-sheet: url("/look/atlantic-slate-dark.svg");
+}
+
+:root[data-look-contrast="more"] [data-picture-color="kelp"] {
+  --border: #bcc7bf;
+  --border-strong: #839189;
+  --divider: color-mix(in srgb, #6c7b77 55%, transparent);
+  --fg-muted: #3e4c49;
+  --fg-faint: #5f6e69;
+}
+
+:root[data-theme="dark"][data-look-contrast="more"] [data-picture-color="kelp"] {
+  --border: #3b4762;
+  --border-strong: #5a6886;
+  --divider: color-mix(in srgb, #7a86a0 55%, transparent);
+  --fg-muted: #c4ccda;
+  --fg-faint: #959fb5;
+}
+
+:root[data-look-contrast="more"] [data-picture-color="harbor"] {
+  --border: #bbc5ce;
+  --border-strong: #838f99;
+  --divider: color-mix(in srgb, #707882 55%, transparent);
+  --fg-muted: #424953;
+  --fg-faint: #636b76;
+}
+
+:root[data-theme="dark"][data-look-contrast="more"] [data-picture-color="harbor"] {
+  --border: #334964;
+  --border-strong: #516a89;
+  --divider: color-mix(in srgb, #7388a2 55%, transparent);
+  --fg-muted: #c1cddb;
+  --fg-faint: #8fa1b7;
+}
+
+:root[data-look-contrast="more"] [data-picture-color="heather"] {
+  --border: #c6c1cd;
+  --border-strong: #908a98;
+  --divider: color-mix(in srgb, #797581 55%, transparent);
+  --fg-muted: #4a4652;
+  --fg-faint: #6c6875;
+}
+
+:root[data-theme="dark"][data-look-contrast="more"] [data-picture-color="heather"] {
+  --border: #484360;
+  --border-strong: #686383;
+  --divider: color-mix(in srgb, #86829e 55%, transparent);
+  --fg-muted: #cbc9d9;
+  --fg-faint: #9f9cb3;
+}
+
+:root[data-look-contrast="more"] [data-picture-color="slate"] {
+  --border: #bfc4ca;
+  --border-strong: #888e94;
+  --divider: color-mix(in srgb, #72787e 55%, transparent);
+  --fg-muted: #44494f;
+  --fg-faint: #656b71;
+}
+
+:root[data-theme="dark"][data-look-contrast="more"] [data-picture-color="slate"] {
+  --border: #414853;
+  --border-strong: #616975;
+  --divider: color-mix(in srgb, #808791 55%, transparent);
+  --fg-muted: #c8ccd2;
+  --fg-faint: #9a9fa8;
+}
+
+:root[data-look-background="graticule"] [data-picture-color="kelp"] {
+  --picture-sheet: url("/look/graticule-kelp-light.svg");
+}
+
+:root[data-theme="dark"][data-look-background="graticule"] [data-picture-color="kelp"] {
+  --picture-sheet: url("/look/graticule-kelp-dark.svg");
+}
+
+:root[data-look-background="graticule"] [data-picture-color="harbor"] {
+  --picture-sheet: url("/look/graticule-harbor-light.svg");
+}
+
+:root[data-theme="dark"][data-look-background="graticule"] [data-picture-color="harbor"] {
+  --picture-sheet: url("/look/graticule-harbor-dark.svg");
+}
+
+:root[data-look-background="graticule"] [data-picture-color="heather"] {
+  --picture-sheet: url("/look/graticule-heather-light.svg");
+}
+
+:root[data-theme="dark"][data-look-background="graticule"] [data-picture-color="heather"] {
+  --picture-sheet: url("/look/graticule-heather-dark.svg");
+}
+
+:root[data-look-background="graticule"] [data-picture-color="slate"] {
+  --picture-sheet: url("/look/graticule-slate-light.svg");
+}
+
+:root[data-theme="dark"][data-look-background="graticule"] [data-picture-color="slate"] {
+  --picture-sheet: url("/look/graticule-slate-dark.svg");
+}
+
+:root[data-look-background="hex"] [data-picture-color="kelp"] {
+  --picture-sheet: url("/look/hex-kelp-light.svg");
+}
+
+:root[data-theme="dark"][data-look-background="hex"] [data-picture-color="kelp"] {
+  --picture-sheet: url("/look/hex-kelp-dark.svg");
+}
+
+:root[data-look-background="hex"] [data-picture-color="harbor"] {
+  --picture-sheet: url("/look/hex-harbor-light.svg");
+}
+
+:root[data-theme="dark"][data-look-background="hex"] [data-picture-color="harbor"] {
+  --picture-sheet: url("/look/hex-harbor-dark.svg");
+}
+
+:root[data-look-background="hex"] [data-picture-color="heather"] {
+  --picture-sheet: url("/look/hex-heather-light.svg");
+}
+
+:root[data-theme="dark"][data-look-background="hex"] [data-picture-color="heather"] {
+  --picture-sheet: url("/look/hex-heather-dark.svg");
+}
+
+:root[data-look-background="hex"] [data-picture-color="slate"] {
+  --picture-sheet: url("/look/hex-slate-light.svg");
+}
+
+:root[data-theme="dark"][data-look-background="hex"] [data-picture-color="slate"] {
+  --picture-sheet: url("/look/hex-slate-dark.svg");
+}
+
+:root[data-look-background="plain"] [data-picture-color],
+:root[data-theme="dark"][data-look-background="plain"] [data-picture-color] {
+  --picture-sheet: none;
+}
+
+/* ---- Contrast: the person's Color at that contrast, in both themes ---- */
+
+:root [data-picture-contrast="standard"] {
+  --border: #e2e7e1;
+  --border-strong: #c9d2ca;
+  --divider: color-mix(in srgb, #93a19c 45%, transparent);
+  --fg-muted: #5f6f6b;
+  --fg-faint: #93a19c;
+}
+
+:root [data-picture-contrast="more"] {
+  --border: #bcc7bf;
+  --border-strong: #839189;
+  --divider: color-mix(in srgb, #6c7b77 55%, transparent);
+  --fg-muted: #3e4c49;
+  --fg-faint: #5f6e69;
+}
+
+:root[data-theme="dark"] [data-picture-contrast="standard"] {
+  --border: #222a3b;
+  --border-strong: #2e3950;
+  --divider: color-mix(in srgb, #5d6880 50%, transparent);
+  --fg-muted: #98a3b8;
+  --fg-faint: #5d6880;
+}
+
+:root[data-theme="dark"] [data-picture-contrast="more"] {
+  --border: #3b4762;
+  --border-strong: #5a6886;
+  --divider: color-mix(in srgb, #7a86a0 55%, transparent);
+  --fg-muted: #c4ccda;
+  --fg-faint: #959fb5;
+}
+
+:root[data-look-color="harbor"] [data-picture-contrast="standard"] {
+  --border: #e0e6ec;
+  --border-strong: #c7d1d9;
+  --divider: color-mix(in srgb, #969ea8 45%, transparent);
+  --fg-muted: #616a75;
+  --fg-faint: #969ea8;
+}
+
+:root[data-look-color="harbor"] [data-picture-contrast="more"] {
+  --border: #bbc5ce;
+  --border-strong: #838f99;
+  --divider: color-mix(in srgb, #707882 55%, transparent);
+  --fg-muted: #424953;
+  --fg-faint: #636b76;
+}
+
+:root[data-theme="dark"][data-look-color="harbor"] [data-picture-contrast="standard"] {
+  --border: #1d2b3c;
+  --border-strong: #273a52;
+  --divider: color-mix(in srgb, #566a82 50%, transparent);
+  --fg-muted: #93a4ba;
+  --fg-faint: #566a82;
+}
+
+:root[data-theme="dark"][data-look-color="harbor"] [data-picture-contrast="more"] {
+  --border: #334964;
+  --border-strong: #516a89;
+  --divider: color-mix(in srgb, #7388a2 55%, transparent);
+  --fg-muted: #c1cddb;
+  --fg-faint: #8fa1b7;
+}
+
+:root[data-look-color="heather"] [data-picture-contrast="standard"] {
+  --border: #e7e4eb;
+  --border-strong: #d2cdd8;
+  --divider: color-mix(in srgb, #9f9ba7 45%, transparent);
+  --fg-muted: #6c6775;
+  --fg-faint: #9f9ba7;
+}
+
+:root[data-look-color="heather"] [data-picture-contrast="more"] {
+  --border: #c6c1cd;
+  --border-strong: #908a98;
+  --divider: color-mix(in srgb, #797581 55%, transparent);
+  --fg-muted: #4a4652;
+  --fg-faint: #6c6875;
+}
+
+:root[data-theme="dark"][data-look-color="heather"] [data-picture-contrast="standard"] {
+  --border: #2a273a;
+  --border-strong: #3a354e;
+  --divider: color-mix(in srgb, #68647e 50%, transparent);
+  --fg-muted: #a39fb6;
+  --fg-faint: #68647e;
+}
+
+:root[data-theme="dark"][data-look-color="heather"] [data-picture-contrast="more"] {
+  --border: #484360;
+  --border-strong: #686383;
+  --divider: color-mix(in srgb, #86829e 55%, transparent);
+  --fg-muted: #cbc9d9;
+  --fg-faint: #9f9cb3;
+}
+
+:root[data-look-color="slate"] [data-picture-contrast="standard"] {
+  --border: #e2e6e9;
+  --border-strong: #cbd0d5;
+  --divider: color-mix(in srgb, #999ea4 45%, transparent);
+  --fg-muted: #646a70;
+  --fg-faint: #999ea4;
+}
+
+:root[data-look-color="slate"] [data-picture-contrast="more"] {
+  --border: #bfc4ca;
+  --border-strong: #888e94;
+  --divider: color-mix(in srgb, #72787e 55%, transparent);
+  --fg-muted: #44494f;
+  --fg-faint: #656b71;
+}
+
+:root[data-theme="dark"][data-look-color="slate"] [data-picture-contrast="standard"] {
+  --border: #262b31;
+  --border-strong: #333a43;
+  --divider: color-mix(in srgb, #626972 50%, transparent);
+  --fg-muted: #9da3ac;
+  --fg-faint: #626972;
+}
+
+:root[data-theme="dark"][data-look-color="slate"] [data-picture-contrast="more"] {
+  --border: #414853;
+  --border-strong: #616975;
+  --divider: color-mix(in srgb, #808791 55%, transparent);
+  --fg-muted: #c8ccd2;
+  --fg-faint: #9a9fa8;
+}
+
+/* ---- Typeface and Corners: the face of what is read, the corners'
+   family; the wordmark, the mono face and the pills stay ---- */
+
+:root [data-picture-font="inter"] {
+  --font-ui: var(--font-inter), -apple-system, "Segoe UI", sans-serif;
+}
+
+:root [data-picture-font="system"] {
+  --font-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+:root [data-picture-corners="rounded"] {
+  --radius-sm: 4px;
+  --radius: 9px;
+  --radius-control: 12px;
+  --radius-lg: 14px;
+  --radius-card: 20px;
+  --radius-rail: 18px;
+}
+
+:root [data-picture-corners="soft"] {
+  --radius-sm: 3px;
+  --radius: 7px;
+  --radius-control: 9px;
+  --radius-lg: 11px;
+  --radius-card: 14px;
+  --radius-rail: 13px;
+}
+
+/* ---- Background: that texture in the person's Color's inks, in both
+   themes; Plain is no image ---- */
+
+:root [data-picture-background="atlantic"] {
+  --picture-sheet: url("/shell-sheet-light.svg");
+}
+
+:root[data-theme="dark"] [data-picture-background="atlantic"] {
+  --picture-sheet: url("/shell-sheet-dark.svg");
+}
+
+:root[data-look-color="harbor"] [data-picture-background="atlantic"] {
+  --picture-sheet: url("/look/atlantic-harbor-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="harbor"] [data-picture-background="atlantic"] {
+  --picture-sheet: url("/look/atlantic-harbor-dark.svg");
+}
+
+:root[data-look-color="heather"] [data-picture-background="atlantic"] {
+  --picture-sheet: url("/look/atlantic-heather-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="heather"] [data-picture-background="atlantic"] {
+  --picture-sheet: url("/look/atlantic-heather-dark.svg");
+}
+
+:root[data-look-color="slate"] [data-picture-background="atlantic"] {
+  --picture-sheet: url("/look/atlantic-slate-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="slate"] [data-picture-background="atlantic"] {
+  --picture-sheet: url("/look/atlantic-slate-dark.svg");
+}
+
+:root [data-picture-background="graticule"] {
+  --picture-sheet: url("/look/graticule-kelp-light.svg");
+}
+
+:root[data-theme="dark"] [data-picture-background="graticule"] {
+  --picture-sheet: url("/look/graticule-kelp-dark.svg");
+}
+
+:root[data-look-color="harbor"] [data-picture-background="graticule"] {
+  --picture-sheet: url("/look/graticule-harbor-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="harbor"] [data-picture-background="graticule"] {
+  --picture-sheet: url("/look/graticule-harbor-dark.svg");
+}
+
+:root[data-look-color="heather"] [data-picture-background="graticule"] {
+  --picture-sheet: url("/look/graticule-heather-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="heather"] [data-picture-background="graticule"] {
+  --picture-sheet: url("/look/graticule-heather-dark.svg");
+}
+
+:root[data-look-color="slate"] [data-picture-background="graticule"] {
+  --picture-sheet: url("/look/graticule-slate-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="slate"] [data-picture-background="graticule"] {
+  --picture-sheet: url("/look/graticule-slate-dark.svg");
+}
+
+:root [data-picture-background="hex"] {
+  --picture-sheet: url("/look/hex-kelp-light.svg");
+}
+
+:root[data-theme="dark"] [data-picture-background="hex"] {
+  --picture-sheet: url("/look/hex-kelp-dark.svg");
+}
+
+:root[data-look-color="harbor"] [data-picture-background="hex"] {
+  --picture-sheet: url("/look/hex-harbor-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="harbor"] [data-picture-background="hex"] {
+  --picture-sheet: url("/look/hex-harbor-dark.svg");
+}
+
+:root[data-look-color="heather"] [data-picture-background="hex"] {
+  --picture-sheet: url("/look/hex-heather-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="heather"] [data-picture-background="hex"] {
+  --picture-sheet: url("/look/hex-heather-dark.svg");
+}
+
+:root[data-look-color="slate"] [data-picture-background="hex"] {
+  --picture-sheet: url("/look/hex-slate-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="slate"] [data-picture-background="hex"] {
+  --picture-sheet: url("/look/hex-slate-dark.svg");
+}
+
+:root [data-picture-background="plain"] {
+  --picture-sheet: none;
+}

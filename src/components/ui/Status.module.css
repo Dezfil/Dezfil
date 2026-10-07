@@ -47,7 +47,7 @@
 }
 
 .dot[data-live]::before {
-  background: var(--accent);
+  background: var(--health-ok);
 }
 
 .dotText {

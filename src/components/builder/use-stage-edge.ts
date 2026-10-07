@@ -88,18 +88,22 @@ export const FALLBACK_RIGHT = 14;
  * ever, with nothing in the DOM to show for it. Criterion 7's commit count is
  * what found it: zero commits across a drag that plainly moved the stage.
  *
- * So the two properties that *define* the edge are read and added. That is
- * still one source — neither number is written here — and it needs no
- * registered property, which would put the same failure back in any browser
- * that does not support one.
+ * So the properties that *define* the edge are read and added: the base,
+ * what an open drawer adds and what the always-open rail adds (the root's
+ * `--rail-shift`, inherited by the body). That is still one source — no
+ * number is written here — and it needs no registered property, which would
+ * put the same failure back in any browser that does not support one.
  */
 export function currentStageEdge(): number {
   if (typeof window === "undefined") return FALLBACK_EDGE;
   const styles = window.getComputedStyle(document.body);
   const base = Number.parseFloat(styles.getPropertyValue("--stage-left-base"));
-  const offset = Number.parseFloat(styles.getPropertyValue("--drawer-offset"));
   if (!Number.isFinite(base) || base <= 0) return FALLBACK_EDGE;
-  return base + (Number.isFinite(offset) ? offset : 0);
+  const added = (name: string) => {
+    const value = Number.parseFloat(styles.getPropertyValue(name));
+    return Number.isFinite(value) ? value : 0;
+  };
+  return base + added("--drawer-offset") + added("--rail-shift");
 }
 
 /** The right edge, summed the same way: the gutter plus what a docked

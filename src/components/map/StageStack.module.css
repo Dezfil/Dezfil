@@ -20,7 +20,7 @@
 .stageBtn {
   width: 38px;
   height: 38px;
-  border-radius: 13px;
+  border-radius: var(--radius-stage);
   background: var(--bg-panel);
   color: var(--fg-muted);
   box-shadow: 0 3px 12px var(--shadow);

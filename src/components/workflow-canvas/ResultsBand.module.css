@@ -15,7 +15,7 @@
    the pane is closed. */
 [data-workflow-canvas][data-view="full"] .column {
   position: fixed;
-  left: calc(82px + 342px + var(--gutter));
+  left: calc(82px + var(--rail-shift) + 342px + var(--gutter));
   right: calc(var(--gutter) + var(--band-right, 0px));
   bottom: var(--gutter);
   z-index: 11;
@@ -230,7 +230,7 @@
 }
 
 .entry[data-lv="ok"] .lv {
-  color: var(--accent);
+  color: var(--health-ok);
 }
 
 .entry[data-lv="info"] .lv {

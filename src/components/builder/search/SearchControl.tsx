@@ -153,7 +153,7 @@ export function SearchControl({
   const active = state.rows.flat.find((r) => r.id === state.activeId) ?? null;
 
   return createPortal(
-    <div ref={rootRef} className={styles.host}>
+    <div ref={rootRef} className={styles.host} data-header-yields="">
       <input
         ref={inputRef}
         className={styles.field}

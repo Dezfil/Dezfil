@@ -319,7 +319,7 @@ test.describe("the Settings page", () => {
     expectQuiet(errors);
   });
 
-  test("a member's column holds Account, Tokens and General only, and the search finds nothing beyond them", async ({ browser, request, baseURL }) => {
+  test("a member's column holds Account, Tokens, Appearance and General only, and the search finds nothing beyond them", async ({ browser, request, baseURL }) => {
     const people: Person[] = [];
     try {
       const member = await invitePerson(browser, request, baseURL!, "Member", runTag());
@@ -329,7 +329,7 @@ test.describe("the Settings page", () => {
       const errors = trackConsole(page);
       await page.goto("/settings/general");
       const links = column(page).getByRole("link");
-      await expect(links).toHaveText(["Account", "Tokens", "General"]);
+      await expect(links).toHaveText(["Account", "Tokens", "Appearance", "General"]);
       await expect(column(page).getByRole("link", { name: "Users" })).toHaveCount(0);
       await expect(card(page, "Instance").getByLabel("Instance name", { exact: true })).toBeDisabled();
       await expect(card(page, "Instance")).toContainText("Only admins can change the instance name.");

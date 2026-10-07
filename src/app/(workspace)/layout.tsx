@@ -13,6 +13,10 @@ import { requirePageScope } from "@/lib/auth/scope-page";
 import { PrivateWorkspace } from "@/components/auth/PrivateWorkspace";
 import { SignedIn } from "@/components/sharing/signed-in";
 import { accountLabels } from "@/lib/metadata/accounts";
+import { DOCUMENT_METADATA, DezfilDocument } from "../document";
+import { pageLook } from "./page-look";
+
+export const metadata = DOCUMENT_METADATA;
 
 // The Wheelhouse workspace shell: a floating header card (wordmark +
 // breadcrumb) with the action row beside it, and a left icon rail for
@@ -21,6 +25,9 @@ import { accountLabels } from "@/lib/metadata/accounts";
 // published viewer (/v/[token]) lives outside this group, so it renders
 // full-bleed with no edit affordances — and outside the theme provider,
 // so it never themes.
+//
+// This is a root layout: the document it serves carries the signed-in
+// person's look on <html>, and no other root does.
 export default async function WorkspaceLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -29,6 +36,7 @@ export default async function WorkspaceLayout({
   // someone else owns against it.
   const signedIn = accountLabels([scope.accountId]).get(scope.accountId) ?? null;
   return (
+    <DezfilDocument look={pageLook(scope.accountId)}>
     <PrivateWorkspace key={scope.accountId} accountId={scope.accountId}>
     <SignedIn account={signedIn}>
     <ThemeProvider>
@@ -60,5 +68,6 @@ export default async function WorkspaceLayout({
     </ThemeProvider>
     </SignedIn>
     </PrivateWorkspace>
+    </DezfilDocument>
   );
 }

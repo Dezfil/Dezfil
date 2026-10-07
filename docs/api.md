@@ -398,9 +398,24 @@ plus the shared instance name. Only admins may change the instance name.
 `sourceGrouping` is how the SQL console's source list groups datasets for
 the caller, `person` (their own, then each other person's) until they choose
 `project`; the read always carries it, and it is one account's alone.
-The complete document remains `displayName`, `instanceName`, `viewPrefs` and
-`sourceGrouping`. View and sort choices for maps, data, workflows and projects,
-and the SQL grouping choices, come from the account setting definitions.
+`look` is the caller's look, six picks with the first choice the default:
+`color` (`kelp`, `harbor`, `heather`, `slate`), `contrast` (`standard`,
+`more`), `font` (`inter`, `system`), `background` (`atlantic`, `plain`,
+`graticule`, `hex`), `corners` (`rounded`, `soft`) and `rail` (`hover`,
+`open`, `icons`). The read always carries all six, a kept value this version
+no longer offers reading as its default without being rewritten; a patch
+takes any of them and leaves the rest as they are. There is no `null`: a
+pick returns to the default when its first choice is sent. Inside `look`
+nothing unknown is tolerated: a `look` that is not an object, a value outside
+a pick's choices (`null` included), or a key that is not a pick refuses the
+whole patch with `invalid_request`. A failing pick is
+named as `look.<key>: reason`; a key that is not a pick is identified by its
+position inside `look` and never echoed, since arbitrary key text may hold a
+credential. Unknown fields elsewhere in the body are ignored.
+The complete document remains `displayName`, `instanceName`, `viewPrefs`,
+`sourceGrouping` and `look`. View and sort choices for maps, data, workflows
+and projects, the SQL grouping choices and the look's choices come from the
+account setting definitions.
 Partial slices merge; absent slices stay absent and stored preferences are
 not filtered on read. One account's patch never changes another's preferences.
 Every field in a patch is validated and authorized before any write.

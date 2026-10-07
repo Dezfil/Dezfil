@@ -354,7 +354,8 @@ rule:
 - `npm run lint:stage-edge` fails when the map stage's left edge reappears
   as a literal instead of the single custom property.
 - `npm run lint:wheelhouse` holds the design vocabulary against the token
-  set: off-ramp font sizes, radii outside the closed family, motion beats,
+  set: off-ramp font sizes, literal radii other than pills and rounds (the
+  family is read through its tokens), motion beats,
   raw colour literals in component styles, banned glyph classes,
   focus-outline suppression and stray arrow cursors.
 - `npm run lint:tokens` fails on a `var(--x)` reference with no definition
@@ -399,7 +400,7 @@ Subsets run by area: `npm run e2e:keyboard`, `e2e:layers`, `e2e:imports`,
 `e2e:sqlbridge`, `e2e:sqlconsole`, `e2e:draw`, `e2e:styling`,
 `e2e:recovery`, `e2e:lifecycle`, `e2e:theme`, `e2e:states`, `e2e:pixel`,
 `e2e:statepixels`, `e2e:wheelhousepixels`, `e2e:a11y-pixels`,
-`e2e:primitives`, `e2e:smoke`.
+`e2e:primitives`, `e2e:smoke`, `e2e:look`.
 
 Required on the server for a green full run. Without these the affected
 tests fail rather than skip:
@@ -575,6 +576,14 @@ sections of the specimen page from the shipped sources: the light and dark
 token blocks, every component stylesheet in the UI kit, and the palette
 ramps. `--check` on the same script is what `npm run lint:specimen` runs.
 Re-run it whenever a token, a kit stylesheet or a palette changes.
+
+**The look's background sheets.** `node scripts/generate-look-sheets.mjs`
+rewrites `public/look/`: the Atlantic chart in every other Color and theme,
+derived from the two shipped sheets by swapping their inks, and the
+Graticule and Hex lattice tiles per Color and theme. `--check` reports a
+stale, missing or stray file, and the unit suite runs it. Re-run it when a
+shipped sheet or the script's ink table changes; never edit those files by
+hand.
 
 **The plugin guidance file.** `node scripts/generate-dezfil-guidance.mjs`
 rewrites the skill's analysis document and its bundled licence from the one

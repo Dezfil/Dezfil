@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { placeHint, settleHint, type ShownHint } from "./hint-placement";
 import styles from "./HintLayer.module.css";
 
 /**
@@ -15,14 +16,14 @@ import styles from "./HintLayer.module.css";
  * a control whose visible wording already explains it shows nothing —
  * so a responsively labelled control hints only while its label is
  * hidden — and the bubble flips and shifts to stay inside the viewport.
+ * Inside a host marked `data-hint-place="beside"` (the rail) the bubble
+ * stands beside its control instead (hint-placement.ts).
  *
  * Mount one layer per theme scope: the workspace shell, and the
  * published page's theme-scoped wrapper.
  */
 
 const SHOW_DELAY_MS = 150;
-const EDGE_PAD = 8;
-const GAP = 6;
 
 /** A trigger with visible wording explains itself — no bubble. The
  * check is live, so a label hidden at a compact width re-arms it. */
@@ -46,13 +47,8 @@ function hasVisibleText(el: HTMLElement): boolean {
   return direct.length > 0;
 }
 
-interface Shown {
+interface Shown extends ShownHint {
   text: string;
-  x: number;
-  y: number;
-  above: boolean;
-  /** The trigger's top edge, kept for the measured second pass. */
-  anchorTop: number;
 }
 
 export function HintLayer({
@@ -84,19 +80,10 @@ export function HintLayer({
     const root: HTMLElement | Document = scope?.current ?? document;
 
     const place = (target: HTMLElement, text: string) => {
-      const rect = target.getBoundingClientRect();
-      // Preferred: below, horizontally centred; flip above near the
-      // bottom edge; shift within the viewport's padded box.
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      const approxWidth = Math.min(340, text.length * 6.6 + 20);
-      let x = rect.left + rect.width / 2 - approxWidth / 2;
-      x = Math.max(EDGE_PAD, Math.min(x, vw - approxWidth - EDGE_PAD));
-      const below = rect.bottom + GAP;
-      const above = below + 28 > vh - EDGE_PAD;
-      const y = above ? rect.top - GAP : below;
+      const beside = target.closest('[data-hint-place="beside"]') !== null;
+      const viewport = { width: window.innerWidth, height: window.innerHeight };
       shownRef.current = true;
-      setShown({ text, x, y, above, anchorTop: rect.top });
+      setShown({ text, ...placeHint(target.getBoundingClientRect(), text, viewport, beside ? "beside" : "below") });
     };
 
     const arm = (target: HTMLElement) => {
@@ -240,23 +227,16 @@ export function HintLayer({
 
   // Second pass: the first placement estimates width; once
   // the bubble renders, measure it and pull it fully inside the padded
-  // viewport, flipping above when the real height crosses the bottom.
+  // viewport, flipping above (or, beside the rail, sliding) when the real
+  // height crosses the bottom.
   useEffect(() => {
     if (!shown) return;
     const el = bubbleRef.current;
     if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    let { x, y, above } = shown;
-    if (rect.right > vw - EDGE_PAD) x -= rect.right - (vw - EDGE_PAD);
-    if (x < EDGE_PAD) x = EDGE_PAD;
-    if (!above && rect.bottom > vh - EDGE_PAD) {
-      // The rendered height crossed the bottom: flip to the anchor's
-      // top edge (the CSS translates the bubble up by its own height).
-      above = true;
-      y = shown.anchorTop - GAP;
-    }
+    const { x, y, above } = settleHint(shown, el.getBoundingClientRect(), {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    });
     if (
       Math.round(x) !== Math.round(shown.x) ||
       Math.round(y) !== Math.round(shown.y) ||
@@ -277,6 +257,7 @@ export function HintLayer({
       aria-hidden
       data-hint-bubble
       data-above={shown.above || undefined}
+      data-beside={shown.beside || undefined}
       style={{ left: shown.x, top: shown.y }}
     >
       {shown.text}

@@ -5,7 +5,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
 } from "react";
 
 /**
@@ -23,7 +22,8 @@ import {
  * shell's 1120 px breakpoint the drawer displaces the stage by adding its
  * width to the one property that defines the edge. At and below the
  * breakpoint it **overlays** instead, and publishes nothing — the map keeps
- * its full width beneath.
+ * its full width beneath. A rail standing open beside the page moves that
+ * breakpoint up by its shift; the helper slot (`helper-bands.ts`) decides.
  */
 
 /** The one width, in CSS pixels. */
@@ -45,10 +45,10 @@ export function edgeOffset(state: { open: boolean; overlay: boolean }): number {
 
 export interface RecipeDrawerState {
   open: boolean;
-  /** The one width, published for the shell's style variable. */
+  /** The one width, published for the shell's style variable. Whether it
+   * overlays the stage is the helper slot's to say: the band is one fact
+   * for both helpers, moved by the open rail. */
   width: number;
-  /** True below the breakpoint, where the drawer overlays the stage. */
-  overlay: boolean;
   openDrawer: () => void;
   /**
    * The door: open with this layer's table pre-filled as the tool's input.
@@ -94,19 +94,6 @@ export interface RecipeDrawerState {
   close: () => void;
 }
 
-/** Whether the viewport is at or below the shell's one width breakpoint.
- * Subscribed rather than sampled in an effect, so React and the browser stay
- * in step without a cascading render on every mount. */
-function subscribeOverlay(onChange: () => void): () => void {
-  const query = window.matchMedia(`(max-width: ${OVERLAY_BELOW}px)`);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-
-const readOverlay = () => window.matchMedia(`(max-width: ${OVERLAY_BELOW}px)`).matches;
-/** The server renders the wide layout; the client corrects on first paint. */
-const serverOverlay = () => false;
-
 export function useRecipeDrawer(hooks?: {
   /** Fired as any door opens the drawer — the pane coordinator closes
    * the assistant here, in the same event, so the slot never blinks. */
@@ -134,7 +121,6 @@ export function useRecipeDrawer(hooks?: {
     openerRef.current = active instanceof HTMLElement ? active : null;
   }, [open]);
 
-  const overlay = useSyncExternalStore(subscribeOverlay, readOverlay, serverOverlay);
   // The callback, not the object: callers pass an inline literal, whose
   // identity changes every render; the callback they put in it does not.
   const onOpen = hooks?.onOpen;
@@ -154,7 +140,6 @@ export function useRecipeDrawer(hooks?: {
     () => ({
       open,
       width: DRAWER_WIDTH,
-      overlay,
       openDrawer: () => {
         captureOpener();
         onOpen?.();
@@ -193,6 +178,6 @@ export function useRecipeDrawer(hooks?: {
       session,
       close,
     }),
-    [open, originLayerId, recipeId, session, overlay, close, captureOpener, onOpen],
+    [open, originLayerId, recipeId, session, close, captureOpener, onOpen],
   );
 }

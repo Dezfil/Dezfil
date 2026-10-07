@@ -7,8 +7,8 @@ import { AssistantDoor } from "../builder/assistant/AssistantDoor";
 import { AssistantPane, useAssistantShell } from "../builder/assistant/AssistantShell";
 import type { InsertOutcome } from "../builder/assistant/ProposalBlock";
 import type { PageFacts } from "../builder/assistant/talking-about";
-import { OVERLAY_BELOW } from "../builder/drawer/use-recipe-drawer";
 import { HELPER_OFFSET } from "../builder/helper-bands";
+import { useViewportBand } from "../builder/use-viewport-band";
 import { useLayerDataDownloads } from "../builder/use-layer-data-downloads";
 import { DownloadNotes } from "../builder/DownloadNotes";
 import chrome from "../builder/MapBuilder.module.css";
@@ -21,20 +21,15 @@ import chrome from "../builder/MapBuilder.module.css";
  * applies. The pane is closed every time the page opens and is opened
  * by a click on the door: the open state is
  * this mount's and is carried nowhere, and the work area gives up the
- * pane's width plus gutter while it docks.
+ * pane's width plus gutter while it docks. The breakpoint is the
+ * builder's overlay band, measured with the rail inside the chrome, so a
+ * rail standing open moves it up with it.
  */
-const subscribeNarrow = (onChange: () => void) => {
-  const query = window.matchMedia(`(max-width: ${OVERLAY_BELOW}px)`);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-};
-const readNarrow = () => window.matchMedia(`(max-width: ${OVERLAY_BELOW}px)`).matches;
-const serverNarrow = () => false;
 const subscribeNever = () => () => {};
 
 export function useSqlAssistant() {
   const [hand, setHand] = useState(false);
-  const overlay = useSyncExternalStore(subscribeNarrow, readNarrow, serverNarrow);
+  const overlay = useViewportBand() === "overlay";
   const popRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const openAssistant = useCallback(() => setHand(true), []);

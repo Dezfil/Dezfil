@@ -25,6 +25,7 @@ export function RecipeDrawer({
   state,
   name,
   onDismiss,
+  overlay,
   hidden = false,
   children,
 }: {
@@ -32,6 +33,9 @@ export function RecipeDrawer({
   /** The surface's title. */
   name: string;
   onDismiss: () => void;
+  /** The helper slot's band says it overlays the stage rather than
+   * displacing it: one fact for both helpers, moved by the open rail. */
+  overlay: boolean;
   /** Hidden by the width, not closed: still
    * mounted, so a half-filled form survives; out of sight, out of the
    * tab order, and Escape is not its to take. */
@@ -66,7 +70,7 @@ export function RecipeDrawer({
     <aside
       className={styles.drawer}
       data-recipe-drawer
-      data-overlay={state.overlay ? "true" : "false"}
+      data-overlay={overlay ? "true" : "false"}
       data-hidden={hidden ? "true" : undefined}
       aria-hidden={hidden || undefined}
       style={{ ["--drawer-width" as string]: `${state.width}px` }}

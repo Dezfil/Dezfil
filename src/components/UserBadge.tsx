@@ -11,6 +11,7 @@ import { SignOutIcon } from "./ui/icons";
 import { accountRequest, failureMessage } from "./settings/api";
 import styles from "@/app/(workspace)/layout.module.css";
 import { accountChanged } from "./auth/private-state";
+import { railHint, useRailItemMode } from "./rail-mode";
 
 /** Profile changes refresh the rail without a navigation. */
 export const DISPLAY_NAME_EVENT = "dezfil:display-name";
@@ -23,6 +24,7 @@ function initials(name: string): string {
 /** The expanded avatar row carries the account and its sign-out action. */
 export function UserBadge({ account }: { account: Account | null }) {
   const pathname = usePathname();
+  const mode = useRailItemMode();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   async function signOut() {
@@ -36,7 +38,8 @@ export function UserBadge({ account }: { account: Account | null }) {
   return <div className={styles.accountRow}>
     <Link href="/settings#account" className={styles.railLink}
       data-active={pathname.startsWith("/settings") || undefined}
-      aria-label={account ? `${account.name}, account` : "Account"}>
+      aria-label={account ? `${account.name}, account` : "Account"}
+      {...railHint(mode, account?.name ?? "Account")}>
       <span className={styles.railIcon}><span className={styles.avatar} aria-hidden>
         {account ? initials(account.name) : ""}
       </span></span>

@@ -136,7 +136,7 @@
 }
 
 .verdict[data-tone="ok"] {
-  background: var(--accent-dim);
+  background: var(--health-ok-dim);
   color: var(--fg);
 }
 

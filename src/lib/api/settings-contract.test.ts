@@ -89,6 +89,45 @@ it("requires cookie or bearer authentication and generates both settings tools w
   expect(patch.description).toContain("before any write");
 });
 
+describe("the look in the settings contract", () => {
+  const CHOICES = {
+    color: ["kelp", "harbor", "heather", "slate"], contrast: ["standard", "more"], font: ["inter", "system"],
+    background: ["atlantic", "plain", "graticule", "hex"], corners: ["rounded", "soft"], rail: ["hover", "open", "icons"],
+  };
+  const DEFAULTS = { color: "kelp", contrast: "standard", font: "inter", background: "atlantic", corners: "rounded", rail: "hover" };
+  const picks = (look: Json) => {
+    const properties = look.properties as Record<string, Json>;
+    return {
+      choices: Object.fromEntries(Object.entries(properties).map(([key, value]) => [key, value.enum])),
+      defaults: Object.fromEntries(Object.entries(properties).map(([key, value]) => [key, value.default])),
+      described: Object.values(properties).every(value => typeof value.description === "string" && value.description.length > 0),
+    };
+  };
+
+  it("documents the look on the read: always present, every pick present, closed, with its choices and default", () => {
+    const doc = buildOpenApiDocument() as Json;
+    const settings = ((doc.components as Json).schemas as Json).WorkspaceSettings as Json;
+    expect(settings.required).toContain("look");
+    const look = (settings.properties as Json).look as Json;
+    expect(look.type).toBe("object");
+    expect(look.additionalProperties).toBe(false);
+    expect(look.required).toEqual(Object.keys(CHOICES));
+    expect(picks(look)).toEqual({ choices: CHOICES, defaults: DEFAULTS, described: true });
+  });
+
+  it("documents the look on the update body as an optional, partial, closed slice", () => {
+    const { get, patch } = settingsOps();
+    const body = (((patch.requestBody as Json).content as Json)["application/json"] as Json).schema as Json;
+    expect(body.required ?? []).not.toContain("look");
+    const look = (body.properties as Json).look as Json;
+    expect(look.additionalProperties).toBe(false);
+    expect(look.required).toBeUndefined();
+    expect(picks(look)).toEqual({ choices: CHOICES, defaults: DEFAULTS, described: true });
+    expect(get.description as string).toContain("look");
+    expect(patch.description as string).toContain("look");
+  });
+});
+
 it("documents the source-list grouping on the read, always present, and on the update body", () => {
   const doc = buildOpenApiDocument() as Json;
   const settings = ((doc.components as Json).schemas as Json).WorkspaceSettings as Json;

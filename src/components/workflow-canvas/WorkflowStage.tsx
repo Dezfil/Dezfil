@@ -12,6 +12,7 @@ import type { Whisper } from "./save-whisper";
 import { GRID } from "./arrange";
 import type { FlowNode, ReadFlowEdge } from "./to-flow";
 import { MAX_ZOOM, MIN_ZOOM, fitOptions } from "./view";
+import { readRailShift } from "../rail-mode";
 import { useCanvasRecovery } from "./WorkflowRecovery";
 import { markUnsavedNodes, withOpeningPositions } from "./unsaved-layout";
 import { SavedPositionGhosts } from "./SavedPositionGhosts";
@@ -60,7 +61,7 @@ export function WorkflowStage({ view, panel, reserve, helperRight, locked, noteM
           edgeTypes={EDGE_TYPES}
           connectionLineComponent={ConnectionLine}
           fitView
-          fitViewOptions={fitOptions(view, panel, reserve, helperRight)}
+          fitViewOptions={fitOptions(view, panel, reserve, helperRight, readRailShift())}
           minZoom={MIN_ZOOM}
           maxZoom={MAX_ZOOM}
           snapToGrid

@@ -1,0 +1,424 @@
+/* ============================================================
+   The person's look. Each pick that differs from Dezfil's default
+   sits on the workspace document's <html> as data-look-<pick>, served
+   with the page; these rules turn it into token overrides, so every
+   surface that reads the tokens follows without being restyled. Only
+   the workspace root carries the attributes: entry screens, published
+   pages and the render route never match a rule here.
+
+   Kelp, Standard, Inter, the Atlantic chart and Rounded are today's
+   tokens in globals.css and need no rule. A colour override has its dark twin with the same
+   tokens, because the light one alone would also win under the dark
+   theme. Color never sets a status colour (the health dot's
+   --health-ok, --warn, --danger) or a data colour.
+   ============================================================ */
+
+/* ---- Color: the interface family re-hued at Kelp's lightness, and the
+   Atlantic chart in the Color's inks ---- */
+
+:root[data-look-color="harbor"] {
+  --bg: #ebf0f5;
+  --bg-panel: #ffffff;
+  --bg-raised: #f5f8fa;
+  --bg-hover: #e5ebf1;
+  --border: #e0e6ec;
+  --border-strong: #c7d1d9;
+  --divider: color-mix(in srgb, #969ea8 45%, transparent);
+  --fg: #292f38;
+  --fg-muted: #616a75;
+  --fg-faint: #969ea8;
+  --accent: #2b62a6;
+  --accent-bright: #1f4f8c;
+  --accent-dim: rgba(43, 98, 166, 0.12);
+  --accent-wash: #e3ebf3;
+  --on-accent: #ffffff;
+  --focus: #2b62a6;
+  --swatch-border: rgba(41, 47, 56, 0.18);
+  --shadow: rgba(41, 47, 56, 0.16);
+  --sheet: url("/look/atlantic-harbor-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="harbor"] {
+  --bg: #090e15;
+  --bg-panel: #0d151e;
+  --bg-raised: #121c28;
+  --bg-hover: #162231;
+  --border: #1d2b3c;
+  --border-strong: #273a52;
+  --divider: color-mix(in srgb, #566a82 50%, transparent);
+  --fg: #e7edf4;
+  --fg-muted: #93a4ba;
+  --fg-faint: #566a82;
+  --accent: #6ea2ee;
+  --accent-bright: #93bbf6;
+  --accent-dim: rgba(110, 162, 238, 0.13);
+  --accent-wash: rgba(110, 162, 238, 0.12);
+  --on-accent: #08182f;
+  --focus: #74a6ff;
+  --swatch-border: rgba(255, 255, 255, 0.12);
+  --shadow: rgba(0, 0, 0, 0.4);
+  --sheet: url("/look/atlantic-harbor-dark.svg");
+}
+
+:root[data-look-color="heather"] {
+  --bg: #f1eef4;
+  --bg-panel: #ffffff;
+  --bg-raised: #f8f6fa;
+  --bg-hover: #ece9f0;
+  --border: #e7e4eb;
+  --border-strong: #d2cdd8;
+  --divider: color-mix(in srgb, #9f9ba7 45%, transparent);
+  --fg: #302d38;
+  --fg-muted: #6c6775;
+  --fg-faint: #9f9ba7;
+  --accent: #6b4cad;
+  --accent-bright: #573b95;
+  --accent-dim: rgba(107, 76, 173, 0.12);
+  --accent-wash: #ece8f4;
+  --on-accent: #ffffff;
+  --focus: #6b4cad;
+  --swatch-border: rgba(48, 45, 56, 0.18);
+  --shadow: rgba(48, 45, 56, 0.16);
+  --sheet: url("/look/atlantic-heather-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="heather"] {
+  --bg: #0e0d13;
+  --bg-panel: #14131c;
+  --bg-raised: #1b1926;
+  --bg-hover: #211f2f;
+  --border: #2a273a;
+  --border-strong: #3a354e;
+  --divider: color-mix(in srgb, #68647e 50%, transparent);
+  --fg: #ecebf2;
+  --fg-muted: #a39fb6;
+  --fg-faint: #68647e;
+  --accent: #ab95ec;
+  --accent-bright: #c4b4f5;
+  --accent-dim: rgba(171, 149, 236, 0.13);
+  --accent-wash: rgba(171, 149, 236, 0.12);
+  --on-accent: #1a1236;
+  --focus: #74a6ff;
+  --swatch-border: rgba(255, 255, 255, 0.12);
+  --shadow: rgba(0, 0, 0, 0.4);
+  --sheet: url("/look/atlantic-heather-dark.svg");
+}
+
+:root[data-look-color="slate"] {
+  --bg: #edf0f3;
+  --bg-panel: #ffffff;
+  --bg-raised: #f6f7f9;
+  --bg-hover: #e7ebee;
+  --border: #e2e6e9;
+  --border-strong: #cbd0d5;
+  --divider: color-mix(in srgb, #999ea4 45%, transparent);
+  --fg: #2b2f35;
+  --fg-muted: #646a70;
+  --fg-faint: #999ea4;
+  --accent: #45525e;
+  --accent-bright: #323d47;
+  --accent-dim: rgba(69, 82, 94, 0.12);
+  --accent-wash: #e6e9ed;
+  --on-accent: #ffffff;
+  --focus: #45525e;
+  --swatch-border: rgba(43, 47, 53, 0.18);
+  --shadow: rgba(43, 47, 53, 0.16);
+  --sheet: url("/look/atlantic-slate-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="slate"] {
+  --bg: #0c0e11;
+  --bg-panel: #121418;
+  --bg-raised: #181b20;
+  --bg-hover: #1d2127;
+  --border: #262b31;
+  --border-strong: #333a43;
+  --divider: color-mix(in srgb, #626972 50%, transparent);
+  --fg: #eaecef;
+  --fg-muted: #9da3ac;
+  --fg-faint: #626972;
+  --accent: #c3cad6;
+  --accent-bright: #e1e5ec;
+  --accent-dim: rgba(195, 202, 214, 0.13);
+  --accent-wash: rgba(195, 202, 214, 0.12);
+  --on-accent: #121418;
+  --focus: #74a6ff;
+  --swatch-border: rgba(255, 255, 255, 0.12);
+  --shadow: rgba(0, 0, 0, 0.4);
+  --sheet: url("/look/atlantic-slate-dark.svg");
+}
+
+/* ---- Contrast: stronger borders, dividers and quieter text, restated
+   per Color so each Color's pair wins by one more attribute ---- */
+
+:root[data-look-contrast="more"] {
+  --border: #bcc7bf;
+  --border-strong: #839189;
+  --divider: color-mix(in srgb, #6c7b77 55%, transparent);
+  --fg-muted: #3e4c49;
+  --fg-faint: #5f6e69;
+}
+
+:root[data-theme="dark"][data-look-contrast="more"] {
+  --border: #3b4762;
+  --border-strong: #5a6886;
+  --divider: color-mix(in srgb, #7a86a0 55%, transparent);
+  --fg-muted: #c4ccda;
+  --fg-faint: #959fb5;
+}
+
+:root[data-look-color="harbor"][data-look-contrast="more"] {
+  --border: #bbc5ce;
+  --border-strong: #838f99;
+  --divider: color-mix(in srgb, #707882 55%, transparent);
+  --fg-muted: #424953;
+  --fg-faint: #636b76;
+}
+
+:root[data-theme="dark"][data-look-color="harbor"][data-look-contrast="more"] {
+  --border: #334964;
+  --border-strong: #516a89;
+  --divider: color-mix(in srgb, #7388a2 55%, transparent);
+  --fg-muted: #c1cddb;
+  --fg-faint: #8fa1b7;
+}
+
+:root[data-look-color="heather"][data-look-contrast="more"] {
+  --border: #c6c1cd;
+  --border-strong: #908a98;
+  --divider: color-mix(in srgb, #797581 55%, transparent);
+  --fg-muted: #4a4652;
+  --fg-faint: #6c6875;
+}
+
+:root[data-theme="dark"][data-look-color="heather"][data-look-contrast="more"] {
+  --border: #484360;
+  --border-strong: #686383;
+  --divider: color-mix(in srgb, #86829e 55%, transparent);
+  --fg-muted: #cbc9d9;
+  --fg-faint: #9f9cb3;
+}
+
+:root[data-look-color="slate"][data-look-contrast="more"] {
+  --border: #bfc4ca;
+  --border-strong: #888e94;
+  --divider: color-mix(in srgb, #72787e 55%, transparent);
+  --fg-muted: #44494f;
+  --fg-faint: #656b71;
+}
+
+:root[data-theme="dark"][data-look-color="slate"][data-look-contrast="more"] {
+  --border: #414853;
+  --border-strong: #616975;
+  --divider: color-mix(in srgb, #808791 55%, transparent);
+  --fg-muted: #c8ccd2;
+  --fg-faint: #9a9fa8;
+}
+
+/* ---- Typeface: the face of everything read. The wordmark's
+   --font-display and the mono face for values stay ---- */
+
+:root[data-look-font="system"] {
+  --font-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ---- Corners: Soft is the tighter family; pills and rounds stay. The
+   corners in between are restated over the family as the page defines
+   them, so the block holds every corner the pick changes ---- */
+
+:root[data-look-corners="soft"] {
+  --radius-sm: 3px;
+  --radius: 7px;
+  --radius-control: 9px;
+  --radius-lg: 11px;
+  --radius-card: 14px;
+  --radius-rail: 13px;
+  --radius-chip: calc(var(--radius-sm) - 1px);
+  --radius-spine: calc(var(--radius-sm) + 1px);
+  --radius-key: calc(var(--radius-sm) + 2px);
+  --radius-item: calc(var(--radius) - 2px);
+  --radius-row: calc(var(--radius) - 1px);
+  --radius-box: calc(var(--radius) + 1px);
+  --radius-tile: calc(var(--radius) + 2px);
+  --radius-stage: calc(var(--radius-control) + 1px);
+  --radius-legend: calc(var(--radius-lg) + 2px);
+}
+
+/* ---- Side menu: Always open stands the rail at its open width (210 px)
+   beside the page, not over it, so every site that places content beside
+   the rail moves right by what it adds to the collapsed 54 px. Icons
+   only and Opens on hover add nothing. The rail's own behavior is the
+   shell's, keyed on the same attribute ---- */
+
+:root[data-look-rail="open"] {
+  --rail-shift: 156px;
+}
+
+/* ---- Background: the texture behind the workspace and in the header
+   bar, as faint as today's, in the Color's ink on the theme's ground.
+   Every Color and theme names its own file, so no rule here depends on
+   source order. Plain is no image ---- */
+
+:root[data-look-background="plain"],
+:root[data-theme="dark"][data-look-background="plain"],
+:root[data-look-color="harbor"][data-look-background="plain"],
+:root[data-theme="dark"][data-look-color="harbor"][data-look-background="plain"],
+:root[data-look-color="heather"][data-look-background="plain"],
+:root[data-theme="dark"][data-look-color="heather"][data-look-background="plain"],
+:root[data-look-color="slate"][data-look-background="plain"],
+:root[data-theme="dark"][data-look-color="slate"][data-look-background="plain"] {
+  --sheet: none;
+}
+
+/* Graticule: an 88 px grid, tiled from the screen's corner */
+
+:root[data-look-background="graticule"] {
+  --sheet: url("/look/graticule-kelp-light.svg");
+  --sheet-size: 88px 88px;
+  --sheet-pos: 0 0;
+  --sheet-repeat: repeat;
+}
+
+:root[data-theme="dark"][data-look-background="graticule"] {
+  --sheet: url("/look/graticule-kelp-dark.svg");
+}
+
+:root[data-look-color="harbor"][data-look-background="graticule"] {
+  --sheet: url("/look/graticule-harbor-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="harbor"][data-look-background="graticule"] {
+  --sheet: url("/look/graticule-harbor-dark.svg");
+}
+
+:root[data-look-color="heather"][data-look-background="graticule"] {
+  --sheet: url("/look/graticule-heather-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="heather"][data-look-background="graticule"] {
+  --sheet: url("/look/graticule-heather-dark.svg");
+}
+
+:root[data-look-color="slate"][data-look-background="graticule"] {
+  --sheet: url("/look/graticule-slate-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="slate"][data-look-background="graticule"] {
+  --sheet: url("/look/graticule-slate-dark.svg");
+}
+
+/* Hex: a hexagon lattice, tiled from the screen's corner */
+
+:root[data-look-background="hex"] {
+  --sheet: url("/look/hex-kelp-light.svg");
+  --sheet-size: 31.177px 54px;
+  --sheet-pos: 0 0;
+  --sheet-repeat: repeat;
+}
+
+:root[data-theme="dark"][data-look-background="hex"] {
+  --sheet: url("/look/hex-kelp-dark.svg");
+}
+
+:root[data-look-color="harbor"][data-look-background="hex"] {
+  --sheet: url("/look/hex-harbor-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="harbor"][data-look-background="hex"] {
+  --sheet: url("/look/hex-harbor-dark.svg");
+}
+
+:root[data-look-color="heather"][data-look-background="hex"] {
+  --sheet: url("/look/hex-heather-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="heather"][data-look-background="hex"] {
+  --sheet: url("/look/hex-heather-dark.svg");
+}
+
+:root[data-look-color="slate"][data-look-background="hex"] {
+  --sheet: url("/look/hex-slate-light.svg");
+}
+
+:root[data-theme="dark"][data-look-color="slate"][data-look-background="hex"] {
+  --sheet: url("/look/hex-slate-dark.svg");
+}
+
+/* ---- The default scope. What an image is made of keeps Dezfil's
+   default look whatever the person picked: an element carrying
+   data-look-default restates, at its theme's default, every token a
+   rule above sets, so the export composition the download rasterizes
+   (and its preview) reads today's tokens while the card's own controls
+   outside it take the person's look. It also restates the text the page
+   sets on its body: the body computes its colour and face from the
+   person's tokens and an element inherits the computed value, so these
+   read the scope's own tokens instead, in either theme ---- */
+
+[data-look-default] {
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  --bg: #edf1ec;
+  --bg-panel: #ffffff;
+  --bg-raised: #f6f8f5;
+  --bg-hover: #e7ece6;
+  --border: #e2e7e1;
+  --border-strong: #c9d2ca;
+  --divider: color-mix(in srgb, #93a19c 45%, transparent);
+  --fg: #243230;
+  --fg-muted: #5f6f6b;
+  --fg-faint: #93a19c;
+  --accent: #0d7d5c;
+  --accent-bright: #0a6248;
+  --accent-dim: rgba(13, 125, 92, 0.12);
+  --accent-wash: #e2f2ec;
+  --on-accent: #ffffff;
+  --focus: #0d7d5c;
+  --swatch-border: rgba(36, 50, 48, 0.18);
+  --shadow: rgba(36, 50, 48, 0.16);
+  --font-ui: var(--font-inter), -apple-system, "Segoe UI", sans-serif;
+  --radius-sm: 4px;
+  --radius: 9px;
+  --radius-control: 12px;
+  --radius-lg: 14px;
+  --radius-card: 20px;
+  --radius-rail: 18px;
+  --radius-chip: calc(var(--radius-sm) - 1px);
+  --radius-spine: calc(var(--radius-sm) + 1px);
+  --radius-key: calc(var(--radius-sm) + 2px);
+  --radius-item: calc(var(--radius) - 2px);
+  --radius-row: calc(var(--radius) - 1px);
+  --radius-box: calc(var(--radius) + 1px);
+  --radius-tile: calc(var(--radius) + 2px);
+  --radius-stage: calc(var(--radius-control) + 1px);
+  --radius-legend: calc(var(--radius-lg) + 2px);
+  --rail-shift: 0px;
+  --sheet: url("/shell-sheet-light.svg");
+  --sheet-size: cover;
+  --sheet-pos: center;
+  --sheet-repeat: no-repeat;
+}
+
+:root[data-theme="dark"] [data-look-default] {
+  --bg: #0b0e14;
+  --bg-panel: #10141d;
+  --bg-raised: #151b27;
+  --bg-hover: #1a2130;
+  --border: #222a3b;
+  --border-strong: #2e3950;
+  --divider: color-mix(in srgb, #5d6880 50%, transparent);
+  --fg: #e9ecf3;
+  --fg-muted: #98a3b8;
+  --fg-faint: #5d6880;
+  --accent: #45c58f;
+  --accent-bright: #5fe3ab;
+  --accent-dim: rgba(69, 197, 143, 0.13);
+  --accent-wash: rgba(69, 197, 143, 0.12);
+  --on-accent: #06231a;
+  --focus: #74a6ff;
+  --swatch-border: rgba(255, 255, 255, 0.12);
+  --shadow: rgba(0, 0, 0, 0.4);
+  --sheet: url("/shell-sheet-dark.svg");
+}

@@ -30,6 +30,7 @@ import {
   addLayer,
   consumeExpected,
   createMap,
+  exactly,
   patchLayer,
   patchMap,
   publishMap,
@@ -38,8 +39,18 @@ import {
   saveSettled,
   seedCsv,
   trackConsole,
+  type ConsoleError,
 } from "./support";
 import { markStats } from "./png-probes";
+
+/** The two 404s a dead published link casts, each consumed once and only
+ * for that link: the document the published root answers with its
+ * not-found page, and the step's own probe of the payload. Any other
+ * failure, on these routes or another link, stays for the final check. */
+async function consumeDeadLink(errors: ConsoleError[], origin: string, token: string): Promise<void> {
+  await consumeExpected(errors, exactly(`${origin}/v/${token}`), /status of 404/);
+  await consumeExpected(errors, exactly(`${origin}/api/published/${token}`), /status of 404/);
+}
 
 const runId = Date.now().toString(36);
 const tableName = `plc_${runId}`;
@@ -126,10 +137,10 @@ test("publish, unpublish, republish — the link lifecycle a reader sees", async
       return (await fetch(`/api/published/${token}`)).status;
     }, firstUrl);
     expect(status).toBe(404);
-    // The dead link's 404s cast expected console shadows: the viewer's
-    // own payload fetch and the probe above.
-    await consumeExpected(consoleErrors, /\/api\/published\//);
-    await consumeExpected(consoleErrors, /\/api\/published\//);
+    // The published root answers the dead link with its not-found page
+    // before any client view mounts, so the page makes no read of its own:
+    // the document's 404 and the probe's are the step's only shadows.
+    await consumeDeadLink(consoleErrors, new URL(page.url()).origin, firstUrl.split("/v/")[1]);
   });
 
   await test.step("a token that never existed gets the same designed presentation", async () => {
@@ -149,8 +160,8 @@ test("publish, unpublish, republish — the link lifecycle a reader sees", async
       neverIssued,
     );
     expect(status).toBe(404);
-    await consumeExpected(consoleErrors, /\/api\/published\//);
-    await consumeExpected(consoleErrors, /\/api\/published\//);
+    // As for the revoked link: the document's 404 and the probe's, no other.
+    await consumeDeadLink(consoleErrors, new URL(page.url()).origin, neverIssued);
   });
 
   await test.step("publishing again yields a working link", async () => {

@@ -70,11 +70,24 @@
   --danger: #bb4434;
   --danger-dim: rgba(187, 68, 52, 0.1);
   --focus: #0d7d5c;
+  /* The status family: a healthy service, an "ok" outcome, a "live"
+     state. Today's kelp, one for one with the accent family, kept apart
+     from it so the person's Color never repaints a status. */
+  --health-ok: #0d7d5c;
+  --health-ok-bright: #0a6248;
+  --health-ok-dim: rgba(13, 125, 92, 0.12);
+  --health-ok-wash: #e2f2ec;
+  --on-health-ok: #ffffff;
 
   /* Details that follow the theme */
   /* The shell sheet: Atlantic coastlines over the sixteen-winds
      rhumb net, exported verbatim from the approved final prototype */
   --sheet: url("/shell-sheet-light.svg");
+  /* How the sheet is laid: today's chart covers the screen; a tiled
+     background repeats from its corner. */
+  --sheet-size: cover;
+  --sheet-pos: center;
+  --sheet-repeat: no-repeat;
   /* The published viewer's chart grid (light publishes) */
   --graticule: rgba(31, 44, 62, 0.05);
   --swatch-border: rgba(36, 50, 48, 0.18);
@@ -100,6 +113,25 @@
      small radius for swatches/kbd/dismiss, the pill blessed */
   --radius-sm: 4px;
   --radius-pill: 999px;
+  /* The icon rail's own corner, which Corners tightens with the rest */
+  --radius-rail: 18px;
+  /* The corners in between, each derived from the family so Corners
+     tightens them with it: a swatch or strip (3), a small input (5), a key
+     in a bar (6), an item in a menu or bar (7), a row or chip (8), a box,
+     field or menu (10), a tile (11), the map's stage controls (13), the
+     legend and a widget card (16) */
+  --radius-chip: calc(var(--radius-sm) - 1px);
+  --radius-spine: calc(var(--radius-sm) + 1px);
+  --radius-key: calc(var(--radius-sm) + 2px);
+  --radius-item: calc(var(--radius) - 2px);
+  --radius-row: calc(var(--radius) - 1px);
+  --radius-box: calc(var(--radius) + 1px);
+  --radius-tile: calc(var(--radius) + 2px);
+  --radius-stage: calc(var(--radius-control) + 1px);
+  --radius-legend: calc(var(--radius-lg) + 2px);
+  /* What the always-open rail adds to every left edge beside it: none
+     while the rail opens over the page */
+  --rail-shift: 0px;
 
   /* Type ramp — six roles, floor 11px; nothing renders below --text-meta */
   --text-hero: 27px;
@@ -171,6 +203,11 @@
   --danger: #e06e5a;
   --danger-dim: rgba(224, 110, 90, 0.12);
   --focus: #74a6ff;
+  --health-ok: #45c58f;
+  --health-ok-bright: #5fe3ab;
+  --health-ok-dim: rgba(69, 197, 143, 0.13);
+  --health-ok-wash: rgba(69, 197, 143, 0.12);
+  --on-health-ok: #06231a;
 
   /* The published viewer's chart grid, night value */
   --graticule: rgba(151, 170, 205, 0.045);
@@ -227,9 +264,9 @@ body {
   /* The shell sheet — the chart under everything; fixed so
      scrolling content never moves it */
   background-image: var(--sheet);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  background-size: var(--sheet-size);
+  background-position: var(--sheet-pos);
+  background-repeat: var(--sheet-repeat);
   background-attachment: fixed;
 }
 

@@ -55,6 +55,7 @@ import { Compass } from "../Compass";
 import { timeToMs, windowToRange, type TimeWindowMs } from "@/lib/time";
 import { createStatusChannel } from "@/lib/map-status";
 import { CursorReadout } from "./CursorReadout";
+import { PublishedNotFound } from "./PublishedNotFound";
 import { FailedLayers } from "./FailedLayers";
 import styles from "./PublishedView.module.css";
 
@@ -473,17 +474,7 @@ export function PublishedView({
     );
   }
 
-  if (status === "notfound") {
-    return (
-      <div className={styles.splash}>
-        <Compass size={30} />
-        <h1 className={styles.notfoundTitle}>Map not found</h1>
-        <p className={styles.notfoundText}>
-          This link is no longer available.
-        </p>
-      </div>
-    );
-  }
+  if (status === "notfound") return <PublishedNotFound />;
 
   if (status === "error" || !view) {
     return (

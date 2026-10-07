@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { AssistantContext } from "@/lib/assistant/context";
 import { AssistantDoor } from "../builder/assistant/AssistantDoor";
 import { AssistantPane, useAssistantShell } from "../builder/assistant/AssistantShell";
 import type { PageFacts } from "../builder/assistant/talking-about";
-import { OVERLAY_BELOW } from "../builder/drawer/use-recipe-drawer";
-import { BOTH_FROM, bandOf, type Band } from "../builder/helper-bands";
+import { useViewportBand } from "../builder/use-viewport-band";
 import { useLayerDataDownloads } from "../builder/use-layer-data-downloads";
 import { DownloadNotes } from "../builder/DownloadNotes";
 import chrome from "../builder/MapBuilder.module.css";
@@ -18,26 +17,15 @@ import chrome from "../builder/MapBuilder.module.css";
  * decides what the open pane does to
  * its host, its panels and its band from the view and the width band
  * (`assistant-layout.ts`); the screen owns the door, the pane and the
- * band's subscription.
+ * band's subscription. The band is the builder's, measured with the rail
+ * inside the chrome, so a rail standing open moves its limits with it.
  */
-function subscribeBand(onChange: () => void): () => void {
-  const narrow = window.matchMedia(`(max-width: ${OVERLAY_BELOW}px)`);
-  const wide = window.matchMedia(`(min-width: ${BOTH_FROM}px)`);
-  narrow.addEventListener("change", onChange);
-  wide.addEventListener("change", onChange);
-  return () => {
-    narrow.removeEventListener("change", onChange);
-    wide.removeEventListener("change", onChange);
-  };
-}
-const readBand = (): Band => bandOf(window.innerWidth);
-const serverBand = (): Band => "one";
 
 export type WorkflowAssistant = ReturnType<typeof useWorkflowAssistant>;
 
 export function useWorkflowAssistant(onMutate: () => void) {
   const [open, setOpen] = useState(false);
-  const band = useSyncExternalStore(subscribeBand, readBand, serverBand);
+  const band = useViewportBand();
   const popRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const openAssistant = useCallback(() => setOpen(true), []);
