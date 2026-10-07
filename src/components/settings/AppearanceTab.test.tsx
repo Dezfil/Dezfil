@@ -2,6 +2,8 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defaultLook, LOOK_KEYS, lookChoices, type Look } from "@/lib/look";
+import { closePrivateState } from "../auth/private-state";
+import { SignedIn } from "../sharing/signed-in";
 import { HostElement, HostEvent, installDomHost } from "../testing/dom-host";
 import { AppearanceTab } from "./AppearanceTab";
 import { choiceLabel, LOOK_CARDS } from "./look-tab";
@@ -58,6 +60,8 @@ beforeEach(() => {
 });
 afterEach(() => {
   if (mounted) act(() => root.unmount());
+  // The look lives at workspace scope for the account; the next test is another document.
+  closePrivateState();
   host.uninstall();
   vi.unstubAllGlobals();
   vi.useRealTimers();
@@ -306,6 +310,84 @@ describe("Reset to Dezfil's default", () => {
     await vi.advanceTimersByTimeAsync(UNDO_MS * 2);
     expect(writes()).toHaveLength(1);
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe("a write still on its way when the tab is left", () => {
+  const leave = () => { act(() => root.unmount()); mounted = false; };
+  const answer = async () => {
+    while (held.length) {
+      await act(async () => { held.shift()!(); });
+      await settle();
+    }
+  };
+
+  it("leaves the root on what the server accepted", async () => {
+    await open();
+    holding = true;
+    await pick("set-color", "Slate");
+    leave();
+    // Another browser of the same account changed the contrast meanwhile: the answer reports the whole look kept.
+    stored = { ...stored, contrast: "more" };
+    await answer();
+    expect(stored).toEqual({ ...defaultLook(), color: "slate", rail: "icons", contrast: "more" });
+    expect(onRoot()).toEqual({ color: "slate", rail: "icons", contrast: "more" });
+    // Back on the tab, the rows show what the root does.
+    root = createRoot(container as unknown as Element);
+    await act(async () => root.render(<AppearanceTab />));
+    mounted = true;
+    await settle();
+    expect(picked("set-color")).toEqual(["Slate"]);
+    expect(picked("set-contrast")).toEqual(["More contrast"]);
+  });
+
+  it("returns the root to the saved look when the write is refused after the tab is gone", async () => {
+    await open();
+    holding = true;
+    await pick("set-typeface", "System");
+    expect(onRoot()).toEqual({ color: "harbor", rail: "icons", font: "system" });
+    leave();
+    mode = "fail";
+    await answer();
+    expect(stored).toEqual({ ...defaultLook(), color: "harbor", rail: "icons" });
+    expect(onRoot()).toEqual({ color: "harbor", rail: "icons" });
+  });
+
+  it("returns the root to the saved look when the server refuses the value after the tab is gone", async () => {
+    await open();
+    holding = true;
+    await pick("set-corners", "Soft");
+    leave();
+    mode = "refuse";
+    await answer();
+    expect(onRoot()).toEqual({ color: "harbor", rail: "icons" });
+  });
+
+  it("belongs to the account that made it: a change of account ends it, and a late answer never touches the root", async () => {
+    const ada = { name: "Ada", sqlName: "ada" }, bob = { name: "Bob", sqlName: "bob" };
+    for (const key of LOOK_KEYS) if (stored[key] !== defaultLook()[key]) host.document.documentElement.setAttribute(`data-look-${key}`, stored[key]);
+    await act(async () => root.render(<SignedIn account={ada}><AppearanceTab /></SignedIn>));
+    mounted = true;
+    await settle();
+    holding = true;
+    await pick("set-typeface", "System");
+    leave();
+    // The account changes: the workspace's private state closes before the next account's opens.
+    closePrivateState();
+    host.document.documentElement.removeAttribute("data-look-font");
+    await answer();
+    expect(onRoot()).toEqual({ color: "harbor", rail: "icons" });
+    holding = false;
+    stored = { ...defaultLook(), corners: "soft" };
+    root = createRoot(container as unknown as Element);
+    await act(async () => root.render(<SignedIn account={bob}><AppearanceTab /></SignedIn>));
+    mounted = true;
+    await settle();
+    // The next account reads its own look; nothing of the first one's carries over.
+    expect(requests.filter(request => request.method === "GET")).toHaveLength(2);
+    expect(picked("set-corners")).toEqual(["Soft"]);
+    expect(picked("set-typeface")).toEqual(["Inter"]);
+    expect(picked("set-color")).toEqual(["Kelp"]);
   });
 });
 

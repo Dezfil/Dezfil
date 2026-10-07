@@ -1,11 +1,13 @@
 "use client";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { lookChoices, normalizeLook, type Look } from "@/lib/look";
 import { Button } from "@/components/ui/Button";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { RerunIcon } from "@/components/ui/icons";
+import { useSignedInSqlName } from "@/components/sharing/signed-in";
 import { accountRequest, failureMessage, settingsWrite } from "./api";
-import { choiceLabel, LOOK_CARDS, LookReset, lookTab, shownLook, stampLook, unitKey, type LookCard, type LookResetSnapshot, type LookTab } from "./look-tab";
+import { choiceLabel, LOOK_CARDS, LookReset, shownLook, unitKey, type LookCard, type LookResetSnapshot, type LookSend } from "./look-tab";
+import { lookSession, openLookSession, type LookSession } from "./look-session";
 import { LookPicture } from "./LookPictures";
 import { PictureChoice } from "./PictureChoice";
 import type { SaveUnit, UnitSnapshot } from "./save-unit";
@@ -17,36 +19,35 @@ import cardStyles from "./SettingsCard.module.css";
 import styles from "./AppearanceTab.module.css";
 
 const OWN_SETTINGS = "/api/settings";
+const send: LookSend = patch => settingsWrite<{ look?: unknown }>(OWN_SETTINGS, "PATCH", { look: patch }).then(body => normalizeLook(body.look));
 
 /**
  * Appearance: the person's look, four cards of picture rows over the
  * own-settings read and write. A pick changes the page at once (the
  * document's root carries it, as the served page does) and is kept at
- * once; a refused one returns the page to what is kept. Each card has the
- * frame's Reset to defaults; Reset to Dezfil's default at the heading
- * row's right returns every pick in one write. Nothing here is typed, so
- * nothing waits for a Save and the leave guard never asks.
+ * once; a refused one returns the page to what is kept, even when the
+ * answer comes after the tab was left: the look's writes belong to the
+ * workspace's session for the account, which the tab only draws. Each
+ * card has the frame's Reset to defaults; Reset to Dezfil's default at
+ * the heading row's right returns every pick in one write. Nothing here
+ * is typed, so nothing waits for a Save and the leave guard never asks.
  */
 export function AppearanceTab() {
-  const [kept, setKept] = useState<Look | null>(null);
+  const account = useSignedInSqlName();
+  const [session, setSession] = useState<LookSession | null>(() => lookSession(account));
   const [error, setError] = useState<string | null>(null), [attempt, setAttempt] = useState(0);
   useEffect(() => {
+    if (session) return;
     let cancelled = false;
     accountRequest<{ look?: unknown }>(OWN_SETTINGS).then(body => {
-      if (!cancelled) { setKept(normalizeLook(body.look)); setError(null); }
+      if (!cancelled) { setSession(openLookSession(account, normalizeLook(body.look), send)); setError(null); }
     }).catch(failure => { if (!cancelled) setError(failureMessage(failure)); });
     return () => { cancelled = true; };
-  }, [attempt]);
-  useDrawn(!!kept);
+  }, [attempt, account, session]);
+  useDrawn(!!session);
   if (error) return <ErrorNote message={error} onRetry={() => { setError(null); setAttempt(value => value + 1); }} />;
-  if (!kept) return <p role="status" className={cardStyles.loading}>Loading settings…</p>;
-  return <LookCards kept={kept} />;
-}
-
-/** The four units and the tab-wide reset, made once for the tab's life,
- * every write through one writer. */
-function createTab(kept: Look): LookTab {
-  return lookTab(kept, patch => settingsWrite<{ look?: unknown }>(OWN_SETTINGS, "PATCH", { look: patch }).then(body => normalizeLook(body.look)));
+  if (!session) return <p role="status" className={cardStyles.loading}>Loading settings…</p>;
+  return <LookCards session={session} />;
 }
 
 /** Every unit's snapshot, one stable list per change. */
@@ -64,16 +65,13 @@ function useSnapshots(units: readonly SaveUnit[]): readonly UnitSnapshot[] {
   return useSyncExternalStore(subscribe, read, read);
 }
 
-function LookCards({ kept }: { kept: Look }) {
-  const [{ units, reset }] = useState(() => createTab(kept));
+/** The session's cards. The page's root follows what they show from the
+ * session itself, before any answer, so nothing here stamps it. */
+function LookCards({ session: { units, reset } }: { session: LookSession }) {
   const snapshots = useSnapshots(units);
   const follow = useCallback((listener: () => void) => reset.subscribe(listener), [reset]);
   const top = useSyncExternalStore(follow, () => reset.snapshot, () => reset.snapshot);
   const shown = shownLook(snapshots);
-  const shownKey = JSON.stringify(shown);
-  // The page follows what the rows show, before any answer: a refused pick
-  // shows what is kept again.
-  useLayoutEffect(() => { stampLook(document.documentElement, JSON.parse(shownKey) as Look); }, [shownKey]);
   // Leaving the tab: the cards' Undo and Saved marks go, and the tab-wide Undo with them.
   useEffect(() => () => { for (const unit of units) unit.leave(); reset.leave(); }, [units, reset]);
   /** A newer pick or a card's Reset lets the tab-wide Undo go. */
