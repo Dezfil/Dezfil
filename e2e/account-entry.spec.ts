@@ -230,7 +230,7 @@ test.describe("account entry", () => {
     await form.getByLabel("Name", { exact: true }).fill(name);
     await form.getByLabel("Email", { exact: true }).fill(recipientEmail);
     await form.getByRole("button", { name: "Create account" }).click();
-    await expect(page.getByText("They choose a password when they open it. Shown once. This instance sends no email, so share it yourself.")).toBeVisible();
+    await expect(page.getByText("Shown once. No email is sent; share this link privately.", { exact: true })).toBeVisible();
     const link = await page.getByLabel("Sign-in link").inputValue();
     await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.getByRole("button", { name: "Copy link", exact: true }).click();
