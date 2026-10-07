@@ -32,7 +32,8 @@ function fakeBrowser(addresses: string[], at = addresses.length - 1, { keys = fa
   const fire = (map: Map<string, Listener[]>, type: string, event: object) => {
     for (const fn of [...(map.get(type) ?? [])]) {
       (fn as (e: object) => void)(event);
-      if ((event as Partial<Step>).stopped) return;
+      // A step of the fake's own, or a DOM event the page dispatched again.
+      if ((event as Partial<Step>).stopped || (event as { cancelBubble?: boolean }).cancelBubble) return;
     }
   };
   const add = (map: Map<string, Listener[]>) => (type: string, fn: Listener) => { map.set(type, [...(map.get(type) ?? []), fn]); };
@@ -59,6 +60,8 @@ function fakeBrowser(addresses: string[], at = addresses.length - 1, { keys = fa
     },
     fetch: vi.fn(async () => Response.json({ account: { id: "alice" } })),
     addEventListener: add(listeners), removeEventListener: remove(listeners),
+    /** An event the page dispatches on the window itself: every listener hears it in turn. */
+    dispatchEvent: (event: Event) => { fire(listeners, event.type, event); return true; },
     // The Navigation API, where a browser reports its entries: a key per entry that a replace keeps, and where it sits.
     ...(keys ? { navigation: {
       get currentEntry() { return { key: list[index].key, index }; },
@@ -562,6 +565,9 @@ describe("held by the private workspace", () => {
       guard.hold(true);
       browser.traverse(-3);
       expect(browser.address).toBe("/maps");
+      // Held until the session answers: nobody hears the step yet, the page included.
+      expect(ask).not.toHaveBeenCalled();
+      await reads();
       expect(browser.doc.documentElement.hidden).toBe(false);
       expect(browser.win.location.replace).not.toHaveBeenCalled();
       expect(ready).toHaveBeenLastCalledWith(true);
@@ -576,6 +582,7 @@ describe("held by the private workspace", () => {
       expect(router).not.toHaveBeenCalled();
       // Again, and this time the tab is let go: the document ends where the jump went.
       browser.traverse(-3);
+      await reads();
       await answer(true);
       expect(browser.win.location.replace).toHaveBeenCalledWith(`${ORIGIN}/maps`);
       expect(browser.doc.documentElement.hidden).toBe(true);
@@ -599,8 +606,9 @@ describe("held by the private workspace", () => {
     const router = vi.fn(() => { routed = tabOf(new URL(browser.win.location.href)); });
     browser.win.addEventListener("popstate", router as Listener);
     const guard = fakeGuard();
+    const { ask } = deferred();
     const page = watchLeaving(browser.win as unknown as Window, browser.doc as unknown as Document, {
-      guard, staysOnTab: url => tabOf(url) === routed, ask: deferred().ask, open: vi.fn(), end: () => { letTraversalGo(); },
+      guard, staysOnTab: url => tabOf(url) === routed, ask, open: vi.fn(), end: () => { letTraversalGo(); },
     });
     const letKeep = keepTraversals(page.keeps), letTake = takeTraversals(page.takes, page.take);
     try {
@@ -613,6 +621,46 @@ describe("held by the private workspace", () => {
       expect(browser.doc.documentElement.hidden).toBe(true);
       expect(ready).toHaveBeenLastCalledWith(false);
       expect(router).not.toHaveBeenCalled();
+      // The page never took the step: it was not on screen for another account's session.
+      expect(ask).not.toHaveBeenCalled();
+    } finally { letKeep(); letTake(); page.stop(); stopWorkspace(); }
+  });
+
+  it("holds a Back that stays on the tab from the router and the page until the session answers, then hands it to both", async () => {
+    const browser = fakeBrowser(["/maps", "/settings/account"], 1, { keys: true });
+    vi.stubGlobal("BroadcastChannel", undefined);
+    vi.stubGlobal("localStorage", memory()); vi.stubGlobal("sessionStorage", memory());
+    vi.stubGlobal("window", browser.win); vi.stubGlobal("document", browser.doc);
+    openPrivateState("alice");
+    const session = browser.win.fetch;
+    const ready = vi.fn();
+    const stopWorkspace = watchPrivateWorkspace("alice", ready);
+    await reads();
+    const router = vi.fn<(event: { state: unknown }) => void>();
+    browser.win.addEventListener("popstate", router as Listener);
+    const guard = fakeGuard();
+    const { ask } = deferred();
+    const page = watchLeaving(browser.win as unknown as Window, browser.doc as unknown as Document, {
+      guard, staysOnTab: url => tabOf(url) === "account", ask, open: vi.fn(), end: () => { letTraversalGo(); },
+    });
+    const letKeep = keepTraversals(page.keeps), letTake = takeTraversals(page.takes, page.take);
+    let answerSession: ((response: Response) => void) | null = null;
+    try {
+      guard.hold(true);
+      session.mockImplementation(() => new Promise<Response>(resolve => { answerSession = resolve; }));
+      browser.back();
+      expect(browser.address).toBe("/settings/account");
+      await reads();
+      expect(router).not.toHaveBeenCalled();
+      expect(ask).not.toHaveBeenCalled();
+      answerSession!(Response.json({ account: { id: "alice" } }));
+      await reads();
+      // The router restores from the state the step arrived with, and the page asks as it does for any held Back.
+      expect(router).toHaveBeenCalledOnce();
+      expect(router.mock.calls[0][0].state).toEqual({ router: "/settings/account" });
+      expect(ask).toHaveBeenCalledOnce();
+      expect(browser.win.location.replace).not.toHaveBeenCalled();
+      expect(browser.doc.documentElement.hidden).toBe(false);
     } finally { letKeep(); letTake(); page.stop(); stopWorkspace(); }
   });
 });

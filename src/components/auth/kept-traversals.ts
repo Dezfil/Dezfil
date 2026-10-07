@@ -18,9 +18,11 @@
  * order they were added, capture or not, and the router adds its own
  * after the workspace's and before any page's, which mounts later; so
  * only the workspace can stop a step before the router restores the
- * route it arrived at. It stops a taken step there and hands it to the
- * page that took it, rather than ending the document before the question
- * is asked. A page that took a step and lets it go on hands it back, and
+ * route it arrived at. It stops every kept or taken step there, reads
+ * the session, and only when the session still names the document's
+ * account hands a kept step on to the router and a taken one to the page
+ * that took it, rather than ending the document before the question is
+ * asked. A page that took a step and lets it go on hands it back, and
  * the workspace ends the document at the address the browser shows, as
  * it does for any step nobody keeps.
  */
