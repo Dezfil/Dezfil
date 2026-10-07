@@ -1,4 +1,5 @@
 import type { Database } from "better-sqlite3";
+import { normalizeLook, type Look } from "@/lib/look";
 import { metadataDb } from "./db";
 import type { ViewPrefs } from "./settings";
 
@@ -8,8 +9,8 @@ export type SourceGrouping = "person" | "project";
 export const SOURCE_GROUPINGS: readonly SourceGrouping[] = ["person", "project"];
 
 /** One account's list preferences, stored as one document: each screen's
- * view and sort, and the source list's grouping beside them. */
-type Stored = ViewPrefs & { sourceGrouping?: SourceGrouping };
+ * view and sort, and the source list's grouping and the look beside them. */
+type Stored = ViewPrefs & { sourceGrouping?: SourceGrouping; look?: unknown };
 
 function stored(accountId: string, db: Database): Stored {
   const row = db.prepare("SELECT view_prefs FROM account_preferences WHERE account_id = ?")
@@ -52,6 +53,12 @@ export function mergeAccountViewPrefs(accountId: string, patch: ViewPrefs,
 /** The account's source-list grouping: by person until it chooses otherwise. */
 export function accountSourceGrouping(accountId: string, db: Database = metadataDb()): SourceGrouping {
   return stored(accountId, db).sourceGrouping === "project" ? "project" : "person";
+}
+
+/** The account's look, every pick at its kept value or its default. A value
+ * this version does not offer reads as the default and is left as stored. */
+export function accountLook(accountId: string, db: Database = metadataDb()): Look {
+  return normalizeLook((stored(accountId, db) as Stored | null)?.look);
 }
 
 /** Remember the account's source-list grouping, leaving its view preferences as they are. */
