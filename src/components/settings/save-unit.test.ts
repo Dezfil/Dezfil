@@ -83,6 +83,51 @@ describe("a value kept as you go", () => {
     expect(unit.snapshot.values.landingPage).toBe("home");
   });
 
+  it("clears a row's Saved the moment its value changes again, and never shows it by a value the server then refuses", async () => {
+    const server = fakeServer(), unit = signIn(server);
+    unit.choose("landingPage", "maps");
+    server.calls[0].accept(); await flush();
+    expect(unit.snapshot.saved).toEqual(["landingPage"]);
+    unit.choose("landingPage", "sql");
+    expect(unit.snapshot.saved).toEqual([]);
+    server.calls[1].refuse("invalid_request", "landingPage: Expected one of: home, maps."); await flush();
+    expect(unit.snapshot.saved).toEqual([]);
+    expect(unit.snapshot.errors.landingPage).toBe("Expected one of: home, maps.");
+    // The mark's own timer is gone with it: nothing comes back when it would have run out.
+    await vi.advanceTimersByTimeAsync(SAVED_HOLD_MS);
+    expect(unit.snapshot.saved).toEqual([]);
+  });
+
+  it("clears a typed field's Saved when it is edited again", async () => {
+    const server = fakeServer(), unit = signIn(server);
+    unit.edit("signInMessage", "Hello");
+    unit.save();
+    server.calls[0].accept(); await flush();
+    expect(unit.snapshot.saved).toEqual(["signInMessage"]);
+    unit.edit("signInMessage", "Hello again");
+    expect(unit.snapshot.saved).toEqual([]);
+  });
+
+  it("never marks a newer value Saved from an older write's answer", async () => {
+    const server = fakeServer(), unit = limits(server);
+    unit.edit("queryTimeoutS", "120"); unit.commit("queryTimeoutS");
+    // Typed again while the first write is out, not yet committed.
+    unit.edit("queryTimeoutS", "130");
+    server.calls[0].accept(); await flush();
+    expect(unit.snapshot.kept.queryTimeoutS).toBe(120);
+    expect(unit.snapshot.values.queryTimeoutS).toBe("130");
+    expect(unit.snapshot.saved).toEqual([]);
+    // The same for typed text edited while its Save is out.
+    const texts = fakeServer(), card = signIn(texts);
+    card.edit("signInMessage", "Hello");
+    card.save();
+    card.edit("signInMessage", "Hello world");
+    texts.calls[0].accept(); await flush();
+    expect(card.snapshot.kept.signInMessage).toBe("Hello");
+    expect(card.snapshot.values.signInMessage).toBe("Hello world");
+    expect(card.snapshot.saved).toEqual([]);
+  });
+
   it("never shows Saved while the write has not answered", async () => {
     const server = fakeServer(), unit = signIn(server);
     unit.choose("landingPage", "sql");

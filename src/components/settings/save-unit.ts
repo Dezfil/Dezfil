@@ -9,7 +9,8 @@
  *   which writes the changed keys in one request, and Save and Cancel
  *   show only while that text differs from what was saved.
  * - Nothing is marked Saved before the server accepted the write, and the
- *   kept value is the one the response reports.
+ *   kept value is the one the response reports. Saved shows only by the
+ *   value accepted, never by a newer one, and goes at the next change.
  * - A number out of range is refused before any request, and so is typed
  *   text the card's own check refuses on Save. A refusal that
  *   names a row draws the red line under it with the refusal's words and
@@ -336,7 +337,8 @@ export class SaveUnit {
     return [...this.controls.values()].filter(control => !control.locked && control.defaultValue !== undefined);
   }
 
-  /** A person's change: the value shows, its red line goes, Undo lets go. */
+  /** A person's change: the value shows, its red line and its Saved go
+   * (Saved belongs to the value the server accepted), Undo lets go. */
   private changed(control: UnitControl, value: Value): void {
     this.values[control.key] = value;
     if (control.key in this.errors) {
@@ -344,6 +346,7 @@ export class SaveUnit {
       delete rest[control.key];
       this.errors = rest;
     }
+    this.unmarkSaved(control.key);
     this.dropUndo();
   }
 
@@ -416,7 +419,11 @@ export class SaveUnit {
       if (this.lastTyped) this.focusTo("field", this.lastTyped);
     }
     if (operation.how === "keep" || operation.how === "save") {
-      for (const key of Object.keys(operation.patch)) if (!this.waiting(key)) this.markSaved(key);
+      // Saved only by the value this answer accepted, while no newer change is on its way.
+      for (const key of Object.keys(operation.patch)) {
+        const control = this.controls.get(key);
+        if (control && key in reported && !this.waiting(key) && same(control, this.values[key], this.kept[key])) this.markSaved(key);
+      }
     }
     if (operation.how === "reset") this.offerUndo(operation.previous ?? {});
     if (operation.how === "undo") this.focusTo(this.slot() === "reset" ? "reset" : "heading");
@@ -446,6 +453,13 @@ export class SaveUnit {
     const previous = this.saved.get(key);
     if (previous) clearTimeout(previous);
     this.saved.set(key, setTimeout(() => { this.saved.delete(key); this.emit(); }, SAVED_HOLD_MS));
+  }
+
+  private unmarkSaved(key: string): void {
+    const timer = this.saved.get(key);
+    if (timer === undefined) return;
+    clearTimeout(timer);
+    this.saved.delete(key);
   }
 
   private offerUndo(previous: Patch): void {
