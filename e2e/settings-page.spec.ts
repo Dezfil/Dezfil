@@ -38,6 +38,81 @@ function expectQuiet(errors: ConsoleError[]): void {
   expect(errors.filter(error => !isAllowedConsoleError(error.text, error.url))).toEqual([]);
 }
 
+/** An admin's tabs, each with what is on screen once the tab has drawn whole. */
+const DRAWN: readonly (readonly [string, readonly string[]])[] = [
+  ["Account", ["#account"]],
+  ["Tokens", ["#tokens li"]],
+  ["Appearance", ["#set-side-menu"]],
+  ["General", ["#card-sign-in"]],
+  ["Limits", ["#limits-public"]],
+  // The data folder's state, not its Checking placeholder.
+  ["System", ["#sys-assistant-status", "#sys-data-folder [data-state]"]],
+];
+
+/** Open a tab from the column and wait until it has drawn whole. */
+async function openTab(page: Page, tab: string): Promise<void> {
+  const [, parts] = DRAWN.find(([name]) => name === tab)!;
+  await column(page).getByRole("link", { name: tab, exact: true }).click();
+  await expect(column(page).getByRole("link", { name: tab, exact: true })).toHaveAttribute("aria-current", "page");
+  for (const part of parts) await expect(page.locator(`[data-tab="${tab.toLowerCase()}"] ${part}`).first()).toBeVisible();
+}
+
+/** A frame painted during a change of tab: whether the tab that was on
+ * screen and the tab opening are each visible and drawn whole, and whether
+ * a loading line is visible on the page. */
+interface Painted { outgoing: boolean; incoming: boolean; loading: boolean }
+interface Recorder { change: { from: string; to: string } | null; frames: Painted[] }
+const recorder = (page: Page) => page.evaluate(() => (window as unknown as { tabChange: Recorder }).tabChange);
+
+/** Before the page's own scripts: while a change of tab is armed, record
+ * every animation frame, up to the first that paints the tab opening
+ * whole. */
+async function recordFrames(page: Page): Promise<void> {
+  await page.addInitScript(drawnBy => {
+    const recorder: Recorder = { change: null, frames: [] };
+    (window as unknown as { tabChange: Recorder }).tabChange = recorder;
+    /** The tab on screen and drawn whole: a visible pane holding its cards. */
+    const drawn = (tab: string) => [...document.querySelectorAll(`[data-tab="${tab}"]`)].some(pane =>
+      (pane as HTMLElement).checkVisibility() && (drawnBy[tab] ?? []).every(part => pane.querySelector(part) !== null));
+    const look = () => {
+      const change = recorder.change;
+      if (change) {
+        const frame: Painted = {
+          outgoing: drawn(change.from),
+          incoming: drawn(change.to),
+          // What a person can read: a hidden pane's text is not drawn.
+          loading: /Loading/.test(document.querySelector("main")?.innerText ?? ""),
+        };
+        recorder.frames.push(frame);
+        if (frame.incoming) recorder.change = null;
+      }
+      requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
+  }, Object.fromEntries(DRAWN.map(([tab, parts]) => [tab.toLowerCase(), parts])));
+}
+
+/** Open a tab from the column, recording every frame from the click until
+ * the tab is painted whole. Each of those frames shows the tab that was on
+ * screen or the tab opening, drawn whole, never an empty or half-drawn
+ * pane between them, and none shows a loading line. */
+async function openDrawn(page: Page, tab: string): Promise<void> {
+  const from = await page.evaluate(() =>
+    [...document.querySelectorAll("[data-tab]")].find(pane => (pane as HTMLElement).checkVisibility())?.getAttribute("data-tab") ?? "");
+  await page.evaluate(change => {
+    const recorder = (window as unknown as { tabChange: Recorder }).tabChange;
+    recorder.frames = [];
+    recorder.change = change;
+  }, { from, to: tab.toLowerCase() });
+  await openTab(page, tab);
+  await expect.poll(async () => (await recorder(page)).change, { message: `${tab}: still recording` }).toBeNull();
+  const { frames } = await recorder(page);
+  const said = `${from} to ${tab.toLowerCase()}: ${JSON.stringify(frames)}`;
+  expect(frames.length, said).toBeGreaterThan(0);
+  expect(frames.filter(frame => !frame.outgoing && !frame.incoming), said).toEqual([]);
+  expect(frames.filter(frame => frame.loading), said).toEqual([]);
+}
+
 test.describe("the Settings page", () => {
   test.describe.configure({ mode: "serial" });
 
@@ -433,6 +508,61 @@ test.describe("the Settings page", () => {
       await restore(request, keys);
       for (const visitor of visitors) await visitor.close();
     }
+    expectQuiet(errors);
+  });
+
+  test("the tab starts at the same left edge on every tab while the page's scrollbar takes room", async ({ playwright, baseURL }) => {
+    // Headless Chromium hides its scrollbars, and a hidden scrollbar takes no
+    // room; a Mac set to show scroll bars always draws one that does.
+    const browser = await playwright.chromium.launch({ ignoreDefaultArgs: ["--hide-scrollbars"] });
+    try {
+      // Two laptop widths, and a 16-inch laptop's full width, past the shell's
+      // 1720 px breakpoint, where the shell centers its content.
+      for (const width of [1280, 1440, 1728]) {
+        const context = await browser.newContext({ baseURL, storageState: ".claude/browser-auth.json", viewport: { width, height: 900 } });
+        try {
+          await routeHouse(context);
+          const page = await context.newPage();
+          const errors = trackConsole(page);
+          await page.goto("/settings/account");
+          await expect(card(page, "Account")).toBeVisible();
+          const seen: Record<string, { left: number; room: number; tall: boolean }> = {};
+          for (const [tab] of DRAWN) {
+            await openTab(page, tab);
+            seen[tab] = await page.locator("[data-tab]").evaluate(element => ({
+              left: element.getBoundingClientRect().left,
+              room: window.innerWidth - document.documentElement.clientWidth,
+              tall: document.documentElement.scrollHeight > document.documentElement.clientHeight,
+            }));
+          }
+          const shown = JSON.stringify(seen);
+          // The check can see a shift: some tab is taller than the window and
+          // some is not, and the scrollbar takes room on the taller.
+          expect(Object.values(seen).some(at => at.tall) && Object.values(seen).some(at => !at.tall), shown).toBe(true);
+          expect(Math.max(...Object.values(seen).filter(at => at.tall).map(at => at.room)), shown).toBeGreaterThan(0);
+          const edges = Object.fromEntries(Object.entries(seen).map(([tab, at]) => [tab, at.left]));
+          expect(edges, `at ${width} px`).toEqual(Object.fromEntries(DRAWN.map(([tab]) => [tab, edges.Account])));
+          expectQuiet(errors);
+        } finally { await context.close(); }
+      }
+    } finally { await browser.close(); }
+  });
+
+  test("every frame of a change of tab shows a tab drawn whole, the one leaving or the one opening, and no loading line", async ({ page, context, request }) => {
+    await routeHouse(context);
+    const errors = trackConsole(page);
+    await recordFrames(page);
+    // The development server builds each route on its first request; build
+    // them first, so what is measured is the change of tab and not that.
+    for (const address of ["/api/account/tokens", "/api/settings", "/api/instance/settings", "/api/assistant", "/api/health"]) {
+      expect((await request.get(address)).status(), address).toBe(200);
+    }
+    await page.goto("/settings/account");
+    await expect(card(page, "Account")).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    // Each tab's first opening in this visit, then each again.
+    for (const [tab] of DRAWN) await openDrawn(page, tab);
+    for (const [tab] of DRAWN) await openDrawn(page, tab);
     expectQuiet(errors);
   });
 });

@@ -8,6 +8,15 @@
   gap: 24px;
 }
 
+/* The page's scrollbar keeps its room while Settings is on screen. Past
+   the shell's 1720px breakpoint the content centers on the width beside
+   the scrollbar, so a classic scrollbar coming with a tall tab (Limits,
+   System, Appearance) and going with a short one moved every tab by half
+   its width. An overlay scrollbar takes no room and keeps none. */
+:global(:root):has(.screen) {
+  scrollbar-gutter: stable;
+}
+
 .heading h1 {
   font-size: var(--text-title);
   font-weight: 600;

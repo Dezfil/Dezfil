@@ -55,9 +55,14 @@ let shownAt: string | null = null;
 /** While set, a token's creation waits for the test to answer it. */
 let holdCreation = false;
 let answerCreation: (() => void) | null = null;
+/** While set, every read (or every read of `only`) waits until the test lets it through (`gate.open`). */
+let gate: { wait: Promise<void>; open: () => void; reads: string[]; only: readonly string[] | null } | null = null;
+/** The account's read waits on the gate too while this holds. */
+let gateAccount = false;
 
 beforeEach(() => {
   requests.length = 0; scrolled.length = 0; accountName = "Ada Okafor"; instanceName = "Atlas"; shownAt = null; holdCreation = false; answerCreation = null;
+  gate = null; gateAccount = false;
   nav.pathname = "/settings"; nav.hash = ""; nav.replace = vi.fn((address: string) => {
     const at = address.indexOf("#");
     nav.pathname = at < 0 ? address : address.slice(0, at);
@@ -69,6 +74,11 @@ beforeEach(() => {
   vi.stubGlobal("localStorage", memoryStorage());
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     requests.push(url);
+    const waiting = gate;
+    if (waiting && (init?.method ?? "GET") === "GET" && (url !== "/api/account" || gateAccount) && (!waiting.only || waiting.only.includes(url))) {
+      waiting.reads.push(url);
+      await waiting.wait;
+    }
     if (url === "/api/account") {
       return Response.json({ account: { id: "ada", name: accountName, email: "ada@example.test", sqlName: "ada", isAdmin: admin } });
     }
@@ -81,6 +91,9 @@ beforeEach(() => {
       return Response.json({ id: "t1", name: "CLI", createdAt: "2026-10-01T00:00:00.000Z", lastUsedAt: null, revokedAt: null, secret: "dz_secret_once" });
     }
     if (url === "/api/account/tokens") return Response.json({ tokens: [] });
+    if (url === "/api/settings") return Response.json({ displayName: accountName, instanceName: null, viewPrefs: {}, sourceGrouping: "kind", look: {} });
+    if (url === "/api/assistant") return Response.json({ enabled: false, reason: "No model key is set." });
+    if (url === "/api/health") return Response.json({ status: "ok" });
     return Response.json({ error: { code: "not_found", message: "Not found." } }, { status: 404 });
   }));
   openPrivateState("ada");
@@ -250,6 +263,157 @@ describe("the Settings frame", () => {
     nav.pathname = "/settings/tokens"; await follow();
     nav.pathname = "/settings/limits"; await follow();
     expect(column().querySelectorAll('a[aria-current="page"]').map(a => a.textContent)).toEqual(["Limits"]);
+  });
+});
+
+describe("changing tabs", () => {
+  /** Hold every read from here on (or every read of `only`) until the test opens the gate. */
+  function closeGate(only: readonly string[] | null = null) {
+    let open!: () => void;
+    const wait = new Promise<void>(resolve => { open = resolve; });
+    gate = { wait, open, reads: [], only };
+    return gate;
+  }
+  /** Let the held reads through, and their answers land. */
+  async function openGate() {
+    const waiting = gate!;
+    gate = null;
+    await act(async () => { waiting.open(); });
+    await settle();
+  }
+  const pause = (ms: number) => act(async () => { await new Promise(resolve => setTimeout(resolve, ms)); });
+  /** The router reports a new address; nothing it reads is waited for. */
+  async function change(pathname: string, hash = "") {
+    nav.pathname = pathname; nav.hash = hash;
+    await act(async () => root.render(<SettingsFrame />));
+  }
+  const slots = () => container.querySelectorAll("[data-tab]");
+  const tabOf = (slot: HostElement) => slot.getAttribute("data-tab");
+  const slot = (tab: string) => slots().find(element => tabOf(element) === tab);
+  /** The tabs on screen: in the pane and not hidden. */
+  const shown = () => slots().filter(element => !element.hasAttribute("hidden"));
+  const shownText = () => shown().map(element => element.textContent).join("");
+  const current = () => column().querySelectorAll('a[aria-current="page"]').map(a => a.textContent);
+
+  it("keeps the tab on screen while the next one reads out of sight, then shows it whole and lets the first go in the same step", async () => {
+    await open("/settings/account");
+    closeGate();
+    await change("/settings/limits");
+    await pause(16);
+    // The column follows the click at once.
+    expect(current()).toEqual(["Limits"]);
+    expect(shown().map(tabOf)).toEqual(["account"]);
+    expect(slot("limits")?.hasAttribute("hidden")).toBe(true);
+    expect(shownText()).not.toContain("Loading");
+    await openGate();
+    expect(slots().map(tabOf)).toEqual(["limits"]);
+    expect(shown().map(tabOf)).toEqual(["limits"]);
+    expect(byId("limits-public")).not.toBeNull();
+    expect(byId("account")).toBeNull();
+  });
+
+  it("shows the next tab in its own loading state once 300 ms pass without its reads, and never a loading line before", async () => {
+    await open("/settings/account");
+    closeGate();
+    await change("/settings/limits");
+    await pause(150);
+    expect(shown().map(tabOf)).toEqual(["account"]);
+    expect(shownText()).not.toContain("Loading");
+    await pause(200);
+    expect(slots().map(tabOf)).toEqual(["limits"]);
+    expect(shownText()).toBe("Loading settings…");
+    await openGate();
+    expect(byId("limits-public")).not.toBeNull();
+  });
+
+  it("waits for every first read of a tab: System shows once its configuration, assistant and health reads have landed", async () => {
+    await open("/settings/account");
+    closeGate(["/api/health"]);
+    await change("/settings/system");
+    await settle();
+    // The configuration and the assistant have answered; the health read has not.
+    expect(shown().map(tabOf)).toEqual(["account"]);
+    expect(slot("system")?.querySelector('[id="sys-assistant-status"]')).not.toBeNull();
+    await openGate();
+    expect(shown().map(tabOf)).toEqual(["system"]);
+    expect(byId("sys-assistant-status")).not.toBeNull();
+    expect(byId("sys-data-folder")?.querySelector("[data-state]")?.textContent).toBe("Writable");
+    expect(shownText()).not.toContain("Loading");
+    expect(shownText()).not.toContain("Checking");
+  });
+
+  it("marks and scrolls to the row an address names only once its tab is shown", async () => {
+    await open("/settings/account");
+    closeGate(["/api/assistant", "/api/health"]);
+    await change("/settings/system", "#sys-version");
+    await settle();
+    // The row is drawn out of sight; nothing lands on it there.
+    expect(slot("system")?.querySelector('[id="sys-version"]')).not.toBeNull();
+    expect(scrolled).toEqual([]);
+    expect(container.querySelectorAll("[data-marked]")).toEqual([]);
+    await openGate();
+    expect(scrolled).toEqual(["sys-version"]);
+    expect(byId("sys-version")!.hasAttribute("data-marked")).toBe(true);
+  });
+
+  it("mounts each tab once: a tab passed over before it was ready goes, and only the tab shown stays", async () => {
+    await open("/settings/account");
+    closeGate();
+    await change("/settings/limits");
+    await change("/settings/system");
+    expect(slots().map(tabOf)).toEqual(["account", "system"]);
+    await change("/settings/account");
+    expect(slots().map(tabOf)).toEqual(["account"]);
+    await change("/settings/tokens");
+    await openGate();
+    expect(slots().map(tabOf)).toEqual(["tokens"]);
+    expect(container.querySelectorAll('[id="tokens"]')).toHaveLength(1);
+  });
+
+  it("opens the first tab of a visit out of sight: blank until its reads land, in its loading state after 300 ms", async () => {
+    closeGate();
+    await open("/settings/limits");
+    // Nothing on screen beside the column: the tab reads out of sight.
+    expect(shown()).toEqual([]);
+    expect(slot("limits")?.hasAttribute("hidden")).toBe(true);
+    expect(shownText()).toBe("");
+    // The tab's own loading line is drawn, out of sight with it.
+    const statuses = container.querySelectorAll('[role="status"]');
+    expect(statuses.length).toBeGreaterThan(0);
+    expect(statuses.every(status => status.closest("[data-tab]")?.hasAttribute("hidden"))).toBe(true);
+    await pause(320);
+    expect(shownText()).toBe("Loading settings…");
+    await openGate();
+    expect(byId("limits-public")).not.toBeNull();
+    expect(shownText()).not.toContain("Loading");
+  });
+
+  it("lets a tab the person chose to leave with unsaved text go at once", async () => {
+    await open("/settings/account");
+    const label = container.querySelectorAll("label").find(element => element.textContent === "Display name")!;
+    const input = container.querySelector(`[id="${label.getAttribute("for")}"]`)!;
+    const props = Object.keys(input).find(name => name.startsWith("__reactProps$"))!;
+    await act(async () => (input as unknown as Record<string, { onChange: (e: unknown) => void }>)[props].onChange({ target: { value: "Ada Lovelace" } }));
+    closeGate();
+    // The person was asked and let the text go; the address moves on.
+    await change("/settings/tokens");
+    expect(byId("account")).toBeNull();
+    expect(shown()).toEqual([]);
+    await openGate();
+    expect(shown().map(tabOf)).toEqual(["tokens"]);
+  });
+
+  it("says the page is loading only after 300 ms while the account is read", async () => {
+    closeGate();
+    gateAccount = true;
+    await open("/settings/account");
+    expect(container.querySelector("h1")?.textContent).toBe("Settings");
+    expect(container.textContent).not.toContain("Loading");
+    await pause(320);
+    expect(container.textContent).toContain("Loading settings…");
+    await openGate();
+    expect(byId("account")).not.toBeNull();
+    expect(container.textContent).not.toContain("Loading");
   });
 });
 
