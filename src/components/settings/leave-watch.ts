@@ -79,9 +79,8 @@ export function watchLeaving(win: Window, doc: Document, options: LeaveWatchOpti
   const navigation = (win as unknown as { navigation?: NavigationLike }).navigation ?? null;
   /** The address of the extra entry while the tab holds. */
   let extra: string | null = null;
-  /** The extra entry's key, where the browser reports one: the router
-   * rewrites an entry's state when it replaces the same address, and the
-   * key outlives that. */
+  /** The extra entry's key, where the browser reports one, which a
+   * replace keeps. */
   let extraKey: string | null = null;
   /** The router's state on the tab's own entry, under the extra one, to
    * put that entry back as it was. */
@@ -264,6 +263,23 @@ export function watchLeaving(win: Window, doc: Document, options: LeaveWatchOpti
     if (guard.holding() && extra === null) hold();
   };
 
+  // The router writes its own state over the entry on screen when it
+  // replaces the same address (clicking the tab already open does), which
+  // would wipe the mark that names the extra entry: saving could not take
+  // the entry away, and Back would land on the same tab. While the watch
+  // runs, a replace of the extra entry keeps the mark, whether or not the
+  // browser reports entry keys. The router calls the window's replace at
+  // the time it replaces, so it goes through this one.
+  const history = win.history;
+  const replaceState = typeof history.replaceState === "function" ? history.replaceState : null;
+  const keepMark: History["replaceState"] = (data, unused, url) => {
+    const next = !stopped && onExtra()
+      ? { ...(typeof data === "object" && data !== null ? data : {}), [HOLD_KEY]: token }
+      : data;
+    replaceState!.call(history, next, unused, url);
+  };
+  if (replaceState) history.replaceState = keepMark;
+
   const unsubscribe = guard.subscribe(onGuard);
   doc.addEventListener("click", onClick, true);
   doc.addEventListener("keydown", onTouch, true);
@@ -299,6 +315,8 @@ export function watchLeaving(win: Window, doc: Document, options: LeaveWatchOpti
     },
     stop() {
       stopped = true;
+      // Put the replace back unless something wrapped it since; this one marks nothing once stopped.
+      if (replaceState && history.replaceState === keepMark) history.replaceState = replaceState;
       unsubscribe();
       doc.removeEventListener("click", onClick, true);
       doc.removeEventListener("keydown", onTouch, true);

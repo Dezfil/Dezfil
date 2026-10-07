@@ -49,6 +49,9 @@ function fakeBrowser(addresses: string[], at = addresses.length - 1, { keys = fa
         list = [...list.slice(0, index + 1), entry(addressOf(url), state)];
         index += 1;
       }),
+      replaceState: vi.fn((state: unknown, _unused: string, url?: string | URL | null) => {
+        list[index] = { ...list[index], address: addressOf(url), state };
+      }),
       back: vi.fn(() => { queued.push(-1); }),
       go: vi.fn((delta: number) => { queued.push(delta); }),
     },
@@ -84,8 +87,9 @@ function fakeBrowser(addresses: string[], at = addresses.length - 1, { keys = fa
     forward: () => traverse(1),
     /** The router pushes an entry of its own. */
     push(address: string) { list = [...list.slice(0, index + 1), entry(address, { router: address })]; index += 1; },
-    /** The router replaces the entry on screen at the same address, writing its own state. */
-    rewrite() { list[index] = { ...list[index], state: { router: list[index].address } }; },
+    /** The router replaces the entry on screen at the same address, writing
+     * its own state through whatever replace the window has at the time. */
+    rewrite() { win.history.replaceState({ router: list[index].address }, ""); },
     /** Runs the traversals the page asked for. */
     settle() { while (queued.length) traverse(queued.shift()!); },
     click(href: string, extra: Record<string, unknown> = {}, attributes: Record<string, string> = {}) {
@@ -188,6 +192,39 @@ describe("the extra entry while the tab holds", () => {
     await tick();
     expect(browser.index).toBe(1);
     expect(tab.kept).toEqual([[true, true]]);
+  });
+
+  it("keeps its mark on the extra entry when the router rewrites that entry's state, where the browser reports no entry keys", async () => {
+    const browser = fakeBrowser(["/maps", "/settings/account"]);
+    const tab = watch(browser);
+    // Clicking the tab already open replaces the entry on screen.
+    browser.rewrite();
+    expect(browser.win.history.state).toEqual(expect.objectContaining({ router: "/settings/account" }));
+    tab.guard.hold(false);
+    expect(browser.queued).toEqual([-1]);
+    browser.settle();
+    await tick();
+    expect(browser.index).toBe(1);
+    expect(browser.entries).toEqual(["/maps", "/settings/account", "/settings/account"]);
+    expect(tab.kept).toEqual([[true, true]]);
+    // Nothing held now: Back leaves for the page before, not the same tab again.
+    browser.back();
+    expect(browser.address).toBe("/maps");
+  });
+
+  it("marks no other entry when the router rewrites it, and stops marking once stopped", async () => {
+    const browser = fakeBrowser(["/maps", "/settings/account"]);
+    const original = browser.win.history.replaceState;
+    const tab = watch(browser);
+    browser.back();
+    // On the tab's own entry while it asks: the router's state alone.
+    browser.rewrite();
+    expect(browser.win.history.state).toEqual({ router: "/settings/account" });
+    await tab.answer(false);
+    tab.page.stop();
+    expect(browser.win.history.replaceState).toBe(original);
+    browser.rewrite();
+    expect(browser.win.history.state).toEqual({ router: "/settings/account" });
   });
 
   it("puts the entry back when the text differs again before the last one is gone", async () => {
