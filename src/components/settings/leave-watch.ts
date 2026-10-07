@@ -28,6 +28,9 @@
 /** Marks the extra entry in its history state, with the watch it belongs to. */
 const HOLD_KEY = "settingsHold";
 
+/** The Navigation API's entry on screen, where the browser reports it. */
+interface NavigationLike { readonly currentEntry: { readonly key: string } | null }
+
 export interface LeaveWatchOptions {
   readonly guard: { holding(): boolean; subscribe(listener: () => void): () => void };
   /** Whether an address opens the tab on screen, so following it leaves nothing. */
@@ -55,8 +58,13 @@ function addressOf(url: URL): string {
 export function watchLeaving(win: Window, doc: Document, options: LeaveWatchOptions): LeaveWatch {
   const { guard } = options;
   const token = Math.random().toString(36).slice(2);
+  const navigation = (win as unknown as { navigation?: NavigationLike }).navigation ?? null;
   /** The address of the extra entry while the tab holds. */
   let extra: string | null = null;
+  /** The extra entry's key, where the browser reports one: the router
+   * rewrites an entry's state when it replaces the same address, and the
+   * key outlives that. */
+  let extraKey: string | null = null;
   /** The address of an extra entry being taken away, until its step has passed every listener. */
   let dropped: string | null = null;
   /** Steps the page took itself: taking the extra entry away, or going back once more on Discard. */
@@ -66,14 +74,18 @@ export function watchLeaving(win: Window, doc: Document, options: LeaveWatchOpti
 
   const onExtra = () => {
     const state: unknown = win.history.state;
-    return typeof state === "object" && state !== null && (state as Record<string, unknown>)[HOLD_KEY] === token;
+    if (typeof state === "object" && state !== null && (state as Record<string, unknown>)[HOLD_KEY] === token) return true;
+    return extraKey !== null && navigation?.currentEntry?.key === extraKey;
   };
   const leaving = (url: URL) => guard.holding() && !options.staysOnTab(url);
   const onTab = () => options.staysOnTab(new URL(win.location.href));
 
   /** Put the extra entry on top of the one on screen, unless it is the one on screen. */
   function hold() {
-    if (!onExtra()) win.history.pushState({ [HOLD_KEY]: token }, "");
+    if (!onExtra()) {
+      win.history.pushState({ [HOLD_KEY]: token }, "");
+      extraKey = navigation?.currentEntry?.key ?? null;
+    }
     extra = win.location.href;
     released = false;
   }

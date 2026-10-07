@@ -12,13 +12,15 @@ import { watchLeaving } from "./leave-watch";
 
 type Listener = (event: never) => void;
 const ORIGIN = "https://dezfil.example";
-interface Entry { address: string; state: unknown }
+interface Entry { address: string; state: unknown; key: string }
 
-function fakeBrowser(addresses: string[], at = addresses.length - 1) {
+function fakeBrowser(addresses: string[], at = addresses.length - 1, { keys = false } = {}) {
   const listeners = new Map<string, Listener[]>();
   const docListeners = new Map<string, Listener[]>();
   const queued: number[] = [];
-  let list: Entry[] = addresses.map(address => ({ address, state: { router: address } })), index = at;
+  let made = 0;
+  const entry = (address: string, state: unknown): Entry => ({ address, state, key: `k${made++}` });
+  let list: Entry[] = addresses.map(address => entry(address, { router: address })), index = at;
   const fire = (map: Map<string, Listener[]>, type: string, event: object) => { for (const fn of [...(map.get(type) ?? [])]) (fn as (e: object) => void)(event); };
   const add = (map: Map<string, Listener[]>) => (type: string, fn: Listener) => { map.set(type, [...(map.get(type) ?? []), fn]); };
   const remove = (map: Map<string, Listener[]>) => (type: string, fn: Listener) => { map.set(type, (map.get(type) ?? []).filter(l => l !== fn)); };
@@ -27,13 +29,15 @@ function fakeBrowser(addresses: string[], at = addresses.length - 1) {
     history: {
       get state() { return list[index].state; },
       pushState: vi.fn((state: unknown, _unused: string, url?: string) => {
-        list = [...list.slice(0, index + 1), { address: url ?? list[index].address, state }];
+        list = [...list.slice(0, index + 1), entry(url ?? list[index].address, state)];
         index += 1;
       }),
       back: vi.fn(() => { queued.push(-1); }),
       go: vi.fn((delta: number) => { queued.push(delta); }),
     },
     addEventListener: add(listeners), removeEventListener: remove(listeners),
+    // The Navigation API, where a browser reports its entries: a key per entry that a replace keeps.
+    ...(keys ? { navigation: { get currentEntry() { return { key: list[index].key }; } } } : {}),
   };
   const doc = { addEventListener: add(docListeners), removeEventListener: remove(docListeners) };
   /** A traversal: the entry moves, then the browser says so. Nothing happens at either end. */
@@ -55,7 +59,9 @@ function fakeBrowser(addresses: string[], at = addresses.length - 1) {
     back: () => traverse(-1),
     forward: () => traverse(1),
     /** The router pushes an entry of its own. */
-    push(address: string) { list = [...list.slice(0, index + 1), { address, state: { router: address } }]; index += 1; },
+    push(address: string) { list = [...list.slice(0, index + 1), entry(address, { router: address })]; index += 1; },
+    /** The router replaces the entry on screen at the same address, writing its own state. */
+    rewrite() { list[index] = { ...list[index], state: { router: list[index].address } }; },
     /** Runs the traversals the page asked for. */
     settle() { while (queued.length) traverse(queued.shift()!); },
     click(href: string, extra: Record<string, unknown> = {}, attributes: Record<string, string> = {}) {
@@ -140,6 +146,19 @@ describe("the extra entry while the tab holds", () => {
     expect(tab.kept).toEqual([[true, true]]);
     expect(tab.ask).not.toHaveBeenCalled();
     expect(tab.open).not.toHaveBeenCalled();
+  });
+
+  it("knows its extra entry by the entry's key after the router rewrites that entry's state", async () => {
+    const browser = fakeBrowser(["/maps", "/settings/account"], 1, { keys: true });
+    const tab = watch(browser);
+    // Clicking the tab already open replaces the entry on screen.
+    browser.rewrite();
+    tab.guard.hold(false);
+    expect(browser.queued).toEqual([-1]);
+    browser.settle();
+    await tick();
+    expect(browser.index).toBe(1);
+    expect(tab.kept).toEqual([[true, true]]);
   });
 
   it("puts the entry back when the text differs again before the last one is gone", async () => {
