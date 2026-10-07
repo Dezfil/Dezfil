@@ -163,6 +163,26 @@ describe("Limits", () => {
     expect(buttons(card("Imports"))).not.toContain("Reset to defaults");
   });
 
+  it("marks a capacity Not set up while the read reports its service's address unset", async () => {
+    pinned = { isochroneUrl: { set: true, origin: "https://travel.example" } };
+    await open();
+    expect(row("Geocode addresses").textContent).toContain("Up to 27 addresses per run");
+    expect(row("Geocode addresses").textContent).toContain("Not set up");
+    expect(row("Travel-time area").textContent).toContain("Up to 13 origins per run");
+    expect(row("Travel-time area").textContent).not.toContain("Not set up");
+    // A mark, not a way somewhere.
+    expect(row("Geocode addresses").querySelector("a")).toBeNull();
+  });
+
+  it("draws no mark when the read does not say whether a service is set up", async () => {
+    const read = answer();
+    const settings = Object.fromEntries(Object.entries(read.settings).filter(([key]) => key !== "geocoderUrl" && key !== "isochroneUrl"));
+    vi.mocked(fetch).mockImplementation(async () => Response.json({ ...read, settings }));
+    await open();
+    expect(row("Geocode addresses").textContent).not.toContain("Not set up");
+    expect(row("Travel-time area").textContent).not.toContain("Not set up");
+  });
+
   it("takes the capacities from the write's response, never from what is typed", async () => {
     await open();
     expect(row("Geocode addresses").textContent).toContain("Up to 27 addresses per run");

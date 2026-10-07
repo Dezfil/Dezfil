@@ -11,14 +11,17 @@ import { formatSettingNumber } from "./server-set";
  *
  * Two rows are not settings: the capacities a geocode and a travel-time
  * run have under the current time limits, and the largest image the
- * server renders. Both come from the read's own facts.
+ * server renders. Both come from the read's own facts. A capacity row is
+ * marked when the read reports its service's address not set.
  */
 
 export type LimitsRow =
   | { readonly kind: "setting"; readonly key: string; readonly id: string; readonly label: string; readonly meta?: string; readonly keys: string;
     /** The unit the page writes after the number, where it is not the read's; empty for none. */
     readonly unit?: string }
-  | { readonly kind: "capacity"; readonly of: "geocode" | "travel"; readonly id: string; readonly label: string; readonly meta?: string; readonly keys: string; readonly key?: undefined }
+  | { readonly kind: "capacity"; readonly of: "geocode" | "travel"; readonly id: string; readonly label: string; readonly meta?: string; readonly keys: string; readonly key?: undefined;
+    /** The read's setting for the address of the service the tool calls. */
+    readonly service: string }
   | { readonly kind: "image"; readonly id: string; readonly label: string; readonly meta?: string; readonly keys: string; readonly key?: undefined; readonly unit: string };
 
 export interface LimitsCard {
@@ -55,8 +58,8 @@ export const LIMITS_CARDS: readonly LimitsCard[] = [
       { meta: "They share the query engine’s memory.", ...COUNT }),
     setting("operationQueueMax", "set-tools-waiting", "Tools waiting", "queue operations", COUNT),
     setting("operationTimeoutS", "set-tool-time", "Time limit per tool run", "operation timeout run budget"),
-    { kind: "capacity", of: "geocode", id: "set-geocode-capacity", label: "Geocode addresses", keys: "geocode geocoding batch rows capacity per run derived" },
-    { kind: "capacity", of: "travel", id: "set-travel-capacity", label: "Travel-time area", keys: "isochrone travel time origins capacity per run derived" },
+    { kind: "capacity", of: "geocode", id: "set-geocode-capacity", label: "Geocode addresses", keys: "geocode geocoding batch rows capacity per run derived", service: "geocoderUrl" },
+    { kind: "capacity", of: "travel", id: "set-travel-capacity", label: "Travel-time area", keys: "isochrone travel time origins capacity per run derived", service: "isochroneUrl" },
   ] },
   { id: "limits-images", title: "Image export", keys: "export image png render chromium", rows: [
     { kind: "image", id: "set-largest-image", label: "Largest image", keys: "export image size pixels dimension", unit: "px per side" },
@@ -106,6 +109,15 @@ export function inLabels(message: string, labels: Readonly<Record<string, string
 }
 
 const grouped = (count: number) => new Intl.NumberFormat("en-US").format(count);
+
+/** Whether the read reports a service's address set: an address discloses
+ * only whether it is set and where; null when the read does not say. */
+export function serviceSetUp(settings: Readonly<Record<string, { readonly value: unknown }>>, key: string): boolean | null {
+  const value = settings[key]?.value;
+  if (typeof value !== "object" || value === null) return null;
+  const set = (value as { set?: unknown }).set;
+  return typeof set === "boolean" ? set : null;
+}
 
 /** What one run of the tool can take under the current time limits. A
  * geocode run always takes at least one address; a travel-time run may

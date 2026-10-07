@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readInstanceSettings } from "@/lib/settings/read";
 import { TIMEOUT_RELATIONSHIP } from "@/lib/settings/relationships";
 import { instanceSettingsFixture } from "../../../test-support/instance-settings";
-import { capacityText, inLabels, LIMITS_CARDS, LIMITS_LABELS, LIMITS_UNITS, limitsSettingRows, shownUnit, withShownUnit } from "./limits-table";
+import { capacityText, inLabels, LIMITS_CARDS, LIMITS_LABELS, LIMITS_UNITS, limitsSettingRows, serviceSetUp, shownUnit, withShownUnit } from "./limits-table";
 
 /**
  * The Limits tab's label table, held against the configuration read the
@@ -26,6 +26,19 @@ describe("the Limits label table against the read", () => {
     expect(drawn.filter(key => settings[key]?.editable).sort()).toEqual(editable.sort());
     expect(editable).toHaveLength(14);
     for (const key of drawn) expect(settings[key]?.kind).toBe("number");
+  });
+
+  it("ties each capacity to the address of the service its tool calls, which the read reports as set or not", () => {
+    const answer = read();
+    const capacities = LIMITS_CARDS.flatMap(card => card.rows).flatMap(row => row.kind === "capacity" ? [row] : []);
+    expect(capacities.map(row => [row.of, row.service])).toEqual([["geocode", "geocoderUrl"], ["travel", "isochroneUrl"]]);
+    for (const row of capacities) {
+      expect(answer.settings[row.service].kind).toBe("address");
+      expect(typeof serviceSetUp(answer.settings, row.service)).toBe("boolean");
+    }
+    expect(serviceSetUp({ geocoderUrl: { value: { set: true, origin: "https://geocoder.example" } } }, "geocoderUrl")).toBe(true);
+    expect(serviceSetUp({ geocoderUrl: { value: { set: false } } }, "geocoderUrl")).toBe(false);
+    expect(serviceSetUp({}, "geocoderUrl")).toBeNull();
   });
 
   it("draws the feature cap as the server's, with its variable, and the largest image from the read's own fact", () => {
