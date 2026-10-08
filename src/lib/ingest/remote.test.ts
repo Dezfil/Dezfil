@@ -15,6 +15,12 @@ import {
   resolveRemoteSource,
   translateObjectUrl,
 } from "./remote";
+import { keepRequestsOnThisMachine } from "@/lib/test-support/outside-requests";
+
+// Every request here goes to a loopback fixture; one that went to a public
+// store instead (Amazon's or Google's addresses) fails its test before it
+// leaves this machine.
+keepRequestsOnThisMachine();
 
 /** Single-table imports, unwrapped (made the answer a result set). */
 const importOne = async (url: string, name?: string) =>

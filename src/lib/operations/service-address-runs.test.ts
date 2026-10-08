@@ -15,6 +15,7 @@ import { fetchOverpass } from "@/lib/osm/overpass";
 import { searchPlaces } from "@/lib/search/provider";
 import { resetSecretKeyCache } from "@/lib/secrets";
 import { writeStoredSettings } from "@/lib/settings/store";
+import { keepRequestsOnThisMachine } from "@/lib/test-support/outside-requests";
 import { expectSettingRemedy } from "../../../test-support/setting-remedy";
 import { withAvailability } from "./capability";
 import { compileOperation } from "./compile";
@@ -72,6 +73,10 @@ async function provider(name: "A" | "B"): Promise<Provider> {
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", () => resolve()));
   return { server, base: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, asked };
 }
+
+// A road that went to its public default instead of a fixture fails the
+// test before anything leaves this machine.
+keepRequestsOnThisMachine();
 
 let dir: string;
 let a: Provider, b: Provider;
@@ -227,8 +232,6 @@ describe("a stored address the instance's key no longer opens", () => {
   it("refuses OpenStreetMap and cloud storage alike, never reaching the public server or Amazon's", async () => {
     store({ overpassUrl: `${a.base}/api/interpreter?key=SEEDED-KEY-0001-QUERY`, s3Endpoint: `${a.base}/?key=SEEDED-KEY-0001-QUERY` });
     vi.stubEnv("DEZFIL_SECRET_KEY", "6f".repeat(32)); resetSecretKeyCache();
-    // Nothing in this test may reach a public server, even when it fails.
-    const reached = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("no public request in this test"));
     for (const [attempt, label] of [
       [() => fetchOverpass("[out:json];way;out;"), "Overpass endpoint"],
       [() => resolveRemoteSource("s3://bucket/dir/points.csv"), "S3 endpoint"],
@@ -239,7 +242,6 @@ describe("a stored address the instance's key no longer opens", () => {
       expect((refusal as Error).message).toContain(`"${label}"`);
       expect((refusal as Error).message).not.toContain("SEEDED-KEY");
     }
-    expect(reached).not.toHaveBeenCalled();
     expect(a.asked).toEqual([]);
     // A gs:// link never reads the S3 address, so it is not refused for it.
     expect(translateObjectUrl(parseRemoteUrl("gs://open-data/f.csv"))).toBe("https://storage.googleapis.com/open-data/f.csv");

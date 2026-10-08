@@ -9,6 +9,11 @@ import {
   maintainOverpassCache,
   overpassEndpoint,
 } from "./overpass";
+import { keepRequestsOnThisMachine } from "@/lib/test-support/outside-requests";
+
+// Every request here goes to a loopback fixture; one that went to the public
+// Overpass server instead fails its test before it leaves this machine.
+keepRequestsOnThisMachine();
 
 let dir: string;
 let cache: string;
