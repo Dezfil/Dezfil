@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import type { DataTable } from "./api";
-import { readApiError } from "./api";
+import { readApiError, readApiFailure } from "./api";
 import { bboxAreaKm2, type Bbox } from "@/lib/bbox";
 import {
   OVERTURE_THEMES,
@@ -194,6 +194,9 @@ export function OverturePane({
 
   const [releases, setReleases] = useState<string[]>([]);
   const [release, setRelease] = useState("");
+  /** The egress check's sentence when it refused the release listing: no
+   * release is offered then, since none could be read. */
+  const [releasesRefused, setReleasesRefused] = useState<string | null>(null);
   /** Null = follow the suggestion; a string = the user's own name. */
   const [nameOverride, setNameOverride] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -220,7 +223,14 @@ export function OverturePane({
     (async () => {
       try {
         const response = await fetch("/api/imports/overture/releases");
-        if (!response.ok) return;
+        if (!response.ok) {
+          // A refusal is said as the check says it; an outage reaches the
+          // pane as the pinned releases, and any other failure is left to
+          // the import, which says it honestly.
+          const failure = await readApiFailure(response);
+          if (!cancelled && failure.code === "egress_blocked") setReleasesRefused(failure.message);
+          return;
+        }
         const body = (await response.json()) as {
           releases: string[];
           latest: string;
@@ -1044,9 +1054,10 @@ export function OverturePane({
             <select
               id="ovt-release"
               value={release}
+              disabled={releasesRefused !== null}
               onChange={(e) => setRelease(e.target.value)}
             >
-              {releases.length === 0 && (
+              {releases.length === 0 && releasesRefused === null && (
                 <option value="">latest (resolving…)</option>
               )}
               {releases.map((r, i) => (
@@ -1057,6 +1068,7 @@ export function OverturePane({
               ))}
             </select>
           </div>
+          {releasesRefused && <ErrorNote message={releasesRefused} />}
 
           <div className={styles.field}>
             <label htmlFor="ovt-name">Table name</label>
