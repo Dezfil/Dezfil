@@ -81,6 +81,10 @@ export interface BatchOptions {
   /** The endpoint the run was admitted with, asked for every address of the
    * run; absent, the endpoint in effect when the batch starts. */
   endpoint?: string;
+  /** The gap and the answer time limit (milliseconds) the run was admitted
+   * with, kept for its every request; absent, those in effect at each. */
+  gapMs?: number;
+  requestTimeoutMs?: number;
 }
 
 function remaining(deadlineAt: number, timeoutError: () => ApiError): number {
@@ -240,6 +244,8 @@ export async function stageBatch(scope: AccountScope, options: BatchOptions): Pr
       ...(signal ? { signal } : {}),
       deadlineAt,
       endpoint,
+      ...(options.gapMs === undefined ? {} : { gapMs: options.gapMs }),
+      ...(options.requestTimeoutMs === undefined ? {} : { requestTimeoutMs: options.requestTimeoutMs }),
     }).catch((error: unknown) => {
       if (Date.now() >= deadlineAt) throw timeoutError();
       throw error;

@@ -96,6 +96,12 @@ export interface AskOptions {
    * the endpoint in effect now.
    */
   endpoint?: string;
+  /** The gap between requests the caller's run was admitted with, kept for
+   * its every request; absent, the gap in effect at the request. */
+  gapMs?: number;
+  /** The answer time limit the caller's run was admitted with, in
+   * milliseconds; absent, the limit in effect at the request. */
+  requestTimeoutMs?: number;
 }
 
 /** The caller's run ended while this address was waiting for a slot. Coded as a
@@ -227,7 +233,7 @@ async function askOnce(
   const url = searchUrl(endpoint, address, { limit: "1" });
   if (!url) throw unconfiguredError();
   const { signal, deadlineAt } = options;
-  const release = await takeSlot(endpointKey(endpoint), "batch", signal);
+  const release = await takeSlot(endpointKey(endpoint), "batch", signal, options.gapMs);
   try {
     // **Checked again on the near side of the wait**. The wait is
     // for a slot, and a slot can open after the run that queued for it is over —
@@ -235,13 +241,11 @@ async function askOnce(
     // otherwise start, and not only where the batch decided to ask.
     const left = deadlineAt === undefined ? undefined : deadlineAt - Date.now();
     if (left !== undefined && left <= 0) throw pastDeadline();
+    const limit = options.requestTimeoutMs ?? limits.geocodeRequestTimeoutMs;
     const response = await openRemote(url.toString(), {
       // The exchange may not outlive the run either: a request that starts with
       // a second of budget left takes a second, not its own full deadline.
-      timeoutMs:
-        left === undefined
-          ? limits.geocodeRequestTimeoutMs
-          : Math.min(limits.geocodeRequestTimeoutMs, left),
+      timeoutMs: left === undefined ? limit : Math.min(limit, left),
       // The engine's own timeout message embeds the URL, which may carry a key.
       // Coded here instead, so the deadline never reaches a job record as text
       // nobody sanitized.

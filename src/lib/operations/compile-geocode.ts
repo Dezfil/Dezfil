@@ -6,6 +6,7 @@ import { ApiError } from "@/lib/api/errors";
 import { publicationSql, removeStage, stageBatch } from "@/lib/geocode/batch";
 import { configuredEndpoint } from "@/lib/geocode/endpoint";
 import { unconfiguredError } from "@/lib/geocode/provider";
+import { limits } from "@/lib/limits";
 import { maxBatchRows } from "./provider-capacities";
 export { maxBatchRows, ATTEMPTS_PER_ROW } from "./provider-capacities";
 import type { DataTable } from "@/lib/metadata/tables";
@@ -150,6 +151,11 @@ export async function compileGeocode(
   refuseGeometry(table, label);
   const column = await addressColumn(reads, table, params, label);
   await refuseCollisions(reads, table, label);
+  // The gap and the answer time limit are taken with the size check that
+  // derives from them, and kept to the run's end like its address: a change
+  // made while the run waits or works applies to runs admitted after it.
+  const gapMs = limits.geocodePaceMs;
+  const requestTimeoutMs = limits.geocodeRequestTimeoutMs;
   refuseSize(table, label);
 
   return {
@@ -176,6 +182,8 @@ export async function compileGeocode(
         table,
         column,
         endpoint,
+        gapMs,
+        requestTimeoutMs,
         ...(context.signal ? { signal: context.signal } : {}),
         deadlineAt: context.deadlineAt,
         timeoutError: context.timeoutError,

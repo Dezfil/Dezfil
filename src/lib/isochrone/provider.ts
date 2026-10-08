@@ -71,6 +71,12 @@ export interface AskIsochroneOptions {
   /** The endpoint the caller's run was admitted with, kept for its every
    * origin; absent, the endpoint in effect now. */
   endpoint?: string;
+  /** The gap between requests the caller's run was admitted with; absent,
+   * the gap in effect at the request. */
+  gapMs?: number;
+  /** The answer time limit the caller's run was admitted with, in
+   * milliseconds; absent, the limit in effect at the request. */
+  requestTimeoutMs?: number;
 }
 
 export function isochroneUnconfiguredError(): ApiError {
@@ -373,15 +379,13 @@ async function askOnce(
   const url = isochroneUrl(endpoint, origin, mode, bands);
   if (!url) throw isochroneUnconfiguredError();
   const { signal, deadlineAt } = options;
-  const release = await takeIsochroneSlot(isochroneEndpointKey(endpoint), signal);
+  const release = await takeIsochroneSlot(isochroneEndpointKey(endpoint), signal, options.gapMs);
   try {
     const left = deadlineAt === undefined ? undefined : deadlineAt - Date.now();
     if (left !== undefined && left <= 0) throw pastDeadline();
+    const limit = options.requestTimeoutMs ?? limits.isochroneRequestTimeoutMs;
     const response = await openRemote(url.toString(), {
-      timeoutMs:
-        left === undefined
-          ? limits.isochroneRequestTimeoutMs
-          : Math.min(limits.isochroneRequestTimeoutMs, left),
+      timeoutMs: left === undefined ? limit : Math.min(limit, left),
       // The engine's own timeout message embeds the URL, which may carry a
       // key. Coded here instead.
       timeoutError: () => providerFailed("no answer inside the deadline"),

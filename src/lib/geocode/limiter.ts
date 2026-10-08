@@ -20,6 +20,11 @@ import { limits } from "@/lib/limits";
  * Found at the cross-model review, which was right that a pacing-only limiter
  * contradicts the spec's own sequential claim.
  *
+ * **Each request waits by its own gap.** A batch run keeps the gap it was
+ * admitted with to its last request, so a gap an admin changes while it runs
+ * applies to runs admitted after; a request that names no gap (a search) takes
+ * the one in effect when it asks.
+ *
  * **Interactive search takes the next slot.** A person waiting on a search box
  * is a different thing from a batch with minutes to run, so a search jumps ahead
  * of any batch that is waiting. It cannot jump ahead of a request already out —
@@ -38,6 +43,8 @@ export type ReleaseSlot = () => void;
 
 interface Waiter {
   priority: Priority;
+  /** How long after the previous request's start this one may start. */
+  gapMs: number;
   resolve: (release: ReleaseSlot) => void;
   reject: (error: unknown) => void;
   signal?: AbortSignal;
@@ -45,8 +52,8 @@ interface Waiter {
 }
 
 interface Endpoint {
-  /** When the next request may start, counting from the last one's start. */
-  nextAt: number;
+  /** When the previous request started; each waiter keeps its own gap after it. */
+  lastStartAt: number;
   /** True while a caller holds the slot. */
   busy: boolean;
   waiting: Waiter[];
@@ -68,7 +75,7 @@ export function resetLimiter(): void {
 function endpointFor(key: string): Endpoint {
   const found = endpoints.get(key);
   if (found) return found;
-  const made: Endpoint = { nextAt: 0, busy: false, waiting: [], draining: false };
+  const made: Endpoint = { lastStartAt: Number.NEGATIVE_INFINITY, busy: false, waiting: [], draining: false };
   endpoints.set(key, made);
   return made;
 }
@@ -84,6 +91,14 @@ export function inFlight(key: string): boolean {
   return endpoints.get(key)?.busy ?? false;
 }
 
+/** **Chosen at the moment the slot opens, not when it was queued.** A search
+ * that arrived while the batch was waiting has to be able to take this slot,
+ * which it cannot do if the order was fixed on arrival. */
+function chosen(endpoint: Endpoint): number {
+  const index = endpoint.waiting.findIndex((w) => w.priority === "interactive");
+  return index >= 0 ? index : 0;
+}
+
 function drain(key: string): void {
   const endpoint = endpointFor(key);
   if (endpoint.draining) return;
@@ -94,26 +109,29 @@ function drain(key: string): void {
       endpoint.draining = false;
       return;
     }
-    const delay = Math.max(0, endpoint.nextAt - Date.now());
+    const first = endpoint.waiting[chosen(endpoint)];
+    const delay = Math.max(0, endpoint.lastStartAt + first.gapMs - Date.now());
     const timer = setTimeout(() => {
       if (endpoint.busy) {
         // A release raced this timer; it will drain again when it lands.
         endpoint.draining = false;
         return;
       }
-      // **Chosen at the moment the slot opens, not when it was queued.** A
-      // search that arrived while the batch was waiting has to be able to take
-      // this slot, which it cannot do if the order was fixed on arrival.
-      const index = endpoint.waiting.findIndex(
-        (w) => w.priority === "interactive",
-      );
-      const next = endpoint.waiting.splice(index >= 0 ? index : 0, 1)[0];
+      const index = chosen(endpoint);
+      const next = endpoint.waiting[index];
       if (!next) {
         endpoint.draining = false;
         return;
       }
+      // The waiter chosen now may keep a longer gap than the one the timer
+      // was set for: it waits out its own.
+      if (Date.now() < endpoint.lastStartAt + next.gapMs) {
+        step();
+        return;
+      }
+      endpoint.waiting.splice(index, 1);
       endpoint.busy = true;
-      endpoint.nextAt = Date.now() + limits.geocodePaceMs;
+      endpoint.lastStartAt = Date.now();
       next.signal?.removeEventListener("abort", next.onAbort!);
       let released = false;
       next.resolve(() => {
@@ -136,17 +154,22 @@ function drain(key: string): void {
  * always, because a slot nobody releases stops this endpoint for the life of the
  * process. Rejects if the caller's signal fires first, so a cancelled batch
  * stops queueing rather than stopping only after its turn arrives.
+ *
+ * `gapMs` is the gap this request keeps after the previous start: a batch
+ * run's, as it was admitted; absent, the one in effect now.
  */
 export function takeSlot(
   key: string,
   priority: Priority,
   signal?: AbortSignal,
+  gapMs: number = limits.geocodePaceMs,
 ): Promise<ReleaseSlot> {
   if (signal?.aborted) return Promise.reject(new Error("abandoned"));
   const endpoint = endpointFor(key);
   return new Promise<ReleaseSlot>((resolve, reject) => {
     const waiter: Waiter = {
       priority,
+      gapMs,
       resolve,
       reject,
       ...(signal ? { signal } : {}),
