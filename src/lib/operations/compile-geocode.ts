@@ -4,7 +4,7 @@ import type { AccountScope } from "@/lib/auth/scope";
 import type { DatasetScope } from "@/lib/query/access";
 import { ApiError } from "@/lib/api/errors";
 import { publicationSql, removeStage, stageBatch } from "@/lib/geocode/batch";
-import { geocoderConfigured } from "@/lib/geocode/endpoint";
+import { configuredEndpoint } from "@/lib/geocode/endpoint";
 import { unconfiguredError } from "@/lib/geocode/provider";
 import { maxBatchRows } from "./provider-capacities";
 export { maxBatchRows, ATTEMPTS_PER_ROW } from "./provider-capacities";
@@ -135,7 +135,11 @@ export async function compileGeocode(
   const label = operation.label;
   // First, because it is the one refusal that is about the instance rather than
   // the request: nothing else is worth checking if there is nobody to ask.
-  if (!geocoderConfigured()) throw unconfiguredError();
+  // The address is taken here, at admission, and kept to the run's end: a
+  // change made while the run waits or works never splits its answers
+  // between two providers.
+  const endpoint = configuredEndpoint();
+  if (!endpoint) throw unconfiguredError();
 
   const name = str(params, "name");
   if (requireName && !name) required(label, "name");
@@ -171,6 +175,7 @@ export async function compileGeocode(
         reads,
         table,
         column,
+        endpoint,
         ...(context.signal ? { signal: context.signal } : {}),
         deadlineAt: context.deadlineAt,
         timeoutError: context.timeoutError,

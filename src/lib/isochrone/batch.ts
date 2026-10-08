@@ -69,6 +69,9 @@ export interface IsochroneBatchOptions {
   timeoutError: () => ApiError;
   /** Where the input is read: the run's evaluation, its account otherwise. */
   reads?: DatasetScope;
+  /** The endpoint the run was admitted with, asked for every origin of the
+   * run; absent, the endpoint in effect when the batch starts. */
+  endpoint?: string;
 }
 
 interface StagedBand {
@@ -211,7 +214,7 @@ export async function stageIsochroneBatch(
   options: IsochroneBatchOptions,
 ): Promise<IsochroneBatchResult> {
   const { table, mode, bands, signal, deadlineAt, timeoutError } = options;
-  const endpoint = configuredIsochroneEndpoint();
+  const endpoint = options.endpoint ?? configuredIsochroneEndpoint();
   if (!endpoint) throw isochroneUnconfiguredError();
 
   const origins = await boundedEvaluation(
@@ -233,6 +236,7 @@ export async function stageIsochroneBatch(
     const answer = await askIsochrone(origin, mode, bands, {
       ...(signal ? { signal } : {}),
       deadlineAt,
+      endpoint,
     }).catch((error: unknown) => {
       if (Date.now() >= deadlineAt) throw timeoutError();
       throw error;

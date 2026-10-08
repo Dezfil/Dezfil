@@ -1,11 +1,14 @@
 import { createHash } from "node:crypto";
+import { resolveServiceAddress, serviceAddressConfigured } from "@/lib/settings/service-address";
 
 /**
  * The one configured isochrone endpoint.
  *
- * Its own deployment setting, deliberately not the geocoder's: K4 gives
+ * Its own setting, deliberately not the geocoder's: K4 gives
  * this provider its own pace, and a shared setting would be two products
- * behind one URL. The configured URL may carry a credential in its query
+ * behind one URL. The address is the one in effect: the variable when set,
+ * else the one an admin stored, else none; a run reads it once and passes
+ * it on. The configured URL may carry a credential in its query
  * string — that is where a key travels — so nothing here ever returns it
  * for display, logging or storage; what may be published is the identity,
  * host and path and never the query.
@@ -15,13 +18,16 @@ import { createHash } from "node:crypto";
  * protocol revision never serves an old shape's answer as a new one's. */
 export const ISOCHRONE_PROTOCOL_VERSION = 1;
 
-/** The configured endpoint exactly as the administrator wrote it, or null. */
+/** The endpoint in effect exactly as the administrator wrote it, or null.
+ * A stored address the instance's key no longer opens refuses with a coded
+ * error instead of answering null. */
 export function configuredIsochroneEndpoint(): string | null {
-  return process.env.DEZFIL_ISOCHRONE_URL?.trim() || null;
+  return resolveServiceAddress("isochroneUrl").address;
 }
 
+/** Whether an endpoint is set, an unreadable stored one included. */
 export function isochroneConfigured(): boolean {
-  return configuredIsochroneEndpoint() !== null;
+  return serviceAddressConfigured("isochroneUrl");
 }
 
 /** The endpoint's identity for keying — a hash, never the URL. The pace and
@@ -54,24 +60,23 @@ export const COSTING_BY_MODE: Record<string, string> = {
 
 /**
  * The provider's `/isochrone` URL for one origin, all bands travelling
- * together.
+ * together, on the endpoint the caller holds.
  *
  * The configured base keeps its administrator-supplied query parameters (a key
  * travels there), gains the `/isochrone` path segment unless it already ends
  * in one, and the `json` parameter is **set**, never appended beside an
  * existing one. `polygons` and `show_locations` are mandatory: the default
  * contour is a line, which is not an area, and K8's containment check needs
- * to know where travel started. Returns null when unconfigured or
- * unparseable — different administrator mistakes, told apart by
- * `isochroneConfigured`.
+ * to know where travel started. Returns null when the endpoint is
+ * unparseable; "no endpoint" is the caller's to tell apart.
  */
 export function isochroneUrl(
+  endpoint: string,
   origin: { lon: number; lat: number },
   mode: string,
   bands: number[],
 ): URL | null {
-  const raw = configuredIsochroneEndpoint();
-  if (!raw) return null;
+  const raw = endpoint;
   let url: URL;
   try {
     url = new URL(raw);

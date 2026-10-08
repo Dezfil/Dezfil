@@ -133,3 +133,70 @@ describe("fetchOverpass response handling", () => {
     expect(hits).toBe(1);
   });
 });
+
+describe("a refusal from the Overpass endpoint", () => {
+  // Seeds in every part of the address that may carry a key.
+  const PATH = "/SEEDED-KEY-0001-PATH/api/interpreter";
+  const QUERY = "?key=SEEDED-KEY-0001-QUERY";
+  let server: Server | undefined;
+
+  afterEach(async () => {
+    if (server?.listening) await new Promise<void>((resolve) => server!.close(() => resolve()));
+    server = undefined;
+  });
+
+  async function serve(status: number, body = ""): Promise<string> {
+    server = createServer((_req, res) => { res.writeHead(status, { "content-type": "text/html" }); res.end(body); });
+    await new Promise<void>((resolve) => server!.listen(0, "127.0.0.1", () => resolve()));
+    return `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  }
+
+  async function refusal(address: string): Promise<{ code: string; message: string }> {
+    process.env.DEZFIL_OVERPASS_URL = address;
+    try {
+      await fetchOverpass("[out:json];node;out;");
+    } catch (error) {
+      return error as { code: string; message: string };
+    }
+    throw new Error("expected a refusal");
+  }
+
+  it("names scheme and host when the endpoint cannot be reached", async () => {
+    const origin = await serve(200);
+    await new Promise<void>((resolve) => server!.close(() => resolve()));
+    const refused = await refusal(`${origin}${PATH}${QUERY}`);
+    expect(refused.code).toBe("remote_fetch_failed");
+    expect(refused.message).toBe(`Could not reach the Overpass endpoint ${origin} (ECONNREFUSED).`);
+  });
+
+  it("names scheme and host when the address carries a user and a password", async () => {
+    const origin = await serve(200, "{}");
+    const refused = await refusal(origin.replace("//", "//SEEDED-KEY-0001-USER:SEEDED-KEY-0001-PASS@") + PATH);
+    expect(refused.code).toBe("remote_fetch_failed");
+    expect(refused.message).toContain(`the Overpass endpoint ${origin}`);
+    expect(refused.message).not.toContain("SEEDED-KEY");
+  });
+
+  it("names scheme and host when it rate-limits", async () => {
+    const origin = await serve(429);
+    const refused = await refusal(`${origin}${PATH}${QUERY}`);
+    expect(refused.code).toBe("rate_limited");
+    expect(refused.message).toContain(`The Overpass endpoint ${origin} rate-limited this request`);
+    expect(refused.message).not.toContain("SEEDED-KEY");
+  });
+
+  it("drops the server's own words when they repeat the path or the query", async () => {
+    for (const echoed of [PATH, "SEEDED-KEY-0001-QUERY", "SEEDED-KEY-0001-PATH"]) {
+      const origin = await serve(400, `<p><strong>runtime error: ${echoed} refused</strong></p>`);
+      const refused = await refusal(`${origin}${PATH}${QUERY}`);
+      expect(refused.message).toBe(`The Overpass endpoint ${origin} responded 400`);
+      await new Promise<void>((resolve) => server!.close(() => resolve()));
+    }
+  });
+
+  it("keeps the server's own words when they repeat nothing of the address", async () => {
+    const origin = await serve(400, "<p><strong>line 1: parse error: unknown type \"nod\"</strong></p>");
+    const refused = await refusal(`${origin}${PATH}${QUERY}`);
+    expect(refused.message).toBe(`The Overpass endpoint ${origin} responded 400: line 1: parse error: unknown type "nod"`);
+  });
+});

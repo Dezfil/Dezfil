@@ -99,7 +99,10 @@ describe("an instance that cannot run a verb says so, in the picker", () => {
     // Two disabled rows, not one — the invented verb is treated exactly as the
     // shipped one, which is what makes this the catalog's behaviour.
     expect(html.match(/disabled=""/g) ?? []).toHaveLength(2);
-    expect(html).toContain("DEZFIL_GEOCODER_URL");
+    // The reason names what an admin can change now: the setting, while no
+    // variable locks it.
+    expect(html).toContain("Needs a geocoding endpoint. An admin can change &quot;Address finder&quot;.");
+    expect(html).not.toContain("DEZFIL_GEOCODER_URL");
     // **Listed, not hidden**: a user looking for it learns it exists and what
     // their instance is missing.
     expect(html).toContain(SHIPPED.label);
@@ -220,8 +223,9 @@ describe("the isochrone row carries its own dependency", () => {
     // this verb's own setting, not the geocoder's.
     expect(html).toContain('data-operation="isochrone"');
     expect(html).toContain('data-operation-unavailable="isochrone"');
-    expect(html).toContain("DEZFIL_ISOCHRONE_URL");
-    expect(html).not.toContain("DEZFIL_GEOCODER_URL");
+    expect(html).toContain("Needs a routing endpoint. An admin can change &quot;Travel-time endpoint&quot;.");
+    expect(html).not.toContain("Address finder");
+    expect(html).not.toContain("DEZFIL_ISOCHRONE_URL");
 
     process.env.DEZFIL_ISOCHRONE_URL = "https://router.invalid/isochrone";
     html = renderToStaticMarkup(

@@ -12,6 +12,7 @@ import {
 } from "./endpoint";
 import { takeSlot } from "./limiter";
 import { normalizeAddress } from "./normalize";
+import { settingRemedy } from "@/lib/settings/remedy";
 
 /**
  * One address, answered.
@@ -88,6 +89,13 @@ export interface AskOptions {
    * first.
    */
   deadlineAt?: number;
+  /**
+   * The endpoint to ask, as the caller's run was admitted with it. A run
+   * keeps one address from its first answer to its last, so a change made
+   * while it runs never splits its answers between two providers; absent,
+   * the endpoint in effect now.
+   */
+  endpoint?: string;
 }
 
 /** The caller's run ended while this address was waiting for a slot. Coded as a
@@ -105,7 +113,7 @@ export function unconfiguredError(): ApiError {
   return new ApiError(
     "geocoder_unconfigured",
     "No geocoding endpoint is configured on this instance, so addresses " +
-      "cannot be looked up. Set DEZFIL_GEOCODER_URL and try again.",
+      `cannot be looked up. ${settingRemedy("geocoderUrl")}`,
     400,
   );
 }
@@ -216,7 +224,7 @@ async function askOnce(
   address: string,
   options: AskOptions,
 ): Promise<string | null> {
-  const url = searchUrl(address, { limit: "1" });
+  const url = searchUrl(endpoint, address, { limit: "1" });
   if (!url) throw unconfiguredError();
   const { signal, deadlineAt } = options;
   const release = await takeSlot(endpointKey(endpoint), "batch", signal);
@@ -330,7 +338,7 @@ export async function geocodeAddress(
   // Never asked, never cached: an empty address is not a question.
   if (normalized === null) return EMPTY;
 
-  const endpoint = configuredEndpoint();
+  const endpoint = options.endpoint ?? configuredEndpoint();
   if (!endpoint) throw unconfiguredError();
 
   const generation = providerCacheGeneration();

@@ -1,10 +1,12 @@
 import { testAccountScope } from "@/lib/test-support/accounts";
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, rm, readdir, readFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
-import { closeMetadataDb } from "@/lib/metadata/db";
+import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
+import { resetSecretKeyCache } from "@/lib/secrets";
+import { writeStoredSettings } from "@/lib/settings/store";
 import { listTables } from "@/lib/metadata/tables";
 import { ApiError } from "@/lib/api/errors";
 import {
@@ -274,5 +276,97 @@ describe("credentialed object-store road (opt-in)", () => {
       resolveRemoteSource("s3://bucket/huge.parquet"),
     ).rejects.toMatchObject({ code: "remote_too_large", status: 413 });
     expect(seen).toEqual(["/bucket/huge.parquet"]);
+  });
+});
+
+describe("a refusal on the cloud-storage road", () => {
+  // The S3 address an admin gives may carry a key in its user information
+  // and its path; a refusal names the person's own link instead.
+  const SEEDS = "SEEDED-KEY-0001";
+  let store: Server;
+  let origin: string;
+
+  beforeEach(async () => {
+    store = createServer((req, res) => {
+      if (req.url === `/${SEEDS}-PATH/bucket/hang.csv`) return; // accept, never answer
+      if (req.url === `/${SEEDS}-PATH/bucket/cut.csv`) {
+        res.writeHead(200, { "content-type": "text/csv" });
+        res.write("name,value\n");
+        setTimeout(() => res.socket?.destroy(), 20);
+        return;
+      }
+      res.writeHead(404);
+      res.end(`no such key under ${req.url}`);
+    });
+    await new Promise<void>((resolve) => store.listen(0, "127.0.0.1", () => resolve()));
+    origin = `http://127.0.0.1:${(store.address() as AddressInfo).port}`;
+  });
+
+  afterEach(async () => {
+    if (store.listening) await new Promise<void>((resolve) => store.close(() => resolve()));
+    vi.unstubAllEnvs();
+    resetSecretKeyCache();
+  });
+
+  function use(address: string, via: "variable" | "stored") {
+    if (via === "variable") { process.env.DEZFIL_S3_ENDPOINT = address; return; }
+    vi.stubEnv("DEZFIL_SECRET_KEY", "7a".repeat(32));
+    resetSecretKeyCache();
+    writeStoredSettings({ s3Endpoint: address }, metadataDb());
+  }
+
+  const address = () => origin.replace("//", `//${SEEDS}-USER:${SEEDS}-PASS@`) + `/${SEEDS}-PATH`;
+
+  async function refusal(link: string): Promise<ApiError> {
+    try {
+      await resolveRemoteSource(link);
+    } catch (error) {
+      return error as ApiError;
+    }
+    throw new Error("expected a refusal");
+  }
+
+  function namesOnlyTheLink(error: ApiError, link: string) {
+    expect(error.message).toContain(link);
+    expect(error.message).not.toContain(SEEDS);
+    expect(error.message).not.toContain(origin.slice("http://".length));
+  }
+
+  it.each(["variable", "stored"] as const)("names the link when the store answers a status (%s)", async (via) => {
+    use(address(), via);
+    const error = await refusal("s3://bucket/missing.csv");
+    expect(error).toMatchObject({ code: "remote_fetch_failed", status: 502 });
+    expect(error.message).toMatch(/^The server responded 404 for s3:\/\/bucket\/missing\.csv\./);
+    namesOnlyTheLink(error, "s3://bucket/missing.csv");
+  });
+
+  it.each(["variable", "stored"] as const)("names the link when the store cannot be reached (%s)", async (via) => {
+    use(address(), via);
+    await new Promise<void>((resolve) => store.close(() => resolve()));
+    const error = await refusal("s3://bucket/points.csv");
+    expect(error).toMatchObject({ code: "remote_fetch_failed", status: 502 });
+    expect(error.message).toMatch(/^Could not reach the cloud storage holding s3:\/\/bucket\/points\.csv\./);
+    namesOnlyTheLink(error, "s3://bucket/points.csv");
+  });
+
+  it("names the link when the store does not answer in time", async () => {
+    process.env.DEZFIL_REMOTE_TIMEOUT_S = "1";
+    use(address(), "variable");
+    const error = await refusal("s3://bucket/hang.csv");
+    expect(error).toMatchObject({ code: "remote_timeout", status: 504 });
+    namesOnlyTheLink(error, "s3://bucket/hang.csv");
+  });
+
+  it("names the link when the transfer is cut", async () => {
+    use(address(), "variable");
+    const error = await refusal("s3://bucket/cut.csv");
+    expect(error).toMatchObject({ code: "remote_fetch_failed" });
+    expect(error.message).toMatch(/^The download from s3:\/\/bucket\/cut\.csv was interrupted\./);
+    namesOnlyTheLink(error, "s3://bucket/cut.csv");
+  });
+
+  it("still names a web address it was given, as given", async () => {
+    const error = await refusal(`${origin}/${SEEDS}-PATH/elsewhere.csv`);
+    expect(error.message).toBe(`The server responded 404 for ${origin}/${SEEDS}-PATH/elsewhere.csv.`);
   });
 });

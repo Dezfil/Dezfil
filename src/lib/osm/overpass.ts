@@ -12,6 +12,8 @@ import {
 import { dataDir } from "@/lib/config";
 import { limits } from "@/lib/limits";
 import { ApiError } from "@/lib/api/errors";
+import { settingRemedy } from "@/lib/settings/remedy";
+import { addressOrigin, resolveServiceAddress } from "@/lib/settings/service-address";
 import { normalizeQl } from "./query";
 
 /**
@@ -19,13 +21,37 @@ import { normalizeQl } from "./query";
  * user-supplied per request; public instances rate-limit per IP, and every
  * error says so honestly. Responses cache on disk keyed by endpoint +
  * normalized query; refresh bypasses the cache by design.
+ *
+ * The endpoint may carry a key (in its user information, path or query), so
+ * what any refusal names is its scheme and host alone.
  */
 
 export const DEFAULT_OVERPASS_ENDPOINT =
   "https://overpass-api.de/api/interpreter";
 
+/** The endpoint in effect: the variable when set, else the address an admin
+ * stored, else the public server. A stored address the instance's key no
+ * longer opens refuses with a coded error and never reaches the public
+ * server instead. */
 export function overpassEndpoint(): string {
-  return process.env.DEZFIL_OVERPASS_URL || DEFAULT_OVERPASS_ENDPOINT;
+  return resolveServiceAddress("overpassUrl").address ?? DEFAULT_OVERPASS_ENDPOINT;
+}
+
+/** What a refusal may say about the endpoint: its scheme and host. */
+function shown(endpoint: string): string {
+  return addressOrigin(endpoint) ?? "configured";
+}
+
+/** The parts of an address that may carry a key: its user information,
+ * its whole path and query, each query value, and each path segment long
+ * enough to be one. */
+function secretParts(endpoint: string): string[] {
+  try {
+    const url = new URL(endpoint);
+    return [url.username, url.password, url.pathname.length > 1 ? url.pathname : "", url.search.slice(1),
+      ...[...url.searchParams.values()], ...url.pathname.split("/").filter(segment => segment.length >= 12)]
+      .filter(part => part.length >= 4);
+  } catch { return [endpoint]; }
 }
 
 export interface OverpassResponse {
@@ -123,6 +149,7 @@ export async function fetchOverpass(
 ): Promise<{ response: OverpassResponse; fromCache: boolean }> {
   const generation = providerCacheGeneration();
   const endpoint = overpassEndpoint();
+  const origin = shown(endpoint);
   const key = cacheKey(endpoint, ql);
   if (!options.bypassCache) {
     const cached = await readCache(key);
@@ -142,11 +169,12 @@ export async function fetchOverpass(
       signal: AbortSignal.timeout((limits.overpassTimeoutS + 30) * 1000),
     });
   } catch (error) {
+    // The transport's own message may repeat the whole address; only its
+    // code (a refused connection, a name that does not resolve) travels.
+    const code = (error as { cause?: { code?: unknown } } | null)?.cause?.code;
     throw new ApiError(
       "remote_fetch_failed",
-      `Could not reach the Overpass endpoint ${endpoint}: ${
-        error instanceof Error ? error.message : "network error"
-      }`,
+      `Could not reach the Overpass endpoint ${origin}${typeof code === "string" && /^[A-Z_]+$/.test(code) ? ` (${code})` : ""}.`,
       502,
     );
   }
@@ -154,7 +182,7 @@ export async function fetchOverpass(
   if (response.status === 429) {
     throw new ApiError(
       "rate_limited",
-      `The Overpass endpoint ${endpoint} rate-limited this request (public instances limit per IP). Wait a moment and retry, or configure DEZFIL_OVERPASS_URL to your own instance.`,
+      `The Overpass endpoint ${origin} rate-limited this request (public instances limit per IP). Wait a moment and retry, or point it at your own instance. ${settingRemedy("overpassUrl")}`,
       429,
     );
   }
@@ -167,11 +195,14 @@ export async function fetchOverpass(
   }
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    const detail = /<p><strong[^>]*>(.*?)<\/strong>/s.exec(text)?.[1];
+    const found = /<p><strong[^>]*>(.*?)<\/strong>/s.exec(text)?.[1]?.slice(0, 300);
+    // The server's own words, unless they repeat a part of the address that
+    // may carry a key: then the status alone.
+    const detail = found && !secretParts(endpoint).some(part => found.includes(part)) ? found : undefined;
     throw new ApiError(
       "remote_fetch_failed",
-      `The Overpass endpoint responded ${response.status}${
-        detail ? `: ${detail.slice(0, 300)}` : ""
+      `The Overpass endpoint ${origin} responded ${response.status}${
+        detail ? `: ${detail}` : ""
       }`,
       502,
     );

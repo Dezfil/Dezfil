@@ -78,6 +78,9 @@ export interface BatchOptions {
   timeoutError: () => ApiError;
   /** Where the input is read: the run's evaluation, its account otherwise. */
   reads?: DatasetScope;
+  /** The endpoint the run was admitted with, asked for every address of the
+   * run; absent, the endpoint in effect when the batch starts. */
+  endpoint?: string;
 }
 
 function remaining(deadlineAt: number, timeoutError: () => ApiError): number {
@@ -203,7 +206,7 @@ export async function removeStage(stage: StagingInput): Promise<void> {
  */
 export async function stageBatch(scope: AccountScope, options: BatchOptions): Promise<BatchResult> {
   const { table, column, signal, deadlineAt, timeoutError } = options;
-  const endpoint = configuredEndpoint();
+  const endpoint = options.endpoint ?? configuredEndpoint();
   if (!endpoint) throw unconfiguredError();
 
   const addresses = await boundedEvaluation(
@@ -236,6 +239,7 @@ export async function stageBatch(scope: AccountScope, options: BatchOptions): Pr
     const answer = await geocodeAddress(address, {
       ...(signal ? { signal } : {}),
       deadlineAt,
+      endpoint,
     }).catch((error: unknown) => {
       if (Date.now() >= deadlineAt) throw timeoutError();
       throw error;

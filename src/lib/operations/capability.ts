@@ -1,5 +1,6 @@
 import { geocoderConfigured } from "@/lib/geocode/endpoint";
 import { isochroneConfigured } from "@/lib/isochrone/endpoint";
+import { settingRemedy } from "@/lib/settings/remedy";
 import type { Availability, Capability, OperationDef } from "./catalog";
 
 /**
@@ -17,17 +18,20 @@ import type { Availability, Capability, OperationDef } from "./catalog";
  * three places.
  */
 
+/** The missing sentence says what is true when it is read: an admin's
+ * setting while it is theirs, the variable and a restart while the variable
+ * locks it. */
 const CAPABILITIES: Record<
   Capability,
-  { present: () => boolean; missing: string }
+  { present: () => boolean; missing: () => string }
 > = {
   geocoder: {
     present: geocoderConfigured,
-    missing: "Needs a geocoding endpoint. Set DEZFIL_GEOCODER_URL.",
+    missing: () => `Needs a geocoding endpoint. ${settingRemedy("geocoderUrl")}`,
   },
   isochrone: {
     present: isochroneConfigured,
-    missing: "Needs a routing endpoint. Set DEZFIL_ISOCHRONE_URL.",
+    missing: () => `Needs a routing endpoint. ${settingRemedy("isochroneUrl")}`,
   },
 };
 
@@ -40,7 +44,7 @@ export function availabilityOf(operation: OperationDef): Availability {
     available: false,
     // The first missing one, in the verb's own declared order: a reader needs
     // one sentence they can act on, not a list of everything absent.
-    reason: CAPABILITIES[missing[0]].missing,
+    reason: CAPABILITIES[missing[0]].missing(),
   };
 }
 

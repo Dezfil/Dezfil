@@ -1,4 +1,5 @@
 import { settingRemedy } from "@/lib/settings/remedy";
+import { resolveServiceAddress } from "@/lib/settings/service-address";
 import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
 import { registerAccountFile, removeAccountFile } from "./file-ownership";
 import { requireFilingDestination } from "@/lib/auth/reach";
@@ -76,24 +77,39 @@ function capMb(budget: IngestBudget): number {
 
 /** Stream an http(s) file to a temp path, enforcing the cap mid-flight.
  * The fetch goes through the egress engine: every redirect hop re-enters
- * the address policy before it is contacted. */
-async function downloadHttp(url: string, tmpPath: string, budget: IngestBudget): Promise<void> {
-  const response = await openRemote(url, {
-    timeoutMs: budget.remoteTimeoutMs,
-    timeoutError: () =>
-      new ApiError(
-        "remote_timeout",
-        `The download from ${url} exceeded the remote time bound of ${Math.round(
-          budget.remoteTimeoutMs / 1000,
-        )} s. ${settingRemedy("remoteTimeoutS")}`,
-        504,
-      ),
-  });
+ * the address policy before it is contacted.
+ *
+ * `shown` is what a refusal names. For a web address it is the address; for
+ * a cloud-storage link it is the person's own link, never the address it was
+ * reached at, which may be an admin's with a key in it. Then a transport
+ * failure says only that the store could not be reached, since the engine's
+ * own sentence repeats the address it tried. */
+async function downloadHttp(url: string, tmpPath: string, budget: IngestBudget, shown = url): Promise<void> {
+  const reached = shown === url;
+  let response: Awaited<ReturnType<typeof openRemote>>;
+  try {
+    response = await openRemote(url, {
+      timeoutMs: budget.remoteTimeoutMs,
+      timeoutError: () =>
+        new ApiError(
+          "remote_timeout",
+          `The download from ${shown} exceeded the remote time bound of ${Math.round(
+            budget.remoteTimeoutMs / 1000,
+          )} s. ${settingRemedy("remoteTimeoutS")}`,
+          504,
+        ),
+    });
+  } catch (error) {
+    if (!reached && error instanceof ApiError && error.code === "remote_fetch_failed") {
+      throw new ApiError("remote_fetch_failed", `Could not reach the cloud storage holding ${shown}.`, 502);
+    }
+    throw error;
+  }
   if (response.statusCode < 200 || response.statusCode >= 300) {
     response.body.destroy();
     throw new ApiError(
       "remote_fetch_failed",
-      `The server responded ${response.statusCode} for ${url}.`,
+      `The server responded ${response.statusCode} for ${shown}.`,
       502,
     );
   }
@@ -129,8 +145,8 @@ async function downloadHttp(url: string, tmpPath: string, budget: IngestBudget):
     if (error instanceof ApiError) throw error;
     throw new ApiError(
       "remote_fetch_failed",
-      `The download from ${url} was interrupted: ${
-        error instanceof Error ? error.message : "stream error"
+      `The download from ${shown} was interrupted${
+        reached ? `: ${error instanceof Error ? error.message : "stream error"}` : "."
       }`,
       502,
     );
@@ -206,8 +222,10 @@ export function objectStoreCredentialsEnabled(): boolean {
 
 /**
  * The public HTTPS form of an s3:// or gs:// URL — the anonymous road.
- * DEZFIL_S3_ENDPOINT points s3:// at a custom store (MinIO and friends),
- * path-style.
+ * The S3 address in effect (DEZFIL_S3_ENDPOINT, else the one an admin
+ * stored) points s3:// at a custom store (MinIO and friends), path-style;
+ * a stored one the instance's key no longer opens refuses rather than
+ * reach Amazon's instead.
  */
 export function translateObjectUrl(ref: RemoteRef): string {
   const parsed = new URL(ref.url);
@@ -216,7 +234,7 @@ export function translateObjectUrl(ref: RemoteRef): string {
   if (ref.scheme === "gs:") {
     return `https://storage.googleapis.com/${bucket}${key}`;
   }
-  const custom = process.env.DEZFIL_S3_ENDPOINT;
+  const custom = resolveServiceAddress("s3Endpoint").address;
   if (custom) return `${custom.replace(/\/$/, "")}/${bucket}${key}`;
   // Virtual-hosted style; buckets with dots break the TLS wildcard, so
   // they fall back to path-style on the global endpoint.
@@ -231,13 +249,14 @@ async function downloadToScratch(
   filename: string,
   accountId: string | undefined,
   budget: IngestBudget,
+  shown = url,
 ): Promise<ResolvedRemoteSource> {
   const tmpDir = path.join(dataDir(), "tmp");
   await mkdir(tmpDir, { recursive: true });
   const tmpPath = path.join(tmpDir, `${randomUUID()}${path.extname(filename)}`);
   if (accountId) registerAccountFile(accountId, tmpPath);
   try {
-    await downloadHttp(url, tmpPath, budget);
+    await downloadHttp(url, tmpPath, budget, shown);
   } catch (error) {
     await removeAccountFile(tmpPath, { force: true });
     throw error;
@@ -281,7 +300,7 @@ export async function resolveRemoteSource(
       );
     }
     try {
-      return await downloadToScratch(translateObjectUrl(ref), ref.filename, accountId, budget);
+      return await downloadToScratch(translateObjectUrl(ref), ref.filename, accountId, budget, ref.url);
     } catch (error) {
       if (error instanceof ApiError && error.code === "remote_fetch_failed") {
         throw new ApiError(

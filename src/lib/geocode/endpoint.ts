@@ -1,14 +1,19 @@
 import { createHash } from "node:crypto";
+import { resolveServiceAddress, serviceAddressConfigured } from "@/lib/settings/service-address";
 
 /**
  * The one configured geocoding endpoint, described in one place.
  *
- * A single deployment-wide setting was ratified, and two
+ * A single instance-wide setting was ratified, and two
  * callers now share it: the builder's interactive place search and the batch
  * geocoding operation. Sharing the *setting* while each built its own URL and
  * its own identity would be two conventions for one endpoint — and the pacing
  * ruling (J6) needs them to agree on which endpoint they are talking to, or a
  * limiter keyed one way upholds nothing for a caller keyed the other.
+ *
+ * The address is the one in effect: the variable when set, else the one an
+ * admin stored, else none. A caller that must keep one address across many
+ * requests (a batch run) reads it once and passes it on.
  *
  * **The configured URL may carry a credential.** That is deliberate — the query
  * string is where a key travels (J5) — so nothing here ever returns it for
@@ -21,13 +26,16 @@ import { createHash } from "node:crypto";
 export const USER_AGENT =
   "Dezfil self-hosted map builder (+https://github.com/Dezfil/Dezfil)";
 
-/** The configured endpoint exactly as the administrator wrote it, or null. */
+/** The endpoint in effect exactly as the administrator wrote it, or null.
+ * A stored address the instance's key no longer opens refuses with a coded
+ * error instead of answering null. */
 export function configuredEndpoint(): string | null {
-  return process.env.DEZFIL_GEOCODER_URL?.trim() || null;
+  return resolveServiceAddress("geocoderUrl").address;
 }
 
+/** Whether an endpoint is set, an unreadable stored one included. */
 export function geocoderConfigured(): boolean {
-  return configuredEndpoint() !== null;
+  return serviceAddressConfigured("geocoderUrl");
 }
 
 /**
@@ -59,21 +67,20 @@ export function endpointIdentity(url: string): string | null {
 }
 
 /**
- * The provider's `/search` URL for one query.
+ * The provider's `/search` URL for one query, on the endpoint the caller holds.
  *
  * The configured base keeps its administrator-supplied query parameters (a key
  * travels there), gains the `/search` path segment unless it already ends in
- * one, and takes the wire-format parameters. Returns null when unconfigured or
- * unparseable — which the caller tells apart with `geocoderConfigured`, because
- * "no endpoint" and "an endpoint that is not a URL" are different administrator
- * mistakes.
+ * one, and takes the wire-format parameters. Returns null when the endpoint is
+ * unparseable — "no endpoint" is the caller's to tell apart, because it and
+ * "an endpoint that is not a URL" are different administrator mistakes.
  */
 export function searchUrl(
+  endpoint: string,
   query: string,
   extra: Record<string, string> = {},
 ): URL | null {
-  const raw = configuredEndpoint();
-  if (!raw) return null;
+  const raw = endpoint;
   let url: URL;
   try {
     url = new URL(raw);

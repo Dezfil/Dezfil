@@ -8,7 +8,7 @@ import {
   removeIsochroneStage,
   stageIsochroneBatch,
 } from "@/lib/isochrone/batch";
-import { isochroneConfigured } from "@/lib/isochrone/endpoint";
+import { configuredIsochroneEndpoint } from "@/lib/isochrone/endpoint";
 import { isochroneUnconfiguredError } from "@/lib/isochrone/provider";
 import { maxIsochroneOrigins } from "./provider-capacities";
 export { maxIsochroneOrigins, ATTEMPTS_PER_ORIGIN } from "./provider-capacities";
@@ -200,8 +200,10 @@ export async function compileIsochrone(
   reads: DatasetScope = scope,
 ): Promise<CompiledRun> {
   const label = operation.label;
-  // First, because it is about the instance rather than the request.
-  if (!isochroneConfigured()) throw isochroneUnconfiguredError();
+  // First, because it is about the instance rather than the request. The
+  // address is taken here, at admission, and kept to the run's end.
+  const endpoint = configuredIsochroneEndpoint();
+  if (!endpoint) throw isochroneUnconfiguredError();
 
   const name = str(params, "name");
   if (requireName && !name) required(label, "name");
@@ -239,6 +241,7 @@ export async function compileIsochrone(
         table,
         mode,
         bands,
+        endpoint,
         ...(context.signal ? { signal: context.signal } : {}),
         deadlineAt: context.deadlineAt,
         timeoutError: context.timeoutError,

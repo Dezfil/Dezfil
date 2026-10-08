@@ -23,6 +23,7 @@ import {
   isochroneUrl,
 } from "./endpoint";
 import { takeIsochroneSlot } from "./limiter";
+import { settingRemedy } from "@/lib/settings/remedy";
 
 /**
  * One origin, answered.
@@ -67,13 +68,16 @@ export interface AskIsochroneOptions {
   /** When the caller's whole run must be over — honoured on the near side
    * of the slot wait, where the request would otherwise start. */
   deadlineAt?: number;
+  /** The endpoint the caller's run was admitted with, kept for its every
+   * origin; absent, the endpoint in effect now. */
+  endpoint?: string;
 }
 
 export function isochroneUnconfiguredError(): ApiError {
   return new ApiError(
     "isochrone_unconfigured",
     "No routing endpoint is configured on this instance, so travel-time " +
-      "areas cannot be asked for. Set DEZFIL_ISOCHRONE_URL and try again.",
+      `areas cannot be asked for. ${settingRemedy("isochroneUrl")}`,
     400,
   );
 }
@@ -366,7 +370,7 @@ async function askOnce(
   bands: number[],
   options: AskIsochroneOptions,
 ): Promise<string | { noRoute: true } | null> {
-  const url = isochroneUrl(origin, mode, bands);
+  const url = isochroneUrl(endpoint, origin, mode, bands);
   if (!url) throw isochroneUnconfiguredError();
   const { signal, deadlineAt } = options;
   const release = await takeIsochroneSlot(isochroneEndpointKey(endpoint), signal);
@@ -466,7 +470,7 @@ export async function askIsochrone(
   bands: number[],
   options: AskIsochroneOptions = {},
 ): Promise<OriginAnswer> {
-  const endpoint = configuredIsochroneEndpoint();
+  const endpoint = options.endpoint ?? configuredIsochroneEndpoint();
   if (!endpoint) throw isochroneUnconfiguredError();
   const costing = COSTING_BY_MODE[mode];
   const key = isochroneCacheKey(endpoint, costing, origin, bands);

@@ -111,11 +111,11 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   input_changed:
     "An input was replaced while the run was waiting, so the answers it had prepared belong to data that is no longer there. Nothing was written; run it again against the current data.",
   geocoder_unconfigured:
-    "No geocoding endpoint is configured on this instance (DEZFIL_GEOCODER_URL), so an operation that asks a provider for addresses cannot run.",
+    "No geocoding endpoint is configured on this instance (the Address finder an admin sets, or DEZFIL_GEOCODER_URL), so an operation that asks a provider for addresses cannot run. The message says which one to change now.",
   geocoder_failed:
     "The configured geocoding endpoint did not answer, twice in a row. The run published nothing rather than recording an absent answer as an address that does not exist.",
   isochrone_unconfigured:
-    "No routing endpoint is configured on this instance (DEZFIL_ISOCHRONE_URL), so an operation that asks a provider for travel-time areas cannot run.",
+    "No routing endpoint is configured on this instance (the travel-time endpoint an admin sets, or DEZFIL_ISOCHRONE_URL), so an operation that asks a provider for travel-time areas cannot run. The message says which one to change now.",
   isochrone_failed:
     "The configured routing endpoint did not answer, twice in a row. The run published nothing rather than recording an absent answer as an unreachable origin.",
   service_address_unreadable:

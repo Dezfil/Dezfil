@@ -57,6 +57,25 @@ export function resolveServiceAddress(key: ServiceAddressKey, db: Database = met
   return { address: stored.address, source: "stored" };
 }
 
+/** Whether the service has an address now: its variable, a stored address
+ * (readable or not: an unreadable one is set, and its service refuses), or
+ * a default. Never the address itself. */
+export function serviceAddressConfigured(key: ServiceAddressKey, db: Database = metadataDb()): boolean {
+  try { return resolveServiceAddress(key, db).address !== null; }
+  catch (error) {
+    if (error instanceof ApiError && error.code === "service_address_unreadable") return true;
+    throw error;
+  }
+}
+
+/** What may be said about an address anywhere: its scheme and host (with a
+ * port when it has one), or null for text that is not an address. Never
+ * its user information, path, query or fragment. */
+export function addressOrigin(address: string): string | null {
+  const disclosed = discloseAddress(address);
+  return "origin" in disclosed ? disclosed.origin : null;
+}
+
 /** The configuration read's entry for a service address: the variable's
  * disclosure while it locks the row, else the stored address as scheme and
  * host (or set and unreadable), else the default's. What was stored is
