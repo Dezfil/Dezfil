@@ -7,9 +7,11 @@ import type { BasemapLayers } from "@/lib/basemap-layers";
 import type { Corner } from "@/lib/corners";
 import type { Appearance } from "@/lib/export/image-definition";
 import type { MapWithLayers } from "@/lib/metadata/maps";
+import type { InstanceDefaults } from "@/lib/settings/defaults";
 import type { LayerStyle } from "@/lib/style/style";
 import type { MapWidget } from "@/lib/widgets";
 import { installDomHost } from "../../testing/dom-host";
+import { ScreenDefaultsProvider } from "../../screen-defaults";
 import type { CameraHandle } from "../../map/camera-handle";
 import type { NamedStyle } from "../../map/LegendPanel";
 import type { Viewport } from "../../map/MapCanvas";
@@ -106,14 +108,25 @@ function Host({ builder, onOpen }: { builder: Builder; onOpen: (opens: boolean) 
     valuesState: { status: "current", error: null }, selections: [], attribution: [] })} />;
 }
 
-async function openOn(builder: Builder) {
+/** The product's own defaults, as a page hands them down while no admin
+ * changed any. */
+const PRODUCT = {
+  "newMap.basemap": null, "newMap.latitude": 40, "newMap.longitude": 0, "newMap.zoom": 1.3, "newMap.legendCorner": null,
+  "newLayer.colorCycle": "uber_viz_qualitative", "newLayer.pointOpacity": 72, "newLayer.lineOpacity": 95,
+  "newLayer.areaOpacity": 50, "newLayer.lineWidth": 2, "newLayer.pointRadius": 3,
+  "canvas.opens": "full", "canvas.minimap": "auto", "canvas.resultsBand": "closed",
+  "sqlConsole.textSize": "12", "sqlConsole.lineWrap": false, "imageExport.width": "1920", "imageExport.shape": "4:3",
+} as const satisfies InstanceDefaults;
+
+async function openOn(builder: Builder, handed: InstanceDefaults | null = null) {
   const host = installDomHost();
   const root = createRoot(host.document.body as unknown as Element);
   const answers: boolean[] = [];
   const onOpen = (opens: boolean) => { answers.push(opens); };
   opened.rail.length = 0;
+  const shown = <Host builder={builder} onOpen={onOpen} />;
   try {
-    await act(async () => root.render(<Host builder={builder} onOpen={onOpen} />));
+    await act(async () => root.render(handed ? <ScreenDefaultsProvider defaults={handed}>{shown}</ScreenDefaultsProvider> : shown));
     expect(answers, "Image is chosen once").toHaveLength(1);
     if (!answers[0]) return { opens: false };
     const { def, mapStep } = opened.rail.at(-1)!;
@@ -137,5 +150,12 @@ it("opens a fresh card on today's definition and map-size step for every builder
   expect(Object.values(before).map((card) => (card as { mapStep?: string }).mapStep ?? null)).toEqual(["s", "s", "s", "s", "m", "l", null]);
   const now: Record<string, unknown> = {};
   for (const [name, builder] of Object.entries(BUILDERS)) now[name] = await openOn(builder);
+  expect(now).toEqual(before);
+});
+
+it("opens on the same definitions and steps under a page handing down the product's values", async () => {
+  const before = JSON.parse(readFileSync(FIXTURE, "utf8"));
+  const now: Record<string, unknown> = {};
+  for (const [name, builder] of Object.entries(BUILDERS)) now[name] = await openOn(builder, PRODUCT);
   expect(now).toEqual(before);
 });

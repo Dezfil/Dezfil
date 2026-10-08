@@ -48,6 +48,7 @@ export function buildExportStage(input: {
     camera: input.seed.camera,
     canvasWidth: input.seed.canvasWidth,
     mapStep: input.seed.mapStep,
+    openingSize: input.seed.size,
     legendLayers: input.legendLayers,
     widgets: input.widgets,
     values: input.values,

@@ -102,10 +102,10 @@ export const SIZE_STEPS_BY_SPACE = ["xs", "s", "m", "l"] as const satisfies
  * XS labels read unreadably small in the field. XS stays offered; only the opening value moved. */
 export const DEFAULT_MAP_SIZE_STEP: SizeStep = "s";
 
-/** The shape a fresh card opens at — 4:3 leads. Owned here
- * since so the opening-step legality and the contract's default aspect
- * cannot disagree; `image-definition.ts` derives its constant from
- * this. */
+/** The product's own shape for a fresh card — 4:3 leads, unless the
+ * instance's starting shape says otherwise. Owned here so the
+ * opening-step legality and the contract's default aspect cannot
+ * disagree; `image-definition.ts` derives its constant from this. */
 export const DEFAULT_OPENING_SHAPE = { width: 4, height: 3 } as const;
 
 /** The space width the DATA MARKS are calibrated against. Chosen as
@@ -554,19 +554,26 @@ export function resolveShotBasemapLayers<T>(
  * preserve the current view truthfully. (XS needs a higher zoom than S,
  * so a camera that refuses S refuses XS too — the scan never needs to
  * look finer than the default.)
+ *
+ * Judged at the shape the card opens at: a wider shape lays each step out
+ * in a wider space, so near the ceiling a 16:9 card opens coarser, or not
+ * at all, and a square one finer than a 4:3 card from the same view.
  */
 export function openingMapStep(
   builderZoom: number,
   builderCanvasWidth: number,
+  /** The card's starting shape, or any size of it: only its aspect
+   * counts. The product's 4:3 when omitted. */
+  shape: { width: number; height: number } = DEFAULT_OPENING_SHAPE,
 ): SizeStep | null {
   const fromDefault = SIZE_STEPS_BY_SPACE.slice(
     SIZE_STEPS_BY_SPACE.indexOf(DEFAULT_MAP_SIZE_STEP),
   );
   for (const step of fromDefault) {
-    // A fresh card opens at the default 4:3 shape, so the opening
-    // legality is judged in that shape's spaces — which are exactly the
+    // A fresh card opens at its starting shape, so the opening legality
+    // is judged in that shape's spaces; at 4:3 they are exactly the
     // earlier fixed widths, by calibration.
-    const space = spaceWidthForStep(step, DEFAULT_OPENING_SHAPE);
+    const space = spaceWidthForStep(step, shape);
     const zoom = builderZoom + zoomDelta(builderCanvasWidth || space, space);
     if (zoom <= MAP_MAX_ZOOM) return step;
   }
