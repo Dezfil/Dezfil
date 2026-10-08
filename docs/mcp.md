@@ -104,9 +104,15 @@ and host, or set-and-unreadable state. The same current-admin checks and
 private, no-store responses apply to direct API calls and tool calls.
 
 `update_instance_settings` calls `PATCH /api/instance/settings` with the closed
-editable-key input: the Limits numbers, the General values and the eighteen
-instance defaults, each with its kind, bounds or choices, so a value outside
-them is refused before any call. Values are validated together and null clears
+editable-key input, forty-eight keys: the fourteen Limits numbers, the four
+General values, the eighteen instance defaults and the twelve sign-in and
+publishing settings (session and link lifetimes, the two failed sign-in counts,
+the shortest password, who may create tokens and their expiry, who may publish,
+embedding and its listed sites, who may add database connections and who may
+import from links), each with its kind, bounds or choices, so a value outside
+them is refused before any call. The listed sites go in as a list of origins.
+A per-address count below the per-account one, or embedding limited to listed
+sites with none listed, refuses the whole call. Values are validated together and null clears
 a stored value; the result is the configuration read, including timeout
 relationship warnings. A lock refuses the whole body with `setting_locked`,
 before other validation refusals. All calls recheck current admin authority. The embedded
@@ -127,7 +133,15 @@ new map its basemap, starting view and legend corner, a layer created without
 a style its cycle color, opacity, line width and point radius, and a sketch's
 layer its cycle color alone. A default applies to new things only; an existing
 map and its layers never change with one. The keys and their values are in
-[configuration.md](configuration.md#instance-defaults).
+[configuration.md](configuration.md#instance-defaults). It also carries `rules`,
+the rules the caller follows (`tokens.create`, `tokens.expiry`,
+`publishing.publish`, `publishing.embedding`, `connections.create` and
+`imports.links`, valued as `update_instance_settings` takes them), and
+`passwordMin`, the shortest password. A tool call a rule refuses, such as
+`create_api_token` while only admins may create tokens, or `publish_map` while
+publishing is closed to the caller, answers `rule_refused` with `error.rule`
+naming the rule and changes nothing; the rules are in
+[configuration.md](configuration.md#security-and-rules).
 
 Own-account operations generate `get_account`, `update_account`,
 `change_password`, `list_api_tokens`, `create_api_token` and `revoke_api_token`.
@@ -138,7 +152,8 @@ contract. Token secrets appear only in the creation response.
 Administration generates `list_users`, `invite_user`, `update_user_access` and
 `issue_user_sign_in_link`. Every request requires current admin authority;
 mutations declare confirmation and their consequences. Invitation and reset
-links are disclosed once, expire after seven days and are shared by the admin.
+links are disclosed once, expire after the instance's link lifetime (seven days
+by default, `security.linkDays`) and are shared by the admin.
 `preview_user_deletion`, `delete_user`, `get_user_deletion` and
 `finish_user_deletion` use the same admin routes and schemas as Users and the
 assistant. Preview shows only totals and a distinct affected-people count.
@@ -262,7 +277,11 @@ the instance you are looking at. The same text is produced by
 `DEZFIL_API_TOKEN` in the environment that launches your client. The copied
 configuration stores only a reference to this variable. Restart the client
 after setting it. No account password or token belongs in a prompt or tool
-argument.
+argument. A token lasts as long as the instance's rule for new tokens said when
+it was created, never expiring by default; once its expiry passes, every call
+answers `401 token_expired` and a new token is needed. While an admin keeps
+token creation to admins, members cannot create one, and the tokens they
+already have keep working.
 
 **Claude Code**
 

@@ -65,3 +65,12 @@ export const INSTANCE_SECURITY_SETTINGS = [
     "Whether every account or only admins may import from web addresses and cloud storage. Link datasets keep refreshing.",
     "everyone", choice("everyone", "admins")),
 ] as const;
+
+/** The groups these rows live in. A stored instance setting in one of them,
+ * set by no variable, is a rule: the configuration guide documents it in its
+ * Security and rules table, and no deployment variable may set one. */
+export const INSTANCE_RULE_GROUPS = ["security", "tokens", "publishing", "connections", "imports"] as const;
+export function isInstanceRule(definition: { readonly key: string; readonly scope: string; readonly environment?: string }): boolean {
+  return definition.scope === "instance" && !definition.environment
+    && (INSTANCE_RULE_GROUPS as readonly string[]).includes(definition.key.split(".")[0]);
+}

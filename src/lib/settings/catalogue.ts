@@ -3,8 +3,10 @@ import { INSTANCE_DEFAULT_SETTINGS } from "./instance-defaults";
 import { INSTANCE_SECURITY_SETTINGS } from "./instance-security";
 import type { SettingDefault, SettingDefinition, WriteConstraint } from "./types";
 
-/** Which settings are what new things start with, for a reader of the catalogue alone. */
+/** Which settings are what new things start with, and which are the rules
+ * every account follows, for a reader of the catalogue alone. */
 export { isInstanceDefault } from "./instance-defaults";
+export { isInstanceRule } from "./instance-security";
 
 function deployment(key: string, environment: string, kind: SettingDefinition["kind"],
   label: string, purpose: string, defaultValue: SettingDefault, documentedDefault: string): SettingDefinition {

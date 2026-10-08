@@ -20,7 +20,10 @@
 // catalogue's defaults, what new things start with (settings every
 // signed-in account reads, in the defaults' groups, as the catalogue's own
 // predicate says), in both directions and by documented default. They have
-// no variable, so their rows name the key the change operation takes.
+// no variable, so their rows name the key the change operation takes. Its
+// Security and rules table is held the same way to the catalogue's rules
+// (stored sign-in, token, publishing, connection and import settings, as
+// the catalogue's own predicate says).
 //
 // Usage: node scripts/check-readme-config.mjs [--src DIR] [--readme FILE] [--configuration FILE]
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
@@ -157,17 +160,27 @@ export function catalogueRowProblems(definitions, rows, label) {
 }
 
 const DEFAULTS_HEADING = /^##\s+Instance defaults\s*$/;
+const RULES_HEADING = /^##\s+Security and rules\s*$/;
 
 /** The rows of the tables under a guide's "Instance defaults" heading, each
  * by the key its first cell names and its Default cell. Every row there
  * counts, whatever its key looks like, so an orphan cannot hide by its
  * spelling. */
 export function defaultsRows(text) {
+  return keyedRows(text, DEFAULTS_HEADING);
+}
+
+/** The same, under the guide's "Security and rules" heading. */
+export function rulesRows(text) {
+  return keyedRows(text, RULES_HEADING);
+}
+
+function keyedRows(text, heading) {
   const normalize = value => value.replaceAll("`", "").replace(/\s+/g, " ").trim();
   const rows = [];
   let inSection = false, header = null;
   for (const line of text.split("\n")) {
-    if (/^##?\s/.test(line)) { inSection = DEFAULTS_HEADING.test(line); header = null; continue; }
+    if (/^##?\s/.test(line)) { inSection = heading.test(line); header = null; continue; }
     if (!inSection || !line.startsWith("|")) { header = null; continue; }
     const cells = line.split(/(?<!\\)\|/).slice(1, -1).map(cell => cell.trim());
     if (!header) { header = cells; continue; }
@@ -179,7 +192,15 @@ export function defaultsRows(text) {
 
 /** One row per default, no orphan, each with the catalogue's documented default. */
 export function defaultsRowProblems(definitions, rows, label) {
-  const where = `${label} instance defaults`;
+  return keyedRowProblems(definitions, rows, `${label} instance defaults`);
+}
+
+/** One row per rule, no orphan, each with the catalogue's documented default. */
+export function rulesRowProblems(definitions, rows, label) {
+  return keyedRowProblems(definitions, rows, `${label} security and rules`);
+}
+
+function keyedRowProblems(definitions, rows, where) {
   const byKey = new Map(definitions.map(definition => [definition.key, definition]));
   const names = new Set(rows.map(row => row.name));
   const problems = differences(new Set(byKey.keys()), names, where);
@@ -198,9 +219,10 @@ export function defaultsRowProblems(definitions, rows, label) {
 }
 
 /** `defaultsGuide` names the document, among `documents`, that carries the
- * Instance defaults table; `isInstanceDefault` is the catalogue's own
- * predicate for which definitions it holds. */
-export function configurationProblems({ srcDir, documents, catalogue, testWiring, defaultsGuide, isInstanceDefault }) {
+ * Instance defaults and the Security and rules tables; `isInstanceDefault`
+ * and `isInstanceRule` are the catalogue's own predicates for which
+ * definitions each holds. */
+export function configurationProblems({ srcDir, documents, catalogue, testWiring, defaultsGuide, isInstanceDefault, isInstanceRule }) {
   const definitions = catalogue.filter(definition => definition.environment && definition.scope !== "platform");
   const scriptsDir = path.join(srcDir, "..", "scripts");
   const server = serverVariables(srcDir, scriptsDir);
@@ -217,9 +239,14 @@ export function configurationProblems({ srcDir, documents, catalogue, testWiring
     problems.push(...differences(wiring, new Set(wiringRows.map(row => row.name)), `${label} script test wiring`));
   }
   if (typeof isInstanceDefault !== "function") throw new TypeError("configurationProblems needs the catalogue's isInstanceDefault predicate.");
+  if (typeof isInstanceRule !== "function") throw new TypeError("configurationProblems needs the catalogue's isInstanceRule predicate.");
   const defaults = catalogue.filter(definition => isInstanceDefault(definition));
-  if (!Object.hasOwn(documents, defaultsGuide ?? "")) problems.push(`MISSING: the guide holding the Instance defaults table is not among the checked documents: ${defaultsGuide}`);
-  else problems.push(...defaultsRowProblems(defaults, defaultsRows(documents[defaultsGuide]), defaultsGuide));
+  const rules = catalogue.filter(definition => isInstanceRule(definition));
+  if (!Object.hasOwn(documents, defaultsGuide ?? "")) problems.push(`MISSING: the guide holding the Instance defaults and Security and rules tables is not among the checked documents: ${defaultsGuide}`);
+  else {
+    problems.push(...defaultsRowProblems(defaults, defaultsRows(documents[defaultsGuide]), defaultsGuide));
+    problems.push(...rulesRowProblems(rules, rulesRows(documents[defaultsGuide]), defaultsGuide));
+  }
   return problems;
 }
 
@@ -233,10 +260,10 @@ if (isMain) {
   const srcDir = argOf("--src", path.join(process.cwd(), "src"));
   const readme = argOf("--readme", path.join(process.cwd(), "README.md"));
   const configuration = argOf("--configuration", path.join(process.cwd(), "docs/configuration.md"));
-  const { SETTING_CATALOGUE, TEST_WIRING, isInstanceDefault } = await settingsSource(path.dirname(srcDir));
+  const { SETTING_CATALOGUE, TEST_WIRING, isInstanceDefault, isInstanceRule } = await settingsSource(path.dirname(srcDir));
   const problems = configurationProblems({ srcDir, catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING,
     documents: { [readme]: readFileSync(readme, "utf8"), [configuration]: readFileSync(configuration, "utf8") },
-    defaultsGuide: configuration, isInstanceDefault,
+    defaultsGuide: configuration, isInstanceDefault, isInstanceRule,
   });
   for (const problem of problems) console.error(problem);
   if (problems.length) {
@@ -245,6 +272,7 @@ if (isMain) {
   } else {
     const deployment = SETTING_CATALOGUE.filter(d => d.environment && d.scope !== "platform").length;
     const defaults = SETTING_CATALOGUE.filter(d => isInstanceDefault(d)).length;
-    console.log(`PASS: both documents match ${deployment} deployment settings and ${TEST_WIRING.length} test-wiring names, defaults and change timing; the configuration guide's Instance defaults table matches the ${defaults} instance defaults and their documented values; source scans agree in both directions.`);
+    const rules = SETTING_CATALOGUE.filter(d => isInstanceRule(d)).length;
+    console.log(`PASS: both documents match ${deployment} deployment settings and ${TEST_WIRING.length} test-wiring names, defaults and change timing; the configuration guide's Instance defaults table matches the ${defaults} instance defaults and its Security and rules table the ${rules} rules, with their documented values; source scans agree in both directions.`);
   }
 }

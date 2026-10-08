@@ -1,3 +1,4 @@
+import { INSTANCE_RULE_GROUPS } from "./instance-security";
 import type { SettingDefinition, SettingValue } from "./types";
 
 type Validation = { ok: true; value: SettingValue } | { ok: false; reason: string };
@@ -73,7 +74,7 @@ export function catalogueProblems(definitions: readonly SettingDefinition[]): st
     // How long sign-ins and links last, when sign-in pauses, and who may
     // create tokens, publish, embed, connect or import: the admin's to
     // change, so no deployment pins one.
-    if (environment && ["security", "tokens", "publishing", "connections", "imports"].includes(key.split(".")[0])) report("security variable");
+    if (environment && (INSTANCE_RULE_GROUPS as readonly string[]).includes(key.split(".")[0])) report("security variable");
     if (definition.editable && definition.timing !== "live") report("editable next-start");
     if (definition.editable && (definition.secret || definition.kind === "secret")) report("editable secret");
     if (definition.editable && !write) report("missing validator");

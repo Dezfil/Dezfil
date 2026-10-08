@@ -398,7 +398,13 @@ flat object keyed and valued as `PATCH /api/instance/settings` takes them, every
 key present with its effective value; a basemap the instance no longer offers
 reads as `auto`, which is what a new map starts on. Every signed-in account and
 agent can make this read. [The configuration guide](configuration.md#instance-defaults)
-lists the eighteen keys with their values and defaults.
+lists the eighteen keys with their values and defaults. The same read carries
+`rules`, the rules every account follows, keyed and valued the same way:
+`tokens.create`, `tokens.expiry`, `publishing.publish`, `publishing.embedding`,
+`connections.create` and `imports.links`, each with its effective value; and
+`passwordMin`, the fewest characters a password set from now needs.
+[The configuration guide](configuration.md#security-and-rules) lists them with
+the rest of the sign-in and publishing settings.
 `GET /api/openapi.json` serves the description. `GET`/`PATCH /api/settings`
 return the caller's account display name and per-screen view preferences,
 plus the shared instance name. Only admins may change the instance name.
@@ -453,8 +459,9 @@ is the stable process start time. `warnings` reports an effective query timeout
 at or above the run timeout, including a mismatch imposed by the environment.
 
 `GET /api/auth/entry` anonymously returns `instanceName`, `signInMessage`,
-`lostPasswordContact`, `landingPage` and `setupRequired`, plus the legacy
-`prefillName` before setup. The three General values use their stored values or
+`lostPasswordContact`, `landingPage`, `passwordMin` and `setupRequired`, plus the
+legacy `prefillName` before setup. `passwordMin` is the shortest password the
+screen's new password needs: 8 for the first account, then the instance's. The three General values use their stored values or
 default to empty message, empty contact and `home`. Empty contact means the
 built-in recovery line. After sign-in, setup or a redeemed invitation, the
 browser lands on the page `landingPage` names (`/projects`, `/maps`,
@@ -462,22 +469,32 @@ browser lands on the page `landingPage` names (`/projects`, `/maps`,
 signed-in visit to the setup or sign-in page redirects to Home; the invitation
 page opens whether or not someone is signed in. Responses are private, no-store.
 
-`PATCH /api/instance/settings` changes only submitted editable keys, thirty-six
+`PATCH /api/instance/settings` changes only submitted editable keys, forty-eight
 of them: the fourteen Limits numbers; the four General values `instanceName`,
-`signInMessage`, `lostPasswordContact` and `landingPage`; and the eighteen
+`signInMessage`, `lostPasswordContact` and `landingPage`; the eighteen
 instance defaults `newMap.basemap`, `newMap.latitude`, `newMap.longitude`,
 `newMap.zoom`, `newMap.legendCorner`, `newLayer.colorCycle`,
 `newLayer.pointOpacity`, `newLayer.lineOpacity`, `newLayer.areaOpacity`,
 `newLayer.lineWidth`, `newLayer.pointRadius`, `canvas.opens`, `canvas.minimap`,
 `canvas.resultsBand`, `sqlConsole.textSize`, `sqlConsole.lineWrap`,
-`imageExport.width` and `imageExport.shape`. The closed `InstanceSettingsPatch`
+`imageExport.width` and `imageExport.shape`; and the twelve sign-in and
+publishing settings `security.sessionDays`, `security.linkDays`,
+`security.failedPerAccount`, `security.failedPerAddress`,
+`security.passwordMin`, `tokens.create`, `tokens.expiry`,
+`publishing.publish`, `publishing.embedding`, `publishing.embedSites`,
+`connections.create` and `imports.links`. The closed `InstanceSettingsPatch`
 schema names each key and its kind, bounds or choices. For example,
-`{ "previewRows": 2000, "queryTimeoutS": 90 }` or
-`{ "newMap.zoom": 4.5, "sqlConsole.textSize": "14", "sqlConsole.lineWrap": true }`;
-a number-like choice (text size, image width and shape) is text. Null clears a
-stored value, and an empty object changes nothing. A default applies to new
+`{ "previewRows": 2000, "queryTimeoutS": 90 }`,
+`{ "newMap.zoom": 4.5, "sqlConsole.textSize": "14", "sqlConsole.lineWrap": true }`
+or `{ "publishing.embedding": "listed", "publishing.embedSites": ["https://intranet.example"] }`;
+a number-like choice (text size, image width and shape, session and link
+days) is text. `publishing.embedSites` is a list of at most 50 sites, each
+`http` or `https` with a host and an optional port and nothing else, kept as
+its origin; a failing entry is named by its position, never echoed. Null clears
+a stored value, and an empty object changes nothing. A default applies to new
 things only: no existing map, layer, published view or open screen changes with
-it. Text is trimmed before its length is checked (80 characters for the name,
+it. A rule refuses new reach and takes nothing away: no session, link, token,
+password, publication or connection that exists changes with it. Text is trimmed before its length is checked (80 characters for the name,
 280 for the message, 120 for the contact). Empty text clears the stored value and reports
 the default source. The generated tool input accepts the same whitespace
 padding through a string pattern. The answer is the same configuration document as the read.
@@ -490,8 +507,10 @@ when the body contains both locked and invalid keys. Known failing keys and
 reasons are all named; unknown keys are identified by entry position to avoid
 echoing arbitrary input. Validation covers unknown and non-editable keys, kind,
 whole numbers, finite decimals (kept as given, never rounded), bounds, true or
-false for a switch, text length, choices and a query timeout below the run
-timeout. An existing environment mismatch remains visible in `warnings` and
+false for a switch, text length, choices, sites, a query timeout below the run
+timeout, a per-address sign-in count no lower than the per-account one, and at
+least one listed site while embedding is limited to listed sites, each pair
+checked on the values the change would leave. An existing environment mismatch remains visible in `warnings` and
 blocks no unrelated edit. Different concurrent keys both land; the last
 accepted write wins for one key. There is no stale-write refusal or Undo.
 
@@ -538,8 +557,8 @@ Try again shortly.”, with `Retry-After: 1`, `error.retryAfter: 1` and private,
 no-store. It issues no credential, consumes no link, changes no profile/password
 and adds no login failure. Busy sign-ins and sign-ins cancelled before derivation
 starts refund both reservations. Cancellation after derivation starts retains the
-source reservation against its twenty-attempt budget until the fifteen-minute
-window expires, refunds the account reservation and adds no failures, preserving
+source reservation against its per-address budget (`security.failedPerAddress`,
+twenty by default) until the fifteen-minute window expires, refunds the account reservation and adds no failures, preserving
 the clean-source exception.
 A fourth simultaneous protected caller is refused at once and may retry
 immediately without a login lockout; the response retains its one-second retry
@@ -567,7 +586,12 @@ fixed thereafter: a name or email change leaves it as it was.
 
 `GET`/`POST /api/account/tokens` list or create the caller's named API/MCP
 tokens. Creation returns the secret once; list responses never contain secrets
-or hashes. `DELETE /api/account/tokens/{id}` revokes an own token; another
+or hashes. Each token carries `expiresAt`: the lifetime `tokens.expiry` gave it
+at creation, or null when it never expires. A later change of that rule moves
+no token's expiry. A token past its expiry answers `401 token_expired` and stays
+listed until revoked. While `tokens.create` is `admins`, a member's creation
+answers `403 rule_refused` with `error.rule: "tokens.create"`, and the tokens
+they already have keep working. `DELETE /api/account/tokens/{id}` revokes an own token; another
 account's token ID returns `404` without changing it. Missing, invalid,
 revoked or deactivated credentials return `401` on every account operation.
 These operations use the same private response and cookie-origin rules as
@@ -580,20 +604,26 @@ Sessions and sign-in links, including revoked or consumed records, leave only
 one day past their stored expiry. Revoked tokens leave thirty days after
 revocation. Recent revocations retain their Revoked label; removed tokens vanish
 on refresh, and revoking their identifier returns `404 not_found`, "Token not
-found.", just like any unknown identifier. Live tokens have no new expiry.
+found.", just like any unknown identifier. Maintenance gives no live token a new
+expiry; a token keeps the one it was created with.
 Deletion rechecks eligibility, preserving renewed sessions and live replacements.
-The inactive session backlog is bounded by the thirty-day lifetime times the
-sign-in rate, plus the one-day margin and sweep lag; continued credential access
-drains it. There is no live-session quota, timer service or database-file shrink
-promise. Sessions still roll for thirty days, ordinary links last seven days,
-and recovery links last fifteen minutes.
+The inactive session backlog is bounded by the session length (thirty days by
+default, ninety at most) times the sign-in rate, plus the one-day margin and
+sweep lag; continued credential access drains it. There is no live-session
+quota, timer service or database-file shrink promise. Sessions roll for the
+instance's session length, `security.sessionDays`, thirty days by default; a
+session keeps the expiry it holds and its next use renews it by the stored
+length. Ordinary links last the instance's link lifetime, `security.linkDays`,
+seven days by default, each keeping the lifetime it was issued with; recovery
+links last fifteen minutes.
 
 **Users.** Admins use `GET`/`POST /api/users` to list or invite accounts,
 `PATCH /api/users/{id}` to change another account's admin flag or active status,
 and `POST /api/users/{id}/sign-in-link` to replace a sign-in link or reset a
 password. Inviting defaults to a non-admin account; `isAdmin: true` explicitly
 grants administration. The invitation and reset replies disclose a copyable
-`signInUrl` once, with an `expiresAt` timestamp seven days later. The recipient
+`signInUrl` once, with an `expiresAt` timestamp the instance's link lifetime
+later, seven days by default. The recipient
 chooses a password; the instance sends no email. The link credential is carried
 in the fragment and does not reach the server until redemption.
 
@@ -699,7 +729,11 @@ a path. A change to another owner's dataset, by any address, answers `403`. `POS
 `multipart/form-data` upload; `POST /api/imports/url`,
 `/api/imports/osm`, `/api/imports/overture`, and `/api/imports/postgis`
 bring data in from elsewhere, several of them with a matching `preview` or
-`count` call so the size of an import is known before it runs. Reads are
+`count` call so the size of an import is known before it runs. While
+`imports.links` is `admins`, a member's `POST /api/imports/url`, from a web
+address or cloud storage, answers `403 rule_refused` with
+`error.rule: "imports.links"`; a link dataset already imported keeps
+refreshing. Reads are
 `GET /api/tables`, `GET /api/tables/{name}` and
 `GET /api/tables/{name}/features`. `GET /api/catalogue/tables` is the
 schema-only listing built for agents, and is the one paginated endpoint in
@@ -786,7 +820,15 @@ selection, the widget publication toggle, the theme and the reader controls
 change only by the map's owner: through these operations, through map and
 layer writes that carry them, and through undo and redo. For anyone else a
 write or a replay that would change one is refused whole with `forbidden`,
-and nothing changes. The token is the link, so it is the owner's to read as
+and nothing changes. While `publishing.publish` refuses the owner (`admins`
+for a member, `none` for everyone), publishing anew and any change to a
+publication's theme, reader controls or published fields answer
+`403 rule_refused` with `error.rule: "publishing.publish"`; a published map
+stays public, follows its map's edits and can be unpublished. Under
+`publishing.embedding` `listed` or `off`, the published page (`/v/{token}`)
+carries `Content-Security-Policy: frame-ancestors` naming the listed sites, or
+`'none'`, read afresh for each answer; under `any` it carries none, and the
+anonymous API answers never do. The token is the link, so it is the owner's to read as
 well: every map read and listing carries `publishToken` to the map's owner
 alone and `null` to anyone else who reaches the map, beside `published` and
 `publishedAt`, which everyone reads, and the publication read answers anyone
@@ -925,7 +967,11 @@ connection is listed, browsed, tested and used by nobody but its owner, and
 answers anyone else `not_found` exactly as a connection that does not exist;
 refreshing the dataset through it is its owner's act, refused to the
 project's editors with `forbidden`; no route or tool transfers a connection;
-and a project archive carries no connection facts.
+and a project archive carries no connection facts. While `connections.create`
+is `admins`, a member's create, or an edit pointing a connection at another
+host, port or database, answers `403 rule_refused` with
+`error.rule: "connections.create"`; testing, browsing, importing, refreshing,
+renaming, a new password for the same database and deleting keep working.
 
 Create (`POST /api/connections/postgis`) and edit
 (`PATCH /api/connections/postgis/{id}`) interpret a Postgres URI or libpq

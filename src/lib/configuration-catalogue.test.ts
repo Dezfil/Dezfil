@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import { afterAll, describe, expect, it } from "vitest";
 import { SETTING_CATALOGUE, TEST_WIRING } from "./settings/catalogue";
 import { isInstanceDefault } from "./settings/instance-defaults";
+import { isInstanceRule } from "./settings/instance-security";
 import { configurationProblems } from "../../scripts/check-readme-config.mjs";
 
 const root = process.cwd();
@@ -44,12 +45,13 @@ it("checks both real documents against the catalogue and retains the script wiri
   expect(result.output).toContain("63 deployment settings");
   expect(result.output).toContain("3 test-wiring names");
   expect(result.output).toContain("18 instance defaults");
+  expect(result.output).toContain("12 rules");
 });
 
 it("takes defaults and editability from the supplied catalogue, not a copy in the checker", () => {
   const catalogue = SETTING_CATALOGUE.map(definition => definition.key === "uploadMaxMb"
     ? { ...definition, documentedDefault: "777", editable: false, timing: "next-start" as const } : definition);
-  const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault });
+  const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule });
   expect(problems).toHaveLength(4);
   for (const guide of guides) {
     expect(problems).toContainEqual(expect.stringContaining(`DEFAULT: ${guide}: ${variable}: expected "777"`));
@@ -59,7 +61,7 @@ it("takes defaults and editability from the supplied catalogue, not a copy in th
 
 it("rejects deployment and test-wiring names removed from the catalogue while reads remain", () => {
   const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals,
-    catalogue: SETTING_CATALOGUE.filter(definition => definition.environment !== variable), testWiring: TEST_WIRING.slice(1), defaultsGuide, isInstanceDefault,
+    catalogue: SETTING_CATALOGUE.filter(definition => definition.environment !== variable), testWiring: TEST_WIRING.slice(1), defaultsGuide, isInstanceDefault, isInstanceRule,
   });
   for (const name of [variable, TEST_WIRING[0].environment]) {
     expect(problems).toContain(`STALE: source scan against catalogue: ${name}`);
@@ -140,11 +142,68 @@ describe("the configuration guide's Instance defaults table", () => {
         .map(definition => definition.key === "newMap.zoom" ? { ...definition, documentedDefault: "2" } : definition),
       { ...opens, key: "canvas.snap", documentedDefault: "on" },
     ];
-    const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault });
+    const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule });
     expect([...problems].sort()).toEqual([
       'DEFAULT: docs/configuration.md instance defaults: newMap.zoom: expected "2", found "1.3"',
       "STALE: docs/configuration.md instance defaults: canvas.resultsBand",
       "UNDOCUMENTED: docs/configuration.md instance defaults: canvas.snap",
     ]);
+  });
+});
+
+describe("the configuration guide's Security and rules table", () => {
+  const key = "security.passwordMin";
+  const without = (text: string, name: string) => changeRow(text, name, () => "\0").replace("\0\n", "");
+  const reported = (output: string) => output.split("\n").filter(line => /^[A-Z ]+: /.test(line) && !line.startsWith("FAIL"))
+    .map(line => line.replace(/\S*configuration\.md/, "configuration.md"));
+  const seeds: [string, (text: string) => string, string[]][] = [
+    ["missing rule row", text => without(text, key), [`UNDOCUMENTED: configuration.md security and rules: ${key}`]],
+    ["orphan rule row", text => changeRow(text, key, row => `${row}\n| \`security.twoFactor\` | \`off\`, \`on\` | \`off\` | Orphan. |`),
+      ["STALE: configuration.md security and rules: security.twoFactor"]],
+    ["wrong default", text => changeRow(text, key, row => cell(row, 3, "`12`")),
+      [`DEFAULT: configuration.md security and rules: ${key}: expected "8", found "12"`]],
+    ["wrong list default", text => changeRow(text, "publishing.embedSites", row => cell(row, 3, "`https://www.stadtwerke.example`")),
+      ['DEFAULT: configuration.md security and rules: publishing.embedSites: expected "none", found "https://www.stadtwerke.example"']],
+    ["duplicate rule row", text => changeRow(text, key, row => `${row}\n${row}`), [`DUPLICATE: configuration.md security and rules: ${key}`]],
+    ["rule row moved under the defaults", text => changeRow(without(text, "imports.links"), "imageExport.shape",
+      row => `${row}\n| \`imports.links\` | \`everyone\`, \`admins\` | \`everyone\` | Moved. |`), [
+      "STALE: configuration.md instance defaults: imports.links", "UNDOCUMENTED: configuration.md security and rules: imports.links"]],
+  ];
+
+  it.each(seeds)("rejects seeded %s, naming only it", (_label, seed, problems) => {
+    const result = check(defaultsGuide, seed);
+    expect(result.status, result.output).toBe(1);
+    expect(reported(result.output).sort()).toEqual(problems);
+  });
+
+  it("rejects a guide that has lost the table, naming every rule", () => {
+    const result = check(defaultsGuide, text => text.replace("## Security and rules", "## Access"));
+    expect(result.status, result.output).toBe(1);
+    expect(reported(result.output).filter(line => line.startsWith("UNDOCUMENTED: configuration.md security and rules: "))).toHaveLength(12);
+  });
+
+  it("holds the table to the supplied catalogue's rules, not a copy in the checker", () => {
+    const create = SETTING_CATALOGUE.find(definition => definition.key === "tokens.create")!;
+    const catalogue = [
+      ...SETTING_CATALOGUE.filter(definition => definition.key !== "imports.links")
+        .map(definition => definition.key === "security.linkDays" ? { ...definition, documentedDefault: "14" } : definition),
+      { ...create, key: "tokens.scopes", documentedDefault: "read" },
+    ];
+    const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault, isInstanceRule });
+    expect([...problems].sort()).toEqual([
+      'DEFAULT: docs/configuration.md security and rules: security.linkDays: expected "14", found "7"',
+      "STALE: docs/configuration.md security and rules: imports.links",
+      "UNDOCUMENTED: docs/configuration.md security and rules: tokens.scopes",
+    ]);
+  });
+
+  it("counts the stored sign-in, token, publishing, connection and import settings, and nothing else, as rules", () => {
+    const rules = SETTING_CATALOGUE.filter(definition => isInstanceRule(definition)).map(definition => definition.key);
+    expect(rules).toEqual([
+      "security.sessionDays", "security.linkDays", "security.failedPerAccount", "security.failedPerAddress", "security.passwordMin",
+      "tokens.create", "tokens.expiry", "publishing.publish", "publishing.embedding", "publishing.embedSites",
+      "connections.create", "imports.links",
+    ]);
+    expect(SETTING_CATALOGUE.filter(definition => isInstanceRule(definition) && isInstanceDefault(definition))).toEqual([]);
   });
 });

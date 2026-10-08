@@ -14,9 +14,12 @@ loopback or restrict access at your proxy before opening the setup page. Once an
 account exists there is no open signup.
 
 Admins invite people from Users. Dezfil sends no outbound mail: the admin copies
-and privately delivers a single-use invitation or reset link, valid for seven days.
-The recipient chooses a password of at least eight characters; very common
-passwords are refused. Issuing a replacement link invalidates the previous links,
+and privately delivers a single-use invitation or reset link, valid for the
+instance's link lifetime, seven days unless an admin changes it on the
+**Security** tab of Settings. The recipient chooses a password of at least the
+instance's shortest password, eight characters unless an admin raises it there;
+very common passwords are refused. The first account always takes eight, and a
+raised minimum applies to passwords set after it: older ones keep signing in. Issuing a replacement link invalidates the previous links,
 password and browser sessions. Ordinary resets leave API tokens valid; their owner
 can revoke those separately in Settings. Deactivated accounts cannot redeem a link.
 
@@ -49,9 +52,9 @@ reaches can pass it on.
 
 The Settings column has two groups. Under **You**, every account has **Account**
 (name, email and password), **Tokens** and **Appearance**. Under **Instance**,
-admins have **General**, **Maps**, **Workflows & SQL**, **Publishing**, **Limits**
-and **System**, with Users linked at the column's foot; members see General
-alone, read-only.
+admins have **General**, **Maps**, **Workflows & SQL**, **Publishing**, **Limits**,
+**Security** and **System**, with Users linked at the column's foot; members see
+General alone, read-only.
 
 - **Appearance** is the person's own look: Color (Kelp, Harbor, Heather or
   Slate), Contrast (Standard or More contrast), Background (Atlantic chart,
@@ -80,9 +83,23 @@ alone, read-only.
   minimap or results band choice still wins in their browser. Members meet the
   defaults as the starting state of what they make;
   [the configuration guide](configuration.md#instance-defaults) lists every value.
+- **Publishing** also holds **Public links**: who may publish (Everyone, Admins
+  only or No one) and embedding on other sites (Any site, Listed sites, one site
+  per line, or Off). Maps already published stay public until unpublished; a
+  published page follows the embedding choice from its next load, so embed code
+  on a site no longer allowed stops showing the map.
 - **Limits** changes the editable limits while the instance runs; new work uses a
   changed value at once. A limit its environment variable sets is shown locked,
   naming the variable, and changes only through the environment and a restart.
+- **Security** holds sign-in (how long people stay signed in, how long invite
+  and reset links last, failed sign-ins per account and per address before a
+  pause, and the shortest password) and API tokens (who may create them and
+  when new ones expire). No save signs anyone out or changes a link, token or
+  password that already exists; each applies from the next session use, link,
+  sign-in attempt, password or token. Who may add database connections and who
+  may import from links change only through `PATCH /api/instance/settings`;
+  [the configuration guide](configuration.md#security-and-rules) lists every
+  value.
 - **System** shows the version and how long the server has run, whether the data
   folder is writable, whether the assistant is on, and every setting a variable
   decides, with the value in effect and where it came from. A credential shows
@@ -468,8 +485,8 @@ The single-use link lasts fifteen minutes. Its secret is in the URL fragment,
 shown only in the invoking terminal with the selected email and expiry. Use a TTY
 and do not redirect the output into logs. Open the link at the supplied origin
 and choose a new password. Restarting does not extend its expiry, and another
-successful recovery replaces it. Ordinary admin-issued resets keep their
-seven-day lifetime.
+successful recovery replaces it. Ordinary admin-issued resets keep the
+instance's link lifetime, seven days by default.
 
 Recovery restores entry, not trust after hostile setup or a compromised machine.
 It does not remove an intruder's other accounts, undo content changes or revoke

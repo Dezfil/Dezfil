@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import { buildOpenApiDocument } from "./openapi";
 import { AUTH_PATHS, AUTH_SECURITY } from "./openapi-auth";
+import { USERS_PATHS } from "./openapi-users";
 import { isEntryRequest } from "@/lib/auth/request-policy";
 
 it("documents each authentication operation with matching security and a deliberate transport exclusion", () => {
@@ -45,4 +46,18 @@ it("documents the public General entry values without promising navigation", () 
   expect(description).toContain("shortest password");
   expect(description).toContain("does not change navigation");
   expect(description).not.toContain("Only the instance name");
+});
+
+it("names the instance's setting and its default wherever a session's or a link's lifetime is described", () => {
+  const doc = buildOpenApiDocument();
+  const cookie = doc.components.securitySchemes.CookieSession.description;
+  expect(cookie).toContain("security.sessionDays, thirty days by default");
+  for (const description of [
+    AUTH_PATHS["/api/auth/redeem"].post.description,
+    USERS_PATHS["/api/users"].post.description,
+    USERS_PATHS["/api/users/{id}/sign-in-link"].post.description,
+  ]) expect(description).toContain("security.linkDays, seven days by default");
+  // Local recovery's link is not the instance's to change.
+  expect(AUTH_PATHS["/api/auth/redeem"].post.description).toContain("fifteen-minute link");
+  expect(JSON.stringify(doc)).not.toMatch(/Thirty days, rolling|expiring in seven days|expires seven days after issue|expires after seven days/);
 });
