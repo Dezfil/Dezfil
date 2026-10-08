@@ -490,7 +490,9 @@ or `{ "publishing.embedding": "listed", "publishing.embedSites": ["https://intra
 a number-like choice (text size, image width and shape, session and link
 days) is text. `publishing.embedSites` is a list of at most 50 sites, each
 `http` or `https` with a host and an optional port and nothing else, kept as
-its origin; a failing entry is named by its position, never echoed. Null clears
+its origin; a failing entry is named by its position, never echoed. Browsers
+match a site listed with `http` to its `https` address as well, so
+`http://portal.example` also admits `https://portal.example`. Null clears
 a stored value, and an empty object changes nothing. A default applies to new
 things only: no existing map, layer, published view or open screen changes with
 it. A rule refuses new reach and takes nothing away: no session, link, token,

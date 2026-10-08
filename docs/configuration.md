@@ -161,6 +161,8 @@ two counts and the listed sites are checked together: a per-address count below
 the per-account one, or `listed` with no site, refuses the whole change. A site
 is kept as its origin, its scheme, host and any port other than the scheme's
 own; a repeated site is kept once, and an empty list or null clears the list.
+Browsers match a site listed with `http` to its `https` address as well, so
+`http://portal.example` also admits `https://portal.example`.
 
 A rule refuses new reach and takes nothing away. An action it refuses answers
 `403 rule_refused`, with `error.rule` naming the rule, and changes nothing; the
