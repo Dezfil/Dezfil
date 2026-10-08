@@ -617,6 +617,16 @@ describe("a number with decimals, and a switch", () => {
     expect(numberProblem("1.3", { min: 0, max: 22 })).toBe("Enter a whole number.");
   });
 
+  it("takes a number shown in a larger unit than it is kept in no finer than its places", () => {
+    const tenths = { min: 0, max: 60, decimal: true, places: 1 };
+    for (const typed of ["1.2", "0.3", "0", "60", "12.0"]) expect(numberProblem(typed, tenths), typed).toBeNull();
+    expect(numberProblem("1.25", tenths)).toBe("Enter a number with at most one decimal place.");
+    expect(numberProblem("0.05", tenths)).toBe("Enter a number with at most one decimal place.");
+    expect(numberProblem("60.1", tenths)).toBe("Enter a number from 0 to 60.");
+    expect(numberProblem("1.5", { min: 0, max: 60, decimal: true, places: 0 })).toBe("Enter a whole number.");
+    expect(numberProblem("1.255", { min: 0, max: 60, decimal: true, places: 2 })).toBe("Enter a number with at most 2 decimal places.");
+  });
+
   it("keeps a switch at once, as a choice is, its value true or false, and shows Saved only on the write's response", async () => {
     const server = fakeServer(), unit = card(server, [wrap]);
     expect(unit.snapshot.values["sqlConsole.lineWrap"]).toBe(false);

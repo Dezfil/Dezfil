@@ -3,8 +3,9 @@ import { inLabels } from "./limits-table";
 import type { ReadSetting } from "./server-set";
 
 /**
- * The rows of the Security tab's two cards (Sign-in, API tokens) and of
- * Publishing's Public links card, under the labels the page shows, mapped
+ * The rows of the Security tab's two cards (Sign-in, API tokens), of
+ * Publishing's Public links card and of Data & services' Connections and
+ * imports card, under the labels the page shows, mapped
  * by key onto the configuration read. The read supplies what a choice
  * offers, a number's range, the default and the kept value; this table
  * supplies the words, the order, how each row is drawn, the unit written
@@ -90,12 +91,25 @@ export const PUBLIC_LINKS_CARD: RuleCard = {
   ],
 };
 
+/** Data & services' card on who may add database connections and import
+ * from links: rules every account follows, drawn as Security's are. */
+export const CONNECTIONS_CARD: RuleCard = {
+  id: "data-who", title: "Connections and imports", keys: "permission members admins who may", rows: [
+    { id: "set-who-connects", label: "Who may add database connections", draw: "segments",
+      keys: "postgis database connection create add members admins", fields: one("connections.create"),
+      notes: [{ when: value => value === "admins", text: "Members keep the connections they already have." }] },
+    { id: "set-who-imports", label: "Who may import from links", meta: "Web addresses and cloud storage", draw: "segments",
+      keys: "url import link remote s3 http download members admins", fields: one("imports.links") },
+  ],
+};
+
 /** Every row the Security tab and the Public links card draw, top to bottom. */
 export function ruleRows(): RuleRow[] {
   return [...SECURITY_CARDS, PUBLIC_LINKS_CARD].flatMap(card => card.rows);
 }
 
-type ChoiceKey = "security.sessionDays" | "security.linkDays" | "tokens.create" | "tokens.expiry" | "publishing.publish" | "publishing.embedding";
+type ChoiceKey = "security.sessionDays" | "security.linkDays" | "tokens.create" | "tokens.expiry" | "publishing.publish" | "publishing.embedding"
+  | "connections.create" | "imports.links";
 
 /** The words each choice is shown with, in the order the read offers them. */
 export const RULE_CHOICE_WORDS: { readonly [K in ChoiceKey]: Readonly<Record<string, string>> } = {
@@ -105,6 +119,8 @@ export const RULE_CHOICE_WORDS: { readonly [K in ChoiceKey]: Readonly<Record<str
   "tokens.expiry": { never: "Never", "30d": "30 days", "90d": "90 days", "1y": "1 year" },
   "publishing.publish": { everyone: "Everyone", admins: "Admins only", none: "No one" },
   "publishing.embedding": { any: "Any site", listed: "Listed sites", off: "Off" },
+  "connections.create": { everyone: "Everyone", admins: "Admins only" },
+  "imports.links": { everyone: "Everyone", admins: "Admins only" },
 };
 
 /** A choice's words; a value it does not word shows as itself. */
@@ -113,7 +129,7 @@ export function ruleChoiceWords(key: string, value: unknown): string {
 }
 
 /** The label each setting is named by in a refusal, by key. */
-export const RULE_LABELS: Readonly<Record<string, string>> = Object.fromEntries(ruleRows().flatMap(row =>
+export const RULE_LABELS: Readonly<Record<string, string>> = Object.fromEntries([...ruleRows(), ...CONNECTIONS_CARD.rows].flatMap(row =>
   row.fields.map(field => [field.key, field.name ?? row.label])));
 
 /** The refusals of two rows that only hold together, in the page's words. */

@@ -1,7 +1,7 @@
 "use client";
 import { useRef, type ReactNode } from "react";
 import { ChoiceGroup } from "@/components/ui/ChoiceGroup";
-import { NumberInput, TextInput } from "@/components/ui/Field";
+import { NumberInput, Textarea, TextInput } from "@/components/ui/Field";
 import { LockIcon } from "@/components/ui/icons";
 import type { ServerSetState } from "./server-set";
 import styles from "./SettingRows.module.css";
@@ -129,11 +129,16 @@ function Sentence({ state }: { state: ServerSetState }) {
 
 /** A value the server decides: a disabled field with a lock inside and,
  * under it, what decides it. The field shows the value in effect, so an
- * override the server could not use shows the default it fell back to. */
-export function LockedField({ label, value, state, width = "l" }: {
+ * override the server could not use shows the default it fell back to.
+ * A list (hosts, one per line) shows its lines; an address or a host is
+ * `mono`. */
+export function LockedField({ label, value, lines, mono, state, width = "l" }: {
   /** The field's accessible name: the row's label. */
   label: string;
   value: string;
+  /** A list's lines, drawn one per line in place of `value` while there are any. */
+  lines?: readonly string[];
+  mono?: boolean;
   state: ServerSetState;
   width?: "s" | "m" | "l";
 }) {
@@ -141,7 +146,9 @@ export function LockedField({ label, value, state, width = "l" }: {
   const said = state.kind === "locked" || state.variable !== null;
   return <span className={styles.locked} data-w={width}>
     <span className={styles.lockedField}>
-      <TextInput disabled readOnly value={value} aria-label={label} />
+      {lines?.length
+        ? <Textarea disabled readOnly value={lines.join("\n")} rows={lines.length} aria-label={label} data-mono={mono || undefined} />
+        : <TextInput disabled readOnly value={value} aria-label={label} data-mono={mono || undefined} />}
       <LockIcon />
     </span>
     {said && <span className={styles.lockedNote}>{sentence}</span>}

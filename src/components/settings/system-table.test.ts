@@ -39,11 +39,14 @@ describe("the Server settings table", () => {
     expect(byVariable(rows, "DEZFIL_GEOCODER_URL").label).toBe("Address finder");
   });
 
-  it("says where each value came from: the environment, the default, or a link to the Limits row that holds it", () => {
-    writeStoredSettings({ queryTimeoutS: 90 }, fixture.db);
+  it("says where each value came from: the environment, the default, or a link to the Limits or Data & services row that holds it", () => {
+    writeStoredSettings({ queryTimeoutS: 90, geocodePaceMs: 1500, isochroneCacheHours: 48 }, fixture.db);
     vi.stubEnv("DEZFIL_PREVIEW_ROWS", "500");
     const rows = serverSettingsRows(read());
-    expect(byVariable(rows, "DEZFIL_QUERY_TIMEOUT_S")).toMatchObject({ value: { text: "90 seconds" }, source: { kind: "stored", href: "/settings/limits#set-query-time" } });
+    expect(byVariable(rows, "DEZFIL_QUERY_TIMEOUT_S")).toMatchObject({ value: { text: "90 seconds" }, source: { kind: "stored", href: "/settings/limits#set-query-time", where: "Limits" } });
+    expect(byVariable(rows, "DEZFIL_GEOCODE_PACE_MS")).toMatchObject({ value: { text: "1,500 milliseconds" },
+      source: { kind: "stored", href: "/settings/data#set-geocoder-gap", where: "Data & services" } });
+    expect(byVariable(rows, "DEZFIL_ISOCHRONE_CACHE_HOURS")).toMatchObject({ source: { kind: "stored", href: "/settings/data#set-travel-keep", where: "Data & services" } });
     expect(byVariable(rows, "DEZFIL_PREVIEW_ROWS")).toMatchObject({ value: { text: "500 rows" }, source: { kind: "environment" } });
     expect(byVariable(rows, "DEZFIL_REMOTE_MAX_MB")).toMatchObject({ value: { text: "2,048 MB" }, source: { kind: "default" } });
   });

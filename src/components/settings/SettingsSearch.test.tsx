@@ -171,9 +171,9 @@ describe("the Settings search", () => {
     await find("query time");
     expect(tabContent().hasAttribute("hidden")).toBe(true);
     expect(column().querySelectorAll('a[aria-current="page"]')).toEqual([]);
-    expect(answer()?.textContent).toBe("2 results for “query time”");
-    expect(lines()).toEqual(["Instance / Limits · Query time limit", "Instance / System · Query time limit"]);
-    expect(metas()).toEqual(["Queries · 90 seconds", "Server settings · 90 seconds"]);
+    expect(answer()?.textContent).toBe("3 results for “query time”");
+    expect(lines()).toEqual(["Instance / Limits · Query time limit", "Instance / System · Query time limit", "Instance / Data & services · Time budget per query"]);
+    expect(metas()).toEqual(["Queries · 90 seconds", "Server settings · 90 seconds", "OpenStreetMap · 60 seconds"]);
     expect(results()[0].querySelector("mark")?.textContent).toBe("Query time");
     await act(async () => { container.querySelectorAll("button").find(button => button.getAttribute("aria-label") === "Clear the search")!.click(); });
     expect(field().value).toBe("");
@@ -304,13 +304,13 @@ describe("the Settings search", () => {
     expect(container.querySelector('[id="settings-users"]')!.hasAttribute("data-marked")).toBe(true);
   });
 
-  it("gives a member only the member's tabs: never Maps, Workflows & SQL, Publishing, Limits, Security, System or Users, and never the configuration read", async () => {
+  it("gives a member only the member's tabs: never Maps, Workflows & SQL, Publishing, Data & services, Limits, Security, System or Users, and never the configuration read", async () => {
     await open("/settings/account", "member");
     for (const query of ["limit", "system", "users", "invite", "environment", "version", "maps", "basemap", "opacity", "workflows",
       "minimap", "text size", "publishing", "starting width", "tab10", "security", "stay signed in", "shortest password", "who may publish",
-      "embedding"]) {
+      "embedding", "data", "services", "address finder", "overpass", "cache", "private network", "who may import", "connections", "s3"]) {
       await find(query);
-      expect(lines().filter(line => /Maps|Workflows|Publishing|Limits|Security|System|Users/.test(line)), query).toEqual([]);
+      expect(lines().filter(line => /Maps|Workflows|Publishing|Data|Limits|Security|System|Users/.test(line)), query).toEqual([]);
     }
     await find("gis team");
     expect(lines()).toEqual(["Instance / General · Lost password contact"]);
@@ -325,7 +325,7 @@ describe("where a hit lands", () => {
       tokens, look: LOOK, instance: storedRead(STORED), entry: null,
       health: "ready", assistant: { enabled: false, reason: "No model credential is configured." },
     }, true);
-    const tabs: SettingsTabId[] = ["account", "tokens", "appearance", "general", "maps", "workflows", "publishing", "limits", "security", "system"];
+    const tabs: SettingsTabId[] = ["account", "tokens", "appearance", "general", "maps", "workflows", "publishing", "data", "limits", "security", "system"];
     expect(Object.keys(declared).sort()).toEqual([...tabs].sort());
     for (const tab of tabs) {
       await arrive(`/settings/${tab}`);
@@ -358,6 +358,22 @@ describe("what the search never finds", () => {
     // The fields themselves are not listed; the disclosure that holds them is.
     await find("new password");
     expect(lines()).toEqual(["You / Account · Change password"]);
+  });
+
+  it("finds no address typed into a service's field, by its key or anything else it holds", async () => {
+    const typed = "https://seed-user:SEEDED-KEY-0002-USER@nominatim.seeded.example/SEEDED-KEY-0002-PATH?key=SEEDED-KEY-0002-QUERY";
+    await open("/settings/data");
+    const address = container.querySelectorAll("input").find(input => input.getAttribute("aria-label") === "Address finder address")!;
+    await act(async () => props(address).onChange({ target: { value: typed } }));
+    expect(address.value).toBe(typed);
+    for (const query of ["SEEDED-KEY", "seed-user", "nominatim.seeded", "0002-PATH", "key=SEEDED"]) {
+      await find(query);
+      expect(lines(), query).toEqual([]);
+    }
+    // The row is found by its words and what the read says about it, never by the field's text.
+    await find("address finder");
+    expect(lines()).toContain("Instance / Data & services · Address");
+    expect(metas().join(" ")).not.toContain("SEEDED");
   });
 
   it("finds a new token by its name and never by its secret, on screen or not", async () => {

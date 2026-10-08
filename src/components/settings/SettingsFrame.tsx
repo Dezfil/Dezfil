@@ -11,6 +11,7 @@ import { GeneralTab } from "./GeneralTab";
 import { MapsTab } from "./MapsTab";
 import { WorkflowsTab } from "./WorkflowsTab";
 import { PublishingTab } from "./PublishingTab";
+import { DataTab } from "./DataTab";
 import { LimitsTab } from "./LimitsTab";
 import { SecurityTab } from "./SecurityTab";
 import { SystemTab } from "./SystemTab";
@@ -286,6 +287,7 @@ function TabContent({ tab, loaded }: { tab: SettingsTabId; loaded: Loaded }) {
     case "maps": return <MapsTab />;
     case "workflows": return <WorkflowsTab />;
     case "publishing": return <PublishingTab />;
+    case "data": return <DataTab />;
     case "limits": return <LimitsTab />;
     case "security": return <SecurityTab />;
     case "system": return <SystemTab />;

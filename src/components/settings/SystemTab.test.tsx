@@ -106,9 +106,11 @@ describe("System", () => {
     expect(byId("sys-assistant-provider").textContent).toBe("ProviderNone");
   });
 
-  it("lists the server's settings with the variable, the disclosed value and where it came from, linking a stored limit to its row", async () => {
+  it("lists the server's settings with the variable, the disclosed value and where it came from, linking a stored limit or service value to its row", async () => {
     resolved = { ...resolved,
       queryTimeoutS: { value: 90, source: "stored", storedValue: 90 },
+      geocodePaceMs: { value: 1500, source: "stored", storedValue: 1500 },
+      overpassUrl: { value: { set: true, origin: "https://osm.example" }, source: "stored" },
       operationConcurrency: { value: 2, source: "environment", locked: true },
       geocoderUrl: { value: { set: true, origin: "https://geocoder.example" }, source: "environment", locked: true },
       anthropicApiKey: { value: { set: true }, source: "environment", locked: true },
@@ -119,6 +121,11 @@ describe("System", () => {
     expect(settings.querySelectorAll("th").map(cell => cell.textContent)).toEqual(["Setting", "Variable", "Value", "Source"]);
     expect(cells("env-dezfil-query-timeout-s")).toEqual(["Query time limit", "DEZFIL_QUERY_TIMEOUT_S", "90 seconds", "Limits"]);
     expect(byId("env-dezfil-query-timeout-s").querySelector("a")?.getAttribute("href")).toBe("/settings/limits#set-query-time");
+    // A number or an address stored on Data & services links to its row there.
+    expect(cells("env-dezfil-geocode-pace-ms")).toEqual(["Address finder pace", "DEZFIL_GEOCODE_PACE_MS", "1,500 milliseconds", "Data & services"]);
+    expect(byId("env-dezfil-geocode-pace-ms").querySelector("a")?.getAttribute("href")).toBe("/settings/data#set-geocoder-gap");
+    expect(cells("env-dezfil-overpass-url")).toEqual(["Overpass endpoint", "DEZFIL_OVERPASS_URL", "https://osm.example", "Data & services"]);
+    expect(byId("env-dezfil-overpass-url").querySelector("a")?.getAttribute("href")).toBe("/settings/data#set-osm-address");
     // A row Limits draws reads as its Limits row does: a count bare, a rate window every 10 seconds.
     expect(cells("env-dezfil-operation-concurrency")).toEqual(["Tools running at once", "DEZFIL_OPERATION_CONCURRENCY", "2", "Environment"]);
     expect(cells("env-dezfil-public-rate-limit")).toEqual(["Requests per visitor", "DEZFIL_PUBLIC_RATE_LIMIT", "60 every 10 seconds", "Default"]);
