@@ -60,6 +60,10 @@ const PRODUCT = {
   "sqlConsole.textSize": "12", "sqlConsole.lineWrap": false, "imageExport.width": "1920", "imageExport.shape": "4:3",
 } as const satisfies InstanceDefaults;
 
+/** A page served after an admin changed the starting width and shape, so
+ * its snapshot is neither the product's values nor any answer below. */
+const SNAPSHOT = { ...PRODUCT, "imageExport.width": "2560", "imageExport.shape": "1:1" } as const satisfies InstanceDefaults;
+
 /** The runtime read's answer once an admin changed the starting width and
  * shape: every default as it reports them. */
 const readAnswer = (width: string, shape: string) => ({
@@ -121,14 +125,24 @@ async function builderPage(builder: Builder, snapshot: InstanceDefaults = PRODUC
   await act(async () => root.render(<ScreenDefaultsProvider defaults={snapshot}><BuilderPage builder={builder} /></ScreenDefaultsProvider>));
   const image = () => host.document.querySelectorAll("[data-menu-item]").find((item) => item.textContent.includes("Image"))!;
   const settle = () => act(async () => { await setImmediate(); });
+  const reads = () => w.calls.filter((call) => call.method === "GET" && call.path === "/api/config");
+  /** The read of the menu's current opening: the last one asked for, not
+   * yet answered. Every answer below goes to it, never to an older one. */
+  const current = () => {
+    const read = reads().at(-1);
+    expect(read?.answered, "the current opening's read is unanswered").toBe(false);
+    return read!;
+  };
   return {
     /** The person opens the Export menu. */
     openMenu: () => act(async () => host.document.querySelector("[data-menu-trigger]")!.click()),
     /** The runtime reads asked for so far, answered or not. */
-    reads: () => w.calls.filter((call) => call.method === "GET" && call.path === "/api/config"),
-    answer: async (body: unknown) => { w.pending("GET", "/api/config")[0].ok(body); await settle(); },
-    refuse: async () => { w.pending("GET", "/api/config")[0].refuse(500, "internal", "The instance could not answer."); await settle(); },
-    cut: async () => { w.pending("GET", "/api/config")[0].cut(); await settle(); },
+    reads,
+    /** The reads still waiting for an answer. */
+    waiting: () => w.pending("GET", "/api/config"),
+    answer: async (body: unknown) => { current().ok(body); await settle(); },
+    refuse: async () => { current().refuse(500, "internal", "The instance could not answer."); await settle(); },
+    cut: async () => { current().cut(); await settle(); },
     imageOffered: () => !image().disabled,
     /** The person chooses Image in the open menu. */
     chooseImage: () => act(async () => image().click()),
@@ -151,19 +165,23 @@ describe("an image card opened from the Export menu", () => {
     expect([def.size, aspect]).toEqual([{ width: 1280, height: 720 }, "wide"]);
   });
 
-  it("starts at the page's snapshot while the read is in flight, and when it is refused or cut", async () => {
-    const page = await builderPage(FAR);
+  it("starts at the page's snapshot while the opening's read is in flight", async () => {
+    const page = await builderPage(FAR, SNAPSHOT);
     await page.openMenu();
+    expect(page.waiting()).toHaveLength(1);
     await page.chooseImage();
-    expect([page.card()!.def.size, page.card()!.aspect]).toEqual([{ width: 1920, height: 1440 }, "classic"]);
-    await page.closeCard();
-    for (const fail of [page.refuse, page.cut]) {
-      await page.openMenu();
-      await fail();
-      await page.chooseImage();
-      expect([page.card()!.def.size, page.card()!.aspect]).toEqual([{ width: 1920, height: 1440 }, "classic"]);
-      await page.closeCard();
-    }
+    expect([page.card()!.def.size, page.card()!.aspect]).toEqual([{ width: 2560, height: 2560 }, "square"]);
+  });
+
+  it.each([["refused", "refuse"], ["cut", "cut"]] as const)("starts at the page's snapshot once the opening's read is %s", async (_, failure) => {
+    const page = await builderPage(FAR, SNAPSHOT);
+    await page.openMenu();
+    expect(page.reads()).toHaveLength(1);
+    await page[failure]();
+    // The read of this opening is settled, so the card below opens after it.
+    expect(page.waiting()).toHaveLength(0);
+    await page.chooseImage();
+    expect([page.card()!.def.size, page.card()!.aspect]).toEqual([{ width: 2560, height: 2560 }, "square"]);
   });
 
   it("offers Image as the answer's shape allows, once the answer is in", async () => {
@@ -189,10 +207,10 @@ describe("an image card opened from the Export menu", () => {
     await page.openMenu();
     await page.openMenu();
     expect(page.reads()).toHaveLength(2);
-    await page.answer(readAnswer("2560", "1:1"));
+    // The second opening's read answers; the first opening's never does.
     await page.answer(readAnswer("2560", "1:1"));
     await page.chooseImage();
-    expect(page.card()).not.toBeNull();
+    expect(page.card()!.def.size).toEqual({ width: 2560, height: 2560 });
     await page.openMenu();
     expect(page.reads()).toHaveLength(2);
   });
