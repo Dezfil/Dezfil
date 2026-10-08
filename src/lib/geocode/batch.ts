@@ -48,7 +48,7 @@ interface StagedRow {
 
 /** What the disclosure says about the request this run made. */
 export interface Disclosure {
-  /** Host and path only — never the query string, where a key travels. */
+  /** Scheme and host only: never the path or the query, where a key travels. */
   endpoint: string | null;
   parameters: { format: string; limit: number };
   /** The address-normalization version these answers were asked under. */

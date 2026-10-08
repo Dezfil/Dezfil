@@ -37,7 +37,7 @@ import {
 
 /** What the disclosure says about the requests this run made. */
 export interface IsochroneDisclosure {
-  /** Host and path only — never the query string, where a key travels. */
+  /** Scheme and host only: never the path or the query, where a key travels. */
   endpoint: string | null;
   travelMode: string;
   /** The profile actually sent — the provider's own word for the mode. */

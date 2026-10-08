@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { resolveServiceAddress, serviceAddressConfigured } from "@/lib/settings/service-address";
+import { addressOrigin, resolveServiceAddress, serviceAddressConfigured } from "@/lib/settings/service-address";
 
 /**
  * The one configured isochrone endpoint.
@@ -11,7 +11,7 @@ import { resolveServiceAddress, serviceAddressConfigured } from "@/lib/settings/
  * it on. The configured URL may carry a credential in its query
  * string — that is where a key travels — so nothing here ever returns it
  * for display, logging or storage; what may be published is the identity,
- * host and path and never the query.
+ * scheme and host alone.
  */
 
 /** The wire shape this product speaks (K1). Part of the cache key, so a
@@ -37,16 +37,12 @@ export function isochroneEndpointKey(url: string): string {
   return createHash("sha256").update(url).digest("hex").slice(0, 16);
 }
 
-/** What may be published about the endpoint: host and path, never the query
- * string — and not a redaction of it either, because a redaction that must
- * never miss is a worse contract than an absence. */
+/** What may be published about the endpoint: scheme and host, never its user
+ * information, path or query, any of which may carry a key; and not a
+ * redaction of them either, because a redaction that must never miss is a
+ * worse contract than an absence. */
 export function isochroneEndpointIdentity(url: string): string | null {
-  try {
-    const parsed = new URL(url);
-    return `${parsed.protocol}//${parsed.host}${parsed.pathname.replace(/\/$/, "")}`;
-  } catch {
-    return null;
-  }
+  return addressOrigin(url);
 }
 
 /** This product's travel words, mapped to the provider's costing at the

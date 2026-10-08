@@ -2855,6 +2855,11 @@
         "memory:test-seams"
       ]
     },
+    "memory:src/lib/assistant/recorded-arguments.ts#ADDRESS_KEYS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/assistant/runs.ts#assistantRuns": {
       "stores": [
         "memory:src/lib/assistant/runs.ts#assistantRuns"

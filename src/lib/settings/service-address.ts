@@ -3,7 +3,7 @@ import { ApiError } from "@/lib/api/errors";
 import { metadataDb } from "@/lib/metadata/db";
 import { settingDefinition } from "./catalogue";
 import { readDeploymentSetting } from "./deployment-read";
-import { discloseAddress } from "./disclosure";
+import { addressOrigin, discloseAddress } from "./disclosure";
 import { lockedEnvironment, settingEnvironment } from "./resolver";
 import { readStoredAddress } from "./store";
 import type { ServiceAddressKey, SettingDefinition } from "./types";
@@ -68,13 +68,7 @@ export function serviceAddressConfigured(key: ServiceAddressKey, db: Database = 
   }
 }
 
-/** What may be said about an address anywhere: its scheme and host (with a
- * port when it has one), or null for text that is not an address. Never
- * its user information, path, query or fragment. */
-export function addressOrigin(address: string): string | null {
-  const disclosed = discloseAddress(address);
-  return "origin" in disclosed ? disclosed.origin : null;
-}
+export { addressOrigin };
 
 /** The configuration read's entry for a service address: the variable's
  * disclosure while it locks the row, else the stored address as scheme and

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { resolveServiceAddress, serviceAddressConfigured } from "@/lib/settings/service-address";
+import { addressOrigin, resolveServiceAddress, serviceAddressConfigured } from "@/lib/settings/service-address";
 
 /**
  * The one configured geocoding endpoint, described in one place.
@@ -50,20 +50,15 @@ export function endpointKey(url: string): string {
 }
 
 /**
- * What may be published about the endpoint: its host and path (J5).
+ * What may be published about the endpoint: its scheme and host.
  *
- * Not the query string, which is where a key travels — and not a redaction of
- * it either, because a redaction that must never miss is a worse contract than
- * an absence. An unparseable configuration answers null rather than leaking the
- * raw string into a record.
+ * Not its user information, path or query, any of which may carry a key, and
+ * not a redaction of them either, because a redaction that must never miss is
+ * a worse contract than an absence. An unparseable configuration answers null
+ * rather than leaking the raw string into a record.
  */
 export function endpointIdentity(url: string): string | null {
-  try {
-    const parsed = new URL(url);
-    return `${parsed.protocol}//${parsed.host}${parsed.pathname.replace(/\/$/, "")}`;
-  } catch {
-    return null;
-  }
+  return addressOrigin(url);
 }
 
 /**
