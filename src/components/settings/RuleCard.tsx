@@ -4,7 +4,7 @@ import { ErrorNote } from "@/components/ui/ErrorNote";
 import { Select, Textarea } from "@/components/ui/Field";
 import { writeInstanceSettings, type InstanceRead } from "./instance-read";
 import { useLiveValue } from "./live-values";
-import { SaveUnit, type UnitSnapshot, type Value } from "./save-unit";
+import { SaveUnit, type UnitControl, type UnitSnapshot, type Value } from "./save-unit";
 import { ruleChoiceWords, ruleRefusalWords, sitesList, sitesText, type RuleCard, type RuleField, type RuleRow } from "./security-table";
 import { serverSetState, unitControlFor, type ReadSetting } from "./server-set";
 import { LockedField, NumberField, RowError, Rows, SegmentChoice, SettingRow } from "./SettingRows";
@@ -19,8 +19,9 @@ import styles from "./RuleCard.module.css";
  * leaving, the listed sites typed and kept on the card's Save (blank lines
  * dropped, sent as a list), Saved only after the server accepted, the
  * refusals as the red line under their row, and Reset to the read's
- * defaults then Undo. Listed sites chosen while none is listed waits for
- * the sites and goes with them.
+ * defaults, the listed sites cleared with the rest, then Undo. Listed
+ * sites chosen while none is listed waits for the sites and goes with
+ * them.
  */
 
 type Settings = InstanceRead["settings"];
@@ -37,16 +38,24 @@ function cardKeys(card: RuleCard, settings: Settings): string[] {
 /** What a setting shows in its control: the listed sites as lines. */
 const shown = (key: string, value: unknown): Value => key === SITES ? sitesText(value) : value as Value;
 
+/** The save unit's view of a setting. The listed sites reset with the rest
+ * of the card: their default, no site, in the lines the field shows. */
+function control(key: string, settings: Settings, row: string | undefined): UnitControl {
+  const base = { ...unitControlFor(settings[key]), ...(row ? { row } : {}) };
+  return key === SITES && !base.locked ? { ...base, defaultValue: shown(key, settings[key].defaultValue) } : base;
+}
+
 function ruleUnit(card: RuleCard, settings: Settings): SaveUnit {
   const keys = cardKeys(card, settings);
   const rows = new Map(card.rows.filter(row => row.fields.length > 1).flatMap(row => row.fields.map(field => [field.key as string, row.id] as const)));
   const sites = keys.includes(SITES);
   return new SaveUnit({
     title: card.title,
-    controls: keys.map(key => ({ ...unitControlFor(settings[key]), ...(rows.has(key) ? { row: rows.get(key) } : {}) })),
+    controls: keys.map(key => control(key, settings, rows.get(key))),
     kept: Object.fromEntries(keys.map(key => [key, shown(key, settings[key].value)])),
     write: async patch => {
-      const request = Object.fromEntries(Object.entries(patch).map(([key, value]) => [key, key === SITES ? sitesList(value) : value]));
+      // Lines go as a list; Reset's null clears the list as it clears the choices.
+      const request = Object.fromEntries(Object.entries(patch).map(([key, value]) => [key, key === SITES && value !== null ? sitesList(value) : value]));
       const answer = await writeInstanceSettings(request);
       return Object.fromEntries(keys.filter(key => key in answer.settings).map(key => [key, shown(key, answer.settings[key].value)]));
     },

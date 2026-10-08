@@ -235,18 +235,38 @@ describe("Public links", () => {
     expect(row("Embedding on other sites").textContent).toContain("Add at least one site, or choose Any site.");
   });
 
-  it("resets who may publish and embedding in one write, leaving the listed sites, then offers Undo", async () => {
-    stored = { "publishing.publish": "admins", "publishing.embedding": "listed", "publishing.embedSites": ["https://a.example"] };
+  it("resets the whole card in one write, the listed sites cleared with the choices, then Undo restores the list with them", async () => {
+    stored = { "publishing.publish": "admins", "publishing.embedding": "listed", "publishing.embedSites": ["https://a.example", "http://intranet.example:8080"] };
     await open();
     expect(resets()).toEqual(["Reset to defaults: Public links"]);
     await press("Reset to defaults");
     await settle();
-    expect(writes()).toEqual([{ "publishing.publish": null, "publishing.embedding": null }]);
+    expect(writes()).toEqual([{ "publishing.publish": null, "publishing.embedding": null, "publishing.embedSites": null }]);
     expect([checked("Who may publish"), checked("Embedding on other sites")]).toEqual([["Everyone"], ["Any site"]]);
-    expect(stored).toEqual({ "publishing.embedSites": ["https://a.example"] });
+    expect(stored).toEqual({});
+    expect(sitesField()).toBeUndefined();
     await press("Undo");
     await settle();
-    expect(writes()[1]).toEqual({ "publishing.publish": "admins", "publishing.embedding": "listed" });
+    expect(writes()[1]).toEqual({ "publishing.publish": "admins", "publishing.embedding": "listed",
+      "publishing.embedSites": ["https://a.example", "http://intranet.example:8080"] });
     expect([checked("Who may publish"), checked("Embedding on other sites")]).toEqual([["Admins only"], ["Listed sites"]]);
+    expect(sitesField()!.value).toBe("https://a.example\nhttp://intranet.example:8080");
+    expect(stored).toEqual({ "publishing.publish": "admins", "publishing.embedding": "listed",
+      "publishing.embedSites": ["https://a.example", "http://intranet.example:8080"] });
+  });
+
+  it("offers Reset while only a list kept from an earlier Listed sites differs, and clears it", async () => {
+    stored = { "publishing.embedSites": ["https://a.example"] };
+    await open();
+    expect(checked("Embedding on other sites")).toEqual(["Any site"]);
+    expect(resets()).toEqual(["Reset to defaults: Public links"]);
+    await press("Reset to defaults");
+    await settle();
+    expect(writes()).toEqual([{ "publishing.publish": null, "publishing.embedding": null, "publishing.embedSites": null }]);
+    expect(stored).toEqual({});
+    await press("Undo");
+    await settle();
+    expect(writes()[1]).toEqual({ "publishing.embedSites": ["https://a.example"] });
+    expect(stored).toEqual({ "publishing.embedSites": ["https://a.example"] });
   });
 });
