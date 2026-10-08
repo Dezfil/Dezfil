@@ -1,9 +1,19 @@
+import { ApiError } from "@/lib/api/errors";
+import { readCapped } from "@/lib/net/read-capped";
+import { openRemote } from "@/lib/net/remote-fetch";
+
 /**
  * Overture release discovery (the release picker is honest). The public
  * bucket is listed over plain https (anonymous ListObjectsV2 with a
  * delimiter — releases are common prefixes); results are cached
  * in-process. Offline, a pinned fallback keeps the pane usable; the
  * import itself will then fail honestly if the bucket is unreachable.
+ *
+ * The listing goes through the outbound engine, so the listing address and
+ * each redirect hop pass the egress check before anything is sent: a mirror
+ * in private space is listed once the deployment's allowlist names it, and
+ * refused while it does not. A refusal is not an outage and gets no
+ * fallback, which would offer releases this deployment cannot read.
  */
 
 export const OVERTURE_BUCKET = "overturemaps-us-west-2";
@@ -25,6 +35,9 @@ const FALLBACK_RELEASES = ["2026-06-17.0", "2026-05-20.0"];
 
 const RELEASE_PATTERN = /^\d{4}-\d{2}-\d{2}\.\d+$/;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const LISTING_TIMEOUT_MS = 10_000;
+/** A listing of release prefixes is a few kilobytes; far more is not one. */
+const LISTING_MAX_BYTES = 1_000_000;
 
 let cache: { at: number; releases: string[] } | null = null;
 
@@ -37,20 +50,48 @@ export function parseReleaseListing(xml: string): string[] {
   return out.sort().reverse();
 }
 
-export async function listOvertureReleases(): Promise<string[]> {
-  if (cache && Date.now() - cache.at < CACHE_TTL_MS) return cache.releases;
-  try {
-    const response = await fetch(listUrl(), {
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!response.ok) throw new Error(`listing responded ${response.status}`);
-    const releases = parseReleaseListing(await response.text());
-    if (releases.length === 0) throw new Error("no releases in listing");
-    cache = { at: Date.now(), releases };
-    return releases;
-  } catch {
-    return FALLBACK_RELEASES;
+function listingFailed(detail: string): ApiError {
+  return new ApiError("remote_fetch_failed", `The Overture release listing failed: ${detail}.`, 502);
+}
+
+/**
+ * One listing of the releases, newest first, with no list kept and no
+ * fallback: the egress check's refusal as it is, anything else (no answer,
+ * a status, an answer with no release in it) as a coded failure.
+ */
+export async function requestReleaseListing(): Promise<string[]> {
+  const response = await openRemote(listUrl(), {
+    timeoutMs: LISTING_TIMEOUT_MS,
+    timeoutError: () => listingFailed(`no answer within ${LISTING_TIMEOUT_MS / 1000} s`),
+  });
+  if (response.statusCode !== 200) {
+    response.body.destroy();
+    throw listingFailed(`status ${response.statusCode}`);
   }
+  const text = await readCapped(response.body, LISTING_MAX_BYTES);
+  const releases = text === null ? [] : parseReleaseListing(text);
+  if (releases.length === 0) throw listingFailed("no release in the answer");
+  return releases;
+}
+
+/**
+ * The releases the pane offers: the list kept in this process while it is
+ * fresh, else a new listing, kept. `refresh` (Check now) asks again past the
+ * kept list. An outage gives the pinned fallback; the egress check's refusal
+ * is passed on.
+ */
+export async function listOvertureReleases(options: { refresh?: boolean } = {}): Promise<string[]> {
+  if (!options.refresh && cache && Date.now() - cache.at < CACHE_TTL_MS) return cache.releases;
+  return requestReleaseListing().then(keep, (error: unknown) => {
+    if (error instanceof ApiError && error.code === "egress_blocked") throw error;
+    return FALLBACK_RELEASES;
+  });
+}
+
+/** Keep a listing as the list this process offers. */
+function keep(releases: string[]): string[] {
+  cache = { at: Date.now(), releases };
+  return releases;
 }
 
 export async function latestOvertureRelease(): Promise<string> {

@@ -10,6 +10,7 @@ import {
   overpassEndpoint,
 } from "./overpass";
 import { keepRequestsOnThisMachine } from "@/lib/test-support/outside-requests";
+import { egressBlockedError } from "@/lib/net/egress";
 
 // Every request here goes to a loopback fixture; one that went to the public
 // Overpass server instead fails its test before it leaves this machine.
@@ -21,12 +22,16 @@ let cache: string;
 beforeEach(async () => {
   dir = await mkdtemp(path.join(process.cwd(), ".tmp-test-"));
   process.env.DEZFIL_DATA_DIR = path.join(dir, "data");
+  // The fixtures live on loopback, which the egress check refuses unless
+  // the allowlist names it, as an administrator's would.
+  process.env.DEZFIL_EGRESS_ALLOWLIST = "127.0.0.1";
   cache = path.join(dir, "data", "cache", "overpass");
   await mkdir(cache, { recursive: true });
 });
 
 afterEach(async () => {
   delete process.env.DEZFIL_DATA_DIR;
+  delete process.env.DEZFIL_EGRESS_ALLOWLIST;
   delete process.env.DEZFIL_OVERPASS_URL;
   delete process.env.DEZFIL_OVERPASS_CACHE_MB;
   delete process.env.DEZFIL_OVERPASS_CACHE_H;
@@ -175,11 +180,12 @@ describe("a refusal from the Overpass endpoint", () => {
   });
 
   it("names scheme and host when the address carries a user and a password", async () => {
-    const origin = await serve(200, "{}");
+    // The user information travels as the request's credentials; a server
+    // refusing them, in words that repeat them, is named by scheme and host.
+    const origin = await serve(401, "<p><strong>no access for SEEDED-KEY-0001-USER</strong></p>");
     const refused = await refusal(origin.replace("//", "//SEEDED-KEY-0001-USER:SEEDED-KEY-0001-PASS@") + PATH);
     expect(refused.code).toBe("remote_fetch_failed");
-    expect(refused.message).toContain(`the Overpass endpoint ${origin}`);
-    expect(refused.message).not.toContain("SEEDED-KEY");
+    expect(refused.message).toBe(`The Overpass endpoint ${origin} responded 401`);
   });
 
   it("names scheme and host when it rate-limits", async () => {
@@ -203,5 +209,62 @@ describe("a refusal from the Overpass endpoint", () => {
     const origin = await serve(400, "<p><strong>line 1: parse error: unknown type \"nod\"</strong></p>");
     const refused = await refusal(`${origin}${PATH}${QUERY}`);
     expect(refused.message).toBe(`The Overpass endpoint ${origin} responded 400: line 1: parse error: unknown type "nod"`);
+  });
+});
+
+describe("the Overpass endpoint under the egress check", () => {
+  const QL = "[out:json];node;out;";
+  const SEEDED = "/SEEDED-KEY-0001-PATH/api/interpreter?key=SEEDED-KEY-0001-QUERY";
+  let fixtures: Server[] = [];
+
+  afterEach(async () => {
+    await Promise.all(fixtures.map(fixture => new Promise<void>(resolve => fixture.close(() => resolve()))));
+    fixtures = [];
+  });
+
+  /** A loopback fixture that records each request it is sent. */
+  async function fixture(answer: (res: import("node:http").ServerResponse) => void) {
+    const seen: { method?: string; type?: string; agent?: string; body: string }[] = [];
+    const server = createServer((req, res) => {
+      const chunks: Buffer[] = [];
+      req.on("data", (chunk: Buffer) => chunks.push(chunk));
+      req.on("end", () => {
+        seen.push({ method: req.method, type: req.headers["content-type"], agent: req.headers["user-agent"], body: Buffer.concat(chunks).toString("utf8") });
+        answer(res);
+      });
+    });
+    await new Promise<void>(resolve => server.listen(0, "127.0.0.1", () => resolve()));
+    fixtures.push(server);
+    return { seen, port: (server.address() as AddressInfo).port };
+  }
+  const answers = (res: import("node:http").ServerResponse) => { res.writeHead(200, { "content-type": "application/json" }); res.end('{"elements":[]}'); };
+
+  it("posts the query with its user agent", async () => {
+    const overpass = await fixture(answers);
+    process.env.DEZFIL_OVERPASS_URL = `http://127.0.0.1:${overpass.port}/api/interpreter`;
+    await expect(fetchOverpass(QL)).resolves.toMatchObject({ response: { elements: [] }, fromCache: false });
+    expect(overpass.seen).toEqual([{ method: "POST", type: "application/x-www-form-urlencoded",
+      agent: "Dezfil/0.1 (self-hosted spatial SQL builder)", body: `data=${encodeURIComponent(QL)}` }]);
+  });
+
+  it("refuses an endpoint in loopback space the allowlist does not name, before contact", async () => {
+    process.env.DEZFIL_EGRESS_ALLOWLIST = "";
+    const overpass = await fixture(answers);
+    process.env.DEZFIL_OVERPASS_URL = `http://127.0.0.1:${overpass.port}${SEEDED}`;
+    const refused = await fetchOverpass(QL).then(() => null, (error: unknown) => error as { code: string; status: number; message: string });
+    expect(refused).toMatchObject({ code: "egress_blocked", status: 403, message: egressBlockedError().message });
+    expect(overpass.seen).toEqual([]);
+    await expect(readdir(cache)).resolves.toEqual([]);
+  });
+
+  it("refuses a redirect into blocked space before contact", async () => {
+    // Allowlisted by its literal, the endpoint sends the query on to the
+    // unspecified address, which the allowlist does not name.
+    const elsewhere = await fixture(answers);
+    const overpass = await fixture(res => { res.writeHead(307, { location: `http://0.0.0.0:${elsewhere.port}/api/interpreter` }); res.end(); });
+    process.env.DEZFIL_OVERPASS_URL = `http://127.0.0.1:${overpass.port}${SEEDED}`;
+    await expect(fetchOverpass(QL)).rejects.toMatchObject({ code: "egress_blocked", status: 403 });
+    expect(overpass.seen).toHaveLength(1);
+    expect(elsewhere.seen).toEqual([]);
   });
 });

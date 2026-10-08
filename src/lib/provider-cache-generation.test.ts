@@ -17,7 +17,7 @@ import { discoverFiles } from "../../test-support/account-erasure-discovery";
 import { proveErasure } from "../../test-support/account-erasure-proof";
 const hooks = vi.hoisted(() => ({ write: undefined as undefined | ((file: string) => Promise<void>), remove: undefined as undefined | ((file: string) => Promise<void>), fail: false }));
 const remote = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/net/remote-fetch", () => ({ openRemote: remote }));
+vi.mock("@/lib/net/remote-fetch", () => ({ openRemote: remote, transportCode: () => null }));
 vi.mock("node:fs/promises", async original => {
   const real = await original<typeof import("node:fs/promises")>();
   return { ...real, writeFile: async (...args: Parameters<typeof real.writeFile>) => { await hooks.write?.(String(args[0])); return real.writeFile(...args); }, rm: async (...args: Parameters<typeof real.rm>) => {
@@ -30,7 +30,12 @@ beforeEach(async () => {
   testAccountScope(undefined, "target"); testAccountScope(undefined, "control"); calls = []; networkHold = undefined; arrived = undefined;
   vi.stubEnv("DEZFIL_GEOCODER_URL", "https://geocoder.invalid/search"); vi.stubEnv("DEZFIL_ISOCHRONE_URL", "https://router.invalid"); vi.stubEnv("DEZFIL_OVERPASS_URL", "https://overpass.invalid/interpreter"); vi.stubEnv("DEZFIL_GEOCODE_PACE_MS", "0"); vi.stubEnv("DEZFIL_ISOCHRONE_PACE_MS", "0");
   remote.mockImplementation(async (url: string) => {
-    const parsed = new URL(url), routing = parsed.hostname === "router.invalid"; calls.push(routing ? "isochrone" : "geocode"); arrived?.(); await networkHold;
+    const parsed = new URL(url);
+    if (parsed.hostname === "overpass.invalid") {
+      calls.push("overpass"); arrived?.(); await networkHold;
+      return { statusCode: 200, body: Readable.from([Buffer.from(JSON.stringify({ elements: [{ id: "private overpass answer" }] }))]) };
+    }
+    const routing = parsed.hostname === "router.invalid"; calls.push(routing ? "isochrone" : "geocode"); arrived?.(); await networkHold;
     const location = routing ? JSON.parse(parsed.searchParams.get("json")!).locations[0] : { lon: 1, lat: 2 };
     const { lon, lat } = location;
     const body = routing ? { type: "FeatureCollection", features: [
@@ -39,7 +44,6 @@ beforeEach(async () => {
     ] } : [{ lon: "1", lat: "2", display_name: "private provider answer", licence: "fixture" }];
     return { statusCode: 200, body: Readable.from([Buffer.from(JSON.stringify(body))]) };
   });
-  vi.stubGlobal("fetch", vi.fn(async () => { calls.push("overpass"); arrived?.(); await networkHold; return Response.json({ elements: [{ id: "private overpass answer" }] }); }));
 });
 afterEach(async () => { hooks.write = undefined; hooks.remove = undefined; hooks.fail = false; vi.unstubAllGlobals(); vi.unstubAllEnvs(); closeMetadataDb(); resetLimiter(); resetIsochroneLimiter(); process.env.DEZFIL_DATA_DIR = root; await rm(directory, { recursive: true, force: true }); });
 const ask = (key: number) => Promise.all([geocodeAddress(`address ${key}`), askIsochrone({ lon: 1 + key / 10, lat: 2 }, "walking", [5]), fetchOverpass(`node[id=${key}];out;`)]);

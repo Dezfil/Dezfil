@@ -12,6 +12,8 @@ import {
 import { dataDir } from "@/lib/config";
 import { limits } from "@/lib/limits";
 import { ApiError } from "@/lib/api/errors";
+import { readCapped } from "@/lib/net/read-capped";
+import { openRemote, transportCode, type RemoteResponse } from "@/lib/net/remote-fetch";
 import { settingRemedy } from "@/lib/settings/remedy";
 import { addressOrigin, resolveServiceAddress } from "@/lib/settings/service-address";
 import { normalizeQl } from "./query";
@@ -24,6 +26,11 @@ import { normalizeQl } from "./query";
  *
  * The endpoint may carry a key (in its user information, path or query), so
  * what any refusal names is its scheme and host alone.
+ *
+ * The query goes through the outbound engine like every other request the
+ * server makes for a person: the endpoint, and each redirect hop, must pass
+ * the egress check before anything is sent, so a server in private space
+ * answers only once the deployment's allowlist names it.
  */
 
 export const DEFAULT_OVERPASS_ENDPOINT =
@@ -156,52 +163,67 @@ export async function fetchOverpass(
     if (cached) return { response: cached, fromCache: true };
   }
 
-  let response: Response;
+  // The query's own time budget, and time to send its answer: the deadline
+  // covers the whole exchange, the answer's body included.
+  const deadlineS = limits.overpassTimeoutS + 30;
+  const pastDeadline = new ApiError(
+    "remote_fetch_failed",
+    `The Overpass endpoint ${origin} did not answer within ${deadlineS} s.`,
+    502,
+  );
+  let response: RemoteResponse;
   try {
-    response = await fetch(endpoint, {
+    response = await openRemote(endpoint, {
       method: "POST",
+      body: `data=${encodeURIComponent(ql)}`,
       headers: {
         "content-type": "application/x-www-form-urlencoded",
         // Public Overpass instances refuse anonymous user agents (406).
         "user-agent": "Dezfil/0.1 (self-hosted spatial SQL builder)",
       },
-      body: `data=${encodeURIComponent(ql)}`,
-      signal: AbortSignal.timeout((limits.overpassTimeoutS + 30) * 1000),
+      timeoutMs: deadlineS * 1000,
+      timeoutError: () => pastDeadline,
     });
   } catch (error) {
-    // The transport's own message may repeat the whole address; only its
-    // code (a refused connection, a name that does not resolve) travels.
-    const code = (error as { cause?: { code?: unknown } } | null)?.cause?.code;
+    // The egress check's refusal and the deadline name no address; the
+    // engine's other failures repeat the whole address, so only the
+    // transport's code (a refused connection, a name that does not resolve)
+    // travels.
+    if (error === pastDeadline || (error instanceof ApiError && error.code === "egress_blocked")) throw error;
+    const code = transportCode(error);
     throw new ApiError(
       "remote_fetch_failed",
-      `Could not reach the Overpass endpoint ${origin}${typeof code === "string" && /^[A-Z_]+$/.test(code) ? ` (${code})` : ""}.`,
+      `Could not reach the Overpass endpoint ${origin}${code ? ` (${code})` : ""}.`,
       502,
     );
   }
 
-  if (response.status === 429) {
+  const status = response.statusCode;
+  if (status === 429) {
+    response.body.destroy();
     throw new ApiError(
       "rate_limited",
       `The Overpass endpoint ${origin} rate-limited this request (public instances limit per IP). Wait a moment and retry, or point it at your own instance. ${settingRemedy("overpassUrl")}`,
       429,
     );
   }
-  if (response.status === 504) {
+  if (status === 504) {
+    response.body.destroy();
     throw new ApiError(
       "remote_fetch_failed",
       "The Overpass endpoint timed out on this query. Narrow the area or the tags and retry.",
       502,
     );
   }
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
+  if (status < 200 || status >= 300) {
+    const text = (await readCapped(response.body, 64 * 1024).catch(() => null)) ?? "";
     const found = /<p><strong[^>]*>(.*?)<\/strong>/s.exec(text)?.[1]?.slice(0, 300);
     // The server's own words, unless they repeat a part of the address that
     // may carry a key: then the status alone.
     const detail = found && !secretParts(endpoint).some(part => found.includes(part)) ? found : undefined;
     throw new ApiError(
       "remote_fetch_failed",
-      `The Overpass endpoint ${origin} responded ${response.status}${
+      `The Overpass endpoint ${origin} responded ${status}${
         detail ? `: ${detail}` : ""
       }`,
       502,
@@ -212,17 +234,13 @@ export async function fetchOverpass(
   // promise is kept locally with slack — the response streams against a
   // bound instead of buffering without limit.
   const localBound = limits.overpassMaxsizeMb * 2 * 1024 * 1024;
-  let text = "";
-  if (response.body) {
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let received = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      received += value.byteLength;
+  const chunks: Buffer[] = [];
+  let received = 0;
+  try {
+    for await (const chunk of response.body as AsyncIterable<Buffer>) {
+      received += chunk.length;
       if (received > localBound) {
-        await reader.cancel().catch(() => {});
+        response.body.destroy();
         throw new ApiError(
           "remote_too_large",
           `The Overpass response exceeded the local bound of ${Math.round(
@@ -231,10 +249,15 @@ export async function fetchOverpass(
           413,
         );
       }
-      text += decoder.decode(value, { stream: true });
+      chunks.push(chunk);
     }
-    text += decoder.decode();
+  } catch (error) {
+    // The bound's refusal and the deadline name no address; a transfer cut
+    // short says so without the transport's words.
+    if (error instanceof ApiError) throw error;
+    throw new ApiError("remote_fetch_failed", `The Overpass endpoint ${origin} stopped sending its answer.`, 502);
   }
+  const text = Buffer.concat(chunks).toString("utf8");
   let body: OverpassResponse;
   try {
     body = JSON.parse(text) as OverpassResponse;
