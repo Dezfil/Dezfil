@@ -1069,7 +1069,7 @@ server-side, so filesystem paths and engine text stay out of responses
 The complete catalogue is published two ways in the same document: as the
 enum of the `Error` schema, and as `x-error-codes` at the top level, which
 maps every code to a sentence explaining what it means
-(`src/lib/api/error-catalogue.ts`). There are **114** codes. Clients should
+(`src/lib/api/error-catalogue.ts`). There are **115** codes. Clients should
 branch on codes, never on prose.
 
 One status is unusual: a client that abandons an in-flight evaluation gets
@@ -1825,8 +1825,8 @@ response message. Branch on the code.
 <!-- error-catalogue:start -->
 | Code | Meaning |
 |---|---|
-| `project_owner_cannot_leave` | The project's owner cannot leave. Transfer or delete the project instead. |
 | `setting_locked` | An environment variable locks a submitted setting. No settings changed; change or remove the named variable and restart before editing this setting. |
+| `project_owner_cannot_leave` | The project's owner cannot leave. Transfer or delete the project instead. |
 | `method_not_allowed` | This method is not allowed for this path. |
 | `authentication_required` | Sign in with a valid session or account token to continue. |
 | `invalid_credentials` | Email or password is incorrect. |
@@ -1899,6 +1899,7 @@ response message. Branch on the code.
 | `geocoder_failed` | The configured geocoding endpoint did not answer, twice in a row. The run published nothing rather than recording an absent answer as an address that does not exist. |
 | `isochrone_unconfigured` | No routing endpoint is configured on this instance (DEZFIL_ISOCHRONE_URL), so an operation that asks a provider for travel-time areas cannot run. |
 | `isochrone_failed` | The configured routing endpoint did not answer, twice in a row. The run published nothing rather than recording an absent answer as an unreachable origin. |
+| `service_address_unreadable` | A service address an admin saved in Settings cannot be read with this instance's encryption key, which changed after it was saved. The service refuses rather than reach a default; an admin saves the address again. |
 | `measurement_crs_unavailable` | The data spans more of the earth than any local projection covers, so a distance measured over it would not be in ground metres. Split it by region and measure each part; an area over the same data succeeds and records the global projection it used. |
 | `operation_superseded` | The step this run belonged to was changed or removed while it was working, so the run lost its authority to publish and wrote nothing. What it would have produced is no longer what the step means. |
 | `widget_layer_missing` | The widget references a layer that no longer exists, so its value cannot be computed. |

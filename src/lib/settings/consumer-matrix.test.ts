@@ -9,7 +9,9 @@ import { resetQueryInstance } from "@/lib/duckdb";
 import { resetLane } from "@/lib/operations/lane";
 import { resetRateLimits } from "@/lib/publish/rate-limit";
 
-const definitions = SETTING_CATALOGUE.filter(d => d.editable && d.environment);
+// The numbers an admin may store beside their variables; the service
+// addresses are held where their services read them.
+const definitions = SETTING_CATALOGUE.filter(d => d.editable && d.environment && d.kind === "number");
 const sources = productionSources(process.cwd());
 const inventory = consumptionInventory(definitions, sources);
 const matrix = Object.keys(numericConsumerProbes).sort().map(key => ({ key,

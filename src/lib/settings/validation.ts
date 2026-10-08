@@ -38,7 +38,26 @@ export function validateStoredValue(definition: SettingDefinition, input: unknow
       }
       return { ok: true, value: origins.length ? origins : null };
     }
+    case "address": {
+      // Never repeated in the reason: an address may carry a key in its user
+      // information, its path or its query.
+      const value = typeof input === "string" ? input.trim() : "";
+      return value.length <= constraint.maxLength && serviceAddressText(value)
+        ? { ok: true, value } : { ok: false, reason: `Expected an http or https address of at most ${constraint.maxLength} characters.` };
+    }
   }
+}
+
+/** An http or https address with a host right after its two slashes, as
+ * written (the parser would otherwise take a path for a missing host).
+ * Anything after the host (user information, port, path, query) is the
+ * administrator's and is kept. */
+function serviceAddressText(text: string): boolean {
+  if (!/^https?:\/\/[^/\\?#\s]/i.test(text)) return false;
+  try {
+    const url = new URL(text);
+    return (url.protocol === "http:" || url.protocol === "https:") && url.hostname !== "";
+  } catch { return false; }
 }
 
 /** A site as its scheme, host and port, or null for anything more or less:
@@ -85,7 +104,14 @@ export function catalogueProblems(definitions: readonly SettingDefinition[]): st
     if (write?.kind === "text" && (definition.kind !== "text" || !Number.isSafeInteger(write.maxLength) || write.maxLength < 1)) report("invalid text constraint");
     if (write?.kind === "choice" && (definition.kind !== "choice" || !write.values.length || new Set(write.values).size !== write.values.length)) report("invalid choice constraint");
     if (write?.kind === "sites" && (definition.kind !== "list" || !Number.isSafeInteger(write.maxSites) || write.maxSites < 1)) report("invalid sites constraint");
-    if (definition.editable && !validateStoredValue(definition, definition.defaultValue).ok) report("default fails validation");
+    if (write?.kind === "address" && (definition.kind !== "address" || !Number.isSafeInteger(write.maxLength) || write.maxLength < 1)) report("invalid address constraint");
+    // An address may carry a key, so an editable one is write-only: it is
+    // written through the address kind, which stores it encrypted and reads
+    // it back as scheme and host, and only admins read even that.
+    if (definition.editable && definition.kind === "address" && (write?.kind !== "address" || definition.readBy !== "admin")) report("address not write-only");
+    // A default the server works out when it needs it is not a value to validate.
+    const ruleDefault = typeof definition.defaultValue === "object" && definition.defaultValue !== null && "rule" in definition.defaultValue;
+    if (definition.editable && !ruleDefault && !validateStoredValue(definition, definition.defaultValue).ok) report("default fails validation");
   }
   return problems;
 }

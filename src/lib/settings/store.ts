@@ -1,6 +1,7 @@
 import type { Database } from "better-sqlite3";
 import { realpathSync } from "node:fs";
 import { observeTransactionBoundary } from "@/lib/metadata/transaction-boundary";
+import { decryptSecret, encryptSecret } from "@/lib/secrets";
 import { SETTING_CATALOGUE, settingDefinition } from "./catalogue";
 import { NUMERIC_SETTINGS } from "./numeric";
 import { validateStoredValue } from "./validation";
@@ -27,19 +28,45 @@ function toText(value: Exclude<SettingValue, null>): string {
   return Array.isArray(value) ? value.join("\n") : String(value);
 }
 
-/** Instance text stays in SQLite, including the row used by the legacy writer. */
+/** An address is kept encrypted with the instance's key, as a connection's
+ * password is: a copied metadata database alone gives none of it away. */
+const writeOnly = (definition: SettingDefinition) => definition.write?.kind === "address";
+
+/** Instance text stays in SQLite, including the row used by the legacy writer.
+ * A write-only address never enters this read: its plaintext has one door,
+ * below, and nothing that reads every stored value passes through it. */
 export function readStoredSettings(db: Database): Record<string, SettingValue> {
   const rows = db.prepare("SELECT key, value FROM workspace_settings").all() as { key: string; value: string }[];
   const stored = new Map(rows.map(row => [row.key, row.value]));
   const result: Record<string, SettingValue> = {};
   for (const definition of SETTING_CATALOGUE) {
-    if (definition.scope !== "instance" || !definition.editable) continue;
+    if (definition.scope !== "instance" || !definition.editable || writeOnly(definition)) continue;
     const raw = stored.get(storageKey(definition.key));
     if (raw === undefined) continue;
     const value = validateStoredValue(definition, fromText(definition, raw));
     if (value.ok && value.value !== null) result[definition.key] = value.value;
   }
   return result;
+}
+
+/** A stored address as its one door gives it: not stored, its plaintext, or
+ * stored but not readable (the instance's key no longer opens it, or what
+ * it opens is not an address). */
+export type StoredAddress = { readonly set: false } | { readonly set: true; readonly address: string } | { readonly set: true; readonly unreadable: true };
+
+/** The one door to a stored address's plaintext. Only the service-address
+ * resolver calls it: services take the address in effect from there, and
+ * the configuration read takes its disclosure (scheme and host, or
+ * unreadable) from there. The key is touched only when a row exists. */
+export function readStoredAddress(key: string, db: Database): StoredAddress {
+  const definition = settingDefinition(key);
+  if (!writeOnly(definition)) throw new Error(`Not a write-only address: ${key}`);
+  const row = db.prepare("SELECT value FROM workspace_settings WHERE key = ?").get(storageKey(key)) as { value: string } | undefined;
+  if (!row) return { set: false };
+  let plaintext: string;
+  try { plaintext = decryptSecret(row.value); } catch { return { set: true, unreadable: true }; }
+  const validated = validateStoredValue(definition, plaintext);
+  return validated.ok && typeof validated.value === "string" ? { set: true, address: validated.value } : { set: true, unreadable: true };
 }
 
 const NUMERIC_LIMITS = new Set<string>(NUMERIC_SETTINGS.map(definition => definition.key));
@@ -92,7 +119,7 @@ export function writeStoredSettings(patch: Readonly<Record<string, unknown>>, db
       if (value === null) db.prepare("DELETE FROM workspace_settings WHERE key = ?").run(storageKey(key));
       else db.prepare(`INSERT INTO workspace_settings (key, value, updated_at) VALUES (?, ?, ?)
         ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`)
-        .run(storageKey(key), toText(value), new Date().toISOString());
+        .run(storageKey(key), writeOnly(settingDefinition(key)) ? encryptSecret(toText(value)) : toText(value), new Date().toISOString());
     }
     (db as ObservedStore)[storeKey]!.dirty = true;
   }).immediate();

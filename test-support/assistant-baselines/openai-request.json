@@ -317,7 +317,7 @@
     {
       "type": "function",
       "name": "get_instance_settings",
-      "description": "Read instance configuration. Requires a current admin account through a cookie session or bearer token, rechecked on every call. Responses, including refusals, are private, no-store. Returns every instance and platform definition with its effective value, source, stored value (including a shadowed value), lock and invalid-override state. A non-empty environment variable locks the setting even when invalid; invalid numeric overrides use the default without returning the override text. Empty numeric overrides are absent; a set empty assistant model list retains its default model alone. Environment changes require a restart. Provider keys report set or not set; the encryption key reports environment, data-directory or not-yet-present. Address value and defaultValue expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. The built-in documentedDefault stays as documented, including any path. Contextual defaults carry a rule when there is no single address or value. The read generates no key, writes no configuration file, contacts no service and initializes no engine. Capacities report admitted geocode rows and travel-time origins per run, without promising a configured provider. Also returns the fixed maximum image dimension, package version, stable process start time and warnings when the effective query timeout is at or above the run timeout.",
+      "description": "Read instance configuration. Requires a current admin account through a cookie session or bearer token, rechecked on every call. Responses, including refusals, are private, no-store. Returns every instance and platform definition with its effective value, source, stored value (including a shadowed value), lock and invalid-override state. A non-empty environment variable locks the setting even when invalid; invalid numeric overrides use the default without returning the override text. Empty numeric overrides are absent; a set empty assistant model list retains its default model alone. Environment changes require a restart. Provider keys report set or not set; the encryption key reports environment, data-directory or not-yet-present. Address value and defaultValue expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. A service address an admin stored reads as set with its scheme and host, or as set and unreadable once the instance's encryption key no longer opens it; its storedValue is always null. The built-in documentedDefault stays as documented, including any path. Contextual defaults carry a rule when there is no single address or value. The read generates no key, writes no configuration file, contacts no service and initializes no engine. Capacities report admitted geocode rows and travel-time origins per run, without promising a configured provider. Also returns the fixed maximum image dimension, package version, stable process start time and warnings when the effective query timeout is at or above the run timeout.",
       "parameters": {
         "type": "object",
         "properties": {},
@@ -328,7 +328,7 @@
     {
       "type": "function",
       "name": "update_instance_settings",
-      "description": "Change instance settings. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Requires a current admin through cookie or bearer authentication, rechecked inside the write transaction on every call. Cookie mutations require the same trusted Origin; an admin bearer token calls directly with no additional scope or approval step. Responses, including refusals, are private, no-store. Submit only editable keys; omitted keys stay unchanged and null clears a stored value. The complete body is validated against the committed configuration under one write lock. A refusal or failed commit changes nothing. Non-editable keys answer 400 invalid_request as read-only regardless of their environment. A non-empty environment variable locks an editable setting, including invalid overrides and null writes. A locked editable key answers 409 setting_locked, taking precedence over 400 invalid_request for unknown, non-editable, wrong-kind, non-whole, out-of-range, over-length or invalid-choice entries, a site list entry that is not http or https with a host and an optional port, a resulting queryTimeoutS at or above operationTimeoutS, a resulting security.failedPerAddress below security.failedPerAccount, and a resulting publishing.embedding of listed with no publishing.embedSites. Messages identify all failing known keys and their reasons, unknown keys by their entry position and a refused site by its position, without echoing arbitrary input. The sign-in counts, and embedding with its sites, are checked when a body changes either side. An existing environment timeout mismatch is reported in warnings and blocks no unrelated change. Concurrent different-key edits both land; the last accepted value wins on one key. There is no stale-write rejection or Undo. Stored changes apply live to new work; admitted work keeps its budget. Lowered concurrency cancels nothing, increased concurrency wakes waiters after commit, and lowered queue limits keep accepted waiters. Public limits apply against the existing window count. Environment changes need a restart. Returns the same configuration as the read, with the same secret and address disclosure rules; no secret or address setting is accepted. The embedded assistant asks for confirmation before calling on pages admitting writes; SQL and workflow assistants refuse this update. MCP advertises that policy and adds no confirmation step.",
+      "description": "Change instance settings. At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Requires a current admin through cookie or bearer authentication, rechecked inside the write transaction on every call. Cookie mutations require the same trusted Origin; an admin bearer token calls directly with no additional scope or approval step. Responses, including refusals, are private, no-store. Submit only editable keys; omitted keys stay unchanged and null clears a stored value. The complete body is validated against the committed configuration under one write lock. A refusal or failed commit changes nothing. Non-editable keys answer 400 invalid_request as read-only regardless of their environment. A non-empty environment variable locks an editable setting, including invalid overrides and null writes. A locked editable key answers 409 setting_locked, taking precedence over 400 invalid_request for unknown, non-editable, wrong-kind, non-whole, out-of-range, over-length or invalid-choice entries, a site list entry that is not http or https with a host and an optional port, a resulting queryTimeoutS at or above operationTimeoutS, a resulting security.failedPerAddress below security.failedPerAccount, and a resulting publishing.embedding of listed with no publishing.embedSites. Messages identify all failing known keys and their reasons, unknown keys by their entry position and a refused site by its position, without echoing arbitrary input. The sign-in counts, and embedding with its sites, are checked when a body changes either side. An existing environment timeout mismatch is reported in warnings and blocks no unrelated change. Concurrent different-key edits both land; the last accepted value wins on one key. There is no stale-write rejection or Undo. Stored changes apply live to new work; admitted work keeps its budget. Lowered concurrency cancels nothing, increased concurrency wakes waiters after commit, and lowered queue limits keep accepted waiters. Public limits apply against the existing window count. Environment changes need a restart. Returns the same configuration as the read, with the same secret and address disclosure rules. No secret is accepted. The four service addresses (geocoderUrl, isochroneUrl, overpassUrl, s3Endpoint) are write-only: each is stored encrypted and read back as its scheme and host alone; a refusal names the key and never repeats the address. The embedded assistant asks for confirmation before calling on pages admitting writes; SQL and workflow assistants refuse this update. MCP advertises that policy and adds no confirmation step.",
       "parameters": {
         "type": "object",
         "additionalProperties": false,
@@ -458,6 +458,38 @@
             "minimum": 1,
             "maximum": 100000,
             "description": "Tile requests per source. Anonymous tile reads per verified source across publication tokens. Null clears the stored value."
+          },
+          "s3Endpoint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\s*[Hh][Tt][Tt][Pp][Ss]?://[^/\\\\?#\\s]",
+            "description": "S3 endpoint. Custom S3-compatible endpoint for anonymous imports. Null clears the stored value. An http or https address with a host, at most 2048 characters once trimmed, kept as given. Write-only: it is stored encrypted with the instance's key and every read gives back its scheme and host alone, so a new key means sending the whole address again. A set DEZFIL_S3_ENDPOINT locks it."
+          },
+          "overpassUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\s*[Hh][Tt][Tt][Pp][Ss]?://[^/\\\\?#\\s]",
+            "description": "Overpass endpoint. Endpoint for OpenStreetMap imports. Null clears the stored value. An http or https address with a host, at most 2048 characters once trimmed, kept as given. Write-only: it is stored encrypted with the instance's key and every read gives back its scheme and host alone, so a new key means sending the whole address again. A set DEZFIL_OVERPASS_URL locks it."
+          },
+          "geocoderUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\s*[Hh][Tt][Tt][Pp][Ss]?://[^/\\\\?#\\s]",
+            "description": "Address finder. Nominatim-compatible endpoint for search and batch geocoding. Null clears the stored value. An http or https address with a host, at most 2048 characters once trimmed, kept as given. Write-only: it is stored encrypted with the instance's key and every read gives back its scheme and host alone, so a new key means sending the whole address again. A set DEZFIL_GEOCODER_URL locks it."
+          },
+          "isochroneUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\s*[Hh][Tt][Tt][Pp][Ss]?://[^/\\\\?#\\s]",
+            "description": "Travel-time endpoint. Valhalla-compatible endpoint for travel-time areas. Null clears the stored value. An http or https address with a host, at most 2048 characters once trimmed, kept as given. Write-only: it is stored encrypted with the instance's key and every read gives back its scheme and host alone, so a new key means sending the whole address again. A set DEZFIL_ISOCHRONE_URL locks it."
           },
           "instanceName": {
             "type": [

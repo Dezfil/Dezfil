@@ -11,7 +11,11 @@ export type WriteConstraint =
   | { readonly kind: "choice"; readonly values: readonly string[] }
   /** A list of sites, each http or https with a host and an optional port
    * and nothing else, kept as its origin. An empty list clears. */
-  | { readonly kind: "sites"; readonly maxSites: number };
+  | { readonly kind: "sites"; readonly maxSites: number }
+  /** A service's address: http or https, at most so many characters once
+   * trimmed, kept as given. Write-only: stored encrypted with the instance's
+   * key and read back as its scheme and host alone. */
+  | { readonly kind: "address"; readonly maxLength: number };
 
 export interface SettingDefinition {
   readonly key: string;
@@ -36,7 +40,7 @@ export interface SettingDefinition {
 
 /** The kind of setting each write constraint keeps. */
 export const KIND_OF: Readonly<Record<WriteConstraint["kind"], SettingDefinition["kind"]>> = {
-  integer: "number", decimal: "number", switch: "boolean", text: "text", choice: "choice", sites: "list",
+  integer: "number", decimal: "number", switch: "boolean", text: "text", choice: "choice", sites: "list", address: "address",
 };
 
 export type NumericParsing = "positive" | "non-negative" | "positive-integer";

@@ -274,3 +274,72 @@ describe("the decimal and switch value kinds", () => {
     expect(catalogueProblems([...SETTING_CATALOGUE, seeded])).toContain(`${seeded.key}: ${problem}`);
   });
 });
+
+/** The four service addresses an admin may store beside their variables. */
+const SERVICE_ADDRESSES = {
+  s3Endpoint: "DEZFIL_S3_ENDPOINT", overpassUrl: "DEZFIL_OVERPASS_URL",
+  geocoderUrl: "DEZFIL_GEOCODER_URL", isochroneUrl: "DEZFIL_ISOCHRONE_URL",
+} as const;
+const ADDRESS_REFUSED = { ok: false, reason: "Expected an http or https address of at most 2048 characters." };
+
+describe("the service addresses", () => {
+  it("are editable beside their variables, write-only, read by admins and never secret", () => {
+    expect(SETTING_CATALOGUE.filter(d => d.kind === "address" && d.editable).map(d => d.key)).toEqual(Object.keys(SERVICE_ADDRESSES));
+    for (const [key, environment] of Object.entries(SERVICE_ADDRESSES)) {
+      expect(settingDefinition(key), key).toMatchObject({ scope: "instance", readBy: "admin", changedBy: "admin", kind: "address",
+        environment, environmentTiming: "restart", timing: "live", secret: false, editable: true, write: { kind: "address", maxLength: 2048 } });
+    }
+    // The other addresses stay the deployment's alone.
+    for (const key of ["basemapUrl", "satelliteUrl", "overtureS3Endpoint"]) {
+      expect(settingDefinition(key), key).toMatchObject({ editable: false, changedBy: "deployment", timing: "next-start" });
+      expect(settingDefinition(key).write, key).toBeUndefined();
+    }
+    expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
+  });
+
+  it("keeps an http or https address as given once trimmed, its user information, port, path and query included", () => {
+    const definition = settingDefinition("geocoderUrl");
+    const seeded = "https://seed-user:SEEDED-KEY-0001-USER@geocoder.example:8443/SEEDED-KEY-0001-PATH/search?key=SEEDED-KEY-0001-QUERY";
+    expect(validateStoredValue(definition, `  ${seeded}\n`)).toEqual({ ok: true, value: seeded });
+    expect(validateStoredValue(definition, "HTTP://Router.Example")).toEqual({ ok: true, value: "HTTP://Router.Example" });
+    const longest = `https://geocoder.example/${"a".repeat(2048 - "https://geocoder.example/".length)}`;
+    expect(longest).toHaveLength(2048);
+    expect(validateStoredValue(definition, ` ${longest} `)).toEqual({ ok: true, value: longest });
+    expect(validateStoredValue(definition, null)).toEqual({ ok: true, value: null });
+  });
+
+  it.each([
+    ["2,049 characters", `https://geocoder.example/${"a".repeat(2049 - "https://geocoder.example/".length)}?key=SEEDED-KEY-0001-QUERY`],
+    ["another scheme", "ftp://seed-user:SEEDED-KEY-0001-USER@files.example/data"],
+    ["a script address", "javascript:alert('SEEDED-KEY-0001-QUERY')"],
+    ["a file address", "file:///etc/SEEDED-KEY-0001-PATH"],
+    ["no scheme", "geocoder.example/search?key=SEEDED-KEY-0001-QUERY"],
+    ["no host", "https:///SEEDED-KEY-0001-PATH"],
+    ["a scheme alone", "https://"],
+    ["a scheme without its slashes", "https:geocoder.example"],
+    ["empty text", ""],
+    ["blank text", "   "],
+    ["a number", 42],
+    ["a list", ["https://geocoder.example"]],
+    ["an object", { url: "https://geocoder.example" }],
+    ["a switch", true],
+  ] as const)("refuses %s, repeating nothing of it", (_name, input) => {
+    const result = validateStoredValue(settingDefinition("geocoderUrl"), input);
+    expect(result).toEqual(ADDRESS_REFUSED);
+    expect(JSON.stringify(result)).not.toContain("SEEDED-KEY");
+  });
+
+  it.each([
+    ["a text write on an editable address", "geocoderUrl", { write: { kind: "text", maxLength: 2048, empty: "null" } }, "address not write-only"],
+    ["an editable address every signed-in account reads", "overpassUrl", { readBy: "signed-in" }, "address not write-only"],
+    ["an editable address anyone reads", "isochroneUrl", { readBy: "public" }, "address not write-only"],
+    ["a secret mark on an editable address", "s3Endpoint", { secret: true }, "editable secret"],
+    ["an address constraint on a text setting", "instanceName", { write: { kind: "address", maxLength: 2048 } }, "invalid address constraint"],
+    ["an address constraint with no length", "geocoderUrl", { write: { kind: "address", maxLength: 0 } }, "invalid address constraint"],
+    ["an address default that is not an address", "overpassUrl", { defaultValue: "overpass.example" }, "default fails validation"],
+  ] as const)("fails the catalogue with %s", (_name, key, change, problem) => {
+    expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
+    const seeded = SETTING_CATALOGUE.map(definition => definition.key === key ? { ...definition, ...change } as SettingDefinition : definition);
+    expect(catalogueProblems(seeded)).toContain(`${key}: ${problem}`);
+  });
+});
