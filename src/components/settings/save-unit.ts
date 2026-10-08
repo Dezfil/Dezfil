@@ -3,15 +3,16 @@
  * about it. Framework-free, so every rule is held by unit tests and the
  * card component stays a thin drawing over the snapshot.
  *
- * - A choice is kept at once. A number is kept at once when stepped, and
- *   only the value the steps settle on is sent; a typed number is kept on
- *   Enter or on leaving the field. Typed text waits for the card's Save,
- *   which writes the changed keys in one request, and Save and Cancel
- *   show only while that text differs from what was saved.
+ * - A choice, and a switch, is kept at once. A number is kept at once
+ *   when stepped, and only the value the steps settle on is sent; a typed
+ *   number is kept on Enter or on leaving the field. Typed text waits for
+ *   the card's Save, which writes the changed keys in one request, and
+ *   Save and Cancel show only while that text differs from what was saved.
  * - Nothing is marked Saved before the server accepted the write, and the
  *   kept value is the one the response reports. Saved shows only by the
  *   value accepted, never by a newer one, and goes at the next change.
- * - A number out of range is refused before any request, and so is typed
+ * - A number out of range is refused before any request, and so is a
+ *   number with decimals where the setting takes whole numbers, and typed
  *   text the card's own check refuses on Save. A refusal that
  *   names a row draws the red line under it with the refusal's words and
  *   keeps nothing; any other refusal is the card's error note, with Try
@@ -37,10 +38,14 @@ export type Value = string | number | boolean | null;
 export interface UnitControl {
   /** The key the write takes. */
   readonly key: string;
-  readonly kind: "choice" | "number" | "text";
-  /** A number's accepted range. Every editable number is a whole number. */
+  /** A switch is true or false, kept at once as a choice is. */
+  readonly kind: "choice" | "switch" | "number" | "text";
+  /** A number's accepted range. */
   readonly min?: number;
   readonly max?: number;
+  /** A number that takes decimals, kept as given. Every other number is a
+   * whole number. */
+  readonly decimal?: boolean;
   /** Pinned by the server's environment, or fixed: never edited, saved, reset or held. */
   readonly locked?: boolean;
   /** What Reset to defaults returns it to. A control without one is not reset. */
@@ -104,8 +109,9 @@ export function rowRefusals(message: string, keys: readonly string[]): Record<st
   return out;
 }
 
-/** A number's own check, before any request. */
-export function numberProblem(text: string, control: Pick<UnitControl, "min" | "max">): string | null {
+/** A number's own check, before any request: a decimal only where the
+ * control takes one. */
+export function numberProblem(text: string, control: Pick<UnitControl, "min" | "max" | "decimal">): string | null {
   const trimmed = text.trim(), value = Number(trimmed);
   if (!trimmed || !Number.isFinite(value)) return "Enter a number.";
   const { min, max } = control;
@@ -113,15 +119,19 @@ export function numberProblem(text: string, control: Pick<UnitControl, "min" | "
     return min !== undefined && max !== undefined ? `Enter a number from ${min} to ${max}.`
       : min !== undefined ? `Enter a number of ${min} or more.` : `Enter a number of ${max} or less.`;
   }
-  return Number.isInteger(value) ? null : "Enter a whole number.";
+  return control.decimal || Number.isInteger(value) ? null : "Enter a whole number.";
 }
 
+/** A choice or a switch shows its value as it is; a number and a text as
+ * the field's text. */
+const asIs = (control: UnitControl) => control.kind === "choice" || control.kind === "switch";
+
 function display(control: UnitControl, value: Value): Value {
-  return control.kind === "choice" ? value : value === null || value === undefined ? "" : String(value);
+  return asIs(control) ? value : value === null || value === undefined ? "" : String(value);
 }
 
 function same(control: UnitControl, a: Value, b: Value): boolean {
-  if (control.kind === "choice") return a === b || String(a) === String(b);
+  if (asIs(control)) return a === b || String(a) === String(b);
   const left = String(a ?? "").trim(), right = String(b ?? "").trim();
   if (control.kind === "number" && left !== "" && right !== "" && Number.isFinite(Number(left)) && Number.isFinite(Number(right))) {
     return Number(left) === Number(right);
@@ -202,7 +212,7 @@ export class SaveUnit {
     this.emit();
   }
 
-  /** A choice: kept at once. */
+  /** A choice, or a switch turned on or off: kept at once. */
   choose(key: string, value: Value): void {
     const control = this.editable(key);
     if (!control) return;
