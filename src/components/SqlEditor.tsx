@@ -25,6 +25,7 @@ import {
 } from "./sql-editor-handle";
 import { startCompletion } from "@codemirror/autocomplete";
 import {
+  editorLook,
   errorMarkExtensions,
   setErrorMark,
   sqlLanguage,
@@ -52,11 +53,11 @@ const highlight = HighlightStyle.define([
   { tag: tags.function(tags.variableName), color: "var(--code-function)" },
 ]);
 
-/* Chrome only — everything tokenized inherits the app's mono type scale. */
+/* Chrome only — everything tokenized inherits the app's mono type scale.
+   The text size is the host's (editorLook), so the chrome carries none. */
 const editorTheme = EditorView.theme({
   "&": {
     height: "100%",
-    fontSize: "12px",
     backgroundColor: "transparent",
     color: "var(--fg)",
   },
@@ -152,8 +153,12 @@ interface Props {
    * contract's focus must survive the gap). */
   onReady?: () => void;
   /** Wrap long lines instead of scrolling sideways — opt-in per
-   * host; only the add-layer workbench sets it. Fixed for the mount. */
+   * host: the add-layer workbench sets it, and the SQL console as the
+   * instance's default says. Fixed for the mount. */
   wrap?: boolean;
+  /** The text size in pixels, 12 where the host gives none: only the SQL
+   * console sets it, from the instance's default. Fixed for the mount. */
+  textSize?: number;
   /** Schema-driven completion — opt-in; the SQL workspace passes
    * what it knows and the editor reconfigures in place as it grows. Null
    * or absent leaves the editor without completion, as before. Ignored
@@ -187,6 +192,7 @@ export default function SqlEditor({
   language,
   onReady,
   wrap = false,
+  textSize,
   completion = null,
   runSelection = false,
   errorAt = null,
@@ -212,6 +218,7 @@ export default function SqlEditor({
     language,
     onReady,
     wrap,
+    textSize,
     completion,
     runSelection,
     onSelectionChange,
@@ -228,6 +235,7 @@ export default function SqlEditor({
       language,
       onReady,
       wrap,
+      textSize,
       completion,
       runSelection,
       onSelectionChange,
@@ -243,6 +251,7 @@ export default function SqlEditor({
     language,
     onReady,
     wrap,
+    textSize,
     completion,
     runSelection,
     onSelectionChange,
@@ -293,7 +302,7 @@ export default function SqlEditor({
               { key: "Mod-Space", run: startCompletion },
             ]),
           ),
-          ...(latest.current.wrap ? [EditorView.lineWrapping] : []),
+          editorLook({ textSize: latest.current.textSize, wrap: latest.current.wrap }),
           keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
           EditorView.updateListener.of((u) => {
             if (u.docChanged) {
