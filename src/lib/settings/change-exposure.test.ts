@@ -33,8 +33,9 @@ it("exposes a closed update input and refuses unknown arguments before HTTP disp
     instanceName: { type: ["string", "null"], pattern: "^\\s*[\\s\\S]{0,80}\\s*$" }, landingPage: { enum: ["home", "projects", "maps", "workflows", "data", "sql", null] },
     "newMap.zoom": { type: ["number", "null"], minimum: 0, maximum: 22 }, "newLayer.pointOpacity": { type: ["integer", "null"], minimum: 10, maximum: 100 },
     "sqlConsole.lineWrap": { type: ["boolean", "null"] }, "imageExport.shape": { enum: ["16:9", "4:3", "1:1", null] } });
-  // The fourteen limits, the four General rows and the eighteen defaults for new things.
-  expect(Object.keys(tool.inputSchema.properties)).toHaveLength(36);
+  // The fourteen limits, the four General rows, the eighteen defaults for new
+  // things, and the twelve sign-in, token, publishing, connection and import rows.
+  expect(Object.keys(tool.inputSchema.properties)).toHaveLength(48);
   for (const key of ["secretKey", "geocoderUrl", "renderCapFeatures", "sourceGrouping"]) expect(tool.inputSchema.properties).not.toHaveProperty(key);
   const fetch = vi.fn();
   const result = await executeTool(tool, { previewRows: 200, unknown: "seed-tool-secret" }, "http://instance.test", fetch);

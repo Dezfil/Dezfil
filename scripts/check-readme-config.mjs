@@ -17,9 +17,10 @@
 // and OPENAI_API_KEY — must be documented.
 //
 // The configuration guide's Instance defaults table is held to the
-// catalogue's defaults, the settings every signed-in account reads, in both
-// directions and by documented default. They have no variable, so their rows
-// name the key the change operation takes.
+// catalogue's defaults, what new things start with (settings every
+// signed-in account reads, in the defaults' groups, as the catalogue's own
+// predicate says), in both directions and by documented default. They have
+// no variable, so their rows name the key the change operation takes.
 //
 // Usage: node scripts/check-readme-config.mjs [--src DIR] [--readme FILE] [--configuration FILE]
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
@@ -196,8 +197,10 @@ export function defaultsRowProblems(definitions, rows, label) {
   return problems;
 }
 
-/** `defaultsGuide` names the document, among `documents`, that carries the Instance defaults table. */
-export function configurationProblems({ srcDir, documents, catalogue, testWiring, defaultsGuide }) {
+/** `defaultsGuide` names the document, among `documents`, that carries the
+ * Instance defaults table; `isInstanceDefault` is the catalogue's own
+ * predicate for which definitions it holds. */
+export function configurationProblems({ srcDir, documents, catalogue, testWiring, defaultsGuide, isInstanceDefault }) {
   const definitions = catalogue.filter(definition => definition.environment && definition.scope !== "platform");
   const scriptsDir = path.join(srcDir, "..", "scripts");
   const server = serverVariables(srcDir, scriptsDir);
@@ -213,7 +216,8 @@ export function configurationProblems({ srcDir, documents, catalogue, testWiring
     // Retain each document's direct comparison with executable script reads.
     problems.push(...differences(wiring, new Set(wiringRows.map(row => row.name)), `${label} script test wiring`));
   }
-  const defaults = catalogue.filter(definition => definition.readBy === "signed-in");
+  if (typeof isInstanceDefault !== "function") throw new TypeError("configurationProblems needs the catalogue's isInstanceDefault predicate.");
+  const defaults = catalogue.filter(definition => isInstanceDefault(definition));
   if (!Object.hasOwn(documents, defaultsGuide ?? "")) problems.push(`MISSING: the guide holding the Instance defaults table is not among the checked documents: ${defaultsGuide}`);
   else problems.push(...defaultsRowProblems(defaults, defaultsRows(documents[defaultsGuide]), defaultsGuide));
   return problems;
@@ -229,10 +233,10 @@ if (isMain) {
   const srcDir = argOf("--src", path.join(process.cwd(), "src"));
   const readme = argOf("--readme", path.join(process.cwd(), "README.md"));
   const configuration = argOf("--configuration", path.join(process.cwd(), "docs/configuration.md"));
-  const { SETTING_CATALOGUE, TEST_WIRING } = await settingsSource(path.dirname(srcDir));
+  const { SETTING_CATALOGUE, TEST_WIRING, isInstanceDefault } = await settingsSource(path.dirname(srcDir));
   const problems = configurationProblems({ srcDir, catalogue: SETTING_CATALOGUE, testWiring: TEST_WIRING,
     documents: { [readme]: readFileSync(readme, "utf8"), [configuration]: readFileSync(configuration, "utf8") },
-    defaultsGuide: configuration,
+    defaultsGuide: configuration, isInstanceDefault,
   });
   for (const problem of problems) console.error(problem);
   if (problems.length) {
@@ -240,7 +244,7 @@ if (isMain) {
     process.exitCode = 1;
   } else {
     const deployment = SETTING_CATALOGUE.filter(d => d.environment && d.scope !== "platform").length;
-    const defaults = SETTING_CATALOGUE.filter(d => d.readBy === "signed-in").length;
+    const defaults = SETTING_CATALOGUE.filter(d => isInstanceDefault(d)).length;
     console.log(`PASS: both documents match ${deployment} deployment settings and ${TEST_WIRING.length} test-wiring names, defaults and change timing; the configuration guide's Instance defaults table matches the ${defaults} instance defaults and their documented values; source scans agree in both directions.`);
   }
 }

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { SETTING_CATALOGUE, TEST_WIRING, settingDefinition } from "./catalogue";
+import { isInstanceDefault } from "./instance-defaults";
 import { catalogueProblems, validateStoredValue } from "./validation";
 import { lockedEnvironment } from "./resolver";
 import type { SettingDefinition } from "./types";
@@ -141,7 +142,7 @@ const KIND_OF_WRITE = { choice: "choice", decimal: "number", integer: "number", 
 
 describe("the defaults for new things", () => {
   it("defines the eighteen with their values and product default, read by every signed-in account and changed by admins, with no variable, never secret and never locked", () => {
-    expect(SETTING_CATALOGUE.filter(d => d.readBy === "signed-in").map(d => d.key)).toEqual(Object.keys(NEW_THINGS));
+    expect(SETTING_CATALOGUE.filter(isInstanceDefault).map(d => d.key)).toEqual(Object.keys(NEW_THINGS));
     for (const [key, [write, defaultValue]] of Object.entries(NEW_THINGS)) {
       const definition = settingDefinition(key);
       expect(definition, key).toMatchObject({ scope: "instance", readBy: "signed-in", changedBy: "admin", kind: KIND_OF_WRITE[write.kind],
@@ -161,6 +162,75 @@ describe("the defaults for new things", () => {
     expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
     const seeded = SETTING_CATALOGUE.map(definition => definition.key === key ? { ...definition, ...change } : definition);
     expect(catalogueProblems(seeded)).toContain(`${key}: ${problem}`);
+  });
+});
+
+/** How long sign-ins and links last, when failed sign-ins pause, the
+ * shortest password, and who may create tokens, publish, embed, add
+ * connections and import from links: each row's values, the product's own
+ * default and who reads it, as the approved table states them. */
+const SECURITY = {
+  "security.sessionDays": [{ kind: "choice", values: ["1", "7", "30", "90"] }, "30", "admin"],
+  "security.linkDays": [{ kind: "choice", values: ["1", "3", "7", "14"] }, "7", "admin"],
+  "security.failedPerAccount": [{ kind: "integer", min: 3, max: 100 }, 5, "admin"],
+  "security.failedPerAddress": [{ kind: "integer", min: 10, max: 1000 }, 20, "admin"],
+  "security.passwordMin": [{ kind: "integer", min: 8, max: 64 }, 8, "public"],
+  "tokens.create": [{ kind: "choice", values: ["everyone", "admins"] }, "everyone", "signed-in"],
+  "tokens.expiry": [{ kind: "choice", values: ["never", "30d", "90d", "1y"] }, "never", "signed-in"],
+  "publishing.publish": [{ kind: "choice", values: ["everyone", "admins", "none"] }, "everyone", "signed-in"],
+  "publishing.embedding": [{ kind: "choice", values: ["any", "listed", "off"] }, "any", "signed-in"],
+  "publishing.embedSites": [{ kind: "sites", maxSites: 50 }, [], "admin"],
+  "connections.create": [{ kind: "choice", values: ["everyone", "admins"] }, "everyone", "signed-in"],
+  "imports.links": [{ kind: "choice", values: ["everyone", "admins"] }, "everyone", "signed-in"],
+} as const;
+const KIND_OF_SECURITY_WRITE = { choice: "choice", integer: "number", sites: "list" } as const;
+const SECURITY_GROUPS = ["security", "tokens", "publishing", "connections", "imports"];
+
+describe("the security rows and the rules", () => {
+  it("defines the twelve with their values, product default and reader, changed by admins, with no variable, never secret and never locked", () => {
+    expect(SETTING_CATALOGUE.filter(d => SECURITY_GROUPS.includes(d.key.split(".")[0])).map(d => d.key)).toEqual(Object.keys(SECURITY));
+    for (const [key, [write, defaultValue, readBy]] of Object.entries(SECURITY)) {
+      const definition = settingDefinition(key);
+      expect(definition, key).toMatchObject({ scope: "instance", readBy, changedBy: "admin", kind: KIND_OF_SECURITY_WRITE[write.kind],
+        timing: "live", secret: false, editable: true, defaultValue });
+      expect(definition.write, key).toEqual(write);
+      expect(definition.label, key).not.toBe("");
+      expect(definition.environment, key).toBeUndefined();
+      expect(lockedEnvironment(definition), key).toBeUndefined();
+      expect(validateStoredValue(definition, defaultValue).ok, key).toBe(true);
+    }
+    // None of them is what new things start with, so none enters the defaults.
+    expect(Object.keys(SECURITY).filter(key => isInstanceDefault(settingDefinition(key)))).toEqual([]);
+    expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
+  });
+
+  it("keeps each choice it offers and each whole number within bounds, as given, and refuses the rest", () => {
+    for (const [key, [write]] of Object.entries(SECURITY)) {
+      const definition = settingDefinition(key);
+      if (write.kind === "choice") {
+        for (const value of write.values) expect(validateStoredValue(definition, value), key).toEqual({ ok: true, value });
+        for (const value of ["unknown", "", 30, true, [], {}]) expect(validateStoredValue(definition, value).ok, `${key}: ${String(value)}`).toBe(false);
+      }
+      if (write.kind === "integer") {
+        for (const value of [write.min, write.max]) expect(validateStoredValue(definition, value), key).toEqual({ ok: true, value });
+        for (const value of [write.min - 1, write.max + 1, write.min + 0.5, NaN, String(write.min), true, []]) {
+          expect(validateStoredValue(definition, value).ok, `${key}: ${String(value)}`).toBe(false);
+        }
+      }
+      expect(validateStoredValue(definition, null), key).toEqual({ ok: true, value: null });
+    }
+  });
+
+  it.each(Object.keys(SECURITY))("%s fails the catalogue with a seeded variable", key => {
+    expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
+    const seeded = SETTING_CATALOGUE.map(definition => definition.key === key
+      ? { ...definition, environment: "DEZFIL_SECURITY_SEEDED", environmentTiming: "restart" as const } : definition);
+    expect(catalogueProblems(seeded)).toContain(`${key}: security variable`);
+  });
+
+  it("fails the catalogue with a seeded variable on a new row in one of their groups", () => {
+    const added = { ...settingDefinition("security.passwordMin"), key: "security.seeded", environment: "DEZFIL_SECURITY_SEEDED", environmentTiming: "restart" as const };
+    expect(catalogueProblems([...SETTING_CATALOGUE, added])).toEqual(["security.seeded: security variable"]);
   });
 });
 

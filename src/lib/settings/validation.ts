@@ -26,7 +26,33 @@ export function validateStoredValue(definition: SettingDefinition, input: unknow
     case "choice":
       return typeof input === "string" && constraint.values.includes(input)
         ? { ok: true, value: input } : { ok: false, reason: `Expected one of: ${constraint.values.join(", ")}.` };
+    case "sites": {
+      if (!Array.isArray(input) || input.length > constraint.maxSites) return { ok: false, reason: `Expected a list of at most ${constraint.maxSites} sites.` };
+      const origins: string[] = [];
+      for (const [index, entry] of input.entries()) {
+        // Named by position: an entry may hold a credential, so it is never repeated.
+        const origin = typeof entry === "string" ? siteOrigin(entry) : null;
+        if (origin === null) return { ok: false, reason: `Expected each site as http or https with a host and an optional port, nothing else; entry ${index + 1} is not.` };
+        if (!origins.includes(origin)) origins.push(origin);
+      }
+      return { ok: true, value: origins.length ? origins : null };
+    }
   }
+}
+
+/** A site as its scheme, host and port, or null for anything more or less:
+ * user information, a path past the bare closing slash, a query or a
+ * fragment, or a host a framing policy cannot name exactly. A host is
+ * dot-separated labels of letters, digits and hyphens (an IPv4 address
+ * included), so no site can carry a separator into the policy. The
+ * scheme's own port is dropped, as the browser drops it. */
+function siteOrigin(entry: string): string | null {
+  const text = entry.trim();
+  if (!/^https?:\/\/[^/?#@\\\s]+\/?$/i.test(text)) return null;
+  let url: URL;
+  try { url = new URL(text); } catch { return null; }
+  if (!/^(?=.{1,253}$)[a-z0-9-]{1,63}(?:\.[a-z0-9-]{1,63})*$/.test(url.hostname)) return null;
+  return `${url.protocol}//${url.host}`;
 }
 
 export function catalogueProblems(definitions: readonly SettingDefinition[]): string[] {
@@ -44,6 +70,10 @@ export function catalogueProblems(definitions: readonly SettingDefinition[]): st
     // Every signed-in account reads these: no deployment pins one, and none is a secret.
     if (definition.readBy === "signed-in" && environment) report("signed-in variable");
     if (definition.readBy === "signed-in" && (definition.secret || definition.kind === "secret")) report("signed-in secret");
+    // How long sign-ins and links last, when sign-in pauses, and who may
+    // create tokens, publish, embed, connect or import: the admin's to
+    // change, so no deployment pins one.
+    if (environment && ["security", "tokens", "publishing", "connections", "imports"].includes(key.split(".")[0])) report("security variable");
     if (definition.editable && definition.timing !== "live") report("editable next-start");
     if (definition.editable && (definition.secret || definition.kind === "secret")) report("editable secret");
     if (definition.editable && !write) report("missing validator");
@@ -53,6 +83,7 @@ export function catalogueProblems(definitions: readonly SettingDefinition[]): st
     if (write?.kind === "switch" && definition.kind !== "boolean") report("invalid switch constraint");
     if (write?.kind === "text" && (definition.kind !== "text" || !Number.isSafeInteger(write.maxLength) || write.maxLength < 1)) report("invalid text constraint");
     if (write?.kind === "choice" && (definition.kind !== "choice" || !write.values.length || new Set(write.values).size !== write.values.length)) report("invalid choice constraint");
+    if (write?.kind === "sites" && (definition.kind !== "list" || !Number.isSafeInteger(write.maxSites) || write.maxSites < 1)) report("invalid sites constraint");
     if (definition.editable && !validateStoredValue(definition, definition.defaultValue).ok) report("default fails validation");
   }
   return problems;

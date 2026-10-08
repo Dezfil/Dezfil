@@ -1,6 +1,10 @@
 import { NUMERIC_SETTINGS } from "./numeric";
 import { INSTANCE_DEFAULT_SETTINGS } from "./instance-defaults";
+import { INSTANCE_SECURITY_SETTINGS } from "./instance-security";
 import type { SettingDefault, SettingDefinition, WriteConstraint } from "./types";
+
+/** Which settings are what new things start with, for a reader of the catalogue alone. */
+export { isInstanceDefault } from "./instance-defaults";
 
 function deployment(key: string, environment: string, kind: SettingDefinition["kind"],
   label: string, purpose: string, defaultValue: SettingDefault, documentedDefault: string): SettingDefinition {
@@ -47,6 +51,7 @@ export const SETTING_CATALOGUE: readonly SettingDefinition[] = [
   stored("lostPasswordContact", "Lost-password contact", "Contact line for password recovery; empty uses the built-in line.", "", { kind: "text", maxLength: 120, empty: "null" }),
   stored("landingPage", "Landing page", "Preferred entry destination after sign-in.", "home", choice("home", "projects", "maps", "workflows", "data", "sql")),
   ...INSTANCE_DEFAULT_SETTINGS,
+  ...INSTANCE_SECURITY_SETTINGS,
   ...(["maps", "data", "workflows", "projects"] as const).flatMap(screen => [
     stored(`${screen}.view`, `${screen} view`, "The account's list layout.", "grid", choice("grid", "list"), "account"),
     stored(`${screen}.sort`, `${screen} sort`, "The account's list ordering.", screen === "maps" || screen === "workflows" ? "edited" : "updated",

@@ -10,6 +10,7 @@ import { DEFAULT_OPENING_SHAPE } from "@/lib/export/space";
 import { DEFAULT_CATEGORICAL, PALETTES } from "@/lib/style/palettes";
 import { ASPECT_PRESETS } from "@/components/builder/export/aspect";
 import { SETTING_CATALOGUE, settingDefinition } from "./catalogue";
+import { isInstanceDefault } from "./instance-defaults";
 import { writeStoredSettings } from "./store";
 import { PRODUCT_LAYER_LOOK } from "@/lib/style/defaults";
 import { instanceDefaults, newLayerLook, resolveInstanceDefaults, type InstanceDefaults } from "./defaults";
@@ -49,7 +50,7 @@ describe("the defaults for new things", () => {
   });
 
   it("are one record keyed by every default the catalogue defines", () => {
-    const keys = SETTING_CATALOGUE.filter(definition => definition.readBy === "signed-in").map(definition => definition.key);
+    const keys = SETTING_CATALOGUE.filter(isInstanceDefault).map(definition => definition.key);
     expect(keys).toHaveLength(18);
     expect(Object.keys(resolveInstanceDefaults({}, ALL_OFFERED)).sort()).toEqual([...keys].sort());
     expect(Object.keys(resolveInstanceDefaults(STORED, ALL_OFFERED)).sort()).toEqual([...keys].sort());

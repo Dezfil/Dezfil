@@ -3,6 +3,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { afterAll, describe, expect, it } from "vitest";
 import { SETTING_CATALOGUE, TEST_WIRING } from "./settings/catalogue";
+import { isInstanceDefault } from "./settings/instance-defaults";
 import { configurationProblems } from "../../scripts/check-readme-config.mjs";
 
 const root = process.cwd();
@@ -48,7 +49,7 @@ it("checks both real documents against the catalogue and retains the script wiri
 it("takes defaults and editability from the supplied catalogue, not a copy in the checker", () => {
   const catalogue = SETTING_CATALOGUE.map(definition => definition.key === "uploadMaxMb"
     ? { ...definition, documentedDefault: "777", editable: false, timing: "next-start" as const } : definition);
-  const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide });
+  const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault });
   expect(problems).toHaveLength(4);
   for (const guide of guides) {
     expect(problems).toContainEqual(expect.stringContaining(`DEFAULT: ${guide}: ${variable}: expected "777"`));
@@ -58,7 +59,7 @@ it("takes defaults and editability from the supplied catalogue, not a copy in th
 
 it("rejects deployment and test-wiring names removed from the catalogue while reads remain", () => {
   const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals,
-    catalogue: SETTING_CATALOGUE.filter(definition => definition.environment !== variable), testWiring: TEST_WIRING.slice(1), defaultsGuide,
+    catalogue: SETTING_CATALOGUE.filter(definition => definition.environment !== variable), testWiring: TEST_WIRING.slice(1), defaultsGuide, isInstanceDefault,
   });
   for (const name of [variable, TEST_WIRING[0].environment]) {
     expect(problems).toContain(`STALE: source scan against catalogue: ${name}`);
@@ -139,7 +140,7 @@ describe("the configuration guide's Instance defaults table", () => {
         .map(definition => definition.key === "newMap.zoom" ? { ...definition, documentedDefault: "2" } : definition),
       { ...opens, key: "canvas.snap", documentedDefault: "on" },
     ];
-    const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide });
+    const problems = configurationProblems({ srcDir: path.join(root, "src"), documents: originals, catalogue, testWiring: TEST_WIRING, defaultsGuide, isInstanceDefault });
     expect([...problems].sort()).toEqual([
       'DEFAULT: docs/configuration.md instance defaults: newMap.zoom: expected "2", found "1.3"',
       "STALE: docs/configuration.md instance defaults: canvas.resultsBand",

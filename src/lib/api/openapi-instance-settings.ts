@@ -1,6 +1,7 @@
 import { SETTING_CATALOGUE } from "@/lib/settings/catalogue";
 import { disclosedDefinition } from "@/lib/settings/disclosure";
-import type { SettingDefinition } from "@/lib/settings/types";
+import { isInstanceDefault } from "@/lib/settings/instance-defaults";
+import type { SettingDefinition, WriteConstraint } from "@/lib/settings/types";
 import { EXPORT_MAX_DIMENSION } from "@/lib/export/space";
 import { AUTH_SECURITY } from "./openapi-auth";
 import { ERROR_RESPONSE, jsonOk, op } from "./openapi-helpers";
@@ -24,6 +25,12 @@ function valueSchema(definition: SettingDefinition): Record<string, unknown> {
   return { anyOf: [value, rule] };
 }
 
+/** One site as the sites kind takes it: http or https, a host and an
+ * optional port, an optional closing slash, nothing else. The server also
+ * refuses a host a framing policy cannot name. */
+const SITE = { type: "string", pattern: "^\\s*[Hh][Tt][Tt][Pp][Ss]?://[^/?#@\\\\\\s]+/?\\s*$" };
+const sites = (constraint: Extract<WriteConstraint, { kind: "sites" }>) => ({ maxItems: constraint.maxSites, items: SITE });
+
 const settings = Object.fromEntries(SETTING_CATALOGUE.filter(d => d.scope !== "account").map(definition => {
   const fields = Object.fromEntries(Object.entries(disclosedDefinition(definition)).filter(([, value]) => value !== undefined)
     .map(([key, value]) => [key, { const: value }]));
@@ -38,17 +45,18 @@ const settings = Object.fromEntries(SETTING_CATALOGUE.filter(d => d.scope !== "a
  * change operation takes them, every key present. */
 export const INSTANCE_DEFAULTS_SCHEMA = {
   type: "object", additionalProperties: false,
-  required: SETTING_CATALOGUE.filter(d => d.readBy === "signed-in").map(definition => definition.key),
+  required: SETTING_CATALOGUE.filter(isInstanceDefault).map(definition => definition.key),
   description: "What new things start with on this instance, keyed and valued as PATCH /api/instance/settings takes them: every key " +
     "with its effective value. A new map takes the newMap values and a new layer created without a style the newLayer values; " +
     "the workflow canvas, the SQL console and a fresh image export card take theirs as they open. Admins change them, and " +
     "nothing that already exists changes with them. A basemap the instance no longer offers reads as auto.",
-  properties: Object.fromEntries(SETTING_CATALOGUE.filter(d => d.readBy === "signed-in").map(definition => {
+  properties: Object.fromEntries(SETTING_CATALOGUE.filter(isInstanceDefault).map(definition => {
     const constraint = definition.write!;
     const value = constraint.kind === "integer" ? { type: "integer", minimum: constraint.min, maximum: constraint.max }
       : constraint.kind === "decimal" ? { type: "number", minimum: constraint.min, maximum: constraint.max }
       : constraint.kind === "switch" ? { type: "boolean" }
       : constraint.kind === "text" ? { type: "string", maxLength: constraint.maxLength }
+      : constraint.kind === "sites" ? { type: "array", ...sites(constraint) }
       : { type: "string", enum: [...constraint.values] };
     return [definition.key, { ...value, description: `${definition.label}${definition.unit ? ` (${definition.unit})` : ""}. ${definition.purpose}` }];
   })),
@@ -63,8 +71,12 @@ export const INSTANCE_SETTINGS_SCHEMAS = {
         : constraint.kind === "decimal" ? { type: ["number", "null"], minimum: constraint.min, maximum: constraint.max }
         : constraint.kind === "switch" ? { type: ["boolean", "null"] }
         : constraint.kind === "text" ? { type: ["string", "null"], pattern: `^\\s*[\\s\\S]{0,${constraint.maxLength}}\\s*$` }
+        : constraint.kind === "sites" ? { type: ["array", "null"], ...sites(constraint) }
         : { type: ["string", "null"], enum: [...constraint.values, null] };
-      return [definition.key, { ...schema, description: `${definition.label}. ${definition.purpose} Null clears the stored value. ${constraint.kind === "text" ? `Text is trimmed before the ${constraint.maxLength}-character limit; empty text clears to the default.` : ""}`.trim() }];
+      const note = constraint.kind === "text" ? `Text is trimmed before the ${constraint.maxLength}-character limit; empty text clears to the default.`
+        : constraint.kind === "sites" ? `At most ${constraint.maxSites} sites, each http or https with a host and an optional port and nothing else. ` +
+          "Each is kept as its scheme, host and port, a repeated site once; an empty list clears to the default." : "";
+      return [definition.key, { ...schema, description: `${definition.label}. ${definition.purpose} Null clears the stored value. ${note}`.trim() }];
     })),
   },
   InstanceSettings: object({ settings: object(settings),

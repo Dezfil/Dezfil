@@ -19,10 +19,11 @@ const read = () => JSON.parse(JSON.stringify(readInstanceSettings(fixture.contex
 
 describe("the Limits label table against the read", () => {
   it("gives every number an admin may change a row, and names nothing the read lacks", () => {
-    const settings: Record<string, { kind: string; editable: boolean; scope: string; readBy: string }> = read().settings;
-    // The limits are the admin's to read; the numbers every signed-in
-    // account reads are what new things start with, drawn on their own tabs.
-    const editable = Object.entries(settings).filter(([, setting]) => setting.kind === "number" && setting.editable && setting.readBy === "admin").map(([key]) => key);
+    const settings: Record<string, { kind: string; editable: boolean; scope: string; readBy: string; environment?: string }> = read().settings;
+    // The limits are the admin's to read, and a variable can set each; the
+    // numbers every signed-in account reads are what new things start with,
+    // and the sign-in numbers no variable sets: both are drawn on their own tabs.
+    const editable = Object.entries(settings).filter(([, setting]) => setting.kind === "number" && setting.editable && setting.readBy === "admin" && setting.environment).map(([key]) => key);
     const drawn = limitsSettingRows().map(row => row.key);
     expect(new Set(drawn).size).toBe(drawn.length);
     expect(drawn.filter(key => settings[key]?.editable).sort()).toEqual(editable.sort());
