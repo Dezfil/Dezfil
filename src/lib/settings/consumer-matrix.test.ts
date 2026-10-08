@@ -8,6 +8,11 @@ import { limits } from "@/lib/limits";
 import { resetQueryInstance } from "@/lib/duckdb";
 import { resetLane } from "@/lib/operations/lane";
 import { resetRateLimits } from "@/lib/publish/rate-limit";
+import { keepRequestsOnThisMachine } from "@/lib/test-support/outside-requests";
+
+// The services' probes stall at a stubbed transport; a probe whose stub
+// missed fails here instead of reaching a service.
+keepRequestsOnThisMachine();
 
 // The numbers an admin may store beside their variables; the service
 // addresses are held where their services read them.
@@ -37,8 +42,8 @@ afterEach(() => { resetQueryInstance(); resetLane(); resetRateLimits(); vi.useRe
 describe("editable numeric consumer matrix", () => {
   it("covers every editable deployment setting and every inventoried consumer", () => {
     coverage();
-    expect(inventory).toHaveLength(14);
-    expect(inventory.flatMap(row => row.consumers)).toHaveLength(14);
+    expect(inventory).toHaveLength(22);
+    expect(inventory.flatMap(row => row.consumers)).toHaveLength(22);
   });
   it("rejects an additional consumer with no observation in the matrix", () => {
     expect(() => coverage({ ...sources, "src/lib/extra-consumer.ts":

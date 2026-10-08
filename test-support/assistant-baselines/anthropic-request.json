@@ -320,6 +320,24 @@
             "maximum": 1000000,
             "description": "OpenStreetMap area. Area budget for one OpenStreetMap import. Null clears the stored value."
           },
+          "overpassTimeoutS": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 10,
+            "maximum": 900,
+            "description": "Overpass time limit. Time budget sent with every Overpass query. Null clears the stored value."
+          },
+          "overpassCacheHours": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 720,
+            "description": "Overpass cache freshness. How long an Overpass response stays fresh. Null clears the stored value."
+          },
           "queryTimeoutS": {
             "type": [
               "integer",
@@ -355,6 +373,60 @@
             "minimum": 1,
             "maximum": 8,
             "description": "Images at once. Concurrent server image renders. Null clears the stored value."
+          },
+          "geocodePaceMs": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 60000,
+            "description": "Address finder pace. Minimum request gap; zero means no gap. Null clears the stored value."
+          },
+          "geocodeMatchCacheHours": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 24,
+            "maximum": 8760,
+            "description": "Address match freshness. How long matched addresses are cached. Null clears the stored value."
+          },
+          "isochronePaceMs": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 60000,
+            "description": "Travel-time pace. Minimum routing request gap; zero means no gap. Null clears the stored value."
+          },
+          "isochroneRequestTimeoutS": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 120,
+            "description": "Travel-time request limit. Deadline for one routing exchange. Null clears the stored value."
+          },
+          "isochroneCacheHours": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 24,
+            "maximum": 8760,
+            "description": "Travel-time cache freshness. How long complete routing answers are cached. Null clears the stored value."
+          },
+          "geocodeRequestTimeoutS": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 120,
+            "description": "Address request limit. Deadline for one geocoding exchange. Null clears the stored value."
           },
           "operationTimeoutS": {
             "type": [

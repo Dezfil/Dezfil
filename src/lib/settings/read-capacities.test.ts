@@ -53,6 +53,30 @@ it.each([[600, 27, 13], [660, 30, 15], [80, 1, 0]])(
   },
 );
 
+// The run's budget less one query, over twice the larger of a service's gap
+// and its answer limit: 540 s here, at query 60 and run 600.
+it.each([
+  [{ geocodePaceMs: 30_000, geocodeRequestTimeoutS: 10, isochronePaceMs: 500, isochroneRequestTimeoutS: 45 }, 9, 6],
+  [{ geocodePaceMs: 0, geocodeRequestTimeoutS: 120, isochronePaceMs: 60_000, isochroneRequestTimeoutS: 1 }, 2, 4],
+])("reports and enforces capacities over a stored gap and answer limit: %o", async (stored, geocodeRows, isochroneOrigins) => {
+  writeStoredSettings({ queryTimeoutS: 60, operationTimeoutS: 600, ...stored }, f.db);
+  expect(readInstanceSettings(f.context, f.db).capacities).toEqual({ geocodeRows, isochroneOrigins });
+  vi.stubEnv("DEZFIL_GEOCODER_URL", "https://geocode.example");
+  vi.stubEnv("DEZFIL_ISOCHRONE_URL", "https://routing.example");
+  const scope = testAccountScope(f.db, "admin");
+  for (const item of [
+    { table: "addresses", operation: "geocode_addresses", bound: geocodeRows, params: { column: "address" } },
+    { table: "origins", operation: "isochrone", bound: isochroneOrigins, params: { travel_mode: "driving", bands: [5] } },
+  ]) {
+    claimRows(item.table, item.bound + 1);
+    await expect(compileOperation(scope, item.operation, { input: item.table, name: "result", ...item.params })).rejects.toMatchObject({
+      code: "invalid_request", message: expect.stringContaining(`accepts ${item.bound}`),
+    });
+    claimRows(item.table, item.bound);
+    await expect(compileOperation(scope, item.operation, { input: item.table, name: "result", ...item.params })).resolves.toMatchObject({ name: "result" });
+  }
+});
+
 it.each([false, true])("keeps provider admission refusals with locked=%s remedies", async locked => {
   if (locked) vi.stubEnv("DEZFIL_OPERATION_TIMEOUT_S", "600");
   vi.stubEnv("DEZFIL_GEOCODER_URL", "https://geocode.example");

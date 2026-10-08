@@ -57,4 +57,15 @@ export const EDITABLE_NUMBERS = {
   exportRenderTimeoutS: { kind: "integer", min: 10, max: 300 },
   publicRateLimit: { kind: "integer", min: 1, max: 10000 },
   publicTileRateLimit: { kind: "integer", min: 1, max: 100000 },
+  // The services' numbers, in their variables' units: a gap of 0 to 60 s,
+  // an answer limit of 1 to 120 s, freshness of 1 to 365 days, and
+  // OpenStreetMap's 10 to 900 s budget and 1 to 720 hours.
+  geocodePaceMs: { kind: "integer", min: 0, max: 60000 },
+  geocodeRequestTimeoutS: { kind: "integer", min: 1, max: 120 },
+  geocodeMatchCacheHours: { kind: "integer", min: 24, max: 8760 },
+  isochronePaceMs: { kind: "integer", min: 0, max: 60000 },
+  isochroneRequestTimeoutS: { kind: "integer", min: 1, max: 120 },
+  isochroneCacheHours: { kind: "integer", min: 24, max: 8760 },
+  overpassTimeoutS: { kind: "integer", min: 10, max: 900 },
+  overpassCacheHours: { kind: "integer", min: 1, max: 720 },
 } as const;

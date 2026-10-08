@@ -121,10 +121,10 @@ lists.
 | `DEZFIL_S3_ENDPOINT` | AWS | Custom S3-compatible endpoint (MinIO and friends) for anonymous `s3://` imports, addressed path-style. | App (live) or restart |
 | `DEZFIL_OVERPASS_URL` | `https://overpass-api.de/api/interpreter` | Overpass endpoint for OSM imports. Point it at your own instance to escape the public per-IP limits. | App (live) or restart |
 | `DEZFIL_OVERTURE_S3_ENDPOINT` | unset, the public bucket | S3-compatible endpoint override for Overture reads (path-style, plain http). The test seam behind the browser suite's Overture drive; also fits a private mirror of the bucket. | Restart |
-| `DEZFIL_OVERPASS_TIMEOUT_S` | `60` | Server-side time budget passed with each Overpass query. | Restart |
+| `DEZFIL_OVERPASS_TIMEOUT_S` | `60` | Server-side time budget passed with each Overpass query. | App (live) or restart |
 | `DEZFIL_OVERPASS_MAXSIZE_MB` | `512` | Response budget passed with each Overpass query; a response over twice this aborts locally. | Restart |
 | `DEZFIL_OVERPASS_CACHE_MB` | `2048` | Overpass response-cache budget; oldest entries are evicted past it, expired ones on sight. | Restart |
-| `DEZFIL_OVERPASS_CACHE_H` | `24` | How long a cached Overpass response stays fresh, in hours. | Restart |
+| `DEZFIL_OVERPASS_CACHE_H` | `24` | How long a cached Overpass response stays fresh, in hours. | App (live) or restart |
 | `DEZFIL_OSM_MAX_KM2` | `10000` | OSM import area budget, in km². | App (live) or restart |
 | `DEZFIL_OVERTURE_MAX_KM2` | `25000` | Overture import area budget for the places theme, in km²; the other themes scale from it. | App (live) or restart |
 | `DEZFIL_QUERY_TIMEOUT_S` | `60` | Read-only query timeout, in seconds. It bounds every evaluation of user SQL — builder and published views alike — not just the SQL workspace. | App (live) or restart |
@@ -143,13 +143,13 @@ lists.
 | `DEZFIL_SATELLITE_ATTRIBUTION` | unset | Credit line the imagery provider requires, shown on every map using it and stored with anything published from one. | Restart |
 | `DEZFIL_GEOCODER_URL` | unset | Nominatim-compatible `/search` endpoint for place search in the builder **and for the batch geocoding operation** (key query parameters travel with it, server-side only). Unset, search still answers layers, values, and coordinates, and the geocode operation is not offered. Public Nominatim expects at most one request per second; see `DEZFIL_GEOCODE_PACE_MS`. | App (live) or restart |
 | `DEZFIL_ISOCHRONE_URL` | unset | Valhalla-compatible `/isochrone` endpoint for the travel-time-area operation (key query parameters travel with it, server-side only). Unset, the verb stays visible and refuses with a sentence naming this setting. | App (live) or restart |
-| `DEZFIL_ISOCHRONE_PACE_MS` | `1000` | Milliseconds between isochrone requests — one exchange in flight at a time, this endpoint's own pace. | Restart |
-| `DEZFIL_ISOCHRONE_REQUEST_TIMEOUT_S` | `20` | Whole-exchange deadline for one isochrone request; routing answers slower than geocoding. | Restart |
-| `DEZFIL_ISOCHRONE_CACHE_HOURS` | `168` | How long a fully answered isochrone keeps; only complete answers are cached. | Restart |
+| `DEZFIL_ISOCHRONE_PACE_MS` | `1000` | Milliseconds between isochrone requests — one exchange in flight at a time, this endpoint's own pace. | App (live) or restart |
+| `DEZFIL_ISOCHRONE_REQUEST_TIMEOUT_S` | `20` | Whole-exchange deadline for one isochrone request; routing answers slower than geocoding. | App (live) or restart |
+| `DEZFIL_ISOCHRONE_CACHE_HOURS` | `168` | How long a fully answered isochrone keeps; only complete answers are cached. | App (live) or restart |
 | `DEZFIL_ISOCHRONE_CACHE_MB` | `64` | The isochrone answer cache's size budget, oldest evicted first. | Restart |
-| `DEZFIL_GEOCODE_PACE_MS` | `1000` | Minimum gap between two requests to that endpoint, in milliseconds — enforced across the whole instance, so a batch and the builder's own search share one pace, and only one request is ever in flight. The public-Nominatim recipe requires one second. Lowering it against your own geocoder raises the batch size the operation accepts; `0` means no gap at all. | Restart |
-| `DEZFIL_GEOCODE_REQUEST_TIMEOUT_S` | `10` | Deadline for one geocoding exchange. A batch's row costs the pace or this, whichever is longer, so lowering it raises the batch size the operation accepts — the bound is derived from both, not from the pace alone. | Restart |
-| `DEZFIL_GEOCODE_MATCH_CACHE_HOURS` | `720` | How long a matched address is kept. Thirty days: an address that resolved rarely moves. | Restart |
+| `DEZFIL_GEOCODE_PACE_MS` | `1000` | Minimum gap between two requests to that endpoint, in milliseconds — enforced across the whole instance, so a batch and the builder's own search share one pace, and only one request is ever in flight. The public-Nominatim recipe requires one second. Lowering it against your own geocoder raises the batch size the operation accepts; `0` means no gap at all. | App (live) or restart |
+| `DEZFIL_GEOCODE_REQUEST_TIMEOUT_S` | `10` | Deadline for one geocoding exchange. A batch's row costs the pace or this, whichever is longer, so lowering it raises the batch size the operation accepts — the bound is derived from both, not from the pace alone. | App (live) or restart |
+| `DEZFIL_GEOCODE_MATCH_CACHE_HOURS` | `720` | How long a matched address is kept. Thirty days: an address that resolved rarely moves. | App (live) or restart |
 | `DEZFIL_GEOCODE_NO_MATCH_CACHE_HOURS` | `24` | How long a no-match is kept. Shorter, because an address that did not resolve is what improves when the provider's data does. | Restart |
 | `DEZFIL_GEOCODE_CACHE_MB` | `64` | Size budget for the geocode answer cache; oldest entries are evicted first. | Restart |
 | `DEZFIL_SECRET_KEY` | generated | 64 hex characters (32 bytes) — the at-rest encryption key for stored credentials. See below before relying on the default. | Restart |

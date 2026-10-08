@@ -251,10 +251,10 @@ behavior and [the API guide](api.md#request-bounds) for exact refusals.
 | Variable | Default | Effect | Changed by |
 |---|---|---|---|
 | `DEZFIL_OVERPASS_URL` | `https://overpass-api.de/api/interpreter` | Overpass endpoint for OpenStreetMap imports. Point it at your own instance to escape the public per-IP limits (`src/lib/osm/overpass.ts`). | App (live) or restart |
-| `DEZFIL_OVERPASS_TIMEOUT_S` | `60` | Time budget sent with each Overpass query. | Restart |
+| `DEZFIL_OVERPASS_TIMEOUT_S` | `60` | Time budget sent with each Overpass query. | App (live) or restart |
 | `DEZFIL_OVERPASS_MAXSIZE_MB` | `512` | Response budget sent with each Overpass query; a response over twice this is aborted locally. | Restart |
 | `DEZFIL_OVERPASS_CACHE_MB` | `2048` | Overpass response-cache budget, evicted oldest first. | Restart |
-| `DEZFIL_OVERPASS_CACHE_H` | `24` | How long a cached Overpass response stays fresh. | Restart |
+| `DEZFIL_OVERPASS_CACHE_H` | `24` | How long a cached Overpass response stays fresh. | App (live) or restart |
 | `DEZFIL_OSM_MAX_KM2` | `10000` | Area budget for one OpenStreetMap import. | App (live) or restart |
 | `DEZFIL_OVERTURE_MAX_KM2` | `25000` | Area budget for the Overture places theme; other themes scale from it by density. | App (live) or restart |
 | `DEZFIL_OVERTURE_S3_ENDPOINT` | unset, the public bucket | S3-compatible endpoint override for Overture reads, path-style. Fits a private mirror of the bucket (`src/lib/overture/releases.ts`). | Restart |
@@ -323,9 +323,9 @@ headless browser inside the container.
 | Variable | Default | Effect | Changed by |
 |---|---|---|---|
 | `DEZFIL_GEOCODER_URL` | unset | A Nominatim-compatible `/search` endpoint, used by place search in the builder and by the batch geocoding operation. Unset, search still answers layers, values, and coordinates, and the geocode operation is not offered. The URL stays server-side, so it may carry a key. | App (live) or restart |
-| `DEZFIL_GEOCODE_PACE_MS` | `1000` | Minimum gap between two requests to that endpoint, enforced across the whole instance with one request in flight at a time. `0` means no gap. | Restart |
-| `DEZFIL_GEOCODE_REQUEST_TIMEOUT_S` | `10` | Deadline for one geocoding exchange. A batch row costs the pace or this, whichever is longer, so both bound the batch size the operation accepts. | Restart |
-| `DEZFIL_GEOCODE_MATCH_CACHE_HOURS` | `720` | How long a matched address is kept. | Restart |
+| `DEZFIL_GEOCODE_PACE_MS` | `1000` | Minimum gap between two requests to that endpoint, enforced across the whole instance with one request in flight at a time. `0` means no gap. | App (live) or restart |
+| `DEZFIL_GEOCODE_REQUEST_TIMEOUT_S` | `10` | Deadline for one geocoding exchange. A batch row costs the pace or this, whichever is longer, so both bound the batch size the operation accepts. | App (live) or restart |
+| `DEZFIL_GEOCODE_MATCH_CACHE_HOURS` | `720` | How long a matched address is kept. | App (live) or restart |
 | `DEZFIL_GEOCODE_NO_MATCH_CACHE_HOURS` | `24` | How long a no-match is kept, shorter because that is what improves when provider data does. | Restart |
 | `DEZFIL_GEOCODE_CACHE_MB` | `64` | Size budget for the geocode answer cache, evicted oldest first. | Restart |
 
@@ -334,9 +334,9 @@ headless browser inside the container.
 | Variable | Default | Effect | Changed by |
 |---|---|---|---|
 | `DEZFIL_ISOCHRONE_URL` | unset | A Valhalla-compatible `/isochrone` endpoint. Unset, the operation stays visible and refuses with a sentence naming this setting (`src/lib/isochrone/endpoint.ts`). | App (live) or restart |
-| `DEZFIL_ISOCHRONE_PACE_MS` | `1000` | Milliseconds between isochrone requests, one exchange in flight at a time. | Restart |
-| `DEZFIL_ISOCHRONE_REQUEST_TIMEOUT_S` | `20` | Whole-exchange deadline for one request. Routing answers slower than geocoding. | Restart |
-| `DEZFIL_ISOCHRONE_CACHE_HOURS` | `168` | How long a fully answered isochrone is kept. Only complete answers are cached. | Restart |
+| `DEZFIL_ISOCHRONE_PACE_MS` | `1000` | Milliseconds between isochrone requests, one exchange in flight at a time. | App (live) or restart |
+| `DEZFIL_ISOCHRONE_REQUEST_TIMEOUT_S` | `20` | Whole-exchange deadline for one request. Routing answers slower than geocoding. | App (live) or restart |
+| `DEZFIL_ISOCHRONE_CACHE_HOURS` | `168` | How long a fully answered isochrone is kept. Only complete answers are cached. | App (live) or restart |
 | `DEZFIL_ISOCHRONE_CACHE_MB` | `64` | Size budget for that cache, evicted oldest first. | Restart |
 
 ## Operations, the background run lane
