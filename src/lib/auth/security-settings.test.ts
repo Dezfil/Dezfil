@@ -16,6 +16,19 @@ import { redeemSignInLink } from "./links";
 import { recoverAdmin } from "./recovery.mjs";
 import { securitySettings } from "./security-settings";
 
+/** Runs once after the next password is hashed and before its write: an admin's save landing while the hash is computed. */
+const during = vi.hoisted(() => ({ hashed: null as null | (() => void) }));
+vi.mock("./passwords", async importOriginal => {
+  const actual = await importOriginal<typeof import("./passwords")>();
+  return { ...actual, hashPassword: async (...args: Parameters<typeof actual.hashPassword>) => {
+    const encoded = await actual.hashPassword(...args);
+    const hook = during.hashed;
+    during.hashed = null;
+    hook?.();
+    return encoded;
+  } };
+});
+
 // Fixture values, written out rather than read from the code under test.
 const day = 86_400_000, hour = 3_600_000, start = Date.parse("2026-03-01T00:00:00Z");
 const password = "river otter telescope";
@@ -142,6 +155,21 @@ describe("the shortest password", () => {
     await changeOwnPassword(admin, eight, twelve, db, start);
     expect((await signIn("ada@example.test", twelve, db, start)).account.id).toBe(admin.account.id);
   });
+
+  it.each(["an invitation's redemption", "a reset's redemption", "a password change"] as const)(
+    "refuses eleven characters at %s when 12 is stored while the hash is computed, consuming and changing nothing", async road => {
+      writeStoredSettings({ "security.passwordMin": 8 }, db);
+      const link = road === "an invitation's redemption" ? inviteAccount(admin, { name: "Lin", email: "lin@example.test" }, db, start)
+        : road === "a reset's redemption" ? issueSignInLink(admin, account("grace").id, db, start) : null;
+      const attempt = () => link ? redeemSignInLink(link.secret, eleven, db, start) : changeOwnPassword(admin, eight, eleven, db, start);
+      const before = snapshot();
+      let saved = 0;
+      // Eleven characters pass the early check at 8; the save lands after the hash and before the write.
+      during.hashed = () => { writeStoredSettings({ "security.passwordMin": 12 }, db); saved += 1; };
+      await expect(attempt()).rejects.toMatchObject({ code: "weak_password", status: 400, message: "Use at least 12 characters." });
+      expect(saved).toBe(1);
+      expect(snapshot()).toEqual(before);
+    });
 
   it("keeps signing in an account whose password was set at 8", async () => {
     expect((await signIn("ada@example.test", eight, db, start)).account.id).toBe(admin.account.id);

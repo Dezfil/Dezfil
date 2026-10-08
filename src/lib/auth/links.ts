@@ -5,7 +5,7 @@ import { linkByHash, revokeSessions } from "@/lib/metadata/auth-credentials";
 import { issueSession, secretHash } from "./credentials";
 import { maintainCredentials } from "./credential-maintenance";
 import { AuthError, requireAuthenticationWanted } from "./errors";
-import { hashPassword } from "./passwords";
+import { hashPassword, validatePassword } from "./passwords";
 import { securitySettings } from "./security-settings";
 
 export async function redeemSignInLink(secret: string, password: string,
@@ -26,6 +26,8 @@ export async function redeemSignInLink(secret: string, password: string,
     requireAuthenticationWanted(signal);
     const at = now ?? Date.now();
     const link = readLink(at);
+    // A shortest password saved while the hash was computed decides, before the link is spent.
+    validatePassword(password, securitySettings(db).passwordMin);
     db.prepare("UPDATE auth_links SET consumed_at = ? WHERE id = ?").run(at, link.id);
     revokeSessions(link.account_id, at, null, db);
     db.prepare(`UPDATE accounts SET password_hash = ?, status = 'active',

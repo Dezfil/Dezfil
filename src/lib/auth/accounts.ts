@@ -8,7 +8,7 @@ import { maintainCredentials } from "./credential-maintenance";
 import { deletionReservesEmail } from "./account-deletion-journal";
 import { AuthError, requireAuthenticationWanted } from "./errors";
 import { issueSession, requireCurrentActor, type AuthContext } from "./credentials";
-import { DUMMY_PASSWORD_HASH, hashPassword, PASSWORD_FLOOR, verifyPassword } from "./passwords";
+import { DUMMY_PASSWORD_HASH, hashPassword, PASSWORD_FLOOR, validatePassword, verifyPassword } from "./passwords";
 import { adoptLegacyPreferences } from "./adoption";
 import { securitySettings } from "./security-settings";
 
@@ -101,6 +101,8 @@ export async function changeOwnPassword(context: AuthContext, currentPassword: s
     const at = now ?? Date.now();
     requireCurrentActor(context, db, at);
     requireUnchangedPassword(account.id, oldHash, db);
+    // A shortest password saved while the hash was computed decides, before the credential changes.
+    validatePassword(password, securitySettings(db).passwordMin);
     db.prepare("UPDATE accounts SET password_hash = ?, updated_at = ? WHERE id = ?")
       .run(passwordHash, new Date(at).toISOString(), account.id);
     revokeSessions(account.id, at, context.credential.kind === "session" ? context.credential.id : null, db);
